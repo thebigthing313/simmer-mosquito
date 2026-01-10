@@ -1,0 +1,16 @@
+{
+	"name": "simmer-mosquito",
+	"version": "0.1.0",
+	"description": "Root package for SIMMER monorepo",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@10.27.0",
+	"devDependencies": {
+		"@biomejs/biome": "2.3.11",
+		"turbo": "^2.7.2"
+	}
+}
