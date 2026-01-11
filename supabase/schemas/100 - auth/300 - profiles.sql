@@ -2,6 +2,7 @@ create table if not exists public.profiles (
     "id" uuid not null default gen_random_uuid() primary key,
     "group_id" uuid not null references public.groups (id) on delete restrict,
     "user_id" uuid references auth.users (id) on delete restrict,
+    "role_id" integer references public.roles (id) on delete restrict,
     "first_name" text not null,
     "last_name" text not null,
     "avatar_url" text,
@@ -35,11 +36,11 @@ as $$
         v_app_meta jsonb;
         v_user_id uuid;
     begin
-        -- Determine which user_id to work with
+        -- Determine which user_id to work with for cleanup
         if TG_OP = 'DELETE' then
             v_user_id := OLD.user_id;
-        elsif TG_OP = 'UPDATE' and NEW.user_id is null and OLD.user_id is not null then
-            -- Handle case where user_id is being set to null
+        elsif TG_OP = 'UPDATE' and (NEW.user_id is null or NEW.role_id is null) and OLD.user_id is not null then
+            -- Handle case where user_id or role_id is being set to null
             v_user_id := OLD.user_id;
         else
             v_user_id := NEW.user_id;
@@ -51,13 +52,15 @@ as $$
             from auth.users
             where id = v_user_id;
 
-            if TG_OP = 'DELETE' or (TG_OP = 'UPDATE' and NEW.user_id is null) then
-                -- Remove the profile_id and group_id fields
-                v_app_meta := v_app_meta - 'profile_id' - 'group_id';
-            else
-                -- Update the profile_id and group_id fields
+            -- All or nothing: only set metadata if user_id AND role_id are both present
+            if TG_OP = 'DELETE' or (TG_OP = 'UPDATE' and (NEW.user_id is null or NEW.role_id is null)) then
+                -- Remove the profile_id, group_id, and role_id fields
+                v_app_meta := v_app_meta - 'profile_id' - 'group_id' - 'role_id';
+            elsif NEW.user_id is not null and NEW.role_id is not null then
+                -- Update all three fields (all or nothing)
                 v_app_meta := jsonb_set(v_app_meta, '{profile_id}', to_jsonb(NEW.id::text), true);
                 v_app_meta := jsonb_set(v_app_meta, '{group_id}', to_jsonb(NEW.group_id::text), true);
+                v_app_meta := jsonb_set(v_app_meta, '{role_id}', to_jsonb(NEW.role_id), true);
             end if;
 
             -- Write new metadata into auth.users(raw_app_meta_data)
