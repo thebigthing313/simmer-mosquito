@@ -109,6 +109,8 @@ on public.profiles
 for each row
 execute function simmer.prevent_user_id_change ();
 
+alter table public.profiles enable row level security;
+
 create policy "read: group members"
 on public.profiles
 for select

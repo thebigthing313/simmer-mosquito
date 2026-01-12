@@ -3,7 +3,7 @@ create table public.groups (
     "group_name" text not null,
     "address" text not null,
     "phone" text not null,
-    "short_name" text not null unique,
+    "short_name" text,
     "fax" text,
     "website_url" text,
     "logo_url" text,
@@ -24,6 +24,8 @@ create trigger soft_delete_trigger
 before delete on public.groups
 for each row
 execute function simmer.soft_delete();
+
+alter table public.groups enable row level security;
 
 create policy "read: group members"
 on public.groups
