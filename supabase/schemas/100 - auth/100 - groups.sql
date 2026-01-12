@@ -24,3 +24,28 @@ create trigger soft_delete_trigger
 before delete on public.groups
 for each row
 execute function simmer.soft_delete();
+
+create policy "read: group members"
+on public.groups
+for select
+to authenticated
+using (public.user_is_group_member(id));
+
+create policy "insert: none"
+on public.groups
+for insert
+to public
+with check (false);
+
+create policy "update: group owners"
+on public.groups
+for update
+to authenticated
+using (public.user_has_group_role(id, 1))
+with check (public.user_has_group_role(id, 1));
+
+create policy "delete: none"
+on public.groups
+for delete
+to public
+using (false);

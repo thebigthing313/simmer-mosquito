@@ -88,3 +88,48 @@ before delete
 on public.profiles
 for each row
 execute function simmer.soft_delete();
+
+create function simmer.prevent_user_id_change ()
+returns trigger
+language plpgsql
+security definer
+set search_path=''
+as $$
+    begin
+        if OLD.user_id IS DISTINCT FROM NEW.user_id then
+            raise exception 'Cannot change user_id on profiles';
+        end if;
+        return NEW;
+    end;
+$$;
+
+create trigger prevent_user_id_change_trigger
+before update
+on public.profiles
+for each row
+execute function simmer.prevent_user_id_change ();
+
+create policy "read: group members"
+on public.profiles
+for select
+to authenticated
+using (public.user_is_group_member(group_id));
+
+create policy "insert: group owners"
+on public.profiles
+for insert
+to authenticated
+with check (public.user_has_group_role(group_id, 1) and user_id is null);
+
+create policy "update: group owners"
+on public.profiles
+for update
+to authenticated
+using (public.user_has_group_role(group_id, 1))
+with check (public.user_has_group_role(group_id, 1));
+
+create policy "delete: group owners"
+on public.profiles
+for delete
+to authenticated
+using (public.user_has_group_role(group_id, 1));
