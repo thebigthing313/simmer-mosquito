@@ -8,6 +8,7 @@ create table public.collections (
     trap_set_date date,
     trap_set_by uuid references public.profiles (id) on delete set null,
     trap_nights integer,
+    has_problem boolean default false,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     created_by uuid references auth.users (id) on delete set null,
