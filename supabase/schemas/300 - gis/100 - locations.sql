@@ -1,20 +1,24 @@
 create table public.locations (
     id uuid primary key default gen_random_uuid(),
     group_id uuid references groups(id) not null,
-    location_name text not null,
-    address text,
-    geom geometry(Point, 4326) not null,
+    location_name text not null,    
+    lat double precision not null,
+    lng double precision not null,
+    address text not null,
+    geom geometry(Point, 4326) generated always as (extensions.ST_SetSRID(extensions.ST_MakePoint(lng, lat), 4326)) stored,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     created_by uuid references auth.users (id) on delete set null,
     updated_by uuid references auth.users (id) on delete set null
 );
 
+create index idx_locations_geom on public.locations using GIST (geom);
+
 create trigger handle_created_trigger before insert on public.locations for each row
 execute function simmer.set_created_by ();
 
 create trigger handle_updated_trigger before
-update on public.locations for each row when (old.* is distinct from new.*)
+update on public.locations for each row
 execute function public.set_updated_record_fields ();
 
 create trigger soft_delete_trigger
@@ -48,3 +52,4 @@ on public.locations
 for delete
 to authenticated
 using (((public.user_has_group_role (group_id, 4)) and created_by=(select auth.uid())) or public.user_has_group_role (group_id, 3))
+

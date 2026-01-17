@@ -3,7 +3,9 @@ create table public.traps (
     group_id uuid not null references public.groups(id) on delete set null,
     trap_type_id uuid not null references public.trap_types(id) on delete restrict,
     location_id uuid references public.locations(id) on delete set null,
-    geom geometry(Point, 4326) not null,
+    lat double precision not null,
+    lng double precision not null,
+    geom geometry(Point, 4326) generated always as (extensions.ST_SetSRID(extensions.ST_MakePoint(lng, lat), 4326)) stored,
     is_active boolean not null default true,
     is_permanent boolean not null default false,
     trap_name text,
@@ -14,11 +16,13 @@ create table public.traps (
     "updated_by" uuid references auth.users (id) on delete restrict
 );
 
+create index idx_traps_geom on public.traps using GIST (geom);
+
 create trigger handle_created_trigger before insert on public.traps for each row
 execute function simmer.set_created_by ();
 
 create trigger handle_updated_trigger before
-update on public.traps for each row when (old.* is distinct from new.*)
+update on public.traps for each row
 execute function public.set_updated_record_fields ();
 
 create trigger soft_delete_trigger
