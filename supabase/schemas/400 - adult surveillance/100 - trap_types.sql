@@ -35,20 +35,21 @@ for select
 to authenticated
 using (group_id is null or public.user_is_group_member(group_id));
 
-create policy "insert: group manager"
+create policy "insert: group admin"
 on public.trap_types
 for insert
 to authenticated
-with check (public.user_has_group_role(group_id, 3));
-create policy "update: group manager"
+with check (public.user_has_group_role(group_id, 2));
+
+create policy "update: group admin"
 on public.trap_types
 for update
 to authenticated
-using (public.user_has_group_role(group_id, 3))
-with check (public.user_has_group_role(group_id, 3));
+using (public.user_has_group_role(group_id, 2))
+with check (public.user_has_group_role(group_id, 2));
 
-create policy "delete: group manager"
+create policy "delete: group admin"
 on public.trap_types
 for delete
 to authenticated
-using (public.user_has_group_role(group_id, 3));
+using (public.user_has_group_role(group_id, 2));
