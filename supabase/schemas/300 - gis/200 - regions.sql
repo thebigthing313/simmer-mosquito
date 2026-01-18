@@ -1,6 +1,6 @@
 create table if not exists public.regions (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid references public.groups (id) on delete cascade,
+    group_id uuid references public.groups (id) on delete restrict,
     region_name text not null,
     geom geometry (MultiPolygon, 4326) not null,
     parent_id uuid references public.regions (id) on delete set null,
@@ -31,21 +31,21 @@ for select
 to authenticated
 using (public.user_is_group_member (group_id));
 
-create policy "insert: group manager"
+create policy "insert: group admin"
 on public.regions
 for insert
 to authenticated
-with check (public.user_has_group_role (group_id, 3));
+with check (public.user_has_group_role (group_id, 2));
 
-create policy "update: group manager"
+create policy "update: group admin"
 on public.regions
 for update
 to authenticated
-using (public.user_has_group_role (group_id, 3))
-with check (public.user_has_group_role (group_id, 3));
+using (public.user_has_group_role (group_id, 2))
+with check (public.user_has_group_role (group_id, 2));
 
-create policy "delete: group manager"
+create policy "delete: group admin"
 on public.regions
 for delete
 to authenticated
-using (public.user_has_group_role (group_id, 3));
+using (public.user_has_group_role (group_id, 2));

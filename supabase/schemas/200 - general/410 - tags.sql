@@ -7,11 +7,12 @@ create table public.tags (
     name text not null,
     description text,
     color html_color,
+    tag_group_id uuid references public.tag_groups(id) on delete set null,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     created_by uuid references auth.users (id) on delete set null,
     updated_by uuid references auth.users (id) on delete set null,
-    constraint name_unique unique (group_id, name)
+    constraint name_unique unique (group_id, tag_group_id, name)
 );
 
 create trigger handle_created_trigger before insert on public.tags for each row
@@ -34,21 +35,21 @@ for select
 to authenticated
 using (public.user_is_group_member(group_id));
 
-create policy "insert: own group manager"
+create policy "insert: own group admin"
 on public.tags
 for insert
 to authenticated
-with check (public.user_has_group_role(group_id, 3));
+with check (public.user_has_group_role(group_id, 2));
 
-create policy "update: own group manager"
+create policy "update: own group admin"
 on public.tags
 for update
 to authenticated
-using (public.user_has_group_role(group_id, 3))
-with check (public.user_has_group_role(group_id, 3));
+using (public.user_has_group_role(group_id, 2))
+with check (public.user_has_group_role(group_id, 2));
 
-create policy "delete: own group manager"
+create policy "delete: own group admin"
 on public.tags
 for delete
 to authenticated
-using (public.user_has_group_role(group_id, 3));
+using (public.user_has_group_role(group_id, 2));

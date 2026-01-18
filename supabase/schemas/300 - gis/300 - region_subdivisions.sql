@@ -1,5 +1,6 @@
 create table public.region_subdivisions (
     id uuid primary key default gen_random_uuid(),
+    group_id uuid not null references public.groups(id) on delete restrict,
     region_id uuid not null references public.regions(id) on delete cascade,
     geom geometry(Polygon, 4326) not null
 );
@@ -38,3 +39,30 @@ create trigger refresh_region_subdivisions_trigger
 after insert or update of geom on public.regions
 for each row
 execute function simmer.refresh_region_subdivisions();
+
+alter table public.region_subdivisions enable row level security;
+
+create policy "select: own groups"
+on public.region_subdivisions
+for select
+to authenticated
+using (public.user_is_group_member (group_id));
+
+create policy "insert: own group admin"
+on public.region_subdivisions
+for insert
+to authenticated
+with check (public.user_has_group_role (group_id, 2));
+
+create policy "update: own group admin"
+on public.region_subdivisions
+for update
+to authenticated
+using (public.user_has_group_role (group_id, 2))
+with check (public.user_has_group_role (group_id, 2));
+
+create policy "delete: own group admin"
+on public.region_subdivisions
+for delete
+to authenticated
+using (public.user_has_group_role (group_id, 2));

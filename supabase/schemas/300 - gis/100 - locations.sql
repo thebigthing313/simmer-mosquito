@@ -1,6 +1,6 @@
 create table public.locations (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid references groups(id) not null,
+    group_id uuid not null references public.groups(id) on delete restrict,
     location_name text not null,    
     lat double precision not null,
     lng double precision not null,

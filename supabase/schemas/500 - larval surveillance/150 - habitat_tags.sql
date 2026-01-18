@@ -1,8 +1,8 @@
 create table public.habitat_tags (
     id uuid primary key default gen_random_uuid(),
     group_id uuid not null references public.groups(id) on delete restrict,
-    habitat_id uuid not null references public.habitats(id) on delete set null,
-    tag_id uuid not null references public.tags(id) on delete set null,
+    habitat_id uuid not null references public.habitats(id) on delete cascade,
+    tag_id uuid not null references public.tags(id) on delete cascade,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     created_by uuid references auth.users (id) on delete set null,
