@@ -3,7 +3,7 @@ create type public.species_status_enum as enum ('damaged', 'unfed', 'bloodfed', 
 
 create table public.collection_species(
     id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete set null,
+    group_id uuid not null references public.groups(id) on delete restrict,
     collection_id uuid not null references public.collections(id) on delete cascade,
     species_id uuid not null references public.species(id) on delete restrict,
     count integer not null,

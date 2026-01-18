@@ -1,6 +1,6 @@
 create table public.habitats (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete set null,
+    group_id uuid not null references public.groups(id) on delete restrict,
     lat double precision not null,
     lng double precision not null,
     description text not null,

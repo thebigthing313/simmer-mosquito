@@ -1,6 +1,6 @@
 create table public.traps (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete set null,
+    group_id uuid not null references public.groups(id) on delete restrict,
     trap_type_id uuid not null references public.trap_types(id) on delete restrict,
     lat double precision not null,
     lng double precision not null,

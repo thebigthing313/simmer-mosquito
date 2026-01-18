@@ -1,6 +1,6 @@
 create table public.habitat_tags (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete set null,
+    group_id uuid not null references public.groups(id) on delete restrict,
     habitat_id uuid not null references public.habitats(id) on delete set null,
     tag_id uuid not null references public.tags(id) on delete set null,
     created_at timestamptz not null default now(),
