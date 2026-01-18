@@ -31,18 +31,7 @@ create table public.units (
     -- Optional: Stores the offset for non-linear conversions (e.g., temperature)
     conversion_offset numeric default 0.0 not null,
     
-    created_at timestamp with time zone default now() not null,
-
-    -- Base Units must reference themselves and have a factor of 1
-    constraint check_base_unit_conversion check (
-        (base_unit_id is null and conversion_factor = 1.0 and conversion_offset = 0.0) or
-        (base_unit_id is not null and conversion_factor != 0.0)
-    ),
-
-    -- Ensure base_unit_id is null only for *true* base units
-    constraint base_unit_self_reference check (
-        (base_unit_id = id and conversion_factor = 1.0) or base_unit_id != id
-    )
+    created_at timestamp with time zone default now() not null
 );
 
 alter table public.units enable row level security;

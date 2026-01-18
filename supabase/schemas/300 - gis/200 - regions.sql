@@ -11,6 +11,8 @@ create table if not exists public.regions (
     constraint regions_parent_check check (id<>parent_id)
 );
 
+create index idx_regions_geom on public.regions using GIST (geom);
+
 create trigger handle_created_trigger before insert on public.regions for each row
 execute function simmer.set_created_by ();
 

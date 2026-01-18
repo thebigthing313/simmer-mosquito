@@ -11,10 +11,10 @@ create table public.traps (
     trap_name text,
     trap_code text,
     metadata jsonb,
-    "created_at" timestamp with time zone not null default now(),
-    "created_by" uuid references auth.users (id) on delete restrict,
-    "updated_at" timestamp with time zone,
-    "updated_by" uuid references auth.users (id) on delete restrict
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    created_by uuid references auth.users (id) on delete set null,
+    updated_by uuid references auth.users (id) on delete set null
 );
 
 create index idx_traps_geom on public.traps using GIST (geom);
