@@ -1,7 +1,10 @@
+create type public.insecticide_type as enum ('larvicide', 'adulticide', 'pupicide', 'other');
+
 create table public.insecticides(
     id uuid primary key default gen_random_uuid(),
     group_id uuid not null references public.groups(id) on delete restrict,
     name text not null,
+    type public.insecticide_type not null,
     active_ingredient text not null,
     epa_registration_number text not null,
     default_usage_unit_id uuid not null references public.units(id) on delete restrict,
