@@ -1,6 +1,8 @@
 @import "tailwindcss";
-
 @import "tw-animate-css";
+@source "../../../apps/**/*.{ts,tsx}";
+@source "../../../components/**/*.{ts,tsx}";
+@source "../**/*.{ts,tsx}";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -193,12 +195,4 @@ code {
 	body {
 		@apply bg-background text-foreground;
 	}
-}
-
-html,
-body,
-#root,
-.main-content {
-	height: 100%;
-	overflow: hidden; /* Prevent browser scroll */
 }
