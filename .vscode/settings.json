@@ -23,6 +23,7 @@
 	},
 	"editor.defaultFormatter": "biomejs.biome",
 	"editor.formatOnSave": true,
+	"css.lint.unknownAtRules": "ignore",
 	"tailwindCSS.experimental.configFile": "packages/ui/src/styles/globals.css",
 	"tailwindCSS.files.exclude": ["packages/ui/src/components/**"]
 }
