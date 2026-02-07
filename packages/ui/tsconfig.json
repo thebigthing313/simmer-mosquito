@@ -1,12 +1,12 @@
 {
-  "extends": "@simmer/typescript-config/react-library.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@simmer/ui/*": ["./src/*"],
-      "@simmer/lib/*": ["../lib/src/*"]
-    }
-  },
-  "include": ["."],
-  "exclude": ["node_modules", "dist"]
+	"extends": "@simmer/typescript-config/react-library.json",
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"@simmer/ui/*": ["./src/*"],
+			"@simmer/lib/*": ["../lib/src/*"]
+		}
+	},
+	"include": ["."],
+	"exclude": ["node_modules", "dist"]
 }
