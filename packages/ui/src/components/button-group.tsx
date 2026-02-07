@@ -27,6 +27,7 @@ function ButtonGroup({
 	...props
 }: React.ComponentProps<'div'> & VariantProps<typeof buttonGroupVariants>) {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: <for complex css styling ability>
 		<div
 			role="group"
 			data-slot="button-group"
@@ -49,7 +50,7 @@ function ButtonGroupText({
 	return (
 		<Comp
 			className={cn(
-				"bg-muted flex items-center gap-2 rounded-md border px-4 text-sm font-medium shadow-xs [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+				"flex items-center gap-2 rounded-md border bg-muted px-4 font-medium text-sm shadow-xs [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none",
 				className,
 			)}
 			{...props}
@@ -67,7 +68,7 @@ function ButtonGroupSeparator({
 			data-slot="button-group-separator"
 			orientation={orientation}
 			className={cn(
-				'bg-input relative !m-0 self-stretch data-[orientation=vertical]:h-auto',
+				'!m-0 relative self-stretch bg-input data-[orientation=vertical]:h-auto',
 				className,
 			)}
 			{...props}

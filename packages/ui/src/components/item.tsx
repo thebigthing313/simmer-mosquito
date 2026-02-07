@@ -6,6 +6,7 @@ import type * as React from 'react';
 
 function ItemGroup({ className, ...props }: React.ComponentProps<'div'>) {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: <shadcn implementation>
 		<div
 			role="list"
 			data-slot="item-group"
@@ -120,7 +121,7 @@ function ItemTitle({ className, ...props }: React.ComponentProps<'div'>) {
 		<div
 			data-slot="item-title"
 			className={cn(
-				'flex w-fit items-center gap-2 text-sm leading-snug font-medium',
+				'flex w-fit items-center gap-2 font-medium text-sm leading-snug',
 				className,
 			)}
 			{...props}
@@ -133,7 +134,7 @@ function ItemDescription({ className, ...props }: React.ComponentProps<'p'>) {
 		<p
 			data-slot="item-description"
 			className={cn(
-				'text-muted-foreground line-clamp-2 text-sm leading-normal font-normal text-balance',
+				'line-clamp-2 text-balance font-normal text-muted-foreground text-sm leading-normal',
 				'[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4',
 				className,
 			)}

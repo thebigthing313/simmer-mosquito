@@ -9,7 +9,9 @@ import type * as React from 'react';
 
 function Pagination({ className, ...props }: React.ComponentProps<'nav'>) {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: <shadcn implementation>
 		<nav
+			// biome-ignore lint/a11y/noRedundantRoles: <shadcn implementation>
 			role="navigation"
 			aria-label="pagination"
 			data-slot="pagination"
