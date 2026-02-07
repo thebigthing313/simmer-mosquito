@@ -1,0 +1,21 @@
+{
+	"extends": "@simmer/typescript-config/vite.json",
+	"compilerOptions": {
+		"strict": true,
+		"esModuleInterop": true,
+		"target": "esnext",
+		"moduleResolution": "Bundler",
+		"module": "esnext",
+		"skipLibCheck": true,
+		"lib": ["DOM", "DOM.Iterable", "ES2022"],
+		"jsx": "react-jsx",
+		"types": ["vite/client"],
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["./*"],
+			"@simmer/ui/*": ["../../packages/ui/src/*"]
+		}
+	},
+	"include": ["**/*.ts", "**/*.tsx", "src/env.d.ts"],
+	"exclude": ["node_modules"]
+}
