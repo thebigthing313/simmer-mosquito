@@ -9,5 +9,18 @@
 	"keywords": [],
 	"author": "",
 	"license": "ISC",
-	"packageManager": "pnpm@10.27.0"
+	"packageManager": "pnpm@10.27.0",
+	"dependencies": {
+		"@simmer/ui": "workspace:*",
+		"@tanstack/react-form": "^1.28.0",
+		"react": "^19.2.3",
+		"react-dom": "^19.2.3"
+	},
+	"devDependencies": {
+		"@types/react": "^19.2.7",
+		"@types/react-dom": "^19.2.3"
+	},
+	"exports": {
+		"./fields/*": "./src/fields/*.tsx"
+	}
 }
