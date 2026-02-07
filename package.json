@@ -3,7 +3,9 @@
 	"version": "0.1.0",
 	"description": "Root package for SIMMER monorepo",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"change": "changeset",
+		"version-pkgs": "changeset version",
+		"gen-types": "supabase gen types typescript --local > ./packages/data/src/database.types.ts"
 	},
 	"keywords": [],
 	"author": "",
