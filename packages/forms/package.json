@@ -25,6 +25,7 @@
 	"exports": {
 		"./form-context": "./src/form-context.tsx",
 		"./field-wrapper": "./src/field-wrapper.tsx",
-		"./fields/*": "./src/fields/*.tsx"
+		"./fields/*": "./src/fields/*.tsx",
+		"./form/*": "./src/form/*.tsx"
 	}
 }

@@ -42,10 +42,19 @@ export const Welcome: Story = {
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<p className="text-muted-foreground text-sm">
+							<p className="mb-3 text-muted-foreground text-sm">
 								Explore form fields, validation patterns, and complete form
 								examples.
 							</p>
+							<div className="space-y-1 text-sm">
+								<div className="font-medium">Available Components:</div>
+								<ul className="list-inside list-disc text-muted-foreground">
+									<li>TextField - Text input fields</li>
+									<li>DateTimeField - Date and time pickers</li>
+									<li>FormWrapper - Complete form layouts</li>
+									<li>Submit & Reset Buttons</li>
+								</ul>
+							</div>
 						</CardContent>
 						<CardFooter>
 							<Button variant="outline" asChild>
