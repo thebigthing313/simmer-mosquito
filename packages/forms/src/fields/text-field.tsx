@@ -1,4 +1,5 @@
 import { InputGroup, InputGroupInput } from '@simmer/ui/components/input-group';
+import type { ComponentProps } from 'react';
 import { FieldWrapper } from '../field-wrapper';
 import { useFieldContext } from '../form-context';
 
@@ -7,7 +8,7 @@ interface TextFieldProps
 		React.ComponentProps<typeof InputGroupInput>,
 		'id' | 'name' | 'type' | 'value' | 'onChange' | 'onBlur'
 	> {
-	fieldProps?: Omit<React.ComponentProps<typeof FieldWrapper>, 'children'>;
+	fieldProps?: Omit<ComponentProps<typeof FieldWrapper>, 'children'>;
 }
 
 export function TextField({ fieldProps, ...props }: TextFieldProps) {

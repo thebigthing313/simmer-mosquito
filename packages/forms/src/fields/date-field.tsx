@@ -10,7 +10,7 @@ import {
 } from '@simmer/ui/components/popover';
 import { cn } from '@simmer/ui/lib/utils';
 import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { type ComponentProps, useState } from 'react';
 import { FieldWrapper } from '../field-wrapper';
 import { useFieldContext } from '../form-context';
 
@@ -18,7 +18,7 @@ interface DateTimeFieldProps {
 	showTimeInput?: boolean;
 	placeholder?: string;
 	disabled?: boolean;
-	fieldProps?: Omit<React.ComponentProps<typeof FieldWrapper>, 'children'>;
+	fieldProps?: Omit<ComponentProps<typeof FieldWrapper>, 'children'>;
 }
 export function DateTimeField({
 	showTimeInput = false,
