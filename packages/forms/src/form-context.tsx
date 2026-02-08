@@ -1,6 +1,9 @@
 import { createFormHook, createFormHookContexts } from '@tanstack/react-form';
+import { DateTimeField } from './fields/date-field';
 import { TextField } from './fields/text-field';
-export const { fieldContext, formContext, useFieldContext } =
+import { ResetButton } from './form/reset-button';
+import { SubmitButton } from './form/submit-button';
+export const { fieldContext, formContext, useFieldContext, useFormContext } =
 	createFormHookContexts();
 
 export const { useAppForm } = createFormHook({
@@ -8,6 +11,10 @@ export const { useAppForm } = createFormHook({
 	formContext,
 	fieldComponents: {
 		TextField,
+		DateTimeField,
 	},
-	formComponents: {},
+	formComponents: {
+		SubmitButton,
+		ResetButton,
+	},
 });
