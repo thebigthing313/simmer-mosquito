@@ -9,38 +9,130 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as authVerifyEmailRouteImport } from './routes/(auth)/verify-email'
+import { Route as authLoginRouteImport } from './routes/(auth)/login'
+import { Route as authForgotPasswordLandingRouteImport } from './routes/(auth)/forgot-password-landing'
+import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
+import { Route as authCreateAccountRouteImport } from './routes/(auth)/create-account'
+import { Route as authChangePasswordRouteImport } from './routes/(auth)/change-password'
 
+const authRouteRoute = authRouteRouteImport.update({
+  id: '/(auth)',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const authVerifyEmailRoute = authVerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
+  getParentRoute: () => authRouteRoute,
+} as any)
+const authLoginRoute = authLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => authRouteRoute,
+} as any)
+const authForgotPasswordLandingRoute =
+  authForgotPasswordLandingRouteImport.update({
+    id: '/forgot-password-landing',
+    path: '/forgot-password-landing',
+    getParentRoute: () => authRouteRoute,
+  } as any)
+const authForgotPasswordRoute = authForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => authRouteRoute,
+} as any)
+const authCreateAccountRoute = authCreateAccountRouteImport.update({
+  id: '/create-account',
+  path: '/create-account',
+  getParentRoute: () => authRouteRoute,
+} as any)
+const authChangePasswordRoute = authChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
+  getParentRoute: () => authRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/change-password': typeof authChangePasswordRoute
+  '/create-account': typeof authCreateAccountRoute
+  '/forgot-password': typeof authForgotPasswordRoute
+  '/forgot-password-landing': typeof authForgotPasswordLandingRoute
+  '/login': typeof authLoginRoute
+  '/verify-email': typeof authVerifyEmailRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/change-password': typeof authChangePasswordRoute
+  '/create-account': typeof authCreateAccountRoute
+  '/forgot-password': typeof authForgotPasswordRoute
+  '/forgot-password-landing': typeof authForgotPasswordLandingRoute
+  '/login': typeof authLoginRoute
+  '/verify-email': typeof authVerifyEmailRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/(auth)': typeof authRouteRouteWithChildren
+  '/(auth)/change-password': typeof authChangePasswordRoute
+  '/(auth)/create-account': typeof authCreateAccountRoute
+  '/(auth)/forgot-password': typeof authForgotPasswordRoute
+  '/(auth)/forgot-password-landing': typeof authForgotPasswordLandingRoute
+  '/(auth)/login': typeof authLoginRoute
+  '/(auth)/verify-email': typeof authVerifyEmailRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/change-password'
+    | '/create-account'
+    | '/forgot-password'
+    | '/forgot-password-landing'
+    | '/login'
+    | '/verify-email'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/change-password'
+    | '/create-account'
+    | '/forgot-password'
+    | '/forgot-password-landing'
+    | '/login'
+    | '/verify-email'
+  id:
+    | '__root__'
+    | '/'
+    | '/(auth)'
+    | '/(auth)/change-password'
+    | '/(auth)/create-account'
+    | '/(auth)/forgot-password'
+    | '/(auth)/forgot-password-landing'
+    | '/(auth)/login'
+    | '/(auth)/verify-email'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  authRouteRoute: typeof authRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/(auth)': {
+      id: '/(auth)'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof authRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +140,76 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/(auth)/verify-email': {
+      id: '/(auth)/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof authVerifyEmailRouteImport
+      parentRoute: typeof authRouteRoute
+    }
+    '/(auth)/login': {
+      id: '/(auth)/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof authLoginRouteImport
+      parentRoute: typeof authRouteRoute
+    }
+    '/(auth)/forgot-password-landing': {
+      id: '/(auth)/forgot-password-landing'
+      path: '/forgot-password-landing'
+      fullPath: '/forgot-password-landing'
+      preLoaderRoute: typeof authForgotPasswordLandingRouteImport
+      parentRoute: typeof authRouteRoute
+    }
+    '/(auth)/forgot-password': {
+      id: '/(auth)/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof authForgotPasswordRouteImport
+      parentRoute: typeof authRouteRoute
+    }
+    '/(auth)/create-account': {
+      id: '/(auth)/create-account'
+      path: '/create-account'
+      fullPath: '/create-account'
+      preLoaderRoute: typeof authCreateAccountRouteImport
+      parentRoute: typeof authRouteRoute
+    }
+    '/(auth)/change-password': {
+      id: '/(auth)/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof authChangePasswordRouteImport
+      parentRoute: typeof authRouteRoute
+    }
   }
 }
 
+interface authRouteRouteChildren {
+  authChangePasswordRoute: typeof authChangePasswordRoute
+  authCreateAccountRoute: typeof authCreateAccountRoute
+  authForgotPasswordRoute: typeof authForgotPasswordRoute
+  authForgotPasswordLandingRoute: typeof authForgotPasswordLandingRoute
+  authLoginRoute: typeof authLoginRoute
+  authVerifyEmailRoute: typeof authVerifyEmailRoute
+}
+
+const authRouteRouteChildren: authRouteRouteChildren = {
+  authChangePasswordRoute: authChangePasswordRoute,
+  authCreateAccountRoute: authCreateAccountRoute,
+  authForgotPasswordRoute: authForgotPasswordRoute,
+  authForgotPasswordLandingRoute: authForgotPasswordLandingRoute,
+  authLoginRoute: authLoginRoute,
+  authVerifyEmailRoute: authVerifyEmailRoute,
+}
+
+const authRouteRouteWithChildren = authRouteRoute._addFileChildren(
+  authRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  authRouteRoute: authRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

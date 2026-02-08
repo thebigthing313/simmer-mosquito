@@ -30,9 +30,11 @@ export function FieldWrapper({
 		>
 			<FieldLabel htmlFor={field.name}>
 				{fieldLabel}
-				{required ?? ' *'}
+				{required ? ' *' : null}
 			</FieldLabel>
-			<FieldDescription>{fieldDescription}</FieldDescription>
+			{fieldDescription && (
+				<FieldDescription>{fieldDescription}</FieldDescription>
+			)}
 			<FieldContent>{children}</FieldContent>
 			<FieldError errors={field.state.meta.errors} />
 		</Field>

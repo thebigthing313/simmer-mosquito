@@ -32,17 +32,17 @@ export function PasswordField({ fieldProps, ...props }: PasswordFieldProps) {
 					onChange={(e) => field.handleChange(e.target.value || null)}
 					onBlur={field.handleBlur}
 					{...props}
-				/>
+				/>{' '}
+				<InputGroupAddon align="inline-end">
+					<InputGroupButton
+						variant="ghost"
+						size="icon-sm"
+						onClick={() => setShowPassword((prev) => !prev)}
+					>
+						{showPassword ? <EyeOffIcon /> : <EyeIcon />}
+					</InputGroupButton>
+				</InputGroupAddon>
 			</InputGroup>
-			<InputGroupAddon align="inline-end">
-				<InputGroupButton
-					variant="ghost"
-					size="icon-sm"
-					onClick={() => setShowPassword((prev) => !prev)}
-				>
-					{showPassword ? <EyeOffIcon /> : <EyeIcon />}
-				</InputGroupButton>
-			</InputGroupAddon>
 		</FieldWrapper>
 	);
 }
