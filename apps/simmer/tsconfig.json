@@ -13,7 +13,9 @@
 		"baseUrl": ".",
 		"paths": {
 			"@/*": ["./*"],
-			"@simmer/ui/*": ["../../packages/ui/src/*"]
+			"@simmer/ui/*": ["../../packages/ui/src/*"],
+			"@simmer/lib/*": ["../../packages/lib/src/*"],
+			"@simmer/forms/*": ["../../packages/forms/src/*"]
 		}
 	},
 	"include": ["**/*.ts", "**/*.tsx", "src/env.d.ts"],
