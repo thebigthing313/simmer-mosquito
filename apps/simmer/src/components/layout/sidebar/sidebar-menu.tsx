@@ -5,7 +5,6 @@ import {
 	ChevronRight,
 	Circle,
 	ClipboardList,
-	Droplets,
 	Layers,
 	type LucideIcon,
 	// biome-ignore lint/suspicious/noShadowRestrictedNames: <lucide icon>
