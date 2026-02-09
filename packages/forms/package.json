@@ -26,6 +26,7 @@
 		"./form-context": "./src/form-context.tsx",
 		"./field-wrapper": "./src/field-wrapper.tsx",
 		"./fields/*": "./src/fields/*.tsx",
+		"./field-groups/*": "./src/field-groups/*.tsx",
 		"./form/*": "./src/form/*.tsx"
 	}
 }

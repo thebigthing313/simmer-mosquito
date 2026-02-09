@@ -21,13 +21,16 @@ code {
 }
 
 :root {
+	--simmer-green: oklch(0.5271 0.1114 159.1429);
+	--simmer-dark-green: oklch(0.3915 0.0882 156.38);
+	--simmer-yellow: oklch(0.9623 0.052 108.52);
 	--background: oklch(0.931 0 0);
 	--foreground: oklch(0.3024 0.0045 145.4625);
 	--card: oklch(0.9612 0 0);
 	--card-foreground: oklch(0.3182 0.0732 156.0959);
 	--popover: oklch(0.9612 0 0);
 	--popover-foreground: oklch(0.3182 0.0732 156.0959);
-	--primary: oklch(0.5271 0.1114 159.1429);
+	--primary: var(--simmer-green);
 	--primary-foreground: oklch(0.9623 0.052 108.5151);
 	--secondary: oklch(0.4315 0.0112 150.4618);
 	--secondary-foreground: oklch(0.9623 0.052 108.5151);
@@ -138,7 +141,11 @@ code {
 	--shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
 }
 
-@theme inline {
+@theme {
+	--color-simmer-purple: var(--color-violet-500);
+	--color-simmer-green: var(--simmer-green);
+	--color-simmer-dark-green: var(--simmer-dark-green);
+	--color-simmer-yellow: var(--simmer-yellow);
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);

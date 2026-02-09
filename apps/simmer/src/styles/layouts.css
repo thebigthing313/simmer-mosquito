@@ -1,0 +1,53 @@
+/* ═══════════════════════════════════════════════════════════
+   SIMMER Layout POC — Custom animations & styles
+   ═══════════════════════════════════════════════════════════ */
+
+/* Minimal Dock — slide up panel */
+@keyframes slideUpFade {
+	from {
+		opacity: 0;
+		transform: translateX(-50%) translateY(24px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0);
+	}
+}
+
+/* Command Center — subtle scanline pulse */
+@keyframes scanlinePulse {
+	0%,
+	100% {
+		opacity: 0.03;
+	}
+	50% {
+		opacity: 0.06;
+	}
+}
+
+/* Map loading spinner — already using Tailwind animate-spin, but
+   this ensures the mapbox container doesn't flash white */
+.mapboxgl-canvas {
+	outline: none;
+}
+
+/* Ensure mapbox controls don't clash with our UI */
+.mapboxgl-ctrl-bottom-right {
+	z-index: 5 !important;
+}
+
+/* Sheet overlay — reduce opacity in our layouts since we have
+   map transparency to maintain */
+.command-center [data-slot="sheet-overlay"],
+.glassmorphic-float [data-slot="sheet-overlay"],
+.minimal-dock [data-slot="sheet-overlay"] {
+	background-color: rgba(0, 0, 0, 0.25) !important;
+}
+
+.editorial-atlas [data-slot="sheet-overlay"] {
+	background-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+.split-horizon [data-slot="sheet-overlay"] {
+	background-color: rgba(0, 0, 0, 0.3) !important;
+}
