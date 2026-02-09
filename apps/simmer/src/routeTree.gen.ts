@@ -10,7 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as appRouteRouteImport } from './routes/(app)/route'
+import { Route as appIndexRouteImport } from './routes/(app)/index'
 import { Route as authVerifyEmailRouteImport } from './routes/(auth)/verify-email'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 import { Route as authForgotPasswordLandingRouteImport } from './routes/(auth)/forgot-password-landing'
@@ -22,10 +23,14 @@ const authRouteRoute = authRouteRouteImport.update({
   id: '/(auth)',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const appRouteRoute = appRouteRouteImport.update({
+  id: '/(app)',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const appIndexRoute = appIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => appRouteRoute,
 } as any)
 const authVerifyEmailRoute = authVerifyEmailRouteImport.update({
   id: '/verify-email',
@@ -60,26 +65,26 @@ const authChangePasswordRoute = authChangePasswordRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/change-password': typeof authChangePasswordRoute
   '/create-account': typeof authCreateAccountRoute
   '/forgot-password': typeof authForgotPasswordRoute
   '/forgot-password-landing': typeof authForgotPasswordLandingRoute
   '/login': typeof authLoginRoute
   '/verify-email': typeof authVerifyEmailRoute
+  '/': typeof appIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/change-password': typeof authChangePasswordRoute
   '/create-account': typeof authCreateAccountRoute
   '/forgot-password': typeof authForgotPasswordRoute
   '/forgot-password-landing': typeof authForgotPasswordLandingRoute
   '/login': typeof authLoginRoute
   '/verify-email': typeof authVerifyEmailRoute
+  '/': typeof appIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/(app)': typeof appRouteRouteWithChildren
   '/(auth)': typeof authRouteRouteWithChildren
   '/(auth)/change-password': typeof authChangePasswordRoute
   '/(auth)/create-account': typeof authCreateAccountRoute
@@ -87,29 +92,30 @@ export interface FileRoutesById {
   '/(auth)/forgot-password-landing': typeof authForgotPasswordLandingRoute
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/verify-email': typeof authVerifyEmailRoute
+  '/(app)/': typeof appIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/change-password'
     | '/create-account'
     | '/forgot-password'
     | '/forgot-password-landing'
     | '/login'
     | '/verify-email'
+    | '/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/change-password'
     | '/create-account'
     | '/forgot-password'
     | '/forgot-password-landing'
     | '/login'
     | '/verify-email'
+    | '/'
   id:
     | '__root__'
-    | '/'
+    | '/(app)'
     | '/(auth)'
     | '/(auth)/change-password'
     | '/(auth)/create-account'
@@ -117,10 +123,11 @@ export interface FileRouteTypes {
     | '/(auth)/forgot-password-landing'
     | '/(auth)/login'
     | '/(auth)/verify-email'
+    | '/(app)/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  appRouteRoute: typeof appRouteRouteWithChildren
   authRouteRoute: typeof authRouteRouteWithChildren
 }
 
@@ -133,12 +140,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/(app)': {
+      id: '/(app)'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof appRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(app)/': {
+      id: '/(app)/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof appIndexRouteImport
+      parentRoute: typeof appRouteRoute
     }
     '/(auth)/verify-email': {
       id: '/(auth)/verify-email'
@@ -185,6 +199,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface appRouteRouteChildren {
+  appIndexRoute: typeof appIndexRoute
+}
+
+const appRouteRouteChildren: appRouteRouteChildren = {
+  appIndexRoute: appIndexRoute,
+}
+
+const appRouteRouteWithChildren = appRouteRoute._addFileChildren(
+  appRouteRouteChildren,
+)
+
 interface authRouteRouteChildren {
   authChangePasswordRoute: typeof authChangePasswordRoute
   authCreateAccountRoute: typeof authCreateAccountRoute
@@ -208,7 +234,7 @@ const authRouteRouteWithChildren = authRouteRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  appRouteRoute: appRouteRouteWithChildren,
   authRouteRoute: authRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
