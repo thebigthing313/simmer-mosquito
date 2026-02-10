@@ -3,12 +3,18 @@ create table if not exists public.regions (
     group_id uuid references public.groups (id) on delete restrict on update cascade,
     region_name text not null,
     region_folder_id uuid references public.region_folders (id) on delete set null on update cascade,
-    geom geometry (MultiPolygon, 4326) not null,
+    geojson jsonb not null,
+    geom geometry(MultiPolygon, 4326) generated always as (
+        extensions.ST_CollectionExtract(
+            extensions.ST_MakeValid(
+                extensions.ST_GeomFromGeoJSON(geojson::text)), 3)) stored,
     parent_id uuid references public.regions (id) on delete set null on update cascade,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
     updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
+    metadata jsonb,
+    name_path text,
     constraint regions_parent_check check (id<>parent_id)
 );
 
