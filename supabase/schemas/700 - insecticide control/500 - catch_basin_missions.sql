@@ -8,8 +8,17 @@ create table public.catch_basin_missions(
     sample_wet integer,
     geom geometry(MultiPolygon, 4326) generated always as (
         extensions.ST_CollectionExtract(
-            extensions.ST_MakeValid(
-                extensions.ST_GeomFromGeoJSON(geojson::text)), 3)) stored,
+            extensions.ST_Multi(
+                extensions.ST_MakeValid(
+                    extensions.ST_GeomFromGeoJSON(
+                        case 
+                            when (geojson->'geometry') is not null then (geojson->'geometry')::text 
+                            else geojson::text 
+                        end
+                    )
+                )
+            ), 3)
+    ) stored,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),

@@ -21,8 +21,17 @@ create table public.truck_ulvs(
     geojson jsonb,
     geom geometry(MultiPolygon, 4326) generated always as (
         extensions.ST_CollectionExtract(
-            extensions.ST_MakeValid(
-                extensions.ST_GeomFromGeoJSON(geojson::text)), 3)) stored,
+            extensions.ST_Multi(
+                extensions.ST_MakeValid(
+                    extensions.ST_GeomFromGeoJSON(
+                        case 
+                            when (geojson->'geometry') is not null then (geojson->'geometry')::text 
+                            else geojson::text 
+                        end
+                    )
+                )
+            ), 3)
+    ) stored,
     constraint valid_time_range check (
         (start_time is null or end_time is null) or (end_time > start_time)
     ),
@@ -34,6 +43,8 @@ create table public.truck_ulvs(
         (temperature_unit_id is null and (start_temperature is null and end_temperature is null)) or (temperature_unit_id is not null and (start_temperature is not null or end_temperature is not null))
     )
 );
+
+create index idx_truck_ulvs_geom on public.truck_ulvs using GIST (geom);
 
 create trigger set_audit_fields
 before insert or update on public.truck_ulvs

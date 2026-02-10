@@ -6,8 +6,17 @@ create table if not exists public.regions (
     geojson jsonb not null,
     geom geometry(MultiPolygon, 4326) generated always as (
         extensions.ST_CollectionExtract(
-            extensions.ST_MakeValid(
-                extensions.ST_GeomFromGeoJSON(geojson::text)), 3)) stored,
+            extensions.ST_Multi(
+                extensions.ST_MakeValid(
+                    extensions.ST_GeomFromGeoJSON(
+                        case 
+                            when (geojson->'geometry') is not null then (geojson->'geometry')::text 
+                            else geojson::text 
+                        end
+                    )
+                )
+            ), 3)
+    ) stored,
     parent_id uuid references public.regions (id) on delete set null on update cascade,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,

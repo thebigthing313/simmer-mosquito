@@ -12,8 +12,17 @@ create table public.aerial_sites(
     updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
     geom geometry(MultiPolygon, 4326) generated always as (
         extensions.ST_CollectionExtract(
-            extensions.ST_MakeValid(
-                extensions.ST_GeomFromGeoJSON(geojson::text)), 3)) stored,
+            extensions.ST_Multi(
+                extensions.ST_MakeValid(
+                    extensions.ST_GeomFromGeoJSON(
+                        case 
+                            when (geojson->'geometry') is not null then (geojson->'geometry')::text 
+                            else geojson::text 
+                        end
+                    )
+                )
+            ), 3)
+    ) stored,
     constraint unique_aerial_site_name_per_group unique (group_id, aerial_site_name)
 );
 

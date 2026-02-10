@@ -15,8 +15,17 @@ create table public.ulv_missions(
     updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
     geom geometry(MultiPolygon, 4326) generated always as (
         extensions.ST_CollectionExtract(
-            extensions.ST_MakeValid(
-                extensions.ST_GeomFromGeoJSON(geojson::text)), 3)) stored,
+            extensions.ST_Multi(
+                extensions.ST_MakeValid(
+                    extensions.ST_GeomFromGeoJSON(
+                        case 
+                            when (geojson->'geometry') is not null then (geojson->'geometry')::text 
+                            else geojson::text 
+                        end
+                    )
+                )
+            ), 3)
+    ) stored,
     constraint valid_time_range check (
         (start_time is null or end_time is null) or (end_time > start_time)
     ),
