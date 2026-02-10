@@ -18,7 +18,7 @@ create type public.unit_system as enum (
 create table public.units (
     id uuid primary key default gen_random_uuid(),
     unit_name text not null unique,
-    abbreviation text not null unique,
+    abbreviation text not null,
     unit_type unit_type,
     unit_system unit_system,
     base_unit_id uuid references public.units(id) on delete restrict on update cascade,
