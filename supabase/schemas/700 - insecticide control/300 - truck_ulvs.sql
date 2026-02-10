@@ -23,11 +23,13 @@ create table public.truck_ulvs(
         extensions.ST_CollectionExtract(
             extensions.ST_Multi(
                 extensions.ST_MakeValid(
-                    extensions.ST_GeomFromGeoJSON(
-                        case 
-                            when (geojson->'geometry') is not null then (geojson->'geometry')::text 
-                            else geojson::text 
-                        end
+                    extensions.ST_Force2D(
+                        extensions.ST_GeomFromGeoJSON(
+                            case 
+                                when (geojson->'geometry') is not null then (geojson->'geometry')::text 
+                                else geojson::text 
+                            end
+                        )
                     )
                 )
             ), 3)
