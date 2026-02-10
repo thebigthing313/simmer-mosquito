@@ -4,7 +4,7 @@ create type public.species_status as enum ('damaged', 'unfed', 'bloodfed', 'grav
 create table public.collection_results(
     id uuid primary key default gen_random_uuid(),
     group_id uuid not null references public.groups(id) on delete restrict on update cascade,
-    collection_id uuid not null references public.collections(id) on delete cascade on update cascade,
+    collection_id uuid references public.collections(id) on delete cascade on update cascade,
     landing_rate_id uuid references public.landing_rates(id) on delete restrict on update cascade,
     species_id uuid not null references public.species(id) on delete restrict on update cascade,
     mosquito_count integer not null,
