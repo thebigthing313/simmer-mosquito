@@ -4,7 +4,7 @@ create type public.unit_type as enum (
     'area',
     'volume',
     'temperature',
-    'time',
+    'duration',
     'count'
 );
 
