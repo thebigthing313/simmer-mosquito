@@ -14,8 +14,7 @@ create table public.traps (
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
-    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
-    constraint unique_trap_name_per_group unique (group_id, trap_name)
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade
 );
 
 create index idx_traps_geom on public.traps using GIST (geom);
