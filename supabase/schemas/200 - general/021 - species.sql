@@ -1,10 +1,8 @@
 create table public.species(
     id uuid primary key default gen_random_uuid(),
-    genus_id uuid references public.genera(id) on delete restrict,
+    genus_id uuid references public.genera(id) on delete restrict on update cascade,
     species_name text not null unique,
-    sample_photo_url text,
-    description text,
-    created_at timestamp with time zone default now() not null
+    description text
 );
 
 alter table public.species enable row level security;
@@ -33,8 +31,3 @@ on public.species
 for delete
 to public
 using (false);
-
-create trigger soft_delete_trigger
-before delete on public.species
-for each row
-execute function simmer.soft_delete();

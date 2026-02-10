@@ -1,80 +1,67 @@
 create table if not exists public.profiles (
-    "id" uuid not null default gen_random_uuid() primary key,
-    "group_id" uuid not null references public.groups (id) on delete restrict,
-    "user_id" uuid references auth.users (id) on delete restrict,
-    "role_id" integer references public.roles (id) on delete restrict,
-    "first_name" text not null,
-    "last_name" text not null,
-    "avatar_url" text,
-    "created_at" timestamp with time zone not null default now(),
-    "created_by" uuid references auth.users (id) on delete restrict,
-    "updated_at" timestamp with time zone,
-    "updated_by" uuid references auth.users (id) on delete restrict,
+    id uuid not null default gen_random_uuid() primary key,
+    group_id uuid not null references public.groups (id) on delete restrict on update cascade,
+    user_id uuid not null,
+    role_id integer references public.roles (id) on delete restrict on update cascade,
+    full_name text not null,
+    metadata jsonb,
+    created_at timestamptz not null default now(),
+    created_by uuid references public.profiles (user_id) on delete set null on update cascade,
+    updated_at timestamptz not null default now(),
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
     unique (user_id)
 );
 
-create trigger handle_created_trigger
-before insert
-on public.profiles
+create trigger set_audit_fields
+before insert or update on public.profiles
 for each row
-execute function simmer.set_created_by ();
+execute function public.set_audit_fields();
 
-create trigger handle_updated_trigger
-before update
-on public.profiles
+create trigger soft_delete_trigger
+before delete on public.profiles
 for each row
-when (old.* is distinct from new.*)
-execute function public.set_updated_record_fields ();
+execute function simmer.soft_delete();
 
-create function simmer.ids_to_app_metadata ()
+create or replace function simmer.ids_to_app_metadata()
 returns trigger
 language plpgsql
 security definer
 set search_path=''
 as $$
-    declare
-        v_app_meta jsonb;
-        v_user_id uuid;
-    begin
-        -- Determine which user_id to work with for cleanup
-        if TG_OP = 'DELETE' then
-            v_user_id := OLD.user_id;
-        elsif TG_OP = 'UPDATE' and (NEW.user_id is null or NEW.role_id is null) and OLD.user_id is not null then
-            -- Handle case where user_id or role_id is being set to null
-            v_user_id := OLD.user_id;
-        else
-            v_user_id := NEW.user_id;
-        end if;
+declare
+    v_user_id uuid;
+begin
+    -- 1. Identify the target user
+    if TG_OP = 'DELETE' then
+        v_user_id := OLD.user_id;
+    elsif TG_OP = 'UPDATE' and (NEW.user_id is null or NEW.role_id is null) and OLD.user_id is not null then
+        v_user_id := OLD.user_id;
+    else
+        v_user_id := NEW.user_id;
+    end if;
 
-        if v_user_id is not null then
-            -- Get the current raw_app_meta_data, or default to '{}'
-            select coalesce(raw_app_meta_data, '{}'::jsonb) into v_app_meta
-            from auth.users
-            where id = v_user_id;
+    if v_user_id is not null then
+        -- 2. Atomic Update: Merge or Remove keys in one go
+        update auth.users
+        set raw_app_meta_data = case 
+            -- Cleanup: Strip keys if deleting or nullifying
+            when TG_OP = 'DELETE' or (NEW.user_id is null or NEW.role_id is null) then
+                coalesce(raw_app_meta_data, '{}'::jsonb) - 'profile_id' - 'group_id' - 'role_id'
+            
+            -- Sync: Merge new values using the || operator
+            else
+                coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object(
+                    'profile_id', NEW.id::text,
+                    'group_id', NEW.group_id::text,
+                    'role_id', NEW.role_id
+                )
+        end
+        where id = v_user_id;
+    end if;
 
-            -- All or nothing: only set metadata if user_id AND role_id are both present
-            if TG_OP = 'DELETE' or (TG_OP = 'UPDATE' and (NEW.user_id is null or NEW.role_id is null)) then
-                -- Remove the profile_id, group_id, and role_id fields
-                v_app_meta := v_app_meta - 'profile_id' - 'group_id' - 'role_id';
-            elsif NEW.user_id is not null and NEW.role_id is not null then
-                -- Update all three fields (all or nothing)
-                v_app_meta := jsonb_set(v_app_meta, '{profile_id}', to_jsonb(NEW.id::text), true);
-                v_app_meta := jsonb_set(v_app_meta, '{group_id}', to_jsonb(NEW.group_id::text), true);
-                v_app_meta := jsonb_set(v_app_meta, '{role_id}', to_jsonb(NEW.role_id), true);
-            end if;
-
-            -- Write new metadata into auth.users(raw_app_meta_data)
-            update auth.users
-            set raw_app_meta_data = v_app_meta
-            where id = v_user_id;
-        end if;
-
-        if TG_OP = 'DELETE' then
-            return OLD;
-        else
-            return NEW;
-        end if;
-    end;
+    -- 3. Standard trigger return
+    return (case when TG_OP = 'DELETE' then OLD else NEW end);
+end;
 $$;
 
 create trigger ids_to_app_metadata_trigger
@@ -82,12 +69,6 @@ after insert or update or delete
 on public.profiles
 for each row
 execute function simmer.ids_to_app_metadata ();
-
-create trigger soft_delete_trigger
-before delete
-on public.profiles
-for each row
-execute function simmer.soft_delete();
 
 create function simmer.prevent_user_id_change ()
 returns trigger
@@ -121,7 +102,7 @@ create policy "insert: group owners"
 on public.profiles
 for insert
 to authenticated
-with check (public.user_has_group_role(group_id, 1) and user_id is null);
+with check (public.user_has_group_role(group_id, 1) and user_id is not null);
 
 create policy "update: group owners"
 on public.profiles

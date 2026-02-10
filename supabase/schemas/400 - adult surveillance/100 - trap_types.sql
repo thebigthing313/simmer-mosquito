@@ -1,39 +1,30 @@
 create table public.trap_types (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid references public.groups(id) on delete set null,
+    group_id uuid references public.groups(id) on delete restrict on update cascade,
     trap_type_name text not null unique,
+    shorthand text,
     created_at timestamptz not null default now(),
+    created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
-    created_by uuid references auth.users (id) on delete set null,
-    updated_by uuid references auth.users (id) on delete set null
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade
 );
 
-create trigger handle_created_trigger
-before insert
-on public.trap_types
+create trigger set_audit_fields
+before insert or update on public.trap_types
 for each row
-execute function simmer.set_created_by ();
-
-create trigger handle_updated_trigger
-before update
-on public.trap_types
-for each row
-when (old.* is distinct from new.*)
-execute function public.set_updated_record_fields ();
+execute function public.set_audit_fields();
 
 create trigger soft_delete_trigger
-before delete
-on public.trap_types
+before delete on public.trap_types
 for each row
 execute function simmer.soft_delete();
-
 alter table public.trap_types enable row level security;
 
-create policy "select: own groups or group_id is null"
+create policy "select: own groups"
 on public.trap_types
 for select
 to authenticated
-using (group_id is null or public.user_is_group_member(group_id));
+using (public.user_is_group_member(group_id));
 
 create policy "insert: group admin"
 on public.trap_types

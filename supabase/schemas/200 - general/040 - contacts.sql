@@ -1,26 +1,32 @@
 create table public.contacts (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete restrict,
-    first_name text,
-    last_name text,
-    organization text,
-    title text,
-    primary_phone text,
-    secondary_phone text,
-    fax_number text,
+    group_id uuid not null references public.groups(id) on delete restrict on update cascade,
+    contact_name text,
+    preferred_phone text,
+    alternate_phone text,
+    fax text,
     email text,
-    created_at timestamp with time zone default now() not null,
-    updated_at timestamp with time zone default now() not null,
-    created_by uuid references auth.users(id) on delete set null,
-    updated_by uuid references auth.users(id) on delete set null
+    organization text,
+    department text,
+    title text,
+    metadata jsonb,
+    created_at timestamptz not null default now(),
+    created_by uuid references public.profiles (user_id) on delete set null on update cascade,
+    updated_at timestamptz not null default now(),
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
+    constraint at_least_one_contact check (
+        num_nonnulls(
+            nullif(preferred_phone, ''), 
+            nullif(email, ''), 
+            nullif(fax, '')
+        ) > 0
+    )
 );
 
-create trigger handle_created_trigger before insert on public.contacts for each row
-execute function simmer.set_created_by ();
-
-create trigger handle_updated_trigger before
-update on public.contacts for each row when (old.* is distinct from new.*)
-execute function public.set_updated_record_fields ();
+create trigger set_audit_fields
+before insert or update on public.contacts
+for each row
+execute function public.set_audit_fields();
 
 create trigger soft_delete_trigger
 before delete on public.contacts

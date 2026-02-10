@@ -1,44 +1,49 @@
 create table public.inspections (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete restrict,
-    habitat_id uuid not null references public.habitats(id) on delete restrict,
+    group_id uuid not null references public.groups(id) on delete restrict on update cascade,
+    habitat_id uuid not null references public.habitats(id) on delete restrict on update cascade,
     inspection_date date not null,
-    inspector_id uuid references public.profiles (id) on delete set null,
+    inspected_by uuid references public.profiles (user_id) on delete restrict on update cascade,
     is_wet boolean not null default false,
-    dips integer,
-    total_larvae integer,
-    density_id uuid references public.larval_densities (id) on delete restrict,
+    dip_count integer,
+    larvae_count integer,
+    density_id uuid references public.densities (id) on delete restrict on update cascade,
     has_eggs boolean not null default false,
-    has_1st_instar boolean not null default false,
-    has_2nd_instar boolean not null default false,
-    has_3rd_instar boolean not null default false,
-    has_4th_instar boolean not null default false,
+    has_first_instar boolean not null default false,
+    has_second_instar boolean not null default false,
+    has_third_instar boolean not null default false,
+    has_fourth_instar boolean not null default false,
     has_pupae boolean not null default false,
+    is_source_reduction boolean not null default false,
+    source_reduction_notes text,
     notes text,
     created_at timestamptz not null default now(),
+    created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
-    created_by uuid references auth.users (id) on delete set null,
-    updated_by uuid references auth.users (id) on delete set null,
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,   
     constraint data_integrity check (
         (is_wet = false) OR 
-        (total_larvae IS NOT NULL AND dips IS NOT NULL) OR 
-        (density_id IS NOT NULL) OR
-        (total_larvae IS NULL AND density_id IS NULL)
+            (
+                (larvae_count IS NOT NULL AND dip_count IS NOT NULL) OR
+                (density_id IS NOT NULL) OR
+                (larvae_count IS NULL AND density_id IS NULL)
+            )
+    ),
+    constraint source_reduction_notes_check check (
+        (is_source_reduction = false) or 
+        (source_reduction_notes is not null and source_reduction_notes <> '')
     )
 );
 
-create trigger handle_created_trigger before insert on public.inspections for each row
-execute function simmer.set_created_by ();
-
-create trigger handle_updated_trigger before
-update on public.inspections for each row when (old.* is distinct from new.*)
-execute function public.set_updated_record_fields ();
+create trigger set_audit_fields
+before insert or update on public.inspections
+for each row
+execute function public.set_audit_fields();
 
 create trigger soft_delete_trigger
 before delete on public.inspections
 for each row
 execute function simmer.soft_delete();
-
 alter table public.inspections enable row level security;
 
 create policy "select: own groups"

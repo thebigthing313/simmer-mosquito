@@ -2,8 +2,7 @@ create table public.genera (
     id uuid primary key default gen_random_uuid(),
     genus_name text not null unique,
     abbreviation text not null unique,
-    description text,
-    created_at timestamp with time zone default now() not null
+    description text
 );
 
 alter table public.genera enable row level security;
@@ -32,8 +31,3 @@ on public.genera
 for delete
 to public
 using (false);
-
-create trigger soft_delete_trigger
-before delete on public.genera
-for each row
-execute function simmer.soft_delete();

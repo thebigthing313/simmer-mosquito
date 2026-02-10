@@ -1,23 +1,37 @@
 create table public.additional_personnel(
     id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete restrict,
-    profile_id uuid not null references public.profiles(id) on delete restrict,
+    group_id uuid not null references public.groups(id) on delete restrict on update cascade,
+    personnel_id uuid not null references public.profiles(user_id) on delete restrict on update cascade,
     --- originating tables
-    inspection_id uuid references public.inspections(id) on delete set null,
-    mission_applications_id uuid references public.mission_applications(id) on delete set null,
+    inspection_id uuid references public.inspections(id) on delete restrict on update cascade,
+    aerial_inspection_id uuid references public.aerial_inspections(id) on delete restrict on update cascade,
+    flight_id uuid references public.flights(id) on delete restrict on update cascade,
+    application_id uuid references public.applications(id) on delete restrict on update cascade,
     ----------------------
+    parent_table_name text generated always as (
+    case
+        when inspection_id is not null then 'inspections'::text
+        when aerial_inspection_id is not null then 'aerial_inspections'::text
+        when flight_id is not null then 'flights'::text
+        when application_id is not null then 'applications'::text
+        else null::text
+    end) STORED null,
     created_at timestamptz not null default now(),
+    created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
-    created_by uuid references auth.users (id) on delete set null,
-    updated_by uuid references auth.users (id) on delete set null
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
+    constraint one_parent_table_reference check (
+        (inspection_id is not null)::int +
+        (aerial_inspection_id is not null)::int +
+        (flight_id is not null)::int +
+        (application_id is not null)::int = 1
+    )
 );
 
-create trigger handle_created_trigger before insert on public.additional_personnel for each row
-execute function simmer.set_created_by ();
-
-create trigger handle_updated_trigger before
-update on public.additional_personnel for each row when (old.* is distinct from new.*)
-execute function public.set_updated_record_fields ();
+create trigger set_audit_fields
+before insert or update on public.additional_personnel
+for each row
+execute function public.set_audit_fields();
 
 create trigger soft_delete_trigger
 before delete on public.additional_personnel

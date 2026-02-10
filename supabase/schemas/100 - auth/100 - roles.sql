@@ -1,7 +1,7 @@
 create table if not exists public.roles (
-    "id" integer not null primary key,
-    "role_name" text not null unique,
-    "description" text
+    id integer not null primary key,
+    role_name text not null unique,
+    description text
 );
 
 alter table public.roles enable row level security;

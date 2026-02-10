@@ -1,21 +1,19 @@
 create table public.service_request_tags (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete restrict,
-    service_request_id uuid not null references public.service_requests(id) on delete cascade,
-    tag_id uuid not null references public.tags(id) on delete cascade,
+    group_id uuid not null references public.groups(id) on delete restrict on update cascade,
+    service_request_id uuid not null references public.service_requests(id) on delete cascade on update cascade,
+    tag_id uuid not null references public.tags(id) on delete cascade on update cascade,
     created_at timestamptz not null default now(),
+    created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
-    created_by uuid references auth.users (id) on delete set null,
-    updated_by uuid references auth.users (id) on delete set null,
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
     constraint service_request_tag_unique unique (service_request_id, tag_id)
 );
 
-create trigger handle_created_trigger before insert on public.service_request_tags for each row
-execute function simmer.set_created_by ();
-
-create trigger handle_updated_trigger before
-update on public.service_request_tags for each row when (old.* is distinct from new.*)
-execute function public.set_updated_record_fields ();
+create trigger set_audit_fields
+before insert or update on public.service_request_tags
+for each row
+execute function public.set_audit_fields();
 
 create trigger soft_delete_trigger
 before delete on public.service_request_tags

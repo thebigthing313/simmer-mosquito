@@ -20,18 +20,9 @@ create table public.units (
     abbreviation text not null unique,
     unit_type unit_type not null,
     unit_system unit_system,
-
-    -- This column holds the ID of the Base Unit for this type (e.g., 'Gram' for 'Kilogram')
-    base_unit_id uuid references public.units(id),
-
-    -- The factor to multiply by to convert *to* the base unit
-    -- Example: For 'Kilogram', factor is 1000. For 'Ounce', factor is 0.0283495 (to kg)
+    base_unit_id uuid references public.units(id) on delete restrict on update cascade,
     conversion_factor numeric not null,
-
-    -- Optional: Stores the offset for non-linear conversions (e.g., temperature)
-    conversion_offset numeric default 0.0 not null,
-    
-    created_at timestamp with time zone default now() not null
+    conversion_offset numeric default 0.0 not null
 );
 
 alter table public.units enable row level security;
@@ -60,8 +51,3 @@ on public.units
 for delete
 to public
 using (false);
-
-create trigger soft_delete_trigger
-before delete on public.units
-for each row
-execute function simmer.soft_delete();
