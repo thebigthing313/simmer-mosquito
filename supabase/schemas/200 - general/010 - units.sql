@@ -5,7 +5,8 @@ create type public.unit_type as enum (
     'volume',
     'temperature',
     'duration',
-    'count'
+    'count',
+    'speed'
 );
 
 create type public.unit_system as enum (
