@@ -1,5 +1,5 @@
-create type public.species_sex as enum ('male', 'female');
-create type public.species_status as enum ('damaged', 'unfed', 'bloodfed', 'gravid');
+create type public.mosquito_sex as enum ('male', 'female');
+create type public.mosquito_status as enum ('damaged', 'unfed', 'bloodfed', 'gravid');
 
 create table public.collection_results(
     id uuid primary key default gen_random_uuid(),
@@ -9,8 +9,8 @@ create table public.collection_results(
     species_id uuid not null references public.species(id) on delete restrict on update cascade,
     mosquito_count integer not null,
     identified_by uuid references public.profiles(user_id) on delete set null on update cascade,
-    sex public.species_sex default 'female',
-    "status" public.species_status,
+    sex public.mosquito_sex default 'female',
+    "status" public.mosquito_status,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
