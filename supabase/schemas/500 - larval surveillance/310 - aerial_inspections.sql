@@ -19,11 +19,11 @@ create table public.aerial_inspections(
     updated_at timestamptz not null default now(),
     updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
     constraint larval_data_present check (
-        (is_wet = true AND 
-            (
+        is_wet = false OR (
+            is_wet = true AND (
                 (larvae_count IS NOT NULL AND dips_count IS NOT NULL) 
-                or (larvae_per_dip IS NOT NULL) 
-                or (density_id is not null)
+                OR (larvae_per_dip IS NOT NULL) 
+                OR (density_id is not null)
             )
         )
     )
