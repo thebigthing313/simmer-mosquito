@@ -24,6 +24,9 @@ code {
 	--simmer-green: oklch(0.5271 0.1114 159.1429);
 	--simmer-dark-green: oklch(0.3915 0.0882 156.38);
 	--simmer-yellow: oklch(0.9623 0.052 108.52);
+	--simmer-purple: oklch(0.4937 0.1424 325.97);
+	--simmer-red: oklch(0.6156 0.2307 16.37);
+	--simmer-blue: oklch(0.4483 0.1791 268.37);
 	--background: oklch(0.931 0 0);
 	--foreground: oklch(0.3024 0.0045 145.4625);
 	--card: oklch(0.9612 0 0);
@@ -38,7 +41,7 @@ code {
 	--muted-foreground: oklch(0.3024 0.0045 145.4625);
 	--accent: oklch(0.9623 0.052 108.5151);
 	--accent-foreground: oklch(0.3024 0.0045 145.4625);
-	--destructive: oklch(0.6287 0.1662 23.1432);
+	--destructive: var(--simmer-red);
 	--destructive-foreground: oklch(0.9612 0 0);
 	/* --border: oklch(0.7520 0.0797 164.9664); */
 	/* --input: oklch(0.9623 0.0520 108.5151); */
@@ -142,10 +145,12 @@ code {
 }
 
 @theme {
-	--color-simmer-purple: var(--color-violet-500);
+	--color-simmer-purple: var(--simmer-purple);
 	--color-simmer-green: var(--simmer-green);
 	--color-simmer-dark-green: var(--simmer-dark-green);
 	--color-simmer-yellow: var(--simmer-yellow);
+	--color-simmer-red: var(--simmer-red);
+	--color-simmer-blue: var(--simmer-blue);
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
