@@ -1,6 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/(app)/')({
+	beforeLoad: () => {
+		return {
+			mainOutlet: { header: 'Dashboard', description: 'Surveillance overview' },
+		};
+	},
 	component: DashboardContent,
 });
 
