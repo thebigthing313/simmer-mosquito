@@ -1,6 +1,7 @@
 import mapboxgl from 'mapbox-gl';
 import { memo, useEffect, useRef, useState } from 'react';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { useUserLocation } from '@/src/hooks/use-user-location';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
@@ -12,7 +13,9 @@ function MapboxMapInner() {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<mapboxgl.Map | null>(null);
 	const [mapLoaded, setMapLoaded] = useState(false);
+	const { location } = useUserLocation();
 
+	// Initialize map once
 	useEffect(() => {
 		if (!containerRef.current || mapRef.current) return;
 
@@ -45,6 +48,17 @@ function MapboxMapInner() {
 			mapRef.current = null;
 		};
 	}, []);
+
+	// Update map center when user location becomes available
+	useEffect(() => {
+		if (!mapRef.current || !mapLoaded || !location) return;
+
+		mapRef.current.flyTo({
+			center: [location.lng, location.lat],
+			zoom: 12,
+			duration: 2000,
+		});
+	}, [location, mapLoaded]);
 
 	return (
 		<div className="absolute inset-0 z-0">
