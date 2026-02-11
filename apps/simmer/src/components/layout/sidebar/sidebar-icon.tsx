@@ -4,23 +4,22 @@ import {
 	TooltipTrigger,
 } from '@simmer/ui/components/tooltip';
 import { cn } from '@simmer/ui/lib/utils';
-import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 export interface SideBarIconProps {
 	id: string;
-	icon: LucideIcon;
 	tooltip: string;
 	isActive: boolean;
+	children?: ReactNode;
 	handleClick: () => void;
 }
 export function SidebarIcon({
 	id,
-	icon,
+	children,
 	tooltip,
 	isActive,
 	handleClick,
 }: SideBarIconProps) {
-	const Icon = icon;
 	return (
 		<Tooltip key={id}>
 			<TooltipTrigger asChild>
@@ -34,7 +33,7 @@ export function SidebarIcon({
 							: 'text-white/30 hover:bg-white/5 hover:text-white/60',
 					)}
 				>
-					<Icon className="h-4.5 w-4.5" />
+					{children}
 					{isActive && (
 						<div className="absolute -right-1 h-4 w-1 rounded-full bg-linear-to-b from-simmer-dark-green via-teal-400 to-simmer-yellow shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
 					)}
