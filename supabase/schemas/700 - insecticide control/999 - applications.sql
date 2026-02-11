@@ -4,8 +4,8 @@ create table public.applications(
     insecticide_id uuid not null references public.insecticides(id) on delete restrict on update cascade,
     batch_id uuid references public.insecticide_batches(id) on delete set null on update cascade,
     application_date date not null,
-    applicator_id uuid references public.profiles(user_id) on delete set null on update cascade,
-    amount_applied numeric(10,2) not null,
+    applicator_id uuid not null references public.profiles(user_id) on delete set null on update cascade,
+    amount_applied double precision not null,
     application_unit_id uuid not null references public.units(id) on delete restrict,
     --- originating tables
     inspection_id uuid references public.inspections(id) on delete restrict on update cascade,

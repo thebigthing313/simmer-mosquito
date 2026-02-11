@@ -28,9 +28,6 @@ create table public.ulv_missions(
                 )
             ), 3)
     ) stored,
-    constraint valid_time_range check (
-        (start_time is null or end_time is null) or (end_time > start_time)
-    ),
     constraint rain_date_after_mission_date check (
         rain_date is null or rain_date > mission_date
     ),

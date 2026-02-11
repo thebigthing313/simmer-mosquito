@@ -1,9 +1,9 @@
 create table public.comments(
     id uuid primary key default gen_random_uuid(),
-    group_id uuid references public.groups(id) on delete set null on update cascade,
+    group_id uuid not null references public.groups(id) on delete restrict on update cascade,
     comment_text text not null,
     parent_id uuid references public.comments(id) on delete set null on update cascade,
-    is_pinned boolean default false,
+    is_pinned boolean not null default false,
     --- originating tables
     trap_id uuid references public.traps(id) on delete restrict on update cascade,
     collection_id uuid references public.collections(id) on delete restrict on update cascade,

@@ -1,7 +1,7 @@
 create table public.samples(
     id uuid primary key default gen_random_uuid(),
     group_id uuid not null references public.groups(id) on delete restrict on update cascade,
-    inspection_id uuid references public.inspections(id) on delete restrict on update cascade,
+    inspection_id uuid not null references public.inspections(id) on delete restrict on update cascade,
     display_id text,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
