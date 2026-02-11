@@ -8,8 +8,9 @@ import {
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import type { ReactNode } from 'react';
 
-// biome-ignore lint/complexity/noBannedTypes: <will code in later>
-export type MyRouterContext = {};
+export type MyRouterContext = {
+	mainOutlet: { header: string; description: string } | null;
+};
 
 function RootLayout() {
 	return (
