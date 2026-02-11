@@ -9,7 +9,7 @@ create table public.aerial_inspections(
     inspection_date date not null,
     is_wet boolean not null default false,
     result public.aerial_inspection_result not null,
-    density_id uuid not null references public.densities(id) on delete restrict on update cascade,
+    density_id uuid references public.densities(id) on delete restrict on update cascade,
     dips_count integer not null,
     larvae_count integer,
     larvae_per_dip double precision,
