@@ -1,5 +1,18 @@
 # @simmer/forms
 
+## 0.3.0
+
+### Minor Changes
+
+- c4ed3c6: Added text-area-field password-field reusable component.
+- 20279eb: Added coordinates lat/lng field group for reusable forms.
+
+### Patch Changes
+
+- 88047bb: Registered password-input to form context creator. Optionally render field description instead of blank description component.
+- Updated dependencies [fdddc9f]
+  - @simmer/ui@0.2.0
+
 ## 0.2.0
 
 ### Minor Changes
