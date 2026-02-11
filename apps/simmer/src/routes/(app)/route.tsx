@@ -1,15 +1,20 @@
 import { CircleLight } from '@simmer/ui/blocks/circle-light';
 import { ScrollArea } from '@simmer/ui/components/scroll-area';
-import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useMatches } from '@tanstack/react-router';
 import { MainOutletFooter } from '@/src/components/layout/main-outlet/main-outlet-footer';
 import { MainOutletHeader } from '@/src/components/layout/main-outlet/main-outlet-header';
 import { SidebarMenu } from '@/src/components/layout/sidebar/sidebar-menu';
 import { MapboxMap } from '@/src/components/MapboxMap';
+
 export const Route = createFileRoute('/(app)')({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
+	const matches = useMatches();
+	const currentMatch = matches[matches.length - 1];
+	const { header = 'Dashboard', description = 'Overview' } =
+		currentMatch?.context?.mainOutlet ?? {};
 	return (
 		// Full viewport container
 		<div className="relative h-screen w-screen overflow-hidden font-sans">
@@ -72,7 +77,7 @@ function RouteComponent() {
 				<div className="absolute top-20 bottom-20 left-20 z-30 flex w-115 flex-col overflow-hidden rounded-3xl border border-white/8 bg-zinc-900/30 shadow-[0_32px_80px_-12px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
 					{/* Gradient accent bar at top */}
 					<div className="h-0.5 w-full bg-linear-to-r from-simmer-green via-teal-400 to-simmer-yellow" />
-					<MainOutletHeader />
+					<MainOutletHeader header={header} description={description} />
 					<ScrollArea className="flex-1 overflow-y-auto p-6 text-white/70">
 						<Outlet />
 					</ScrollArea>
