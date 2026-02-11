@@ -18,6 +18,8 @@ import { Route as authForgotPasswordLandingRouteImport } from './routes/(auth)/f
 import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
 import { Route as authCreateAccountRouteImport } from './routes/(auth)/create-account'
 import { Route as authChangePasswordRouteImport } from './routes/(auth)/change-password'
+import { Route as appAdultSurveillanceTrapsRouteImport } from './routes/(app)/adult-surveillance/traps'
+import { Route as appAdultSurveillanceCreateTrapRouteImport } from './routes/(app)/adult-surveillance/create-trap'
 
 const authRouteRoute = authRouteRouteImport.update({
   id: '/(auth)',
@@ -63,6 +65,18 @@ const authChangePasswordRoute = authChangePasswordRouteImport.update({
   path: '/change-password',
   getParentRoute: () => authRouteRoute,
 } as any)
+const appAdultSurveillanceTrapsRoute =
+  appAdultSurveillanceTrapsRouteImport.update({
+    id: '/adult-surveillance/traps',
+    path: '/adult-surveillance/traps',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appAdultSurveillanceCreateTrapRoute =
+  appAdultSurveillanceCreateTrapRouteImport.update({
+    id: '/adult-surveillance/create-trap',
+    path: '/adult-surveillance/create-trap',
+    getParentRoute: () => appRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/change-password': typeof authChangePasswordRoute
@@ -72,6 +86,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof authLoginRoute
   '/verify-email': typeof authVerifyEmailRoute
   '/': typeof appIndexRoute
+  '/adult-surveillance/create-trap': typeof appAdultSurveillanceCreateTrapRoute
+  '/adult-surveillance/traps': typeof appAdultSurveillanceTrapsRoute
 }
 export interface FileRoutesByTo {
   '/change-password': typeof authChangePasswordRoute
@@ -81,6 +97,8 @@ export interface FileRoutesByTo {
   '/login': typeof authLoginRoute
   '/verify-email': typeof authVerifyEmailRoute
   '/': typeof appIndexRoute
+  '/adult-surveillance/create-trap': typeof appAdultSurveillanceCreateTrapRoute
+  '/adult-surveillance/traps': typeof appAdultSurveillanceTrapsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -93,6 +111,8 @@ export interface FileRoutesById {
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/verify-email': typeof authVerifyEmailRoute
   '/(app)/': typeof appIndexRoute
+  '/(app)/adult-surveillance/create-trap': typeof appAdultSurveillanceCreateTrapRoute
+  '/(app)/adult-surveillance/traps': typeof appAdultSurveillanceTrapsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -104,6 +124,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/verify-email'
     | '/'
+    | '/adult-surveillance/create-trap'
+    | '/adult-surveillance/traps'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/change-password'
@@ -113,6 +135,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/verify-email'
     | '/'
+    | '/adult-surveillance/create-trap'
+    | '/adult-surveillance/traps'
   id:
     | '__root__'
     | '/(app)'
@@ -124,6 +148,8 @@ export interface FileRouteTypes {
     | '/(auth)/login'
     | '/(auth)/verify-email'
     | '/(app)/'
+    | '/(app)/adult-surveillance/create-trap'
+    | '/(app)/adult-surveillance/traps'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -196,15 +222,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authChangePasswordRouteImport
       parentRoute: typeof authRouteRoute
     }
+    '/(app)/adult-surveillance/traps': {
+      id: '/(app)/adult-surveillance/traps'
+      path: '/adult-surveillance/traps'
+      fullPath: '/adult-surveillance/traps'
+      preLoaderRoute: typeof appAdultSurveillanceTrapsRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/adult-surveillance/create-trap': {
+      id: '/(app)/adult-surveillance/create-trap'
+      path: '/adult-surveillance/create-trap'
+      fullPath: '/adult-surveillance/create-trap'
+      preLoaderRoute: typeof appAdultSurveillanceCreateTrapRouteImport
+      parentRoute: typeof appRouteRoute
+    }
   }
 }
 
 interface appRouteRouteChildren {
   appIndexRoute: typeof appIndexRoute
+  appAdultSurveillanceCreateTrapRoute: typeof appAdultSurveillanceCreateTrapRoute
+  appAdultSurveillanceTrapsRoute: typeof appAdultSurveillanceTrapsRoute
 }
 
 const appRouteRouteChildren: appRouteRouteChildren = {
   appIndexRoute: appIndexRoute,
+  appAdultSurveillanceCreateTrapRoute: appAdultSurveillanceCreateTrapRoute,
+  appAdultSurveillanceTrapsRoute: appAdultSurveillanceTrapsRoute,
 }
 
 const appRouteRouteWithChildren = appRouteRoute._addFileChildren(
