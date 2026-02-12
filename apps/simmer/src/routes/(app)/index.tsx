@@ -4,7 +4,7 @@ export const Route = createFileRoute('/(app)/')({
 	beforeLoad: () => {
 		return {
 			mainOutlet: { header: 'Dashboard', description: 'Surveillance overview' },
-		};
+		}
 	},
 	component: DashboardContent,
 });
@@ -130,5 +130,5 @@ function DashboardContent() {
 				</div>
 			</div>
 		</div>
-	);
+	)
 }
