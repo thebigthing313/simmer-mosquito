@@ -18,6 +18,8 @@ import { Route as authForgotPasswordLandingRouteImport } from './routes/(auth)/f
 import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
 import { Route as authCreateAccountRouteImport } from './routes/(auth)/create-account'
 import { Route as authChangePasswordRouteImport } from './routes/(auth)/change-password'
+import { Route as appMapStressTestRouteImport } from './routes/(app)/map-stress-test'
+import { Route as appMapExampleRouteImport } from './routes/(app)/map-example'
 import { Route as appAdultSurveillanceTrapsRouteImport } from './routes/(app)/adult-surveillance/traps'
 import { Route as appAdultSurveillanceCreateTrapRouteImport } from './routes/(app)/adult-surveillance/create-trap'
 
@@ -65,6 +67,16 @@ const authChangePasswordRoute = authChangePasswordRouteImport.update({
   path: '/change-password',
   getParentRoute: () => authRouteRoute,
 } as any)
+const appMapStressTestRoute = appMapStressTestRouteImport.update({
+  id: '/map-stress-test',
+  path: '/map-stress-test',
+  getParentRoute: () => appRouteRoute,
+} as any)
+const appMapExampleRoute = appMapExampleRouteImport.update({
+  id: '/map-example',
+  path: '/map-example',
+  getParentRoute: () => appRouteRoute,
+} as any)
 const appAdultSurveillanceTrapsRoute =
   appAdultSurveillanceTrapsRouteImport.update({
     id: '/adult-surveillance/traps',
@@ -79,6 +91,8 @@ const appAdultSurveillanceCreateTrapRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/map-example': typeof appMapExampleRoute
+  '/map-stress-test': typeof appMapStressTestRoute
   '/change-password': typeof authChangePasswordRoute
   '/create-account': typeof authCreateAccountRoute
   '/forgot-password': typeof authForgotPasswordRoute
@@ -90,6 +104,8 @@ export interface FileRoutesByFullPath {
   '/adult-surveillance/traps': typeof appAdultSurveillanceTrapsRoute
 }
 export interface FileRoutesByTo {
+  '/map-example': typeof appMapExampleRoute
+  '/map-stress-test': typeof appMapStressTestRoute
   '/change-password': typeof authChangePasswordRoute
   '/create-account': typeof authCreateAccountRoute
   '/forgot-password': typeof authForgotPasswordRoute
@@ -104,6 +120,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/(app)': typeof appRouteRouteWithChildren
   '/(auth)': typeof authRouteRouteWithChildren
+  '/(app)/map-example': typeof appMapExampleRoute
+  '/(app)/map-stress-test': typeof appMapStressTestRoute
   '/(auth)/change-password': typeof authChangePasswordRoute
   '/(auth)/create-account': typeof authCreateAccountRoute
   '/(auth)/forgot-password': typeof authForgotPasswordRoute
@@ -117,6 +135,8 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/map-example'
+    | '/map-stress-test'
     | '/change-password'
     | '/create-account'
     | '/forgot-password'
@@ -128,6 +148,8 @@ export interface FileRouteTypes {
     | '/adult-surveillance/traps'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/map-example'
+    | '/map-stress-test'
     | '/change-password'
     | '/create-account'
     | '/forgot-password'
@@ -141,6 +163,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/(app)'
     | '/(auth)'
+    | '/(app)/map-example'
+    | '/(app)/map-stress-test'
     | '/(auth)/change-password'
     | '/(auth)/create-account'
     | '/(auth)/forgot-password'
@@ -222,6 +246,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authChangePasswordRouteImport
       parentRoute: typeof authRouteRoute
     }
+    '/(app)/map-stress-test': {
+      id: '/(app)/map-stress-test'
+      path: '/map-stress-test'
+      fullPath: '/map-stress-test'
+      preLoaderRoute: typeof appMapStressTestRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/map-example': {
+      id: '/(app)/map-example'
+      path: '/map-example'
+      fullPath: '/map-example'
+      preLoaderRoute: typeof appMapExampleRouteImport
+      parentRoute: typeof appRouteRoute
+    }
     '/(app)/adult-surveillance/traps': {
       id: '/(app)/adult-surveillance/traps'
       path: '/adult-surveillance/traps'
@@ -240,12 +278,16 @@ declare module '@tanstack/react-router' {
 }
 
 interface appRouteRouteChildren {
+  appMapExampleRoute: typeof appMapExampleRoute
+  appMapStressTestRoute: typeof appMapStressTestRoute
   appIndexRoute: typeof appIndexRoute
   appAdultSurveillanceCreateTrapRoute: typeof appAdultSurveillanceCreateTrapRoute
   appAdultSurveillanceTrapsRoute: typeof appAdultSurveillanceTrapsRoute
 }
 
 const appRouteRouteChildren: appRouteRouteChildren = {
+  appMapExampleRoute: appMapExampleRoute,
+  appMapStressTestRoute: appMapStressTestRoute,
   appIndexRoute: appIndexRoute,
   appAdultSurveillanceCreateTrapRoute: appAdultSurveillanceCreateTrapRoute,
   appAdultSurveillanceTrapsRoute: appAdultSurveillanceTrapsRoute,
