@@ -16,7 +16,7 @@ import { useMapStore } from '@/src/stores/map-store';
  * Positioned bottom-right by default (same spot the native controls lived).
  */
 export function MapControls() {
-	const map = useMapStore((s) => s.map);
+	const mapRef = useMapStore((s) => s.mapRef);
 	const mapLoaded = useMapStore((s) => s.mapLoaded);
 	const zoom = useMapStore((s) => s.zoom);
 	const bearing = useMapStore((s) => s.bearing);
@@ -25,26 +25,26 @@ export function MapControls() {
 	const setTerrain3D = useMapStore((s) => s.setTerrain3D);
 
 	const handleZoomIn = useCallback(() => {
-		map?.zoomIn({ duration: 300 });
-	}, [map]);
+		mapRef?.zoomIn({ duration: 300 });
+	}, [mapRef]);
 
 	const handleZoomOut = useCallback(() => {
-		map?.zoomOut({ duration: 300 });
-	}, [map]);
+		mapRef?.zoomOut({ duration: 300 });
+	}, [mapRef]);
 
 	const handleResetNorth = useCallback(() => {
-		map?.resetNorth({ duration: 600 });
-	}, [map]);
+		mapRef?.resetNorth({ duration: 600 });
+	}, [mapRef]);
 
 	const handleResetPitch = useCallback(() => {
-		map?.easeTo({ pitch: 0, duration: 600 });
-	}, [map]);
+		mapRef?.easeTo({ pitch: 0, duration: 600 });
+	}, [mapRef]);
 
 	const handleLocate = useCallback(() => {
-		if (!map) return;
+		if (!mapRef) return;
 		navigator.geolocation.getCurrentPosition(
 			(pos) => {
-				map.flyTo({
+				mapRef.flyTo({
 					center: [pos.coords.longitude, pos.coords.latitude],
 					zoom: 14,
 					duration: 2000,
@@ -52,7 +52,7 @@ export function MapControls() {
 			},
 			(err) => console.warn('Geolocation error:', err),
 		);
-	}, [map]);
+	}, [mapRef]);
 
 	const handleToggleTerrain = useCallback(() => {
 		setTerrain3D(!terrain3D);

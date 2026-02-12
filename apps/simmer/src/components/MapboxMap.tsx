@@ -1,9 +1,8 @@
 import mapboxgl from 'mapbox-gl';
-import { memo, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { MapRef } from 'react-map-gl/mapbox';
+import Map, { Layer, Marker, Source } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useMapLayerSync } from '@/src/hooks/use-map-layer-sync';
-import { useUserLocation } from '@/src/hooks/use-user-location';
-import { useMapStore } from '@/src/stores/map-store';
 import {
 	MapAttribution,
 	MapControls,
@@ -11,80 +10,86 @@ import {
 	MapScaleBar,
 	MapStyleSwitcher,
 } from '@/src/components/map';
+import { useUserLocation } from '@/src/hooks/use-user-location';
+import { useMapStore } from '@/src/stores/map-store';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
 /**
- * Persistent full-viewport Mapbox container.
- * Registers the map instance with the global Zustand store so every component
- * in the tree can control markers, polygons, viewport, etc.
+ * Persistent full-viewport map container built on react-map-gl.
+ *
+ * Uses **uncontrolled** mode (`initialViewState`) — the map manages its own
+ * camera internally. Viewport state is synced back to Zustand on `moveEnd`
+ * so the rest of the app can read it.
+ *
+ * Markers, polygons, and lines from the Zustand store are rendered
+ * declaratively as `<Marker>`, `<Source>` + `<Layer>` children — eliminating
+ * the old imperative `useMapLayerSync` hook entirely.
+ *
+ * Per react-map-gl tips-and-tricks:
+ * - `reuseMaps` avoids billable re-init on frequent mount / unmount.
+ * - Markers/layers are wrapped in `useMemo` to prevent needless re-creation
+ *   during camera animation frames.
  *
  * Memoized so it never re-renders when layouts toggle above it.
  */
 function MapboxMapInner() {
-	const containerRef = useRef<HTMLDivElement>(null);
-	const mapRef = useRef<mapboxgl.Map | null>(null);
+	const mapRef = useRef<MapRef>(null);
 
+	// ── Store selectors ──────────────────────────────────────────────────
 	const mapLoaded = useMapStore((s) => s.mapLoaded);
-	const setMap = useMapStore((s) => s.setMap);
+	const style = useMapStore((s) => s.style);
+	const projection = useMapStore((s) => s.projection);
+	const cursor = useMapStore((s) => s.cursor);
+	const interactionsEnabled = useMapStore((s) => s.interactionsEnabled);
+	const markers = useMapStore((s) => s.markers);
+	const polygons = useMapStore((s) => s.polygons);
+	const lines = useMapStore((s) => s.lines);
+
+	const setMapRef = useMapStore((s) => s.setMapRef);
 	const setMapLoaded = useMapStore((s) => s.setMapLoaded);
 	const _syncViewport = useMapStore((s) => s._syncViewport);
 
 	const { location } = useUserLocation();
 
-	// Sync store markers / polygons / lines onto the live map
-	useMapLayerSync();
+	// ── Callbacks ────────────────────────────────────────────────────────
 
-	// Initialize map once
-	useEffect(() => {
-		if (!containerRef.current || mapRef.current) return;
+	const onLoad = useCallback(() => {
+		if (mapRef.current) {
+			setMapRef(mapRef.current);
+		}
+		setMapLoaded(true);
+	}, [setMapRef, setMapLoaded]);
 
-		mapboxgl.accessToken = MAPBOX_TOKEN;
+	/** Sync viewport state back to Zustand when the map finishes moving. */
+	const onMoveEnd = useCallback(() => {
+		const m = mapRef.current;
+		if (!m) return;
+		const center = m.getCenter();
+		const bounds = m.getBounds();
+		_syncViewport(
+			{ lng: center.lng, lat: center.lat },
+			m.getZoom(),
+			m.getPitch(),
+			m.getBearing(),
+			bounds
+				? {
+						sw: {
+							lng: bounds.getSouthWest().lng,
+							lat: bounds.getSouthWest().lat,
+						},
+						ne: {
+							lng: bounds.getNorthEast().lng,
+							lat: bounds.getNorthEast().lat,
+						},
+					}
+				: null,
+		);
+	}, [_syncViewport]);
 
-		const map = new mapboxgl.Map({
-			container: containerRef.current,
-			style: 'mapbox://styles/mapbox/dark-v11',
-			center: [-95.7129, 37.0902],
-			zoom: 4,
-			attributionControl: false,
-			logoPosition: 'bottom-right',
-		});
-
-		map.on('load', () => {
-			setMapLoaded(true);
-		});
-
-		// Sync viewport state back to the store on every move
-		map.on('moveend', () => {
-			const center = map.getCenter();
-			const bounds = map.getBounds();
-			_syncViewport(
-				{ lng: center.lng, lat: center.lat },
-				map.getZoom(),
-				map.getPitch(),
-				map.getBearing(),
-				bounds
-					? {
-							sw: { lng: bounds.getSouthWest().lng, lat: bounds.getSouthWest().lat },
-							ne: { lng: bounds.getNorthEast().lng, lat: bounds.getNorthEast().lat },
-						}
-					: null,
-			);
-		});
-
-		mapRef.current = map;
-		setMap(map);
-
-		return () => {
-			map.remove();
-			mapRef.current = null;
-		};
-	}, []);
-
-	// Update map center when user location becomes available
+	// ── Fly to user location once available ──────────────────────────────
 	useEffect(() => {
 		if (!mapRef.current || !mapLoaded || !location) return;
-
 		mapRef.current.flyTo({
 			center: [location.lng, location.lat],
 			zoom: 12,
@@ -92,9 +97,144 @@ function MapboxMapInner() {
 		});
 	}, [location, mapLoaded]);
 
+	// ── Declarative markers (memoized per react-map-gl tips) ─────────────
+	const markerElements = useMemo(() => {
+		return Array.from(markers.values())
+			.filter((m) => m.visible !== false)
+			.map((m) => {
+				const popup = m.popup
+					? new mapboxgl.Popup({ offset: 25, closeButton: false }).setHTML(
+							m.popup,
+						)
+					: undefined;
+				return (
+					<Marker
+						key={m.id}
+						longitude={m.lngLat.lng}
+						latitude={m.lngLat.lat}
+						color={m.color ?? '#10b981'}
+						popup={popup}
+					/>
+				);
+			});
+	}, [markers]);
+
+	// ── Declarative polygon layers ───────────────────────────────────────
+	const polygonElements = useMemo(() => {
+		return Array.from(polygons.values())
+			.filter((p) => p.visible !== false)
+			.map((p) => (
+				<Source
+					key={p.id}
+					id={`polygon-${p.id}`}
+					type="geojson"
+					data={{
+						type: 'Feature' as const,
+						properties: {},
+						geometry: {
+							type: 'Polygon' as const,
+							coordinates: p.coordinates,
+						},
+					}}
+				>
+					<Layer
+						id={`polygon-fill-${p.id}`}
+						type="fill"
+						paint={{
+							'fill-color': p.fillColor ?? '#10b981',
+							'fill-opacity': p.fillOpacity ?? 0.3,
+						}}
+					/>
+					<Layer
+						id={`polygon-stroke-${p.id}`}
+						type="line"
+						paint={{
+							'line-color': p.strokeColor ?? p.fillColor ?? '#10b981',
+							'line-width': p.strokeWidth ?? 2,
+						}}
+					/>
+				</Source>
+			));
+	}, [polygons]);
+
+	// ── Declarative line layers ──────────────────────────────────────────
+	const lineElements = useMemo(() => {
+		return Array.from(lines.values())
+			.filter((l) => l.visible !== false)
+			.map((l) => (
+				<Source
+					key={l.id}
+					id={`line-src-${l.id}`}
+					type="geojson"
+					data={{
+						type: 'Feature' as const,
+						properties: {},
+						geometry: {
+							type: 'LineString' as const,
+							coordinates: l.coordinates,
+						},
+					}}
+				>
+					<Layer
+						id={`line-${l.id}`}
+						type="line"
+						paint={{
+							'line-color': l.color ?? '#f59e0b',
+							'line-width': l.width ?? 2,
+							...(l.dashArray && {
+								'line-dasharray': l.dashArray,
+							}),
+						}}
+						layout={{
+							'line-cap': 'round',
+							'line-join': 'round',
+						}}
+					/>
+				</Source>
+			));
+	}, [lines]);
+
+	// ── Render ────────────────────────────────────────────────────────────
 	return (
 		<div className="absolute inset-0 z-0">
-			<div ref={containerRef} className="h-full w-full" />
+			<Map
+				ref={mapRef}
+				reuseMaps
+				mapboxAccessToken={MAPBOX_TOKEN}
+				initialViewState={{
+					longitude: -95.7129,
+					latitude: 37.0902,
+					zoom: 4,
+					pitch: 0,
+					bearing: 0,
+				}}
+				mapStyle={style}
+				projection={
+					projection as
+						| 'mercator'
+						| 'globe'
+						| 'equalEarth'
+						| 'naturalEarth'
+						| 'winkelTripel'
+				}
+				cursor={cursor}
+				attributionControl={false}
+				logoPosition="bottom-right"
+				dragPan={interactionsEnabled}
+				scrollZoom={interactionsEnabled}
+				boxZoom={interactionsEnabled}
+				dragRotate={interactionsEnabled}
+				keyboard={interactionsEnabled}
+				doubleClickZoom={interactionsEnabled}
+				touchZoomRotate={interactionsEnabled}
+				onLoad={onLoad}
+				onMoveEnd={onMoveEnd}
+				style={{ width: '100%', height: '100%' }}
+			>
+				{markerElements}
+				{polygonElements}
+				{lineElements}
+			</Map>
 
 			{/* Custom branded controls */}
 			<MapControls />

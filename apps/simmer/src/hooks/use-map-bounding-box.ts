@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
-import { useMapStore } from '@/src/stores/map-store';
 import type { BoundingBox, LngLat } from '@/src/stores/map-store';
+import { useMapStore } from '@/src/stores/map-store';
 
 /**
  * Hook for reading and controlling the map bounding box.
@@ -13,19 +13,19 @@ import type { BoundingBox, LngLat } from '@/src/stores/map-store';
  */
 export function useMapBoundingBox() {
 	const bounds = useMapStore((s) => s.bounds);
-	const map = useMapStore((s) => s.map);
+	const mapRef = useMapStore((s) => s.mapRef);
 	const fitBounds = useMapStore((s) => s.fitBounds);
 
 	/** Get the current bounding box directly from the map instance */
 	const getCurrentBounds = useCallback((): BoundingBox | null => {
-		if (!map) return null;
-		const b = map.getBounds();
+		if (!mapRef) return null;
+		const b = mapRef.getBounds();
 		if (!b) return null;
 		return {
 			sw: { lng: b.getSouthWest().lng, lat: b.getSouthWest().lat },
 			ne: { lng: b.getNorthEast().lng, lat: b.getNorthEast().lat },
 		};
-	}, [map]);
+	}, [mapRef]);
 
 	/** Compute the center of the current bounds */
 	const boundsCenter = useMemo((): LngLat | null => {

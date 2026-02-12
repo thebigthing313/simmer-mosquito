@@ -1,4 +1,4 @@
-import type { Map as MapboxMap } from 'mapbox-gl';
+import type { MapRef } from 'react-map-gl/mapbox';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 
@@ -90,8 +90,12 @@ export type CursorStyle = 'auto' | 'pointer' | 'crosshair' | 'grab' | 'move';
 
 export interface MapState {
 	// — Map instance —
-	/** The live Mapbox GL JS map instance (set by the MapboxMap component) */
-	map: MapboxMap | null;
+	/**
+	 * The react-map-gl MapRef. Exposes camera methods (flyTo, easeTo, etc.)
+	 * and read-only queries (getBounds, getZoom, etc.).
+	 * Use `mapRef.getMap()` when you need the underlying mapbox-gl Map instance.
+	 */
+	mapRef: MapRef | null;
 	mapLoaded: boolean;
 
 	// — Viewport —
@@ -102,9 +106,13 @@ export interface MapState {
 	bounds: BoundingBox | null;
 
 	// — Style / settings —
+	/** Reactive: drives the Map component's `mapStyle` prop. */
 	style: MapStyle;
+	/** Reactive: drives the Map component's `projection` prop. */
 	projection: MapProjection;
+	/** Reactive: drives the Map component's `cursor` prop. */
 	cursor: CursorStyle;
+	/** Reactive: drives the Map component's interaction-handler props. */
 	interactionsEnabled: boolean;
 	terrain3D: boolean;
 
@@ -116,23 +124,32 @@ export interface MapState {
 
 export interface MapActions {
 	// — Map instance —
-	setMap: (map: MapboxMap) => void;
+	setMapRef: (ref: MapRef) => void;
 	setMapLoaded: (loaded: boolean) => void;
 
 	// — Navigation —
 	setCenter: (center: LngLat) => void;
 	flyTo: (opts: FlyToOptions) => void;
-	fitBounds: (bounds: BoundingBox, options?: { padding?: number; duration?: number }) => void;
+	fitBounds: (
+		bounds: BoundingBox,
+		options?: { padding?: number; duration?: number },
+	) => void;
 	easeTo: (opts: Partial<FlyToOptions>) => void;
 	zoomTo: (zoom: number, duration?: number) => void;
 	resetNorth: (duration?: number) => void;
 	setBearing: (bearing: number) => void;
 	setPitch: (pitch: number) => void;
 
-	// — Viewport tracking (called internally by move listeners) —
-	_syncViewport: (center: LngLat, zoom: number, pitch: number, bearing: number, bounds: BoundingBox | null) => void;
+	// — Viewport tracking (called by the Map component's onMoveEnd) —
+	_syncViewport: (
+		center: LngLat,
+		zoom: number,
+		pitch: number,
+		bearing: number,
+		bounds: BoundingBox | null,
+	) => void;
 
-	// — Style / settings —
+	// — Style / settings (pure state setters; Map reads reactively) —
 	setStyle: (style: MapStyle) => void;
 	setProjection: (projection: MapProjection) => void;
 	setCursor: (cursor: CursorStyle) => void;
@@ -186,7 +203,7 @@ const DEFAULT_STYLE: MapStyle = 'mapbox://styles/mapbox/dark-v11';
 export const useMapStore = create<MapStore>()(
 	subscribeWithSelector((set, get) => ({
 		// — initial state —
-		map: null,
+		mapRef: null,
 		mapLoaded: false,
 
 		center: DEFAULT_CENTER,
@@ -208,38 +225,33 @@ export const useMapStore = create<MapStore>()(
 		// ---------------------------------------------------------------
 		// Map instance
 		// ---------------------------------------------------------------
-		setMap: (map) => set({ map }),
+		setMapRef: (ref) => set({ mapRef: ref }),
 		setMapLoaded: (loaded) => set({ mapLoaded: loaded }),
 
 		// ---------------------------------------------------------------
 		// Navigation
 		// ---------------------------------------------------------------
 		setCenter: (center) => {
-			const { map } = get();
-			map?.setCenter([center.lng, center.lat]);
+			const { mapRef } = get();
+			mapRef?.jumpTo({ center: [center.lng, center.lat] });
 			set({ center });
 		},
 
 		flyTo: (opts) => {
-			const { map } = get();
-			map?.flyTo({
+			const { mapRef } = get();
+			mapRef?.flyTo({
 				center: [opts.center.lng, opts.center.lat],
 				...(opts.zoom != null && { zoom: opts.zoom }),
 				...(opts.pitch != null && { pitch: opts.pitch }),
 				...(opts.bearing != null && { bearing: opts.bearing }),
 				duration: opts.duration ?? 2000,
 			});
-			set({
-				center: opts.center,
-				...(opts.zoom != null && { zoom: opts.zoom }),
-				...(opts.pitch != null && { pitch: opts.pitch }),
-				...(opts.bearing != null && { bearing: opts.bearing }),
-			});
+			// State is synced via the Map component's onMoveEnd callback.
 		},
 
 		fitBounds: (bounds, options) => {
-			const { map } = get();
-			map?.fitBounds(
+			const { mapRef } = get();
+			mapRef?.fitBounds(
 				[
 					[bounds.sw.lng, bounds.sw.lat],
 					[bounds.ne.lng, bounds.ne.lat],
@@ -252,102 +264,64 @@ export const useMapStore = create<MapStore>()(
 		},
 
 		easeTo: (opts) => {
-			const { map } = get();
-			map?.easeTo({
-				...(opts.center && { center: [opts.center.lng, opts.center.lat] as [number, number] }),
+			const { mapRef } = get();
+			mapRef?.easeTo({
+				...(opts.center && {
+					center: [opts.center.lng, opts.center.lat] as [number, number],
+				}),
 				...(opts.zoom != null && { zoom: opts.zoom }),
 				...(opts.pitch != null && { pitch: opts.pitch }),
 				...(opts.bearing != null && { bearing: opts.bearing }),
 				duration: opts.duration ?? 1000,
 			});
-			set({
-				...(opts.center && { center: opts.center }),
-				...(opts.zoom != null && { zoom: opts.zoom }),
-				...(opts.pitch != null && { pitch: opts.pitch }),
-				...(opts.bearing != null && { bearing: opts.bearing }),
-			});
 		},
 
 		zoomTo: (zoom, duration = 1000) => {
-			const { map } = get();
-			map?.zoomTo(zoom, { duration });
+			const { mapRef } = get();
+			mapRef?.zoomTo(zoom, { duration });
 			set({ zoom });
 		},
 
 		resetNorth: (duration = 1000) => {
-			const { map } = get();
-			map?.resetNorth({ duration });
+			const { mapRef } = get();
+			mapRef?.resetNorth({ duration });
 			set({ bearing: 0 });
 		},
 
 		setBearing: (bearing) => {
-			const { map } = get();
-			map?.setBearing(bearing);
+			const { mapRef } = get();
+			mapRef?.getMap().setBearing(bearing);
 			set({ bearing });
 		},
 
 		setPitch: (pitch) => {
-			const { map } = get();
-			map?.setPitch(pitch);
+			const { mapRef } = get();
+			mapRef?.getMap().setPitch(pitch);
 			set({ pitch });
 		},
 
 		// ---------------------------------------------------------------
-		// Internal viewport sync
+		// Internal viewport sync (called by Map component's onMoveEnd)
 		// ---------------------------------------------------------------
 		_syncViewport: (center, zoom, pitch, bearing, bounds) =>
 			set({ center, zoom, pitch, bearing, bounds }),
 
 		// ---------------------------------------------------------------
-		// Style / settings
+		// Style / settings — pure state setters.
+		// The Map component reads these reactively and passes them as props.
 		// ---------------------------------------------------------------
-		setStyle: (style) => {
-			const { map } = get();
-			map?.setStyle(style);
-			set({ style });
-		},
+		setStyle: (style) => set({ style }),
 
-		setProjection: (projection) => {
-			const { map } = get();
-			(map as any)?.setProjection?.(projection);
-			set({ projection });
-		},
+		setProjection: (projection) => set({ projection }),
 
-		setCursor: (cursor) => {
-			const { map } = get();
-			if (map) {
-				map.getCanvas().style.cursor = cursor;
-			}
-			set({ cursor });
-		},
+		setCursor: (cursor) => set({ cursor }),
 
-		setInteractionsEnabled: (enabled) => {
-			const { map } = get();
-			if (map) {
-				if (enabled) {
-					map.dragPan.enable();
-					map.scrollZoom.enable();
-					map.boxZoom.enable();
-					map.dragRotate.enable();
-					map.keyboard.enable();
-					map.doubleClickZoom.enable();
-					map.touchZoomRotate.enable();
-				} else {
-					map.dragPan.disable();
-					map.scrollZoom.disable();
-					map.boxZoom.disable();
-					map.dragRotate.disable();
-					map.keyboard.disable();
-					map.doubleClickZoom.disable();
-					map.touchZoomRotate.disable();
-				}
-			}
-			set({ interactionsEnabled: enabled });
-		},
+		setInteractionsEnabled: (enabled) => set({ interactionsEnabled: enabled }),
 
 		setTerrain3D: (enabled) => {
-			const { map } = get();
-			if (map) {
+			const { mapRef } = get();
+			if (mapRef) {
+				const map = mapRef.getMap();
 				if (enabled) {
 					if (!map.getSource('mapbox-dem')) {
 						map.addSource('mapbox-dem', {
@@ -415,14 +389,25 @@ export const useMapStore = create<MapStore>()(
 		addPolygon: (polygon) =>
 			set((s) => {
 				const next = new Map(s.polygons);
-				next.set(polygon.id, { visible: true, fillOpacity: 0.3, strokeWidth: 2, ...polygon });
+				next.set(polygon.id, {
+					visible: true,
+					fillOpacity: 0.3,
+					strokeWidth: 2,
+					...polygon,
+				});
 				return { polygons: next };
 			}),
 
 		addPolygons: (polygons) =>
 			set((s) => {
 				const next = new Map(s.polygons);
-				for (const p of polygons) next.set(p.id, { visible: true, fillOpacity: 0.3, strokeWidth: 2, ...p });
+				for (const p of polygons)
+					next.set(p.id, {
+						visible: true,
+						fillOpacity: 0.3,
+						strokeWidth: 2,
+						...p,
+					});
 				return { polygons: next };
 			}),
 
@@ -466,7 +451,8 @@ export const useMapStore = create<MapStore>()(
 		addLines: (lines) =>
 			set((s) => {
 				const next = new Map(s.lines);
-				for (const l of lines) next.set(l.id, { visible: true, width: 2, ...l });
+				for (const l of lines)
+					next.set(l.id, { visible: true, width: 2, ...l });
 				return { lines: next };
 			}),
 

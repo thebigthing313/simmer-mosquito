@@ -1,25 +1,36 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
+import type { MapRef } from 'react-map-gl/mapbox';
 import { useMapStore } from '@/src/stores/map-store';
 
 /**
- * Hook that returns the raw Mapbox GL JS `map` instance and its loaded state.
+ * Hook that returns the react-map-gl MapRef and its loaded state.
  *
- * Use this only when you need direct access to the map instance for advanced
- * operations not covered by the store.
+ * `mapRef` exposes safe camera methods (flyTo, easeTo, etc.) and read-only
+ * queries (getBounds, getZoom, etc.).
+ *
+ * Use `mapRef.getMap()` when you need the underlying native mapbox-gl Map
+ * instance for advanced operations not covered by the store.
  *
  * @example
  * ```tsx
- * const { map, mapLoaded } = useMapInstance();
- * if (map && mapLoaded) {
- *   map.addSource('my-source', { type: 'geojson', data: geojson });
+ * const { mapRef, mapLoaded } = useMapInstance();
+ * if (mapRef && mapLoaded) {
+ *   const nativeMap = mapRef.getMap();
+ *   nativeMap.addSource('my-source', { type: 'geojson', data: geojson });
  * }
  * ```
  */
 export function useMapInstance(): {
+	mapRef: MapRef | null;
+	/** @deprecated Use `mapRef.getMap()` instead for the native map instance. */
 	map: MapboxMap | null;
 	mapLoaded: boolean;
 } {
-	const map = useMapStore((s) => s.map);
+	const mapRef = useMapStore((s) => s.mapRef);
 	const mapLoaded = useMapStore((s) => s.mapLoaded);
-	return { map, mapLoaded };
+	return {
+		mapRef,
+		map: mapRef?.getMap() ?? null,
+		mapLoaded,
+	};
 }

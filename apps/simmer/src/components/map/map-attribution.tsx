@@ -28,22 +28,26 @@ export function MapAttribution() {
  * Visual scale bar that automatically matches the current zoom level.
  */
 export function MapScaleBar() {
-	const map = useMapStore((s) => s.map);
+	const mapRef = useMapStore((s) => s.mapRef);
 	const mapLoaded = useMapStore((s) => s.mapLoaded);
 	const zoom = useMapStore((s) => s.zoom);
 	const center = useMapStore((s) => s.center);
 
-	const [scale, setScale] = useState<{ distance: string; width: number } | null>(null);
+	const [scale, setScale] = useState<{
+		distance: string;
+		width: number;
+	} | null>(null);
 
 	useEffect(() => {
-		if (!map || !mapLoaded) return;
+		if (!mapRef || !mapLoaded) return;
 
 		const calculate = () => {
-			const y = map.getContainer().clientHeight / 2;
+			const container = mapRef.getContainer();
+			const y = container.clientHeight / 2;
 			const maxBarWidth = 100; // px
 
-			const left = map.unproject([0, y]);
-			const right = map.unproject([maxBarWidth, y]);
+			const left = mapRef.unproject([0, y]);
+			const right = mapRef.unproject([maxBarWidth, y]);
 
 			const R = 6371e3;
 			const toRad = (d: number) => (d * Math.PI) / 180;
@@ -58,8 +62,8 @@ export function MapScaleBar() {
 
 			// Pick a nice round number
 			const niceMetres = [
-				1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10_000,
-				20_000, 50_000, 100_000, 200_000, 500_000, 1_000_000,
+				1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10_000, 20_000,
+				50_000, 100_000, 200_000, 500_000, 1_000_000,
 			];
 
 			let best = niceMetres[0];
@@ -71,13 +75,13 @@ export function MapScaleBar() {
 			const ratio = best / metres;
 			const barWidth = Math.round(maxBarWidth * ratio);
 
-			const label =
-				best >= 1000 ? `${best / 1000} km` : `${best} m`;
+			const label = best >= 1000 ? `${best / 1000} km` : `${best} m`;
 
 			setScale({ distance: label, width: barWidth });
 		};
 
 		calculate();
+		const map = mapRef.getMap();
 		map.on('moveend', calculate);
 		map.on('zoomend', calculate);
 
@@ -85,7 +89,7 @@ export function MapScaleBar() {
 			map.off('moveend', calculate);
 			map.off('zoomend', calculate);
 		};
-	}, [map, mapLoaded, zoom, center]);
+	}, [mapRef, mapLoaded, zoom, center]);
 
 	if (!scale) return null;
 

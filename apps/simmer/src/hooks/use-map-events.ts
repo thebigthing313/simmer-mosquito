@@ -1,11 +1,12 @@
+import type { MapboxGeoJSONFeature, MapMouseEvent } from 'mapbox-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useMapStore } from '@/src/stores/map-store';
 import type { LngLat } from '@/src/stores/map-store';
+import { useMapStore } from '@/src/stores/map-store';
 
 interface MapClickEvent {
 	lngLat: LngLat;
 	point: { x: number; y: number };
-	features?: mapboxgl.MapboxGeoJSONFeature[];
+	features?: MapboxGeoJSONFeature[];
 }
 
 /**
@@ -28,29 +29,30 @@ export function useMapEvents(handlers: {
 	onMouseMove?: (e: MapClickEvent) => void;
 	onContextMenu?: (e: MapClickEvent) => void;
 }) {
-	const map = useMapStore((s) => s.map);
+	const mapRef = useMapStore((s) => s.mapRef);
 	const handlersRef = useRef(handlers);
 	handlersRef.current = handlers;
 
 	useEffect(() => {
-		if (!map) return;
+		if (!mapRef) return;
+		const map = mapRef.getMap();
 
-		const toMapClickEvent = (e: mapboxgl.MapMouseEvent): MapClickEvent => ({
+		const toMapClickEvent = (e: MapMouseEvent): MapClickEvent => ({
 			lngLat: { lng: e.lngLat.lng, lat: e.lngLat.lat },
 			point: { x: e.point.x, y: e.point.y },
 			features: (e as any).features,
 		});
 
-		const onClick = (e: mapboxgl.MapMouseEvent) =>
+		const onClick = (e: MapMouseEvent) =>
 			handlersRef.current.onClick?.(toMapClickEvent(e));
-		const onDblClick = (e: mapboxgl.MapMouseEvent) =>
+		const onDblClick = (e: MapMouseEvent) =>
 			handlersRef.current.onDblClick?.(toMapClickEvent(e));
 		const onMoveStart = () => handlersRef.current.onMoveStart?.();
 		const onMoveEnd = () => handlersRef.current.onMoveEnd?.();
 		const onZoomEnd = () => handlersRef.current.onZoomEnd?.();
-		const onMouseMove = (e: mapboxgl.MapMouseEvent) =>
+		const onMouseMove = (e: MapMouseEvent) =>
 			handlersRef.current.onMouseMove?.(toMapClickEvent(e));
-		const onContextMenu = (e: mapboxgl.MapMouseEvent) =>
+		const onContextMenu = (e: MapMouseEvent) =>
 			handlersRef.current.onContextMenu?.(toMapClickEvent(e));
 
 		map.on('click', onClick);
@@ -70,7 +72,7 @@ export function useMapEvents(handlers: {
 			map.off('mousemove', onMouseMove);
 			map.off('contextmenu', onContextMenu);
 		};
-	}, [map]);
+	}, [mapRef]);
 }
 
 /**
@@ -83,12 +85,13 @@ export function useMapEvents(handlers: {
  * ```
  */
 export function useMapCursorPosition() {
-	const map = useMapStore((s) => s.map);
+	const mapRef = useMapStore((s) => s.mapRef);
 	const [position, setPosition] = useState<LngLat | null>(null);
 
 	useEffect(() => {
-		if (!map) return;
-		const onMove = (e: mapboxgl.MapMouseEvent) => {
+		if (!mapRef) return;
+		const map = mapRef.getMap();
+		const onMove = (e: MapMouseEvent) => {
 			setPosition({ lng: e.lngLat.lng, lat: e.lngLat.lat });
 		};
 		const onLeave = () => setPosition(null);
@@ -98,7 +101,7 @@ export function useMapCursorPosition() {
 			map.off('mousemove', onMove);
 			map.off('mouseout', onLeave);
 		};
-	}, [map]);
+	}, [mapRef]);
 
 	return position;
 }
@@ -107,21 +110,18 @@ export function useMapCursorPosition() {
  * Hook for measuring approximate distance between two points (Haversine).
  */
 export function useMapDistance() {
-	const haversine = useCallback(
-		(a: LngLat, b: LngLat): number => {
-			const R = 6371e3; // Earth radius in metres
-			const toRad = (deg: number) => (deg * Math.PI) / 180;
-			const dLat = toRad(b.lat - a.lat);
-			const dLng = toRad(b.lng - a.lng);
-			const sinDLat = Math.sin(dLat / 2);
-			const sinDLng = Math.sin(dLng / 2);
-			const h =
-				sinDLat * sinDLat +
-				Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinDLng * sinDLng;
-			return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-		},
-		[],
-	);
+	const haversine = useCallback((a: LngLat, b: LngLat): number => {
+		const R = 6371e3; // Earth radius in metres
+		const toRad = (deg: number) => (deg * Math.PI) / 180;
+		const dLat = toRad(b.lat - a.lat);
+		const dLng = toRad(b.lng - a.lng);
+		const sinDLat = Math.sin(dLat / 2);
+		const sinDLng = Math.sin(dLng / 2);
+		const h =
+			sinDLat * sinDLat +
+			Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinDLng * sinDLng;
+		return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+	}, []);
 
 	/** Distance in metres */
 	const distanceMetres = useCallback(
