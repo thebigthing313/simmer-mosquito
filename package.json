@@ -5,7 +5,7 @@
 	"scripts": {
 		"change": "changeset",
 		"version-pkgs": "changeset version",
-		"gen-types": "supabase gen types typescript --local > ./packages/data/src/database.types.ts"
+		"gen-types": "supabase gen types typescript --local > ./packages/simmerbase/src/database.types.ts"
 	},
 	"keywords": [],
 	"author": "",
