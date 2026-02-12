@@ -2,7 +2,7 @@ create type public.service_request_source as enum ('online', 'phone', 'walk-in',
 
 create table public.service_requests(
     id uuid primary key default gen_random_uuid(),
-    display_id integer not null,
+    display_number integer not null,
     group_id uuid not null references public.groups(id) on delete restrict on update cascade,
     contact_id uuid not null references public.contacts(id) on delete restrict on update cascade,
     address_id uuid not null references public.addresses(id) on delete restrict on update cascade,
