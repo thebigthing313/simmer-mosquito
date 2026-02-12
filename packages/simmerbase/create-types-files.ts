@@ -263,7 +263,7 @@ function zodExpressionForField(
 function main() {
 	const rootDir = import.meta.dirname;
 	const typesFilePath = path.join(rootDir, 'src', 'database.types.ts');
-	const outDir = path.join(rootDir, 'src', 'tables');
+	const outDir = path.join(rootDir, 'src', 'schemas');
 
 	if (!fs.existsSync(typesFilePath)) {
 		console.error(`❌  database.types.ts not found at ${typesFilePath}`);
