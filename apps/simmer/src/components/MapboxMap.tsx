@@ -1,19 +1,39 @@
 import mapboxgl from 'mapbox-gl';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { useMapLayerSync } from '@/src/hooks/use-map-layer-sync';
 import { useUserLocation } from '@/src/hooks/use-user-location';
+import { useMapStore } from '@/src/stores/map-store';
+import {
+	MapAttribution,
+	MapControls,
+	MapCoordinateDisplay,
+	MapScaleBar,
+	MapStyleSwitcher,
+} from '@/src/components/map';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
 /**
  * Persistent full-viewport Mapbox container.
+ * Registers the map instance with the global Zustand store so every component
+ * in the tree can control markers, polygons, viewport, etc.
+ *
  * Memoized so it never re-renders when layouts toggle above it.
  */
 function MapboxMapInner() {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<mapboxgl.Map | null>(null);
-	const [mapLoaded, setMapLoaded] = useState(false);
+
+	const mapLoaded = useMapStore((s) => s.mapLoaded);
+	const setMap = useMapStore((s) => s.setMap);
+	const setMapLoaded = useMapStore((s) => s.setMapLoaded);
+	const _syncViewport = useMapStore((s) => s._syncViewport);
+
 	const { location } = useUserLocation();
+
+	// Sync store markers / polygons / lines onto the live map
+	useMapLayerSync();
 
 	// Initialize map once
 	useEffect(() => {
@@ -23,25 +43,37 @@ function MapboxMapInner() {
 
 		const map = new mapboxgl.Map({
 			container: containerRef.current,
-			// A dark, muted style that works well as a dashboard backdrop
 			style: 'mapbox://styles/mapbox/dark-v11',
-			center: [-95.7129, 37.0902], // Center of US
+			center: [-95.7129, 37.0902],
 			zoom: 4,
 			attributionControl: false,
 			logoPosition: 'bottom-right',
 		});
 
-		map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
-		map.addControl(
-			new mapboxgl.AttributionControl({ compact: true }),
-			'bottom-right',
-		);
-
 		map.on('load', () => {
 			setMapLoaded(true);
 		});
 
+		// Sync viewport state back to the store on every move
+		map.on('moveend', () => {
+			const center = map.getCenter();
+			const bounds = map.getBounds();
+			_syncViewport(
+				{ lng: center.lng, lat: center.lat },
+				map.getZoom(),
+				map.getPitch(),
+				map.getBearing(),
+				bounds
+					? {
+							sw: { lng: bounds.getSouthWest().lng, lat: bounds.getSouthWest().lat },
+							ne: { lng: bounds.getNorthEast().lng, lat: bounds.getNorthEast().lat },
+						}
+					: null,
+			);
+		});
+
 		mapRef.current = map;
+		setMap(map);
 
 		return () => {
 			map.remove();
@@ -63,6 +95,14 @@ function MapboxMapInner() {
 	return (
 		<div className="absolute inset-0 z-0">
 			<div ref={containerRef} className="h-full w-full" />
+
+			{/* Custom branded controls */}
+			<MapControls />
+			<MapStyleSwitcher />
+			<MapScaleBar />
+			<MapCoordinateDisplay />
+			<MapAttribution />
+
 			{!mapLoaded && (
 				<div className="absolute inset-0 flex items-center justify-center bg-zinc-950">
 					<div className="flex flex-col items-center gap-3">
