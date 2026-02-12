@@ -13,7 +13,7 @@
 	"dependencies": {
 		"libphonenumber-js": "^1.12.33",
 		"lucide-react": "^0.475.0",
-		"zod": "^4.3.5"
+		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@simmer/typescript-config": "workspace:*",
@@ -23,6 +23,7 @@
 	},
 	"exports": {
 		"./constants/*": "./src/constants/*.ts",
-		"./functions/*": "./src/functions/*.ts"
+		"./functions/*": "./src/functions/*.ts",
+		"./validators": "./src/validators.ts"
 	}
 }
