@@ -1,6 +1,7 @@
 import mapboxgl from 'mapbox-gl';
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { MapRef } from 'react-map-gl/mapbox';
+// biome-ignore lint/suspicious/noShadowRestrictedNames: <visgl map instance, not the global mapboxgl.Map class>
 import Map, { Layer, Marker, Source } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
