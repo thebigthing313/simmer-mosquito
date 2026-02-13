@@ -1,5 +1,11 @@
 # @simmer/ui
 
+## 0.3.0
+
+### Minor Changes
+
+- e697238: Set major brand color variables.
+
 ## 0.2.0
 
 ### Minor Changes

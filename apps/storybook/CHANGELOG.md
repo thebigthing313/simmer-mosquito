@@ -1,5 +1,13 @@
 # @simmer/storybook
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [e697238]
+  - @simmer/ui@0.3.0
+  - @simmer/forms@0.3.1
+
 ## 0.2.1
 
 ### Patch Changes

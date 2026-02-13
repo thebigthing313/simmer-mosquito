@@ -1,5 +1,14 @@
 # @simmer/forms
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [e697238]
+- Updated dependencies [b9c9af7]
+  - @simmer/ui@0.3.0
+  - @simmer/lib@0.2.0
+
 ## 0.3.0
 
 ### Minor Changes
