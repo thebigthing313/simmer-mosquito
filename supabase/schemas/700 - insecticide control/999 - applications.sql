@@ -10,7 +10,7 @@ create table public.applications(
     --- originating tables
     flight_aerial_site_id uuid references public.flight_aerial_sites(id) on delete restrict on update cascade,
     catch_basin_mission_id uuid references public.catch_basin_missions(id) on delete restrict on update cascade,
-    truck_ulv_id uuid references public.truck_ulvs(id) on delete restrict on update cascade,
+    truck_ulv_id uuid references public.areawide_adulticiding(id) on delete restrict on update cascade,
     hand_ulv_id uuid references public.hand_ulvs(id) on delete restrict on update cascade,
     point_larviciding_id uuid references public.point_larviciding(id) on delete restrict on update cascade,
     ----------------------

@@ -1,4 +1,4 @@
-create table public.truck_ulvs(
+create table public.areawide_adulticiding(
     id uuid primary key default gen_random_uuid(),
     group_id uuid not null references public.groups(id) on delete restrict on update cascade,
     area_description text,
@@ -46,41 +46,41 @@ create table public.truck_ulvs(
     )
 );
 
-create index idx_truck_ulvs_geom on public.truck_ulvs using GIST (geom);
+create index idx_truck_ulvs_geom on public.areawide_adulticiding using GIST (geom);
 
 create trigger set_audit_fields
-before insert or update on public.truck_ulvs
+before insert or update on public.areawide_adulticiding
 for each row
 execute function public.set_audit_fields();
 
 create trigger soft_delete_trigger
-before delete on public.truck_ulvs
+before delete on public.areawide_adulticiding
 for each row
 execute function simmer.soft_delete();
 
-alter table public.truck_ulvs enable row level security;
+alter table public.areawide_adulticiding enable row level security;
 
 create policy "select: own groups"
-on public.truck_ulvs
+on public.areawide_adulticiding
 for select
 to authenticated
 using (public.user_is_group_member(group_id));
 
 create policy "insert: own group collector"
-on public.truck_ulvs
+on public.areawide_adulticiding
 for insert
 to authenticated
 with check (public.user_has_group_role(group_id, 4));
 
 create policy "update: own group collector"
-on public.truck_ulvs
+on public.areawide_adulticiding
 for update
 to authenticated
 using (public.user_has_group_role(group_id, 4))
 with check (public.user_has_group_role(group_id, 4));
 
 create policy "delete: own group manager or own records"
-on public.truck_ulvs
+on public.areawide_adulticiding
 for delete
 to authenticated
 using (public.user_has_group_role(group_id, 3) or user_owns_record(created_by));
