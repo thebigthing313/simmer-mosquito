@@ -27,13 +27,28 @@ const items: Array<NavItem> = [
 		subItems: [
 			{
 				id: 'traps',
-				label: 'View Traps',
+				label: 'Traps',
 				to: { to: '/adult-surveillance/traps' },
 			},
 			{
-				id: 'create-trap',
-				label: 'Create New Trap',
-				to: { to: '/adult-surveillance/create-trap' },
+				id: 'trap-types',
+				label: 'Trap Types',
+				to: { to: '/adult-surveillance/trap-types' },
+			},
+			{
+				id: 'trap-tags',
+				label: 'Trap Tags',
+				to: { to: '/adult-surveillance/trap-tags' },
+			},
+			{
+				id: 'trap-lures',
+				label: 'Trap Lures',
+				to: { to: '/adult-surveillance/trap-lures' },
+			},
+			{
+				id: 'collections',
+				label: 'Collections',
+				to: { to: '/adult-surveillance/collections' },
 			},
 		],
 	},

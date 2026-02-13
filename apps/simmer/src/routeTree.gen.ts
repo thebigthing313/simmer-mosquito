@@ -20,8 +20,28 @@ import { Route as authCreateAccountRouteImport } from './routes/(auth)/create-ac
 import { Route as authChangePasswordRouteImport } from './routes/(auth)/change-password'
 import { Route as appMapStressTestRouteImport } from './routes/(app)/map-stress-test'
 import { Route as appMapExampleRouteImport } from './routes/(app)/map-example'
-import { Route as appAdultSurveillanceCreateTrapRouteImport } from './routes/(app)/adult-surveillance/create-trap'
+import { Route as appSettingsIndexRouteImport } from './routes/(app)/settings/index'
+import { Route as appPublicOutreachServiceRequestsIndexRouteImport } from './routes/(app)/public-outreach/service-requests/index'
+import { Route as appPublicOutreachNotificationsIndexRouteImport } from './routes/(app)/public-outreach/notifications/index'
+import { Route as appPublicOutreachContactsIndexRouteImport } from './routes/(app)/public-outreach/contacts/index'
+import { Route as appLarvalSurveillanceInspectionsIndexRouteImport } from './routes/(app)/larval-surveillance/inspections/index'
+import { Route as appLarvalSurveillanceHabitatsIndexRouteImport } from './routes/(app)/larval-surveillance/habitats/index'
+import { Route as appLarvalSurveillanceFlightsIndexRouteImport } from './routes/(app)/larval-surveillance/flights/index'
+import { Route as appLarvalSurveillanceAerialSitesIndexRouteImport } from './routes/(app)/larval-surveillance/aerial-sites/index'
+import { Route as appLarvalSurveillanceAerialInspectionsIndexRouteImport } from './routes/(app)/larval-surveillance/aerial-inspections/index'
+import { Route as appInsecticideControlUlvMissionsIndexRouteImport } from './routes/(app)/insecticide-control/ulv-missions/index'
+import { Route as appInsecticideControlTruckUlvsIndexRouteImport } from './routes/(app)/insecticide-control/truck-ulvs/index'
+import { Route as appInsecticideControlInsecticidesIndexRouteImport } from './routes/(app)/insecticide-control/insecticides/index'
+import { Route as appInsecticideControlHandUlvsIndexRouteImport } from './routes/(app)/insecticide-control/hand-ulvs/index'
+import { Route as appInsecticideControlCatchBasinMissionsIndexRouteImport } from './routes/(app)/insecticide-control/catch-basin-missions/index'
+import { Route as appInsecticideControlApplicationsIndexRouteImport } from './routes/(app)/insecticide-control/applications/index'
+import { Route as appGisRoutesIndexRouteImport } from './routes/(app)/gis/routes/index'
+import { Route as appGisRegionsIndexRouteImport } from './routes/(app)/gis/regions/index'
+import { Route as appGisAddressesIndexRouteImport } from './routes/(app)/gis/addresses/index'
 import { Route as appAdultSurveillanceTrapsIndexRouteImport } from './routes/(app)/adult-surveillance/traps/index'
+import { Route as appAdultSurveillanceLandingRatesIndexRouteImport } from './routes/(app)/adult-surveillance/landing-rates/index'
+import { Route as appAdultSurveillanceCollectionsIndexRouteImport } from './routes/(app)/adult-surveillance/collections/index'
+import { Route as appAdultSurveillanceTrapsCreateTrapRouteImport } from './routes/(app)/adult-surveillance/traps/create-trap'
 
 const authRouteRoute = authRouteRouteImport.update({
   id: '/(auth)',
@@ -77,16 +97,132 @@ const appMapExampleRoute = appMapExampleRouteImport.update({
   path: '/map-example',
   getParentRoute: () => appRouteRoute,
 } as any)
-const appAdultSurveillanceCreateTrapRoute =
-  appAdultSurveillanceCreateTrapRouteImport.update({
-    id: '/adult-surveillance/create-trap',
-    path: '/adult-surveillance/create-trap',
+const appSettingsIndexRoute = appSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => appRouteRoute,
+} as any)
+const appPublicOutreachServiceRequestsIndexRoute =
+  appPublicOutreachServiceRequestsIndexRouteImport.update({
+    id: '/public-outreach/service-requests/',
+    path: '/public-outreach/service-requests/',
     getParentRoute: () => appRouteRoute,
   } as any)
+const appPublicOutreachNotificationsIndexRoute =
+  appPublicOutreachNotificationsIndexRouteImport.update({
+    id: '/public-outreach/notifications/',
+    path: '/public-outreach/notifications/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appPublicOutreachContactsIndexRoute =
+  appPublicOutreachContactsIndexRouteImport.update({
+    id: '/public-outreach/contacts/',
+    path: '/public-outreach/contacts/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appLarvalSurveillanceInspectionsIndexRoute =
+  appLarvalSurveillanceInspectionsIndexRouteImport.update({
+    id: '/larval-surveillance/inspections/',
+    path: '/larval-surveillance/inspections/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appLarvalSurveillanceHabitatsIndexRoute =
+  appLarvalSurveillanceHabitatsIndexRouteImport.update({
+    id: '/larval-surveillance/habitats/',
+    path: '/larval-surveillance/habitats/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appLarvalSurveillanceFlightsIndexRoute =
+  appLarvalSurveillanceFlightsIndexRouteImport.update({
+    id: '/larval-surveillance/flights/',
+    path: '/larval-surveillance/flights/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appLarvalSurveillanceAerialSitesIndexRoute =
+  appLarvalSurveillanceAerialSitesIndexRouteImport.update({
+    id: '/larval-surveillance/aerial-sites/',
+    path: '/larval-surveillance/aerial-sites/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appLarvalSurveillanceAerialInspectionsIndexRoute =
+  appLarvalSurveillanceAerialInspectionsIndexRouteImport.update({
+    id: '/larval-surveillance/aerial-inspections/',
+    path: '/larval-surveillance/aerial-inspections/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appInsecticideControlUlvMissionsIndexRoute =
+  appInsecticideControlUlvMissionsIndexRouteImport.update({
+    id: '/insecticide-control/ulv-missions/',
+    path: '/insecticide-control/ulv-missions/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appInsecticideControlTruckUlvsIndexRoute =
+  appInsecticideControlTruckUlvsIndexRouteImport.update({
+    id: '/insecticide-control/truck-ulvs/',
+    path: '/insecticide-control/truck-ulvs/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appInsecticideControlInsecticidesIndexRoute =
+  appInsecticideControlInsecticidesIndexRouteImport.update({
+    id: '/insecticide-control/insecticides/',
+    path: '/insecticide-control/insecticides/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appInsecticideControlHandUlvsIndexRoute =
+  appInsecticideControlHandUlvsIndexRouteImport.update({
+    id: '/insecticide-control/hand-ulvs/',
+    path: '/insecticide-control/hand-ulvs/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appInsecticideControlCatchBasinMissionsIndexRoute =
+  appInsecticideControlCatchBasinMissionsIndexRouteImport.update({
+    id: '/insecticide-control/catch-basin-missions/',
+    path: '/insecticide-control/catch-basin-missions/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appInsecticideControlApplicationsIndexRoute =
+  appInsecticideControlApplicationsIndexRouteImport.update({
+    id: '/insecticide-control/applications/',
+    path: '/insecticide-control/applications/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appGisRoutesIndexRoute = appGisRoutesIndexRouteImport.update({
+  id: '/gis/routes/',
+  path: '/gis/routes/',
+  getParentRoute: () => appRouteRoute,
+} as any)
+const appGisRegionsIndexRoute = appGisRegionsIndexRouteImport.update({
+  id: '/gis/regions/',
+  path: '/gis/regions/',
+  getParentRoute: () => appRouteRoute,
+} as any)
+const appGisAddressesIndexRoute = appGisAddressesIndexRouteImport.update({
+  id: '/gis/addresses/',
+  path: '/gis/addresses/',
+  getParentRoute: () => appRouteRoute,
+} as any)
 const appAdultSurveillanceTrapsIndexRoute =
   appAdultSurveillanceTrapsIndexRouteImport.update({
     id: '/adult-surveillance/traps/',
     path: '/adult-surveillance/traps/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appAdultSurveillanceLandingRatesIndexRoute =
+  appAdultSurveillanceLandingRatesIndexRouteImport.update({
+    id: '/adult-surveillance/landing-rates/',
+    path: '/adult-surveillance/landing-rates/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appAdultSurveillanceCollectionsIndexRoute =
+  appAdultSurveillanceCollectionsIndexRouteImport.update({
+    id: '/adult-surveillance/collections/',
+    path: '/adult-surveillance/collections/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appAdultSurveillanceTrapsCreateTrapRoute =
+  appAdultSurveillanceTrapsCreateTrapRouteImport.update({
+    id: '/adult-surveillance/traps/create-trap',
+    path: '/adult-surveillance/traps/create-trap',
     getParentRoute: () => appRouteRoute,
   } as any)
 
@@ -100,8 +236,28 @@ export interface FileRoutesByFullPath {
   '/login': typeof authLoginRoute
   '/verify-email': typeof authVerifyEmailRoute
   '/': typeof appIndexRoute
-  '/adult-surveillance/create-trap': typeof appAdultSurveillanceCreateTrapRoute
+  '/settings/': typeof appSettingsIndexRoute
+  '/adult-surveillance/traps/create-trap': typeof appAdultSurveillanceTrapsCreateTrapRoute
+  '/adult-surveillance/collections/': typeof appAdultSurveillanceCollectionsIndexRoute
+  '/adult-surveillance/landing-rates/': typeof appAdultSurveillanceLandingRatesIndexRoute
   '/adult-surveillance/traps/': typeof appAdultSurveillanceTrapsIndexRoute
+  '/gis/addresses/': typeof appGisAddressesIndexRoute
+  '/gis/regions/': typeof appGisRegionsIndexRoute
+  '/gis/routes/': typeof appGisRoutesIndexRoute
+  '/insecticide-control/applications/': typeof appInsecticideControlApplicationsIndexRoute
+  '/insecticide-control/catch-basin-missions/': typeof appInsecticideControlCatchBasinMissionsIndexRoute
+  '/insecticide-control/hand-ulvs/': typeof appInsecticideControlHandUlvsIndexRoute
+  '/insecticide-control/insecticides/': typeof appInsecticideControlInsecticidesIndexRoute
+  '/insecticide-control/truck-ulvs/': typeof appInsecticideControlTruckUlvsIndexRoute
+  '/insecticide-control/ulv-missions/': typeof appInsecticideControlUlvMissionsIndexRoute
+  '/larval-surveillance/aerial-inspections/': typeof appLarvalSurveillanceAerialInspectionsIndexRoute
+  '/larval-surveillance/aerial-sites/': typeof appLarvalSurveillanceAerialSitesIndexRoute
+  '/larval-surveillance/flights/': typeof appLarvalSurveillanceFlightsIndexRoute
+  '/larval-surveillance/habitats/': typeof appLarvalSurveillanceHabitatsIndexRoute
+  '/larval-surveillance/inspections/': typeof appLarvalSurveillanceInspectionsIndexRoute
+  '/public-outreach/contacts/': typeof appPublicOutreachContactsIndexRoute
+  '/public-outreach/notifications/': typeof appPublicOutreachNotificationsIndexRoute
+  '/public-outreach/service-requests/': typeof appPublicOutreachServiceRequestsIndexRoute
 }
 export interface FileRoutesByTo {
   '/map-example': typeof appMapExampleRoute
@@ -113,8 +269,28 @@ export interface FileRoutesByTo {
   '/login': typeof authLoginRoute
   '/verify-email': typeof authVerifyEmailRoute
   '/': typeof appIndexRoute
-  '/adult-surveillance/create-trap': typeof appAdultSurveillanceCreateTrapRoute
+  '/settings': typeof appSettingsIndexRoute
+  '/adult-surveillance/traps/create-trap': typeof appAdultSurveillanceTrapsCreateTrapRoute
+  '/adult-surveillance/collections': typeof appAdultSurveillanceCollectionsIndexRoute
+  '/adult-surveillance/landing-rates': typeof appAdultSurveillanceLandingRatesIndexRoute
   '/adult-surveillance/traps': typeof appAdultSurveillanceTrapsIndexRoute
+  '/gis/addresses': typeof appGisAddressesIndexRoute
+  '/gis/regions': typeof appGisRegionsIndexRoute
+  '/gis/routes': typeof appGisRoutesIndexRoute
+  '/insecticide-control/applications': typeof appInsecticideControlApplicationsIndexRoute
+  '/insecticide-control/catch-basin-missions': typeof appInsecticideControlCatchBasinMissionsIndexRoute
+  '/insecticide-control/hand-ulvs': typeof appInsecticideControlHandUlvsIndexRoute
+  '/insecticide-control/insecticides': typeof appInsecticideControlInsecticidesIndexRoute
+  '/insecticide-control/truck-ulvs': typeof appInsecticideControlTruckUlvsIndexRoute
+  '/insecticide-control/ulv-missions': typeof appInsecticideControlUlvMissionsIndexRoute
+  '/larval-surveillance/aerial-inspections': typeof appLarvalSurveillanceAerialInspectionsIndexRoute
+  '/larval-surveillance/aerial-sites': typeof appLarvalSurveillanceAerialSitesIndexRoute
+  '/larval-surveillance/flights': typeof appLarvalSurveillanceFlightsIndexRoute
+  '/larval-surveillance/habitats': typeof appLarvalSurveillanceHabitatsIndexRoute
+  '/larval-surveillance/inspections': typeof appLarvalSurveillanceInspectionsIndexRoute
+  '/public-outreach/contacts': typeof appPublicOutreachContactsIndexRoute
+  '/public-outreach/notifications': typeof appPublicOutreachNotificationsIndexRoute
+  '/public-outreach/service-requests': typeof appPublicOutreachServiceRequestsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -129,8 +305,28 @@ export interface FileRoutesById {
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/verify-email': typeof authVerifyEmailRoute
   '/(app)/': typeof appIndexRoute
-  '/(app)/adult-surveillance/create-trap': typeof appAdultSurveillanceCreateTrapRoute
+  '/(app)/settings/': typeof appSettingsIndexRoute
+  '/(app)/adult-surveillance/traps/create-trap': typeof appAdultSurveillanceTrapsCreateTrapRoute
+  '/(app)/adult-surveillance/collections/': typeof appAdultSurveillanceCollectionsIndexRoute
+  '/(app)/adult-surveillance/landing-rates/': typeof appAdultSurveillanceLandingRatesIndexRoute
   '/(app)/adult-surveillance/traps/': typeof appAdultSurveillanceTrapsIndexRoute
+  '/(app)/gis/addresses/': typeof appGisAddressesIndexRoute
+  '/(app)/gis/regions/': typeof appGisRegionsIndexRoute
+  '/(app)/gis/routes/': typeof appGisRoutesIndexRoute
+  '/(app)/insecticide-control/applications/': typeof appInsecticideControlApplicationsIndexRoute
+  '/(app)/insecticide-control/catch-basin-missions/': typeof appInsecticideControlCatchBasinMissionsIndexRoute
+  '/(app)/insecticide-control/hand-ulvs/': typeof appInsecticideControlHandUlvsIndexRoute
+  '/(app)/insecticide-control/insecticides/': typeof appInsecticideControlInsecticidesIndexRoute
+  '/(app)/insecticide-control/truck-ulvs/': typeof appInsecticideControlTruckUlvsIndexRoute
+  '/(app)/insecticide-control/ulv-missions/': typeof appInsecticideControlUlvMissionsIndexRoute
+  '/(app)/larval-surveillance/aerial-inspections/': typeof appLarvalSurveillanceAerialInspectionsIndexRoute
+  '/(app)/larval-surveillance/aerial-sites/': typeof appLarvalSurveillanceAerialSitesIndexRoute
+  '/(app)/larval-surveillance/flights/': typeof appLarvalSurveillanceFlightsIndexRoute
+  '/(app)/larval-surveillance/habitats/': typeof appLarvalSurveillanceHabitatsIndexRoute
+  '/(app)/larval-surveillance/inspections/': typeof appLarvalSurveillanceInspectionsIndexRoute
+  '/(app)/public-outreach/contacts/': typeof appPublicOutreachContactsIndexRoute
+  '/(app)/public-outreach/notifications/': typeof appPublicOutreachNotificationsIndexRoute
+  '/(app)/public-outreach/service-requests/': typeof appPublicOutreachServiceRequestsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -144,8 +340,28 @@ export interface FileRouteTypes {
     | '/login'
     | '/verify-email'
     | '/'
-    | '/adult-surveillance/create-trap'
+    | '/settings/'
+    | '/adult-surveillance/traps/create-trap'
+    | '/adult-surveillance/collections/'
+    | '/adult-surveillance/landing-rates/'
     | '/adult-surveillance/traps/'
+    | '/gis/addresses/'
+    | '/gis/regions/'
+    | '/gis/routes/'
+    | '/insecticide-control/applications/'
+    | '/insecticide-control/catch-basin-missions/'
+    | '/insecticide-control/hand-ulvs/'
+    | '/insecticide-control/insecticides/'
+    | '/insecticide-control/truck-ulvs/'
+    | '/insecticide-control/ulv-missions/'
+    | '/larval-surveillance/aerial-inspections/'
+    | '/larval-surveillance/aerial-sites/'
+    | '/larval-surveillance/flights/'
+    | '/larval-surveillance/habitats/'
+    | '/larval-surveillance/inspections/'
+    | '/public-outreach/contacts/'
+    | '/public-outreach/notifications/'
+    | '/public-outreach/service-requests/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/map-example'
@@ -157,8 +373,28 @@ export interface FileRouteTypes {
     | '/login'
     | '/verify-email'
     | '/'
-    | '/adult-surveillance/create-trap'
+    | '/settings'
+    | '/adult-surveillance/traps/create-trap'
+    | '/adult-surveillance/collections'
+    | '/adult-surveillance/landing-rates'
     | '/adult-surveillance/traps'
+    | '/gis/addresses'
+    | '/gis/regions'
+    | '/gis/routes'
+    | '/insecticide-control/applications'
+    | '/insecticide-control/catch-basin-missions'
+    | '/insecticide-control/hand-ulvs'
+    | '/insecticide-control/insecticides'
+    | '/insecticide-control/truck-ulvs'
+    | '/insecticide-control/ulv-missions'
+    | '/larval-surveillance/aerial-inspections'
+    | '/larval-surveillance/aerial-sites'
+    | '/larval-surveillance/flights'
+    | '/larval-surveillance/habitats'
+    | '/larval-surveillance/inspections'
+    | '/public-outreach/contacts'
+    | '/public-outreach/notifications'
+    | '/public-outreach/service-requests'
   id:
     | '__root__'
     | '/(app)'
@@ -172,8 +408,28 @@ export interface FileRouteTypes {
     | '/(auth)/login'
     | '/(auth)/verify-email'
     | '/(app)/'
-    | '/(app)/adult-surveillance/create-trap'
+    | '/(app)/settings/'
+    | '/(app)/adult-surveillance/traps/create-trap'
+    | '/(app)/adult-surveillance/collections/'
+    | '/(app)/adult-surveillance/landing-rates/'
     | '/(app)/adult-surveillance/traps/'
+    | '/(app)/gis/addresses/'
+    | '/(app)/gis/regions/'
+    | '/(app)/gis/routes/'
+    | '/(app)/insecticide-control/applications/'
+    | '/(app)/insecticide-control/catch-basin-missions/'
+    | '/(app)/insecticide-control/hand-ulvs/'
+    | '/(app)/insecticide-control/insecticides/'
+    | '/(app)/insecticide-control/truck-ulvs/'
+    | '/(app)/insecticide-control/ulv-missions/'
+    | '/(app)/larval-surveillance/aerial-inspections/'
+    | '/(app)/larval-surveillance/aerial-sites/'
+    | '/(app)/larval-surveillance/flights/'
+    | '/(app)/larval-surveillance/habitats/'
+    | '/(app)/larval-surveillance/inspections/'
+    | '/(app)/public-outreach/contacts/'
+    | '/(app)/public-outreach/notifications/'
+    | '/(app)/public-outreach/service-requests/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -260,11 +516,130 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appMapExampleRouteImport
       parentRoute: typeof appRouteRoute
     }
-    '/(app)/adult-surveillance/create-trap': {
-      id: '/(app)/adult-surveillance/create-trap'
-      path: '/adult-surveillance/create-trap'
-      fullPath: '/adult-surveillance/create-trap'
-      preLoaderRoute: typeof appAdultSurveillanceCreateTrapRouteImport
+    '/(app)/settings/': {
+      id: '/(app)/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof appSettingsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/public-outreach/service-requests/': {
+      id: '/(app)/public-outreach/service-requests/'
+      path: '/public-outreach/service-requests'
+      fullPath: '/public-outreach/service-requests/'
+      preLoaderRoute: typeof appPublicOutreachServiceRequestsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/public-outreach/notifications/': {
+      id: '/(app)/public-outreach/notifications/'
+      path: '/public-outreach/notifications'
+      fullPath: '/public-outreach/notifications/'
+      preLoaderRoute: typeof appPublicOutreachNotificationsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/public-outreach/contacts/': {
+      id: '/(app)/public-outreach/contacts/'
+      path: '/public-outreach/contacts'
+      fullPath: '/public-outreach/contacts/'
+      preLoaderRoute: typeof appPublicOutreachContactsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/larval-surveillance/inspections/': {
+      id: '/(app)/larval-surveillance/inspections/'
+      path: '/larval-surveillance/inspections'
+      fullPath: '/larval-surveillance/inspections/'
+      preLoaderRoute: typeof appLarvalSurveillanceInspectionsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/larval-surveillance/habitats/': {
+      id: '/(app)/larval-surveillance/habitats/'
+      path: '/larval-surveillance/habitats'
+      fullPath: '/larval-surveillance/habitats/'
+      preLoaderRoute: typeof appLarvalSurveillanceHabitatsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/larval-surveillance/flights/': {
+      id: '/(app)/larval-surveillance/flights/'
+      path: '/larval-surveillance/flights'
+      fullPath: '/larval-surveillance/flights/'
+      preLoaderRoute: typeof appLarvalSurveillanceFlightsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/larval-surveillance/aerial-sites/': {
+      id: '/(app)/larval-surveillance/aerial-sites/'
+      path: '/larval-surveillance/aerial-sites'
+      fullPath: '/larval-surveillance/aerial-sites/'
+      preLoaderRoute: typeof appLarvalSurveillanceAerialSitesIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/larval-surveillance/aerial-inspections/': {
+      id: '/(app)/larval-surveillance/aerial-inspections/'
+      path: '/larval-surveillance/aerial-inspections'
+      fullPath: '/larval-surveillance/aerial-inspections/'
+      preLoaderRoute: typeof appLarvalSurveillanceAerialInspectionsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/insecticide-control/ulv-missions/': {
+      id: '/(app)/insecticide-control/ulv-missions/'
+      path: '/insecticide-control/ulv-missions'
+      fullPath: '/insecticide-control/ulv-missions/'
+      preLoaderRoute: typeof appInsecticideControlUlvMissionsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/insecticide-control/truck-ulvs/': {
+      id: '/(app)/insecticide-control/truck-ulvs/'
+      path: '/insecticide-control/truck-ulvs'
+      fullPath: '/insecticide-control/truck-ulvs/'
+      preLoaderRoute: typeof appInsecticideControlTruckUlvsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/insecticide-control/insecticides/': {
+      id: '/(app)/insecticide-control/insecticides/'
+      path: '/insecticide-control/insecticides'
+      fullPath: '/insecticide-control/insecticides/'
+      preLoaderRoute: typeof appInsecticideControlInsecticidesIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/insecticide-control/hand-ulvs/': {
+      id: '/(app)/insecticide-control/hand-ulvs/'
+      path: '/insecticide-control/hand-ulvs'
+      fullPath: '/insecticide-control/hand-ulvs/'
+      preLoaderRoute: typeof appInsecticideControlHandUlvsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/insecticide-control/catch-basin-missions/': {
+      id: '/(app)/insecticide-control/catch-basin-missions/'
+      path: '/insecticide-control/catch-basin-missions'
+      fullPath: '/insecticide-control/catch-basin-missions/'
+      preLoaderRoute: typeof appInsecticideControlCatchBasinMissionsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/insecticide-control/applications/': {
+      id: '/(app)/insecticide-control/applications/'
+      path: '/insecticide-control/applications'
+      fullPath: '/insecticide-control/applications/'
+      preLoaderRoute: typeof appInsecticideControlApplicationsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/gis/routes/': {
+      id: '/(app)/gis/routes/'
+      path: '/gis/routes'
+      fullPath: '/gis/routes/'
+      preLoaderRoute: typeof appGisRoutesIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/gis/regions/': {
+      id: '/(app)/gis/regions/'
+      path: '/gis/regions'
+      fullPath: '/gis/regions/'
+      preLoaderRoute: typeof appGisRegionsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/gis/addresses/': {
+      id: '/(app)/gis/addresses/'
+      path: '/gis/addresses'
+      fullPath: '/gis/addresses/'
+      preLoaderRoute: typeof appGisAddressesIndexRouteImport
       parentRoute: typeof appRouteRoute
     }
     '/(app)/adult-surveillance/traps/': {
@@ -274,6 +649,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAdultSurveillanceTrapsIndexRouteImport
       parentRoute: typeof appRouteRoute
     }
+    '/(app)/adult-surveillance/landing-rates/': {
+      id: '/(app)/adult-surveillance/landing-rates/'
+      path: '/adult-surveillance/landing-rates'
+      fullPath: '/adult-surveillance/landing-rates/'
+      preLoaderRoute: typeof appAdultSurveillanceLandingRatesIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/adult-surveillance/collections/': {
+      id: '/(app)/adult-surveillance/collections/'
+      path: '/adult-surveillance/collections'
+      fullPath: '/adult-surveillance/collections/'
+      preLoaderRoute: typeof appAdultSurveillanceCollectionsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/adult-surveillance/traps/create-trap': {
+      id: '/(app)/adult-surveillance/traps/create-trap'
+      path: '/adult-surveillance/traps/create-trap'
+      fullPath: '/adult-surveillance/traps/create-trap'
+      preLoaderRoute: typeof appAdultSurveillanceTrapsCreateTrapRouteImport
+      parentRoute: typeof appRouteRoute
+    }
   }
 }
 
@@ -281,16 +677,72 @@ interface appRouteRouteChildren {
   appMapExampleRoute: typeof appMapExampleRoute
   appMapStressTestRoute: typeof appMapStressTestRoute
   appIndexRoute: typeof appIndexRoute
-  appAdultSurveillanceCreateTrapRoute: typeof appAdultSurveillanceCreateTrapRoute
+  appSettingsIndexRoute: typeof appSettingsIndexRoute
+  appAdultSurveillanceTrapsCreateTrapRoute: typeof appAdultSurveillanceTrapsCreateTrapRoute
+  appAdultSurveillanceCollectionsIndexRoute: typeof appAdultSurveillanceCollectionsIndexRoute
+  appAdultSurveillanceLandingRatesIndexRoute: typeof appAdultSurveillanceLandingRatesIndexRoute
   appAdultSurveillanceTrapsIndexRoute: typeof appAdultSurveillanceTrapsIndexRoute
+  appGisAddressesIndexRoute: typeof appGisAddressesIndexRoute
+  appGisRegionsIndexRoute: typeof appGisRegionsIndexRoute
+  appGisRoutesIndexRoute: typeof appGisRoutesIndexRoute
+  appInsecticideControlApplicationsIndexRoute: typeof appInsecticideControlApplicationsIndexRoute
+  appInsecticideControlCatchBasinMissionsIndexRoute: typeof appInsecticideControlCatchBasinMissionsIndexRoute
+  appInsecticideControlHandUlvsIndexRoute: typeof appInsecticideControlHandUlvsIndexRoute
+  appInsecticideControlInsecticidesIndexRoute: typeof appInsecticideControlInsecticidesIndexRoute
+  appInsecticideControlTruckUlvsIndexRoute: typeof appInsecticideControlTruckUlvsIndexRoute
+  appInsecticideControlUlvMissionsIndexRoute: typeof appInsecticideControlUlvMissionsIndexRoute
+  appLarvalSurveillanceAerialInspectionsIndexRoute: typeof appLarvalSurveillanceAerialInspectionsIndexRoute
+  appLarvalSurveillanceAerialSitesIndexRoute: typeof appLarvalSurveillanceAerialSitesIndexRoute
+  appLarvalSurveillanceFlightsIndexRoute: typeof appLarvalSurveillanceFlightsIndexRoute
+  appLarvalSurveillanceHabitatsIndexRoute: typeof appLarvalSurveillanceHabitatsIndexRoute
+  appLarvalSurveillanceInspectionsIndexRoute: typeof appLarvalSurveillanceInspectionsIndexRoute
+  appPublicOutreachContactsIndexRoute: typeof appPublicOutreachContactsIndexRoute
+  appPublicOutreachNotificationsIndexRoute: typeof appPublicOutreachNotificationsIndexRoute
+  appPublicOutreachServiceRequestsIndexRoute: typeof appPublicOutreachServiceRequestsIndexRoute
 }
 
 const appRouteRouteChildren: appRouteRouteChildren = {
   appMapExampleRoute: appMapExampleRoute,
   appMapStressTestRoute: appMapStressTestRoute,
   appIndexRoute: appIndexRoute,
-  appAdultSurveillanceCreateTrapRoute: appAdultSurveillanceCreateTrapRoute,
+  appSettingsIndexRoute: appSettingsIndexRoute,
+  appAdultSurveillanceTrapsCreateTrapRoute:
+    appAdultSurveillanceTrapsCreateTrapRoute,
+  appAdultSurveillanceCollectionsIndexRoute:
+    appAdultSurveillanceCollectionsIndexRoute,
+  appAdultSurveillanceLandingRatesIndexRoute:
+    appAdultSurveillanceLandingRatesIndexRoute,
   appAdultSurveillanceTrapsIndexRoute: appAdultSurveillanceTrapsIndexRoute,
+  appGisAddressesIndexRoute: appGisAddressesIndexRoute,
+  appGisRegionsIndexRoute: appGisRegionsIndexRoute,
+  appGisRoutesIndexRoute: appGisRoutesIndexRoute,
+  appInsecticideControlApplicationsIndexRoute:
+    appInsecticideControlApplicationsIndexRoute,
+  appInsecticideControlCatchBasinMissionsIndexRoute:
+    appInsecticideControlCatchBasinMissionsIndexRoute,
+  appInsecticideControlHandUlvsIndexRoute:
+    appInsecticideControlHandUlvsIndexRoute,
+  appInsecticideControlInsecticidesIndexRoute:
+    appInsecticideControlInsecticidesIndexRoute,
+  appInsecticideControlTruckUlvsIndexRoute:
+    appInsecticideControlTruckUlvsIndexRoute,
+  appInsecticideControlUlvMissionsIndexRoute:
+    appInsecticideControlUlvMissionsIndexRoute,
+  appLarvalSurveillanceAerialInspectionsIndexRoute:
+    appLarvalSurveillanceAerialInspectionsIndexRoute,
+  appLarvalSurveillanceAerialSitesIndexRoute:
+    appLarvalSurveillanceAerialSitesIndexRoute,
+  appLarvalSurveillanceFlightsIndexRoute:
+    appLarvalSurveillanceFlightsIndexRoute,
+  appLarvalSurveillanceHabitatsIndexRoute:
+    appLarvalSurveillanceHabitatsIndexRoute,
+  appLarvalSurveillanceInspectionsIndexRoute:
+    appLarvalSurveillanceInspectionsIndexRoute,
+  appPublicOutreachContactsIndexRoute: appPublicOutreachContactsIndexRoute,
+  appPublicOutreachNotificationsIndexRoute:
+    appPublicOutreachNotificationsIndexRoute,
+  appPublicOutreachServiceRequestsIndexRoute:
+    appPublicOutreachServiceRequestsIndexRoute,
 }
 
 const appRouteRouteWithChildren = appRouteRoute._addFileChildren(
