@@ -8,7 +8,6 @@ create table public.applications(
     amount_applied double precision not null,
     application_unit_id uuid not null references public.units(id) on delete restrict,
     --- originating tables
-    inspection_id uuid references public.inspections(id) on delete restrict on update cascade,
     flight_aerial_site_id uuid references public.flight_aerial_sites(id) on delete restrict on update cascade,
     catch_basin_mission_id uuid references public.catch_basin_missions(id) on delete restrict on update cascade,
     truck_ulv_id uuid references public.truck_ulvs(id) on delete restrict on update cascade,
@@ -20,7 +19,6 @@ create table public.applications(
     updated_at timestamptz not null default now(),
     updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
     constraint one_originating_table check (
-        (inspection_id is not null)::int +
         (flight_aerial_site_id is not null)::int +
         (catch_basin_mission_id is not null)::int +
         (truck_ulv_id is not null)::int +
