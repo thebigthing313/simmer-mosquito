@@ -26,13 +26,13 @@ import { Route as appPublicOutreachNotificationsIndexRouteImport } from './route
 import { Route as appPublicOutreachContactsIndexRouteImport } from './routes/(app)/public-outreach/contacts/index'
 import { Route as appLarvalSurveillanceInspectionsIndexRouteImport } from './routes/(app)/larval-surveillance/inspections/index'
 import { Route as appLarvalSurveillanceHabitatsIndexRouteImport } from './routes/(app)/larval-surveillance/habitats/index'
-import { Route as appLarvalSurveillanceFlightsIndexRouteImport } from './routes/(app)/larval-surveillance/flights/index'
 import { Route as appLarvalSurveillanceAerialSitesIndexRouteImport } from './routes/(app)/larval-surveillance/aerial-sites/index'
 import { Route as appLarvalSurveillanceAerialInspectionsIndexRouteImport } from './routes/(app)/larval-surveillance/aerial-inspections/index'
 import { Route as appInsecticideControlUlvMissionsIndexRouteImport } from './routes/(app)/insecticide-control/ulv-missions/index'
 import { Route as appInsecticideControlTruckUlvsIndexRouteImport } from './routes/(app)/insecticide-control/truck-ulvs/index'
 import { Route as appInsecticideControlInsecticidesIndexRouteImport } from './routes/(app)/insecticide-control/insecticides/index'
 import { Route as appInsecticideControlHandUlvsIndexRouteImport } from './routes/(app)/insecticide-control/hand-ulvs/index'
+import { Route as appInsecticideControlFlightsIndexRouteImport } from './routes/(app)/insecticide-control/flights/index'
 import { Route as appInsecticideControlCatchBasinMissionsIndexRouteImport } from './routes/(app)/insecticide-control/catch-basin-missions/index'
 import { Route as appInsecticideControlApplicationsIndexRouteImport } from './routes/(app)/insecticide-control/applications/index'
 import { Route as appGisRoutesIndexRouteImport } from './routes/(app)/gis/routes/index'
@@ -132,12 +132,6 @@ const appLarvalSurveillanceHabitatsIndexRoute =
     path: '/larval-surveillance/habitats/',
     getParentRoute: () => appRouteRoute,
   } as any)
-const appLarvalSurveillanceFlightsIndexRoute =
-  appLarvalSurveillanceFlightsIndexRouteImport.update({
-    id: '/larval-surveillance/flights/',
-    path: '/larval-surveillance/flights/',
-    getParentRoute: () => appRouteRoute,
-  } as any)
 const appLarvalSurveillanceAerialSitesIndexRoute =
   appLarvalSurveillanceAerialSitesIndexRouteImport.update({
     id: '/larval-surveillance/aerial-sites/',
@@ -172,6 +166,12 @@ const appInsecticideControlHandUlvsIndexRoute =
   appInsecticideControlHandUlvsIndexRouteImport.update({
     id: '/insecticide-control/hand-ulvs/',
     path: '/insecticide-control/hand-ulvs/',
+    getParentRoute: () => appRouteRoute,
+  } as any)
+const appInsecticideControlFlightsIndexRoute =
+  appInsecticideControlFlightsIndexRouteImport.update({
+    id: '/insecticide-control/flights/',
+    path: '/insecticide-control/flights/',
     getParentRoute: () => appRouteRoute,
   } as any)
 const appInsecticideControlCatchBasinMissionsIndexRoute =
@@ -246,13 +246,13 @@ export interface FileRoutesByFullPath {
   '/gis/routes/': typeof appGisRoutesIndexRoute
   '/insecticide-control/applications/': typeof appInsecticideControlApplicationsIndexRoute
   '/insecticide-control/catch-basin-missions/': typeof appInsecticideControlCatchBasinMissionsIndexRoute
+  '/insecticide-control/flights/': typeof appInsecticideControlFlightsIndexRoute
   '/insecticide-control/hand-ulvs/': typeof appInsecticideControlHandUlvsIndexRoute
   '/insecticide-control/insecticides/': typeof appInsecticideControlInsecticidesIndexRoute
   '/insecticide-control/truck-ulvs/': typeof appInsecticideControlTruckUlvsIndexRoute
   '/insecticide-control/ulv-missions/': typeof appInsecticideControlUlvMissionsIndexRoute
   '/larval-surveillance/aerial-inspections/': typeof appLarvalSurveillanceAerialInspectionsIndexRoute
   '/larval-surveillance/aerial-sites/': typeof appLarvalSurveillanceAerialSitesIndexRoute
-  '/larval-surveillance/flights/': typeof appLarvalSurveillanceFlightsIndexRoute
   '/larval-surveillance/habitats/': typeof appLarvalSurveillanceHabitatsIndexRoute
   '/larval-surveillance/inspections/': typeof appLarvalSurveillanceInspectionsIndexRoute
   '/public-outreach/contacts/': typeof appPublicOutreachContactsIndexRoute
@@ -279,13 +279,13 @@ export interface FileRoutesByTo {
   '/gis/routes': typeof appGisRoutesIndexRoute
   '/insecticide-control/applications': typeof appInsecticideControlApplicationsIndexRoute
   '/insecticide-control/catch-basin-missions': typeof appInsecticideControlCatchBasinMissionsIndexRoute
+  '/insecticide-control/flights': typeof appInsecticideControlFlightsIndexRoute
   '/insecticide-control/hand-ulvs': typeof appInsecticideControlHandUlvsIndexRoute
   '/insecticide-control/insecticides': typeof appInsecticideControlInsecticidesIndexRoute
   '/insecticide-control/truck-ulvs': typeof appInsecticideControlTruckUlvsIndexRoute
   '/insecticide-control/ulv-missions': typeof appInsecticideControlUlvMissionsIndexRoute
   '/larval-surveillance/aerial-inspections': typeof appLarvalSurveillanceAerialInspectionsIndexRoute
   '/larval-surveillance/aerial-sites': typeof appLarvalSurveillanceAerialSitesIndexRoute
-  '/larval-surveillance/flights': typeof appLarvalSurveillanceFlightsIndexRoute
   '/larval-surveillance/habitats': typeof appLarvalSurveillanceHabitatsIndexRoute
   '/larval-surveillance/inspections': typeof appLarvalSurveillanceInspectionsIndexRoute
   '/public-outreach/contacts': typeof appPublicOutreachContactsIndexRoute
@@ -315,13 +315,13 @@ export interface FileRoutesById {
   '/(app)/gis/routes/': typeof appGisRoutesIndexRoute
   '/(app)/insecticide-control/applications/': typeof appInsecticideControlApplicationsIndexRoute
   '/(app)/insecticide-control/catch-basin-missions/': typeof appInsecticideControlCatchBasinMissionsIndexRoute
+  '/(app)/insecticide-control/flights/': typeof appInsecticideControlFlightsIndexRoute
   '/(app)/insecticide-control/hand-ulvs/': typeof appInsecticideControlHandUlvsIndexRoute
   '/(app)/insecticide-control/insecticides/': typeof appInsecticideControlInsecticidesIndexRoute
   '/(app)/insecticide-control/truck-ulvs/': typeof appInsecticideControlTruckUlvsIndexRoute
   '/(app)/insecticide-control/ulv-missions/': typeof appInsecticideControlUlvMissionsIndexRoute
   '/(app)/larval-surveillance/aerial-inspections/': typeof appLarvalSurveillanceAerialInspectionsIndexRoute
   '/(app)/larval-surveillance/aerial-sites/': typeof appLarvalSurveillanceAerialSitesIndexRoute
-  '/(app)/larval-surveillance/flights/': typeof appLarvalSurveillanceFlightsIndexRoute
   '/(app)/larval-surveillance/habitats/': typeof appLarvalSurveillanceHabitatsIndexRoute
   '/(app)/larval-surveillance/inspections/': typeof appLarvalSurveillanceInspectionsIndexRoute
   '/(app)/public-outreach/contacts/': typeof appPublicOutreachContactsIndexRoute
@@ -350,13 +350,13 @@ export interface FileRouteTypes {
     | '/gis/routes/'
     | '/insecticide-control/applications/'
     | '/insecticide-control/catch-basin-missions/'
+    | '/insecticide-control/flights/'
     | '/insecticide-control/hand-ulvs/'
     | '/insecticide-control/insecticides/'
     | '/insecticide-control/truck-ulvs/'
     | '/insecticide-control/ulv-missions/'
     | '/larval-surveillance/aerial-inspections/'
     | '/larval-surveillance/aerial-sites/'
-    | '/larval-surveillance/flights/'
     | '/larval-surveillance/habitats/'
     | '/larval-surveillance/inspections/'
     | '/public-outreach/contacts/'
@@ -383,13 +383,13 @@ export interface FileRouteTypes {
     | '/gis/routes'
     | '/insecticide-control/applications'
     | '/insecticide-control/catch-basin-missions'
+    | '/insecticide-control/flights'
     | '/insecticide-control/hand-ulvs'
     | '/insecticide-control/insecticides'
     | '/insecticide-control/truck-ulvs'
     | '/insecticide-control/ulv-missions'
     | '/larval-surveillance/aerial-inspections'
     | '/larval-surveillance/aerial-sites'
-    | '/larval-surveillance/flights'
     | '/larval-surveillance/habitats'
     | '/larval-surveillance/inspections'
     | '/public-outreach/contacts'
@@ -418,13 +418,13 @@ export interface FileRouteTypes {
     | '/(app)/gis/routes/'
     | '/(app)/insecticide-control/applications/'
     | '/(app)/insecticide-control/catch-basin-missions/'
+    | '/(app)/insecticide-control/flights/'
     | '/(app)/insecticide-control/hand-ulvs/'
     | '/(app)/insecticide-control/insecticides/'
     | '/(app)/insecticide-control/truck-ulvs/'
     | '/(app)/insecticide-control/ulv-missions/'
     | '/(app)/larval-surveillance/aerial-inspections/'
     | '/(app)/larval-surveillance/aerial-sites/'
-    | '/(app)/larval-surveillance/flights/'
     | '/(app)/larval-surveillance/habitats/'
     | '/(app)/larval-surveillance/inspections/'
     | '/(app)/public-outreach/contacts/'
@@ -558,13 +558,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appLarvalSurveillanceHabitatsIndexRouteImport
       parentRoute: typeof appRouteRoute
     }
-    '/(app)/larval-surveillance/flights/': {
-      id: '/(app)/larval-surveillance/flights/'
-      path: '/larval-surveillance/flights'
-      fullPath: '/larval-surveillance/flights/'
-      preLoaderRoute: typeof appLarvalSurveillanceFlightsIndexRouteImport
-      parentRoute: typeof appRouteRoute
-    }
     '/(app)/larval-surveillance/aerial-sites/': {
       id: '/(app)/larval-surveillance/aerial-sites/'
       path: '/larval-surveillance/aerial-sites'
@@ -605,6 +598,13 @@ declare module '@tanstack/react-router' {
       path: '/insecticide-control/hand-ulvs'
       fullPath: '/insecticide-control/hand-ulvs/'
       preLoaderRoute: typeof appInsecticideControlHandUlvsIndexRouteImport
+      parentRoute: typeof appRouteRoute
+    }
+    '/(app)/insecticide-control/flights/': {
+      id: '/(app)/insecticide-control/flights/'
+      path: '/insecticide-control/flights'
+      fullPath: '/insecticide-control/flights/'
+      preLoaderRoute: typeof appInsecticideControlFlightsIndexRouteImport
       parentRoute: typeof appRouteRoute
     }
     '/(app)/insecticide-control/catch-basin-missions/': {
@@ -687,13 +687,13 @@ interface appRouteRouteChildren {
   appGisRoutesIndexRoute: typeof appGisRoutesIndexRoute
   appInsecticideControlApplicationsIndexRoute: typeof appInsecticideControlApplicationsIndexRoute
   appInsecticideControlCatchBasinMissionsIndexRoute: typeof appInsecticideControlCatchBasinMissionsIndexRoute
+  appInsecticideControlFlightsIndexRoute: typeof appInsecticideControlFlightsIndexRoute
   appInsecticideControlHandUlvsIndexRoute: typeof appInsecticideControlHandUlvsIndexRoute
   appInsecticideControlInsecticidesIndexRoute: typeof appInsecticideControlInsecticidesIndexRoute
   appInsecticideControlTruckUlvsIndexRoute: typeof appInsecticideControlTruckUlvsIndexRoute
   appInsecticideControlUlvMissionsIndexRoute: typeof appInsecticideControlUlvMissionsIndexRoute
   appLarvalSurveillanceAerialInspectionsIndexRoute: typeof appLarvalSurveillanceAerialInspectionsIndexRoute
   appLarvalSurveillanceAerialSitesIndexRoute: typeof appLarvalSurveillanceAerialSitesIndexRoute
-  appLarvalSurveillanceFlightsIndexRoute: typeof appLarvalSurveillanceFlightsIndexRoute
   appLarvalSurveillanceHabitatsIndexRoute: typeof appLarvalSurveillanceHabitatsIndexRoute
   appLarvalSurveillanceInspectionsIndexRoute: typeof appLarvalSurveillanceInspectionsIndexRoute
   appPublicOutreachContactsIndexRoute: typeof appPublicOutreachContactsIndexRoute
@@ -720,6 +720,8 @@ const appRouteRouteChildren: appRouteRouteChildren = {
     appInsecticideControlApplicationsIndexRoute,
   appInsecticideControlCatchBasinMissionsIndexRoute:
     appInsecticideControlCatchBasinMissionsIndexRoute,
+  appInsecticideControlFlightsIndexRoute:
+    appInsecticideControlFlightsIndexRoute,
   appInsecticideControlHandUlvsIndexRoute:
     appInsecticideControlHandUlvsIndexRoute,
   appInsecticideControlInsecticidesIndexRoute:
@@ -732,8 +734,6 @@ const appRouteRouteChildren: appRouteRouteChildren = {
     appLarvalSurveillanceAerialInspectionsIndexRoute,
   appLarvalSurveillanceAerialSitesIndexRoute:
     appLarvalSurveillanceAerialSitesIndexRoute,
-  appLarvalSurveillanceFlightsIndexRoute:
-    appLarvalSurveillanceFlightsIndexRoute,
   appLarvalSurveillanceHabitatsIndexRoute:
     appLarvalSurveillanceHabitatsIndexRoute,
   appLarvalSurveillanceInspectionsIndexRoute:

@@ -1,63 +1,10 @@
-import { type LinkProps, useNavigate } from '@tanstack/react-router';
-import { ChevronRight, Circle, LayoutDashboard, Settings } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
-import MosquitoIcon from '@/src/assets/mosquito-icon.svg?react';
+import { useNavigate } from '@tanstack/react-router';
+import { ChevronRight, Circle } from 'lucide-react';
+import { useState } from 'react';
 import favicon from '@/src/assets/simmer-favicon.svg';
 import { SidebarIcon } from './sidebar-icon';
+import { type NavItem, NavItems } from './sidebar-items';
 import { SidebarSheet } from './sidebar-sheet';
-
-type NavItem = {
-	id: string;
-	tooltip: string;
-	icon: ReactNode;
-	subItems?: Array<SubItem>;
-};
-
-type SubItem = {
-	id: string;
-	label: string;
-	to: LinkProps;
-};
-
-const items: Array<NavItem> = [
-	{
-		id: 'adult-surveillance',
-		tooltip: 'Adult Surveillance',
-		icon: <MosquitoIcon className="h-4.5 w-4.5" />,
-		subItems: [
-			{
-				id: 'traps',
-				label: 'Traps',
-				to: { to: '/adult-surveillance/traps' },
-			},
-			{
-				id: 'trap-types',
-				label: 'Trap Types',
-				to: { to: '/adult-surveillance/trap-types' },
-			},
-			{
-				id: 'trap-tags',
-				label: 'Trap Tags',
-				to: { to: '/adult-surveillance/trap-tags' },
-			},
-			{
-				id: 'trap-lures',
-				label: 'Trap Lures',
-				to: { to: '/adult-surveillance/trap-lures' },
-			},
-			{
-				id: 'collections',
-				label: 'Collections',
-				to: { to: '/adult-surveillance/collections' },
-			},
-		],
-	},
-	{
-		id: 'settings',
-		tooltip: 'Settings',
-		icon: <Settings />,
-	},
-];
 
 export function SidebarMenu() {
 	const [activeNav, setActiveNav] = useState<string>('map');
@@ -83,15 +30,7 @@ export function SidebarMenu() {
 					<img src={favicon} alt="SIMMER Favicon" className="h-5 w-5" />
 				</div>
 				<div className="mb-1 h-px w-6 bg-white/10" />
-				<SidebarIcon
-					id="dashboard-icon"
-					tooltip="Dashboard"
-					isActive={false}
-					handleClick={() => navigate({ to: '/' })}
-				>
-					<LayoutDashboard />
-				</SidebarIcon>
-				{items.map((item) => {
+				{NavItems.map((item) => {
 					return (
 						<SidebarIcon
 							key={item.id}
