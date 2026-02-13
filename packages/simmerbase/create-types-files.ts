@@ -16,7 +16,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import ts from 'typescript';
-import { _date } from 'zod/v4/core';
 
 // ─── Configuration ──────────────────────────────────────────────────────────────
 
@@ -40,6 +39,7 @@ const FIELD_OVERRIDES: Record<string, string> = {
 
 	// user_id is a UUID (e.g. profiles table)
 	user_id: 'z.uuid()',
+	metadata: 'z.record(z.unknown())',
 };
 
 /**
@@ -216,13 +216,20 @@ function zodExpressionForField(
 ): string | null {
 	if (IGNORE_FIELDS.includes(field.name)) return null;
 
+	// Strip nullability for base type resolution
+	const baseType = field.tsType.replace(/\s*\|\s*null\s*/g, '').trim();
+
+	// If the actual TS type is `number`, never apply a UUID override —
+	// this handles tables like `roles` where `id` is an integer, not a UUID.
+	if (baseType === 'number') {
+		const zodBase = 'z.number()';
+		return field.nullable ? `${zodBase}.nullable()` : zodBase;
+	}
+
 	const override = getOverride(field.name);
 	if (override !== undefined) {
 		return field.nullable ? `${override}.nullable()` : override;
 	}
-
-	// Strip nullability for base type resolution
-	const baseType = field.tsType.replace(/\s*\|\s*null\s*/g, '').trim();
 
 	let zodBase: string;
 

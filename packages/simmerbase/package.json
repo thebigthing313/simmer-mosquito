@@ -5,7 +5,7 @@
 	"main": "index.js",
 	"type": "module",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
+		"test": "vitest run",
 		"generate-types": "tsx create-types-files.ts"
 	},
 	"keywords": [],
@@ -15,10 +15,13 @@
 	"devDependencies": {
 		"@simmer/typescript-config": "workspace:*",
 		"@types/node": "^25.2.3",
-		"tsx": "^4.21.0"
+		"dotenv": "^17.2.4",
+		"tsx": "^4.21.0",
+		"vitest": "^4.0.18"
 	},
 	"dependencies": {
 		"@simmer/lib": "workspace:*",
+		"@supabase/postgrest-js": "^2.95.3",
 		"@supabase/supabase-js": "^2.95.3",
 		"zod": "^4.3.6"
 	}

@@ -7,7 +7,8 @@
 			"**/*",
 			".vscode/**",
 			"!!node_modules",
-			"!!apps/**/src/routeTree.gen.ts"
+			"!!apps/**/src/routeTree.gen.ts",
+			"!!**/tests/*"
 		]
 	},
 	"formatter": {
