@@ -13,6 +13,7 @@ create table public.applications(
     catch_basin_mission_id uuid references public.catch_basin_missions(id) on delete restrict on update cascade,
     truck_ulv_id uuid references public.truck_ulvs(id) on delete restrict on update cascade,
     hand_ulv_id uuid references public.hand_ulvs(id) on delete restrict on update cascade,
+    point_larviciding_id uuid references public.point_larviciding(id) on delete restrict on update cascade,
     ----------------------
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
@@ -23,7 +24,8 @@ create table public.applications(
         (flight_aerial_site_id is not null)::int +
         (catch_basin_mission_id is not null)::int +
         (truck_ulv_id is not null)::int +
-        (hand_ulv_id is not null)::int
+        (hand_ulv_id is not null)::int +
+        (point_larviciding_id is not null)::int
         = 1
     ),
     constraint amount_applied_positive check (amount_applied > 0)
