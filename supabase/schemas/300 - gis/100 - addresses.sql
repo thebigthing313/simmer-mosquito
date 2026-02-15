@@ -3,16 +3,12 @@ create table public.addresses (
     group_id uuid not null references public.groups(id) on delete restrict on update cascade,
     display_name text not null,
     address_fields jsonb not null,
-    lat double precision not null,
-    lng double precision not null,
-    geom geometry(Point, 4326) generated always as (extensions.ST_SetSRID(extensions.ST_MakePoint(lng, lat), 4326)) stored,
+    feature_id uuid not null references public.spatial_features(id) on delete restrict on update cascade,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
     updated_by uuid references public.profiles (user_id) on delete set null on update cascade
 );
-
-create index idx_addresses_geom on public.addresses using GIST (geom);
 
 create trigger set_audit_fields
 before insert or update on public.addresses

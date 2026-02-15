@@ -33,6 +33,15 @@ create table public.comments(
     updated_by uuid references public.profiles (user_id) on delete set null on update cascade
 );
 
+comment on column public.comments.trap_id is 'polymorphic';
+comment on column public.comments.collection_id is 'polymorphic';
+comment on column public.comments.landing_rate_id is 'polymorphic';
+comment on column public.comments.service_request_id is 'polymorphic';
+comment on column public.comments.contact_id is 'polymorphic';
+comment on column public.comments.aerial_site_id is 'polymorphic';
+comment on column public.comments.sample_id is 'polymorphic';
+comment on column public.comments.notification_id is 'polymorphic';
+
 create trigger set_audit_fields
 before insert or update on public.comments
 for each row

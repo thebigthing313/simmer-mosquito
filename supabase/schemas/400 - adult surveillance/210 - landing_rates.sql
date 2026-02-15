@@ -1,42 +1,28 @@
-create table public.landing_rates(
-    id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete restrict on update cascade,
-    landing_rate_by uuid references public.profiles(user_id) on delete restrict on update cascade,
-    landing_rate_date date not null,   
-    address_id uuid references public.addresses(id) on delete set null on update cascade, 
-    lat double precision not null,
-    lng double precision not null,
-    geom geometry(Point, 4326) generated always as (extensions.ST_SetSRID(extensions.ST_MakePoint(lng, lat), 4326)) stored,
-    started_at timestamptz,
-    stopped_at timestamptz,
-    duration_amount integer,
-    duration_unit_id uuid references public.units(id) on delete restrict on update cascade,
-    temperature integer,
-    temperature_unit_id uuid references public.units(id) on delete restrict on update cascade,
-    wind_speed double precision,
-    wind_speed_unit_id uuid references public.units(id) on delete restrict on update cascade,
-    observed_count integer not null,
-    sample_id text,    
+create table public.landing_rates (
+	id uuid primary key default gen_random_uuid() not null,
+	group_id uuid not null references public."groups"(id) on delete restrict on update cascade,
+	address_id uuid references public.addresses(id) on delete restrict on update cascade,
+	feature_id uuid not null references public.spatial_features(id) on delete restrict on update cascade,
+	landing_rate_by uuid not null references public.profiles (user_id) on delete set null on update cascade,
+	landing_rate_date date not null,
+	started_at timestamptz null,
+	stopped_at timestamptz null,
+	sample_name text null,
+	observed_count int4 default 0 not null,
+	duration_amount int4 null,
+	duration_unit_id uuid references public.units(id) on delete restrict on update cascade,
+	temperature int4 null,
+	temperature_unit_id uuid references public.units(id) on delete restrict on update cascade,
+	wind_speed float8 null,
+	wind_speed_unit_id uuid references public.units(id) on delete restrict on update cascade,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
-    updated_by uuid references public.profiles (user_id) on delete set null on update cascade
-    constraint unit_for_duration check (
-        (duration_unit_id is null and (duration_amount is null)) or
-        (duration_unit_id is not null and (duration_amount is not null))
-    ),
-    constraint unit_for_temperature check (
-        (temperature_unit_id is null and (temperature is null)) or
-        (temperature_unit_id is not null and (temperature is not null))
-    ),
-    constraint unit_for_wind_speed check (
-        (wind_speed_unit_id is null and (wind_speed is null)) or
-        (wind_speed_unit_id is not null and (wind_speed is not null))
-    ),
-    constraint stopped_after_started check (
-        (started_at is null or stopped_at is null) or
-        (stopped_at > started_at)
-    )
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
+	constraint landing_rates_check check ((((temperature_unit_id is null) and (temperature is null)) or ((temperature_unit_id is not null) and (temperature is not null)))),
+	constraint stopped_after_started check (((started_at is null) or (stopped_at is null) or (stopped_at > started_at))),
+	constraint unit_for_duration check ((((duration_unit_id is null) and (duration_amount is null)) or ((duration_unit_id is not null) and (duration_amount is not null)))),
+	constraint unit_for_wind_speed check ((((wind_speed_unit_id is null) and (wind_speed is null)) or ((wind_speed_unit_id is not null) and (wind_speed is not null))))
 );
 
 create trigger set_audit_fields

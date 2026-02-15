@@ -4,31 +4,14 @@ create table public.aerial_sites(
     aerial_site_name text not null,
     aerial_site_code text,
     is_active boolean not null default true,
-    geojson jsonb not null,
+    feature_id uuid not null references public.spatial_features(id) on delete restrict on update cascade,
     metadata jsonb,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
     updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
-    geom geometry(MultiPolygon, 4326) generated always as (
-        extensions.ST_CollectionExtract(
-            extensions.ST_Multi(
-                extensions.ST_MakeValid(
-                    extensions.ST_Force2D(
-                        extensions.ST_GeomFromGeoJSON(
-                            case 
-                                when (geojson->'geometry') is not null then (geojson->'geometry')::text 
-                                else geojson::text 
-                            end
-                        )
-                    )
-                )
-            ), 3)
-    ) stored,
     constraint unique_aerial_site_name_per_group unique (group_id, aerial_site_name)
 );
-
-create index idx_aerial_sites_geom on public.aerial_sites using gist (geom);
 
 create trigger set_audit_fields
 before insert or update on public.aerial_sites

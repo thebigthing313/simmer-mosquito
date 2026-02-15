@@ -14,7 +14,7 @@ create table public.collection_results(
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
-    updated_by uuid references public.profiles (user_id) on delete set null on update cascade
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
     constraint count_non_negative check (mosquito_count >= 0),
     constraint one_source check ((collection_id is not null) or (landing_rate_id is not null))
 );

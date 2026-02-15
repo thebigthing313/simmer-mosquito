@@ -1,12 +1,12 @@
 create table public.additional_personnel(
     id uuid primary key default gen_random_uuid(),
     group_id uuid not null references public.groups(id) on delete restrict on update cascade,
-    personnel_id uuid not null references public.profiles(user_id) on delete restrict on update cascade,
+    personnel_id uuid not null references public.profiles(user_id) on delete cascade on update cascade,
     --- originating tables
-    inspection_id uuid references public.inspections(id) on delete restrict on update cascade,
-    aerial_inspection_id uuid references public.aerial_inspections(id) on delete restrict on update cascade,
-    flight_id uuid references public.flights(id) on delete restrict on update cascade,
-    application_id uuid references public.applications(id) on delete restrict on update cascade,
+    inspection_id uuid references public.inspections(id) on delete cascade on update cascade,
+    aerial_inspection_id uuid references public.aerial_inspections(id) on delete cascade on update cascade,
+    flight_id uuid references public.flights(id) on delete cascade on update cascade,
+    application_id uuid references public.applications(id) on delete cascade on update cascade,
     ----------------------
     parent_table_name text generated always as (
     case
@@ -27,6 +27,11 @@ create table public.additional_personnel(
         (application_id is not null)::int = 1
     )
 );
+
+comment on column public.additional_personnel.inspection_id is 'polymorphyic';
+comment on column public.additional_personnel.aerial_inspection_id is 'polymorphyic';
+comment on column public.additional_personnel.flight_id is 'polymorphyic';
+comment on column public.additional_personnel.application_id is 'polymorphyic';
 
 create trigger set_audit_fields
 before insert or update on public.additional_personnel

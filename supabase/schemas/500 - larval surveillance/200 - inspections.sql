@@ -1,38 +1,29 @@
 create table public.inspections (
-    id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete restrict on update cascade,
-    habitat_id uuid not null references public.habitats(id) on delete restrict on update cascade,
-    inspection_date date not null,
-    inspected_by uuid references public.profiles (user_id) on delete restrict on update cascade,
-    is_wet boolean not null default false,
-    dip_count integer,
-    larvae_count integer,
-    density_id uuid references public.densities (id) on delete restrict on update cascade,
-    has_eggs boolean not null default false,
-    has_first_instar boolean not null default false,
-    has_second_instar boolean not null default false,
-    has_third_instar boolean not null default false,
-    has_fourth_instar boolean not null default false,
-    has_pupae boolean not null default false,
-    is_source_reduction boolean not null default false,
-    source_reduction_notes text,
-    notes text,
+	id uuid primary key default gen_random_uuid() not null,
+	group_id uuid not null references public.groups(id) on delete restrict on update cascade,
+	feature_id uuid not null references public.spatial_features(id) on delete restrict on update cascade,
+	habitat_id uuid null references public.habitats(id) on delete restrict on update cascade,
+	inspected_by uuid not null references public.profiles (user_id) on delete set null on update cascade,
+	inspection_date date not null,
+	is_wet boolean default false not null,
+	dip_count int2 null,
+	density_id uuid null references public.densities(id) on delete restrict on update cascade,
+	larvae_count int4 null,
+	has_first_instar boolean default false not null,
+	has_second_instar boolean default false not null,
+	has_third_instar boolean default false not null,
+	has_fourth_instar boolean default false not null,
+	has_pupae boolean default false not null,
+	has_eggs boolean default false not null,
+	notes text null,
+	is_source_reduction boolean default false not null,
+	source_reduction_notes text null,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
-    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,   
-    constraint data_integrity check (
-        (is_wet = false) OR 
-            (
-                (larvae_count IS NOT NULL AND dip_count IS NOT NULL) OR
-                (density_id IS NOT NULL) OR
-                (larvae_count IS NULL AND density_id IS NULL)
-            )
-    ),
-    constraint source_reduction_notes_check check (
-        (is_source_reduction = false) or 
-        (source_reduction_notes is not null and source_reduction_notes <> '')
-    )
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
+	constraint inspections_check check (((is_wet = false) or (((larvae_count is not null) and (dip_count is not null)) or (density_id is not null) or ((larvae_count is null) and (density_id is null))))),
+	constraint inspections_check_1 check (((is_source_reduction = false) or ((source_reduction_notes is not null) and (source_reduction_notes <> ''::text))))
 );
 
 create trigger set_audit_fields

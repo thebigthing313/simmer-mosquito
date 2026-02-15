@@ -1,9 +1,10 @@
 create table public.route_items(
     id uuid primary key default gen_random_uuid(),
     group_id uuid not null references public.groups(id) on delete restrict on update cascade,
-    route_id uuid not null references public.routes(id) on delete cascade,
-    habitat_id uuid references public.habitats(id) on delete set null on update cascade,
+    route_id uuid not null references public.routes(id) on delete restrict on update cascade,
+    habitat_id uuid references public.habitats(id) on delete restrict on update cascade,
     rank_string text collate "C" not null,
+    directions_to_next_item text,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),

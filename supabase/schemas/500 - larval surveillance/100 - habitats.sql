@@ -1,23 +1,18 @@
 create table public.habitats (
     id uuid primary key default gen_random_uuid(),
     group_id uuid not null references public.groups(id) on delete restrict on update cascade,
-    lat double precision not null,
-    lng double precision not null,
+    feature_id uuid not null references public.spatial_features(id) on delete restrict on update cascade,
     description text not null,
-    is_active boolean not null default true,
-    is_permanent boolean not null default false,
-    is_inaccessible boolean not null default false,
     habitat_name text,
+    is_active boolean not null default true,
+    is_inaccessible boolean not null default false,
     address_id uuid references public.addresses(id) on delete set null on update cascade,
-    geom geometry(Point, 4326) GENERATED ALWAYS AS (extensions.ST_SetSRID(extensions.ST_MakePoint(lng, lat), 4326)) STORED,
     metadata jsonb,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
     updated_by uuid references public.profiles (user_id) on delete set null on update cascade
 );
-
-create index idx_habitats_geom on public.habitats using GIST (geom);
 
 create trigger set_audit_fields
 before insert or update on public.habitats

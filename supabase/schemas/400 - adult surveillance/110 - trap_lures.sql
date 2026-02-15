@@ -1,11 +1,12 @@
 create table public.trap_lures (
     id uuid primary key default gen_random_uuid(),
     group_id uuid references public.groups(id) on delete restrict on update cascade,
-    lure_name text not null unique,
+    lure_name text not null,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),
-    updated_by uuid references public.profiles (user_id) on delete set null on update cascade
+    updated_by uuid references public.profiles (user_id) on delete set null on update cascade,
+    constraint lure_name_unique unique (group_id, lure_name)
 );
 
 create trigger set_audit_fields

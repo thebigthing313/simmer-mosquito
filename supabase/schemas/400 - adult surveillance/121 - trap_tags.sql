@@ -1,8 +1,8 @@
 create table public.trap_tags(
     id uuid primary key default gen_random_uuid(),
-    group_id uuid not null references public.groups(id) on delete restrict,
-    trap_id uuid not null references public.traps(id) on delete restrict,
-    tag_id uuid not null references public.tags(id) on delete restrict,
+    group_id uuid not null references public.groups(id) on delete restrict on update cascade,
+    trap_id uuid not null references public.traps(id) on delete cascade on update cascade,
+    tag_id uuid not null references public.tags(id) on delete cascade on update cascade,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
     updated_at timestamptz not null default now(),

@@ -1,24 +1,9 @@
 create table if not exists public.regions (
     id uuid primary key default gen_random_uuid(),
-    group_id uuid references public.groups (id) on delete restrict on update cascade,
+    group_id uuid not null references public.groups (id) on delete restrict on update cascade,
     region_name text not null,
     region_folder_id uuid references public.region_folders (id) on delete set null on update cascade,
-    geojson jsonb not null,
-    geom geometry(MultiPolygon, 4326) generated always as (
-        extensions.ST_CollectionExtract(
-            extensions.ST_Multi(
-                extensions.ST_MakeValid(
-                    extensions.ST_Force2D(
-                        extensions.ST_GeomFromGeoJSON(
-                            case 
-                                when (geojson->'geometry') is not null then (geojson->'geometry')::text 
-                                else geojson::text 
-                            end
-                        )
-                    )
-                )
-            ), 3)
-    ) stored,
+    feature_id uuid not null references public.spatial_features(id) on delete restrict on update cascade,
     parent_id uuid references public.regions (id) on delete set null on update cascade,
     created_at timestamptz not null default now(),
     created_by uuid references public.profiles (user_id) on delete set null on update cascade,
@@ -28,8 +13,6 @@ create table if not exists public.regions (
     name_path text,
     constraint regions_parent_check check (id<>parent_id)
 );
-
-create index idx_regions_geom on public.regions using GIST (geom);
 
 create trigger set_audit_fields
 before insert or update on public.regions

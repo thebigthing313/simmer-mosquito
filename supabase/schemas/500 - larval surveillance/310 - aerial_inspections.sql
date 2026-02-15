@@ -1,4 +1,4 @@
-create type public.aerial_inspection_result as enum (
+create type public.aerial_result_type as enum (
     'recheck', 'fly', 'hand treat', 'no action'
 );
 create table public.aerial_inspections(
@@ -8,7 +8,7 @@ create table public.aerial_inspections(
     inspected_by uuid not null references public.profiles (user_id) on delete restrict on update cascade,
     inspection_date date not null,
     is_wet boolean not null default false,
-    result public.aerial_inspection_result not null,
+    result public.aerial_result_type not null,
     density_id uuid references public.densities(id) on delete restrict on update cascade,
     dips_count integer,
     larvae_count integer,

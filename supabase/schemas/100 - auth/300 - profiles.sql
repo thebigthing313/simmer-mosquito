@@ -1,6 +1,7 @@
 create table if not exists public.profiles (
     id uuid not null default gen_random_uuid() primary key,
     group_id uuid not null references public.groups (id) on delete restrict on update cascade,
+    is_active boolean not null default true,
     user_id uuid not null,
     role_id integer references public.roles (id) on delete restrict on update cascade,
     full_name text not null,

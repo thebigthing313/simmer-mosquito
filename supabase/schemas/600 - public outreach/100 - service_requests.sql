@@ -1,19 +1,20 @@
-create type public.service_request_source as enum ('online', 'phone', 'walk-in', 'other');
+create type public.request_intake_type as enum ('online', 'phone', 'walk-in', 'other');
 
-create table public.service_requests(
-    id uuid primary key default gen_random_uuid(),
-    display_number integer not null,
-    group_id uuid not null references public.groups(id) on delete restrict on update cascade,
-    contact_id uuid not null references public.contacts(id) on delete restrict on update cascade,
-    address_id uuid not null references public.addresses(id) on delete restrict on update cascade,
-    request_date date not null,
-    details text not null,
-    is_closed boolean not null default false,
-    source public.service_request_source default 'online'::public.service_request_source,
-    created_at timestamptz not null default now(),
-    created_by uuid references public.profiles (user_id) on delete set null on update cascade,
-    updated_at timestamptz not null default now(),
-    updated_by uuid references public.profiles (user_id) on delete set null on update cascade
+create table public.service_requests (
+	id uuid primary key default gen_random_uuid() not null,
+	group_id uuid not null references public."groups"(id) on delete restrict on update cascade,
+	display_name int4 not null,
+	intake_type public."request_intake_type" not null default 'online'::request_intake_type,
+	request_date date not null,
+	address_id uuid not null references public.addresses(id) on delete restrict on update cascade,
+	feature_id uuid not null references public.spatial_features(id) on delete restrict on update cascade,
+	contact_id uuid not null references public.contacts(id) on delete restrict on update cascade,
+	details text not null,
+	created_at timestamptz default now() not null,
+	created_by uuid null references public.profiles (user_id) on delete set null on update cascade,
+	updated_at timestamptz default now() not null,
+	updated_by uuid null references public.profiles (user_id) on delete set null on update cascade,
+	is_closed bool default false not null
 );
 
 create trigger set_audit_fields
