@@ -48,8 +48,10 @@ Services intentionally postponed:
 
 ## Applications
 
-`apps/web` is planned as a Vite React SPA using TanStack Router, TanStack DB,
-and ElectricSQL. It is not a TanStack Start app.
+`apps/web` is a Vite React SPA using TanStack Router. The current slice exposes
+WorkOS-backed browser auth through the server control plane. TanStack DB and
+ElectricSQL will be added after the auth shell and first domain workflow shape
+are settled. It is not a TanStack Start app.
 
 `apps/mobile` is planned as an Expo managed React Native app using TanStack DB,
 ElectricSQL, SecureStore-backed auth, and later local persistence/offline
@@ -192,8 +194,8 @@ Local infrastructure runs in Docker Compose:
 Apps run as local pnpm/Nx processes:
 
 - `pnpm dev:server`
+- `pnpm dev:web`
 - `pnpm dev:worker`
-- future `pnpm dev:web`
 - future mobile Expo commands
 
 Daily development should not require Railway local tooling.
