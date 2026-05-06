@@ -7,9 +7,18 @@ import {
   createRouter,
   useSearch
 } from "@tanstack/react-router";
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, type FormEvent, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { getAuthMe, getServerUrl, type AuthMe, type AuthenticatedMe } from "./auth";
+import {
+  createAdminOrganization,
+  getAuthMe,
+  getServerUrl,
+  listAdminOrganizations,
+  type AdminOrganization,
+  type AuthMe,
+  type AuthenticatedMe,
+  type CreateAdminOrganizationInput
+} from "./auth";
 import "./styles.css";
 
 interface RootSearch {
@@ -36,8 +45,14 @@ const loginRoute = createRoute({
   component: LoginRoute
 });
 
+const adminOrganizationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/organizations",
+  component: AdminOrganizationsRoute
+});
+
 const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, loginRoute])
+  routeTree: rootRoute.addChildren([indexRoute, loginRoute, adminOrganizationsRoute])
 });
 
 declare module "@tanstack/react-router" {
@@ -54,6 +69,7 @@ function RootLayout() {
           SIMMER
         </Link>
         <nav>
+          <Link to="/admin/organizations">Admin</Link>
           <Link to="/login">Login</Link>
         </nav>
       </header>
@@ -123,6 +139,169 @@ function LoginRoute() {
         <a className="button" href={`${serverUrl}/auth/login`}>
           Continue with WorkOS
         </a>
+      </Panel>
+    </section>
+  );
+}
+
+function AdminOrganizationsRoute() {
+  const [organizations, setOrganizations] = useState<AdminOrganization[]>([]);
+  const [status, setStatus] = useState<string>("Loading organizations...");
+  const [form, setForm] = useState<CreateAdminOrganizationInput>({
+    name: "",
+    subscriptionStatus: "trial",
+    billingContactName: "",
+    billingContactEmail: "",
+    subscriptionNotes: "",
+    linkRequesterAsOwner: false
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    listAdminOrganizations(serverUrl)
+      .then((result) => {
+        if (!cancelled) {
+          setOrganizations(result);
+          setStatus("");
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setStatus(
+            loadError instanceof Error ? loadError.message : "Unable to load organizations."
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("Creating organization...");
+
+    try {
+      const organization = await createAdminOrganization(form, serverUrl);
+      setOrganizations((current) => [organization, ...current]);
+      setForm({
+        name: "",
+        subscriptionStatus: "trial",
+        billingContactName: "",
+        billingContactEmail: "",
+        subscriptionNotes: "",
+        linkRequesterAsOwner: false
+      });
+      setStatus("Organization created.");
+    } catch (createError) {
+      setStatus(
+        createError instanceof Error ? createError.message : "Unable to create organization."
+      );
+    }
+  }
+
+  return (
+    <section className="shell wide">
+      <Panel title="Admin organizations">
+        <form className="admin-form" onSubmit={submit}>
+          <label>
+            Agency name
+            <input
+              required
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+            />
+          </label>
+
+          <label>
+            Subscription
+            <select
+              value={form.subscriptionStatus}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  subscriptionStatus: event.target
+                    .value as CreateAdminOrganizationInput["subscriptionStatus"]
+                })
+              }
+            >
+              <option value="trial">trial</option>
+              <option value="active">active</option>
+              <option value="suspended">suspended</option>
+              <option value="canceled">canceled</option>
+            </select>
+          </label>
+
+          <label>
+            Billing contact
+            <input
+              value={form.billingContactName}
+              onChange={(event) =>
+                setForm({ ...form, billingContactName: event.target.value })
+              }
+            />
+          </label>
+
+          <label>
+            Billing email
+            <input
+              type="email"
+              value={form.billingContactEmail}
+              onChange={(event) =>
+                setForm({ ...form, billingContactEmail: event.target.value })
+              }
+            />
+          </label>
+
+          <label className="full">
+            Notes
+            <textarea
+              rows={3}
+              value={form.subscriptionNotes}
+              onChange={(event) =>
+                setForm({ ...form, subscriptionNotes: event.target.value })
+              }
+            />
+          </label>
+
+          <label className="checkbox full">
+            <input
+              type="checkbox"
+              checked={form.linkRequesterAsOwner}
+              onChange={(event) =>
+                setForm({ ...form, linkRequesterAsOwner: event.target.checked })
+              }
+            />
+            Link me as owner
+          </label>
+
+          <button className="button" type="submit">
+            Create agency
+          </button>
+        </form>
+
+        {status === "" ? null : <p className="admin-status">{status}</p>}
+
+        <div className="org-list">
+          {organizations.map((organization) => (
+            <article className="org-row" key={organization.id}>
+              <div>
+                <h3>{organization.name}</h3>
+                <p>{organization.workosOrganizationId ?? "No WorkOS organization"}</p>
+              </div>
+              <dl className="facts">
+                <Fact label="Subscription" value={organization.subscription.subscriptionStatus} />
+                <Fact label="Billing" value={organization.subscription.billingMode} />
+                <Fact
+                  label="Owner linked"
+                  value={organization.ownerLinked ? "yes" : "not on list"}
+                />
+              </dl>
+            </article>
+          ))}
+        </div>
       </Panel>
     </section>
   );

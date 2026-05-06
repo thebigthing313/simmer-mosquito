@@ -47,6 +47,11 @@ select {
   text-decoration: none;
 }
 
+.topbar nav {
+  display: flex;
+  gap: 16px;
+}
+
 .topbar nav a {
   color: #35606f;
   font-weight: 650;
@@ -58,6 +63,10 @@ select {
   gap: 16px;
   width: min(900px, calc(100vw - 32px));
   margin: 48px auto;
+}
+
+.shell.wide {
+  width: min(1100px, calc(100vw - 32px));
 }
 
 .panel,
@@ -150,6 +159,90 @@ select {
   font-size: 0.9rem;
 }
 
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.admin-form label {
+  display: grid;
+  gap: 6px;
+  color: #536878;
+  font-size: 0.85rem;
+  font-weight: 750;
+}
+
+.admin-form input,
+.admin-form textarea,
+.admin-form select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #c9d4dc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #142f3d;
+}
+
+.admin-form textarea {
+  resize: vertical;
+}
+
+.admin-form .full {
+  grid-column: 1 / -1;
+}
+
+.admin-form .checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.admin-form .checkbox input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.admin-status {
+  margin: 0 0 18px;
+}
+
+.org-list {
+  display: grid;
+  gap: 0;
+}
+
+.org-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap: 16px;
+  padding: 18px 0;
+  border-top: 1px solid #dce4e9;
+}
+
+.org-row h3,
+.org-row p {
+  margin: 0;
+}
+
+.org-row h3 {
+  color: #102a38;
+  font-size: 1rem;
+}
+
+.org-row p {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: #536878;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+}
+
+.org-row .facts {
+  margin: 0;
+}
+
 .button {
   display: inline-flex;
   min-height: 42px;
@@ -205,5 +298,9 @@ select {
 
   .identity {
     align-items: flex-start;
+  }
+
+  .org-row {
+    grid-template-columns: 1fr;
   }
 }

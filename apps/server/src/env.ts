@@ -1,5 +1,6 @@
 import {
   readEnv,
+  readOptionalString,
   readRequiredString,
   readRequiredUrl
 } from "@simmer-mosquito/config";
@@ -10,6 +11,7 @@ export interface ServerEnv {
   readonly host: string;
   readonly nodeEnv: "development" | "production" | "test";
   readonly port: number;
+  readonly simmerOperatorEmails: readonly string[];
   readonly workosApiKey: string;
   readonly workosClientId: string;
   readonly workosCookiePassword: string;
@@ -25,11 +27,25 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
     host: base.host,
     nodeEnv: base.nodeEnv,
     port: base.port,
+    simmerOperatorEmails: parseEmailAllowlist(
+      readOptionalString(source, "SIMMER_OPERATOR_EMAILS")
+    ),
     workosApiKey: readRequiredString(source, "WORKOS_API_KEY"),
     workosClientId: readRequiredString(source, "WORKOS_CLIENT_ID"),
     workosCookiePassword: readRequiredString(source, "WORKOS_COOKIE_PASSWORD"),
     workosRedirectUri: readRequiredUrl(source, "WORKOS_REDIRECT_URI")
   };
+}
+
+function parseEmailAllowlist(value: string | undefined): readonly string[] {
+  if (value === undefined) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter((email) => email.length > 0);
 }
 
 function readRequiredOrigin(source: NodeJS.ProcessEnv, key: string): string {

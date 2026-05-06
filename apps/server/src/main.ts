@@ -2,7 +2,11 @@ import { serve } from "@hono/node-server";
 import { createWorkOsAuth, WORKOS_SESSION_COOKIE_NAME } from "@simmer-mosquito/auth";
 import {
   createDb,
+  listOperatorOrganizations,
+  type OrganizationSubscriptionStatus,
   resolveActiveLocalAuthIdentity,
+  type SafeOrganization,
+  upsertOperatorOrganization,
   upsertWorkOsIdentity
 } from "@simmer-mosquito/db";
 import { Hono } from "hono";
@@ -46,6 +50,15 @@ const authContextMiddleware = createAuthContextMiddleware({
 
 app.use(
   "/auth/*",
+  cors({
+    origin: env.appOrigin,
+    credentials: true,
+    allowMethods: ["GET", "POST", "OPTIONS"]
+  })
+);
+
+app.use(
+  "/admin/*",
   cors({
     origin: env.appOrigin,
     credentials: true,
@@ -114,6 +127,61 @@ app.get("/auth/me", async (context) => {
   return context.json(toAuthMeBody(result.context));
 });
 
+app.get("/admin/organizations", authContextMiddleware, async (context) => {
+  const authContext = context.get("authContext");
+  if (!isOperatorEmail(authContext.user.email)) {
+    return context.json({ error: "operator_required" }, 403);
+  }
+
+  const organizations = await listOperatorOrganizations(db);
+
+  return context.json({
+    organizations: organizations.map(toAdminOrganizationResponse)
+  });
+});
+
+app.post("/admin/organizations", authContextMiddleware, async (context) => {
+  const authContext = context.get("authContext");
+  if (!isOperatorEmail(authContext.user.email)) {
+    return context.json({ error: "operator_required" }, 403);
+  }
+
+  const payloadResult = await readCreateOrganizationPayload(context.req);
+  if (!payloadResult.ok) {
+    return context.json(
+      {
+        error: "invalid_payload",
+        reason: payloadResult.reason
+      },
+      400
+    );
+  }
+
+  const workosOrganization = await auth.createOrganization({
+    name: payloadResult.payload.name
+  });
+
+  const organization = await upsertOperatorOrganization(db, {
+    workosOrganizationId: workosOrganization.workosOrganizationId,
+    name: workosOrganization.name,
+    slug: payloadResult.payload.slug,
+    subscriptionStatus: payloadResult.payload.subscriptionStatus,
+    billingMode: "manual_invoice",
+    billingContactName: payloadResult.payload.billingContactName,
+    billingContactEmail: payloadResult.payload.billingContactEmail,
+    subscriptionNotes: payloadResult.payload.subscriptionNotes,
+    ...(payloadResult.payload.linkRequesterAsOwner
+      ? {
+          ownerUserId: authContext.user.id,
+          ownerDisplayName: authContext.user.displayName,
+          ownerEmail: authContext.user.email
+        }
+      : {})
+  });
+
+  return context.json(toAdminOrganizationResponse(organization), 201);
+});
+
 if (env.nodeEnv !== "production") {
   app.use(
     "/debug/*",
@@ -167,4 +235,142 @@ function setAuthCookie(
     sameSite: "Lax",
     secure: env.nodeEnv === "production"
   });
+}
+
+function isOperatorEmail(email: string): boolean {
+  return env.simmerOperatorEmails.includes(email.trim().toLowerCase());
+}
+
+interface CreateOrganizationPayload {
+  readonly name: string;
+  readonly slug: string | null;
+  readonly subscriptionStatus: OrganizationSubscriptionStatus;
+  readonly billingContactName: string | null;
+  readonly billingContactEmail: string | null;
+  readonly subscriptionNotes: string | null;
+  readonly linkRequesterAsOwner: boolean;
+}
+
+type PayloadResult =
+  | {
+      readonly ok: true;
+      readonly payload: CreateOrganizationPayload;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: string;
+    };
+
+async function readCreateOrganizationPayload(
+  request: { readonly json: () => Promise<unknown> }
+): Promise<PayloadResult> {
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return {
+      ok: false,
+      reason: "Request body must be JSON."
+    };
+  }
+
+  if (!isRecord(raw)) {
+    return {
+      ok: false,
+      reason: "Request body must be an object."
+    };
+  }
+
+  const name = readRequiredText(raw.name);
+  if (name === null) {
+    return {
+      ok: false,
+      reason: "name is required."
+    };
+  }
+
+  const subscriptionStatus = readSubscriptionStatus(raw.subscriptionStatus);
+  if (subscriptionStatus === null) {
+    return {
+      ok: false,
+      reason: "subscriptionStatus must be trial, active, suspended, or canceled."
+    };
+  }
+
+  const billingMode = readOptionalText(raw.billingMode) ?? "manual_invoice";
+  if (billingMode !== "manual_invoice") {
+    return {
+      ok: false,
+      reason: "billingMode must be manual_invoice."
+    };
+  }
+
+  return {
+    ok: true,
+    payload: {
+      name,
+      slug: readOptionalText(raw.slug),
+      subscriptionStatus,
+      billingContactName: readOptionalText(raw.billingContactName),
+      billingContactEmail: readOptionalText(raw.billingContactEmail),
+      subscriptionNotes: readOptionalText(raw.subscriptionNotes),
+      linkRequesterAsOwner: raw.linkRequesterAsOwner === true
+    }
+  };
+}
+
+function readSubscriptionStatus(
+  value: unknown
+): OrganizationSubscriptionStatus | null {
+  if (value === undefined || value === null || value === "") {
+    return "trial";
+  }
+
+  if (
+    value === "trial" ||
+    value === "active" ||
+    value === "suspended" ||
+    value === "canceled"
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+function readRequiredText(value: unknown): string | null {
+  const text = readOptionalText(value);
+  return text === null ? null : text;
+}
+
+function readOptionalText(value: unknown): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function toAdminOrganizationResponse(
+  organization: SafeOrganization
+) {
+  return {
+    id: organization.id,
+    workosOrganizationId: organization.workosOrganizationId,
+    name: organization.name,
+    slug: organization.slug,
+    subscription: organization.subscription,
+    ownerLinked: organization.ownerLinked,
+    createdAt: organization.createdAt,
+    updatedAt: organization.updatedAt
+  };
 }

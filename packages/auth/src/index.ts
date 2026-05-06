@@ -182,6 +182,22 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
         workosOrganizationId: organization.id,
         name: organization.name
       };
+    },
+
+    async createOrganization(input: {
+      readonly name: string;
+    }): Promise<AuthOrganization> {
+      const organization = await workos.organizations.createOrganization({
+        name: input.name,
+        metadata: {
+          source: "simmer-operator"
+        }
+      });
+
+      return {
+        workosOrganizationId: organization.id,
+        name: organization.name
+      };
     }
   };
 }

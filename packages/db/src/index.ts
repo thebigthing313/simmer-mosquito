@@ -23,6 +23,12 @@ type BooleanWithDefault = ColumnType<boolean, boolean | undefined, boolean>;
 
 export type SimmerRole = "owner" | "admin" | "manager" | "collector" | "viewer";
 export type MembershipStatus = "active" | "inactive" | "invited";
+export type OrganizationSubscriptionStatus =
+  | "trial"
+  | "active"
+  | "suspended"
+  | "canceled";
+export type OrganizationBillingMode = "manual_invoice";
 
 export interface UsersTable {
   id: Generated<string>;
@@ -43,6 +49,19 @@ export interface OrganizationsTable {
   name: string;
   slug: string | null;
   settings: unknown | null;
+  subscription_status: ColumnType<
+    OrganizationSubscriptionStatus,
+    OrganizationSubscriptionStatus | undefined,
+    OrganizationSubscriptionStatus
+  >;
+  billing_mode: ColumnType<
+    OrganizationBillingMode,
+    OrganizationBillingMode | undefined,
+    OrganizationBillingMode
+  >;
+  billing_contact_name: string | null;
+  billing_contact_email: string | null;
+  subscription_notes: string | null;
   created_at: TimestampWithDefault;
   updated_at: TimestampWithDefault;
   deleted_at: NullableTimestampWithDefault;
@@ -151,6 +170,35 @@ export interface ActiveLocalAuthIdentity {
     readonly status: MembershipStatus;
     readonly isDefault: boolean;
   };
+}
+
+export interface OrganizationSubscriptionMetadata {
+  readonly subscriptionStatus: OrganizationSubscriptionStatus;
+  readonly billingMode: OrganizationBillingMode;
+  readonly billingContactName: string | null;
+  readonly billingContactEmail: string | null;
+  readonly subscriptionNotes: string | null;
+}
+
+export interface SafeOrganization {
+  readonly id: string;
+  readonly workosOrganizationId: string | null;
+  readonly name: string;
+  readonly slug: string | null;
+  readonly subscription: OrganizationSubscriptionMetadata;
+  readonly ownerLinked: boolean;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+
+export interface UpsertOperatorOrganizationInput
+  extends OrganizationSubscriptionMetadata {
+  readonly workosOrganizationId: string;
+  readonly name: string;
+  readonly slug: string | null;
+  readonly ownerUserId?: string;
+  readonly ownerDisplayName?: string;
+  readonly ownerEmail?: string;
 }
 
 export async function upsertWorkOsIdentity(
@@ -268,6 +316,125 @@ export async function upsertWorkOsIdentity(
   });
 }
 
+export async function upsertOperatorOrganization(
+  db: Kysely<SimmerDatabase>,
+  input: UpsertOperatorOrganizationInput
+): Promise<SafeOrganization> {
+  return db.transaction().execute(async (trx) => {
+    const organization = await trx
+      .insertInto("organizations")
+      .values({
+        workos_organization_id: input.workosOrganizationId,
+        name: input.name,
+        slug: input.slug,
+        subscription_status: input.subscriptionStatus,
+        billing_mode: input.billingMode,
+        billing_contact_name: input.billingContactName,
+        billing_contact_email: input.billingContactEmail,
+        subscription_notes: input.subscriptionNotes
+      })
+      .onConflict((oc) =>
+        oc.column("workos_organization_id").doUpdateSet({
+          name: input.name,
+          slug: input.slug,
+          subscription_status: input.subscriptionStatus,
+          billing_mode: input.billingMode,
+          billing_contact_name: input.billingContactName,
+          billing_contact_email: input.billingContactEmail,
+          subscription_notes: input.subscriptionNotes,
+          updated_at: sql`now()`
+        })
+      )
+      .returning([
+        "id",
+        "workos_organization_id",
+        "name",
+        "slug",
+        "subscription_status",
+        "billing_mode",
+        "billing_contact_name",
+        "billing_contact_email",
+        "subscription_notes",
+        "created_at",
+        "updated_at"
+      ])
+      .executeTakeFirstOrThrow();
+
+    let ownerLinked = false;
+    if (input.ownerUserId !== undefined) {
+      const profile = await trx
+        .insertInto("profiles")
+        .values({
+          organization_id: organization.id,
+          user_id: input.ownerUserId,
+          display_name: input.ownerDisplayName ?? input.ownerEmail ?? "SIMMER Operator",
+          email: input.ownerEmail ?? null
+        })
+        .onConflict((oc) =>
+          oc.columns(["organization_id", "user_id"]).doUpdateSet({
+            display_name: input.ownerDisplayName ?? input.ownerEmail ?? "SIMMER Operator",
+            email: input.ownerEmail ?? null,
+            is_active: true,
+            deleted_at: null,
+            deleted_by_profile_id: null,
+            updated_at: sql`now()`
+          })
+        )
+        .returning(["id"])
+        .executeTakeFirstOrThrow();
+
+      await trx
+        .insertInto("memberships")
+        .values({
+          organization_id: organization.id,
+          user_id: input.ownerUserId,
+          profile_id: profile.id,
+          role: "owner",
+          status: "active",
+          is_default: false
+        })
+        .onConflict((oc) =>
+          oc.columns(["organization_id", "user_id"]).doUpdateSet({
+            profile_id: profile.id,
+            role: "owner",
+            status: "active",
+            updated_at: sql`now()`
+          })
+        )
+        .execute();
+
+      ownerLinked = true;
+    }
+
+    return toSafeOrganization(organization, ownerLinked);
+  });
+}
+
+export async function listOperatorOrganizations(
+  db: Kysely<SimmerDatabase>
+): Promise<SafeOrganization[]> {
+  const rows = await db
+    .selectFrom("organizations")
+    .select([
+      "id",
+      "workos_organization_id",
+      "name",
+      "slug",
+      "subscription_status",
+      "billing_mode",
+      "billing_contact_name",
+      "billing_contact_email",
+      "subscription_notes",
+      "created_at",
+      "updated_at"
+    ])
+    .where("deleted_at", "is", null)
+    .orderBy("created_at", "desc")
+    .execute();
+
+  return rows.map((row) => toSafeOrganization(row, false));
+}
+
 export async function resolveActiveLocalAuthIdentity(
   db: Kysely<SimmerDatabase>,
   input: {
@@ -351,6 +518,40 @@ export async function resolveActiveLocalAuthIdentity(
       status: row.membership_status,
       isDefault: row.membership_is_default
     }
+  };
+}
+
+function toSafeOrganization(
+  row: {
+    readonly id: string;
+    readonly workos_organization_id: string | null;
+    readonly name: string;
+    readonly slug: string | null;
+    readonly subscription_status: OrganizationSubscriptionStatus;
+    readonly billing_mode: OrganizationBillingMode;
+    readonly billing_contact_name: string | null;
+    readonly billing_contact_email: string | null;
+    readonly subscription_notes: string | null;
+    readonly created_at: Date;
+    readonly updated_at: Date;
+  },
+  ownerLinked: boolean
+): SafeOrganization {
+  return {
+    id: row.id,
+    workosOrganizationId: row.workos_organization_id,
+    name: row.name,
+    slug: row.slug,
+    subscription: {
+      subscriptionStatus: row.subscription_status,
+      billingMode: row.billing_mode,
+      billingContactName: row.billing_contact_name,
+      billingContactEmail: row.billing_contact_email,
+      subscriptionNotes: row.subscription_notes
+    },
+    ownerLinked,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
   };
 }
 
