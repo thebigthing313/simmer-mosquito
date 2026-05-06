@@ -49,6 +49,33 @@ export interface AdminOrganization {
 	readonly updatedAt: string;
 }
 
+export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
+export type MembershipStatus = 'active' | 'inactive' | 'invited';
+
+export interface AdminMembership {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly userId: string | null;
+	readonly profileId: string;
+	readonly role: SimmerRole;
+	readonly status: MembershipStatus;
+	readonly isDefault: boolean;
+	readonly invitedEmail: string | null;
+	readonly workosInvitationId: string | null;
+	readonly profile: {
+		readonly displayName: string;
+		readonly email: string | null;
+		readonly isActive: boolean;
+	};
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface OrganizationMembershipsResult {
+	readonly organization: AdminOrganization;
+	readonly memberships: AdminMembership[];
+}
+
 export interface CreateAdminOrganizationInput {
 	readonly name: string;
 	readonly subscriptionStatus: 'trial' | 'active' | 'suspended' | 'canceled';
@@ -56,6 +83,12 @@ export interface CreateAdminOrganizationInput {
 	readonly billingContactEmail: string;
 	readonly subscriptionNotes: string;
 	readonly linkRequesterAsOwner: boolean;
+}
+
+export interface InviteAdminUserInput {
+	readonly email: string;
+	readonly displayName: string;
+	readonly role: SimmerRole;
 }
 
 export function getServerUrl(): string {
@@ -128,6 +161,58 @@ export async function createAdminOrganization(
 	}
 
 	return body;
+}
+
+export async function listOrganizationMemberships(
+	organizationId: string,
+	serverUrl = getServerUrl(),
+): Promise<OrganizationMembershipsResult> {
+	const response = await fetch(`${serverUrl}/admin/organizations/${organizationId}/memberships`, {
+		credentials: 'include',
+		headers: {
+			accept: 'application/json',
+		},
+	});
+
+	const body = (await response.json()) as
+		| OrganizationMembershipsResult
+		| { readonly error: string };
+
+	if (!response.ok || 'error' in body) {
+		throw new Error('Unable to load organization memberships.');
+	}
+
+	return body;
+}
+
+export async function inviteAdminUser(
+	organizationId: string,
+	input: InviteAdminUserInput,
+	serverUrl = getServerUrl(),
+): Promise<AdminMembership> {
+	const response = await fetch(`${serverUrl}/admin/organizations/${organizationId}/invitations`, {
+		method: 'POST',
+		credentials: 'include',
+		headers: {
+			accept: 'application/json',
+			'content-type': 'application/json',
+		},
+		body: JSON.stringify({
+			email: input.email,
+			displayName: input.displayName,
+			role: input.role,
+		}),
+	});
+
+	const body = (await response.json()) as
+		| { readonly membership: AdminMembership }
+		| { readonly error: string };
+
+	if (!response.ok || 'error' in body) {
+		throw new Error('Unable to invite user.');
+	}
+
+	return body.membership;
 }
 
 function trimTrailingSlash(value: string): string {

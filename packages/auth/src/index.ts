@@ -24,6 +24,17 @@ export interface AuthOrganization {
 	readonly name: string;
 }
 
+export interface AuthInvitation {
+	readonly id: string;
+	readonly email: string;
+	readonly state: 'pending' | 'accepted' | 'expired' | 'revoked';
+	readonly organizationId: string | null;
+	readonly acceptedUserId: string | null;
+	readonly expiresAt: string;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
 export interface AuthenticatedSession {
 	readonly authenticated: true;
 	readonly user: AuthUser;
@@ -186,6 +197,31 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 			return {
 				workosOrganizationId: organization.id,
 				name: organization.name,
+			};
+		},
+
+		async sendOrganizationInvitation(input: {
+			readonly email: string;
+			readonly workosOrganizationId: string;
+			readonly inviterWorkosUserId?: string;
+		}): Promise<AuthInvitation> {
+			const invitation = await workos.userManagement.sendInvitation({
+				email: input.email,
+				organizationId: input.workosOrganizationId,
+				...(input.inviterWorkosUserId === undefined
+					? {}
+					: { inviterUserId: input.inviterWorkosUserId }),
+			});
+
+			return {
+				id: invitation.id,
+				email: invitation.email,
+				state: invitation.state,
+				organizationId: invitation.organizationId,
+				acceptedUserId: invitation.acceptedUserId,
+				expiresAt: invitation.expiresAt,
+				createdAt: invitation.createdAt,
+				updatedAt: invitation.updatedAt,
 			};
 		},
 	};

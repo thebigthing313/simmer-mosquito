@@ -1,4 +1,11 @@
-import { type ColumnType, type Generated, Kysely, PostgresDialect, sql } from 'kysely';
+import {
+	type ColumnType,
+	type Generated,
+	Kysely,
+	PostgresDialect,
+	sql,
+	type Transaction,
+} from 'kysely';
 import pg from 'pg';
 
 const { Pool } = pg;
@@ -70,11 +77,13 @@ export interface ProfilesTable {
 export interface MembershipsTable {
 	id: Generated<string>;
 	organization_id: string;
-	user_id: string;
+	user_id: string | null;
 	profile_id: string;
 	role: SimmerRole;
 	status: MembershipStatus;
 	is_default: BooleanWithDefault;
+	invited_email: string | null;
+	workos_invitation_id: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 }
@@ -177,6 +186,25 @@ export interface SafeOrganization {
 	readonly updatedAt: Date;
 }
 
+export interface SafeOrganizationMembership {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly userId: string | null;
+	readonly profileId: string;
+	readonly role: SimmerRole;
+	readonly status: MembershipStatus;
+	readonly isDefault: boolean;
+	readonly invitedEmail: string | null;
+	readonly workosInvitationId: string | null;
+	readonly profile: {
+		readonly displayName: string;
+		readonly email: string | null;
+		readonly isActive: boolean;
+	};
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
 export interface UpsertOperatorOrganizationInput extends OrganizationSubscriptionMetadata {
 	readonly workosOrganizationId: string;
 	readonly name: string;
@@ -184,6 +212,65 @@ export interface UpsertOperatorOrganizationInput extends OrganizationSubscriptio
 	readonly ownerUserId?: string;
 	readonly ownerDisplayName?: string;
 	readonly ownerEmail?: string;
+}
+
+export interface StageOrganizationInvitationInput {
+	readonly organizationId: string;
+	readonly email: string;
+	readonly displayName: string | null;
+	readonly role: SimmerRole;
+	readonly workosInvitationId: string;
+}
+
+interface MembershipProvisioningCandidate {
+	readonly id: string;
+	readonly profileId: string;
+	readonly role: SimmerRole;
+}
+
+export function resolveMembershipProvisioning(input: {
+	readonly existingMembership: MembershipProvisioningCandidate | null;
+	readonly invitedMembership: MembershipProvisioningCandidate | null;
+	readonly existingMembershipCount: number;
+}):
+	| {
+			readonly source: 'existing' | 'invited';
+			readonly membershipId: string;
+			readonly profileId: string;
+			readonly role: SimmerRole;
+			readonly isDefault: false;
+	  }
+	| {
+			readonly source: 'new';
+			readonly role: SimmerRole;
+			readonly isDefault: boolean;
+	  } {
+	if (input.existingMembership !== null) {
+		return {
+			source: 'existing',
+			membershipId: input.existingMembership.id,
+			profileId: input.existingMembership.profileId,
+			role: input.existingMembership.role,
+			isDefault: false,
+		};
+	}
+
+	if (input.invitedMembership !== null) {
+		return {
+			source: 'invited',
+			membershipId: input.invitedMembership.id,
+			profileId: input.invitedMembership.profileId,
+			role: input.invitedMembership.role,
+			isDefault: false,
+		};
+	}
+
+	const isFirstMembership = input.existingMembershipCount === 0;
+	return {
+		source: 'new',
+		role: isFirstMembership ? 'owner' : 'viewer',
+		isDefault: isFirstMembership,
+	};
 }
 
 export async function upsertWorkOsIdentity(
@@ -249,7 +336,77 @@ export async function upsertWorkOsIdentity(
 			.where('organization_id', '=', organization.id)
 			.executeTakeFirstOrThrow();
 
-		const defaultRole = Number(existingMembershipCount.count) === 0 ? 'owner' : 'viewer';
+		const existingMembership = await trx
+			.selectFrom('memberships')
+			.select(['id', 'profile_id', 'role'])
+			.where('organization_id', '=', organization.id)
+			.where('user_id', '=', user.id)
+			.executeTakeFirst();
+
+		const normalizedEmail = normalizeEmail(input.email);
+		const invitedMembership = await trx
+			.selectFrom('memberships')
+			.select(['id', 'profile_id', 'role'])
+			.where('organization_id', '=', organization.id)
+			.where('user_id', 'is', null)
+			.where('status', '=', 'invited')
+			.where(sql<boolean>`lower(${sql.ref('invited_email')}) = ${normalizedEmail}`)
+			.executeTakeFirst();
+
+		const provisioning = resolveMembershipProvisioning({
+			existingMembership:
+				existingMembership === undefined
+					? null
+					: {
+							id: existingMembership.id,
+							profileId: existingMembership.profile_id,
+							role: existingMembership.role,
+						},
+			invitedMembership:
+				invitedMembership === undefined
+					? null
+					: {
+							id: invitedMembership.id,
+							profileId: invitedMembership.profile_id,
+							role: invitedMembership.role,
+						},
+			existingMembershipCount: Number(existingMembershipCount.count),
+		});
+
+		if (provisioning.source === 'existing' || provisioning.source === 'invited') {
+			await trx
+				.updateTable('profiles')
+				.set({
+					user_id: user.id,
+					display_name: input.displayName,
+					email: input.email,
+					is_active: true,
+					deleted_at: null,
+					deleted_by_profile_id: null,
+					updated_at: sql`now()`,
+				})
+				.where('id', '=', provisioning.profileId)
+				.executeTakeFirstOrThrow();
+
+			const membership = await trx
+				.updateTable('memberships')
+				.set({
+					user_id: user.id,
+					status: 'active',
+					updated_at: sql`now()`,
+				})
+				.where('id', '=', provisioning.membershipId)
+				.returning(['id', 'profile_id', 'role'])
+				.executeTakeFirstOrThrow();
+
+			return {
+				userId: user.id,
+				organizationId: organization.id,
+				profileId: membership.profile_id,
+				membershipId: membership.id,
+				role: membership.role,
+			};
+		}
 
 		const profile = await trx
 			.insertInto('profiles')
@@ -263,6 +420,9 @@ export async function upsertWorkOsIdentity(
 				oc.columns(['organization_id', 'user_id']).doUpdateSet({
 					display_name: input.displayName,
 					email: input.email,
+					is_active: true,
+					deleted_at: null,
+					deleted_by_profile_id: null,
 					updated_at: sql`now()`,
 				}),
 			)
@@ -275,17 +435,10 @@ export async function upsertWorkOsIdentity(
 				organization_id: organization.id,
 				user_id: user.id,
 				profile_id: profile.id,
-				role: coerceRole(input.workosRole) ?? defaultRole,
+				role: provisioning.role,
 				status: 'active',
-				is_default: defaultRole === 'owner',
+				is_default: provisioning.isDefault,
 			})
-			.onConflict((oc) =>
-				oc.columns(['organization_id', 'user_id']).doUpdateSet({
-					profile_id: profile.id,
-					status: 'active',
-					updated_at: sql`now()`,
-				}),
-			)
 			.returning(['id', 'role'])
 			.executeTakeFirstOrThrow();
 
@@ -366,25 +519,37 @@ export async function upsertOperatorOrganization(
 				.returning(['id'])
 				.executeTakeFirstOrThrow();
 
-			await trx
-				.insertInto('memberships')
-				.values({
-					organization_id: organization.id,
-					user_id: input.ownerUserId,
-					profile_id: profile.id,
-					role: 'owner',
-					status: 'active',
-					is_default: false,
-				})
-				.onConflict((oc) =>
-					oc.columns(['organization_id', 'user_id']).doUpdateSet({
+			const existingMembership = await trx
+				.selectFrom('memberships')
+				.select(['id'])
+				.where('organization_id', '=', organization.id)
+				.where('user_id', '=', input.ownerUserId)
+				.executeTakeFirst();
+
+			if (existingMembership === undefined) {
+				await trx
+					.insertInto('memberships')
+					.values({
+						organization_id: organization.id,
+						user_id: input.ownerUserId,
+						profile_id: profile.id,
+						role: 'owner',
+						status: 'active',
+						is_default: false,
+					})
+					.execute();
+			} else {
+				await trx
+					.updateTable('memberships')
+					.set({
 						profile_id: profile.id,
 						role: 'owner',
 						status: 'active',
 						updated_at: sql`now()`,
-					}),
-				)
-				.execute();
+					})
+					.where('id', '=', existingMembership.id)
+					.execute();
+			}
 
 			ownerLinked = true;
 		}
@@ -416,6 +581,155 @@ export async function listOperatorOrganizations(
 		.execute();
 
 	return rows.map((row) => toSafeOrganization(row, false));
+}
+
+export async function getOperatorOrganization(
+	db: Kysely<SimmerDatabase>,
+	organizationId: string,
+): Promise<SafeOrganization | null> {
+	const row = await db
+		.selectFrom('organizations')
+		.select([
+			'id',
+			'workos_organization_id',
+			'name',
+			'slug',
+			'subscription_status',
+			'billing_mode',
+			'billing_contact_name',
+			'billing_contact_email',
+			'subscription_notes',
+			'created_at',
+			'updated_at',
+		])
+		.where('id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrganization(row, false);
+}
+
+export async function listOrganizationMemberships(
+	db: Kysely<SimmerDatabase>,
+	organizationId: string,
+): Promise<SafeOrganizationMembership[]> {
+	const rows = await db
+		.selectFrom('memberships')
+		.innerJoin('profiles', 'profiles.id', 'memberships.profile_id')
+		.select([
+			'memberships.id',
+			'memberships.organization_id',
+			'memberships.user_id',
+			'memberships.profile_id',
+			'memberships.role',
+			'memberships.status',
+			'memberships.is_default',
+			'memberships.invited_email',
+			'memberships.workos_invitation_id',
+			'memberships.created_at',
+			'memberships.updated_at',
+			'profiles.display_name as profile_display_name',
+			'profiles.email as profile_email',
+			'profiles.is_active as profile_is_active',
+		])
+		.where('memberships.organization_id', '=', organizationId)
+		.orderBy('memberships.created_at', 'desc')
+		.execute();
+
+	return rows.map((row) =>
+		toSafeOrganizationMembership({
+			id: row.id,
+			organization_id: row.organization_id,
+			user_id: row.user_id,
+			profile_id: row.profile_id,
+			role: row.role,
+			status: row.status,
+			is_default: row.is_default,
+			invited_email: row.invited_email,
+			workos_invitation_id: row.workos_invitation_id,
+			created_at: row.created_at,
+			updated_at: row.updated_at,
+			profile_display_name: row.profile_display_name,
+			profile_email: row.profile_email,
+			profile_is_active: row.profile_is_active,
+		}),
+	);
+}
+
+export async function stageOrganizationInvitation(
+	db: Kysely<SimmerDatabase>,
+	input: StageOrganizationInvitationInput,
+): Promise<SafeOrganizationMembership> {
+	return db.transaction().execute(async (trx) => {
+		const normalizedEmail = normalizeEmail(input.email);
+		const displayName = input.displayName ?? input.email;
+		const existingMembership = await trx
+			.selectFrom('memberships')
+			.innerJoin('profiles', 'profiles.id', 'memberships.profile_id')
+			.select(['memberships.id', 'memberships.profile_id', 'profiles.id as joined_profile_id'])
+			.where('memberships.organization_id', '=', input.organizationId)
+			.where('memberships.user_id', 'is', null)
+			.where('memberships.status', '=', 'invited')
+			.where(sql<boolean>`lower(${sql.ref('memberships.invited_email')}) = ${normalizedEmail}`)
+			.executeTakeFirst();
+
+		if (existingMembership !== undefined) {
+			await trx
+				.updateTable('profiles')
+				.set({
+					display_name: displayName,
+					email: normalizedEmail,
+					is_active: true,
+					deleted_at: null,
+					deleted_by_profile_id: null,
+					updated_at: sql`now()`,
+				})
+				.where('id', '=', existingMembership.joined_profile_id)
+				.executeTakeFirstOrThrow();
+
+			const updated = await trx
+				.updateTable('memberships')
+				.set({
+					role: input.role,
+					invited_email: normalizedEmail,
+					workos_invitation_id: input.workosInvitationId,
+					updated_at: sql`now()`,
+				})
+				.where('id', '=', existingMembership.id)
+				.returningAll()
+				.executeTakeFirstOrThrow();
+
+			return selectSafeOrganizationMembership(trx, updated.id);
+		}
+
+		const profile = await trx
+			.insertInto('profiles')
+			.values({
+				organization_id: input.organizationId,
+				user_id: null,
+				display_name: displayName,
+				email: normalizedEmail,
+			})
+			.returning(['id'])
+			.executeTakeFirstOrThrow();
+
+		const membership = await trx
+			.insertInto('memberships')
+			.values({
+				organization_id: input.organizationId,
+				user_id: null,
+				profile_id: profile.id,
+				role: input.role,
+				status: 'invited',
+				is_default: false,
+				invited_email: normalizedEmail,
+				workos_invitation_id: input.workosInvitationId,
+			})
+			.returning(['id'])
+			.executeTakeFirstOrThrow();
+
+		return selectSafeOrganizationMembership(trx, membership.id);
+	});
 }
 
 export async function resolveActiveLocalAuthIdentity(
@@ -460,11 +774,16 @@ export async function resolveActiveLocalAuthIdentity(
 		.where('organizations.workos_organization_id', '=', input.workosOrganizationId)
 		.where('organizations.deleted_at', 'is', null)
 		.where('memberships.status', '=', 'active')
+		.where('memberships.user_id', 'is not', null)
 		.where('profiles.is_active', '=', true)
 		.where('profiles.deleted_at', 'is', null)
 		.executeTakeFirst();
 
-	if (row === undefined || row.organization_workos_organization_id === null) {
+	if (
+		row === undefined ||
+		row.organization_workos_organization_id === null ||
+		row.membership_user_id === null
+	) {
 		return null;
 	}
 
@@ -538,16 +857,86 @@ function toSafeOrganization(
 	};
 }
 
-function coerceRole(role: string | null | undefined): SimmerRole | null {
-	if (
-		role === 'owner' ||
-		role === 'admin' ||
-		role === 'manager' ||
-		role === 'collector' ||
-		role === 'viewer'
-	) {
-		return role;
-	}
+async function selectSafeOrganizationMembership(
+	db: Kysely<SimmerDatabase> | Transaction<SimmerDatabase>,
+	membershipId: string,
+): Promise<SafeOrganizationMembership> {
+	const row = await db
+		.selectFrom('memberships')
+		.innerJoin('profiles', 'profiles.id', 'memberships.profile_id')
+		.select([
+			'memberships.id',
+			'memberships.organization_id',
+			'memberships.user_id',
+			'memberships.profile_id',
+			'memberships.role',
+			'memberships.status',
+			'memberships.is_default',
+			'memberships.invited_email',
+			'memberships.workos_invitation_id',
+			'memberships.created_at',
+			'memberships.updated_at',
+			'profiles.display_name as profile_display_name',
+			'profiles.email as profile_email',
+			'profiles.is_active as profile_is_active',
+		])
+		.where('memberships.id', '=', membershipId)
+		.executeTakeFirstOrThrow();
 
-	return null;
+	return toSafeOrganizationMembership({
+		id: row.id,
+		organization_id: row.organization_id,
+		user_id: row.user_id,
+		profile_id: row.profile_id,
+		role: row.role,
+		status: row.status,
+		is_default: row.is_default,
+		invited_email: row.invited_email,
+		workos_invitation_id: row.workos_invitation_id,
+		created_at: row.created_at,
+		updated_at: row.updated_at,
+		profile_display_name: row.profile_display_name,
+		profile_email: row.profile_email,
+		profile_is_active: row.profile_is_active,
+	});
+}
+
+function toSafeOrganizationMembership(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly user_id: string | null;
+	readonly profile_id: string;
+	readonly role: SimmerRole;
+	readonly status: MembershipStatus;
+	readonly is_default: boolean;
+	readonly invited_email: string | null;
+	readonly workos_invitation_id: string | null;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+	readonly profile_display_name: string;
+	readonly profile_email: string | null;
+	readonly profile_is_active: boolean;
+}): SafeOrganizationMembership {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		userId: row.user_id,
+		profileId: row.profile_id,
+		role: row.role,
+		status: row.status,
+		isDefault: row.is_default,
+		invitedEmail: row.invited_email,
+		workosInvitationId: row.workos_invitation_id,
+		profile: {
+			displayName: row.profile_display_name,
+			email: row.profile_email,
+			isActive: row.profile_is_active,
+		},
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function normalizeEmail(email: string): string {
+	return email.trim().toLowerCase();
 }

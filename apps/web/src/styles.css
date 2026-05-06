@@ -221,16 +221,28 @@ select {
 }
 
 .org-row h3,
-.org-row p {
+.org-row p,
+.member-row h3,
+.member-row p {
 	margin: 0;
 }
 
-.org-row h3 {
+.org-row h3,
+.member-row h3 {
 	color: #102a38;
 	font-size: 1rem;
 }
 
-.org-row p {
+.org-row h3 a {
+	text-decoration: none;
+}
+
+.org-row h3 a:hover {
+	text-decoration: underline;
+}
+
+.org-row p,
+.member-row p {
 	margin-top: 6px;
 	overflow-wrap: anywhere;
 	color: #536878;
@@ -239,6 +251,36 @@ select {
 }
 
 .org-row .facts {
+	margin: 0;
+}
+
+.back-link {
+	display: inline-flex;
+	margin-bottom: 18px;
+	color: #35606f;
+	font-weight: 750;
+	text-decoration: none;
+}
+
+.invite-form {
+	padding-top: 18px;
+	border-top: 1px solid #dce4e9;
+}
+
+.member-list {
+	display: grid;
+	gap: 0;
+}
+
+.member-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+	gap: 16px;
+	padding: 18px 0;
+	border-top: 1px solid #dce4e9;
+}
+
+.member-row .facts {
 	margin: 0;
 }
 
@@ -300,6 +342,10 @@ select {
 	}
 
 	.org-row {
+		grid-template-columns: 1fr;
+	}
+
+	.member-row {
 		grid-template-columns: 1fr;
 	}
 }

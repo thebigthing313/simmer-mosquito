@@ -2,10 +2,15 @@ import { serve } from '@hono/node-server';
 import { createWorkOsAuth, WORKOS_SESSION_COOKIE_NAME } from '@simmer-mosquito/auth';
 import {
 	createDb,
+	getOperatorOrganization,
 	listOperatorOrganizations,
+	listOrganizationMemberships,
 	type OrganizationSubscriptionStatus,
 	resolveActiveLocalAuthIdentity,
 	type SafeOrganization,
+	type SafeOrganizationMembership,
+	type SimmerRole,
+	stageOrganizationInvitation,
 	upsertOperatorOrganization,
 	upsertWorkOsIdentity,
 } from '@simmer-mosquito/db';
@@ -179,6 +184,93 @@ app.post('/admin/organizations', authContextMiddleware, async (context) => {
 	return context.json(toAdminOrganizationResponse(organization), 201);
 });
 
+app.get(
+	'/admin/organizations/:organizationId/memberships',
+	authContextMiddleware,
+	async (context) => {
+		const authContext = context.get('authContext');
+		if (!isOperatorEmail(authContext.user.email)) {
+			return context.json({ error: 'operator_required' }, 403);
+		}
+
+		const organizationId = context.req.param('organizationId');
+		const organization = await getOperatorOrganization(db, organizationId);
+		if (organization === null) {
+			return context.json({ error: 'organization_not_found' }, 404);
+		}
+
+		const memberships = await listOrganizationMemberships(db, organizationId);
+
+		return context.json({
+			organization: toAdminOrganizationResponse(organization),
+			memberships: memberships.map(toAdminMembershipResponse),
+		});
+	},
+);
+
+app.post(
+	'/admin/organizations/:organizationId/invitations',
+	authContextMiddleware,
+	async (context) => {
+		const authContext = context.get('authContext');
+		if (!isOperatorEmail(authContext.user.email)) {
+			return context.json({ error: 'operator_required' }, 403);
+		}
+
+		const payloadResult = await readInvitePayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json(
+				{
+					error: 'invalid_payload',
+					reason: payloadResult.reason,
+				},
+				400,
+			);
+		}
+
+		const organizationId = context.req.param('organizationId');
+		const organization = await getOperatorOrganization(db, organizationId);
+		if (organization === null) {
+			return context.json({ error: 'organization_not_found' }, 404);
+		}
+
+		if (organization.workosOrganizationId === null) {
+			return context.json({ error: 'workos_organization_required' }, 409);
+		}
+
+		const invitation = await auth.sendOrganizationInvitation({
+			email: payloadResult.payload.email,
+			workosOrganizationId: organization.workosOrganizationId,
+			inviterWorkosUserId: authContext.workosUser.workosUserId,
+		});
+
+		const membership = await stageOrganizationInvitation(db, {
+			organizationId,
+			email: invitation.email,
+			displayName: payloadResult.payload.displayName,
+			role: payloadResult.payload.role,
+			workosInvitationId: invitation.id,
+		});
+
+		return context.json(
+			{
+				invitation: {
+					id: invitation.id,
+					email: invitation.email,
+					state: invitation.state,
+					organizationId: invitation.organizationId,
+					acceptedUserId: invitation.acceptedUserId,
+					expiresAt: invitation.expiresAt,
+					createdAt: invitation.createdAt,
+					updatedAt: invitation.updatedAt,
+				},
+				membership: toAdminMembershipResponse(membership),
+			},
+			201,
+		);
+	},
+);
+
 if (env.nodeEnv !== 'production') {
 	app.use(
 		'/debug/*',
@@ -246,10 +338,26 @@ interface CreateOrganizationPayload {
 	readonly linkRequesterAsOwner: boolean;
 }
 
+interface InvitePayload {
+	readonly email: string;
+	readonly role: SimmerRole;
+	readonly displayName: string | null;
+}
+
 type PayloadResult =
 	| {
 			readonly ok: true;
 			readonly payload: CreateOrganizationPayload;
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: string;
+	  };
+
+type InvitePayloadResult =
+	| {
+			readonly ok: true;
+			readonly payload: InvitePayload;
 	  }
 	| {
 			readonly ok: false;
@@ -314,12 +422,72 @@ async function readCreateOrganizationPayload(request: {
 	};
 }
 
+async function readInvitePayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<InvitePayloadResult> {
+	let raw: unknown;
+	try {
+		raw = await request.json();
+	} catch {
+		return {
+			ok: false,
+			reason: 'Request body must be JSON.',
+		};
+	}
+
+	if (!isRecord(raw)) {
+		return {
+			ok: false,
+			reason: 'Request body must be an object.',
+		};
+	}
+
+	const email = readRequiredText(raw.email);
+	if (email === null || !email.includes('@')) {
+		return {
+			ok: false,
+			reason: 'email is required.',
+		};
+	}
+
+	const role = readRole(raw.role);
+	if (role === null) {
+		return {
+			ok: false,
+			reason: 'role must be owner, admin, manager, collector, or viewer.',
+		};
+	}
+
+	return {
+		ok: true,
+		payload: {
+			email,
+			role,
+			displayName: readOptionalText(raw.displayName),
+		},
+	};
+}
+
 function readSubscriptionStatus(value: unknown): OrganizationSubscriptionStatus | null {
 	if (value === undefined || value === null || value === '') {
 		return 'trial';
 	}
 
 	if (value === 'trial' || value === 'active' || value === 'suspended' || value === 'canceled') {
+		return value;
+	}
+
+	return null;
+}
+
+function readRole(value: unknown): SimmerRole | null {
+	if (
+		value === 'owner' ||
+		value === 'admin' ||
+		value === 'manager' ||
+		value === 'collector' ||
+		value === 'viewer'
+	) {
 		return value;
 	}
 
@@ -358,5 +526,22 @@ function toAdminOrganizationResponse(organization: SafeOrganization) {
 		ownerLinked: organization.ownerLinked,
 		createdAt: organization.createdAt,
 		updatedAt: organization.updatedAt,
+	};
+}
+
+function toAdminMembershipResponse(membership: SafeOrganizationMembership) {
+	return {
+		id: membership.id,
+		organizationId: membership.organizationId,
+		userId: membership.userId,
+		profileId: membership.profileId,
+		role: membership.role,
+		status: membership.status,
+		isDefault: membership.isDefault,
+		invitedEmail: membership.invitedEmail,
+		workosInvitationId: membership.workosInvitationId,
+		profile: membership.profile,
+		createdAt: membership.createdAt,
+		updatedAt: membership.updatedAt,
 	};
 }

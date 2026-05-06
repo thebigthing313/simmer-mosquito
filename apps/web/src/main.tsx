@@ -5,11 +5,13 @@ import {
 	Link,
 	Outlet,
 	RouterProvider,
+	useParams,
 	useSearch,
 } from '@tanstack/react-router';
 import { type FormEvent, StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
+	type AdminMembership,
 	type AdminOrganization,
 	type AuthenticatedMe,
 	type AuthMe,
@@ -17,7 +19,11 @@ import {
 	createAdminOrganization,
 	getAuthMe,
 	getServerUrl,
+	type InviteAdminUserInput,
+	inviteAdminUser,
 	listAdminOrganizations,
+	listOrganizationMemberships,
+	type SimmerRole,
 } from './auth';
 import './styles.css';
 
@@ -51,8 +57,19 @@ const adminOrganizationsRoute = createRoute({
 	component: AdminOrganizationsRoute,
 });
 
+const adminOrganizationDetailRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: '/admin/organizations/$organizationId',
+	component: AdminOrganizationDetailRoute,
+});
+
 const router = createRouter({
-	routeTree: rootRoute.addChildren([indexRoute, loginRoute, adminOrganizationsRoute]),
+	routeTree: rootRoute.addChildren([
+		indexRoute,
+		loginRoute,
+		adminOrganizationsRoute,
+		adminOrganizationDetailRoute,
+	]),
 });
 
 declare module '@tanstack/react-router' {
@@ -282,7 +299,14 @@ function AdminOrganizationsRoute() {
 					{organizations.map((organization) => (
 						<article className="org-row" key={organization.id}>
 							<div>
-								<h3>{organization.name}</h3>
+								<h3>
+									<Link
+										to="/admin/organizations/$organizationId"
+										params={{ organizationId: organization.id }}
+									>
+										{organization.name}
+									</Link>
+								</h3>
 								<p>{organization.workosOrganizationId ?? 'No WorkOS organization'}</p>
 							</div>
 							<dl className="facts">
@@ -292,6 +316,139 @@ function AdminOrganizationsRoute() {
 									label="Owner linked"
 									value={organization.ownerLinked ? 'yes' : 'not on list'}
 								/>
+							</dl>
+						</article>
+					))}
+				</div>
+			</Panel>
+		</section>
+	);
+}
+
+function AdminOrganizationDetailRoute() {
+	const { organizationId } = useParams({ from: adminOrganizationDetailRoute.id });
+	const [organization, setOrganization] = useState<AdminOrganization | null>(null);
+	const [memberships, setMemberships] = useState<AdminMembership[]>([]);
+	const [status, setStatus] = useState<string>('Loading memberships...');
+	const [inviteForm, setInviteForm] = useState<InviteAdminUserInput>({
+		email: '',
+		displayName: '',
+		role: 'viewer',
+	});
+
+	useEffect(() => {
+		let cancelled = false;
+
+		listOrganizationMemberships(organizationId, serverUrl)
+			.then((result) => {
+				if (!cancelled) {
+					setOrganization(result.organization);
+					setMemberships(result.memberships);
+					setStatus('');
+				}
+			})
+			.catch((loadError: unknown) => {
+				if (!cancelled) {
+					setStatus(loadError instanceof Error ? loadError.message : 'Unable to load memberships.');
+				}
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [organizationId]);
+
+	async function submitInvite(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setStatus('Sending invitation...');
+
+		try {
+			const membership = await inviteAdminUser(organizationId, inviteForm, serverUrl);
+			setMemberships((current) => [
+				membership,
+				...current.filter((item) => item.id !== membership.id),
+			]);
+			setInviteForm({
+				email: '',
+				displayName: '',
+				role: 'viewer',
+			});
+			setStatus('Invitation sent.');
+		} catch (inviteError) {
+			setStatus(inviteError instanceof Error ? inviteError.message : 'Unable to invite user.');
+		}
+	}
+
+	return (
+		<section className="shell wide">
+			<Panel title={organization === null ? 'Agency' : organization.name}>
+				<Link className="back-link" to="/admin/organizations">
+					Back to agencies
+				</Link>
+
+				{organization === null ? null : (
+					<dl className="facts">
+						<Fact label="SIMMER org" value={organization.id} />
+						<Fact label="WorkOS org" value={organization.workosOrganizationId ?? 'none'} />
+						<Fact label="Subscription" value={organization.subscription.subscriptionStatus} />
+					</dl>
+				)}
+
+				<form className="admin-form invite-form" onSubmit={submitInvite}>
+					<label>
+						Email
+						<input
+							required
+							type="email"
+							value={inviteForm.email}
+							onChange={(event) => setInviteForm({ ...inviteForm, email: event.target.value })}
+						/>
+					</label>
+
+					<label>
+						Display name
+						<input
+							value={inviteForm.displayName}
+							onChange={(event) =>
+								setInviteForm({ ...inviteForm, displayName: event.target.value })
+							}
+						/>
+					</label>
+
+					<label>
+						Role
+						<select
+							value={inviteForm.role}
+							onChange={(event) =>
+								setInviteForm({ ...inviteForm, role: event.target.value as SimmerRole })
+							}
+						>
+							<option value="viewer">viewer</option>
+							<option value="collector">collector</option>
+							<option value="manager">manager</option>
+							<option value="admin">admin</option>
+							<option value="owner">owner</option>
+						</select>
+					</label>
+
+					<button className="button" type="submit">
+						Invite user
+					</button>
+				</form>
+
+				{status === '' ? null : <p className="admin-status">{status}</p>}
+
+				<div className="member-list">
+					{memberships.map((membership) => (
+						<article className="member-row" key={membership.id}>
+							<div>
+								<h3>{membership.profile.displayName}</h3>
+								<p>{membership.profile.email ?? membership.invitedEmail ?? 'No email'}</p>
+							</div>
+							<dl className="facts">
+								<Fact label="Role" value={membership.role} />
+								<Fact label="Status" value={membership.status} />
+								<Fact label="User" value={membership.userId ?? 'pending'} />
 							</dl>
 						</article>
 					))}
