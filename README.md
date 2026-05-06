@@ -22,6 +22,11 @@ pnpm dev:worker
 pnpm graph
 ```
 
+## Architecture
+
+See [docs/architecture.md](docs/architecture.md) for the current system shape
+and [docs/adr](docs/adr) for accepted architecture decisions.
+
 ## Railway Notes
 
 Create one Railway service per deployable app. For the server service, use:
