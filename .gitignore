@@ -1,0 +1,12 @@
+node_modules/
+.nx/
+dist/
+coverage/
+
+*.log
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
