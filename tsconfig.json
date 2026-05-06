@@ -8,11 +8,16 @@
       "path": "./packages/config"
     },
     {
-      "path": "./apps/api"
+      "path": "./packages/db"
+    },
+    {
+      "path": "./packages/auth"
+    },
+    {
+      "path": "./apps/server"
     },
     {
       "path": "./apps/worker"
     }
   ]
 }
-

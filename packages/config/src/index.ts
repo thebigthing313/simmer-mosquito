@@ -36,3 +36,33 @@ function readPort(value: string | undefined): number {
   return parsed;
 }
 
+export function readRequiredString(
+  source: NodeJS.ProcessEnv,
+  key: string
+): string {
+  const value = source[key];
+
+  if (value === undefined || value.trim() === "") {
+    throw new Error(`${key} must be set.`);
+  }
+
+  return value;
+}
+
+export function readOptionalString(
+  source: NodeJS.ProcessEnv,
+  key: string
+): string | undefined {
+  const value = source[key];
+  return value === undefined || value.trim() === "" ? undefined : value;
+}
+
+export function readRequiredUrl(source: NodeJS.ProcessEnv, key: string): string {
+  const value = readRequiredString(source, key);
+
+  try {
+    return new URL(value).toString();
+  } catch {
+    throw new Error(`${key} must be a valid URL. Received: ${value}`);
+  }
+}
