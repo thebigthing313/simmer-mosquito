@@ -118,6 +118,41 @@ export interface LocalIdentity {
   readonly role: SimmerRole | null;
 }
 
+export interface ActiveLocalAuthIdentity {
+  readonly user: {
+    readonly id: string;
+    readonly workosUserId: string;
+    readonly email: string;
+    readonly displayName: string;
+    readonly firstName: string | null;
+    readonly lastName: string | null;
+    readonly emailVerified: boolean | null;
+    readonly profilePictureUrl: string | null;
+  };
+  readonly organization: {
+    readonly id: string;
+    readonly workosOrganizationId: string;
+    readonly name: string;
+    readonly slug: string | null;
+  };
+  readonly profile: {
+    readonly id: string;
+    readonly organizationId: string;
+    readonly userId: string | null;
+    readonly displayName: string;
+    readonly email: string | null;
+  };
+  readonly membership: {
+    readonly id: string;
+    readonly organizationId: string;
+    readonly userId: string;
+    readonly profileId: string;
+    readonly role: SimmerRole;
+    readonly status: MembershipStatus;
+    readonly isDefault: boolean;
+  };
+}
+
 export async function upsertWorkOsIdentity(
   db: Kysely<SimmerDatabase>,
   input: WorkOsIdentityInput
@@ -231,6 +266,92 @@ export async function upsertWorkOsIdentity(
       role: membership.role
     };
   });
+}
+
+export async function resolveActiveLocalAuthIdentity(
+  db: Kysely<SimmerDatabase>,
+  input: {
+    readonly workosUserId: string;
+    readonly workosOrganizationId: string;
+  }
+): Promise<ActiveLocalAuthIdentity | null> {
+  const row = await db
+    .selectFrom("users")
+    .innerJoin("memberships", "memberships.user_id", "users.id")
+    .innerJoin("organizations", "organizations.id", "memberships.organization_id")
+    .innerJoin("profiles", "profiles.id", "memberships.profile_id")
+    .select([
+      "users.id as user_id",
+      "users.workos_user_id as user_workos_user_id",
+      "users.email as user_email",
+      "users.display_name as user_display_name",
+      "users.first_name as user_first_name",
+      "users.last_name as user_last_name",
+      "users.email_verified as user_email_verified",
+      "users.profile_picture_url as user_profile_picture_url",
+      "organizations.id as organization_id",
+      "organizations.workos_organization_id as organization_workos_organization_id",
+      "organizations.name as organization_name",
+      "organizations.slug as organization_slug",
+      "profiles.id as profile_id",
+      "profiles.organization_id as profile_organization_id",
+      "profiles.user_id as profile_user_id",
+      "profiles.display_name as profile_display_name",
+      "profiles.email as profile_email",
+      "memberships.id as membership_id",
+      "memberships.organization_id as membership_organization_id",
+      "memberships.user_id as membership_user_id",
+      "memberships.profile_id as membership_profile_id",
+      "memberships.role as membership_role",
+      "memberships.status as membership_status",
+      "memberships.is_default as membership_is_default"
+    ])
+    .where("users.workos_user_id", "=", input.workosUserId)
+    .where("organizations.workos_organization_id", "=", input.workosOrganizationId)
+    .where("organizations.deleted_at", "is", null)
+    .where("memberships.status", "=", "active")
+    .where("profiles.is_active", "=", true)
+    .where("profiles.deleted_at", "is", null)
+    .executeTakeFirst();
+
+  if (row === undefined || row.organization_workos_organization_id === null) {
+    return null;
+  }
+
+  return {
+    user: {
+      id: row.user_id,
+      workosUserId: row.user_workos_user_id,
+      email: row.user_email,
+      displayName: row.user_display_name,
+      firstName: row.user_first_name,
+      lastName: row.user_last_name,
+      emailVerified: row.user_email_verified,
+      profilePictureUrl: row.user_profile_picture_url
+    },
+    organization: {
+      id: row.organization_id,
+      workosOrganizationId: row.organization_workos_organization_id,
+      name: row.organization_name,
+      slug: row.organization_slug
+    },
+    profile: {
+      id: row.profile_id,
+      organizationId: row.profile_organization_id,
+      userId: row.profile_user_id,
+      displayName: row.profile_display_name,
+      email: row.profile_email
+    },
+    membership: {
+      id: row.membership_id,
+      organizationId: row.membership_organization_id,
+      userId: row.membership_user_id,
+      profileId: row.membership_profile_id,
+      role: row.membership_role,
+      status: row.membership_status,
+      isDefault: row.membership_is_default
+    }
+  };
 }
 
 function coerceRole(role: string | null | undefined): SimmerRole | null {

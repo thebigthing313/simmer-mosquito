@@ -1,9 +1,23 @@
 import { serve } from "@hono/node-server";
 import { createWorkOsAuth, WORKOS_SESSION_COOKIE_NAME } from "@simmer-mosquito/auth";
-import { createDb, upsertWorkOsIdentity } from "@simmer-mosquito/db";
+import {
+  createDb,
+  resolveActiveLocalAuthIdentity,
+  upsertWorkOsIdentity
+} from "@simmer-mosquito/db";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
+import {
+  resolveAuthContext,
+  toAuthFailureBody,
+  toAuthMeBody,
+  toPublicAuthContext
+} from "./auth-context.js";
+import {
+  type AuthVariables,
+  createAuthContextMiddleware
+} from "./auth-middleware.js";
 import { readServerEnv } from "./env.js";
 
 const env = readServerEnv();
@@ -17,7 +31,18 @@ const db = createDb({
   databaseUrl: env.databaseUrl
 });
 
-const app = new Hono();
+const app = new Hono<{ Variables: AuthVariables }>();
+const localIdentityResolver = {
+  resolveActiveLocalAuthIdentity: (input: {
+    readonly workosUserId: string;
+    readonly workosOrganizationId: string;
+  }) => resolveActiveLocalAuthIdentity(db, input)
+};
+const authContextMiddleware = createAuthContextMiddleware({
+  auth,
+  localIdentityResolver,
+  setAuthCookie
+});
 
 app.use(
   "/auth/*",
@@ -72,33 +97,37 @@ app.get("/auth/callback", async (context) => {
 });
 
 app.get("/auth/me", async (context) => {
-  const session = await auth.authenticateSession(
-    getCookie(context, WORKOS_SESSION_COOKIE_NAME)
+  const result = await resolveAuthContext({
+    sealedSession: getCookie(context, WORKOS_SESSION_COOKIE_NAME),
+    auth,
+    localIdentityResolver
+  });
+
+  if (result.sealedSession !== undefined) {
+    setAuthCookie(context, result.sealedSession);
+  }
+
+  if (!result.ok) {
+    return context.json(toAuthFailureBody(result), result.status);
+  }
+
+  return context.json(toAuthMeBody(result.context));
+});
+
+if (env.nodeEnv !== "production") {
+  app.use(
+    "/debug/*",
+    cors({
+      origin: env.appOrigin,
+      credentials: true,
+      allowMethods: ["GET", "OPTIONS"]
+    })
   );
 
-  if (!session.authenticated) {
-    return context.json({ authenticated: false, reason: session.reason }, 401);
-  }
-
-  if (session.sealedSession !== undefined) {
-    setAuthCookie(context, session.sealedSession);
-  }
-
-  const organization = await auth.getOrganization(session.workosOrganizationId);
-  const localIdentity = await upsertWorkOsIdentity(db, {
-    ...session.user,
-    workosOrganizationId: session.workosOrganizationId,
-    workosOrganizationName: organization?.name ?? null,
-    workosRole: session.role
-  });
-
-  return context.json({
-    authenticated: true,
-    user: session.user,
-    workosOrganizationId: session.workosOrganizationId,
-    localIdentity
-  });
-});
+  app.get("/debug/auth-context", authContextMiddleware, (context) =>
+    context.json(toPublicAuthContext(context.get("authContext")))
+  );
+}
 
 app.post("/auth/logout", async (context) => {
   const logoutUrl = await auth.getLogoutUrl(
