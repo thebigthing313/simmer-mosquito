@@ -27,7 +27,9 @@ pnpm graph
 ## Architecture
 
 See [docs/architecture.md](docs/architecture.md) for the current system shape
-and [docs/adr](docs/adr) for accepted architecture decisions.
+and [docs/adr](docs/adr) for accepted architecture decisions. See
+[docs/plan.md](docs/plan.md) for implementation progress and the recommended
+next slice.
 
 ## Railway Notes
 

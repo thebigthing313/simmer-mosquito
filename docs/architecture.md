@@ -48,9 +48,10 @@ Services intentionally postponed:
 
 ## Applications
 
-`apps/web` is a Vite React SPA using TanStack Router. The current slice exposes
-WorkOS-backed browser auth through the server control plane. TanStack DB and
-ElectricSQL will be added after the auth shell and first domain workflow shape
+`apps/web` is a Vite React SPA using TanStack Router. The current shell exposes
+WorkOS-backed browser auth, AuthContext display, and SIMMER operator agency
+administration through the server control plane. TanStack DB and ElectricSQL
+will be added after the auth/admin foundation and first domain workflow shape
 are settled. It is not a TanStack Start app.
 
 `apps/mobile` is planned as an Expo managed React Native app using TanStack DB,
@@ -58,8 +59,9 @@ ElectricSQL, SecureStore-backed auth, and later local persistence/offline
 transactions.
 
 `apps/server` is the Hono control plane. It owns WorkOS callbacks, web session
-cookies, future mobile session exchange, Electric shape authorization, command
-endpoints, and server-authorized Postgres writes.
+cookies, reusable AuthContext resolution, SIMMER operator agency administration,
+future mobile session exchange, Electric shape authorization, command endpoints,
+and server-authorized Postgres writes.
 
 `apps/worker` owns background work: WorkOS event sync, scheduled maintenance,
 imports, reports, and future retryable jobs if needed.
@@ -138,10 +140,16 @@ WorkOS identities are separate from SIMMER domain identities.
 - `profiles`: org-scoped people used for historical attribution. Profiles may
   exist without login access.
 - `memberships`: current access relationship between user, organization,
-  profile, role, and status.
+  profile, role, and status. Memberships can begin as invited records linked to
+  an org-scoped profile before the user accepts the WorkOS invitation.
 
 A user can belong to multiple organizations. A profile is the stable org-scoped
 domain actor used by field records and audit fields.
+
+SIMMER operator tooling creates and links WorkOS organizations, stores manual
+subscription metadata, sends WorkOS invitations, and stages invited
+profile/membership records so the lazy login path can activate them later
+without changing the invited role.
 
 ## Tenancy
 
@@ -214,6 +222,6 @@ Testing emphasis:
 Agency billing is manual for MVP. Government agencies usually will not keep a
 credit card on file inside the app.
 
-SIMMER should eventually store manual subscription metadata per organization,
-such as trial, active, suspended, or canceled. Subscription status is enforced by
-server authorization, not by WorkOS billing.
+SIMMER stores manual subscription metadata per organization, such as trial,
+active, suspended, or canceled. Subscription status is enforced by server
+authorization, not by WorkOS billing.

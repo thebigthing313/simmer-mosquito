@@ -22,7 +22,8 @@ Model identity with four tables:
 - `profiles`: org-scoped people used for historical/domain attribution. They
   can exist without login access.
 - `memberships`: current access relationship between a user, organization,
-  profile, role, and status.
+  profile, role, and status. Memberships may start as invited records before a
+  WorkOS user accepts the invitation.
 
 Domain records reference profiles for provenance and audit.
 
@@ -34,3 +35,6 @@ Domain records reference profiles for provenance and audit.
   represented as profiles.
 - Auth/session state resolves to a selected organization, profile, membership,
   and role.
+- Operator-managed invitations can create org-scoped profiles and invited
+  memberships before login. The lazy login path activates the invited membership
+  and preserves its SIMMER role.

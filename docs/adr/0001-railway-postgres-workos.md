@@ -25,6 +25,9 @@ SIMMER owns agency data, roles, permissions, workflows, and subscription status.
 - Railway becomes the place to monitor most infrastructure cost.
 - WorkOS is not the SIMMER data store.
 - WorkOS organizations are linked to SIMMER organizations.
-- SIMMER can support manual agency billing without adding payment processing.
+- SIMMER supports manual agency billing metadata without adding payment
+  processing.
+- SIMMER operator tooling creates/links agency organizations and sends WorkOS
+  invitations; agency self-service billing is out of scope.
 - Production is one shared multi-tenant deployment, not one Railway project per
   agency.
