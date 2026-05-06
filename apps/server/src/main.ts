@@ -3,6 +3,7 @@ import { createWorkOsAuth, WORKOS_SESSION_COOKIE_NAME } from "@simmer-mosquito/a
 import { createDb, upsertWorkOsIdentity } from "@simmer-mosquito/db";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { cors } from "hono/cors";
 import { readServerEnv } from "./env.js";
 
 const env = readServerEnv();
@@ -17,6 +18,15 @@ const db = createDb({
 });
 
 const app = new Hono();
+
+app.use(
+  "/auth/*",
+  cors({
+    origin: env.appOrigin,
+    credentials: true,
+    allowMethods: ["GET", "POST", "OPTIONS"]
+  })
+);
 
 app.get("/health", (context) =>
   context.json({

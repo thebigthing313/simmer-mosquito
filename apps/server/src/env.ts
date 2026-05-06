@@ -20,7 +20,7 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
   const base = readEnv(source);
 
   return {
-    appOrigin: readRequiredUrl(source, "APP_ORIGIN"),
+    appOrigin: readRequiredOrigin(source, "APP_ORIGIN"),
     databaseUrl: readRequiredString(source, "DATABASE_URL"),
     host: base.host,
     nodeEnv: base.nodeEnv,
@@ -30,4 +30,14 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
     workosCookiePassword: readRequiredString(source, "WORKOS_COOKIE_PASSWORD"),
     workosRedirectUri: readRequiredUrl(source, "WORKOS_REDIRECT_URI")
   };
+}
+
+function readRequiredOrigin(source: NodeJS.ProcessEnv, key: string): string {
+  const value = readRequiredString(source, key);
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    throw new Error(`${key} must be a valid URL. Received: ${value}`);
+  }
 }

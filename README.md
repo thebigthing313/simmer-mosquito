@@ -5,6 +5,7 @@ Nx-managed pnpm monorepo for mosquito control and surveillance software.
 ## Workspace Layout
 
 - `apps/server`: Hono HTTP control plane for auth, sync proxies, and command endpoints.
+- `apps/web`: Vite React SPA shell for browser auth and future agency workflows.
 - `apps/worker`: Background worker for scheduled surveillance/control jobs.
 - `packages/config`: Shared environment parsing.
 - `packages/db`: SQL migrations and Kysely/Postgres helpers.
@@ -18,6 +19,7 @@ pnpm install
 pnpm build
 pnpm typecheck
 pnpm dev:server
+pnpm dev:web
 pnpm dev:worker
 pnpm graph
 ```
@@ -49,3 +51,9 @@ WORKOS_REDIRECT_URI=https://your-server.example/auth/callback
 ```
 
 The matching WorkOS AuthKit redirect URI must be configured in the WorkOS dashboard.
+
+Web environment variables:
+
+```sh
+VITE_SERVER_URL=https://your-server.example
+```
