@@ -1,22 +1,22 @@
 {
-  "name": "@simmer-mosquito/server",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "tsc -b",
-    "build:ts7": "tsgo -b",
-    "dev": "pnpm --filter @simmer-mosquito/config build && pnpm --filter @simmer-mosquito/auth build && pnpm --filter @simmer-mosquito/db build && tsx watch src/main.ts",
-    "start": "node dist/main.js",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
-    "typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
-  },
-  "dependencies": {
-    "@hono/node-server": "^1.14.0",
-    "@simmer-mosquito/auth": "workspace:*",
-    "@simmer-mosquito/config": "workspace:*",
-    "@simmer-mosquito/db": "workspace:*",
-    "hono": "^4.7.0"
-  }
+	"name": "@simmer-mosquito/server",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "tsc -b",
+		"build:ts7": "tsgo -b",
+		"dev": "pnpm --filter @simmer-mosquito/config build && pnpm --filter @simmer-mosquito/auth build && pnpm --filter @simmer-mosquito/db build && tsx watch src/main.ts",
+		"start": "node dist/main.js",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
+	},
+	"dependencies": {
+		"@hono/node-server": "^1.14.0",
+		"@simmer-mosquito/auth": "workspace:*",
+		"@simmer-mosquito/config": "workspace:*",
+		"@simmer-mosquito/db": "workspace:*",
+		"hono": "^4.7.0"
+	}
 }

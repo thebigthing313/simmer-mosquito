@@ -1,21 +1,21 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
-    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
-    "types": ["node"]
-  },
-  "include": ["src/**/*.ts"],
-  "references": [
-    {
-      "path": "../../packages/config"
-    },
-    {
-      "path": "../../packages/auth"
-    },
-    {
-      "path": "../../packages/db"
-    }
-  ]
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src",
+		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+		"types": ["node"]
+	},
+	"include": ["src/**/*.ts"],
+	"references": [
+		{
+			"path": "../../packages/config"
+		},
+		{
+			"path": "../../packages/auth"
+		},
+		{
+			"path": "../../packages/db"
+		}
+	]
 }

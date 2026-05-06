@@ -1,24 +1,24 @@
 {
-  "name": "@simmer-mosquito/web",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "tsc -b && vite build",
-    "dev": "vite --host 0.0.0.0 --port 5173",
-    "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
-  },
-  "dependencies": {
-    "@tanstack/react-router": "^1.169.2",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
-  },
-  "devDependencies": {
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "vite": "^8.0.10"
-  }
+	"name": "@simmer-mosquito/web",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "tsc -b && vite build",
+		"dev": "vite --host 0.0.0.0 --port 5173",
+		"preview": "vite preview --host 0.0.0.0 --port 4173",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+	},
+	"dependencies": {
+		"@tanstack/react-router": "^1.169.2",
+		"react": "^19.2.6",
+		"react-dom": "^19.2.6"
+	},
+	"devDependencies": {
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^6.0.1",
+		"vite": "^8.0.10"
+	}
 }

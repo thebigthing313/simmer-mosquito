@@ -1,26 +1,26 @@
 {
-  "files": [],
-  "references": [
-    {
-      "path": "./packages/domain"
-    },
-    {
-      "path": "./packages/config"
-    },
-    {
-      "path": "./packages/db"
-    },
-    {
-      "path": "./packages/auth"
-    },
-    {
-      "path": "./apps/server"
-    },
-    {
-      "path": "./apps/web"
-    },
-    {
-      "path": "./apps/worker"
-    }
-  ]
+	"files": [],
+	"references": [
+		{
+			"path": "./packages/domain"
+		},
+		{
+			"path": "./packages/config"
+		},
+		{
+			"path": "./packages/db"
+		},
+		{
+			"path": "./packages/auth"
+		},
+		{
+			"path": "./apps/server"
+		},
+		{
+			"path": "./apps/web"
+		},
+		{
+			"path": "./apps/worker"
+		}
+	]
 }

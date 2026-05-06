@@ -1,89 +1,50 @@
 {
-  "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "namedInputs": {
-    "default": [
-      "{projectRoot}/**/*",
-      "sharedGlobals"
-    ],
-    "production": [
-      "default",
-      "!{projectRoot}/**/*.spec.ts",
-      "!{projectRoot}/**/*.test.ts"
-    ],
-    "sharedGlobals": [
-      "{workspaceRoot}/package.json",
-      "{workspaceRoot}/pnpm-lock.yaml"
-    ]
-  },
-  "targetDefaults": {
-    "build": {
-      "cache": true,
-      "dependsOn": [
-        "^build"
-      ],
-      "inputs": [
-        "production",
-        "^production"
-      ],
-      "outputs": [
-        "{projectRoot}/dist"
-      ]
-    },
-    "build:ts7": {
-      "cache": true,
-      "dependsOn": [
-        "^build:ts7"
-      ],
-      "inputs": [
-        "production",
-        "^production"
-      ],
-      "outputs": [
-        "{projectRoot}/dist"
-      ]
-    },
-    "typecheck": {
-      "cache": true,
-      "dependsOn": [
-        "^build",
-        "^typecheck"
-      ],
-      "inputs": [
-        "default",
-        "^production"
-      ]
-    },
-    "typecheck:ts7": {
-      "cache": true,
-      "dependsOn": [
-        "^build:ts7",
-        "^typecheck:ts7"
-      ],
-      "inputs": [
-        "default",
-        "^production"
-      ]
-    },
-    "test": {
-      "cache": true,
-      "inputs": [
-        "default",
-        "^production"
-      ]
-    }
-  },
-  "plugins": [
-    {
-      "plugin": "@nx/js/typescript",
-      "options": {
-        "typecheck": {
-          "targetName": "typecheck"
-        },
-        "build": {
-          "targetName": "build"
-        }
-      }
-    }
-  ],
-  "analytics": true
+	"$schema": "./node_modules/nx/schemas/nx-schema.json",
+	"namedInputs": {
+		"default": ["{projectRoot}/**/*", "sharedGlobals"],
+		"production": ["default", "!{projectRoot}/**/*.spec.ts", "!{projectRoot}/**/*.test.ts"],
+		"sharedGlobals": ["{workspaceRoot}/package.json", "{workspaceRoot}/pnpm-lock.yaml"]
+	},
+	"targetDefaults": {
+		"build": {
+			"cache": true,
+			"dependsOn": ["^build"],
+			"inputs": ["production", "^production"],
+			"outputs": ["{projectRoot}/dist"]
+		},
+		"build:ts7": {
+			"cache": true,
+			"dependsOn": ["^build:ts7"],
+			"inputs": ["production", "^production"],
+			"outputs": ["{projectRoot}/dist"]
+		},
+		"typecheck": {
+			"cache": true,
+			"dependsOn": ["^build", "^typecheck"],
+			"inputs": ["default", "^production"]
+		},
+		"typecheck:ts7": {
+			"cache": true,
+			"dependsOn": ["^build:ts7", "^typecheck:ts7"],
+			"inputs": ["default", "^production"]
+		},
+		"test": {
+			"cache": true,
+			"inputs": ["default", "^production"]
+		}
+	},
+	"plugins": [
+		{
+			"plugin": "@nx/js/typescript",
+			"options": {
+				"typecheck": {
+					"targetName": "typecheck"
+				},
+				"build": {
+					"targetName": "build"
+				}
+			}
+		}
+	],
+	"analytics": true
 }

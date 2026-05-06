@@ -1,22 +1,22 @@
 {
-  "name": "@simmer-mosquito/config",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./package.json": "./package.json"
-  },
-  "main": "./dist/index.js",
-  "scripts": {
-    "build": "tsc -b",
-    "build:ts7": "tsgo -b",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
-    "typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
-  },
-  "types": "./dist/index.d.ts"
+	"name": "@simmer-mosquito/config",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"main": "./dist/index.js",
+	"scripts": {
+		"build": "tsc -b",
+		"build:ts7": "tsgo -b",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
+	},
+	"types": "./dist/index.d.ts"
 }
