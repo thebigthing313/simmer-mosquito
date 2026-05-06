@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
+    "build:ts7": "tsgo -b",
     "dev": "pnpm --filter @simmer-mosquito/domain build && pnpm --filter @simmer-mosquito/config build && tsx watch src/main.ts",
     "start": "node dist/main.js",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
   },
   "dependencies": {
     "@simmer-mosquito/config": "workspace:*",
     "@simmer-mosquito/domain": "workspace:*"
   }
 }
-

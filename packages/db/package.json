@@ -13,8 +13,10 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -b",
+    "build:ts7": "tsgo -b",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
   },
   "dependencies": {
     "kysely": "^0.28.0",

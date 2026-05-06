@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
+    "build:ts7": "tsgo -b",
     "dev": "pnpm --filter @simmer-mosquito/config build && pnpm --filter @simmer-mosquito/auth build && pnpm --filter @simmer-mosquito/db build && tsx watch src/main.ts",
     "start": "node dist/main.js",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",
