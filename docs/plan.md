@@ -27,6 +27,21 @@ This plan tracks the near-term build order. Architecture decisions live in
 - Staged invited profiles/memberships.
 - Lazy login activation of invited memberships while preserving the invited
   SIMMER role.
+- Core GIS database skeleton:
+  - `spatial_features`
+  - `addresses`
+  - `region_folders`
+  - `regions`
+- Kysely GIS table types and small create/list helpers.
+- Global taxonomy tables:
+  - `genera`
+  - `species`
+  - `organization_species`
+- Org-owned lookup tables with inline custom form schema:
+  - `collection_methods`
+  - `collection_lures`
+  - `habitat_types`
+- Kysely taxonomy/lookup table types and small create/list helpers.
 
 ## Current Boundary
 
@@ -39,30 +54,22 @@ paths:
   organization/profile/membership.
 - Web can display auth/admin state through server-controlled endpoints.
 
-The project still does not have operational domain tables, ElectricSQL, TanStack
-DB collections, mobile auth, or field workflows.
+The project still does not have adult/larval operational workflow tables,
+ElectricSQL, TanStack DB collections, mobile auth, or field workflows.
 
 ## Recommended Next Slice
 
-Add the first operational database skeleton for shared reference and geography
-foundations, without building full workflows yet.
+Add the smallest operator/admin verification surface for the shared GIS and
+reference foundations, without building full workflows yet.
 
 Scope:
 
-- Add SQL migrations for foundational tables used by both adult and larval MVP
-  workflows:
-  - `spatial_features`
-  - `organization_addresses`
-  - `regions`
-  - `region_folders`
-  - `species`
-  - `genera`
-  - method lookup tables needed for first trap/habitat records
-- Enable and use PostGIS types intentionally.
-- Keep `organization_id` on tenant-owned parent/root records only.
-- Add Kysely types/helpers for inserting and listing small reference data.
 - Add operator/admin endpoints and minimal web UI only where needed to verify
-  the schema.
+  the schema:
+  - create/list addresses
+  - create/list region folders and regions
+  - create/list genera/species
+  - create/list org collection methods, collection lures, and habitat types
 - Do not add ElectricSQL/TanStack DB yet.
 - Do not add route runs, collections, inspections, or samples yet.
 

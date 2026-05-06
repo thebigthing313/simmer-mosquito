@@ -17,11 +17,17 @@ type NullableTimestampWithDefault = ColumnType<
 	Date | null | undefined
 >;
 type BooleanWithDefault = ColumnType<boolean, boolean | undefined, boolean>;
+type JsonColumn = ColumnType<unknown | null, unknown | null | undefined, unknown | null>;
+type GeneratedColumn<T> = ColumnType<T, never, never>;
+type IntegerWithDefault = ColumnType<number, number | undefined, number>;
 
 export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
 export type OrganizationSubscriptionStatus = 'trial' | 'active' | 'suspended' | 'canceled';
 export type OrganizationBillingMode = 'manual_invoice';
+export type SpatialFeaturePrecisionPolicy = 'preserve' | 'snap_5_decimal';
+
+export type GeoJsonGeometry = Record<string, unknown>;
 
 export interface UsersTable {
 	id: Generated<string>;
@@ -88,11 +94,129 @@ export interface MembershipsTable {
 	updated_at: TimestampWithDefault;
 }
 
+export interface SpatialFeaturesTable {
+	id: Generated<string>;
+	geom: GeneratedColumn<string>;
+	precision_policy: ColumnType<
+		SpatialFeaturePrecisionPolicy,
+		SpatialFeaturePrecisionPolicy | undefined,
+		SpatialFeaturePrecisionPolicy
+	>;
+	source: string | null;
+	lat: GeneratedColumn<number>;
+	lng: GeneratedColumn<number>;
+	geojson: GeneratedColumn<GeoJsonGeometry>;
+	geom_type: GeneratedColumn<string>;
+	created_at: TimestampWithDefault;
+}
+
+export interface AddressesTable {
+	id: Generated<string>;
+	organization_id: string;
+	feature_id: string;
+	display_name: string;
+	country: string;
+	address_line_1: string | null;
+	address_line_2: string | null;
+	locality: string | null;
+	region: string | null;
+	postal_code: string | null;
+	geocoder_response: JsonColumn;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface RegionFoldersTable {
+	id: Generated<string>;
+	organization_id: string;
+	name: string;
+	description: string | null;
+	sort_order: ColumnType<number, number | undefined, number>;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface RegionsTable {
+	id: Generated<string>;
+	organization_id: string;
+	region_folder_id: string | null;
+	feature_id: string;
+	name: string;
+	description: string | null;
+	metadata: JsonColumn;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface GeneraTable {
+	id: Generated<string>;
+	abbreviation: string;
+	name: string;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+}
+
+export interface SpeciesTable {
+	id: Generated<string>;
+	genus_id: string | null;
+	epithet: string;
+	common_name: string | null;
+	display_name: string;
+	is_special: BooleanWithDefault;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+}
+
+export interface OrganizationSpeciesTable {
+	id: Generated<string>;
+	organization_id: string;
+	species_id: string;
+	display_name_override: string | null;
+	is_active: BooleanWithDefault;
+	sort_order: IntegerWithDefault;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+}
+
+interface OrgLookupTable {
+	id: Generated<string>;
+	organization_id: string;
+	name: string;
+	description: string | null;
+	custom_schema: JsonColumn;
+	is_active: BooleanWithDefault;
+	sort_order: IntegerWithDefault;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface CollectionMethodsTable extends OrgLookupTable {}
+export interface CollectionLuresTable extends OrgLookupTable {}
+export interface HabitatTypesTable extends OrgLookupTable {}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
 	profiles: ProfilesTable;
 	memberships: MembershipsTable;
+	spatial_features: SpatialFeaturesTable;
+	addresses: AddressesTable;
+	region_folders: RegionFoldersTable;
+	regions: RegionsTable;
+	genera: GeneraTable;
+	species: SpeciesTable;
+	organization_species: OrganizationSpeciesTable;
+	collection_methods: CollectionMethodsTable;
+	collection_lures: CollectionLuresTable;
+	habitat_types: HabitatTypesTable;
 }
 
 export interface CreateDbOptions {
@@ -222,6 +346,163 @@ export interface StageOrganizationInvitationInput {
 	readonly workosInvitationId: string;
 }
 
+export interface SpatialFeatureInfo {
+	readonly id: string;
+	readonly precisionPolicy: SpatialFeaturePrecisionPolicy;
+	readonly source: string | null;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geomType: string;
+	readonly createdAt: Date;
+}
+
+export interface CreateSpatialFeatureInput {
+	readonly geojson: GeoJsonGeometry;
+	readonly precisionPolicy?: SpatialFeaturePrecisionPolicy;
+	readonly source?: string | null;
+}
+
+export interface CreateAddressInput {
+	readonly organizationId: string;
+	readonly featureId: string;
+	readonly displayName: string;
+	readonly country: string;
+	readonly addressLine1?: string | null;
+	readonly addressLine2?: string | null;
+	readonly locality?: string | null;
+	readonly region?: string | null;
+	readonly postalCode?: string | null;
+	readonly geocoderResponse?: unknown | null;
+}
+
+export interface SafeAddress {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly featureId: string;
+	readonly displayName: string;
+	readonly country: string;
+	readonly addressLine1: string | null;
+	readonly addressLine2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface CreateRegionFolderInput {
+	readonly organizationId: string;
+	readonly name: string;
+	readonly description?: string | null;
+	readonly sortOrder?: number;
+}
+
+export interface SafeRegionFolder {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly name: string;
+	readonly description: string | null;
+	readonly sortOrder: number;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface CreateRegionInput {
+	readonly organizationId: string;
+	readonly featureId: string;
+	readonly name: string;
+	readonly regionFolderId?: string | null;
+	readonly description?: string | null;
+	readonly metadata?: unknown | null;
+}
+
+export interface SafeRegion {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly regionFolderId: string | null;
+	readonly featureId: string;
+	readonly name: string;
+	readonly description: string | null;
+	readonly metadata: unknown | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface CreateGenusInput {
+	readonly abbreviation: string;
+	readonly name: string;
+}
+
+export interface SafeGenus {
+	readonly id: string;
+	readonly abbreviation: string;
+	readonly name: string;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface CreateSpeciesInput {
+	readonly genusId?: string | null;
+	readonly epithet: string;
+	readonly commonName?: string | null;
+	readonly displayName: string;
+	readonly isSpecial?: boolean;
+}
+
+export interface SafeSpecies {
+	readonly id: string;
+	readonly genusId: string | null;
+	readonly epithet: string;
+	readonly commonName: string | null;
+	readonly displayName: string;
+	readonly isSpecial: boolean;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface EnableOrganizationSpeciesInput {
+	readonly organizationId: string;
+	readonly speciesId: string;
+	readonly displayNameOverride?: string | null;
+	readonly isActive?: boolean;
+	readonly sortOrder?: number;
+}
+
+export interface SafeOrganizationSpecies {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly speciesId: string;
+	readonly displayNameOverride: string | null;
+	readonly isActive: boolean;
+	readonly sortOrder: number;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export type OrgLookupKind = 'collection_methods' | 'collection_lures' | 'habitat_types';
+
+export interface CreateOrgLookupInput {
+	readonly organizationId: string;
+	readonly name: string;
+	readonly description?: string | null;
+	readonly customSchema?: unknown | null;
+	readonly isActive?: boolean;
+	readonly sortOrder?: number;
+}
+
+export interface SafeOrgLookup {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly name: string;
+	readonly description: string | null;
+	readonly customSchema: unknown | null;
+	readonly isActive: boolean;
+	readonly sortOrder: number;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
 interface MembershipProvisioningCandidate {
 	readonly id: string;
 	readonly profileId: string;
@@ -271,6 +552,403 @@ export function resolveMembershipProvisioning(input: {
 		role: isFirstMembership ? 'owner' : 'viewer',
 		isDefault: isFirstMembership,
 	};
+}
+
+type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
+
+export async function createSpatialFeature(
+	db: DbExecutor,
+	input: CreateSpatialFeatureInput,
+): Promise<SpatialFeatureInfo> {
+	const precisionPolicy = input.precisionPolicy ?? 'preserve';
+	const source = input.source ?? null;
+	const geojson = JSON.stringify(input.geojson);
+
+	const row = await db
+		.selectNoFrom(
+			sql<string>`get_or_create_spatial_feature(
+				${geojson}::jsonb,
+				${precisionPolicy},
+				${source}
+			)`.as('id'),
+		)
+		.executeTakeFirstOrThrow();
+
+	return getSpatialFeature(db, row.id);
+}
+
+export async function getSpatialFeature(
+	db: DbExecutor,
+	featureId: string,
+): Promise<SpatialFeatureInfo> {
+	const row = await db
+		.selectFrom('spatial_features')
+		.select([
+			'id',
+			'precision_policy',
+			'source',
+			'lat',
+			'lng',
+			'geojson',
+			'geom_type',
+			'created_at',
+		])
+		.where('id', '=', featureId)
+		.executeTakeFirstOrThrow();
+
+	return toSpatialFeatureInfo(row);
+}
+
+export async function createAddress(
+	db: DbExecutor,
+	input: CreateAddressInput,
+): Promise<SafeAddress> {
+	const row = await db
+		.insertInto('addresses')
+		.values({
+			organization_id: input.organizationId,
+			feature_id: input.featureId,
+			display_name: input.displayName,
+			country: input.country,
+			address_line_1: input.addressLine1 ?? null,
+			address_line_2: input.addressLine2 ?? null,
+			locality: input.locality ?? null,
+			region: input.region ?? null,
+			postal_code: input.postalCode ?? null,
+			geocoder_response: input.geocoderResponse ?? null,
+		})
+		.returning([
+			'id',
+			'organization_id',
+			'feature_id',
+			'display_name',
+			'country',
+			'address_line_1',
+			'address_line_2',
+			'locality',
+			'region',
+			'postal_code',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirstOrThrow();
+
+	return toSafeAddress(row);
+}
+
+export async function listAddresses(
+	db: DbExecutor,
+	organizationId: string,
+): Promise<SafeAddress[]> {
+	const rows = await db
+		.selectFrom('addresses')
+		.select([
+			'id',
+			'organization_id',
+			'feature_id',
+			'display_name',
+			'country',
+			'address_line_1',
+			'address_line_2',
+			'locality',
+			'region',
+			'postal_code',
+			'created_at',
+			'updated_at',
+		])
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.orderBy('display_name', 'asc')
+		.execute();
+
+	return rows.map(toSafeAddress);
+}
+
+export async function createRegionFolder(
+	db: DbExecutor,
+	input: CreateRegionFolderInput,
+): Promise<SafeRegionFolder> {
+	const row = await db
+		.insertInto('region_folders')
+		.values({
+			organization_id: input.organizationId,
+			name: input.name,
+			description: input.description ?? null,
+			sort_order: input.sortOrder ?? 0,
+		})
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'sort_order',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirstOrThrow();
+
+	return toSafeRegionFolder(row);
+}
+
+export async function listRegionFolders(
+	db: DbExecutor,
+	organizationId: string,
+): Promise<SafeRegionFolder[]> {
+	const rows = await db
+		.selectFrom('region_folders')
+		.select([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'sort_order',
+			'created_at',
+			'updated_at',
+		])
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.orderBy('sort_order', 'asc')
+		.orderBy('name', 'asc')
+		.execute();
+
+	return rows.map(toSafeRegionFolder);
+}
+
+export async function createRegion(db: DbExecutor, input: CreateRegionInput): Promise<SafeRegion> {
+	const row = await db
+		.insertInto('regions')
+		.values({
+			organization_id: input.organizationId,
+			region_folder_id: input.regionFolderId ?? null,
+			feature_id: input.featureId,
+			name: input.name,
+			description: input.description ?? null,
+			metadata: input.metadata ?? null,
+		})
+		.returning([
+			'id',
+			'organization_id',
+			'region_folder_id',
+			'feature_id',
+			'name',
+			'description',
+			'metadata',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirstOrThrow();
+
+	return toSafeRegion(row);
+}
+
+export async function listRegions(db: DbExecutor, organizationId: string): Promise<SafeRegion[]> {
+	const rows = await db
+		.selectFrom('regions')
+		.select([
+			'id',
+			'organization_id',
+			'region_folder_id',
+			'feature_id',
+			'name',
+			'description',
+			'metadata',
+			'created_at',
+			'updated_at',
+		])
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.orderBy('name', 'asc')
+		.execute();
+
+	return rows.map(toSafeRegion);
+}
+
+export async function createGenus(db: DbExecutor, input: CreateGenusInput): Promise<SafeGenus> {
+	const row = await db
+		.insertInto('genera')
+		.values({
+			abbreviation: input.abbreviation,
+			name: input.name,
+		})
+		.returning(['id', 'abbreviation', 'name', 'created_at', 'updated_at'])
+		.executeTakeFirstOrThrow();
+
+	return toSafeGenus(row);
+}
+
+export async function listGenera(db: DbExecutor): Promise<SafeGenus[]> {
+	const rows = await db
+		.selectFrom('genera')
+		.select(['id', 'abbreviation', 'name', 'created_at', 'updated_at'])
+		.orderBy('name', 'asc')
+		.execute();
+
+	return rows.map(toSafeGenus);
+}
+
+export async function createSpecies(
+	db: DbExecutor,
+	input: CreateSpeciesInput,
+): Promise<SafeSpecies> {
+	const row = await db
+		.insertInto('species')
+		.values({
+			genus_id: input.genusId ?? null,
+			epithet: input.epithet,
+			common_name: input.commonName ?? null,
+			display_name: input.displayName,
+			is_special: input.isSpecial ?? false,
+		})
+		.returning([
+			'id',
+			'genus_id',
+			'epithet',
+			'common_name',
+			'display_name',
+			'is_special',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirstOrThrow();
+
+	return toSafeSpecies(row);
+}
+
+export async function listSpecies(db: DbExecutor): Promise<SafeSpecies[]> {
+	const rows = await db
+		.selectFrom('species')
+		.select([
+			'id',
+			'genus_id',
+			'epithet',
+			'common_name',
+			'display_name',
+			'is_special',
+			'created_at',
+			'updated_at',
+		])
+		.orderBy('display_name', 'asc')
+		.execute();
+
+	return rows.map(toSafeSpecies);
+}
+
+export async function enableOrganizationSpecies(
+	db: DbExecutor,
+	input: EnableOrganizationSpeciesInput,
+): Promise<SafeOrganizationSpecies> {
+	const row = await db
+		.insertInto('organization_species')
+		.values({
+			organization_id: input.organizationId,
+			species_id: input.speciesId,
+			display_name_override: input.displayNameOverride ?? null,
+			is_active: input.isActive ?? true,
+			sort_order: input.sortOrder ?? 0,
+		})
+		.onConflict((oc) =>
+			oc.columns(['organization_id', 'species_id']).doUpdateSet({
+				display_name_override: input.displayNameOverride ?? null,
+				is_active: input.isActive ?? true,
+				sort_order: input.sortOrder ?? 0,
+				updated_at: sql`now()`,
+			}),
+		)
+		.returning([
+			'id',
+			'organization_id',
+			'species_id',
+			'display_name_override',
+			'is_active',
+			'sort_order',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirstOrThrow();
+
+	return toSafeOrganizationSpecies(row);
+}
+
+export async function listOrganizationSpecies(
+	db: DbExecutor,
+	organizationId: string,
+): Promise<SafeOrganizationSpecies[]> {
+	const rows = await db
+		.selectFrom('organization_species')
+		.select([
+			'id',
+			'organization_id',
+			'species_id',
+			'display_name_override',
+			'is_active',
+			'sort_order',
+			'created_at',
+			'updated_at',
+		])
+		.where('organization_id', '=', organizationId)
+		.orderBy('sort_order', 'asc')
+		.orderBy('created_at', 'asc')
+		.execute();
+
+	return rows.map(toSafeOrganizationSpecies);
+}
+
+export async function createOrgLookup(
+	db: DbExecutor,
+	kind: OrgLookupKind,
+	input: CreateOrgLookupInput,
+): Promise<SafeOrgLookup> {
+	const row = await db
+		.insertInto(kind)
+		.values({
+			organization_id: input.organizationId,
+			name: input.name,
+			description: input.description ?? null,
+			custom_schema: input.customSchema ?? null,
+			is_active: input.isActive ?? true,
+			sort_order: input.sortOrder ?? 0,
+		})
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'custom_schema',
+			'is_active',
+			'sort_order',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirstOrThrow();
+
+	return toSafeOrgLookup(row);
+}
+
+export async function listOrgLookups(
+	db: DbExecutor,
+	kind: OrgLookupKind,
+	organizationId: string,
+): Promise<SafeOrgLookup[]> {
+	const rows = await db
+		.selectFrom(kind)
+		.select([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'custom_schema',
+			'is_active',
+			'sort_order',
+			'created_at',
+			'updated_at',
+		])
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.orderBy('sort_order', 'asc')
+		.orderBy('name', 'asc')
+		.execute();
+
+	return rows.map(toSafeOrgLookup);
 }
 
 export async function upsertWorkOsIdentity(
@@ -932,6 +1610,186 @@ function toSafeOrganizationMembership(row: {
 			email: row.profile_email,
 			isActive: row.profile_is_active,
 		},
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSpatialFeatureInfo(row: {
+	readonly id: string;
+	readonly precision_policy: SpatialFeaturePrecisionPolicy;
+	readonly source: string | null;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geom_type: string;
+	readonly created_at: Date;
+}): SpatialFeatureInfo {
+	return {
+		id: row.id,
+		precisionPolicy: row.precision_policy,
+		source: row.source,
+		lat: row.lat,
+		lng: row.lng,
+		geojson: row.geojson,
+		geomType: row.geom_type,
+		createdAt: row.created_at,
+	};
+}
+
+function toSafeAddress(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly feature_id: string;
+	readonly display_name: string;
+	readonly country: string;
+	readonly address_line_1: string | null;
+	readonly address_line_2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postal_code: string | null;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeAddress {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		featureId: row.feature_id,
+		displayName: row.display_name,
+		country: row.country,
+		addressLine1: row.address_line_1,
+		addressLine2: row.address_line_2,
+		locality: row.locality,
+		region: row.region,
+		postalCode: row.postal_code,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSafeRegionFolder(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly name: string;
+	readonly description: string | null;
+	readonly sort_order: number;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeRegionFolder {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		name: row.name,
+		description: row.description,
+		sortOrder: row.sort_order,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSafeRegion(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly region_folder_id: string | null;
+	readonly feature_id: string;
+	readonly name: string;
+	readonly description: string | null;
+	readonly metadata: unknown | null;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeRegion {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		regionFolderId: row.region_folder_id,
+		featureId: row.feature_id,
+		name: row.name,
+		description: row.description,
+		metadata: row.metadata,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSafeGenus(row: {
+	readonly id: string;
+	readonly abbreviation: string;
+	readonly name: string;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeGenus {
+	return {
+		id: row.id,
+		abbreviation: row.abbreviation,
+		name: row.name,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSafeSpecies(row: {
+	readonly id: string;
+	readonly genus_id: string | null;
+	readonly epithet: string;
+	readonly common_name: string | null;
+	readonly display_name: string;
+	readonly is_special: boolean;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeSpecies {
+	return {
+		id: row.id,
+		genusId: row.genus_id,
+		epithet: row.epithet,
+		commonName: row.common_name,
+		displayName: row.display_name,
+		isSpecial: row.is_special,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSafeOrganizationSpecies(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly species_id: string;
+	readonly display_name_override: string | null;
+	readonly is_active: boolean;
+	readonly sort_order: number;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeOrganizationSpecies {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		speciesId: row.species_id,
+		displayNameOverride: row.display_name_override,
+		isActive: row.is_active,
+		sortOrder: row.sort_order,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSafeOrgLookup(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly name: string;
+	readonly description: string | null;
+	readonly custom_schema: unknown | null;
+	readonly is_active: boolean;
+	readonly sort_order: number;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeOrgLookup {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		name: row.name,
+		description: row.description,
+		customSchema: row.custom_schema,
+		isActive: row.is_active,
+		sortOrder: row.sort_order,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
