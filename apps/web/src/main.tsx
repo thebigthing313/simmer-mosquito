@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router';
 import { type FormEvent, StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { AdminFoundationsPanel } from './AdminFoundations';
 import {
 	type AdminMembership,
 	type AdminOrganization,
@@ -172,6 +173,14 @@ function AdminOrganizationsRoute() {
 		billingContactName: '',
 		billingContactEmail: '',
 		subscriptionNotes: '',
+		mainContactEmail: '',
+		phoneNumber: '',
+		mailingCountry: '',
+		mailingAddressLine1: '',
+		mailingAddressLine2: '',
+		mailingLocality: '',
+		mailingRegion: '',
+		mailingPostalCode: '',
 		linkRequesterAsOwner: false,
 	});
 
@@ -211,6 +220,14 @@ function AdminOrganizationsRoute() {
 				billingContactName: '',
 				billingContactEmail: '',
 				subscriptionNotes: '',
+				mainContactEmail: '',
+				phoneNumber: '',
+				mailingCountry: '',
+				mailingAddressLine1: '',
+				mailingAddressLine2: '',
+				mailingLocality: '',
+				mailingRegion: '',
+				mailingPostalCode: '',
 				linkRequesterAsOwner: false,
 			});
 			setStatus('Organization created.');
@@ -267,6 +284,72 @@ function AdminOrganizationsRoute() {
 							type="email"
 							value={form.billingContactEmail}
 							onChange={(event) => setForm({ ...form, billingContactEmail: event.target.value })}
+						/>
+					</label>
+
+					<label className="full">
+						Main contact email
+						<input
+							type="email"
+							value={form.mainContactEmail}
+							onChange={(event) => setForm({ ...form, mainContactEmail: event.target.value })}
+						/>
+					</label>
+
+					<label>
+						Phone
+						<input
+							value={form.phoneNumber}
+							onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })}
+						/>
+					</label>
+
+					<label>
+						Country
+						<input
+							maxLength={2}
+							value={form.mailingCountry}
+							onChange={(event) => setForm({ ...form, mailingCountry: event.target.value })}
+						/>
+					</label>
+
+					<label className="full">
+						Address line 1
+						<input
+							value={form.mailingAddressLine1}
+							onChange={(event) => setForm({ ...form, mailingAddressLine1: event.target.value })}
+						/>
+					</label>
+
+					<label className="full">
+						Address line 2
+						<input
+							value={form.mailingAddressLine2}
+							onChange={(event) => setForm({ ...form, mailingAddressLine2: event.target.value })}
+						/>
+					</label>
+
+					<label>
+						Locality
+						<input
+							value={form.mailingLocality}
+							onChange={(event) => setForm({ ...form, mailingLocality: event.target.value })}
+						/>
+					</label>
+
+					<label>
+						Region
+						<input
+							value={form.mailingRegion}
+							onChange={(event) => setForm({ ...form, mailingRegion: event.target.value })}
+						/>
+					</label>
+
+					<label>
+						Postal code
+						<input
+							value={form.mailingPostalCode}
+							onChange={(event) => setForm({ ...form, mailingPostalCode: event.target.value })}
 						/>
 					</label>
 
@@ -391,6 +474,8 @@ function AdminOrganizationDetailRoute() {
 						<Fact label="SIMMER org" value={organization.id} />
 						<Fact label="WorkOS org" value={organization.workosOrganizationId ?? 'none'} />
 						<Fact label="Subscription" value={organization.subscription.subscriptionStatus} />
+						<Fact label="Main contact" value={organization.contact.mainContactEmail ?? 'none'} />
+						<Fact label="Phone" value={organization.contact.phoneNumber ?? 'none'} />
 					</dl>
 				)}
 
@@ -453,6 +538,8 @@ function AdminOrganizationDetailRoute() {
 						</article>
 					))}
 				</div>
+
+				<AdminFoundationsPanel organizationId={organizationId} serverUrl={serverUrl} />
 			</Panel>
 		</section>
 	);

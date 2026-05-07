@@ -22,7 +22,6 @@ const localIdentity: ActiveLocalAuthIdentity = {
 		firstName: workosUser.firstName,
 		lastName: workosUser.lastName,
 		emailVerified: workosUser.emailVerified,
-		profilePictureUrl: workosUser.profilePictureUrl,
 	},
 	organization: {
 		id: 'org-1',

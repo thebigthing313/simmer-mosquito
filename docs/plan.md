@@ -42,6 +42,26 @@ This plan tracks the near-term build order. Architecture decisions live in
   - `collection_lures`
   - `habitat_types`
 - Kysely taxonomy/lookup table types and small create/list helpers.
+- Operator/admin verification surface for the foundation tables:
+  - create/list addresses
+  - create/list region folders and regions
+  - create/list genera/species
+  - enable organization species
+  - create/list org collection methods, collection lures, and habitat types
+- Operator admin auth no longer requires a selected WorkOS organization or local
+  SIMMER membership; the allowlist in `SIMMER_OPERATOR_EMAILS` gates `/admin/*`.
+- Foundation schema cleanup:
+  - `spatial_features` is pure geometry plus generated lat/lng/GeoJSON/type.
+  - org mailing address fields are inline on `organizations` with
+    `mailing_*` names.
+  - org-managed foundation tables have `created_by_profile_id` and
+    `updated_by_profile_id`.
+  - trivial `sort_order`, `species.is_special`, and organization species
+    overrides were removed.
+- First adult surveillance anchor:
+  - `traps`
+  - Kysely trap table types and create/list helpers.
+  - Operator/admin verification create/list surface for traps.
 
 ## Current Boundary
 
@@ -53,42 +73,27 @@ paths:
 - Invited users can sign in through WorkOS and resolve to an active SIMMER
   organization/profile/membership.
 - Web can display auth/admin state through server-controlled endpoints.
+- SIMMER operator can smoke-test the shared GIS/reference tables through a
+  deliberately rough admin verification UI.
 
-The project still does not have adult/larval operational workflow tables,
-ElectricSQL, TanStack DB collections, mobile auth, or field workflows.
+The project still does not have adult collection event tables, larval
+operational workflow tables, ElectricSQL, TanStack DB collections, mobile auth,
+or field workflows.
+
+Do not add a generic `sites` table yet. The old repo modeled concrete locatable
+domain entities (`traps`, `habitats`, addresses, route items) rather than a
+shared site abstraction. Keep that direction unless a concrete workflow proves
+the abstraction is worth it.
 
 ## Recommended Next Slice
 
-Add the smallest operator/admin verification surface for the shared GIS and
-reference foundations, without building full workflows yet.
+After traps:
 
-Scope:
-
-- Add operator/admin endpoints and minimal web UI only where needed to verify
-  the schema:
-  - create/list addresses
-  - create/list region folders and regions
-  - create/list genera/species
-  - create/list org collection methods, collection lures, and habitat types
-- Do not add ElectricSQL/TanStack DB yet.
-- Do not add route runs, collections, inspections, or samples yet.
-
-Rationale:
-
-- Electric shapes and domain workflows need stable table boundaries.
-- Both adult and larval workflows depend on shared GIS/reference concepts.
-- Starting with low-risk reference/geography tables lets us validate SQL-first
-  migrations, PostGIS, Kysely, and admin management before field workflow state
-  arrives.
-
-## Following Slice
-
-After reference/geography foundations:
-
-- Add `packages/sync` with the first read-only Electric/TanStack DB collection
-  shape for small reference data.
-- Keep writes server-authorized.
-- Use this to prove the sync-native path before adding trap/habitat workflows.
+- Add `collections` as the first adult event table, with optional `trap_id` and
+  snapshot fields copied from the trap.
+- Or add `habitats` first if larval/mobile route work becomes the priority.
+- Keep writes server-authorized until the domain command and sync boundaries are
+  clearer.
 
 ## Deferred
 
@@ -97,7 +102,9 @@ After reference/geography foundations:
 - Full domain command packages.
 - Electric shape authorization.
 - TanStack DB optimistic mutations.
-- Trap route runs, habitat route runs, collections, inspections, and samples.
+- Generic `sites` abstraction.
+- Trap route runs, habitat route runs, collections, habitats, inspections, and
+  samples.
 - File/photo storage.
 - Dedicated search service.
 - Payment processing.

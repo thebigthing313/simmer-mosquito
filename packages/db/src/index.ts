@@ -19,7 +19,6 @@ type NullableTimestampWithDefault = ColumnType<
 type BooleanWithDefault = ColumnType<boolean, boolean | undefined, boolean>;
 type JsonColumn = ColumnType<unknown | null, unknown | null | undefined, unknown | null>;
 type GeneratedColumn<T> = ColumnType<T, never, never>;
-type IntegerWithDefault = ColumnType<number, number | undefined, number>;
 
 export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
@@ -37,7 +36,6 @@ export interface UsersTable {
 	first_name: string | null;
 	last_name: string | null;
 	email_verified: boolean | null;
-	profile_picture_url: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 }
@@ -61,6 +59,14 @@ export interface OrganizationsTable {
 	billing_contact_name: string | null;
 	billing_contact_email: string | null;
 	subscription_notes: string | null;
+	main_contact_email: string | null;
+	phone_number: string | null;
+	mailing_country: string | null;
+	mailing_address_line_1: string | null;
+	mailing_address_line_2: string | null;
+	mailing_locality: string | null;
+	mailing_region: string | null;
+	mailing_postal_code: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
@@ -97,12 +103,6 @@ export interface MembershipsTable {
 export interface SpatialFeaturesTable {
 	id: Generated<string>;
 	geom: GeneratedColumn<string>;
-	precision_policy: ColumnType<
-		SpatialFeaturePrecisionPolicy,
-		SpatialFeaturePrecisionPolicy | undefined,
-		SpatialFeaturePrecisionPolicy
-	>;
-	source: string | null;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
 	geojson: GeneratedColumn<GeoJsonGeometry>;
@@ -122,6 +122,8 @@ export interface AddressesTable {
 	region: string | null;
 	postal_code: string | null;
 	geocoder_response: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
@@ -133,7 +135,8 @@ export interface RegionFoldersTable {
 	organization_id: string;
 	name: string;
 	description: string | null;
-	sort_order: ColumnType<number, number | undefined, number>;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
@@ -148,6 +151,8 @@ export interface RegionsTable {
 	name: string;
 	description: string | null;
 	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
@@ -168,7 +173,6 @@ export interface SpeciesTable {
 	epithet: string;
 	common_name: string | null;
 	display_name: string;
-	is_special: BooleanWithDefault;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 }
@@ -177,9 +181,8 @@ export interface OrganizationSpeciesTable {
 	id: Generated<string>;
 	organization_id: string;
 	species_id: string;
-	display_name_override: string | null;
-	is_active: BooleanWithDefault;
-	sort_order: IntegerWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 }
@@ -191,7 +194,8 @@ interface OrgLookupTable {
 	description: string | null;
 	custom_schema: JsonColumn;
 	is_active: BooleanWithDefault;
-	sort_order: IntegerWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
@@ -201,6 +205,25 @@ interface OrgLookupTable {
 export interface CollectionMethodsTable extends OrgLookupTable {}
 export interface CollectionLuresTable extends OrgLookupTable {}
 export interface HabitatTypesTable extends OrgLookupTable {}
+
+export interface TrapsTable {
+	id: Generated<string>;
+	organization_id: string;
+	feature_id: string;
+	collection_method_id: string;
+	address_id: string | null;
+	collection_lure_id: string | null;
+	trap_name: string | null;
+	trap_code: string | null;
+	description: string | null;
+	is_active: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
 
 export interface SimmerDatabase {
 	users: UsersTable;
@@ -217,6 +240,7 @@ export interface SimmerDatabase {
 	collection_methods: CollectionMethodsTable;
 	collection_lures: CollectionLuresTable;
 	habitat_types: HabitatTypesTable;
+	traps: TrapsTable;
 }
 
 export interface CreateDbOptions {
@@ -242,7 +266,6 @@ export interface WorkOsIdentityInput {
 	readonly firstName: string | null;
 	readonly lastName: string | null;
 	readonly emailVerified: boolean | null;
-	readonly profilePictureUrl: string | null;
 	readonly workosOrganizationId: string | null;
 	readonly workosOrganizationName?: string | null;
 	readonly workosRole?: string | null;
@@ -265,7 +288,6 @@ export interface ActiveLocalAuthIdentity {
 		readonly firstName: string | null;
 		readonly lastName: string | null;
 		readonly emailVerified: boolean | null;
-		readonly profilePictureUrl: string | null;
 	};
 	readonly organization: {
 		readonly id: string;
@@ -299,12 +321,24 @@ export interface OrganizationSubscriptionMetadata {
 	readonly subscriptionNotes: string | null;
 }
 
+export interface OrganizationContactInfo {
+	readonly mainContactEmail: string | null;
+	readonly phoneNumber: string | null;
+	readonly mailingCountry: string | null;
+	readonly mailingAddressLine1: string | null;
+	readonly mailingAddressLine2: string | null;
+	readonly mailingLocality: string | null;
+	readonly mailingRegion: string | null;
+	readonly mailingPostalCode: string | null;
+}
+
 export interface SafeOrganization {
 	readonly id: string;
 	readonly workosOrganizationId: string | null;
 	readonly name: string;
 	readonly slug: string | null;
 	readonly subscription: OrganizationSubscriptionMetadata;
+	readonly contact: OrganizationContactInfo;
 	readonly ownerLinked: boolean;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
@@ -333,6 +367,7 @@ export interface UpsertOperatorOrganizationInput extends OrganizationSubscriptio
 	readonly workosOrganizationId: string;
 	readonly name: string;
 	readonly slug: string | null;
+	readonly contact: OrganizationContactInfo;
 	readonly ownerUserId?: string;
 	readonly ownerDisplayName?: string;
 	readonly ownerEmail?: string;
@@ -348,8 +383,6 @@ export interface StageOrganizationInvitationInput {
 
 export interface SpatialFeatureInfo {
 	readonly id: string;
-	readonly precisionPolicy: SpatialFeaturePrecisionPolicy;
-	readonly source: string | null;
 	readonly lat: number;
 	readonly lng: number;
 	readonly geojson: GeoJsonGeometry;
@@ -360,7 +393,6 @@ export interface SpatialFeatureInfo {
 export interface CreateSpatialFeatureInput {
 	readonly geojson: GeoJsonGeometry;
 	readonly precisionPolicy?: SpatialFeaturePrecisionPolicy;
-	readonly source?: string | null;
 }
 
 export interface CreateAddressInput {
@@ -374,6 +406,8 @@ export interface CreateAddressInput {
 	readonly region?: string | null;
 	readonly postalCode?: string | null;
 	readonly geocoderResponse?: unknown | null;
+	readonly createdByProfileId?: string | null;
+	readonly updatedByProfileId?: string | null;
 }
 
 export interface SafeAddress {
@@ -387,6 +421,8 @@ export interface SafeAddress {
 	readonly locality: string | null;
 	readonly region: string | null;
 	readonly postalCode: string | null;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
@@ -395,7 +431,8 @@ export interface CreateRegionFolderInput {
 	readonly organizationId: string;
 	readonly name: string;
 	readonly description?: string | null;
-	readonly sortOrder?: number;
+	readonly createdByProfileId?: string | null;
+	readonly updatedByProfileId?: string | null;
 }
 
 export interface SafeRegionFolder {
@@ -403,7 +440,8 @@ export interface SafeRegionFolder {
 	readonly organizationId: string;
 	readonly name: string;
 	readonly description: string | null;
-	readonly sortOrder: number;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
@@ -415,6 +453,8 @@ export interface CreateRegionInput {
 	readonly regionFolderId?: string | null;
 	readonly description?: string | null;
 	readonly metadata?: unknown | null;
+	readonly createdByProfileId?: string | null;
+	readonly updatedByProfileId?: string | null;
 }
 
 export interface SafeRegion {
@@ -425,6 +465,8 @@ export interface SafeRegion {
 	readonly name: string;
 	readonly description: string | null;
 	readonly metadata: unknown | null;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
@@ -447,7 +489,6 @@ export interface CreateSpeciesInput {
 	readonly epithet: string;
 	readonly commonName?: string | null;
 	readonly displayName: string;
-	readonly isSpecial?: boolean;
 }
 
 export interface SafeSpecies {
@@ -456,7 +497,6 @@ export interface SafeSpecies {
 	readonly epithet: string;
 	readonly commonName: string | null;
 	readonly displayName: string;
-	readonly isSpecial: boolean;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
@@ -464,18 +504,16 @@ export interface SafeSpecies {
 export interface EnableOrganizationSpeciesInput {
 	readonly organizationId: string;
 	readonly speciesId: string;
-	readonly displayNameOverride?: string | null;
-	readonly isActive?: boolean;
-	readonly sortOrder?: number;
+	readonly createdByProfileId?: string | null;
+	readonly updatedByProfileId?: string | null;
 }
 
 export interface SafeOrganizationSpecies {
 	readonly id: string;
 	readonly organizationId: string;
 	readonly speciesId: string;
-	readonly displayNameOverride: string | null;
-	readonly isActive: boolean;
-	readonly sortOrder: number;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
@@ -488,7 +526,8 @@ export interface CreateOrgLookupInput {
 	readonly description?: string | null;
 	readonly customSchema?: unknown | null;
 	readonly isActive?: boolean;
-	readonly sortOrder?: number;
+	readonly createdByProfileId?: string | null;
+	readonly updatedByProfileId?: string | null;
 }
 
 export interface SafeOrgLookup {
@@ -498,7 +537,39 @@ export interface SafeOrgLookup {
 	readonly description: string | null;
 	readonly customSchema: unknown | null;
 	readonly isActive: boolean;
-	readonly sortOrder: number;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface CreateTrapInput {
+	readonly organizationId: string;
+	readonly featureId: string;
+	readonly collectionMethodId: string;
+	readonly addressId?: string | null;
+	readonly collectionLureId?: string | null;
+	readonly trapName?: string | null;
+	readonly trapCode?: string | null;
+	readonly description?: string | null;
+	readonly isActive?: boolean;
+	readonly createdByProfileId?: string | null;
+	readonly updatedByProfileId?: string | null;
+}
+
+export interface SafeTrap {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly featureId: string;
+	readonly collectionMethodId: string;
+	readonly addressId: string | null;
+	readonly collectionLureId: string | null;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly description: string | null;
+	readonly isActive: boolean;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
@@ -561,15 +632,13 @@ export async function createSpatialFeature(
 	input: CreateSpatialFeatureInput,
 ): Promise<SpatialFeatureInfo> {
 	const precisionPolicy = input.precisionPolicy ?? 'preserve';
-	const source = input.source ?? null;
 	const geojson = JSON.stringify(input.geojson);
 
 	const row = await db
 		.selectNoFrom(
 			sql<string>`get_or_create_spatial_feature(
 				${geojson}::jsonb,
-				${precisionPolicy},
-				${source}
+				${precisionPolicy}
 			)`.as('id'),
 		)
 		.executeTakeFirstOrThrow();
@@ -583,16 +652,7 @@ export async function getSpatialFeature(
 ): Promise<SpatialFeatureInfo> {
 	const row = await db
 		.selectFrom('spatial_features')
-		.select([
-			'id',
-			'precision_policy',
-			'source',
-			'lat',
-			'lng',
-			'geojson',
-			'geom_type',
-			'created_at',
-		])
+		.select(['id', 'lat', 'lng', 'geojson', 'geom_type', 'created_at'])
 		.where('id', '=', featureId)
 		.executeTakeFirstOrThrow();
 
@@ -616,6 +676,8 @@ export async function createAddress(
 			region: input.region ?? null,
 			postal_code: input.postalCode ?? null,
 			geocoder_response: input.geocoderResponse ?? null,
+			created_by_profile_id: input.createdByProfileId ?? null,
+			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 		})
 		.returning([
 			'id',
@@ -628,6 +690,8 @@ export async function createAddress(
 			'locality',
 			'region',
 			'postal_code',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
@@ -653,6 +717,8 @@ export async function listAddresses(
 			'locality',
 			'region',
 			'postal_code',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
@@ -674,14 +740,16 @@ export async function createRegionFolder(
 			organization_id: input.organizationId,
 			name: input.name,
 			description: input.description ?? null,
-			sort_order: input.sortOrder ?? 0,
+			created_by_profile_id: input.createdByProfileId ?? null,
+			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 		})
 		.returning([
 			'id',
 			'organization_id',
 			'name',
 			'description',
-			'sort_order',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
@@ -701,13 +769,13 @@ export async function listRegionFolders(
 			'organization_id',
 			'name',
 			'description',
-			'sort_order',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
-		.orderBy('sort_order', 'asc')
 		.orderBy('name', 'asc')
 		.execute();
 
@@ -724,6 +792,8 @@ export async function createRegion(db: DbExecutor, input: CreateRegionInput): Pr
 			name: input.name,
 			description: input.description ?? null,
 			metadata: input.metadata ?? null,
+			created_by_profile_id: input.createdByProfileId ?? null,
+			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 		})
 		.returning([
 			'id',
@@ -733,6 +803,8 @@ export async function createRegion(db: DbExecutor, input: CreateRegionInput): Pr
 			'name',
 			'description',
 			'metadata',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
@@ -752,6 +824,8 @@ export async function listRegions(db: DbExecutor, organizationId: string): Promi
 			'name',
 			'description',
 			'metadata',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
@@ -797,7 +871,6 @@ export async function createSpecies(
 			epithet: input.epithet,
 			common_name: input.commonName ?? null,
 			display_name: input.displayName,
-			is_special: input.isSpecial ?? false,
 		})
 		.returning([
 			'id',
@@ -805,7 +878,6 @@ export async function createSpecies(
 			'epithet',
 			'common_name',
 			'display_name',
-			'is_special',
 			'created_at',
 			'updated_at',
 		])
@@ -823,7 +895,6 @@ export async function listSpecies(db: DbExecutor): Promise<SafeSpecies[]> {
 			'epithet',
 			'common_name',
 			'display_name',
-			'is_special',
 			'created_at',
 			'updated_at',
 		])
@@ -842,15 +913,12 @@ export async function enableOrganizationSpecies(
 		.values({
 			organization_id: input.organizationId,
 			species_id: input.speciesId,
-			display_name_override: input.displayNameOverride ?? null,
-			is_active: input.isActive ?? true,
-			sort_order: input.sortOrder ?? 0,
+			created_by_profile_id: input.createdByProfileId ?? null,
+			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 		})
 		.onConflict((oc) =>
 			oc.columns(['organization_id', 'species_id']).doUpdateSet({
-				display_name_override: input.displayNameOverride ?? null,
-				is_active: input.isActive ?? true,
-				sort_order: input.sortOrder ?? 0,
+				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 				updated_at: sql`now()`,
 			}),
 		)
@@ -858,9 +926,8 @@ export async function enableOrganizationSpecies(
 			'id',
 			'organization_id',
 			'species_id',
-			'display_name_override',
-			'is_active',
-			'sort_order',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
@@ -879,14 +946,12 @@ export async function listOrganizationSpecies(
 			'id',
 			'organization_id',
 			'species_id',
-			'display_name_override',
-			'is_active',
-			'sort_order',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
 		.where('organization_id', '=', organizationId)
-		.orderBy('sort_order', 'asc')
 		.orderBy('created_at', 'asc')
 		.execute();
 
@@ -906,7 +971,8 @@ export async function createOrgLookup(
 			description: input.description ?? null,
 			custom_schema: input.customSchema ?? null,
 			is_active: input.isActive ?? true,
-			sort_order: input.sortOrder ?? 0,
+			created_by_profile_id: input.createdByProfileId ?? null,
+			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 		})
 		.returning([
 			'id',
@@ -915,7 +981,8 @@ export async function createOrgLookup(
 			'description',
 			'custom_schema',
 			'is_active',
-			'sort_order',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
@@ -938,17 +1005,69 @@ export async function listOrgLookups(
 			'description',
 			'custom_schema',
 			'is_active',
-			'sort_order',
+			'created_by_profile_id',
+			'updated_by_profile_id',
 			'created_at',
 			'updated_at',
 		])
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
-		.orderBy('sort_order', 'asc')
 		.orderBy('name', 'asc')
 		.execute();
 
 	return rows.map(toSafeOrgLookup);
+}
+
+const trapReturnColumns = [
+	'id',
+	'organization_id',
+	'feature_id',
+	'collection_method_id',
+	'address_id',
+	'collection_lure_id',
+	'trap_name',
+	'trap_code',
+	'description',
+	'is_active',
+	'created_by_profile_id',
+	'updated_by_profile_id',
+	'created_at',
+	'updated_at',
+] as const;
+
+export async function createTrap(db: DbExecutor, input: CreateTrapInput): Promise<SafeTrap> {
+	const row = await db
+		.insertInto('traps')
+		.values({
+			organization_id: input.organizationId,
+			feature_id: input.featureId,
+			collection_method_id: input.collectionMethodId,
+			address_id: input.addressId ?? null,
+			collection_lure_id: input.collectionLureId ?? null,
+			trap_name: input.trapName ?? null,
+			trap_code: input.trapCode ?? null,
+			description: input.description ?? null,
+			is_active: input.isActive ?? true,
+			created_by_profile_id: input.createdByProfileId ?? null,
+			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+		})
+		.returning(trapReturnColumns)
+		.executeTakeFirstOrThrow();
+
+	return toSafeTrap(row);
+}
+
+export async function listTraps(db: DbExecutor, organizationId: string): Promise<SafeTrap[]> {
+	const rows = await db
+		.selectFrom('traps')
+		.select(trapReturnColumns)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.orderBy('trap_name', 'asc')
+		.orderBy('trap_code', 'asc')
+		.execute();
+
+	return rows.map(toSafeTrap);
 }
 
 export async function upsertWorkOsIdentity(
@@ -965,7 +1084,6 @@ export async function upsertWorkOsIdentity(
 				first_name: input.firstName,
 				last_name: input.lastName,
 				email_verified: input.emailVerified,
-				profile_picture_url: input.profilePictureUrl,
 			})
 			.onConflict((oc) =>
 				oc.column('workos_user_id').doUpdateSet({
@@ -974,7 +1092,6 @@ export async function upsertWorkOsIdentity(
 					first_name: input.firstName,
 					last_name: input.lastName,
 					email_verified: input.emailVerified,
-					profile_picture_url: input.profilePictureUrl,
 					updated_at: sql`now()`,
 				}),
 			)
@@ -1146,6 +1263,14 @@ export async function upsertOperatorOrganization(
 				billing_contact_name: input.billingContactName,
 				billing_contact_email: input.billingContactEmail,
 				subscription_notes: input.subscriptionNotes,
+				main_contact_email: input.contact.mainContactEmail,
+				phone_number: input.contact.phoneNumber,
+				mailing_country: input.contact.mailingCountry,
+				mailing_address_line_1: input.contact.mailingAddressLine1,
+				mailing_address_line_2: input.contact.mailingAddressLine2,
+				mailing_locality: input.contact.mailingLocality,
+				mailing_region: input.contact.mailingRegion,
+				mailing_postal_code: input.contact.mailingPostalCode,
 			})
 			.onConflict((oc) =>
 				oc.column('workos_organization_id').doUpdateSet({
@@ -1156,6 +1281,14 @@ export async function upsertOperatorOrganization(
 					billing_contact_name: input.billingContactName,
 					billing_contact_email: input.billingContactEmail,
 					subscription_notes: input.subscriptionNotes,
+					main_contact_email: input.contact.mainContactEmail,
+					phone_number: input.contact.phoneNumber,
+					mailing_country: input.contact.mailingCountry,
+					mailing_address_line_1: input.contact.mailingAddressLine1,
+					mailing_address_line_2: input.contact.mailingAddressLine2,
+					mailing_locality: input.contact.mailingLocality,
+					mailing_region: input.contact.mailingRegion,
+					mailing_postal_code: input.contact.mailingPostalCode,
 					updated_at: sql`now()`,
 				}),
 			)
@@ -1169,6 +1302,14 @@ export async function upsertOperatorOrganization(
 				'billing_contact_name',
 				'billing_contact_email',
 				'subscription_notes',
+				'main_contact_email',
+				'phone_number',
+				'mailing_country',
+				'mailing_address_line_1',
+				'mailing_address_line_2',
+				'mailing_locality',
+				'mailing_region',
+				'mailing_postal_code',
 				'created_at',
 				'updated_at',
 			])
@@ -1251,6 +1392,14 @@ export async function listOperatorOrganizations(
 			'billing_contact_name',
 			'billing_contact_email',
 			'subscription_notes',
+			'main_contact_email',
+			'phone_number',
+			'mailing_country',
+			'mailing_address_line_1',
+			'mailing_address_line_2',
+			'mailing_locality',
+			'mailing_region',
+			'mailing_postal_code',
 			'created_at',
 			'updated_at',
 		])
@@ -1277,6 +1426,14 @@ export async function getOperatorOrganization(
 			'billing_contact_name',
 			'billing_contact_email',
 			'subscription_notes',
+			'main_contact_email',
+			'phone_number',
+			'mailing_country',
+			'mailing_address_line_1',
+			'mailing_address_line_2',
+			'mailing_locality',
+			'mailing_region',
+			'mailing_postal_code',
 			'created_at',
 			'updated_at',
 		])
@@ -1430,7 +1587,6 @@ export async function resolveActiveLocalAuthIdentity(
 			'users.first_name as user_first_name',
 			'users.last_name as user_last_name',
 			'users.email_verified as user_email_verified',
-			'users.profile_picture_url as user_profile_picture_url',
 			'organizations.id as organization_id',
 			'organizations.workos_organization_id as organization_workos_organization_id',
 			'organizations.name as organization_name',
@@ -1474,7 +1630,6 @@ export async function resolveActiveLocalAuthIdentity(
 			firstName: row.user_first_name,
 			lastName: row.user_last_name,
 			emailVerified: row.user_email_verified,
-			profilePictureUrl: row.user_profile_picture_url,
 		},
 		organization: {
 			id: row.organization_id,
@@ -1512,6 +1667,14 @@ function toSafeOrganization(
 		readonly billing_contact_name: string | null;
 		readonly billing_contact_email: string | null;
 		readonly subscription_notes: string | null;
+		readonly main_contact_email: string | null;
+		readonly phone_number: string | null;
+		readonly mailing_country: string | null;
+		readonly mailing_address_line_1: string | null;
+		readonly mailing_address_line_2: string | null;
+		readonly mailing_locality: string | null;
+		readonly mailing_region: string | null;
+		readonly mailing_postal_code: string | null;
 		readonly created_at: Date;
 		readonly updated_at: Date;
 	},
@@ -1528,6 +1691,16 @@ function toSafeOrganization(
 			billingContactName: row.billing_contact_name,
 			billingContactEmail: row.billing_contact_email,
 			subscriptionNotes: row.subscription_notes,
+		},
+		contact: {
+			mainContactEmail: row.main_contact_email,
+			phoneNumber: row.phone_number,
+			mailingCountry: row.mailing_country,
+			mailingAddressLine1: row.mailing_address_line_1,
+			mailingAddressLine2: row.mailing_address_line_2,
+			mailingLocality: row.mailing_locality,
+			mailingRegion: row.mailing_region,
+			mailingPostalCode: row.mailing_postal_code,
 		},
 		ownerLinked,
 		createdAt: row.created_at,
@@ -1617,8 +1790,6 @@ function toSafeOrganizationMembership(row: {
 
 function toSpatialFeatureInfo(row: {
 	readonly id: string;
-	readonly precision_policy: SpatialFeaturePrecisionPolicy;
-	readonly source: string | null;
 	readonly lat: number;
 	readonly lng: number;
 	readonly geojson: GeoJsonGeometry;
@@ -1627,8 +1798,6 @@ function toSpatialFeatureInfo(row: {
 }): SpatialFeatureInfo {
 	return {
 		id: row.id,
-		precisionPolicy: row.precision_policy,
-		source: row.source,
 		lat: row.lat,
 		lng: row.lng,
 		geojson: row.geojson,
@@ -1648,6 +1817,8 @@ function toSafeAddress(row: {
 	readonly locality: string | null;
 	readonly region: string | null;
 	readonly postal_code: string | null;
+	readonly created_by_profile_id: string | null;
+	readonly updated_by_profile_id: string | null;
 	readonly created_at: Date;
 	readonly updated_at: Date;
 }): SafeAddress {
@@ -1662,6 +1833,8 @@ function toSafeAddress(row: {
 		locality: row.locality,
 		region: row.region,
 		postalCode: row.postal_code,
+		createdByProfileId: row.created_by_profile_id,
+		updatedByProfileId: row.updated_by_profile_id,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -1672,7 +1845,8 @@ function toSafeRegionFolder(row: {
 	readonly organization_id: string;
 	readonly name: string;
 	readonly description: string | null;
-	readonly sort_order: number;
+	readonly created_by_profile_id: string | null;
+	readonly updated_by_profile_id: string | null;
 	readonly created_at: Date;
 	readonly updated_at: Date;
 }): SafeRegionFolder {
@@ -1681,7 +1855,8 @@ function toSafeRegionFolder(row: {
 		organizationId: row.organization_id,
 		name: row.name,
 		description: row.description,
-		sortOrder: row.sort_order,
+		createdByProfileId: row.created_by_profile_id,
+		updatedByProfileId: row.updated_by_profile_id,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -1695,6 +1870,8 @@ function toSafeRegion(row: {
 	readonly name: string;
 	readonly description: string | null;
 	readonly metadata: unknown | null;
+	readonly created_by_profile_id: string | null;
+	readonly updated_by_profile_id: string | null;
 	readonly created_at: Date;
 	readonly updated_at: Date;
 }): SafeRegion {
@@ -1706,6 +1883,8 @@ function toSafeRegion(row: {
 		name: row.name,
 		description: row.description,
 		metadata: row.metadata,
+		createdByProfileId: row.created_by_profile_id,
+		updatedByProfileId: row.updated_by_profile_id,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -1733,7 +1912,6 @@ function toSafeSpecies(row: {
 	readonly epithet: string;
 	readonly common_name: string | null;
 	readonly display_name: string;
-	readonly is_special: boolean;
 	readonly created_at: Date;
 	readonly updated_at: Date;
 }): SafeSpecies {
@@ -1743,7 +1921,6 @@ function toSafeSpecies(row: {
 		epithet: row.epithet,
 		commonName: row.common_name,
 		displayName: row.display_name,
-		isSpecial: row.is_special,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -1753,9 +1930,8 @@ function toSafeOrganizationSpecies(row: {
 	readonly id: string;
 	readonly organization_id: string;
 	readonly species_id: string;
-	readonly display_name_override: string | null;
-	readonly is_active: boolean;
-	readonly sort_order: number;
+	readonly created_by_profile_id: string | null;
+	readonly updated_by_profile_id: string | null;
 	readonly created_at: Date;
 	readonly updated_at: Date;
 }): SafeOrganizationSpecies {
@@ -1763,9 +1939,8 @@ function toSafeOrganizationSpecies(row: {
 		id: row.id,
 		organizationId: row.organization_id,
 		speciesId: row.species_id,
-		displayNameOverride: row.display_name_override,
-		isActive: row.is_active,
-		sortOrder: row.sort_order,
+		createdByProfileId: row.created_by_profile_id,
+		updatedByProfileId: row.updated_by_profile_id,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -1778,7 +1953,8 @@ function toSafeOrgLookup(row: {
 	readonly description: string | null;
 	readonly custom_schema: unknown | null;
 	readonly is_active: boolean;
-	readonly sort_order: number;
+	readonly created_by_profile_id: string | null;
+	readonly updated_by_profile_id: string | null;
 	readonly created_at: Date;
 	readonly updated_at: Date;
 }): SafeOrgLookup {
@@ -1789,7 +1965,42 @@ function toSafeOrgLookup(row: {
 		description: row.description,
 		customSchema: row.custom_schema,
 		isActive: row.is_active,
-		sortOrder: row.sort_order,
+		createdByProfileId: row.created_by_profile_id,
+		updatedByProfileId: row.updated_by_profile_id,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSafeTrap(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly feature_id: string;
+	readonly collection_method_id: string;
+	readonly address_id: string | null;
+	readonly collection_lure_id: string | null;
+	readonly trap_name: string | null;
+	readonly trap_code: string | null;
+	readonly description: string | null;
+	readonly is_active: boolean;
+	readonly created_by_profile_id: string | null;
+	readonly updated_by_profile_id: string | null;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeTrap {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		featureId: row.feature_id,
+		collectionMethodId: row.collection_method_id,
+		addressId: row.address_id,
+		collectionLureId: row.collection_lure_id,
+		trapName: row.trap_name,
+		trapCode: row.trap_code,
+		description: row.description,
+		isActive: row.is_active,
+		createdByProfileId: row.created_by_profile_id,
+		updatedByProfileId: row.updated_by_profile_id,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};

@@ -17,13 +17,18 @@ import {
 import { Hono } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
+import { registerAdminFoundationRoutes } from './admin-foundations.js';
 import {
 	resolveAuthContext,
 	toAuthFailureBody,
 	toAuthMeBody,
 	toPublicAuthContext,
 } from './auth-context.js';
-import { type AuthVariables, createAuthContextMiddleware } from './auth-middleware.js';
+import {
+	type AuthVariables,
+	createAuthContextMiddleware,
+	createOperatorAuthContextMiddleware,
+} from './auth-middleware.js';
 import { readServerEnv } from './env.js';
 
 const env = readServerEnv();
@@ -47,6 +52,12 @@ const localIdentityResolver = {
 const authContextMiddleware = createAuthContextMiddleware({
 	auth,
 	localIdentityResolver,
+	setAuthCookie,
+});
+const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
+	auth,
+	localIdentityResolver,
+	isOperatorEmail,
 	setAuthCookie,
 });
 
@@ -129,12 +140,7 @@ app.get('/auth/me', async (context) => {
 	return context.json(toAuthMeBody(result.context));
 });
 
-app.get('/admin/organizations', authContextMiddleware, async (context) => {
-	const authContext = context.get('authContext');
-	if (!isOperatorEmail(authContext.user.email)) {
-		return context.json({ error: 'operator_required' }, 403);
-	}
-
+app.get('/admin/organizations', operatorAuthContextMiddleware, async (context) => {
 	const organizations = await listOperatorOrganizations(db);
 
 	return context.json({
@@ -142,12 +148,8 @@ app.get('/admin/organizations', authContextMiddleware, async (context) => {
 	});
 });
 
-app.post('/admin/organizations', authContextMiddleware, async (context) => {
-	const authContext = context.get('authContext');
-	if (!isOperatorEmail(authContext.user.email)) {
-		return context.json({ error: 'operator_required' }, 403);
-	}
-
+app.post('/admin/organizations', operatorAuthContextMiddleware, async (context) => {
+	const operatorContext = context.get('operatorContext');
 	const payloadResult = await readCreateOrganizationPayload(context.req);
 	if (!payloadResult.ok) {
 		return context.json(
@@ -172,11 +174,12 @@ app.post('/admin/organizations', authContextMiddleware, async (context) => {
 		billingContactName: payloadResult.payload.billingContactName,
 		billingContactEmail: payloadResult.payload.billingContactEmail,
 		subscriptionNotes: payloadResult.payload.subscriptionNotes,
-		...(payloadResult.payload.linkRequesterAsOwner
+		contact: payloadResult.payload.contact,
+		...(payloadResult.payload.linkRequesterAsOwner && operatorContext.localIdentity !== null
 			? {
-					ownerUserId: authContext.user.id,
-					ownerDisplayName: authContext.user.displayName,
-					ownerEmail: authContext.user.email,
+					ownerUserId: operatorContext.localIdentity.user.id,
+					ownerDisplayName: operatorContext.localIdentity.user.displayName,
+					ownerEmail: operatorContext.localIdentity.user.email,
 				}
 			: {}),
 	});
@@ -186,13 +189,8 @@ app.post('/admin/organizations', authContextMiddleware, async (context) => {
 
 app.get(
 	'/admin/organizations/:organizationId/memberships',
-	authContextMiddleware,
+	operatorAuthContextMiddleware,
 	async (context) => {
-		const authContext = context.get('authContext');
-		if (!isOperatorEmail(authContext.user.email)) {
-			return context.json({ error: 'operator_required' }, 403);
-		}
-
 		const organizationId = context.req.param('organizationId');
 		const organization = await getOperatorOrganization(db, organizationId);
 		if (organization === null) {
@@ -210,12 +208,9 @@ app.get(
 
 app.post(
 	'/admin/organizations/:organizationId/invitations',
-	authContextMiddleware,
+	operatorAuthContextMiddleware,
 	async (context) => {
-		const authContext = context.get('authContext');
-		if (!isOperatorEmail(authContext.user.email)) {
-			return context.json({ error: 'operator_required' }, 403);
-		}
+		const operatorContext = context.get('operatorContext');
 
 		const payloadResult = await readInvitePayload(context.req);
 		if (!payloadResult.ok) {
@@ -241,7 +236,7 @@ app.post(
 		const invitation = await auth.sendOrganizationInvitation({
 			email: payloadResult.payload.email,
 			workosOrganizationId: organization.workosOrganizationId,
-			inviterWorkosUserId: authContext.workosUser.workosUserId,
+			inviterWorkosUserId: operatorContext.workosUser.workosUserId,
 		});
 
 		const membership = await stageOrganizationInvitation(db, {
@@ -270,6 +265,11 @@ app.post(
 		);
 	},
 );
+
+registerAdminFoundationRoutes(app, {
+	db,
+	operatorAuthContextMiddleware,
+});
 
 if (env.nodeEnv !== 'production') {
 	app.use(
@@ -335,6 +335,16 @@ interface CreateOrganizationPayload {
 	readonly billingContactName: string | null;
 	readonly billingContactEmail: string | null;
 	readonly subscriptionNotes: string | null;
+	readonly contact: {
+		readonly mainContactEmail: string | null;
+		readonly phoneNumber: string | null;
+		readonly mailingCountry: string | null;
+		readonly mailingAddressLine1: string | null;
+		readonly mailingAddressLine2: string | null;
+		readonly mailingLocality: string | null;
+		readonly mailingRegion: string | null;
+		readonly mailingPostalCode: string | null;
+	};
 	readonly linkRequesterAsOwner: boolean;
 }
 
@@ -417,6 +427,16 @@ async function readCreateOrganizationPayload(request: {
 			billingContactName: readOptionalText(raw.billingContactName),
 			billingContactEmail: readOptionalText(raw.billingContactEmail),
 			subscriptionNotes: readOptionalText(raw.subscriptionNotes),
+			contact: {
+				mainContactEmail: readOptionalText(raw.mainContactEmail),
+				phoneNumber: readOptionalText(raw.phoneNumber),
+				mailingCountry: readOptionalText(raw.mailingCountry)?.toUpperCase() ?? null,
+				mailingAddressLine1: readOptionalText(raw.mailingAddressLine1),
+				mailingAddressLine2: readOptionalText(raw.mailingAddressLine2),
+				mailingLocality: readOptionalText(raw.mailingLocality),
+				mailingRegion: readOptionalText(raw.mailingRegion),
+				mailingPostalCode: readOptionalText(raw.mailingPostalCode),
+			},
 			linkRequesterAsOwner: raw.linkRequesterAsOwner === true,
 		},
 	};
@@ -523,6 +543,7 @@ function toAdminOrganizationResponse(organization: SafeOrganization) {
 		name: organization.name,
 		slug: organization.slug,
 		subscription: organization.subscription,
+		contact: organization.contact,
 		ownerLinked: organization.ownerLinked,
 		createdAt: organization.createdAt,
 		updatedAt: organization.updatedAt,
