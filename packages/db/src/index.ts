@@ -381,6 +381,24 @@ export interface ApplicationMethodsTable {
 	deleted_by_profile_id: string | null;
 }
 
+interface InterventionMethodTable {
+	id: Generated<string>;
+	organization_id: string;
+	name: string;
+	custom_schema: JsonColumn;
+	is_active: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface SourceReductionMethodsTable extends InterventionMethodTable {}
+export interface OutreachMethodsTable extends InterventionMethodTable {}
+export interface BiocontrolMethodsTable extends InterventionMethodTable {}
+
 export interface VehiclesTable {
 	id: Generated<string>;
 	organization_id: string;
@@ -509,6 +527,67 @@ export interface ApplicationBatchesTable {
 	deleted_by_profile_id: string | null;
 }
 
+export interface SourceReductionsTable {
+	id: Generated<string>;
+	organization_id: string;
+	source_reduction_method_id: string;
+	technician_profile_id: string | null;
+	source_reduction_date: DateColumn;
+	feature_id: string;
+	address_id: string | null;
+	sources_eliminated_amount: number;
+	sources_eliminated_unit_id: string;
+	inspection_id: string | null;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface OutreachActionsTable {
+	id: Generated<string>;
+	organization_id: string;
+	outreach_method_id: string;
+	technician_profile_id: string | null;
+	outreach_date: DateColumn;
+	feature_id: string;
+	address_id: string | null;
+	inspection_id: string | null;
+	reach: number;
+	reach_description: string | null;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface BiocontrolActionsTable {
+	id: Generated<string>;
+	organization_id: string;
+	biocontrol_method_id: string;
+	technician_profile_id: string | null;
+	biocontrol_date: DateColumn;
+	feature_id: string;
+	address_id: string | null;
+	habitat_id: string | null;
+	inspection_id: string | null;
+	amount_released: number;
+	release_unit_id: string;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
@@ -541,6 +620,12 @@ export interface SimmerDatabase {
 	formulation_insecticides: FormulationInsecticidesTable;
 	applications: ApplicationsTable;
 	application_batches: ApplicationBatchesTable;
+	source_reduction_methods: SourceReductionMethodsTable;
+	outreach_methods: OutreachMethodsTable;
+	biocontrol_methods: BiocontrolMethodsTable;
+	source_reductions: SourceReductionsTable;
+	outreach_actions: OutreachActionsTable;
+	biocontrol_actions: BiocontrolActionsTable;
 }
 
 export interface CreateDbOptions {
