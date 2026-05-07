@@ -41,6 +41,7 @@ export type UnitType =
 export type UnitSystem = 'si' | 'imperial' | 'us_customary';
 export type InsecticideType = 'larvicide' | 'adulticide' | 'pupicide' | 'other';
 export type RequestIntakeType = 'online' | 'phone' | 'walk-in' | 'other';
+export type RouteType = 'habitat' | 'trap';
 
 export type GeoJsonGeometry = Record<string, unknown>;
 
@@ -693,6 +694,34 @@ export interface AdditionalPersonnelTable {
 	deleted_by_profile_id: string | null;
 }
 
+export interface RoutesTable {
+	id: Generated<string>;
+	organization_id: string;
+	route_name: string;
+	route_type: ColumnType<RouteType, RouteType | undefined, RouteType>;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface RouteItemsTable {
+	id: Generated<string>;
+	route_id: string;
+	entity_type: string;
+	entity_id: string;
+	position: number;
+	directions_to_next_item: string | null;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
@@ -737,6 +766,8 @@ export interface SimmerDatabase {
 	tags: TagsTable;
 	tag_items: TagItemsTable;
 	additional_personnel: AdditionalPersonnelTable;
+	routes: RoutesTable;
+	route_items: RouteItemsTable;
 }
 
 export interface CreateDbOptions {
