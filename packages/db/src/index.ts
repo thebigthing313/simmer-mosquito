@@ -722,6 +722,41 @@ export interface RouteItemsTable {
 	deleted_by_profile_id: string | null;
 }
 
+export interface AssignmentsTable {
+	id: Generated<string>;
+	organization_id: string;
+	assignment_name: string | null;
+	assigned_to_profile_id: string | null;
+	assigned_by_profile_id: string | null;
+	assignment_date: DateColumn;
+	due_at: NullableTimestampWithDefault;
+	started_at: NullableTimestampWithDefault;
+	completed_at: NullableTimestampWithDefault;
+	cancelled_at: NullableTimestampWithDefault;
+	cancellation_reason: string | null;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface AssignmentItemsTable {
+	id: Generated<string>;
+	assignment_id: string;
+	entity_type: string;
+	entity_id: string;
+	position: number;
+	directions_to_next_item: string | null;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
@@ -768,6 +803,8 @@ export interface SimmerDatabase {
 	additional_personnel: AdditionalPersonnelTable;
 	routes: RoutesTable;
 	route_items: RouteItemsTable;
+	assignments: AssignmentsTable;
+	assignment_items: AssignmentItemsTable;
 }
 
 export interface CreateDbOptions {
