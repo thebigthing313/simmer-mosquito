@@ -40,6 +40,7 @@ export type UnitType =
 	| 'speed';
 export type UnitSystem = 'si' | 'imperial' | 'us_customary';
 export type InsecticideType = 'larvicide' | 'adulticide' | 'pupicide' | 'other';
+export type RequestIntakeType = 'online' | 'phone' | 'walk-in' | 'other';
 
 export type GeoJsonGeometry = Record<string, unknown>;
 
@@ -588,6 +589,51 @@ export interface BiocontrolActionsTable {
 	deleted_by_profile_id: string | null;
 }
 
+export interface ContactsTable {
+	id: Generated<string>;
+	organization_id: string;
+	contact_name: string | null;
+	preferred_phone: string | null;
+	alternate_phone: string | null;
+	fax: string | null;
+	email: string | null;
+	company: string | null;
+	department: string | null;
+	title: string | null;
+	wants_email: BooleanWithDefault;
+	wants_sms: BooleanWithDefault;
+	wants_phone: BooleanWithDefault;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface ServiceRequestsTable {
+	id: Generated<string>;
+	organization_id: string;
+	display_name: ColumnType<number | null, number | null | undefined, number | null>;
+	intake_type: ColumnType<RequestIntakeType, RequestIntakeType | undefined, RequestIntakeType>;
+	request_date: DateColumn;
+	feature_id: string;
+	address_id: string;
+	contact_id: string;
+	received_by_profile_id: string | null;
+	details: string;
+	closed_at: NullableTimestampWithDefault;
+	closed_by_profile_id: string | null;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
@@ -626,6 +672,8 @@ export interface SimmerDatabase {
 	source_reductions: SourceReductionsTable;
 	outreach_actions: OutreachActionsTable;
 	biocontrol_actions: BiocontrolActionsTable;
+	contacts: ContactsTable;
+	service_requests: ServiceRequestsTable;
 }
 
 export interface CreateDbOptions {
