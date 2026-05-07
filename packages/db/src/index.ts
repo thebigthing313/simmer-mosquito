@@ -634,6 +634,65 @@ export interface ServiceRequestsTable {
 	deleted_by_profile_id: string | null;
 }
 
+export interface CommentsTable {
+	id: Generated<string>;
+	organization_id: string;
+	entity_type: string;
+	entity_id: string;
+	comment_text: string;
+	commented_by_profile_id: string | null;
+	commented_at: TimestampWithDefault;
+	is_pinned: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface TagsTable {
+	id: Generated<string>;
+	organization_id: string;
+	tag_name: string;
+	description: string | null;
+	color: string | null;
+	is_active: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface TagItemsTable {
+	id: Generated<string>;
+	tag_id: string;
+	entity_type: string;
+	entity_id: string;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface AdditionalPersonnelTable {
+	id: Generated<string>;
+	organization_id: string;
+	personnel_profile_id: string;
+	entity_type: string;
+	entity_id: string;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
@@ -674,6 +733,10 @@ export interface SimmerDatabase {
 	biocontrol_actions: BiocontrolActionsTable;
 	contacts: ContactsTable;
 	service_requests: ServiceRequestsTable;
+	comments: CommentsTable;
+	tags: TagsTable;
+	tag_items: TagItemsTable;
+	additional_personnel: AdditionalPersonnelTable;
 }
 
 export interface CreateDbOptions {
