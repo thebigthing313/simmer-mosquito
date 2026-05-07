@@ -225,6 +225,30 @@ export interface TrapsTable {
 	deleted_by_profile_id: string | null;
 }
 
+export interface CollectionsTable {
+	id: Generated<string>;
+	organization_id: string;
+	trap_id: string | null;
+	collection_method_id: string;
+	collection_lure_id: string | null;
+	feature_id: string;
+	address_id: string | null;
+	collected_at: NullableTimestampWithDefault;
+	collected_by_profile_id: string | null;
+	started_at: NullableTimestampWithDefault;
+	set_by_profile_id: string | null;
+	has_problem: BooleanWithDefault;
+	is_zero_result: BooleanWithDefault;
+	is_non_mosquito: BooleanWithDefault;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
@@ -241,6 +265,7 @@ export interface SimmerDatabase {
 	collection_lures: CollectionLuresTable;
 	habitat_types: HabitatTypesTable;
 	traps: TrapsTable;
+	collections: CollectionsTable;
 }
 
 export interface CreateDbOptions {
@@ -568,6 +593,47 @@ export interface SafeTrap {
 	readonly trapCode: string | null;
 	readonly description: string | null;
 	readonly isActive: boolean;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface CreateCollectionInput {
+	readonly organizationId: string;
+	readonly trapId?: string | null;
+	readonly collectionMethodId?: string | null;
+	readonly collectionLureId?: string | null;
+	readonly featureId?: string | null;
+	readonly addressId?: string | null;
+	readonly collectedAt?: Date | null;
+	readonly collectedByProfileId?: string | null;
+	readonly startedAt?: Date | null;
+	readonly setByProfileId?: string | null;
+	readonly hasProblem?: boolean;
+	readonly isZeroResult?: boolean;
+	readonly isNonMosquito?: boolean;
+	readonly metadata?: unknown | null;
+	readonly createdByProfileId?: string | null;
+	readonly updatedByProfileId?: string | null;
+}
+
+export interface SafeCollection {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly trapId: string | null;
+	readonly collectionMethodId: string;
+	readonly collectionLureId: string | null;
+	readonly featureId: string;
+	readonly addressId: string | null;
+	readonly collectedAt: Date | null;
+	readonly collectedByProfileId: string | null;
+	readonly startedAt: Date | null;
+	readonly setByProfileId: string | null;
+	readonly hasProblem: boolean;
+	readonly isZeroResult: boolean;
+	readonly isNonMosquito: boolean;
+	readonly metadata: unknown | null;
 	readonly createdByProfileId: string | null;
 	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
@@ -1068,6 +1134,120 @@ export async function listTraps(db: DbExecutor, organizationId: string): Promise
 		.execute();
 
 	return rows.map(toSafeTrap);
+}
+
+const collectionReturnColumns = [
+	'id',
+	'organization_id',
+	'trap_id',
+	'collection_method_id',
+	'collection_lure_id',
+	'feature_id',
+	'address_id',
+	'collected_at',
+	'collected_by_profile_id',
+	'started_at',
+	'set_by_profile_id',
+	'has_problem',
+	'is_zero_result',
+	'is_non_mosquito',
+	'metadata',
+	'created_by_profile_id',
+	'updated_by_profile_id',
+	'created_at',
+	'updated_at',
+] as const;
+
+export async function createCollection(
+	db: DbExecutor,
+	input: CreateCollectionInput,
+): Promise<SafeCollection> {
+	const snapshot = await resolveCollectionSnapshot(db, input);
+	const row = await db
+		.insertInto('collections')
+		.values({
+			organization_id: input.organizationId,
+			trap_id: input.trapId ?? null,
+			collection_method_id: snapshot.collectionMethodId,
+			collection_lure_id: snapshot.collectionLureId,
+			feature_id: snapshot.featureId,
+			address_id: snapshot.addressId,
+			collected_at: input.collectedAt ?? null,
+			collected_by_profile_id: input.collectedByProfileId ?? null,
+			started_at: input.startedAt ?? null,
+			set_by_profile_id: input.setByProfileId ?? null,
+			has_problem: input.hasProblem ?? false,
+			is_zero_result: input.isZeroResult ?? false,
+			is_non_mosquito: input.isNonMosquito ?? false,
+			metadata: input.metadata ?? null,
+			created_by_profile_id: input.createdByProfileId ?? null,
+			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+		})
+		.returning(collectionReturnColumns)
+		.executeTakeFirstOrThrow();
+
+	return toSafeCollection(row);
+}
+
+export async function listCollections(
+	db: DbExecutor,
+	organizationId: string,
+): Promise<SafeCollection[]> {
+	const rows = await db
+		.selectFrom('collections')
+		.select(collectionReturnColumns)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.orderBy('collected_at', 'desc')
+		.orderBy('created_at', 'desc')
+		.execute();
+
+	return rows.map(toSafeCollection);
+}
+
+async function resolveCollectionSnapshot(
+	db: DbExecutor,
+	input: CreateCollectionInput,
+): Promise<{
+	readonly collectionMethodId: string;
+	readonly collectionLureId: string | null;
+	readonly featureId: string;
+	readonly addressId: string | null;
+}> {
+	if (input.trapId !== undefined && input.trapId !== null) {
+		const trap = await db
+			.selectFrom('traps')
+			.select(['feature_id', 'collection_method_id', 'collection_lure_id', 'address_id'])
+			.where('id', '=', input.trapId)
+			.where('organization_id', '=', input.organizationId)
+			.where('deleted_at', 'is', null)
+			.executeTakeFirst();
+
+		if (trap === undefined) {
+			throw new Error('Trap not found.');
+		}
+
+		return {
+			collectionMethodId: trap.collection_method_id,
+			collectionLureId: trap.collection_lure_id,
+			featureId: trap.feature_id,
+			addressId: trap.address_id,
+		};
+	}
+
+	if (input.collectionMethodId === undefined || input.collectionMethodId === null) {
+		throw new Error('collectionMethodId is required for ad hoc collections.');
+	}
+	if (input.featureId === undefined || input.featureId === null) {
+		throw new Error('featureId is required for ad hoc collections.');
+	}
+
+	return {
+		collectionMethodId: input.collectionMethodId,
+		collectionLureId: input.collectionLureId ?? null,
+		featureId: input.featureId,
+		addressId: input.addressId ?? null,
+	};
 }
 
 export async function upsertWorkOsIdentity(
@@ -1999,6 +2179,50 @@ function toSafeTrap(row: {
 		trapCode: row.trap_code,
 		description: row.description,
 		isActive: row.is_active,
+		createdByProfileId: row.created_by_profile_id,
+		updatedByProfileId: row.updated_by_profile_id,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSafeCollection(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly trap_id: string | null;
+	readonly collection_method_id: string;
+	readonly collection_lure_id: string | null;
+	readonly feature_id: string;
+	readonly address_id: string | null;
+	readonly collected_at: Date | null;
+	readonly collected_by_profile_id: string | null;
+	readonly started_at: Date | null;
+	readonly set_by_profile_id: string | null;
+	readonly has_problem: boolean;
+	readonly is_zero_result: boolean;
+	readonly is_non_mosquito: boolean;
+	readonly metadata: unknown | null;
+	readonly created_by_profile_id: string | null;
+	readonly updated_by_profile_id: string | null;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeCollection {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		trapId: row.trap_id,
+		collectionMethodId: row.collection_method_id,
+		collectionLureId: row.collection_lure_id,
+		featureId: row.feature_id,
+		addressId: row.address_id,
+		collectedAt: row.collected_at,
+		collectedByProfileId: row.collected_by_profile_id,
+		startedAt: row.started_at,
+		setByProfileId: row.set_by_profile_id,
+		hasProblem: row.has_problem,
+		isZeroResult: row.is_zero_result,
+		isNonMosquito: row.is_non_mosquito,
+		metadata: row.metadata,
 		createdByProfileId: row.created_by_profile_id,
 		updatedByProfileId: row.updated_by_profile_id,
 		createdAt: row.created_at,
