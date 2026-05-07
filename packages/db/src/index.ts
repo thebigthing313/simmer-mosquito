@@ -20,6 +20,7 @@ type BooleanWithDefault = ColumnType<boolean, boolean | undefined, boolean>;
 type JsonColumn = ColumnType<unknown | null, unknown | null | undefined, unknown | null>;
 type GeneratedColumn<T> = ColumnType<T, never, never>;
 type DateColumn = ColumnType<Date, Date, Date>;
+type NullableDateColumn = ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
 
 export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
@@ -42,6 +43,9 @@ export type UnitSystem = 'si' | 'imperial' | 'us_customary';
 export type InsecticideType = 'larvicide' | 'adulticide' | 'pupicide' | 'other';
 export type RequestIntakeType = 'online' | 'phone' | 'walk-in' | 'other';
 export type RouteType = 'habitat' | 'trap';
+export type ControlType = 'application' | 'source_reduction' | 'biocontrol' | 'outreach';
+export type NotificationChannel = 'email' | 'sms' | 'phone' | 'fax';
+export type MissionNotificationStatus = 'pending' | 'completed' | 'failed' | 'skipped';
 
 export type GeoJsonGeometry = Record<string, unknown>;
 
@@ -508,6 +512,7 @@ export interface ApplicationsTable {
 	habitat_id: string | null;
 	collection_id: string | null;
 	inspection_id: string | null;
+	requested_control_action_id: string | null;
 	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -540,6 +545,7 @@ export interface SourceReductionsTable {
 	sources_eliminated_amount: number;
 	sources_eliminated_unit_id: string;
 	inspection_id: string | null;
+	requested_control_action_id: string | null;
 	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -560,6 +566,7 @@ export interface OutreachActionsTable {
 	inspection_id: string | null;
 	reach: number;
 	reach_description: string | null;
+	requested_control_action_id: string | null;
 	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -581,6 +588,7 @@ export interface BiocontrolActionsTable {
 	inspection_id: string | null;
 	amount_released: number;
 	release_unit_id: string;
+	requested_control_action_id: string | null;
 	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -757,6 +765,134 @@ export interface AssignmentItemsTable {
 	deleted_by_profile_id: string | null;
 }
 
+export interface RequestedControlActionsTable {
+	id: Generated<string>;
+	organization_id: string;
+	control_type: ControlType;
+	recommended_method_id: string | null;
+	summary: string | null;
+	inspection_id: string | null;
+	collection_id: string | null;
+	feature_id: string;
+	address_id: string | null;
+	requested_by_profile_id: string | null;
+	requested_at: TimestampWithDefault;
+	resolved_at: NullableTimestampWithDefault;
+	resolved_by_profile_id: string | null;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface MissionsTable {
+	id: Generated<string>;
+	organization_id: string;
+	mission_name: string | null;
+	control_type: ControlType;
+	planned_method_id: string | null;
+	assigned_to_profile_id: string | null;
+	assigned_by_profile_id: string | null;
+	scheduled_start_at: Date;
+	scheduled_end_at: NullableTimestampWithDefault;
+	rain_date: NullableDateColumn;
+	started_at: NullableTimestampWithDefault;
+	completed_at: NullableTimestampWithDefault;
+	cancelled_at: NullableTimestampWithDefault;
+	cancellation_reason: string | null;
+	notification_type_id: string | null;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface MissionItemsTable {
+	id: Generated<string>;
+	mission_id: string;
+	requested_control_action_id: string | null;
+	feature_id: string;
+	address_id: string | null;
+	position: number;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface NotificationTypesTable {
+	id: Generated<string>;
+	organization_id: string;
+	name: string;
+	description: string | null;
+	is_active: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface NotificationRegistrationsTable {
+	id: Generated<string>;
+	contact_id: string;
+	feature_id: string;
+	address_id: string | null;
+	buffer_distance: number | null;
+	buffer_unit_id: string | null;
+	has_bees: BooleanWithDefault;
+	is_no_spray: BooleanWithDefault;
+	is_active: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface NotificationRegistrationTypesTable {
+	id: Generated<string>;
+	notification_registration_id: string;
+	notification_type_id: string;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface MissionNotificationsTable {
+	id: Generated<string>;
+	mission_id: string;
+	notification_registration_id: string;
+	contact_id: string;
+	notification_type_id: string;
+	channel: NotificationChannel;
+	destination: string | null;
+	status: ColumnType<
+		MissionNotificationStatus,
+		MissionNotificationStatus | undefined,
+		MissionNotificationStatus
+	>;
+	status_changed_at: NullableTimestampWithDefault;
+	status_changed_by_profile_id: string | null;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
@@ -805,6 +941,13 @@ export interface SimmerDatabase {
 	route_items: RouteItemsTable;
 	assignments: AssignmentsTable;
 	assignment_items: AssignmentItemsTable;
+	requested_control_actions: RequestedControlActionsTable;
+	missions: MissionsTable;
+	mission_items: MissionItemsTable;
+	notification_types: NotificationTypesTable;
+	notification_registrations: NotificationRegistrationsTable;
+	notification_registration_types: NotificationRegistrationTypesTable;
+	mission_notifications: MissionNotificationsTable;
 }
 
 export interface CreateDbOptions {
