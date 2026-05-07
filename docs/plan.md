@@ -62,6 +62,25 @@ This plan tracks the near-term build order. Architecture decisions live in
   - `traps`
   - Kysely trap table types and create/list helpers.
   - Operator/admin verification create/list surface for traps.
+- Adult surveillance event tables:
+  - `collections`
+  - `collection_species`
+- Larval surveillance tables:
+  - `habitats`
+  - `inspections`
+  - `samples`
+  - `sample_species`
+- Chemical control tables:
+  - `units`
+  - `application_methods`
+  - `vehicles`
+  - `equipment`
+  - `insecticides`
+  - `insecticide_batches`
+  - `formulations`
+  - `formulation_insecticides`
+  - `applications`
+  - `application_batches`
 
 ## Current Boundary
 
@@ -76,9 +95,9 @@ paths:
 - SIMMER operator can smoke-test the shared GIS/reference tables through a
   deliberately rough admin verification UI.
 
-The project still does not have adult collection event tables, larval
-operational workflow tables, ElectricSQL, TanStack DB collections, mobile auth,
-or field workflows.
+The project still does not have public product workflows for adult surveillance,
+larval surveillance, or chemical control. ElectricSQL, TanStack DB collections,
+mobile auth, and field workflows are still deferred.
 
 Do not add a generic `sites` table yet. The old repo modeled concrete locatable
 domain entities (`traps`, `habitats`, addresses, route items) rather than a
@@ -87,13 +106,12 @@ the abstraction is worth it.
 
 ## Recommended Next Slice
 
-After traps:
+After the core operational tables:
 
-- Add `collections` as the first adult event table, with optional `trap_id` and
-  snapshot fields copied from the trap.
-- Or add `habitats` first if larval/mobile route work becomes the priority.
-- Keep writes server-authorized until the domain command and sync boundaries are
-  clearer.
+- Review remaining shared workflow tables from the old repo: routes,
+  assignments, tags, comments, and requested control actions.
+- Keep writes server-authorized until the domain command and sync boundaries
+  are clearer.
 
 ## Deferred
 
@@ -103,8 +121,7 @@ After traps:
 - Electric shape authorization.
 - TanStack DB optimistic mutations.
 - Generic `sites` abstraction.
-- Trap route runs, habitat route runs, collections, habitats, inspections, and
-  samples.
+- Trap route runs and habitat route runs.
 - File/photo storage.
 - Dedicated search service.
 - Payment processing.

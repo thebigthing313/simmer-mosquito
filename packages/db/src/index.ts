@@ -19,12 +19,27 @@ type NullableTimestampWithDefault = ColumnType<
 type BooleanWithDefault = ColumnType<boolean, boolean | undefined, boolean>;
 type JsonColumn = ColumnType<unknown | null, unknown | null | undefined, unknown | null>;
 type GeneratedColumn<T> = ColumnType<T, never, never>;
+type DateColumn = ColumnType<Date, Date, Date>;
 
 export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
 export type OrganizationSubscriptionStatus = 'trial' | 'active' | 'suspended' | 'canceled';
 export type OrganizationBillingMode = 'manual_invoice';
 export type SpatialFeaturePrecisionPolicy = 'preserve' | 'snap_5_decimal';
+export type SpeciesSex = 'male' | 'female';
+export type SpeciesStatus = 'damaged' | 'unfed' | 'bloodfed' | 'gravid';
+export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
+export type UnitType =
+	| 'weight'
+	| 'distance'
+	| 'area'
+	| 'volume'
+	| 'temperature'
+	| 'duration'
+	| 'count'
+	| 'speed';
+export type UnitSystem = 'si' | 'imperial' | 'us_customary';
+export type InsecticideType = 'larvicide' | 'adulticide' | 'pupicide' | 'other';
 
 export type GeoJsonGeometry = Record<string, unknown>;
 
@@ -249,6 +264,251 @@ export interface CollectionsTable {
 	deleted_by_profile_id: string | null;
 }
 
+export interface CollectionSpeciesTable {
+	id: Generated<string>;
+	collection_id: string;
+	species_id: string;
+	count: number;
+	sex: ColumnType<SpeciesSex | null, SpeciesSex | null | undefined, SpeciesSex | null>;
+	status: SpeciesStatus | null;
+	identified_by_profile_id: string | null;
+	identified_date: DateColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface HabitatsTable {
+	id: Generated<string>;
+	organization_id: string;
+	feature_id: string;
+	address_id: string | null;
+	habitat_type_id: string | null;
+	habitat_name: string | null;
+	description: string;
+	is_active: BooleanWithDefault;
+	is_inaccessible: BooleanWithDefault;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface InspectionsTable {
+	id: Generated<string>;
+	organization_id: string;
+	feature_id: string;
+	habitat_id: string | null;
+	habitat_type_id: string | null;
+	address_id: string | null;
+	inspected_by_profile_id: string | null;
+	inspection_date: DateColumn;
+	is_wet: BooleanWithDefault;
+	dip_count: number | null;
+	density: LarvalDensity | null;
+	larvae_count: number | null;
+	has_first_instar: BooleanWithDefault;
+	has_second_instar: BooleanWithDefault;
+	has_third_instar: BooleanWithDefault;
+	has_fourth_instar: BooleanWithDefault;
+	has_pupae: BooleanWithDefault;
+	has_eggs: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface SamplesTable {
+	id: Generated<string>;
+	organization_id: string;
+	inspection_id: string;
+	display_name: string | null;
+	is_zero_larvae: BooleanWithDefault;
+	is_non_mosquito: BooleanWithDefault;
+	unidentifiable_reason: string | null;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface SampleSpeciesTable {
+	id: Generated<string>;
+	sample_id: string;
+	species_id: string;
+	identified_by_profile_id: string | null;
+	identified_at: DateColumn;
+	larvae_count: number;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface UnitsTable {
+	id: Generated<string>;
+	unit_name: string;
+	abbreviation: string;
+	unit_type: UnitType;
+	unit_system: UnitSystem;
+	created_at: TimestampWithDefault;
+}
+
+export interface ApplicationMethodsTable {
+	id: Generated<string>;
+	organization_id: string;
+	name: string;
+	custom_schema: JsonColumn;
+	is_active: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface VehiclesTable {
+	id: Generated<string>;
+	organization_id: string;
+	vehicle_name: string;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface EquipmentTable {
+	id: Generated<string>;
+	organization_id: string;
+	equipment_name: string;
+	serial_number: string | null;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface InsecticidesTable {
+	id: Generated<string>;
+	organization_id: string;
+	trade_name: string;
+	active_ingredient: string;
+	is_active: BooleanWithDefault;
+	type: InsecticideType;
+	registration_number: string;
+	default_unit_id: string;
+	inventory_unit_id: string | null;
+	conversion_factor: number | null;
+	label_url: string | null;
+	msds_url: string | null;
+	shorthand: string | null;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface InsecticideBatchesTable {
+	id: Generated<string>;
+	insecticide_id: string;
+	batch_name: string;
+	is_active: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface FormulationsTable {
+	id: Generated<string>;
+	organization_id: string;
+	formulation_name: string;
+	description: string | null;
+	is_active: BooleanWithDefault;
+	diluent_ratio: ColumnType<number, number | undefined, number>;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface FormulationInsecticidesTable {
+	id: Generated<string>;
+	formulation_id: string;
+	insecticide_id: string;
+	ratio: number;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface ApplicationsTable {
+	id: Generated<string>;
+	organization_id: string;
+	application_method_id: string | null;
+	insecticide_id: string;
+	applicator_profile_id: string | null;
+	application_date: DateColumn;
+	feature_id: string;
+	address_id: string | null;
+	vehicle_id: string | null;
+	equipment_id: string | null;
+	amount_applied: number;
+	application_unit_id: string;
+	habitat_id: string | null;
+	collection_id: string | null;
+	inspection_id: string | null;
+	metadata: JsonColumn;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface ApplicationBatchesTable {
+	id: Generated<string>;
+	application_id: string;
+	insecticide_batch_id: string;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
@@ -266,6 +526,21 @@ export interface SimmerDatabase {
 	habitat_types: HabitatTypesTable;
 	traps: TrapsTable;
 	collections: CollectionsTable;
+	collection_species: CollectionSpeciesTable;
+	habitats: HabitatsTable;
+	inspections: InspectionsTable;
+	samples: SamplesTable;
+	sample_species: SampleSpeciesTable;
+	units: UnitsTable;
+	application_methods: ApplicationMethodsTable;
+	vehicles: VehiclesTable;
+	equipment: EquipmentTable;
+	insecticides: InsecticidesTable;
+	insecticide_batches: InsecticideBatchesTable;
+	formulations: FormulationsTable;
+	formulation_insecticides: FormulationInsecticidesTable;
+	applications: ApplicationsTable;
+	application_batches: ApplicationBatchesTable;
 }
 
 export interface CreateDbOptions {
