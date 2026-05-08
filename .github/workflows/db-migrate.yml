@@ -1,0 +1,124 @@
+name: DB Migrations
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+    paths:
+      - packages/db/migrations/**
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to migrate
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  migrate-staging:
+    name: Migrate staging database
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/staging') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    concurrency:
+      group: db-migrate-staging
+      cancel-in-progress: false
+
+    steps:
+      - name: Require staging branch for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "$GITHUB_REF_NAME" != "staging" ]; then
+            echo "Manual staging migrations must run from the staging branch."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          pnpm exec dbmate \
+            --url "$DATABASE_URL" \
+            --migrations-dir packages/db/migrations \
+            --schema-file packages/db/schema.sql \
+            --no-dump-schema \
+            --wait \
+            up
+
+  migrate-production:
+    name: Migrate production database
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    concurrency:
+      group: db-migrate-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Require main branch for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "Manual production migrations must run from the main branch."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          pnpm exec dbmate \
+            --url "$DATABASE_URL" \
+            --migrations-dir packages/db/migrations \
+            --schema-file packages/db/schema.sql \
+            --no-dump-schema \
+            --wait \
+            up
