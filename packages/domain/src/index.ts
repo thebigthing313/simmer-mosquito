@@ -1,3 +1,5 @@
+export * from './adult-surveillance.js';
+
 export const MOSQUITO_SPECIES = [
 	'Aedes aegypti',
 	'Aedes albopictus',
@@ -22,17 +24,4 @@ export interface TrapCollection {
 	readonly siteId: string;
 	readonly species?: MosquitoSpecies;
 	readonly trapNights: number;
-}
-
-export interface TrapNightRateInput {
-	readonly mosquitoCount: number;
-	readonly trapNights: number;
-}
-
-export function calculateTrapNightRate(input: TrapNightRateInput): number {
-	if (input.trapNights <= 0) {
-		return 0;
-	}
-
-	return Number((input.mosquitoCount / input.trapNights).toFixed(2));
 }

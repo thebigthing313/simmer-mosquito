@@ -47,6 +47,7 @@ export type ControlType = 'application' | 'source_reduction' | 'biocontrol' | 'o
 export type NotificationChannel = 'email' | 'sms' | 'phone' | 'fax';
 export type MissionNotificationStatus = 'pending' | 'completed' | 'failed' | 'skipped';
 export type WeatherSourceType = 'organization' | 'nws';
+export type CollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
 
 export type GeoJsonGeometry = Record<string, unknown>;
 
@@ -267,9 +268,17 @@ export interface CollectionsTable {
 	collected_by_profile_id: string | null;
 	started_at: NullableTimestampWithDefault;
 	set_by_profile_id: string | null;
+	collection_timing_mode: ColumnType<
+		CollectionTimingMode,
+		CollectionTimingMode | undefined,
+		CollectionTimingMode
+	>;
+	collection_date: NullableDateColumn;
+	duration_amount: number | null;
+	duration_unit_id: string | null;
 	has_problem: BooleanWithDefault;
 	is_zero_result: BooleanWithDefault;
-	is_non_mosquito: BooleanWithDefault;
+	has_bycatch: BooleanWithDefault;
 	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -374,6 +383,7 @@ export interface SampleSpeciesTable {
 
 export interface UnitsTable {
 	id: Generated<string>;
+	code: string;
 	unit_name: string;
 	abbreviation: string;
 	unit_type: UnitType;
@@ -1346,13 +1356,17 @@ export interface CreateCollectionInput {
 	readonly collectionLureId?: string | null;
 	readonly featureId?: string | null;
 	readonly addressId?: string | null;
+	readonly timingMode?: CollectionTimingMode;
 	readonly collectedAt?: Date | null;
 	readonly collectedByProfileId?: string | null;
 	readonly startedAt?: Date | null;
 	readonly setByProfileId?: string | null;
+	readonly collectionDate?: Date | null;
+	readonly durationAmount?: number | null;
+	readonly durationUnitId?: string | null;
 	readonly hasProblem?: boolean;
 	readonly isZeroResult?: boolean;
-	readonly isNonMosquito?: boolean;
+	readonly hasBycatch?: boolean;
 	readonly metadata?: unknown | null;
 	readonly createdByProfileId?: string | null;
 	readonly updatedByProfileId?: string | null;
@@ -1370,9 +1384,13 @@ export interface SafeCollection {
 	readonly collectedByProfileId: string | null;
 	readonly startedAt: Date | null;
 	readonly setByProfileId: string | null;
+	readonly timingMode: CollectionTimingMode;
+	readonly collectionDate: Date | null;
+	readonly durationAmount: number | null;
+	readonly durationUnitId: string | null;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
-	readonly isNonMosquito: boolean;
+	readonly hasBycatch: boolean;
 	readonly metadata: unknown | null;
 	readonly createdByProfileId: string | null;
 	readonly updatedByProfileId: string | null;
@@ -1888,9 +1906,13 @@ const collectionReturnColumns = [
 	'collected_by_profile_id',
 	'started_at',
 	'set_by_profile_id',
+	'collection_timing_mode',
+	'collection_date',
+	'duration_amount',
+	'duration_unit_id',
 	'has_problem',
 	'is_zero_result',
-	'is_non_mosquito',
+	'has_bycatch',
 	'metadata',
 	'created_by_profile_id',
 	'updated_by_profile_id',
@@ -1903,6 +1925,7 @@ export async function createCollection(
 	input: CreateCollectionInput,
 ): Promise<SafeCollection> {
 	const snapshot = await resolveCollectionSnapshot(db, input);
+	const timing = resolveCollectionTiming(input);
 	const row = await db
 		.insertInto('collections')
 		.values({
@@ -1912,13 +1935,17 @@ export async function createCollection(
 			collection_lure_id: snapshot.collectionLureId,
 			feature_id: snapshot.featureId,
 			address_id: snapshot.addressId,
-			collected_at: input.collectedAt ?? null,
+			collected_at: timing.collectedAt,
 			collected_by_profile_id: input.collectedByProfileId ?? null,
-			started_at: input.startedAt ?? null,
+			started_at: timing.startedAt,
 			set_by_profile_id: input.setByProfileId ?? null,
+			collection_timing_mode: timing.timingMode,
+			collection_date: timing.collectionDate,
+			duration_amount: timing.durationAmount,
+			duration_unit_id: timing.durationUnitId,
 			has_problem: input.hasProblem ?? false,
 			is_zero_result: input.isZeroResult ?? false,
-			is_non_mosquito: input.isNonMosquito ?? false,
+			has_bycatch: input.hasBycatch ?? false,
 			metadata: input.metadata ?? null,
 			created_by_profile_id: input.createdByProfileId ?? null,
 			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
@@ -1987,6 +2014,70 @@ async function resolveCollectionSnapshot(
 		collectionLureId: input.collectionLureId ?? null,
 		featureId: input.featureId,
 		addressId: input.addressId ?? null,
+	};
+}
+
+function resolveCollectionTiming(input: CreateCollectionInput): {
+	readonly timingMode: CollectionTimingMode;
+	readonly startedAt: Date | null;
+	readonly collectedAt: Date | null;
+	readonly collectionDate: Date | null;
+	readonly durationAmount: number | null;
+	readonly durationUnitId: string | null;
+} {
+	const timingMode =
+		input.timingMode ??
+		(input.collectionDate !== undefined ||
+		input.durationAmount !== undefined ||
+		input.durationUnitId !== undefined
+			? 'collection_date_duration'
+			: 'exact_timestamps');
+
+	if (timingMode === 'collection_date_duration') {
+		if (input.collectionDate === undefined || input.collectionDate === null) {
+			throw new Error('collectionDate is required for collection date duration timing.');
+		}
+		if (
+			input.durationAmount === undefined ||
+			input.durationAmount === null ||
+			input.durationAmount <= 0
+		) {
+			throw new Error(
+				'durationAmount must be greater than zero for collection date duration timing.',
+			);
+		}
+		if (input.durationUnitId === undefined || input.durationUnitId === null) {
+			throw new Error('durationUnitId is required for collection date duration timing.');
+		}
+
+		return {
+			timingMode,
+			startedAt: null,
+			collectedAt: null,
+			collectionDate: input.collectionDate,
+			durationAmount: input.durationAmount,
+			durationUnitId: input.durationUnitId,
+		};
+	}
+
+	if (input.startedAt === undefined || input.startedAt === null) {
+		throw new Error('startedAt is required for exact timestamp collection timing.');
+	}
+	if (
+		input.collectedAt !== undefined &&
+		input.collectedAt !== null &&
+		input.collectedAt < input.startedAt
+	) {
+		throw new Error('collectedAt must be greater than or equal to startedAt.');
+	}
+
+	return {
+		timingMode,
+		startedAt: input.startedAt,
+		collectedAt: input.collectedAt ?? null,
+		collectionDate: null,
+		durationAmount: null,
+		durationUnitId: null,
 	};
 }
 
@@ -2938,9 +3029,13 @@ function toSafeCollection(row: {
 	readonly collected_by_profile_id: string | null;
 	readonly started_at: Date | null;
 	readonly set_by_profile_id: string | null;
+	readonly collection_timing_mode: CollectionTimingMode;
+	readonly collection_date: Date | null;
+	readonly duration_amount: number | null;
+	readonly duration_unit_id: string | null;
 	readonly has_problem: boolean;
 	readonly is_zero_result: boolean;
-	readonly is_non_mosquito: boolean;
+	readonly has_bycatch: boolean;
 	readonly metadata: unknown | null;
 	readonly created_by_profile_id: string | null;
 	readonly updated_by_profile_id: string | null;
@@ -2959,9 +3054,13 @@ function toSafeCollection(row: {
 		collectedByProfileId: row.collected_by_profile_id,
 		startedAt: row.started_at,
 		setByProfileId: row.set_by_profile_id,
+		timingMode: row.collection_timing_mode,
+		collectionDate: row.collection_date,
+		durationAmount: row.duration_amount,
+		durationUnitId: row.duration_unit_id,
 		hasProblem: row.has_problem,
 		isZeroResult: row.is_zero_result,
-		isNonMosquito: row.is_non_mosquito,
+		hasBycatch: row.has_bycatch,
 		metadata: row.metadata,
 		createdByProfileId: row.created_by_profile_id,
 		updatedByProfileId: row.updated_by_profile_id,

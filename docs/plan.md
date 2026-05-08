@@ -118,6 +118,46 @@ This plan tracks the near-term build order. Architecture decisions live in
 - The new schema has table-level feature parity with the old `F:\simmer`
   domain model, with intentional redesigns for tags, addresses, weather,
   missions, notifications, and custom method schemas.
+- Database migrations were flattened from incremental parity-work files into
+  domain-grouped dbmate migrations:
+  - identity and organizations
+  - spatial, taxonomy, and foundation
+  - adult surveillance
+  - larval surveillance
+  - control operations
+  - field-work support
+  - contacts and service requests
+  - notifications
+  - weather
+- `samples.organization_id` was removed; samples derive tenant ownership through
+  their required `inspection_id`.
+- Railway production and staging PostGIS databases are provisioned.
+- GitHub Actions owns database migration deployment:
+  - pushes to `staging` with migration-folder changes migrate the staging DB
+  - pushes to `main` with migration-folder changes migrate the production DB
+  - manual workflow dispatch can retry either environment from the matching
+    branch
+- The flattened migrations have been applied successfully to both Railway
+  staging and production PostGIS databases.
+- Adult surveillance domain command design has been grilled and recorded in
+  `docs/adult-surveillance-domain.md`.
+- `packages/domain` now exposes the first hardened adult surveillance command
+  vocabulary:
+  - trap catalog commands
+  - pending and collected collection workflow commands
+  - ad hoc collection workflow commands
+  - collection species count analysis commands
+  - zero-result and bycatch commands
+- Adult surveillance commands now use client-generated UUIDs where possible,
+  separate collection transactions from analysis transactions, and model both
+  exact timestamp timing and collection-date-plus-duration timing.
+- Adult surveillance schema follow-up migration exists for:
+  - `collection_timing_mode`
+  - collection date and duration fields
+  - stable `units.code`
+  - `collections.has_bycatch`
+- Kysely collection helper/types now understand the adult surveillance timing
+  mode and bycatch schema changes.
 
 ## Current Boundary
 
@@ -138,9 +178,17 @@ assignments, routes, control recommendations, missions, notifications, weather
 summaries, and region intersection caching.
 
 The project still does not have hardened public product workflows for those
-tables. Most operational tables currently have schema and Kysely typings only;
-domain commands, server endpoints, import flows, sync boundaries, and production
-UI remain to be built deliberately.
+tables. Adult surveillance now has a concrete domain command vocabulary and
+schema direction, but server endpoints, import flows, sync boundaries, and
+production UI remain to be built deliberately.
+
+Deployment now has a working database baseline:
+
+- Railway environments exist for staging and production.
+- Both environments use PostGIS-capable PostgreSQL 16 services.
+- GitHub environment secrets provide the public database URLs for migration CI.
+- The DB migration workflow is intentionally migration-folder gated so app-only
+  changes do not mutate database environments.
 
 Do not add a generic `sites` table yet. The old repo modeled concrete locatable
 domain entities (`traps`, `habitats`, addresses, route items) rather than a
@@ -149,18 +197,54 @@ the abstraction is worth it.
 
 ## Recommended Next Slice
 
-Move from schema parity to behavior:
+Build server-authorized adult surveillance command handling.
 
-- Define the first real domain command slice, likely a narrow adult surveillance
-  workflow around traps and collections.
-- Decide which tables need immediate create/list/read helpers versus which
-  should wait for domain-command design.
-- Add server-authorized writes for the chosen workflow and keep cross-table
-  validation in the domain layer.
-- Preserve the rough admin verification UI only as a smoke-test surface until
-  product workflows replace it.
-- Consider a GIS cache refresh function for `spatial_feature_regions` when
-  region lookup behavior becomes part of a workflow.
+Suggested scope:
+
+- Apply and verify the adult surveillance schema update migration locally.
+- Add Kysely helpers for:
+  - collection species count create/update/delete
+  - collection zero-result and bycatch updates
+  - pending collection cancellation
+  - collection soft-delete cascades
+  - trap retire/reactivate/delete lifecycle
+- Add Hono command endpoints behind `AuthContext` for the hardened
+  `adultSurveillance.*` command vocabulary.
+- Enforce same-organization consistency in the server layer for trap,
+  collection method, lure, address, profile, species, unit, and spatial feature
+  references.
+- Enforce adult surveillance permission rules:
+  - trap management is manager-and-above
+  - collection method/lure management is owner/admin
+  - collection workflow is collector-and-above
+  - collectors can only act on behalf of themselves
+  - manager-and-above can backfill on behalf of another profile
+- Enforce workflow invariants:
+  - trap/ad hoc adult collection features are points
+  - pending trap collections block duplicate pending sets
+  - species counts require collected records
+  - zero result is mutually exclusive with active species rows
+  - bycatch can coexist with zero result or species rows
+  - collector edits are limited to their own records within 30 days of
+    collection
+- Keep the existing admin foundation UI as a smoke-test surface, but avoid
+  expanding it into the product workflow.
+- Add integration tests around the command handlers using a migrated PostGIS
+  test database.
+
+Acceptance criteria:
+
+- An agency manager can create, update, retire, reactivate, and delete traps
+  through command endpoints.
+- An agency collector can set and collect trap/ad hoc collections through
+  command endpoints.
+- An agency collector can enter and correct their own species count analysis
+  inside the 30-day window.
+- Cross-org IDs and disabled/inactive references are rejected by the command
+  layer.
+- Adult surveillance timing modes, zero-result, and bycatch behavior are
+  enforced server-side.
+- The workflow runs locally and against the migrated staging database.
 
 ## Deferred
 
@@ -169,6 +253,7 @@ Move from schema parity to behavior:
 - Full domain command packages.
 - Electric shape authorization.
 - TanStack DB optimistic mutations.
+- Railway app service deploy pipelines for server, worker, and web.
 - Generic `sites` abstraction.
 - Trap route runs and habitat route runs.
 - File/photo storage.
