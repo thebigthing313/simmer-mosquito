@@ -46,6 +46,7 @@ export type RouteType = 'habitat' | 'trap';
 export type ControlType = 'application' | 'source_reduction' | 'biocontrol' | 'outreach';
 export type NotificationChannel = 'email' | 'sms' | 'phone' | 'fax';
 export type MissionNotificationStatus = 'pending' | 'completed' | 'failed' | 'skipped';
+export type WeatherSourceType = 'organization' | 'nws';
 
 export type GeoJsonGeometry = Record<string, unknown>;
 
@@ -129,6 +130,14 @@ export interface SpatialFeaturesTable {
 	geojson: GeneratedColumn<GeoJsonGeometry>;
 	geom_type: GeneratedColumn<string>;
 	created_at: TimestampWithDefault;
+}
+
+export interface SpatialFeatureRegionsTable {
+	id: Generated<string>;
+	feature_id: string;
+	region_folder_id: string;
+	intersected_region_ids: string[];
+	cached_at: TimestampWithDefault;
 }
 
 export interface AddressesTable {
@@ -893,12 +902,59 @@ export interface MissionNotificationsTable {
 	deleted_by_profile_id: string | null;
 }
 
+export interface WeatherSourcesTable {
+	id: Generated<string>;
+	organization_id: string | null;
+	feature_id: string;
+	source_type: WeatherSourceType;
+	source_name: string;
+	source_code: string | null;
+	provider_source_id: string | null;
+	is_active: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface WeatherSourceSubscriptionsTable {
+	id: Generated<string>;
+	organization_id: string;
+	weather_source_id: string;
+	is_active: BooleanWithDefault;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
+}
+
+export interface WeatherSummariesTable {
+	id: Generated<string>;
+	weather_source_id: string;
+	start_date: DateColumn;
+	end_date: NullableDateColumn;
+	temperature_min_f: number | null;
+	temperature_max_f: number | null;
+	precipitation_inches: number | null;
+	relative_humidity_min: number | null;
+	relative_humidity_max: number | null;
+	wind_speed_min_mph: number | null;
+	wind_speed_max_mph: number | null;
+	created_at: TimestampWithDefault;
+	updated_at: TimestampWithDefault;
+}
+
 export interface SimmerDatabase {
 	users: UsersTable;
 	organizations: OrganizationsTable;
 	profiles: ProfilesTable;
 	memberships: MembershipsTable;
 	spatial_features: SpatialFeaturesTable;
+	spatial_feature_regions: SpatialFeatureRegionsTable;
 	addresses: AddressesTable;
 	region_folders: RegionFoldersTable;
 	regions: RegionsTable;
@@ -948,6 +1004,9 @@ export interface SimmerDatabase {
 	notification_registrations: NotificationRegistrationsTable;
 	notification_registration_types: NotificationRegistrationTypesTable;
 	mission_notifications: MissionNotificationsTable;
+	weather_sources: WeatherSourcesTable;
+	weather_source_subscriptions: WeatherSourceSubscriptionsTable;
+	weather_summaries: WeatherSummariesTable;
 }
 
 export interface CreateDbOptions {
