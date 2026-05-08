@@ -1,4 +1,6 @@
 -- migrate:up
+
+-- Source: 202605060026_weather_summaries.sql
 create type weather_source_type as enum (
   'organization',
   'nws'
@@ -88,7 +90,10 @@ create index weather_summaries_source_start_date_idx
   on weather_summaries (weather_source_id, start_date desc);
 
 -- migrate:down
+
+-- Source: 202605060026_weather_summaries.sql
 drop table if exists weather_summaries;
 drop table if exists weather_source_subscriptions;
 drop table if exists weather_sources;
 drop type if exists weather_source_type;
+

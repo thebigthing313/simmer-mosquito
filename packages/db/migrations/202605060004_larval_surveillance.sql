@@ -1,4 +1,6 @@
 -- migrate:up
+
+-- Source: 202605060014_larval_surveillance.sql
 create type larval_density as enum (
   'none',
   'light',
@@ -91,7 +93,6 @@ create index inspections_feature_idx
 
 create table samples (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete restrict,
   inspection_id uuid not null references inspections(id) on delete restrict,
   display_name text,
   is_zero_larvae boolean not null default false,
@@ -105,8 +106,8 @@ create table samples (
   deleted_by_profile_id uuid references profiles(id) on delete set null
 );
 
-create index samples_organization_inspection_idx
-  on samples (organization_id, inspection_id)
+create index samples_inspection_idx
+  on samples (inspection_id)
   where deleted_at is null;
 
 create table sample_species (
@@ -140,8 +141,11 @@ create index sample_species_identified_by_idx
   where deleted_at is null and identified_by_profile_id is not null;
 
 -- migrate:down
+
+-- Source: 202605060014_larval_surveillance.sql
 drop table if exists sample_species;
 drop table if exists samples;
 drop table if exists inspections;
 drop table if exists habitats;
 drop type if exists larval_density;
+

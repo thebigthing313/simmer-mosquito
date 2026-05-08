@@ -1,4 +1,6 @@
 -- migrate:up
+
+-- Source: 202605060018_contacts_service_requests.sql
 create type request_intake_type as enum (
   'online',
   'phone',
@@ -86,7 +88,24 @@ create index service_requests_open_idx
   on service_requests (organization_id, request_date desc, created_at desc)
   where deleted_at is null and closed_at is null;
 
+-- Source: 202605060019_service_request_closed_by.sql
+alter table service_requests
+  add column closed_by_profile_id uuid references profiles(id) on delete set null;
+
+create index service_requests_closed_by_idx
+  on service_requests (organization_id, closed_by_profile_id)
+  where deleted_at is null and closed_by_profile_id is not null;
+
 -- migrate:down
+
+-- Source: 202605060019_service_request_closed_by.sql
+drop index if exists service_requests_closed_by_idx;
+
+alter table service_requests
+  drop column if exists closed_by_profile_id;
+
+-- Source: 202605060018_contacts_service_requests.sql
 drop table if exists service_requests;
 drop table if exists contacts;
 drop type if exists request_intake_type;
+

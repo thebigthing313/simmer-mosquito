@@ -344,7 +344,6 @@ export interface InspectionsTable {
 
 export interface SamplesTable {
 	id: Generated<string>;
-	organization_id: string;
 	inspection_id: string;
 	display_name: string | null;
 	is_zero_larvae: BooleanWithDefault;

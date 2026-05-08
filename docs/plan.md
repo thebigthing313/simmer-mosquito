@@ -81,6 +81,43 @@ This plan tracks the near-term build order. Architecture decisions live in
   - `formulation_insecticides`
   - `applications`
   - `application_batches`
+- Other intervention tables:
+  - `source_reduction_methods`
+  - `outreach_methods`
+  - `biocontrol_methods`
+  - `source_reductions`
+  - `outreach_actions`
+  - `biocontrol_actions`
+- Contact and request intake tables:
+  - `contacts`
+  - `service_requests`
+- Shared operational tables:
+  - `comments`
+  - `tags`
+  - `tag_items`
+  - `additional_personnel`
+  - `routes`
+  - `route_items`
+  - `assignments`
+  - `assignment_items`
+- Control recommendation and dispatch tables:
+  - `requested_control_actions`
+  - `missions`
+  - `mission_items`
+- Notification tables:
+  - `notification_types`
+  - `notification_registrations`
+  - `notification_registration_types`
+  - `mission_notifications`
+- Weather analytics tables:
+  - `weather_sources`
+  - `weather_source_subscriptions`
+  - `weather_summaries`
+- Region intersection cache table:
+  - `spatial_feature_regions`
+- The new schema has table-level feature parity with the old `F:\simmer`
+  domain model, with intentional redesigns for tags, addresses, weather,
+  missions, notifications, and custom method schemas.
 
 ## Current Boundary
 
@@ -95,9 +132,15 @@ paths:
 - SIMMER operator can smoke-test the shared GIS/reference tables through a
   deliberately rough admin verification UI.
 
-The project still does not have public product workflows for adult surveillance,
-larval surveillance, or chemical control. ElectricSQL, TanStack DB collections,
-mobile auth, and field workflows are still deferred.
+The database now has the main domain tables needed for adult surveillance,
+larval surveillance, chemical control, other interventions, service requests,
+assignments, routes, control recommendations, missions, notifications, weather
+summaries, and region intersection caching.
+
+The project still does not have hardened public product workflows for those
+tables. Most operational tables currently have schema and Kysely typings only;
+domain commands, server endpoints, import flows, sync boundaries, and production
+UI remain to be built deliberately.
 
 Do not add a generic `sites` table yet. The old repo modeled concrete locatable
 domain entities (`traps`, `habitats`, addresses, route items) rather than a
@@ -106,12 +149,18 @@ the abstraction is worth it.
 
 ## Recommended Next Slice
 
-After the core operational tables:
+Move from schema parity to behavior:
 
-- Review remaining shared workflow tables from the old repo: routes,
-  assignments, tags, comments, and requested control actions.
-- Keep writes server-authorized until the domain command and sync boundaries
-  are clearer.
+- Define the first real domain command slice, likely a narrow adult surveillance
+  workflow around traps and collections.
+- Decide which tables need immediate create/list/read helpers versus which
+  should wait for domain-command design.
+- Add server-authorized writes for the chosen workflow and keep cross-table
+  validation in the domain layer.
+- Preserve the rough admin verification UI only as a smoke-test surface until
+  product workflows replace it.
+- Consider a GIS cache refresh function for `spatial_feature_regions` when
+  region lookup behavior becomes part of a workflow.
 
 ## Deferred
 
@@ -125,3 +174,11 @@ After the core operational tables:
 - File/photo storage.
 - Dedicated search service.
 - Payment processing.
+- Legacy old-repo tables intentionally skipped unless workflows prove they are
+  needed:
+  - `deleted_data`
+  - `roles`
+  - `tag_groups`
+  - `species_groups`
+  - `species_group_species`
+  - contact-level notification preference join tables

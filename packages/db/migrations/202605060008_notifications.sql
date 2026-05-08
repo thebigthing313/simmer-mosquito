@@ -1,4 +1,6 @@
 -- migrate:up
+
+-- Source: 202605060025_notifications.sql
 create type notification_channel as enum (
   'email',
   'sms',
@@ -128,6 +130,8 @@ create index mission_notifications_contact_idx
   where deleted_at is null;
 
 -- migrate:down
+
+-- Source: 202605060025_notifications.sql
 drop table if exists mission_notifications;
 
 drop index if exists missions_notification_type_idx;
@@ -139,3 +143,4 @@ drop table if exists notification_registrations;
 drop table if exists notification_types;
 drop type if exists mission_notification_status;
 drop type if exists notification_channel;
+
