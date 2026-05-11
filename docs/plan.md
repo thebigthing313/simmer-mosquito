@@ -158,6 +158,25 @@ This plan tracks the near-term build order. Architecture decisions live in
   - `collections.has_bycatch`
 - Kysely collection helper/types now understand the adult surveillance timing
   mode and bycatch schema changes.
+- Larval surveillance domain command design has been grilled and recorded in
+  `docs/larval-surveillance-domain.md`.
+- `packages/domain` now exposes the first hardened larval surveillance command
+  vocabulary:
+  - habitat catalog commands
+  - habitat promotion and merge commands
+  - cataloged and ad hoc inspection workflow commands
+  - inspection result policy normalization with density inference
+  - labeled and unlabeled sample workflow commands
+  - sample zero-larvae, non-mosquito, and unidentifiable-result commands
+  - sample species count analysis commands
+- Larval surveillance commands now use client-generated UUIDs where possible,
+  model organization inspection-entry defaults, and keep sample analysis
+  separate from field inspection creation.
+- Larval surveillance schema follow-up migration exists for:
+  - positive `dip_count`
+  - nonnegative `larvae_count`
+  - `samples.has_non_mosquito`
+  - soft-delete-aware active sample/species uniqueness
 
 ## Current Boundary
 
@@ -178,9 +197,9 @@ assignments, routes, control recommendations, missions, notifications, weather
 summaries, and region intersection caching.
 
 The project still does not have hardened public product workflows for those
-tables. Adult surveillance now has a concrete domain command vocabulary and
-schema direction, but server endpoints, import flows, sync boundaries, and
-production UI remain to be built deliberately.
+tables. Adult and larval surveillance now have concrete domain command
+vocabularies and schema direction, but server endpoints, import flows, sync
+boundaries, and production UI remain to be built deliberately.
 
 Deployment now has a working database baseline:
 
