@@ -356,7 +356,7 @@ export interface SamplesTable {
 	inspection_id: string;
 	display_name: string | null;
 	is_zero_larvae: BooleanWithDefault;
-	is_non_mosquito: BooleanWithDefault;
+	has_non_mosquito: BooleanWithDefault;
 	unidentifiable_reason: string | null;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
