@@ -696,6 +696,7 @@ export interface TagsTable {
 export interface TagItemsTable {
 	id: Generated<string>;
 	tag_id: string;
+	organization_id: string;
 	entity_type: string;
 	entity_id: string;
 	created_by_profile_id: string | null;
@@ -775,6 +776,11 @@ export interface AssignmentItemsTable {
 	entity_id: string;
 	position: number;
 	directions_to_next_item: string | null;
+	completed_at: NullableTimestampWithDefault;
+	completed_by_profile_id: string | null;
+	skipped_at: NullableTimestampWithDefault;
+	skipped_by_profile_id: string | null;
+	skip_reason: string | null;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;

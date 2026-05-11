@@ -1,4 +1,5 @@
 export * from './adult-surveillance.js';
+export * from './field-work.js';
 export * from './larval-surveillance.js';
 
 export const MOSQUITO_SPECIES = [

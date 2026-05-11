@@ -216,12 +216,20 @@ the abstraction is worth it.
 
 ## Recommended Next Slice
 
-Build server-authorized adult surveillance command handling.
+Build the server-authorized command spine using adult surveillance as the first
+tracer bullet.
 
 Suggested scope:
 
-- Apply and verify the adult surveillance schema update migration locally.
-- Add Kysely helpers for:
+- Apply and verify the adult and larval surveillance schema update migrations
+  locally.
+- Add a small reusable command endpoint pattern in `apps/server`:
+  - AuthContext resolution for command requests
+  - domain command payload validation
+  - consistent command error responses
+  - transaction wrapper and audit profile plumbing
+  - same-organization reference checks
+- Add Kysely helpers for adult surveillance:
   - collection species count create/update/delete
   - collection zero-result and bycatch updates
   - pending collection cancellation
@@ -246,6 +254,9 @@ Suggested scope:
   - bycatch can coexist with zero result or species rows
   - collector edits are limited to their own records within 30 days of
     collection
+- Keep larval command handling out of this first tracer bullet, but design the
+  command spine so larval can reuse the same AuthContext, transaction, command
+  error, audit, and reference-validation patterns next.
 - Keep the existing admin foundation UI as a smoke-test surface, but avoid
   expanding it into the product workflow.
 - Add integration tests around the command handlers using a migrated PostGIS
@@ -263,13 +274,24 @@ Acceptance criteria:
   layer.
 - Adult surveillance timing modes, zero-result, and bycatch behavior are
   enforced server-side.
+- The command handler pattern is documented enough that the larval surveillance
+  endpoints can follow it without a second architecture debate.
 - The workflow runs locally and against the migrated staging database.
+
+Recommended follow-up slice:
+
+- Build server-authorized larval surveillance command handling using the adult
+  command spine.
+- Start with habitat catalog and inspection commands before sample analysis and
+  merge/delete edge cases.
+- Add integration tests for density policy resolution, ad hoc inspection
+  behavior, sample creation constraints, and `has_non_mosquito` persistence.
 
 ## Deferred
 
 - Mobile auth/session token bridge.
 - WorkOS event sync worker.
-- Full domain command packages.
+- Remaining domain command packages beyond adult and larval surveillance.
 - Electric shape authorization.
 - TanStack DB optimistic mutations.
 - Railway app service deploy pipelines for server, worker, and web.
