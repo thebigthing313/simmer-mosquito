@@ -149,6 +149,7 @@ export interface AdminLookup {
 	readonly name: string;
 	readonly description: string | null;
 	readonly customSchema: unknown | null;
+	readonly actionThreshold: number | null;
 	readonly isActive: boolean;
 	readonly createdAt: string;
 	readonly updatedAt: string;
@@ -258,6 +259,7 @@ export interface CreateLookupInput {
 	readonly name: string;
 	readonly description: string;
 	readonly customSchema: unknown;
+	readonly actionThreshold: number | null;
 	readonly isActive: boolean;
 }
 

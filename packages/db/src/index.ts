@@ -233,7 +233,9 @@ interface OrgLookupTable {
 	deleted_by_profile_id: string | null;
 }
 
-export interface CollectionMethodsTable extends OrgLookupTable {}
+export interface CollectionMethodsTable extends OrgLookupTable {
+	action_threshold: number | null;
+}
 export interface CollectionLuresTable extends OrgLookupTable {}
 export interface HabitatTypesTable extends OrgLookupTable {}
 
@@ -1306,6 +1308,7 @@ export interface CreateOrgLookupInput {
 	readonly name: string;
 	readonly description?: string | null;
 	readonly customSchema?: unknown | null;
+	readonly actionThreshold?: number | null;
 	readonly isActive?: boolean;
 	readonly createdByProfileId?: string | null;
 	readonly updatedByProfileId?: string | null;
@@ -1317,6 +1320,7 @@ export interface SafeOrgLookup {
 	readonly name: string;
 	readonly description: string | null;
 	readonly customSchema: unknown | null;
+	readonly actionThreshold: number | null;
 	readonly isActive: boolean;
 	readonly createdByProfileId: string | null;
 	readonly updatedByProfileId: string | null;
@@ -1793,6 +1797,37 @@ export async function createOrgLookup(
 	kind: OrgLookupKind,
 	input: CreateOrgLookupInput,
 ): Promise<SafeOrgLookup> {
+	if (kind === 'collection_methods') {
+		const row = await db
+			.insertInto('collection_methods')
+			.values({
+				organization_id: input.organizationId,
+				name: input.name,
+				description: input.description ?? null,
+				custom_schema: input.customSchema ?? null,
+				action_threshold: input.actionThreshold ?? null,
+				is_active: input.isActive ?? true,
+				created_by_profile_id: input.createdByProfileId ?? null,
+				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+			})
+			.returning([
+				'id',
+				'organization_id',
+				'name',
+				'description',
+				'custom_schema',
+				'action_threshold',
+				'is_active',
+				'created_by_profile_id',
+				'updated_by_profile_id',
+				'created_at',
+				'updated_at',
+			])
+			.executeTakeFirstOrThrow();
+
+		return toSafeOrgLookup(row);
+	}
+
 	const row = await db
 		.insertInto(kind)
 		.values({
@@ -1826,6 +1861,30 @@ export async function listOrgLookups(
 	kind: OrgLookupKind,
 	organizationId: string,
 ): Promise<SafeOrgLookup[]> {
+	if (kind === 'collection_methods') {
+		const rows = await db
+			.selectFrom('collection_methods')
+			.select([
+				'id',
+				'organization_id',
+				'name',
+				'description',
+				'custom_schema',
+				'action_threshold',
+				'is_active',
+				'created_by_profile_id',
+				'updated_by_profile_id',
+				'created_at',
+				'updated_at',
+			])
+			.where('organization_id', '=', organizationId)
+			.where('deleted_at', 'is', null)
+			.orderBy('name', 'asc')
+			.execute();
+
+		return rows.map(toSafeOrgLookup);
+	}
+
 	const rows = await db
 		.selectFrom(kind)
 		.select([
@@ -2969,6 +3028,7 @@ function toSafeOrgLookup(row: {
 	readonly name: string;
 	readonly description: string | null;
 	readonly custom_schema: unknown | null;
+	readonly action_threshold?: number | null;
 	readonly is_active: boolean;
 	readonly created_by_profile_id: string | null;
 	readonly updated_by_profile_id: string | null;
@@ -2981,6 +3041,7 @@ function toSafeOrgLookup(row: {
 		name: row.name,
 		description: row.description,
 		customSchema: row.custom_schema,
+		actionThreshold: row.action_threshold ?? null,
 		isActive: row.is_active,
 		createdByProfileId: row.created_by_profile_id,
 		updatedByProfileId: row.updated_by_profile_id,

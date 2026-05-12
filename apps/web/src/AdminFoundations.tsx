@@ -64,6 +64,7 @@ export function AdminFoundationsPanel({
 		name: '',
 		description: '',
 		customSchemaText: '{}',
+		actionThresholdText: '',
 		isActive: true,
 	});
 	const [trapForm, setTrapForm] = useState({
@@ -232,6 +233,10 @@ export function AdminFoundationsPanel({
 				{
 					...lookupForm,
 					customSchema: parseJson(lookupForm.customSchemaText),
+					actionThreshold:
+						lookupForm.kind === 'collection_methods'
+							? parseOptionalNonnegativeInteger(lookupForm.actionThresholdText)
+							: null,
 				},
 				serverUrl,
 			);
@@ -241,6 +246,7 @@ export function AdminFoundationsPanel({
 				name: '',
 				description: '',
 				customSchemaText: '{}',
+				actionThresholdText: '',
 				isActive: true,
 			});
 		});
@@ -593,6 +599,20 @@ export function AdminFoundationsPanel({
 							}
 						/>
 					</label>
+					{lookupForm.kind === 'collection_methods' ? (
+						<label>
+							Action threshold
+							<input
+								type="number"
+								min="0"
+								step="1"
+								value={lookupForm.actionThresholdText}
+								onChange={(event) =>
+									setLookupForm({ ...lookupForm, actionThresholdText: event.target.value })
+								}
+							/>
+						</label>
+					) : null}
 					<label className="checkbox full">
 						<input
 							type="checkbox"
@@ -765,7 +785,11 @@ function lookupNames(data: AdminFoundations | null, kind: AdminLookupKind): read
 		return [];
 	}
 	if (kind === 'collection_methods') {
-		return data.lookups.collectionMethods.map((item) => item.name);
+		return data.lookups.collectionMethods.map((item) =>
+			item.actionThreshold === null
+				? item.name
+				: `${item.name} (threshold ${item.actionThreshold})`,
+		);
 	}
 	if (kind === 'collection_lures') {
 		return data.lookups.collectionLures.map((item) => item.name);
@@ -801,4 +825,18 @@ function trapLabel(
 function parseJson(value: string): unknown {
 	const trimmed = value.trim();
 	return trimmed === '' ? null : JSON.parse(trimmed);
+}
+
+function parseOptionalNonnegativeInteger(value: string): number | null {
+	const trimmed = value.trim();
+	if (trimmed.length === 0) {
+		return null;
+	}
+
+	const parsed = Number(trimmed);
+	if (!Number.isInteger(parsed) || parsed < 0) {
+		throw new Error('Action threshold must be a nonnegative integer.');
+	}
+
+	return parsed;
 }

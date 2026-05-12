@@ -350,6 +350,7 @@ interface LookupPayload {
 	readonly name: string;
 	readonly description: string | null;
 	readonly customSchema: unknown | null;
+	readonly actionThreshold: number | null;
 	readonly isActive: boolean;
 }
 
@@ -528,8 +529,12 @@ async function readLookupPayload(request: {
 	}
 	const raw = rawResult.payload;
 	const name = readRequiredText(raw.name);
+	const actionThreshold = readOptionalNonnegativeInteger(raw.actionThreshold);
 	if (name === null) {
 		return invalid('name is required.');
+	}
+	if (actionThreshold === undefined) {
+		return invalid('actionThreshold must be a nonnegative integer.');
 	}
 
 	return {
@@ -538,6 +543,7 @@ async function readLookupPayload(request: {
 			name,
 			description: readOptionalText(raw.description),
 			customSchema: readOptionalJson(raw.customSchema),
+			actionThreshold,
 			isActive: raw.isActive !== false,
 		},
 	};
@@ -623,6 +629,18 @@ function readOptionalText(value: unknown): string | null {
 
 function readOptionalJson(value: unknown): unknown | null {
 	return value === undefined ? null : value;
+}
+
+function readOptionalNonnegativeInteger(value: unknown): number | null | undefined {
+	if (value === undefined || value === null || value === '') {
+		return null;
+	}
+
+	if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+		return undefined;
+	}
+
+	return value;
 }
 
 function invalid(reason: string): PayloadResult<never> {
@@ -714,6 +732,7 @@ function toOrgLookupResponse(row: SafeOrgLookup) {
 		name: row.name,
 		description: row.description,
 		customSchema: row.customSchema,
+		actionThreshold: row.actionThreshold,
 		isActive: row.isActive,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
