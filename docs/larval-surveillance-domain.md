@@ -639,7 +639,8 @@ Prefer domain/API field name `hasNonMosquito`.
 
 ### Settings Types
 
-Define typed organization settings for:
+Typed organization settings are defined in `docs/organization-settings-domain.md`
+and `packages/domain/src/organization-settings.ts` for:
 
 - `larvalSurveillance.inspectionEntryPolicy`
 - shared organization timezone

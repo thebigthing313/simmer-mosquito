@@ -5,9 +5,13 @@ import {
 	type JsonObject,
 	type LocalDateString,
 } from './adult-surveillance.js';
-
-export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
-export type LarvalInspectionEntryMode = 'density_only' | 'count_and_dips_required' | 'hybrid';
+import {
+	inferLarvalDensity,
+	isLarvalDensity,
+	type LarvalDensity,
+	type LarvalInspectionEntryPolicy,
+	resolveLarvalInspectionEntryPolicy,
+} from './organization-settings.js';
 
 export type ImmatureStageFlag =
 	| 'hasFirstInstar'
@@ -59,23 +63,6 @@ interface LarvalCommandInput {
 interface LarvalCommandPayload {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
-}
-
-export interface LarvalDensityRange {
-	readonly minInclusive: number;
-	readonly maxExclusive?: number | null;
-}
-
-export interface LarvalDensityRanges {
-	readonly light: LarvalDensityRange;
-	readonly medium: LarvalDensityRange;
-	readonly heavy: LarvalDensityRange;
-	readonly veryHeavy: LarvalDensityRange;
-}
-
-export interface LarvalInspectionEntryPolicy {
-	readonly mode?: LarvalInspectionEntryMode;
-	readonly densityRanges?: LarvalDensityRanges | null;
 }
 
 export interface ImmatureStageFlags {
@@ -510,18 +497,6 @@ export type LarvalSurveillanceCommand =
 	| AddSampleSpeciesCountCommand
 	| UpdateSampleSpeciesCountCommand
 	| DeleteSampleSpeciesCountCommand;
-
-const DENSITIES = ['none', 'light', 'medium', 'heavy', 'very_heavy'] as const;
-const RANGE_DENSITIES = ['light', 'medium', 'heavy', 'very_heavy'] as const;
-
-export function validateLarvalInspectionEntryPolicy(
-	policy: LarvalInspectionEntryPolicy | null | undefined,
-): Required<LarvalInspectionEntryPolicy> {
-	const issues = createIssues();
-	const resolved = resolveLarvalInspectionEntryPolicy(policy, issues, 'policy');
-	throwIfIssues('Larval inspection entry policy is invalid.', issues);
-	return resolved;
-}
 
 export function normalizeLarvalInspectionResult(
 	input: LarvalInspectionResultInput,
@@ -1238,7 +1213,13 @@ function normalizeInspectionResult(
 	}
 
 	if (policy.densityRanges !== null && larvaeCount !== null && dipCount !== null) {
-		normalizedDensity = inferDensity(larvaeCount, dipCount, policy.densityRanges, path, issues);
+		normalizedDensity = inferLarvalDensity(
+			larvaeCount,
+			dipCount,
+			policy.densityRanges,
+			path,
+			issues,
+		);
 		if (density !== null && normalizedDensity !== null && density !== normalizedDensity) {
 			issues.push({
 				path: `${path}.density`,
@@ -1273,96 +1254,6 @@ function normalizeInspectionResult(
 		isBreedingPositive,
 		...stageFlags,
 	};
-}
-
-function resolveLarvalInspectionEntryPolicy(
-	policy: LarvalInspectionEntryPolicy | null | undefined,
-	issues: DomainValidationIssue[],
-	path: string,
-): Required<LarvalInspectionEntryPolicy> {
-	const mode = policy?.mode ?? 'hybrid';
-	if (!['density_only', 'count_and_dips_required', 'hybrid'].includes(mode)) {
-		issues.push({ path: `${path}.mode`, message: 'Unsupported larval inspection entry mode.' });
-	}
-	const densityRanges = policy?.densityRanges ?? null;
-	if (densityRanges !== null) {
-		validateDensityRanges(densityRanges, `${path}.densityRanges`, issues);
-	}
-	return { mode, densityRanges };
-}
-
-function validateDensityRanges(
-	ranges: LarvalDensityRanges,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	let previousMax: number | null = null;
-	for (const density of RANGE_DENSITIES) {
-		const range = ranges[density === 'very_heavy' ? 'veryHeavy' : density];
-		if (range === undefined) {
-			issues.push({ path: `${path}.${density}`, message: `${density} range is required.` });
-			continue;
-		}
-		if (!Number.isFinite(range.minInclusive) || range.minInclusive < 0) {
-			issues.push({
-				path: `${path}.${density}.minInclusive`,
-				message: 'minInclusive must be a finite number greater than or equal to zero.',
-			});
-		}
-		const maxExclusive = range.maxExclusive ?? null;
-		if (
-			maxExclusive !== null &&
-			(!Number.isFinite(maxExclusive) || maxExclusive <= range.minInclusive)
-		) {
-			issues.push({
-				path: `${path}.${density}.maxExclusive`,
-				message: 'maxExclusive must be greater than minInclusive when present.',
-			});
-		}
-		if (previousMax === null && range.minInclusive !== 0) {
-			issues.push({
-				path: `${path}.${density}.minInclusive`,
-				message: 'The first density range must start at zero.',
-			});
-		}
-		if (previousMax !== null && range.minInclusive !== previousMax) {
-			issues.push({
-				path: `${path}.${density}.minInclusive`,
-				message: 'Density ranges must be contiguous.',
-			});
-		}
-		previousMax = maxExclusive;
-	}
-	if (ranges.veryHeavy.maxExclusive !== undefined && ranges.veryHeavy.maxExclusive !== null) {
-		issues.push({
-			path: `${path}.very_heavy.maxExclusive`,
-			message: 'The very_heavy range must be open-ended.',
-		});
-	}
-}
-
-function inferDensity(
-	larvaeCount: number,
-	dipCount: number,
-	ranges: LarvalDensityRanges,
-	path: string,
-	issues: DomainValidationIssue[],
-): LarvalDensity | null {
-	if (larvaeCount === 0) {
-		return 'none';
-	}
-	const rate = larvaeCount / dipCount;
-	for (const density of RANGE_DENSITIES) {
-		const range = ranges[density === 'very_heavy' ? 'veryHeavy' : density];
-		if (
-			rate >= range.minInclusive &&
-			(range.maxExclusive === undefined || range.maxExclusive === null || rate < range.maxExclusive)
-		) {
-			return density;
-		}
-	}
-	issues.push({ path, message: 'Configured density ranges did not match larvae per dip.' });
-	return null;
 }
 
 function validateBase(input: LarvalCommandInput, issues: DomainValidationIssue[]): void {
@@ -1537,7 +1428,7 @@ function normalizeDensity(
 	if (value === undefined || value === null) {
 		return null;
 	}
-	if (!DENSITIES.includes(value)) {
+	if (!isLarvalDensity(value)) {
 		issues.push({ path, message: `${path} is not a supported larval density.` });
 		return null;
 	}

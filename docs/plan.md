@@ -177,6 +177,15 @@ This plan tracks the near-term build order. Architecture decisions live in
   - nonnegative `larvae_count`
   - `samples.has_non_mosquito`
   - soft-delete-aware active sample/species uniqueness
+- Organization settings command design has been grilled and recorded in
+  `docs/organization-settings-domain.md`.
+- `packages/domain` now exposes the first hardened organization settings
+  command vocabulary and resolvers:
+  - timezone
+  - default units by unit type
+  - larval inspection entry policy and density ranges
+  - insecticide batch tracking preference
+  - public engagement service request context defaults
 
 ## Current Boundary
 
@@ -197,9 +206,10 @@ assignments, routes, control recommendations, missions, notifications, weather
 summaries, and region intersection caching.
 
 The project still does not have hardened public product workflows for those
-tables. Adult and larval surveillance now have concrete domain command
-vocabularies and schema direction, but server endpoints, import flows, sync
-boundaries, and production UI remain to be built deliberately.
+tables. Adult surveillance, larval surveillance, shared field-work support, and
+organization settings now have concrete domain command vocabularies and schema
+direction, but server endpoints, import flows, sync boundaries, and production
+UI remain to be built deliberately.
 
 Deployment now has a working database baseline:
 
@@ -261,6 +271,10 @@ Suggested scope:
   expanding it into the product workflow.
 - Add integration tests around the command handlers using a migrated PostGIS
   test database.
+- Use `docs/organization-settings-domain.md` as the source of truth for
+  resolving organization settings in command handlers. Larval handlers should
+  load current settings from Postgres, resolve them server-side, and revalidate
+  queued command intent before writing.
 
 Acceptance criteria:
 
