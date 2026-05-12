@@ -92,6 +92,7 @@ export interface OrganizationsTable {
 	mailing_postal_code: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
+	updated_by_profile_id: string | null;
 	deleted_at: NullableTimestampWithDefault;
 	deleted_by_profile_id: string | null;
 }
@@ -430,6 +431,7 @@ export interface VehiclesTable {
 	organization_id: string;
 	vehicle_name: string;
 	metadata: JsonColumn;
+	is_active: BooleanWithDefault;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
@@ -444,6 +446,7 @@ export interface EquipmentTable {
 	equipment_name: string;
 	serial_number: string | null;
 	metadata: JsonColumn;
+	is_active: BooleanWithDefault;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
@@ -562,6 +565,7 @@ export interface SourceReductionsTable {
 	source_reduction_date: DateColumn;
 	feature_id: string;
 	address_id: string | null;
+	habitat_id: string | null;
 	sources_eliminated_amount: number;
 	sources_eliminated_unit_id: string;
 	inspection_id: string | null;
@@ -797,6 +801,7 @@ export interface RequestedControlActionsTable {
 	control_type: ControlType;
 	recommended_method_id: string | null;
 	summary: string | null;
+	habitat_id: string | null;
 	inspection_id: string | null;
 	collection_id: string | null;
 	feature_id: string;

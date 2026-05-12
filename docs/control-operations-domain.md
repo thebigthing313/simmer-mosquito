@@ -1242,8 +1242,9 @@ Server mappers flatten nested context into DB columns.
 
 ## Schema Migration Backlog
 
-These schema changes surfaced during the domain interview and should be batched
-into a future migration after the command vocabulary is hardened.
+The concrete schema changes surfaced during the domain interview are covered by
+`202605120002_control_operations_domain_updates.sql`. This section remains as
+the implementation-facing record of what that migration catches up.
 
 ### Vehicle And Equipment Lifecycle
 

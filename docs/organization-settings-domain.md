@@ -138,9 +138,10 @@ Use optional optimistic concurrency:
   `organizations.updated_at`, reject with a conflict;
 - if it is omitted, allow last-write-wins.
 
-Add nullable `organizations.updated_by_profile_id` in a future schema migration
-so settings changes and other organization edits can record the acting profile.
-No dedicated settings history table is part of v1.
+The nullable `organizations.updated_by_profile_id` schema follow-up is covered
+by `202605120002_control_operations_domain_updates.sql` so settings changes and
+other organization edits can record the acting profile. No dedicated settings
+history table is part of v1.
 
 ## Timezone
 

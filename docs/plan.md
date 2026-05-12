@@ -186,6 +186,24 @@ This plan tracks the near-term build order. Architecture decisions live in
   - larval inspection entry policy and density ranges
   - insecticide batch tracking preference
   - public engagement service request context defaults
+- Control operations domain command design has been grilled and recorded in
+  `docs/control-operations-domain.md`.
+- `packages/domain` now exposes the first hardened control operations command
+  vocabulary:
+  - control method catalog commands
+  - vehicle and equipment catalog commands
+  - insecticide, batch, formulation, and formulation helper commands
+  - chemical application workflow commands
+  - source reduction, outreach, and biocontrol action commands
+  - requested control action commands
+- Control operations and organization settings schema follow-up migration exists
+  for:
+  - `organizations.updated_by_profile_id`
+  - vehicle/equipment active lifecycle
+  - direct source reduction and requested control action habitat links
+  - normalized control catalog uniqueness
+  - active application batch and formulation component uniqueness
+  - formulation numeric checks
 
 ## Current Boundary
 
@@ -206,10 +224,10 @@ assignments, routes, control recommendations, missions, notifications, weather
 summaries, and region intersection caching.
 
 The project still does not have hardened public product workflows for those
-tables. Adult surveillance, larval surveillance, shared field-work support, and
-organization settings now have concrete domain command vocabularies and schema
-direction, but server endpoints, import flows, sync boundaries, and production
-UI remain to be built deliberately.
+tables. Adult surveillance, larval surveillance, shared field-work support,
+organization settings, and control operations now have concrete domain command
+vocabularies and schema direction, but server endpoints, import flows, sync
+boundaries, and production UI remain to be built deliberately.
 
 Deployment now has a working database baseline:
 
