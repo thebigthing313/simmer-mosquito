@@ -1,4 +1,5 @@
 export * from './adult-surveillance.js';
+export * from './control-operations.js';
 export * from './field-work.js';
 export * from './larval-surveillance.js';
 export * from './organization-settings.js';
