@@ -116,6 +116,12 @@ UI intent
 
 Offline queues should store domain commands, not DB-shaped patches.
 
+Location-bearing commands carry domain geometry, not `feature_id`. The server
+maps GeoJSON geometry to `spatial_features.id` inside the authorized
+transaction, applying the domain precision policy for that workflow. Read/sync
+rows may still expose `feature_id` and spatial feature data because those are
+database representation details.
+
 ## Authorization
 
 SIMMER uses server-side authorization, not Postgres RLS.

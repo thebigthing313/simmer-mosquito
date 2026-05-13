@@ -1,8 +1,4 @@
-import {
-	type DomainId,
-	DomainValidationError,
-	type DomainValidationIssue,
-} from './adult-surveillance.js';
+import { type DomainId, DomainValidationError, type DomainValidationIssue } from './shared.js';
 
 export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
 export type LarvalInspectionEntryMode = 'density_only' | 'count_and_dips_required' | 'hybrid';

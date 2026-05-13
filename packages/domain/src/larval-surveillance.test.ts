@@ -22,9 +22,16 @@ const sourceHabitatId = '45454545-4545-4545-8545-454545454545';
 const inspectionId = '55555555-5555-4555-8555-555555555555';
 const sampleId = '66666666-6666-4666-8666-666666666666';
 const sampleSpeciesId = '77777777-7777-4777-8777-777777777777';
-const featureId = '88888888-8888-4888-8888-888888888888';
 const habitatTypeId = '99999999-9999-4999-8999-999999999999';
 const speciesId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const pointGeometry = { type: 'Point' as const, coordinates: [-90, 35] as const };
+const lineGeometry = {
+	type: 'LineString' as const,
+	coordinates: [
+		[-90, 35],
+		[-90.1, 35.1],
+	] as const,
+};
 
 const densityRanges = {
 	light: { minInclusive: 0, maxExclusive: 1 },
@@ -40,7 +47,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				habitatId,
-				featureId,
+				geometry: pointGeometry,
 				habitatTypeId,
 				habitatName: '  CB-104 ',
 				description: '  North catch basin ',
@@ -52,7 +59,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				habitatId,
-				featureId,
+				geometry: pointGeometry,
 				addressId: null,
 				habitatTypeId,
 				habitatName: 'CB-104',
@@ -76,7 +83,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				habitatId,
-				featureId,
+				geometry: pointGeometry,
 				addressId: 'not-a-uuid',
 				description: 'North catch basin',
 			}),
@@ -89,7 +96,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				habitatId,
-				featureId,
+				geometry: pointGeometry,
 			}),
 		).toThrow(DomainValidationError);
 
@@ -119,7 +126,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				inspectionId,
-				featureId,
+				geometry: lineGeometry,
 				inspectionDate: '2024-05-02',
 				isWet: true,
 				density: 'none',
@@ -127,7 +134,7 @@ describe('larval surveillance commands', () => {
 			}).payload,
 		).toMatchObject({
 			inspectionId,
-			featureId,
+			geometry: lineGeometry,
 			inspectionDate: '2024-05-02',
 			inspectedByProfileId: actorProfileId,
 			density: 'none',

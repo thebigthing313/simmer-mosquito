@@ -3,7 +3,7 @@ import {
 	DomainValidationError,
 	type DomainValidationIssue,
 	type LocalDateString,
-} from './adult-surveillance.js';
+} from './shared.js';
 
 export type CommentTargetType =
 	| 'address'
@@ -704,7 +704,11 @@ export function updateCommentCommand(input: UpdateCommentCommandInput): UpdateCo
 
 	return {
 		type: 'fieldWork.updateComment',
-		payload: { ...basePayload(input), commentId: normalizeRequiredId(input.commentId), commentText },
+		payload: {
+			...basePayload(input),
+			commentId: normalizeRequiredId(input.commentId),
+			commentText,
+		},
 	};
 }
 
@@ -840,12 +844,7 @@ export function addAdditionalPersonnelCommand(
 	validateBase(input, issues);
 	requireUuid(input.additionalPersonnelId, 'additionalPersonnelId', issues);
 	requireUuid(input.personnelProfileId, 'personnelProfileId', issues);
-	const target = validateTarget(
-		input.target,
-		ADDITIONAL_PERSONNEL_TARGET_TYPES,
-		'target',
-		issues,
-	);
+	const target = validateTarget(input.target, ADDITIONAL_PERSONNEL_TARGET_TYPES, 'target', issues);
 	throwIfIssues('Add additional personnel command is invalid.', issues);
 
 	return {
@@ -883,7 +882,12 @@ export function createRouteCommand(input: CreateRouteCommandInput): CreateRouteC
 
 	return {
 		type: 'fieldWork.createRoute',
-		payload: { ...basePayload(input), routeId: normalizeRequiredId(input.routeId), routeName, routeType },
+		payload: {
+			...basePayload(input),
+			routeId: normalizeRequiredId(input.routeId),
+			routeName,
+			routeType,
+		},
 	};
 }
 
@@ -991,11 +995,18 @@ export function moveRouteItemsCommand(input: MoveRouteItemsCommandInput): MoveRo
 
 	return {
 		type: 'fieldWork.moveRouteItems',
-		payload: { ...basePayload(input), routeId: normalizeRequiredId(input.routeId), routeItemIds, placement },
+		payload: {
+			...basePayload(input),
+			routeId: normalizeRequiredId(input.routeId),
+			routeItemIds,
+			placement,
+		},
 	};
 }
 
-export function createAssignmentCommand(input: CreateAssignmentCommandInput): CreateAssignmentCommand {
+export function createAssignmentCommand(
+	input: CreateAssignmentCommandInput,
+): CreateAssignmentCommand {
 	const issues = createIssues();
 	validateAssignmentCreateBase(input, issues);
 	throwIfIssues('Create assignment command is invalid.', issues);
@@ -1064,7 +1075,9 @@ export function updateAssignmentDetailsCommand(
 	const assignedToProfileId = hasAssignedTo
 		? normalizeOptionalUuid(input.assignedToProfileId, 'assignedToProfileId', issues)
 		: undefined;
-	const dueAt = hasDueAt ? normalizeOptionalTimestamp(input.dueAt, 'dueAt', issues, true) : undefined;
+	const dueAt = hasDueAt
+		? normalizeOptionalTimestamp(input.dueAt, 'dueAt', issues, true)
+		: undefined;
 	throwIfIssues('Update assignment details command is invalid.', issues);
 
 	return {
@@ -1204,7 +1217,9 @@ export function completeAssignmentCommand(
 	};
 }
 
-export function cancelAssignmentCommand(input: CancelAssignmentCommandInput): CancelAssignmentCommand {
+export function cancelAssignmentCommand(
+	input: CancelAssignmentCommandInput,
+): CancelAssignmentCommand {
 	const issues = validateIdCommand(input, 'assignmentId');
 	const cancelledAt = normalizeOptionalTimestamp(input.cancelledAt, 'cancelledAt', issues, false);
 	const cancellationReason = normalizeNullableText(
@@ -1234,7 +1249,9 @@ export function reopenAssignmentCommand(input: AssignmentIdCommandInput): Reopen
 	};
 }
 
-export function deleteAssignmentCommand(input: DeleteAssignmentCommandInput): DeleteAssignmentCommand {
+export function deleteAssignmentCommand(
+	input: DeleteAssignmentCommandInput,
+): DeleteAssignmentCommand {
 	const issues = validateIdCommand(input, 'assignmentId');
 	throwIfIssues('Delete assignment command is invalid.', issues);
 	return {
@@ -1330,7 +1347,11 @@ function assignmentCreatePayload(
 		assignmentId: normalizeRequiredId(input.assignmentId),
 		assignmentDate: input.assignmentDate,
 		assignmentName: normalizeNullableText(input.assignmentName, 'assignmentName', issues, 200),
-		assignedToProfileId: normalizeOptionalUuid(input.assignedToProfileId, 'assignedToProfileId', issues),
+		assignedToProfileId: normalizeOptionalUuid(
+			input.assignedToProfileId,
+			'assignedToProfileId',
+			issues,
+		),
 		dueAt: normalizeOptionalTimestamp(input.dueAt, 'dueAt', issues, true),
 	};
 }
@@ -1461,7 +1482,9 @@ function basePayload(input: FieldWorkCommandInput): FieldWorkCommandPayload {
 	};
 }
 
-function tagIdPayload(input: TagIdCommandInput): FieldWorkCommandPayload & { readonly tagId: DomainId } {
+function tagIdPayload(
+	input: TagIdCommandInput,
+): FieldWorkCommandPayload & { readonly tagId: DomainId } {
 	return { ...basePayload(input), tagId: normalizeRequiredId(input.tagId) };
 }
 

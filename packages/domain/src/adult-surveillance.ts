@@ -1,5 +1,21 @@
-export type DomainId = string;
-export type LocalDateString = string;
+import {
+	type DomainId,
+	DomainValidationError,
+	type DomainValidationIssue,
+	type GeoJsonPoint,
+	type JsonObject,
+	type LocalDateString,
+	normalizePointGeometry,
+} from './shared.js';
+
+export {
+	type DomainId,
+	DomainValidationError,
+	type DomainValidationIssue,
+	type GeoJsonPoint,
+	type JsonObject,
+	type LocalDateString,
+} from './shared.js';
 
 export type AdultSurveillanceCommandType =
 	| 'adultSurveillance.createTrap'
@@ -33,21 +49,6 @@ export interface DomainCommand<TType extends AdultSurveillanceCommandType, TPayl
 	readonly payload: TPayload;
 }
 
-export interface DomainValidationIssue {
-	readonly path: string;
-	readonly message: string;
-}
-
-export class DomainValidationError extends Error {
-	readonly issues: readonly DomainValidationIssue[];
-
-	constructor(message: string, issues: readonly DomainValidationIssue[]) {
-		super(message);
-		this.name = 'DomainValidationError';
-		this.issues = issues;
-	}
-}
-
 interface AdultCommandInput {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
@@ -57,8 +58,6 @@ interface AdultCommandPayload {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 }
-
-export type JsonObject = Readonly<Record<string, unknown>>;
 
 export interface ExactPendingCollectionTiming {
 	readonly mode: 'exact_timestamps';
@@ -89,7 +88,7 @@ export type CollectedCollectionTiming =
 
 export interface CreateTrapCommandInput extends AdultCommandInput {
 	readonly trapId: DomainId;
-	readonly featureId: DomainId;
+	readonly geometry: unknown;
 	readonly collectionMethodId: DomainId;
 	readonly addressId?: DomainId | null;
 	readonly collectionLureId?: DomainId | null;
@@ -101,7 +100,7 @@ export interface CreateTrapCommandInput extends AdultCommandInput {
 
 export interface CreateTrapCommandPayload extends AdultCommandPayload {
 	readonly trapId: DomainId;
-	readonly featureId: DomainId;
+	readonly geometry: GeoJsonPoint;
 	readonly collectionMethodId: DomainId;
 	readonly addressId: DomainId | null;
 	readonly collectionLureId: DomainId | null;
@@ -141,7 +140,7 @@ export type UpdateTrapDetailsCommand = DomainCommand<
 
 export interface UpdateTrapConfigurationCommandInput extends AdultCommandInput {
 	readonly trapId: DomainId;
-	readonly featureId?: DomainId;
+	readonly geometry?: unknown;
 	readonly collectionMethodId?: DomainId;
 	readonly addressId?: DomainId | null;
 	readonly collectionLureId?: DomainId | null;
@@ -152,7 +151,7 @@ export interface UpdateTrapConfigurationCommandInput extends AdultCommandInput {
 export interface UpdateTrapConfigurationCommandPayload extends AdultCommandPayload {
 	readonly trapId: DomainId;
 	readonly changes: Readonly<{
-		readonly featureId?: DomainId;
+		readonly geometry?: GeoJsonPoint;
 		readonly collectionMethodId?: DomainId;
 		readonly addressId?: DomainId | null;
 		readonly collectionLureId?: DomainId | null;
@@ -230,7 +229,7 @@ export type SetTrapCollectionCommand = DomainCommand<
 
 export interface SetAdHocCollectionCommandInput extends CollectionBaseInput {
 	readonly collectionMethodId: DomainId;
-	readonly featureId: DomainId;
+	readonly geometry: unknown;
 	readonly collectionLureId?: DomainId | null;
 	readonly addressId?: DomainId | null;
 	readonly startedAt: Date;
@@ -239,7 +238,7 @@ export interface SetAdHocCollectionCommandInput extends CollectionBaseInput {
 
 export interface SetAdHocCollectionCommandPayload extends CollectionBasePayload {
 	readonly collectionMethodId: DomainId;
-	readonly featureId: DomainId;
+	readonly geometry: GeoJsonPoint;
 	readonly collectionLureId: DomainId | null;
 	readonly addressId: DomainId | null;
 	readonly timing: ExactPendingCollectionTiming;
@@ -276,7 +275,7 @@ export type RecordCollectedTrapCollectionCommand = DomainCommand<
 
 export interface RecordCollectedAdHocCollectionCommandInput extends CollectionBaseInput {
 	readonly collectionMethodId: DomainId;
-	readonly featureId: DomainId;
+	readonly geometry: unknown;
 	readonly collectionLureId?: DomainId | null;
 	readonly addressId?: DomainId | null;
 	readonly timing: CollectedCollectionTiming;
@@ -287,7 +286,7 @@ export interface RecordCollectedAdHocCollectionCommandInput extends CollectionBa
 
 export interface RecordCollectedAdHocCollectionCommandPayload extends CollectionBasePayload {
 	readonly collectionMethodId: DomainId;
-	readonly featureId: DomainId;
+	readonly geometry: GeoJsonPoint;
 	readonly collectionLureId: DomainId | null;
 	readonly addressId: DomainId | null;
 	readonly timing: CollectedCollectionTiming;
@@ -353,7 +352,7 @@ export type UpdateCollectionFieldDetailsCommand = DomainCommand<
 export interface UpdateAdHocCollectionConfigurationCommandInput extends AdultCommandInput {
 	readonly collectionId: DomainId;
 	readonly collectionMethodId?: DomainId;
-	readonly featureId?: DomainId;
+	readonly geometry?: unknown;
 	readonly collectionLureId?: DomainId | null;
 	readonly addressId?: DomainId | null;
 }
@@ -362,7 +361,7 @@ export interface UpdateAdHocCollectionConfigurationCommandPayload extends AdultC
 	readonly collectionId: DomainId;
 	readonly changes: Readonly<{
 		readonly collectionMethodId?: DomainId;
-		readonly featureId?: DomainId;
+		readonly geometry?: GeoJsonPoint;
 		readonly collectionLureId?: DomainId | null;
 		readonly addressId?: DomainId | null;
 	}>;
@@ -521,7 +520,7 @@ export function createTrapCommand(input: CreateTrapCommandInput): CreateTrapComm
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.trapId, 'trapId', issues);
-	requireUuid(input.featureId, 'featureId', issues);
+	const geometry = validatePointGeometry(input.geometry, 'geometry', issues);
 	requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
 
 	const trapName = normalizeNullableText(input.trapName);
@@ -535,7 +534,7 @@ export function createTrapCommand(input: CreateTrapCommandInput): CreateTrapComm
 			organizationId: normalizeRequiredId(input.organizationId),
 			actorProfileId: normalizeRequiredId(input.actorProfileId),
 			trapId: normalizeRequiredId(input.trapId),
-			featureId: normalizeRequiredId(input.featureId),
+			geometry,
 			collectionMethodId: normalizeRequiredId(input.collectionMethodId),
 			addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues),
 			collectionLureId: normalizeOptionalUuid(input.collectionLureId, 'collectionLureId', issues),
@@ -589,15 +588,17 @@ export function updateTrapConfigurationCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.trapId, 'trapId', issues);
-	const hasFeature = input.featureId !== undefined;
+	const hasGeometry = input.geometry !== undefined;
 	const hasMethod = input.collectionMethodId !== undefined;
 	const hasAddress = input.addressId !== undefined;
 	const hasLure = input.collectionLureId !== undefined;
-	if (!hasFeature && !hasMethod && !hasAddress && !hasLure) {
+	if (!hasGeometry && !hasMethod && !hasAddress && !hasLure) {
 		issues.push({ path: 'changes', message: 'At least one trap configuration field must change.' });
 	}
-	if (hasFeature) {
-		requireUuid(input.featureId, 'featureId', issues);
+	const geometry = hasGeometry
+		? validatePointGeometry(input.geometry, 'geometry', issues)
+		: undefined;
+	if (hasGeometry) {
 		if (input.acknowledgedTrapLocationSemanticsChange !== true) {
 			issues.push({
 				path: 'acknowledgedTrapLocationSemanticsChange',
@@ -622,7 +623,7 @@ export function updateTrapConfigurationCommand(
 			...basePayload(input),
 			trapId: normalizeRequiredId(input.trapId),
 			changes: {
-				...(hasFeature ? { featureId: normalizeRequiredId(input.featureId) } : {}),
+				...(geometry !== undefined ? { geometry } : {}),
 				...(hasMethod ? { collectionMethodId: normalizeRequiredId(input.collectionMethodId) } : {}),
 				...(hasAddress
 					? { addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues) }
@@ -703,7 +704,7 @@ export function setAdHocCollectionCommand(
 ): SetAdHocCollectionCommand {
 	const issues = validateCollectionBase(input);
 	requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
-	requireUuid(input.featureId, 'featureId', issues);
+	const geometry = validatePointGeometry(input.geometry, 'geometry', issues);
 	validateOperationalDate(input.startedAt, 'startedAt', issues);
 	throwIfIssues('Set ad hoc collection command is invalid.', issues);
 
@@ -712,7 +713,7 @@ export function setAdHocCollectionCommand(
 		payload: {
 			...collectionBasePayload(input),
 			collectionMethodId: normalizeRequiredId(input.collectionMethodId),
-			featureId: normalizeRequiredId(input.featureId),
+			geometry,
 			collectionLureId: normalizeOptionalUuid(input.collectionLureId, 'collectionLureId', issues),
 			addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues),
 			timing: { mode: 'exact_timestamps', startedAt: input.startedAt },
@@ -751,7 +752,7 @@ export function recordCollectedAdHocCollectionCommand(
 ): RecordCollectedAdHocCollectionCommand {
 	const issues = validateCollectionBase(input);
 	requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
-	requireUuid(input.featureId, 'featureId', issues);
+	const geometry = validatePointGeometry(input.geometry, 'geometry', issues);
 	const timing = validateCollectedTiming(input.timing, 'timing', issues);
 	throwIfIssues('Record collected ad hoc collection command is invalid.', issues);
 
@@ -760,7 +761,7 @@ export function recordCollectedAdHocCollectionCommand(
 		payload: {
 			...collectionBasePayload(input),
 			collectionMethodId: normalizeRequiredId(input.collectionMethodId),
-			featureId: normalizeRequiredId(input.featureId),
+			geometry,
 			collectionLureId: normalizeOptionalUuid(input.collectionLureId, 'collectionLureId', issues),
 			addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues),
 			timing,
@@ -859,10 +860,10 @@ export function updateAdHocCollectionConfigurationCommand(
 	validateBase(input, issues);
 	requireUuid(input.collectionId, 'collectionId', issues);
 	const hasMethod = input.collectionMethodId !== undefined;
-	const hasFeature = input.featureId !== undefined;
+	const hasGeometry = input.geometry !== undefined;
 	const hasLure = input.collectionLureId !== undefined;
 	const hasAddress = input.addressId !== undefined;
-	if (!hasMethod && !hasFeature && !hasLure && !hasAddress) {
+	if (!hasMethod && !hasGeometry && !hasLure && !hasAddress) {
 		issues.push({
 			path: 'changes',
 			message: 'At least one ad hoc configuration field must change.',
@@ -871,9 +872,9 @@ export function updateAdHocCollectionConfigurationCommand(
 	if (hasMethod) {
 		requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
 	}
-	if (hasFeature) {
-		requireUuid(input.featureId, 'featureId', issues);
-	}
+	const geometry = hasGeometry
+		? validatePointGeometry(input.geometry, 'geometry', issues)
+		: undefined;
 	throwIfIssues('Update ad hoc collection configuration command is invalid.', issues);
 
 	return {
@@ -883,7 +884,7 @@ export function updateAdHocCollectionConfigurationCommand(
 			collectionId: normalizeRequiredId(input.collectionId),
 			changes: {
 				...(hasMethod ? { collectionMethodId: normalizeRequiredId(input.collectionMethodId) } : {}),
-				...(hasFeature ? { featureId: normalizeRequiredId(input.featureId) } : {}),
+				...(geometry !== undefined ? { geometry } : {}),
 				...(hasLure
 					? {
 							collectionLureId: normalizeOptionalUuid(
@@ -1187,6 +1188,22 @@ function validateTrapDisplay(
 			path: 'trapDisplay',
 			message: 'At least one of trapName or trapCode is required.',
 		});
+	}
+}
+
+function validatePointGeometry(
+	value: unknown,
+	path: string,
+	issues: DomainValidationIssue[],
+): GeoJsonPoint {
+	try {
+		return normalizePointGeometry(value, path);
+	} catch (error) {
+		if (error instanceof DomainValidationError) {
+			issues.push(...error.issues);
+			return { type: 'Point', coordinates: [0, 0] };
+		}
+		throw error;
 	}
 }
 

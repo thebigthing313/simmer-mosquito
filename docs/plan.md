@@ -37,7 +37,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   - `genera`
   - `species`
   - `organization_species`
-- Org-owned lookup tables with inline custom form schema:
+- Org-owned lookup tables:
   - `collection_methods`
   - `collection_lures`
   - `habitat_types`
@@ -204,6 +204,22 @@ This plan tracks the near-term build order. Architecture decisions live in
   - normalized control catalog uniqueness
   - active application batch and formulation component uniqueness
   - formulation numeric checks
+- Foundation/reference-data domain command design has been grilled and recorded
+  in `docs/foundation-domain.md`.
+- `packages/domain` now exposes shared domain primitives and the hardened
+  foundation/reference-data command vocabulary:
+  - address create/update/location/delete/merge commands
+  - region folder and region commands
+  - SIMMER-operator genus/species taxonomy commands
+  - organization species selection commands
+  - organization collection method, collection lure, and habitat type commands
+- Location-bearing domain commands now carry GeoJSON `geometry`; server command
+  handlers derive `feature_id` from `spatial_features`.
+- Foundation schema follow-up migration exists for:
+  - organization species soft-delete selection lifecycle
+  - normalized folder, lookup, genus, and species uniqueness
+  - dropping region name uniqueness
+  - dropping collection lure custom schema
 
 ## Current Boundary
 

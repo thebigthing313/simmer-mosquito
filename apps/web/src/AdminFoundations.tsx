@@ -232,7 +232,8 @@ export function AdminFoundationsPanel({
 				lookupForm.kind,
 				{
 					...lookupForm,
-					customSchema: parseJson(lookupForm.customSchemaText),
+					customSchema:
+						lookupForm.kind === 'collection_lures' ? null : parseJson(lookupForm.customSchemaText),
 					actionThreshold:
 						lookupForm.kind === 'collection_methods'
 							? parseOptionalNonnegativeInteger(lookupForm.actionThresholdText)
@@ -589,16 +590,18 @@ export function AdminFoundationsPanel({
 							}
 						/>
 					</label>
-					<label className="full">
-						Custom schema
-						<textarea
-							rows={4}
-							value={lookupForm.customSchemaText}
-							onChange={(event) =>
-								setLookupForm({ ...lookupForm, customSchemaText: event.target.value })
-							}
-						/>
-					</label>
+					{lookupForm.kind === 'collection_lures' ? null : (
+						<label className="full">
+							Custom schema
+							<textarea
+								rows={4}
+								value={lookupForm.customSchemaText}
+								onChange={(event) =>
+									setLookupForm({ ...lookupForm, customSchemaText: event.target.value })
+								}
+							/>
+						</label>
+					)}
 					{lookupForm.kind === 'collection_methods' ? (
 						<label>
 							Action threshold

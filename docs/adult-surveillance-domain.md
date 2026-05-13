@@ -48,8 +48,8 @@ Adjacent shared domains own:
 point location, optional lure, optional address, and agency display identity.
 They are not physical equipment.
 
-Trap management is manager-and-above. Collection method and lure management is
-owner/admin only. Organization species enablement is manager-and-above.
+Trap management is manager-and-above. Collection method, lure, and organization
+species management is owner/admin only.
 
 Collections are field collection attempts or collected records. Species counts
 are separate analysis transactions. Collection creation commands must not embed
@@ -138,8 +138,12 @@ geometries.
 
 Server command handlers should validate:
 
-- trap `feature_id` references a point spatial feature.
-- adult collection `feature_id` references a point spatial feature.
+- trap create/location commands carry Point `geometry`.
+- adult ad hoc collection create/location commands carry Point `geometry`.
+
+The server maps command geometry to `spatial_features.id` and stores
+`feature_id` on the database rows. Clients do not submit `featureId` in adult
+surveillance commands.
 
 ### Trap Display And Lifecycle
 

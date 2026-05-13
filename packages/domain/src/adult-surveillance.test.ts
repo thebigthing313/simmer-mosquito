@@ -15,10 +15,10 @@ const otherProfileId = '33333333-3333-4333-8333-333333333333';
 const trapId = '44444444-4444-4444-8444-444444444444';
 const collectionId = '55555555-5555-4555-8555-555555555555';
 const collectionSpeciesId = '66666666-6666-4666-8666-666666666666';
-const featureId = '77777777-7777-4777-8777-777777777777';
 const collectionMethodId = '88888888-8888-4888-8888-888888888888';
 const durationUnitId = '99999999-9999-4999-8999-999999999999';
 const speciesId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const pointGeometry = { type: 'Point' as const, coordinates: [-90, 35] as const };
 
 describe('adult surveillance commands', () => {
 	it('normalizes create trap and carries duplicate-code acknowledgement', () => {
@@ -27,7 +27,7 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				featureId,
+				geometry: pointGeometry,
 				collectionMethodId,
 				trapName: '  North yard  ',
 				trapCode: ' LT-01 ',
@@ -39,7 +39,7 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				featureId,
+				geometry: pointGeometry,
 				collectionMethodId,
 				addressId: null,
 				collectionLureId: null,
@@ -57,7 +57,7 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				featureId,
+				geometry: pointGeometry,
 				collectionMethodId,
 			}),
 		).toThrow(DomainValidationError);
@@ -69,7 +69,7 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				featureId,
+				geometry: pointGeometry,
 				collectionMethodId,
 			}),
 		).toThrow(DomainValidationError);
@@ -79,12 +79,12 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				featureId,
+				geometry: pointGeometry,
 				collectionMethodId,
 				acknowledgedTrapLocationSemanticsChange: true,
 				acknowledgedTrapMethodSemanticsChange: true,
 			}).payload.changes,
-		).toEqual({ featureId, collectionMethodId });
+		).toEqual({ geometry: pointGeometry, collectionMethodId });
 	});
 
 	it('sets a trap collection as a pending exact timestamp workflow', () => {
@@ -120,7 +120,7 @@ describe('adult surveillance commands', () => {
 				actorProfileId,
 				collectionId,
 				collectionMethodId,
-				featureId,
+				geometry: pointGeometry,
 				timing: {
 					mode: 'collection_date_duration',
 					collectionDate: '2024-05-02',
@@ -133,7 +133,7 @@ describe('adult surveillance commands', () => {
 			}).payload,
 		).toMatchObject({
 			collectionMethodId,
-			featureId,
+			geometry: pointGeometry,
 			timing: {
 				mode: 'collection_date_duration',
 				collectionDate: '2024-05-02',

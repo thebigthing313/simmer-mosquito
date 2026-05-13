@@ -1,17 +1,19 @@
 import {
-	type DomainId,
-	DomainValidationError,
-	type DomainValidationIssue,
-	type JsonObject,
-	type LocalDateString,
-} from './adult-surveillance.js';
-import {
 	inferLarvalDensity,
 	isLarvalDensity,
 	type LarvalDensity,
 	type LarvalInspectionEntryPolicy,
 	resolveLarvalInspectionEntryPolicy,
 } from './organization-settings.js';
+import {
+	type DomainId,
+	DomainValidationError,
+	type DomainValidationIssue,
+	type JsonObject,
+	type LocalDateString,
+	normalizeLocatableGeometry,
+	type SupportedGeoJsonGeometry,
+} from './shared.js';
 
 export type ImmatureStageFlag =
 	| 'hasFirstInstar'
@@ -92,7 +94,7 @@ export interface NormalizedLarvalInspectionResult extends ImmatureStageFlags {
 
 export interface CreateHabitatCommandInput extends LarvalCommandInput {
 	readonly habitatId: DomainId;
-	readonly featureId: DomainId;
+	readonly geometry: unknown;
 	readonly addressId?: DomainId | null;
 	readonly habitatTypeId?: DomainId | null;
 	readonly habitatName?: string | null;
@@ -102,7 +104,7 @@ export interface CreateHabitatCommandInput extends LarvalCommandInput {
 
 export interface CreateHabitatCommandPayload extends LarvalCommandPayload {
 	readonly habitatId: DomainId;
-	readonly featureId: DomainId;
+	readonly geometry: SupportedGeoJsonGeometry;
 	readonly addressId: DomainId | null;
 	readonly habitatTypeId: DomainId | null;
 	readonly habitatName: string | null;
@@ -155,7 +157,7 @@ export type UpdateHabitatDetailsCommand = LarvalDomainCommand<
 
 export interface UpdateHabitatLocationCommandInput extends LarvalCommandInput {
 	readonly habitatId: DomainId;
-	readonly featureId: DomainId;
+	readonly geometry: unknown;
 	readonly acknowledgedHabitatLocationSemanticsChange?: boolean;
 }
 
@@ -163,7 +165,7 @@ export type UpdateHabitatLocationCommand = LarvalDomainCommand<
 	'larvalSurveillance.updateHabitatLocation',
 	LarvalCommandPayload & {
 		readonly habitatId: DomainId;
-		readonly featureId: DomainId;
+		readonly geometry: SupportedGeoJsonGeometry;
 		readonly acknowledgedHabitatLocationSemanticsChange: boolean;
 	}
 >;
@@ -260,7 +262,7 @@ export interface RecordHabitatInspectionCommandInput extends InspectionResultCom
 }
 
 export interface RecordAdHocInspectionCommandInput extends InspectionResultCommandInput {
-	readonly featureId: DomainId;
+	readonly geometry: unknown;
 	readonly addressId?: DomainId | null;
 	readonly habitatTypeId?: DomainId | null;
 }
@@ -279,7 +281,7 @@ export type RecordHabitatInspectionCommand = LarvalDomainCommand<
 export type RecordAdHocInspectionCommand = LarvalDomainCommand<
 	'larvalSurveillance.recordAdHocInspection',
 	InspectionResultPayload & {
-		readonly featureId: DomainId;
+		readonly geometry: SupportedGeoJsonGeometry;
 		readonly addressId: DomainId | null;
 		readonly habitatTypeId: DomainId | null;
 	}
@@ -292,7 +294,7 @@ export type UpdateInspectionFieldDetailsCommand = LarvalDomainCommand<
 
 export interface UpdateAdHocInspectionLocationCommandInput extends LarvalCommandInput {
 	readonly inspectionId: DomainId;
-	readonly featureId?: DomainId;
+	readonly geometry?: unknown;
 	readonly addressId?: DomainId | null;
 	readonly habitatTypeId?: DomainId | null;
 }
@@ -302,7 +304,7 @@ export type UpdateAdHocInspectionLocationCommand = LarvalDomainCommand<
 	LarvalCommandPayload & {
 		readonly inspectionId: DomainId;
 		readonly changes: Readonly<{
-			readonly featureId?: DomainId;
+			readonly geometry?: SupportedGeoJsonGeometry;
 			readonly addressId?: DomainId | null;
 			readonly habitatTypeId?: DomainId | null;
 		}>;
@@ -511,7 +513,7 @@ export function createHabitatCommand(input: CreateHabitatCommandInput): CreateHa
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.habitatId, 'habitatId', issues);
-	requireUuid(input.featureId, 'featureId', issues);
+	const geometry = validateLocatableGeometry(input.geometry, 'geometry', issues);
 	const addressId = normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	const habitatTypeId = normalizeOptionalUuid(input.habitatTypeId, 'habitatTypeId', issues);
 	const description = normalizeRequiredText(input.description, 'description', issues);
@@ -523,7 +525,7 @@ export function createHabitatCommand(input: CreateHabitatCommandInput): CreateHa
 		payload: {
 			...basePayload(input),
 			habitatId: normalizeRequiredId(input.habitatId),
-			featureId: normalizeRequiredId(input.featureId),
+			geometry,
 			addressId,
 			habitatTypeId,
 			habitatName: normalizeNullableText(input.habitatName),
@@ -596,7 +598,7 @@ export function updateHabitatLocationCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.habitatId, 'habitatId', issues);
-	requireUuid(input.featureId, 'featureId', issues);
+	const geometry = validateLocatableGeometry(input.geometry, 'geometry', issues);
 	if (input.acknowledgedHabitatLocationSemanticsChange !== true) {
 		issues.push({
 			path: 'acknowledgedHabitatLocationSemanticsChange',
@@ -610,7 +612,7 @@ export function updateHabitatLocationCommand(
 		payload: {
 			...basePayload(input),
 			habitatId: normalizeRequiredId(input.habitatId),
-			featureId: normalizeRequiredId(input.featureId),
+			geometry,
 			acknowledgedHabitatLocationSemanticsChange: true,
 		},
 	};
@@ -778,7 +780,7 @@ export function recordAdHocInspectionCommand(
 	input: RecordAdHocInspectionCommandInput,
 ): RecordAdHocInspectionCommand {
 	const issues = validateInspectionBase(input);
-	requireUuid(input.featureId, 'featureId', issues);
+	const geometry = validateLocatableGeometry(input.geometry, 'geometry', issues);
 	const addressId = normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	const habitatTypeId = normalizeOptionalUuid(input.habitatTypeId, 'habitatTypeId', issues);
 	throwIfIssues('Record ad hoc inspection command is invalid.', issues);
@@ -787,7 +789,7 @@ export function recordAdHocInspectionCommand(
 		type: 'larvalSurveillance.recordAdHocInspection',
 		payload: {
 			...inspectionPayload(input),
-			featureId: normalizeRequiredId(input.featureId),
+			geometry,
 			addressId,
 			habitatTypeId,
 		},
@@ -812,18 +814,18 @@ export function updateAdHocInspectionLocationCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.inspectionId, 'inspectionId', issues);
-	const hasFeature = input.featureId !== undefined;
+	const hasGeometry = input.geometry !== undefined;
 	const hasAddress = input.addressId !== undefined;
 	const hasType = input.habitatTypeId !== undefined;
-	if (!hasFeature && !hasAddress && !hasType) {
+	if (!hasGeometry && !hasAddress && !hasType) {
 		issues.push({
 			path: 'changes',
 			message: 'At least one ad hoc inspection location field must change.',
 		});
 	}
-	if (hasFeature) {
-		requireUuid(input.featureId, 'featureId', issues);
-	}
+	const geometry = hasGeometry
+		? validateLocatableGeometry(input.geometry, 'geometry', issues)
+		: undefined;
 	const addressId = hasAddress
 		? normalizeOptionalUuid(input.addressId, 'addressId', issues)
 		: undefined;
@@ -832,7 +834,7 @@ export function updateAdHocInspectionLocationCommand(
 		: undefined;
 	throwIfIssues('Update ad hoc inspection location command is invalid.', issues);
 	const changes: UpdateAdHocInspectionLocationCommand['payload']['changes'] = {
-		...(hasFeature ? { featureId: normalizeRequiredId(input.featureId) } : {}),
+		...(geometry !== undefined ? { geometry } : {}),
 		...(hasAddress ? { addressId: addressId ?? null } : {}),
 		...(hasType ? { habitatTypeId: habitatTypeId ?? null } : {}),
 	};
@@ -1259,6 +1261,22 @@ function normalizeInspectionResult(
 function validateBase(input: LarvalCommandInput, issues: DomainValidationIssue[]): void {
 	requireUuid(input.organizationId, 'organizationId', issues);
 	requireUuid(input.actorProfileId, 'actorProfileId', issues);
+}
+
+function validateLocatableGeometry(
+	value: unknown,
+	path: string,
+	issues: DomainValidationIssue[],
+): SupportedGeoJsonGeometry {
+	try {
+		return normalizeLocatableGeometry(value, path);
+	} catch (error) {
+		if (error instanceof DomainValidationError) {
+			issues.push(...error.issues);
+			return { type: 'Point', coordinates: [0, 0] };
+		}
+		throw error;
+	}
 }
 
 function validateIdCommand<T extends LarvalCommandInput>(

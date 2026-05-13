@@ -70,8 +70,8 @@ catalog records, not inspections.
 
 `inspections` are field visit or observation transactions. They may reference a
 cataloged habitat, or they may be ad hoc records with `habitat_id = null`.
-Ad hoc inspections carry their own `feature_id`, optional `address_id`, and
-optional `habitat_type_id`.
+Ad hoc inspection commands carry their own `geometry`, optional `address_id`,
+and optional `habitat_type_id`; the server stores the resulting `feature_id`.
 
 `recordHabitatInspection` and `recordAdHocInspection` are separate commands.
 Habitat inspection creation copies the habitat's current `feature_id`,
@@ -132,7 +132,8 @@ warning, not a hard rejection. Metadata updates replace the whole object.
 
 Manager-and-above commands own higher-risk changes:
 
-- `updateHabitatLocation` changes `feature_id`.
+- `updateHabitatLocation` carries new `geometry` and changes the stored
+  `feature_id`.
 - `updateHabitatConfiguration` changes `address_id` and `habitat_type_id`.
 
 If a habitat already has inspections or cross-domain references, location or
@@ -463,12 +464,12 @@ Rules:
 
 Organization species curation uses an "allow all until curated" rule:
 
-- if the organization has zero `organization_species` rows, all global species
-  are allowed;
-- once the organization has at least one `organization_species` row, new species
-  counts must use species in that organization list;
+- if the organization has zero non-deleted `organization_species` rows, all
+  global species are allowed;
+- once the organization has at least one non-deleted `organization_species` row,
+  new species counts must use species in that organization list;
 - organization species curation is owner/admin;
-- keep the current join-table behavior for v1.
+- organization species rows are soft-deleted when unselected.
 
 ## Dates And Timezones
 
@@ -569,9 +570,10 @@ Multi-geometries and geometry collections are deferred:
 - `GeometryCollection`
 
 Habitat inspections copy the habitat's feature regardless of allowed type.
-Server command handlers validate spatial feature existence and allowed geometry
-for habitat creation, habitat location updates, and ad hoc inspection creation
-or correction.
+Habitat and ad hoc location commands carry `geometry`; the server maps it to
+`spatial_features.id` and stores `feature_id` on database rows. Server command
+handlers validate allowed geometry for habitat creation, habitat location
+updates, and ad hoc inspection creation or correction.
 
 ## Mobile And Offline
 

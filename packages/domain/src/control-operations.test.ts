@@ -30,7 +30,6 @@ const applicationBatchId = '99999999-9999-4999-8999-999999999999';
 const applicationBatchId2 = '9aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const applicationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const applicationId2 = 'abababab-abab-4aba-8bab-abababababab';
-const featureId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const addressId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const habitatId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const inspectionId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
@@ -40,6 +39,18 @@ const requestedControlActionId = '13131313-1313-4313-8313-131313131313';
 const outreachMethodId = '14141414-1414-4414-8414-141414141414';
 const outreachActionId = '15151515-1515-4515-8515-151515151515';
 const sourceReductionId = '16161616-1616-4616-8616-161616161616';
+const pointGeometry = { type: 'Point' as const, coordinates: [-90, 35] as const };
+const polygonGeometry = {
+	type: 'Polygon' as const,
+	coordinates: [
+		[
+			[-90, 35],
+			[-89.9, 35],
+			[-89.9, 35.1],
+			[-90, 35],
+		],
+	] as const,
+};
 
 describe('control operations catalog commands', () => {
 	it('normalizes method catalog text and custom schema', () => {
@@ -138,7 +149,7 @@ describe('control operations action commands', () => {
 				applicationUnitId: unitId,
 				applicationDate: '2026-05-11',
 				applicatorProfileId: otherProfileId,
-				featureId,
+				geometry: pointGeometry,
 				addressId,
 				context: { kind: 'larval', habitatId, inspectionId },
 				requestedControlActionId,
@@ -154,7 +165,7 @@ describe('control operations action commands', () => {
 			applicationUnitId: unitId,
 			applicationDate: '2026-05-11',
 			applicatorProfileId: otherProfileId,
-			featureId,
+			geometry: pointGeometry,
 			addressId,
 			context: { kind: 'larval', habitatId, inspectionId },
 			requestedControlActionId,
@@ -175,7 +186,7 @@ describe('control operations action commands', () => {
 				amountApplied: 1,
 				applicationUnitId: unitId,
 				applicationDate: '2026-05-11',
-				featureId,
+				geometry: pointGeometry,
 				applicationBatches: [
 					{ applicationBatchId, insecticideBatchId: batchId },
 					{ applicationBatchId: applicationBatchId2, insecticideBatchId: batchId },
@@ -190,7 +201,7 @@ describe('control operations action commands', () => {
 				sourceReductionId,
 				sourceReductionMethodId,
 				sourceReductionDate: '2026-05-11',
-				featureId,
+				geometry: polygonGeometry,
 				context: { kind: 'adult', collectionId },
 				sourcesEliminatedAmount: 200.5,
 				sourcesEliminatedUnitId: unitId,
@@ -206,7 +217,7 @@ describe('control operations action commands', () => {
 				sourceReductionId,
 				sourceReductionMethodId,
 				sourceReductionDate: '2026-05-11',
-				featureId,
+				geometry: polygonGeometry,
 				context: { kind: 'larval', habitatId },
 				sourcesEliminatedAmount: 200.5,
 				sourcesEliminatedUnitId: unitId,
@@ -224,7 +235,7 @@ describe('control operations action commands', () => {
 				outreachActionId,
 				outreachMethodId,
 				outreachDate: '2026-05-11',
-				featureId,
+				geometry: pointGeometry,
 				context: { kind: 'larval', inspectionId },
 				reach: 3,
 				reachDescription: ' Door hangers ',
@@ -242,7 +253,7 @@ describe('control operations action commands', () => {
 				outreachActionId,
 				outreachMethodId,
 				outreachDate: '2026-05-11',
-				featureId,
+				geometry: pointGeometry,
 				context: { kind: 'larval', habitatId },
 				reach: 1,
 			}),
@@ -277,7 +288,7 @@ describe('requested control action commands', () => {
 				actorProfileId,
 				requestedControlActionId,
 				controlType: 'application',
-				featureId,
+				geometry: pointGeometry,
 				addressId,
 				context: { kind: 'adult', collectionId },
 				recommendedMethodId: applicationMethodId,
@@ -301,7 +312,7 @@ describe('requested control action commands', () => {
 				actorProfileId,
 				requestedControlActionId,
 				controlType: 'source_reduction',
-				featureId,
+				geometry: pointGeometry,
 				context: { kind: 'adult', collectionId },
 			}),
 		).toThrow(DomainValidationError);
@@ -358,11 +369,13 @@ describe('formulation helpers', () => {
 					ratio: 2,
 					applicationId: applicationId2,
 					applicationUnitId: unitId,
-					applicationBatches: [{ applicationBatchId: applicationBatchId2, insecticideBatchId: batchId2 }],
+					applicationBatches: [
+						{ applicationBatchId: applicationBatchId2, insecticideBatchId: batchId2 },
+					],
 				},
 			],
 			applicationDate: '2026-05-11',
-			featureId,
+			geometry: pointGeometry,
 			context: { kind: 'larval', habitatId },
 		});
 

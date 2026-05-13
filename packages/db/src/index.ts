@@ -217,14 +217,15 @@ export interface OrganizationSpeciesTable {
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
+	deleted_at: NullableTimestampWithDefault;
+	deleted_by_profile_id: string | null;
 }
 
-interface OrgLookupTable {
+interface OrgLookupTableBase {
 	id: Generated<string>;
 	organization_id: string;
 	name: string;
 	description: string | null;
-	custom_schema: JsonColumn;
 	is_active: BooleanWithDefault;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -234,11 +235,14 @@ interface OrgLookupTable {
 	deleted_by_profile_id: string | null;
 }
 
-export interface CollectionMethodsTable extends OrgLookupTable {
+export interface CollectionMethodsTable extends OrgLookupTableBase {
+	custom_schema: JsonColumn;
 	action_threshold: number | null;
 }
-export interface CollectionLuresTable extends OrgLookupTable {}
-export interface HabitatTypesTable extends OrgLookupTable {}
+export interface CollectionLuresTable extends OrgLookupTableBase {}
+export interface HabitatTypesTable extends OrgLookupTableBase {
+	custom_schema: JsonColumn;
+}
 
 export interface TrapsTable {
 	id: Generated<string>;
@@ -1290,6 +1294,7 @@ export interface SafeSpecies {
 }
 
 export interface EnableOrganizationSpeciesInput {
+	readonly organizationSpeciesId?: string;
 	readonly organizationId: string;
 	readonly speciesId: string;
 	readonly createdByProfileId?: string | null;
@@ -1750,15 +1755,20 @@ export async function enableOrganizationSpecies(
 	const row = await db
 		.insertInto('organization_species')
 		.values({
+			...(input.organizationSpeciesId === undefined ? {} : { id: input.organizationSpeciesId }),
 			organization_id: input.organizationId,
 			species_id: input.speciesId,
 			created_by_profile_id: input.createdByProfileId ?? null,
 			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+			deleted_at: null,
+			deleted_by_profile_id: null,
 		})
 		.onConflict((oc) =>
 			oc.columns(['organization_id', 'species_id']).doUpdateSet({
 				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 				updated_at: sql`now()`,
+				deleted_at: null,
+				deleted_by_profile_id: null,
 			}),
 		)
 		.returning([
@@ -1791,6 +1801,7 @@ export async function listOrganizationSpecies(
 			'updated_at',
 		])
 		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
 		.orderBy('created_at', 'asc')
 		.execute();
 
@@ -1833,8 +1844,35 @@ export async function createOrgLookup(
 		return toSafeOrgLookup(row);
 	}
 
+	if (kind === 'collection_lures') {
+		const row = await db
+			.insertInto('collection_lures')
+			.values({
+				organization_id: input.organizationId,
+				name: input.name,
+				description: input.description ?? null,
+				is_active: input.isActive ?? true,
+				created_by_profile_id: input.createdByProfileId ?? null,
+				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+			})
+			.returning([
+				'id',
+				'organization_id',
+				'name',
+				'description',
+				'is_active',
+				'created_by_profile_id',
+				'updated_by_profile_id',
+				'created_at',
+				'updated_at',
+			])
+			.executeTakeFirstOrThrow();
+
+		return toSafeOrgLookup({ ...row, custom_schema: null });
+	}
+
 	const row = await db
-		.insertInto(kind)
+		.insertInto('habitat_types')
 		.values({
 			organization_id: input.organizationId,
 			name: input.name,
@@ -1890,8 +1928,30 @@ export async function listOrgLookups(
 		return rows.map(toSafeOrgLookup);
 	}
 
+	if (kind === 'collection_lures') {
+		const rows = await db
+			.selectFrom('collection_lures')
+			.select([
+				'id',
+				'organization_id',
+				'name',
+				'description',
+				'is_active',
+				'created_by_profile_id',
+				'updated_by_profile_id',
+				'created_at',
+				'updated_at',
+			])
+			.where('organization_id', '=', organizationId)
+			.where('deleted_at', 'is', null)
+			.orderBy('name', 'asc')
+			.execute();
+
+		return rows.map((row) => toSafeOrgLookup({ ...row, custom_schema: null }));
+	}
+
 	const rows = await db
-		.selectFrom(kind)
+		.selectFrom('habitat_types')
 		.select([
 			'id',
 			'organization_id',
