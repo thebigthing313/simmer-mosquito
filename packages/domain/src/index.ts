@@ -3,6 +3,7 @@ export * from './control-operations.js';
 export * from './field-work.js';
 export * from './foundation.js';
 export * from './larval-surveillance.js';
+export * from './mission-dispatch.js';
 export * from './organization-settings.js';
 export * from './shared.js';
 
