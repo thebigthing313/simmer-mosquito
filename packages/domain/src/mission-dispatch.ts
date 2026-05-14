@@ -48,10 +48,7 @@ export type MissionDispatchCommandType =
 	| 'missionDispatch.recordOutreachActionForMissionItem'
 	| 'missionDispatch.recordBiocontrolActionForMissionItem';
 
-export interface MissionDispatchDomainCommand<
-	TType extends MissionDispatchCommandType,
-	TPayload,
-> {
+export interface MissionDispatchDomainCommand<TType extends MissionDispatchCommandType, TPayload> {
 	readonly type: TType;
 	readonly payload: TPayload;
 }
@@ -211,8 +208,7 @@ export type AssignMissionCommand = MissionDispatchDomainCommand<
 	}
 >;
 
-export interface UpdateMissionNotificationTypeCommandInput
-	extends MissionDispatchCommandInput {
+export interface UpdateMissionNotificationTypeCommandInput extends MissionDispatchCommandInput {
 	readonly missionId: DomainId;
 	readonly notificationTypeId: DomainId | null;
 	readonly acknowledgedNotificationRegenerationImpact?: boolean;
@@ -367,8 +363,7 @@ export type AddMissionItemFromRequestedControlActionCommand = MissionDispatchDom
 	}
 >;
 
-export interface UpdateMissionItemLocationAndLinkCommandInput
-	extends MissionDispatchCommandInput {
+export interface UpdateMissionItemLocationAndLinkCommandInput extends MissionDispatchCommandInput {
 	readonly missionItemId: DomainId;
 	readonly geometry?: unknown;
 	readonly addressId?: DomainId | null;
@@ -699,7 +694,12 @@ export function createMissionCommand(input: CreateMissionCommandInput): CreateMi
 	validateBase(input, issues);
 	requireUuid(input.missionId, 'missionId', issues);
 	const controlType = normalizeStringUnion(input.controlType, CONTROL_TYPES, 'controlType', issues);
-	const scheduledStartAt = normalizeTimestamp(input.scheduledStartAt, 'scheduledStartAt', issues, true);
+	const scheduledStartAt = normalizeTimestamp(
+		input.scheduledStartAt,
+		'scheduledStartAt',
+		issues,
+		true,
+	);
 	const scheduledEndAt = normalizeOptionalTimestamp(
 		input.scheduledEndAt,
 		'scheduledEndAt',
@@ -785,7 +785,9 @@ export function updateMissionScheduleCommand(
 	if (scheduledStartAt !== undefined && scheduledEndAt !== undefined) {
 		validateTimestampOrder(scheduledStartAt, scheduledEndAt, 'scheduledEndAt', issues);
 	}
-	const rainDate = hasRain ? normalizeOptionalLocalDate(input.rainDate, 'rainDate', issues) : undefined;
+	const rainDate = hasRain
+		? normalizeOptionalLocalDate(input.rainDate, 'rainDate', issues)
+		: undefined;
 	throwIfIssues('Update mission schedule command is invalid.', issues);
 	const changes: UpdateMissionScheduleCommand['payload']['changes'] = {
 		...(hasStart && scheduledStartAt !== undefined ? { scheduledStartAt } : {}),
@@ -851,8 +853,7 @@ export function assignMissionCommand(input: AssignMissionCommandInput): AssignMi
 			...basePayload(input),
 			missionId: normalizeRequiredId(input.missionId),
 			assignedToProfileId,
-			acknowledgedInProgressAssignmentChange:
-				input.acknowledgedInProgressAssignmentChange ?? false,
+			acknowledgedInProgressAssignmentChange: input.acknowledgedInProgressAssignmentChange ?? false,
 		},
 	};
 }
@@ -894,9 +895,7 @@ export function startMissionCommand(input: StartMissionCommandInput): StartMissi
 	};
 }
 
-export function completeMissionCommand(
-	input: CompleteMissionCommandInput,
-): CompleteMissionCommand {
+export function completeMissionCommand(input: CompleteMissionCommandInput): CompleteMissionCommand {
 	const issues = validateIdCommand(input, 'missionId');
 	const completedAt = normalizeOptionalTimestamp(input.completedAt, 'completedAt', issues, false);
 	throwIfIssues('Complete mission command is invalid.', issues);
@@ -966,8 +965,7 @@ export function deleteMissionCommand(input: DeleteMissionCommandInput): DeleteMi
 			acknowledgedMissionItemDeletion: input.acknowledgedMissionItemDeletion ?? false,
 			acknowledgedActualActionDetach: input.acknowledgedActualActionDetach ?? false,
 			acknowledgedNotificationDeletion: input.acknowledgedNotificationDeletion ?? false,
-			acknowledgedCompletedMissionDeletion:
-				input.acknowledgedCompletedMissionDeletion ?? false,
+			acknowledgedCompletedMissionDeletion: input.acknowledgedCompletedMissionDeletion ?? false,
 		},
 	};
 }
@@ -984,7 +982,11 @@ export function addMissionItemCommand(input: AddMissionItemCommandInput): AddMis
 		'requestedControlActionId',
 		issues,
 	);
-	const placement = validateMissionItemPlacement(input.placement ?? { kind: 'end' }, 'placement', issues);
+	const placement = validateMissionItemPlacement(
+		input.placement ?? { kind: 'end' },
+		'placement',
+		issues,
+	);
 	throwIfIssues('Add mission item command is invalid.', issues);
 	return {
 		type: 'missionDispatch.addMissionItem',
@@ -1000,8 +1002,7 @@ export function addMissionItemCommand(input: AddMissionItemCommandInput): AddMis
 				input.acknowledgedDuplicateRequestedActionMissioning ?? false,
 			acknowledgedMethodMismatch: input.acknowledgedMethodMismatch ?? false,
 			acknowledgedInProgressMissionChange: input.acknowledgedInProgressMissionChange ?? false,
-			acknowledgedNotificationGeometryChange:
-				input.acknowledgedNotificationGeometryChange ?? false,
+			acknowledgedNotificationGeometryChange: input.acknowledgedNotificationGeometryChange ?? false,
 		},
 	};
 }
@@ -1014,7 +1015,11 @@ export function addMissionItemFromRequestedControlActionCommand(
 	requireUuid(input.missionItemId, 'missionItemId', issues);
 	requireUuid(input.missionId, 'missionId', issues);
 	requireUuid(input.requestedControlActionId, 'requestedControlActionId', issues);
-	const placement = validateMissionItemPlacement(input.placement ?? { kind: 'end' }, 'placement', issues);
+	const placement = validateMissionItemPlacement(
+		input.placement ?? { kind: 'end' },
+		'placement',
+		issues,
+	);
 	throwIfIssues('Add mission item from requested control action command is invalid.', issues);
 	return {
 		type: 'missionDispatch.addMissionItemFromRequestedControlAction',
@@ -1028,8 +1033,7 @@ export function addMissionItemFromRequestedControlActionCommand(
 				input.acknowledgedDuplicateRequestedActionMissioning ?? false,
 			acknowledgedMethodMismatch: input.acknowledgedMethodMismatch ?? false,
 			acknowledgedInProgressMissionChange: input.acknowledgedInProgressMissionChange ?? false,
-			acknowledgedNotificationGeometryChange:
-				input.acknowledgedNotificationGeometryChange ?? false,
+			acknowledgedNotificationGeometryChange: input.acknowledgedNotificationGeometryChange ?? false,
 		},
 	};
 }
@@ -1047,7 +1051,9 @@ export function updateMissionItemLocationAndLinkCommand(
 			message: 'At least one mission item location or link field must change.',
 		});
 	}
-	const geometry = hasGeometry ? validateLocatableGeometry(input.geometry, 'geometry', issues) : undefined;
+	const geometry = hasGeometry
+		? validateLocatableGeometry(input.geometry, 'geometry', issues)
+		: undefined;
 	const addressId = hasAddress
 		? normalizeOptionalUuid(input.addressId, 'addressId', issues)
 		: undefined;
@@ -1066,12 +1072,9 @@ export function updateMissionItemLocationAndLinkCommand(
 			...basePayload(input),
 			missionItemId: normalizeRequiredId(input.missionItemId),
 			changes,
-			acknowledgedNotificationGeometryChange:
-				input.acknowledgedNotificationGeometryChange ?? false,
-			acknowledgedActualActionContextChange:
-				input.acknowledgedActualActionContextChange ?? false,
-			acknowledgedProgressedItemLinkChange:
-				input.acknowledgedProgressedItemLinkChange ?? false,
+			acknowledgedNotificationGeometryChange: input.acknowledgedNotificationGeometryChange ?? false,
+			acknowledgedActualActionContextChange: input.acknowledgedActualActionContextChange ?? false,
+			acknowledgedProgressedItemLinkChange: input.acknowledgedProgressedItemLinkChange ?? false,
 			acknowledgedMethodMismatch: input.acknowledgedMethodMismatch ?? false,
 			acknowledgedDuplicateRequestedActionMissioning:
 				input.acknowledgedDuplicateRequestedActionMissioning ?? false,
@@ -1091,13 +1094,14 @@ export function removeMissionItemCommand(
 			missionItemId: normalizeRequiredId(input.missionItemId),
 			acknowledgedItemProgressDeletion: input.acknowledgedItemProgressDeletion ?? false,
 			acknowledgedActualActionDetach: input.acknowledgedActualActionDetach ?? false,
-			acknowledgedNotificationGeometryChange:
-				input.acknowledgedNotificationGeometryChange ?? false,
+			acknowledgedNotificationGeometryChange: input.acknowledgedNotificationGeometryChange ?? false,
 		},
 	};
 }
 
-export function moveMissionItemsCommand(input: MoveMissionItemsCommandInput): MoveMissionItemsCommand {
+export function moveMissionItemsCommand(
+	input: MoveMissionItemsCommandInput,
+): MoveMissionItemsCommand {
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.missionId, 'missionId', issues);
@@ -1281,11 +1285,7 @@ export function recordOutreachActionForMissionItemCommand(
 			outreachActionId: normalizeRequiredId(input.outreachActionId),
 			outreachDate: input.outreachDate,
 			reach,
-			outreachMethodId: normalizeOptionalUuid(
-				input.outreachMethodId,
-				'outreachMethodId',
-				issues,
-			),
+			outreachMethodId: normalizeOptionalUuid(input.outreachMethodId, 'outreachMethodId', issues),
 			technicianProfileId: normalizeOptionalUuid(
 				input.technicianProfileId,
 				'technicianProfileId',
@@ -1350,7 +1350,10 @@ function validateInitialItems(
 			requireUuid(item.missionItemId, `${path}.missionItemId`, issues);
 			const missionItemId = normalizeRequiredId(item.missionItemId);
 			if (itemIds.has(missionItemId)) {
-				issues.push({ path: `${path}.missionItemId`, message: 'missionItemId values must be unique.' });
+				issues.push({
+					path: `${path}.missionItemId`,
+					message: 'missionItemId values must be unique.',
+				});
 			}
 			itemIds.add(missionItemId);
 			return {
@@ -1370,7 +1373,10 @@ function validateInitialItems(
 			requireUuid(item.requestedControlActionId, `${path}.requestedControlActionId`, issues);
 			const missionItemId = normalizeRequiredId(item.missionItemId);
 			if (itemIds.has(missionItemId)) {
-				issues.push({ path: `${path}.missionItemId`, message: 'missionItemId values must be unique.' });
+				issues.push({
+					path: `${path}.missionItemId`,
+					message: 'missionItemId values must be unique.',
+				});
 			}
 			itemIds.add(missionItemId);
 			return {
@@ -1389,7 +1395,9 @@ function validateInitialItems(
 }
 
 function validateMissionExecutionBase(
-	input: MissionDispatchCommandInput & MissionExecutionOptions & MissionExecutionOverrides & { readonly missionItemId: DomainId },
+	input: MissionDispatchCommandInput &
+		MissionExecutionOptions &
+		MissionExecutionOverrides & { readonly missionItemId: DomainId },
 	allowedFor: 'chemicalApplication' | 'sourceReduction' | 'outreach' | 'biocontrol',
 ): DomainValidationIssue[] {
 	const issues = createIssues();
@@ -1419,8 +1427,7 @@ function missionExecutionPayload(
 	return {
 		completeMissionItem: input.completeMissionItem ?? true,
 		autoStartMission: input.autoStartMission ?? true,
-		acknowledgedMissionGeometryNotCovered:
-			input.acknowledgedMissionGeometryNotCovered ?? false,
+		acknowledgedMissionGeometryNotCovered: input.acknowledgedMissionGeometryNotCovered ?? false,
 		acknowledgedMethodMismatch: input.acknowledgedMethodMismatch ?? false,
 		acknowledgedRequestedActionMismatch: input.acknowledgedRequestedActionMismatch ?? false,
 		acknowledgedOutOfScheduleAction: input.acknowledgedOutOfScheduleAction ?? false,
@@ -1441,7 +1448,9 @@ function missionExecutionPayload(
 					),
 				}
 			: {}),
-		...(input.context !== undefined ? { context: validateContext(input.context, allowedFor, issues) } : {}),
+		...(input.context !== undefined
+			? { context: validateContext(input.context, allowedFor, issues) }
+			: {}),
 		metadata: normalizeMetadata(input.metadata, 'metadata', issues),
 	};
 }
@@ -1457,7 +1466,10 @@ function validateContext(
 	if (context?.kind === 'adult') {
 		requireUuid(context.collectionId, 'context.collectionId', issues);
 		if (allowedFor !== 'chemicalApplication') {
-			issues.push({ path: 'context.kind', message: 'Adult collection context is not allowed here.' });
+			issues.push({
+				path: 'context.kind',
+				message: 'Adult collection context is not allowed here.',
+			});
 		}
 		return { kind: 'adult', collectionId: normalizeRequiredId(context.collectionId) };
 	}
@@ -1467,7 +1479,10 @@ function validateContext(
 		const hasInspection =
 			context.inspectionId !== undefined && normalizeOptionalId(context.inspectionId) !== null;
 		if (!hasHabitat && !hasInspection) {
-			issues.push({ path: 'context', message: 'Larval context requires habitatId or inspectionId.' });
+			issues.push({
+				path: 'context',
+				message: 'Larval context requires habitatId or inspectionId.',
+			});
 		}
 		if (hasHabitat) {
 			requireUuid(context.habitatId, 'context.habitatId', issues);

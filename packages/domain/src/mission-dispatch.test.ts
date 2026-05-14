@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { DomainValidationError } from './shared.js';
 import {
 	addMissionItemCommand,
 	addMissionItemFromRequestedControlActionCommand,
@@ -17,6 +16,7 @@ import {
 	updateMissionPlanCommand,
 	updateMissionScheduleCommand,
 } from './mission-dispatch.js';
+import { DomainValidationError } from './shared.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const actorProfileId = '22222222-2222-4222-8222-222222222222';
@@ -163,9 +163,9 @@ describe('mission dispatch parent commands', () => {
 			}).payload.changes,
 		).toEqual({ controlType: 'outreach', plannedMethodId: null });
 
-		expect(() =>
-			updateMissionPlanCommand({ organizationId, actorProfileId, missionId }),
-		).toThrow(DomainValidationError);
+		expect(() => updateMissionPlanCommand({ organizationId, actorProfileId, missionId })).toThrow(
+			DomainValidationError,
+		);
 	});
 
 	it('builds lifecycle commands with comments where required', () => {
@@ -202,7 +202,8 @@ describe('mission dispatch parent commands', () => {
 		});
 
 		expect(
-			completeMissionCommand({ organizationId, actorProfileId, missionId }).payload.autoStartMission,
+			completeMissionCommand({ organizationId, actorProfileId, missionId }).payload
+				.autoStartMission,
 		).toBe(true);
 	});
 });

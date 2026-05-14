@@ -459,8 +459,7 @@ export type DeleteNotificationTypeCommand = PublicEngagementDomainCommand<
 	PublicEngagementCommandPayload & { readonly notificationTypeId: DomainId }
 >;
 
-export interface CreateNotificationRegistrationCommandInput
-	extends PublicEngagementCommandInput {
+export interface CreateNotificationRegistrationCommandInput extends PublicEngagementCommandInput {
 	readonly notificationRegistrationId: DomainId;
 	readonly contact: ContactReferenceInput;
 	readonly location: NotificationRegistrationLocationInput;
@@ -583,7 +582,8 @@ export interface SubscribeNotificationRegistrationTypeCommandInput
 
 export type SubscribeNotificationRegistrationTypeCommand = PublicEngagementDomainCommand<
 	'publicEngagement.subscribeNotificationRegistrationType',
-	PublicEngagementCommandPayload & NotificationRegistrationSubscription & {
+	PublicEngagementCommandPayload &
+		NotificationRegistrationSubscription & {
 			readonly notificationRegistrationId: DomainId;
 		}
 >;
@@ -602,8 +602,7 @@ export type UnsubscribeNotificationRegistrationTypeCommand = PublicEngagementDom
 	}
 >;
 
-export interface GenerateMissionNotificationsCommandInput
-	extends PublicEngagementCommandInput {
+export interface GenerateMissionNotificationsCommandInput extends PublicEngagementCommandInput {
 	readonly missionId: DomainId;
 }
 
@@ -676,12 +675,7 @@ export type PublicEngagementCommand =
 
 const REQUEST_INTAKE_TYPES = ['online', 'phone', 'walk-in', 'other'] as const;
 export const NOTIFICATION_CHANNELS = ['email', 'sms', 'phone'] as const;
-export const MISSION_NOTIFICATION_STATUSES = [
-	'pending',
-	'completed',
-	'failed',
-	'skipped',
-] as const;
+export const MISSION_NOTIFICATION_STATUSES = ['pending', 'completed', 'failed', 'skipped'] as const;
 const REGISTRATION_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon'] as const;
 
 export function createContactCommand(input: CreateContactCommandInput): CreateContactCommand {
@@ -743,8 +737,18 @@ export function updateContactCommunicationCommand(
 	const hasWantsEmail = input.wantsEmail !== undefined;
 	const hasWantsSms = input.wantsSms !== undefined;
 	const hasWantsPhone = input.wantsPhone !== undefined;
-	if (!hasPreferred && !hasAlternate && !hasEmail && !hasWantsEmail && !hasWantsSms && !hasWantsPhone) {
-		issues.push({ path: 'changes', message: 'At least one contact communication field must change.' });
+	if (
+		!hasPreferred &&
+		!hasAlternate &&
+		!hasEmail &&
+		!hasWantsEmail &&
+		!hasWantsSms &&
+		!hasWantsPhone
+	) {
+		issues.push({
+			path: 'changes',
+			message: 'At least one contact communication field must change.',
+		});
 	}
 	const preferredPhone = hasPreferred
 		? normalizeNullableText(input.preferredPhone, 'preferredPhone', issues, 100)
@@ -765,7 +769,14 @@ export function updateContactCommunicationCommand(
 			issues.push({ path: 'wantsEmail', message: 'wantsEmail requires email.' });
 		}
 	}
-	validatePhonePreferencePatch(input.wantsSms, hasWantsSms, preferredPhone, hasPreferred, 'wantsSms', issues);
+	validatePhonePreferencePatch(
+		input.wantsSms,
+		hasWantsSms,
+		preferredPhone,
+		hasPreferred,
+		'wantsSms',
+		issues,
+	);
 	validatePhonePreferencePatch(
 		input.wantsPhone,
 		hasWantsPhone,
@@ -798,7 +809,10 @@ export function mergeContactsCommand(input: MergeContactsCommandInput): MergeCon
 	requireUuid(input.targetContactId, 'targetContactId', issues);
 	const sourceContactIds = validateIdList(input.sourceContactIds, 'sourceContactIds', issues);
 	if (sourceContactIds.includes(normalizeRequiredId(input.targetContactId))) {
-		issues.push({ path: 'sourceContactIds', message: 'targetContactId cannot be a source contact.' });
+		issues.push({
+			path: 'sourceContactIds',
+			message: 'targetContactId cannot be a source contact.',
+		});
 	}
 	if (input.acknowledgedContactMerge !== true) {
 		issues.push({
@@ -835,7 +849,12 @@ export function createServiceRequestCommand(
 	requireUuid(input.serviceRequestId, 'serviceRequestId', issues);
 	const contact = validateContactReference(input.contact, 'contact', issues);
 	const location = validateServiceRequestLocation(input.location, 'location', issues);
-	const intakeType = normalizeStringUnion(input.intakeType, REQUEST_INTAKE_TYPES, 'intakeType', issues);
+	const intakeType = normalizeStringUnion(
+		input.intakeType,
+		REQUEST_INTAKE_TYPES,
+		'intakeType',
+		issues,
+	);
 	validateLocalDate(input.requestDate, 'requestDate', issues);
 	const details = normalizeRequiredText(input.details, 'details', issues, 10_000);
 	const receivedByProfileId =
@@ -1088,7 +1107,11 @@ export function createNotificationRegistrationCommand(
 	const { bufferDistance, bufferUnitId } = normalizeBuffer(input, issues);
 	const hasBees = normalizeBooleanDefault(input.hasBees, 'hasBees', issues, false);
 	const isNoSpray = normalizeBooleanDefault(input.isNoSpray, 'isNoSpray', issues, false);
-	const subscriptions = validateSubscriptionList(input.subscriptions ?? [], 'subscriptions', issues);
+	const subscriptions = validateSubscriptionList(
+		input.subscriptions ?? [],
+		'subscriptions',
+		issues,
+	);
 	validateRegistrationPurpose(subscriptions.length > 0, hasBees, isNoSpray, 'purpose', issues);
 	throwIfIssues('Create notification registration command is invalid.', issues);
 	return {
@@ -1166,7 +1189,10 @@ export function updateNotificationRegistrationFlagsCommand(
 	const hasHasBees = input.hasBees !== undefined;
 	const hasIsNoSpray = input.isNoSpray !== undefined;
 	if (!hasHasBees && !hasIsNoSpray) {
-		issues.push({ path: 'changes', message: 'At least one notification registration flag must change.' });
+		issues.push({
+			path: 'changes',
+			message: 'At least one notification registration flag must change.',
+		});
 	}
 	if (hasHasBees) {
 		validateBoolean(input.hasBees, 'hasBees', issues);
@@ -1364,7 +1390,11 @@ function missionNotificationStatusCommand<
 	message: string,
 ): PublicEngagementDomainCommand<TType, CompleteMissionNotificationCommand['payload']> {
 	const issues = validateIdCommand(input, 'missionNotificationId');
-	const statusChangedAt = normalizeOptionalTimestamp(input.statusChangedAt, 'statusChangedAt', issues);
+	const statusChangedAt = normalizeOptionalTimestamp(
+		input.statusChangedAt,
+		'statusChangedAt',
+		issues,
+	);
 	throwIfIssues(message, issues);
 	return {
 		type,
@@ -1470,7 +1500,11 @@ function validateNotificationRegistrationLocation(
 		return { address: { kind: 'none' }, geometry: { type: 'Point', coordinates: [0, 0] } };
 	}
 	return {
-		address: validateNotificationAddress(input.address ?? { kind: 'none' }, `${path}.address`, issues),
+		address: validateNotificationAddress(
+			input.address ?? { kind: 'none' },
+			`${path}.address`,
+			issues,
+		),
 		geometry: validateRegistrationGeometry(input.geometry, `${path}.geometry`, issues),
 	};
 }
@@ -1510,7 +1544,12 @@ function normalizeCreateContactDetails(
 		return emptyContactDetails();
 	}
 	const contactInput = input as CreateContactDetailsInput;
-	const contactName = normalizeNullableText(contactInput.contactName, `${path}.contactName`, issues, 200);
+	const contactName = normalizeNullableText(
+		contactInput.contactName,
+		`${path}.contactName`,
+		issues,
+		200,
+	);
 	const preferredPhone = normalizeNullableText(
 		contactInput.preferredPhone,
 		`${path}.preferredPhone`,
@@ -1525,7 +1564,12 @@ function normalizeCreateContactDetails(
 	);
 	const email = normalizeEmail(contactInput.email, `${path}.email`, issues);
 	const company = normalizeNullableText(contactInput.company, `${path}.company`, issues, 200);
-	const department = normalizeNullableText(contactInput.department, `${path}.department`, issues, 200);
+	const department = normalizeNullableText(
+		contactInput.department,
+		`${path}.department`,
+		issues,
+		200,
+	);
 	const title = normalizeNullableText(contactInput.title, `${path}.title`, issues, 200);
 	const wantsEmail = normalizeBooleanDefault(
 		contactInput.wantsEmail,
@@ -1629,7 +1673,11 @@ function normalizeInlineAddressDetails(
 		locality: normalizeNullableText(input.locality, `${path}.locality`, issues, 200),
 		region: normalizeUsRegion(input.region, `${path}.region`, issues),
 		postalCode: normalizePostalCode(input.postalCode, `${path}.postalCode`, issues),
-		geocoderResponse: normalizeJsonObject(input.geocoderResponse, `${path}.geocoderResponse`, issues),
+		geocoderResponse: normalizeJsonObject(
+			input.geocoderResponse,
+			`${path}.geocoderResponse`,
+			issues,
+		),
 	};
 }
 
@@ -1645,9 +1693,15 @@ function validateSubscriptionList(
 	const rowIds = new Set<string>();
 	const typeIds = new Set<string>();
 	return values.map((value, index) => {
-		requireUuid(value.notificationRegistrationTypeId, `${path}.${index}.notificationRegistrationTypeId`, issues);
+		requireUuid(
+			value.notificationRegistrationTypeId,
+			`${path}.${index}.notificationRegistrationTypeId`,
+			issues,
+		);
 		requireUuid(value.notificationTypeId, `${path}.${index}.notificationTypeId`, issues);
-		const notificationRegistrationTypeId = normalizeRequiredId(value.notificationRegistrationTypeId);
+		const notificationRegistrationTypeId = normalizeRequiredId(
+			value.notificationRegistrationTypeId,
+		);
 		const notificationTypeId = normalizeRequiredId(value.notificationTypeId);
 		if (rowIds.has(notificationRegistrationTypeId)) {
 			issues.push({
