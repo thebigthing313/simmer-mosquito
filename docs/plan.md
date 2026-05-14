@@ -220,6 +220,47 @@ This plan tracks the near-term build order. Architecture decisions live in
   - normalized folder, lookup, genus, and species uniqueness
   - dropping region name uniqueness
   - dropping collection lure custom schema
+- Public engagement domain command design has been grilled and recorded in
+  `docs/public-engagement-domain.md`.
+- `packages/domain` now exposes the first hardened public engagement command
+  vocabulary:
+  - contact create/update/merge/delete commands
+  - service request create/update/location/contact/close/reopen/delete commands
+  - notification type catalog commands
+  - notification registration lifecycle, location, buffer, flag, and
+    subscription commands
+  - mission notification generation and status commands
+- Public engagement schema follow-up direction exists for:
+  - removing fax from contacts and notification channels
+  - normalized notification type name uniqueness
+- Mission dispatch domain command design has been grilled and recorded in
+  `docs/mission-dispatch-domain.md`.
+- `packages/domain` now exposes the first hardened mission dispatch command
+  vocabulary:
+  - mission create/details/schedule/plan/assignment/notification/lifecycle
+    commands
+  - mission item add/update/remove/reorder/progress commands
+  - mission item execution helper commands for chemical applications, source
+    reductions, outreach actions, and biocontrol actions
+  - derived mission and mission item status helpers
+- Mission dispatch schema follow-up direction exists for:
+  - mutually exclusive mission terminal timestamps
+  - mission item progress fields
+  - actual control action `mission_item_id` provenance links
+- Weather domain command design has been grilled and recorded in
+  `docs/weather-domain.md`.
+- `packages/domain` now exposes the first hardened weather command vocabulary:
+  - organization weather station create/update/location/deactivate/reactivate
+    and cleanup delete commands
+  - weather summary create/update/delete commands
+  - station-scoped weather summary import commit commands
+  - weather summary import assessment helpers
+  - station status and date-bucket helpers
+- Weather schema follow-up migration exists for:
+  - summary audit profile fields
+  - non-null explicit `end_date`
+  - normalized weather station name/code uniqueness
+  - summary metric sanity bounds
 
 ## Current Boundary
 
@@ -241,8 +282,9 @@ summaries, and region intersection caching.
 
 The project still does not have hardened public product workflows for those
 tables. Adult surveillance, larval surveillance, shared field-work support,
-organization settings, and control operations now have concrete domain command
-vocabularies and schema direction, but server endpoints, import flows, sync
+organization settings, foundation/reference data, control operations, public
+engagement, mission dispatch, and weather now have concrete domain command
+vocabularies and schema direction. Server endpoints, import flows, sync
 boundaries, and production UI remain to be built deliberately.
 
 Deployment now has a working database baseline:
@@ -339,7 +381,7 @@ Recommended follow-up slice:
 
 - Mobile auth/session token bridge.
 - WorkOS event sync worker.
-- Remaining domain command packages beyond adult and larval surveillance.
+- Domain command package design is complete for the current schema groups.
 - Electric shape authorization.
 - TanStack DB optimistic mutations.
 - Railway app service deploy pipelines for server, worker, and web.
