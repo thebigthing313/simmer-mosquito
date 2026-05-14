@@ -47,7 +47,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				habitatId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				habitatTypeId,
 				habitatName: '  CB-104 ',
 				description: '  North catch basin ',
@@ -59,7 +59,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				habitatId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				addressId: null,
 				habitatTypeId,
 				habitatName: 'CB-104',
@@ -83,7 +83,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				habitatId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				addressId: 'not-a-uuid',
 				description: 'North catch basin',
 			}),
@@ -96,7 +96,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				habitatId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 			}),
 		).toThrow(DomainValidationError);
 
@@ -126,7 +126,7 @@ describe('larval surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				inspectionId,
-				geometry: lineGeometry,
+				locationSource: { kind: 'geometry', geometry: lineGeometry },
 				inspectionDate: '2024-05-02',
 				isWet: true,
 				density: 'none',
@@ -134,13 +134,32 @@ describe('larval surveillance commands', () => {
 			}).payload,
 		).toMatchObject({
 			inspectionId,
-			geometry: lineGeometry,
+			locationSource: { kind: 'geometry', geometry: lineGeometry },
 			inspectionDate: '2024-05-02',
 			inspectedByProfileId: actorProfileId,
 			density: 'none',
 			dipCount: 5,
 			larvaeCount: null,
 			isBreedingPositive: false,
+		});
+	});
+
+	it('allows ad hoc inspections to snapshot location from a known habitat', () => {
+		expect(
+			recordAdHocInspectionCommand({
+				organizationId,
+				actorProfileId,
+				inspectionId,
+				locationSource: { kind: 'habitat', habitatId },
+				habitatTypeId,
+				inspectionDate: '2024-05-02',
+				isWet: false,
+			}).payload,
+		).toMatchObject({
+			inspectionId,
+			locationSource: { kind: 'habitat', habitatId },
+			habitatTypeId,
+			isWet: false,
 		});
 	});
 

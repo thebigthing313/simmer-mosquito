@@ -213,8 +213,11 @@ This plan tracks the near-term build order. Architecture decisions live in
   - SIMMER-operator genus/species taxonomy commands
   - organization species selection commands
   - organization collection method, collection lure, and habitat type commands
-- Location-bearing domain commands now carry GeoJSON `geometry`; server command
-  handlers derive `feature_id` from `spatial_features`.
+- Operational location-bearing domain commands now carry `locationSource`;
+  server command handlers either map explicit GeoJSON geometry to
+  `spatial_features.id` or snapshot an existing same-organization locatable
+  record's `feature_id`. Foundation catalog commands may still use explicit
+  geometry when they define the catalog feature itself.
 - Foundation schema follow-up migration exists for:
   - organization species soft-delete selection lifecycle
   - normalized folder, lookup, genus, and species uniqueness

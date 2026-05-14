@@ -11,8 +11,9 @@ import {
 	type DomainValidationIssue,
 	type JsonObject,
 	type LocalDateString,
-	normalizeLocatableGeometry,
-	type SupportedGeoJsonGeometry,
+	type LocatableLocationSource,
+	type LocatableLocationSourceInput,
+	validateLocatableLocationSource,
 } from './shared.js';
 
 export type ImmatureStageFlag =
@@ -94,7 +95,7 @@ export interface NormalizedLarvalInspectionResult extends ImmatureStageFlags {
 
 export interface CreateHabitatCommandInput extends LarvalCommandInput {
 	readonly habitatId: DomainId;
-	readonly geometry: unknown;
+	readonly locationSource: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly habitatTypeId?: DomainId | null;
 	readonly habitatName?: string | null;
@@ -104,7 +105,7 @@ export interface CreateHabitatCommandInput extends LarvalCommandInput {
 
 export interface CreateHabitatCommandPayload extends LarvalCommandPayload {
 	readonly habitatId: DomainId;
-	readonly geometry: SupportedGeoJsonGeometry;
+	readonly locationSource: LocatableLocationSource;
 	readonly addressId: DomainId | null;
 	readonly habitatTypeId: DomainId | null;
 	readonly habitatName: string | null;
@@ -157,7 +158,7 @@ export type UpdateHabitatDetailsCommand = LarvalDomainCommand<
 
 export interface UpdateHabitatLocationCommandInput extends LarvalCommandInput {
 	readonly habitatId: DomainId;
-	readonly geometry: unknown;
+	readonly locationSource: LocatableLocationSourceInput;
 	readonly acknowledgedHabitatLocationSemanticsChange?: boolean;
 }
 
@@ -165,7 +166,7 @@ export type UpdateHabitatLocationCommand = LarvalDomainCommand<
 	'larvalSurveillance.updateHabitatLocation',
 	LarvalCommandPayload & {
 		readonly habitatId: DomainId;
-		readonly geometry: SupportedGeoJsonGeometry;
+		readonly locationSource: LocatableLocationSource;
 		readonly acknowledgedHabitatLocationSemanticsChange: boolean;
 	}
 >;
@@ -262,7 +263,7 @@ export interface RecordHabitatInspectionCommandInput extends InspectionResultCom
 }
 
 export interface RecordAdHocInspectionCommandInput extends InspectionResultCommandInput {
-	readonly geometry: unknown;
+	readonly locationSource: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly habitatTypeId?: DomainId | null;
 }
@@ -281,7 +282,7 @@ export type RecordHabitatInspectionCommand = LarvalDomainCommand<
 export type RecordAdHocInspectionCommand = LarvalDomainCommand<
 	'larvalSurveillance.recordAdHocInspection',
 	InspectionResultPayload & {
-		readonly geometry: SupportedGeoJsonGeometry;
+		readonly locationSource: LocatableLocationSource;
 		readonly addressId: DomainId | null;
 		readonly habitatTypeId: DomainId | null;
 	}
@@ -294,7 +295,7 @@ export type UpdateInspectionFieldDetailsCommand = LarvalDomainCommand<
 
 export interface UpdateAdHocInspectionLocationCommandInput extends LarvalCommandInput {
 	readonly inspectionId: DomainId;
-	readonly geometry?: unknown;
+	readonly locationSource?: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly habitatTypeId?: DomainId | null;
 }
@@ -304,7 +305,7 @@ export type UpdateAdHocInspectionLocationCommand = LarvalDomainCommand<
 	LarvalCommandPayload & {
 		readonly inspectionId: DomainId;
 		readonly changes: Readonly<{
-			readonly geometry?: SupportedGeoJsonGeometry;
+			readonly locationSource?: LocatableLocationSource;
 			readonly addressId?: DomainId | null;
 			readonly habitatTypeId?: DomainId | null;
 		}>;
@@ -513,7 +514,7 @@ export function createHabitatCommand(input: CreateHabitatCommandInput): CreateHa
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.habitatId, 'habitatId', issues);
-	const geometry = validateLocatableGeometry(input.geometry, 'geometry', issues);
+	const locationSource = validateLocationSourceInput(input, issues);
 	const addressId = normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	const habitatTypeId = normalizeOptionalUuid(input.habitatTypeId, 'habitatTypeId', issues);
 	const description = normalizeRequiredText(input.description, 'description', issues);
@@ -525,7 +526,7 @@ export function createHabitatCommand(input: CreateHabitatCommandInput): CreateHa
 		payload: {
 			...basePayload(input),
 			habitatId: normalizeRequiredId(input.habitatId),
-			geometry,
+			locationSource,
 			addressId,
 			habitatTypeId,
 			habitatName: normalizeNullableText(input.habitatName),
@@ -598,7 +599,7 @@ export function updateHabitatLocationCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.habitatId, 'habitatId', issues);
-	const geometry = validateLocatableGeometry(input.geometry, 'geometry', issues);
+	const locationSource = validateLocationSourceInput(input, issues);
 	if (input.acknowledgedHabitatLocationSemanticsChange !== true) {
 		issues.push({
 			path: 'acknowledgedHabitatLocationSemanticsChange',
@@ -612,7 +613,7 @@ export function updateHabitatLocationCommand(
 		payload: {
 			...basePayload(input),
 			habitatId: normalizeRequiredId(input.habitatId),
-			geometry,
+			locationSource,
 			acknowledgedHabitatLocationSemanticsChange: true,
 		},
 	};
@@ -780,7 +781,7 @@ export function recordAdHocInspectionCommand(
 	input: RecordAdHocInspectionCommandInput,
 ): RecordAdHocInspectionCommand {
 	const issues = validateInspectionBase(input);
-	const geometry = validateLocatableGeometry(input.geometry, 'geometry', issues);
+	const locationSource = validateLocationSourceInput(input, issues);
 	const addressId = normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	const habitatTypeId = normalizeOptionalUuid(input.habitatTypeId, 'habitatTypeId', issues);
 	throwIfIssues('Record ad hoc inspection command is invalid.', issues);
@@ -789,7 +790,7 @@ export function recordAdHocInspectionCommand(
 		type: 'larvalSurveillance.recordAdHocInspection',
 		payload: {
 			...inspectionPayload(input),
-			geometry,
+			locationSource,
 			addressId,
 			habitatTypeId,
 		},
@@ -814,18 +815,16 @@ export function updateAdHocInspectionLocationCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.inspectionId, 'inspectionId', issues);
-	const hasGeometry = input.geometry !== undefined;
+	const hasLocation = input.locationSource !== undefined;
 	const hasAddress = input.addressId !== undefined;
 	const hasType = input.habitatTypeId !== undefined;
-	if (!hasGeometry && !hasAddress && !hasType) {
+	if (!hasLocation && !hasAddress && !hasType) {
 		issues.push({
 			path: 'changes',
 			message: 'At least one ad hoc inspection location field must change.',
 		});
 	}
-	const geometry = hasGeometry
-		? validateLocatableGeometry(input.geometry, 'geometry', issues)
-		: undefined;
+	const locationSource = hasLocation ? validateLocationSourceInput(input, issues) : undefined;
 	const addressId = hasAddress
 		? normalizeOptionalUuid(input.addressId, 'addressId', issues)
 		: undefined;
@@ -834,7 +833,7 @@ export function updateAdHocInspectionLocationCommand(
 		: undefined;
 	throwIfIssues('Update ad hoc inspection location command is invalid.', issues);
 	const changes: UpdateAdHocInspectionLocationCommand['payload']['changes'] = {
-		...(geometry !== undefined ? { geometry } : {}),
+		...(locationSource !== undefined ? { locationSource } : {}),
 		...(hasAddress ? { addressId: addressId ?? null } : {}),
 		...(hasType ? { habitatTypeId: habitatTypeId ?? null } : {}),
 	};
@@ -1113,6 +1112,24 @@ function inspectionPayload(input: InspectionResultCommandInput): InspectionResul
 	};
 }
 
+function validateLocationSourceInput(
+	input: {
+		readonly locationSource?: LocatableLocationSourceInput;
+	},
+	issues: DomainValidationIssue[],
+): LocatableLocationSource {
+	const hasLocationSource = input.locationSource !== undefined;
+	if (hasLocationSource) {
+		return validateLocatableLocationSource(input.locationSource, 'locationSource', issues);
+	}
+	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
+	return validateLocatableLocationSource(
+		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
+		'locationSource',
+		issues,
+	);
+}
+
 function normalizeInspectionResult(
 	input: LarvalInspectionResultInput,
 	path: string,
@@ -1261,22 +1278,6 @@ function normalizeInspectionResult(
 function validateBase(input: LarvalCommandInput, issues: DomainValidationIssue[]): void {
 	requireUuid(input.organizationId, 'organizationId', issues);
 	requireUuid(input.actorProfileId, 'actorProfileId', issues);
-}
-
-function validateLocatableGeometry(
-	value: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): SupportedGeoJsonGeometry {
-	try {
-		return normalizeLocatableGeometry(value, path);
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			issues.push(...error.issues);
-			return { type: 'Point', coordinates: [0, 0] };
-		}
-		throw error;
-	}
 }
 
 function validateIdCommand<T extends LarvalCommandInput>(

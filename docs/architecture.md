@@ -116,11 +116,14 @@ UI intent
 
 Offline queues should store domain commands, not DB-shaped patches.
 
-Location-bearing commands carry domain geometry, not `feature_id`. The server
-maps GeoJSON geometry to `spatial_features.id` inside the authorized
-transaction, applying the domain precision policy for that workflow. Read/sync
-rows may still expose `feature_id` and spatial feature data because those are
-database representation details.
+Location-bearing commands carry a domain location source, not `feature_id`.
+The source may be explicit GeoJSON geometry or a same-organization locatable
+domain record such as a habitat, inspection, trap, collection, service request,
+requested control action, or mission item. The server maps explicit geometry to
+`spatial_features.id` or snapshots the source record's existing `feature_id`
+inside the authorized transaction, applying the domain precision policy for the
+workflow when geometry is explicit. Read/sync rows may still expose `feature_id`
+and spatial feature data because those are database representation details.
 
 ## Authorization
 

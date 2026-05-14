@@ -27,7 +27,7 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				collectionMethodId,
 				trapName: '  North yard  ',
 				trapCode: ' LT-01 ',
@@ -39,7 +39,7 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				collectionMethodId,
 				addressId: null,
 				collectionLureId: null,
@@ -57,7 +57,7 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				collectionMethodId,
 			}),
 		).toThrow(DomainValidationError);
@@ -69,7 +69,7 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				collectionMethodId,
 			}),
 		).toThrow(DomainValidationError);
@@ -79,12 +79,15 @@ describe('adult surveillance commands', () => {
 				organizationId,
 				actorProfileId,
 				trapId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				collectionMethodId,
 				acknowledgedTrapLocationSemanticsChange: true,
 				acknowledgedTrapMethodSemanticsChange: true,
 			}).payload.changes,
-		).toEqual({ geometry: pointGeometry, collectionMethodId });
+		).toEqual({
+			locationSource: { kind: 'geometry', geometry: pointGeometry },
+			collectionMethodId,
+		});
 	});
 
 	it('sets a trap collection as a pending exact timestamp workflow', () => {
@@ -120,7 +123,7 @@ describe('adult surveillance commands', () => {
 				actorProfileId,
 				collectionId,
 				collectionMethodId,
-				geometry: pointGeometry,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				timing: {
 					mode: 'collection_date_duration',
 					collectionDate: '2024-05-02',
@@ -133,7 +136,7 @@ describe('adult surveillance commands', () => {
 			}).payload,
 		).toMatchObject({
 			collectionMethodId,
-			geometry: pointGeometry,
+			locationSource: { kind: 'geometry', geometry: pointGeometry },
 			timing: {
 				mode: 'collection_date_duration',
 				collectionDate: '2024-05-02',

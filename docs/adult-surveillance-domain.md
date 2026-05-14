@@ -136,14 +136,16 @@ Metadata updates replace the whole object, last-write-wins.
 Adult surveillance trap and ad hoc collection features should be point
 geometries.
 
-Server command handlers should validate:
+Server command handlers should validate explicit geometry sources:
 
-- trap create/location commands carry Point `geometry`.
-- adult ad hoc collection create/location commands carry Point `geometry`.
+- trap create/location commands carry Point geometry.
+- adult ad hoc collection create/location commands carry Point geometry.
 
-The server maps command geometry to `spatial_features.id` and stores
-`feature_id` on the database rows. Clients do not submit `featureId` in adult
-surveillance commands.
+Adult trap and ad hoc collection create/location commands carry
+`locationSource`, not `featureId`. The source may be explicit point geometry or
+a known locatable record to snapshot from. The server maps explicit geometry to
+`spatial_features.id` or copies the source record's existing `feature_id` and
+stores `feature_id` on the database rows.
 
 ### Trap Display And Lifecycle
 

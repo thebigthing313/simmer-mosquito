@@ -506,15 +506,23 @@ habitat when the inspection still references a habitat.
 Adult control context uses `collectionId` only. Do not add direct `trapId`
 context in v1.
 
-`geometry` and optional `addressId` remain top-level location fields, not part
-of context:
+`locationSource` and optional `addressId` remain top-level location fields, not
+part of context:
 
-- `geometry` is required
+- `locationSource` is required for create commands
 - `addressId` is optional
 
 `requestedControlActionId` also remains a separate optional linkage field. It
 answers "which request/recommendation is this associated with?", while context
 answers "what source record triggered or contextualizes this action?"
+
+`locationSource` answers "where should this action/request snapshot its
+feature from?" It may be explicit GeoJSON geometry or a known locatable domain
+record such as a habitat, inspection, collection, service request, requested
+control action, or mission item. The location source is independent from
+context: an action can be contextually related to a habitat while using a
+different treatment boundary, or can snapshot a known feature without becoming
+linked to that record.
 
 Allowed context by command:
 
@@ -544,9 +552,10 @@ action geometry because treatment boundaries may be more precise or different.
 ## Spatial Features And Addresses
 
 `spatial_features` are SIMMER-owned/shared geometry records, not org-scoped
-records. Control commands carry GeoJSON `geometry`, not `featureId`; the server
-maps geometry to `spatial_features.id` and stores `feature_id` on database rows.
-They do not require `spatial_features.organization_id`.
+records. Control commands carry `locationSource`, not `featureId`; the server
+maps explicit geometry to `spatial_features.id` or snapshots the known source
+record's `feature_id` and stores `feature_id` on database rows. They do not
+require `spatial_features.organization_id`.
 
 Allowed geometry types for v1:
 
@@ -583,7 +592,7 @@ Minimum required facts:
 - `applicationUnitId`
 - `applicationDate`
 - `applicatorProfileId` defaulting to actor
-- `geometry`
+- `locationSource`
 - `context`
 
 Optional fields:
@@ -639,7 +648,7 @@ Changing `insecticideId` is a guarded correction:
 
 `updateChemicalApplicationLocationAndContext` owns:
 
-- `geometry`
+- `locationSource`
 - `addressId`
 - `context`
 - `requestedControlActionId`
@@ -686,7 +695,7 @@ zero sources.
 - `sourceReductionMethodId`
 - `technicianProfileId` defaulting to actor
 - `sourceReductionDate`
-- `geometry`
+- `locationSource`
 - `context` of `none` or `larval`
 - `sourcesEliminatedAmount > 0`
 - `sourcesEliminatedUnitId`
@@ -714,7 +723,7 @@ reductions can directly link to larval habitats without requiring an inspection.
 
 `updateSourceReductionLocationAndContext` owns:
 
-- `geometry`
+- `locationSource`
 - `addressId`
 - `context`
 - `requestedControlActionId`
@@ -734,7 +743,7 @@ reach.
 - `outreachMethodId`
 - `technicianProfileId` defaulting to actor
 - `outreachDate`
-- `geometry`
+- `locationSource`
 - `context` of `none` or larval `inspectionId`
 - `reach > 0`
 
@@ -762,7 +771,7 @@ Do not add direct `habitatId` or `collectionId` to outreach actions for v1.
 
 `updateOutreachActionLocationAndContext` owns:
 
-- `geometry`
+- `locationSource`
 - `addressId`
 - `context`
 - `requestedControlActionId`
@@ -780,7 +789,7 @@ Biocontrol actions are performed larval-side intervention records.
 - `biocontrolMethodId`
 - `technicianProfileId` defaulting to actor
 - `biocontrolDate`
-- `geometry`
+- `locationSource`
 - `context` of `none` or `larval`
 - `amountReleased > 0`
 - `releaseUnitId`
@@ -805,7 +814,7 @@ types are `count`, `volume`, and `weight`.
 
 `updateBiocontrolActionLocationAndContext` owns:
 
-- `geometry`
+- `locationSource`
 - `addressId`
 - `context`
 - `requestedControlActionId`
@@ -824,7 +833,7 @@ or priority in v1.
 
 - `requestedControlActionId`
 - `controlType`
-- `geometry`
+- `locationSource`
 - `context`
 
 Optional fields:
@@ -894,7 +903,7 @@ changes.
 
 `updateRequestedControlActionLocationAndContext` owns:
 
-- `geometry`
+- `locationSource`
 - `addressId`
 - `context`
 
@@ -1045,7 +1054,7 @@ for every created row:
 
 Offline queues store domain commands, not DB-shaped patches. Commands carry
 explicit unit IDs, context IDs, generated child IDs, and acknowledgement flags.
-Location-bearing commands carry `geometry`; queued commands do not store
+Location-bearing commands carry `locationSource`; queued commands do not store
 DB-shaped `feature_id` patches.
 
 Server replay revalidates:

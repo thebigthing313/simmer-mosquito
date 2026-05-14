@@ -16,9 +16,12 @@ Server `AuthContext` remains authoritative and must verify both IDs. SIMMER
 operator taxonomy commands are separate operator workflows and carry
 `operatorUserId` instead of agency context.
 
-Commands carry domain intent, not DB-shaped patches. Locatable commands carry
-GeoJSON `geometry`; command clients do not submit `featureId`. The server maps
-geometry to `spatial_features.id` inside the transaction.
+Commands carry domain intent, not DB-shaped patches. Foundation address and
+region catalog commands carry explicit GeoJSON `geometry` because they define
+the catalog feature itself; command clients do not submit `featureId`. The
+server maps geometry to `spatial_features.id` inside the transaction. Other
+operational domains may use `locationSource` when a command should snapshot an
+existing locatable record without exposing raw `feature_id`.
 
 Supported v1 command geometry types:
 
@@ -278,4 +281,3 @@ The schema should align with these domain decisions:
 
 These changes are captured in the follow-up foundation migration and DB type
 updates.
-

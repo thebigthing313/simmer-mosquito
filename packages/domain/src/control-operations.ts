@@ -5,8 +5,9 @@ import {
 	type DomainValidationIssue,
 	type JsonObject,
 	type LocalDateString,
-	normalizeLocatableGeometry,
-	type SupportedGeoJsonGeometry,
+	type LocatableLocationSource,
+	type LocatableLocationSourceInput,
+	validateLocatableLocationSource,
 } from './shared.js';
 
 export type ControlType = 'application' | 'source_reduction' | 'biocontrol' | 'outreach';
@@ -687,7 +688,7 @@ export interface RecordChemicalApplicationCommandInput extends ControlCommandInp
 	readonly applicationUnitId: DomainId;
 	readonly applicationDate: LocalDateString;
 	readonly applicatorProfileId?: DomainId | null;
-	readonly geometry: unknown;
+	readonly locationSource: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly requestedControlActionId?: DomainId | null;
@@ -707,7 +708,7 @@ export type RecordChemicalApplicationCommand = ControlOperationsDomainCommand<
 		readonly applicationUnitId: DomainId;
 		readonly applicationDate: LocalDateString;
 		readonly applicatorProfileId: DomainId;
-		readonly geometry: SupportedGeoJsonGeometry;
+		readonly locationSource: LocatableLocationSource;
 		readonly addressId: DomainId | null;
 		readonly context: ControlActionContext;
 		readonly requestedControlActionId: DomainId | null;
@@ -755,7 +756,7 @@ export type UpdateChemicalApplicationFieldDetailsCommand = ControlOperationsDoma
 export interface UpdateChemicalApplicationLocationAndContextCommandInput
 	extends ControlCommandInput {
 	readonly applicationId: DomainId;
-	readonly geometry?: unknown;
+	readonly locationSource?: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly requestedControlActionId?: DomainId | null;
@@ -766,7 +767,7 @@ export type UpdateChemicalApplicationLocationAndContextCommand = ControlOperatio
 	ControlCommandPayload & {
 		readonly applicationId: DomainId;
 		readonly changes: Readonly<{
-			readonly geometry?: SupportedGeoJsonGeometry;
+			readonly locationSource?: LocatableLocationSource;
 			readonly addressId?: DomainId | null;
 			readonly context?: ControlActionContext;
 			readonly requestedControlActionId?: DomainId | null;
@@ -810,14 +811,14 @@ export type RemoveChemicalApplicationBatchCommand = ControlOperationsDomainComma
 >;
 
 interface ActionBaseInput extends ControlCommandInput {
-	readonly geometry: unknown;
+	readonly locationSource: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly requestedControlActionId?: DomainId | null;
 	readonly metadata?: unknown | null;
 }
 
 interface ActionBasePayload extends ControlCommandPayload {
-	readonly geometry: SupportedGeoJsonGeometry;
+	readonly locationSource: LocatableLocationSource;
 	readonly addressId: DomainId | null;
 	readonly requestedControlActionId: DomainId | null;
 	readonly metadata: JsonObject | null;
@@ -873,7 +874,7 @@ export type UpdateSourceReductionFieldDetailsCommand = ControlOperationsDomainCo
 
 export interface UpdateSourceReductionLocationAndContextCommandInput extends ControlCommandInput {
 	readonly sourceReductionId: DomainId;
-	readonly geometry?: unknown;
+	readonly locationSource?: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly requestedControlActionId?: DomainId | null;
@@ -884,7 +885,7 @@ export type UpdateSourceReductionLocationAndContextCommand = ControlOperationsDo
 	ControlCommandPayload & {
 		readonly sourceReductionId: DomainId;
 		readonly changes: Readonly<{
-			readonly geometry?: SupportedGeoJsonGeometry;
+			readonly locationSource?: LocatableLocationSource;
 			readonly addressId?: DomainId | null;
 			readonly context?: ControlActionContext;
 			readonly requestedControlActionId?: DomainId | null;
@@ -955,7 +956,7 @@ export type UpdateOutreachActionFieldDetailsCommand = ControlOperationsDomainCom
 
 export interface UpdateOutreachActionLocationAndContextCommandInput extends ControlCommandInput {
 	readonly outreachActionId: DomainId;
-	readonly geometry?: unknown;
+	readonly locationSource?: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly requestedControlActionId?: DomainId | null;
@@ -966,7 +967,7 @@ export type UpdateOutreachActionLocationAndContextCommand = ControlOperationsDom
 	ControlCommandPayload & {
 		readonly outreachActionId: DomainId;
 		readonly changes: Readonly<{
-			readonly geometry?: SupportedGeoJsonGeometry;
+			readonly locationSource?: LocatableLocationSource;
 			readonly addressId?: DomainId | null;
 			readonly context?: ControlActionContext;
 			readonly requestedControlActionId?: DomainId | null;
@@ -1037,7 +1038,7 @@ export type UpdateBiocontrolActionFieldDetailsCommand = ControlOperationsDomainC
 
 export interface UpdateBiocontrolActionLocationAndContextCommandInput extends ControlCommandInput {
 	readonly biocontrolActionId: DomainId;
-	readonly geometry?: unknown;
+	readonly locationSource?: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly requestedControlActionId?: DomainId | null;
@@ -1048,7 +1049,7 @@ export type UpdateBiocontrolActionLocationAndContextCommand = ControlOperationsD
 	ControlCommandPayload & {
 		readonly biocontrolActionId: DomainId;
 		readonly changes: Readonly<{
-			readonly geometry?: SupportedGeoJsonGeometry;
+			readonly locationSource?: LocatableLocationSource;
 			readonly addressId?: DomainId | null;
 			readonly context?: ControlActionContext;
 			readonly requestedControlActionId?: DomainId | null;
@@ -1072,7 +1073,7 @@ export type DeleteBiocontrolActionCommand = ControlOperationsDomainCommand<
 export interface RequestControlActionCommandInput extends ControlCommandInput {
 	readonly requestedControlActionId: DomainId;
 	readonly controlType: ControlType;
-	readonly geometry: unknown;
+	readonly locationSource: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly recommendedMethodId?: DomainId | null;
@@ -1086,7 +1087,7 @@ export type RequestControlActionCommand = ControlOperationsDomainCommand<
 	ControlCommandPayload & {
 		readonly requestedControlActionId: DomainId;
 		readonly controlType: ControlType;
-		readonly geometry: SupportedGeoJsonGeometry;
+		readonly locationSource: LocatableLocationSource;
 		readonly addressId: DomainId | null;
 		readonly context: ControlActionContext;
 		readonly recommendedMethodId: DomainId | null;
@@ -1122,7 +1123,7 @@ export type UpdateRequestedControlActionDetailsCommand = ControlOperationsDomain
 export interface UpdateRequestedControlActionLocationAndContextCommandInput
 	extends ControlCommandInput {
 	readonly requestedControlActionId: DomainId;
-	readonly geometry?: unknown;
+	readonly locationSource?: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 }
@@ -1132,7 +1133,7 @@ export type UpdateRequestedControlActionLocationAndContextCommand = ControlOpera
 	ControlCommandPayload & {
 		readonly requestedControlActionId: DomainId;
 		readonly changes: Readonly<{
-			readonly geometry?: SupportedGeoJsonGeometry;
+			readonly locationSource?: LocatableLocationSource;
 			readonly addressId?: DomainId | null;
 			readonly context?: ControlActionContext;
 		}>;
@@ -1279,7 +1280,7 @@ export interface ExpandFormulationApplicationCommandsInput extends ControlComman
 	readonly components: readonly FormulationExpansionComponentInput[];
 	readonly applicationDate: LocalDateString;
 	readonly applicatorProfileId?: DomainId | null;
-	readonly geometry: unknown;
+	readonly locationSource: LocatableLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly requestedControlActionId?: DomainId | null;
@@ -1949,7 +1950,7 @@ export function recordChemicalApplicationCommand(
 	requireUuid(input.insecticideId, 'insecticideId', issues);
 	requireUuid(input.applicationUnitId, 'applicationUnitId', issues);
 	validateLocalDate(input.applicationDate, 'applicationDate', issues);
-	const geometry = validateLocatableGeometry(input.geometry, 'geometry', issues);
+	const locationSource = validateLocationSourceInput(input, issues);
 	const applicationBatches = validateApplicationBatches(input.applicationBatches ?? [], issues);
 	const metadata = normalizeMetadata(input.metadata, 'metadata', issues);
 	const context = validateContext(input.context ?? { kind: 'none' }, 'chemicalApplication', issues);
@@ -1981,7 +1982,7 @@ export function recordChemicalApplicationCommand(
 				input.applicatorProfileId,
 				input.actorProfileId,
 			),
-			geometry,
+			locationSource,
 			addressId,
 			context,
 			requestedControlActionId,
@@ -2393,7 +2394,7 @@ export function requestControlActionCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.requestedControlActionId, 'requestedControlActionId', issues);
-	const geometry = validateLocatableGeometry(input.geometry, 'geometry', issues);
+	const locationSource = validateLocationSourceInput(input, issues);
 	const controlType = normalizeStringUnion(input.controlType, CONTROL_TYPES, 'controlType', issues);
 	const context = validateContext(input.context ?? { kind: 'none' }, controlType, issues);
 	const requestedAt = normalizeOptionalTimestamp(input.requestedAt, 'requestedAt', issues, false);
@@ -2411,7 +2412,7 @@ export function requestControlActionCommand(
 			...basePayload(input),
 			requestedControlActionId: normalizeRequiredId(input.requestedControlActionId),
 			controlType,
-			geometry,
+			locationSource,
 			addressId,
 			context,
 			recommendedMethodId,
@@ -2608,7 +2609,7 @@ export function expandFormulationApplicationCommands(
 			amountApplied: amount?.amount ?? 0,
 			applicationUnitId: component.applicationUnitId,
 			applicationDate: input.applicationDate,
-			geometry: input.geometry,
+			locationSource: input.locationSource,
 			...(input.applicatorProfileId !== undefined
 				? { applicatorProfileId: input.applicatorProfileId }
 				: {}),
@@ -2882,7 +2883,7 @@ function biocontrolFieldChanges(
 
 function validateActionBase(input: ActionBaseInput, issues: DomainValidationIssue[]): void {
 	validateBase(input, issues);
-	validateLocatableGeometry(input.geometry, 'geometry', issues);
+	validateLocationSourceInput(input, issues);
 	normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	normalizeOptionalUuid(input.requestedControlActionId, 'requestedControlActionId', issues);
 	normalizeMetadata(input.metadata, 'metadata', issues);
@@ -2895,7 +2896,7 @@ function actionBasePayload(
 ): ActionBasePayload {
 	return {
 		...basePayload(input),
-		geometry: validateLocatableGeometry(input.geometry, 'geometry', issues),
+		locationSource: validateLocationSourceInput(input, issues),
 		addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues),
 		requestedControlActionId: normalizeOptionalUuid(
 			input.requestedControlActionId,
@@ -2906,26 +2907,42 @@ function actionBasePayload(
 	};
 }
 
+function validateLocationSourceInput(
+	input: {
+		readonly locationSource?: LocatableLocationSourceInput;
+	},
+	issues: DomainValidationIssue[],
+): LocatableLocationSource {
+	if (input.locationSource !== undefined) {
+		return validateLocatableLocationSource(input.locationSource, 'locationSource', issues);
+	}
+	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
+	return validateLocatableLocationSource(
+		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
+		'locationSource',
+		issues,
+	);
+}
+
 function validateLocationContextPatchBase<TInput extends ControlCommandInput>(
 	input: TInput,
 	idKey: keyof TInput & string,
 ): DomainValidationIssue[] {
 	const issues = validateIdCommand(input, idKey);
-	const hasGeometry = 'geometry' in input && input.geometry !== undefined;
+	const hasLocation = 'locationSource' in input && input.locationSource !== undefined;
 	const hasAddress = 'addressId' in input && input.addressId !== undefined;
 	const hasContext = 'context' in input && input.context !== undefined;
 	const hasRequested =
 		'requestedControlActionId' in input && input.requestedControlActionId !== undefined;
-	if (!hasGeometry && !hasAddress && !hasContext && !hasRequested) {
+	if (!hasLocation && !hasAddress && !hasContext && !hasRequested) {
 		issues.push({
 			path: 'changes',
 			message: 'At least one location or context field must change.',
 		});
 	}
-	if (hasGeometry) {
-		validateLocatableGeometry(
-			(input as { readonly geometry?: unknown }).geometry,
-			'geometry',
+	if (hasLocation) {
+		validateLocationSourceInput(
+			input as { readonly locationSource?: LocatableLocationSourceInput },
 			issues,
 		);
 	}
@@ -2944,24 +2961,29 @@ function validateLocationContextPatchBase<TInput extends ControlCommandInput>(
 
 function locationContextChanges(
 	input: {
-		readonly geometry?: unknown;
+		readonly locationSource?: LocatableLocationSourceInput;
 		readonly addressId?: DomainId | null;
 		readonly requestedControlActionId?: DomainId | null;
 	},
 	context: ControlActionContext | undefined,
 	issues: DomainValidationIssue[],
 ): Readonly<{
-	readonly geometry?: SupportedGeoJsonGeometry;
+	readonly locationSource?: LocatableLocationSource;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly requestedControlActionId?: DomainId | null;
 }> {
-	const hasGeometry = input.geometry !== undefined;
+	const hasLocation = input.locationSource !== undefined;
 	const hasAddress = input.addressId !== undefined;
 	const hasRequested = input.requestedControlActionId !== undefined;
 	return {
-		...(hasGeometry
-			? { geometry: validateLocatableGeometry(input.geometry, 'geometry', issues) }
+		...(hasLocation
+			? {
+					locationSource: validateLocationSourceInput(
+						input as { readonly locationSource?: LocatableLocationSourceInput },
+						issues,
+					),
+				}
 			: {}),
 		...(hasAddress
 			? { addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues) }
@@ -3080,22 +3102,6 @@ function validateApplicationBatches(
 function validateBase(input: ControlCommandInput, issues: DomainValidationIssue[]): void {
 	requireUuid(input.organizationId, 'organizationId', issues);
 	requireUuid(input.actorProfileId, 'actorProfileId', issues);
-}
-
-function validateLocatableGeometry(
-	value: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): SupportedGeoJsonGeometry {
-	try {
-		return normalizeLocatableGeometry(value, path);
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			issues.push(...error.issues);
-			return { type: 'Point', coordinates: [0, 0] };
-		}
-		throw error;
-	}
 }
 
 function validateIdCommand<T extends ControlCommandInput>(
