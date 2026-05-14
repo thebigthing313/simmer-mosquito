@@ -5,6 +5,7 @@ export * from './foundation.js';
 export * from './larval-surveillance.js';
 export * from './mission-dispatch.js';
 export * from './organization-settings.js';
+export * from './public-engagement.js';
 export * from './shared.js';
 
 export const MOSQUITO_SPECIES = [
