@@ -7,6 +7,7 @@ export * from './mission-dispatch.js';
 export * from './organization-settings.js';
 export * from './public-engagement.js';
 export * from './shared.js';
+export * from './weather.js';
 
 export const MOSQUITO_SPECIES = [
 	'Aedes aegypti',

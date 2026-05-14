@@ -962,7 +962,7 @@ export interface WeatherSummariesTable {
 	id: Generated<string>;
 	weather_source_id: string;
 	start_date: DateColumn;
-	end_date: NullableDateColumn;
+	end_date: DateColumn;
 	temperature_min_f: number | null;
 	temperature_max_f: number | null;
 	precipitation_inches: number | null;
@@ -970,6 +970,8 @@ export interface WeatherSummariesTable {
 	relative_humidity_max: number | null;
 	wind_speed_min_mph: number | null;
 	wind_speed_max_mph: number | null;
+	created_by_profile_id: string | null;
+	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
 	updated_at: TimestampWithDefault;
 }
