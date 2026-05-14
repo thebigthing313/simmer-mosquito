@@ -1,16 +1,21 @@
 # Mission Dispatch Domain Decisions
 
 This captures the mission/dispatch command decisions from the domain interview.
-It is implementation-facing and should guide the first
-`packages/domain/src/mission-dispatch.ts` command module. Server endpoints,
-sync shape design, UI workflows, imports, and spatial-feature efficiency remain
-separate implementation passes.
+It is implementation-facing and guides the `missionDispatch.*` public domain
+seam at `packages/domain/src/mission-dispatch.ts`. Server endpoints, sync shape
+design, UI workflows, imports, and spatial-feature efficiency remain separate
+implementation passes.
 
 ## Command Boundary
 
 Mission dispatch commands live in a dedicated framework-agnostic module:
 
 - `packages/domain/src/mission-dispatch.ts`
+
+The top-level file is the public seam. Its current implementation lives behind
+`packages/domain/src/mission-dispatch/index.ts` so future mission parent,
+mission item, and mission execution splits can stay inside the domain folder
+without expanding the caller-facing import surface.
 
 Commands use the `missionDispatch.*` namespace. Missions remain control-adjacent
 planned work, but dispatch owns scheduling, assignment, ordered mission items,
@@ -185,15 +190,16 @@ Mission items carry:
 
 - client-generated `missionItemId`
 - parent `missionId`
-- GeoJSON `geometry`
+- GeoJSON `geometry` or `locationSource`
 - optional `addressId`
 - optional `requestedControlActionId`
 - fractional `position`
 
-Mission item commands carry GeoJSON geometry. The server derives or reuses
-`spatial_features.id`. Read/sync rows may expose `feature_id`. The feasibility
-and efficiency of spatial-feature derivation/reuse is intentionally deferred to
-a separate architecture discussion.
+Mission item commands carry either explicit GeoJSON geometry or a
+`locationSource`, not both. The server derives or reuses `spatial_features.id`.
+Read/sync rows may expose `feature_id`. The feasibility and efficiency of
+spatial-feature derivation/reuse is intentionally deferred to a separate
+architecture discussion.
 
 V1 geometry types:
 
@@ -203,22 +209,23 @@ V1 geometry types:
 
 Multi-geometries and geometry collections remain deferred globally.
 
-Mission item address is optional context only. Geometry is authoritative.
-Address geometry does not need to match mission item geometry and mission item
-geometry does not follow later address edits. Commands reference existing
-addresses only; mission dispatch does not create addresses inline.
+Mission item address is optional context only. Geometry is authoritative once
+stored. Address geometry does not need to match mission item geometry and
+mission item geometry does not follow later address edits. Commands reference
+existing addresses only; mission dispatch does not create addresses inline.
 
 No mission item `instructions`, `description`, or parent mission `description`
 column is part of v1. Use mission comments for notes and planning context.
 
 ## Mission Item Sources
 
-Mission items may be ad hoc or linked to requested control actions.
+Mission items may be ad hoc, sourced from field records, or linked to requested
+control actions.
 
 Core command:
 
-- `addMissionItem`: explicit geometry, optional address, optional
-  `requestedControlActionId`, optional placement.
+- `addMissionItem`: explicit geometry or location source, optional address,
+  optional `requestedControlActionId`, optional placement.
 
 Convenience command:
 
@@ -234,7 +241,8 @@ items?: readonly (
   | {
       kind: 'explicit';
       missionItemId: DomainId;
-      geometry: SupportedGeoJsonGeometry;
+      geometry?: SupportedGeoJsonGeometry;
+      locationSource?: MissionItemLocationSource;
       addressId?: DomainId | null;
       requestedControlActionId?: DomainId | null;
     }
@@ -245,6 +253,12 @@ items?: readonly (
     }
 )[]
 ```
+
+Mission item `locationSource` may use the requested-control-action source flow
+and may additionally source from requested control action geometry. In practice,
+that means explicit geometry, address geometry, habitat geometry, trap geometry,
+collection geometry, inspection geometry, service request geometry, or requested
+control action geometry.
 
 Array order becomes mission item order. Initial items are always pending; create
 does not set lifecycle or progress timestamps.
@@ -594,7 +608,7 @@ Server handlers validate context-dependent rules:
 
 ## Domain Module Shape
 
-`packages/domain/src/mission-dispatch.ts` should export:
+`packages/domain/src/mission-dispatch.ts` exports:
 
 - `MissionDispatchCommandType`
 - `MissionDispatchCommand`

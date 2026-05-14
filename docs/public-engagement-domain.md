@@ -8,9 +8,20 @@ deferred.
 
 ## Command Shape
 
-Public engagement commands live in a framework-agnostic domain module:
+Public engagement commands live behind a framework-agnostic public domain seam:
 
 - `packages/domain/src/public-engagement.ts`
+
+The public seam re-exports implementation modules under
+`packages/domain/src/public-engagement/`:
+
+- `contacts.ts`
+- `service-requests.ts`
+- `notification-types.ts`
+- `registrations.ts`
+- `mission-notifications.ts`
+- `core.ts` for shared command context, contact/address/location normalizers,
+  and notification registration helpers
 
 Commands use the `publicEngagement.*` namespace and carry agency command
 context:

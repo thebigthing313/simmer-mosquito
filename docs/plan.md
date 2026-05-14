@@ -141,7 +141,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   staging and production PostGIS databases.
 - Adult surveillance domain command design has been grilled and recorded in
   `docs/adult-surveillance-domain.md`.
-- `packages/domain` now exposes the first hardened adult surveillance command
+- `packages/domain` now exposes the hardened adult surveillance command
   vocabulary:
   - trap catalog commands
   - pending and collected collection workflow commands
@@ -160,7 +160,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   mode and bycatch schema changes.
 - Larval surveillance domain command design has been grilled and recorded in
   `docs/larval-surveillance-domain.md`.
-- `packages/domain` now exposes the first hardened larval surveillance command
+- `packages/domain` now exposes the hardened larval surveillance command
   vocabulary:
   - habitat catalog commands
   - habitat promotion and merge commands
@@ -179,7 +179,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   - soft-delete-aware active sample/species uniqueness
 - Organization settings command design has been grilled and recorded in
   `docs/organization-settings-domain.md`.
-- `packages/domain` now exposes the first hardened organization settings
+- `packages/domain` now exposes the hardened organization settings
   command vocabulary and resolvers:
   - timezone
   - default units by unit type
@@ -188,7 +188,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   - public engagement service request context defaults
 - Control operations domain command design has been grilled and recorded in
   `docs/control-operations-domain.md`.
-- `packages/domain` now exposes the first hardened control operations command
+- `packages/domain` now exposes the hardened control operations command
   vocabulary:
   - control method catalog commands
   - vehicle and equipment catalog commands
@@ -225,7 +225,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   - dropping collection lure custom schema
 - Public engagement domain command design has been grilled and recorded in
   `docs/public-engagement-domain.md`.
-- `packages/domain` now exposes the first hardened public engagement command
+- `packages/domain` now exposes the hardened public engagement command
   vocabulary:
   - contact create/update/merge/delete commands
   - service request create/update/location/contact/close/reopen/delete commands
@@ -238,7 +238,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   - normalized notification type name uniqueness
 - Mission dispatch domain command design has been grilled and recorded in
   `docs/mission-dispatch-domain.md`.
-- `packages/domain` now exposes the first hardened mission dispatch command
+- `packages/domain` now exposes the hardened mission dispatch command
   vocabulary:
   - mission create/details/schedule/plan/assignment/notification/lifecycle
     commands
@@ -252,7 +252,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   - actual control action `mission_item_id` provenance links
 - Weather domain command design has been grilled and recorded in
   `docs/weather-domain.md`.
-- `packages/domain` now exposes the first hardened weather command vocabulary:
+- `packages/domain` now exposes the hardened weather command vocabulary:
   - organization weather station create/update/location/deactivate/reactivate
     and cleanup delete commands
   - weather summary create/update/delete commands
@@ -264,6 +264,13 @@ This plan tracks the near-term build order. Architecture decisions live in
   - non-null explicit `end_date`
   - normalized weather station name/code uniqueness
   - summary metric sanity bounds
+- `packages/domain/src` now keeps stable top-level public seams and moves
+  larger implementations into matching domain folders. Control operations and
+  public engagement are split by command group internally; other sizeable
+  domains are folderized behind `index.ts` implementations for future splits.
+- Domain unit tests now live in `packages/domain/src/tests`, and the
+  `@simmer-mosquito/domain` test script targets that folder directly to avoid
+  discovering compiled tests in `dist`.
 
 ## Current Boundary
 

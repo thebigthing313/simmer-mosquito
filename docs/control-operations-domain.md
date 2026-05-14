@@ -6,9 +6,24 @@ architecture decisions remain in `docs/adr/`.
 
 ## Command Groups
 
-Control operations commands should live in a framework-agnostic domain module:
+Control operations commands live behind a framework-agnostic public domain
+seam:
 
 - `packages/domain/src/control-operations.ts`
+
+The public seam re-exports implementation modules under
+`packages/domain/src/control-operations/`:
+
+- `methods.ts`: application, source reduction, outreach, and biocontrol method
+  catalog commands
+- `assets.ts`: vehicle and equipment commands
+- `products.ts`: insecticides, batches, formulations, formulation components,
+  and formulation expansion helpers
+- `actions.ts`: performed chemical application, source reduction, outreach,
+  and biocontrol action commands
+- `requests.ts`: requested control action commands
+- `core.ts`: command context, common helper types, and shared control-operation
+  validation utilities
 
 Every command payload includes:
 
@@ -168,8 +183,8 @@ Requested control action commands:
 - `controlOperations.deleteRequestedControlAction`
 
 Requested control actions are included in the control operations domain because
-actual control action records link to them. Missions and mission items are
-deferred to a future dispatch/mission domain.
+actual control action records link to them. Missions and mission items belong
+to the mission dispatch domain.
 
 ## Important Semantics
 
@@ -455,7 +470,7 @@ acknowledgement because no historical application stores formulation usage.
 
 ## Formulation Helpers
 
-The control operations domain module should export pure formulation helpers:
+The control operations public seam exports pure formulation helpers:
 
 - `calculateFormulationComponentAmounts`
 - `expandFormulationApplicationCommands`
@@ -517,12 +532,19 @@ answers "which request/recommendation is this associated with?", while context
 answers "what source record triggered or contextualizes this action?"
 
 `locationSource` answers "where should this action/request snapshot its
-feature from?" It may be explicit GeoJSON geometry or a known locatable domain
-record such as a habitat, inspection, collection, service request, requested
-control action, or mission item. The location source is independent from
-context: an action can be contextually related to a habitat while using a
-different treatment boundary, or can snapshot a known feature without becoming
-linked to that record.
+feature from?" Source flows are command-specific:
+
+- actual control actions may be created ad hoc from explicit geometry, address
+  geometry, service request geometry, or habitat geometry.
+- actual control actions may inherit geometry from an inspection, requested
+  control action, or mission item workflow.
+- requested control actions may source geometry from explicit geometry, address
+  geometry, habitat geometry, trap geometry, collection geometry, inspection
+  geometry, or service request geometry.
+
+The location source is independent from context: an action can be contextually
+related to a habitat while using a different treatment boundary, or can snapshot
+a known feature without becoming linked to that record.
 
 Allowed context by command:
 
@@ -933,8 +955,8 @@ If actual actions reference it, deletion requires manager-and-above plus
 `acknowledgedActionDetach`, then server nulls their
 `requested_control_action_id`. If mission items reference it, deletion requires
 `acknowledgedMissionDetach`, then server nulls
-`mission_items.requested_control_action_id` or defers to future mission-domain
-rules once missions are hardened.
+`mission_items.requested_control_action_id` according to mission-domain
+detach rules.
 
 Collectors cannot delete requested actions once referenced.
 
@@ -1224,7 +1246,7 @@ names, for example:
 
 ## Domain Module Shape
 
-`packages/domain/src/control-operations.ts` should export:
+`packages/domain/src/control-operations.ts` exports:
 
 - `ControlOperationsCommandType`
 - `ControlOperationsCommand`

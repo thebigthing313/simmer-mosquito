@@ -7,9 +7,14 @@ sessions, and detailed sync design are deferred.
 
 ## Command Boundary
 
-Weather commands live in a framework-agnostic domain module:
+Weather commands live behind a framework-agnostic public domain seam:
 
 - `packages/domain/src/weather.ts`
+
+The top-level file is the public seam. Its current implementation lives behind
+`packages/domain/src/weather/index.ts` so future station, summary, and import
+splits can stay inside the weather domain folder without changing caller
+imports.
 
 Commands use the `weather.*` namespace and carry agency command context:
 
@@ -71,9 +76,11 @@ organization after trim/case-fold among non-deleted stations. Station codes are
 optional, trimmed, limited to 100 characters, empty-to-null, and unique per
 organization after trim/case-fold when non-null among non-deleted stations.
 
-Stations are point-only. Commands carry GeoJSON geometry; the server derives
-`feature_id` using the shared spatial feature pipeline and point precision
-policy. Stations do not reference addresses in v1.
+Stations are point-only. Commands carry explicit GeoJSON geometry; the server
+derives `feature_id` using the shared spatial feature pipeline and point
+precision policy. Stations do not reference addresses in v1. Address lookup may
+help the UI choose a point, but weather commands do not source geometry from
+address records.
 
 New stations are active. Deactivation and reactivation are idempotent. Inactive
 stations remain visible for reports, filters, and data cleanup. Deleted stations
@@ -297,7 +304,7 @@ example:
 
 ## Domain Module Shape
 
-`packages/domain/src/weather.ts` should export:
+`packages/domain/src/weather.ts` exports:
 
 - `WeatherCommandType`
 - `WeatherCommand`

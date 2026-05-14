@@ -54,6 +54,11 @@ administration through the server control plane. TanStack DB and ElectricSQL
 will be added after the auth/admin foundation and first domain workflow shape
 are settled. It is not a TanStack Start app.
 
+The web app is online-only in v1. It uses sync-native reads and optimistic
+domain-command writes for responsiveness and consistency, but it does not offer
+offline persistence, offline command queues, or offline conflict resolution.
+All agency roles use the web app for the workflows their role permits.
+
 `apps/mobile` is planned as an Expo managed React Native app using TanStack DB,
 ElectricSQL, SecureStore-backed auth, and later local persistence/offline
 transactions.
@@ -76,6 +81,18 @@ Existing:
   type target.
 - `packages/domain`: framework-agnostic domain types, commands, validators, and
   aggregate helpers.
+
+`packages/domain/src` keeps stable public domain seams as top-level barrel
+modules such as `control-operations.ts`, `public-engagement.ts`, and
+`weather.ts`. Larger domains keep their implementation in matching folders
+behind those seams. For example, `control-operations/` is split by method
+catalogs, assets, products/formulations, performed actions, and requested
+actions, while `public-engagement/` is split by contacts, service requests,
+notification types, registrations, and mission notifications.
+
+Domain tests live under `packages/domain/src/tests`. The package test script
+targets that folder directly so compiled output under `dist` is not discovered
+as a second test source.
 
 Planned:
 
@@ -101,8 +118,27 @@ Postgres -> ElectricSQL -> TanStack DB -> web/mobile UI
 
 Clients do not talk directly to Postgres. Clients do not get unrestricted access
 to Electric. The server authorizes sync shapes before Electric streams data.
+For normal authenticated organization screens, Electric-backed TanStack DB
+collections are the default read path. Server query endpoints are reserved for
+auth/session, command writes, imports, SIMMER operator control-plane workflows,
+specialized reports/exports, and views that are genuinely hard or inappropriate
+to compute from synced client collections.
 
-Writes go through domain commands and TanStack DB optimistic mutations:
+Web collection loading uses a hybrid sync policy:
+
+- **Eager** for small, role-visible baseline tables that should be ready after
+  organization selection.
+- **On-demand** for large or workflow-specific tables that should load from the
+  active screen's live query predicates.
+- **Progressive** only when a screen needs fast first paint for a subset and a
+  clear product reason to keep filling the broader collection in the
+  background.
+
+The sync mode is chosen per collection or feature slice from expected row count,
+workflow criticality, and whether most users will inspect most rows in a normal
+session.
+
+Web writes go through domain commands and TanStack DB optimistic mutations:
 
 ```text
 UI intent
@@ -114,7 +150,8 @@ UI intent
   -> Electric sync confirmation
 ```
 
-Offline queues should store domain commands, not DB-shaped patches.
+Future offline queues should store domain commands, not DB-shaped patches. The
+v1 web app does not queue commands for offline replay.
 
 Location-bearing commands carry a domain location source, not `feature_id`.
 The source may be explicit GeoJSON geometry or a same-organization locatable

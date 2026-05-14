@@ -1274,7 +1274,7 @@ Deletion should:
 - not handle route items
 - not handle assignment items in v1
 - preserve or handle links to requested control actions, inspections, habitats,
-  collections, and other records according to the future control-domain rules
+  collections, and other records according to control-domain detach rules
 
 Requested control action deletion:
 
@@ -1288,10 +1288,12 @@ Requested control action deletion:
 Mission deletion:
 
 - soft-deletes direct mission comments
-- leaves mission item and mission notification behavior to the future
-  mission/control dispatch domain
-- likely soft-deletes mission items and mission notifications with
-  acknowledgement when that domain is hardened
+- soft-deletes active mission items with mission-domain acknowledgements when
+  required
+- soft-deletes mission notifications with mission-domain acknowledgement when
+  generated notifications exist
+- detaches actual control actions from mission items with mission-domain
+  acknowledgement when linked actions exist
 - does not handle tags, additional personnel, routes, or assignments in v1
 
 ## Consolidated Schema Backlog
@@ -1360,12 +1362,16 @@ Command payload/schema-adjacent follow-ups:
 
 ## Domain Module Shape
 
-Field-work/support commands should live in a new framework-agnostic domain
-module:
+Field-work/support commands live behind a framework-agnostic public domain seam:
 
 - `packages/domain/src/field-work.ts`
 
-The module should export:
+The top-level file is the public seam. Its current implementation lives behind
+`packages/domain/src/field-work/index.ts` so future comments, tags, route, and
+assignment splits can stay inside the field-work domain folder without changing
+caller imports.
+
+The public seam exports:
 
 - `FieldWorkCommandType`
 - `FieldWorkCommand`

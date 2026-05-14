@@ -20,8 +20,10 @@ Commands carry domain intent, not DB-shaped patches. Foundation address and
 region catalog commands carry explicit GeoJSON `geometry` because they define
 the catalog feature itself; command clients do not submit `featureId`. The
 server maps geometry to `spatial_features.id` inside the transaction. Other
-operational domains may use `locationSource` when a command should snapshot an
-existing locatable record without exposing raw `feature_id`.
+operational domains use named `locationSource` flows when a command should
+snapshot an existing allowed source record without exposing raw `feature_id`.
+Those flows are domain-specific; not every locatable record is a valid source
+for every command.
 
 Supported v1 command geometry types:
 

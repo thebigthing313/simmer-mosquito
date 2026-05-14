@@ -72,8 +72,9 @@ catalog records, not inspections.
 cataloged habitat, or they may be ad hoc records with `habitat_id = null`.
 Ad hoc inspection commands carry a `locationSource`, optional `address_id`, and
 optional `habitat_type_id`; the server stores the resulting `feature_id`.
-`locationSource` may be explicit geometry or a known locatable record to
-snapshot from without linking the inspection to that record.
+`locationSource` may be explicit geometry, address geometry, habitat geometry,
+or service request geometry to snapshot from without linking the inspection to
+that record.
 
 `recordHabitatInspection` and `recordAdHocInspection` are separate commands.
 Habitat inspection creation copies the habitat's current `feature_id`,
@@ -572,11 +573,21 @@ Multi-geometries and geometry collections are deferred:
 - `GeometryCollection`
 
 Habitat inspections copy the habitat's feature regardless of allowed type.
-Habitat and ad hoc location commands carry `locationSource`; the server maps
-explicit geometry to `spatial_features.id` or snapshots the known source
-record's `feature_id` and stores it on database rows. Server command handlers
-validate allowed geometry for habitat creation, habitat location updates, and
-ad hoc inspection creation or correction when the source is explicit geometry.
+Habitat and ad hoc location commands carry `locationSource`, but their source
+flows differ:
+
+- habitat geometry may come from explicit geometry, address geometry, or ad hoc
+  inspection geometry.
+- ad hoc inspection geometry may come from explicit geometry, address geometry,
+  habitat geometry, or service request geometry.
+- habitat inspection geometry is locked to the habitat geometry at that
+  instance and does not accept a location override.
+
+The server maps explicit geometry to `spatial_features.id` or snapshots the
+known source record's `feature_id` and stores it on database rows. Server
+command handlers validate allowed geometry for habitat creation, habitat
+location updates, and ad hoc inspection creation or correction when the source
+is explicit geometry.
 
 ## Mobile And Offline
 
