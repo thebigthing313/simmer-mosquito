@@ -230,7 +230,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   - notification registration lifecycle, location, buffer, flag, and
     subscription commands
   - mission notification generation and status commands
-- Public engagement schema follow-up direction exists for:
+- Public engagement schema follow-up migration exists for:
   - removing fax from contacts and notification channels
   - normalized notification type name uniqueness
 - Mission dispatch domain command design has been grilled and recorded in
@@ -243,7 +243,7 @@ This plan tracks the near-term build order. Architecture decisions live in
   - mission item execution helper commands for chemical applications, source
     reductions, outreach actions, and biocontrol actions
   - derived mission and mission item status helpers
-- Mission dispatch schema follow-up direction exists for:
+- Mission dispatch schema follow-up migration exists for:
   - mutually exclusive mission terminal timestamps
   - mission item progress fields
   - actual control action `mission_item_id` provenance links
@@ -307,8 +307,8 @@ tracer bullet.
 
 Suggested scope:
 
-- Apply and verify the adult and larval surveillance schema update migrations
-  locally.
+- Apply and verify the domain schema update migrations locally, including the
+  public engagement and mission dispatch catch-up migration.
 - Add a small reusable command endpoint pattern in `apps/server`:
   - AuthContext resolution for command requests
   - domain command payload validation

@@ -620,6 +620,9 @@ Keep implementation style consistent with existing domain modules:
 
 ## Schema Backlog
 
+These v1 schema changes are covered by
+`202605140001_public_engagement_mission_dispatch_domain_updates.sql`.
+
 Mission lifecycle check:
 
 ```sql

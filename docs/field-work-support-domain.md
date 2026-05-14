@@ -1297,8 +1297,9 @@ Mission deletion:
 ## Consolidated Schema Backlog
 
 These schema changes surfaced while hardening the field-work/support command
-domain. They should be batched into a future migration after the command
-vocabulary is settled.
+domain. The implemented v1 subset is covered by
+`202605110001_field_work_support_domain_updates.sql`; enum/registry follow-ups
+remain deferred until the command vocabulary is settled.
 
 Comments:
 

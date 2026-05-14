@@ -410,7 +410,8 @@ Server command handlers validate context-dependent rules:
 
 ## Schema Changes Surfaced
 
-Public engagement schema follow-up:
+Public engagement schema follow-up covered by
+`202605140001_public_engagement_mission_dispatch_domain_updates.sql`:
 
 - remove `contacts.fax`
 - remove `fax` from `notification_channel`

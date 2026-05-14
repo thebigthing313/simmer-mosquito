@@ -64,8 +64,8 @@ replicas. Retired traps remain replicated for historical context.
 
 ## Schema Migration Backlog
 
-These schema updates surfaced during the domain interview and should be batched
-into a future migration after the domain commands are hardened.
+These schema updates surfaced during the domain interview and are covered by
+`202605080001_adult_surveillance_domain_updates.sql`.
 
 ### Collections Timing
 

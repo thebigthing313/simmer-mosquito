@@ -325,7 +325,8 @@ Keep the module framework-agnostic:
 
 ## Schema Backlog
 
-Concrete schema follow-up for v1:
+Concrete schema follow-up for v1, covered by
+`202605130001_weather_domain_updates.sql`:
 
 ```sql
 update weather_summaries

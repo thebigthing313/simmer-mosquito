@@ -598,8 +598,8 @@ merging.
 
 ## Schema Migration Backlog
 
-These schema updates surfaced during the domain interview and should be batched
-into a future migration after the domain commands are hardened.
+These schema updates surfaced during the domain interview and are covered by
+`202605100001_larval_surveillance_domain_updates.sql`.
 
 ### Inspection Checks
 

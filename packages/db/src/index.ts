@@ -44,7 +44,7 @@ export type InsecticideType = 'larvicide' | 'adulticide' | 'pupicide' | 'other';
 export type RequestIntakeType = 'online' | 'phone' | 'walk-in' | 'other';
 export type RouteType = 'habitat' | 'trap';
 export type ControlType = 'application' | 'source_reduction' | 'biocontrol' | 'outreach';
-export type NotificationChannel = 'email' | 'sms' | 'phone' | 'fax';
+export type NotificationChannel = 'email' | 'sms' | 'phone';
 export type MissionNotificationStatus = 'pending' | 'completed' | 'failed' | 'skipped';
 export type WeatherSourceType = 'organization' | 'nws';
 export type CollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
@@ -540,6 +540,7 @@ export interface ApplicationsTable {
 	collection_id: string | null;
 	inspection_id: string | null;
 	requested_control_action_id: string | null;
+	mission_item_id: string | null;
 	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -574,6 +575,7 @@ export interface SourceReductionsTable {
 	sources_eliminated_unit_id: string;
 	inspection_id: string | null;
 	requested_control_action_id: string | null;
+	mission_item_id: string | null;
 	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -595,6 +597,7 @@ export interface OutreachActionsTable {
 	reach: number;
 	reach_description: string | null;
 	requested_control_action_id: string | null;
+	mission_item_id: string | null;
 	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -617,6 +620,7 @@ export interface BiocontrolActionsTable {
 	amount_released: number;
 	release_unit_id: string;
 	requested_control_action_id: string | null;
+	mission_item_id: string | null;
 	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
@@ -632,7 +636,6 @@ export interface ContactsTable {
 	contact_name: string | null;
 	preferred_phone: string | null;
 	alternate_phone: string | null;
-	fax: string | null;
 	email: string | null;
 	company: string | null;
 	department: string | null;
@@ -853,6 +856,11 @@ export interface MissionItemsTable {
 	feature_id: string;
 	address_id: string | null;
 	position: number;
+	completed_at: NullableTimestampWithDefault;
+	completed_by_profile_id: string | null;
+	skipped_at: NullableTimestampWithDefault;
+	skipped_by_profile_id: string | null;
+	skip_reason: string | null;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
