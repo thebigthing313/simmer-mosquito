@@ -6,8 +6,9 @@ import {
 	estimateStartedAtFromTrapNights,
 	recordCollectedAdHocCollectionCommand,
 	setTrapCollectionCommand,
+	updateCollectionFieldDetailsCommand,
 	updateTrapConfigurationCommand,
-} from './adult-surveillance.js';
+} from '../adult-surveillance.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const actorProfileId = '22222222-2222-4222-8222-222222222222';
@@ -59,6 +60,20 @@ describe('adult surveillance commands', () => {
 				trapId,
 				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				collectionMethodId,
+			}),
+		).toThrow(DomainValidationError);
+	});
+
+	it('rejects invalid optional ids while creating traps', () => {
+		expect(() =>
+			createTrapCommand({
+				organizationId,
+				actorProfileId,
+				trapId,
+				locationSource: { kind: 'geometry', geometry: pointGeometry },
+				collectionMethodId,
+				addressId: 'not-a-uuid',
+				trapName: 'North yard',
 			}),
 		).toThrow(DomainValidationError);
 	});
@@ -201,6 +216,26 @@ describe('adult surveillance commands', () => {
 				speciesId,
 				count: 0,
 				identifiedDate: '2024-05-03',
+			}),
+		).toThrow(DomainValidationError);
+	});
+
+	it('includes and validates collection metadata field patches', () => {
+		expect(
+			updateCollectionFieldDetailsCommand({
+				organizationId,
+				actorProfileId,
+				collectionId,
+				metadata: { batteryChecked: true },
+			}).payload.changes,
+		).toEqual({ metadata: { batteryChecked: true } });
+
+		expect(() =>
+			updateCollectionFieldDetailsCommand({
+				organizationId,
+				actorProfileId,
+				collectionId,
+				metadata: ['not', 'an', 'object'],
 			}),
 		).toThrow(DomainValidationError);
 	});

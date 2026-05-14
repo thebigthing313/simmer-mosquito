@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DomainValidationError } from './adult-surveillance.js';
+import { DomainValidationError } from '../adult-surveillance.js';
 import {
 	calculateFormulationComponentAmounts,
 	createApplicationMethodCommand,
@@ -14,7 +14,7 @@ import {
 	requestControlActionCommand,
 	updateChemicalApplicationFieldDetailsCommand,
 	updateRequestedControlActionDetailsCommand,
-} from './control-operations.js';
+} from '../control-operations.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const actorProfileId = '22222222-2222-4222-8222-222222222222';
@@ -275,6 +275,17 @@ describe('control operations action commands', () => {
 			changes: { insecticideId: insecticideId2, amountApplied: 2.5 },
 			acknowledgedBatchClearance: true,
 		});
+	});
+
+	it('rejects invalid optional ids in chemical application field patches', () => {
+		expect(() =>
+			updateChemicalApplicationFieldDetailsCommand({
+				organizationId,
+				actorProfileId,
+				applicationId,
+				vehicleId: 'not-a-uuid',
+			}),
+		).toThrow(DomainValidationError);
 	});
 });
 

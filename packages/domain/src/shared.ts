@@ -41,47 +41,6 @@ export interface GeoJsonPolygon {
 export type SupportedGeoJsonGeometry = GeoJsonPoint | GeoJsonLineString | GeoJsonPolygon;
 export type FoundationGeometryInput = SupportedGeoJsonGeometry;
 
-export type LocationSourceKind =
-	| 'address'
-	| 'habitat'
-	| 'inspection'
-	| 'trap'
-	| 'collection'
-	| 'serviceRequest'
-	| 'requestedControlAction'
-	| 'missionItem';
-
-export type KnownLocationSource =
-	| { readonly kind: 'address'; readonly addressId: DomainId }
-	| { readonly kind: 'habitat'; readonly habitatId: DomainId }
-	| { readonly kind: 'inspection'; readonly inspectionId: DomainId }
-	| { readonly kind: 'trap'; readonly trapId: DomainId }
-	| { readonly kind: 'collection'; readonly collectionId: DomainId }
-	| { readonly kind: 'serviceRequest'; readonly serviceRequestId: DomainId }
-	| {
-			readonly kind: 'requestedControlAction';
-			readonly requestedControlActionId: DomainId;
-	  }
-	| { readonly kind: 'missionItem'; readonly missionItemId: DomainId };
-
-export type KnownLocationSourceInput = KnownLocationSource;
-
-export type LocatableLocationSourceInput =
-	| { readonly kind: 'geometry'; readonly geometry: unknown }
-	| KnownLocationSourceInput;
-
-export type LocatableLocationSource =
-	| { readonly kind: 'geometry'; readonly geometry: SupportedGeoJsonGeometry }
-	| KnownLocationSource;
-
-export type PointLocationSourceInput =
-	| { readonly kind: 'geometry'; readonly geometry: unknown }
-	| KnownLocationSourceInput;
-
-export type PointLocationSource =
-	| { readonly kind: 'geometry'; readonly geometry: GeoJsonPoint }
-	| KnownLocationSource;
-
 export const SUPPORTED_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon'] as const;
 export const ADDRESS_GEOMETRY_TYPES = ['Point'] as const;
 export const REGION_GEOMETRY_TYPES = ['Polygon'] as const;
@@ -114,22 +73,6 @@ export function inferGeometryPrecisionPolicy(
 	geometry: SupportedGeoJsonGeometry,
 ): GeometryPrecisionPolicy {
 	return geometry.type === 'Point' ? 'snap_5_decimal' : 'preserve';
-}
-
-export function validateLocatableLocationSource(
-	input: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): LocatableLocationSource {
-	return validateLocationSource(input, path, issues, LOCATABLE_GEOMETRY_TYPES);
-}
-
-export function validatePointLocationSource(
-	input: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): PointLocationSource {
-	return validateLocationSource(input, path, issues, ADDRESS_GEOMETRY_TYPES) as PointLocationSource;
 }
 
 export function validateGeometry(
@@ -183,82 +126,6 @@ function normalizeGeometryForTypes(
 		throw new DomainValidationError('Geometry is invalid.', issues);
 	}
 	return geometry;
-}
-
-function validateLocationSource(
-	input: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-	allowedTypes: readonly SupportedGeometryType[],
-): LocatableLocationSource {
-	if (!isRecord(input)) {
-		issues.push({ path, message: `${path} must be a location source object.` });
-		return { kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } };
-	}
-
-	switch (input.kind) {
-		case 'geometry':
-			return {
-				kind: 'geometry',
-				geometry: validateGeometry(input.geometry, allowedTypes, `${path}.geometry`, issues),
-			};
-		case 'address':
-			return {
-				kind: 'address',
-				addressId: validateLocationSourceId(input.addressId, path, issues),
-			};
-		case 'habitat':
-			return {
-				kind: 'habitat',
-				habitatId: validateLocationSourceId(input.habitatId, path, issues),
-			};
-		case 'inspection':
-			return {
-				kind: 'inspection',
-				inspectionId: validateLocationSourceId(input.inspectionId, path, issues),
-			};
-		case 'trap':
-			return { kind: 'trap', trapId: validateLocationSourceId(input.trapId, path, issues) };
-		case 'collection':
-			return {
-				kind: 'collection',
-				collectionId: validateLocationSourceId(input.collectionId, path, issues),
-			};
-		case 'serviceRequest':
-			return {
-				kind: 'serviceRequest',
-				serviceRequestId: validateLocationSourceId(input.serviceRequestId, path, issues),
-			};
-		case 'requestedControlAction':
-			return {
-				kind: 'requestedControlAction',
-				requestedControlActionId: validateLocationSourceId(
-					input.requestedControlActionId,
-					path,
-					issues,
-				),
-			};
-		case 'missionItem':
-			return {
-				kind: 'missionItem',
-				missionItemId: validateLocationSourceId(input.missionItemId, path, issues),
-			};
-		default:
-			issues.push({ path: `${path}.kind`, message: `${path}.kind is not supported.` });
-			return { kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } };
-	}
-}
-
-function validateLocationSourceId(
-	value: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): DomainId {
-	if (typeof value !== 'string' || !isUuid(value.trim())) {
-		issues.push({ path, message: `${path} id must be a UUID.` });
-		return '';
-	}
-	return value.trim();
 }
 
 function validateLineStringCoordinates(
@@ -343,8 +210,4 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 
 function isFiniteNumber(value: unknown): value is number {
 	return typeof value === 'number' && Number.isFinite(value);
-}
-
-function isUuid(value: string): boolean {
-	return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

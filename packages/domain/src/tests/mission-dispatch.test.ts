@@ -15,8 +15,8 @@ import {
 	updateMissionItemLocationAndLinkCommand,
 	updateMissionPlanCommand,
 	updateMissionScheduleCommand,
-} from './mission-dispatch.js';
-import { DomainValidationError } from './shared.js';
+} from '../mission-dispatch.js';
+import { DomainValidationError } from '../shared.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const actorProfileId = '22222222-2222-4222-8222-222222222222';
@@ -241,6 +241,32 @@ describe('mission dispatch item commands', () => {
 		).toEqual({ kind: 'end' });
 	});
 
+	it('adds mission items from source flows and rejects ambiguous location intent', () => {
+		expect(
+			addMissionItemCommand({
+				organizationId,
+				actorProfileId,
+				missionItemId,
+				missionId,
+				locationSource: { kind: 'requestedControlAction', requestedControlActionId },
+			}).payload,
+		).toMatchObject({
+			locationSource: { kind: 'requestedControlAction', requestedControlActionId },
+			placement: { kind: 'end' },
+		});
+
+		expect(() =>
+			addMissionItemCommand({
+				organizationId,
+				actorProfileId,
+				missionItemId,
+				missionId,
+				geometry: pointGeometry,
+				locationSource: { kind: 'address', addressId },
+			}),
+		).toThrow(DomainValidationError);
+	});
+
 	it('builds item location/link patches and movement commands', () => {
 		expect(
 			updateMissionItemLocationAndLinkCommand({
@@ -319,6 +345,7 @@ describe('mission dispatch execution helpers', () => {
 			amountApplied: 1.5,
 			applicationUnitId: unitId,
 			applicationDate: '2026-05-12',
+			applicatorProfileId: actorProfileId,
 			geometry: polygonGeometry,
 			addressId,
 			requestedControlActionId,
@@ -361,6 +388,7 @@ describe('mission dispatch execution helpers', () => {
 			outreachMethodId: methodId,
 			reach: 10,
 			reachDescription: 'Door hangers',
+			technicianProfileId: actorProfileId,
 			context: { kind: 'larval', inspectionId },
 			completeMissionItem: false,
 		});
