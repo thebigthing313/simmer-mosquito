@@ -1,0 +1,180 @@
+name: Railway Deploy
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to deploy
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-target:
+    name: Resolve target
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.target.outputs.environment }}
+    steps:
+      - id: target
+        name: Resolve branch environment
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environment=${{ inputs.target }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "environment=production" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+  verify:
+    name: Verify workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  migrate:
+    name: Migrate database
+    needs:
+      - resolve-target
+      - verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ needs.resolve-target.outputs.environment }}
+    concurrency:
+      group: db-migrate-${{ needs.resolve-target.outputs.environment }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Require matching branch for manual staging
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'staging'
+        run: |
+          if [ "$GITHUB_REF_NAME" != "staging" ]; then
+            echo "Manual staging deploys must run from the staging branch."
+            exit 1
+          fi
+
+      - name: Require matching branch for manual production
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'production'
+        run: |
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "Manual production deploys must run from the main branch."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          pnpm exec dbmate \
+            --url "$DATABASE_URL" \
+            --migrations-dir packages/db/migrations \
+            --schema-file packages/db/schema.sql \
+            --no-dump-schema \
+            --wait \
+            up
+
+  deploy:
+    name: Deploy ${{ matrix.name }}
+    needs:
+      - resolve-target
+      - migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ needs.resolve-target.outputs.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: server
+            service_var: RAILWAY_SERVER_SERVICE
+          - name: web
+            service_var: RAILWAY_WEB_SERVICE
+          - name: worker
+            service_var: RAILWAY_WORKER_SERVICE
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli
+
+      - name: Deploy service
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT }}
+          RAILWAY_SERVER_SERVICE: ${{ vars.RAILWAY_SERVER_SERVICE }}
+          RAILWAY_WEB_SERVICE: ${{ vars.RAILWAY_WEB_SERVICE }}
+          RAILWAY_WORKER_SERVICE: ${{ vars.RAILWAY_WORKER_SERVICE }}
+          SERVICE_VAR: ${{ matrix.service_var }}
+        run: |
+          test -n "$RAILWAY_TOKEN"
+          test -n "$RAILWAY_PROJECT_ID"
+          test -n "$RAILWAY_ENVIRONMENT"
+          service_name="${!SERVICE_VAR}"
+          test -n "$service_name"
+          railway up \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment "$RAILWAY_ENVIRONMENT" \
+            --service "$service_name" \
+            --ci

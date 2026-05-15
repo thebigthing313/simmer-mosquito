@@ -1,0 +1,68 @@
+name: Seed Sync Baseline
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to seed
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      organization_id:
+        description: SIMMER organization UUID to seed. Leave blank for the fixed local smoke-test UUID.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    name: Seed baseline data
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.target }}
+
+    steps:
+      - name: Require staging branch for staging
+        if: inputs.target == 'staging'
+        run: |
+          if [ "$GITHUB_REF_NAME" != "staging" ]; then
+            echo "Staging seeds must run from the staging branch."
+            exit 1
+          fi
+
+      - name: Require main branch for production
+        if: inputs.target == 'production'
+        run: |
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "Production seeds must run from the main branch."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Seed baseline
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SIMMER_SYNC_BASELINE_ORGANIZATION_ID: ${{ inputs.organization_id }}
+        run: |
+          test -n "$DATABASE_URL"
+          pnpm --filter @simmer-mosquito/db seed:sync-baseline

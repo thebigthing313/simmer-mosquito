@@ -407,7 +407,6 @@ async function upsertOrganization(db: DbExecutor, organizationId: string): Promi
 		})
 		.onConflict((oc) =>
 			oc.column('id').doUpdateSet({
-				workos_organization_id: `org_sync_baseline_${orgSuffix}`,
 				name: 'Sync Baseline Mosquito District',
 				slug: `sync-baseline-${orgSuffix}`,
 				settings: {

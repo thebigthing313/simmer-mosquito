@@ -137,6 +137,12 @@ This plan tracks the near-term build order. Architecture decisions live in
   - pushes to `main` with migration-folder changes migrate the production DB
   - manual workflow dispatch can retry either environment from the matching
     branch
+- GitHub Actions now has an app deployment pipeline for Railway:
+  - pushes to `staging` verify, migrate, and deploy staging services
+  - pushes to `main` verify, migrate, and deploy production services
+  - server, web, and worker deploy as separate Railway services
+- A manual sync baseline seed workflow can bootstrap the read-only tracer demo
+  data for staging or production.
 - The flattened migrations have been applied successfully to both Railway
   staging and production PostGIS databases.
 - Adult surveillance domain command design has been grilled and recorded in
@@ -297,13 +303,18 @@ engagement, mission dispatch, and weather now have concrete domain command
 vocabularies and schema direction. Server endpoints, import flows, sync
 boundaries, and production UI remain to be built deliberately.
 
-Deployment now has a working database baseline:
+Deployment has a documented database and app-pipeline baseline for the clean
+Railway reset:
 
-- Railway environments exist for staging and production.
-- Both environments use PostGIS-capable PostgreSQL 16 services.
-- GitHub environment secrets provide the public database URLs for migration CI.
+- Railway environments should exist for staging and production.
+- Both environments should use PostGIS-capable PostgreSQL services.
+- GitHub environment secrets provide the public database URLs for migration CI
+  once the new Railway resources are created.
 - The DB migration workflow is intentionally migration-folder gated so app-only
   changes do not mutate database environments.
+- The Railway deployment workflow verifies the workspace, applies idempotent
+  dbmate migrations, and deploys server, web, and worker services for the
+  branch-mapped environment.
 
 Do not add a generic `sites` table yet. The old repo modeled concrete locatable
 domain entities (`traps`, `habitats`, addresses, route items) rather than a
@@ -402,7 +413,6 @@ Recommended follow-up slice:
 - Domain command package design is complete for the current schema groups.
 - Electric shape authorization.
 - TanStack DB optimistic mutations.
-- Railway app service deploy pipelines for server, worker, and web.
 - Generic `sites` abstraction.
 - Trap route runs and habitat route runs.
 - File/photo storage.

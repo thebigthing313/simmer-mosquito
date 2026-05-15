@@ -33,6 +33,9 @@ next slice.
 
 ## Railway Notes
 
+See [docs/deployment.md](docs/deployment.md) for the full local/staging/
+production setup and GitHub Actions pipeline.
+
 Create one Railway service per deployable app. For the server service, use:
 
 - Install command: `pnpm install --frozen-lockfile`
