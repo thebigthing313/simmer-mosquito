@@ -17,6 +17,7 @@
 		"@simmer-mosquito/auth": "workspace:*",
 		"@simmer-mosquito/config": "workspace:*",
 		"@simmer-mosquito/db": "workspace:*",
+		"@simmer-mosquito/sync": "workspace:*",
 		"hono": "^4.7.0"
 	}
 }

@@ -57,12 +57,21 @@ importers:
       '@simmer-mosquito/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@simmer-mosquito/sync':
+        specifier: workspace:*
+        version: link:../../packages/sync
       hono:
         specifier: ^4.7.0
         version: 4.12.18
 
   apps/web:
     dependencies:
+      '@simmer-mosquito/sync':
+        specifier: workspace:*
+        version: link:../../packages/sync
+      '@tanstack/db':
+        specifier: ^0.6.5
+        version: 0.6.5(typescript@6.0.3)
       '@tanstack/react-router':
         specifier: ^1.169.2
         version: 1.169.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -120,6 +129,15 @@ importers:
         version: 0.18.5(kysely@0.28.17)(pg@8.20.0)(typescript@6.0.3)
 
   packages/domain: {}
+
+  packages/sync:
+    dependencies:
+      '@tanstack/db':
+        specifier: ^0.6.5
+        version: 0.6.5(typescript@6.0.3)
+      '@tanstack/electric-db-collection':
+        specifier: 0.3.3
+        version: 0.3.3(typescript@6.0.3)
 
 packages:
 
@@ -758,6 +776,10 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@electric-sql/client@1.5.17':
+    resolution: {integrity: sha512-IZbLnbfyfCGryb1SzXXY9pYWvEud1XJ3vCb3tPTq1O5mLGwKDD6O7IPt2axJSGKd83VXd1D3jZ8BreBfBaL0ZA==}
+    hasBin: true
+
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
 
@@ -958,6 +980,9 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
+  '@microsoft/fetch-event-source@2.0.1':
+    resolution: {integrity: sha512-W6CLUJ2eBMw3Rec70qrsEW0jOm/3twwJv21mrmj2yORiaVmVYGS4sSS5yUwvQc1ZlDLYGPnClVWmUUMagKNsfA==}
+
   '@napi-rs/wasm-runtime@0.2.4':
     resolution: {integrity: sha512-9zESzOO5aDByvhIAsOy9TbpZ0Ur2AJbUI7UT73kcUTS2mxAMHOBaa1st/jAymNoCtvrit99kkzT1FZuXVcgfIQ==}
 
@@ -1141,6 +1166,11 @@ packages:
   '@rolldown/pluginutils@1.0.0-rc.7':
     resolution: {integrity: sha512-qujRfC8sFVInYSPPMLQByRh7zhwkGFS4+tyMQ83srV1qrxL4g8E2tyxVVyxd0+8QeBM1mIk9KbWxkegRr76XzA==}
 
+  '@rollup/rollup-darwin-arm64@4.60.4':
+    resolution: {integrity: sha512-tua0TaJxMOB1R0V0RS1jFZ/RpURFDJIOR2A6jWwQeawuFyS4gBW+rntLRaQd0EQ4bd6Vp44Z2rXW+YYDBsj6IA==}
+    cpu: [arm64]
+    os: [darwin]
+
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -1153,6 +1183,9 @@ packages:
     resolution: {integrity: sha512-gtCuAo4UtC9SR/kTMu5fVEff6qZ2R1FZi9X7MybtHKA6wve7RePifGG6qBI4OmMB+7juT5/+glNbnqZOrG0/pg==}
     peerDependencies:
       typescript: '>=4.7'
+
+  '@tanstack/electric-db-collection@0.3.3':
+    resolution: {integrity: sha512-ywx5s6kv/ZNDszl2GwnlvZPlimEBAUREo9cEN9oCN7SyO36/5andaAKgjWQYXiXDc6FamjQfE6N6WuUFb0Zg0Q==}
 
   '@tanstack/history@1.161.6':
     resolution: {integrity: sha512-NaOGLRrddszbQj9upGat6HG/4TKvXLvu+osAIgfxPYA+eIvYKv8GKDJOrY2D3/U9MRnKfMWD7bU4jeD4xmqyIg==}
@@ -3301,6 +3334,12 @@ snapshots:
   '@dbmate/win32-x64@2.33.0':
     optional: true
 
+  '@electric-sql/client@1.5.17':
+    dependencies:
+      '@microsoft/fetch-event-source': 2.0.1
+    optionalDependencies:
+      '@rollup/rollup-darwin-arm64': 4.60.4
+
   '@emnapi/core@1.10.0':
     dependencies:
       '@emnapi/wasi-threads': 1.2.1
@@ -3432,6 +3471,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@microsoft/fetch-event-source@2.0.1': {}
 
   '@napi-rs/wasm-runtime@0.2.4':
     dependencies:
@@ -3594,6 +3635,9 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.0-rc.7': {}
 
+  '@rollup/rollup-darwin-arm64@4.60.4':
+    optional: true
+
   '@standard-schema/spec@1.1.0': {}
 
   '@tanstack/db-ivm@0.1.18(typescript@6.0.3)':
@@ -3608,6 +3652,17 @@ snapshots:
       '@tanstack/db-ivm': 0.1.18(typescript@6.0.3)
       '@tanstack/pacer-lite': 0.2.2
       typescript: 6.0.3
+
+  '@tanstack/electric-db-collection@0.3.3(typescript@6.0.3)':
+    dependencies:
+      '@electric-sql/client': 1.5.17
+      '@standard-schema/spec': 1.1.0
+      '@tanstack/db': 0.6.5(typescript@6.0.3)
+      '@tanstack/store': 0.9.3
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
 
   '@tanstack/history@1.161.6': {}
 

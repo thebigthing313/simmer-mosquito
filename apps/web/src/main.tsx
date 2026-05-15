@@ -8,7 +8,7 @@ import {
 	useParams,
 	useSearch,
 } from '@tanstack/react-router';
-import { type FormEvent, StrictMode, useEffect, useState } from 'react';
+import { type FormEvent, StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AdminFoundationsPanel } from './AdminFoundations';
 import {
@@ -27,12 +27,15 @@ import {
 	type SimmerRole,
 } from './auth';
 import './styles.css';
+import { createWebCollections, preloadWebBaselineCollections } from './sync/collections';
+import { useCollectionRows } from './sync/useCollectionRows';
 
 interface RootSearch {
 	readonly auth?: 'organization_required';
 }
 
 const serverUrl = getServerUrl();
+const collections = createWebCollections({ serverUrl });
 
 const rootRoute = createRootRoute({
 	validateSearch: (search): RootSearch =>
@@ -550,6 +553,7 @@ function AuthenticatedPanel({ auth }: { readonly auth: AuthenticatedMe }) {
 	const organization = auth.localIdentity.organizationId ?? auth.workosOrganizationId ?? 'none';
 	const profile = auth.localIdentity.profileId ?? 'none';
 	const role = auth.localIdentity.role ?? 'none';
+	const baselinePreloadError = useBaselinePreload(organization);
 
 	return (
 		<Panel title="Signed in">
@@ -580,7 +584,274 @@ function AuthenticatedPanel({ auth }: { readonly auth: AuthenticatedMe }) {
 					Log out
 				</button>
 			</form>
+
+			{baselinePreloadError === null ? null : (
+				<Notice tone="danger" title="Sync unavailable" body={baselinePreloadError} />
+			)}
+
+			<ProfilesSyncPanel />
+			<LookupCatalogsSyncPanel />
+			<OrganizationSpeciesSyncPanel />
+			<TagsSyncPanel />
+			<RoutesSyncPanel />
+			<UnitsSyncPanel />
 		</Panel>
+	);
+}
+
+function useBaselinePreload(organization: string): string | null {
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (organization === 'none') {
+			return;
+		}
+
+		let cancelled = false;
+		setError(null);
+
+		preloadWebBaselineCollections(collections).catch((preloadError: unknown) => {
+			if (!cancelled) {
+				setError(
+					preloadError instanceof Error
+						? preloadError.message
+						: 'Unable to preload baseline sync collections.',
+				);
+			}
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [organization]);
+
+	return error;
+}
+
+function ProfilesSyncPanel() {
+	const { rows, status } = useCollectionRows(collections.profiles);
+
+	return (
+		<section className="sync-section">
+			<div className="section-heading">
+				<h3>Synced profiles</h3>
+				<span>{status}</span>
+			</div>
+			<div className="unit-grid">
+				{rows.map((profile) => (
+					<div className="unit-row" key={profile.id}>
+						<strong>{profile.displayName}</strong>
+						<span>{profile.isActive ? 'active' : 'inactive'}</span>
+						<small>{profile.id}</small>
+					</div>
+				))}
+			</div>
+		</section>
+	);
+}
+
+function LookupCatalogsSyncPanel() {
+	const { rows: collectionMethodRows, status: collectionMethodStatus } = useCollectionRows(
+		collections.collectionMethods,
+	);
+	const { rows: collectionLureRows, status: collectionLureStatus } = useCollectionRows(
+		collections.collectionLures,
+	);
+	const { rows: habitatTypeRows, status: habitatTypeStatus } = useCollectionRows(
+		collections.habitatTypes,
+	);
+
+	return (
+		<section className="sync-section">
+			<div className="section-heading">
+				<h3>Synced lookup catalogs</h3>
+				<span>
+					methods {collectionMethodStatus} / lures {collectionLureStatus} / habitats{' '}
+					{habitatTypeStatus}
+				</span>
+			</div>
+			<div className="lookup-catalog-grid">
+				<LookupCatalogList title="Collection methods" rows={collectionMethodRows} />
+				<LookupCatalogList title="Collection lures" rows={collectionLureRows} />
+				<LookupCatalogList title="Habitat types" rows={habitatTypeRows} />
+			</div>
+		</section>
+	);
+}
+
+function LookupCatalogList({
+	title,
+	rows,
+}: {
+	readonly title: string;
+	readonly rows: readonly {
+		readonly id: string;
+		readonly name: string;
+		readonly description: string | null;
+		readonly isActive: boolean;
+	}[];
+}) {
+	const sortedRows = [...rows].sort((left, right) => {
+		if (left.isActive !== right.isActive) {
+			return left.isActive ? -1 : 1;
+		}
+
+		return left.name.localeCompare(right.name);
+	});
+
+	return (
+		<div className="lookup-catalog">
+			<h4>{title}</h4>
+			<div className="unit-grid">
+				{sortedRows.map((row) => (
+					<div className="unit-row" key={row.id}>
+						<strong>{row.name}</strong>
+						<span>{row.isActive ? 'active' : 'inactive'}</span>
+						<small>{row.description ?? row.id}</small>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
+function OrganizationSpeciesSyncPanel() {
+	const { rows: generaRows, status: generaStatus } = useCollectionRows(collections.genera);
+	const { rows: speciesRows, status: speciesStatus } = useCollectionRows(collections.species);
+	const { rows: organizationSpeciesRows, status: organizationSpeciesStatus } = useCollectionRows(
+		collections.organizationSpecies,
+	);
+
+	const generaById = useMemo(() => {
+		const lookup = new Map<string, (typeof generaRows)[number]>();
+
+		for (const genus of generaRows) {
+			lookup.set(genus.id, genus);
+		}
+
+		return lookup;
+	}, [generaRows]);
+
+	const speciesById = useMemo(() => {
+		const lookup = new Map<string, (typeof speciesRows)[number]>();
+
+		for (const species of speciesRows) {
+			lookup.set(species.id, species);
+		}
+
+		return lookup;
+	}, [speciesRows]);
+
+	const selectedSpecies = useMemo(
+		() =>
+			organizationSpeciesRows
+				.map((organizationSpecies) => {
+					const species = speciesById.get(organizationSpecies.speciesId);
+					const genus = species?.genusId === null ? null : generaById.get(species?.genusId ?? '');
+					const fallbackLabel = species?.displayName ?? organizationSpecies.speciesId;
+					const scientificLabel =
+						species === undefined
+							? organizationSpecies.speciesId
+							: species.genusId === null
+								? species.epithet
+								: `${genus?.name ?? 'Unknown genus'} ${species.epithet}`;
+
+					return {
+						id: organizationSpecies.id,
+						label: fallbackLabel,
+						scientificLabel,
+					};
+				})
+				.sort((left, right) => left.label.localeCompare(right.label)),
+		[generaById, organizationSpeciesRows, speciesById],
+	);
+
+	return (
+		<section className="sync-section">
+			<div className="section-heading">
+				<h3>Synced organization species</h3>
+				<span>
+					{organizationSpeciesStatus} / species {speciesStatus} / genera {generaStatus}
+				</span>
+			</div>
+			<div className="unit-grid">
+				{selectedSpecies.map((species) => (
+					<div className="unit-row" key={species.id}>
+						<strong>{species.label}</strong>
+						<span>selected</span>
+						<small>{species.scientificLabel}</small>
+					</div>
+				))}
+			</div>
+		</section>
+	);
+}
+
+function TagsSyncPanel() {
+	const { rows, status } = useCollectionRows(collections.tags);
+
+	return (
+		<section className="sync-section">
+			<div className="section-heading">
+				<h3>Synced tags</h3>
+				<span>{status}</span>
+			</div>
+			<div className="unit-grid">
+				{rows.map((tag) => (
+					<div className="unit-row" key={tag.id}>
+						<strong>{tag.tagName}</strong>
+						<span>{tag.isActive ? 'active' : 'inactive'}</span>
+						<small>{tag.color ?? 'no color'}</small>
+					</div>
+				))}
+			</div>
+		</section>
+	);
+}
+
+function RoutesSyncPanel() {
+	const { rows, status } = useCollectionRows(collections.routes);
+
+	return (
+		<section className="sync-section">
+			<div className="section-heading">
+				<h3>Synced route headers</h3>
+				<span>{status}</span>
+			</div>
+			<div className="unit-grid">
+				{rows.map((route) => (
+					<div className="unit-row" key={route.id}>
+						<strong>{route.routeName}</strong>
+						<span>{route.routeType}</span>
+						<small>{route.id}</small>
+					</div>
+				))}
+			</div>
+		</section>
+	);
+}
+
+function UnitsSyncPanel() {
+	const { rows, status } = useCollectionRows(collections.units);
+
+	return (
+		<section className="sync-section">
+			<div className="section-heading">
+				<h3>Synced units</h3>
+				<span>{status}</span>
+			</div>
+			<div className="unit-grid">
+				{rows.map((unit) => (
+					<div className="unit-row" key={unit.id}>
+						<strong>{unit.unitName}</strong>
+						<span>{unit.abbreviation}</span>
+						<small>
+							{unit.unitType} / {unit.unitSystem}
+						</small>
+					</div>
+				))}
+			</div>
+		</section>
 	);
 }
 

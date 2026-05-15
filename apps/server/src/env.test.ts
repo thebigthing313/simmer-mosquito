@@ -19,4 +19,14 @@ describe('readServerEnv', () => {
 			}).appOrigin,
 		).toBe('http://localhost:5173');
 	});
+
+	it('keeps ELECTRIC_URL optional for non-sync test/dev commands', () => {
+		expect(readServerEnv(baseEnv).electricUrl).toBeNull();
+		expect(
+			readServerEnv({
+				...baseEnv,
+				ELECTRIC_URL: 'http://localhost:3001/v1/shape',
+			}).electricUrl,
+		).toBe('http://localhost:3001/v1/shape');
+	});
 });

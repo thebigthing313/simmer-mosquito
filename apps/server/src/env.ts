@@ -8,6 +8,7 @@ import {
 export interface ServerEnv {
 	readonly appOrigin: string;
 	readonly databaseUrl: string;
+	readonly electricUrl: string | null;
 	readonly host: string;
 	readonly nodeEnv: 'development' | 'production' | 'test';
 	readonly port: number;
@@ -24,6 +25,7 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 	return {
 		appOrigin: readRequiredOrigin(source, 'APP_ORIGIN'),
 		databaseUrl: readRequiredString(source, 'DATABASE_URL'),
+		electricUrl: readOptionalUrl(source, 'ELECTRIC_URL'),
 		host: base.host,
 		nodeEnv: base.nodeEnv,
 		port: base.port,
@@ -33,6 +35,19 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		workosCookiePassword: readRequiredString(source, 'WORKOS_COOKIE_PASSWORD'),
 		workosRedirectUri: readRequiredUrl(source, 'WORKOS_REDIRECT_URI'),
 	};
+}
+
+function readOptionalUrl(source: NodeJS.ProcessEnv, key: string): string | null {
+	const value = readOptionalString(source, key);
+	if (value === undefined) {
+		return null;
+	}
+
+	try {
+		return new URL(value).toString();
+	} catch {
+		throw new Error(`${key} must be a valid URL. Received: ${value}`);
+	}
 }
 
 function parseEmailAllowlist(value: string | undefined): readonly string[] {

@@ -398,6 +398,16 @@ export interface UnitsTable {
 	created_at: TimestampWithDefault;
 }
 
+export interface SafeUnit {
+	readonly id: string;
+	readonly code: string;
+	readonly unitName: string;
+	readonly abbreviation: string;
+	readonly unitType: UnitType;
+	readonly unitSystem: UnitSystem;
+	readonly createdAt: string;
+}
+
 export interface ApplicationMethodsTable {
 	id: Generated<string>;
 	organization_id: string;
@@ -1756,6 +1766,25 @@ export async function listSpecies(db: DbExecutor): Promise<SafeSpecies[]> {
 		.execute();
 
 	return rows.map(toSafeSpecies);
+}
+
+export async function listUnits(db: DbExecutor): Promise<SafeUnit[]> {
+	const rows = await db
+		.selectFrom('units')
+		.select(['id', 'code', 'unit_name', 'abbreviation', 'unit_type', 'unit_system', 'created_at'])
+		.orderBy('unit_type', 'asc')
+		.orderBy('unit_name', 'asc')
+		.execute();
+
+	return rows.map((row) => ({
+		id: row.id,
+		code: row.code,
+		unitName: row.unit_name,
+		abbreviation: row.abbreviation,
+		unitType: row.unit_type,
+		unitSystem: row.unit_system,
+		createdAt: row.created_at.toISOString(),
+	}));
 }
 
 export async function enableOrganizationSpecies(

@@ -30,6 +30,7 @@ import {
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
 import { readServerEnv } from './env.js';
+import { registerSyncShapeRoutes } from './sync-shapes.js';
 
 const env = readServerEnv();
 const auth = createWorkOsAuth({
@@ -76,6 +77,15 @@ app.use(
 		origin: env.appOrigin,
 		credentials: true,
 		allowMethods: ['GET', 'POST', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/sync/*',
+	cors({
+		origin: env.appOrigin,
+		credentials: true,
+		allowMethods: ['GET', 'OPTIONS'],
 	}),
 );
 
@@ -269,6 +279,11 @@ app.post(
 registerAdminFoundationRoutes(app, {
 	db,
 	operatorAuthContextMiddleware,
+});
+
+registerSyncShapeRoutes(app, {
+	electricUrl: env.electricUrl,
+	authContextMiddleware,
 });
 
 if (env.nodeEnv !== 'production') {

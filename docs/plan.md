@@ -312,80 +312,88 @@ the abstraction is worth it.
 
 ## Recommended Next Slice
 
-Build the server-authorized command spine using adult surveillance as the first
-tracer bullet.
+Build the read-only web sync tracer using ElectricSQL and TanStack DB.
 
-Suggested scope:
+This tracer proves the normal read path before adding optimistic command
+mutations. It should establish the shared sync descriptor package, server
+authorized Electric shape proxy, web collection registry, and org baseline
+preload for eager collections. The table-level policy is captured in
+`docs/sync.md`.
 
-- Apply and verify the domain schema update migrations locally, including the
-  public engagement and mission dispatch catch-up migration.
-- Add a small reusable command endpoint pattern in `apps/server`:
-  - AuthContext resolution for command requests
-  - domain command payload validation
-  - consistent command error responses
-  - transaction wrapper and audit profile plumbing
-  - same-organization reference checks
-- Add Kysely helpers for adult surveillance:
-  - collection species count create/update/delete
-  - collection zero-result and bycatch updates
-  - pending collection cancellation
-  - collection soft-delete cascades
-  - trap retire/reactivate/delete lifecycle
-- Add Hono command endpoints behind `AuthContext` for the hardened
-  `adultSurveillance.*` command vocabulary.
-- Enforce same-organization consistency in the server layer for trap,
-  collection method, lure, address, profile, species, unit, and spatial feature
-  references.
-- Enforce adult surveillance permission rules:
-  - trap management is manager-and-above
-  - collection method/lure management is owner/admin
-  - collection workflow is collector-and-above
-  - collectors can only act on behalf of themselves
-  - manager-and-above can backfill on behalf of another profile
-- Enforce workflow invariants:
-  - trap/ad hoc adult collection features are points
-  - pending trap collections block duplicate pending sets
-  - species counts require collected records
-  - zero result is mutually exclusive with active species rows
-  - bycatch can coexist with zero result or species rows
-  - collector edits are limited to their own records within 30 days of
-    collection
-- Keep larval command handling out of this first tracer bullet, but design the
-  command spine so larval can reuse the same AuthContext, transaction, command
-  error, audit, and reference-validation patterns next.
-- Keep the existing admin foundation UI as a smoke-test surface, but avoid
-  expanding it into the product workflow.
-- Add integration tests around the command handlers using a migrated PostGIS
-  test database.
-- Use `docs/organization-settings-domain.md` as the source of truth for
-  resolving organization settings in command handlers. Larval handlers should
-  load current settings from Postgres, resolve them server-side, and revalidate
-  queued command intent before writing.
+Vertical slices:
+
+1. Seed baseline sync data.
+   - Status: implemented for repeatable local/dev baseline fixture data.
+   - Create a repeatable `packages/db` seed script for local/dev sync tracer
+     data.
+   - Cover one selected organization, profiles, units, global taxonomy,
+     organization species, collection methods, collection lures, habitat types,
+     tags, and routes.
+   - Include inactive non-deleted lookup rows where historical display matters.
+
+2. Sync units end to end.
+   - Status: implemented as the first authenticated Electric/TanStack DB read
+     path.
+   - Add the thinnest full read path for global `units`.
+   - Include a shared sync descriptor, server-authorized Electric proxy, web
+     collection instance, and live-query rendering.
+
+3. Sync selected-organization profiles.
+   - Status: implemented with an authenticated server-scoped Electric proxy and
+     web-owned TanStack DB collection.
+   - Add selected-organization shape scoping.
+   - Sync broad profile label fields for all roles.
+
+4. Sync taxonomy and organization species.
+   - Status: implemented with global taxonomy shapes and selected-organization
+     `organization_species` scoping.
+   - Add `genera`, `species`, and `organization_species`.
+   - Prove a live query can combine organization species with global species
+     labels.
+
+5. Sync foundation lookup catalogs.
+   - Status: implemented for selected-organization lookup catalog shapes.
+   - Add `collection_methods`, `collection_lures`, and `habitat_types`.
+   - Include inactive non-deleted rows for historical display.
+
+6. Sync tags and route headers.
+   - Status: implemented for selected-organization `tags` and `routes`;
+     `route_items` remains out of scope.
+   - Add eager selected-organization `tags` and `routes`.
+   - Do not sync `route_items` in this tracer.
+
+7. Wire org baseline preload.
+   - Status: implemented with an explicit web eager-baseline preload bundle.
+   - Create the web collection registry and org baseline preload bundle.
+   - Preload eager collections with `collection.preload()`.
+   - Do not call raw collection preload for future on-demand collections.
+
+8. Document and guard the read-only tracer boundary.
+   - Status: implemented with sync docs and a package-level read-only tracer
+     guard.
+   - Update docs with what shipped.
+   - Keep TanStack DB optimistic mutations and Electric txid write confirmation
+     deferred to the next tracer.
 
 Acceptance criteria:
 
-- An agency manager can create, update, retire, reactivate, and delete traps
-  through command endpoints.
-- An agency collector can set and collect trap/ad hoc collections through
-  command endpoints.
-- An agency collector can enter and correct their own species count analysis
-  inside the 30-day window.
-- Cross-org IDs and disabled/inactive references are rejected by the command
-  layer.
-- Adult surveillance timing modes, zero-result, and bycatch behavior are
-  enforced server-side.
-- The command handler pattern is documented enough that the larval surveillance
-  endpoints can follow it without a second architecture debate.
-- The workflow runs locally and against the migrated staging database.
+- Local/dev data can be seeded repeatably for the baseline sync tables.
+- Local Electric smoke tests follow the port, offset, shape-cache, and
+  multi-organization seed notes in `docs/sync.md`.
+- Web can render synced data from TanStack DB collections through Electric,
+  without bespoke REST list reads for the tracer tables.
+- Selected-organization scoping is enforced by the server-authorized shape
+  path.
+- Eager baseline collections preload after auth/organization context is known.
+- Mutations remain explicitly out of scope for this tracer.
 
 Recommended follow-up slice:
 
-- Build server-authorized larval surveillance command handling using the adult
-  command spine.
-- Start with habitat catalog and inspection commands before sample analysis and
-  merge/delete edge cases.
-- Add integration tests for density policy resolution, ad hoc inspection
-  behavior, sample creation constraints, and `has_non_mosquito` persistence.
+- Add command-backed TanStack DB mutations for one eager collection, including
+  optimistic state and Electric transaction-id confirmation. Mutation endpoints
+  must commit through server-authorized domain commands and return the Electric
+  txid from the same Postgres transaction.
+- Expand on-demand read patterns for the first real workflow screen.
 
 ## Deferred
 

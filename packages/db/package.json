@@ -14,6 +14,7 @@
 	"scripts": {
 		"build": "tsc -b",
 		"build:ts7": "tsgo -b",
+		"seed:sync-baseline": "tsx src/seed-sync-baseline.ts",
 		"test": "vitest run --passWithNoTests",
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
 		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"

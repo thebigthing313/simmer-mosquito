@@ -63,6 +63,12 @@ All agency roles use the web app for the workflows their role permits.
 ElectricSQL, SecureStore-backed auth, and later local persistence/offline
 transactions.
 
+Mobile offline support is automatic and scoped, not a manual global switch. The
+field app should persist the field-critical baseline for the selected
+organization after sign-in, then persist additional work-scoped data as users
+load or receive it. It should not attempt to persist the entire organization
+database.
+
 `apps/server` is the Hono control plane. It owns WorkOS callbacks, web session
 cookies, reusable AuthContext resolution, SIMMER operator agency administration,
 future mobile session exchange, Electric shape authorization, command endpoints,
@@ -127,7 +133,8 @@ to compute from synced client collections.
 Web collection loading uses a hybrid sync policy:
 
 - **Eager** for small, role-visible baseline tables that should be ready after
-  organization selection.
+  organization selection. Use eager only when the product is comfortable
+  baselining the entire selected-organization rowset for the table.
 - **On-demand** for large or workflow-specific tables that should load from the
   active screen's live query predicates.
 - **Progressive** only when a screen needs fast first paint for a subset and a
@@ -137,6 +144,8 @@ Web collection loading uses a hybrid sync policy:
 The sync mode is chosen per collection or feature slice from expected row count,
 workflow criticality, and whether most users will inspect most rows in a normal
 session.
+
+The table-level web and mobile sync matrix lives in `docs/sync.md`.
 
 Web writes go through domain commands and TanStack DB optimistic mutations:
 

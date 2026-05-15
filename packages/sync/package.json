@@ -1,0 +1,23 @@
+{
+	"name": "@simmer-mosquito/sync",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"main": "./dist/index.js",
+	"scripts": {
+		"build": "tsc -b",
+		"test": "vitest run src --passWithNoTests",
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+	},
+	"dependencies": {
+		"@tanstack/db": "^0.6.5",
+		"@tanstack/electric-db-collection": "0.3.3"
+	},
+	"types": "./dist/index.d.ts"
+}
