@@ -15,8 +15,18 @@ The deployed Railway shape is one project with separate `staging` and
 - `web`;
 - `worker`.
 
-Use Railway's Postgres template for the database. Use an image-based service for
-ElectricSQL with the `electricsql/electric:latest` image.
+Use a PostGIS-capable PostgreSQL service for the database. Use an image-based
+service for ElectricSQL with the `electricsql/electric:latest` image.
+
+The current deployed domains are:
+
+| Environment | Web | Server |
+| --- | --- | --- |
+| Production | `https://app.simmer-data.com` | `https://api.simmer-data.com` |
+| Staging | `https://staging.simmer-data.com` | `https://api-staging.simmer-data.com` |
+
+Electric stays private on Railway internal networking. Browsers call the Hono
+server, and the server proxies authorized shape requests to Electric.
 
 ## Local Development
 
@@ -50,8 +60,9 @@ Create GitHub environments named `staging` and `production`.
 
 Each environment needs these secrets:
 
-- `DATABASE_URL`: public Railway Postgres URL for that environment. This is
-  used by dbmate migrations and seed workflow runs.
+- `DATABASE_URL`: public Railway Postgres URL for that environment, with
+  `sslmode=disable` when using the current PostGIS image. This is used by
+  dbmate migrations and seed workflow runs.
 - `RAILWAY_TOKEN`: Railway token allowed to deploy the project.
 
 Each environment needs these variables:
@@ -97,8 +108,8 @@ Set these on the Railway server service in each environment:
 
 ```sh
 APP_ORIGIN=https://<web-domain>
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-ELECTRIC_URL=https://<electric-domain>/v1/shape
+DATABASE_URL=${{postgis.DATABASE_URL}}
+ELECTRIC_URL=http://electric.railway.internal:3000/v1/shape
 HOST=0.0.0.0
 NODE_ENV=production
 SIMMER_OPERATOR_EMAILS=<operator-email-list>
@@ -124,12 +135,33 @@ NODE_ENV=production
 Set these on the Railway Electric service:
 
 ```sh
-DATABASE_URL=${{Postgres.DATABASE_URL}}
+DATABASE_URL=${{postgis.DATABASE_URL}}
 ELECTRIC_INSECURE=true
 ```
 
-Expose the Electric service with a Railway domain and use its `/v1/shape` URL
-as the server service `ELECTRIC_URL`.
+Do not expose Electric publicly for the current web deployment. The server uses
+Railway private DNS:
+
+```sh
+http://electric.railway.internal:3000/v1/shape
+```
+
+The PostGIS service must have logical replication enabled for Electric. In
+DBeaver or another SQL client, run:
+
+```sql
+alter system set wal_level = 'logical';
+alter system set max_replication_slots = 10;
+alter system set max_wal_senders = 10;
+```
+
+Restart the PostGIS service, then verify:
+
+```sql
+show wal_level;
+show max_replication_slots;
+show max_wal_senders;
+```
 
 ## WorkOS
 
@@ -137,6 +169,13 @@ For each deployed environment, add the server callback URL to WorkOS:
 
 ```text
 https://<server-domain>/auth/callback
+```
+
+Current callbacks:
+
+```text
+https://api.simmer-data.com/auth/callback
+https://api-staging.simmer-data.com/auth/callback
 ```
 
 The server `APP_ORIGIN` must match the web origin so authenticated browser
@@ -153,19 +192,54 @@ The Railway deploy workflow verifies the workspace, applies dbmate migrations,
 then deploys server, web, and worker services. The separate DB migration
 workflow remains available for targeted migration retries.
 
+GitHub staging environment values:
+
+```sh
+RAILWAY_ENVIRONMENT=staging
+RAILWAY_SERVER_SERVICE=server
+RAILWAY_WEB_SERVICE=web
+RAILWAY_WORKER_SERVICE=worker
+```
+
+GitHub production environment values:
+
+```sh
+RAILWAY_ENVIRONMENT=production
+RAILWAY_SERVER_SERVICE=server
+RAILWAY_WEB_SERVICE=web
+RAILWAY_WORKER_SERVICE=worker
+```
+
 ## Demo Bootstrap
 
 For a fresh Railway environment:
 
-1. Push to `staging` and wait for the Railway deploy workflow to complete.
-2. Open the staging web URL and sign in through WorkOS.
-3. If the signed-in page shows an organization id, run the
-   `Seed Sync Baseline` workflow against `staging` with that SIMMER
-   organization id.
-4. Refresh the web page. The signed-in demo panels should show synced profiles,
-   lookup catalogs, taxonomy, tags, routes, and units.
-5. Merge or fast-forward `staging` to `main` and repeat the same sequence for
+1. Enable WAL/logical replication on the PostGIS service and restart it.
+2. Push to `staging` or run the migration workflow manually from the `staging`
+   branch with target `staging`.
+3. Wait for the Railway deploy workflow to complete.
+4. Open the staging web URL and sign in through WorkOS.
+5. Insert and commit a row into `public.units`.
+6. The signed-in demo page should render the unit without a manual browser
+   refresh.
+7. Merge or fast-forward `staging` to `main` and repeat the same sequence for
    production.
 
 The seed workflow is idempotent for the same organization id and preserves an
 existing WorkOS organization link when seeding a real signed-in organization.
+Manual data insertion is also valid for smoke testing as long as the DB client
+commits the transaction. DBeaver can show generated UUIDs for uncommitted rows;
+refreshing the connection rolls those rows back unless Auto-commit is enabled
+or the transaction is explicitly committed.
+
+## Verified Baseline
+
+As of 2026-05-16, production and staging have both been smoke tested:
+
+- custom web and API domains resolve;
+- WorkOS login redirects through the API domain and returns to the web domain;
+- GitHub workflows run against the branch-mapped environment;
+- fresh staging database migrations apply from the `staging` branch;
+- Electric connects to private PostGIS and serves server-proxied shapes;
+- committed `public.units` rows render live on the signed-in web page without a
+  manual refresh.

@@ -132,6 +132,23 @@ handlers that commit to Postgres and return the matching
   WorkOS session because app shape routes are intentionally protected by the
   selected-organization auth context.
 
+## Deployed Electric Notes
+
+- Deployed web clients do not call Electric directly. They call the server's
+  authenticated `/sync/shapes/*` routes, and the server proxies to Electric over
+  Railway private networking.
+- Railway `ELECTRIC_URL` for the server should include the full shape endpoint:
+  `http://electric.railway.internal:3000/v1/shape`.
+- Electric requires Postgres logical replication. For the current PostGIS
+  Railway service, enable `wal_level = logical`, `max_replication_slots = 10`,
+  and `max_wal_senders = 10`, then restart Postgres and Electric.
+- DB clients must commit writes before Electric can stream them. In DBeaver,
+  either enable Auto-commit or explicitly commit after inserts/updates; otherwise
+  rows may appear locally, then disappear when the connection refreshes.
+- Production and staging were smoke tested on 2026-05-16 by inserting committed
+  `public.units` rows and observing them render live in the signed-in web tracer
+  without a manual page refresh.
+
 ## Mobile Matrix
 
 Mobile offline persistence is automatic and scoped. The field app persists

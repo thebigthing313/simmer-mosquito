@@ -145,6 +145,12 @@ This plan tracks the near-term build order. Architecture decisions live in
   data for staging or production.
 - The flattened migrations have been applied successfully to both Railway
   staging and production PostGIS databases.
+- Production and staging deployment smoke tests have passed:
+  - custom web/API domains resolve for both environments
+  - WorkOS login succeeds through the API callback and web origin
+  - Electric uses private Railway networking behind the server shape proxy
+  - committed `public.units` rows render live in the TanStack DB tracer without
+    a manual page refresh
 - Adult surveillance domain command design has been grilled and recorded in
   `docs/adult-surveillance-domain.md`.
 - `packages/domain` now exposes the hardened adult surveillance command
@@ -303,18 +309,20 @@ engagement, mission dispatch, and weather now have concrete domain command
 vocabularies and schema direction. Server endpoints, import flows, sync
 boundaries, and production UI remain to be built deliberately.
 
-Deployment has a documented database and app-pipeline baseline for the clean
+Deployment has a working database and app-pipeline baseline for the clean
 Railway reset:
 
-- Railway environments should exist for staging and production.
-- Both environments should use PostGIS-capable PostgreSQL services.
-- GitHub environment secrets provide the public database URLs for migration CI
-  once the new Railway resources are created.
+- Railway environments exist for staging and production.
+- Both environments use PostGIS-capable PostgreSQL services with WAL/logical
+  replication enabled for Electric.
+- GitHub environment secrets provide the public database URLs for migration CI.
 - The DB migration workflow is intentionally migration-folder gated so app-only
   changes do not mutate database environments.
 - The Railway deployment workflow verifies the workspace, applies idempotent
   dbmate migrations, and deploys server, web, and worker services for the
   branch-mapped environment.
+- The signed-in web tracer has proven the deployed read path:
+  `Postgres -> Electric -> server-authorized shape proxy -> TanStack DB -> UI`.
 
 Do not add a generic `sites` table yet. The old repo modeled concrete locatable
 domain entities (`traps`, `habitats`, addresses, route items) rather than a
