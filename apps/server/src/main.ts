@@ -9,8 +9,6 @@ import {
 	resolveActiveLocalAuthIdentity,
 	type SafeOrganization,
 	type SafeOrganizationMembership,
-	type SimmerRole,
-	stageOrganizationInvitation,
 	upsertOperatorOrganization,
 	upsertWorkOsIdentity,
 } from '@simmer-mosquito/db';
@@ -18,6 +16,7 @@ import { Hono } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { registerAdminFoundationRoutes } from './admin-foundations.js';
+import { registerAdminInvitationRoutes } from './admin-invitations.js';
 import {
 	resolveAuthContext,
 	toAuthFailureBody,
@@ -216,65 +215,11 @@ app.get(
 	},
 );
 
-app.post(
-	'/admin/organizations/:organizationId/invitations',
+registerAdminInvitationRoutes(app, {
+	db,
+	auth,
 	operatorAuthContextMiddleware,
-	async (context) => {
-		const operatorContext = context.get('operatorContext');
-
-		const payloadResult = await readInvitePayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json(
-				{
-					error: 'invalid_payload',
-					reason: payloadResult.reason,
-				},
-				400,
-			);
-		}
-
-		const organizationId = context.req.param('organizationId');
-		const organization = await getOperatorOrganization(db, organizationId);
-		if (organization === null) {
-			return context.json({ error: 'organization_not_found' }, 404);
-		}
-
-		if (organization.workosOrganizationId === null) {
-			return context.json({ error: 'workos_organization_required' }, 409);
-		}
-
-		const invitation = await auth.sendOrganizationInvitation({
-			email: payloadResult.payload.email,
-			workosOrganizationId: organization.workosOrganizationId,
-			inviterWorkosUserId: operatorContext.workosUser.workosUserId,
-		});
-
-		const membership = await stageOrganizationInvitation(db, {
-			organizationId,
-			email: invitation.email,
-			displayName: payloadResult.payload.displayName,
-			role: payloadResult.payload.role,
-			workosInvitationId: invitation.id,
-		});
-
-		return context.json(
-			{
-				invitation: {
-					id: invitation.id,
-					email: invitation.email,
-					state: invitation.state,
-					organizationId: invitation.organizationId,
-					acceptedUserId: invitation.acceptedUserId,
-					expiresAt: invitation.expiresAt,
-					createdAt: invitation.createdAt,
-					updatedAt: invitation.updatedAt,
-				},
-				membership: toAdminMembershipResponse(membership),
-			},
-			201,
-		);
-	},
-);
+});
 
 registerAdminFoundationRoutes(app, {
 	db,
@@ -363,26 +308,10 @@ interface CreateOrganizationPayload {
 	readonly linkRequesterAsOwner: boolean;
 }
 
-interface InvitePayload {
-	readonly email: string;
-	readonly role: SimmerRole;
-	readonly displayName: string | null;
-}
-
 type PayloadResult =
 	| {
 			readonly ok: true;
 			readonly payload: CreateOrganizationPayload;
-	  }
-	| {
-			readonly ok: false;
-			readonly reason: string;
-	  };
-
-type InvitePayloadResult =
-	| {
-			readonly ok: true;
-			readonly payload: InvitePayload;
 	  }
 	| {
 			readonly ok: false;
@@ -457,72 +386,12 @@ async function readCreateOrganizationPayload(request: {
 	};
 }
 
-async function readInvitePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<InvitePayloadResult> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return {
-			ok: false,
-			reason: 'Request body must be JSON.',
-		};
-	}
-
-	if (!isRecord(raw)) {
-		return {
-			ok: false,
-			reason: 'Request body must be an object.',
-		};
-	}
-
-	const email = readRequiredText(raw.email);
-	if (email === null || !email.includes('@')) {
-		return {
-			ok: false,
-			reason: 'email is required.',
-		};
-	}
-
-	const role = readRole(raw.role);
-	if (role === null) {
-		return {
-			ok: false,
-			reason: 'role must be owner, admin, manager, collector, or viewer.',
-		};
-	}
-
-	return {
-		ok: true,
-		payload: {
-			email,
-			role,
-			displayName: readOptionalText(raw.displayName),
-		},
-	};
-}
-
 function readSubscriptionStatus(value: unknown): OrganizationSubscriptionStatus | null {
 	if (value === undefined || value === null || value === '') {
 		return 'trial';
 	}
 
 	if (value === 'trial' || value === 'active' || value === 'suspended' || value === 'canceled') {
-		return value;
-	}
-
-	return null;
-}
-
-function readRole(value: unknown): SimmerRole | null {
-	if (
-		value === 'owner' ||
-		value === 'admin' ||
-		value === 'manager' ||
-		value === 'collector' ||
-		value === 'viewer'
-	) {
 		return value;
 	}
 

@@ -27,6 +27,14 @@ Model identity with four tables:
 
 Domain records reference profiles for provenance and audit.
 
+Invitations support two profile paths:
+
+- create a new org-scoped profile and invited membership for a person who has
+  not yet been represented in SIMMER
+- attach an invited membership to an existing login-less profile by `profileId`
+  so imported or historical records keep pointing at the same profile after the
+  person accepts access
+
 ## Consequences
 
 - A user can belong to multiple agencies.
@@ -38,3 +46,6 @@ Domain records reference profiles for provenance and audit.
 - Operator-managed invitations can create org-scoped profiles and invited
   memberships before login. The lazy login path activates the invited membership
   and preserves its SIMMER role.
+- Operator-managed invitations can also target an existing login-less profile.
+  The lazy login path links the WorkOS user to that profile, activates the
+  invited membership, and preserves historical attribution.

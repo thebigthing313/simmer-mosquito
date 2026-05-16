@@ -24,6 +24,33 @@ pnpm dev:worker
 pnpm graph
 ```
 
+## Testing
+
+Fast package tests run with each package's `pnpm test` script. Postgres-backed
+DB integration tests are opt-in so normal local and CI runs do not accidentally
+touch a developer database.
+
+To run DB integration tests locally, start the PostGIS service and provide an
+explicit test database URL:
+
+```sh
+docker-compose up -d postgres
+TEST_DATABASE_URL=postgres://postgres:postgres@localhost:55432/simmer_mosquito pnpm --filter @simmer-mosquito/db test
+```
+
+On Windows PowerShell:
+
+```powershell
+docker-compose up -d postgres
+$env:TEST_DATABASE_URL='postgres://postgres:postgres@localhost:55432/simmer_mosquito'
+pnpm --filter @simmer-mosquito/db test
+```
+
+`packages/db/src/test-support/db-integration.ts` creates an isolated schema,
+applies every migration's `migrate:up` SQL into that schema, runs the test, and
+drops the schema afterward. Tests using that helper are skipped unless
+`SIMMER_TEST_DATABASE_URL` or `TEST_DATABASE_URL` is set.
+
 ## Architecture
 
 See [docs/architecture.md](docs/architecture.md) for the current system shape

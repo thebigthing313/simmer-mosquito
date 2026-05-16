@@ -1187,10 +1187,27 @@ export interface UpsertOperatorOrganizationInput extends OrganizationSubscriptio
 
 export interface StageOrganizationInvitationInput {
 	readonly organizationId: string;
+	readonly profileId?: string;
 	readonly email: string;
 	readonly displayName: string | null;
 	readonly role: SimmerRole;
 	readonly workosInvitationId: string;
+}
+
+export type StageOrganizationInvitationErrorCode =
+	| 'profile_not_found'
+	| 'profile_already_linked'
+	| 'profile_deleted'
+	| 'invited_email_already_used';
+
+export class StageOrganizationInvitationError extends Error {
+	readonly code: StageOrganizationInvitationErrorCode;
+
+	constructor(code: StageOrganizationInvitationErrorCode) {
+		super(code);
+		this.name = 'StageOrganizationInvitationError';
+		this.code = code;
+	}
 }
 
 export interface SpatialFeatureInfo {
@@ -1444,6 +1461,12 @@ interface MembershipProvisioningCandidate {
 	readonly role: SimmerRole;
 }
 
+interface InviteProfileCandidate {
+	readonly id: string;
+	readonly userId: string | null;
+	readonly deletedAt: Date | null;
+}
+
 export function resolveMembershipProvisioning(input: {
 	readonly existingMembership: MembershipProvisioningCandidate | null;
 	readonly invitedMembership: MembershipProvisioningCandidate | null;
@@ -1487,6 +1510,72 @@ export function resolveMembershipProvisioning(input: {
 		role: isFirstMembership ? 'owner' : 'viewer',
 		isDefault: isFirstMembership,
 	};
+}
+
+export function validateExistingProfileInvitationTarget(
+	profile: InviteProfileCandidate | null,
+): StageOrganizationInvitationErrorCode | null {
+	if (profile === null) {
+		return 'profile_not_found';
+	}
+
+	if (profile.userId !== null) {
+		return 'profile_already_linked';
+	}
+
+	if (profile.deletedAt !== null) {
+		return 'profile_deleted';
+	}
+
+	return null;
+}
+
+export async function assertOrganizationProfileCanBeInvited(
+	db: Kysely<SimmerDatabase>,
+	input: {
+		readonly organizationId: string;
+		readonly profileId: string;
+		readonly email?: string;
+	},
+): Promise<void> {
+	const profile = await db
+		.selectFrom('profiles')
+		.select(['id', 'user_id', 'deleted_at'])
+		.where('id', '=', input.profileId)
+		.where('organization_id', '=', input.organizationId)
+		.executeTakeFirst();
+
+	const issue = validateExistingProfileInvitationTarget(
+		profile === undefined
+			? null
+			: {
+					id: profile.id,
+					userId: profile.user_id,
+					deletedAt: profile.deleted_at,
+				},
+	);
+	if (issue !== null) {
+		throw new StageOrganizationInvitationError(issue);
+	}
+
+	if (input.email !== undefined) {
+		const normalizedEmail = normalizeEmail(input.email);
+		const existingEmailMembership = await db
+			.selectFrom('memberships')
+			.select(['profile_id'])
+			.where('organization_id', '=', input.organizationId)
+			.where('user_id', 'is', null)
+			.where('status', '=', 'invited')
+			.where(sql<boolean>`lower(${sql.ref('invited_email')}) = ${normalizedEmail}`)
+			.executeTakeFirst();
+
+		if (
+			existingEmailMembership !== undefined &&
+			existingEmailMembership.profile_id !== input.profileId
+		) {
+			throw new StageOrganizationInvitationError('invited_email_already_used');
+		}
+	}
 }
 
 type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
@@ -2678,6 +2767,100 @@ export async function stageOrganizationInvitation(
 	return db.transaction().execute(async (trx) => {
 		const normalizedEmail = normalizeEmail(input.email);
 		const displayName = input.displayName ?? input.email;
+		if (input.profileId !== undefined) {
+			const profile = await trx
+				.selectFrom('profiles')
+				.select(['id', 'user_id', 'display_name', 'deleted_at'])
+				.where('id', '=', input.profileId)
+				.where('organization_id', '=', input.organizationId)
+				.executeTakeFirst();
+
+			const profileIssue = validateExistingProfileInvitationTarget(
+				profile === undefined
+					? null
+					: {
+							id: profile.id,
+							userId: profile.user_id,
+							deletedAt: profile.deleted_at,
+						},
+			);
+			if (profileIssue !== null) {
+				throw new StageOrganizationInvitationError(profileIssue);
+			}
+
+			const existingProfileMembership = await trx
+				.selectFrom('memberships')
+				.select(['id', 'profile_id'])
+				.where('organization_id', '=', input.organizationId)
+				.where('user_id', 'is', null)
+				.where('status', '=', 'invited')
+				.where('profile_id', '=', input.profileId)
+				.executeTakeFirst();
+
+			const existingEmailMembership = await trx
+				.selectFrom('memberships')
+				.select(['id', 'profile_id'])
+				.where('organization_id', '=', input.organizationId)
+				.where('user_id', 'is', null)
+				.where('status', '=', 'invited')
+				.where(sql<boolean>`lower(${sql.ref('invited_email')}) = ${normalizedEmail}`)
+				.executeTakeFirst();
+
+			if (
+				existingEmailMembership !== undefined &&
+				existingEmailMembership.profile_id !== input.profileId
+			) {
+				throw new StageOrganizationInvitationError('invited_email_already_used');
+			}
+
+			const membershipId = existingProfileMembership?.id ?? existingEmailMembership?.id ?? null;
+			await trx
+				.updateTable('profiles')
+				.set({
+					display_name: input.displayName ?? profile?.display_name ?? displayName,
+					email: normalizedEmail,
+					is_active: true,
+					deleted_at: null,
+					deleted_by_profile_id: null,
+					updated_at: sql`now()`,
+				})
+				.where('id', '=', input.profileId)
+				.executeTakeFirstOrThrow();
+
+			if (membershipId !== null) {
+				const updated = await trx
+					.updateTable('memberships')
+					.set({
+						role: input.role,
+						invited_email: normalizedEmail,
+						workos_invitation_id: input.workosInvitationId,
+						updated_at: sql`now()`,
+					})
+					.where('id', '=', membershipId)
+					.returning(['id'])
+					.executeTakeFirstOrThrow();
+
+				return selectSafeOrganizationMembership(trx, updated.id);
+			}
+
+			const membership = await trx
+				.insertInto('memberships')
+				.values({
+					organization_id: input.organizationId,
+					user_id: null,
+					profile_id: input.profileId,
+					role: input.role,
+					status: 'invited',
+					is_default: false,
+					invited_email: normalizedEmail,
+					workos_invitation_id: input.workosInvitationId,
+				})
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			return selectSafeOrganizationMembership(trx, membership.id);
+		}
+
 		const existingMembership = await trx
 			.selectFrom('memberships')
 			.innerJoin('profiles', 'profiles.id', 'memberships.profile_id')

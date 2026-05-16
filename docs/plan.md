@@ -25,6 +25,8 @@ This plan tracks the near-term build order. Architecture decisions live in
 - Manual organization subscription metadata.
 - Operator-managed WorkOS invitations.
 - Staged invited profiles/memberships.
+- Invitations can target an existing login-less profile by `profileId` so
+  imported/historical attribution is preserved when the person later signs in.
 - Lazy login activation of invited memberships while preserving the invited
   SIMMER role.
 - Core GIS database skeleton:
@@ -291,6 +293,8 @@ paths:
 
 - SIMMER operator can create/link an agency organization.
 - SIMMER operator can invite agency users with a SIMMER role.
+- SIMMER operator can invite an existing login-less agency profile by profile
+  id, preserving imported/historical attribution when that person signs in.
 - Invited users can sign in through WorkOS and resolve to an active SIMMER
   organization/profile/membership.
 - Web can display auth/admin state through server-controlled endpoints.
