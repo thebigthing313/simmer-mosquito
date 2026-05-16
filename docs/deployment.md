@@ -112,6 +112,7 @@ Set this on the Railway web service:
 
 ```sh
 VITE_SERVER_URL=https://<server-domain>
+VITE_PREVIEW_ALLOWED_HOSTS=<web-domain>
 ```
 
 Set this on the Railway worker service:
