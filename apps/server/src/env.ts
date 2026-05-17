@@ -7,6 +7,7 @@ import {
 
 export interface ServerEnv {
 	readonly appOrigin: string;
+	readonly appOrigins: readonly string[];
 	readonly databaseUrl: string;
 	readonly electricUrl: string | null;
 	readonly host: string;
@@ -21,9 +22,12 @@ export interface ServerEnv {
 
 export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
 	const base = readEnv(source);
+	const appOrigin = readRequiredOrigin(source, 'APP_ORIGIN');
+	const adminAppOrigin = readOptionalOrigin(source, 'ADMIN_APP_ORIGIN');
 
 	return {
-		appOrigin: readRequiredOrigin(source, 'APP_ORIGIN'),
+		appOrigin,
+		appOrigins: adminAppOrigin === null ? [appOrigin] : [appOrigin, adminAppOrigin],
 		databaseUrl: readRequiredString(source, 'DATABASE_URL'),
 		electricUrl: readOptionalUrl(source, 'ELECTRIC_URL'),
 		host: base.host,
@@ -35,6 +39,15 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		workosCookiePassword: readRequiredString(source, 'WORKOS_COOKIE_PASSWORD'),
 		workosRedirectUri: readRequiredUrl(source, 'WORKOS_REDIRECT_URI'),
 	};
+}
+
+function readOptionalOrigin(source: NodeJS.ProcessEnv, key: string): string | null {
+	const value = readOptionalString(source, key);
+	if (value === undefined) {
+		return null;
+	}
+
+	return parseOrigin(key, value);
 }
 
 function readOptionalUrl(source: NodeJS.ProcessEnv, key: string): string | null {
@@ -64,6 +77,10 @@ function parseEmailAllowlist(value: string | undefined): readonly string[] {
 function readRequiredOrigin(source: NodeJS.ProcessEnv, key: string): string {
 	const value = readRequiredString(source, key);
 
+	return parseOrigin(key, value);
+}
+
+function parseOrigin(key: string, value: string): string {
 	try {
 		return new URL(value).origin;
 	} catch {

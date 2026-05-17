@@ -408,6 +408,14 @@ export interface SafeUnit {
 	readonly createdAt: string;
 }
 
+export interface CreateUnitInput {
+	readonly code: string;
+	readonly unitName: string;
+	readonly abbreviation: string;
+	readonly unitType: UnitType;
+	readonly unitSystem: UnitSystem;
+}
+
 export interface ApplicationMethodsTable {
 	id: Generated<string>;
 	organization_id: string;
@@ -1580,6 +1588,11 @@ export async function assertOrganizationProfileCanBeInvited(
 
 type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
 
+export interface MutationWriteResult<TRow> {
+	readonly row: TRow;
+	readonly txid: number;
+}
+
 export async function createSpatialFeature(
 	db: DbExecutor,
 	input: CreateSpatialFeatureInput,
@@ -1803,6 +1816,17 @@ export async function createGenus(db: DbExecutor, input: CreateGenusInput): Prom
 	return toSafeGenus(row);
 }
 
+export async function createGenusWithTxid(
+	db: Kysely<SimmerDatabase>,
+	input: CreateGenusInput,
+): Promise<MutationWriteResult<SafeGenus>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await createGenus(trx, input);
+		const txid = await readCurrentTransactionId(trx);
+		return { row, txid };
+	});
+}
+
 export async function listGenera(db: DbExecutor): Promise<SafeGenus[]> {
 	const rows = await db
 		.selectFrom('genera')
@@ -1837,6 +1861,17 @@ export async function createSpecies(
 		.executeTakeFirstOrThrow();
 
 	return toSafeSpecies(row);
+}
+
+export async function createSpeciesWithTxid(
+	db: Kysely<SimmerDatabase>,
+	input: CreateSpeciesInput,
+): Promise<MutationWriteResult<SafeSpecies>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await createSpecies(trx, input);
+		const txid = await readCurrentTransactionId(trx);
+		return { row, txid };
+	});
 }
 
 export async function listSpecies(db: DbExecutor): Promise<SafeSpecies[]> {
@@ -1874,6 +1909,61 @@ export async function listUnits(db: DbExecutor): Promise<SafeUnit[]> {
 		unitSystem: row.unit_system,
 		createdAt: row.created_at.toISOString(),
 	}));
+}
+
+export async function createUnit(db: DbExecutor, input: CreateUnitInput): Promise<SafeUnit> {
+	const row = await db
+		.insertInto('units')
+		.values({
+			code: input.code,
+			unit_name: input.unitName,
+			abbreviation: input.abbreviation,
+			unit_type: input.unitType,
+			unit_system: input.unitSystem,
+		})
+		.returning([
+			'id',
+			'code',
+			'unit_name',
+			'abbreviation',
+			'unit_type',
+			'unit_system',
+			'created_at',
+		])
+		.executeTakeFirstOrThrow();
+
+	return {
+		id: row.id,
+		code: row.code,
+		unitName: row.unit_name,
+		abbreviation: row.abbreviation,
+		unitType: row.unit_type,
+		unitSystem: row.unit_system,
+		createdAt: row.created_at.toISOString(),
+	};
+}
+
+export async function createUnitWithTxid(
+	db: Kysely<SimmerDatabase>,
+	input: CreateUnitInput,
+): Promise<MutationWriteResult<SafeUnit>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await createUnit(trx, input);
+		const txid = await readCurrentTransactionId(trx);
+		return { row, txid };
+	});
+}
+
+async function readCurrentTransactionId(db: DbExecutor): Promise<number> {
+	const result = await sql<{
+		txid: string;
+	}>`select pg_current_xact_id()::xid::text as txid`.execute(db);
+	const txid = result.rows[0]?.txid;
+	if (txid === undefined) {
+		throw new Error('Unable to read current transaction id.');
+	}
+
+	return Number.parseInt(txid, 10);
 }
 
 export async function enableOrganizationSpecies(

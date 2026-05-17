@@ -64,7 +64,7 @@ const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
 app.use(
 	'/auth/*',
 	cors({
-		origin: env.appOrigin,
+		origin: allowedCorsOrigins(),
 		credentials: true,
 		allowMethods: ['GET', 'POST', 'OPTIONS'],
 	}),
@@ -73,7 +73,7 @@ app.use(
 app.use(
 	'/admin/*',
 	cors({
-		origin: env.appOrigin,
+		origin: allowedCorsOrigins(),
 		credentials: true,
 		allowMethods: ['GET', 'POST', 'OPTIONS'],
 	}),
@@ -82,7 +82,7 @@ app.use(
 app.use(
 	'/sync/*',
 	cors({
-		origin: env.appOrigin,
+		origin: allowedCorsOrigins(),
 		credentials: true,
 		allowMethods: ['GET', 'OPTIONS'],
 	}),
@@ -96,7 +96,15 @@ app.get('/health', (context) =>
 	}),
 );
 
-app.get('/auth/login', (context) => context.redirect(auth.getAuthorizationUrl()));
+app.get('/auth/login', (context) => {
+	const returnTo = readAllowedReturnTo(context.req.query('returnTo'));
+	const authorizationUrl = new URL(auth.getAuthorizationUrl());
+	if (returnTo !== null) {
+		authorizationUrl.searchParams.set('state', returnTo);
+	}
+
+	return context.redirect(authorizationUrl.toString());
+});
 
 app.get('/auth/callback', async (context) => {
 	const code = context.req.query('code');
@@ -123,7 +131,7 @@ app.get('/auth/callback', async (context) => {
 
 	setAuthCookie(context, session.sealedSession);
 
-	const redirectUrl = new URL('/', env.appOrigin);
+	const redirectUrl = new URL(readAllowedReturnTo(context.req.query('state')) ?? env.appOrigin);
 	if (localIdentity.organizationId === null) {
 		redirectUrl.searchParams.set('auth', 'organization_required');
 	}
@@ -229,13 +237,14 @@ registerAdminFoundationRoutes(app, {
 registerSyncShapeRoutes(app, {
 	electricUrl: env.electricUrl,
 	authContextMiddleware,
+	operatorAuthContextMiddleware,
 });
 
 if (env.nodeEnv !== 'production') {
 	app.use(
 		'/debug/*',
 		cors({
-			origin: env.appOrigin,
+			origin: allowedCorsOrigins(),
 			credentials: true,
 			allowMethods: ['GET', 'OPTIONS'],
 		}),
@@ -286,6 +295,23 @@ function setAuthCookie(
 
 function isOperatorEmail(email: string): boolean {
 	return env.simmerOperatorEmails.includes(email.trim().toLowerCase());
+}
+
+function readAllowedReturnTo(value: string | undefined): string | null {
+	if (value === undefined || value.trim() === '') {
+		return null;
+	}
+
+	try {
+		const url = new URL(value);
+		return env.appOrigins.includes(url.origin) ? url.toString() : null;
+	} catch {
+		return null;
+	}
+}
+
+function allowedCorsOrigins(): string[] {
+	return [...env.appOrigins];
 }
 
 interface CreateOrganizationPayload {

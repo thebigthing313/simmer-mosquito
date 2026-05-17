@@ -1,4 +1,7 @@
-import { electricCollectionOptions } from '@tanstack/electric-db-collection';
+import {
+	type ElectricCollectionConfig,
+	electricCollectionOptions,
+} from '@tanstack/electric-db-collection';
 
 export type WebSyncMode = 'eager' | 'on-demand';
 
@@ -250,14 +253,19 @@ export const webReadOnlyTracerDescriptors = [
 	routesSyncDescriptor,
 ] as const;
 
-export function electricShapeCollectionOptions<TRow extends { readonly id: string }>(input: {
-	readonly descriptor: SyncDescriptor<TRow>;
-	readonly url: string;
-}) {
+export function electricShapeCollectionOptions<TRow extends { readonly id: string }>(
+	input: {
+		readonly descriptor: SyncDescriptor<TRow>;
+		readonly url: string;
+	} & Pick<ElectricCollectionConfig<TRow, never>, 'onInsert' | 'onUpdate' | 'onDelete'>,
+) {
 	return electricCollectionOptions<TRow>({
 		id: input.descriptor.id,
 		getKey: input.descriptor.getKey,
 		syncMode: input.descriptor.syncMode,
+		...(input.onInsert === undefined ? {} : { onInsert: input.onInsert }),
+		...(input.onUpdate === undefined ? {} : { onUpdate: input.onUpdate }),
+		...(input.onDelete === undefined ? {} : { onDelete: input.onDelete }),
 		shapeOptions: {
 			url: input.url,
 			fetchClient: (request, init) =>
