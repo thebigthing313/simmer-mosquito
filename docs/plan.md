@@ -21,7 +21,8 @@ This plan tracks the near-term build order. Architecture decisions live in
 - Multi-organization capable identity model.
 - Reusable server AuthContext resolver/middleware.
 - Vite React `apps/web` auth shell.
-- SIMMER operator organization administration.
+- Vite React `apps/admin` SIMMER operator shell.
+- SIMMER operator organization administration in `apps/admin`.
 - Manual organization subscription metadata.
 - Operator-managed WorkOS invitations.
 - Staged invited profiles/memberships.
@@ -52,6 +53,10 @@ This plan tracks the near-term build order. Architecture decisions live in
   - create/list org collection methods, collection lures, and habitat types
 - Operator admin auth no longer requires a selected WorkOS organization or local
   SIMMER membership; the allowlist in `SIMMER_OPERATOR_EMAILS` gates `/admin/*`.
+- `apps/admin` has a protected sidebar shell with current pages for
+  organizations, organization users, global mosquito taxonomy, and global units.
+- `apps/admin` is intentionally limited to SIMMER-owned control-plane workflows;
+  agency-owned operational catalogs remain agency-facing product workflows.
 - Foundation schema cleanup:
   - `spatial_features` is pure geometry plus generated lat/lng/GeoJSON/type.
   - org mailing address fields are inline on `organizations` with
@@ -142,7 +147,7 @@ This plan tracks the near-term build order. Architecture decisions live in
 - GitHub Actions now has an app deployment pipeline for Railway:
   - pushes to `staging` verify, migrate, and deploy staging services
   - pushes to `main` verify, migrate, and deploy production services
-  - server, web, and worker deploy as separate Railway services
+  - server, admin, web, and worker deploy as separate Railway services
 - A manual sync baseline seed workflow can bootstrap the read-only tracer demo
   data for staging or production.
 - The flattened migrations have been applied successfully to both Railway
@@ -297,9 +302,10 @@ paths:
   id, preserving imported/historical attribution when that person signs in.
 - Invited users can sign in through WorkOS and resolve to an active SIMMER
   organization/profile/membership.
-- Web can display auth/admin state through server-controlled endpoints.
-- SIMMER operator can smoke-test the shared GIS/reference tables through a
-  deliberately rough admin verification UI.
+- Web can display auth state through server-controlled endpoints.
+- Admin can display SIMMER operator organization/user management through
+  server-controlled endpoints.
+- Admin has scaffold pages for SIMMER-controlled global taxonomy and units.
 
 The database now has the main domain tables needed for adult surveillance,
 larval surveillance, chemical control, other interventions, service requests,
@@ -323,7 +329,7 @@ Railway reset:
 - The DB migration workflow is intentionally migration-folder gated so app-only
   changes do not mutate database environments.
 - The Railway deployment workflow verifies the workspace, applies idempotent
-  dbmate migrations, and deploys server, web, and worker services for the
+  dbmate migrations, and deploys server, admin, web, and worker services for the
   branch-mapped environment.
 - The signed-in web tracer has proven the deployed read path:
   `Postgres -> Electric -> server-authorized shape proxy -> TanStack DB -> UI`.

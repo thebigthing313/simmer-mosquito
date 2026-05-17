@@ -4,6 +4,7 @@ Nx-managed pnpm monorepo for mosquito control and surveillance software.
 
 ## Workspace Layout
 
+- `apps/admin`: SIMMER operator SPA for platform-controlled organization, user, taxonomy, and unit management.
 - `apps/server`: Hono HTTP control plane for auth, sync proxies, and command endpoints.
 - `apps/web`: Vite React SPA shell for browser auth and future agency workflows.
 - `apps/worker`: Background worker for scheduled surveillance/control jobs.
@@ -18,6 +19,7 @@ Nx-managed pnpm monorepo for mosquito control and surveillance software.
 pnpm install
 pnpm build
 pnpm typecheck
+pnpm dev:admin
 pnpm dev:server
 pnpm dev:web
 pnpm dev:worker
@@ -71,10 +73,17 @@ Create one Railway service per deployable app. For the server service, use:
 
 The server binds to `0.0.0.0` and reads Railway's `PORT` environment variable.
 
+For the admin service, use:
+
+- Install command: `pnpm install --frozen-lockfile`
+- Build command: `pnpm --filter @simmer-mosquito/admin build`
+- Start command: `pnpm --filter @simmer-mosquito/admin start`
+
 Server environment variables:
 
 ```sh
 APP_ORIGIN=https://your-web-app.example
+ADMIN_APP_ORIGIN=https://your-admin-app.example
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 WORKOS_API_KEY=sk_...
 WORKOS_CLIENT_ID=client_...
@@ -85,6 +94,12 @@ WORKOS_REDIRECT_URI=https://your-server.example/auth/callback
 The matching WorkOS AuthKit redirect URI must be configured in the WorkOS dashboard.
 
 Web environment variables:
+
+```sh
+VITE_SERVER_URL=https://your-server.example
+```
+
+Admin environment variables:
 
 ```sh
 VITE_SERVER_URL=https://your-server.example

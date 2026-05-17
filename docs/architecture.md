@@ -32,6 +32,7 @@ Railway hosts:
 - Hono server.
 - Background worker.
 - Web SPA service or static hosting.
+- Admin SPA service or static hosting.
 
 External services:
 
@@ -48,16 +49,24 @@ Services intentionally postponed:
 
 ## Applications
 
-`apps/web` is a Vite React SPA using TanStack Router. The current shell exposes
-WorkOS-backed browser auth, AuthContext display, and SIMMER operator agency
-administration through the server control plane. TanStack DB and ElectricSQL
-will be added after the auth/admin foundation and first domain workflow shape
-are settled. It is not a TanStack Start app.
+`apps/web` is a Vite React SPA using TanStack Router. It is the agency-facing
+web app for authenticated agency workflows. The current shell exposes
+WorkOS-backed browser auth, AuthContext display, and Electric/TanStack DB tracer
+surfaces while the first product workflow shape is settled. It is not a
+TanStack Start app.
 
 The web app is online-only in v1. It uses sync-native reads and optimistic
 domain-command writes for responsiveness and consistency, but it does not offer
 offline persistence, offline command queues, or offline conflict resolution.
 All agency roles use the web app for the workflows their role permits.
+
+`apps/admin` is a Vite React SPA using TanStack Router. It is the SIMMER
+operator control plane, not an agency administration surface. Its current scope
+is WorkOS-backed operator auth, organization creation/support metadata,
+organization-scoped user invitation and membership support, global mosquito
+taxonomy management, and global unit management. Agency-owned operational
+catalogs and workflows remain in `apps/web` unless a future support/repair tool
+is explicitly operator-owned.
 
 `apps/mobile` is planned as an Expo managed React Native app using TanStack DB,
 ElectricSQL, SecureStore-backed auth, and later local persistence/offline
@@ -69,10 +78,10 @@ organization after sign-in, then persist additional work-scoped data as users
 load or receive it. It should not attempt to persist the entire organization
 database.
 
-`apps/server` is the Hono control plane. It owns WorkOS callbacks, web session
-cookies, reusable AuthContext resolution, SIMMER operator agency administration,
-future mobile session exchange, Electric shape authorization, command endpoints,
-and server-authorized Postgres writes.
+`apps/server` is the Hono control plane. It owns WorkOS callbacks, web/admin
+session cookies, reusable AuthContext resolution, SIMMER operator control-plane
+endpoints, future mobile session exchange, Electric shape authorization, command
+endpoints, and server-authorized Postgres writes.
 
 `apps/worker` owns background work: WorkOS event sync, scheduled maintenance,
 imports, reports, and future retryable jobs if needed.
@@ -227,10 +236,10 @@ WorkOS identities are separate from SIMMER domain identities.
 A user can belong to multiple organizations. A profile is the stable org-scoped
 domain actor used by field records and audit fields.
 
-SIMMER operator tooling creates and links WorkOS organizations, stores manual
-subscription metadata, sends WorkOS invitations, and stages invited
-profile/membership records so the lazy login path can activate them later
-without changing the invited role.
+SIMMER operator tooling in `apps/admin` creates and links WorkOS organizations,
+stores manual subscription metadata, sends WorkOS invitations, and stages
+invited profile/membership records so the lazy login path can activate them
+later without changing the invited role.
 
 ## Tenancy
 
@@ -283,6 +292,7 @@ Local infrastructure runs in Docker Compose:
 Apps run as local pnpm/Nx processes:
 
 - `pnpm dev:server`
+- `pnpm dev:admin`
 - `pnpm dev:web`
 - `pnpm dev:worker`
 - future mobile Expo commands

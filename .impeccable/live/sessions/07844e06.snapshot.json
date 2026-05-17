@@ -1,0 +1,29 @@
+{
+  "id": "07844e06",
+  "phase": "completed",
+  "pageUrl": "/organizations",
+  "sourceFile": "apps\\admin\\src\\routes\\_authenticated\\organizations.tsx",
+  "expectedVariants": 3,
+  "arrivedVariants": 3,
+  "visibleVariant": 1,
+  "paramValues": {
+    "density": "compact",
+    "gap": 0
+  },
+  "pendingEventSeq": null,
+  "pendingEvent": null,
+  "deliveryLease": null,
+  "checkpointRevision": 13,
+  "activeOwner": "11dcbdaf",
+  "sourceMarkers": {},
+  "fallbackMode": null,
+  "annotationArtifacts": [],
+  "diagnostics": [
+    {
+      "error": "carbonize_cleanup_required",
+      "file": "apps\\admin\\src\\routes\\_authenticated\\organizations.tsx",
+      "message": "Accepted variant still has carbonize markers that must be folded into source CSS."
+    }
+  ],
+  "updatedAt": "2026-05-17T22:44:10.396Z"
+}

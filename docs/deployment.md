@@ -12,6 +12,7 @@ The deployed Railway shape is one project with separate `staging` and
 - Postgres with PostGIS;
 - ElectricSQL;
 - `server`;
+- `admin`;
 - `web`;
 - `worker`.
 
@@ -20,10 +21,10 @@ service for ElectricSQL with the `electricsql/electric:latest` image.
 
 The current deployed domains are:
 
-| Environment | Web | Server |
-| --- | --- | --- |
-| Production | `https://app.simmer-data.com` | `https://api.simmer-data.com` |
-| Staging | `https://staging.simmer-data.com` | `https://api-staging.simmer-data.com` |
+| Environment | Web | Admin | Server |
+| --- | --- | --- | --- |
+| Production | `https://app.simmer-data.com` | TBD | `https://api.simmer-data.com` |
+| Staging | `https://staging.simmer-data.com` | TBD | `https://api-staging.simmer-data.com` |
 
 Electric stays private on Railway internal networking. Browsers call the Hono
 server, and the server proxies authorized shape requests to Electric.
@@ -47,6 +48,7 @@ Run the apps:
 
 ```sh
 pnpm dev:server
+pnpm dev:admin
 pnpm dev:web
 pnpm dev:worker
 ```
@@ -71,6 +73,7 @@ Each environment needs these variables:
 - `RAILWAY_ENVIRONMENT`: Railway environment name or id, for example `staging`
   or `production`.
 - `RAILWAY_SERVER_SERVICE`: Railway server service name or id.
+- `RAILWAY_ADMIN_SERVICE`: Railway admin service name or id.
 - `RAILWAY_WEB_SERVICE`: Railway web service name or id.
 - `RAILWAY_WORKER_SERVICE`: Railway worker service name or id.
 
@@ -94,6 +97,14 @@ pnpm --filter @simmer-mosquito/web build
 pnpm --filter @simmer-mosquito/web start
 ```
 
+Admin:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter @simmer-mosquito/admin build
+pnpm --filter @simmer-mosquito/admin start
+```
+
 Worker:
 
 ```sh
@@ -108,6 +119,7 @@ Set these on the Railway server service in each environment:
 
 ```sh
 APP_ORIGIN=https://<web-domain>
+ADMIN_APP_ORIGIN=https://<admin-domain>
 DATABASE_URL=${{postgis.DATABASE_URL}}
 ELECTRIC_URL=http://electric.railway.internal:3000/v1/shape
 HOST=0.0.0.0
@@ -124,6 +136,13 @@ Set this on the Railway web service:
 ```sh
 VITE_SERVER_URL=https://<server-domain>
 VITE_PREVIEW_ALLOWED_HOSTS=<web-domain>
+```
+
+Set this on the Railway admin service:
+
+```sh
+VITE_SERVER_URL=https://<server-domain>
+VITE_PREVIEW_ALLOWED_HOSTS=<admin-domain>
 ```
 
 Set this on the Railway worker service:
@@ -178,8 +197,8 @@ https://api.simmer-data.com/auth/callback
 https://api-staging.simmer-data.com/auth/callback
 ```
 
-The server `APP_ORIGIN` must match the web origin so authenticated browser
-requests and redirects line up.
+The server `APP_ORIGIN` must match the web origin and `ADMIN_APP_ORIGIN` must
+match the admin origin so authenticated browser requests and redirects line up.
 
 ## Pipeline
 
@@ -189,7 +208,7 @@ The deployment workflow maps branches to environments:
 - push to `main` deploys the Railway `production` environment.
 
 The Railway deploy workflow verifies the workspace, applies dbmate migrations,
-then deploys server, web, and worker services. The separate DB migration
+then deploys server, admin, web, and worker services. The separate DB migration
 workflow remains available for targeted migration retries.
 
 GitHub staging environment values:
@@ -197,6 +216,7 @@ GitHub staging environment values:
 ```sh
 RAILWAY_ENVIRONMENT=staging
 RAILWAY_SERVER_SERVICE=server
+RAILWAY_ADMIN_SERVICE=admin
 RAILWAY_WEB_SERVICE=web
 RAILWAY_WORKER_SERVICE=worker
 ```
@@ -206,6 +226,7 @@ GitHub production environment values:
 ```sh
 RAILWAY_ENVIRONMENT=production
 RAILWAY_SERVER_SERVICE=server
+RAILWAY_ADMIN_SERVICE=admin
 RAILWAY_WEB_SERVICE=web
 RAILWAY_WORKER_SERVICE=worker
 ```
