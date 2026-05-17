@@ -13,6 +13,7 @@
 		"db:rollback": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql rollback",
 		"db:status": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql status",
 		"dev:server": "nx dev @simmer-mosquito/server",
+		"dev:admin": "nx dev @simmer-mosquito/admin",
 		"dev:web": "nx dev @simmer-mosquito/web",
 		"dev:worker": "nx dev @simmer-mosquito/worker",
 		"format": "biome format --write .",
