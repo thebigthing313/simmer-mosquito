@@ -1,6 +1,6 @@
 :root {
-	color: #1d2730;
-	background: #eef2f5;
+	color: oklch(24% 0.025 205);
+	background: oklch(96% 0.008 165);
 	font-family:
 		Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -34,16 +34,24 @@ select {
 	justify-content: space-between;
 	gap: 24px;
 	padding: 18px clamp(18px, 5vw, 56px);
-	border-bottom: 1px solid #d5dde4;
-	background: #fbfcfd;
+	border-bottom: 1px solid oklch(86% 0.018 205);
+	background: oklch(99% 0.004 165);
 }
 
 .brand {
-	color: #0d2f3f;
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	color: oklch(31.82% 0.0732 156.0959);
 	font-size: 1rem;
 	font-weight: 800;
 	letter-spacing: 0;
 	text-decoration: none;
+}
+
+.brand img {
+	width: 46px;
+	height: auto;
 }
 
 .topbar nav {
@@ -52,7 +60,7 @@ select {
 }
 
 .topbar nav a {
-	color: #35606f;
+	color: oklch(39.15% 0.0882 156.38);
 	font-weight: 650;
 	text-decoration: none;
 }
@@ -66,6 +74,80 @@ select {
 
 .shell.wide {
 	width: min(1100px, calc(100vw - 32px));
+}
+
+.landing-shell {
+	display: grid;
+	min-height: 100vh;
+	place-items: center;
+	padding: clamp(24px, 6vw, 72px);
+	background: linear-gradient(
+		135deg,
+		oklch(96.23% 0.052 108.52 / 42%),
+		oklch(96% 0.008 165) 46%,
+		oklch(90% 0.016 165)
+	);
+}
+
+.landing-panel {
+	display: grid;
+	grid-template-columns: minmax(160px, 0.42fr) minmax(0, 1fr);
+	gap: clamp(24px, 5vw, 48px);
+	width: min(940px, 100%);
+	align-items: center;
+	padding: clamp(24px, 5vw, 44px);
+	border: 1px solid oklch(86% 0.018 205);
+	border-radius: 8px;
+	background: oklch(99% 0.004 165);
+}
+
+.landing-logo {
+	width: min(230px, 100%);
+	height: auto;
+	justify-self: center;
+}
+
+.landing-copy {
+	display: grid;
+	gap: 12px;
+}
+
+.landing-copy .eyebrow {
+	margin: 0;
+	color: oklch(39.15% 0.0882 156.38);
+	font-size: 0.78rem;
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
+.landing-copy h1 {
+	max-width: 14ch;
+	margin: 0;
+	color: oklch(24% 0.025 205);
+	font-size: clamp(2rem, 5vw, 3.4rem);
+	line-height: 1.02;
+}
+
+.landing-copy p:not(.eyebrow) {
+	max-width: 58ch;
+	margin: 0;
+	color: oklch(48% 0.028 205);
+	font-size: 1.02rem;
+	line-height: 1.6;
+}
+
+.landing-actions {
+	grid-column: 2;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 14px;
+}
+
+.landing-actions p {
+	margin: 0;
+	color: oklch(48% 0.028 205);
+	font-size: 0.88rem;
 }
 
 .panel,
@@ -479,8 +561,41 @@ select {
 		padding: 16px;
 	}
 
+	.topbar nav {
+		gap: 10px;
+	}
+
+	.brand img {
+		width: 38px;
+	}
+
 	.shell {
 		margin: 28px auto;
+	}
+
+	.landing-shell {
+		align-items: start;
+		padding: 22px;
+	}
+
+	.landing-panel {
+		grid-template-columns: 1fr;
+		gap: 22px;
+		padding: 22px;
+	}
+
+	.landing-logo {
+		width: min(190px, 82vw);
+		justify-self: start;
+	}
+
+	.landing-copy h1 {
+		max-width: 12ch;
+		font-size: 2.2rem;
+	}
+
+	.landing-actions {
+		grid-column: 1;
 	}
 
 	.identity {

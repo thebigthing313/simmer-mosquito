@@ -85,15 +85,6 @@ declare module '@tanstack/react-router' {
 function RootLayout() {
 	return (
 		<div className="page">
-			<header className="topbar">
-				<Link className="brand" to="/">
-					SIMMER
-				</Link>
-				<nav>
-					<Link to="/admin/organizations">Admin</Link>
-					<Link to="/login">Login</Link>
-				</nav>
-			</header>
 			<main>
 				<Outlet />
 			</main>
@@ -128,42 +119,55 @@ function AppShell() {
 	}, []);
 
 	return (
-		<section className="shell">
-			{search.auth === 'organization_required' ? (
-				<Notice
-					tone="warning"
-					title="Organization required"
-					body="WorkOS returned no organization context. Pick or join an organization, then sign in again."
-				/>
-			) : null}
+		<>
+			{authState?.authenticated === true ? <AppTopbar /> : null}
+			<section className={authState?.authenticated === false ? 'landing-shell' : 'shell'}>
+				{search.auth === 'organization_required' ? (
+					<Notice
+						tone="warning"
+						title="Organization required"
+						body="Choose or join an organization, then sign in again."
+					/>
+				) : null}
 
-			{error === null ? null : <Notice tone="danger" title="Auth unavailable" body={error} />}
+				{error === null ? null : <Notice tone="danger" title="Sign-in unavailable" body={error} />}
 
-			{authState === null && error === null ? (
-				<Panel title="Checking session">
-					<p>Loading auth state...</p>
-				</Panel>
-			) : null}
+				{authState === null && error === null ? (
+					<Panel title="Checking session">
+						<p>Loading session...</p>
+					</Panel>
+				) : null}
 
-			{authState?.authenticated === false ? (
-				<UnauthenticatedPanel reason={authState.reason} />
-			) : null}
+				{authState?.authenticated === false ? (
+					<UnauthenticatedPanel reason={authState.reason} />
+				) : null}
 
-			{authState?.authenticated === true ? <AuthenticatedPanel auth={authState} /> : null}
-		</section>
+				{authState?.authenticated === true ? <AuthenticatedPanel auth={authState} /> : null}
+			</section>
+		</>
 	);
 }
 
 function LoginRoute() {
 	return (
-		<section className="shell">
-			<Panel title="Sign in">
-				<p>Use WorkOS AuthKit to enter SIMMER.</p>
-				<a className="button" href={`${serverUrl}/auth/login`}>
-					Continue with WorkOS
-				</a>
-			</Panel>
+		<section className="landing-shell">
+			<SignInLanding reason={null} />
 		</section>
+	);
+}
+
+function AppTopbar() {
+	return (
+		<header className="topbar">
+			<Link className="brand" to="/">
+				<img src="/logo.svg" alt="" />
+				<span>SIMMER</span>
+			</Link>
+			<nav>
+				<Link to="/admin/organizations">Admin</Link>
+				<Link to="/login">Login</Link>
+			</nav>
+		</header>
 	);
 }
 
@@ -242,172 +246,177 @@ function AdminOrganizationsRoute() {
 	}
 
 	return (
-		<section className="shell wide">
-			<Panel title="Admin organizations">
-				<form className="admin-form" onSubmit={submit}>
-					<label>
-						Agency name
-						<input
-							required
-							value={form.name}
-							onChange={(event) => setForm({ ...form, name: event.target.value })}
-						/>
-					</label>
+		<>
+			<AppTopbar />
+			<section className="shell wide">
+				<Panel title="Admin organizations">
+					<form className="admin-form" onSubmit={submit}>
+						<label>
+							Agency name
+							<input
+								required
+								value={form.name}
+								onChange={(event) => setForm({ ...form, name: event.target.value })}
+							/>
+						</label>
 
-					<label>
-						Subscription
-						<select
-							value={form.subscriptionStatus}
-							onChange={(event) =>
-								setForm({
-									...form,
-									subscriptionStatus: event.target
-										.value as CreateAdminOrganizationInput['subscriptionStatus'],
-								})
-							}
-						>
-							<option value="trial">trial</option>
-							<option value="active">active</option>
-							<option value="suspended">suspended</option>
-							<option value="canceled">canceled</option>
-						</select>
-					</label>
+						<label>
+							Subscription
+							<select
+								value={form.subscriptionStatus}
+								onChange={(event) =>
+									setForm({
+										...form,
+										subscriptionStatus: event.target
+											.value as CreateAdminOrganizationInput['subscriptionStatus'],
+									})
+								}
+							>
+								<option value="trial">trial</option>
+								<option value="active">active</option>
+								<option value="suspended">suspended</option>
+								<option value="canceled">canceled</option>
+							</select>
+						</label>
 
-					<label>
-						Billing contact
-						<input
-							value={form.billingContactName}
-							onChange={(event) => setForm({ ...form, billingContactName: event.target.value })}
-						/>
-					</label>
+						<label>
+							Billing contact
+							<input
+								value={form.billingContactName}
+								onChange={(event) => setForm({ ...form, billingContactName: event.target.value })}
+							/>
+						</label>
 
-					<label>
-						Billing email
-						<input
-							type="email"
-							value={form.billingContactEmail}
-							onChange={(event) => setForm({ ...form, billingContactEmail: event.target.value })}
-						/>
-					</label>
+						<label>
+							Billing email
+							<input
+								type="email"
+								value={form.billingContactEmail}
+								onChange={(event) => setForm({ ...form, billingContactEmail: event.target.value })}
+							/>
+						</label>
 
-					<label className="full">
-						Main contact email
-						<input
-							type="email"
-							value={form.mainContactEmail}
-							onChange={(event) => setForm({ ...form, mainContactEmail: event.target.value })}
-						/>
-					</label>
+						<label className="full">
+							Main contact email
+							<input
+								type="email"
+								value={form.mainContactEmail}
+								onChange={(event) => setForm({ ...form, mainContactEmail: event.target.value })}
+							/>
+						</label>
 
-					<label>
-						Phone
-						<input
-							value={form.phoneNumber}
-							onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })}
-						/>
-					</label>
+						<label>
+							Phone
+							<input
+								value={form.phoneNumber}
+								onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })}
+							/>
+						</label>
 
-					<label>
-						Country
-						<input
-							maxLength={2}
-							value={form.mailingCountry}
-							onChange={(event) => setForm({ ...form, mailingCountry: event.target.value })}
-						/>
-					</label>
+						<label>
+							Country
+							<input
+								maxLength={2}
+								value={form.mailingCountry}
+								onChange={(event) => setForm({ ...form, mailingCountry: event.target.value })}
+							/>
+						</label>
 
-					<label className="full">
-						Address line 1
-						<input
-							value={form.mailingAddressLine1}
-							onChange={(event) => setForm({ ...form, mailingAddressLine1: event.target.value })}
-						/>
-					</label>
+						<label className="full">
+							Address line 1
+							<input
+								value={form.mailingAddressLine1}
+								onChange={(event) => setForm({ ...form, mailingAddressLine1: event.target.value })}
+							/>
+						</label>
 
-					<label className="full">
-						Address line 2
-						<input
-							value={form.mailingAddressLine2}
-							onChange={(event) => setForm({ ...form, mailingAddressLine2: event.target.value })}
-						/>
-					</label>
+						<label className="full">
+							Address line 2
+							<input
+								value={form.mailingAddressLine2}
+								onChange={(event) => setForm({ ...form, mailingAddressLine2: event.target.value })}
+							/>
+						</label>
 
-					<label>
-						Locality
-						<input
-							value={form.mailingLocality}
-							onChange={(event) => setForm({ ...form, mailingLocality: event.target.value })}
-						/>
-					</label>
+						<label>
+							Locality
+							<input
+								value={form.mailingLocality}
+								onChange={(event) => setForm({ ...form, mailingLocality: event.target.value })}
+							/>
+						</label>
 
-					<label>
-						Region
-						<input
-							value={form.mailingRegion}
-							onChange={(event) => setForm({ ...form, mailingRegion: event.target.value })}
-						/>
-					</label>
+						<label>
+							Region
+							<input
+								value={form.mailingRegion}
+								onChange={(event) => setForm({ ...form, mailingRegion: event.target.value })}
+							/>
+						</label>
 
-					<label>
-						Postal code
-						<input
-							value={form.mailingPostalCode}
-							onChange={(event) => setForm({ ...form, mailingPostalCode: event.target.value })}
-						/>
-					</label>
+						<label>
+							Postal code
+							<input
+								value={form.mailingPostalCode}
+								onChange={(event) => setForm({ ...form, mailingPostalCode: event.target.value })}
+							/>
+						</label>
 
-					<label className="full">
-						Notes
-						<textarea
-							rows={3}
-							value={form.subscriptionNotes}
-							onChange={(event) => setForm({ ...form, subscriptionNotes: event.target.value })}
-						/>
-					</label>
+						<label className="full">
+							Notes
+							<textarea
+								rows={3}
+								value={form.subscriptionNotes}
+								onChange={(event) => setForm({ ...form, subscriptionNotes: event.target.value })}
+							/>
+						</label>
 
-					<label className="checkbox full">
-						<input
-							type="checkbox"
-							checked={form.linkRequesterAsOwner}
-							onChange={(event) => setForm({ ...form, linkRequesterAsOwner: event.target.checked })}
-						/>
-						Link me as owner
-					</label>
+						<label className="checkbox full">
+							<input
+								type="checkbox"
+								checked={form.linkRequesterAsOwner}
+								onChange={(event) =>
+									setForm({ ...form, linkRequesterAsOwner: event.target.checked })
+								}
+							/>
+							Link me as owner
+						</label>
 
-					<button className="button" type="submit">
-						Create agency
-					</button>
-				</form>
+						<button className="button" type="submit">
+							Create agency
+						</button>
+					</form>
 
-				{status === '' ? null : <p className="admin-status">{status}</p>}
+					{status === '' ? null : <p className="admin-status">{status}</p>}
 
-				<div className="org-list">
-					{organizations.map((organization) => (
-						<article className="org-row" key={organization.id}>
-							<div>
-								<h3>
-									<Link
-										to="/admin/organizations/$organizationId"
-										params={{ organizationId: organization.id }}
-									>
-										{organization.name}
-									</Link>
-								</h3>
-								<p>{organization.workosOrganizationId ?? 'No WorkOS organization'}</p>
-							</div>
-							<dl className="facts">
-								<Fact label="Subscription" value={organization.subscription.subscriptionStatus} />
-								<Fact label="Billing" value={organization.subscription.billingMode} />
-								<Fact
-									label="Owner linked"
-									value={organization.ownerLinked ? 'yes' : 'not on list'}
-								/>
-							</dl>
-						</article>
-					))}
-				</div>
-			</Panel>
-		</section>
+					<div className="org-list">
+						{organizations.map((organization) => (
+							<article className="org-row" key={organization.id}>
+								<div>
+									<h3>
+										<Link
+											to="/admin/organizations/$organizationId"
+											params={{ organizationId: organization.id }}
+										>
+											{organization.name}
+										</Link>
+									</h3>
+									<p>{organization.workosOrganizationId ?? 'External identity not linked'}</p>
+								</div>
+								<dl className="facts">
+									<Fact label="Subscription" value={organization.subscription.subscriptionStatus} />
+									<Fact label="Billing" value={organization.subscription.billingMode} />
+									<Fact
+										label="Owner linked"
+										value={organization.ownerLinked ? 'yes' : 'not on list'}
+									/>
+								</dl>
+							</article>
+						))}
+					</div>
+				</Panel>
+			</section>
+		</>
 	);
 }
 
@@ -466,85 +475,88 @@ function AdminOrganizationDetailRoute() {
 	}
 
 	return (
-		<section className="shell wide">
-			<Panel title={organization === null ? 'Agency' : organization.name}>
-				<Link className="back-link" to="/admin/organizations">
-					Back to agencies
-				</Link>
+		<>
+			<AppTopbar />
+			<section className="shell wide">
+				<Panel title={organization === null ? 'Agency' : organization.name}>
+					<Link className="back-link" to="/admin/organizations">
+						Back to agencies
+					</Link>
 
-				{organization === null ? null : (
-					<dl className="facts">
-						<Fact label="SIMMER org" value={organization.id} />
-						<Fact label="WorkOS org" value={organization.workosOrganizationId ?? 'none'} />
-						<Fact label="Subscription" value={organization.subscription.subscriptionStatus} />
-						<Fact label="Main contact" value={organization.contact.mainContactEmail ?? 'none'} />
-						<Fact label="Phone" value={organization.contact.phoneNumber ?? 'none'} />
-					</dl>
-				)}
+					{organization === null ? null : (
+						<dl className="facts">
+							<Fact label="SIMMER org" value={organization.id} />
+							<Fact label="Identity org" value={organization.workosOrganizationId ?? 'none'} />
+							<Fact label="Subscription" value={organization.subscription.subscriptionStatus} />
+							<Fact label="Main contact" value={organization.contact.mainContactEmail ?? 'none'} />
+							<Fact label="Phone" value={organization.contact.phoneNumber ?? 'none'} />
+						</dl>
+					)}
 
-				<form className="admin-form invite-form" onSubmit={submitInvite}>
-					<label>
-						Email
-						<input
-							required
-							type="email"
-							value={inviteForm.email}
-							onChange={(event) => setInviteForm({ ...inviteForm, email: event.target.value })}
-						/>
-					</label>
+					<form className="admin-form invite-form" onSubmit={submitInvite}>
+						<label>
+							Email
+							<input
+								required
+								type="email"
+								value={inviteForm.email}
+								onChange={(event) => setInviteForm({ ...inviteForm, email: event.target.value })}
+							/>
+						</label>
 
-					<label>
-						Display name
-						<input
-							value={inviteForm.displayName}
-							onChange={(event) =>
-								setInviteForm({ ...inviteForm, displayName: event.target.value })
-							}
-						/>
-					</label>
+						<label>
+							Display name
+							<input
+								value={inviteForm.displayName}
+								onChange={(event) =>
+									setInviteForm({ ...inviteForm, displayName: event.target.value })
+								}
+							/>
+						</label>
 
-					<label>
-						Role
-						<select
-							value={inviteForm.role}
-							onChange={(event) =>
-								setInviteForm({ ...inviteForm, role: event.target.value as SimmerRole })
-							}
-						>
-							<option value="viewer">viewer</option>
-							<option value="collector">collector</option>
-							<option value="manager">manager</option>
-							<option value="admin">admin</option>
-							<option value="owner">owner</option>
-						</select>
-					</label>
+						<label>
+							Role
+							<select
+								value={inviteForm.role}
+								onChange={(event) =>
+									setInviteForm({ ...inviteForm, role: event.target.value as SimmerRole })
+								}
+							>
+								<option value="viewer">viewer</option>
+								<option value="collector">collector</option>
+								<option value="manager">manager</option>
+								<option value="admin">admin</option>
+								<option value="owner">owner</option>
+							</select>
+						</label>
 
-					<button className="button" type="submit">
-						Invite user
-					</button>
-				</form>
+						<button className="button" type="submit">
+							Invite user
+						</button>
+					</form>
 
-				{status === '' ? null : <p className="admin-status">{status}</p>}
+					{status === '' ? null : <p className="admin-status">{status}</p>}
 
-				<div className="member-list">
-					{memberships.map((membership) => (
-						<article className="member-row" key={membership.id}>
-							<div>
-								<h3>{membership.profile.displayName}</h3>
-								<p>{membership.profile.email ?? membership.invitedEmail ?? 'No email'}</p>
-							</div>
-							<dl className="facts">
-								<Fact label="Role" value={membership.role} />
-								<Fact label="Status" value={membership.status} />
-								<Fact label="User" value={membership.userId ?? 'pending'} />
-							</dl>
-						</article>
-					))}
-				</div>
+					<div className="member-list">
+						{memberships.map((membership) => (
+							<article className="member-row" key={membership.id}>
+								<div>
+									<h3>{membership.profile.displayName}</h3>
+									<p>{membership.profile.email ?? membership.invitedEmail ?? 'No email'}</p>
+								</div>
+								<dl className="facts">
+									<Fact label="Role" value={membership.role} />
+									<Fact label="Status" value={membership.status} />
+									<Fact label="User" value={membership.userId ?? 'pending'} />
+								</dl>
+							</article>
+						))}
+					</div>
 
-				<AdminFoundationsPanel organizationId={organizationId} serverUrl={serverUrl} />
-			</Panel>
-		</section>
+					<AdminFoundationsPanel organizationId={organizationId} serverUrl={serverUrl} />
+				</Panel>
+			</section>
+		</>
 	);
 }
 
@@ -856,13 +868,28 @@ function UnitsSyncPanel() {
 }
 
 function UnauthenticatedPanel({ reason }: { readonly reason: string }) {
+	return <SignInLanding reason={reason} />;
+}
+
+function SignInLanding({ reason }: { readonly reason: string | null }) {
 	return (
-		<Panel title="Signed out">
-			<p>Session unavailable: {reason}</p>
-			<a className="button" href={`${serverUrl}/auth/login`}>
-				Sign in
-			</a>
-		</Panel>
+		<div className="landing-panel">
+			<img className="landing-logo" src="/logo.svg" alt="SIMMER" />
+			<div className="landing-copy">
+				<p className="eyebrow">Mosquito control operations</p>
+				<h1>Coordinate field work with the map in view.</h1>
+				<p>
+					SIMMER brings surveillance, service requests, routes, control work, and agency setup into
+					one operational workspace.
+				</p>
+			</div>
+			<div className="landing-actions">
+				<a className="button" href={`${serverUrl}/auth/login`}>
+					Sign in
+				</a>
+				{reason === null ? null : <p>Session status: {reason}</p>}
+			</div>
+		</div>
 	);
 }
 
