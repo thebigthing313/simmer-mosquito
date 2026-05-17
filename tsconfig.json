@@ -8,6 +8,9 @@
 			"path": "./packages/config"
 		},
 		{
+			"path": "./packages/design-tokens"
+		},
+		{
 			"path": "./packages/db"
 		},
 		{

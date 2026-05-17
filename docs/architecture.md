@@ -85,6 +85,8 @@ Existing:
 - `packages/config`: shared env parsing primitives.
 - `packages/db`: dbmate SQL migrations, Kysely/Postgres helpers, generated DB
   type target.
+- `packages/design-tokens`: framework-free design tokens, currently SIMMER
+  brand colors as CSS variables and TypeScript constants.
 - `packages/domain`: framework-agnostic domain types, commands, validators, and
   aggregate helpers.
 
@@ -107,12 +109,36 @@ Planned:
 - `packages/client`: framework-agnostic server command client.
 - `packages/mapping`: provider-neutral geometry, GeoJSON, feature reference, and
   viewport helpers.
-- `packages/tokens`: shared design tokens.
 - `packages/ui-web` and `packages/ui-mobile`: separate platform component
   systems.
 
 Shared packages should avoid React and platform-specific storage unless their
 name explicitly says otherwise.
+
+## Design System
+
+SIMMER centralizes durable visual decisions in shared modules rather than
+letting colors, component variants, and interaction states sprawl through app
+routes.
+
+`packages/design-tokens` is the framework-free source for raw visual constants.
+It exposes CSS variables for stylesheets and TypeScript constants for contexts
+that cannot consume CSS variables, such as maps, charts, mobile adapters, and
+future exports. It does not own React components, icons, or shadcn source files.
+
+The planned `packages/ui-web` module owns the web component system. It should use
+shadcn-style source components backed by Radix primitives, Tailwind utilities,
+and shared tokens. App code should use component variants for repeated styling
+choices and reserve route-level class names mostly for layout.
+
+The planned `packages/ui-mobile` module owns mobile UI. It shares design-token
+decisions with web, but it does not share web components.
+
+SIMMER does not use Storybook as a design-system contract. If visual previews
+are useful, prefer lightweight development-only preview routes inside `apps/web`
+so previews run in the real app environment.
+
+The fuller design-system architecture lives in `docs/design-system.md`.
 
 ## Data Flow
 
