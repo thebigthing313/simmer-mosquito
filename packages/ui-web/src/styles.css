@@ -41,6 +41,33 @@
 	--sidebar-border: oklch(86% 0.018 205);
 	--sidebar-ring: oklch(84% 0.14 92);
 	--radius: 0.5rem;
+	--surface: var(--card);
+	--surface-muted: var(--muted);
+	--surface-strong: oklch(90% 0.016 165);
+	--border-strong: oklch(77% 0.03 205);
+	--text: var(--foreground);
+	--quiet: oklch(60% 0.024 205);
+	--brand: var(--primary);
+	--brand-hover: oklch(34% 0.08 175);
+	--attention: var(--ring);
+	--warning: oklch(45% 0.09 55);
+	--success: oklch(39% 0.088 156);
+	--success-bg: oklch(93.5% 0.035 156);
+	--info: var(--chart-2);
+	--info-bg: oklch(93% 0.032 240);
+	--catalog: var(--chart-3);
+	--catalog-bg: oklch(94% 0.03 326);
+	--danger: oklch(46% 0.14 20);
+	--danger-bg: oklch(94% 0.04 20);
+	--warning-bg: oklch(95% 0.05 92);
+	--type-caption: 0.75rem;
+	--type-small: 0.875rem;
+	--type-body: 1rem;
+	--type-title: 1.125rem;
+	--type-heading: 1.5rem;
+	--leading-tight: 1.2;
+	--leading-body: 1.55;
+	--leading-compact: 1.4;
 }
 
 @theme inline {
@@ -89,5 +116,22 @@
 
 	body {
 		@apply bg-background text-foreground;
+		margin: 0;
+		font-family:
+			Poppins, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		font-kerning: normal;
+		font-synthesis: none;
+		text-rendering: optimizeLegibility;
+	}
+
+	a {
+		color: inherit;
+	}
+
+	button,
+	input,
+	textarea,
+	select {
+		font: inherit;
 	}
 }

@@ -1,14 +1,3 @@
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Collapsible, CollapsibleTrigger } from '@simmer-mosquito/ui-web/components/ui/collapsible';
 import {
@@ -32,7 +21,7 @@ import { InputGroup, InputGroupInput } from '@simmer-mosquito/ui-web/components/
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
-import { createRoute } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { type FormEvent, useMemo, useState } from 'react';
 import type {
 	AdminGenus,
@@ -41,15 +30,20 @@ import type {
 	CreateAdminSpeciesInput,
 	UpdateAdminGenusInput,
 	UpdateAdminSpeciesInput,
-} from '../../api';
-import { Panel, ToneBadge } from '../../components/Panel';
-import { adminCollections } from '../../sync/adminCollections';
-import { useCollectionRows } from '../../sync/useCollectionRows';
-import { adminLayoutRoute } from './_admin';
+} from '../api';
+import {
+	DeleteConfirmDialog,
+	EditDialogButton,
+	PageHeading,
+	RecordActions,
+	RecordRow,
+	StatusMessage,
+} from '../components/AdminPrimitives';
+import { Panel, ToneBadge } from '../components/Panel';
+import { adminCollections } from '../sync/adminCollections';
+import { useCollectionRows } from '../sync/useCollectionRows';
 
-export const taxonomyRoute = createRoute({
-	getParentRoute: () => adminLayoutRoute,
-	path: '/taxonomy',
+export const Route = createFileRoute('/_authenticated/_admin/taxonomy')({
 	component: TaxonomyRoute,
 });
 
@@ -198,15 +192,13 @@ function TaxonomyRoute() {
 
 	return (
 		<section className="shell wide management-page">
-			<header className="page-heading">
-				<div>
-					<p className="eyebrow">Global catalog</p>
-					<h1>Mosquito taxonomy</h1>
-					<p>Curate the genus and species hierarchy available across SIMMER.</p>
-				</div>
-			</header>
+			<PageHeading
+				description="Curate the genus and species hierarchy available across SIMMER."
+				eyebrow="Global catalog"
+				title="Mosquito taxonomy"
+			/>
 
-			{status === '' ? null : <p className="status">{status}</p>}
+			<StatusMessage>{status}</StatusMessage>
 
 			<div className="taxonomy-layout">
 				<Panel title="Taxonomy hierarchy">
@@ -408,7 +400,7 @@ function TaxonGroup({
 						<h2>{group.title}</h2>
 						<p className={group.genus === null ? undefined : 'code-text'}>{group.subtitle}</p>
 					</div>
-					<div className="row-actions">
+					<RecordActions>
 						<ToneBadge tone={group.tone}>{group.totalSpecies} species</ToneBadge>
 						{genus === null ? null : (
 							<>
@@ -419,7 +411,7 @@ function TaxonGroup({
 								<DeleteGenusDialog genus={genus} onDelete={() => onDeleteGenus(genus.id)} />
 							</>
 						)}
-					</div>
+					</RecordActions>
 				</header>
 				<SpeciesList
 					genera={genera}
@@ -429,7 +421,7 @@ function TaxonGroup({
 				/>
 				{hasOverflow ? (
 					<CollapsibleTrigger asChild>
-						<Button className="taxon-reveal" size="sm" type="button" variant="outline">
+						<Button className="justify-self-start" size="sm" type="button" variant="outline">
 							{isExpanded ? 'Show fewer species' : `Show ${hiddenCount} more species`}
 						</Button>
 					</CollapsibleTrigger>
@@ -457,21 +449,26 @@ function SpeciesList({
 	return (
 		<div className="taxon-species-list">
 			{species.map((row) => (
-				<article className="taxon-species" key={row.id}>
+				<RecordRow
+					className="border-[color-mix(in_oklch,var(--catalog)_12%,var(--border))] bg-[color-mix(in_oklch,var(--catalog)_4%,var(--surface-muted))]"
+					key={row.id}
+				>
 					<div>
 						<h3>{row.displayName}</h3>
 						<p>{row.commonName ?? 'No common name'}</p>
 					</div>
-					<div className="row-actions">
-						<span className="code-text">{row.epithet}</span>
+					<RecordActions>
+						<span className="code-text rounded-full bg-card px-2 py-0.5 font-bold text-[var(--catalog)]">
+							{row.epithet}
+						</span>
 						<EditSpeciesDialog
 							genera={genera}
 							onSubmit={(changes) => onUpdateSpecies(row.id, changes)}
 							species={row}
 						/>
 						<DeleteSpeciesDialog onDelete={() => onDeleteSpecies(row.id)} species={row} />
-					</div>
-				</article>
+					</RecordActions>
+				</RecordRow>
 			))}
 		</div>
 	);
@@ -601,14 +598,7 @@ function EditGenusDialog({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>
-				<Button
-					size="sm"
-					type="button"
-					variant="outline"
-					onClick={() => setForm(genusToForm(genus))}
-				>
-					Edit
-				</Button>
+				<EditDialogButton onClick={() => setForm(genusToForm(genus))} />
 			</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
@@ -634,28 +624,12 @@ function DeleteGenusDialog({
 	readonly onDelete: () => Promise<void>;
 }) {
 	return (
-		<AlertDialog>
-			<AlertDialogTrigger asChild>
-				<Button size="sm" type="button" variant="outline">
-					Delete
-				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Delete {genus.name}?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This removes the genus from the global taxonomy. The server will block deletion if any
-						species still reference it.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Cancel</AlertDialogCancel>
-					<AlertDialogAction variant="destructive" onClick={() => void onDelete()}>
-						Delete genus
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
+		<DeleteConfirmDialog
+			actionLabel="Delete genus"
+			description="This removes the genus from the global taxonomy. The server will block deletion if any species still reference it."
+			onDelete={onDelete}
+			title={`Delete ${genus.name}?`}
+		/>
 	);
 }
 
@@ -681,14 +655,7 @@ function EditSpeciesDialog({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>
-				<Button
-					size="sm"
-					type="button"
-					variant="outline"
-					onClick={() => setForm(speciesToForm(species))}
-				>
-					Edit
-				</Button>
+				<EditDialogButton onClick={() => setForm(speciesToForm(species))} />
 			</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
@@ -714,28 +681,12 @@ function DeleteSpeciesDialog({
 	readonly species: AdminSpecies;
 }) {
 	return (
-		<AlertDialog>
-			<AlertDialogTrigger asChild>
-				<Button size="sm" type="button" variant="outline">
-					Delete
-				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Delete {species.displayName}?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This removes the species from the global taxonomy. The server will block deletion if
-						surveillance or organization records still reference it.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Cancel</AlertDialogCancel>
-					<AlertDialogAction variant="destructive" onClick={() => void onDelete()}>
-						Delete species
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
+		<DeleteConfirmDialog
+			actionLabel="Delete species"
+			description="This removes the species from the global taxonomy. The server will block deletion if surveillance or organization records still reference it."
+			onDelete={onDelete}
+			title={`Delete ${species.displayName}?`}
+		/>
 	);
 }
 

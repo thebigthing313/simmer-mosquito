@@ -7,7 +7,14 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"includes": ["**", "!**/dist", "!**/coverage", "!.nx", "!packages/ui-web/src/components/ui"]
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/coverage",
+			"!.nx",
+			"!**/routeTree.gen.ts",
+			"!packages/ui-web/src/components/ui"
+		]
 	},
 	"formatter": {
 		"enabled": true,

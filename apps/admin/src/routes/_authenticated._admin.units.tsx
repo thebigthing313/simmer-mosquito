@@ -1,14 +1,3 @@
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Dialog,
@@ -22,7 +11,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
-import { createRoute } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { type FormEvent, useMemo, useState } from 'react';
 import type {
 	AdminUnit,
@@ -30,11 +19,18 @@ import type {
 	UnitSystem,
 	UnitType,
 	UpdateAdminUnitInput,
-} from '../../api';
-import { Panel, ToneBadge } from '../../components/Panel';
-import { adminCollections } from '../../sync/adminCollections';
-import { useCollectionRows } from '../../sync/useCollectionRows';
-import { adminLayoutRoute } from './_admin';
+} from '../api';
+import {
+	DeleteConfirmDialog,
+	EditDialogButton,
+	PageHeading,
+	RecordActions,
+	RecordRow,
+	StatusMessage,
+} from '../components/AdminPrimitives';
+import { Panel, ToneBadge } from '../components/Panel';
+import { adminCollections } from '../sync/adminCollections';
+import { useCollectionRows } from '../sync/useCollectionRows';
 
 const unitTypes = [
 	'count',
@@ -48,9 +44,7 @@ const unitTypes = [
 ] as const satisfies readonly UnitType[];
 const unitSystems = ['si', 'imperial', 'us_customary'] as const satisfies readonly UnitSystem[];
 
-export const unitsRoute = createRoute({
-	getParentRoute: () => adminLayoutRoute,
-	path: '/units',
+export const Route = createFileRoute('/_authenticated/_admin/units')({
 	component: UnitsRoute,
 });
 
@@ -136,15 +130,13 @@ function UnitsRoute() {
 
 	return (
 		<section className="shell wide management-page">
-			<header className="page-heading">
-				<div>
-					<p className="eyebrow">Global catalog</p>
-					<h1>Units</h1>
-					<p>Manage the supported measurement units used by SIMMER workflows.</p>
-				</div>
-			</header>
+			<PageHeading
+				description="Manage the supported measurement units used by SIMMER workflows."
+				eyebrow="Global catalog"
+				title="Units"
+			/>
 
-			{status === '' ? null : <p className="status">{status}</p>}
+			<StatusMessage>{status}</StatusMessage>
 
 			<div className="units-hierarchy-index">
 				<div className="units-hierarchy-side">
@@ -212,19 +204,19 @@ function UnitTypeSection({
 			</header>
 			<div className="unit-list">
 				{group.units.map((unit) => (
-					<article className="unit-item" key={unit.id}>
+					<RecordRow key={unit.id}>
 						<div>
 							<h3>{unit.unitName}</h3>
 							<p className="code-text">
 								{unit.code} / {unit.abbreviation}
 							</p>
 						</div>
-						<div className="row-actions">
+						<RecordActions>
 							<ToneBadge tone="neutral">{unit.unitSystem}</ToneBadge>
 							<EditUnitDialog onSubmit={(changes) => onUpdateUnit(unit.id, changes)} unit={unit} />
 							<DeleteUnitDialog onDelete={() => onDeleteUnit(unit.id)} unit={unit} />
-						</div>
-					</article>
+						</RecordActions>
+					</RecordRow>
 				))}
 			</div>
 		</section>
@@ -313,9 +305,7 @@ function EditUnitDialog({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>
-				<Button size="sm" type="button" variant="outline" onClick={() => setForm(unitToForm(unit))}>
-					Edit
-				</Button>
+				<EditDialogButton onClick={() => setForm(unitToForm(unit))} />
 			</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
@@ -341,28 +331,12 @@ function DeleteUnitDialog({
 	readonly unit: AdminUnit;
 }) {
 	return (
-		<AlertDialog>
-			<AlertDialogTrigger asChild>
-				<Button size="sm" type="button" variant="outline">
-					Delete
-				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Delete {unit.unitName}?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This removes the unit from the global catalog. The server will block deletion if records
-						still reference it.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Cancel</AlertDialogCancel>
-					<AlertDialogAction variant="destructive" onClick={() => void onDelete()}>
-						Delete unit
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
+		<DeleteConfirmDialog
+			actionLabel="Delete unit"
+			description="This removes the unit from the global catalog. The server will block deletion if records still reference it."
+			onDelete={onDelete}
+			title={`Delete ${unit.unitName}?`}
+		/>
 	);
 }
 

@@ -1,14 +1,11 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { createRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 import { adminLoginUrl, getServerUrl } from '../api';
 import { Panel } from '../components/Panel';
-import { rootRoute } from './__root';
 
 const serverUrl = getServerUrl();
 
-export const authRoute = createRoute({
-	getParentRoute: () => rootRoute,
-	path: '/auth',
+export const Route = createFileRoute('/auth')({
 	beforeLoad: ({ context }) => {
 		if (context.auth?.authenticated === true) {
 			throw redirect({ to: '/organizations' });

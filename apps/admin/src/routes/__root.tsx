@@ -5,7 +5,7 @@ export interface RouterContext {
 	readonly auth: AuthMe | null;
 }
 
-export const rootRoute = createRootRouteWithContext<RouterContext>()({
+export const Route = createRootRouteWithContext<RouterContext>()({
 	component: RootLayout,
 });
 

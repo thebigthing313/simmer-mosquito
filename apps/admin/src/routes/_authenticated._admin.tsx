@@ -1,9 +1,6 @@
-import { createRoute, Link, Outlet } from '@tanstack/react-router';
-import { authenticatedRoute } from '../_authenticated';
+import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 
-export const adminLayoutRoute = createRoute({
-	getParentRoute: () => authenticatedRoute,
-	id: 'admin-layout',
+export const Route = createFileRoute('/_authenticated/_admin')({
 	component: AdminLayoutRoute,
 });
 

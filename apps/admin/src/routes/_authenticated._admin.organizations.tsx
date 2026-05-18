@@ -4,7 +4,7 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
-import { createRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
 	type AdminAgency,
@@ -12,15 +12,12 @@ import {
 	createAdminAgency,
 	getServerUrl,
 	listAdminAgencies,
-} from '../../api';
-import { Panel, type Tone, ToneBadge } from '../../components/Panel';
-import { adminLayoutRoute } from './_admin';
+} from '../api';
+import { Panel, type Tone, ToneBadge } from '../components/Panel';
 
 const serverUrl = getServerUrl();
 
-export const organizationsRoute = createRoute({
-	getParentRoute: () => adminLayoutRoute,
-	path: '/organizations',
+export const Route = createFileRoute('/_authenticated/_admin/organizations')({
 	component: OrganizationsRoute,
 });
 

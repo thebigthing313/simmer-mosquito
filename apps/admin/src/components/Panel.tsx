@@ -12,18 +12,18 @@ export type Tone = 'catalog' | 'danger' | 'info' | 'neutral' | 'success' | 'warn
 export function Panel({
 	title,
 	children,
+	className,
 }: {
 	readonly title: string;
 	readonly children: React.ReactNode;
+	readonly className?: string;
 }) {
 	return (
-		<Card className="panel gap-0 rounded-lg py-0 shadow-none">
-			<CardHeader className="px-0">
-				<CardTitle>
-					<h1>{title}</h1>
-				</CardTitle>
+		<Card className={cn('gap-0 rounded-lg border-border bg-card py-0 shadow-none', className)}>
+			<CardHeader className="px-5 pt-5 pb-0">
+				<CardTitle className="text-lg leading-tight">{title}</CardTitle>
 			</CardHeader>
-			<CardContent className="px-0">{children}</CardContent>
+			<CardContent className="px-5 pt-4 pb-5">{children}</CardContent>
 		</Card>
 	);
 }

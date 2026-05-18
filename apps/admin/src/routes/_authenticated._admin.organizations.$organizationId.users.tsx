@@ -2,7 +2,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
-import { createRoute, Link, useParams } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useState } from 'react';
 import {
 	type AdminAgency,
@@ -13,20 +13,17 @@ import {
 	listAgencyMemberships,
 	type MembershipStatus,
 	type SimmerRole,
-} from '../../api';
-import { Fact, Panel, type Tone } from '../../components/Panel';
-import { adminLayoutRoute } from './_admin';
+} from '../api';
+import { Fact, Panel, type Tone } from '../components/Panel';
 
 const serverUrl = getServerUrl();
 
-export const organizationUsersRoute = createRoute({
-	getParentRoute: () => adminLayoutRoute,
-	path: '/organizations/$organizationId/users',
+export const Route = createFileRoute('/_authenticated/_admin/organizations/$organizationId/users')({
 	component: OrganizationUsersRoute,
 });
 
 function OrganizationUsersRoute() {
-	const { organizationId } = useParams({ from: organizationUsersRoute.id });
+	const { organizationId } = Route.useParams();
 	const [organization, setOrganization] = useState<AdminAgency | null>(null);
 	const [memberships, setMemberships] = useState<AdminMembership[]>([]);
 	const [status, setStatus] = useState('Loading users...');
