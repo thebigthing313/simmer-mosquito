@@ -133,6 +133,7 @@ export interface AdminSpecies {
 }
 
 export interface CreateAdminGenusInput {
+	readonly id?: string;
 	readonly abbreviation: string;
 	readonly name: string;
 }
@@ -140,6 +141,7 @@ export interface CreateAdminGenusInput {
 export interface UpdateAdminGenusInput extends CreateAdminGenusInput {}
 
 export interface CreateAdminSpeciesInput {
+	readonly id?: string;
 	readonly genusId: string | null;
 	readonly epithet: string;
 	readonly commonName: string;
@@ -159,6 +161,7 @@ export interface AdminUnit {
 }
 
 export interface CreateAdminUnitInput {
+	readonly id?: string;
 	readonly code: string;
 	readonly unitName: string;
 	readonly abbreviation: string;

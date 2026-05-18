@@ -28,6 +28,7 @@ import {
 	createAuthContextMiddleware,
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
+import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
 import { readServerEnv } from './env.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 
@@ -75,7 +76,7 @@ app.use(
 	cors({
 		origin: allowedCorsOrigins(),
 		credentials: true,
-		allowMethods: ['GET', 'POST', 'OPTIONS'],
+		allowMethods: ADMIN_CORS_ALLOW_METHODS,
 	}),
 );
 

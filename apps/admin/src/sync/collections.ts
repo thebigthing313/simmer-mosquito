@@ -42,6 +42,7 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 					transaction.mutations.map((mutation) =>
 						createAdminUnit(
 							{
+								id: mutation.modified.id,
 								code: mutation.modified.code,
 								unitName: mutation.modified.unitName,
 								abbreviation: mutation.modified.abbreviation,
@@ -89,6 +90,7 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 					transaction.mutations.map((mutation) =>
 						createAdminGenus(
 							{
+								id: mutation.modified.id,
 								abbreviation: mutation.modified.abbreviation,
 								name: mutation.modified.name,
 							},
@@ -132,6 +134,7 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 					transaction.mutations.map((mutation) =>
 						createAdminSpecies(
 							{
+								id: mutation.modified.id,
 								genusId: mutation.modified.genusId,
 								epithet: mutation.modified.epithet,
 								commonName: mutation.modified.commonName ?? '',

@@ -436,11 +436,13 @@ interface RegionPayload {
 }
 
 interface GenusPayload {
+	readonly id?: string;
 	readonly abbreviation: string;
 	readonly name: string;
 }
 
 interface SpeciesPayload {
+	readonly id?: string;
 	readonly genusId: string | null;
 	readonly epithet: string;
 	readonly commonName: string | null;
@@ -448,6 +450,7 @@ interface SpeciesPayload {
 }
 
 interface UnitPayload {
+	readonly id?: string;
 	readonly code: string;
 	readonly unitName: string;
 	readonly abbreviation: string;
@@ -583,8 +586,12 @@ async function readGenusPayload(request: {
 	if (abbreviation === null || name === null) {
 		return invalid('abbreviation and name are required.');
 	}
+	const id = readOptionalUuid(rawResult.payload.id);
+	if (id === undefined) {
+		return invalid('id must be a UUID when provided.');
+	}
 
-	return { ok: true, payload: { abbreviation, name } };
+	return { ok: true, payload: { ...(id === null ? {} : { id }), abbreviation, name } };
 }
 
 async function readSpeciesPayload(request: {
@@ -600,10 +607,15 @@ async function readSpeciesPayload(request: {
 	if (epithet === null || displayName === null) {
 		return invalid('epithet and displayName are required.');
 	}
+	const id = readOptionalUuid(raw.id);
+	if (id === undefined) {
+		return invalid('id must be a UUID when provided.');
+	}
 
 	return {
 		ok: true,
 		payload: {
+			...(id === null ? {} : { id }),
 			genusId: readOptionalText(raw.genusId),
 			epithet,
 			commonName: readOptionalText(raw.commonName),
@@ -636,10 +648,15 @@ async function readUnitPayload(request: {
 	if (unitSystem === null) {
 		return invalid('unitSystem must be si, imperial, or us_customary.');
 	}
+	const id = readOptionalUuid(raw.id);
+	if (id === undefined) {
+		return invalid('id must be a UUID when provided.');
+	}
 
 	return {
 		ok: true,
 		payload: {
+			...(id === null ? {} : { id }),
 			code,
 			unitName,
 			abbreviation,
@@ -800,6 +817,19 @@ function readOptionalText(value: unknown): string | null {
 
 	const trimmed = value.trim();
 	return trimmed.length === 0 ? null : trimmed;
+}
+
+function readOptionalUuid(value: unknown): string | null | undefined {
+	const text = readOptionalText(value);
+	if (text === null) {
+		return null;
+	}
+
+	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+		text,
+	)
+		? text
+		: undefined;
 }
 
 function readOptionalJson(value: unknown): unknown | null {

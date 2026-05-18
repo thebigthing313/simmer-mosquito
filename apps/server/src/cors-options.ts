@@ -1,0 +1,1 @@
+export const ADMIN_CORS_ALLOW_METHODS = ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'];

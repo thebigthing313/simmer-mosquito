@@ -409,6 +409,7 @@ export interface SafeUnit {
 }
 
 export interface CreateUnitInput {
+	readonly id?: string;
 	readonly code: string;
 	readonly unitName: string;
 	readonly abbreviation: string;
@@ -1311,6 +1312,7 @@ export interface SafeRegion {
 }
 
 export interface CreateGenusInput {
+	readonly id?: string;
 	readonly abbreviation: string;
 	readonly name: string;
 }
@@ -1326,6 +1328,7 @@ export interface SafeGenus {
 }
 
 export interface CreateSpeciesInput {
+	readonly id?: string;
 	readonly genusId?: string | null;
 	readonly epithet: string;
 	readonly commonName?: string | null;
@@ -1813,6 +1816,7 @@ export async function createGenus(db: DbExecutor, input: CreateGenusInput): Prom
 	const row = await db
 		.insertInto('genera')
 		.values({
+			...(input.id === undefined ? {} : { id: input.id }),
 			abbreviation: input.abbreviation,
 			name: input.name,
 		})
@@ -1902,6 +1906,7 @@ export async function createSpecies(
 	const row = await db
 		.insertInto('species')
 		.values({
+			...(input.id === undefined ? {} : { id: input.id }),
 			genus_id: input.genusId ?? null,
 			epithet: input.epithet,
 			common_name: input.commonName ?? null,
@@ -2038,6 +2043,7 @@ export async function createUnit(db: DbExecutor, input: CreateUnitInput): Promis
 	const row = await db
 		.insertInto('units')
 		.values({
+			...(input.id === undefined ? {} : { id: input.id }),
 			code: input.code,
 			unit_name: input.unitName,
 			abbreviation: input.abbreviation,
