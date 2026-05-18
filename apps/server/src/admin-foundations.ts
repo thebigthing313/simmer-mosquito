@@ -1,12 +1,16 @@
 import {
 	createAddress,
-	createGenus,
+	createGenusWithTxid,
 	createOrgLookup,
 	createRegion,
 	createRegionFolder,
 	createSpatialFeature,
-	createSpecies,
+	createSpeciesWithTxid,
 	createTrap,
+	createUnitWithTxid,
+	deleteGenusWithTxid,
+	deleteSpeciesWithTxid,
+	deleteUnitWithTxid,
 	enableOrganizationSpecies,
 	type GeoJsonGeometry,
 	getOperatorOrganization,
@@ -27,6 +31,12 @@ import {
 	type SafeRegionFolder,
 	type SafeSpecies,
 	type SafeTrap,
+	type SafeUnit,
+	type UnitSystem,
+	type UnitType,
+	updateGenusWithTxid,
+	updateSpeciesWithTxid,
+	updateUnitWithTxid,
 } from '@simmer-mosquito/db';
 import type { Context, Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
@@ -176,8 +186,35 @@ export function registerAdminFoundationRoutes(
 			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
 		}
 
-		const genus = await createGenus(options.db, payloadResult.payload);
-		return context.json(toGenusResponse(genus), 201);
+		const result = await createGenusWithTxid(options.db, payloadResult.payload);
+		return context.json({ genus: toGenusResponse(result.row), txid: result.txid }, 201);
+	});
+
+	app.patch('/admin/genera/:genusId', options.operatorAuthContextMiddleware, async (context) => {
+		const payloadResult = await readGenusPayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const result = await updateGenusWithTxid(
+			options.db,
+			context.req.param('genusId'),
+			payloadResult.payload,
+		);
+		if (result.row === null) {
+			return context.json({ error: 'genus_not_found' }, 404);
+		}
+
+		return context.json({ genus: toGenusResponse(result.row), txid: result.txid });
+	});
+
+	app.delete('/admin/genera/:genusId', options.operatorAuthContextMiddleware, async (context) => {
+		const result = await deleteGenusWithTxid(options.db, context.req.param('genusId'));
+		if (result.row === null) {
+			return context.json({ error: 'genus_not_found' }, 404);
+		}
+
+		return context.json({ genus: toGenusResponse(result.row), txid: result.txid });
 	});
 
 	app.post('/admin/species', options.operatorAuthContextMiddleware, async (context) => {
@@ -186,8 +223,76 @@ export function registerAdminFoundationRoutes(
 			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
 		}
 
-		const species = await createSpecies(options.db, payloadResult.payload);
-		return context.json(toSpeciesResponse(species), 201);
+		const result = await createSpeciesWithTxid(options.db, payloadResult.payload);
+		return context.json({ species: toSpeciesResponse(result.row), txid: result.txid }, 201);
+	});
+
+	app.patch('/admin/species/:speciesId', options.operatorAuthContextMiddleware, async (context) => {
+		const payloadResult = await readSpeciesPayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const result = await updateSpeciesWithTxid(
+			options.db,
+			context.req.param('speciesId'),
+			payloadResult.payload,
+		);
+		if (result.row === null) {
+			return context.json({ error: 'species_not_found' }, 404);
+		}
+
+		return context.json({ species: toSpeciesResponse(result.row), txid: result.txid });
+	});
+
+	app.delete(
+		'/admin/species/:speciesId',
+		options.operatorAuthContextMiddleware,
+		async (context) => {
+			const result = await deleteSpeciesWithTxid(options.db, context.req.param('speciesId'));
+			if (result.row === null) {
+				return context.json({ error: 'species_not_found' }, 404);
+			}
+
+			return context.json({ species: toSpeciesResponse(result.row), txid: result.txid });
+		},
+	);
+
+	app.post('/admin/units', options.operatorAuthContextMiddleware, async (context) => {
+		const payloadResult = await readUnitPayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const result = await createUnitWithTxid(options.db, payloadResult.payload);
+		return context.json({ unit: toUnitResponse(result.row), txid: result.txid }, 201);
+	});
+
+	app.patch('/admin/units/:unitId', options.operatorAuthContextMiddleware, async (context) => {
+		const payloadResult = await readUnitPayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const result = await updateUnitWithTxid(
+			options.db,
+			context.req.param('unitId'),
+			payloadResult.payload,
+		);
+		if (result.row === null) {
+			return context.json({ error: 'unit_not_found' }, 404);
+		}
+
+		return context.json({ unit: toUnitResponse(result.row), txid: result.txid });
+	});
+
+	app.delete('/admin/units/:unitId', options.operatorAuthContextMiddleware, async (context) => {
+		const result = await deleteUnitWithTxid(options.db, context.req.param('unitId'));
+		if (result.row === null) {
+			return context.json({ error: 'unit_not_found' }, 404);
+		}
+
+		return context.json({ unit: toUnitResponse(result.row), txid: result.txid });
 	});
 
 	app.post(
@@ -340,6 +445,14 @@ interface SpeciesPayload {
 	readonly epithet: string;
 	readonly commonName: string | null;
 	readonly displayName: string;
+}
+
+interface UnitPayload {
+	readonly code: string;
+	readonly unitName: string;
+	readonly abbreviation: string;
+	readonly unitType: UnitType;
+	readonly unitSystem: UnitSystem;
 }
 
 interface OrganizationSpeciesPayload {
@@ -497,6 +610,68 @@ async function readSpeciesPayload(request: {
 			displayName,
 		},
 	};
+}
+
+async function readUnitPayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<PayloadResult<UnitPayload>> {
+	const rawResult = await readJsonObject(request);
+	if (!rawResult.ok) {
+		return rawResult;
+	}
+	const raw = rawResult.payload;
+	const code = readRequiredText(raw.code);
+	const unitName = readRequiredText(raw.unitName);
+	const abbreviation = readRequiredText(raw.abbreviation);
+	const unitType = readUnitType(raw.unitType);
+	const unitSystem = readUnitSystem(raw.unitSystem);
+	if (code === null || unitName === null || abbreviation === null) {
+		return invalid('code, unitName, and abbreviation are required.');
+	}
+	if (unitType === null) {
+		return invalid(
+			'unitType must be weight, distance, area, volume, temperature, duration, count, or speed.',
+		);
+	}
+	if (unitSystem === null) {
+		return invalid('unitSystem must be si, imperial, or us_customary.');
+	}
+
+	return {
+		ok: true,
+		payload: {
+			code,
+			unitName,
+			abbreviation,
+			unitType,
+			unitSystem,
+		},
+	};
+}
+
+function readUnitType(value: unknown): UnitType | null {
+	if (
+		value === 'weight' ||
+		value === 'distance' ||
+		value === 'area' ||
+		value === 'volume' ||
+		value === 'temperature' ||
+		value === 'duration' ||
+		value === 'count' ||
+		value === 'speed'
+	) {
+		return value;
+	}
+
+	return null;
+}
+
+function readUnitSystem(value: unknown): UnitSystem | null {
+	if (value === 'si' || value === 'imperial' || value === 'us_customary') {
+		return value;
+	}
+
+	return null;
 }
 
 async function readOrganizationSpeciesPayload(request: {
@@ -712,6 +887,18 @@ function toSpeciesResponse(species: SafeSpecies) {
 		displayName: species.displayName,
 		createdAt: species.createdAt,
 		updatedAt: species.updatedAt,
+	};
+}
+
+function toUnitResponse(unit: SafeUnit) {
+	return {
+		id: unit.id,
+		code: unit.code,
+		unitName: unit.unitName,
+		abbreviation: unit.abbreviation,
+		unitType: unit.unitType,
+		unitSystem: unit.unitSystem,
+		createdAt: unit.createdAt,
 	};
 }
 

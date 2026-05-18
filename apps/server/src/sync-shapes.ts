@@ -18,6 +18,7 @@ export function registerSyncShapeRoutes(
 	options: {
 		readonly electricUrl: string | null;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+		readonly operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly fetch?: typeof fetch;
 	},
 ): void {
@@ -207,6 +208,53 @@ export function registerSyncShapeRoutes(
 				params: [authContext.organization.id],
 			}),
 		});
+	});
+
+	app.get('/admin/sync/shapes/units', options.operatorAuthContextMiddleware, async (context) =>
+		proxyGlobalShape(context, options, {
+			columns: unitsSyncDescriptor.columns.map(camelToSnake),
+			table: unitsSyncDescriptor.table,
+		}),
+	);
+
+	app.get('/admin/sync/shapes/genera', options.operatorAuthContextMiddleware, async (context) =>
+		proxyGlobalShape(context, options, {
+			columns: generaSyncDescriptor.columns.map(camelToSnake),
+			table: generaSyncDescriptor.table,
+		}),
+	);
+
+	app.get('/admin/sync/shapes/species', options.operatorAuthContextMiddleware, async (context) =>
+		proxyGlobalShape(context, options, {
+			columns: speciesSyncDescriptor.columns.map(camelToSnake),
+			table: speciesSyncDescriptor.table,
+		}),
+	);
+}
+
+function proxyGlobalShape(
+	context: Context<{ Variables: AuthVariables }>,
+	options: {
+		readonly electricUrl: string | null;
+		readonly fetch?: typeof fetch;
+	},
+	shape: {
+		readonly columns: readonly string[];
+		readonly table: string;
+	},
+): Promise<Response> | Response {
+	if (options.electricUrl === null) {
+		return context.json({ error: 'electric_url_required' }, 503);
+	}
+
+	return proxyElectricShape(context, {
+		fetch: options.fetch,
+		upstreamUrl: buildElectricShapeUrl({
+			electricUrl: options.electricUrl,
+			incomingUrl: context.req.url,
+			columns: shape.columns,
+			table: shape.table,
+		}),
 	});
 }
 

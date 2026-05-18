@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-17T00:00:00-04:00",
+  "title": "Design System: SIMMER",
+  "extensions": {
+    "colorMeta": {
+      "field-green": {
+        "role": "primary",
+        "displayName": "Field Green",
+        "canonical": "oklch(52.71% 0.1114 159.1429)",
+        "tonalRamp": [
+          "oklch(15% 0.035 159.1429)",
+          "oklch(25% 0.06 159.1429)",
+          "oklch(35% 0.085 159.1429)",
+          "oklch(45% 0.105 159.1429)",
+          "oklch(55% 0.1114 159.1429)",
+          "oklch(70% 0.075 159.1429)",
+          "oklch(84% 0.04 159.1429)",
+          "oklch(95% 0.015 159.1429)"
+        ]
+      },
+      "pollen-yellow": {
+        "role": "secondary",
+        "displayName": "Pollen Yellow",
+        "canonical": "oklch(96.23% 0.052 108.52)",
+        "tonalRamp": [
+          "oklch(18% 0.03 108.52)",
+          "oklch(30% 0.045 108.52)",
+          "oklch(45% 0.06 108.52)",
+          "oklch(60% 0.07 108.52)",
+          "oklch(74% 0.065 108.52)",
+          "oklch(84% 0.058 108.52)",
+          "oklch(91% 0.052 108.52)",
+          "oklch(96% 0.035 108.52)"
+        ]
+      },
+      "app-bg": {
+        "role": "neutral",
+        "displayName": "App Background",
+        "canonical": "oklch(96% 0.008 165)",
+        "tonalRamp": [
+          "oklch(15% 0.008 165)",
+          "oklch(25% 0.008 165)",
+          "oklch(38% 0.008 165)",
+          "oklch(52% 0.008 165)",
+          "oklch(66% 0.008 165)",
+          "oklch(80% 0.008 165)",
+          "oklch(90% 0.008 165)",
+          "oklch(96% 0.008 165)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Rare onboarding, empty-state, or route-level moments."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page headings and workflow section leads."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panels, drawers, record groups, and dialogs."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Explanatory copy, record summaries, and readable prose."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Eyebrows, metadata labels, sidebar headings, table headers, and sync labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "legacy-ambient-panel",
+        "value": "0 10px 30px rgb(24 38 50 / 8%)",
+        "purpose": "Existing web shell panel shadow. Do not expand this as a default pattern."
+      },
+      {
+        "name": "drawer-backdrop",
+        "value": "oklch(24% 0.025 205 / 35%)",
+        "purpose": "Modal drawer backdrop for committed interruption."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-hover",
+        "value": "background-color 160ms ease-out",
+        "purpose": "Short state feedback for controls."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "640px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Committed action for a local workflow.",
+      "html": "<button class=\"ds-button-primary\">Create organization</button>",
+      "css": ".ds-button-primary { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; padding: 0 16px; border: 1px solid oklch(39% 0.075 175); border-radius: 8px; background: oklch(39% 0.075 175); color: oklch(98% 0.006 165); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; font-weight: 750; text-decoration: none; cursor: pointer; transition: background-color 160ms ease-out; } .ds-button-primary:hover { background: oklch(34% 0.08 175); } .ds-button-primary:focus-visible { outline: 3px solid color-mix(in oklch, oklch(84% 0.14 92), transparent 35%); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary row action or lower-emphasis command.",
+      "html": "<button class=\"ds-button-secondary\">Users</button>",
+      "css": ".ds-button-secondary { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; padding: 0 16px; border: 1px solid oklch(39% 0.075 175); border-radius: 8px; background: oklch(99% 0.004 165); color: oklch(39% 0.075 175); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; font-weight: 750; cursor: pointer; transition: background-color 160ms ease-out; } .ds-button-secondary:hover { background: oklch(94.5% 0.009 165); } .ds-button-secondary:focus-visible { outline: 3px solid color-mix(in oklch, oklch(84% 0.14 92), transparent 35%); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Default form field for operational data entry.",
+      "html": "<label class=\"ds-field\">Agency name<input value=\"Delta County Mosquito Control\" /></label>",
+      "css": ".ds-field { display: grid; gap: 6px; color: oklch(48% 0.028 205); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; font-size: 0.86rem; font-weight: 750; } .ds-field input { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid oklch(77% 0.03 205); border-radius: 8px; background: oklch(99% 0.004 165); color: oklch(24% 0.025 205); font: inherit; } .ds-field input:focus-visible { outline: 3px solid color-mix(in oklch, oklch(84% 0.14 92), transparent 35%); outline-offset: 2px; }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Primary surface for a focused product workflow.",
+      "html": "<article class=\"ds-panel\"><h2>Customer organizations</h2><p>Open an organization to invite users and review membership setup.</p></article>",
+      "css": ".ds-panel { padding: 24px; border: 1px solid oklch(86% 0.018 205); border-radius: 8px; background: oklch(99% 0.004 165); color: oklch(24% 0.025 205); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; } .ds-panel h2 { margin: 0 0 12px; font-size: 1.1rem; line-height: 1.25; } .ds-panel p { margin: 0; max-width: 64ch; color: oklch(48% 0.028 205); line-height: 1.55; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "admin-sidebar",
+      "description": "Control plane section navigation.",
+      "html": "<nav class=\"ds-sidebar\" aria-label=\"Admin sections\"><span>Control plane</span><a class=\"active\">Organizations</a><a>Mosquito taxonomy</a><a>Units</a></nav>",
+      "css": ".ds-sidebar { display: grid; gap: 4px; padding: 10px; border: 1px solid oklch(86% 0.018 205); border-radius: 8px; background: oklch(94.5% 0.009 165); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; } .ds-sidebar span { padding: 4px 12px 8px; color: oklch(60% 0.024 205); font-size: 0.74rem; font-weight: 800; text-transform: uppercase; } .ds-sidebar a { padding: 11px 12px; border-radius: 6px; color: oklch(48% 0.028 205); font-weight: 750; text-decoration: none; } .ds-sidebar a.active { background: oklch(99% 0.004 165); color: oklch(24% 0.025 205); } .ds-sidebar a:focus-visible { outline: 3px solid color-mix(in oklch, oklch(84% 0.14 92), transparent 35%); outline-offset: 2px; }"
+    },
+    {
+      "name": "Record Row",
+      "kind": "custom",
+      "refersTo": "record-row",
+      "description": "Inspection plus action pattern for records that are not table-first.",
+      "html": "<article class=\"ds-record-row\"><div><h3>Delta County Mosquito Control</h3><p>No WorkOS organization linked</p></div><strong>trial</strong></article>",
+      "css": ".ds-record-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px 0; border-top: 1px solid oklch(86% 0.018 205); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; } .ds-record-row h3 { margin: 0; color: oklch(24% 0.025 205); font-size: 1rem; } .ds-record-row p { margin: 5px 0 0; overflow-wrap: anywhere; color: oklch(48% 0.028 205); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.84rem; } .ds-record-row strong { color: oklch(24% 0.025 205); font-size: 0.9rem; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Field Operations Map Room",
+    "overview": "SIMMER should feel like a calm operational workspace built around geography: professional, natural, and focused. It is not a marketing surface and not a generic admin console. It is where agency and SIMMER Operator work becomes legible enough to trust.\n\nThe product register is restrained, but not bland. Use tinted neutrals, grounded green, and earned yellow attention to keep dense workflows readable. The interface should feel field-aware through language, structure, map adjacency, and record relationships, not through decorative nature motifs.\n\nThe system explicitly rejects generic government portal design, enterprise GIS clone density, dashboard theater, consumer map mimicry, and table-first data representation. When in doubt, make the next operational action clearer.",
+    "keyCharacteristics": [
+      "Map-first operational clarity.",
+      "Restrained product surfaces with warm field cues.",
+      "Compact hierarchy for repeated work.",
+      "Visual representations before tables when location, time, status, or relationships explain the work better.",
+      "Durable tokens in packages/design-tokens, shadcn source components in packages/ui-web, cva variants for repeated styles, then route-level styling only as a last resort."
+    ],
+    "rules": [
+      {
+        "name": "The Earned Color Rule",
+        "body": "Every non-neutral color must carry a semantic job: action, status, selection, focus, taxonomy, sync, or spatial meaning.",
+        "section": "colors"
+      },
+      {
+        "name": "The Map-Room Neutral Rule",
+        "body": "Neutral surfaces are tinted toward green and blue. Never use pure black or pure white.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Decoration Rule",
+        "body": "Product screens use color to clarify work, not to fill empty space.",
+        "section": "colors"
+      },
+      {
+        "name": "The Poppins Rule",
+        "body": "Poppins is the intended SIMMER sans serif. Replace current Inter/system stacks as product surfaces are touched.",
+        "section": "typography"
+      },
+      {
+        "name": "The Product Type Rule",
+        "body": "Typography must help users scan and act. Do not use display styling in labels, buttons, tables, forms, or dense controls.",
+        "section": "typography"
+      },
+      {
+        "name": "The Web Component Contract",
+        "body": "Web product UI must start from the shadcn source components in packages/ui-web/src/components/ui wherever a fitting primitive exists. Tailwind is the styling language for web UI, reusable styling choices belong in class-variance-authority (cva) variants inside the shared component, and route-level classes should mostly express layout, spacing, width, responsive behavior, and local placement.",
+        "section": "components"
+      },
+      {
+        "name": "The Flat Until Floating Rule",
+        "body": "Resting surfaces are flat. Floating surfaces must earn depth by interrupting, overlaying, or anchoring to a map/task context.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep SIMMER Green and SIMMER Yellow stable across every platform.",
+      "Do use Poppins as the SIMMER sans serif when touching product surfaces.",
+      "Do use OKLCH for CSS tokens and keep neutrals tinted, never pure black or pure white.",
+      "Do preserve the map as operational context wherever spatial work is the user's job.",
+      "Do use visual representations before tables when maps, timelines, status grouping, spatial overlays, compact summaries, or record relationships clarify the work.",
+      "Do centralize durable choices in packages/design-tokens and component variants.",
+      "Do use shadcn source components from packages/ui-web wherever possible, styled with Tailwind semantic tokens.",
+      "Do add repeated states, sizes, and visual treatments as cva variants and compose classes with cn.",
+      "Do treat SIMMER Operator screens as product-quality surfaces, not temporary scaffolding."
+    ],
+    "donts": [
+      "Don't make generic government portal design: boxy forms, weak hierarchy, dated chrome, or administrative leftovers.",
+      "Don't become an enterprise GIS clone: dense toolbars, overwhelming layer panels, crowded controls, or \"ArcGIS but worse\" interactions.",
+      "Don't use dashboard theater: excessive metric cards, generic chart blocks, gradient SaaS decoration, or analytics surfaces that exist because dashboards are expected.",
+      "Don't mimic consumer maps so closely that SIMMER becomes too casual, too search-first, or too shallow for operational record keeping.",
+      "Don't default to table-first data representation when spatial, temporal, status, or relationship views explain the work more directly.",
+      "Don't build CSS-only replicas of shadcn primitives such as buttons, fields, cards, dialogs, sheets, drawers, tabs, tables, badges, alerts, empty states, separators, skeletons, or sidebars.",
+      "Don't scatter repeated color, typography, border, radius, shadow, focus, or animation classes through app routes when a token or cva component variant can own the decision.",
+      "Don't use colored side-stripe borders, gradient text, decorative glassmorphism, identical card grids, or modals as the first design answer."
+    ]
+  }
+}

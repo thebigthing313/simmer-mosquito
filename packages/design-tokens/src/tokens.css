@@ -1,0 +1,27 @@
+/*
+ * SIMMER Design Tokens
+ *
+ * Brand colors are constants shared by every platform. Semantic colors,
+ * component variants, icons, and app-specific palettes should be introduced
+ * deliberately as the design system earns those interfaces.
+ */
+
+:root {
+	--simmer-green: oklch(0.5271 0.1114 159.1429);
+	--simmer-dark-green: oklch(0.3915 0.0882 156.38);
+	--simmer-darker-green: oklch(0.3182 0.0732 156.0959);
+	--simmer-yellow: oklch(0.9623 0.052 108.52);
+	--simmer-purple: oklch(0.4937 0.1424 325.97);
+	--simmer-red: oklch(0.6156 0.2307 16.37);
+	--simmer-blue: oklch(0.4483 0.1791 268.37);
+}
+
+@theme {
+	--color-simmer-green: var(--simmer-green);
+	--color-simmer-dark-green: var(--simmer-dark-green);
+	--color-simmer-darker-green: var(--simmer-darker-green);
+	--color-simmer-yellow: var(--simmer-yellow);
+	--color-simmer-purple: var(--simmer-purple);
+	--color-simmer-red: var(--simmer-red);
+	--color-simmer-blue: var(--simmer-blue);
+}

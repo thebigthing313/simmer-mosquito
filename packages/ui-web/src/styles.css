@@ -1,0 +1,137 @@
+@import "@simmer-mosquito/design-tokens/tokens.css";
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@source "./**/*.{ts,tsx}";
+@source "../../apps/**/*.{ts,tsx}";
+
+:root {
+	--background: oklch(96% 0.008 165);
+	--foreground: oklch(24% 0.025 205);
+	--card: oklch(99% 0.004 165);
+	--card-foreground: oklch(24% 0.025 205);
+	--popover: oklch(99% 0.004 165);
+	--popover-foreground: oklch(24% 0.025 205);
+	--primary: oklch(39.15% 0.0882 156.38);
+	--primary-foreground: oklch(98% 0.006 165);
+	--secondary: oklch(94.5% 0.009 165);
+	--secondary-foreground: oklch(31.82% 0.0732 156.0959);
+	--muted: oklch(94.5% 0.009 165);
+	--muted-foreground: oklch(48% 0.028 205);
+	--accent: oklch(96.23% 0.052 108.52);
+	--accent-foreground: oklch(31.82% 0.0732 156.0959);
+	--destructive: oklch(61.56% 0.2307 16.37);
+	--destructive-foreground: oklch(98% 0.006 165);
+	--border: oklch(86% 0.018 205);
+	--input: oklch(77% 0.03 205);
+	--ring: oklch(84% 0.14 92);
+	--chart-1: oklch(52.71% 0.1114 159.1429);
+	--chart-2: oklch(44.83% 0.1791 268.37);
+	--chart-3: oklch(49.37% 0.1424 325.97);
+	--chart-4: oklch(96.23% 0.052 108.52);
+	--chart-5: oklch(61.56% 0.2307 16.37);
+	--sidebar: oklch(94.5% 0.009 165);
+	--sidebar-foreground: oklch(24% 0.025 205);
+	--sidebar-primary: oklch(39.15% 0.0882 156.38);
+	--sidebar-primary-foreground: oklch(98% 0.006 165);
+	--sidebar-accent: oklch(90% 0.016 165);
+	--sidebar-accent-foreground: oklch(31.82% 0.0732 156.0959);
+	--sidebar-border: oklch(86% 0.018 205);
+	--sidebar-ring: oklch(84% 0.14 92);
+	--radius: 0.5rem;
+	--surface: var(--card);
+	--surface-muted: var(--muted);
+	--surface-strong: oklch(90% 0.016 165);
+	--border-strong: oklch(77% 0.03 205);
+	--text: var(--foreground);
+	--quiet: oklch(60% 0.024 205);
+	--brand: var(--primary);
+	--brand-hover: oklch(34% 0.08 175);
+	--attention: var(--ring);
+	--warning: oklch(45% 0.09 55);
+	--success: oklch(39% 0.088 156);
+	--success-bg: oklch(93.5% 0.035 156);
+	--info: var(--chart-2);
+	--info-bg: oklch(93% 0.032 240);
+	--catalog: var(--chart-3);
+	--catalog-bg: oklch(94% 0.03 326);
+	--danger: oklch(46% 0.14 20);
+	--danger-bg: oklch(94% 0.04 20);
+	--warning-bg: oklch(95% 0.05 92);
+	--type-caption: 0.75rem;
+	--type-small: 0.875rem;
+	--type-body: 1rem;
+	--type-title: 1.125rem;
+	--type-heading: 1.5rem;
+	--leading-tight: 1.2;
+	--leading-body: 1.55;
+	--leading-compact: 1.4;
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--radius-sm: calc(var(--radius) - 2px);
+	--radius-md: var(--radius);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	body {
+		@apply bg-background text-foreground;
+		margin: 0;
+		font-family:
+			Poppins, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		font-kerning: normal;
+		font-synthesis: none;
+		text-rendering: optimizeLegibility;
+	}
+
+	a {
+		color: inherit;
+	}
+
+	button,
+	input,
+	textarea,
+	select {
+		font: inherit;
+	}
+}
