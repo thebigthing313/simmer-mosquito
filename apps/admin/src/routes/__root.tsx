@@ -1,5 +1,5 @@
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
-import { type AuthMe } from '../api';
+import type { AuthMe } from '../api';
 
 export interface RouterContext {
 	readonly auth: AuthMe | null;

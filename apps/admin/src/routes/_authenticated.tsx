@@ -1,3 +1,4 @@
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { createRoute, Link, Outlet, redirect } from '@tanstack/react-router';
 import { adminLoginUrl, getServerUrl } from '../api';
 import { Panel } from '../components/Panel';
@@ -40,9 +41,9 @@ function AuthenticatedLayout() {
 			<section className="shell">
 				<Panel title="Sign in required">
 					<p>Use an allowlisted SIMMER operator account to access admin tools.</p>
-					<a className="button" href={adminLoginUrl(serverUrl)}>
-						Sign in
-					</a>
+					<Button asChild>
+						<a href={adminLoginUrl(serverUrl)}>Sign in</a>
+					</Button>
 				</Panel>
 			</section>
 		);
@@ -55,9 +56,9 @@ function AuthenticatedLayout() {
 					SIMMER Admin
 				</Link>
 				<form action={`${serverUrl}/auth/logout`} method="post">
-					<button className="button subtle" type="submit">
+					<Button size="sm" type="submit" variant="outline">
 						Sign out
-					</button>
+					</Button>
 				</form>
 			</header>
 			<Outlet />

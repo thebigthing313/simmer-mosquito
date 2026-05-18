@@ -8,6 +8,9 @@ import {
 	createSpeciesWithTxid,
 	createTrap,
 	createUnitWithTxid,
+	deleteGenusWithTxid,
+	deleteSpeciesWithTxid,
+	deleteUnitWithTxid,
 	enableOrganizationSpecies,
 	type GeoJsonGeometry,
 	getOperatorOrganization,
@@ -31,6 +34,9 @@ import {
 	type SafeUnit,
 	type UnitSystem,
 	type UnitType,
+	updateGenusWithTxid,
+	updateSpeciesWithTxid,
+	updateUnitWithTxid,
 } from '@simmer-mosquito/db';
 import type { Context, Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
@@ -184,6 +190,33 @@ export function registerAdminFoundationRoutes(
 		return context.json({ genus: toGenusResponse(result.row), txid: result.txid }, 201);
 	});
 
+	app.patch('/admin/genera/:genusId', options.operatorAuthContextMiddleware, async (context) => {
+		const payloadResult = await readGenusPayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const result = await updateGenusWithTxid(
+			options.db,
+			context.req.param('genusId'),
+			payloadResult.payload,
+		);
+		if (result.row === null) {
+			return context.json({ error: 'genus_not_found' }, 404);
+		}
+
+		return context.json({ genus: toGenusResponse(result.row), txid: result.txid });
+	});
+
+	app.delete('/admin/genera/:genusId', options.operatorAuthContextMiddleware, async (context) => {
+		const result = await deleteGenusWithTxid(options.db, context.req.param('genusId'));
+		if (result.row === null) {
+			return context.json({ error: 'genus_not_found' }, 404);
+		}
+
+		return context.json({ genus: toGenusResponse(result.row), txid: result.txid });
+	});
+
 	app.post('/admin/species', options.operatorAuthContextMiddleware, async (context) => {
 		const payloadResult = await readSpeciesPayload(context.req);
 		if (!payloadResult.ok) {
@@ -194,6 +227,37 @@ export function registerAdminFoundationRoutes(
 		return context.json({ species: toSpeciesResponse(result.row), txid: result.txid }, 201);
 	});
 
+	app.patch('/admin/species/:speciesId', options.operatorAuthContextMiddleware, async (context) => {
+		const payloadResult = await readSpeciesPayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const result = await updateSpeciesWithTxid(
+			options.db,
+			context.req.param('speciesId'),
+			payloadResult.payload,
+		);
+		if (result.row === null) {
+			return context.json({ error: 'species_not_found' }, 404);
+		}
+
+		return context.json({ species: toSpeciesResponse(result.row), txid: result.txid });
+	});
+
+	app.delete(
+		'/admin/species/:speciesId',
+		options.operatorAuthContextMiddleware,
+		async (context) => {
+			const result = await deleteSpeciesWithTxid(options.db, context.req.param('speciesId'));
+			if (result.row === null) {
+				return context.json({ error: 'species_not_found' }, 404);
+			}
+
+			return context.json({ species: toSpeciesResponse(result.row), txid: result.txid });
+		},
+	);
+
 	app.post('/admin/units', options.operatorAuthContextMiddleware, async (context) => {
 		const payloadResult = await readUnitPayload(context.req);
 		if (!payloadResult.ok) {
@@ -202,6 +266,33 @@ export function registerAdminFoundationRoutes(
 
 		const result = await createUnitWithTxid(options.db, payloadResult.payload);
 		return context.json({ unit: toUnitResponse(result.row), txid: result.txid }, 201);
+	});
+
+	app.patch('/admin/units/:unitId', options.operatorAuthContextMiddleware, async (context) => {
+		const payloadResult = await readUnitPayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const result = await updateUnitWithTxid(
+			options.db,
+			context.req.param('unitId'),
+			payloadResult.payload,
+		);
+		if (result.row === null) {
+			return context.json({ error: 'unit_not_found' }, 404);
+		}
+
+		return context.json({ unit: toUnitResponse(result.row), txid: result.txid });
+	});
+
+	app.delete('/admin/units/:unitId', options.operatorAuthContextMiddleware, async (context) => {
+		const result = await deleteUnitWithTxid(options.db, context.req.param('unitId'));
+		if (result.row === null) {
+			return context.json({ error: 'unit_not_found' }, 404);
+		}
+
+		return context.json({ unit: toUnitResponse(result.row), txid: result.txid });
 	});
 
 	app.post(

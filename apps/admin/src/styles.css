@@ -359,14 +359,16 @@ select {
 
 .taxonomy-layout {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-	gap: 18px;
+	grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+	gap: 20px;
 	align-items: start;
 }
 
 .taxonomy-tools {
 	display: grid;
-	gap: 18px;
+	gap: 14px;
+	position: sticky;
+	top: 18px;
 }
 
 .form-grid {
@@ -683,15 +685,100 @@ select {
 	display: grid;
 }
 
+.taxonomy-hierarchy {
+	display: grid;
+	grid-template-rows: auto auto minmax(340px, 1fr);
+	gap: 14px;
+	min-height: min(760px, calc(100dvh - 220px));
+}
+
+.taxonomy-browser {
+	display: grid;
+	grid-template-columns: minmax(148px, 0.28fr) minmax(0, 1fr);
+	gap: 14px;
+	align-items: start;
+}
+
+.taxonomy-summary {
+	display: grid;
+	gap: 6px;
+}
+
+.taxonomy-summary div {
+	display: grid;
+	gap: 2px;
+	padding: 8px 10px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: color-mix(in oklch, var(--catalog) 4%, var(--surface-muted));
+}
+
+.taxonomy-summary strong {
+	color: var(--text);
+	font-size: var(--type-title);
+	font-variant-numeric: tabular-nums;
+	font-weight: 800;
+	line-height: var(--leading-tight);
+}
+
+.taxonomy-summary span {
+	color: var(--quiet);
+	font-size: var(--type-caption);
+	font-weight: 800;
+	line-height: var(--leading-tight);
+	text-transform: uppercase;
+}
+
+.taxonomy-discovery {
+	display: grid;
+	gap: 10px;
+	min-width: 0;
+}
+
+.taxonomy-search {
+	display: grid;
+	gap: 6px;
+	color: var(--muted);
+	font-size: var(--type-small);
+	font-weight: 700;
+	line-height: var(--leading-tight);
+}
+
+.taxonomy-index-scroll {
+	max-height: 84px;
+}
+
+.taxonomy-index {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 7px;
+	padding: 1px;
+}
+
+.taxonomy-index a {
+	text-decoration: none;
+}
+
+.taxonomy-index strong {
+	font-variant-numeric: tabular-nums;
+}
+
+.taxonomy-tree-scroll {
+	min-height: 340px;
+	max-height: min(690px, calc(100dvh - 380px));
+}
+
 .taxonomy-tree {
 	display: grid;
-	gap: 12px;
+	gap: 10px;
+	padding: 1px 10px 1px 1px;
 }
 
 .taxon-group {
 	display: grid;
-	gap: 12px;
-	padding: 14px;
+	gap: 10px;
+	scroll-margin-top: 18px;
+	padding: 12px;
 	border: 1px solid var(--border);
 	border-radius: 8px;
 	background: var(--surface);
@@ -733,45 +820,50 @@ select {
 
 .taxon-species-list {
 	display: grid;
-	gap: 8px;
-	padding-left: 14px;
-	border-left: 1px solid color-mix(in oklch, var(--catalog) 34%, var(--border));
+	grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+	gap: 7px;
 }
 
 .taxon-species {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	gap: 12px;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 6px;
 	align-items: center;
-	padding: 10px 12px;
+	padding: 9px 10px;
 	border: 1px solid color-mix(in oklch, var(--catalog) 12%, var(--border));
 	border-radius: 8px;
 	background: color-mix(in oklch, var(--catalog) 4%, var(--surface-muted));
 }
 
 .taxon-species h3 {
+	overflow: hidden;
 	color: var(--text);
 	font-size: var(--type-body);
 	font-weight: 700;
 	line-height: var(--leading-tight);
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .taxon-species p {
 	margin-top: 4px;
+	overflow: hidden;
 	color: var(--muted);
 	font-size: var(--type-small);
 	line-height: var(--leading-compact);
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .taxon-empty {
-	padding: 10px 12px;
+	min-height: 84px;
+	padding: 14px;
 	border: 1px dashed var(--border-strong);
-	border-radius: 8px;
 	background: var(--surface-muted);
-	color: var(--quiet);
-	font-size: var(--type-small);
-	font-weight: 600;
-	line-height: var(--leading-compact);
+}
+
+.taxon-reveal {
+	justify-self: start;
 }
 
 .record-row {
@@ -862,6 +954,11 @@ select {
 .form-actions {
 	display: flex;
 	justify-content: flex-end;
+}
+
+.dialog-form {
+	display: grid;
+	gap: 18px;
 }
 
 .drawer-dialog {
@@ -1003,6 +1100,22 @@ select {
 	.record-row.two-column,
 	.meta-list {
 		grid-template-columns: 1fr;
+	}
+
+	.taxonomy-tools {
+		position: static;
+	}
+
+	.taxonomy-browser {
+		grid-template-columns: 1fr;
+	}
+
+	.taxonomy-summary {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.taxonomy-tree-scroll {
+		max-height: calc(100dvh - 260px);
 	}
 
 	.taxon-group-header,

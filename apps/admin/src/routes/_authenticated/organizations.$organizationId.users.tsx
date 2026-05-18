@@ -1,3 +1,7 @@
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { createRoute, Link, useParams } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useState } from 'react';
 import {
@@ -10,7 +14,7 @@ import {
 	type MembershipStatus,
 	type SimmerRole,
 } from '../../api';
-import { Fact, Panel } from '../../components/Panel';
+import { Fact, Panel, type Tone } from '../../components/Panel';
 import { adminLayoutRoute } from './_admin';
 
 const serverUrl = getServerUrl();
@@ -77,25 +81,25 @@ function OrganizationUsersRoute() {
 				</Link>
 
 				<form className="form-grid compact" onSubmit={submitInvite}>
-					<label>
+					<Label>
 						Email
-						<input
+						<Input
 							required
 							type="email"
 							value={form.email}
 							onChange={(event) => setForm({ ...form, email: event.target.value })}
 						/>
-					</label>
-					<label>
+					</Label>
+					<Label>
 						Display name
-						<input
+						<Input
 							value={form.displayName}
 							onChange={(event) => setForm({ ...form, displayName: event.target.value })}
 						/>
-					</label>
-					<label>
+					</Label>
+					<Label>
 						Role
-						<select
+						<NativeSelect
 							value={form.role}
 							onChange={(event) => setForm({ ...form, role: event.target.value as SimmerRole })}
 						>
@@ -104,11 +108,9 @@ function OrganizationUsersRoute() {
 							<option value="manager">manager</option>
 							<option value="admin">admin</option>
 							<option value="owner">owner</option>
-						</select>
-					</label>
-					<button className="button" type="submit">
-						Invite user
-					</button>
+						</NativeSelect>
+					</Label>
+					<Button type="submit">Invite user</Button>
 				</form>
 
 				{status === '' ? null : <p className="status">{status}</p>}
@@ -121,15 +123,11 @@ function OrganizationUsersRoute() {
 								<p>{membership.profile.email ?? membership.invitedEmail ?? 'No email'}</p>
 							</div>
 							<dl className="facts">
-								<Fact
-									label="Role"
-									value={membership.role}
-									valueClassName={`badge ${roleBadgeTone(membership.role)}`}
-								/>
+								<Fact label="Role" value={membership.role} tone={roleBadgeTone(membership.role)} />
 								<Fact
 									label="Status"
 									value={membership.status}
-									valueClassName={`badge ${membershipStatusBadgeTone(membership.status)}`}
+									tone={membershipStatusBadgeTone(membership.status)}
 								/>
 								<Fact label="User" value={membership.userId ?? 'pending'} />
 							</dl>
@@ -141,7 +139,7 @@ function OrganizationUsersRoute() {
 	);
 }
 
-function roleBadgeTone(role: SimmerRole): string {
+function roleBadgeTone(role: SimmerRole): Tone {
 	if (role === 'owner' || role === 'admin') {
 		return 'catalog';
 	}
@@ -154,7 +152,7 @@ function roleBadgeTone(role: SimmerRole): string {
 	return 'neutral';
 }
 
-function membershipStatusBadgeTone(status: MembershipStatus): string {
+function membershipStatusBadgeTone(status: MembershipStatus): Tone {
 	if (status === 'active') {
 		return 'success';
 	}

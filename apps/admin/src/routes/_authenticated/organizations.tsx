@@ -1,3 +1,9 @@
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
+import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
+import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { createRoute, Link } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
@@ -7,7 +13,7 @@ import {
 	getServerUrl,
 	listAdminAgencies,
 } from '../../api';
-import { Panel } from '../../components/Panel';
+import { Panel, type Tone, ToneBadge } from '../../components/Panel';
 import { adminLayoutRoute } from './_admin';
 
 const serverUrl = getServerUrl();
@@ -83,13 +89,9 @@ function OrganizationsRoute() {
 					<h1>Organizations</h1>
 					<p>Manage SIMMER customer organizations and the users connected to each one.</p>
 				</div>
-				<button
-					className="button"
-					type="button"
-					onClick={() => createDialogRef.current?.showModal()}
-				>
+				<Button type="button" onClick={() => createDialogRef.current?.showModal()}>
 					New organization
-				</button>
+				</Button>
 			</header>
 
 			<Panel title="Customer organizations">
@@ -105,13 +107,13 @@ function OrganizationsRoute() {
 					<div className="empty-state">
 						<h2>No organizations yet</h2>
 						<p>Create the first SIMMER customer organization when onboarding is ready.</p>
-						<button
-							className="button secondary"
+						<Button
+							variant="secondary"
 							type="button"
 							onClick={() => createDialogRef.current?.showModal()}
 						>
 							Create organization
-						</button>
+						</Button>
 					</div>
 				) : (
 					<div className="list organization-list">
@@ -127,13 +129,11 @@ function OrganizationsRoute() {
 									<div className="organization-meta">
 										<div>
 											<span>Subscription</span>
-											<strong
-												className={`badge ${subscriptionBadgeTone(
-													organization.subscription.subscriptionStatus,
-												)}`}
+											<ToneBadge
+												tone={subscriptionBadgeTone(organization.subscription.subscriptionStatus)}
 											>
 												{organization.subscription.subscriptionStatus}
-											</strong>
+											</ToneBadge>
 										</div>
 										<div>
 											<span>Main contact</span>
@@ -142,13 +142,14 @@ function OrganizationsRoute() {
 									</div>
 								</div>
 								<div className="row-actions">
-									<Link
-										className="button secondary"
-										to="/organizations/$organizationId/users"
-										params={{ organizationId: organization.id }}
-									>
-										Users
-									</Link>
+									<Button asChild variant="secondary">
+										<Link
+											to="/organizations/$organizationId/users"
+											params={{ organizationId: organization.id }}
+										>
+											Users
+										</Link>
+									</Button>
 								</div>
 							</article>
 						))}
@@ -162,13 +163,14 @@ function OrganizationsRoute() {
 				aria-labelledby="create-organization-title"
 			>
 				<form method="dialog" className="drawer-close">
-					<button
+					<Button
 						aria-label="Close create organization dialog"
-						className="button subtle"
+						size="sm"
 						type="submit"
+						variant="outline"
 					>
 						Close
-					</button>
+					</Button>
 				</form>
 
 				<div className="drawer-header">
@@ -179,17 +181,17 @@ function OrganizationsRoute() {
 				</div>
 
 				<form className="form-grid drawer-form" onSubmit={submit}>
-					<label>
+					<Label>
 						Agency name
-						<input
+						<Input
 							required
 							value={form.name}
 							onChange={(event) => setForm({ ...form, name: event.target.value })}
 						/>
-					</label>
-					<label>
+					</Label>
+					<Label>
 						Subscription
-						<select
+						<NativeSelect
 							value={form.subscriptionStatus}
 							onChange={(event) =>
 								setForm({
@@ -203,58 +205,57 @@ function OrganizationsRoute() {
 							<option value="active">active</option>
 							<option value="suspended">suspended</option>
 							<option value="canceled">canceled</option>
-						</select>
-					</label>
-					<label>
+						</NativeSelect>
+					</Label>
+					<Label>
 						Main contact email
-						<input
+						<Input
 							type="email"
 							value={form.mainContactEmail}
 							onChange={(event) => setForm({ ...form, mainContactEmail: event.target.value })}
 						/>
-					</label>
-					<label>
+					</Label>
+					<Label>
 						Phone
-						<input
+						<Input
 							value={form.phoneNumber}
 							onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })}
 						/>
-					</label>
-					<label>
+					</Label>
+					<Label>
 						Billing contact
-						<input
+						<Input
 							value={form.billingContactName}
 							onChange={(event) => setForm({ ...form, billingContactName: event.target.value })}
 						/>
-					</label>
-					<label>
+					</Label>
+					<Label>
 						Billing email
-						<input
+						<Input
 							type="email"
 							value={form.billingContactEmail}
 							onChange={(event) => setForm({ ...form, billingContactEmail: event.target.value })}
 						/>
-					</label>
-					<label className="full">
+					</Label>
+					<Label className="full">
 						Notes
-						<textarea
+						<Textarea
 							rows={3}
 							value={form.subscriptionNotes}
 							onChange={(event) => setForm({ ...form, subscriptionNotes: event.target.value })}
 						/>
-					</label>
-					<label className="checkbox full">
-						<input
-							type="checkbox"
+					</Label>
+					<Label className="checkbox full">
+						<Checkbox
 							checked={form.linkRequesterAsOwner}
-							onChange={(event) => setForm({ ...form, linkRequesterAsOwner: event.target.checked })}
+							onCheckedChange={(checked) =>
+								setForm({ ...form, linkRequesterAsOwner: checked === true })
+							}
 						/>
 						Link me as owner
-					</label>
+					</Label>
 					<div className="drawer-actions full">
-						<button className="button" type="submit">
-							Create organization
-						</button>
+						<Button type="submit">Create organization</Button>
 					</div>
 				</form>
 			</dialog>
@@ -262,7 +263,7 @@ function OrganizationsRoute() {
 	);
 }
 
-function subscriptionBadgeTone(status: AdminAgency['subscription']['subscriptionStatus']): string {
+function subscriptionBadgeTone(status: AdminAgency['subscription']['subscriptionStatus']): Tone {
 	if (status === 'active') {
 		return 'success';
 	}

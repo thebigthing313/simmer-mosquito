@@ -137,12 +137,16 @@ export interface CreateAdminGenusInput {
 	readonly name: string;
 }
 
+export interface UpdateAdminGenusInput extends CreateAdminGenusInput {}
+
 export interface CreateAdminSpeciesInput {
 	readonly genusId: string | null;
 	readonly epithet: string;
 	readonly commonName: string;
 	readonly displayName: string;
 }
+
+export interface UpdateAdminSpeciesInput extends CreateAdminSpeciesInput {}
 
 export interface AdminUnit {
 	readonly id: string;
@@ -161,6 +165,8 @@ export interface CreateAdminUnitInput {
 	readonly unitType: UnitType;
 	readonly unitSystem: UnitSystem;
 }
+
+export interface UpdateAdminUnitInput extends CreateAdminUnitInput {}
 
 export interface AdminMutationResult<TRow> {
 	readonly row: TRow;
@@ -256,6 +262,28 @@ export async function createAdminGenus(
 	return { row: body.genus, txid: body.txid };
 }
 
+export async function updateAdminGenus(
+	genusId: string,
+	input: UpdateAdminGenusInput,
+	serverUrl = getServerUrl(),
+): Promise<AdminMutationResult<AdminGenus>> {
+	const body = await patchJson<{ readonly genus: AdminGenus; readonly txid: number }>(
+		`${serverUrl}/admin/genera/${genusId}`,
+		input,
+	);
+	return { row: body.genus, txid: body.txid };
+}
+
+export async function deleteAdminGenus(
+	genusId: string,
+	serverUrl = getServerUrl(),
+): Promise<AdminMutationResult<AdminGenus>> {
+	const body = await deleteJson<{ readonly genus: AdminGenus; readonly txid: number }>(
+		`${serverUrl}/admin/genera/${genusId}`,
+	);
+	return { row: body.genus, txid: body.txid };
+}
+
 export async function createAdminSpecies(
 	input: CreateAdminSpeciesInput,
 	serverUrl = getServerUrl(),
@@ -263,6 +291,28 @@ export async function createAdminSpecies(
 	const body = await postJson<{ readonly species: AdminSpecies; readonly txid: number }>(
 		`${serverUrl}/admin/species`,
 		input,
+	);
+	return { row: body.species, txid: body.txid };
+}
+
+export async function updateAdminSpecies(
+	speciesId: string,
+	input: UpdateAdminSpeciesInput,
+	serverUrl = getServerUrl(),
+): Promise<AdminMutationResult<AdminSpecies>> {
+	const body = await patchJson<{ readonly species: AdminSpecies; readonly txid: number }>(
+		`${serverUrl}/admin/species/${speciesId}`,
+		input,
+	);
+	return { row: body.species, txid: body.txid };
+}
+
+export async function deleteAdminSpecies(
+	speciesId: string,
+	serverUrl = getServerUrl(),
+): Promise<AdminMutationResult<AdminSpecies>> {
+	const body = await deleteJson<{ readonly species: AdminSpecies; readonly txid: number }>(
+		`${serverUrl}/admin/species/${speciesId}`,
 	);
 	return { row: body.species, txid: body.txid };
 }
@@ -278,9 +328,51 @@ export async function createAdminUnit(
 	return { row: body.unit, txid: body.txid };
 }
 
+export async function updateAdminUnit(
+	unitId: string,
+	input: UpdateAdminUnitInput,
+	serverUrl = getServerUrl(),
+): Promise<AdminMutationResult<AdminUnit>> {
+	const body = await patchJson<{ readonly unit: AdminUnit; readonly txid: number }>(
+		`${serverUrl}/admin/units/${unitId}`,
+		input,
+	);
+	return { row: body.unit, txid: body.txid };
+}
+
+export async function deleteAdminUnit(
+	unitId: string,
+	serverUrl = getServerUrl(),
+): Promise<AdminMutationResult<AdminUnit>> {
+	const body = await deleteJson<{ readonly unit: AdminUnit; readonly txid: number }>(
+		`${serverUrl}/admin/units/${unitId}`,
+	);
+	return { row: body.unit, txid: body.txid };
+}
+
 async function postJson<T>(url: string, input: unknown): Promise<T> {
+	return writeJson<T>(url, 'POST', input);
+}
+
+async function patchJson<T>(url: string, input: unknown): Promise<T> {
+	return writeJson<T>(url, 'PATCH', input);
+}
+
+async function deleteJson<T>(url: string): Promise<T> {
 	const response = await fetch(url, {
-		method: 'POST',
+		method: 'DELETE',
+		credentials: 'include',
+		headers: {
+			accept: 'application/json',
+		},
+	});
+
+	return readJsonResponse<T>(response);
+}
+
+async function writeJson<T>(url: string, method: 'PATCH' | 'POST', input: unknown): Promise<T> {
+	const response = await fetch(url, {
+		method,
 		credentials: 'include',
 		headers: {
 			accept: 'application/json',
@@ -289,6 +381,10 @@ async function postJson<T>(url: string, input: unknown): Promise<T> {
 		body: JSON.stringify(input),
 	});
 
+	return readJsonResponse<T>(response);
+}
+
+async function readJsonResponse<T>(response: Response): Promise<T> {
 	const body = (await response.json()) as T | { readonly error: string; readonly reason?: string };
 	if (!response.ok || (isRecord(body) && 'error' in body)) {
 		throw new Error(

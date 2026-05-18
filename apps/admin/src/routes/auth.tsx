@@ -1,3 +1,4 @@
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { adminLoginUrl, getServerUrl } from '../api';
 import { Panel } from '../components/Panel';
@@ -21,9 +22,9 @@ function AuthLandingRoute() {
 		<section className="shell">
 			<Panel title="Sign in">
 				<p>Use your SIMMER operator account to manage agencies, taxonomy, and setup data.</p>
-				<a className="button" href={adminLoginUrl(serverUrl)}>
-					Sign in
-				</a>
+				<Button asChild>
+					<a href={adminLoginUrl(serverUrl)}>Sign in</a>
+				</Button>
 			</Panel>
 		</section>
 	);

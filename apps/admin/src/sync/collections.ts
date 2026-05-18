@@ -8,7 +8,17 @@ import {
 	unitsSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import { type Collection, createCollection } from '@tanstack/db';
-import { createAdminGenus, createAdminSpecies, createAdminUnit } from '../api';
+import {
+	createAdminGenus,
+	createAdminSpecies,
+	createAdminUnit,
+	deleteAdminGenus,
+	deleteAdminSpecies,
+	deleteAdminUnit,
+	updateAdminGenus,
+	updateAdminSpecies,
+	updateAdminUnit,
+} from '../api';
 
 const adminShapePaths = {
 	genera: '/admin/sync/shapes/genera',
@@ -44,6 +54,30 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 				);
 				return { txid: results.map((result) => result.txid) };
 			},
+			onUpdate: async ({ transaction }) => {
+				const results = await Promise.all(
+					transaction.mutations.map((mutation) =>
+						updateAdminUnit(
+							mutation.key,
+							{
+								code: mutation.modified.code,
+								unitName: mutation.modified.unitName,
+								abbreviation: mutation.modified.abbreviation,
+								unitType: mutation.modified.unitType,
+								unitSystem: mutation.modified.unitSystem,
+							},
+							options.serverUrl,
+						),
+					),
+				);
+				return { txid: results.map((result) => result.txid) };
+			},
+			onDelete: async ({ transaction }) => {
+				const results = await Promise.all(
+					transaction.mutations.map((mutation) => deleteAdminUnit(mutation.key, options.serverUrl)),
+				);
+				return { txid: results.map((result) => result.txid) };
+			},
 		}),
 	);
 	const genera = createCollection(
@@ -60,6 +94,29 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 							},
 							options.serverUrl,
 						),
+					),
+				);
+				return { txid: results.map((result) => result.txid) };
+			},
+			onUpdate: async ({ transaction }) => {
+				const results = await Promise.all(
+					transaction.mutations.map((mutation) =>
+						updateAdminGenus(
+							mutation.key,
+							{
+								abbreviation: mutation.modified.abbreviation,
+								name: mutation.modified.name,
+							},
+							options.serverUrl,
+						),
+					),
+				);
+				return { txid: results.map((result) => result.txid) };
+			},
+			onDelete: async ({ transaction }) => {
+				const results = await Promise.all(
+					transaction.mutations.map((mutation) =>
+						deleteAdminGenus(mutation.key, options.serverUrl),
 					),
 				);
 				return { txid: results.map((result) => result.txid) };
@@ -82,6 +139,31 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 							},
 							options.serverUrl,
 						),
+					),
+				);
+				return { txid: results.map((result) => result.txid) };
+			},
+			onUpdate: async ({ transaction }) => {
+				const results = await Promise.all(
+					transaction.mutations.map((mutation) =>
+						updateAdminSpecies(
+							mutation.key,
+							{
+								genusId: mutation.modified.genusId,
+								epithet: mutation.modified.epithet,
+								commonName: mutation.modified.commonName ?? '',
+								displayName: mutation.modified.displayName,
+							},
+							options.serverUrl,
+						),
+					),
+				);
+				return { txid: results.map((result) => result.txid) };
+			},
+			onDelete: async ({ transaction }) => {
+				const results = await Promise.all(
+					transaction.mutations.map((mutation) =>
+						deleteAdminSpecies(mutation.key, options.serverUrl),
 					),
 				);
 				return { txid: results.map((result) => result.txid) };

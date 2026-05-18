@@ -7,7 +7,7 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"includes": ["**", "!**/dist", "!**/coverage", "!.nx"]
+		"includes": ["**", "!**/dist", "!**/coverage", "!.nx", "!packages/ui-web/src/components/ui"]
 	},
 	"formatter": {
 		"enabled": true,

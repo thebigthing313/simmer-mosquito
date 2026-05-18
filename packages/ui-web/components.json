@@ -1,0 +1,21 @@
+{
+	"$schema": "https://ui.shadcn.com/schema.json",
+	"style": "new-york",
+	"rsc": false,
+	"tsx": true,
+	"tailwind": {
+		"config": "",
+		"css": "src/styles.css",
+		"baseColor": "neutral",
+		"cssVariables": true,
+		"prefix": ""
+	},
+	"aliases": {
+		"components": "@simmer-mosquito/ui-web/components",
+		"utils": "@simmer-mosquito/ui-web/lib/utils",
+		"ui": "@simmer-mosquito/ui-web/components/ui",
+		"lib": "@simmer-mosquito/ui-web/lib",
+		"hooks": "@simmer-mosquito/ui-web/hooks"
+	},
+	"iconLibrary": "lucide"
+}

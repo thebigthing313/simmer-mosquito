@@ -1,7 +1,37 @@
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/dialog';
+import { Field, FieldGroup, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
+import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { createRoute } from '@tanstack/react-router';
 import { type FormEvent, useMemo, useState } from 'react';
-import type { AdminUnit, CreateAdminUnitInput, UnitSystem, UnitType } from '../../api';
-import { Panel } from '../../components/Panel';
+import type {
+	AdminUnit,
+	CreateAdminUnitInput,
+	UnitSystem,
+	UnitType,
+	UpdateAdminUnitInput,
+} from '../../api';
+import { Panel, ToneBadge } from '../../components/Panel';
 import { adminCollections } from '../../sync/adminCollections';
 import { useCollectionRows } from '../../sync/useCollectionRows';
 import { adminLayoutRoute } from './_admin';
@@ -64,63 +94,41 @@ function UnitsRoute() {
 		}
 	}
 
+	async function updateUnit(unitId: string, changes: UpdateAdminUnitInput) {
+		setStatus('Updating unit...');
+		try {
+			const transaction = adminCollections.units.update(unitId, (draft) => {
+				draft.code = changes.code.trim();
+				draft.unitName = changes.unitName.trim();
+				draft.abbreviation = changes.abbreviation.trim();
+				draft.unitType = changes.unitType;
+				draft.unitSystem = changes.unitSystem;
+			});
+			await transaction.isPersisted.promise;
+			setStatus('Unit updated.');
+		} catch (error) {
+			setStatus(error instanceof Error ? error.message : 'Unable to update unit.');
+			throw error;
+		}
+	}
+
+	async function deleteUnit(unitId: string) {
+		setStatus('Deleting unit...');
+		try {
+			const transaction = adminCollections.units.delete(unitId);
+			await transaction.isPersisted.promise;
+			setStatus('Unit deleted.');
+		} catch (error) {
+			setStatus(error instanceof Error ? error.message : 'Unable to delete unit.');
+		}
+	}
+
 	const addUnitPanel = (
 		<Panel title="Add unit">
 			<form className="form-grid compact" onSubmit={submitUnit}>
-				<label>
-					Code
-					<input
-						required
-						value={form.code}
-						onChange={(event) => setForm({ ...form, code: event.target.value })}
-					/>
-				</label>
-				<label>
-					Name
-					<input
-						required
-						value={form.unitName}
-						onChange={(event) => setForm({ ...form, unitName: event.target.value })}
-					/>
-				</label>
-				<label>
-					Abbreviation
-					<input
-						required
-						value={form.abbreviation}
-						onChange={(event) => setForm({ ...form, abbreviation: event.target.value })}
-					/>
-				</label>
-				<label>
-					Type
-					<select
-						value={form.unitType}
-						onChange={(event) => setForm({ ...form, unitType: event.target.value as UnitType })}
-					>
-						{unitTypes.map((unitType) => (
-							<option key={unitType} value={unitType}>
-								{unitType}
-							</option>
-						))}
-					</select>
-				</label>
-				<label>
-					System
-					<select
-						value={form.unitSystem}
-						onChange={(event) => setForm({ ...form, unitSystem: event.target.value as UnitSystem })}
-					>
-						{unitSystems.map((unitSystem) => (
-							<option key={unitSystem} value={unitSystem}>
-								{unitSystem}
-							</option>
-						))}
-					</select>
-				</label>
+				<UnitFields form={form} onChange={setForm} />
 				<div className="form-actions full">
-					<button className="button" type="submit">
-						Add unit
-					</button>
+					<Button type="submit">Add unit</Button>
 				</div>
 			</form>
 		</Panel>
@@ -146,7 +154,12 @@ function UnitsRoute() {
 				<Panel title="Units by type">
 					<div className="unit-type-columns">
 						{unitGroups.map((group) => (
-							<UnitTypeSection group={group} key={group.type} />
+							<UnitTypeSection
+								group={group}
+								key={group.type}
+								onDeleteUnit={deleteUnit}
+								onUpdateUnit={updateUnit}
+							/>
 						))}
 					</div>
 				</Panel>
@@ -181,11 +194,15 @@ function groupUnitsByType(units: readonly AdminUnit[]): readonly {
 
 function UnitTypeSection({
 	group,
+	onDeleteUnit,
+	onUpdateUnit,
 }: {
 	readonly group: {
 		readonly type: UnitType;
 		readonly units: readonly AdminUnit[];
 	};
+	readonly onDeleteUnit: (unitId: string) => Promise<void>;
+	readonly onUpdateUnit: (unitId: string, changes: UpdateAdminUnitInput) => Promise<void>;
 }) {
 	return (
 		<section className="unit-type-section">
@@ -202,12 +219,161 @@ function UnitTypeSection({
 								{unit.code} / {unit.abbreviation}
 							</p>
 						</div>
-						<span className="badge neutral">{unit.unitSystem}</span>
+						<div className="row-actions">
+							<ToneBadge tone="neutral">{unit.unitSystem}</ToneBadge>
+							<EditUnitDialog onSubmit={(changes) => onUpdateUnit(unit.id, changes)} unit={unit} />
+							<DeleteUnitDialog onDelete={() => onDeleteUnit(unit.id)} unit={unit} />
+						</div>
 					</article>
 				))}
 			</div>
 		</section>
 	);
+}
+
+function UnitFields({
+	form,
+	onChange,
+}: {
+	readonly form: CreateAdminUnitInput;
+	readonly onChange: (form: CreateAdminUnitInput) => void;
+}) {
+	return (
+		<FieldGroup>
+			<Field>
+				<FieldLabel>Code</FieldLabel>
+				<Input
+					required
+					value={form.code}
+					onChange={(event) => onChange({ ...form, code: event.target.value })}
+				/>
+			</Field>
+			<Field>
+				<FieldLabel>Name</FieldLabel>
+				<Input
+					required
+					value={form.unitName}
+					onChange={(event) => onChange({ ...form, unitName: event.target.value })}
+				/>
+			</Field>
+			<Field>
+				<FieldLabel>Abbreviation</FieldLabel>
+				<Input
+					required
+					value={form.abbreviation}
+					onChange={(event) => onChange({ ...form, abbreviation: event.target.value })}
+				/>
+			</Field>
+			<Field>
+				<FieldLabel>Type</FieldLabel>
+				<NativeSelect
+					value={form.unitType}
+					onChange={(event) => onChange({ ...form, unitType: event.target.value as UnitType })}
+				>
+					{unitTypes.map((unitType) => (
+						<option key={unitType} value={unitType}>
+							{unitType}
+						</option>
+					))}
+				</NativeSelect>
+			</Field>
+			<Field>
+				<FieldLabel>System</FieldLabel>
+				<NativeSelect
+					value={form.unitSystem}
+					onChange={(event) => onChange({ ...form, unitSystem: event.target.value as UnitSystem })}
+				>
+					{unitSystems.map((unitSystem) => (
+						<option key={unitSystem} value={unitSystem}>
+							{unitSystem}
+						</option>
+					))}
+				</NativeSelect>
+			</Field>
+		</FieldGroup>
+	);
+}
+
+function EditUnitDialog({
+	onSubmit,
+	unit,
+}: {
+	readonly onSubmit: (changes: UpdateAdminUnitInput) => Promise<void>;
+	readonly unit: AdminUnit;
+}) {
+	const [open, setOpen] = useState(false);
+	const [form, setForm] = useState<UpdateAdminUnitInput>(() => unitToForm(unit));
+
+	async function submitEdit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		await onSubmit(form);
+		setOpen(false);
+	}
+
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<DialogTrigger asChild>
+				<Button size="sm" type="button" variant="outline" onClick={() => setForm(unitToForm(unit))}>
+					Edit
+				</Button>
+			</DialogTrigger>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Edit unit</DialogTitle>
+					<DialogDescription>Update the supported unit catalog entry.</DialogDescription>
+				</DialogHeader>
+				<form className="dialog-form" onSubmit={submitEdit}>
+					<UnitFields form={form} onChange={setForm} />
+					<DialogFooter>
+						<Button type="submit">Save unit</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function DeleteUnitDialog({
+	onDelete,
+	unit,
+}: {
+	readonly onDelete: () => Promise<void>;
+	readonly unit: AdminUnit;
+}) {
+	return (
+		<AlertDialog>
+			<AlertDialogTrigger asChild>
+				<Button size="sm" type="button" variant="outline">
+					Delete
+				</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Delete {unit.unitName}?</AlertDialogTitle>
+					<AlertDialogDescription>
+						This removes the unit from the global catalog. The server will block deletion if records
+						still reference it.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogAction variant="destructive" onClick={() => void onDelete()}>
+						Delete unit
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function unitToForm(unit: AdminUnit): UpdateAdminUnitInput {
+	return {
+		code: unit.code,
+		unitName: unit.unitName,
+		abbreviation: unit.abbreviation,
+		unitType: unit.unitType,
+		unitSystem: unit.unitSystem,
+	};
 }
 
 function UnitTypeIndex({
