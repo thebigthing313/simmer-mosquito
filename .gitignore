@@ -1,5 +1,6 @@
 node_modules/
 .nx/
+.impeccable/
 dist/
 coverage/
 
@@ -9,4 +10,3 @@ coverage/
 .env
 .env.*
 !.env.example
-
