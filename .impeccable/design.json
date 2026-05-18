@@ -156,7 +156,7 @@
       "Restrained product surfaces with warm field cues.",
       "Compact hierarchy for repeated work.",
       "Visual representations before tables when location, time, status, or relationships explain the work better.",
-      "Durable tokens in packages/design-tokens, then component variants, then route-level styling only as a last resort."
+      "Durable tokens in packages/design-tokens, shadcn source components in packages/ui-web, cva variants for repeated styles, then route-level styling only as a last resort."
     ],
     "rules": [
       {
@@ -185,6 +185,11 @@
         "section": "typography"
       },
       {
+        "name": "The Web Component Contract",
+        "body": "Web product UI must start from the shadcn source components in packages/ui-web/src/components/ui wherever a fitting primitive exists. Tailwind is the styling language for web UI, reusable styling choices belong in class-variance-authority (cva) variants inside the shared component, and route-level classes should mostly express layout, spacing, width, responsive behavior, and local placement.",
+        "section": "components"
+      },
+      {
         "name": "The Flat Until Floating Rule",
         "body": "Resting surfaces are flat. Floating surfaces must earn depth by interrupting, overlaying, or anchoring to a map/task context.",
         "section": "elevation"
@@ -197,6 +202,8 @@
       "Do preserve the map as operational context wherever spatial work is the user's job.",
       "Do use visual representations before tables when maps, timelines, status grouping, spatial overlays, compact summaries, or record relationships clarify the work.",
       "Do centralize durable choices in packages/design-tokens and component variants.",
+      "Do use shadcn source components from packages/ui-web wherever possible, styled with Tailwind semantic tokens.",
+      "Do add repeated states, sizes, and visual treatments as cva variants and compose classes with cn.",
       "Do treat SIMMER Operator screens as product-quality surfaces, not temporary scaffolding."
     ],
     "donts": [
@@ -205,6 +212,8 @@
       "Don't use dashboard theater: excessive metric cards, generic chart blocks, gradient SaaS decoration, or analytics surfaces that exist because dashboards are expected.",
       "Don't mimic consumer maps so closely that SIMMER becomes too casual, too search-first, or too shallow for operational record keeping.",
       "Don't default to table-first data representation when spatial, temporal, status, or relationship views explain the work more directly.",
+      "Don't build CSS-only replicas of shadcn primitives such as buttons, fields, cards, dialogs, sheets, drawers, tabs, tables, badges, alerts, empty states, separators, skeletons, or sidebars.",
+      "Don't scatter repeated color, typography, border, radius, shadow, focus, or animation classes through app routes when a token or cva component variant can own the decision.",
       "Don't use colored side-stripe borders, gradient text, decorative glassmorphism, identical card grids, or modals as the first design answer."
     ]
   }

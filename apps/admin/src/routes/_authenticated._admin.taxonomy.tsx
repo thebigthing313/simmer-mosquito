@@ -34,7 +34,9 @@ import type {
 import {
 	DeleteConfirmDialog,
 	EditDialogButton,
+	FormActions,
 	PageHeading,
+	PageShell,
 	RecordActions,
 	RecordRow,
 	StatusMessage,
@@ -191,7 +193,7 @@ function TaxonomyRoute() {
 	}
 
 	return (
-		<section className="shell wide management-page">
+		<PageShell className="gap-[18px]">
 			<PageHeading
 				description="Curate the genus and species hierarchy available across SIMMER."
 				eyebrow="Global catalog"
@@ -276,7 +278,7 @@ function TaxonomyRoute() {
 
 				<div className="taxonomy-tools">
 					<Panel title="Add genus">
-						<form className="form-grid compact" onSubmit={submitGenus}>
+						<form className="grid gap-4 border-t pt-4" onSubmit={submitGenus}>
 							<FieldGroup>
 								<Field>
 									<FieldLabel>Genus name</FieldLabel>
@@ -297,14 +299,14 @@ function TaxonomyRoute() {
 									/>
 								</Field>
 							</FieldGroup>
-							<div className="form-actions full">
+							<FormActions>
 								<Button type="submit">Add genus</Button>
-							</div>
+							</FormActions>
 						</form>
 					</Panel>
 
 					<Panel title="Add species">
-						<form className="form-grid compact" onSubmit={submitSpecies}>
+						<form className="grid gap-4 border-t pt-4" onSubmit={submitSpecies}>
 							<FieldGroup>
 								<Field>
 									<FieldLabel>Genus</FieldLabel>
@@ -355,14 +357,14 @@ function TaxonomyRoute() {
 									/>
 								</Field>
 							</FieldGroup>
-							<div className="form-actions full">
+							<FormActions>
 								<Button type="submit">Add species</Button>
-							</div>
+							</FormActions>
 						</form>
 					</Panel>
 				</div>
 			</div>
-		</section>
+		</PageShell>
 	);
 }
 

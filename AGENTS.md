@@ -18,4 +18,11 @@ Before substantial work:
 - Use TanStack Router file-based routing for repo apps that use `@tanstack/react-router`.
 - Keep generated `src/routeTree.gen.ts` files committed and do not edit them by hand.
 - Configure the TanStack Router Vite plugin with `autoCodeSplitting: true` for Vite apps.
+
+## UI and Styling
+
+- Use `packages/ui-web` shadcn source components wherever possible for web UI. Compose existing primitives before writing custom JSX and add missing reusable primitives to `packages/ui-web/src/components/ui`.
+- Style with Tailwind semantic tokens and shadcn component variants, not route-local CSS-only implementations. Route-level `className` should mostly describe layout: flex, grid, gap, width, padding, and responsive placement.
+- Put repeated visual decisions in `class-variance-authority` (`cva`) variants inside the shared component, then merge caller-provided classes with the repo `cn` utility from `@simmer-mosquito/ui-web/lib/utils`.
+- Keep durable raw values in `packages/design-tokens`; expose them through Tailwind/CSS variables, then consume them from shadcn components and variants.
 <!-- intent-skills:end -->

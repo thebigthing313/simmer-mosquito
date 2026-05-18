@@ -1,6 +1,7 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { createFileRoute, Link, Outlet, redirect } from '@tanstack/react-router';
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { adminLoginUrl, getServerUrl } from '../api';
+import { BrandLink, PageShell, Topbar } from '../components/AdminPrimitives';
 import { Panel } from '../components/Panel';
 
 const serverUrl = getServerUrl();
@@ -25,39 +26,37 @@ function AuthenticatedLayout() {
 
 	if (auth === null) {
 		return (
-			<section className="shell">
+			<PageShell width="default">
 				<Panel title="Checking session">
 					<p>Loading operator session...</p>
 				</Panel>
-			</section>
+			</PageShell>
 		);
 	}
 
 	if (auth.authenticated === false) {
 		return (
-			<section className="shell">
+			<PageShell width="default">
 				<Panel title="Sign in required">
 					<p>Use an allowlisted SIMMER operator account to access admin tools.</p>
 					<Button asChild>
 						<a href={adminLoginUrl(serverUrl)}>Sign in</a>
 					</Button>
 				</Panel>
-			</section>
+			</PageShell>
 		);
 	}
 
 	return (
 		<>
-			<header className="topbar">
-				<Link className="brand" to="/">
-					SIMMER Admin
-				</Link>
+			<Topbar>
+				<BrandLink>SIMMER Admin</BrandLink>
 				<form action={`${serverUrl}/auth/logout`} method="post">
 					<Button size="sm" type="submit" variant="outline">
 						Sign out
 					</Button>
 				</form>
-			</header>
+			</Topbar>
 			<Outlet />
 		</>
 	);

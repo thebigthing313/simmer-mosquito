@@ -23,7 +23,10 @@ import type {
 import {
 	DeleteConfirmDialog,
 	EditDialogButton,
+	FormActions,
+	FormGrid,
 	PageHeading,
+	PageShell,
 	RecordActions,
 	RecordRow,
 	StatusMessage,
@@ -119,17 +122,19 @@ function UnitsRoute() {
 
 	const addUnitPanel = (
 		<Panel title="Add unit">
-			<form className="form-grid compact" onSubmit={submitUnit}>
-				<UnitFields form={form} onChange={setForm} />
-				<div className="form-actions full">
+			<form className="grid gap-4" onSubmit={submitUnit}>
+				<FormGrid compact>
+					<UnitFields form={form} onChange={setForm} />
+				</FormGrid>
+				<FormActions>
 					<Button type="submit">Add unit</Button>
-				</div>
+				</FormActions>
 			</form>
 		</Panel>
 	);
 
 	return (
-		<section className="shell wide management-page">
+		<PageShell className="gap-[18px]">
 			<PageHeading
 				description="Manage the supported measurement units used by SIMMER workflows."
 				eyebrow="Global catalog"
@@ -156,7 +161,7 @@ function UnitsRoute() {
 					</div>
 				</Panel>
 			</div>
-		</section>
+		</PageShell>
 	);
 }
 

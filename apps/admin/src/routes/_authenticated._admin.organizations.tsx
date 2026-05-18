@@ -1,11 +1,20 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
+import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
+import {
+	Sheet,
+	SheetClose,
+	SheetContent,
+	SheetDescription,
+	SheetFooter,
+	SheetHeader,
+	SheetTitle,
+} from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import {
 	type AdminAgency,
 	type CreateAdminAgencyInput,
@@ -13,6 +22,15 @@ import {
 	getServerUrl,
 	listAdminAgencies,
 } from '../api';
+import {
+	AdminEmpty,
+	FormActions,
+	FormGrid,
+	PageHeading,
+	PageShell,
+	RecordActions,
+	StatusMessage,
+} from '../components/AdminPrimitives';
 import { Panel, type Tone, ToneBadge } from '../components/Panel';
 
 const serverUrl = getServerUrl();
@@ -22,7 +40,7 @@ export const Route = createFileRoute('/_authenticated/_admin/organizations')({
 });
 
 function OrganizationsRoute() {
-	const createDialogRef = useRef<HTMLDialogElement>(null);
+	const [createOpen, setCreateOpen] = useState(false);
 	const [organizations, setOrganizations] = useState<AdminAgency[]>([]);
 	const [status, setStatus] = useState('Loading organizations...');
 	const [form, setForm] = useState<CreateAdminAgencyInput>({
@@ -71,7 +89,7 @@ function OrganizationsRoute() {
 			const organization = await createAdminAgency(form, serverUrl);
 			setOrganizations((current) => [organization, ...current]);
 			setForm({ ...emptyOrganizationForm(), subscriptionStatus: form.subscriptionStatus });
-			createDialogRef.current?.close();
+			setCreateOpen(false);
 			setStatus('Organization created.');
 		} catch (error) {
 			setStatus(error instanceof Error ? error.message : 'Unable to create organization.');
@@ -79,39 +97,36 @@ function OrganizationsRoute() {
 	}
 
 	return (
-		<section className="shell wide management-page">
-			<header className="page-heading">
-				<div>
-					<p className="eyebrow">Customer setup</p>
-					<h1>Organizations</h1>
-					<p>Manage SIMMER customer organizations and the users connected to each one.</p>
-				</div>
-				<Button type="button" onClick={() => createDialogRef.current?.showModal()}>
+		<PageShell className="gap-[18px]">
+			<PageHeading
+				description="Manage SIMMER customer organizations and the users connected to each one."
+				eyebrow="Customer setup"
+				title="Organizations"
+			/>
+
+			<div className="flex justify-end">
+				<Button type="button" onClick={() => setCreateOpen(true)}>
 					New organization
 				</Button>
-			</header>
+			</div>
 
 			<Panel title="Customer organizations">
-				<div className="panel-toolbar">
-					<div>
-						<p>Open an organization to invite users and review membership setup.</p>
-					</div>
-				</div>
+				<p className="mb-5 text-muted-foreground">
+					Open an organization to invite users and review membership setup.
+				</p>
 
-				{status === '' ? null : <p className="status">{status}</p>}
+				<StatusMessage>{status}</StatusMessage>
 
 				{organizations.length === 0 && status === '' ? (
-					<div className="empty-state">
-						<h2>No organizations yet</h2>
-						<p>Create the first SIMMER customer organization when onboarding is ready.</p>
-						<Button
-							variant="secondary"
-							type="button"
-							onClick={() => createDialogRef.current?.showModal()}
-						>
-							Create organization
-						</Button>
-					</div>
+					<AdminEmpty
+						action={
+							<Button variant="secondary" type="button" onClick={() => setCreateOpen(true)}>
+								Create organization
+							</Button>
+						}
+						description="Create the first SIMMER customer organization when onboarding is ready."
+						title="No organizations yet"
+					/>
 				) : (
 					<div className="list organization-list">
 						{organizations.map((organization) => (
@@ -138,7 +153,7 @@ function OrganizationsRoute() {
 										</div>
 									</div>
 								</div>
-								<div className="row-actions">
+								<RecordActions>
 									<Button asChild variant="secondary">
 										<Link
 											to="/organizations/$organizationId/users"
@@ -147,116 +162,114 @@ function OrganizationsRoute() {
 											Users
 										</Link>
 									</Button>
-								</div>
+								</RecordActions>
 							</article>
 						))}
 					</div>
 				)}
 			</Panel>
 
-			<dialog
-				className="drawer-dialog"
-				ref={createDialogRef}
-				aria-labelledby="create-organization-title"
-			>
-				<form method="dialog" className="drawer-close">
-					<Button
-						aria-label="Close create organization dialog"
-						size="sm"
-						type="submit"
-						variant="outline"
-					>
-						Close
-					</Button>
-				</form>
+			<Sheet open={createOpen} onOpenChange={setCreateOpen}>
+				<SheetContent className="w-[min(520px,100vw)] overflow-auto sm:max-w-none">
+					<SheetHeader className="px-5 pt-5">
+						<SheetTitle>New organization</SheetTitle>
+						<SheetDescription>
+							Add the customer organization first, then manage its users from the organization list.
+						</SheetDescription>
+					</SheetHeader>
 
-				<div className="drawer-header">
-					<h2 id="create-organization-title">New organization</h2>
-					<p>
-						Add the customer organization first, then manage its users from the organization list.
-					</p>
-				</div>
-
-				<form className="form-grid drawer-form" onSubmit={submit}>
-					<Label>
-						Agency name
-						<Input
-							required
-							value={form.name}
-							onChange={(event) => setForm({ ...form, name: event.target.value })}
-						/>
-					</Label>
-					<Label>
-						Subscription
-						<NativeSelect
-							value={form.subscriptionStatus}
-							onChange={(event) =>
-								setForm({
-									...form,
-									subscriptionStatus: event.target
-										.value as AdminAgency['subscription']['subscriptionStatus'],
-								})
-							}
-						>
-							<option value="trial">trial</option>
-							<option value="active">active</option>
-							<option value="suspended">suspended</option>
-							<option value="canceled">canceled</option>
-						</NativeSelect>
-					</Label>
-					<Label>
-						Main contact email
-						<Input
-							type="email"
-							value={form.mainContactEmail}
-							onChange={(event) => setForm({ ...form, mainContactEmail: event.target.value })}
-						/>
-					</Label>
-					<Label>
-						Phone
-						<Input
-							value={form.phoneNumber}
-							onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })}
-						/>
-					</Label>
-					<Label>
-						Billing contact
-						<Input
-							value={form.billingContactName}
-							onChange={(event) => setForm({ ...form, billingContactName: event.target.value })}
-						/>
-					</Label>
-					<Label>
-						Billing email
-						<Input
-							type="email"
-							value={form.billingContactEmail}
-							onChange={(event) => setForm({ ...form, billingContactEmail: event.target.value })}
-						/>
-					</Label>
-					<Label className="full">
-						Notes
-						<Textarea
-							rows={3}
-							value={form.subscriptionNotes}
-							onChange={(event) => setForm({ ...form, subscriptionNotes: event.target.value })}
-						/>
-					</Label>
-					<Label className="checkbox full">
-						<Checkbox
-							checked={form.linkRequesterAsOwner}
-							onCheckedChange={(checked) =>
-								setForm({ ...form, linkRequesterAsOwner: checked === true })
-							}
-						/>
-						Link me as owner
-					</Label>
-					<div className="drawer-actions full">
-						<Button type="submit">Create organization</Button>
-					</div>
-				</form>
-			</dialog>
-		</section>
+					<form className="grid gap-5 px-5 pb-5" onSubmit={submit}>
+						<FormGrid>
+							<Field>
+								<FieldLabel>Agency name</FieldLabel>
+								<Input
+									required
+									value={form.name}
+									onChange={(event) => setForm({ ...form, name: event.target.value })}
+								/>
+							</Field>
+							<Field>
+								<FieldLabel>Subscription</FieldLabel>
+								<NativeSelect
+									value={form.subscriptionStatus}
+									onChange={(event) =>
+										setForm({
+											...form,
+											subscriptionStatus: event.target
+												.value as AdminAgency['subscription']['subscriptionStatus'],
+										})
+									}
+								>
+									<option value="trial">trial</option>
+									<option value="active">active</option>
+									<option value="suspended">suspended</option>
+									<option value="canceled">canceled</option>
+								</NativeSelect>
+							</Field>
+							<Field>
+								<FieldLabel>Main contact email</FieldLabel>
+								<Input
+									type="email"
+									value={form.mainContactEmail}
+									onChange={(event) => setForm({ ...form, mainContactEmail: event.target.value })}
+								/>
+							</Field>
+							<Field>
+								<FieldLabel>Phone</FieldLabel>
+								<Input
+									value={form.phoneNumber}
+									onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })}
+								/>
+							</Field>
+							<Field>
+								<FieldLabel>Billing contact</FieldLabel>
+								<Input
+									value={form.billingContactName}
+									onChange={(event) => setForm({ ...form, billingContactName: event.target.value })}
+								/>
+							</Field>
+							<Field>
+								<FieldLabel>Billing email</FieldLabel>
+								<Input
+									type="email"
+									value={form.billingContactEmail}
+									onChange={(event) =>
+										setForm({ ...form, billingContactEmail: event.target.value })
+									}
+								/>
+							</Field>
+							<Field className="md:col-span-full">
+								<FieldLabel>Notes</FieldLabel>
+								<Textarea
+									rows={3}
+									value={form.subscriptionNotes}
+									onChange={(event) => setForm({ ...form, subscriptionNotes: event.target.value })}
+								/>
+							</Field>
+							<Field className="md:col-span-full" orientation="horizontal">
+								<Checkbox
+									checked={form.linkRequesterAsOwner}
+									onCheckedChange={(checked) =>
+										setForm({ ...form, linkRequesterAsOwner: checked === true })
+									}
+								/>
+								<FieldLabel>Link me as owner</FieldLabel>
+							</Field>
+						</FormGrid>
+						<SheetFooter className="p-0">
+							<FormActions>
+								<SheetClose asChild>
+									<Button type="button" variant="outline">
+										Cancel
+									</Button>
+								</SheetClose>
+								<Button type="submit">Create organization</Button>
+							</FormActions>
+						</SheetFooter>
+					</form>
+				</SheetContent>
+			</Sheet>
+		</PageShell>
 	);
 }
 

@@ -112,8 +112,9 @@ representation. When in doubt, make the next operational action clearer.
 - Compact hierarchy for repeated work.
 - Visual representations before tables when location, time, status, or
   relationships explain the work better.
-- Durable tokens in `packages/design-tokens`, then component variants, then
-  route-level styling only as a last resort.
+- Durable tokens in `packages/design-tokens`, shadcn source components in
+  `packages/ui-web`, `cva` variants for repeated styles, then route-level
+  styling only as a last resort.
 
 ## 2. Colors
 
@@ -214,6 +215,29 @@ must earn depth by interrupting, overlaying, or anchoring to a map/task context.
 Components should feel compact, durable, and operational. A user should be able
 to scan a screen repeatedly without fighting decorative chrome.
 
+### Implementation Contract
+
+Web product UI must start from the shadcn source components in
+`packages/ui-web/src/components/ui` wherever a fitting primitive exists. Compose
+Button, Card, Field, Input, Select, Dialog, Sheet, Drawer, Tabs, Table, Badge,
+Empty, Alert, Separator, Skeleton, Sidebar, and related primitives before
+building a styled element from scratch.
+
+Tailwind is the styling language for web UI. Use semantic tokens such as
+`bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`,
+`border-border`, `bg-primary`, and `text-primary-foreground` rather than raw
+colors or one-off CSS values in app routes.
+
+Reusable styling choices belong in `class-variance-authority` (`cva`) variants
+inside the shared component. Use the repo `cn` utility to merge variants,
+conditional classes, and caller `className` values. Route-level classes should
+mostly express layout, spacing, width, responsive behavior, and local placement.
+
+CSS-only custom components are a last resort. Use them only when the shape is
+truly product-specific, has no useful shadcn primitive, and is not likely to be
+reused. If a custom pattern appears more than once, promote it into
+`packages/ui-web`.
+
 ### Buttons
 - **Shape:** Gently curved rectangles (8px radius).
 - **Primary:** Deep Field Green background, light surface text, 40px height, and
@@ -222,6 +246,8 @@ to scan a screen repeatedly without fighting decorative chrome.
   outline with offset.
 - **Secondary / Subtle:** White or muted surface background with green or muted
   text. Use for navigation, row actions, and cancellation-like commands.
+  Implement these as `Button` variants in `packages/ui-web`, not repeated button
+  class strings in routes.
 
 ### Chips
 - **Style:** Not formalized yet. Start from compact bordered pills on muted
@@ -246,6 +272,9 @@ to scan a screen repeatedly without fighting decorative chrome.
 - **Focus:** Pollen Yellow focus outline with clear offset.
 - **Error / Disabled:** Include text, icon, or state copy. Do not rely on color
   alone for operational meaning.
+- **Composition:** Use shadcn `Field`, `FieldGroup`, `Input`, `Textarea`,
+  `Select` / `NativeSelect`, `Checkbox`, `RadioGroup`, `Switch`, and
+  `InputGroup` patterns instead of hand-rolled label/control stacks.
 
 ### Navigation
 
@@ -281,6 +310,10 @@ role, status, sync state, or related identifiers.
   clarify the work.
 - **Do** centralize durable choices in `packages/design-tokens` and component
   variants.
+- **Do** use shadcn source components from `packages/ui-web` wherever possible,
+  styled with Tailwind semantic tokens.
+- **Do** add repeated states, sizes, and visual treatments as `cva` variants and
+  compose classes with `cn`.
 - **Do** treat SIMMER Operator screens as product-quality surfaces, not
   temporary scaffolding.
 
@@ -296,5 +329,11 @@ role, status, sync state, or related identifiers.
   search-first, or too shallow for operational record keeping.
 - **Don't** default to table-first data representation when spatial, temporal,
   status, or relationship views explain the work more directly.
+- **Don't** build CSS-only replicas of shadcn primitives such as buttons,
+  fields, cards, dialogs, sheets, drawers, tabs, tables, badges, alerts, empty
+  states, separators, skeletons, or sidebars.
+- **Don't** scatter repeated color, typography, border, radius, shadow, focus,
+  or animation classes through app routes when a token or `cva` component
+  variant can own the decision.
 - **Don't** use colored side-stripe borders, gradient text, decorative
   glassmorphism, identical card grids, or modals as the first design answer.

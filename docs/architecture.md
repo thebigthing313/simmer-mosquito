@@ -135,10 +135,11 @@ It exposes CSS variables for stylesheets and TypeScript constants for contexts
 that cannot consume CSS variables, such as maps, charts, mobile adapters, and
 future exports. It does not own React components, icons, or shadcn source files.
 
-The planned `packages/ui-web` module owns the web component system. It should use
-shadcn-style source components backed by Radix primitives, Tailwind utilities,
-and shared tokens. App code should use component variants for repeated styling
-choices and reserve route-level class names mostly for layout.
+`packages/ui-web` owns the web component system. It uses shadcn-style source
+components backed by Radix primitives, Tailwind utilities, and shared tokens.
+App code should compose these components first, use `cva` variants for repeated
+styling choices, merge classes with `cn`, and reserve route-level class names
+mostly for layout.
 
 The planned `packages/ui-mobile` module owns mobile UI. It shares design-token
 decisions with web, but it does not share web components.

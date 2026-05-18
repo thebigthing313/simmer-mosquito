@@ -10,8 +10,116 @@ import {
 	AlertDialogTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import {
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyTitle,
+} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import type { MouseEventHandler, ReactNode } from 'react';
+import { Link } from '@tanstack/react-router';
+import type { ComponentProps, MouseEventHandler, ReactNode } from 'react';
+
+export function PageShell({
+	children,
+	className,
+	width = 'wide',
+}: {
+	readonly children: ReactNode;
+	readonly className?: string;
+	readonly width?: 'default' | 'wide';
+}) {
+	return (
+		<section
+			className={cn(
+				'mx-auto my-10 grid gap-4',
+				width === 'default' && 'w-[min(860px,calc(100vw-32px))]',
+				width === 'wide' && 'w-[min(1080px,calc(100vw-32px))]',
+				className,
+			)}
+		>
+			{children}
+		</section>
+	);
+}
+
+export function AdminAppLayout({ children }: { readonly children: ReactNode }) {
+	return (
+		<div className="mx-auto my-7 grid w-[min(1240px,calc(100vw-32px))] items-start gap-7 md:grid-cols-[236px_minmax(0,1fr)]">
+			{children}
+		</div>
+	);
+}
+
+export function AdminContent({ children }: { readonly children: ReactNode }) {
+	return <div className="min-w-0">{children}</div>;
+}
+
+export function Topbar({ children }: { readonly children: ReactNode }) {
+	return (
+		<header className="flex items-center justify-between gap-6 border-b bg-card px-[clamp(18px,5vw,48px)] py-4 max-sm:grid max-sm:items-start">
+			{children}
+		</header>
+	);
+}
+
+export function BrandLink({ children }: { readonly children: ReactNode }) {
+	return (
+		<Link
+			className="text-lg leading-tight font-extrabold text-foreground no-underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+			to="/"
+		>
+			{children}
+		</Link>
+	);
+}
+
+const adminSections = [
+	{ index: '01', label: 'Organizations', to: '/organizations' },
+	{ index: '02', label: 'Mosquito taxonomy', to: '/taxonomy' },
+	{ index: '03', label: 'Units', to: '/units' },
+] as const;
+
+export function AdminSidebar() {
+	return (
+		<aside
+			className={cn(
+				'grid gap-1.5 rounded-lg border border-[color-mix(in_oklch,var(--brand)_22%,var(--border))] p-2.5',
+				'bg-[linear-gradient(180deg,color-mix(in_oklch,var(--accent)_21%,var(--surface-muted)),var(--surface-muted)_58%)]',
+				'max-md:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]',
+			)}
+			aria-label="Admin sections"
+		>
+			<div className="flex items-center justify-between px-3 pt-1 pb-2 text-xs leading-tight font-extrabold text-primary uppercase">
+				<span>Control plane</span>
+				<span className="text-[0.72rem] text-primary/70">3 sections</span>
+			</div>
+			{adminSections.map((section) => (
+				<Button
+					asChild
+					className={cn(
+						'grid h-10 grid-cols-[28px_minmax(0,1fr)] justify-start gap-2 border-[color-mix(in_oklch,var(--brand)_16%,var(--border))] bg-[color-mix(in_oklch,var(--surface)_75%,var(--surface-strong))] px-3 text-[color-mix(in_oklch,var(--text)_74%,var(--brand))]',
+						'[&.active]:border-[color-mix(in_oklch,var(--brand)_52%,var(--border))] [&.active]:bg-[color-mix(in_oklch,var(--brand)_25%,var(--surface))] [&.active]:text-primary',
+						'[&.active_[data-slot=nav-index]]:bg-primary [&.active_[data-slot=nav-index]]:text-primary-foreground',
+					)}
+					key={section.to}
+					variant="outline"
+				>
+					<Link activeProps={{ className: 'active' }} to={section.to}>
+						<span
+							className="inline-flex size-6 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--brand)_14%,var(--surface))] text-[0.68rem] font-extrabold text-primary"
+							data-slot="nav-index"
+						>
+							{section.index}
+						</span>
+						<span>{section.label}</span>
+					</Link>
+				</Button>
+			))}
+		</aside>
+	);
+}
 
 export function PageHeading({
 	eyebrow,
@@ -42,6 +150,58 @@ export function StatusMessage({ children }: { readonly children: ReactNode }) {
 		return null;
 	}
 	return <p className="text-sm leading-snug font-semibold text-[var(--warning)]">{children}</p>;
+}
+
+export function FormGrid({
+	children,
+	className,
+	compact = false,
+}: {
+	readonly children: ReactNode;
+	readonly className?: string;
+	readonly compact?: boolean;
+}) {
+	return (
+		<div
+			className={cn(
+				'grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5',
+				compact && 'border-t pt-4',
+				className,
+			)}
+		>
+			{children}
+		</div>
+	);
+}
+
+export function FormActions({
+	children,
+	className,
+}: {
+	readonly children: ReactNode;
+	readonly className?: string;
+}) {
+	return <div className={cn('flex justify-end gap-2', className)}>{children}</div>;
+}
+
+export function AdminEmpty({
+	action,
+	description,
+	title,
+}: {
+	readonly action?: ReactNode;
+	readonly description: string;
+	readonly title: string;
+}) {
+	return (
+		<Empty className="items-start justify-start border-t border-dashed px-0 py-7 text-left md:p-7">
+			<EmptyHeader className="items-start text-left">
+				<EmptyTitle>{title}</EmptyTitle>
+				<EmptyDescription>{description}</EmptyDescription>
+			</EmptyHeader>
+			{action === undefined ? null : <EmptyContent className="items-start">{action}</EmptyContent>}
+		</Empty>
+	);
 }
 
 export function CatalogBrowserLayout({
@@ -79,6 +239,33 @@ export function RecordRow({
 		>
 			{children}
 		</article>
+	);
+}
+
+export function FactGrid({
+	children,
+	className,
+}: {
+	readonly children: ReactNode;
+	readonly className?: string;
+}) {
+	return (
+		<dl
+			className={cn(
+				'grid grid-cols-3 gap-2.5 max-sm:grid-cols-1 [&_div]:min-w-0 [&_div]:rounded-lg [&_div]:border [&_div]:bg-[color-mix(in_oklch,var(--brand)_4%,var(--surface-muted))] [&_div]:p-2.5 [&_dt]:text-xs [&_dt]:leading-tight [&_dt]:font-bold [&_dt]:text-muted-foreground [&_dt]:uppercase [&_dd]:mt-1.5 [&_dd]:[overflow-wrap:anywhere] [&_dd]:text-sm [&_dd]:leading-snug [&_dd]:font-medium [&_dd]:text-foreground [&_dd]:tabular-nums',
+				className,
+			)}
+		>
+			{children}
+		</dl>
+	);
+}
+
+export function BackLink({ children, ...props }: Omit<ComponentProps<typeof Link>, 'className'>) {
+	return (
+		<Button asChild className="mb-4 w-fit" size="sm" variant="ghost">
+			<Link {...props}>{children}</Link>
+		</Button>
 	);
 }
 

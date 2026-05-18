@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { type AuthMe, getAuthMe, getServerUrl } from './api';
@@ -51,7 +52,11 @@ export function AdminApp() {
 
 	return (
 		<>
-			{error === null ? null : <div className="app-error">{error}</div>}
+			{error === null ? null : (
+				<Alert className="rounded-none border-x-0 border-t-0" variant="destructive">
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
+			)}
 			<RouterProvider router={router} context={{ auth }} />
 		</>
 	);

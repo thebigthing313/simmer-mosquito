@@ -1,8 +1,8 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useState } from 'react';
 import {
 	type AdminAgency,
@@ -14,6 +14,14 @@ import {
 	type MembershipStatus,
 	type SimmerRole,
 } from '../api';
+import {
+	BackLink,
+	FactGrid,
+	FormActions,
+	FormGrid,
+	PageShell,
+	StatusMessage,
+} from '../components/AdminPrimitives';
 import { Fact, Panel, type Tone } from '../components/Panel';
 
 const serverUrl = getServerUrl();
@@ -71,46 +79,48 @@ function OrganizationUsersRoute() {
 	}
 
 	return (
-		<section className="shell wide">
+		<PageShell>
 			<Panel title={organization === null ? 'Organization users' : `${organization.name} users`}>
-				<Link className="back-link" to="/organizations">
-					Back to organizations
-				</Link>
+				<BackLink to="/organizations">Back to organizations</BackLink>
 
-				<form className="form-grid compact" onSubmit={submitInvite}>
-					<Label>
-						Email
-						<Input
-							required
-							type="email"
-							value={form.email}
-							onChange={(event) => setForm({ ...form, email: event.target.value })}
-						/>
-					</Label>
-					<Label>
-						Display name
-						<Input
-							value={form.displayName}
-							onChange={(event) => setForm({ ...form, displayName: event.target.value })}
-						/>
-					</Label>
-					<Label>
-						Role
-						<NativeSelect
-							value={form.role}
-							onChange={(event) => setForm({ ...form, role: event.target.value as SimmerRole })}
-						>
-							<option value="viewer">viewer</option>
-							<option value="collector">collector</option>
-							<option value="manager">manager</option>
-							<option value="admin">admin</option>
-							<option value="owner">owner</option>
-						</NativeSelect>
-					</Label>
-					<Button type="submit">Invite user</Button>
+				<form className="grid gap-4" onSubmit={submitInvite}>
+					<FormGrid compact>
+						<Field>
+							<FieldLabel>Email</FieldLabel>
+							<Input
+								required
+								type="email"
+								value={form.email}
+								onChange={(event) => setForm({ ...form, email: event.target.value })}
+							/>
+						</Field>
+						<Field>
+							<FieldLabel>Display name</FieldLabel>
+							<Input
+								value={form.displayName}
+								onChange={(event) => setForm({ ...form, displayName: event.target.value })}
+							/>
+						</Field>
+						<Field>
+							<FieldLabel>Role</FieldLabel>
+							<NativeSelect
+								value={form.role}
+								onChange={(event) => setForm({ ...form, role: event.target.value as SimmerRole })}
+							>
+								<option value="viewer">viewer</option>
+								<option value="collector">collector</option>
+								<option value="manager">manager</option>
+								<option value="admin">admin</option>
+								<option value="owner">owner</option>
+							</NativeSelect>
+						</Field>
+					</FormGrid>
+					<FormActions>
+						<Button type="submit">Invite user</Button>
+					</FormActions>
 				</form>
 
-				{status === '' ? null : <p className="status">{status}</p>}
+				<StatusMessage>{status}</StatusMessage>
 
 				<div className="list">
 					{memberships.map((membership) => (
@@ -119,7 +129,7 @@ function OrganizationUsersRoute() {
 								<h3>{membership.profile.displayName}</h3>
 								<p>{membership.profile.email ?? membership.invitedEmail ?? 'No email'}</p>
 							</div>
-							<dl className="facts">
+							<FactGrid>
 								<Fact label="Role" value={membership.role} tone={roleBadgeTone(membership.role)} />
 								<Fact
 									label="Status"
@@ -127,12 +137,12 @@ function OrganizationUsersRoute() {
 									tone={membershipStatusBadgeTone(membership.status)}
 								/>
 								<Fact label="User" value={membership.userId ?? 'pending'} />
-							</dl>
+							</FactGrid>
 						</article>
 					))}
 				</div>
 			</Panel>
-		</section>
+		</PageShell>
 	);
 }
 

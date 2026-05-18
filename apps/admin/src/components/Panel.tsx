@@ -59,19 +59,7 @@ export function ToneBadge({
 	readonly className?: string;
 }) {
 	return (
-		<Badge
-			variant="outline"
-			className={cn(
-				'capitalize',
-				tone === 'success' && 'border-current/20 bg-[var(--success-bg)] text-[var(--success)]',
-				tone === 'warning' && 'border-current/20 bg-[var(--warning-bg)] text-[var(--warning)]',
-				tone === 'info' && 'border-current/20 bg-[var(--info-bg)] text-[var(--info)]',
-				tone === 'catalog' && 'border-current/20 bg-[var(--catalog-bg)] text-[var(--catalog)]',
-				tone === 'danger' && 'border-current/20 bg-[var(--danger-bg)] text-[var(--danger)]',
-				tone === 'neutral' && 'border-border bg-muted text-muted-foreground',
-				className,
-			)}
-		>
+		<Badge tone={tone} variant="outline" className={cn('capitalize', className)}>
 			{children}
 		</Badge>
 	);
