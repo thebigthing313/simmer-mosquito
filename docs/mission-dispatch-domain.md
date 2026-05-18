@@ -1,5 +1,9 @@
 # Mission Dispatch Domain Decisions
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records mission
+dispatch vocabulary and exceptions.
+
 This captures the mission/dispatch command decisions from the domain interview.
 It is implementation-facing and guides the `missionDispatch.*` public domain
 seam at `packages/domain/src/mission-dispatch.ts`. Server endpoints, sync shape
@@ -548,9 +552,8 @@ SIMMER operators do not bypass agency roles through `missionDispatch.*`.
 
 ## Mobile, Offline, Sync, And Imports
 
-Offline queues store mission domain commands, not DB-shaped patches.
-
-Commands use client-generated IDs for created rows:
+Mission commands follow `docs/domain-command-contract.md`. Domain-specific
+created-row IDs are:
 
 - `missionId`
 - `missionItemId`
@@ -558,10 +561,9 @@ Commands use client-generated IDs for created rows:
 - chemical application batch IDs inside helper commands
 - lifecycle comment IDs for cancel/reopen
 
-Server replay revalidates AuthContext, permissions, assignment, lifecycle,
-active references, method/product/unit validity, geometry, acknowledgement
-flags, and provenance compatibility. Conflicts should produce visible command
-failure, not silent patch merging.
+Mission-specific replay must also revalidate assignment, lifecycle,
+method/product/unit validity, geometry, acknowledgement flags, and provenance
+compatibility.
 
 Detailed Electric/TanStack DB sync shape and frontend data loading are deferred
 to a later frontend data-loading design slice. The command-side principle is
@@ -573,38 +575,16 @@ command-equivalent validated server workflows later.
 
 ## Validation Boundary
 
-Pure domain command builders validate context-free rules:
+Use the shared validation boundary in `docs/domain-command-contract.md`.
+Mission-specific builder checks include `ControlType`, item input
+discriminators, geometry shape, positive finite numbers, placement shape, and
+mission acknowledgement flags.
 
-- UUID shape
-- command context
-- supported `ControlType`
-- supported item input discriminators
-- date-only string shape and real calendar dates
-- valid `Date` objects for timestamps
-- geometry type and coordinate shape
-- required/nullable text normalization
-- positive finite numbers and positive integers
-- JSON object-or-null metadata
-- non-empty arrays and duplicate IDs where detectable
-- placement shape
-- at least one field for patch commands
-- acknowledgement flags carried through
-
-Server handlers validate context-dependent rules:
-
-- actor role and AuthContext
-- command context matches AuthContext
-- same-organization references
-- active/non-deleted references
-- mission lifecycle state
-- assignee membership state
-- method and requested-action compatibility
-- schedule/rain-date comparisons in organization timezone
-- notification generation impacts
-- item progress and actual action linkage impacts
-- geometry coverage predicates
-- actual action unit/product/batch compatibility
-- cross-domain lifecycle cascades, preserves, and detaches
+Mission-specific server checks include mission lifecycle, assignee membership,
+method/requested-action compatibility, schedule and rain-date comparisons in
+organization timezone, notification generation impacts, item progress and
+actual action linkage impacts, geometry coverage predicates, actual action
+unit/product/batch compatibility, and cross-domain lifecycle effects.
 
 ## Domain Module Shape
 
@@ -622,15 +602,10 @@ Server handlers validate context-dependent rules:
 - `deriveMissionItemStatus`
 - builder functions for every `missionDispatch.*` command
 
-Keep implementation style consistent with existing domain modules:
-
-- framework-agnostic
-- no DB access
-- no React/platform dependencies
-- `Date` objects for instants
-- `LocalDateString` for `rainDate` and actual action dates
-- patch semantics for updates
-- `DomainValidationError` with structured issue paths
+Keep implementation style consistent with `docs/domain-command-contract.md`.
+Mission-specific conventions are `Date` objects for instants,
+`LocalDateString` for `rainDate` and actual action dates, and patch semantics
+for updates.
 
 ## Schema Backlog
 

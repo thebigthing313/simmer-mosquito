@@ -1,5 +1,9 @@
 # Public Engagement Domain Decisions
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records public
+engagement vocabulary and exceptions.
+
 This captures the public engagement command decisions from the domain interview.
 These commands harden contacts, service requests, notification registrations,
 notification types, and mission notification tracking. Server endpoints, public
@@ -370,12 +374,10 @@ agency membership.
 
 ## Offline And Mobile Expectations
 
-Command payloads are offline-friendly: they use client-generated IDs, domain
-intent, explicit geometry, acknowledgement flags, and server-side replay
-validation. Product usage can still be web-first for manager workflows in v1.
-Collectors may interact with assigned service requests through shared
-field-work comments, tags, and assignment item commands. Public/mobile intake is
-deferred.
+Public engagement commands follow `docs/domain-command-contract.md`. Product
+usage can still be web-first for manager workflows in v1. Collectors may
+interact with assigned service requests through shared field-work comments,
+tags, and assignment item commands. Public/mobile intake is deferred.
 
 Detailed Electric/TanStack DB shape and sync decisions for contacts, service
 requests, notification registrations, and mission notification worklists are
@@ -383,41 +385,17 @@ deferred to a per-app sync design pass.
 
 ## Validation Boundary
 
-Pure command builders validate context-free rules:
+Use the shared validation boundary in `docs/domain-command-contract.md`.
+Public-engagement-specific builder checks include email syntax, contact
+communication structural invariants, phone trimming without format parsing,
+geometry shape, buffer both-or-neither shape, and positive distance.
 
-- UUID shape
-- required command context
-- supported enum strings
-- required text normalization
-- nullable text normalization
-- practical text maximum lengths
-- lightweight email syntax
-- contact communication structural invariants where visible in the payload
-- phone text trimming only, no format parsing
-- date-only shape and real calendar dates
-- valid non-future Date objects for timestamps
-- geometry type and coordinate shape
-- buffer both-or-neither shape and positive distance
-- non-empty arrays and duplicate IDs where detectable
-- at least one field for patch commands
-- acknowledgement flags carried in payloads
-
-Server command handlers validate context-dependent rules:
-
-- actor role and AuthContext
-- command context matches AuthContext
-- same-organization ownership
-- active/non-deleted reference state
-- final contact identity and communication state after patches
-- request open/closed/deleted state
-- final notification registration purpose after patches
-- unit existence and distance-unit compatibility
-- request date and timestamp checks in organization timezone
-- historical acknowledgement requirements
-- assignment item cleanup requirements
-- contact merge, contact deletion, and registration deletion reference checks
-- mission lifecycle and mission notification generation eligibility
-- spatial matching and buffered intersections
+Public-engagement-specific server checks include final contact identity and
+communication state, request lifecycle state, notification registration purpose,
+distance-unit compatibility, request date/timestamp checks in organization
+timezone, assignment item cleanup, contact merge/delete references,
+registration delete references, mission notification generation eligibility,
+and spatial matching/buffered intersections.
 
 ## Schema Changes Surfaced
 

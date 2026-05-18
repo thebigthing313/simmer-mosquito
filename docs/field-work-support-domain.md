@@ -1,5 +1,9 @@
 # Field-Work Support Domain Decisions
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records field-work
+support vocabulary and exceptions.
+
 This captures shared field-work/support command and schema decisions from the
 domain interview. It is intentionally implementation-facing; broader
 architecture decisions remain in `docs/adr/`.
@@ -1362,7 +1366,8 @@ Command payload/schema-adjacent follow-ups:
 
 ## Domain Module Shape
 
-Field-work/support commands live behind a framework-agnostic public domain seam:
+Field-work/support commands follow `docs/domain-command-contract.md` and live
+behind this public domain seam:
 
 - `packages/domain/src/field-work.ts`
 
@@ -1381,8 +1386,7 @@ The public seam exports:
 - shared support target types
 - shared placement types
 
-Keep the style consistent with existing adult and larval surveillance domain
-modules. Reuse concepts such as:
+Reuse shared domain concepts such as:
 
 - `DomainId`
 - `LocalDateString`
@@ -1396,7 +1400,7 @@ Every command payload should include command context:
 - `actorProfileId`
 
 The server still treats `AuthContext` as authoritative and verifies command
-context matches it.
+context matches it, as described in the shared contract.
 
 ## Domain Target Types
 
@@ -1477,35 +1481,15 @@ organization/lifecycle/reference resolution.
 
 ## Domain Validation Boundary
 
-Pure domain command builders validate context-free rules:
+Use the shared validation boundary in `docs/domain-command-contract.md`.
+Field-work-specific builder checks include target allowlists, custom hex color
+format, route/assignment placement shape, non-empty arrays, no future
+timestamps where appropriate, and mutual exclusivity inside command payloads.
 
-- UUID shape
-- allowed target type strings
-- required text and nullable text normalization
-- custom hex color format
-- route and assignment placement shape
-- non-empty arrays
-- no duplicate ids in command inputs where detectable
-- valid `Date` objects for timestamp fields
-- date-only fields as `LocalDateString`
-- no future timestamps relative to the client clock where appropriate
-- mutually exclusive fields inside a single command payload
-- at least one field for patch commands
-
-Server command handlers validate context-dependent rules:
-
-- actor role
-- actor organization/profile from `AuthContext`
-- command context matches `AuthContext`
-- target existence and same-organization ownership
-- target active/non-deleted state
-- route and assignment lifecycle state
-- duplicate tag/route names
-- duplicate route/assignment associations
-- profile active state
-- 30-day comment correction windows
-- acknowledgement requirements
-- cross-domain lifecycle cascades, preserves, and re-points
+Field-work-specific server checks include target ownership and lifecycle,
+duplicate tag/route names, duplicate route/assignment associations, profile
+active state, 30-day comment correction windows, acknowledgement requirements,
+and cross-domain lifecycle cascades, preserves, and re-points.
 
 ## Domain Update Semantics
 

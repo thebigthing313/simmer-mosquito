@@ -1,5 +1,9 @@
 # Organization Settings Domain Decisions
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records organization
+settings vocabulary and exceptions.
+
 This captures the organization settings command and schema decisions from the
 domain interview. Settings are shared command context for multiple workflows,
 especially date handling, larval inspection validation, control UI behavior,
@@ -77,31 +81,21 @@ by apps in the appropriate local context.
 
 ## Validation Boundary
 
-Settings writes are strict. Command builders and server handlers reject invalid
-settings input.
+Settings commands follow `docs/domain-command-contract.md`. Settings writes are
+strict. Command builders and server handlers reject invalid settings input.
 
 Settings reads are tolerant. `resolveOrganizationSettings(raw)` returns a
 resolved settings object plus non-fatal issues. It does not throw on malformed
 stored JSON because legacy imports or manual edits should not break field entry.
 
-Pure domain builders validate context-free rules:
+Settings-specific builder checks include `expectedUpdatedAt` shape, timezone
+support/canonicalization through `Intl`, unit-default completeness, larval
+policy and density-range shape, boolean batch-tracking setting, positive service
+request radius, and nonnegative service request day windows.
 
-- command context UUID shape
-- valid `expectedUpdatedAt` Date when provided
-- timezone support and canonicalization through `Intl`
-- complete unit-default shape by unit type
-- larval policy modes and density-range shape
-- boolean batch-tracking setting
-- positive service request radius
-- nonnegative integer service request day windows
-
-Server command handlers validate context-dependent rules:
-
-- actor role and AuthContext organization/profile
-- owner/admin permissions for all organization settings
-- optional `expectedUpdatedAt` optimistic concurrency
-- unit code existence and matching `unit_type`
-- full-document merge and persistence
+Settings-specific server checks include owner/admin permissions, optional
+`expectedUpdatedAt` optimistic concurrency, unit code existence and matching
+`unit_type`, and full-document merge/persistence.
 
 ## Commands
 

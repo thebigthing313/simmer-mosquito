@@ -1,5 +1,9 @@
 # Control Operations Domain Decisions
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records control
+operations vocabulary and exceptions.
+
 This captures the control operations command and schema decisions from the
 domain interview. It is intentionally implementation-facing; broader
 architecture decisions remain in `docs/adr/`.
@@ -1054,8 +1058,8 @@ Organization settings remain owner/admin only.
 
 ## Mobile And Offline
 
-Control commands are offline-friendly and should require client-generated IDs
-for every created row:
+Control commands follow `docs/domain-command-contract.md`. Domain-specific
+created-row IDs are:
 
 - `applicationMethodId`
 - `sourceReductionMethodId`
@@ -1074,25 +1078,9 @@ for every created row:
 - `biocontrolActionId`
 - `requestedControlActionId`
 
-Offline queues store domain commands, not DB-shaped patches. Commands carry
-explicit unit IDs, context IDs, generated child IDs, and acknowledgement flags.
-Location-bearing commands carry `locationSource`; queued commands do not store
-DB-shaped `feature_id` patches.
-
-Server replay revalidates:
-
-- AuthContext and command context match
-- permissions and correction windows
-- active/non-deleted references for new selections
-- same-organization records for org-owned/domain references
-- geometry validity and allowed geometry type
-- address same-organization
-- unit type compatibility
-- requested action type/context/method compatibility
-- batch compatibility
-- lifecycle state
-
-Conflicts should produce visible command failure, not silent patch merging.
+Control-specific replay must also revalidate correction windows, unit type
+compatibility, requested-action type/context/method compatibility, batch
+compatibility, and lifecycle state.
 
 Catalog rows needed to build forms and render historical records should be
 baseline synced, including inactive non-deleted rows:
@@ -1202,43 +1190,16 @@ size limits in the domain layer for v1.
 
 ## Domain Validation Boundary
 
-Pure domain command builders validate context-free rules:
+Use the shared validation boundary in `docs/domain-command-contract.md`.
+Control-specific builder checks include URL syntax for label/MSDS links,
+nested control context shape, positive quantities, outreach reach, formulation
+ratio and diluent rules, and JSON object/null metadata or custom schema.
 
-- UUID shape
-- required command context
-- required text and nullable text normalization
-- text maximum lengths
-- URL syntax for label/MSDS links
-- supported enum strings
-- nested context shape
-- date-only string shape and real calendar dates
-- valid `Date` objects for timestamps
-- positive finite quantities
-- positive integer outreach reach
-- formulation ratio and diluent ratio numeric rules
-- JSON object-or-null metadata/customSchema
-- at least one field for patch commands
-- duplicate IDs in command inputs where detectable
-- acknowledgement flags are carried in payloads
+Control-specific server checks include unit compatibility, correction windows
+in organization timezone, requested-action compatibility, batch compatibility,
+historical acknowledgement, and cross-domain detach behavior.
 
-Server handlers validate context-dependent rules:
-
-- actor role and AuthContext
-- command context matches AuthContext
-- same-organization org-owned references
-- feature existence and geometry type
-- address org ownership
-- active/non-deleted reference state for new selections
-- unit code/ID existence and unit type compatibility
-- correction windows in organization timezone
-- requested action compatibility
-- batch compatibility
-- historical acknowledgement requirements
-- delete/detach lifecycle behavior
-- cross-domain consistency and detach rules
-
-Errors should use structured validation issue paths matching command payload
-names, for example:
+Structured issue paths should match command payload names, for example:
 
 - `applicationDate`
 - `context.habitatId`
@@ -1260,17 +1221,10 @@ names, for example:
 - `calculateFormulationComponentAmounts`
 - `expandFormulationApplicationCommands`
 
-Keep implementation style consistent with existing adult, larval, field-work,
-and organization settings modules:
-
-- framework-agnostic
-- no DB access
-- no React/platform dependencies
-- `LocalDateString` for dates
-- `Date` objects for timestamps
-- patch semantics for updates
-- whole-object replacement for JSON fields
-- `DomainValidationError` with structured issues
+Keep implementation style consistent with `docs/domain-command-contract.md`.
+Control-specific conventions are `LocalDateString` for dates, `Date` objects
+for timestamps, patch semantics for updates, and whole-object replacement for
+JSON fields.
 
 Server mappers flatten nested context into DB columns.
 
