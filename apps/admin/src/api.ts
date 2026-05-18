@@ -188,7 +188,7 @@ export async function getAuthMe(serverUrl = getServerUrl()): Promise<AuthMe> {
 		headers: { accept: 'application/json' },
 	});
 
-	const body = (await response.json()) as AuthMe;
+	const body = await readResponseBody<AuthMe>(response);
 	if (response.ok || body.authenticated === false) {
 		return body;
 	}
@@ -201,12 +201,12 @@ export async function listAdminAgencies(serverUrl = getServerUrl()): Promise<Adm
 		credentials: 'include',
 		headers: { accept: 'application/json' },
 	});
-	const body = (await response.json()) as
-		| { readonly organizations: AdminAgency[] }
-		| { readonly error: string };
+	const body = await readResponseBody<
+		{ readonly organizations: AdminAgency[] } | { readonly error: string; readonly reason?: string }
+	>(response);
 
 	if (!response.ok || !('organizations' in body)) {
-		throw new Error('Unable to load agencies.');
+		throw new Error(responseErrorMessage(body, 'Unable to load agencies.'));
 	}
 
 	return body.organizations;
@@ -230,10 +230,12 @@ export async function listAgencyMemberships(
 		credentials: 'include',
 		headers: { accept: 'application/json' },
 	});
-	const body = (await response.json()) as AgencyMembershipsResult | { readonly error: string };
+	const body = await readResponseBody<
+		AgencyMembershipsResult | { readonly error: string; readonly reason?: string }
+	>(response);
 
 	if (!response.ok || 'error' in body) {
-		throw new Error('Unable to load memberships.');
+		throw new Error(responseErrorMessage(body, 'Unable to load memberships.'));
 	}
 
 	return body;
@@ -385,14 +387,40 @@ async function writeJson<T>(url: string, method: 'PATCH' | 'POST', input: unknow
 }
 
 async function readJsonResponse<T>(response: Response): Promise<T> {
-	const body = (await response.json()) as T | { readonly error: string; readonly reason?: string };
+	const body = await readResponseBody<T | { readonly error: string; readonly reason?: string }>(
+		response,
+	);
 	if (!response.ok || (isRecord(body) && 'error' in body)) {
-		throw new Error(
-			isRecord(body) && typeof body.reason === 'string' ? body.reason : 'Request failed.',
-		);
+		throw new Error(responseErrorMessage(body, 'Request failed.'));
 	}
 
 	return body as T;
+}
+
+async function readResponseBody<T>(response: Response): Promise<T> {
+	const text = await response.text();
+	if (text.trim() === '') {
+		return {} as T;
+	}
+	try {
+		return JSON.parse(text) as T;
+	} catch {
+		throw new Error(
+			response.ok ? 'Received an unreadable server response.' : 'Server response was unreadable.',
+		);
+	}
+}
+
+function responseErrorMessage(body: unknown, fallback: string): string {
+	if (isRecord(body)) {
+		if (typeof body.reason === 'string' && body.reason.trim() !== '') {
+			return body.reason;
+		}
+		if (typeof body.error === 'string' && body.error.trim() !== '') {
+			return body.error;
+		}
+	}
+	return fallback;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

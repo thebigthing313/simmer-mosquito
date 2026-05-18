@@ -93,34 +93,58 @@ function TaxonomyRoute() {
 		displayName: '',
 	});
 	const [status, setStatus] = useState('');
+	const [isSubmittingGenus, setIsSubmittingGenus] = useState(false);
+	const [isSubmittingSpecies, setIsSubmittingSpecies] = useState(false);
 
 	async function submitGenus(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (isSubmittingGenus) {
+			return;
+		}
+		const trimmedForm = trimGenusForm(genusForm);
+		if (trimmedForm.name === '' || trimmedForm.abbreviation === '') {
+			setStatus('Genus name and abbreviation are required.');
+			return;
+		}
+		setIsSubmittingGenus(true);
 		setStatus('Creating genus...');
 		try {
-			const transaction = adminCollections.genera.insert(toOptimisticGenus(genusForm));
+			const transaction = adminCollections.genera.insert(toOptimisticGenus(trimmedForm));
 			await transaction.isPersisted.promise;
 			setGenusForm({ abbreviation: '', name: '' });
 			setStatus('Genus created.');
 		} catch (error) {
 			setStatus(error instanceof Error ? error.message : 'Unable to create genus.');
+		} finally {
+			setIsSubmittingGenus(false);
 		}
 	}
 
 	async function submitSpecies(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (isSubmittingSpecies) {
+			return;
+		}
+		const trimmedForm = trimSpeciesForm(speciesForm);
+		if (trimmedForm.epithet === '') {
+			setStatus('Epithet is required.');
+			return;
+		}
 		const displayName =
-			speciesForm.displayName.trim() || suggestedSpeciesDisplayName(speciesForm, genusById);
+			trimmedForm.displayName || suggestedSpeciesDisplayName(trimmedForm, genusById);
+		setIsSubmittingSpecies(true);
 		setStatus('Creating species...');
 		try {
 			const transaction = adminCollections.species.insert(
-				toOptimisticSpecies({ ...speciesForm, displayName }),
+				toOptimisticSpecies({ ...trimmedForm, displayName }),
 			);
 			await transaction.isPersisted.promise;
 			setSpeciesForm({ genusId: null, epithet: '', commonName: '', displayName: '' });
 			setStatus('Species created.');
 		} catch (error) {
 			setStatus(error instanceof Error ? error.message : 'Unable to create species.');
+		} finally {
+			setIsSubmittingSpecies(false);
 		}
 	}
 
@@ -284,6 +308,7 @@ function TaxonomyRoute() {
 									<FieldLabel>Genus name</FieldLabel>
 									<Input
 										required
+										maxLength={120}
 										value={genusForm.name}
 										onChange={(event) => setGenusForm({ ...genusForm, name: event.target.value })}
 									/>
@@ -292,6 +317,7 @@ function TaxonomyRoute() {
 									<FieldLabel>Abbreviation</FieldLabel>
 									<Input
 										required
+										maxLength={20}
 										value={genusForm.abbreviation}
 										onChange={(event) =>
 											setGenusForm({ ...genusForm, abbreviation: event.target.value })
@@ -300,7 +326,9 @@ function TaxonomyRoute() {
 								</Field>
 							</FieldGroup>
 							<FormActions>
-								<Button type="submit">Add genus</Button>
+								<Button disabled={isSubmittingGenus} type="submit">
+									{isSubmittingGenus ? 'Adding...' : 'Add genus'}
+								</Button>
 							</FormActions>
 						</form>
 					</Panel>
@@ -331,6 +359,7 @@ function TaxonomyRoute() {
 									<FieldLabel>Epithet</FieldLabel>
 									<Input
 										required
+										maxLength={120}
 										value={speciesForm.epithet}
 										onChange={(event) =>
 											setSpeciesForm({ ...speciesForm, epithet: event.target.value })
@@ -340,6 +369,7 @@ function TaxonomyRoute() {
 								<Field>
 									<FieldLabel>Common name</FieldLabel>
 									<Input
+										maxLength={160}
 										value={speciesForm.commonName}
 										onChange={(event) =>
 											setSpeciesForm({ ...speciesForm, commonName: event.target.value })
@@ -349,6 +379,7 @@ function TaxonomyRoute() {
 								<Field>
 									<FieldLabel>Display name</FieldLabel>
 									<Input
+										maxLength={220}
 										placeholder={suggestedSpeciesDisplayName(speciesForm, genusById)}
 										value={speciesForm.displayName}
 										onChange={(event) =>
@@ -358,7 +389,9 @@ function TaxonomyRoute() {
 								</Field>
 							</FieldGroup>
 							<FormActions>
-								<Button type="submit">Add species</Button>
+								<Button disabled={isSubmittingSpecies} type="submit">
+									{isSubmittingSpecies ? 'Adding...' : 'Add species'}
+								</Button>
 							</FormActions>
 						</form>
 					</Panel>
@@ -506,6 +539,7 @@ function GenusFields({
 				<FieldLabel>Genus name</FieldLabel>
 				<Input
 					required
+					maxLength={120}
 					value={form.name}
 					onChange={(event) => onChange({ ...form, name: event.target.value })}
 				/>
@@ -514,6 +548,7 @@ function GenusFields({
 				<FieldLabel>Abbreviation</FieldLabel>
 				<Input
 					required
+					maxLength={20}
 					value={form.abbreviation}
 					onChange={(event) => onChange({ ...form, abbreviation: event.target.value })}
 				/>
@@ -558,6 +593,7 @@ function SpeciesFields({
 				<FieldLabel>Epithet</FieldLabel>
 				<Input
 					required
+					maxLength={120}
 					value={form.epithet}
 					onChange={(event) => onChange({ ...form, epithet: event.target.value })}
 				/>
@@ -565,6 +601,7 @@ function SpeciesFields({
 			<Field>
 				<FieldLabel>Common name</FieldLabel>
 				<Input
+					maxLength={160}
 					value={form.commonName}
 					onChange={(event) => onChange({ ...form, commonName: event.target.value })}
 				/>
@@ -572,6 +609,7 @@ function SpeciesFields({
 			<Field>
 				<FieldLabel>Display name</FieldLabel>
 				<Input
+					maxLength={220}
 					placeholder={suggestedSpeciesDisplayName(form, genusById)}
 					value={form.displayName}
 					onChange={(event) => onChange({ ...form, displayName: event.target.value })}
@@ -699,12 +737,28 @@ function genusToForm(genus: AdminGenus): UpdateAdminGenusInput {
 	};
 }
 
+function trimGenusForm(form: CreateAdminGenusInput): CreateAdminGenusInput {
+	return {
+		abbreviation: form.abbreviation.trim(),
+		name: form.name.trim(),
+	};
+}
+
 function speciesToForm(species: AdminSpecies): UpdateAdminSpeciesInput {
 	return {
 		genusId: species.genusId,
 		epithet: species.epithet,
 		commonName: species.commonName ?? '',
 		displayName: species.displayName,
+	};
+}
+
+function trimSpeciesForm(form: CreateAdminSpeciesInput): CreateAdminSpeciesInput {
+	return {
+		genusId: form.genusId,
+		epithet: form.epithet.trim(),
+		commonName: form.commonName.trim(),
+		displayName: form.displayName.trim(),
 	};
 }
 

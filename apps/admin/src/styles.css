@@ -124,6 +124,10 @@
 	border-top: 1px solid var(--border);
 }
 
+.row > * {
+	min-width: 0;
+}
+
 .row h3 {
 	color: var(--text);
 	font-size: var(--type-body);
@@ -173,6 +177,10 @@
 
 .organization-identity h3 {
 	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .organization-meta {
@@ -294,6 +302,13 @@
 
 .taxonomy-index strong {
 	font-variant-numeric: tabular-nums;
+}
+
+.taxonomy-index span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .taxonomy-tree-scroll {
@@ -419,6 +434,13 @@
 	}
 
 	.taxon-group-header {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 840px) {
+	.row {
+		align-items: flex-start;
 		grid-template-columns: 1fr;
 	}
 }

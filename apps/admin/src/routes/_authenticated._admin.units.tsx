@@ -21,6 +21,7 @@ import type {
 	UpdateAdminUnitInput,
 } from '../api';
 import {
+	AdminEmpty,
 	DeleteConfirmDialog,
 	EditDialogButton,
 	FormActions,
@@ -71,12 +72,22 @@ function UnitsRoute() {
 		unitSystem: 'si',
 	});
 	const [status, setStatus] = useState('');
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	async function submitUnit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (isSubmitting) {
+			return;
+		}
+		const trimmedForm = trimUnitForm(form);
+		if (trimmedForm.code === '' || trimmedForm.unitName === '' || trimmedForm.abbreviation === '') {
+			setStatus('Code, name, and abbreviation are required.');
+			return;
+		}
+		setIsSubmitting(true);
 		setStatus('Creating unit...');
 		try {
-			const transaction = adminCollections.units.insert(toOptimisticUnit(form));
+			const transaction = adminCollections.units.insert(toOptimisticUnit(trimmedForm));
 			await transaction.isPersisted.promise;
 			setForm({
 				code: '',
@@ -88,6 +99,8 @@ function UnitsRoute() {
 			setStatus('Unit created.');
 		} catch (error) {
 			setStatus(error instanceof Error ? error.message : 'Unable to create unit.');
+		} finally {
+			setIsSubmitting(false);
 		}
 	}
 
@@ -127,7 +140,9 @@ function UnitsRoute() {
 					<UnitFields form={form} onChange={setForm} />
 				</FormGrid>
 				<FormActions>
-					<Button type="submit">Add unit</Button>
+					<Button disabled={isSubmitting} type="submit">
+						{isSubmitting ? 'Adding...' : 'Add unit'}
+					</Button>
 				</FormActions>
 			</form>
 		</Panel>
@@ -149,20 +164,36 @@ function UnitsRoute() {
 					<UnitTypeIndex groups={unitGroups} />
 				</div>
 				<Panel title="Units by type">
-					<div className="unit-type-columns">
-						{unitGroups.map((group) => (
-							<UnitTypeSection
-								group={group}
-								key={group.type}
-								onDeleteUnit={deleteUnit}
-								onUpdateUnit={updateUnit}
-							/>
-						))}
-					</div>
+					{unitGroups.length === 0 ? (
+						<AdminEmpty
+							description="Add supported units before agencies configure collection, treatment, or reporting workflows."
+							title="No units configured"
+						/>
+					) : (
+						<div className="unit-type-columns">
+							{unitGroups.map((group) => (
+								<UnitTypeSection
+									group={group}
+									key={group.type}
+									onDeleteUnit={deleteUnit}
+									onUpdateUnit={updateUnit}
+								/>
+							))}
+						</div>
+					)}
 				</Panel>
 			</div>
 		</PageShell>
 	);
+}
+
+function trimUnitForm(form: CreateAdminUnitInput): CreateAdminUnitInput {
+	return {
+		...form,
+		code: form.code.trim(),
+		unitName: form.unitName.trim(),
+		abbreviation: form.abbreviation.trim(),
+	};
 }
 
 function toOptimisticUnit(form: CreateAdminUnitInput) {
@@ -241,6 +272,7 @@ function UnitFields({
 				<FieldLabel>Code</FieldLabel>
 				<Input
 					required
+					maxLength={80}
 					value={form.code}
 					onChange={(event) => onChange({ ...form, code: event.target.value })}
 				/>
@@ -249,6 +281,7 @@ function UnitFields({
 				<FieldLabel>Name</FieldLabel>
 				<Input
 					required
+					maxLength={160}
 					value={form.unitName}
 					onChange={(event) => onChange({ ...form, unitName: event.target.value })}
 				/>
@@ -257,6 +290,7 @@ function UnitFields({
 				<FieldLabel>Abbreviation</FieldLabel>
 				<Input
 					required
+					maxLength={40}
 					value={form.abbreviation}
 					onChange={(event) => onChange({ ...form, abbreviation: event.target.value })}
 				/>

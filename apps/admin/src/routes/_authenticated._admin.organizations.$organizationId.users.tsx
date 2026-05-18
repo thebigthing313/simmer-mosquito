@@ -15,10 +15,12 @@ import {
 	type SimmerRole,
 } from '../api';
 import {
+	AdminEmpty,
 	BackLink,
 	FactGrid,
 	FormActions,
 	FormGrid,
+	LoadingRows,
 	PageShell,
 	StatusMessage,
 } from '../components/AdminPrimitives';
@@ -35,6 +37,7 @@ function OrganizationUsersRoute() {
 	const [organization, setOrganization] = useState<AdminAgency | null>(null);
 	const [memberships, setMemberships] = useState<AdminMembership[]>([]);
 	const [status, setStatus] = useState('Loading users...');
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [form, setForm] = useState<InviteAdminUserInput>({
 		email: '',
 		displayName: '',
@@ -64,9 +67,18 @@ function OrganizationUsersRoute() {
 
 	async function submitInvite(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (isSubmitting) {
+			return;
+		}
+		const trimmedForm = trimInviteForm(form);
+		if (trimmedForm.email === '') {
+			setStatus('Email is required.');
+			return;
+		}
+		setIsSubmitting(true);
 		setStatus('Sending invitation...');
 		try {
-			const membership = await inviteAdminUser(organizationId, form, serverUrl);
+			const membership = await inviteAdminUser(organizationId, trimmedForm, serverUrl);
 			setMemberships((current) => [
 				membership,
 				...current.filter((item) => item.id !== membership.id),
@@ -75,6 +87,8 @@ function OrganizationUsersRoute() {
 			setStatus('Invitation sent.');
 		} catch (error) {
 			setStatus(error instanceof Error ? error.message : 'Unable to invite user.');
+		} finally {
+			setIsSubmitting(false);
 		}
 	}
 
@@ -89,6 +103,7 @@ function OrganizationUsersRoute() {
 							<FieldLabel>Email</FieldLabel>
 							<Input
 								required
+								maxLength={254}
 								type="email"
 								value={form.email}
 								onChange={(event) => setForm({ ...form, email: event.target.value })}
@@ -97,6 +112,7 @@ function OrganizationUsersRoute() {
 						<Field>
 							<FieldLabel>Display name</FieldLabel>
 							<Input
+								maxLength={160}
 								value={form.displayName}
 								onChange={(event) => setForm({ ...form, displayName: event.target.value })}
 							/>
@@ -116,34 +132,59 @@ function OrganizationUsersRoute() {
 						</Field>
 					</FormGrid>
 					<FormActions>
-						<Button type="submit">Invite user</Button>
+						<Button disabled={isSubmitting} type="submit">
+							{isSubmitting ? 'Sending...' : 'Invite user'}
+						</Button>
 					</FormActions>
 				</form>
 
 				<StatusMessage>{status}</StatusMessage>
 
-				<div className="list">
-					{memberships.map((membership) => (
-						<article className="row" key={membership.id}>
-							<div>
-								<h3>{membership.profile.displayName}</h3>
-								<p>{membership.profile.email ?? membership.invitedEmail ?? 'No email'}</p>
-							</div>
-							<FactGrid>
-								<Fact label="Role" value={membership.role} tone={roleBadgeTone(membership.role)} />
-								<Fact
-									label="Status"
-									value={membership.status}
-									tone={membershipStatusBadgeTone(membership.status)}
-								/>
-								<Fact label="User" value={membership.userId ?? 'pending'} />
-							</FactGrid>
-						</article>
-					))}
-				</div>
+				{status === 'Loading users...' ? (
+					<LoadingRows label="Loading users" />
+				) : memberships.length === 0 && status === '' ? (
+					<AdminEmpty
+						description="Invite an owner, admin, manager, collector, or viewer when the customer team is ready."
+						title="No users connected"
+					/>
+				) : memberships.length > 0 ? (
+					<div className="list">
+						{memberships.map((membership) => (
+							<article className="row" key={membership.id}>
+								<div className="min-w-0">
+									<h3>
+										{membership.profile.displayName || membership.invitedEmail || 'Pending user'}
+									</h3>
+									<p>{membership.profile.email ?? membership.invitedEmail ?? 'No email'}</p>
+								</div>
+								<FactGrid>
+									<Fact
+										label="Role"
+										value={membership.role}
+										tone={roleBadgeTone(membership.role)}
+									/>
+									<Fact
+										label="Status"
+										value={membership.status}
+										tone={membershipStatusBadgeTone(membership.status)}
+									/>
+									<Fact label="User" value={membership.userId ?? 'pending'} />
+								</FactGrid>
+							</article>
+						))}
+					</div>
+				) : null}
 			</Panel>
 		</PageShell>
 	);
+}
+
+function trimInviteForm(form: InviteAdminUserInput): InviteAdminUserInput {
+	return {
+		...form,
+		email: form.email.trim(),
+		displayName: form.displayName.trim(),
+	};
 }
 
 function roleBadgeTone(role: SimmerRole): Tone {

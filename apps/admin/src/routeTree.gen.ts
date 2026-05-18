@@ -16,6 +16,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminUnitsRouteImport } from './routes/_authenticated._admin.units'
 import { Route as AuthenticatedAdminTaxonomyRouteImport } from './routes/_authenticated._admin.taxonomy'
 import { Route as AuthenticatedAdminOrganizationsRouteImport } from './routes/_authenticated._admin.organizations'
+import { Route as AuthenticatedAdminOrganizationsIndexRouteImport } from './routes/_authenticated._admin.organizations.index'
 import { Route as AuthenticatedAdminOrganizationsOrganizationIdUsersRouteImport } from './routes/_authenticated._admin.organizations.$organizationId.users'
 
 const AuthRoute = AuthRouteImport.update({
@@ -53,6 +54,12 @@ const AuthenticatedAdminOrganizationsRoute =
     path: '/organizations',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminOrganizationsIndexRoute =
+  AuthenticatedAdminOrganizationsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminOrganizationsRoute,
+  } as any)
 const AuthenticatedAdminOrganizationsOrganizationIdUsersRoute =
   AuthenticatedAdminOrganizationsOrganizationIdUsersRouteImport.update({
     id: '/$organizationId/users',
@@ -66,14 +73,15 @@ export interface FileRoutesByFullPath {
   '/organizations': typeof AuthenticatedAdminOrganizationsRouteWithChildren
   '/taxonomy': typeof AuthenticatedAdminTaxonomyRoute
   '/units': typeof AuthenticatedAdminUnitsRoute
+  '/organizations/': typeof AuthenticatedAdminOrganizationsIndexRoute
   '/organizations/$organizationId/users': typeof AuthenticatedAdminOrganizationsOrganizationIdUsersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedAdminIndexRoute
   '/auth': typeof AuthRoute
-  '/organizations': typeof AuthenticatedAdminOrganizationsRouteWithChildren
   '/taxonomy': typeof AuthenticatedAdminTaxonomyRoute
   '/units': typeof AuthenticatedAdminUnitsRoute
+  '/organizations': typeof AuthenticatedAdminOrganizationsIndexRoute
   '/organizations/$organizationId/users': typeof AuthenticatedAdminOrganizationsOrganizationIdUsersRoute
 }
 export interface FileRoutesById {
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/_authenticated/_admin/taxonomy': typeof AuthenticatedAdminTaxonomyRoute
   '/_authenticated/_admin/units': typeof AuthenticatedAdminUnitsRoute
   '/_authenticated/_admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/_admin/organizations/': typeof AuthenticatedAdminOrganizationsIndexRoute
   '/_authenticated/_admin/organizations/$organizationId/users': typeof AuthenticatedAdminOrganizationsOrganizationIdUsersRoute
 }
 export interface FileRouteTypes {
@@ -95,14 +104,15 @@ export interface FileRouteTypes {
     | '/organizations'
     | '/taxonomy'
     | '/units'
+    | '/organizations/'
     | '/organizations/$organizationId/users'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
-    | '/organizations'
     | '/taxonomy'
     | '/units'
+    | '/organizations'
     | '/organizations/$organizationId/users'
   id:
     | '__root__'
@@ -113,6 +123,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin/taxonomy'
     | '/_authenticated/_admin/units'
     | '/_authenticated/_admin/'
+    | '/_authenticated/_admin/organizations/'
     | '/_authenticated/_admin/organizations/$organizationId/users'
   fileRoutesById: FileRoutesById
 }
@@ -172,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminOrganizationsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/_admin/organizations/': {
+      id: '/_authenticated/_admin/organizations/'
+      path: '/'
+      fullPath: '/organizations/'
+      preLoaderRoute: typeof AuthenticatedAdminOrganizationsIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminOrganizationsRoute
+    }
     '/_authenticated/_admin/organizations/$organizationId/users': {
       id: '/_authenticated/_admin/organizations/$organizationId/users'
       path: '/$organizationId/users'
@@ -183,11 +201,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAdminOrganizationsRouteChildren {
+  AuthenticatedAdminOrganizationsIndexRoute: typeof AuthenticatedAdminOrganizationsIndexRoute
   AuthenticatedAdminOrganizationsOrganizationIdUsersRoute: typeof AuthenticatedAdminOrganizationsOrganizationIdUsersRoute
 }
 
 const AuthenticatedAdminOrganizationsRouteChildren: AuthenticatedAdminOrganizationsRouteChildren =
   {
+    AuthenticatedAdminOrganizationsIndexRoute:
+      AuthenticatedAdminOrganizationsIndexRoute,
     AuthenticatedAdminOrganizationsOrganizationIdUsersRoute:
       AuthenticatedAdminOrganizationsOrganizationIdUsersRoute,
   }

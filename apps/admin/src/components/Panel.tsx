@@ -20,8 +20,8 @@ export function Panel({
 }) {
 	return (
 		<Card className={cn('gap-0 rounded-lg border-border bg-card py-0 shadow-none', className)}>
-			<CardHeader className="px-5 pt-5 pb-0">
-				<CardTitle className="text-lg leading-tight">{title}</CardTitle>
+			<CardHeader className="min-w-0 px-5 pt-5 pb-0">
+				<CardTitle className="text-lg leading-tight [overflow-wrap:anywhere]">{title}</CardTitle>
 			</CardHeader>
 			<CardContent className="px-5 pt-4 pb-5">{children}</CardContent>
 		</Card>

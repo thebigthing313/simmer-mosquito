@@ -17,6 +17,7 @@ import {
 	EmptyHeader,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { ComponentProps, MouseEventHandler, ReactNode } from 'react';
@@ -145,11 +146,41 @@ export function PageHeading({
 	);
 }
 
-export function StatusMessage({ children }: { readonly children: ReactNode }) {
+export function StatusMessage({
+	children,
+	tone,
+}: {
+	readonly children: ReactNode;
+	readonly tone?: 'error' | 'info' | 'success';
+}) {
 	if (children === '') {
 		return null;
 	}
-	return <p className="text-sm leading-snug font-semibold text-[var(--warning)]">{children}</p>;
+	const message = typeof children === 'string' ? children : '';
+	const resolvedTone =
+		tone ??
+		(message.endsWith('...')
+			? 'info'
+			: /^(genus|invitation|organization|species|unit)\s.+\.$/i.test(message)
+				? 'success'
+				: 'error');
+	return (
+		<p
+			className={cn(
+				'rounded-lg border px-3 py-2 text-sm leading-snug font-semibold [overflow-wrap:anywhere]',
+				resolvedTone === 'info' &&
+					'border-[color-mix(in_oklch,var(--info)_22%,var(--border))] bg-[color-mix(in_oklch,var(--info)_6%,var(--surface-muted))] text-[var(--info)]',
+				resolvedTone === 'success' &&
+					'border-[color-mix(in_oklch,var(--success)_22%,var(--border))] bg-[color-mix(in_oklch,var(--success)_7%,var(--surface-muted))] text-[var(--success)]',
+				resolvedTone === 'error' &&
+					'border-[color-mix(in_oklch,var(--warning)_28%,var(--border))] bg-[color-mix(in_oklch,var(--attention)_24%,var(--surface-muted))] text-[var(--warning)]',
+			)}
+			role={resolvedTone === 'error' ? 'alert' : 'status'}
+			aria-live="polite"
+		>
+			{children}
+		</p>
+	);
 }
 
 export function FormGrid({
@@ -220,7 +251,7 @@ export function CatalogBrowserLayout({
 }
 
 export function RecordActions({ children }: { readonly children: ReactNode }) {
-	return <div className="flex items-center gap-2">{children}</div>;
+	return <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">{children}</div>;
 }
 
 export function RecordRow({
@@ -233,7 +264,7 @@ export function RecordRow({
 	return (
 		<article
 			className={cn(
-				'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card px-3 py-2 [&_h3]:m-0 [&_h3]:truncate [&_h3]:text-sm [&_h3]:leading-tight [&_h3]:font-bold [&_p]:mt-1 [&_p]:mb-0 [&_p]:truncate [&_p]:text-sm [&_p]:leading-snug [&_p]:text-muted-foreground',
+				'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card px-3 py-2 max-sm:grid-cols-1 [&_h3]:m-0 [&_h3]:truncate [&_h3]:text-sm [&_h3]:leading-tight [&_h3]:font-bold [&_p]:mt-1 [&_p]:mb-0 [&_p]:truncate [&_p]:text-sm [&_p]:leading-snug [&_p]:text-muted-foreground',
 				className,
 			)}
 		>
@@ -319,5 +350,31 @@ export function DeleteConfirmDialog({
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>
+	);
+}
+
+export function LoadingRows({
+	count = 3,
+	label = 'Loading records',
+}: {
+	readonly count?: number;
+	readonly label?: string;
+}) {
+	const rowKeys = Array.from({ length: count }, (_, rowNumber) => `loading-row-${rowNumber + 1}`);
+	return (
+		<div className="grid gap-2" aria-label={label} aria-busy="true" role="status">
+			{rowKeys.map((rowKey) => (
+				<div
+					className="grid grid-cols-[minmax(0,1fr)_120px] items-center gap-3 rounded-lg border bg-card px-3 py-3 max-sm:grid-cols-1"
+					key={rowKey}
+				>
+					<div className="grid min-w-0 gap-2">
+						<Skeleton className="h-4 w-2/3 max-w-80" />
+						<Skeleton className="h-3 w-1/2 max-w-60" />
+					</div>
+					<Skeleton className="h-8 w-full max-w-32 justify-self-end max-sm:justify-self-start" />
+				</div>
+			))}
+		</div>
 	);
 }
