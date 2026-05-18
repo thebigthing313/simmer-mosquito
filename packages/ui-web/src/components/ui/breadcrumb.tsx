@@ -1,5 +1,5 @@
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { ChevronRight, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, MoreHorizontal } from '../../icons/registry';
 import { Slot } from 'radix-ui';
 import type * as React from 'react';
 

@@ -16,6 +16,11 @@ components backed by Radix primitives, Tailwind utilities, and the shared design
 tokens. The package owns reusable web component variants, states, composition
 rules, and accessibility behavior.
 
+`apps/preview` is the internal living styleguide and design-system workshop. It
+is a Vite/TanStack Router app that imports `packages/design-tokens` and
+`packages/ui-web` through workspace package boundaries so local package changes
+hot-reload during design-system work.
+
 `packages/ui-mobile` is the planned mobile component system. It should consume
 the same design-token decisions through a React Native-friendly adapter, but it
 does not share web components.
@@ -56,21 +61,38 @@ CSS-only custom components are allowed only for genuinely product-specific
 patterns that do not map cleanly to a shadcn primitive. Once such a pattern is
 reused, move it into `packages/ui-web` with a small public API and variants.
 
-Icons are platform UI, not design tokens. A semantic icon registry can live in
-`packages/ui-web` once repeated web usage justifies it.
+Icons are platform UI, not design tokens. Web frontends must consume icons
+through the semantic registry in `packages/ui-web/src/icons/registry.ts` rather
+than importing icon libraries directly. `lucide-react` is the default source for
+now, with SIMMER-owned assets for the brand mark and mosquito icon. Registry
+groups currently cover SIMMER-specific icons, domains, entities, actions,
+arrows, and generic UI symbols.
+
+Domain and entity icon decisions should use product language instead of raw
+asset names. For example, adult surveillance and mosquito use the SIMMER
+mosquito asset, GIS uses the map icon, and biocontrol action uses a fish icon.
 
 ## Preview Strategy
 
-SIMMER does not use Storybook as the design-system contract. When visual preview
-surfaces are useful, add lightweight development-only preview routes inside
-`apps/web`, using the real app stylesheet, router context, and package imports.
+SIMMER does not use Storybook as the design-system contract. Visual preview
+surfaces live in `apps/preview`, using the real shared stylesheet, router
+context, package imports, and Vite HMR against workspace packages.
 
-Preview pages should be small and purposeful: tokens, primitives, forms,
-overlays, tables, and workflow shells. They are aids for design review, not a
-second application to maintain.
+Preview pages should be small and purposeful: tokens, icons, primitives, forms,
+overlays, tables, component kitchen-sink views, prop sandboxes, and workflow
+shells. They are aids for design review and visual regression, not a parallel
+product application.
 
 ## Current Scope
 
-The rebuild starts with only SIMMER brand colors in
-`packages/design-tokens`. Additional tokens, palettes, and UI components should
-be added when real product surfaces need them.
+The current design-system surface includes:
+
+- Brand green and yellow scales from 50 through 900 in
+  `packages/design-tokens`, with semantic `brand` aliases pointing at the
+  canonical scale values.
+- CSS variables for brand, surface, border, typography, spacing, radius, motion,
+  and preview-workshop tokens.
+- `packages/ui-web` shadcn source components consuming shared tokens.
+- A semantic icon registry exported from `packages/ui-web`.
+- `apps/preview` routes for design tokens, icons, a component kitchen sink, a
+  dynamic sandbox, and real-world templates/accessibility stress work.

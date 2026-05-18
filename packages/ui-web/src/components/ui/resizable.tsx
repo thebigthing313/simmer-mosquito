@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { GripVerticalIcon } from 'lucide-react';
+import { GripVerticalIcon } from '../../icons/registry';
 import * as ResizablePrimitive from 'react-resizable-panels';
 
 function ResizablePanelGroup({ className, ...props }: ResizablePrimitive.GroupProps) {

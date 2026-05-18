@@ -2,7 +2,7 @@
 
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { OTPInput, OTPInputContext } from 'input-otp';
-import { MinusIcon } from 'lucide-react';
+import { MinusIcon } from '../../icons/registry';
 import * as React from 'react';
 
 function InputOTP({

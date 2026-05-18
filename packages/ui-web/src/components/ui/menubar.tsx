@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react';
+import { CheckIcon, ChevronRightIcon, CircleIcon } from '../../icons/registry';
 import { Menubar as MenubarPrimitive } from 'radix-ui';
 import type * as React from 'react';
 

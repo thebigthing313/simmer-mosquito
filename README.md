@@ -4,14 +4,21 @@ Nx-managed pnpm monorepo for mosquito control and surveillance software.
 
 ## Workspace Layout
 
-- `apps/admin`: SIMMER operator SPA for platform-controlled organization, user, taxonomy, and unit management.
+- `apps/admin`: SIMMER operator SPA for platform-controlled organization, user,
+  taxonomy, and unit management.
+- `apps/preview`: Internal component preview and design-system workshop for
+  tokens, icons, component stress tests, sandboxing, and workflow templates.
 - `apps/server`: Hono HTTP control plane for auth, sync proxies, and command endpoints.
 - `apps/web`: Vite React SPA shell for browser auth and future agency workflows.
 - `apps/worker`: Background worker for scheduled surveillance/control jobs.
 - `packages/config`: Shared environment parsing.
 - `packages/db`: SQL migrations and Kysely/Postgres helpers.
 - `packages/auth`: WorkOS AuthKit/session helpers.
+- `packages/design-tokens`: Framework-free SIMMER visual tokens exposed as CSS
+  variables and TypeScript constants.
 - `packages/domain`: Shared domain types and calculations.
+- `packages/ui-web`: Shared web UI components, styles, and semantic icon
+  registry.
 
 ## Commands
 
@@ -20,6 +27,7 @@ pnpm install
 pnpm build
 pnpm typecheck
 pnpm dev:admin
+pnpm dev:preview
 pnpm dev:server
 pnpm dev:web
 pnpm dev:worker

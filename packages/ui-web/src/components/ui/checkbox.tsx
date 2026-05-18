@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon } from '../../icons/registry';
 import { Checkbox as CheckboxPrimitive } from 'radix-ui';
 import type * as React from 'react';
 

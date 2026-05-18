@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { XIcon } from 'lucide-react';
+import { XIcon } from '../../icons/registry';
 import { Dialog as SheetPrimitive } from 'radix-ui';
 import type * as React from 'react';
 

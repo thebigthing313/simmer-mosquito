@@ -22,6 +22,9 @@ This plan tracks the near-term build order. Architecture decisions live in
 - Reusable server AuthContext resolver/middleware.
 - Vite React `apps/web` auth shell.
 - Vite React `apps/admin` SIMMER operator shell.
+- Vite React `apps/preview` design-system workshop shell with TanStack Router
+  routes for design tokens, icon registry, component kitchen sink, sandbox, and
+  template/accessibility stress views.
 - SIMMER operator organization administration in `apps/admin`.
 - Manual organization subscription metadata.
 - Operator-managed WorkOS invitations.
@@ -306,6 +309,13 @@ paths:
 - Admin can display SIMMER operator organization/user management through
   server-controlled endpoints.
 - Admin has scaffold pages for SIMMER-controlled global taxonomy and units.
+- Design-system preview infrastructure exists as a dedicated internal app:
+  - `packages/design-tokens` owns brand green/yellow scales, semantic aliases,
+    typography, spacing, radius, motion, and CSS variable mappings.
+  - `packages/ui-web` owns the semantic web icon registry with lucide as the
+    default source and SIMMER brand/mosquito assets as local registry sources.
+  - Web frontends should import registered icons through
+    `@simmer-mosquito/ui-web/icons/registry`, not from lucide directly.
 
 The database now has the main domain tables needed for adult surveillance,
 larval surveillance, chemical control, other interventions, service requests,
