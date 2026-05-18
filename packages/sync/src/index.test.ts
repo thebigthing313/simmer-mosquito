@@ -4,6 +4,7 @@ import {
 	profilesSyncDescriptor,
 	type SyncDescriptor,
 	unitsSyncDescriptor,
+	webCommandMutationDescriptors,
 	webReadOnlyTracerDescriptors,
 } from './index.js';
 
@@ -66,16 +67,21 @@ describe('sync descriptors', () => {
 		).toBe('unit-1');
 	});
 
-	it('keeps the current web tracer read-only', () => {
+	it('keeps foundation lookup catalogs as command-backed tracer descriptors', () => {
+		expect(webCommandMutationDescriptors.map((descriptor) => descriptor.id)).toEqual([
+			'collection_methods',
+			'collection_lures',
+			'habitat_types',
+		]);
+	});
+
+	it('keeps the remaining web tracer descriptors read-only', () => {
 		expect(webReadOnlyTracerDescriptors.map((descriptor) => descriptor.id)).toEqual([
 			'units',
 			'profiles',
 			'genera',
 			'species',
 			'organization_species',
-			'collection_methods',
-			'collection_lures',
-			'habitat_types',
 			'tags',
 			'routes',
 		]);

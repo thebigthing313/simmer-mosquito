@@ -22,6 +22,7 @@ import {
 	unitsSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import { type Collection, createCollection } from '@tanstack/db';
+import { createOrgLookupMutationHandlers } from './orgLookupMutations';
 
 export interface WebCollections {
 	readonly collectionLures: Collection<CollectionLureRow, string | number>;
@@ -88,18 +89,33 @@ export function createWebCollections(options: { readonly serverUrl: string }): W
 		electricShapeCollectionOptions<CollectionMethodRow>({
 			descriptor: collectionMethodsSyncDescriptor,
 			url: `${options.serverUrl}${collectionMethodsSyncDescriptor.endpointPath}`,
+			...createOrgLookupMutationHandlers<CollectionMethodRow>({
+				serverUrl: options.serverUrl,
+				endpointPath: '/foundation/collection-methods',
+				fallbackName: 'collection method',
+			}),
 		}),
 	);
 	const collectionLures = createCollection(
 		electricShapeCollectionOptions<CollectionLureRow>({
 			descriptor: collectionLuresSyncDescriptor,
 			url: `${options.serverUrl}${collectionLuresSyncDescriptor.endpointPath}`,
+			...createOrgLookupMutationHandlers<CollectionLureRow>({
+				serverUrl: options.serverUrl,
+				endpointPath: '/foundation/collection-lures',
+				fallbackName: 'collection lure',
+			}),
 		}),
 	);
 	const habitatTypes = createCollection(
 		electricShapeCollectionOptions<HabitatTypeRow>({
 			descriptor: habitatTypesSyncDescriptor,
 			url: `${options.serverUrl}${habitatTypesSyncDescriptor.endpointPath}`,
+			...createOrgLookupMutationHandlers<HabitatTypeRow>({
+				serverUrl: options.serverUrl,
+				endpointPath: '/foundation/habitat-types',
+				fallbackName: 'habitat type',
+			}),
 		}),
 	);
 	const tags = createCollection(

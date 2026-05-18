@@ -246,11 +246,14 @@ export const webReadOnlyTracerDescriptors = [
 	generaSyncDescriptor,
 	speciesSyncDescriptor,
 	organizationSpeciesSyncDescriptor,
+	tagsSyncDescriptor,
+	routesSyncDescriptor,
+] as const;
+
+export const webCommandMutationDescriptors = [
 	collectionMethodsSyncDescriptor,
 	collectionLuresSyncDescriptor,
 	habitatTypesSyncDescriptor,
-	tagsSyncDescriptor,
-	routesSyncDescriptor,
 ] as const;
 
 export function electricShapeCollectionOptions<TRow extends { readonly id: string }>(

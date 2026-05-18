@@ -134,6 +134,9 @@ importers:
       '@simmer-mosquito/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@simmer-mosquito/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@simmer-mosquito/sync':
         specifier: workspace:*
         version: link:../../packages/sync

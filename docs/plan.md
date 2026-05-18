@@ -58,8 +58,8 @@ is worth it.
 
 ## Recommended Next Slice
 
-Exercise the first command-backed TanStack DB mutation tracer, then extend the
-pattern deliberately.
+Exercise the foundation lookup command-backed TanStack DB mutation tracers, then
+extend the pattern deliberately.
 
 This slice should prove the write-confirmation path that follows the read-only
 tracer:
@@ -76,12 +76,13 @@ UI intent
 
 Status:
 
-- Implemented first for selected-organization `collection_methods`.
+- Implemented for selected-organization `collection_methods`,
+  `collection_lures`, and `habitat_types`.
 
 Scope for the next extension:
 
-- Pick the next small eager collection only after the `collection_methods`
-  tracer has been exercised.
+- Pick the next small eager collection only after the foundation lookup tracers
+  have been exercised.
 - Add the server-authorized command endpoint.
 - Commit through the domain command contract in `docs/domain-command-contract.md`.
 - Return the matching Electric transaction id from the same Postgres
@@ -115,9 +116,9 @@ Acceptance criteria:
 - Railway staging/production reset with migration and app deployment pipelines.
 - Read-only web sync tracer for units, profiles, taxonomy, organization species,
   foundation lookup catalogs, tags, and route headers.
-- Command-backed web sync tracer for collection methods, including optimistic
-  TanStack DB mutation handlers, foundation command endpoints, Kysely commits,
-  and same-transaction Electric txid responses.
+- Command-backed web sync tracer for foundation lookup catalogs, including
+  optimistic TanStack DB mutation handlers, foundation command endpoints, Kysely
+  commits, and same-transaction Electric txid responses.
 
 ## Deferred
 

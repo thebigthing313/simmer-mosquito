@@ -26,3 +26,7 @@ Offline queues should store domain commands rather than DB-shaped patches.
 - Server command handlers can validate authorization and persistence state.
 - TanStack DB remains the optimistic mutation mechanism.
 - Command metadata, not patch inference, determines the server endpoint.
+- The first implemented tracers are the foundation lookup catalogs: web
+  collection mutation handlers call authenticated foundation command routes, and
+  those routes return the same-transaction Electric txid after committing the
+  domain command.

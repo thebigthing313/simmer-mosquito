@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	createWebCollections,
 	preloadWebBaselineCollections,
 	type WebCollections,
 	webBaselineCollectionKeys,
@@ -38,5 +39,19 @@ describe('web sync baseline preload', () => {
 		await preloadWebBaselineCollections(collections);
 
 		expect(calls).toEqual(webBaselineCollectionKeys);
+	});
+
+	it('attaches optimistic write handlers to eager org lookup catalogs', () => {
+		const collections = createWebCollections({ serverUrl: 'https://example.test' });
+
+		expect(collections.collectionMethods.config.onInsert).toBeTypeOf('function');
+		expect(collections.collectionMethods.config.onUpdate).toBeTypeOf('function');
+		expect(collections.collectionMethods.config.onDelete).toBeTypeOf('function');
+		expect(collections.collectionLures.config.onInsert).toBeTypeOf('function');
+		expect(collections.collectionLures.config.onUpdate).toBeTypeOf('function');
+		expect(collections.collectionLures.config.onDelete).toBeTypeOf('function');
+		expect(collections.habitatTypes.config.onInsert).toBeTypeOf('function');
+		expect(collections.habitatTypes.config.onUpdate).toBeTypeOf('function');
+		expect(collections.habitatTypes.config.onDelete).toBeTypeOf('function');
 	});
 });

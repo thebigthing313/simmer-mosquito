@@ -546,7 +546,7 @@ function AuthenticatedPanel({ auth }: { readonly auth: AuthenticatedMe }) {
 			)}
 
 			<ProfilesSyncPanel />
-			<LookupCatalogsSyncPanel />
+			<LookupCatalogsSyncPanel organizationId={organization} />
 			<OrganizationSpeciesSyncPanel />
 			<TagsSyncPanel />
 			<RoutesSyncPanel />
@@ -606,7 +606,7 @@ function ProfilesSyncPanel() {
 	);
 }
 
-function LookupCatalogsSyncPanel() {
+function LookupCatalogsSyncPanel({ organizationId }: { readonly organizationId: string }) {
 	const { rows: collectionMethodRows, status: collectionMethodStatus } = useCollectionRows(
 		collections.collectionMethods,
 	);
@@ -616,6 +616,69 @@ function LookupCatalogsSyncPanel() {
 	const { rows: habitatTypeRows, status: habitatTypeStatus } = useCollectionRows(
 		collections.habitatTypes,
 	);
+	const [lookupForm, setLookupForm] = useState({
+		kind: 'collection_methods' as 'collection_methods' | 'collection_lures' | 'habitat_types',
+		name: '',
+		description: '',
+		actionThreshold: '',
+	});
+	const [mutationStatus, setMutationStatus] = useState('');
+
+	function submitLookupCatalog(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		const name = lookupForm.name.trim();
+		if (name.length === 0 || organizationId === 'none') {
+			return;
+		}
+
+		let actionThreshold: number | null;
+		try {
+			actionThreshold =
+				lookupForm.kind === 'collection_methods'
+					? parseOptionalNonnegativeInteger(lookupForm.actionThreshold)
+					: null;
+		} catch (error) {
+			setMutationStatus(error instanceof Error ? error.message : 'Unable to save lookup.');
+			return;
+		}
+		const now = new Date().toISOString();
+		const baseRow = {
+			id: crypto.randomUUID(),
+			organizationId,
+			name,
+			description: lookupForm.description.trim() === '' ? null : lookupForm.description.trim(),
+			isActive: true,
+			createdAt: now,
+			updatedAt: now,
+		};
+		const transaction =
+			lookupForm.kind === 'collection_methods'
+				? collections.collectionMethods.insert({
+						...baseRow,
+						customSchema: null,
+						actionThreshold,
+					})
+				: lookupForm.kind === 'collection_lures'
+					? collections.collectionLures.insert(baseRow)
+					: collections.habitatTypes.insert({
+							...baseRow,
+							customSchema: null,
+						});
+		setMutationStatus('Saving lookup...');
+		transaction.isPersisted.promise
+			.then(() => {
+				setMutationStatus('Lookup saved.');
+				setLookupForm({
+					kind: lookupForm.kind,
+					name: '',
+					description: '',
+					actionThreshold: '',
+				});
+			})
+			.catch((error: unknown) => {
+				setMutationStatus(error instanceof Error ? error.message : 'Unable to save lookup.');
+			});
+	}
 
 	return (
 		<section className="sync-section">
@@ -626,6 +689,50 @@ function LookupCatalogsSyncPanel() {
 					{habitatTypeStatus}
 				</span>
 			</div>
+			<form className="inline-sync-form" onSubmit={submitLookupCatalog}>
+				<select
+					aria-label="Lookup catalog kind"
+					value={lookupForm.kind}
+					onChange={(event) =>
+						setLookupForm({
+							...lookupForm,
+							kind: event.target.value as typeof lookupForm.kind,
+						})
+					}
+				>
+					<option value="collection_methods">Method</option>
+					<option value="collection_lures">Lure</option>
+					<option value="habitat_types">Habitat</option>
+				</select>
+				<input
+					aria-label="Lookup name"
+					placeholder="New lookup"
+					required
+					value={lookupForm.name}
+					onChange={(event) => setLookupForm({ ...lookupForm, name: event.target.value })}
+				/>
+				{lookupForm.kind === 'collection_methods' ? (
+					<input
+						aria-label="Collection method action threshold"
+						inputMode="numeric"
+						placeholder="Threshold"
+						value={lookupForm.actionThreshold}
+						onChange={(event) =>
+							setLookupForm({ ...lookupForm, actionThreshold: event.target.value })
+						}
+					/>
+				) : null}
+				<input
+					aria-label="Lookup description"
+					placeholder="Description"
+					value={lookupForm.description}
+					onChange={(event) => setLookupForm({ ...lookupForm, description: event.target.value })}
+				/>
+				<button className="button" type="submit">
+					Add lookup
+				</button>
+				{mutationStatus === '' ? null : <span>{mutationStatus}</span>}
+			</form>
 			<div className="lookup-catalog-grid">
 				<LookupCatalogList title="Collection methods" rows={collectionMethodRows} />
 				<LookupCatalogList title="Collection lures" rows={collectionLureRows} />
@@ -852,6 +959,20 @@ function Notice({
 			<p>{body}</p>
 		</div>
 	);
+}
+
+function parseOptionalNonnegativeInteger(value: string): number | null {
+	const trimmed = value.trim();
+	if (trimmed.length === 0) {
+		return null;
+	}
+
+	const parsed = Number(trimmed);
+	if (!Number.isInteger(parsed) || parsed < 0) {
+		throw new Error('Action threshold must be a nonnegative integer.');
+	}
+
+	return parsed;
 }
 
 function Panel({

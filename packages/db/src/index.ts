@@ -1368,6 +1368,7 @@ export interface SafeOrganizationSpecies {
 export type OrgLookupKind = 'collection_methods' | 'collection_lures' | 'habitat_types';
 
 export interface CreateOrgLookupInput {
+	readonly id?: string;
 	readonly organizationId: string;
 	readonly name: string;
 	readonly description?: string | null;
@@ -1390,6 +1391,45 @@ export interface SafeOrgLookup {
 	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
+}
+
+export interface UpdateCollectionMethodLookupInput {
+	readonly organizationId: string;
+	readonly name?: string;
+	readonly description?: string | null;
+	readonly customSchema?: unknown | null;
+	readonly actionThreshold?: number | null;
+	readonly updatedByProfileId?: string | null;
+}
+
+export interface CollectionMethodLookupLifecycleInput {
+	readonly organizationId: string;
+	readonly actorProfileId?: string | null;
+}
+
+export interface UpdateCollectionLureLookupInput {
+	readonly organizationId: string;
+	readonly name?: string;
+	readonly description?: string | null;
+	readonly updatedByProfileId?: string | null;
+}
+
+export interface CollectionLureLookupLifecycleInput {
+	readonly organizationId: string;
+	readonly actorProfileId?: string | null;
+}
+
+export interface UpdateHabitatTypeLookupInput {
+	readonly organizationId: string;
+	readonly name?: string;
+	readonly description?: string | null;
+	readonly customSchema?: unknown | null;
+	readonly updatedByProfileId?: string | null;
+}
+
+export interface HabitatTypeLookupLifecycleInput {
+	readonly organizationId: string;
+	readonly actorProfileId?: string | null;
 }
 
 export interface CreateTrapInput {
@@ -2226,6 +2266,7 @@ export async function createOrgLookup(
 		const row = await db
 			.insertInto('collection_methods')
 			.values({
+				...(input.id === undefined ? {} : { id: input.id }),
 				organization_id: input.organizationId,
 				name: input.name,
 				description: input.description ?? null,
@@ -2257,6 +2298,7 @@ export async function createOrgLookup(
 		const row = await db
 			.insertInto('collection_lures')
 			.values({
+				...(input.id === undefined ? {} : { id: input.id }),
 				organization_id: input.organizationId,
 				name: input.name,
 				description: input.description ?? null,
@@ -2283,6 +2325,7 @@ export async function createOrgLookup(
 	const row = await db
 		.insertInto('habitat_types')
 		.values({
+			...(input.id === undefined ? {} : { id: input.id }),
 			organization_id: input.organizationId,
 			name: input.name,
 			description: input.description ?? null,
@@ -2379,6 +2422,337 @@ export async function listOrgLookups(
 		.execute();
 
 	return rows.map(toSafeOrgLookup);
+}
+
+export async function createCollectionMethodLookupWithTxid(
+	db: Kysely<SimmerDatabase>,
+	input: CreateOrgLookupInput & { readonly id: string },
+): Promise<MutationWriteResult<SafeOrgLookup>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await createOrgLookup(trx, 'collection_methods', input);
+		const txid = await readCurrentTransactionId(trx);
+		return { row, txid };
+	});
+}
+
+export async function updateCollectionMethodLookup(
+	db: DbExecutor,
+	collectionMethodId: string,
+	input: UpdateCollectionMethodLookupInput,
+): Promise<SafeOrgLookup | null> {
+	const row = await db
+		.updateTable('collection_methods')
+		.set({
+			...(input.name === undefined ? {} : { name: input.name }),
+			...(input.description === undefined ? {} : { description: input.description }),
+			...(input.customSchema === undefined ? {} : { custom_schema: input.customSchema }),
+			...(input.actionThreshold === undefined ? {} : { action_threshold: input.actionThreshold }),
+			updated_by_profile_id: input.updatedByProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', collectionMethodId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'custom_schema',
+			'action_threshold',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrgLookup(row);
+}
+
+export async function updateCollectionMethodLookupWithTxid(
+	db: Kysely<SimmerDatabase>,
+	collectionMethodId: string,
+	input: UpdateCollectionMethodLookupInput,
+): Promise<MutationWriteResult<SafeOrgLookup | null>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await updateCollectionMethodLookup(trx, collectionMethodId, input);
+		const txid = await readCurrentTransactionId(trx);
+		return { row, txid };
+	});
+}
+
+export async function setCollectionMethodLookupActive(
+	db: DbExecutor,
+	collectionMethodId: string,
+	input: CollectionMethodLookupLifecycleInput & { readonly isActive: boolean },
+): Promise<SafeOrgLookup | null> {
+	const row = await db
+		.updateTable('collection_methods')
+		.set({
+			is_active: input.isActive,
+			updated_by_profile_id: input.actorProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', collectionMethodId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'custom_schema',
+			'action_threshold',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrgLookup(row);
+}
+
+export async function deleteCollectionMethodLookup(
+	db: DbExecutor,
+	collectionMethodId: string,
+	input: CollectionMethodLookupLifecycleInput,
+): Promise<SafeOrgLookup | null> {
+	const row = await db
+		.updateTable('collection_methods')
+		.set({
+			deleted_at: sql`now()`,
+			deleted_by_profile_id: input.actorProfileId ?? null,
+			updated_by_profile_id: input.actorProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', collectionMethodId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'custom_schema',
+			'action_threshold',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrgLookup(row);
+}
+
+export async function writeCollectionMethodLookupCommandsWithTxid(
+	db: Kysely<SimmerDatabase>,
+	write: (trx: Transaction<SimmerDatabase>) => Promise<SafeOrgLookup | null>,
+): Promise<MutationWriteResult<SafeOrgLookup | null>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await write(trx);
+		const txid = await readCurrentTransactionId(trx);
+		return { row, txid };
+	});
+}
+
+export async function updateCollectionLureLookup(
+	db: DbExecutor,
+	collectionLureId: string,
+	input: UpdateCollectionLureLookupInput,
+): Promise<SafeOrgLookup | null> {
+	const row = await db
+		.updateTable('collection_lures')
+		.set({
+			...(input.name === undefined ? {} : { name: input.name }),
+			...(input.description === undefined ? {} : { description: input.description }),
+			updated_by_profile_id: input.updatedByProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', collectionLureId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrgLookup({ ...row, custom_schema: null });
+}
+
+export async function setCollectionLureLookupActive(
+	db: DbExecutor,
+	collectionLureId: string,
+	input: CollectionLureLookupLifecycleInput & { readonly isActive: boolean },
+): Promise<SafeOrgLookup | null> {
+	const row = await db
+		.updateTable('collection_lures')
+		.set({
+			is_active: input.isActive,
+			updated_by_profile_id: input.actorProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', collectionLureId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrgLookup({ ...row, custom_schema: null });
+}
+
+export async function deleteCollectionLureLookup(
+	db: DbExecutor,
+	collectionLureId: string,
+	input: CollectionLureLookupLifecycleInput,
+): Promise<SafeOrgLookup | null> {
+	const row = await db
+		.updateTable('collection_lures')
+		.set({
+			deleted_at: sql`now()`,
+			deleted_by_profile_id: input.actorProfileId ?? null,
+			updated_by_profile_id: input.actorProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', collectionLureId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrgLookup({ ...row, custom_schema: null });
+}
+
+export async function updateHabitatTypeLookup(
+	db: DbExecutor,
+	habitatTypeId: string,
+	input: UpdateHabitatTypeLookupInput,
+): Promise<SafeOrgLookup | null> {
+	const row = await db
+		.updateTable('habitat_types')
+		.set({
+			...(input.name === undefined ? {} : { name: input.name }),
+			...(input.description === undefined ? {} : { description: input.description }),
+			...(input.customSchema === undefined ? {} : { custom_schema: input.customSchema }),
+			updated_by_profile_id: input.updatedByProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', habitatTypeId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'custom_schema',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrgLookup(row);
+}
+
+export async function setHabitatTypeLookupActive(
+	db: DbExecutor,
+	habitatTypeId: string,
+	input: HabitatTypeLookupLifecycleInput & { readonly isActive: boolean },
+): Promise<SafeOrgLookup | null> {
+	const row = await db
+		.updateTable('habitat_types')
+		.set({
+			is_active: input.isActive,
+			updated_by_profile_id: input.actorProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', habitatTypeId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'custom_schema',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrgLookup(row);
+}
+
+export async function deleteHabitatTypeLookup(
+	db: DbExecutor,
+	habitatTypeId: string,
+	input: HabitatTypeLookupLifecycleInput,
+): Promise<SafeOrgLookup | null> {
+	const row = await db
+		.updateTable('habitat_types')
+		.set({
+			deleted_at: sql`now()`,
+			deleted_by_profile_id: input.actorProfileId ?? null,
+			updated_by_profile_id: input.actorProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', habitatTypeId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'name',
+			'description',
+			'custom_schema',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeOrgLookup(row);
 }
 
 const trapReturnColumns = [

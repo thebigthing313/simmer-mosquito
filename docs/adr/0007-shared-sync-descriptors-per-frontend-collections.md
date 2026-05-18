@@ -58,5 +58,6 @@ changing this package-boundary decision.
 - Implementers must avoid exporting universal prebuilt collection singletons
   from `packages/sync`.
 - Read-only tracer descriptor sets should not include TanStack DB mutation
-  handlers. Mutation slices must add server command handlers and Electric txid
-  confirmation deliberately.
+  handlers. Mutation descriptor sets must add server command handlers and
+  Electric txid confirmation deliberately; the foundation lookup catalogs are
+  the first command-backed descriptors.

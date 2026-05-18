@@ -30,6 +30,7 @@ import {
 } from './auth-middleware.js';
 import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
 import { readServerEnv } from './env.js';
+import { registerFoundationCommandRoutes } from './foundation-commands.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 
 const env = readServerEnv();
@@ -86,6 +87,15 @@ app.use(
 		origin: allowedCorsOrigins(),
 		credentials: true,
 		allowMethods: ['GET', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/foundation/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
 	}),
 );
 
@@ -233,6 +243,11 @@ registerAdminInvitationRoutes(app, {
 registerAdminFoundationRoutes(app, {
 	db,
 	operatorAuthContextMiddleware,
+});
+
+registerFoundationCommandRoutes(app, {
+	db,
+	authContextMiddleware,
 });
 
 registerSyncShapeRoutes(app, {
