@@ -3,6 +3,7 @@ import {
 	biocontrolMethodsSyncDescriptor,
 	collectionLuresSyncDescriptor,
 	collectionMethodsSyncDescriptor,
+	currentOrganizationSyncDescriptor,
 	equipmentSyncDescriptor,
 	generaSyncDescriptor,
 	habitatTypesSyncDescriptor,
@@ -112,6 +113,26 @@ export function registerSyncShapeRoutes(
 				columns: organizationSpeciesSyncDescriptor.columns.map(camelToSnake),
 				table: organizationSpeciesSyncDescriptor.table,
 				where: selectedOrganizationWhere,
+				params: [authContext.organization.id],
+			}),
+		});
+	});
+
+	app.get('/sync/shapes/organization', options.authContextMiddleware, async (context) => {
+		if (options.electricUrl === null) {
+			return context.json({ error: 'electric_url_required' }, 503);
+		}
+
+		const authContext = context.get('authContext');
+
+		return proxyElectricShape(context, {
+			fetch: options.fetch,
+			upstreamUrl: buildElectricShapeUrl({
+				electricUrl: options.electricUrl,
+				incomingUrl: context.req.url,
+				columns: currentOrganizationSyncDescriptor.columns.map(camelToSnake),
+				table: currentOrganizationSyncDescriptor.table,
+				where: selectedOrganizationByIdWhere,
 				params: [authContext.organization.id],
 			}),
 		});
@@ -411,6 +432,7 @@ const blockedProxyResponseHeaders = new Set([
 
 const serverOwnedShapeParams = new Set(['columns', 'table', 'where']);
 const selectedOrganizationWhere = 'organization_id = $1 and deleted_at is null';
+const selectedOrganizationByIdWhere = 'id = $1 and deleted_at is null';
 const electricExposeHeaders = [
 	'electric-offset',
 	'electric-handle',
@@ -419,6 +441,13 @@ const electricExposeHeaders = [
 ];
 
 function camelToSnake(value: string): string {
+	if (value === 'mailingAddressLine1') {
+		return 'mailing_address_line_1';
+	}
+	if (value === 'mailingAddressLine2') {
+		return 'mailing_address_line_2';
+	}
+
 	return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 

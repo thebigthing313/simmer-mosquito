@@ -12,6 +12,7 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
+		"@simmer-mosquito/domain": "workspace:*",
 		"@simmer-mosquito/sync": "workspace:*",
 		"@simmer-mosquito/ui-web": "workspace:*",
 		"@tanstack/db": "^0.6.5",

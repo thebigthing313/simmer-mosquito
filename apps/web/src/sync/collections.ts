@@ -6,6 +6,7 @@ import {
 	type ControlMethodRow,
 	collectionLuresSyncDescriptor,
 	collectionMethodsSyncDescriptor,
+	currentOrganizationSyncDescriptor,
 	type EquipmentRow,
 	electricShapeCollectionOptions,
 	equipmentSyncDescriptor,
@@ -15,6 +16,7 @@ import {
 	habitatTypesSyncDescriptor,
 	type NotificationTypeRow,
 	notificationTypesSyncDescriptor,
+	type OrganizationRow,
 	type OrganizationSpeciesRow,
 	organizationSpeciesSyncDescriptor,
 	outreachMethodsSyncDescriptor,
@@ -33,6 +35,7 @@ import {
 	vehiclesSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import { type Collection, createCollection } from '@tanstack/db';
+import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createOrgLookupMutationHandlers } from './orgLookupMutations';
 
 export interface WebCollections {
@@ -44,6 +47,7 @@ export interface WebCollections {
 	readonly genera: Collection<GenusRow, string | number>;
 	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
 	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
+	readonly currentOrganization: Collection<OrganizationRow, string | number>;
 	readonly organizationSpecies: Collection<OrganizationSpeciesRow, string | number>;
 	readonly outreachMethods: Collection<ControlMethodRow, string | number>;
 	readonly profiles: Collection<ProfileRow, string | number>;
@@ -61,6 +65,7 @@ export const webBaselineCollectionKeys = [
 	'genera',
 	'species',
 	'organizationSpecies',
+	'currentOrganization',
 	'collectionMethods',
 	'collectionLures',
 	'habitatTypes',
@@ -108,6 +113,15 @@ export function createWebCollections(options: { readonly serverUrl: string }): W
 		electricShapeCollectionOptions<OrganizationSpeciesRow>({
 			descriptor: organizationSpeciesSyncDescriptor,
 			url: `${options.serverUrl}${organizationSpeciesSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const currentOrganization = createCollection(
+		electricShapeCollectionOptions<OrganizationRow>({
+			descriptor: currentOrganizationSyncDescriptor,
+			url: `${options.serverUrl}${currentOrganizationSyncDescriptor.endpointPath}`,
+			...createOrganizationMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
 	const collectionMethods = createCollection(
@@ -207,6 +221,7 @@ export function createWebCollections(options: { readonly serverUrl: string }): W
 		genera,
 		habitatTypes,
 		notificationTypes,
+		currentOrganization,
 		organizationSpecies,
 		outreachMethods,
 		profiles,

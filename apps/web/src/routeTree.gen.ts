@@ -18,8 +18,10 @@ import { Route as RoutesRouteImport } from './routes/routes'
 import { Route as RequestsForControlRouteImport } from './routes/requests-for-control'
 import { Route as RegionsRouteImport } from './routes/regions'
 import { Route as PublicOutreachRouteImport } from './routes/public-outreach'
+import { Route as MyOrganizationRouteImport } from './routes/my-organization'
 import { Route as MissionsRouteImport } from './routes/missions'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LandingRouteImport } from './routes/landing'
 import { Route as InspectionsRouteImport } from './routes/inspections'
 import { Route as HabitatsRouteImport } from './routes/habitats'
 import { Route as GroupsRouteImport } from './routes/groups'
@@ -82,6 +84,11 @@ const PublicOutreachRoute = PublicOutreachRouteImport.update({
   path: '/public-outreach',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MyOrganizationRoute = MyOrganizationRouteImport.update({
+  id: '/my-organization',
+  path: '/my-organization',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MissionsRoute = MissionsRouteImport.update({
   id: '/missions',
   path: '/missions',
@@ -90,6 +97,11 @@ const MissionsRoute = MissionsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingRoute = LandingRouteImport.update({
+  id: '/landing',
+  path: '/landing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InspectionsRoute = InspectionsRouteImport.update({
@@ -187,8 +199,10 @@ export interface FileRoutesByFullPath {
   '/groups': typeof GroupsRoute
   '/habitats': typeof HabitatsRoute
   '/inspections': typeof InspectionsRoute
+  '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
   '/missions': typeof MissionsRouteWithChildren
+  '/my-organization': typeof MyOrganizationRoute
   '/public-outreach': typeof PublicOutreachRoute
   '/regions': typeof RegionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
@@ -216,8 +230,10 @@ export interface FileRoutesByTo {
   '/groups': typeof GroupsRoute
   '/habitats': typeof HabitatsRoute
   '/inspections': typeof InspectionsRoute
+  '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
   '/missions': typeof MissionsRouteWithChildren
+  '/my-organization': typeof MyOrganizationRoute
   '/public-outreach': typeof PublicOutreachRoute
   '/regions': typeof RegionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
@@ -245,8 +261,10 @@ export interface FileRoutesById {
   '/groups': typeof GroupsRoute
   '/habitats': typeof HabitatsRoute
   '/inspections': typeof InspectionsRoute
+  '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
   '/missions': typeof MissionsRouteWithChildren
+  '/my-organization': typeof MyOrganizationRoute
   '/public-outreach': typeof PublicOutreachRoute
   '/regions': typeof RegionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
@@ -276,8 +294,10 @@ export interface FileRouteTypes {
     | '/groups'
     | '/habitats'
     | '/inspections'
+    | '/landing'
     | '/login'
     | '/missions'
+    | '/my-organization'
     | '/public-outreach'
     | '/regions'
     | '/requests-for-control'
@@ -305,8 +325,10 @@ export interface FileRouteTypes {
     | '/groups'
     | '/habitats'
     | '/inspections'
+    | '/landing'
     | '/login'
     | '/missions'
+    | '/my-organization'
     | '/public-outreach'
     | '/regions'
     | '/requests-for-control'
@@ -333,8 +355,10 @@ export interface FileRouteTypes {
     | '/groups'
     | '/habitats'
     | '/inspections'
+    | '/landing'
     | '/login'
     | '/missions'
+    | '/my-organization'
     | '/public-outreach'
     | '/regions'
     | '/requests-for-control'
@@ -363,8 +387,10 @@ export interface RootRouteChildren {
   GroupsRoute: typeof GroupsRoute
   HabitatsRoute: typeof HabitatsRoute
   InspectionsRoute: typeof InspectionsRoute
+  LandingRoute: typeof LandingRoute
   LoginRoute: typeof LoginRoute
   MissionsRoute: typeof MissionsRouteWithChildren
+  MyOrganizationRoute: typeof MyOrganizationRoute
   PublicOutreachRoute: typeof PublicOutreachRoute
   RegionsRoute: typeof RegionsRoute
   RequestsForControlRoute: typeof RequestsForControlRoute
@@ -442,6 +468,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicOutreachRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/my-organization': {
+      id: '/my-organization'
+      path: '/my-organization'
+      fullPath: '/my-organization'
+      preLoaderRoute: typeof MyOrganizationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/missions': {
       id: '/missions'
       path: '/missions'
@@ -454,6 +487,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing': {
+      id: '/landing'
+      path: '/landing'
+      fullPath: '/landing'
+      preLoaderRoute: typeof LandingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inspections': {
@@ -620,8 +660,10 @@ const rootRouteChildren: RootRouteChildren = {
   GroupsRoute: GroupsRoute,
   HabitatsRoute: HabitatsRoute,
   InspectionsRoute: InspectionsRoute,
+  LandingRoute: LandingRoute,
   LoginRoute: LoginRoute,
   MissionsRoute: MissionsRouteWithChildren,
+  MyOrganizationRoute: MyOrganizationRoute,
   PublicOutreachRoute: PublicOutreachRoute,
   RegionsRoute: RegionsRoute,
   RequestsForControlRoute: RequestsForControlRoute,

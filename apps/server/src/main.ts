@@ -31,6 +31,8 @@ import {
 import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
 import { readServerEnv } from './env.js';
 import { registerFoundationCommandRoutes } from './foundation-commands.js';
+import { registerOrganizationCommandRoutes } from './organization-commands.js';
+import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 
 const env = readServerEnv();
@@ -96,6 +98,24 @@ app.use(
 		origin: allowedCorsOrigins(),
 		credentials: true,
 		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/organization-settings/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['PATCH', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/organization/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['PATCH', 'OPTIONS'],
 	}),
 );
 
@@ -246,6 +266,16 @@ registerAdminFoundationRoutes(app, {
 });
 
 registerFoundationCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerOrganizationCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerOrganizationSettingsCommandRoutes(app, {
 	db,
 	authContextMiddleware,
 });

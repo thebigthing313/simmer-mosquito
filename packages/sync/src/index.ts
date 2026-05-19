@@ -76,6 +76,25 @@ export interface OrganizationSpeciesRow {
 	readonly updatedAt: string;
 }
 
+export interface OrganizationRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly workosOrganizationId: string | null;
+	readonly name: string;
+	readonly slug: string | null;
+	readonly mainContactEmail: string | null;
+	readonly phoneNumber: string | null;
+	readonly mailingCountry: string | null;
+	readonly mailingAddressLine1: string | null;
+	readonly mailingAddressLine2: string | null;
+	readonly mailingLocality: string | null;
+	readonly mailingRegion: string | null;
+	readonly mailingPostalCode: string | null;
+	readonly settings: unknown | null;
+	readonly updatedAt: string;
+	readonly updatedByProfileId: string | null;
+}
+
 interface OrgLookupRowBase {
 	readonly [key: string]: unknown;
 	readonly id: string;
@@ -200,6 +219,31 @@ export const organizationSpeciesSyncDescriptor: SyncDescriptor<OrganizationSpeci
 	endpointPath: '/sync/shapes/organization-species',
 	syncMode: 'eager',
 	columns: ['id', 'organizationId', 'speciesId', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const currentOrganizationSyncDescriptor: SyncDescriptor<OrganizationRow> = {
+	id: 'current_organization',
+	table: 'organizations',
+	endpointPath: '/sync/shapes/organization',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'workosOrganizationId',
+		'name',
+		'slug',
+		'mainContactEmail',
+		'phoneNumber',
+		'mailingCountry',
+		'mailingAddressLine1',
+		'mailingAddressLine2',
+		'mailingLocality',
+		'mailingRegion',
+		'mailingPostalCode',
+		'settings',
+		'updatedAt',
+		'updatedByProfileId',
+	],
 	getKey: (row) => row.id,
 };
 
@@ -374,6 +418,7 @@ export const webReadOnlyTracerDescriptors = [
 ] as const;
 
 export const webCommandMutationDescriptors = [
+	currentOrganizationSyncDescriptor,
 	collectionMethodsSyncDescriptor,
 	collectionLuresSyncDescriptor,
 	habitatTypesSyncDescriptor,
@@ -409,14 +454,28 @@ export function electricShapeCollectionOptions<TRow extends { readonly id: strin
 }
 
 const snakeCamelColumnMapper = {
-	encode: camelToSnake,
-	decode: snakeToCamel,
+	encode: encodeShapeColumnName,
+	decode: decodeShapeColumnName,
 };
 
-function camelToSnake(value: string): string {
+export function encodeShapeColumnName(value: string): string {
+	if (value === 'mailingAddressLine1') {
+		return 'mailing_address_line_1';
+	}
+	if (value === 'mailingAddressLine2') {
+		return 'mailing_address_line_2';
+	}
+
 	return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
-function snakeToCamel(value: string): string {
+export function decodeShapeColumnName(value: string): string {
+	if (value === 'mailing_address_line_1') {
+		return 'mailingAddressLine1';
+	}
+	if (value === 'mailing_address_line_2') {
+		return 'mailingAddressLine2';
+	}
+
 	return value.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 }

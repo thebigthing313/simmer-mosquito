@@ -146,6 +146,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@simmer-mosquito/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@simmer-mosquito/sync':
         specifier: workspace:*
         version: link:../../packages/sync

@@ -13,6 +13,8 @@ export interface AuthUser {
 export interface LocalIdentity {
 	readonly userId: string;
 	readonly organizationId: string | null;
+	readonly organizationName?: string;
+	readonly organizationSlug?: string | null;
 	readonly profileId: string | null;
 	readonly membershipId: string | null;
 	readonly role: string | null;

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+	currentOrganizationSyncDescriptor,
+	decodeShapeColumnName,
 	electricShapeCollectionOptions,
+	encodeShapeColumnName,
 	profilesSyncDescriptor,
 	type SyncDescriptor,
 	unitsSyncDescriptor,
@@ -46,6 +49,34 @@ describe('sync descriptors', () => {
 		expect(profilesSyncDescriptor.columns).not.toContain('userId');
 	});
 
+	it('defines the current organization row without subscription fields', () => {
+		expect(currentOrganizationSyncDescriptor).toMatchObject({
+			id: 'current_organization',
+			table: 'organizations',
+			endpointPath: '/sync/shapes/organization',
+			syncMode: 'eager',
+		});
+		expect(currentOrganizationSyncDescriptor.columns).toEqual([
+			'id',
+			'workosOrganizationId',
+			'name',
+			'slug',
+			'mainContactEmail',
+			'phoneNumber',
+			'mailingCountry',
+			'mailingAddressLine1',
+			'mailingAddressLine2',
+			'mailingLocality',
+			'mailingRegion',
+			'mailingPostalCode',
+			'settings',
+			'updatedAt',
+			'updatedByProfileId',
+		]);
+		expect(currentOrganizationSyncDescriptor.columns).not.toContain('subscriptionStatus');
+		expect(currentOrganizationSyncDescriptor.columns).not.toContain('billingContactEmail');
+	});
+
 	it('creates Electric-backed collection options for descriptor-owned shapes', () => {
 		const options = electricShapeCollectionOptions({
 			descriptor: unitsSyncDescriptor,
@@ -67,8 +98,16 @@ describe('sync descriptors', () => {
 		).toBe('unit-1');
 	});
 
+	it('maps numbered address columns between client and Electric column names', () => {
+		expect(encodeShapeColumnName('mailingAddressLine1')).toBe('mailing_address_line_1');
+		expect(encodeShapeColumnName('mailingAddressLine2')).toBe('mailing_address_line_2');
+		expect(decodeShapeColumnName('mailing_address_line_1')).toBe('mailingAddressLine1');
+		expect(decodeShapeColumnName('mailing_address_line_2')).toBe('mailingAddressLine2');
+	});
+
 	it('keeps foundation lookup catalogs as command-backed tracer descriptors', () => {
 		expect(webCommandMutationDescriptors.map((descriptor) => descriptor.id)).toEqual([
+			'current_organization',
 			'collection_methods',
 			'collection_lures',
 			'habitat_types',

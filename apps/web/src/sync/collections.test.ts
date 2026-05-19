@@ -14,6 +14,7 @@ describe('web sync baseline preload', () => {
 			'genera',
 			'species',
 			'organizationSpecies',
+			'currentOrganization',
 			'collectionMethods',
 			'collectionLures',
 			'habitatTypes',
@@ -51,6 +52,7 @@ describe('web sync baseline preload', () => {
 	it('attaches optimistic write handlers to eager org lookup catalogs', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
+		expect(collections.currentOrganization.config.onUpdate).toBeTypeOf('function');
 		expect(collections.collectionMethods.config.onInsert).toBeTypeOf('function');
 		expect(collections.collectionMethods.config.onUpdate).toBeTypeOf('function');
 		expect(collections.collectionMethods.config.onDelete).toBeTypeOf('function');

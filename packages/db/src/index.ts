@@ -10,6 +10,9 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
+export type { Kysely, Transaction } from 'kysely';
+export { sql } from 'kysely';
+
 type TimestampWithDefault = ColumnType<Date, Date | undefined, Date | undefined>;
 type NullableTimestampWithDefault = ColumnType<
 	Date | null,

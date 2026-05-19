@@ -1,9 +1,5 @@
+import { Avatar, AvatarBadge, AvatarFallback } from '@simmer-mosquito/ui-web/components/ui/avatar';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import {
-	Avatar,
-	AvatarBadge,
-	AvatarFallback,
-} from '@simmer-mosquito/ui-web/components/ui/avatar';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
 import {
@@ -32,6 +28,9 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, Outlet, useLocation, useParams } from '@tanstack/react-router';
 import type React from 'react';
+import { type AuthMe, getServerUrl } from '../auth';
+import { useCollectionRows } from '../sync/useCollectionRows';
+import { webCollections } from '../sync/webCollections';
 
 type Tone = 'neutral' | 'attention' | 'success' | 'info' | 'danger';
 
@@ -137,7 +136,11 @@ const navigationGroups = [
 		items: [
 			{ to: '/', label: 'Dashboard', icon: iconRegistry.generic.component.icon },
 			{ to: '/today', label: "Today's Activities", icon: iconRegistry.simmer.fieldWork.icon },
-			{ to: '/group-settings', label: 'Group Settings', icon: iconRegistry.generic.settings.icon },
+			{
+				to: '/my-organization',
+				label: 'My Organization',
+				icon: iconRegistry.generic.settings.icon,
+			},
 		],
 	},
 	{
@@ -158,17 +161,33 @@ const navigationGroups = [
 	{
 		label: 'Control Actions',
 		items: [
-			{ to: '/chemical-control', label: 'Chemical Control', icon: iconRegistry.entities.application.icon },
-			{ to: '/source-reductions', label: 'Source Reductions', icon: iconRegistry.entities.sourceReductionAction.icon },
+			{
+				to: '/chemical-control',
+				label: 'Chemical Control',
+				icon: iconRegistry.entities.application.icon,
+			},
+			{
+				to: '/source-reductions',
+				label: 'Source Reductions',
+				icon: iconRegistry.entities.sourceReductionAction.icon,
+			},
 			{ to: '/biocontrol', label: 'Biocontrol', icon: iconRegistry.entities.biocontrolAction.icon },
-			{ to: '/public-outreach', label: 'Public Outreach', icon: iconRegistry.entities.outreachAction.icon },
+			{
+				to: '/public-outreach',
+				label: 'Public Outreach',
+				icon: iconRegistry.entities.outreachAction.icon,
+			},
 		],
 	},
 	{
 		label: 'Public Engagement',
 		items: [
 			{ to: '/contacts', label: 'Contacts', icon: iconRegistry.entities.organization.icon },
-			{ to: '/service-requests', label: 'Service Requests', icon: iconRegistry.domains.publicEngagement.icon },
+			{
+				to: '/service-requests',
+				label: 'Service Requests',
+				icon: iconRegistry.domains.publicEngagement.icon,
+			},
 		],
 	},
 	{
@@ -183,13 +202,32 @@ const navigationGroups = [
 		label: 'Operations',
 		items: [
 			{ to: '/assignments', label: 'Assignments', icon: iconRegistry.entities.vehicle.icon },
-			{ to: '/requests-for-control', label: 'Requests for Control', icon: iconRegistry.domains.controlOperations.icon },
+			{
+				to: '/requests-for-control',
+				label: 'Requests for Control',
+				icon: iconRegistry.domains.controlOperations.icon,
+			},
 			{ to: '/missions', label: 'Missions', icon: iconRegistry.entities.route.icon },
 		],
 	},
 ] as const;
 
-export function RootLayout() {
+export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
+	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
+	const user = auth?.authenticated === true ? auth.user : null;
+	const { rows: organizations, status: organizationStatus } = useCollectionRows(
+		webCollections.currentOrganization,
+	);
+	const { rows: profiles, status: profileStatus } = useCollectionRows(webCollections.profiles);
+	const organization = organizations.find((row) => row.id === localIdentity?.organizationId);
+	const profile = profiles.find((row) => row.id === localIdentity?.profileId);
+	const organizationName =
+		organization?.name ?? localIdentity?.organizationName ?? 'Selected organization';
+	const profileName = profile?.displayName ?? user?.displayName ?? 'SIMMER User';
+	const roleLabel = formatRole(localIdentity?.role);
+	const liveStatus =
+		organizationStatus === 'ready' && profileStatus === 'ready' ? 'Live' : 'Updating';
+
 	return (
 		<SidebarProvider className="app-frame">
 			<ProductSidebar />
@@ -197,27 +235,32 @@ export function RootLayout() {
 				<header className="top-strip">
 					<div className="top-strip-heading">
 						<div>
-							<p className="eyebrow">Marsh County Vector Control</p>
+							<p className="eyebrow">{organizationName}</p>
 							<p className="top-strip-title">Operations workspace</p>
 						</div>
-						<div className="top-strip-context" aria-label="Operational focus">
-							<span>North basin threshold review</span>
-							<span>6 crews active</span>
+						<div className="top-strip-context">
+							<span>{roleLabel}</span>
+							<span>{liveStatus}</span>
 						</div>
 					</div>
-					<div className="top-strip-actions" aria-label="Workspace status">
-						<div className="header-date" aria-label="Current work date">
-							<span>Today</span>
-							<strong>May 18, 2026</strong>
+					<div className="top-strip-actions">
+						<div className="header-date">
+							<span>Organization</span>
+							<strong>
+								{organization?.slug ??
+									localIdentity?.organizationSlug ??
+									localIdentity?.organizationId ??
+									'Loading'}
+							</strong>
 						</div>
-						<div className="header-user" aria-label="Signed in user">
+						<div className="header-user">
 							<Avatar size="sm" className="header-avatar">
-								<AvatarFallback>AR</AvatarFallback>
+								<AvatarFallback>{initialsFor(profileName)}</AvatarFallback>
 								<AvatarBadge />
 							</Avatar>
 							<div>
-								<strong>AR</strong>
-								<span>Operator</span>
+								<strong>{profileName}</strong>
+								<span>{roleLabel}</span>
 							</div>
 						</div>
 					</div>
@@ -229,6 +272,43 @@ export function RootLayout() {
 				</ScrollArea>
 			</SidebarInset>
 		</SidebarProvider>
+	);
+}
+
+export function LandingPage({
+	authReason,
+	redirectTo,
+}: {
+	readonly authReason?: 'organization_required';
+	readonly redirectTo: string;
+}) {
+	const loginUrl = `${getServerUrl()}/auth/login?returnTo=${encodeURIComponent(redirectTo)}`;
+
+	return (
+		<div className="landing-page">
+			<section className="landing-panel">
+				<span className="brand-mark">S</span>
+				<p className="eyebrow">SIMMER</p>
+				<h1>Mosquito control operations, grounded in the map.</h1>
+				<p>
+					Sign in to manage surveillance, field work, public engagement, control operations, and
+					organization setup from one operational workspace.
+				</p>
+				{authReason === 'organization_required' ? (
+					<div className="landing-alert">
+						<strong>Organization access needed</strong>
+						<p>
+							Your account is signed in, but no active SIMMER organization membership is selected.
+						</p>
+					</div>
+				) : null}
+				<div className="landing-actions">
+					<Button asChild>
+						<a href={loginUrl}>Sign in</a>
+					</Button>
+				</div>
+			</section>
+		</div>
 	);
 }
 
@@ -257,9 +337,7 @@ function ProductSidebar() {
 				>
 					{navigationGroups.map((group) => (
 						<SidebarGroup className="gap-1 px-1 py-1.5" key={group.label}>
-							<SidebarGroupLabel className="sidebar-domain-label">
-								{group.label}
-							</SidebarGroupLabel>
+							<SidebarGroupLabel className="sidebar-domain-label">{group.label}</SidebarGroupLabel>
 							<SidebarGroupContent>
 								<SidebarMenu className="gap-0.5">
 									{group.items.map((item) => {
@@ -275,10 +353,7 @@ function ProductSidebar() {
 													isActive={active}
 													tooltip={item.label}
 												>
-													<Link
-														aria-current={active ? 'page' : undefined}
-														to={item.to}
-													>
+													<Link aria-current={active ? 'page' : undefined} to={item.to}>
 														<item.icon aria-hidden="true" />
 														<span>{item.label}</span>
 													</Link>
@@ -309,14 +384,23 @@ export function DashboardPage() {
 				kicker="No-map dashboard"
 				title="Today at a glance"
 				body="A dashboard route should summarize the work without forcing a mixed-context map to render."
-				action={<Button asChild><Link to="/today">Open activity map</Link></Button>}
+				action={
+					<Button asChild>
+						<Link to="/today">Open activity map</Link>
+					</Button>
+				}
 			/>
 
 			<section className="overview-grid" aria-label="Operational overview">
 				<SummaryTile label="Activities scheduled" value="42" detail="16 not started" tone="info" />
 				<SummaryTile label="Open requests" value="18" detail="5 need triage" tone="attention" />
 				<SummaryTile label="Breeding positive" value="7" detail="3 above threshold" tone="danger" />
-				<SummaryTile label="Crews available" value="6" detail="2 with spray equipment" tone="success" />
+				<SummaryTile
+					label="Crews available"
+					value="6"
+					detail="2 with spray equipment"
+					tone="success"
+				/>
 			</section>
 
 			<div className="dashboard-grid">
@@ -336,16 +420,31 @@ export function DashboardPage() {
 				<Surface className="span-5">
 					<SectionHeader title="Threshold signals" meta="Weather and surveillance" />
 					<div className="signal-stack">
-						<SignalRow label="Rain accumulation" value="1.4 in" detail="48 hour total" tone="info" />
-						<SignalRow label="Trap-night rate" value="18.6" detail="North basin cluster" tone="attention" />
-						<SignalRow label="Larval density" value="High" detail="Cedar Industrial Park" tone="danger" />
+						<SignalRow
+							label="Rain accumulation"
+							value="1.4 in"
+							detail="48 hour total"
+							tone="info"
+						/>
+						<SignalRow
+							label="Trap-night rate"
+							value="18.6"
+							detail="North basin cluster"
+							tone="attention"
+						/>
+						<SignalRow
+							label="Larval density"
+							value="High"
+							detail="Cedar Industrial Park"
+							tone="danger"
+						/>
 						<SignalRow label="Completed control" value="12" detail="This week" tone="success" />
 					</div>
 				</Surface>
 
 				<Surface className="span-4">
 					<SectionHeader title="Pending operations" meta="Needs commitment" />
-					<div className="compact-chart" aria-label="Pending operations by type">
+					<div className="compact-chart" role="img" aria-label="Pending operations by type">
 						<ChartBar label="Requests" value={80} />
 						<ChartBar label="Missions" value={56} />
 						<ChartBar label="Inspections" value={72} />
@@ -356,9 +455,18 @@ export function DashboardPage() {
 				<Surface className="span-8">
 					<SectionHeader title="Dispatch notes" meta="Recent command outcomes" />
 					<div className="timeline">
-						<TimelineItem title="Mission scheduled" detail="North basin larval inspection route assigned to Crew 2." />
-						<TimelineItem title="Service request created" detail="SR-1048 received by phone, location matched to 18 Maple Court." />
-						<TimelineItem title="Inspection recorded" detail="HT-884 marked breeding positive with fourth instar and pupae present." />
+						<TimelineItem
+							title="Mission scheduled"
+							detail="North basin larval inspection route assigned to Crew 2."
+						/>
+						<TimelineItem
+							title="Service request created"
+							detail="SR-1048 received by phone, location matched to 18 Maple Court."
+						/>
+						<TimelineItem
+							title="Inspection recorded"
+							detail="HT-884 marked breeding positive with fourth instar and pupae present."
+						/>
 					</div>
 				</Surface>
 			</div>
@@ -375,11 +483,19 @@ export function TodayActivitiesPage() {
 					title="Today’s activities"
 					body="This route has one spatial question: where is today’s work, what is next, and what needs intervention?"
 				/>
-				<div className="filter-strip" aria-label="Activity filters">
-					<Button type="button" variant="secondary" size="sm">All</Button>
-					<Button type="button" variant="ghost" size="sm">Requests</Button>
-					<Button type="button" variant="ghost" size="sm">Missions</Button>
-					<Button type="button" variant="ghost" size="sm">Controls</Button>
+				<div className="filter-strip">
+					<Button type="button" variant="secondary" size="sm">
+						All
+					</Button>
+					<Button type="button" variant="ghost" size="sm">
+						Requests
+					</Button>
+					<Button type="button" variant="ghost" size="sm">
+						Missions
+					</Button>
+					<Button type="button" variant="ghost" size="sm">
+						Controls
+					</Button>
 				</div>
 				<div className="activity-list map-list">
 					{todayWork.map((item) => (
@@ -403,11 +519,19 @@ export function ServiceRequestsIndexPage() {
 			/>
 			<Surface>
 				<div className="index-toolbar">
-					<div className="filter-strip" aria-label="Service request views">
-						<Button type="button" variant="secondary" size="sm">Open</Button>
-						<Button type="button" variant="ghost" size="sm">Needs triage</Button>
-						<Button type="button" variant="ghost" size="sm">Assigned</Button>
-						<Button type="button" variant="ghost" size="sm">Closed</Button>
+					<div className="filter-strip">
+						<Button type="button" variant="secondary" size="sm">
+							Open
+						</Button>
+						<Button type="button" variant="ghost" size="sm">
+							Needs triage
+						</Button>
+						<Button type="button" variant="ghost" size="sm">
+							Assigned
+						</Button>
+						<Button type="button" variant="ghost" size="sm">
+							Closed
+						</Button>
 					</div>
 					<Field className="search-field">
 						<FieldLabel>Search</FieldLabel>
@@ -415,8 +539,8 @@ export function ServiceRequestsIndexPage() {
 					</Field>
 				</div>
 
-				<div className="request-table" role="table" aria-label="Service requests">
-					<div className="request-table-head" role="row">
+				<div className="request-table">
+					<div className="request-table-head">
 						<span>Request</span>
 						<span>Status</span>
 						<span>Context</span>
@@ -430,7 +554,9 @@ export function ServiceRequestsIndexPage() {
 						>
 							<div>
 								<strong>{request.title}</strong>
-								<p>{request.id} · {request.address} · {request.received}</p>
+								<p>
+									{request.id} · {request.address} · {request.received}
+								</p>
 							</div>
 							<div className="row-status">
 								<StatusBadge tone={request.tone}>{request.status}</StatusBadge>
@@ -447,12 +573,18 @@ export function ServiceRequestsIndexPage() {
 
 export function ServiceRequestDetailPage() {
 	const { requestId } = useParams({ from: '/service-requests/$requestId' });
-	const request = requests.find((item) => item.id === requestId) ?? requests[0]!;
+	const request = requests.find((item) => item.id === requestId) ?? requests[0];
+
+	if (request === undefined) {
+		return null;
+	}
 
 	return (
 		<div className="detail-map-page">
 			<section className="detail-record">
-				<Link className="back-link" to="/service-requests">Back to requests</Link>
+				<Link className="back-link" to="/service-requests">
+					Back to requests
+				</Link>
 				<PageHeader
 					kicker="Detail page with map"
 					title={request.title}
@@ -468,9 +600,18 @@ export function ServiceRequestDetailPage() {
 				<Surface>
 					<SectionHeader title="Record history" meta="Command-shaped activity" />
 					<div className="timeline">
-						<TimelineItem title="publicEngagement.createServiceRequest" detail="Phone intake created with contact, location, request date, and details." />
-						<TimelineItem title="fieldWork.addComment" detail="Operator noted resident reports evening activity near the alley catch basin." />
-						<TimelineItem title="missionDispatch.addMissionItem" detail="Ready to add to tomorrow’s larval inspection mission." />
+						<TimelineItem
+							title="publicEngagement.createServiceRequest"
+							detail="Phone intake created with contact, location, request date, and details."
+						/>
+						<TimelineItem
+							title="fieldWork.addComment"
+							detail="Operator noted resident reports evening activity near the alley catch basin."
+						/>
+						<TimelineItem
+							title="missionDispatch.addMissionItem"
+							detail="Ready to add to tomorrow’s larval inspection mission."
+						/>
 					</div>
 				</Surface>
 			</section>
@@ -492,15 +633,30 @@ export function GroupsPage() {
 				<Surface className="span-7">
 					<SectionHeader title="Crews" meta="Assignment-ready groups" />
 					<div className="crew-list">
-						<GroupRow name="North Basin Crew" status="Available" members="4 members" equipment="Truck, backpack sprayer" />
-						<GroupRow name="Public Requests" status="Busy" members="3 members" equipment="Inspection kits" />
-						<GroupRow name="Evening ULV" status="Scheduled" members="2 members" equipment="ULV vehicle" />
+						<GroupRow
+							name="North Basin Crew"
+							status="Available"
+							members="4 members"
+							equipment="Truck, backpack sprayer"
+						/>
+						<GroupRow
+							name="Public Requests"
+							status="Busy"
+							members="3 members"
+							equipment="Inspection kits"
+						/>
+						<GroupRow
+							name="Evening ULV"
+							status="Scheduled"
+							members="2 members"
+							equipment="ULV vehicle"
+						/>
 					</div>
 				</Surface>
 				<Surface className="span-5">
 					<SectionHeader title="Lookup health" meta="Setup affects field confidence" />
 					<div className="signal-stack">
-						<SignalRow label="Collection methods" value="12" detail="1 inactive but syncable" tone="success" />
+						<SignalRow label="Collection methods" value="12" detail="1 inactive" tone="success" />
 						<SignalRow label="Habitat types" value="18" detail="3 recently added" tone="info" />
 						<SignalRow label="Tags" value="34" detail="6 used this week" tone="neutral" />
 						<SignalRow label="Units" value="27" detail="Defaults configured" tone="success" />
@@ -521,7 +677,7 @@ export function MissionEditPage() {
 			/>
 			<section className="form-shell">
 				<div className="form-main">
-					<div className="form-stepper" aria-label="Mission form steps">
+					<div className="form-stepper">
 						<span className="complete">Details</span>
 						<span className="active">Stops</span>
 						<span>Resources</span>
@@ -556,12 +712,19 @@ export function MissionEditPage() {
 					<section className="route-builder">
 						<SectionHeader title="Mission items" meta="Planning Grid pattern reserve" />
 						<RouteStop index="1" title="18 Maple Court" detail="Service request SR-1048" />
-						<RouteStop index="2" title="Cedar Industrial Park" detail="Habitat HT-884, breeding positive" />
+						<RouteStop
+							index="2"
+							title="Cedar Industrial Park"
+							detail="Habitat HT-884, breeding positive"
+						/>
 						<RouteStop index="3" title="North canal access" detail="Ad hoc inspection location" />
 					</section>
 					<div className="command-summary">
 						<strong>missionDispatch.createMission</strong>
-						<p>Will create 3 mission items, assign North Basin Crew, and preserve requested-control links.</p>
+						<p>
+							Will create 3 mission items, assign North Basin Crew, and preserve requested-control
+							links.
+						</p>
 					</div>
 				</div>
 				<MapPanel title="Location step" variant="form" />
@@ -613,17 +776,22 @@ export function StubPage({
 }
 
 export function LoginPage() {
+	const returnTo = typeof window === 'undefined' ? '/' : window.location.origin;
+	const loginUrl = `${getServerUrl()}/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+
 	return (
 		<div className="login-page">
 			<section className="login-panel">
 				<span className="brand-mark">S</span>
-				<p className="eyebrow">Prototype entry</p>
-				<h1>SIMMER operations workspace</h1>
+				<p className="eyebrow">SIMMER sign in</p>
+				<h1>Continue to your operations workspace</h1>
 				<p>
-					This prototype starts in the agency app shell. Auth and sync modules are still present for
-					later wiring.
+					Authentication is handled by WorkOS. After sign in, SIMMER returns you to the app route
+					you were trying to open.
 				</p>
-				<Button asChild><Link to="/">Enter prototype</Link></Button>
+				<Button asChild>
+					<a href={loginUrl}>Sign in</a>
+				</Button>
 			</section>
 		</div>
 	);
@@ -712,7 +880,9 @@ function WorkRow({ item }: { readonly item: WorkItem }) {
 			<div className="work-time">{item.time}</div>
 			<div>
 				<strong>{item.label}</strong>
-				<p>{item.id} · {item.kind} · {item.place}</p>
+				<p>
+					{item.id} · {item.kind} · {item.place}
+				</p>
 			</div>
 			<StatusBadge tone={item.tone}>{item.status}</StatusBadge>
 		</article>
@@ -764,7 +934,13 @@ function TimelineItem({ title, detail }: { readonly title: string; readonly deta
 	);
 }
 
-function StatusBadge({ tone, children }: { readonly tone: Tone; readonly children: React.ReactNode }) {
+function StatusBadge({
+	tone,
+	children,
+}: {
+	readonly tone: Tone;
+	readonly children: React.ReactNode;
+}) {
 	const mappedTone: React.ComponentProps<typeof Badge>['tone'] =
 		tone === 'attention'
 			? 'warning'
@@ -831,7 +1007,9 @@ function RouteStop({
 				<strong>{title}</strong>
 				<p>{detail}</p>
 			</div>
-			<Button type="button" variant="outline" size="sm">Move</Button>
+			<Button type="button" variant="outline" size="sm">
+				Move
+			</Button>
 		</div>
 	);
 }
@@ -851,8 +1029,12 @@ function MapPanel({
 					<strong>Precise operational overlays</strong>
 				</div>
 				<div className="map-tools">
-					<Button type="button" variant="outline" size="sm">Layers</Button>
-					<Button type="button" variant="outline" size="sm">Fit</Button>
+					<Button type="button" variant="outline" size="sm">
+						Layers
+					</Button>
+					<Button type="button" variant="outline" size="sm">
+						Fit
+					</Button>
 				</div>
 			</div>
 			<div className="map-canvas">
@@ -861,19 +1043,57 @@ function MapPanel({
 				<div className="region region-b" />
 				<div className="route-line route-one" />
 				<div className="route-line route-two" />
-				<div className="pin pin-a"><span>1</span></div>
-				<div className="pin pin-b"><span>2</span></div>
-				<div className="pin pin-c"><span>3</span></div>
+				<div className="pin pin-a">
+					<span>1</span>
+				</div>
+				<div className="pin pin-b">
+					<span>2</span>
+				</div>
+				<div className="pin pin-c">
+					<span>3</span>
+				</div>
 				<div className="map-callout">
 					<strong>{variant === 'form' ? '3 mission items' : 'Selected context'}</strong>
-					<p>{variant === 'detail' ? '2 habitats, 1 trap, 1 recent action' : 'Route and status overlays only'}</p>
+					<p>
+						{variant === 'detail'
+							? '2 habitats, 1 trap, 1 recent action'
+							: 'Route and status overlays only'}
+					</p>
 				</div>
 			</div>
 			<div className="map-legend">
-				<span><i className="legend-work" /> Work item</span>
-				<span><i className="legend-route" /> Route</span>
-				<span><i className="legend-alert" /> Attention</span>
+				<span>
+					<i className="legend-work" /> Work item
+				</span>
+				<span>
+					<i className="legend-route" /> Route
+				</span>
+				<span>
+					<i className="legend-alert" /> Attention
+				</span>
 			</div>
 		</section>
 	);
+}
+
+function initialsFor(name: string): string {
+	const initials = name
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((part) => part[0]?.toUpperCase() ?? '')
+		.join('');
+
+	return initials.length === 0 ? 'SU' : initials;
+}
+
+function formatRole(role: string | null | undefined): string {
+	if (role === null || role === undefined || role.trim() === '') {
+		return 'Member';
+	}
+
+	return role
+		.split(/[_-]/g)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(' ');
 }

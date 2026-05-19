@@ -133,6 +133,8 @@ export function toAuthMeBody(authContext: AuthContext) {
 		localIdentity: {
 			userId: authContext.user.id,
 			organizationId: authContext.organization.id,
+			organizationName: authContext.organization.name,
+			organizationSlug: authContext.organization.slug,
 			profileId: authContext.profile.id,
 			membershipId: authContext.membership.id,
 			role: authContext.role,

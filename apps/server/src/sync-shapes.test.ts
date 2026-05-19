@@ -39,4 +39,19 @@ describe('buildElectricShapeUrl', () => {
 		expect(url.searchParams.get('columns')).toBe('id,organization_id,display_name');
 		expect(url.searchParams.get('where')).toBe("organization_id = 'org-1' and deleted_at is null");
 	});
+
+	it('supports numbered organization address columns', () => {
+		const url = new URL(
+			buildElectricShapeUrl({
+				electricUrl: 'http://localhost:3001/v1/shape',
+				incomingUrl: 'http://localhost:3000/sync/shapes/organization',
+				columns: ['id', 'mailing_address_line_1', 'mailing_address_line_2'],
+				table: 'organizations',
+			}),
+		);
+
+		expect(url.searchParams.get('columns')).toBe(
+			'id,mailing_address_line_1,mailing_address_line_2',
+		);
+	});
 });
