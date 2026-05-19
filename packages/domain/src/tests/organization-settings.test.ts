@@ -4,6 +4,7 @@ import {
 	DEFAULT_ORGANIZATION_SETTINGS,
 	mergeOrganizationSettingsChange,
 	resolveOrganizationSettings,
+	updateAdultCollectionTimingModeCommand,
 	updateInsecticideBatchTrackingCommand,
 	updateLarvalInspectionEntryPolicyCommand,
 	updateServiceRequestContextCommand,
@@ -76,6 +77,22 @@ describe('organization settings commands', () => {
 
 	it('validates larval inspection policy through organization settings ownership', () => {
 		expect(
+			updateAdultCollectionTimingModeCommand({
+				organizationId,
+				actorProfileId,
+				collectionTimingMode: 'collection_date_duration',
+			}).payload.collectionTimingMode,
+		).toBe('collection_date_duration');
+
+		expect(() =>
+			updateAdultCollectionTimingModeCommand({
+				organizationId,
+				actorProfileId,
+				collectionTimingMode: 'duration' as never,
+			}),
+		).toThrow(DomainValidationError);
+
+		expect(
 			updateLarvalInspectionEntryPolicyCommand({
 				organizationId,
 				actorProfileId,
@@ -144,6 +161,9 @@ describe('organization settings resolution', () => {
 		const resolved = resolveOrganizationSettings({
 			timezone: 'Eastern',
 			unitDefaults: { distance: 42 },
+			adultSurveillance: {
+				collectionTimingMode: 'duration',
+			},
 			larvalSurveillance: {
 				inspectionEntryPolicy: {
 					mode: 'hybrid',
@@ -166,6 +186,7 @@ describe('organization settings resolution', () => {
 
 		expect(resolved.settings.timezone).toBe('America/New_York');
 		expect(resolved.settings.unitDefaults.distance).toBe('mile');
+		expect(resolved.settings.adultSurveillance.collectionTimingMode).toBe('exact_timestamps');
 		expect(resolved.settings.larvalSurveillance.inspectionEntryPolicy).toEqual({
 			mode: 'hybrid',
 			densityRanges: null,
@@ -184,6 +205,9 @@ describe('organization settings resolution', () => {
 				{
 					timezone: 'America/New_York',
 					unknownRoot: 'keep',
+					adultSurveillance: {
+						futureAdultSetting: 'keep',
+					},
 					larvalSurveillance: {
 						futureThing: true,
 					},
@@ -204,6 +228,10 @@ describe('organization settings resolution', () => {
 			timezone: 'America/New_York',
 			unitDefaults,
 			unknownRoot: 'keep',
+			adultSurveillance: {
+				futureAdultSetting: 'keep',
+				collectionTimingMode: 'exact_timestamps',
+			},
 			larvalSurveillance: {
 				futureThing: true,
 				inspectionEntryPolicy: { mode: 'hybrid', densityRanges: null },

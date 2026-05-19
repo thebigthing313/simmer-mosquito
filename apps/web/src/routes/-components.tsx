@@ -25,6 +25,7 @@ import {
 	SidebarMenuItem,
 	SidebarProvider,
 } from '@simmer-mosquito/ui-web/components/ui/sidebar';
+import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, Outlet, useLocation, useParams } from '@tanstack/react-router';
@@ -311,6 +312,7 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 					</div>
 				</ScrollArea>
 			</SidebarInset>
+			<Toaster richColors />
 		</SidebarProvider>
 	);
 }

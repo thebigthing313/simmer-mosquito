@@ -1,4 +1,5 @@
 import type { OrganizationRow } from '@simmer-mosquito/sync';
+import { ELECTRIC_PERSISTENCE_TIMEOUT_MS } from './persistenceTimeout';
 
 export function createOrganizationMutationHandlers(options: { readonly serverUrl: string }) {
 	return {
@@ -13,7 +14,7 @@ export function createOrganizationMutationHandlers(options: { readonly serverUrl
 				}),
 			);
 
-			return { txid: txids };
+			return { txid: txids, timeout: ELECTRIC_PERSISTENCE_TIMEOUT_MS };
 		},
 	};
 }
@@ -31,7 +32,24 @@ interface OrganizationMutationResult {
 	readonly txid: number;
 }
 
-function toOrganizationPayload(row: OrganizationRow, original: Partial<OrganizationRow>) {
+interface OrganizationWritePayload {
+	readonly name: string;
+	readonly mainContactEmail: string | null;
+	readonly phoneNumber: string | null;
+	readonly mailingCountry: string | null;
+	readonly mailingAddressLine1: string | null;
+	readonly mailingAddressLine2: string | null;
+	readonly mailingLocality: string | null;
+	readonly mailingRegion: string | null;
+	readonly mailingPostalCode: string | null;
+	readonly settings?: OrganizationRow['settings'] | undefined;
+	readonly expectedUpdatedAt: string | null;
+}
+
+function toOrganizationPayload(
+	row: OrganizationRow,
+	original: Partial<OrganizationRow>,
+): OrganizationWritePayload {
 	return {
 		name: row.name,
 		mainContactEmail: row.mainContactEmail,
@@ -47,7 +65,37 @@ function toOrganizationPayload(row: OrganizationRow, original: Partial<Organizat
 	};
 }
 
-async function writeOrganization(url: string, body: unknown): Promise<OrganizationMutationResult> {
+async function writeOrganization(
+	url: string,
+	body: OrganizationWritePayload,
+): Promise<OrganizationMutationResult> {
+	const result = await sendOrganizationWrite(url, body);
+	if (isOrganizationConflict(result)) {
+		const retryResult = await sendOrganizationWrite(url, { ...body, expectedUpdatedAt: null });
+		if (!retryResult.ok) {
+			throw new Error(messageForOrganizationWriteError(retryResult.body));
+		}
+		return retryResult.body;
+	}
+
+	if (!result.ok) {
+		throw new Error(messageForOrganizationWriteError(result.body));
+	}
+
+	return result.body;
+}
+
+async function sendOrganizationWrite(
+	url: string,
+	body: OrganizationWritePayload,
+): Promise<
+	| { readonly ok: true; readonly body: OrganizationMutationResult }
+	| {
+			readonly ok: false;
+			readonly status: number;
+			readonly body: OrganizationMutationError;
+	  }
+> {
 	const response = await fetch(url, {
 		method: 'PATCH',
 		credentials: 'include',
@@ -57,19 +105,34 @@ async function writeOrganization(url: string, body: unknown): Promise<Organizati
 		},
 		body: JSON.stringify(body),
 	});
-	const result = (await response.json()) as
-		| OrganizationMutationResult
-		| { readonly error: string; readonly reason?: string; readonly message?: string };
+	const result = (await response.json()) as OrganizationMutationResult | OrganizationMutationError;
 
 	if (!response.ok || !('txid' in result)) {
-		throw new Error(
-			'reason' in result && typeof result.reason === 'string'
-				? result.reason
-				: 'message' in result && typeof result.message === 'string'
-					? result.message
-					: 'Unable to save organization details.',
-		);
+		return { ok: false, status: response.status, body: result as OrganizationMutationError };
 	}
 
-	return result;
+	return { ok: true, body: result };
+}
+
+function isOrganizationConflict(
+	result: Awaited<ReturnType<typeof sendOrganizationWrite>>,
+): boolean {
+	return (
+		result.ok === false && result.status === 409 && result.body.error === 'organization_conflict'
+	);
+}
+
+function messageForOrganizationWriteError(result: OrganizationMutationError): string {
+	return 'reason' in result && typeof result.reason === 'string'
+		? result.reason
+		: 'message' in result && typeof result.message === 'string'
+			? result.message
+			: 'Unable to save organization details.';
+}
+
+interface OrganizationMutationError {
+	readonly error: string;
+	readonly reason?: string;
+	readonly message?: string;
+	readonly updatedAt?: string;
 }

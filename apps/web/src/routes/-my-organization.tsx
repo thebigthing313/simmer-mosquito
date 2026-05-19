@@ -1,5 +1,15 @@
-import { type OrganizationSettings, resolveOrganizationSettings } from '@simmer-mosquito/domain';
-import type { OrganizationRow } from '@simmer-mosquito/sync';
+import {
+	type AdultCollectionTimingMode,
+	type OrganizationSettings,
+	resolveOrganizationSettings,
+	type UnitDefaults,
+} from '@simmer-mosquito/domain';
+import type {
+	CollectionLureRow,
+	CollectionMethodRow,
+	OrganizationRow,
+	UnitRow,
+} from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -25,9 +35,11 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import type { AuthMe } from '../auth';
 import { useCollectionRows } from '../sync/useCollectionRows';
 import { webCollections } from '../sync/webCollections';
@@ -35,7 +47,9 @@ import { webCollections } from '../sync/webCollections';
 type OrgRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 
 const collections = webCollections;
+const AddIcon = iconRegistry.actions.add.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
+const SaveIcon = iconRegistry.actions.save.icon;
 const US_TIMEZONE_OPTIONS = [
 	{ label: 'Eastern Time', value: 'America/New_York' },
 	{ label: 'Central Time', value: 'America/Chicago' },
@@ -111,6 +125,9 @@ const sections = [
 
 export function MyOrganizationPage({ auth }: { readonly auth: AuthMe | null }) {
 	const { rows: organizationRows, status } = useCollectionRows(collections.currentOrganization);
+	const { rows: units } = useCollectionRows(collections.units);
+	const { rows: collectionMethods } = useCollectionRows(collections.collectionMethods);
+	const { rows: collectionLures } = useCollectionRows(collections.collectionLures);
 	const setup = useSetupCatalogRows();
 	const organization = findCurrentOrganization(organizationRows, auth);
 	const organizationFallback = readOrganizationFallback(auth);
@@ -132,26 +149,32 @@ export function MyOrganizationPage({ auth }: { readonly auth: AuthMe | null }) {
 		textField('ZIP code', organization?.mailingPostalCode ?? ''),
 		selectField('Timezone', settings.timezone, US_TIMEZONE_OPTIONS),
 	];
-	const unitFields = Object.entries(settings.unitDefaults).map(([unitType, code]) =>
-		selectField(formatMode(unitType), code, [{ label: code, value: code }]),
-	);
+	const unitFields = unitDefaultFields(settings.unitDefaults, units);
+	const adultFields: readonly SettingField[] = [
+		selectField('Collection timing', settings.adultSurveillance.collectionTimingMode, [
+			{ label: 'Exact timestamps', value: 'exact_timestamps' },
+			{ label: 'Collection date and duration', value: 'collection_date_duration' },
+		]),
+	];
 
 	return (
-		<div className="grid gap-2.5">
-			<header className="flex items-center justify-between gap-4">
-				<div className="grid max-w-[68ch] gap-1">
-					<p className="eyebrow">Organization workspace</p>
-					<h1 className="m-0 text-[1.38rem] leading-tight font-extrabold text-foreground">
-						My Organization
-					</h1>
-					<p className="m-0 text-[0.92rem] leading-snug text-muted-foreground">
-						Agency details, workflow defaults, and setup lists stay visible in one place.
-					</p>
-				</div>
-				<PermissionPill role={role} canManage={canManage} />
-			</header>
+		<div className="mx-auto grid w-full max-w-[1120px] gap-2.5">
+			<div className="-mx-1 sticky top-0 z-[8] grid gap-2 bg-[color-mix(in_oklch,var(--app-stage)_94%,transparent)] px-1 pt-0 pb-2 backdrop-blur-sm">
+				<header className="flex items-center justify-between gap-4">
+					<div className="grid max-w-[68ch] gap-1">
+						<p className="eyebrow">Organization workspace</p>
+						<h1 className="m-0 text-[1.38rem] leading-tight font-extrabold text-foreground">
+							My Organization
+						</h1>
+						<p className="m-0 text-[0.92rem] leading-snug text-muted-foreground">
+							Agency details, workflow defaults, and setup lists stay visible in one place.
+						</p>
+					</div>
+					<PermissionPill role={role} canManage={canManage} />
+				</header>
 
-			<OrganizationAnchorTabs />
+				<OrganizationAnchorTabs />
+			</div>
 
 			<div className="grid gap-2">
 				<DomainSection
@@ -164,7 +187,7 @@ export function MyOrganizationPage({ auth }: { readonly auth: AuthMe | null }) {
 					setupItems={[]}
 					title={organizationName}
 				>
-					<AgencyDetailsCard
+					<AgencyDetailsSummary
 						organization={organization}
 						organizationFallback={organizationFallback}
 						timezone={settings.timezone}
@@ -178,19 +201,28 @@ export function MyOrganizationPage({ auth }: { readonly auth: AuthMe | null }) {
 					id="units"
 					meta="Measurement choices used across forms and summaries"
 					onSave={(formData) => saveUnitDefaults(organization, settings, formData)}
-					setupItems={setupFor(setup, 'sharedOperations')}
+					setupItems={[]}
 					title="Unit defaults"
 				/>
 
 				<DomainSection
 					canManage={canManage}
-					editDescription="Maintain adult surveillance lookup lists used by trap and collection workflows."
-					fields={[]}
+					editDescription="Choose how adult collection timing is recorded by this agency."
+					fields={adultFields}
 					id="adult"
 					meta="Trap collection methods, lures, and adult surveillance references"
-					setupItems={setupFor(setup, 'adultSurveillance')}
+					onSave={(formData) => saveAdultSettings(organization, settings, formData)}
+					setupItems={[]}
 					title="Adult surveillance"
-				/>
+				>
+					<AdultSurveillanceSettings
+						canManage={canManage}
+						collectionLures={collectionLures}
+						collectionMethods={collectionMethods}
+						fields={adultFields}
+						organization={organization}
+					/>
+				</DomainSection>
 
 				<DomainSection
 					canManage={canManage}
@@ -288,7 +320,7 @@ function OrganizationAnchorTabs() {
 				window.location.hash = sectionId;
 				document.getElementById(sectionId)?.scrollIntoView({ block: 'start' });
 			}}
-			className="-mx-1 sticky top-[74px] z-[8] bg-[color-mix(in_oklch,var(--app-stage)_92%,transparent)] px-1 pt-1.5 pb-2 backdrop-blur-sm"
+			className="pt-1.5"
 		>
 			<TabsList
 				variant="line"
@@ -366,7 +398,6 @@ function EditSettingsSheet({
 	readonly title: string;
 }) {
 	const [open, setOpen] = useState(false);
-	const [isSaving, setIsSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -376,15 +407,15 @@ function EditSettingsSheet({
 			return;
 		}
 
-		setIsSaving(true);
 		setError(null);
 		try {
-			await onSave(new FormData(event.currentTarget));
+			const persistence = onSave(new FormData(event.currentTarget));
 			setOpen(false);
+			void persistence.catch((saveError) => {
+				toast.error(errorMessageForSave(saveError));
+			});
 		} catch (saveError) {
-			setError(saveError instanceof Error ? saveError.message : 'Unable to save changes.');
-		} finally {
-			setIsSaving(false);
+			setError(errorMessageForSave(saveError));
 		}
 	}
 
@@ -415,11 +446,11 @@ function EditSettingsSheet({
 						<p className="m-0 px-4 text-[0.84rem] leading-snug text-destructive">{error}</p>
 					)}
 					<SheetFooter>
-						<Button type="submit" disabled={isSaving || onSave === undefined}>
-							{isSaving ? 'Saving...' : 'Save changes'}
+						<Button type="submit" disabled={onSave === undefined}>
+							Save changes
 						</Button>
 						<SheetClose asChild>
-							<Button type="button" variant="outline" disabled={isSaving}>
+							<Button type="button" variant="outline">
 								Cancel
 							</Button>
 						</SheetClose>
@@ -428,6 +459,10 @@ function EditSettingsSheet({
 			</SheetContent>
 		</Sheet>
 	);
+}
+
+function errorMessageForSave(saveError: unknown): string {
+	return saveError instanceof Error ? saveError.message : 'Unable to save changes.';
 }
 
 function SettingsDisplayGrid({ fields }: { readonly fields: readonly SettingField[] }) {
@@ -459,7 +494,7 @@ function SettingsEditor({ field }: { readonly field: SettingField }) {
 				<FieldLabel>{field.label}</FieldLabel>
 				<Select defaultValue={field.value} disabled={!field.editable} name={field.label}>
 					<SelectTrigger size="sm" className="w-full">
-						<SelectValue />
+						<SelectValue placeholder="Not set" />
 					</SelectTrigger>
 					<SelectContent>
 						<SelectGroup>
@@ -540,6 +575,419 @@ function SetupList({ items }: { readonly items: readonly SetupCatalog[] }) {
 	);
 }
 
+function AdultSurveillanceSettings({
+	canManage,
+	collectionLures,
+	collectionMethods,
+	fields,
+	organization,
+}: {
+	readonly canManage: boolean;
+	readonly collectionLures: readonly CollectionLureRow[];
+	readonly collectionMethods: readonly CollectionMethodRow[];
+	readonly fields: readonly SettingField[];
+	readonly organization: OrganizationRow | null;
+}) {
+	return (
+		<div className="grid gap-3">
+			<SettingsDisplayGrid fields={fields} />
+			<div className="grid gap-2">
+				<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
+				<div className="grid gap-3">
+					<CollectionMethodLookupList
+						canManage={canManage}
+						organization={organization}
+						methods={collectionMethods}
+					/>
+					<CollectionLureLookupList
+						canManage={canManage}
+						organization={organization}
+						lures={collectionLures}
+					/>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function CollectionMethodLookupList({
+	canManage,
+	organization,
+	methods,
+}: {
+	readonly canManage: boolean;
+	readonly organization: OrganizationRow | null;
+	readonly methods: readonly CollectionMethodRow[];
+}) {
+	return (
+		<LookupListFrame
+			activeCount={methods.filter((method) => method.isActive).length}
+			count={methods.length}
+			detail="Methods can define optional reporting schema and action thresholds."
+			title="Collection methods"
+		>
+			<CollectionMethodCreateRow canManage={canManage} organization={organization} />
+			<LookupRowGroup label="Active methods" rows={methods.filter((method) => method.isActive)}>
+				{(method) => (
+					<CollectionMethodRowEditor canManage={canManage} key={method.id} method={method} />
+				)}
+			</LookupRowGroup>
+			<LookupRowGroup label="Inactive methods" rows={methods.filter((method) => !method.isActive)}>
+				{(method) => (
+					<CollectionMethodRowEditor canManage={canManage} key={method.id} method={method} />
+				)}
+			</LookupRowGroup>
+		</LookupListFrame>
+	);
+}
+
+function CollectionLureLookupList({
+	canManage,
+	organization,
+	lures,
+}: {
+	readonly canManage: boolean;
+	readonly organization: OrganizationRow | null;
+	readonly lures: readonly CollectionLureRow[];
+}) {
+	return (
+		<LookupListFrame
+			activeCount={lures.filter((lure) => lure.isActive).length}
+			count={lures.length}
+			detail="Lures stay as lightweight labels with lifecycle state."
+			title="Collection lures"
+		>
+			<CollectionLureCreateRow canManage={canManage} organization={organization} />
+			<LookupRowGroup label="Active lures" rows={lures.filter((lure) => lure.isActive)}>
+				{(lure) => <CollectionLureRowEditor canManage={canManage} key={lure.id} lure={lure} />}
+			</LookupRowGroup>
+			<LookupRowGroup label="Inactive lures" rows={lures.filter((lure) => !lure.isActive)}>
+				{(lure) => <CollectionLureRowEditor canManage={canManage} key={lure.id} lure={lure} />}
+			</LookupRowGroup>
+		</LookupListFrame>
+	);
+}
+
+function LookupListFrame({
+	activeCount,
+	children,
+	count,
+	detail,
+	title,
+}: {
+	readonly activeCount: number;
+	readonly children: React.ReactNode;
+	readonly count: number;
+	readonly detail: string;
+	readonly title: string;
+}) {
+	return (
+		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
+			<div className="flex flex-wrap items-start justify-between gap-2">
+				<div className="grid min-w-0 gap-1">
+					<strong className="[overflow-wrap:anywhere] text-[0.92rem] text-foreground">
+						{title}
+					</strong>
+					<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">{detail}</p>
+				</div>
+				<div className="flex flex-wrap items-center gap-2">
+					<Badge tone="success" variant="outline">
+						{activeCount} active
+					</Badge>
+					<span className="text-[0.78rem] font-bold text-muted-foreground">{count} records</span>
+				</div>
+			</div>
+			<div className="grid gap-2">{children}</div>
+		</section>
+	);
+}
+
+function LookupRowGroup<TRow extends AdultLookupRow>({
+	children,
+	label,
+	rows,
+}: {
+	readonly children: (row: TRow) => React.ReactNode;
+	readonly label: string;
+	readonly rows: readonly TRow[];
+}) {
+	const sortedRows = useMemo(() => sortAdultLookupRows(rows), [rows]);
+
+	return (
+		<div className="grid gap-1.5">
+			<div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
+				<span className="text-[0.76rem] font-bold text-muted-foreground">{label}</span>
+				<span className="text-[0.76rem] font-bold text-muted-foreground">{rows.length}</span>
+			</div>
+			{sortedRows.length === 0 ? (
+				<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
+					No {label.toLowerCase()}.
+				</p>
+			) : (
+				<div className="grid overflow-hidden rounded-md border border-border/30 bg-background/70">
+					{sortedRows.map((row) => children(row))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function CollectionMethodCreateRow({
+	canManage,
+	organization,
+}: {
+	readonly canManage: boolean;
+	readonly organization: OrganizationRow | null;
+}) {
+	function createLookup(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		const form = event.currentTarget;
+		try {
+			const transaction = createAdultLookup('collectionMethods', organization, new FormData(form));
+			form.reset();
+			watchLookupPersistence(transaction, 'Unable to save collection method.');
+		} catch (error) {
+			toast.error(errorMessageForSave(error));
+		}
+	}
+
+	return (
+		<form
+			className="grid gap-2 rounded-md border border-dashed border-border/50 bg-background/50 p-2.5"
+			onSubmit={createLookup}
+		>
+			<div className="grid gap-2 md:grid-cols-[minmax(180px,1fr)_132px_auto]">
+				<Field className="gap-1">
+					<FieldLabel>Name</FieldLabel>
+					<Input name="name" placeholder="New method" disabled={!canManage} />
+				</Field>
+				<Field className="gap-1">
+					<FieldLabel>Threshold</FieldLabel>
+					<Input name="actionThreshold" type="number" min={0} disabled={!canManage} />
+				</Field>
+				<Button type="submit" className="self-end" disabled={!canManage}>
+					<AddIcon aria-hidden="true" />
+					Add
+				</Button>
+			</div>
+			<LookupDetailsGrid>
+				<Field className="gap-1">
+					<FieldLabel>Description</FieldLabel>
+					<Textarea name="description" className="min-h-16" disabled={!canManage} />
+				</Field>
+				<Field className="gap-1">
+					<FieldLabel>Custom schema</FieldLabel>
+					<Textarea
+						name="customSchema"
+						className="min-h-16 font-mono text-[0.78rem]"
+						placeholder='{"fields":[]}'
+						disabled={!canManage}
+					/>
+				</Field>
+			</LookupDetailsGrid>
+		</form>
+	);
+}
+
+function CollectionLureCreateRow({
+	canManage,
+	organization,
+}: {
+	readonly canManage: boolean;
+	readonly organization: OrganizationRow | null;
+}) {
+	function createLookup(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		const form = event.currentTarget;
+		try {
+			const transaction = createAdultLookup('collectionLures', organization, new FormData(form));
+			form.reset();
+			watchLookupPersistence(transaction, 'Unable to save collection lure.');
+		} catch (error) {
+			toast.error(errorMessageForSave(error));
+		}
+	}
+
+	return (
+		<form
+			className="grid gap-2 rounded-md border border-dashed border-border/50 bg-background/50 p-2.5"
+			onSubmit={createLookup}
+		>
+			<div className="grid gap-2 md:grid-cols-[minmax(180px,1fr)_auto]">
+				<Field className="gap-1">
+					<FieldLabel>Name</FieldLabel>
+					<Input name="name" placeholder="New lure" disabled={!canManage} />
+				</Field>
+				<Button type="submit" className="self-end" disabled={!canManage}>
+					<AddIcon aria-hidden="true" />
+					Add
+				</Button>
+			</div>
+			<Field className="gap-1">
+				<FieldLabel>Description</FieldLabel>
+				<Textarea name="description" className="min-h-14" disabled={!canManage} />
+			</Field>
+		</form>
+	);
+}
+
+function CollectionMethodRowEditor({
+	canManage,
+	method,
+}: {
+	readonly canManage: boolean;
+	readonly method: CollectionMethodRow;
+}) {
+	const [isActive, setIsActive] = useState(method.isActive);
+
+	useEffect(() => {
+		setIsActive(method.isActive);
+	}, [method.isActive]);
+
+	function updateLookup(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		try {
+			const transaction = updateAdultLookup(
+				'collectionMethods',
+				method,
+				new FormData(event.currentTarget),
+				isActive,
+			);
+			watchLookupPersistence(transaction, `Unable to save ${method.name}.`);
+		} catch (error) {
+			toast.error(errorMessageForSave(error));
+		}
+	}
+
+	return (
+		<form
+			className="grid gap-2 border-border/30 p-2.5 [&:not(:last-child)]:border-b"
+			onSubmit={updateLookup}
+		>
+			<div className="grid gap-2 md:grid-cols-[minmax(180px,1fr)_132px_auto_auto]">
+				<Field className="gap-1">
+					<FieldLabel>Name</FieldLabel>
+					<Input defaultValue={method.name} disabled={!canManage} name="name" />
+				</Field>
+				<Field className="gap-1">
+					<FieldLabel>Threshold</FieldLabel>
+					<Input
+						defaultValue={method.actionThreshold ?? ''}
+						disabled={!canManage}
+						min={0}
+						name="actionThreshold"
+						type="number"
+					/>
+				</Field>
+				<Field className="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 self-end rounded-md border border-border/30 bg-muted/30 px-2.5 py-1">
+					<FieldLabel>Active</FieldLabel>
+					<Switch checked={isActive} disabled={!canManage} onCheckedChange={setIsActive} />
+				</Field>
+				<Button
+					type="submit"
+					variant="outline"
+					size="icon"
+					className="self-end"
+					disabled={!canManage}
+				>
+					<SaveIcon aria-hidden="true" />
+					<span className="sr-only">Save {method.name}</span>
+				</Button>
+			</div>
+			<LookupDetailsGrid>
+				<Field className="gap-1">
+					<FieldLabel>Description</FieldLabel>
+					<Textarea
+						defaultValue={method.description ?? ''}
+						disabled={!canManage}
+						name="description"
+						className="min-h-16"
+					/>
+				</Field>
+				<Field className="gap-1">
+					<FieldLabel>Custom schema</FieldLabel>
+					<Textarea
+						defaultValue={formatCustomSchema(method.customSchema)}
+						disabled={!canManage}
+						name="customSchema"
+						className="min-h-16 font-mono text-[0.78rem]"
+					/>
+				</Field>
+			</LookupDetailsGrid>
+		</form>
+	);
+}
+
+function CollectionLureRowEditor({
+	canManage,
+	lure,
+}: {
+	readonly canManage: boolean;
+	readonly lure: CollectionLureRow;
+}) {
+	const [isActive, setIsActive] = useState(lure.isActive);
+
+	useEffect(() => {
+		setIsActive(lure.isActive);
+	}, [lure.isActive]);
+
+	function updateLookup(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		try {
+			const transaction = updateAdultLookup(
+				'collectionLures',
+				lure,
+				new FormData(event.currentTarget),
+				isActive,
+			);
+			watchLookupPersistence(transaction, `Unable to save ${lure.name}.`);
+		} catch (error) {
+			toast.error(errorMessageForSave(error));
+		}
+	}
+
+	return (
+		<form
+			className="grid gap-2 border-border/30 p-2.5 [&:not(:last-child)]:border-b"
+			onSubmit={updateLookup}
+		>
+			<div className="grid gap-2 md:grid-cols-[minmax(180px,1fr)_auto_auto]">
+				<Field className="gap-1">
+					<FieldLabel>Name</FieldLabel>
+					<Input defaultValue={lure.name} disabled={!canManage} name="name" />
+				</Field>
+				<Field className="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 self-end rounded-md border border-border/30 bg-muted/30 px-2.5 py-1">
+					<FieldLabel>Active</FieldLabel>
+					<Switch checked={isActive} disabled={!canManage} onCheckedChange={setIsActive} />
+				</Field>
+				<Button
+					type="submit"
+					variant="outline"
+					size="icon"
+					className="self-end"
+					disabled={!canManage}
+				>
+					<SaveIcon aria-hidden="true" />
+					<span className="sr-only">Save {lure.name}</span>
+				</Button>
+			</div>
+			<Field className="gap-1">
+				<FieldLabel>Description</FieldLabel>
+				<Textarea
+					defaultValue={lure.description ?? ''}
+					disabled={!canManage}
+					name="description"
+					className="min-h-14"
+				/>
+			</Field>
+		</form>
+	);
+}
+
+function LookupDetailsGrid({ children }: { readonly children: React.ReactNode }) {
+	return <div className="grid gap-2 md:grid-cols-2">{children}</div>;
+}
+
 function OrgSection({
 	children,
 	id,
@@ -608,7 +1056,7 @@ function PermissionPill({
 	);
 }
 
-function AgencyDetailsCard({
+function AgencyDetailsSummary({
 	organization,
 	organizationFallback,
 	timezone,
@@ -617,44 +1065,38 @@ function AgencyDetailsCard({
 	readonly organizationFallback: OrganizationFallback;
 	readonly timezone: string;
 }) {
-	const agencyName = organization?.name ?? organizationFallback.name ?? 'Organization details';
 	const slug = organization?.slug ?? organizationFallback.slug ?? null;
 	const address = formatMailingAddress(organization);
 
 	return (
-		<div className="grid gap-3.5 rounded-md border border-border/30 bg-muted/40 p-3.5">
-			<div className="flex items-start justify-between gap-3">
-				<div className="grid min-w-0 gap-1">
-					<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
-						Agency
-					</span>
-					<strong className="[overflow-wrap:anywhere] text-[1.14rem] leading-tight text-foreground">
-						{agencyName}
-					</strong>
-				</div>
-				{slug === null || slug.length === 0 ? null : (
-					<Badge tone="neutral" variant="outline">
-						{slug}
+		<div className="grid gap-3 border-t border-border/50 pt-3 md:grid-cols-[minmax(140px,0.5fr)_minmax(220px,0.9fr)_minmax(260px,1.2fr)]">
+			<div className="grid min-w-0 content-start gap-1.5">
+				<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
+					Slug
+				</span>
+				{slug === null || slug.length === 0 ? (
+					<strong className="text-[0.92rem] leading-normal text-foreground">Not set</strong>
+				) : (
+					<Badge tone="neutral" variant="outline" className="w-fit max-w-full">
+						<span className="truncate">{slug}</span>
 					</Badge>
 				)}
 			</div>
-			<div className="grid gap-3.5 md:grid-cols-[minmax(220px,0.9fr)_minmax(260px,1.1fr)]">
-				<div className="grid min-w-0 content-start gap-2 border-t border-border/50 pt-2.5">
-					<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
-						Contact
-					</span>
-					<AgencyDetailLine label="Email" value={organization?.mainContactEmail} />
-					<AgencyDetailLine label="Phone" value={organization?.phoneNumber} />
-					<AgencyDetailLine label="Timezone" value={timezone} />
-				</div>
-				<div className="grid min-w-0 content-start gap-2 border-t border-border/50 pt-2.5">
-					<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
-						Mailing address
-					</span>
-					<p className="m-0 max-w-[56ch] [overflow-wrap:anywhere] text-[0.92rem] leading-normal text-foreground">
-						{address}
-					</p>
-				</div>
+			<div className="grid min-w-0 content-start gap-2">
+				<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
+					Contact
+				</span>
+				<AgencyDetailLine label="Email" value={organization?.mainContactEmail} />
+				<AgencyDetailLine label="Phone" value={organization?.phoneNumber} />
+				<AgencyDetailLine label="Timezone" value={timezone} />
+			</div>
+			<div className="grid min-w-0 content-start gap-2">
+				<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
+					Mailing address
+				</span>
+				<p className="m-0 max-w-[56ch] [overflow-wrap:anywhere] text-[0.92rem] leading-normal text-foreground">
+					{address}
+				</p>
 			</div>
 		</div>
 	);
@@ -690,12 +1132,12 @@ function formatMailingAddress(organization: OrganizationRow | null): string {
 	return parts.length === 0 ? 'Not set' : parts.join(', ');
 }
 
-async function saveAgencyDetails(
+function saveAgencyDetails(
 	organization: OrganizationRow | null,
 	settings: OrganizationSettings,
 	formData: FormData,
 ): Promise<void> {
-	await updateCurrentOrganization(organization, (draft) => {
+	return updateCurrentOrganization(organization, (draft) => {
 		draft.name = requiredFormText(formData, 'Organization name');
 		draft.mainContactEmail = nullableFormText(formData, 'Main contact');
 		draft.phoneNumber = nullableFormText(formData, 'Phone');
@@ -712,12 +1154,12 @@ async function saveAgencyDetails(
 	});
 }
 
-async function saveUnitDefaults(
+function saveUnitDefaults(
 	organization: OrganizationRow | null,
 	settings: OrganizationSettings,
 	formData: FormData,
 ): Promise<void> {
-	await updateCurrentOrganization(organization, (draft) => {
+	return updateCurrentOrganization(organization, (draft) => {
 		draft.settings = {
 			...settings,
 			unitDefaults: Object.fromEntries(
@@ -730,12 +1172,31 @@ async function saveUnitDefaults(
 	});
 }
 
-async function saveLarvalSettings(
+function saveAdultSettings(
 	organization: OrganizationRow | null,
 	settings: OrganizationSettings,
 	formData: FormData,
 ): Promise<void> {
-	await updateCurrentOrganization(organization, (draft) => {
+	return updateCurrentOrganization(organization, (draft) => {
+		draft.settings = {
+			...settings,
+			adultSurveillance: {
+				...settings.adultSurveillance,
+				collectionTimingMode: requiredFormText(
+					formData,
+					'Collection timing',
+				) as AdultCollectionTimingMode,
+			},
+		};
+	});
+}
+
+function saveLarvalSettings(
+	organization: OrganizationRow | null,
+	settings: OrganizationSettings,
+	formData: FormData,
+): Promise<void> {
+	return updateCurrentOrganization(organization, (draft) => {
 		draft.settings = {
 			...settings,
 			larvalSurveillance: {
@@ -749,12 +1210,12 @@ async function saveLarvalSettings(
 	});
 }
 
-async function saveControlSettings(
+function saveControlSettings(
 	organization: OrganizationRow | null,
 	settings: OrganizationSettings,
 	formData: FormData,
 ): Promise<void> {
-	await updateCurrentOrganization(organization, (draft) => {
+	return updateCurrentOrganization(organization, (draft) => {
 		draft.settings = {
 			...settings,
 			controlOperations: {
@@ -765,12 +1226,12 @@ async function saveControlSettings(
 	});
 }
 
-async function savePublicSettings(
+function savePublicSettings(
 	organization: OrganizationRow | null,
 	settings: OrganizationSettings,
 	formData: FormData,
 ): Promise<void> {
-	await updateCurrentOrganization(organization, (draft) => {
+	return updateCurrentOrganization(organization, (draft) => {
 		draft.settings = {
 			...settings,
 			publicEngagement: {
@@ -791,7 +1252,7 @@ async function savePublicSettings(
 	});
 }
 
-async function updateCurrentOrganization(
+function updateCurrentOrganization(
 	organization: OrganizationRow | null,
 	applyChanges: (draft: MutableOrganizationRow) => void,
 ): Promise<void> {
@@ -802,7 +1263,7 @@ async function updateCurrentOrganization(
 	const transaction = collections.currentOrganization.update(organization.id, (draft) => {
 		applyChanges(draft as MutableOrganizationRow);
 	});
-	await transaction.isPersisted.promise;
+	return transaction.isPersisted.promise.then(() => undefined);
 }
 
 function requiredFormText(formData: FormData, name: string): string {
@@ -826,6 +1287,114 @@ function requiredFormNumber(formData: FormData, name: string): number {
 		throw new Error(`${name} must be a number.`);
 	}
 	return value;
+}
+
+function createAdultLookup(
+	kind: AdultLookupKind,
+	organization: OrganizationRow | null,
+	formData: FormData,
+): PersistenceTransaction {
+	if (organization === null) {
+		throw new Error('Organization details are still loading.');
+	}
+
+	const now = new Date().toISOString();
+	const base = {
+		id: crypto.randomUUID(),
+		organizationId: organization.id,
+		name: requiredFormText(formData, 'name'),
+		description: nullableFormText(formData, 'description'),
+		isActive: true,
+		createdAt: now,
+		updatedAt: now,
+	};
+
+	if (kind === 'collectionMethods') {
+		return collections.collectionMethods.insert({
+			...base,
+			customSchema: customSchemaFormJson(formData),
+			actionThreshold: nullableFormNonnegativeInteger(formData, 'actionThreshold'),
+		});
+	}
+
+	return collections.collectionLures.insert(base);
+}
+
+function updateAdultLookup(
+	kind: AdultLookupKind,
+	row: AdultLookupRow,
+	formData: FormData,
+	isActive: boolean,
+): PersistenceTransaction {
+	if (kind === 'collectionMethods') {
+		return collections.collectionMethods.update(row.id, (draft) => {
+			const mutable = draft as MutableCollectionMethodRow;
+			mutable.name = requiredFormText(formData, 'name');
+			mutable.description = nullableFormText(formData, 'description');
+			mutable.customSchema = customSchemaFormJson(formData);
+			mutable.actionThreshold = nullableFormNonnegativeInteger(formData, 'actionThreshold');
+			mutable.isActive = isActive;
+		});
+	}
+
+	return collections.collectionLures.update(row.id, (draft) => {
+		const mutable = draft as MutableCollectionLureRow;
+		mutable.name = requiredFormText(formData, 'name');
+		mutable.description = nullableFormText(formData, 'description');
+		mutable.isActive = isActive;
+	});
+}
+
+function customSchemaFormJson(formData: FormData): Record<string, unknown> | null {
+	const text = nullableFormText(formData, 'customSchema');
+	if (text === null) {
+		return null;
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(text);
+	} catch {
+		throw new Error('Custom schema must be valid JSON.');
+	}
+
+	if (!isPlainJsonObject(parsed)) {
+		throw new Error('Custom schema must be a JSON object.');
+	}
+
+	return parsed;
+}
+
+function nullableFormNonnegativeInteger(formData: FormData, name: string): number | null {
+	const text = nullableFormText(formData, name);
+	if (text === null) {
+		return null;
+	}
+
+	const value = Number(text);
+	if (!Number.isInteger(value) || value < 0) {
+		throw new Error(`${name} must be a nonnegative whole number.`);
+	}
+	return value;
+}
+
+function formatCustomSchema(value: unknown): string {
+	if (value === null || value === undefined) {
+		return '';
+	}
+
+	return JSON.stringify(value, null, 2);
+}
+
+function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function watchLookupPersistence(transaction: PersistenceTransaction, fallback: string): void {
+	void transaction.isPersisted.promise.catch((error) => {
+		const message = errorMessageForSave(error);
+		toast.error(message === 'Unable to save changes.' ? fallback : message);
+	});
 }
 
 function useSetupCatalogRows(): SetupCatalog[] {
@@ -972,6 +1541,13 @@ function setupFor(setup: readonly SetupCatalog[], domain: SetupDomain): SetupCat
 	return setup.filter((item) => item.domain === domain);
 }
 
+function sortAdultLookupRows<TRow extends AdultLookupRow>(rows: readonly TRow[]): TRow[] {
+	return [...rows].sort(
+		(first, second) =>
+			Number(second.isActive) - Number(first.isActive) || first.name.localeCompare(second.name),
+	);
+}
+
 function textField(
 	label: string,
 	value: string,
@@ -999,10 +1575,62 @@ function selectField(
 		label,
 		value,
 		editable: true,
-		options: options.some((option) => option.value === value)
-			? options
-			: [{ label: value, value }, ...options],
+		options: selectOptionsForValue(value, options),
 	};
+}
+
+export function unitDefaultFields(
+	unitDefaults: UnitDefaults,
+	units: readonly UnitRow[],
+): readonly SelectSettingField[] {
+	return (Object.entries(unitDefaults) as Array<[keyof UnitDefaults, string]>).map(
+		([unitType, code]) =>
+			selectField(
+				formatMode(unitType),
+				code,
+				unitOptionsForDefault(
+					code,
+					units.filter((unit) => unit.unitType === unitType),
+				),
+			),
+	);
+}
+
+function unitOptionsForDefault(code: string, units: readonly UnitRow[]): readonly SelectOption[] {
+	return [...units]
+		.sort((first, second) => compareUnitsForSelect(code, first, second))
+		.map(unitOption);
+}
+
+function compareUnitsForSelect(code: string, first: UnitRow, second: UnitRow): number {
+	if (first.code === code || second.code === code) {
+		return first.code === code ? -1 : 1;
+	}
+
+	return (
+		first.unitSystem.localeCompare(second.unitSystem) ||
+		first.unitName.localeCompare(second.unitName) ||
+		first.code.localeCompare(second.code)
+	);
+}
+
+function unitOption(unit: UnitRow): SelectOption {
+	return {
+		label:
+			unit.abbreviation.length === 0 ? unit.unitName : `${unit.unitName} (${unit.abbreviation})`,
+		value: unit.code,
+	};
+}
+
+export function selectOptionsForValue(
+	value: string,
+	options: readonly SelectOption[],
+): readonly SelectOption[] {
+	if (value.length === 0 || options.some((option) => option.value === value)) {
+		return options;
+	}
+
+	return [{ label: value, value }, ...options];
 }
 
 function switchField(label: string, checked: boolean): SwitchSettingField {
@@ -1083,6 +1711,23 @@ type SectionId = (typeof sections)[number]['id'];
 type MutableOrganizationRow = {
 	-readonly [Key in keyof OrganizationRow]: OrganizationRow[Key];
 };
+
+type MutableCollectionMethodRow = {
+	-readonly [Key in keyof CollectionMethodRow]: CollectionMethodRow[Key];
+};
+
+type MutableCollectionLureRow = {
+	-readonly [Key in keyof CollectionLureRow]: CollectionLureRow[Key];
+};
+
+type AdultLookupKind = 'collectionMethods' | 'collectionLures';
+type AdultLookupRow = CollectionMethodRow | CollectionLureRow;
+
+interface PersistenceTransaction {
+	readonly isPersisted: {
+		readonly promise: Promise<unknown>;
+	};
+}
 
 interface SetupCatalog {
 	readonly domain: SetupDomain;

@@ -311,7 +311,7 @@ app.post('/auth/logout', async (context) => {
 	return context.redirect(logoutUrl ?? env.appOrigin);
 });
 
-serve(
+const server = serve(
 	{
 		fetch: app.fetch,
 		hostname: env.host,
@@ -321,6 +321,48 @@ serve(
 		console.log(`Server listening on http://${info.address}:${info.port}`);
 	},
 );
+
+let isShuttingDown = false;
+
+server.on('error', (error: NodeJS.ErrnoException) => {
+	if (error.code === 'EADDRINUSE') {
+		console.error(
+			`Port ${env.port} is already in use. Stop the other server process or set PORT to a free port.`,
+		);
+		process.exit(1);
+	}
+
+	throw error;
+});
+
+function shutdown(signal: NodeJS.Signals): void {
+	if (isShuttingDown) {
+		return;
+	}
+	isShuttingDown = true;
+	console.log(`Received ${signal}; closing server.`);
+
+	const timeout = setTimeout(() => {
+		console.error('Server shutdown timed out.');
+		process.exit(1);
+	}, 5000);
+	timeout.unref();
+
+	server.close((error) => {
+		if (error !== undefined) {
+			console.error(error);
+			process.exit(1);
+		}
+
+		void db.destroy().finally(() => {
+			clearTimeout(timeout);
+			process.exit(0);
+		});
+	});
+}
+
+process.once('SIGINT', shutdown);
+process.once('SIGTERM', shutdown);
 
 function setAuthCookie(
 	context: Parameters<typeof setCookie>[0],

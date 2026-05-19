@@ -3,6 +3,7 @@ import {
 	DomainValidationError,
 	mergeOrganizationSettingsChange,
 	type OrganizationSettingsCommand,
+	updateAdultCollectionTimingModeCommand,
 	updateInsecticideBatchTrackingCommand,
 	updateLarvalInspectionEntryPolicyCommand,
 	updateServiceRequestContextCommand,
@@ -51,6 +52,27 @@ export function registerOrganizationSettingsCommandRoutes(
 				updateUnitDefaultsCommand({
 					...agencyCommandContext(context.get('authContext')),
 					unitDefaults: payloadResult.payload.unitDefaults as never,
+					expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
+				}),
+			);
+		},
+	);
+
+	app.patch(
+		'/organization-settings/adult-collection-timing-mode',
+		options.authContextMiddleware,
+		async (context) => {
+			const payloadResult = await readJsonObject(context.req);
+			if (!payloadResult.ok) {
+				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+			}
+
+			return writeSettingsCommandResponse(options.db, context.get('authContext'), () =>
+				updateAdultCollectionTimingModeCommand({
+					...agencyCommandContext(context.get('authContext')),
+					collectionTimingMode: readRequiredText(
+						payloadResult.payload.collectionTimingMode,
+					) as never,
 					expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
 				}),
 			);
@@ -193,7 +215,7 @@ async function writeSettingsCommandResponse(
 
 		const txidRow = await sql<{
 			readonly txid: string;
-		}>`select pg_current_xact_id()::xid::text as txid`
+		}>`select pg_current_xact_id()::text as txid`
 			.execute(trx)
 			.then((result) => result.rows[0]);
 
@@ -270,6 +292,11 @@ function settingsChangeForCommand(command: OrganizationSettingsCommand) {
 			return { kind: 'timezone' as const, timezone: command.payload.timezone };
 		case 'organizationSettings.updateUnitDefaults':
 			return { kind: 'unitDefaults' as const, unitDefaults: command.payload.unitDefaults };
+		case 'organizationSettings.updateAdultCollectionTimingMode':
+			return {
+				kind: 'adultCollectionTimingMode' as const,
+				collectionTimingMode: command.payload.collectionTimingMode,
+			};
 		case 'organizationSettings.updateLarvalInspectionEntryPolicy':
 			return { kind: 'larvalInspectionEntryPolicy' as const, policy: command.payload.policy };
 		case 'organizationSettings.updateInsecticideBatchTracking':

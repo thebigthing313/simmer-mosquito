@@ -8,6 +8,7 @@ import type { DomainId, DomainValidationIssue } from '../shared.js';
 
 export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
 export type LarvalInspectionEntryMode = 'density_only' | 'count_and_dips_required' | 'hybrid';
+export type AdultCollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
 
 export interface LarvalDensityRange {
 	readonly minInclusive: number;
@@ -55,6 +56,9 @@ export interface OrganizationSettings {
 	readonly schemaVersion: 1;
 	readonly timezone: string;
 	readonly unitDefaults: UnitDefaults;
+	readonly adultSurveillance: Readonly<{
+		readonly collectionTimingMode: AdultCollectionTimingMode;
+	}>;
 	readonly larvalSurveillance: Readonly<{
 		readonly inspectionEntryPolicy: ResolvedLarvalInspectionEntryPolicy;
 	}>;
@@ -76,6 +80,7 @@ export interface ResolvedOrganizationSettings {
 export type OrganizationSettingsCommandType =
 	| 'organizationSettings.updateTimezone'
 	| 'organizationSettings.updateUnitDefaults'
+	| 'organizationSettings.updateAdultCollectionTimingMode'
 	| 'organizationSettings.updateLarvalInspectionEntryPolicy'
 	| 'organizationSettings.updateInsecticideBatchTracking'
 	| 'organizationSettings.updateServiceRequestContext';
@@ -118,6 +123,18 @@ export type UpdateUnitDefaultsCommand = OrganizationSettingsDomainCommand<
 	OrganizationSettingsCommandPayload & { readonly unitDefaults: UnitDefaults }
 >;
 
+export interface UpdateAdultCollectionTimingModeCommandInput
+	extends OrganizationSettingsCommandInput {
+	readonly collectionTimingMode: AdultCollectionTimingMode;
+}
+
+export type UpdateAdultCollectionTimingModeCommand = OrganizationSettingsDomainCommand<
+	'organizationSettings.updateAdultCollectionTimingMode',
+	OrganizationSettingsCommandPayload & {
+		readonly collectionTimingMode: AdultCollectionTimingMode;
+	}
+>;
+
 export interface UpdateLarvalInspectionEntryPolicyCommandInput
 	extends OrganizationSettingsCommandInput {
 	readonly policy: LarvalInspectionEntryPolicy;
@@ -152,6 +169,7 @@ export type UpdateServiceRequestContextCommand = OrganizationSettingsDomainComma
 export type OrganizationSettingsCommand =
 	| UpdateTimezoneCommand
 	| UpdateUnitDefaultsCommand
+	| UpdateAdultCollectionTimingModeCommand
 	| UpdateLarvalInspectionEntryPolicyCommand
 	| UpdateInsecticideBatchTrackingCommand
 	| UpdateServiceRequestContextCommand;
@@ -175,6 +193,8 @@ export const DEFAULT_LARVAL_INSPECTION_ENTRY_POLICY: ResolvedLarvalInspectionEnt
 	densityRanges: null,
 } as const;
 
+export const DEFAULT_ADULT_COLLECTION_TIMING_MODE: AdultCollectionTimingMode = 'exact_timestamps';
+
 export const DEFAULT_SERVICE_REQUEST_CONTEXT: ServiceRequestContextSettings = {
 	radius: {
 		amount: 0.25,
@@ -190,6 +210,9 @@ export const DEFAULT_ORGANIZATION_SETTINGS: OrganizationSettings = {
 	schemaVersion: ORGANIZATION_SETTINGS_SCHEMA_VERSION,
 	timezone: DEFAULT_ORGANIZATION_TIMEZONE,
 	unitDefaults: DEFAULT_UNIT_DEFAULTS,
+	adultSurveillance: {
+		collectionTimingMode: DEFAULT_ADULT_COLLECTION_TIMING_MODE,
+	},
 	larvalSurveillance: {
 		inspectionEntryPolicy: DEFAULT_LARVAL_INSPECTION_ENTRY_POLICY,
 	},
@@ -208,6 +231,7 @@ const LARVAL_INSPECTION_ENTRY_MODES = [
 	'count_and_dips_required',
 	'hybrid',
 ] as const;
+const ADULT_COLLECTION_TIMING_MODES = ['exact_timestamps', 'collection_date_duration'] as const;
 const UNIT_TYPES = [
 	'weight',
 	'distance',
@@ -289,12 +313,19 @@ export function resolveOrganizationSettings(raw: unknown): ResolvedOrganizationS
 
 	const timezone = resolveTimezone(source.timezone, issues, 'timezone');
 	const unitDefaults = resolveUnitDefaults(source.unitDefaults, issues, 'unitDefaults');
+	const adultSurveillance = isPlainObject(source.adultSurveillance) ? source.adultSurveillance : {};
 	const larvalSurveillance = isPlainObject(source.larvalSurveillance)
 		? source.larvalSurveillance
 		: {};
 	const controlOperations = isPlainObject(source.controlOperations) ? source.controlOperations : {};
 	const publicEngagement = isPlainObject(source.publicEngagement) ? source.publicEngagement : {};
 
+	if (source.adultSurveillance !== undefined && !isPlainObject(source.adultSurveillance)) {
+		issues.push({
+			path: 'adultSurveillance',
+			message: 'Adult surveillance settings must be an object; defaults were used.',
+		});
+	}
 	if (source.larvalSurveillance !== undefined && !isPlainObject(source.larvalSurveillance)) {
 		issues.push({
 			path: 'larvalSurveillance',
@@ -319,6 +350,12 @@ export function resolveOrganizationSettings(raw: unknown): ResolvedOrganizationS
 			schemaVersion: ORGANIZATION_SETTINGS_SCHEMA_VERSION,
 			timezone,
 			unitDefaults,
+			adultSurveillance: {
+				collectionTimingMode: resolveAdultCollectionTimingMode(
+					adultSurveillance.collectionTimingMode,
+					issues,
+				),
+			},
 			larvalSurveillance: {
 				inspectionEntryPolicy: resolveLarvalPolicyFromRaw(
 					larvalSurveillance.inspectionEntryPolicy,
@@ -350,6 +387,10 @@ export function mergeOrganizationSettingsChange(
 		| { readonly kind: 'timezone'; readonly timezone: string }
 		| { readonly kind: 'unitDefaults'; readonly unitDefaults: UnitDefaults }
 		| {
+				readonly kind: 'adultCollectionTimingMode';
+				readonly collectionTimingMode: AdultCollectionTimingMode;
+		  }
+		| {
 				readonly kind: 'larvalInspectionEntryPolicy';
 				readonly policy: ResolvedLarvalInspectionEntryPolicy;
 		  }
@@ -364,6 +405,11 @@ export function mergeOrganizationSettingsChange(
 	base.schemaVersion = ORGANIZATION_SETTINGS_SCHEMA_VERSION;
 	base.timezone = resolved.timezone;
 	base.unitDefaults = { ...resolved.unitDefaults };
+	const resolvedAdultSurveillance = isPlainObject(base.adultSurveillance)
+		? cloneObject(base.adultSurveillance)
+		: {};
+	resolvedAdultSurveillance.collectionTimingMode = resolved.adultSurveillance.collectionTimingMode;
+	base.adultSurveillance = resolvedAdultSurveillance;
 	const resolvedLarvalSurveillance = isPlainObject(base.larvalSurveillance)
 		? cloneObject(base.larvalSurveillance)
 		: {};
@@ -391,6 +437,14 @@ export function mergeOrganizationSettingsChange(
 		case 'unitDefaults':
 			base.unitDefaults = { ...change.unitDefaults };
 			break;
+		case 'adultCollectionTimingMode': {
+			const adultSurveillance = isPlainObject(base.adultSurveillance)
+				? cloneObject(base.adultSurveillance)
+				: {};
+			adultSurveillance.collectionTimingMode = change.collectionTimingMode;
+			base.adultSurveillance = adultSurveillance;
+			break;
+		}
 		case 'larvalInspectionEntryPolicy': {
 			const larvalSurveillance = isPlainObject(base.larvalSurveillance)
 				? cloneObject(base.larvalSurveillance)
@@ -445,6 +499,25 @@ export function updateUnitDefaultsCommand(
 		payload: {
 			...basePayload(input),
 			unitDefaults,
+		},
+	};
+}
+
+export function updateAdultCollectionTimingModeCommand(
+	input: UpdateAdultCollectionTimingModeCommandInput,
+): UpdateAdultCollectionTimingModeCommand {
+	const issues = validateCommandBase(input);
+	const collectionTimingMode = normalizeAdultCollectionTimingMode(
+		input.collectionTimingMode,
+		'collectionTimingMode',
+		issues,
+	);
+	throwIfIssues('Update adult collection timing mode command is invalid.', issues);
+	return {
+		type: 'organizationSettings.updateAdultCollectionTimingMode',
+		payload: {
+			...basePayload(input),
+			collectionTimingMode,
 		},
 	};
 }
@@ -526,6 +599,41 @@ function resolveLarvalPolicyFromRaw(
 		return DEFAULT_LARVAL_INSPECTION_ENTRY_POLICY;
 	}
 	return policy;
+}
+
+function resolveAdultCollectionTimingMode(
+	value: unknown,
+	issues: DomainValidationIssue[],
+): AdultCollectionTimingMode {
+	if (value === undefined || value === null) {
+		return DEFAULT_ADULT_COLLECTION_TIMING_MODE;
+	}
+	if (
+		typeof value !== 'string' ||
+		!ADULT_COLLECTION_TIMING_MODES.includes(value as AdultCollectionTimingMode)
+	) {
+		issues.push({
+			path: 'adultSurveillance.collectionTimingMode',
+			message: 'Unsupported adult collection timing mode; default was used.',
+		});
+		return DEFAULT_ADULT_COLLECTION_TIMING_MODE;
+	}
+	return value as AdultCollectionTimingMode;
+}
+
+function normalizeAdultCollectionTimingMode(
+	value: unknown,
+	path: string,
+	issues: DomainValidationIssue[],
+): AdultCollectionTimingMode {
+	if (
+		typeof value !== 'string' ||
+		!ADULT_COLLECTION_TIMING_MODES.includes(value as AdultCollectionTimingMode)
+	) {
+		issues.push({ path, message: 'Unsupported adult collection timing mode.' });
+		return DEFAULT_ADULT_COLLECTION_TIMING_MODE;
+	}
+	return value as AdultCollectionTimingMode;
 }
 
 function resolveTimezone(value: unknown, issues: DomainValidationIssue[], path: string): string {

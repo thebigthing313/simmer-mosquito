@@ -33,6 +33,9 @@ missing legacy version data.
     count: "count",
     speed: "mph"
   },
+  adultSurveillance: {
+    collectionTimingMode: "exact_timestamps"
+  },
   larvalSurveillance: {
     inspectionEntryPolicy: {
       mode: "hybrid",
@@ -58,7 +61,7 @@ missing legacy version data.
 ```
 
 Top-level settings are shared across domains. Domain-specific settings live
-under product language namespaces such as `larvalSurveillance`,
+under product language namespaces such as `adultSurveillance`, `larvalSurveillance`,
 `controlOperations`, and `publicEngagement`.
 
 ## Defaults
@@ -67,6 +70,7 @@ Missing settings resolve to defaults instead of blocking workflows.
 
 - `timezone`: `America/New_York`
 - `unitDefaults`: US customary defaults by unit type
+- `adultSurveillance.collectionTimingMode`: `exact_timestamps`
 - `larvalSurveillance.inspectionEntryPolicy.mode`: `hybrid`
 - `larvalSurveillance.inspectionEntryPolicy.densityRanges`: `null`
 - `controlOperations.trackInsecticideBatches`: `true`
@@ -90,8 +94,9 @@ stored JSON because legacy imports or manual edits should not break field entry.
 
 Settings-specific builder checks include `expectedUpdatedAt` shape, timezone
 support/canonicalization through `Intl`, unit-default completeness, larval
-policy and density-range shape, boolean batch-tracking setting, positive service
-request radius, and nonnegative service request day windows.
+policy and density-range shape, adult collection timing mode, boolean
+batch-tracking setting, positive service request radius, and nonnegative service
+request day windows.
 
 Settings-specific server checks include owner/admin permissions, optional
 `expectedUpdatedAt` optimistic concurrency, unit code existence and matching
@@ -103,6 +108,7 @@ V1 settings commands are narrow, explicit, web-management workflows:
 
 - `organizationSettings.updateTimezone`
 - `organizationSettings.updateUnitDefaults`
+- `organizationSettings.updateAdultCollectionTimingMode`
 - `organizationSettings.updateLarvalInspectionEntryPolicy`
 - `organizationSettings.updateInsecticideBatchTracking`
 - `organizationSettings.updateServiceRequestContext`
@@ -171,6 +177,21 @@ Canonical settings include every current unit type:
 - `speed`
 
 Seed data must include the default unit codes and other commonly used units.
+
+## Adult Collection Timing
+
+`adultSurveillance.collectionTimingMode` controls whether adult collection
+workflows ask for exact set/collection timestamps or for a collection date plus
+duration.
+
+Supported modes:
+
+- `exact_timestamps`
+- `collection_date_duration`
+
+The default is `exact_timestamps` to preserve the original pending-collection
+workflow. Agencies that enter records after lab arrival can choose
+`collection_date_duration` and create collected records directly.
 
 ## Larval Inspection Entry Policy
 
