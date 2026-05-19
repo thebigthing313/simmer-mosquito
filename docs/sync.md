@@ -101,8 +101,6 @@ Current read-only tracer descriptor set:
 - global `genera`
 - global `species`
 - selected-organization `organization_species`
-- selected-organization `collection_lures`
-- selected-organization `habitat_types`
 - selected-organization `tags`
 - selected-organization `routes`
 

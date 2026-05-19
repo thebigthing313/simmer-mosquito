@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { AdminOrganizationDetailRoute } from './-components';
+import { GroupsPage } from './-components';
 
 export const Route = createFileRoute('/admin/organizations/$organizationId')({
-	component: AdminOrganizationDetailRoute,
+	component: GroupsPage,
 });
