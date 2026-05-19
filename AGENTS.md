@@ -22,7 +22,9 @@ Before substantial work:
 ## UI and Styling
 
 - Use `packages/ui-web` shadcn source components wherever possible for web UI. Compose existing primitives before writing custom JSX and add missing reusable primitives to `packages/ui-web/src/components/ui`.
-- Style with Tailwind semantic tokens and shadcn component variants, not route-local CSS-only implementations. Route-level `className` should mostly describe layout: flex, grid, gap, width, padding, and responsive placement.
-- Put repeated visual decisions in `class-variance-authority` (`cva`) variants inside the shared component, then merge caller-provided classes with the repo `cn` utility from `@simmer-mosquito/ui-web/lib/utils`.
+- Style with Tailwind semantic tokens and shadcn component variants, not route-local CSS-only implementations. Route-level `className` should mostly describe layout: flex, grid, gap, width, padding, responsive placement, and small one-off composition.
+- Do not create CSS classes for ordinary component styling such as cards, rows, badges, panels, forms, tabs, or organization details. Build those surfaces from shadcn primitives and Tailwind classes in the component that owns the markup.
+- Put repeated visual decisions in `class-variance-authority` (`cva`) variants inside the shared component, then merge caller-provided classes with the repo `cn` utility from `@simmer-mosquito/ui-web/lib/utils`. If a styling pattern is reused across apps or three or more call sites, promote it to `packages/ui-web`; otherwise keep it as a small app-owned component that composes shadcn primitives with Tailwind.
 - Keep durable raw values in `packages/design-tokens`; expose them through Tailwind/CSS variables, then consume them from shadcn components and variants.
+- Reserve CSS files for global imports, Tailwind setup, design-token variable exposure, browser resets, vendor integration, or selectors Tailwind cannot express cleanly. Document the reason when adding non-trivial app CSS.
 <!-- intent-skills:end -->

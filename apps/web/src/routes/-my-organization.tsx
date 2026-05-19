@@ -137,19 +137,23 @@ export function MyOrganizationPage({ auth }: { readonly auth: AuthMe | null }) {
 	);
 
 	return (
-		<div className="org-page">
-			<header className="page-header">
-				<div>
+		<div className="grid gap-2.5">
+			<header className="flex items-center justify-between gap-4">
+				<div className="grid max-w-[68ch] gap-1">
 					<p className="eyebrow">Organization workspace</p>
-					<h1>My Organization</h1>
-					<p>Agency details, workflow defaults, and setup lists stay visible in one place.</p>
+					<h1 className="m-0 text-[1.38rem] leading-tight font-extrabold text-foreground">
+						My Organization
+					</h1>
+					<p className="m-0 text-[0.92rem] leading-snug text-muted-foreground">
+						Agency details, workflow defaults, and setup lists stay visible in one place.
+					</p>
 				</div>
 				<PermissionPill role={role} canManage={canManage} />
 			</header>
 
 			<OrganizationAnchorTabs />
 
-			<div className="org-single-page">
+			<div className="grid gap-2">
 				<DomainSection
 					canManage={canManage}
 					editDescription="Update the agency profile details available to organization members."
@@ -284,11 +288,19 @@ function OrganizationAnchorTabs() {
 				window.location.hash = sectionId;
 				document.getElementById(sectionId)?.scrollIntoView({ block: 'start' });
 			}}
-			className="org-anchor-tabs"
+			className="-mx-1 sticky top-[74px] z-[8] bg-[color-mix(in_oklch,var(--app-stage)_92%,transparent)] px-1 pt-1.5 pb-2 backdrop-blur-sm"
 		>
-			<TabsList variant="line" className="org-anchor-tabs-list" aria-label="Organization sections">
+			<TabsList
+				variant="line"
+				className="w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+				aria-label="Organization sections"
+			>
 				{sections.map((section) => (
-					<TabsTrigger key={section.id} value={section.id}>
+					<TabsTrigger
+						className="min-w-max flex-none px-1.5 text-[0.82rem] font-bold"
+						key={section.id}
+						value={section.id}
+					>
 						{section.label}
 					</TabsTrigger>
 				))}
@@ -320,7 +332,7 @@ function DomainSection({
 }) {
 	return (
 		<OrgSection id={id}>
-			<OrgSurface className="org-domain-section">
+			<OrgSurface>
 				<SectionHeader
 					action={
 						canManage ? (
@@ -384,20 +396,24 @@ function EditSettingsSheet({
 					Edit
 				</Button>
 			</SheetTrigger>
-			<SheetContent className="org-edit-sheet">
+			<SheetContent className="w-[min(440px,100%)]">
 				<SheetHeader>
 					<SheetTitle>{title}</SheetTitle>
 					<SheetDescription>{description}</SheetDescription>
 				</SheetHeader>
-				<form className="org-edit-form" onSubmit={submit}>
-					<div className="org-edit-fields">
+				<form className="grid gap-3.5" onSubmit={submit}>
+					<div className="grid gap-2.5 px-4">
 						{fields.length === 0 ? (
-							<p className="org-empty-note">This domain only has setup lists right now.</p>
+							<p className="m-0 text-[0.86rem] leading-snug text-muted-foreground">
+								This domain only has setup lists right now.
+							</p>
 						) : (
 							fields.map((field) => <SettingsEditor field={field} key={field.label} />)
 						)}
 					</div>
-					{error === null ? null : <p className="org-save-error">{error}</p>}
+					{error === null ? null : (
+						<p className="m-0 px-4 text-[0.84rem] leading-snug text-destructive">{error}</p>
+					)}
 					<SheetFooter>
 						<Button type="submit" disabled={isSaving || onSave === undefined}>
 							{isSaving ? 'Saving...' : 'Save changes'}
@@ -416,11 +432,16 @@ function EditSettingsSheet({
 
 function SettingsDisplayGrid({ fields }: { readonly fields: readonly SettingField[] }) {
 	return (
-		<div className="org-setting-list">
+		<div className="grid gap-2 md:grid-cols-4">
 			{fields.map((field) => (
-				<div className="org-setting-row" key={field.label}>
-					<span>{field.label}</span>
-					<strong>{displayFieldValue(field)}</strong>
+				<div
+					className="grid min-h-[68px] min-w-0 content-start gap-1.5 rounded-md border border-border/30 bg-muted/40 px-2.5 py-2"
+					key={field.label}
+				>
+					<span className="text-[0.78rem] font-bold text-muted-foreground">{field.label}</span>
+					<strong className="[overflow-wrap:anywhere] text-[0.92rem] text-foreground">
+						{displayFieldValue(field)}
+					</strong>
 				</div>
 			))}
 		</div>
@@ -434,7 +455,7 @@ function SettingsEditor({ field }: { readonly field: SettingField }) {
 
 	if (field.kind === 'select') {
 		return (
-			<Field className="org-control-field">
+			<Field className="min-w-0 gap-1">
 				<FieldLabel>{field.label}</FieldLabel>
 				<Select defaultValue={field.value} disabled={!field.editable} name={field.label}>
 					<SelectTrigger size="sm" className="w-full">
@@ -455,7 +476,7 @@ function SettingsEditor({ field }: { readonly field: SettingField }) {
 	}
 
 	return (
-		<Field className="org-control-field">
+		<Field className="min-w-0 gap-1">
 			<FieldLabel>{field.label}</FieldLabel>
 			<Input
 				defaultValue={field.value}
@@ -471,7 +492,7 @@ function SwitchEditor({ field }: { readonly field: SwitchSettingField }) {
 	const [checked, setChecked] = useState(field.checked);
 
 	return (
-		<Field className="org-control-field switch-field">
+		<Field className="grid min-h-8 grid-cols-[minmax(0,1fr)_auto] items-center rounded-md border border-border/30 bg-muted/40 px-2.5 py-0">
 			<FieldLabel>{field.label}</FieldLabel>
 			<Switch checked={checked} disabled={!field.editable} onCheckedChange={setChecked} />
 			<input
@@ -490,19 +511,28 @@ function SetupList({ items }: { readonly items: readonly SetupCatalog[] }) {
 	}
 
 	return (
-		<div className="org-catalog-group">
-			<h3 className="eyebrow">Setup lists</h3>
-			<div className="org-catalog-list">
+		<div className="grid gap-1.5">
+			<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
+			<div className="grid gap-2">
 				{items.map((catalog) => (
-					<article className="org-catalog-row" key={catalog.label}>
-						<div>
-							<strong>{catalog.label}</strong>
-							<p>{catalog.detail}</p>
+					<article
+						className="grid min-w-0 items-center gap-3 rounded-md border border-border/30 bg-muted/40 p-2.5 md:grid-cols-[minmax(240px,1fr)_auto_96px]"
+						key={catalog.label}
+					>
+						<div className="min-w-0">
+							<strong className="[overflow-wrap:anywhere] text-[0.92rem] text-foreground">
+								{catalog.label}
+							</strong>
+							<p className="m-0 text-[0.86rem] leading-snug text-muted-foreground">
+								{catalog.detail}
+							</p>
 						</div>
 						<Badge tone={catalog.editable ? 'success' : 'neutral'} variant="outline">
 							{catalog.editable ? 'Editable' : 'Read only'}
 						</Badge>
-						<span>{catalog.count} records</span>
+						<span className="text-left text-[0.78rem] font-bold text-muted-foreground md:text-right">
+							{catalog.count} records
+						</span>
 					</article>
 				))}
 			</div>
@@ -518,7 +548,7 @@ function OrgSection({
 	readonly id: SectionId;
 }) {
 	return (
-		<section className="org-anchor-section" id={id}>
+		<section className="scroll-mt-[132px]" id={id}>
 			{children}
 		</section>
 	);
@@ -532,8 +562,10 @@ function OrgSurface({
 	readonly className?: string | undefined;
 }) {
 	return (
-		<Card className={className}>
-			<CardContent className="surface-content">{children}</CardContent>
+		<Card variant="surface" className={className}>
+			<CardContent padding="compact" className="grid gap-3">
+				{children}
+			</CardContent>
 		</Card>
 	);
 }
@@ -548,12 +580,16 @@ function SectionHeader({
 	readonly title: string;
 }) {
 	return (
-		<div className="section-header">
+		<div className="flex items-center justify-between gap-2.5">
 			<div>
-				<h2>{title}</h2>
-				<p>{meta}</p>
+				<h2 className="m-0 text-[0.98rem] font-extrabold">{title}</h2>
+				<p className="mt-0.5 mb-0 text-[0.78rem] leading-snug text-muted-foreground">{meta}</p>
 			</div>
-			{action === undefined ? null : <div className="section-action">{action}</div>}
+			{action === undefined ? null : (
+				<div className="[&_a]:text-[0.86rem] [&_a]:font-bold [&_a]:text-primary [&_a]:no-underline">
+					{action}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -586,11 +622,15 @@ function AgencyDetailsCard({
 	const address = formatMailingAddress(organization);
 
 	return (
-		<div className="agency-profile">
-			<div className="agency-profile-primary">
-				<div>
-					<span className="agency-profile-label">Agency</span>
-					<strong>{agencyName}</strong>
+		<div className="grid gap-3.5 rounded-md border border-border/30 bg-muted/40 p-3.5">
+			<div className="flex items-start justify-between gap-3">
+				<div className="grid min-w-0 gap-1">
+					<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
+						Agency
+					</span>
+					<strong className="[overflow-wrap:anywhere] text-[1.14rem] leading-tight text-foreground">
+						{agencyName}
+					</strong>
 				</div>
 				{slug === null || slug.length === 0 ? null : (
 					<Badge tone="neutral" variant="outline">
@@ -598,16 +638,22 @@ function AgencyDetailsCard({
 					</Badge>
 				)}
 			</div>
-			<div className="agency-profile-body">
-				<div className="agency-profile-group">
-					<span className="agency-profile-label">Contact</span>
+			<div className="grid gap-3.5 md:grid-cols-[minmax(220px,0.9fr)_minmax(260px,1.1fr)]">
+				<div className="grid min-w-0 content-start gap-2 border-t border-border/50 pt-2.5">
+					<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
+						Contact
+					</span>
 					<AgencyDetailLine label="Email" value={organization?.mainContactEmail} />
 					<AgencyDetailLine label="Phone" value={organization?.phoneNumber} />
 					<AgencyDetailLine label="Timezone" value={timezone} />
 				</div>
-				<div className="agency-profile-group">
-					<span className="agency-profile-label">Mailing address</span>
-					<p className="agency-address">{address}</p>
+				<div className="grid min-w-0 content-start gap-2 border-t border-border/50 pt-2.5">
+					<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
+						Mailing address
+					</span>
+					<p className="m-0 max-w-[56ch] [overflow-wrap:anywhere] text-[0.92rem] leading-normal text-foreground">
+						{address}
+					</p>
 				</div>
 			</div>
 		</div>
@@ -622,9 +668,9 @@ function AgencyDetailLine({
 	readonly value: string | null | undefined;
 }) {
 	return (
-		<p className="agency-detail-line">
-			<span>{label}</span>
-			<strong>
+		<p className="m-0 grid grid-cols-[76px_minmax(0,1fr)] items-baseline gap-2.5">
+			<span className="text-[0.8rem] font-bold text-muted-foreground">{label}</span>
+			<strong className="[overflow-wrap:anywhere] text-[0.92rem] leading-normal text-foreground">
 				{value === undefined || value === null || value.length === 0 ? 'Not set' : value}
 			</strong>
 		</p>

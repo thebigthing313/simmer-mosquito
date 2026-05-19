@@ -30,6 +30,10 @@ data wiring. App code may use layout utilities such as flex, grid, gap, width,
 and padding, but durable styling decisions should move into tokens or UI
 component variants once repeated.
 
+`apps/admin` follows the same web styling contract as `apps/web`: compose
+shared shadcn primitives first, keep route-level styling in Tailwind, and move
+repeated visual decisions into app components or `packages/ui-web`.
+
 ## Centralization Rules
 
 Brand, semantic color, radius, spacing, motion, typography, shadow, and layering
@@ -57,9 +61,27 @@ padding, responsive placement, and local flow. Avoid app-level color, font,
 border, radius, shadow, focus, z-index, and animation choices when a token or
 component variant can own the decision.
 
-CSS-only custom components are allowed only for genuinely product-specific
-patterns that do not map cleanly to a shadcn primitive. Once such a pattern is
-reused, move it into `packages/ui-web` with a small public API and variants.
+Do not create CSS classes for ordinary product surfaces such as details cards,
+metric rows, panels, tabs, forms, list rows, and badges. For example, an
+organization details card should be a small React component composed from
+`Card`, `CardContent`, `Badge`, `Field`, and other shadcn primitives with
+Tailwind classes at the markup site. If the card's padding, density, tone, or
+layout becomes a repeated product decision, add a `cva` variant or companion
+component in `packages/ui-web`.
+
+App-owned custom components are allowed when the pattern is workflow-specific:
+for example an agency profile summary in `apps/web` or a support metadata row
+in `apps/admin`. They should still compose shadcn primitives and Tailwind
+classes directly in JSX. Once the styling repeats across workflows, apps, or
+three call sites, move the styling into `packages/ui-web` with a small public
+API and variants.
+
+CSS files are the exception path. Use them for global imports, Tailwind setup,
+design-token variable exposure, base element resets, vendor selectors, browser
+quirks, keyframes, complex selectors that Tailwind cannot express cleanly, and
+rare media/container behavior that would be less clear inline. When adding
+non-trivial app CSS, include a short comment explaining why Tailwind/shadcn was
+not the right home.
 
 Icons are platform UI, not design tokens. Web frontends must consume icons
 through the semantic registry in `packages/ui-web/src/icons/registry.ts` rather

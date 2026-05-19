@@ -148,6 +148,16 @@ App code should compose these components first, use `cva` variants for repeated
 styling choices, merge classes with `cn`, and reserve route-level class names
 mostly for layout.
 
+Web styling should not split into parallel CSS-only and Tailwind/shadcn
+methodologies. Ordinary UI surfaces in `apps/web` and `apps/admin`, including
+details cards, panels, rows, tabs, badges, and forms, should be React components
+composed from shadcn primitives with Tailwind classes. Product-specific styling
+may live in app-owned components while it is isolated to one workflow; repeated
+styling should be promoted into `packages/ui-web` as a `cva` variant or a small
+shared component. App CSS is reserved for globals, token exposure, vendor or
+browser-specific selectors, keyframes, and rare cases Tailwind cannot express
+clearly.
+
 Web icons are owned by `packages/ui-web` through a semantic icon registry.
 Frontends should import registered icons from
 `@simmer-mosquito/ui-web/icons/registry`, not from `lucide-react` directly.

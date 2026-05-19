@@ -26,6 +26,7 @@ import {
 	SidebarProvider,
 } from '@simmer-mosquito/ui-web/components/ui/sidebar';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, Outlet, useLocation, useParams } from '@tanstack/react-router';
 import type React from 'react';
 import { type AuthMe, getServerUrl } from '../auth';
@@ -33,6 +34,37 @@ import { useCollectionRows } from '../sync/useCollectionRows';
 import { webCollections } from '../sync/webCollections';
 
 type Tone = 'neutral' | 'attention' | 'success' | 'info' | 'danger';
+
+const pageGridClass = 'grid gap-5';
+const twelveColumnGridClass = 'grid grid-cols-12 gap-4 max-[820px]:grid-cols-1';
+const panelRowClass =
+	'grid items-center gap-3.5 rounded-md border border-border/30 bg-muted/40 p-3';
+const mutedBodyClass = 'm-0 text-[0.86rem] leading-normal text-muted-foreground';
+const rowTitleClass = 'text-[0.95rem] text-foreground';
+const compactLabelClass = 'text-[0.78rem] font-bold text-muted-foreground';
+
+function spanClass(columns: 4 | 5 | 7 | 8): string {
+	const spans = {
+		4: 'col-span-4 max-[820px]:col-auto',
+		5: 'col-span-5 max-[820px]:col-auto',
+		7: 'col-span-7 max-[820px]:col-auto',
+		8: 'col-span-8 max-[820px]:col-auto',
+	};
+
+	return spans[columns];
+}
+
+function toneBackgroundClass(tone: Tone): string {
+	const backgrounds = {
+		attention: 'bg-[color-mix(in_oklch,var(--warning-bg)_46%,var(--card))]',
+		danger: 'bg-[color-mix(in_oklch,var(--danger-bg)_44%,var(--card))]',
+		success: 'bg-[color-mix(in_oklch,var(--success-bg)_42%,var(--card))]',
+		info: 'bg-[color-mix(in_oklch,var(--info-bg)_42%,var(--card))]',
+		neutral: 'bg-card',
+	};
+
+	return backgrounds[tone];
+}
 
 interface WorkItem {
 	readonly id: string;
@@ -229,44 +261,52 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 		organizationStatus === 'ready' && profileStatus === 'ready' ? 'Live' : 'Updating';
 
 	return (
-		<SidebarProvider className="app-frame">
+		<SidebarProvider className="h-svh min-h-0 overflow-hidden bg-[var(--app-stage)]">
 			<ProductSidebar />
-			<SidebarInset className="app-main">
-				<header className="top-strip">
-					<div className="top-strip-heading">
+			<SidebarInset className="h-svh min-h-0 min-w-0 overflow-hidden bg-[var(--app-stage)]">
+				<header className="sticky top-0 z-10 flex min-h-[74px] items-center justify-between gap-5 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--app-chrome-strong)_34%,var(--app-chrome)),var(--app-chrome))] px-[clamp(18px,3vw,32px)] py-3 shadow-[0_14px_20px_-24px_oklch(36%_0.024_205_/_50%)] max-[820px]:flex-col max-[820px]:items-start">
+					<div className="flex min-w-0 items-center gap-[18px] max-[820px]:flex-col max-[820px]:items-start max-[820px]:gap-2">
 						<div>
 							<p className="eyebrow">{organizationName}</p>
-							<p className="top-strip-title">Operations workspace</p>
+							<p className="mt-0.5 text-[1.05rem] leading-tight font-extrabold text-foreground">
+								Operations workspace
+							</p>
 						</div>
-						<div className="top-strip-context">
-							<span>{roleLabel}</span>
-							<span>{liveStatus}</span>
+						<div className="flex flex-wrap items-center gap-2 pl-4 text-[0.82rem] font-bold text-muted-foreground max-[820px]:pl-0">
+							<HeaderContextItem>{roleLabel}</HeaderContextItem>
+							<HeaderContextItem tone="info">{liveStatus}</HeaderContextItem>
 						</div>
 					</div>
-					<div className="top-strip-actions">
-						<div className="header-date">
-							<span>Organization</span>
-							<strong>
+					<div className="flex items-center gap-[18px] text-[0.84rem] font-semibold text-muted-foreground max-[560px]:flex-wrap">
+						<div className="flex items-center gap-2 text-right">
+							<span className="block text-[0.72rem] leading-tight font-bold text-[var(--quiet)]">
+								Organization
+							</span>
+							<strong className="block whitespace-nowrap text-[0.86rem] leading-tight font-extrabold text-foreground">
 								{organization?.slug ??
 									localIdentity?.organizationSlug ??
 									localIdentity?.organizationId ??
 									'Loading'}
 							</strong>
 						</div>
-						<div className="header-user">
-							<Avatar size="sm" className="header-avatar">
+						<div className="flex items-center gap-2">
+							<Avatar size="sm" className="bg-[var(--app-selection)] text-primary">
 								<AvatarFallback>{initialsFor(profileName)}</AvatarFallback>
 								<AvatarBadge />
 							</Avatar>
 							<div>
-								<strong>{profileName}</strong>
-								<span>{roleLabel}</span>
+								<strong className="block whitespace-nowrap text-[0.86rem] leading-tight font-extrabold text-foreground">
+									{profileName}
+								</strong>
+								<span className="block text-[0.72rem] leading-tight font-bold text-[var(--quiet)]">
+									{roleLabel}
+								</span>
 							</div>
 						</div>
 					</div>
 				</header>
-				<ScrollArea className="route-scroll-area">
-					<div className="route-stage">
+				<ScrollArea className="min-h-0 flex-auto bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_340px),var(--app-stage)]">
+					<div className="min-h-0 p-[clamp(18px,2.6vw,30px)] max-[560px]:p-4">
 						<Outlet />
 					</div>
 				</ScrollArea>
@@ -285,24 +325,26 @@ export function LandingPage({
 	const loginUrl = `${getServerUrl()}/auth/login?returnTo=${encodeURIComponent(redirectTo)}`;
 
 	return (
-		<div className="landing-page">
-			<section className="landing-panel">
-				<span className="brand-mark">S</span>
+		<div className="grid min-h-screen place-items-center bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_360px),var(--app-stage)] p-6">
+			<section className="grid w-[min(620px,100%)] gap-3.5 rounded-md border border-border/30 bg-card p-7">
+				<BrandMark />
 				<p className="eyebrow">SIMMER</p>
-				<h1>Mosquito control operations, grounded in the map.</h1>
-				<p>
+				<h1 className="m-0 text-[2rem] leading-tight">
+					Mosquito control operations, grounded in the map.
+				</h1>
+				<p className="m-0 leading-normal text-muted-foreground">
 					Sign in to manage surveillance, field work, public engagement, control operations, and
 					organization setup from one operational workspace.
 				</p>
 				{authReason === 'organization_required' ? (
-					<div className="landing-alert">
-						<strong>Organization access needed</strong>
-						<p>
+					<div className="grid gap-1 rounded-md border border-warning/20 bg-[color-mix(in_oklch,var(--warning-bg)_54%,var(--card))] p-3">
+						<strong className="text-[0.94rem] text-foreground">Organization access needed</strong>
+						<p className={mutedBodyClass}>
 							Your account is signed in, but no active SIMMER organization membership is selected.
 						</p>
 					</div>
 				) : null}
-				<div className="landing-actions">
+				<div className="flex flex-wrap gap-2.5">
 					<Button asChild>
 						<a href={loginUrl}>Sign in</a>
 					</Button>
@@ -316,28 +358,37 @@ function ProductSidebar() {
 	const { pathname } = useLocation();
 
 	return (
-		<Sidebar className="app-sidebar" collapsible="none" aria-label="Primary">
-			<SidebarHeader className="app-sidebar-header">
+		<Sidebar
+			className="bg-[var(--app-chrome)] shadow-[inset_-14px_0_22px_-24px_oklch(36%_0.024_205_/_55%)]"
+			collapsible="none"
+			aria-label="Primary"
+		>
+			<SidebarHeader className="min-h-[74px] justify-center bg-[linear-gradient(180deg,color-mix(in_oklch,var(--app-chrome-strong)_36%,var(--app-chrome)),var(--app-chrome))] p-3">
 				<SidebarMenu>
 					<SidebarMenuItem>
 						<SidebarMenuButton asChild size="lg" tooltip="SIMMER">
-							<Link className="brand-lockup" to="/">
-								<img src="/favicon.svg" alt="" className="brand-favicon" />
+							<Link
+								className="inline-flex min-h-[42px] items-center gap-2.5 font-extrabold text-[var(--simmer-darker-green)] no-underline"
+								to="/"
+							>
+								<img src="/favicon.svg" alt="" className="block size-[30px] rounded-sm" />
 								<span>SIMMER</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 				</SidebarMenu>
 			</SidebarHeader>
-			<ScrollArea className="sidebar-scroll-area">
+			<ScrollArea className="min-h-0 flex-auto">
 				<SidebarContent
-					className="sidebar-content flex-none gap-0 overflow-visible px-2 pb-2"
+					className="flex flex-none flex-col gap-0 overflow-visible px-2 pb-2"
 					role="navigation"
 					aria-label="Primary navigation"
 				>
 					{navigationGroups.map((group) => (
 						<SidebarGroup className="gap-1 px-1 py-1.5" key={group.label}>
-							<SidebarGroupLabel className="sidebar-domain-label">{group.label}</SidebarGroupLabel>
+							<SidebarGroupLabel className="h-[1.65rem] px-2 text-[0.74rem] leading-tight font-extrabold tracking-[0.06em] text-primary uppercase">
+								{group.label}
+							</SidebarGroupLabel>
 							<SidebarGroupContent>
 								<SidebarMenu className="gap-0.5">
 									{group.items.map((item) => {
@@ -349,7 +400,7 @@ function ProductSidebar() {
 											<SidebarMenuItem key={item.to}>
 												<SidebarMenuButton
 													asChild
-													className="sidebar-item-link"
+													className="h-[1.85rem] px-2 text-[0.86rem] font-semibold text-sidebar-foreground/70 data-[active=true]:bg-[var(--app-selection)] data-[active=true]:shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--primary)_12%,transparent)]"
 													isActive={active}
 													tooltip={item.label}
 												>
@@ -368,18 +419,45 @@ function ProductSidebar() {
 				</SidebarContent>
 			</ScrollArea>
 			<SidebarFooter>
-				<div className="sidebar-footer-note">
+				<div className="mt-auto rounded-md bg-[color-mix(in_oklch,var(--app-chrome-strong)_58%,var(--app-chrome))] p-3">
 					<p className="eyebrow">Pattern reserves</p>
-					<p>Atlas details and planning grids are preserved for records, routes, and scheduling.</p>
+					<p className="m-0 text-[0.8rem] leading-normal text-muted-foreground">
+						Atlas details and planning grids are preserved for records, routes, and scheduling.
+					</p>
 				</div>
 			</SidebarFooter>
 		</Sidebar>
 	);
 }
 
+function HeaderContextItem({
+	children,
+	tone = 'primary',
+}: {
+	readonly children: React.ReactNode;
+	readonly tone?: 'primary' | 'info';
+}) {
+	return (
+		<span
+			className="inline-flex items-center gap-1.5 whitespace-nowrap before:block before:size-[0.42rem] before:rounded-full before:bg-primary data-[tone=info]:before:bg-[var(--simmer-blue)]"
+			data-tone={tone}
+		>
+			{children}
+		</span>
+	);
+}
+
+function BrandMark() {
+	return (
+		<span className="inline-grid size-[34px] place-items-center rounded-md bg-primary font-extrabold text-primary-foreground">
+			S
+		</span>
+	);
+}
+
 export function DashboardPage() {
 	return (
-		<div className="dashboard-page">
+		<div className={pageGridClass}>
 			<PageHeader
 				kicker="No-map dashboard"
 				title="Today at a glance"
@@ -391,7 +469,10 @@ export function DashboardPage() {
 				}
 			/>
 
-			<section className="overview-grid" aria-label="Operational overview">
+			<section
+				className="grid grid-cols-4 gap-4 max-[820px]:grid-cols-1"
+				aria-label="Operational overview"
+			>
 				<SummaryTile label="Activities scheduled" value="42" detail="16 not started" tone="info" />
 				<SummaryTile label="Open requests" value="18" detail="5 need triage" tone="attention" />
 				<SummaryTile label="Breeding positive" value="7" detail="3 above threshold" tone="danger" />
@@ -403,23 +484,23 @@ export function DashboardPage() {
 				/>
 			</section>
 
-			<div className="dashboard-grid">
-				<Surface className="span-7">
+			<div className={twelveColumnGridClass}>
+				<Surface className={spanClass(7)}>
 					<SectionHeader
 						title="Today’s activities"
 						meta="Click through for spatial focus"
 						action={<Link to="/today">View mapped route</Link>}
 					/>
-					<div className="activity-list">
+					<div className="grid gap-2.5">
 						{todayWork.map((item) => (
 							<WorkRow item={item} key={item.id} />
 						))}
 					</div>
 				</Surface>
 
-				<Surface className="span-5">
+				<Surface className={spanClass(5)}>
 					<SectionHeader title="Threshold signals" meta="Weather and surveillance" />
-					<div className="signal-stack">
+					<div className="grid gap-2.5">
 						<SignalRow
 							label="Rain accumulation"
 							value="1.4 in"
@@ -442,9 +523,9 @@ export function DashboardPage() {
 					</div>
 				</Surface>
 
-				<Surface className="span-4">
+				<Surface className={spanClass(4)}>
 					<SectionHeader title="Pending operations" meta="Needs commitment" />
-					<div className="compact-chart" role="img" aria-label="Pending operations by type">
+					<div className="grid gap-3.5" role="img" aria-label="Pending operations by type">
 						<ChartBar label="Requests" value={80} />
 						<ChartBar label="Missions" value={56} />
 						<ChartBar label="Inspections" value={72} />
@@ -452,9 +533,9 @@ export function DashboardPage() {
 					</div>
 				</Surface>
 
-				<Surface className="span-8">
+				<Surface className={spanClass(8)}>
 					<SectionHeader title="Dispatch notes" meta="Recent command outcomes" />
-					<div className="timeline">
+					<div className="grid gap-2.5">
 						<TimelineItem
 							title="Mission scheduled"
 							detail="North basin larval inspection route assigned to Crew 2."
@@ -476,14 +557,14 @@ export function DashboardPage() {
 
 export function TodayActivitiesPage() {
 	return (
-		<div className="map-workspace">
-			<section className="map-sidebar-panel">
+		<div className="grid min-h-[calc(100vh-128px)] grid-cols-[minmax(420px,0.42fr)_minmax(480px,1fr)] gap-[18px] max-[1120px]:grid-cols-1">
+			<section className="grid min-w-0 content-start gap-4">
 				<PageHeader
 					kicker="Focused dashboard with map"
 					title="Today’s activities"
 					body="This route has one spatial question: where is today’s work, what is next, and what needs intervention?"
 				/>
-				<div className="filter-strip">
+				<div className="flex flex-wrap gap-2">
 					<Button type="button" variant="secondary" size="sm">
 						All
 					</Button>
@@ -497,7 +578,7 @@ export function TodayActivitiesPage() {
 						Controls
 					</Button>
 				</div>
-				<div className="activity-list map-list">
+				<div className="grid gap-2.5">
 					{todayWork.map((item) => (
 						<WorkRow item={item} key={item.id} />
 					))}
@@ -510,7 +591,7 @@ export function TodayActivitiesPage() {
 
 export function ServiceRequestsIndexPage() {
 	return (
-		<div className="index-page">
+		<div className={pageGridClass}>
 			<PageHeader
 				kicker="Entity index"
 				title="Service requests"
@@ -518,8 +599,8 @@ export function ServiceRequestsIndexPage() {
 				action={<Button type="button">New request</Button>}
 			/>
 			<Surface>
-				<div className="index-toolbar">
-					<div className="filter-strip">
+				<div className="flex items-center justify-between gap-4 max-[820px]:flex-col max-[820px]:items-start">
+					<div className="flex flex-wrap gap-2">
 						<Button type="button" variant="secondary" size="sm">
 							Open
 						</Button>
@@ -533,36 +614,38 @@ export function ServiceRequestsIndexPage() {
 							Closed
 						</Button>
 					</div>
-					<Field className="search-field">
+					<Field className="max-w-80">
 						<FieldLabel>Search</FieldLabel>
 						<Input defaultValue="" placeholder="Address, contact, request id" />
 					</Field>
 				</div>
 
-				<div className="request-table">
-					<div className="request-table-head">
+				<div className="grid gap-0">
+					<div className="grid grid-cols-[minmax(260px,1.25fr)_minmax(160px,0.55fr)_minmax(220px,0.8fr)] px-3 pb-2.5 text-[0.75rem] font-extrabold text-muted-foreground uppercase max-[820px]:hidden">
 						<span>Request</span>
 						<span>Status</span>
 						<span>Context</span>
 					</div>
 					{requests.map((request) => (
 						<Link
-							className="request-row"
+							className="mt-2 grid grid-cols-[minmax(260px,1.25fr)_minmax(160px,0.55fr)_minmax(220px,0.8fr)] items-center gap-3.5 rounded-md border border-border/30 bg-muted/40 px-3 py-3.5 text-inherit no-underline first:mt-0 max-[820px]:grid-cols-1"
 							key={request.id}
 							to="/service-requests/$requestId"
 							params={{ requestId: request.id }}
 						>
 							<div>
-								<strong>{request.title}</strong>
-								<p>
+								<strong className={rowTitleClass}>{request.title}</strong>
+								<p className={mutedBodyClass}>
 									{request.id} · {request.address} · {request.received}
 								</p>
 							</div>
-							<div className="row-status">
+							<div className="grid justify-items-start gap-1.5">
 								<StatusBadge tone={request.tone}>{request.status}</StatusBadge>
-								<span>{request.priority} priority</span>
+								<span className="text-[0.8rem] text-muted-foreground">
+									{request.priority} priority
+								</span>
 							</div>
-							<p>{request.nearby}</p>
+							<p className={mutedBodyClass}>{request.nearby}</p>
 						</Link>
 					))}
 				</div>
@@ -580,9 +663,9 @@ export function ServiceRequestDetailPage() {
 	}
 
 	return (
-		<div className="detail-map-page">
-			<section className="detail-record">
-				<Link className="back-link" to="/service-requests">
+		<div className="grid min-h-[calc(100vh-128px)] grid-cols-[minmax(420px,0.42fr)_minmax(480px,1fr)] gap-[18px] max-[1120px]:grid-cols-1">
+			<section className="grid min-w-0 content-start gap-4">
+				<Link className="text-[0.86rem] font-bold text-primary no-underline" to="/service-requests">
 					Back to requests
 				</Link>
 				<PageHeader
@@ -591,7 +674,7 @@ export function ServiceRequestDetailPage() {
 					body={`${request.id} at ${request.address}. Location, nearby records, and history are now the job, so the map is rendered here.`}
 					action={<Button type="button">Create assignment</Button>}
 				/>
-				<div className="record-facts">
+				<div className="grid grid-cols-4 gap-2.5 max-[820px]:grid-cols-1">
 					<Fact label="Status" value={request.status} />
 					<Fact label="Intake" value={request.source} />
 					<Fact label="Priority" value={request.priority} />
@@ -599,7 +682,7 @@ export function ServiceRequestDetailPage() {
 				</div>
 				<Surface>
 					<SectionHeader title="Record history" meta="Command-shaped activity" />
-					<div className="timeline">
+					<div className="grid gap-2.5">
 						<TimelineItem
 							title="publicEngagement.createServiceRequest"
 							detail="Phone intake created with contact, location, request date, and details."
@@ -622,17 +705,17 @@ export function ServiceRequestDetailPage() {
 
 export function GroupsPage() {
 	return (
-		<div className="groups-page">
+		<div className={pageGridClass}>
 			<PageHeader
 				kicker="Group management"
 				title="Crews and operational groups"
 				body="Configuration pages stay compact and map-free. They manage trust in the workflow: people, roles, methods, equipment, and lookup records."
 				action={<Button type="button">Create crew</Button>}
 			/>
-			<div className="management-grid">
-				<Surface className="span-7">
+			<div className={twelveColumnGridClass}>
+				<Surface className={spanClass(7)}>
 					<SectionHeader title="Crews" meta="Assignment-ready groups" />
-					<div className="crew-list">
+					<div className="grid gap-2.5">
 						<GroupRow
 							name="North Basin Crew"
 							status="Available"
@@ -653,9 +736,9 @@ export function GroupsPage() {
 						/>
 					</div>
 				</Surface>
-				<Surface className="span-5">
+				<Surface className={spanClass(5)}>
 					<SectionHeader title="Lookup health" meta="Setup affects field confidence" />
-					<div className="signal-stack">
+					<div className="grid gap-2.5">
 						<SignalRow label="Collection methods" value="12" detail="1 inactive" tone="success" />
 						<SignalRow label="Habitat types" value="18" detail="3 recently added" tone="info" />
 						<SignalRow label="Tags" value="34" detail="6 used this week" tone="neutral" />
@@ -669,21 +752,21 @@ export function GroupsPage() {
 
 export function MissionEditPage() {
 	return (
-		<div className="form-page">
+		<div className={pageGridClass}>
 			<PageHeader
 				kicker="Edit form"
 				title="Schedule larval inspection mission"
 				body="Forms are focused command builders. The map appears only when the command needs location or route geometry."
 			/>
-			<section className="form-shell">
-				<div className="form-main">
-					<div className="form-stepper">
-						<span className="complete">Details</span>
-						<span className="active">Stops</span>
-						<span>Resources</span>
-						<span>Review</span>
+			<section className="grid min-h-[calc(100vh-128px)] grid-cols-[minmax(420px,0.42fr)_minmax(480px,1fr)] items-stretch gap-[18px] max-[1120px]:grid-cols-1">
+				<div className="grid min-w-0 content-start gap-4 rounded-md border border-border/30 bg-card p-[18px]">
+					<div className="grid grid-cols-4 gap-2 max-[560px]:grid-cols-2">
+						<StepperItem active>Details</StepperItem>
+						<StepperItem active>Stops</StepperItem>
+						<StepperItem>Resources</StepperItem>
+						<StepperItem>Review</StepperItem>
 					</div>
-					<FieldGroup className="field-grid">
+					<FieldGroup className="grid grid-cols-2 gap-3.5 max-[820px]:grid-cols-1">
 						<Field>
 							<FieldLabel>Mission name</FieldLabel>
 							<Input defaultValue="North basin larval inspection route" />
@@ -709,7 +792,7 @@ export function MissionEditPage() {
 							<FieldDescription>Used by missionDispatch.assignMission.</FieldDescription>
 						</Field>
 					</FieldGroup>
-					<section className="route-builder">
+					<section className="grid gap-2.5 pt-1">
 						<SectionHeader title="Mission items" meta="Planning Grid pattern reserve" />
 						<RouteStop index="1" title="18 Maple Court" detail="Service request SR-1048" />
 						<RouteStop
@@ -719,9 +802,9 @@ export function MissionEditPage() {
 						/>
 						<RouteStop index="3" title="North canal access" detail="Ad hoc inspection location" />
 					</section>
-					<div className="command-summary">
+					<div className="rounded-md border border-[color-mix(in_oklch,var(--simmer-blue)_18%,transparent)] bg-[color-mix(in_oklch,var(--info-bg)_44%,var(--card))] p-3.5">
 						<strong>missionDispatch.createMission</strong>
-						<p>
+						<p className="mt-1.5 mb-0 text-[0.9rem] text-muted-foreground">
 							Will create 3 mission items, assign North Basin Crew, and preserve requested-control
 							links.
 						</p>
@@ -750,7 +833,7 @@ export function StubPage({
 	}[];
 }) {
 	return (
-		<div className="index-page">
+		<div className={pageGridClass}>
 			<PageHeader
 				kicker={kicker}
 				title={title}
@@ -759,12 +842,15 @@ export function StubPage({
 			/>
 			<Surface>
 				<SectionHeader title="Mock records" meta="Database wiring comes later" />
-				<div className="stub-list">
+				<div className="grid gap-2.5">
 					{items.map((item) => (
-						<article className="stub-row" key={item.label}>
+						<article
+							className={cn(panelRowClass, 'grid-cols-[minmax(0,1fr)_auto]')}
+							key={item.label}
+						>
 							<div>
-								<strong>{item.label}</strong>
-								<p>{item.detail}</p>
+								<strong className={rowTitleClass}>{item.label}</strong>
+								<p className={mutedBodyClass}>{item.detail}</p>
 							</div>
 							<StatusBadge tone={item.tone}>{item.status}</StatusBadge>
 						</article>
@@ -780,12 +866,12 @@ export function LoginPage() {
 	const loginUrl = `${getServerUrl()}/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
 
 	return (
-		<div className="login-page">
-			<section className="login-panel">
-				<span className="brand-mark">S</span>
+		<div className="grid min-h-screen place-items-center bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_360px),var(--app-stage)] p-6">
+			<section className="grid w-[min(460px,100%)] gap-3.5 rounded-md border border-border/30 bg-card p-7">
+				<BrandMark />
 				<p className="eyebrow">SIMMER sign in</p>
-				<h1>Continue to your operations workspace</h1>
-				<p>
+				<h1 className="m-0 text-[1.6rem] leading-tight">Continue to your operations workspace</h1>
+				<p className="m-0 leading-normal text-muted-foreground">
 					Authentication is handled by WorkOS. After sign in, SIMMER returns you to the app route
 					you were trying to open.
 				</p>
@@ -805,8 +891,10 @@ function Surface({
 	readonly children: React.ReactNode;
 }) {
 	return (
-		<Card className={className}>
-			<CardContent className="surface-content">{children}</CardContent>
+		<Card variant="surface" className={className}>
+			<CardContent padding="default" className="grid gap-4">
+				{children}
+			</CardContent>
 		</Card>
 	);
 }
@@ -823,13 +911,13 @@ function PageHeader({
 	readonly action?: React.ReactNode;
 }) {
 	return (
-		<header className="page-header">
-			<div>
+		<header className="flex items-end justify-between gap-6 max-[820px]:flex-col max-[820px]:items-start">
+			<div className="grid max-w-[72ch] gap-2">
 				<p className="eyebrow">{kicker}</p>
-				<h1>{title}</h1>
-				<p>{body}</p>
+				<h1 className="m-0 text-[1.65rem] leading-tight font-extrabold text-foreground">{title}</h1>
+				<p className="m-0 leading-normal text-muted-foreground">{body}</p>
 			</div>
-			{action === undefined ? null : <div className="page-action">{action}</div>}
+			{action === undefined ? null : <div className="shrink-0">{action}</div>}
 		</header>
 	);
 }
@@ -846,10 +934,15 @@ function SummaryTile({
 	readonly tone: Tone;
 }) {
 	return (
-		<div className="summary-tile" data-tone={tone}>
-			<span>{label}</span>
-			<strong>{value}</strong>
-			<p>{detail}</p>
+		<div
+			className={cn(
+				'grid min-h-[132px] content-start gap-2 rounded-md border border-border/30 p-4',
+				toneBackgroundClass(tone),
+			)}
+		>
+			<span className={compactLabelClass}>{label}</span>
+			<strong className="text-[2rem] leading-none text-foreground">{value}</strong>
+			<p className={mutedBodyClass}>{detail}</p>
 		</div>
 	);
 }
@@ -864,23 +957,31 @@ function SectionHeader({
 	readonly action?: React.ReactNode;
 }) {
 	return (
-		<div className="section-header">
+		<div className="flex items-center justify-between gap-4">
 			<div>
-				<h2>{title}</h2>
-				{meta === undefined ? null : <p>{meta}</p>}
+				<h2 className="m-0 text-[1.06rem] font-extrabold">{title}</h2>
+				{meta === undefined ? null : (
+					<p className="mt-1 mb-0 text-[0.84rem] text-muted-foreground">{meta}</p>
+				)}
 			</div>
-			{action === undefined ? null : <div className="section-action">{action}</div>}
+			{action === undefined ? null : (
+				<div className="[&_a]:text-[0.86rem] [&_a]:font-bold [&_a]:text-primary [&_a]:no-underline">
+					{action}
+				</div>
+			)}
 		</div>
 	);
 }
 
 function WorkRow({ item }: { readonly item: WorkItem }) {
 	return (
-		<article className="work-row">
-			<div className="work-time">{item.time}</div>
+		<article
+			className={cn(panelRowClass, 'grid-cols-[70px_minmax(0,1fr)_auto] max-[560px]:grid-cols-1')}
+		>
+			<div className={compactLabelClass}>{item.time}</div>
 			<div>
-				<strong>{item.label}</strong>
-				<p>
+				<strong className={rowTitleClass}>{item.label}</strong>
+				<p className={mutedBodyClass}>
 					{item.id} · {item.kind} · {item.place}
 				</p>
 			</div>
@@ -893,7 +994,6 @@ function SignalRow({
 	label,
 	value,
 	detail,
-	tone,
 }: {
 	readonly label: string;
 	readonly value: string;
@@ -901,22 +1001,22 @@ function SignalRow({
 	readonly tone: Tone;
 }) {
 	return (
-		<div className="signal-row" data-tone={tone}>
+		<div className="rounded-md border border-border/30 bg-card p-3">
 			<div>
-				<strong>{label}</strong>
-				<p>{detail}</p>
+				<strong className={rowTitleClass}>{label}</strong>
+				<p className={mutedBodyClass}>{detail}</p>
 			</div>
-			<span>{value}</span>
+			<span className="font-extrabold text-primary">{value}</span>
 		</div>
 	);
 }
 
 function ChartBar({ label, value }: { readonly label: string; readonly value: number }) {
 	return (
-		<div className="chart-row">
+		<div className="grid grid-cols-[92px_minmax(0,1fr)] items-center gap-3 text-[0.84rem] font-bold text-muted-foreground">
 			<span>{label}</span>
-			<div>
-				<i style={{ inlineSize: `${value}%` }} />
+			<div className="h-2.5 overflow-hidden rounded-full bg-muted">
+				<i className="block h-full rounded-full bg-primary" style={{ inlineSize: `${value}%` }} />
 			</div>
 		</div>
 	);
@@ -924,11 +1024,11 @@ function ChartBar({ label, value }: { readonly label: string; readonly value: nu
 
 function TimelineItem({ title, detail }: { readonly title: string; readonly detail: string }) {
 	return (
-		<div className="timeline-item">
-			<span />
+		<div className="grid grid-cols-[18px_minmax(0,1fr)] gap-2.5">
+			<span className="mt-1.5 size-2.5 rounded-full border-2 border-primary bg-card" />
 			<div>
-				<strong>{title}</strong>
-				<p>{detail}</p>
+				<strong className={rowTitleClass}>{title}</strong>
+				<p className={mutedBodyClass}>{detail}</p>
 			</div>
 		</div>
 	);
@@ -961,9 +1061,9 @@ function StatusBadge({
 
 function Fact({ label, value }: { readonly label: string; readonly value: string }) {
 	return (
-		<div className="fact">
-			<span>{label}</span>
-			<strong>{value}</strong>
+		<div className="grid gap-1 rounded-md border border-border/30 bg-card p-2.5">
+			<span className={compactLabelClass}>{label}</span>
+			<strong className="text-[0.9rem]">{value}</strong>
 		</div>
 	);
 }
@@ -980,13 +1080,13 @@ function GroupRow({
 	readonly equipment: string;
 }) {
 	return (
-		<article className="group-row">
+		<article className="flex items-center justify-between gap-4 rounded-md border border-border/30 bg-card p-3">
 			<div>
-				<strong>{name}</strong>
-				<p>{members}</p>
+				<strong className={rowTitleClass}>{name}</strong>
+				<p className={mutedBodyClass}>{members}</p>
 			</div>
 			<StatusBadge tone={status === 'Available' ? 'success' : 'info'}>{status}</StatusBadge>
-			<span>{equipment}</span>
+			<span className="text-[0.86rem] text-muted-foreground">{equipment}</span>
 		</article>
 	);
 }
@@ -1001,16 +1101,38 @@ function RouteStop({
 	readonly detail: string;
 }) {
 	return (
-		<div className="route-stop">
-			<span>{index}</span>
+		<div className="flex items-center justify-between gap-4 rounded-md border border-border/30 bg-muted p-3">
+			<span className="inline-grid size-7 place-items-center rounded-full bg-primary font-extrabold text-primary-foreground">
+				{index}
+			</span>
 			<div>
-				<strong>{title}</strong>
-				<p>{detail}</p>
+				<strong className={rowTitleClass}>{title}</strong>
+				<p className={mutedBodyClass}>{detail}</p>
 			</div>
 			<Button type="button" variant="outline" size="sm">
 				Move
 			</Button>
 		</div>
+	);
+}
+
+function StepperItem({
+	active = false,
+	children,
+}: {
+	readonly active?: boolean;
+	readonly children: React.ReactNode;
+}) {
+	return (
+		<span
+			className={cn(
+				'rounded-md bg-muted px-2.5 py-2 text-center text-[0.8rem] font-bold text-muted-foreground',
+				active &&
+					'border border-primary/20 bg-[color-mix(in_oklch,var(--simmer-green-100)_62%,var(--card))] text-primary',
+			)}
+		>
+			{children}
+		</span>
 	);
 }
 
@@ -1022,13 +1144,17 @@ function MapPanel({
 	readonly variant?: 'default' | 'detail' | 'form';
 }) {
 	return (
-		<section className="map-panel" data-variant={variant} aria-label={title}>
-			<div className="map-toolbar">
+		<section
+			className="grid min-w-0 grid-rows-[auto_minmax(360px,1fr)_auto] overflow-hidden rounded-md border border-border/30 bg-card max-[1120px]:min-h-[560px]"
+			data-variant={variant}
+			aria-label={title}
+		>
+			<div className="flex items-center justify-between gap-4 px-4 py-3.5 shadow-[inset_0_-1px_color-mix(in_oklch,var(--border)_32%,transparent)]">
 				<div>
 					<p className="eyebrow">{title}</p>
 					<strong>Precise operational overlays</strong>
 				</div>
-				<div className="map-tools">
+				<div className="flex gap-2">
 					<Button type="button" variant="outline" size="sm">
 						Layers
 					</Button>
@@ -1037,39 +1163,41 @@ function MapPanel({
 					</Button>
 				</div>
 			</div>
-			<div className="map-canvas">
-				<div className="map-grid" />
-				<div className="region region-a" />
-				<div className="region region-b" />
-				<div className="route-line route-one" />
-				<div className="route-line route-two" />
-				<div className="pin pin-a">
+			<div className="relative overflow-hidden bg-[linear-gradient(125deg,color-mix(in_oklch,var(--simmer-green-100)_56%,transparent),transparent_42%),color-mix(in_oklch,var(--simmer-workshop-map-wash)_52%,var(--card))]">
+				<div className="absolute inset-0 bg-[linear-gradient(var(--simmer-workshop-grid-line)_1px,transparent_1px),linear-gradient(90deg,var(--simmer-workshop-grid-line)_1px,transparent_1px)] bg-[length:36px_36px]" />
+				<div className="absolute inset-[13%_48%_45%_12%] rounded-[42%_58%_38%_62%] border border-[color-mix(in_oklch,var(--simmer-green-700)_34%,transparent)] bg-[color-mix(in_oklch,var(--simmer-yellow-100)_24%,transparent)]" />
+				<div className="absolute inset-[42%_14%_14%_46%] rounded-[52%_36%_55%_44%] border border-[color-mix(in_oklch,var(--simmer-green-700)_34%,transparent)] bg-[color-mix(in_oklch,var(--simmer-yellow-100)_24%,transparent)]" />
+				<div className="absolute top-[36%] left-[18%] h-1 w-[58%] origin-left rotate-[17deg] rounded-full bg-[var(--map-route)]" />
+				<div className="absolute top-[58%] left-[28%] h-1 w-[44%] origin-left rotate-[-24deg] rounded-full bg-[var(--map-road)]" />
+				<div className="absolute top-[28%] left-[26%] grid size-[30px] place-items-center rounded-full border-[3px] border-card bg-primary text-[0.76rem] font-extrabold text-primary-foreground shadow-[0_10px_18px_color-mix(in_oklch,var(--foreground)_14%,transparent)]">
 					<span>1</span>
 				</div>
-				<div className="pin pin-b">
+				<div className="absolute top-[54%] left-[58%] grid size-[30px] place-items-center rounded-full border-[3px] border-card bg-[var(--map-alert)] text-[0.76rem] font-extrabold text-foreground shadow-[0_10px_18px_color-mix(in_oklch,var(--foreground)_14%,transparent)]">
 					<span>2</span>
 				</div>
-				<div className="pin pin-c">
+				<div className="absolute top-[68%] left-[42%] grid size-[30px] place-items-center rounded-full border-[3px] border-card bg-[var(--simmer-blue)] text-[0.76rem] font-extrabold text-primary-foreground shadow-[0_10px_18px_color-mix(in_oklch,var(--foreground)_14%,transparent)]">
 					<span>3</span>
 				</div>
-				<div className="map-callout">
-					<strong>{variant === 'form' ? '3 mission items' : 'Selected context'}</strong>
-					<p>
+				<div className="absolute right-[18px] bottom-[18px] max-w-[260px] rounded-md bg-[color-mix(in_oklch,var(--card)_92%,transparent)] p-3 shadow-[0_10px_22px_color-mix(in_oklch,var(--foreground)_8%,transparent)]">
+					<strong className={rowTitleClass}>
+						{variant === 'form' ? '3 mission items' : 'Selected context'}
+					</strong>
+					<p className={mutedBodyClass}>
 						{variant === 'detail'
 							? '2 habitats, 1 trap, 1 recent action'
 							: 'Route and status overlays only'}
 					</p>
 				</div>
 			</div>
-			<div className="map-legend">
-				<span>
-					<i className="legend-work" /> Work item
+			<div className="flex items-center justify-between gap-4 px-4 py-3.5 text-[0.8rem] font-bold text-muted-foreground shadow-[inset_0_1px_color-mix(in_oklch,var(--border)_32%,transparent)]">
+				<span className="inline-flex items-center gap-1.5">
+					<i className="inline-block size-2.5 rounded-full bg-primary" /> Work item
 				</span>
-				<span>
-					<i className="legend-route" /> Route
+				<span className="inline-flex items-center gap-1.5">
+					<i className="inline-block size-2.5 rounded-full bg-[var(--map-road)]" /> Route
 				</span>
-				<span>
-					<i className="legend-alert" /> Attention
+				<span className="inline-flex items-center gap-1.5">
+					<i className="inline-block size-2.5 rounded-full bg-[var(--map-alert)]" /> Attention
 				</span>
 			</div>
 		</section>
