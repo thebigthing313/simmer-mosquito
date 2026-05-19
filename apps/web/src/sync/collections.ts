@@ -1,40 +1,58 @@
 import {
+	applicationMethodsSyncDescriptor,
+	biocontrolMethodsSyncDescriptor,
 	type CollectionLureRow,
 	type CollectionMethodRow,
+	type ControlMethodRow,
 	collectionLuresSyncDescriptor,
 	collectionMethodsSyncDescriptor,
+	type EquipmentRow,
 	electricShapeCollectionOptions,
+	equipmentSyncDescriptor,
 	type GenusRow,
 	generaSyncDescriptor,
 	type HabitatTypeRow,
 	habitatTypesSyncDescriptor,
+	type NotificationTypeRow,
+	notificationTypesSyncDescriptor,
 	type OrganizationSpeciesRow,
 	organizationSpeciesSyncDescriptor,
+	outreachMethodsSyncDescriptor,
 	type ProfileRow,
 	profilesSyncDescriptor,
 	type RouteRow,
 	routesSyncDescriptor,
 	type SpeciesRow,
+	sourceReductionMethodsSyncDescriptor,
 	speciesSyncDescriptor,
 	type TagRow,
 	tagsSyncDescriptor,
 	type UnitRow,
 	unitsSyncDescriptor,
+	type VehicleRow,
+	vehiclesSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import { type Collection, createCollection } from '@tanstack/db';
 import { createOrgLookupMutationHandlers } from './orgLookupMutations';
 
 export interface WebCollections {
+	readonly applicationMethods: Collection<ControlMethodRow, string | number>;
+	readonly biocontrolMethods: Collection<ControlMethodRow, string | number>;
 	readonly collectionLures: Collection<CollectionLureRow, string | number>;
 	readonly collectionMethods: Collection<CollectionMethodRow, string | number>;
+	readonly equipment: Collection<EquipmentRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
 	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
+	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
 	readonly organizationSpecies: Collection<OrganizationSpeciesRow, string | number>;
+	readonly outreachMethods: Collection<ControlMethodRow, string | number>;
 	readonly profiles: Collection<ProfileRow, string | number>;
 	readonly routes: Collection<RouteRow, string | number>;
 	readonly species: Collection<SpeciesRow, string | number>;
+	readonly sourceReductionMethods: Collection<ControlMethodRow, string | number>;
 	readonly tags: Collection<TagRow, string | number>;
 	readonly units: Collection<UnitRow, string | number>;
+	readonly vehicles: Collection<VehicleRow, string | number>;
 }
 
 export const webBaselineCollectionKeys = [
@@ -46,6 +64,13 @@ export const webBaselineCollectionKeys = [
 	'collectionMethods',
 	'collectionLures',
 	'habitatTypes',
+	'applicationMethods',
+	'sourceReductionMethods',
+	'outreachMethods',
+	'biocontrolMethods',
+	'vehicles',
+	'equipment',
+	'notificationTypes',
 	'tags',
 	'routes',
 ] as const satisfies readonly (keyof WebCollections)[];
@@ -118,6 +143,48 @@ export function createWebCollections(options: { readonly serverUrl: string }): W
 			}),
 		}),
 	);
+	const applicationMethods = createCollection(
+		electricShapeCollectionOptions<ControlMethodRow>({
+			descriptor: applicationMethodsSyncDescriptor,
+			url: `${options.serverUrl}${applicationMethodsSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const sourceReductionMethods = createCollection(
+		electricShapeCollectionOptions<ControlMethodRow>({
+			descriptor: sourceReductionMethodsSyncDescriptor,
+			url: `${options.serverUrl}${sourceReductionMethodsSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const outreachMethods = createCollection(
+		electricShapeCollectionOptions<ControlMethodRow>({
+			descriptor: outreachMethodsSyncDescriptor,
+			url: `${options.serverUrl}${outreachMethodsSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const biocontrolMethods = createCollection(
+		electricShapeCollectionOptions<ControlMethodRow>({
+			descriptor: biocontrolMethodsSyncDescriptor,
+			url: `${options.serverUrl}${biocontrolMethodsSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const vehicles = createCollection(
+		electricShapeCollectionOptions<VehicleRow>({
+			descriptor: vehiclesSyncDescriptor,
+			url: `${options.serverUrl}${vehiclesSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const equipment = createCollection(
+		electricShapeCollectionOptions<EquipmentRow>({
+			descriptor: equipmentSyncDescriptor,
+			url: `${options.serverUrl}${equipmentSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const notificationTypes = createCollection(
+		electricShapeCollectionOptions<NotificationTypeRow>({
+			descriptor: notificationTypesSyncDescriptor,
+			url: `${options.serverUrl}${notificationTypesSyncDescriptor.endpointPath}`,
+		}),
+	);
 	const tags = createCollection(
 		electricShapeCollectionOptions<TagRow>({
 			descriptor: tagsSyncDescriptor,
@@ -132,16 +199,23 @@ export function createWebCollections(options: { readonly serverUrl: string }): W
 	);
 
 	return {
+		applicationMethods,
+		biocontrolMethods,
 		collectionLures,
 		collectionMethods,
+		equipment,
 		genera,
 		habitatTypes,
+		notificationTypes,
 		organizationSpecies,
+		outreachMethods,
 		profiles,
 		routes,
 		species,
+		sourceReductionMethods,
 		tags,
 		units,
+		vehicles,
 	};
 }
 

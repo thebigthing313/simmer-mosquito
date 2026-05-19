@@ -1,14 +1,21 @@
 import {
+	applicationMethodsSyncDescriptor,
+	biocontrolMethodsSyncDescriptor,
 	collectionLuresSyncDescriptor,
 	collectionMethodsSyncDescriptor,
+	equipmentSyncDescriptor,
 	generaSyncDescriptor,
 	habitatTypesSyncDescriptor,
+	notificationTypesSyncDescriptor,
 	organizationSpeciesSyncDescriptor,
+	outreachMethodsSyncDescriptor,
 	profilesSyncDescriptor,
 	routesSyncDescriptor,
+	sourceReductionMethodsSyncDescriptor,
 	speciesSyncDescriptor,
 	tagsSyncDescriptor,
 	unitsSyncDescriptor,
+	vehiclesSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
@@ -170,6 +177,35 @@ export function registerSyncShapeRoutes(
 		});
 	});
 
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/application-methods',
+		descriptor: applicationMethodsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/source-reduction-methods',
+		descriptor: sourceReductionMethodsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/outreach-methods',
+		descriptor: outreachMethodsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/biocontrol-methods',
+		descriptor: biocontrolMethodsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/vehicles',
+		descriptor: vehiclesSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/equipment',
+		descriptor: equipmentSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/notification-types',
+		descriptor: notificationTypesSyncDescriptor,
+	});
+
 	app.get('/sync/shapes/tags', options.authContextMiddleware, async (context) => {
 		if (options.electricUrl === null) {
 			return context.json({ error: 'electric_url_required' }, 503);
@@ -230,6 +266,42 @@ export function registerSyncShapeRoutes(
 			table: speciesSyncDescriptor.table,
 		}),
 	);
+}
+
+function registerSelectedOrganizationShapeRoute(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: {
+		readonly electricUrl: string | null;
+		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+		readonly fetch?: typeof fetch;
+	},
+	shape: {
+		readonly path: string;
+		readonly descriptor: {
+			readonly columns: readonly string[];
+			readonly table: string;
+		};
+	},
+): void {
+	app.get(shape.path, options.authContextMiddleware, async (context) => {
+		if (options.electricUrl === null) {
+			return context.json({ error: 'electric_url_required' }, 503);
+		}
+
+		const authContext = context.get('authContext');
+
+		return proxyElectricShape(context, {
+			fetch: options.fetch,
+			upstreamUrl: buildElectricShapeUrl({
+				electricUrl: options.electricUrl,
+				incomingUrl: context.req.url,
+				columns: shape.descriptor.columns.map(camelToSnake),
+				table: shape.descriptor.table,
+				where: selectedOrganizationWhere,
+				params: [authContext.organization.id],
+			}),
+		});
+	});
 }
 
 function proxyGlobalShape(

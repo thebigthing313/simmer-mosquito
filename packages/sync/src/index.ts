@@ -98,6 +98,42 @@ export interface HabitatTypeRow extends OrgLookupRowBase {
 	readonly customSchema: unknown | null;
 }
 
+export interface ControlMethodRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly name: string;
+	readonly customSchema: unknown;
+	readonly isActive: boolean;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface VehicleRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly vehicleName: string;
+	readonly metadata: unknown;
+	readonly isActive: boolean;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface EquipmentRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly equipmentName: string;
+	readonly serialNumber: string | null;
+	readonly metadata: unknown;
+	readonly isActive: boolean;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface NotificationTypeRow extends OrgLookupRowBase {}
+
 export interface TagRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
@@ -213,6 +249,86 @@ export const habitatTypesSyncDescriptor: SyncDescriptor<HabitatTypeRow> = {
 	getKey: (row) => row.id,
 };
 
+export const applicationMethodsSyncDescriptor: SyncDescriptor<ControlMethodRow> = {
+	id: 'application_methods',
+	table: 'application_methods',
+	endpointPath: '/sync/shapes/application-methods',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const sourceReductionMethodsSyncDescriptor: SyncDescriptor<ControlMethodRow> = {
+	id: 'source_reduction_methods',
+	table: 'source_reduction_methods',
+	endpointPath: '/sync/shapes/source-reduction-methods',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const outreachMethodsSyncDescriptor: SyncDescriptor<ControlMethodRow> = {
+	id: 'outreach_methods',
+	table: 'outreach_methods',
+	endpointPath: '/sync/shapes/outreach-methods',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const biocontrolMethodsSyncDescriptor: SyncDescriptor<ControlMethodRow> = {
+	id: 'biocontrol_methods',
+	table: 'biocontrol_methods',
+	endpointPath: '/sync/shapes/biocontrol-methods',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const vehiclesSyncDescriptor: SyncDescriptor<VehicleRow> = {
+	id: 'vehicles',
+	table: 'vehicles',
+	endpointPath: '/sync/shapes/vehicles',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'vehicleName',
+		'metadata',
+		'isActive',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const equipmentSyncDescriptor: SyncDescriptor<EquipmentRow> = {
+	id: 'equipment',
+	table: 'equipment',
+	endpointPath: '/sync/shapes/equipment',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'equipmentName',
+		'serialNumber',
+		'metadata',
+		'isActive',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const notificationTypesSyncDescriptor: SyncDescriptor<NotificationTypeRow> = {
+	id: 'notification_types',
+	table: 'notification_types',
+	endpointPath: '/sync/shapes/notification-types',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'description', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
 export const tagsSyncDescriptor: SyncDescriptor<TagRow> = {
 	id: 'tags',
 	table: 'tags',
@@ -246,6 +362,13 @@ export const webReadOnlyTracerDescriptors = [
 	generaSyncDescriptor,
 	speciesSyncDescriptor,
 	organizationSpeciesSyncDescriptor,
+	applicationMethodsSyncDescriptor,
+	sourceReductionMethodsSyncDescriptor,
+	outreachMethodsSyncDescriptor,
+	biocontrolMethodsSyncDescriptor,
+	vehiclesSyncDescriptor,
+	equipmentSyncDescriptor,
+	notificationTypesSyncDescriptor,
 	tagsSyncDescriptor,
 	routesSyncDescriptor,
 ] as const;

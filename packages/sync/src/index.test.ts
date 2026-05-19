@@ -82,6 +82,13 @@ describe('sync descriptors', () => {
 			'genera',
 			'species',
 			'organization_species',
+			'application_methods',
+			'source_reduction_methods',
+			'outreach_methods',
+			'biocontrol_methods',
+			'vehicles',
+			'equipment',
+			'notification_types',
 			'tags',
 			'routes',
 		]);

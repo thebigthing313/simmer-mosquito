@@ -17,6 +17,13 @@ describe('web sync baseline preload', () => {
 			'collectionMethods',
 			'collectionLures',
 			'habitatTypes',
+			'applicationMethods',
+			'sourceReductionMethods',
+			'outreachMethods',
+			'biocontrolMethods',
+			'vehicles',
+			'equipment',
+			'notificationTypes',
 			'tags',
 			'routes',
 		]);
