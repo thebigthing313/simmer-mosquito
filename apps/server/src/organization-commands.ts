@@ -71,7 +71,7 @@ export function registerOrganizationCommandRoutes(
 
 			const txidRow = await sql<{
 				readonly txid: string;
-			}>`select pg_current_xact_id()::text as txid`
+			}>`select pg_current_xact_id()::xid::text as txid`
 				.execute(trx)
 				.then((queryResult) => queryResult.rows[0]);
 

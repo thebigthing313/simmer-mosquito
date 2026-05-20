@@ -2191,7 +2191,7 @@ export async function deleteUnitWithTxid(
 async function readCurrentTransactionId(db: DbExecutor): Promise<number> {
 	const result = await sql<{
 		txid: string;
-	}>`select pg_current_xact_id()::text as txid`.execute(db);
+	}>`select pg_current_xact_id()::xid::text as txid`.execute(db);
 	const txid = result.rows[0]?.txid;
 	if (txid === undefined) {
 		throw new Error('Unable to read current transaction id.');

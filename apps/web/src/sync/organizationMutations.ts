@@ -1,5 +1,4 @@
 import type { OrganizationRow } from '@simmer-mosquito/sync';
-import { ELECTRIC_PERSISTENCE_TIMEOUT_MS } from './persistenceTimeout';
 
 export function createOrganizationMutationHandlers(options: { readonly serverUrl: string }) {
 	return {
@@ -14,7 +13,7 @@ export function createOrganizationMutationHandlers(options: { readonly serverUrl
 				}),
 			);
 
-			return { txid: txids, timeout: ELECTRIC_PERSISTENCE_TIMEOUT_MS };
+			return { txid: txids };
 		},
 	};
 }

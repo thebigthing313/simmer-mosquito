@@ -1,5 +1,3 @@
-import { ELECTRIC_PERSISTENCE_TIMEOUT_MS } from './persistenceTimeout';
-
 interface OrgLookupMutationRow {
 	readonly id: string;
 	readonly name: string;
@@ -28,7 +26,7 @@ export function createOrgLookupMutationHandlers<TRow extends OrgLookupMutationRo
 				}),
 			);
 
-			return { txid: txids, timeout: ELECTRIC_PERSISTENCE_TIMEOUT_MS };
+			return { txid: txids };
 		},
 		onUpdate: async ({ transaction }: CollectionMutationHandlerInput<TRow>) => {
 			const txids = await Promise.all(
@@ -47,7 +45,7 @@ export function createOrgLookupMutationHandlers<TRow extends OrgLookupMutationRo
 				}),
 			);
 
-			return { txid: txids, timeout: ELECTRIC_PERSISTENCE_TIMEOUT_MS };
+			return { txid: txids };
 		},
 		onDelete: async ({ transaction }: CollectionMutationHandlerInput<TRow>) => {
 			const txids = await Promise.all(
@@ -65,7 +63,7 @@ export function createOrgLookupMutationHandlers<TRow extends OrgLookupMutationRo
 				}),
 			);
 
-			return { txid: txids, timeout: ELECTRIC_PERSISTENCE_TIMEOUT_MS };
+			return { txid: txids };
 		},
 	};
 }
