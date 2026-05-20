@@ -323,6 +323,7 @@ const server = serve(
 );
 
 let isShuttingDown = false;
+const shutdownTimeoutMs = env.nodeEnv === 'production' ? 5000 : 1000;
 
 server.on('error', (error: NodeJS.ErrnoException) => {
 	if (error.code === 'EADDRINUSE') {
@@ -345,7 +346,7 @@ function shutdown(signal: NodeJS.Signals): void {
 	const timeout = setTimeout(() => {
 		console.error('Server shutdown timed out.');
 		process.exit(1);
-	}, 5000);
+	}, shutdownTimeoutMs);
 	timeout.unref();
 
 	server.close((error) => {
@@ -359,10 +360,27 @@ function shutdown(signal: NodeJS.Signals): void {
 			process.exit(0);
 		});
 	});
+
+	closeOpenHttpConnectionsForShutdown();
 }
 
 process.once('SIGINT', shutdown);
 process.once('SIGTERM', shutdown);
+
+function closeOpenHttpConnectionsForShutdown(): void {
+	const connectionCloser = server as {
+		readonly closeAllConnections?: () => void;
+		readonly closeIdleConnections?: () => void;
+	};
+
+	connectionCloser.closeIdleConnections?.();
+
+	if (env.nodeEnv === 'production') {
+		return;
+	}
+
+	connectionCloser.closeAllConnections?.();
+}
 
 function setAuthCookie(
 	context: Parameters<typeof setCookie>[0],
