@@ -24,7 +24,7 @@ const unitDefaults = {
 	temperature: 'fahrenheit',
 	duration: 'hour',
 	count: 'count',
-	speed: 'mph',
+	speed: 'miles_per_hour',
 } as const;
 
 describe('organization settings commands', () => {

@@ -29,7 +29,7 @@ describe('unit default fields', () => {
 				temperature: 'fahrenheit',
 				duration: 'hour',
 				count: 'count',
-				speed: 'mph',
+				speed: 'miles_per_hour',
 			},
 			[
 				unit({ code: 'kilogram', unitName: 'Kilogram', abbreviation: 'kg', unitType: 'weight' }),
@@ -59,7 +59,7 @@ describe('unit default fields', () => {
 				temperature: 'fahrenheit',
 				duration: 'hour',
 				count: 'count',
-				speed: 'mph',
+				speed: 'miles_per_hour',
 			},
 			[unit({ code: 'pound', unitName: 'Pound', abbreviation: 'lb', unitType: 'weight' })],
 		);

@@ -185,7 +185,7 @@ export const DEFAULT_UNIT_DEFAULTS: UnitDefaults = {
 	temperature: 'fahrenheit',
 	duration: 'hour',
 	count: 'count',
-	speed: 'mph',
+	speed: 'miles_per_hour',
 } as const;
 
 export const DEFAULT_LARVAL_INSPECTION_ENTRY_POLICY: ResolvedLarvalInspectionEntryPolicy = {
