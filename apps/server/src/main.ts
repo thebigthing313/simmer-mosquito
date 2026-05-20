@@ -340,7 +340,6 @@ function shutdown(signal: NodeJS.Signals): void {
 	if (isShuttingDown) {
 		return;
 	}
-	isShuttingDown = true;
 	console.log(`Received ${signal}; closing server.`);
 
 	const timeout = setTimeout(() => {
@@ -349,23 +348,46 @@ function shutdown(signal: NodeJS.Signals): void {
 	}, shutdownTimeoutMs);
 	timeout.unref();
 
-	server.close((error) => {
-		if (error !== undefined) {
-			console.error(error);
-			process.exit(1);
-		}
-
-		void db.destroy().finally(() => {
+	void closeServer()
+		.then(() => {
 			clearTimeout(timeout);
 			process.exit(0);
+		})
+		.catch((error: unknown) => {
+			console.error(error);
+			process.exit(1);
 		});
-	});
-
-	closeOpenHttpConnectionsForShutdown();
 }
 
 process.once('SIGINT', shutdown);
 process.once('SIGTERM', shutdown);
+
+export async function disposeServerForRestart(): Promise<void> {
+	await closeServer();
+}
+
+async function closeServer(): Promise<void> {
+	if (isShuttingDown) {
+		return;
+	}
+	isShuttingDown = true;
+
+	process.off('SIGINT', shutdown);
+	process.off('SIGTERM', shutdown);
+	closeOpenHttpConnectionsForShutdown();
+
+	await new Promise<void>((resolve, reject) => {
+		server.close((error) => {
+			if (error !== undefined) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
+	await db.destroy();
+}
 
 function closeOpenHttpConnectionsForShutdown(): void {
 	const connectionCloser = server as {
