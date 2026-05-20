@@ -42,6 +42,7 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { AuthMe } from '../auth';
+import { useAppForm } from '../forms';
 import { useCollectionRows } from '../sync/useCollectionRows';
 import { webCollections } from '../sync/webCollections';
 
@@ -49,6 +50,7 @@ type OrgRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 
 const collections = webCollections;
 const AddIcon = iconRegistry.actions.add.icon;
+const CloseIcon = iconRegistry.actions.close.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const SaveIcon = iconRegistry.actions.save.icon;
 const US_TIMEZONE_OPTIONS = [
@@ -61,59 +63,62 @@ const US_TIMEZONE_OPTIONS = [
 	{ label: 'Hawaii Time', value: 'Pacific/Honolulu' },
 ] as const;
 const US_STATE_OPTIONS = [
-	'AL',
-	'AK',
-	'AZ',
-	'AR',
-	'CA',
-	'CO',
-	'CT',
-	'DE',
-	'FL',
-	'GA',
-	'HI',
-	'ID',
-	'IL',
-	'IN',
-	'IA',
-	'KS',
-	'KY',
-	'LA',
-	'ME',
-	'MD',
-	'MA',
-	'MI',
-	'MN',
-	'MS',
-	'MO',
-	'MT',
-	'NE',
-	'NV',
-	'NH',
-	'NJ',
-	'NM',
-	'NY',
-	'NC',
-	'ND',
-	'OH',
-	'OK',
-	'OR',
-	'PA',
-	'RI',
-	'SC',
-	'SD',
-	'TN',
-	'TX',
-	'UT',
-	'VT',
-	'VA',
-	'WA',
-	'WV',
-	'WI',
-	'WY',
-	'DC',
+	{ code: 'AL', name: 'Alabama' },
+	{ code: 'AK', name: 'Alaska' },
+	{ code: 'AZ', name: 'Arizona' },
+	{ code: 'AR', name: 'Arkansas' },
+	{ code: 'CA', name: 'California' },
+	{ code: 'CO', name: 'Colorado' },
+	{ code: 'CT', name: 'Connecticut' },
+	{ code: 'DE', name: 'Delaware' },
+	{ code: 'FL', name: 'Florida' },
+	{ code: 'GA', name: 'Georgia' },
+	{ code: 'HI', name: 'Hawaii' },
+	{ code: 'ID', name: 'Idaho' },
+	{ code: 'IL', name: 'Illinois' },
+	{ code: 'IN', name: 'Indiana' },
+	{ code: 'IA', name: 'Iowa' },
+	{ code: 'KS', name: 'Kansas' },
+	{ code: 'KY', name: 'Kentucky' },
+	{ code: 'LA', name: 'Louisiana' },
+	{ code: 'ME', name: 'Maine' },
+	{ code: 'MD', name: 'Maryland' },
+	{ code: 'MA', name: 'Massachusetts' },
+	{ code: 'MI', name: 'Michigan' },
+	{ code: 'MN', name: 'Minnesota' },
+	{ code: 'MS', name: 'Mississippi' },
+	{ code: 'MO', name: 'Missouri' },
+	{ code: 'MT', name: 'Montana' },
+	{ code: 'NE', name: 'Nebraska' },
+	{ code: 'NV', name: 'Nevada' },
+	{ code: 'NH', name: 'New Hampshire' },
+	{ code: 'NJ', name: 'New Jersey' },
+	{ code: 'NM', name: 'New Mexico' },
+	{ code: 'NY', name: 'New York' },
+	{ code: 'NC', name: 'North Carolina' },
+	{ code: 'ND', name: 'North Dakota' },
+	{ code: 'OH', name: 'Ohio' },
+	{ code: 'OK', name: 'Oklahoma' },
+	{ code: 'OR', name: 'Oregon' },
+	{ code: 'PA', name: 'Pennsylvania' },
+	{ code: 'RI', name: 'Rhode Island' },
+	{ code: 'SC', name: 'South Carolina' },
+	{ code: 'SD', name: 'South Dakota' },
+	{ code: 'TN', name: 'Tennessee' },
+	{ code: 'TX', name: 'Texas' },
+	{ code: 'UT', name: 'Utah' },
+	{ code: 'VT', name: 'Vermont' },
+	{ code: 'VA', name: 'Virginia' },
+	{ code: 'WA', name: 'Washington' },
+	{ code: 'WV', name: 'West Virginia' },
+	{ code: 'WI', name: 'Wisconsin' },
+	{ code: 'WY', name: 'Wyoming' },
+	{ code: 'DC', name: 'District of Columbia' },
 ] as const;
-const US_STATE_SELECT_OPTIONS = US_STATE_OPTIONS.map((state) => ({ label: state, value: state }));
+const US_STATE_SELECT_OPTIONS = US_STATE_OPTIONS.map((state) => ({
+	label: `${state.code} - ${state.name}`,
+	value: state.code,
+}));
 
 const sections = [
 	{ id: 'general', label: 'General', to: '/my-organization' },
@@ -354,10 +359,18 @@ function GeneralOrganizationSection({
 			<DomainSection
 				canManage={canManage}
 				editDescription="Update the agency profile details available to organization members."
+				editAction={
+					<EditAgencyDetailsSheet
+						defaultValues={agencyDetailsFormValues(organization, organizationFallback, settings)}
+						description="Update the agency profile details available to organization members."
+						organization={organization}
+						settings={settings}
+						title={`Edit ${organizationName}`}
+					/>
+				}
 				fields={agencyFields}
 				id="agency"
 				meta={status === 'ready' ? 'Current agency details' : 'Agency details loading'}
-				onSave={(formData) => saveAgencyDetails(organization, settings, formData)}
 				setupItems={[]}
 				title={organizationName}
 			>
@@ -454,6 +467,7 @@ function DomainSection({
 	canManage,
 	children,
 	editDescription,
+	editAction,
 	fields,
 	id,
 	meta,
@@ -464,6 +478,7 @@ function DomainSection({
 	readonly canManage: boolean;
 	readonly children?: React.ReactNode;
 	readonly editDescription: string;
+	readonly editAction?: React.ReactNode;
 	readonly fields: readonly SettingField[];
 	readonly id: string;
 	readonly meta: string;
@@ -476,14 +491,16 @@ function DomainSection({
 			<OrgSurface>
 				<SectionHeader
 					action={
-						canManage ? (
-							<EditSettingsSheet
-								description={editDescription}
-								fields={fields}
-								onSave={onSave}
-								title={`Edit ${title}`}
-							/>
-						) : null
+						canManage
+							? (editAction ?? (
+									<EditSettingsSheet
+										description={editDescription}
+										fields={fields}
+										onSave={onSave}
+										title={`Edit ${title}`}
+									/>
+								))
+							: null
 					}
 					meta={meta}
 					title={title}
@@ -518,11 +535,8 @@ function EditSettingsSheet({
 
 		setError(null);
 		try {
-			const persistence = onSave(new FormData(event.currentTarget));
+			await onSave(new FormData(event.currentTarget));
 			setOpen(false);
-			void persistence.catch((saveError) => {
-				toast.error(errorMessageForSave(saveError));
-			});
 		} catch (saveError) {
 			setError(errorMessageForSave(saveError));
 		}
@@ -565,6 +579,131 @@ function EditSettingsSheet({
 						</SheetClose>
 					</SheetFooter>
 				</form>
+			</SheetContent>
+		</Sheet>
+	);
+}
+
+function EditAgencyDetailsSheet({
+	defaultValues,
+	description,
+	organization,
+	settings,
+	title,
+}: {
+	readonly defaultValues: AgencyDetailsFormValues;
+	readonly description: string;
+	readonly organization: OrganizationRow | null;
+	readonly settings: OrganizationSettings;
+	readonly title: string;
+}) {
+	const [open, setOpen] = useState(false);
+	const form = useAppForm({
+		defaultValues,
+		validators: {
+			onSubmit: () =>
+				organization === null ? 'Organization details are still loading.' : undefined,
+		},
+		onSubmit: async ({ value }) => {
+			try {
+				const transaction = saveAgencyDetailsFromValues(organization, settings, value);
+				await transaction.isPersisted.promise;
+				setOpen(false);
+			} catch (saveError) {
+				toast.error(errorMessageForSave(saveError));
+			}
+		},
+	});
+
+	function updateOpen(nextOpen: boolean) {
+		if (nextOpen) {
+			form.reset(defaultValues);
+		}
+		setOpen(nextOpen);
+	}
+
+	return (
+		<Sheet open={open} onOpenChange={updateOpen}>
+			<SheetTrigger asChild>
+				<Button type="button" variant="outline" size="sm">
+					<EditIcon aria-hidden="true" />
+					Edit
+				</Button>
+			</SheetTrigger>
+			<SheetContent className="w-[min(440px,100%)]">
+				<SheetHeader>
+					<SheetTitle>{title}</SheetTitle>
+					<SheetDescription>{description}</SheetDescription>
+				</SheetHeader>
+				<form.AppForm>
+					<form
+						className="grid gap-3.5"
+						onSubmit={(event) => {
+							event.preventDefault();
+							void form.handleSubmit();
+						}}
+					>
+						<div className="grid gap-2.5 px-4">
+							<form.FormErrorAlert />
+							<form.AppField
+								name="name"
+								validators={{
+									onSubmit: ({ value }) =>
+										value.trim().length === 0 ? 'Organization name is required.' : undefined,
+								}}
+							>
+								{(field) => <field.TextField label="Organization name" />}
+							</form.AppField>
+							<form.AppField name="mainContactEmail" validators={{ onSubmit: validateEmail }}>
+								{(field) => <field.TextField label="Main contact" type="email" />}
+							</form.AppField>
+							<form.AppField name="phoneNumber">
+								{(field) => <field.TextField label="Phone" type="tel" />}
+							</form.AppField>
+							<form.AppField name="mailingAddressLine1">
+								{(field) => <field.TextField label="Street address" />}
+							</form.AppField>
+							<form.AppField name="mailingAddressLine2">
+								{(field) => <field.TextField label="Apt, suite, etc." />}
+							</form.AppField>
+							<form.AppField name="mailingLocality">
+								{(field) => <field.TextField label="City" />}
+							</form.AppField>
+							<form.AppField name="mailingRegion">
+								{(field) => (
+									<field.SelectField
+										label="State"
+										options={US_STATE_SELECT_OPTIONS}
+										placeholder="Not set"
+									/>
+								)}
+							</form.AppField>
+							<form.AppField name="mailingPostalCode">
+								{(field) => <field.TextField label="ZIP code" />}
+							</form.AppField>
+							<form.AppField
+								name="timezone"
+								validators={{
+									onSubmit: ({ value }) =>
+										value.trim().length === 0 ? 'Timezone is required.' : undefined,
+								}}
+							>
+								{(field) => <field.SelectField label="Timezone" options={US_TIMEZONE_OPTIONS} />}
+							</form.AppField>
+						</div>
+						<SheetFooter>
+							<form.FormActions>
+								<form.SubmitButton disabled={organization === null} />
+								<SheetClose asChild>
+									<Button type="button" variant="outline">
+										<CloseIcon data-icon="inline-start" aria-hidden="true" />
+										Cancel
+									</Button>
+								</SheetClose>
+							</form.FormActions>
+						</SheetFooter>
+					</form>
+				</form.AppForm>
 			</SheetContent>
 		</Sheet>
 	);
@@ -848,13 +987,13 @@ function CollectionMethodCreateRow({
 	readonly canManage: boolean;
 	readonly organization: OrganizationRow | null;
 }) {
-	function createLookup(event: React.FormEvent<HTMLFormElement>) {
+	async function createLookup(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		const form = event.currentTarget;
 		try {
 			const transaction = createAdultLookup('collectionMethods', organization, new FormData(form));
+			await transaction.isPersisted.promise;
 			form.reset();
-			watchLookupPersistence(transaction, 'Unable to save collection method.');
 		} catch (error) {
 			toast.error(errorMessageForSave(error));
 		}
@@ -905,13 +1044,13 @@ function CollectionLureCreateRow({
 	readonly canManage: boolean;
 	readonly organization: OrganizationRow | null;
 }) {
-	function createLookup(event: React.FormEvent<HTMLFormElement>) {
+	async function createLookup(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		const form = event.currentTarget;
 		try {
 			const transaction = createAdultLookup('collectionLures', organization, new FormData(form));
+			await transaction.isPersisted.promise;
 			form.reset();
-			watchLookupPersistence(transaction, 'Unable to save collection lure.');
 		} catch (error) {
 			toast.error(errorMessageForSave(error));
 		}
@@ -953,7 +1092,7 @@ function CollectionMethodRowEditor({
 		setIsActive(method.isActive);
 	}, [method.isActive]);
 
-	function updateLookup(event: React.FormEvent<HTMLFormElement>) {
+	async function updateLookup(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		try {
 			const transaction = updateAdultLookup(
@@ -962,7 +1101,7 @@ function CollectionMethodRowEditor({
 				new FormData(event.currentTarget),
 				isActive,
 			);
-			watchLookupPersistence(transaction, `Unable to save ${method.name}.`);
+			await transaction.isPersisted.promise;
 		} catch (error) {
 			toast.error(errorMessageForSave(error));
 		}
@@ -1040,7 +1179,7 @@ function CollectionLureRowEditor({
 		setIsActive(lure.isActive);
 	}, [lure.isActive]);
 
-	function updateLookup(event: React.FormEvent<HTMLFormElement>) {
+	async function updateLookup(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		try {
 			const transaction = updateAdultLookup(
@@ -1049,7 +1188,7 @@ function CollectionLureRowEditor({
 				new FormData(event.currentTarget),
 				isActive,
 			);
-			watchLookupPersistence(transaction, `Unable to save ${lure.name}.`);
+			await transaction.isPersisted.promise;
 		} catch (error) {
 			toast.error(errorMessageForSave(error));
 		}
@@ -1235,24 +1374,42 @@ function formatMailingAddress(organization: OrganizationRow | null): string {
 	return parts.length === 0 ? 'Not set' : parts.join(', ');
 }
 
-function saveAgencyDetails(
+function agencyDetailsFormValues(
+	organization: OrganizationRow | null,
+	organizationFallback: OrganizationFallback,
+	settings: OrganizationSettings,
+): AgencyDetailsFormValues {
+	return {
+		name: organization?.name ?? organizationFallback.name ?? '',
+		mainContactEmail: organization?.mainContactEmail ?? '',
+		phoneNumber: organization?.phoneNumber ?? '',
+		mailingAddressLine1: organization?.mailingAddressLine1 ?? '',
+		mailingAddressLine2: organization?.mailingAddressLine2 ?? '',
+		mailingLocality: organization?.mailingLocality ?? '',
+		mailingRegion: organization?.mailingRegion ?? '',
+		mailingPostalCode: organization?.mailingPostalCode ?? '',
+		timezone: settings.timezone,
+	};
+}
+
+function saveAgencyDetailsFromValues(
 	organization: OrganizationRow | null,
 	settings: OrganizationSettings,
-	formData: FormData,
-): Promise<void> {
-	return updateCurrentOrganization(organization, (draft) => {
-		draft.name = requiredFormText(formData, 'Organization name');
-		draft.mainContactEmail = nullableFormText(formData, 'Main contact');
-		draft.phoneNumber = nullableFormText(formData, 'Phone');
+	values: AgencyDetailsFormValues,
+): PersistenceTransaction {
+	return updateCurrentOrganizationOptimistically(organization, (draft) => {
+		draft.name = requiredTextValue(values.name, 'Organization name');
+		draft.mainContactEmail = nullableTextValue(values.mainContactEmail);
+		draft.phoneNumber = nullableTextValue(values.phoneNumber);
 		draft.mailingCountry = 'US';
-		draft.mailingAddressLine1 = nullableFormText(formData, 'Street address');
-		draft.mailingAddressLine2 = nullableFormText(formData, 'Apt, suite, etc.');
-		draft.mailingLocality = nullableFormText(formData, 'City');
-		draft.mailingRegion = nullableFormText(formData, 'State');
-		draft.mailingPostalCode = nullableFormText(formData, 'ZIP code');
+		draft.mailingAddressLine1 = nullableTextValue(values.mailingAddressLine1);
+		draft.mailingAddressLine2 = nullableTextValue(values.mailingAddressLine2);
+		draft.mailingLocality = nullableTextValue(values.mailingLocality);
+		draft.mailingRegion = nullableTextValue(values.mailingRegion);
+		draft.mailingPostalCode = nullableTextValue(values.mailingPostalCode);
 		draft.settings = {
 			...settings,
-			timezone: requiredFormText(formData, 'Timezone'),
+			timezone: requiredTextValue(values.timezone, 'Timezone'),
 		};
 	});
 }
@@ -1359,14 +1516,23 @@ function updateCurrentOrganization(
 	organization: OrganizationRow | null,
 	applyChanges: (draft: MutableOrganizationRow) => void,
 ): Promise<void> {
+	return updateCurrentOrganizationOptimistically(
+		organization,
+		applyChanges,
+	).isPersisted.promise.then(() => undefined);
+}
+
+function updateCurrentOrganizationOptimistically(
+	organization: OrganizationRow | null,
+	applyChanges: (draft: MutableOrganizationRow) => void,
+): PersistenceTransaction {
 	if (organization === null) {
 		throw new Error('Organization details are still loading.');
 	}
 
-	const transaction = collections.currentOrganization.update(organization.id, (draft) => {
+	return collections.currentOrganization.update(organization.id, (draft) => {
 		applyChanges(draft as MutableOrganizationRow);
 	});
-	return transaction.isPersisted.promise.then(() => undefined);
 }
 
 function requiredFormText(formData: FormData, name: string): string {
@@ -1382,6 +1548,28 @@ function nullableFormText(formData: FormData, name: string): string | null {
 	const value = formData.get(name);
 	const text = typeof value === 'string' ? value.trim() : '';
 	return text.length === 0 ? null : text;
+}
+
+function requiredTextValue(value: string, label: string): string {
+	const text = value.trim();
+	if (text.length === 0) {
+		throw new Error(`${label} is required.`);
+	}
+	return text;
+}
+
+function nullableTextValue(value: string): string | null {
+	const text = value.trim();
+	return text.length === 0 ? null : text;
+}
+
+function validateEmail({ value }: { readonly value: string }): string | undefined {
+	const text = value.trim();
+	if (text.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+		return undefined;
+	}
+
+	return 'Main contact must be a valid email address.';
 }
 
 function requiredFormNumber(formData: FormData, name: string): number {
@@ -1491,13 +1679,6 @@ function formatCustomSchema(value: unknown): string {
 
 function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function watchLookupPersistence(transaction: PersistenceTransaction, fallback: string): void {
-	void transaction.isPersisted.promise.catch((error) => {
-		const message = errorMessageForSave(error);
-		toast.error(message === 'Unable to save changes.' ? fallback : message);
-	});
 }
 
 function useSetupCatalogRows(): SetupCatalog[] {
@@ -1834,6 +2015,18 @@ interface SetupCatalog {
 interface OrganizationFallback {
 	readonly name?: string;
 	readonly slug?: string | null;
+}
+
+interface AgencyDetailsFormValues {
+	readonly name: string;
+	readonly mainContactEmail: string;
+	readonly phoneNumber: string;
+	readonly mailingAddressLine1: string;
+	readonly mailingAddressLine2: string;
+	readonly mailingLocality: string;
+	readonly mailingRegion: string;
+	readonly mailingPostalCode: string;
+	readonly timezone: string;
 }
 
 type SetupDomain =
