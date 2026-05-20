@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildElectricShapeUrl } from './sync-shapes.js';
+import { buildElectricShapeRequest, buildElectricShapeUrl } from './sync-shapes.js';
 
 describe('buildElectricShapeUrl', () => {
 	it('forces server-owned shape params while preserving Electric stream params', () => {
@@ -53,5 +53,36 @@ describe('buildElectricShapeUrl', () => {
 		expect(url.searchParams.get('columns')).toBe(
 			'id,mailing_address_line_1,mailing_address_line_2',
 		);
+	});
+
+	it('uses POST body params for Electric subset snapshots', () => {
+		const request = buildElectricShapeRequest({
+			electricUrl: 'http://localhost:3001/v1/shape',
+			incomingUrl:
+				'http://localhost:3000/sync/shapes/routes?offset=123&handle=shape-1&subset__where=route_type%20%3D%20%241&subset__params=%7B%221%22%3A%22trap%22%7D&subset__limit=25&subset__offset=50&subset__order_by=created_at%20DESC',
+			columns: ['id', 'organization_id', 'route_name', 'route_type'],
+			table: 'routes',
+			where: 'organization_id = $1 and deleted_at is null',
+			params: ['org-1'],
+		});
+		const url = new URL(request.url);
+
+		expect(request.init.method).toBe('POST');
+		expect(request.init.body).toBe(
+			JSON.stringify({
+				where: 'route_type = $1',
+				params: { '1': 'trap' },
+				limit: 25,
+				offset: 50,
+				order_by: 'created_at DESC',
+			}),
+		);
+		expect(url.searchParams.get('offset')).toBe('123');
+		expect(url.searchParams.get('handle')).toBe('shape-1');
+		expect(url.searchParams.get('table')).toBe('routes');
+		expect(url.searchParams.get('columns')).toBe('id,organization_id,route_name,route_type');
+		expect(url.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
+		expect(url.searchParams.get('params[1]')).toBe('org-1');
+		expect(url.searchParams.get('subset__where')).toBeNull();
 	});
 });

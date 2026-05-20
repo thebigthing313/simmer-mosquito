@@ -138,6 +138,16 @@ VITE_SERVER_URL=https://<server-domain>
 VITE_PREVIEW_ALLOWED_HOSTS=<web-domain>
 ```
 
+`VITE_SHAPE_SERVER_URL` is optional. Leave it unset unless a deployment has a
+separate browser-facing HTTPS/HTTP2 proxy for shape streams; when unset, the web
+app uses `VITE_SERVER_URL` for both API requests and shapes.
+
+For local Docker development, Electric is already exposed on `localhost:3001`,
+but browser shape requests go through the server's `/sync/shapes/*` proxy routes.
+If using Caddy for browser HTTP/2 shape streams, run Caddy on another port such
+as `https://localhost:3002` and proxy it to the API server at
+`http://localhost:3000`.
+
 Set this on the Railway admin service:
 
 ```sh

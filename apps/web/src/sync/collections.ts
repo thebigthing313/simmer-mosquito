@@ -84,41 +84,45 @@ interface PreloadableCollection {
 	readonly preload: () => Promise<unknown>;
 }
 
-export function createWebCollections(options: { readonly serverUrl: string }): WebCollections {
+export function createWebCollections(options: {
+	readonly serverUrl: string;
+	readonly shapeServerUrl?: string;
+}): WebCollections {
+	const shapeServerUrl = options.shapeServerUrl ?? options.serverUrl;
 	const units = createCollection(
 		electricShapeCollectionOptions<UnitRow>({
 			descriptor: unitsSyncDescriptor,
-			url: `${options.serverUrl}${unitsSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${unitsSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const profiles = createCollection(
 		electricShapeCollectionOptions<ProfileRow>({
 			descriptor: profilesSyncDescriptor,
-			url: `${options.serverUrl}${profilesSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${profilesSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const genera = createCollection(
 		electricShapeCollectionOptions<GenusRow>({
 			descriptor: generaSyncDescriptor,
-			url: `${options.serverUrl}${generaSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${generaSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const species = createCollection(
 		electricShapeCollectionOptions<SpeciesRow>({
 			descriptor: speciesSyncDescriptor,
-			url: `${options.serverUrl}${speciesSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${speciesSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const organizationSpecies = createCollection(
 		electricShapeCollectionOptions<OrganizationSpeciesRow>({
 			descriptor: organizationSpeciesSyncDescriptor,
-			url: `${options.serverUrl}${organizationSpeciesSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${organizationSpeciesSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const currentOrganization = createCollection(
 		electricShapeCollectionOptions<OrganizationRow>({
 			descriptor: currentOrganizationSyncDescriptor,
-			url: `${options.serverUrl}${currentOrganizationSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${currentOrganizationSyncDescriptor.endpointPath}`,
 			...createOrganizationMutationHandlers({
 				serverUrl: options.serverUrl,
 			}),
@@ -127,7 +131,7 @@ export function createWebCollections(options: { readonly serverUrl: string }): W
 	const collectionMethods = createCollection(
 		electricShapeCollectionOptions<CollectionMethodRow>({
 			descriptor: collectionMethodsSyncDescriptor,
-			url: `${options.serverUrl}${collectionMethodsSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${collectionMethodsSyncDescriptor.endpointPath}`,
 			...createOrgLookupMutationHandlers<CollectionMethodRow>({
 				serverUrl: options.serverUrl,
 				endpointPath: '/foundation/collection-methods',
@@ -138,7 +142,7 @@ export function createWebCollections(options: { readonly serverUrl: string }): W
 	const collectionLures = createCollection(
 		electricShapeCollectionOptions<CollectionLureRow>({
 			descriptor: collectionLuresSyncDescriptor,
-			url: `${options.serverUrl}${collectionLuresSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${collectionLuresSyncDescriptor.endpointPath}`,
 			...createOrgLookupMutationHandlers<CollectionLureRow>({
 				serverUrl: options.serverUrl,
 				endpointPath: '/foundation/collection-lures',
@@ -149,7 +153,7 @@ export function createWebCollections(options: { readonly serverUrl: string }): W
 	const habitatTypes = createCollection(
 		electricShapeCollectionOptions<HabitatTypeRow>({
 			descriptor: habitatTypesSyncDescriptor,
-			url: `${options.serverUrl}${habitatTypesSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${habitatTypesSyncDescriptor.endpointPath}`,
 			...createOrgLookupMutationHandlers<HabitatTypeRow>({
 				serverUrl: options.serverUrl,
 				endpointPath: '/foundation/habitat-types',
@@ -160,55 +164,55 @@ export function createWebCollections(options: { readonly serverUrl: string }): W
 	const applicationMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: applicationMethodsSyncDescriptor,
-			url: `${options.serverUrl}${applicationMethodsSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${applicationMethodsSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const sourceReductionMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: sourceReductionMethodsSyncDescriptor,
-			url: `${options.serverUrl}${sourceReductionMethodsSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${sourceReductionMethodsSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const outreachMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: outreachMethodsSyncDescriptor,
-			url: `${options.serverUrl}${outreachMethodsSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${outreachMethodsSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const biocontrolMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: biocontrolMethodsSyncDescriptor,
-			url: `${options.serverUrl}${biocontrolMethodsSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${biocontrolMethodsSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const vehicles = createCollection(
 		electricShapeCollectionOptions<VehicleRow>({
 			descriptor: vehiclesSyncDescriptor,
-			url: `${options.serverUrl}${vehiclesSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${vehiclesSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const equipment = createCollection(
 		electricShapeCollectionOptions<EquipmentRow>({
 			descriptor: equipmentSyncDescriptor,
-			url: `${options.serverUrl}${equipmentSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${equipmentSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const notificationTypes = createCollection(
 		electricShapeCollectionOptions<NotificationTypeRow>({
 			descriptor: notificationTypesSyncDescriptor,
-			url: `${options.serverUrl}${notificationTypesSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${notificationTypesSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const tags = createCollection(
 		electricShapeCollectionOptions<TagRow>({
 			descriptor: tagsSyncDescriptor,
-			url: `${options.serverUrl}${tagsSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${tagsSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const routes = createCollection(
 		electricShapeCollectionOptions<RouteRow>({
 			descriptor: routesSyncDescriptor,
-			url: `${options.serverUrl}${routesSyncDescriptor.endpointPath}`,
+			url: `${shapeServerUrl}${routesSyncDescriptor.endpointPath}`,
 		}),
 	);
 

@@ -280,6 +280,12 @@ export function getServerUrl(): string {
 	return trimTrailingSlash(import.meta.env.VITE_SERVER_URL ?? DEFAULT_SERVER_URL);
 }
 
+export function getShapeServerUrl(): string {
+	return trimTrailingSlash(
+		import.meta.env.VITE_SHAPE_SERVER_URL ?? import.meta.env.VITE_SERVER_URL ?? DEFAULT_SERVER_URL,
+	);
+}
+
 export async function getAuthMe(serverUrl = getServerUrl()): Promise<AuthMe> {
 	const response = await fetch(`${serverUrl}/auth/me`, {
 		credentials: 'include',

@@ -37,7 +37,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: unitsSyncDescriptor.columns.map(camelToSnake),
@@ -55,7 +55,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: profilesSyncDescriptor.columns.map(camelToSnake),
@@ -73,7 +73,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: generaSyncDescriptor.columns.map(camelToSnake),
@@ -89,7 +89,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: speciesSyncDescriptor.columns.map(camelToSnake),
@@ -107,7 +107,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: organizationSpeciesSyncDescriptor.columns.map(camelToSnake),
@@ -127,7 +127,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: currentOrganizationSyncDescriptor.columns.map(camelToSnake),
@@ -147,7 +147,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: collectionMethodsSyncDescriptor.columns.map(camelToSnake),
@@ -167,7 +167,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: collectionLuresSyncDescriptor.columns.map(camelToSnake),
@@ -187,7 +187,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: habitatTypesSyncDescriptor.columns.map(camelToSnake),
@@ -236,7 +236,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: tagsSyncDescriptor.columns.map(camelToSnake),
@@ -256,7 +256,7 @@ export function registerSyncShapeRoutes(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: routesSyncDescriptor.columns.map(camelToSnake),
@@ -313,7 +313,7 @@ function registerSelectedOrganizationShapeRoute(
 
 		return proxyElectricShape(context, {
 			fetch: options.fetch,
-			upstreamUrl: buildElectricShapeUrl({
+			upstreamRequest: buildElectricShapeRequest({
 				electricUrl: options.electricUrl,
 				incomingUrl: context.req.url,
 				columns: shape.descriptor.columns.map(camelToSnake),
@@ -342,7 +342,7 @@ function proxyGlobalShape(
 
 	return proxyElectricShape(context, {
 		fetch: options.fetch,
-		upstreamUrl: buildElectricShapeUrl({
+		upstreamRequest: buildElectricShapeRequest({
 			electricUrl: options.electricUrl,
 			incomingUrl: context.req.url,
 			columns: shape.columns,
@@ -359,11 +359,28 @@ export function buildElectricShapeUrl(input: {
 	readonly where?: string;
 	readonly params?: readonly string[];
 }): string {
+	return buildElectricShapeRequest(input).url;
+}
+
+export function buildElectricShapeRequest(input: {
+	readonly electricUrl: string;
+	readonly incomingUrl: string;
+	readonly columns: readonly string[];
+	readonly table: string;
+	readonly where?: string;
+	readonly params?: readonly string[];
+}): {
+	readonly url: string;
+	readonly init: RequestInit;
+} {
 	const upstreamUrl = new URL(input.electricUrl);
 	const incomingUrl = new URL(input.incomingUrl);
+	const subsetBody: Record<string, unknown> = {};
 
 	for (const [key, value] of incomingUrl.searchParams) {
-		if (!isServerOwnedShapeParam(key)) {
+		if (isSubsetShapeParam(key)) {
+			subsetBody[toPostSubsetParam(key)] = parseSubsetParam(key, value);
+		} else if (!isServerOwnedShapeParam(key)) {
 			upstreamUrl.searchParams.append(key, value);
 		}
 	}
@@ -379,19 +396,36 @@ export function buildElectricShapeUrl(input: {
 		}
 	}
 
-	return upstreamUrl.toString();
+	const hasSubsetBody = Object.keys(subsetBody).length > 0;
+
+	return {
+		url: upstreamUrl.toString(),
+		init: hasSubsetBody
+			? {
+					method: 'POST',
+					body: JSON.stringify(subsetBody),
+				}
+			: {},
+	};
 }
 
 async function proxyElectricShape(
 	context: Context<{ Variables: AuthVariables }>,
 	options: {
-		readonly upstreamUrl: string;
+		readonly upstreamRequest: {
+			readonly url: string;
+			readonly init: RequestInit;
+		};
 		readonly fetch: typeof fetch | undefined;
 	},
 ): Promise<Response> {
-	const upstream = await (options.fetch ?? fetch)(options.upstreamUrl, {
+	const upstream = await (options.fetch ?? fetch)(options.upstreamRequest.url, {
+		...options.upstreamRequest.init,
 		headers: {
 			accept: context.req.header('accept') ?? 'application/json',
+			...(options.upstreamRequest.init.body === undefined
+				? {}
+				: { 'content-type': 'application/json' }),
 		},
 	});
 	const headers = copyElectricHeaders(upstream.headers);
@@ -431,6 +465,7 @@ const blockedProxyResponseHeaders = new Set([
 ]);
 
 const serverOwnedShapeParams = new Set(['columns', 'table', 'where']);
+const subsetShapeParamPrefix = 'subset__';
 const selectedOrganizationWhere = 'organization_id = $1 and deleted_at is null';
 const selectedOrganizationByIdWhere = 'id = $1 and deleted_at is null';
 const electricExposeHeaders = [
@@ -453,4 +488,23 @@ function camelToSnake(value: string): string {
 
 function isServerOwnedShapeParam(value: string): boolean {
 	return serverOwnedShapeParams.has(value) || /^params\[\d+\]$/.test(value);
+}
+
+function isSubsetShapeParam(value: string): boolean {
+	return value.startsWith(subsetShapeParamPrefix);
+}
+
+function toPostSubsetParam(value: string): string {
+	return value.slice(subsetShapeParamPrefix.length);
+}
+
+function parseSubsetParam(key: string, value: string): unknown {
+	if (key === 'subset__params') {
+		return JSON.parse(value);
+	}
+	if (key === 'subset__limit' || key === 'subset__offset') {
+		return Number(value);
+	}
+
+	return value;
 }
