@@ -1,12 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { MyOrganizationPage } from './-my-organization';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/my-organization')({
 	component: MyOrganizationRoute,
 });
 
 function MyOrganizationRoute() {
-	const { auth } = Route.useRouteContext();
-
-	return <MyOrganizationPage auth={auth.snapshot} />;
+	return <Outlet />;
 }

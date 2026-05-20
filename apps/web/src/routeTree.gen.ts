@@ -34,7 +34,13 @@ import { Route as AssignmentsRouteImport } from './routes/assignments'
 import { Route as AddressBookRouteImport } from './routes/address-book'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ServiceRequestsIndexRouteImport } from './routes/service-requests.index'
+import { Route as MyOrganizationIndexRouteImport } from './routes/my-organization/index'
 import { Route as ServiceRequestsRequestIdRouteImport } from './routes/service-requests.$requestId'
+import { Route as MyOrganizationPublicEngagementRouteImport } from './routes/my-organization/public-engagement'
+import { Route as MyOrganizationPeopleRouteImport } from './routes/my-organization/people'
+import { Route as MyOrganizationLarvalSurveillanceRouteImport } from './routes/my-organization/larval-surveillance'
+import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
+import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as MissionsEditRouteImport } from './routes/missions.edit'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin.organizations.$organizationId'
@@ -164,11 +170,45 @@ const ServiceRequestsIndexRoute = ServiceRequestsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ServiceRequestsRoute,
 } as any)
+const MyOrganizationIndexRoute = MyOrganizationIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MyOrganizationRoute,
+} as any)
 const ServiceRequestsRequestIdRoute =
   ServiceRequestsRequestIdRouteImport.update({
     id: '/$requestId',
     path: '/$requestId',
     getParentRoute: () => ServiceRequestsRoute,
+  } as any)
+const MyOrganizationPublicEngagementRoute =
+  MyOrganizationPublicEngagementRouteImport.update({
+    id: '/public-engagement',
+    path: '/public-engagement',
+    getParentRoute: () => MyOrganizationRoute,
+  } as any)
+const MyOrganizationPeopleRoute = MyOrganizationPeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
+  getParentRoute: () => MyOrganizationRoute,
+} as any)
+const MyOrganizationLarvalSurveillanceRoute =
+  MyOrganizationLarvalSurveillanceRouteImport.update({
+    id: '/larval-surveillance',
+    path: '/larval-surveillance',
+    getParentRoute: () => MyOrganizationRoute,
+  } as any)
+const MyOrganizationControlMethodsRoute =
+  MyOrganizationControlMethodsRouteImport.update({
+    id: '/control-methods',
+    path: '/control-methods',
+    getParentRoute: () => MyOrganizationRoute,
+  } as any)
+const MyOrganizationAdultSurveillanceRoute =
+  MyOrganizationAdultSurveillanceRouteImport.update({
+    id: '/adult-surveillance',
+    path: '/adult-surveillance',
+    getParentRoute: () => MyOrganizationRoute,
   } as any)
 const MissionsEditRoute = MissionsEditRouteImport.update({
   id: '/edit',
@@ -202,7 +242,7 @@ export interface FileRoutesByFullPath {
   '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
   '/missions': typeof MissionsRouteWithChildren
-  '/my-organization': typeof MyOrganizationRoute
+  '/my-organization': typeof MyOrganizationRouteWithChildren
   '/public-outreach': typeof PublicOutreachRoute
   '/regions': typeof RegionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
@@ -214,7 +254,13 @@ export interface FileRoutesByFullPath {
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/missions/edit': typeof MissionsEditRoute
+  '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
+  '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
+  '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
+  '/my-organization/people': typeof MyOrganizationPeopleRoute
+  '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
 }
@@ -233,7 +279,6 @@ export interface FileRoutesByTo {
   '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
   '/missions': typeof MissionsRouteWithChildren
-  '/my-organization': typeof MyOrganizationRoute
   '/public-outreach': typeof PublicOutreachRoute
   '/regions': typeof RegionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
@@ -244,7 +289,13 @@ export interface FileRoutesByTo {
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/missions/edit': typeof MissionsEditRoute
+  '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
+  '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
+  '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
+  '/my-organization/people': typeof MyOrganizationPeopleRoute
+  '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/my-organization': typeof MyOrganizationIndexRoute
   '/service-requests': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
 }
@@ -264,7 +315,7 @@ export interface FileRoutesById {
   '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
   '/missions': typeof MissionsRouteWithChildren
-  '/my-organization': typeof MyOrganizationRoute
+  '/my-organization': typeof MyOrganizationRouteWithChildren
   '/public-outreach': typeof PublicOutreachRoute
   '/regions': typeof RegionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
@@ -276,7 +327,13 @@ export interface FileRoutesById {
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/missions/edit': typeof MissionsEditRoute
+  '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
+  '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
+  '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
+  '/my-organization/people': typeof MyOrganizationPeopleRoute
+  '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
 }
@@ -309,7 +366,13 @@ export interface FileRouteTypes {
     | '/traps'
     | '/admin/organizations'
     | '/missions/edit'
+    | '/my-organization/adult-surveillance'
+    | '/my-organization/control-methods'
+    | '/my-organization/larval-surveillance'
+    | '/my-organization/people'
+    | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
+    | '/my-organization/'
     | '/service-requests/'
     | '/admin/organizations/$organizationId'
   fileRoutesByTo: FileRoutesByTo
@@ -328,7 +391,6 @@ export interface FileRouteTypes {
     | '/landing'
     | '/login'
     | '/missions'
-    | '/my-organization'
     | '/public-outreach'
     | '/regions'
     | '/requests-for-control'
@@ -339,7 +401,13 @@ export interface FileRouteTypes {
     | '/traps'
     | '/admin/organizations'
     | '/missions/edit'
+    | '/my-organization/adult-surveillance'
+    | '/my-organization/control-methods'
+    | '/my-organization/larval-surveillance'
+    | '/my-organization/people'
+    | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
+    | '/my-organization'
     | '/service-requests'
     | '/admin/organizations/$organizationId'
   id:
@@ -370,7 +438,13 @@ export interface FileRouteTypes {
     | '/traps'
     | '/admin/organizations'
     | '/missions/edit'
+    | '/my-organization/adult-surveillance'
+    | '/my-organization/control-methods'
+    | '/my-organization/larval-surveillance'
+    | '/my-organization/people'
+    | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
+    | '/my-organization/'
     | '/service-requests/'
     | '/admin/organizations/$organizationId'
   fileRoutesById: FileRoutesById
@@ -390,7 +464,7 @@ export interface RootRouteChildren {
   LandingRoute: typeof LandingRoute
   LoginRoute: typeof LoginRoute
   MissionsRoute: typeof MissionsRouteWithChildren
-  MyOrganizationRoute: typeof MyOrganizationRoute
+  MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
   PublicOutreachRoute: typeof PublicOutreachRoute
   RegionsRoute: typeof RegionsRoute
   RequestsForControlRoute: typeof RequestsForControlRoute
@@ -580,12 +654,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServiceRequestsIndexRouteImport
       parentRoute: typeof ServiceRequestsRoute
     }
+    '/my-organization/': {
+      id: '/my-organization/'
+      path: '/'
+      fullPath: '/my-organization/'
+      preLoaderRoute: typeof MyOrganizationIndexRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
     '/service-requests/$requestId': {
       id: '/service-requests/$requestId'
       path: '/$requestId'
       fullPath: '/service-requests/$requestId'
       preLoaderRoute: typeof ServiceRequestsRequestIdRouteImport
       parentRoute: typeof ServiceRequestsRoute
+    }
+    '/my-organization/public-engagement': {
+      id: '/my-organization/public-engagement'
+      path: '/public-engagement'
+      fullPath: '/my-organization/public-engagement'
+      preLoaderRoute: typeof MyOrganizationPublicEngagementRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/my-organization/people': {
+      id: '/my-organization/people'
+      path: '/people'
+      fullPath: '/my-organization/people'
+      preLoaderRoute: typeof MyOrganizationPeopleRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/my-organization/larval-surveillance': {
+      id: '/my-organization/larval-surveillance'
+      path: '/larval-surveillance'
+      fullPath: '/my-organization/larval-surveillance'
+      preLoaderRoute: typeof MyOrganizationLarvalSurveillanceRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/my-organization/control-methods': {
+      id: '/my-organization/control-methods'
+      path: '/control-methods'
+      fullPath: '/my-organization/control-methods'
+      preLoaderRoute: typeof MyOrganizationControlMethodsRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/my-organization/adult-surveillance': {
+      id: '/my-organization/adult-surveillance'
+      path: '/adult-surveillance'
+      fullPath: '/my-organization/adult-surveillance'
+      preLoaderRoute: typeof MyOrganizationAdultSurveillanceRouteImport
+      parentRoute: typeof MyOrganizationRoute
     }
     '/missions/edit': {
       id: '/missions/edit'
@@ -621,6 +737,28 @@ const MissionsRouteChildren: MissionsRouteChildren = {
 
 const MissionsRouteWithChildren = MissionsRoute._addFileChildren(
   MissionsRouteChildren,
+)
+
+interface MyOrganizationRouteChildren {
+  MyOrganizationAdultSurveillanceRoute: typeof MyOrganizationAdultSurveillanceRoute
+  MyOrganizationControlMethodsRoute: typeof MyOrganizationControlMethodsRoute
+  MyOrganizationLarvalSurveillanceRoute: typeof MyOrganizationLarvalSurveillanceRoute
+  MyOrganizationPeopleRoute: typeof MyOrganizationPeopleRoute
+  MyOrganizationPublicEngagementRoute: typeof MyOrganizationPublicEngagementRoute
+  MyOrganizationIndexRoute: typeof MyOrganizationIndexRoute
+}
+
+const MyOrganizationRouteChildren: MyOrganizationRouteChildren = {
+  MyOrganizationAdultSurveillanceRoute: MyOrganizationAdultSurveillanceRoute,
+  MyOrganizationControlMethodsRoute: MyOrganizationControlMethodsRoute,
+  MyOrganizationLarvalSurveillanceRoute: MyOrganizationLarvalSurveillanceRoute,
+  MyOrganizationPeopleRoute: MyOrganizationPeopleRoute,
+  MyOrganizationPublicEngagementRoute: MyOrganizationPublicEngagementRoute,
+  MyOrganizationIndexRoute: MyOrganizationIndexRoute,
+}
+
+const MyOrganizationRouteWithChildren = MyOrganizationRoute._addFileChildren(
+  MyOrganizationRouteChildren,
 )
 
 interface ServiceRequestsRouteChildren {
@@ -663,7 +801,7 @@ const rootRouteChildren: RootRouteChildren = {
   LandingRoute: LandingRoute,
   LoginRoute: LoginRoute,
   MissionsRoute: MissionsRouteWithChildren,
-  MyOrganizationRoute: MyOrganizationRoute,
+  MyOrganizationRoute: MyOrganizationRouteWithChildren,
   PublicOutreachRoute: PublicOutreachRoute,
   RegionsRoute: RegionsRoute,
   RequestsForControlRoute: RequestsForControlRoute,

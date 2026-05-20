@@ -37,6 +37,7 @@ import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { Link, useLocation } from '@tanstack/react-router';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -115,19 +116,26 @@ const US_STATE_OPTIONS = [
 const US_STATE_SELECT_OPTIONS = US_STATE_OPTIONS.map((state) => ({ label: state, value: state }));
 
 const sections = [
-	{ id: 'agency', label: 'Agency' },
-	{ id: 'units', label: 'Unit defaults' },
-	{ id: 'adult', label: 'Adult' },
-	{ id: 'larval', label: 'Larval' },
-	{ id: 'control', label: 'Control' },
-	{ id: 'public', label: 'Public' },
+	{ id: 'general', label: 'General', to: '/my-organization' },
+	{ id: 'people', label: 'People', to: '/my-organization/people' },
+	{ id: 'adult', label: 'Adult Surveillance', to: '/my-organization/adult-surveillance' },
+	{ id: 'larval', label: 'Larval Surveillance', to: '/my-organization/larval-surveillance' },
+	{ id: 'control', label: 'Control Methods', to: '/my-organization/control-methods' },
+	{ id: 'public', label: 'Public Engagement', to: '/my-organization/public-engagement' },
 ] as const;
 
-export function MyOrganizationPage({ auth }: { readonly auth: AuthMe | null }) {
+export function MyOrganizationPage({
+	auth,
+	section,
+}: {
+	readonly auth: AuthMe | null;
+	readonly section: OrganizationSectionId;
+}) {
 	const { rows: organizationRows, status } = useCollectionRows(collections.currentOrganization);
 	const { rows: units } = useCollectionRows(collections.units);
 	const { rows: collectionMethods } = useCollectionRows(collections.collectionMethods);
 	const { rows: collectionLures } = useCollectionRows(collections.collectionLures);
+	const { rows: profiles } = useCollectionRows(collections.profiles);
 	const setup = useSetupCatalogRows();
 	const organization = findCurrentOrganization(organizationRows, auth);
 	const organizationFallback = readOrganizationFallback(auth);
@@ -167,161 +175,137 @@ export function MyOrganizationPage({ auth }: { readonly auth: AuthMe | null }) {
 							My Organization
 						</h1>
 						<p className="m-0 text-[0.92rem] leading-snug text-muted-foreground">
-							Agency details, workflow defaults, and setup lists stay visible in one place.
+							Agency setup is split by workflow so each domain has room for its own decisions.
 						</p>
 					</div>
 					<PermissionPill role={role} canManage={canManage} />
 				</header>
 
-				<OrganizationAnchorTabs />
+				<OrganizationRouteTabs section={section} />
 			</div>
 
 			<div className="grid gap-2">
-				<DomainSection
-					canManage={canManage}
-					editDescription="Update the agency profile details available to organization members."
-					fields={agencyFields}
-					id="agency"
-					meta={status === 'ready' ? 'Current agency details' : 'Agency details loading'}
-					onSave={(formData) => saveAgencyDetails(organization, settings, formData)}
-					setupItems={[]}
-					title={organizationName}
-				>
-					<AgencyDetailsSummary
+				{section === 'general' ? (
+					<GeneralOrganizationSection
+						agencyFields={agencyFields}
+						canManage={canManage}
 						organization={organization}
 						organizationFallback={organizationFallback}
+						organizationName={organizationName}
+						settings={settings}
+						setup={setup}
+						status={status}
 						timezone={settings.timezone}
+						unitFields={unitFields}
 					/>
-				</DomainSection>
-
-				<DomainSection
-					canManage={canManage}
-					editDescription="Set default units used across collection forms, summaries, and operational reports."
-					fields={unitFields}
-					id="units"
-					meta="Measurement choices used across forms and summaries"
-					onSave={(formData) => saveUnitDefaults(organization, settings, formData)}
-					setupItems={[]}
-					title="Unit defaults"
-				/>
-
-				<DomainSection
-					canManage={canManage}
-					editDescription="Choose how adult collection timing is recorded by this agency."
-					fields={adultFields}
-					id="adult"
-					meta="Trap collection methods, lures, and adult surveillance references"
-					onSave={(formData) => saveAdultSettings(organization, settings, formData)}
-					setupItems={[]}
-					title="Adult surveillance"
-				>
-					<AdultSurveillanceSettings
+				) : null}
+				{section === 'people' ? (
+					<PeopleSection auth={auth} canManage={canManage} profiles={profiles} role={role} />
+				) : null}
+				{section === 'adult' ? (
+					<DomainSection
 						canManage={canManage}
-						collectionLures={collectionLures}
-						collectionMethods={collectionMethods}
+						editDescription="Choose how adult collection timing is recorded by this agency."
 						fields={adultFields}
-						organization={organization}
+						id="adult"
+						meta="Trap collection methods, lures, and adult surveillance references"
+						onSave={(formData) => saveAdultSettings(organization, settings, formData)}
+						setupItems={[]}
+						title="Adult surveillance"
+					>
+						<AdultSurveillanceSettings
+							canManage={canManage}
+							collectionLures={collectionLures}
+							collectionMethods={collectionMethods}
+							fields={adultFields}
+							organization={organization}
+						/>
+					</DomainSection>
+				) : null}
+				{section === 'larval' ? (
+					<DomainSection
+						canManage={canManage}
+						editDescription="Adjust larval inspection entry rules and the setup lists used during habitat inspections."
+						fields={[
+							selectField('Entry mode', settings.larvalSurveillance.inspectionEntryPolicy.mode, [
+								{ label: 'Density only', value: 'density_only' },
+								{ label: 'Count and dips required', value: 'count_and_dips_required' },
+								{ label: 'Hybrid', value: 'hybrid' },
+							]),
+							textField(
+								'Density inference',
+								settings.larvalSurveillance.inspectionEntryPolicy.densityRanges === null
+									? 'Not configured'
+									: 'Configured',
+								{ editable: false },
+							),
+						]}
+						id="larval"
+						meta="Inspection entry policy and habitat classification"
+						onSave={(formData) => saveLarvalSettings(organization, settings, formData)}
+						setupItems={setupFor(setup, 'larvalSurveillance')}
+						title="Larval surveillance"
 					/>
-				</DomainSection>
-
-				<DomainSection
-					canManage={canManage}
-					editDescription="Adjust larval inspection entry rules and the setup lists used during habitat inspections."
-					fields={[
-						selectField('Entry mode', settings.larvalSurveillance.inspectionEntryPolicy.mode, [
-							{ label: 'Density only', value: 'density_only' },
-							{ label: 'Count and dips required', value: 'count_and_dips_required' },
-							{ label: 'Hybrid', value: 'hybrid' },
-						]),
-						textField(
-							'Density inference',
-							settings.larvalSurveillance.inspectionEntryPolicy.densityRanges === null
-								? 'Not configured'
-								: 'Configured',
-							{ editable: false },
-						),
-					]}
-					id="larval"
-					meta="Inspection entry policy and habitat classification"
-					onSave={(formData) => saveLarvalSettings(organization, settings, formData)}
-					setupItems={setupFor(setup, 'larvalSurveillance')}
-					title="Larval surveillance"
-				/>
-
-				<DomainSection
-					canManage={canManage}
-					editDescription="Adjust control defaults and related operational setup lists."
-					fields={[
-						switchField('Batch tracking', settings.controlOperations.trackInsecticideBatches),
-					]}
-					id="control"
-					meta="Chemical, source reduction, biological control, and resources"
-					onSave={(formData) => saveControlSettings(organization, settings, formData)}
-					setupItems={setupFor(setup, 'controlOperations')}
-					title="Control operations"
-				/>
-
-				<DomainSection
-					canManage={canManage}
-					editDescription="Set public engagement context defaults and resident communication lookup lists."
-					fields={[
-						textField(
-							'Related-record radius',
-							`${settings.publicEngagement.serviceRequestContext.radius.amount}`,
-							{ inputType: 'number' },
-						),
-						textField(
-							'Radius unit',
-							settings.publicEngagement.serviceRequestContext.radius.unitCode,
-						),
-						textField(
-							'Days before',
-							`${settings.publicEngagement.serviceRequestContext.timeWindow.daysBefore}`,
-							{ inputType: 'number' },
-						),
-						textField(
-							'Days after',
-							`${settings.publicEngagement.serviceRequestContext.timeWindow.daysAfter}`,
-							{ inputType: 'number' },
-						),
-					]}
-					id="public"
-					meta="Service request context, outreach, and resident notifications"
-					onSave={(formData) => savePublicSettings(organization, settings, formData)}
-					setupItems={setupFor(setup, 'publicEngagement')}
-					title="Public engagement"
-				/>
+				) : null}
+				{section === 'control' ? (
+					<DomainSection
+						canManage={canManage}
+						editDescription="Adjust control defaults and related operational setup lists."
+						fields={[
+							switchField('Batch tracking', settings.controlOperations.trackInsecticideBatches),
+						]}
+						id="control"
+						meta="Chemical, source reduction, biological control, and resources"
+						onSave={(formData) => saveControlSettings(organization, settings, formData)}
+						setupItems={setupFor(setup, 'controlOperations')}
+						title="Control operations"
+					/>
+				) : null}
+				{section === 'public' ? (
+					<DomainSection
+						canManage={canManage}
+						editDescription="Set public engagement context defaults and resident communication lookup lists."
+						fields={[
+							textField(
+								'Related-record radius',
+								`${settings.publicEngagement.serviceRequestContext.radius.amount}`,
+								{ inputType: 'number' },
+							),
+							textField(
+								'Radius unit',
+								settings.publicEngagement.serviceRequestContext.radius.unitCode,
+							),
+							textField(
+								'Days before',
+								`${settings.publicEngagement.serviceRequestContext.timeWindow.daysBefore}`,
+								{ inputType: 'number' },
+							),
+							textField(
+								'Days after',
+								`${settings.publicEngagement.serviceRequestContext.timeWindow.daysAfter}`,
+								{ inputType: 'number' },
+							),
+						]}
+						id="public"
+						meta="Service request context, outreach, and resident notifications"
+						onSave={(formData) => savePublicSettings(organization, settings, formData)}
+						setupItems={setupFor(setup, 'publicEngagement')}
+						title="Public engagement"
+					/>
+				) : null}
 			</div>
 		</div>
 	);
 }
 
-function OrganizationAnchorTabs() {
-	const [value, setValue] = useState<SectionId>(() => readHashSection());
-
-	useEffect(() => {
-		function updateFromHash() {
-			setValue(readHashSection());
-		}
-
-		updateFromHash();
-		window.addEventListener('hashchange', updateFromHash);
-		return () => {
-			window.removeEventListener('hashchange', updateFromHash);
-		};
-	}, []);
+function OrganizationRouteTabs({ section }: { readonly section: OrganizationSectionId }) {
+	const { pathname } = useLocation();
+	const value =
+		sections.find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`))?.id ??
+		section;
 
 	return (
-		<Tabs
-			value={value}
-			onValueChange={(nextValue) => {
-				const sectionId = isSectionId(nextValue) ? nextValue : 'agency';
-				setValue(sectionId);
-				window.location.hash = sectionId;
-				document.getElementById(sectionId)?.scrollIntoView({ block: 'start' });
-			}}
-			className="pt-1.5"
-		>
+		<Tabs value={value} className="pt-1.5">
 			<TabsList
 				variant="line"
 				className="w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -332,13 +316,138 @@ function OrganizationAnchorTabs() {
 						className="min-w-max flex-none px-1.5 text-[0.82rem] font-bold"
 						key={section.id}
 						value={section.id}
+						asChild
 					>
-						{section.label}
+						<Link to={section.to}>{section.label}</Link>
 					</TabsTrigger>
 				))}
 			</TabsList>
 		</Tabs>
 	);
+}
+
+function GeneralOrganizationSection({
+	agencyFields,
+	canManage,
+	organization,
+	organizationFallback,
+	organizationName,
+	settings,
+	setup,
+	status,
+	timezone,
+	unitFields,
+}: {
+	readonly agencyFields: readonly SettingField[];
+	readonly canManage: boolean;
+	readonly organization: OrganizationRow | null;
+	readonly organizationFallback: OrganizationFallback;
+	readonly organizationName: string;
+	readonly settings: OrganizationSettings;
+	readonly setup: readonly SetupCatalog[];
+	readonly status: string;
+	readonly timezone: string;
+	readonly unitFields: readonly SettingField[];
+}) {
+	return (
+		<>
+			<DomainSection
+				canManage={canManage}
+				editDescription="Update the agency profile details available to organization members."
+				fields={agencyFields}
+				id="agency"
+				meta={status === 'ready' ? 'Current agency details' : 'Agency details loading'}
+				onSave={(formData) => saveAgencyDetails(organization, settings, formData)}
+				setupItems={[]}
+				title={organizationName}
+			>
+				<AgencyDetailsSummary
+					organization={organization}
+					organizationFallback={organizationFallback}
+					timezone={timezone}
+				/>
+			</DomainSection>
+
+			<DomainSection
+				canManage={canManage}
+				editDescription="Set default units used across collection forms, summaries, and operational reports."
+				fields={unitFields}
+				id="units"
+				meta="Measurement choices used across forms and summaries"
+				onSave={(formData) => saveUnitDefaults(organization, settings, formData)}
+				setupItems={[]}
+				title="Unit defaults"
+			/>
+
+			<DomainSection
+				canManage={canManage}
+				editDescription="Shared tagging is managed by SIMMER setup for now."
+				fields={[]}
+				id="tags"
+				meta="Shared record tagging vocabulary"
+				setupItems={setup.filter((item) => item.label === 'Tags')}
+				title="Tags"
+			/>
+		</>
+	);
+}
+
+function PeopleSection({
+	auth,
+	canManage,
+	profiles,
+	role,
+}: {
+	readonly auth: AuthMe | null;
+	readonly canManage: boolean;
+	readonly profiles: readonly { readonly id: string; readonly displayName: string }[];
+	readonly role: OrgRole;
+}) {
+	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
+	const user = auth?.authenticated === true ? auth.user : null;
+	const currentProfile = profiles.find((profile) => profile.id === localIdentity?.profileId);
+	const displayName = currentProfile?.displayName ?? user?.displayName ?? 'Current member';
+	const email = user?.email ?? null;
+
+	return (
+		<OrgSection id="people">
+			<OrgSurface>
+				<SectionHeader
+					action={
+						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
+							<AddIcon aria-hidden="true" />
+							Invite
+						</Button>
+					}
+					meta="Membership access and role visibility"
+					title="People"
+				/>
+				<div className="grid gap-2">
+					<article className="grid min-w-0 items-center gap-3 rounded-md border border-border/30 bg-muted/40 p-2.5 md:grid-cols-[minmax(240px,1fr)_auto]">
+						<div className="min-w-0">
+							<strong className="[overflow-wrap:anywhere] text-[0.92rem] text-foreground">
+								{displayName}
+							</strong>
+							<p className="m-0 text-[0.86rem] leading-snug text-muted-foreground">
+								{email ?? 'No email available'}
+							</p>
+						</div>
+						<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
+							{formatRole(role)}
+						</Badge>
+					</article>
+					<p className="m-0 max-w-[68ch] text-[0.86rem] leading-normal text-muted-foreground">
+						Invitations and full membership management will live here once agency-facing people
+						administration is connected to the organization membership API.
+					</p>
+				</div>
+			</OrgSurface>
+		</OrgSection>
+	);
+}
+
+function formatRole(role: OrgRole): string {
+	return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
 function DomainSection({
@@ -356,7 +465,7 @@ function DomainSection({
 	readonly children?: React.ReactNode;
 	readonly editDescription: string;
 	readonly fields: readonly SettingField[];
-	readonly id: SectionId;
+	readonly id: string;
 	readonly meta: string;
 	readonly onSave?: ((formData: FormData) => Promise<void>) | undefined;
 	readonly setupItems: readonly SetupCatalog[];
@@ -988,13 +1097,7 @@ function LookupDetailsGrid({ children }: { readonly children: React.ReactNode })
 	return <div className="grid gap-2 md:grid-cols-2">{children}</div>;
 }
 
-function OrgSection({
-	children,
-	id,
-}: {
-	readonly children: React.ReactNode;
-	readonly id: SectionId;
-}) {
+function OrgSection({ children, id }: { readonly children: React.ReactNode; readonly id: string }) {
 	return (
 		<section className="scroll-mt-[132px]" id={id}>
 			{children}
@@ -1690,15 +1793,6 @@ function readRole(auth: AuthMe | null): OrgRole {
 		: 'viewer';
 }
 
-function readHashSection(): SectionId {
-	const hash = typeof window === 'undefined' ? '' : window.location.hash.replace('#', '');
-	return isSectionId(hash) ? hash : 'agency';
-}
-
-function isSectionId(value: string): value is SectionId {
-	return sections.some((section) => section.id === value);
-}
-
 function formatMode(value: string): string {
 	return value
 		.split(/[_-]/g)
@@ -1706,7 +1800,7 @@ function formatMode(value: string): string {
 		.join(' ');
 }
 
-type SectionId = (typeof sections)[number]['id'];
+export type OrganizationSectionId = (typeof sections)[number]['id'];
 
 type MutableOrganizationRow = {
 	-readonly [Key in keyof OrganizationRow]: OrganizationRow[Key];
