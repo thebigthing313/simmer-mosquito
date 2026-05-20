@@ -12,10 +12,12 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
+		"@fontsource/poppins": "^5.2.7",
 		"@simmer-mosquito/domain": "workspace:*",
 		"@simmer-mosquito/sync": "workspace:*",
 		"@simmer-mosquito/ui-web": "workspace:*",
 		"@tanstack/db": "^0.6.5",
+		"@tanstack/react-form": "^1.32.0",
 		"@tanstack/react-router": "^1.170.4",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
