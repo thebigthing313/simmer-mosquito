@@ -244,13 +244,11 @@ export function TagTableSection({
 					<Table className="min-w-[calc(var(--tag-preview-column)+var(--tag-description-column)+var(--tag-color-column)+var(--tag-actions-column))] table-fixed">
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-[var(--tag-preview-column)]">Tag preview</TableHead>
-								<TableHead className="w-[var(--tag-description-column)]">Description</TableHead>
-								<TableHead className="w-[var(--tag-color-column)]">Color</TableHead>
+								<TableHead className="w-(--tag-preview-column)">Tag preview</TableHead>
+								<TableHead className="w-(--tag-description-column)">Description</TableHead>
+								<TableHead className="w-(--tag-color-column)">Color</TableHead>
 								{canManage ? (
-									<TableHead className="w-[var(--tag-actions-column)] text-right">
-										Actions
-									</TableHead>
+									<TableHead className="w-(--tag-actions-column) text-right">Actions</TableHead>
 								) : null}
 							</TableRow>
 						</TableHeader>
@@ -290,9 +288,7 @@ export function TagBadge({ tag }: { readonly tag: TagRow }) {
 		<Badge
 			variant={color === null ? 'secondary' : 'outline'}
 			className={
-				color === null
-					? undefined
-					: 'border-[var(--tag-border)] bg-[var(--tag-bg)] text-[var(--tag-color)]'
+				color === null ? undefined : 'border-(--tag-border) bg-(--tag-bg) text-(--tag-color)'
 			}
 			style={style}
 			title={tag.description ?? undefined}
@@ -314,7 +310,7 @@ export function TagColorSwatch({ color }: { readonly color: string | null }) {
 				className={
 					normalized === null
 						? 'size-3 rounded-sm border border-border bg-muted'
-						: 'size-3 rounded-sm border border-border bg-[var(--tag-color)]'
+						: 'size-3 rounded-sm border border-border bg-(--tag-color)'
 				}
 				style={style}
 			/>
@@ -336,17 +332,17 @@ export function TagDisplayTableRow({
 }) {
 	return (
 		<TableRow>
-			<TableCell className="w-[var(--tag-preview-column)]">
+			<TableCell className="w-(--tag-preview-column)">
 				<TagBadge tag={tag} />
 			</TableCell>
-			<TableCell className="w-[var(--tag-description-column)] whitespace-normal text-muted-foreground wrap-anywhere">
+			<TableCell className="w-(--tag-description-column) whitespace-normal text-muted-foreground wrap-anywhere">
 				{tag.description ?? 'No description'}
 			</TableCell>
-			<TableCell className="w-[var(--tag-color-column)]">
+			<TableCell className="w-(--tag-color-column)">
 				<TagColorSwatch color={tag.color} />
 			</TableCell>
 			{canManage ? (
-				<TableCell className="w-[var(--tag-actions-column)] text-right">
+				<TableCell className="w-(--tag-actions-column) text-right">
 					<Button type="button" variant="outline" size="sm" onClick={onEdit}>
 						<EditIcon aria-hidden="true" />
 						Edit
@@ -463,7 +459,7 @@ export function TagEditorTableRow({
 
 	return (
 		<TableRow>
-			<TableCell className="w-[var(--tag-preview-column)] align-top">
+			<TableCell className="w-(--tag-preview-column) align-top">
 				<Field className="gap-1">
 					<FieldLabel>Name</FieldLabel>
 					<Input
@@ -473,7 +469,7 @@ export function TagEditorTableRow({
 					/>
 				</Field>
 			</TableCell>
-			<TableCell className="w-[var(--tag-description-column)] align-top whitespace-normal">
+			<TableCell className="w-(--tag-description-column) align-top whitespace-normal">
 				<Field className="gap-1">
 					<FieldLabel>Description</FieldLabel>
 					<Textarea
@@ -483,7 +479,7 @@ export function TagEditorTableRow({
 					/>
 				</Field>
 			</TableCell>
-			<TableCell className="w-[var(--tag-color-column)] align-top">
+			<TableCell className="w-(--tag-color-column) align-top">
 				<Field className="gap-1">
 					<FieldLabel>Color</FieldLabel>
 					<ColorPicker
@@ -499,7 +495,7 @@ export function TagEditorTableRow({
 					/>
 				</Field>
 			</TableCell>
-			<TableCell className="w-[var(--tag-actions-column)] align-top">
+			<TableCell className="w-(--tag-actions-column) align-top">
 				<div className="flex justify-end gap-2">
 					<Button type="button" variant="destructive" size="icon" onClick={deleteTag}>
 						<DeleteIcon aria-hidden="true" />

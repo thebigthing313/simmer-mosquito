@@ -262,10 +262,10 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 		organizationStatus === 'ready' && profileStatus === 'ready' ? 'Live' : 'Updating';
 
 	return (
-		<SidebarProvider className="h-svh min-h-0 overflow-hidden bg-[var(--app-stage)]">
+		<SidebarProvider className="h-svh min-h-0 overflow-hidden bg-(--app-stage)">
 			<ProductSidebar />
-			<SidebarInset className="h-svh min-h-0 min-w-0 overflow-hidden bg-[var(--app-stage)]">
-				<header className="sticky top-0 z-10 flex min-h-[74px] items-center justify-between gap-5 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--app-chrome-strong)_34%,var(--app-chrome)),var(--app-chrome))] px-[clamp(18px,3vw,32px)] py-3 shadow-[0_14px_20px_-24px_oklch(36%_0.024_205_/_50%)] max-[820px]:flex-col max-[820px]:items-start">
+			<SidebarInset className="h-svh min-h-0 min-w-0 overflow-hidden bg-(--app-stage)">
+				<header className="sticky top-0 z-10 flex min-h-[74px] items-center justify-between gap-5 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--app-chrome-strong)_34%,var(--app-chrome)),var(--app-chrome))] px-[clamp(18px,3vw,32px)] py-3 shadow-[0_14px_20px_-24px_oklch(36%_0.024_205/50%)] max-[820px]:flex-col max-[820px]:items-start">
 					<div className="flex min-w-0 items-center gap-[18px] max-[820px]:flex-col max-[820px]:items-start max-[820px]:gap-2">
 						<div>
 							<p className="eyebrow">{organizationName}</p>
@@ -280,7 +280,7 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 					</div>
 					<div className="flex items-center gap-[18px] text-[0.84rem] font-semibold text-muted-foreground max-[560px]:flex-wrap">
 						<div className="flex items-center gap-2 text-right">
-							<span className="block text-[0.72rem] leading-tight font-bold text-[var(--quiet)]">
+							<span className="block text-[0.72rem] leading-tight font-bold text-(--quiet)">
 								Organization
 							</span>
 							<strong className="block whitespace-nowrap text-[0.86rem] leading-tight font-extrabold text-foreground">
@@ -291,7 +291,7 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 							</strong>
 						</div>
 						<div className="flex items-center gap-2">
-							<Avatar size="sm" className="bg-[var(--app-selection)] text-primary">
+							<Avatar size="sm" className="bg-(--app-selection) text-primary">
 								<AvatarFallback>{initialsFor(profileName)}</AvatarFallback>
 								<AvatarBadge />
 							</Avatar>
@@ -299,7 +299,7 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 								<strong className="block whitespace-nowrap text-[0.86rem] leading-tight font-extrabold text-foreground">
 									{profileName}
 								</strong>
-								<span className="block text-[0.72rem] leading-tight font-bold text-[var(--quiet)]">
+								<span className="block text-[0.72rem] leading-tight font-bold text-(--quiet)">
 									{roleLabel}
 								</span>
 							</div>
@@ -361,7 +361,7 @@ function ProductSidebar() {
 
 	return (
 		<Sidebar
-			className="bg-[var(--app-chrome)] shadow-[inset_-14px_0_22px_-24px_oklch(36%_0.024_205_/_55%)]"
+			className="bg-(--app-chrome) shadow-[inset_-14px_0_22px_-24px_oklch(36%_0.024_205/55%)]"
 			collapsible="none"
 			aria-label="Primary"
 		>
@@ -370,7 +370,7 @@ function ProductSidebar() {
 					<SidebarMenuItem>
 						<SidebarMenuButton asChild size="lg" tooltip="SIMMER">
 							<Link
-								className="inline-flex min-h-[42px] items-center gap-2.5 font-extrabold text-[var(--simmer-darker-green)] no-underline"
+								className="inline-flex min-h-[42px] items-center gap-2.5 font-extrabold text-(--simmer-darker-green) no-underline"
 								to="/"
 							>
 								<img src="/favicon.svg" alt="" className="block size-[30px] rounded-sm" />
@@ -402,7 +402,7 @@ function ProductSidebar() {
 											<SidebarMenuItem key={item.to}>
 												<SidebarMenuButton
 													asChild
-													className="h-[1.85rem] px-2 text-[0.86rem] font-semibold text-sidebar-foreground/70 data-[active=true]:bg-[var(--app-selection)] data-[active=true]:shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--primary)_12%,transparent)]"
+													className="h-[1.85rem] px-2 text-[0.86rem] font-semibold text-sidebar-foreground/70 data-[active=true]:bg-(--app-selection) data-[active=true]:shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--primary)_12%,transparent)]"
 													isActive={active}
 													tooltip={item.label}
 												>
@@ -441,7 +441,7 @@ function HeaderContextItem({
 }) {
 	return (
 		<span
-			className="inline-flex items-center gap-1.5 whitespace-nowrap before:block before:size-[0.42rem] before:rounded-full before:bg-primary data-[tone=info]:before:bg-[var(--simmer-blue)]"
+			className="inline-flex items-center gap-1.5 whitespace-nowrap before:block before:size-[0.42rem] before:rounded-full before:bg-primary data-[tone=info]:before:bg-(--simmer-blue)"
 			data-tone={tone}
 		>
 			{children}
@@ -1166,18 +1166,18 @@ function MapPanel({
 				</div>
 			</div>
 			<div className="relative overflow-hidden bg-[linear-gradient(125deg,color-mix(in_oklch,var(--simmer-green-100)_56%,transparent),transparent_42%),color-mix(in_oklch,var(--simmer-workshop-map-wash)_52%,var(--card))]">
-				<div className="absolute inset-0 bg-[linear-gradient(var(--simmer-workshop-grid-line)_1px,transparent_1px),linear-gradient(90deg,var(--simmer-workshop-grid-line)_1px,transparent_1px)] bg-[length:36px_36px]" />
+				<div className="absolute inset-0 bg-[linear-gradient(var(--simmer-workshop-grid-line)_1px,transparent_1px),linear-gradient(90deg,var(--simmer-workshop-grid-line)_1px,transparent_1px)] bg-size-[36px_36px]" />
 				<div className="absolute inset-[13%_48%_45%_12%] rounded-[42%_58%_38%_62%] border border-[color-mix(in_oklch,var(--simmer-green-700)_34%,transparent)] bg-[color-mix(in_oklch,var(--simmer-yellow-100)_24%,transparent)]" />
 				<div className="absolute inset-[42%_14%_14%_46%] rounded-[52%_36%_55%_44%] border border-[color-mix(in_oklch,var(--simmer-green-700)_34%,transparent)] bg-[color-mix(in_oklch,var(--simmer-yellow-100)_24%,transparent)]" />
-				<div className="absolute top-[36%] left-[18%] h-1 w-[58%] origin-left rotate-[17deg] rounded-full bg-[var(--map-route)]" />
-				<div className="absolute top-[58%] left-[28%] h-1 w-[44%] origin-left rotate-[-24deg] rounded-full bg-[var(--map-road)]" />
+				<div className="absolute top-[36%] left-[18%] h-1 w-[58%] origin-left rotate-17 rounded-full bg-(--map-route)" />
+				<div className="absolute top-[58%] left-[28%] h-1 w-[44%] origin-left rotate-[-24deg] rounded-full bg-(--map-road)" />
 				<div className="absolute top-[28%] left-[26%] grid size-[30px] place-items-center rounded-full border-[3px] border-card bg-primary text-[0.76rem] font-extrabold text-primary-foreground shadow-[0_10px_18px_color-mix(in_oklch,var(--foreground)_14%,transparent)]">
 					<span>1</span>
 				</div>
-				<div className="absolute top-[54%] left-[58%] grid size-[30px] place-items-center rounded-full border-[3px] border-card bg-[var(--map-alert)] text-[0.76rem] font-extrabold text-foreground shadow-[0_10px_18px_color-mix(in_oklch,var(--foreground)_14%,transparent)]">
+				<div className="absolute top-[54%] left-[58%] grid size-[30px] place-items-center rounded-full border-[3px] border-card bg-(--map-alert) text-[0.76rem] font-extrabold text-foreground shadow-[0_10px_18px_color-mix(in_oklch,var(--foreground)_14%,transparent)]">
 					<span>2</span>
 				</div>
-				<div className="absolute top-[68%] left-[42%] grid size-[30px] place-items-center rounded-full border-[3px] border-card bg-[var(--simmer-blue)] text-[0.76rem] font-extrabold text-primary-foreground shadow-[0_10px_18px_color-mix(in_oklch,var(--foreground)_14%,transparent)]">
+				<div className="absolute top-[68%] left-[42%] grid size-[30px] place-items-center rounded-full border-[3px] border-card bg-(--simmer-blue) text-[0.76rem] font-extrabold text-primary-foreground shadow-[0_10px_18px_color-mix(in_oklch,var(--foreground)_14%,transparent)]">
 					<span>3</span>
 				</div>
 				<div className="absolute right-[18px] bottom-[18px] max-w-[260px] rounded-md bg-[color-mix(in_oklch,var(--card)_92%,transparent)] p-3 shadow-[0_10px_22px_color-mix(in_oklch,var(--foreground)_8%,transparent)]">
@@ -1196,10 +1196,10 @@ function MapPanel({
 					<i className="inline-block size-2.5 rounded-full bg-primary" /> Work item
 				</span>
 				<span className="inline-flex items-center gap-1.5">
-					<i className="inline-block size-2.5 rounded-full bg-[var(--map-road)]" /> Route
+					<i className="inline-block size-2.5 rounded-full bg-(--map-road)" /> Route
 				</span>
 				<span className="inline-flex items-center gap-1.5">
-					<i className="inline-block size-2.5 rounded-full bg-[var(--map-alert)]" /> Attention
+					<i className="inline-block size-2.5 rounded-full bg-(--map-alert)" /> Attention
 				</span>
 			</div>
 		</section>

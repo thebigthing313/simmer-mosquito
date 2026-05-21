@@ -241,34 +241,32 @@ export function CollectionMethodTable({
 					<Table className="w-full table-fixed">
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-[var(--method-name-column)]">Method</TableHead>
+								<TableHead className="w-(--method-name-column)">Method</TableHead>
 								<TableHead>Description</TableHead>
-								<TableHead className="w-[var(--method-threshold-column)]">Threshold</TableHead>
-								<TableHead className="w-[var(--method-schema-column)]">Custom Fields</TableHead>
+								<TableHead className="w-(--method-threshold-column)">Threshold</TableHead>
+								<TableHead className="w-(--method-schema-column)">Custom Fields</TableHead>
 								{canManage ? (
-									<TableHead className="w-[var(--method-actions-column)] text-right">
-										Actions
-									</TableHead>
+									<TableHead className="w-(--method-actions-column) text-right">Actions</TableHead>
 								) : null}
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{methods.map((method) => (
 								<TableRow key={method.id}>
-									<TableCell className="w-[var(--method-name-column)] font-bold">
+									<TableCell className="w-(--method-name-column) font-bold">
 										<span className="wrap-anywhere">{method.name}</span>
 									</TableCell>
 									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
 										{method.description ?? 'No description'}
 									</TableCell>
-									<TableCell className="w-[var(--method-threshold-column)]">
+									<TableCell className="w-(--method-threshold-column)">
 										{method.actionThreshold === null ? (
 											<span className="text-muted-foreground">None</span>
 										) : (
 											method.actionThreshold
 										)}
 									</TableCell>
-									<TableCell className="w-[var(--method-schema-column)]">
+									<TableCell className="w-(--method-schema-column)">
 										<Badge
 											tone={method.customSchema === null ? 'neutral' : 'info'}
 											variant="outline"
@@ -277,7 +275,7 @@ export function CollectionMethodTable({
 										</Badge>
 									</TableCell>
 									{canManage ? (
-										<TableCell className="w-[var(--method-actions-column)] text-right">
+										<TableCell className="w-(--method-actions-column) text-right">
 											<CollectionMethodDrawer
 												canManage={canManage}
 												method={method}
@@ -510,26 +508,24 @@ export function CollectionLureTable({
 					<Table className="w-full table-fixed">
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-[var(--lure-name-column)]">Lure</TableHead>
+								<TableHead className="w-(--lure-name-column)">Lure</TableHead>
 								<TableHead>Description</TableHead>
 								{canManage ? (
-									<TableHead className="w-[var(--lure-actions-column)] text-right">
-										Actions
-									</TableHead>
+									<TableHead className="w-(--lure-actions-column) text-right">Actions</TableHead>
 								) : null}
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{lures.map((lure) => (
 								<TableRow key={lure.id}>
-									<TableCell className="w-[var(--lure-name-column)] font-bold">
+									<TableCell className="w-(--lure-name-column) font-bold">
 										<span className="wrap-anywhere">{lure.name}</span>
 									</TableCell>
 									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
 										{lure.description ?? 'No description'}
 									</TableCell>
 									{canManage ? (
-										<TableCell className="w-[var(--lure-actions-column)] text-right">
+										<TableCell className="w-(--lure-actions-column) text-right">
 											<CollectionLureDrawer
 												canManage={canManage}
 												lure={lure}

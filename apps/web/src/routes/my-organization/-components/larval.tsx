@@ -497,26 +497,24 @@ export function HabitatTypeTable({
 					<Table className="w-full table-fixed">
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-[var(--habitat-name-column)]">Habitat type</TableHead>
+								<TableHead className="w-(--habitat-name-column)">Habitat type</TableHead>
 								<TableHead>Description</TableHead>
-								<TableHead className="w-[var(--habitat-fields-column)]">Custom Fields</TableHead>
+								<TableHead className="w-(--habitat-fields-column)">Custom Fields</TableHead>
 								{canManage ? (
-									<TableHead className="w-[var(--habitat-actions-column)] text-right">
-										Actions
-									</TableHead>
+									<TableHead className="w-(--habitat-actions-column) text-right">Actions</TableHead>
 								) : null}
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{habitatTypes.map((habitatType) => (
 								<TableRow key={habitatType.id}>
-									<TableCell className="w-[var(--habitat-name-column)] font-bold">
+									<TableCell className="w-(--habitat-name-column) font-bold">
 										<span className="wrap-anywhere">{habitatType.name}</span>
 									</TableCell>
 									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
 										{habitatType.description ?? 'No description'}
 									</TableCell>
-									<TableCell className="w-[var(--habitat-fields-column)]">
+									<TableCell className="w-(--habitat-fields-column)">
 										<Badge
 											tone={habitatType.customSchema === null ? 'neutral' : 'info'}
 											variant="outline"
@@ -525,7 +523,7 @@ export function HabitatTypeTable({
 										</Badge>
 									</TableCell>
 									{canManage ? (
-										<TableCell className="w-[var(--habitat-actions-column)] text-right">
+										<TableCell className="w-(--habitat-actions-column) text-right">
 											<HabitatTypeDrawer
 												canManage={canManage}
 												habitatType={habitatType}

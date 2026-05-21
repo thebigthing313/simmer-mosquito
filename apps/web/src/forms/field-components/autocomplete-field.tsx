@@ -148,7 +148,7 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 					</PopoverAnchor>
 					<PopoverContent
 						align="start"
-						className="grid w-[var(--radix-popover-trigger-width)] min-w-72 gap-2 p-2"
+						className="grid w-(--radix-popover-trigger-width) min-w-72 gap-2 p-2"
 						onOpenAutoFocus={(event) => event.preventDefault()}
 					>
 						<div className="max-h-64 overflow-y-auto">
