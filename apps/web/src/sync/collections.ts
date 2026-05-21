@@ -35,6 +35,12 @@ import {
 	vehiclesSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import { type Collection, createCollection } from '@tanstack/db';
+import {
+	createEquipmentMutationHandlers,
+	createVehicleMutationHandlers,
+} from './controlAssetMutations';
+import { createControlMethodMutationHandlers } from './controlMethodMutations';
+import { createNotificationTypeMutationHandlers } from './notificationTypeMutations';
 import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createOrgLookupMutationHandlers } from './orgLookupMutations';
 import { createProfileMutationHandlers } from './profileMutations';
@@ -170,42 +176,71 @@ export function createWebCollections(options: {
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: applicationMethodsSyncDescriptor,
 			url: `${shapeServerUrl}${applicationMethodsSyncDescriptor.endpointPath}`,
+			...createControlMethodMutationHandlers<ControlMethodRow>({
+				serverUrl: options.serverUrl,
+				endpointPath: '/control-methods/application-methods',
+				fallbackName: 'application method',
+			}),
 		}),
 	);
 	const sourceReductionMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: sourceReductionMethodsSyncDescriptor,
 			url: `${shapeServerUrl}${sourceReductionMethodsSyncDescriptor.endpointPath}`,
+			...createControlMethodMutationHandlers<ControlMethodRow>({
+				serverUrl: options.serverUrl,
+				endpointPath: '/control-methods/source-reduction-methods',
+				fallbackName: 'source reduction method',
+			}),
 		}),
 	);
 	const outreachMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: outreachMethodsSyncDescriptor,
 			url: `${shapeServerUrl}${outreachMethodsSyncDescriptor.endpointPath}`,
+			...createControlMethodMutationHandlers<ControlMethodRow>({
+				serverUrl: options.serverUrl,
+				endpointPath: '/control-methods/outreach-methods',
+				fallbackName: 'outreach method',
+			}),
 		}),
 	);
 	const biocontrolMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: biocontrolMethodsSyncDescriptor,
 			url: `${shapeServerUrl}${biocontrolMethodsSyncDescriptor.endpointPath}`,
+			...createControlMethodMutationHandlers<ControlMethodRow>({
+				serverUrl: options.serverUrl,
+				endpointPath: '/control-methods/biocontrol-methods',
+				fallbackName: 'biocontrol method',
+			}),
 		}),
 	);
 	const vehicles = createCollection(
 		electricShapeCollectionOptions<VehicleRow>({
 			descriptor: vehiclesSyncDescriptor,
 			url: `${shapeServerUrl}${vehiclesSyncDescriptor.endpointPath}`,
+			...createVehicleMutationHandlers<VehicleRow>({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
 	const equipment = createCollection(
 		electricShapeCollectionOptions<EquipmentRow>({
 			descriptor: equipmentSyncDescriptor,
 			url: `${shapeServerUrl}${equipmentSyncDescriptor.endpointPath}`,
+			...createEquipmentMutationHandlers<EquipmentRow>({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
 	const notificationTypes = createCollection(
 		electricShapeCollectionOptions<NotificationTypeRow>({
 			descriptor: notificationTypesSyncDescriptor,
 			url: `${shapeServerUrl}${notificationTypesSyncDescriptor.endpointPath}`,
+			...createNotificationTypeMutationHandlers<NotificationTypeRow>({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
 	const tags = createCollection(

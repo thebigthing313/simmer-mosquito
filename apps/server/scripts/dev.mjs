@@ -7,14 +7,23 @@ import process from 'node:process';
 const isWindows = process.platform === 'win32';
 const pnpmCommand = isWindows ? 'pnpm.cmd' : 'pnpm';
 const serverPort = await readConfiguredPort();
-
-for (const packageName of [
+const serverDependencyPackages = [
 	'@simmer-mosquito/config',
 	'@simmer-mosquito/auth',
 	'@simmer-mosquito/db',
-]) {
-	await run(pnpmCommand, ['--filter', packageName, 'build']);
-}
+	'@simmer-mosquito/domain',
+	'@simmer-mosquito/sync',
+];
+const watchedSourceRoots = [
+	resolve('src'),
+	resolve('../../packages/config/src'),
+	resolve('../../packages/auth/src'),
+	resolve('../../packages/db/src'),
+	resolve('../../packages/domain/src'),
+	resolve('../../packages/sync/src'),
+];
+
+await buildServerDependencies();
 
 if (!(await ensurePortIsFree(serverPort, 10_000))) {
 	throw new Error(`Port ${serverPort} is still in use after stale listener cleanup.`);
@@ -26,13 +35,15 @@ let activeModule = await importServer();
 let isRestarting = false;
 let isStopping = false;
 
-const watcher = watch(resolve('src'), { recursive: true }, (_eventType, filename) => {
-	if (filename === null || !/\.[cm]?[tj]sx?$/.test(filename)) {
-		return;
-	}
+const watchers = watchedSourceRoots.map((sourceRoot) =>
+	watch(sourceRoot, { recursive: true }, (_eventType, filename) => {
+		if (filename === null || !/\.[cm]?[tj]sx?$/.test(filename)) {
+			return;
+		}
 
-	scheduleRestart();
-});
+		scheduleRestart();
+	}),
+);
 
 process.once('SIGINT', () => {
 	void stopDevServer(130);
@@ -49,7 +60,7 @@ async function stopDevServer(exitCode) {
 
 	isStopping = true;
 	clearTimeout(restartTimer);
-	watcher.close();
+	closeWatchers();
 	await disposeActiveModule();
 	process.exit(exitCode);
 }
@@ -75,6 +86,7 @@ async function restartServer() {
 	try {
 		console.log('Restarting server...');
 		await disposeActiveModule();
+		await buildServerDependencies();
 		if (!(await ensurePortIsFree(serverPort, 10_000))) {
 			throw new Error(`Port ${serverPort} is still in use after restart cleanup.`);
 		}
@@ -94,6 +106,18 @@ async function importServer() {
 
 async function disposeActiveModule() {
 	await activeModule.disposeServerForRestart?.();
+}
+
+async function buildServerDependencies() {
+	for (const packageName of serverDependencyPackages) {
+		await run(pnpmCommand, ['--filter', packageName, 'build']);
+	}
+}
+
+function closeWatchers() {
+	for (const watcher of watchers) {
+		watcher.close();
+	}
 }
 
 function run(command, args) {

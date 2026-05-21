@@ -28,12 +28,15 @@ import {
 	createAuthContextMiddleware,
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
+import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
+import { registerControlMethodCommandRoutes } from './control-method-commands.js';
 import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
 import { readServerEnv } from './env.js';
 import { registerFoundationCommandRoutes } from './foundation-commands.js';
 import { registerOrganizationCommandRoutes } from './organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
+import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 
 const env = readServerEnv();
@@ -103,11 +106,38 @@ app.use(
 );
 
 app.use(
+	'/control-methods/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/control-assets/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
 	'/organization-settings/*',
 	cors({
 		origin: allowedCorsOrigins(),
 		credentials: true,
 		allowMethods: ['PATCH', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/public-engagement/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
 	}),
 );
 
@@ -271,6 +301,16 @@ registerFoundationCommandRoutes(app, {
 	authContextMiddleware,
 });
 
+registerControlMethodCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerControlAssetCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
 registerOrganizationCommandRoutes(app, {
 	db,
 	authContextMiddleware,
@@ -284,6 +324,11 @@ registerOrganizationSettingsCommandRoutes(app, {
 registerProfileCommandRoutes(app, {
 	db,
 	auth,
+	authContextMiddleware,
+});
+
+registerPublicEngagementCommandRoutes(app, {
+	db,
 	authContextMiddleware,
 });
 

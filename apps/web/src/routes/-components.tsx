@@ -618,7 +618,7 @@ export function ServiceRequestsIndexPage() {
 					</div>
 					<Field className="max-w-80">
 						<FieldLabel>Search</FieldLabel>
-						<Input defaultValue="" placeholder="Address, contact, request id" />
+						<Input defaultValue="" placeholder="e.g. Address, contact, request id" />
 					</Field>
 				</div>
 

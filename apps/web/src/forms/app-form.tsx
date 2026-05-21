@@ -4,6 +4,8 @@ import { createFormHook } from '@tanstack/react-form';
 import {
 	AutocompleteField,
 	HiddenField,
+	JsonSchemaField,
+	MetadataField,
 	NumberField,
 	SelectField,
 	SwitchField,
@@ -26,6 +28,8 @@ export const { useAppForm, withForm, withFieldGroup, useTypedAppFormContext, ext
 		fieldComponents: {
 			AutocompleteField,
 			HiddenField,
+			JsonSchemaField,
+			MetadataField,
 			NumberField,
 			SelectField,
 			SwitchField,
