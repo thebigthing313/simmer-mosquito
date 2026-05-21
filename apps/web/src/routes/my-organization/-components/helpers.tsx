@@ -24,7 +24,6 @@ import { collections, defaultDensityRangeValues } from './constants';
 import type {
 	AdultCollectionLureFormValues,
 	AdultCollectionMethodFormValues,
-	AdultLookupRow,
 	AgencyDetailsFormValues,
 	ControlAssetCollectionKey,
 	ControlAssetFormValues,
@@ -926,21 +925,6 @@ export function formatDensityRange(range: LarvalDensityRange | null): string {
 	return range.maxExclusive === null || range.maxExclusive === undefined
 		? `More than ${range.minInclusive} larvae per dip`
 		: `More than ${range.minInclusive} and up to ${range.maxExclusive} larvae per dip`;
-}
-
-export function sortAdultLookupRows<TRow extends AdultLookupRow>(rows: readonly TRow[]): TRow[] {
-	return [...rows].sort(
-		(first, second) =>
-			Number(second.isActive) - Number(first.isActive) || first.name.localeCompare(second.name),
-	);
-}
-
-export function sortControlAssetRows<TRow extends ControlAssetRow>(rows: readonly TRow[]): TRow[] {
-	return [...rows].sort(
-		(first, second) =>
-			Number(second.isActive) - Number(first.isActive) ||
-			controlAssetName(first).localeCompare(controlAssetName(second)),
-	);
 }
 
 export function controlAssetName(asset: ControlAssetRow): string {

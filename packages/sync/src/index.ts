@@ -49,6 +49,24 @@ export interface ProfileRow {
 	readonly updatedAt: string;
 }
 
+export type MembershipStatus = 'active' | 'inactive' | 'invited';
+export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
+
+export interface MembershipRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly userId: string | null;
+	readonly profileId: string;
+	readonly role: SimmerRole;
+	readonly status: MembershipStatus;
+	readonly isDefault: boolean;
+	readonly invitedEmail: string | null;
+	readonly workosInvitationId: string | null;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
 export interface GenusRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
@@ -200,6 +218,27 @@ export const profilesSyncDescriptor: SyncDescriptor<ProfileRow> = {
 		'displayName',
 		'email',
 		'isActive',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const membershipsSyncDescriptor: SyncDescriptor<MembershipRow> = {
+	id: 'memberships',
+	table: 'memberships',
+	endpointPath: '/sync/shapes/memberships',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'userId',
+		'profileId',
+		'role',
+		'status',
+		'isDefault',
+		'invitedEmail',
+		'workosInvitationId',
 		'createdAt',
 		'updatedAt',
 	],
@@ -414,6 +453,7 @@ export const routesSyncDescriptor: SyncDescriptor<RouteRow> = {
 export const webReadOnlyTracerDescriptors = [
 	unitsSyncDescriptor,
 	profilesSyncDescriptor,
+	membershipsSyncDescriptor,
 	generaSyncDescriptor,
 	speciesSyncDescriptor,
 	organizationSpeciesSyncDescriptor,

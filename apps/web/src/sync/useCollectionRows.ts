@@ -1,5 +1,9 @@
-import type { Collection } from '@tanstack/db';
-import { useEffect, useState } from 'react';
+import { type Collection, eq, useLiveSuspenseQuery } from '@tanstack/react-db';
+
+interface NamedLifecycleRow {
+	readonly isActive: boolean;
+	readonly name: string;
+}
 
 export function useCollectionRows<TRow extends object>(
 	collection: Collection<TRow, string | number>,
@@ -7,32 +11,40 @@ export function useCollectionRows<TRow extends object>(
 	readonly rows: readonly TRow[];
 	readonly status: string;
 } {
-	const [snapshot, setSnapshot] = useState(() => ({
-		rows: collection.toArray,
-		status: collection.status,
-	}));
+	const result = useLiveSuspenseQuery((query) => query.from({ row: collection }), [collection]);
 
-	useEffect(() => {
-		let cancelled = false;
+	return {
+		rows: result.data,
+		status: result.collection.status,
+	};
+}
 
-		function refresh() {
-			if (!cancelled) {
-				setSnapshot({
-					rows: collection.toArray,
-					status: collection.status,
-				});
-			}
-		}
+export function useActiveNamedCollectionRows<TRow extends NamedLifecycleRow>(
+	collection: Collection<TRow, string | number>,
+): {
+	readonly activeRows: readonly TRow[];
+	readonly inactiveRows: readonly TRow[];
+} {
+	const namedCollection = collection as unknown as Collection<NamedLifecycleRow, string | number>;
+	const activeResult = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ row: namedCollection })
+				.where(({ row }) => eq(row.isActive, true))
+				.orderBy(({ row }) => row.name, 'asc'),
+		[namedCollection],
+	);
+	const inactiveResult = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ row: namedCollection })
+				.where(({ row }) => eq(row.isActive, false))
+				.orderBy(({ row }) => row.name, 'asc'),
+		[namedCollection],
+	);
 
-		const subscription = collection.subscribeChanges(refresh, {
-			includeInitialState: true,
-		});
-
-		return () => {
-			cancelled = true;
-			subscription.unsubscribe();
-		};
-	}, [collection]);
-
-	return snapshot;
+	return {
+		activeRows: activeResult.data as unknown as readonly TRow[],
+		inactiveRows: inactiveResult.data as unknown as readonly TRow[],
+	};
 }

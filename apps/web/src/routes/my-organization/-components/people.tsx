@@ -1,4 +1,4 @@
-import type { OrganizationRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { MembershipRow, OrganizationRow, ProfileRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -22,12 +22,12 @@ import {
 	SheetTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
-import { useEffect, useMemo, useState } from 'react';
+import { type Collection, eq, isNull, not, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { type AdminMembership, type AuthMe, getServerUrl } from '../../../auth';
+import { type AuthMe, getServerUrl } from '../../../auth';
 import {
 	inviteOrganizationProfile,
-	listOrganizationMemberships,
 	updateOrganizationMembershipRole,
 } from '../../../sync/profileMutations';
 import { AddIcon, CloseIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
@@ -35,7 +35,6 @@ import {
 	createHistoricalProfile,
 	errorMessageForSave,
 	formatRole,
-	profileGroups,
 	requiredTextValue,
 	updateProfile,
 	watchPersistence,
@@ -46,70 +45,31 @@ import type { OrgRole } from './types';
 export function PeopleSection({
 	auth,
 	canManage,
+	memberships,
 	organization,
 	profiles,
 	role,
 }: {
 	readonly auth: AuthMe | null;
 	readonly canManage: boolean;
+	readonly memberships: Collection<MembershipRow, string | number>;
 	readonly organization: OrganizationRow | null;
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: Collection<ProfileRow, string | number>;
 	readonly role: OrgRole;
 }) {
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
-	const organizationProfiles =
-		localIdentity?.organizationId === null || localIdentity?.organizationId === undefined
-			? profiles
-			: profiles.filter((profile) => profile.organizationId === localIdentity.organizationId);
-	const currentProfile = organizationProfiles.find(
-		(profile) => profile.id === localIdentity?.profileId,
-	);
+	const activeLinkedRows = useProfileMembershipRows(profiles, memberships, 'activeLinked');
+	const inactiveLinkedRows = useProfileMembershipRows(profiles, memberships, 'inactiveLinked');
+	const historicalRows = useProfileMembershipRows(profiles, memberships, 'historical');
+	const currentProfile =
+		activeLinkedRows.find((row) => row.profile.id === localIdentity?.profileId)?.profile ??
+		inactiveLinkedRows.find((row) => row.profile.id === localIdentity?.profileId)?.profile ??
+		historicalRows.find((row) => row.profile.id === localIdentity?.profileId)?.profile;
 	const displayName = currentProfile?.displayName ?? user?.displayName ?? 'Current member';
 	const email = user?.email ?? null;
 	const [isAddingHistorical, setIsAddingHistorical] = useState(false);
 	const [isInviting, setIsInviting] = useState(false);
-	const [memberships, setMemberships] = useState<readonly AdminMembership[]>([]);
-	const [membershipError, setMembershipError] = useState<string | null>(null);
-	const groups = profileGroups(organizationProfiles);
-	const membershipByProfileId = useMemo(
-		() => new Map(memberships.map((membership) => [membership.profileId, membership])),
-		[memberships],
-	);
-
-	useEffect(() => {
-		if (!canManage) {
-			setMemberships([]);
-			setMembershipError(null);
-			return;
-		}
-
-		let cancelled = false;
-		listOrganizationMemberships(getServerUrl())
-			.then((loadedMemberships) => {
-				if (!cancelled) {
-					setMemberships(loadedMemberships);
-					setMembershipError(null);
-				}
-			})
-			.catch((error) => {
-				if (!cancelled) {
-					setMembershipError(errorMessageForSave(error));
-				}
-			});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [canManage]);
-
-	function refreshMembership(updatedMembership: AdminMembership) {
-		setMemberships((current) =>
-			current.map((membership) =>
-				membership.id === updatedMembership.id ? updatedMembership : membership,
-			),
-		);
-	}
 
 	return (
 		<OrgSection id="people">
@@ -161,32 +121,21 @@ export function PeopleSection({
 					<ProfileGroup
 						canManage={canManage}
 						emptyLabel="No active linked profiles"
-						membershipByProfileId={membershipByProfileId}
-						onMembershipUpdated={refreshMembership}
-						profiles={groups.activeLinked}
+						rows={activeLinkedRows}
 						title="Active linked profiles"
 					/>
 					<ProfileGroup
 						canManage={canManage}
 						emptyLabel="No inactive linked profiles"
-						membershipByProfileId={membershipByProfileId}
-						onMembershipUpdated={refreshMembership}
-						profiles={groups.inactiveLinked}
+						rows={inactiveLinkedRows}
 						title="Inactive linked profiles"
 					/>
 					<ProfileGroup
 						canManage={canManage}
 						emptyLabel="No historical profiles"
-						membershipByProfileId={membershipByProfileId}
-						onMembershipUpdated={refreshMembership}
-						profiles={groups.historical}
+						rows={historicalRows}
 						title="Historical profiles"
 					/>
-					{membershipError === null ? null : (
-						<p className="m-0 rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-[0.84rem] leading-snug text-destructive">
-							{membershipError}
-						</p>
-					)}
 				</div>
 				{canManage ? (
 					<>
@@ -198,7 +147,9 @@ export function PeopleSection({
 						<InviteProfileSheet
 							open={isInviting}
 							onOpenChange={setIsInviting}
-							profiles={groups.historical.filter((profile) => profile.isActive)}
+							profiles={historicalRows
+								.filter(({ profile }) => profile.isActive)
+								.map(({ profile }) => profile)}
 						/>
 					</>
 				) : null}
@@ -207,19 +158,64 @@ export function PeopleSection({
 	);
 }
 
+type ProfileMembershipGroup = 'activeLinked' | 'inactiveLinked' | 'historical';
+
+interface ProfileMembershipRow {
+	readonly profile: ProfileRow;
+	readonly membership: MembershipRow | null | undefined;
+}
+
+function useProfileMembershipRows(
+	profiles: Collection<ProfileRow, string | number>,
+	memberships: Collection<MembershipRow, string | number>,
+	group: ProfileMembershipGroup,
+): readonly ProfileMembershipRow[] {
+	const result = useLiveSuspenseQuery(
+		(query) => {
+			let profileQuery = query
+				.from({ profile: profiles })
+				.leftJoin({ membership: memberships }, ({ profile, membership }) =>
+					eq(profile.id, membership.profileId),
+				);
+
+			switch (group) {
+				case 'activeLinked':
+					profileQuery = profileQuery
+						.where(({ profile }) => not(isNull(profile.userId)))
+						.where(({ profile }) => eq(profile.isActive, true))
+						.orderBy(({ profile }) => profile.displayName, 'asc');
+					break;
+				case 'inactiveLinked':
+					profileQuery = profileQuery
+						.where(({ profile }) => not(isNull(profile.userId)))
+						.where(({ profile }) => eq(profile.isActive, false))
+						.orderBy(({ profile }) => profile.displayName, 'asc');
+					break;
+				case 'historical':
+					profileQuery = profileQuery
+						.where(({ profile }) => isNull(profile.userId))
+						.orderBy(({ profile }) => profile.isActive, 'desc')
+						.orderBy(({ profile }) => profile.displayName, 'asc');
+					break;
+			}
+
+			return profileQuery;
+		},
+		[profiles, memberships, group],
+	);
+
+	return result.data;
+}
+
 export function ProfileGroup({
 	canManage,
 	emptyLabel,
-	membershipByProfileId,
-	onMembershipUpdated,
-	profiles,
+	rows,
 	title,
 }: {
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
-	readonly membershipByProfileId: ReadonlyMap<string, AdminMembership>;
-	readonly onMembershipUpdated: (membership: AdminMembership) => void;
-	readonly profiles: readonly ProfileRow[];
+	readonly rows: readonly ProfileMembershipRow[];
 	readonly title: string;
 }) {
 	return (
@@ -227,21 +223,20 @@ export function ProfileGroup({
 			<div className="flex items-center justify-between gap-2 border-t border-border/50 pt-3">
 				<h3 className="eyebrow m-0">{title}</h3>
 				<Badge tone="neutral" variant="outline">
-					{profiles.length}
+					{rows.length}
 				</Badge>
 			</div>
-			{profiles.length === 0 ? (
+			{rows.length === 0 ? (
 				<p className="m-0 rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-[0.86rem] text-muted-foreground">
 					{emptyLabel}
 				</p>
 			) : (
 				<div className="grid gap-2">
-					{profiles.map((profile) => (
+					{rows.map(({ membership, profile }) => (
 						<ProfileRowItem
 							canManage={canManage}
 							key={profile.id}
-							membership={membershipByProfileId.get(profile.id) ?? null}
-							onMembershipUpdated={onMembershipUpdated}
+							membership={membership ?? null}
 							profile={profile}
 						/>
 					))}
@@ -254,12 +249,10 @@ export function ProfileGroup({
 export function ProfileRowItem({
 	canManage,
 	membership,
-	onMembershipUpdated,
 	profile,
 }: {
 	readonly canManage: boolean;
-	readonly membership: AdminMembership | null;
-	readonly onMembershipUpdated: (membership: AdminMembership) => void;
+	readonly membership: MembershipRow | null;
 	readonly profile: ProfileRow;
 }) {
 	return (
@@ -285,13 +278,7 @@ export function ProfileRowItem({
 					{profile.email ?? 'No login link'}
 				</p>
 			</div>
-			{canManage ? (
-				<EditProfileSheet
-					membership={membership}
-					onMembershipUpdated={onMembershipUpdated}
-					profile={profile}
-				/>
-			) : null}
+			{canManage ? <EditProfileSheet membership={membership} profile={profile} /> : null}
 		</article>
 	);
 }
@@ -508,11 +495,9 @@ export function InviteProfileSheet({
 
 export function EditProfileSheet({
 	membership,
-	onMembershipUpdated,
 	profile,
 }: {
-	readonly membership: AdminMembership | null;
-	readonly onMembershipUpdated: (membership: AdminMembership) => void;
+	readonly membership: MembershipRow | null;
 	readonly profile: ProfileRow;
 }) {
 	const [open, setOpen] = useState(false);
@@ -540,12 +525,7 @@ export function EditProfileSheet({
 		try {
 			const nextDisplayName = requiredTextValue(displayName, 'Display name');
 			if (membership !== null && role !== membership.role) {
-				const updatedMembership = await updateOrganizationMembershipRole(
-					getServerUrl(),
-					membership.id,
-					role,
-				);
-				onMembershipUpdated(updatedMembership);
+				await updateOrganizationMembershipRole(getServerUrl(), membership.id, role);
 			}
 			const transaction = updateProfile(profile, { displayName: nextDisplayName, isActive });
 			updateOpen(false);

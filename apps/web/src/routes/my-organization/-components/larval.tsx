@@ -47,10 +47,12 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import { useMemo, useState } from 'react';
+import type { Collection } from '@tanstack/react-db';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue } from '../../../forms/field-components';
+import { useActiveNamedCollectionRows } from '../../../sync/useCollectionRows';
 import {
 	AddIcon,
 	CloseIcon,
@@ -70,7 +72,6 @@ import {
 	habitatTypeFormValues,
 	safeDensityRangesFromFormValues,
 	saveLarvalSettingsFromValues,
-	sortAdultLookupRows,
 	updateHabitatTypeFromValues,
 	watchPersistence,
 } from './helpers';
@@ -89,7 +90,7 @@ export function LarvalSurveillanceSettings({
 	policy,
 }: {
 	readonly canManage: boolean;
-	readonly habitatTypes: readonly HabitatTypeRow[];
+	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
 	readonly organization: OrganizationRow | null;
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 }) {
@@ -418,17 +419,11 @@ export function HabitatTypeLookupList({
 	organization,
 }: {
 	readonly canManage: boolean;
-	readonly habitatTypes: readonly HabitatTypeRow[];
+	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
 	readonly organization: OrganizationRow | null;
 }) {
-	const activeHabitatTypes = useMemo(
-		() => sortAdultLookupRows(habitatTypes.filter((habitatType) => habitatType.isActive)),
-		[habitatTypes],
-	);
-	const inactiveHabitatTypes = useMemo(
-		() => sortAdultLookupRows(habitatTypes.filter((habitatType) => !habitatType.isActive)),
-		[habitatTypes],
-	);
+	const { activeRows: activeHabitatTypes, inactiveRows: inactiveHabitatTypes } =
+		useActiveNamedCollectionRows(habitatTypes);
 
 	return (
 		<LookupListFrame

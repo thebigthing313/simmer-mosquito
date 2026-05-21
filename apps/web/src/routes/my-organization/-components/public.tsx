@@ -19,9 +19,11 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import { useMemo, useState } from 'react';
+import type { Collection } from '@tanstack/react-db';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
+import { useActiveNamedCollectionRows } from '../../../sync/useCollectionRows';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control';
 import {
@@ -29,7 +31,6 @@ import {
 	errorMessageForSave,
 	notificationTypeFormValues,
 	savePublicSettingsFromValues,
-	sortAdultLookupRows,
 	updateNotificationTypeFromValues,
 	watchPersistence,
 } from './helpers';
@@ -44,9 +45,9 @@ export function PublicEngagementSettings({
 	settings,
 }: {
 	readonly canManage: boolean;
-	readonly notificationTypes: readonly NotificationTypeRow[];
+	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
 	readonly organization: OrganizationRow | null;
-	readonly outreachMethods: readonly ControlMethodRow[];
+	readonly outreachMethods: Collection<ControlMethodRow, string | number>;
 	readonly settings: OrganizationSettings;
 }) {
 	return (
@@ -186,17 +187,11 @@ export function NotificationTypeLookupList({
 	organization,
 }: {
 	readonly canManage: boolean;
-	readonly notificationTypes: readonly NotificationTypeRow[];
+	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
 	readonly organization: OrganizationRow | null;
 }) {
-	const activeTypes = useMemo(
-		() => sortAdultLookupRows(notificationTypes.filter((type) => type.isActive)),
-		[notificationTypes],
-	);
-	const inactiveTypes = useMemo(
-		() => sortAdultLookupRows(notificationTypes.filter((type) => !type.isActive)),
-		[notificationTypes],
-	);
+	const { activeRows: activeTypes, inactiveRows: inactiveTypes } =
+		useActiveNamedCollectionRows(notificationTypes);
 
 	return (
 		<LookupListFrame

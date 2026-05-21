@@ -55,6 +55,24 @@ describe('buildElectricShapeUrl', () => {
 		);
 	});
 
+	it('supports selected organization shapes without soft-delete columns', () => {
+		const url = new URL(
+			buildElectricShapeUrl({
+				electricUrl: 'http://localhost:3001/v1/shape',
+				incomingUrl: 'http://localhost:3000/sync/shapes/memberships',
+				columns: ['id', 'organization_id', 'profile_id', 'role'],
+				table: 'memberships',
+				where: 'organization_id = $1',
+				params: ['org-1'],
+			}),
+		);
+
+		expect(url.searchParams.get('table')).toBe('memberships');
+		expect(url.searchParams.get('columns')).toBe('id,organization_id,profile_id,role');
+		expect(url.searchParams.get('where')).toBe('organization_id = $1');
+		expect(url.searchParams.get('params[1]')).toBe('org-1');
+	});
+
 	it('uses POST body params for Electric subset snapshots', () => {
 		const request = buildElectricShapeRequest({
 			electricUrl: 'http://localhost:3001/v1/shape',

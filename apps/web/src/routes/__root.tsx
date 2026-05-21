@@ -1,6 +1,7 @@
 import { createRootRouteWithContext, Outlet, redirect, useLocation } from '@tanstack/react-router';
 import type { AppAuthController } from '../app-auth';
-import { RootLayout } from './-components';
+import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
+import { RootLayout, WorkspaceChromeError, WorkspaceChromeFallback } from './-components';
 
 export interface RootSearch {
 	readonly auth?: 'organization_required';
@@ -41,5 +42,13 @@ function RootComponent() {
 		return <Outlet />;
 	}
 
-	return <RootLayout auth={auth.snapshot} />;
+	return (
+		<SuspenseQueryBoundary
+			errorFallback={<WorkspaceChromeError />}
+			loadingFallback={<WorkspaceChromeFallback />}
+			resetKey="root-layout"
+		>
+			<RootLayout auth={auth.snapshot} />
+		</SuspenseQueryBoundary>
+	);
 }

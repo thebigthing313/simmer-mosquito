@@ -7,6 +7,7 @@ import {
 	equipmentSyncDescriptor,
 	generaSyncDescriptor,
 	habitatTypesSyncDescriptor,
+	membershipsSyncDescriptor,
 	notificationTypesSyncDescriptor,
 	organizationSpeciesSyncDescriptor,
 	outreachMethodsSyncDescriptor,
@@ -61,6 +62,26 @@ export function registerSyncShapeRoutes(
 				columns: profilesSyncDescriptor.columns.map(camelToSnake),
 				table: profilesSyncDescriptor.table,
 				where: selectedOrganizationWhere,
+				params: [authContext.organization.id],
+			}),
+		});
+	});
+
+	app.get('/sync/shapes/memberships', options.authContextMiddleware, async (context) => {
+		if (options.electricUrl === null) {
+			return context.json({ error: 'electric_url_required' }, 503);
+		}
+
+		const authContext = context.get('authContext');
+
+		return proxyElectricShape(context, {
+			fetch: options.fetch,
+			upstreamRequest: buildElectricShapeRequest({
+				electricUrl: options.electricUrl,
+				incomingUrl: context.req.url,
+				columns: membershipsSyncDescriptor.columns.map(camelToSnake),
+				table: membershipsSyncDescriptor.table,
+				where: selectedOrganizationOnlyWhere,
 				params: [authContext.organization.id],
 			}),
 		});
@@ -466,6 +487,7 @@ const blockedProxyResponseHeaders = new Set([
 
 const serverOwnedShapeParams = new Set(['columns', 'table', 'where']);
 const subsetShapeParamPrefix = 'subset__';
+const selectedOrganizationOnlyWhere = 'organization_id = $1';
 const selectedOrganizationWhere = 'organization_id = $1 and deleted_at is null';
 const selectedOrganizationByIdWhere = 'id = $1 and deleted_at is null';
 const electricExposeHeaders = [

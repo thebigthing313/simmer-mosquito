@@ -62,27 +62,6 @@ export async function inviteOrganizationProfile(
 	}
 }
 
-export async function listOrganizationMemberships(serverUrl: string): Promise<AdminMembership[]> {
-	const response = await fetch(`${serverUrl}/organization/memberships/list`, {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			accept: 'application/json',
-			'content-type': 'application/json',
-		},
-		body: JSON.stringify({}),
-	});
-	const result = (await readResponseBody(response, 'Unable to load memberships.')) as
-		| { readonly memberships: AdminMembership[] }
-		| { readonly error: string; readonly reason?: string; readonly message?: string };
-
-	if (!response.ok || !('memberships' in result)) {
-		throw new Error(messageFromErrorResult(result, 'Unable to load memberships.'));
-	}
-
-	return result.memberships;
-}
-
 export async function updateOrganizationMembershipRole(
 	serverUrl: string,
 	membershipId: string,

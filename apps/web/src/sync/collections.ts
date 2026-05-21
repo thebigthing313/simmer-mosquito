@@ -14,6 +14,8 @@ import {
 	generaSyncDescriptor,
 	type HabitatTypeRow,
 	habitatTypesSyncDescriptor,
+	type MembershipRow,
+	membershipsSyncDescriptor,
 	type NotificationTypeRow,
 	notificationTypesSyncDescriptor,
 	type OrganizationRow,
@@ -34,7 +36,7 @@ import {
 	type VehicleRow,
 	vehiclesSyncDescriptor,
 } from '@simmer-mosquito/sync';
-import { type Collection, createCollection } from '@tanstack/db';
+import { type Collection, createCollection } from '@tanstack/react-db';
 import {
 	createEquipmentMutationHandlers,
 	createVehicleMutationHandlers,
@@ -54,6 +56,7 @@ export interface WebCollections {
 	readonly equipment: Collection<EquipmentRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
 	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
+	readonly memberships: Collection<MembershipRow, string | number>;
 	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
 	readonly currentOrganization: Collection<OrganizationRow, string | number>;
 	readonly organizationSpecies: Collection<OrganizationSpeciesRow, string | number>;
@@ -70,6 +73,7 @@ export interface WebCollections {
 export const webBaselineCollectionKeys = [
 	'units',
 	'profiles',
+	'memberships',
 	'genera',
 	'species',
 	'organizationSpecies',
@@ -110,6 +114,12 @@ export function createWebCollections(options: {
 			...createProfileMutationHandlers({
 				serverUrl: options.serverUrl,
 			}),
+		}),
+	);
+	const memberships = createCollection(
+		electricShapeCollectionOptions<MembershipRow>({
+			descriptor: membershipsSyncDescriptor,
+			url: `${shapeServerUrl}${membershipsSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const genera = createCollection(
@@ -267,6 +277,7 @@ export function createWebCollections(options: {
 		equipment,
 		genera,
 		habitatTypes,
+		memberships,
 		notificationTypes,
 		currentOrganization,
 		organizationSpecies,

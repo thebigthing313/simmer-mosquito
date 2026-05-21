@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listOrganizationMemberships } from './profileMutations';
+import { updateOrganizationMembershipRole } from './profileMutations';
 
 describe('profile mutation responses', () => {
 	afterEach(() => {
@@ -10,12 +10,12 @@ describe('profile mutation responses', () => {
 		const fetch = vi.fn(async () => new Response('404 Not Found', { status: 404 }));
 		vi.stubGlobal('fetch', fetch);
 
-		await expect(listOrganizationMemberships('http://localhost:3002')).rejects.toThrow(
-			'Unable to load memberships.',
-		);
+		await expect(
+			updateOrganizationMembershipRole('http://localhost:3002', 'membership-1', 'viewer'),
+		).rejects.toThrow('Unable to update role.');
 		expect(fetch).toHaveBeenCalledWith(
-			'http://localhost:3002/organization/memberships/list',
-			expect.objectContaining({ method: 'POST' }),
+			'http://localhost:3002/organization/memberships/membership-1/role',
+			expect.objectContaining({ method: 'PATCH' }),
 		);
 	});
 });

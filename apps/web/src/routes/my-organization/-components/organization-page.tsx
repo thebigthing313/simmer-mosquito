@@ -29,17 +29,6 @@ export function MyOrganizationPage({
 }) {
 	const { rows: organizationRows, status } = useCollectionRows(collections.currentOrganization);
 	const { rows: units } = useCollectionRows(collections.units);
-	const { rows: collectionMethods } = useCollectionRows(collections.collectionMethods);
-	const { rows: collectionLures } = useCollectionRows(collections.collectionLures);
-	const { rows: habitatTypes } = useCollectionRows(collections.habitatTypes);
-	const { rows: applicationMethods } = useCollectionRows(collections.applicationMethods);
-	const { rows: sourceReductionMethods } = useCollectionRows(collections.sourceReductionMethods);
-	const { rows: biocontrolMethods } = useCollectionRows(collections.biocontrolMethods);
-	const { rows: vehicles } = useCollectionRows(collections.vehicles);
-	const { rows: equipment } = useCollectionRows(collections.equipment);
-	const { rows: outreachMethods } = useCollectionRows(collections.outreachMethods);
-	const { rows: notificationTypes } = useCollectionRows(collections.notificationTypes);
-	const { rows: profiles } = useCollectionRows(collections.profiles);
 	const { rows: tags } = useCollectionRows(collections.tags);
 	const organization = findCurrentOrganization(organizationRows, auth);
 	const organizationFallback = readOrganizationFallback(auth);
@@ -109,7 +98,8 @@ export function MyOrganizationPage({
 						auth={auth}
 						canManage={role === 'owner'}
 						organization={organization}
-						profiles={profiles}
+						memberships={collections.memberships}
+						profiles={collections.profiles}
 						role={role}
 					/>
 				) : null}
@@ -126,8 +116,8 @@ export function MyOrganizationPage({
 					>
 						<AdultSurveillanceSettings
 							canManage={canManage}
-							collectionLures={collectionLures}
-							collectionMethods={collectionMethods}
+							collectionLures={collections.collectionLures}
+							collectionMethods={collections.collectionMethods}
 							fields={adultFields}
 							organization={organization}
 						/>
@@ -152,7 +142,7 @@ export function MyOrganizationPage({
 					>
 						<LarvalSurveillanceSettings
 							canManage={canManage}
-							habitatTypes={habitatTypes}
+							habitatTypes={collections.habitatTypes}
 							organization={organization}
 							policy={settings.larvalSurveillance.inspectionEntryPolicy}
 						/>
@@ -176,14 +166,14 @@ export function MyOrganizationPage({
 						title="Control operations"
 					>
 						<ControlOperationsSettings
-							applicationMethods={applicationMethods}
-							biocontrolMethods={biocontrolMethods}
+							applicationMethods={collections.applicationMethods}
+							biocontrolMethods={collections.biocontrolMethods}
 							canManage={canManage}
 							organization={organization}
 							settings={settings}
-							sourceReductionMethods={sourceReductionMethods}
-							vehicles={vehicles}
-							equipment={equipment}
+							sourceReductionMethods={collections.sourceReductionMethods}
+							vehicles={collections.vehicles}
+							equipment={collections.equipment}
 						/>
 					</DomainSection>
 				) : null}
@@ -206,9 +196,9 @@ export function MyOrganizationPage({
 					>
 						<PublicEngagementSettings
 							canManage={canManage}
-							notificationTypes={notificationTypes}
+							notificationTypes={collections.notificationTypes}
 							organization={organization}
-							outreachMethods={outreachMethods}
+							outreachMethods={collections.outreachMethods}
 							settings={settings}
 						/>
 					</DomainSection>

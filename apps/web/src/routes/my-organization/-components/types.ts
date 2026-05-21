@@ -63,12 +63,6 @@ export type MutableTagRow = {
 	-readonly [Key in keyof TagRow]: TagRow[Key];
 };
 
-export type AdultLookupRow =
-	| CollectionMethodRow
-	| CollectionLureRow
-	| HabitatTypeRow
-	| ControlMethodRow
-	| NotificationTypeRow;
 export type DensityRangeKey = 'light' | 'medium' | 'heavy' | 'very_heavy';
 export type LarvalDensityDisplayKey = 'none' | DensityRangeKey;
 export type ControlMethodCollectionKey =

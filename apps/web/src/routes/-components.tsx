@@ -31,6 +31,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, Outlet, useLocation, useParams } from '@tanstack/react-router';
 import type React from 'react';
 import { type AuthMe, getServerUrl } from '../auth';
+import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
 import { useCollectionRows } from '../sync/useCollectionRows';
 import { webCollections } from '../sync/webCollections';
 
@@ -308,12 +309,86 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 				</header>
 				<ScrollArea className="min-h-0 flex-auto bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_340px),var(--app-stage)]">
 					<div className="min-h-0 p-[clamp(18px,2.6vw,30px)] max-[560px]:p-4">
-						<Outlet />
+						<WorkspaceOutletBoundary>
+							<Outlet />
+						</WorkspaceOutletBoundary>
 					</div>
 				</ScrollArea>
 			</SidebarInset>
 			<Toaster richColors />
 		</SidebarProvider>
+	);
+}
+
+function WorkspaceOutletBoundary({ children }: { readonly children: React.ReactNode }) {
+	const { pathname } = useLocation();
+
+	return (
+		<SuspenseQueryBoundary
+			errorFallback={<WorkspacePageError />}
+			loadingFallback={<WorkspacePageFallback />}
+			resetKey={pathname}
+		>
+			{children}
+		</SuspenseQueryBoundary>
+	);
+}
+
+export function WorkspaceChromeFallback() {
+	return (
+		<div className="grid min-h-screen place-items-center bg-(--app-stage) p-6">
+			<Card variant="surface" className="w-[min(420px,100%)]">
+				<CardContent padding="default" className="grid gap-2">
+					<p className="eyebrow">SIMMER</p>
+					<strong className="text-[1rem] text-foreground">Loading workspace</strong>
+				</CardContent>
+			</Card>
+		</div>
+	);
+}
+
+export function WorkspaceChromeError() {
+	return (
+		<div className="grid min-h-screen place-items-center bg-(--app-stage) p-6">
+			<Card variant="surface" className="w-[min(460px,100%)]">
+				<CardContent padding="default" className="grid gap-3">
+					<div className="grid gap-1">
+						<p className="eyebrow">SIMMER</p>
+						<strong className="text-[1rem] text-foreground">Unable to load workspace data</strong>
+					</div>
+					<Button type="button" onClick={() => window.location.reload()}>
+						Reload
+					</Button>
+				</CardContent>
+			</Card>
+		</div>
+	);
+}
+
+function WorkspacePageFallback() {
+	return (
+		<Card variant="surface">
+			<CardContent padding="default" className="grid gap-2">
+				<p className="eyebrow">Loading</p>
+				<strong className="text-[1rem] text-foreground">Preparing records</strong>
+			</CardContent>
+		</Card>
+	);
+}
+
+function WorkspacePageError() {
+	return (
+		<Card variant="surface">
+			<CardContent padding="default" className="grid gap-3">
+				<div className="grid gap-1">
+					<p className="eyebrow">Records</p>
+					<strong className="text-[1rem] text-foreground">Unable to load records</strong>
+				</div>
+				<Button type="button" variant="outline" onClick={() => window.location.reload()}>
+					Reload
+				</Button>
+			</CardContent>
+		</Card>
 	);
 }
 

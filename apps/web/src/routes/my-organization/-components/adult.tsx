@@ -26,10 +26,12 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import { useMemo, useState } from 'react';
+import type { Collection } from '@tanstack/react-db';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue } from '../../../forms/field-components';
+import { useActiveNamedCollectionRows } from '../../../sync/useCollectionRows';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import {
 	collectionLureFormValues,
@@ -38,7 +40,6 @@ import {
 	createAdultCollectionLureFromValues,
 	createAdultCollectionMethodFromValues,
 	errorMessageForSave,
-	sortAdultLookupRows,
 	updateAdultCollectionLureFromValues,
 	updateAdultCollectionMethodFromValues,
 	watchPersistence,
@@ -54,8 +55,8 @@ export function AdultSurveillanceSettings({
 	organization,
 }: {
 	readonly canManage: boolean;
-	readonly collectionLures: readonly CollectionLureRow[];
-	readonly collectionMethods: readonly CollectionMethodRow[];
+	readonly collectionLures: Collection<CollectionLureRow, string | number>;
+	readonly collectionMethods: Collection<CollectionMethodRow, string | number>;
 	readonly fields: readonly SettingField[];
 	readonly organization: OrganizationRow | null;
 }) {
@@ -165,21 +166,15 @@ export function CollectionMethodLookupList({
 }: {
 	readonly canManage: boolean;
 	readonly organization: OrganizationRow | null;
-	readonly methods: readonly CollectionMethodRow[];
+	readonly methods: Collection<CollectionMethodRow, string | number>;
 }) {
-	const activeMethods = useMemo(
-		() => sortAdultLookupRows(methods.filter((method) => method.isActive)),
-		[methods],
-	);
-	const inactiveMethods = useMemo(
-		() => sortAdultLookupRows(methods.filter((method) => !method.isActive)),
-		[methods],
-	);
+	const { activeRows: activeMethods, inactiveRows: inactiveMethods } =
+		useActiveNamedCollectionRows(methods);
 
 	return (
 		<LookupListFrame
-			activeCount={methods.filter((method) => method.isActive).length}
-			inactiveCount={methods.filter((method) => !method.isActive).length}
+			activeCount={activeMethods.length}
+			inactiveCount={inactiveMethods.length}
 			detail="Methods can define optional custom fields and action thresholds."
 			title="Collection methods"
 			action={
@@ -432,21 +427,15 @@ export function CollectionLureLookupList({
 }: {
 	readonly canManage: boolean;
 	readonly organization: OrganizationRow | null;
-	readonly lures: readonly CollectionLureRow[];
+	readonly lures: Collection<CollectionLureRow, string | number>;
 }) {
-	const activeLures = useMemo(
-		() => sortAdultLookupRows(lures.filter((lure) => lure.isActive)),
-		[lures],
-	);
-	const inactiveLures = useMemo(
-		() => sortAdultLookupRows(lures.filter((lure) => !lure.isActive)),
-		[lures],
-	);
+	const { activeRows: activeLures, inactiveRows: inactiveLures } =
+		useActiveNamedCollectionRows(lures);
 
 	return (
 		<LookupListFrame
-			activeCount={lures.filter((lure) => lure.isActive).length}
-			inactiveCount={lures.filter((lure) => !lure.isActive).length}
+			activeCount={activeLures.length}
+			inactiveCount={inactiveLures.length}
 			detail="Lures stay as lightweight labels with lifecycle state."
 			title="Collection lures"
 			action={

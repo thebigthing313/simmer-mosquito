@@ -11,6 +11,7 @@ describe('web sync baseline preload', () => {
 		expect(webBaselineCollectionKeys).toEqual([
 			'units',
 			'profiles',
+			'memberships',
 			'genera',
 			'species',
 			'organizationSpecies',

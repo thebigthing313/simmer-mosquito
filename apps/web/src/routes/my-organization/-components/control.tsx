@@ -25,10 +25,12 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import { useMemo, useState } from 'react';
+import { type Collection, eq, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue, validateMetadataValue } from '../../../forms/field-components';
+import { useActiveNamedCollectionRows } from '../../../sync/useCollectionRows';
 import {
 	AddIcon,
 	CloseIcon,
@@ -46,8 +48,6 @@ import {
 	hasMetadata,
 	isEquipmentRow,
 	saveControlSettingsFromValues,
-	sortAdultLookupRows,
-	sortControlAssetRows,
 	updateControlAssetFromValues,
 	updateControlMethodFromValues,
 	watchPersistence,
@@ -69,14 +69,14 @@ export function ControlOperationsSettings({
 	vehicles,
 	equipment,
 }: {
-	readonly applicationMethods: readonly ControlMethodRow[];
-	readonly biocontrolMethods: readonly ControlMethodRow[];
+	readonly applicationMethods: Collection<ControlMethodRow, string | number>;
+	readonly biocontrolMethods: Collection<ControlMethodRow, string | number>;
 	readonly canManage: boolean;
 	readonly organization: OrganizationRow | null;
 	readonly settings: OrganizationSettings;
-	readonly sourceReductionMethods: readonly ControlMethodRow[];
-	readonly vehicles: readonly VehicleRow[];
-	readonly equipment: readonly EquipmentRow[];
+	readonly sourceReductionMethods: Collection<ControlMethodRow, string | number>;
+	readonly vehicles: Collection<VehicleRow, string | number>;
+	readonly equipment: Collection<EquipmentRow, string | number>;
 }) {
 	return (
 		<div className="grid gap-3">
@@ -175,18 +175,12 @@ export function ControlMethodLookupList({
 }: {
 	readonly canManage: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
-	readonly methods: readonly ControlMethodRow[];
+	readonly methods: Collection<ControlMethodRow, string | number>;
 	readonly organization: OrganizationRow | null;
 }) {
 	const config = controlMethodListConfigs[collectionKey];
-	const activeMethods = useMemo(
-		() => sortAdultLookupRows(methods.filter((method) => method.isActive)),
-		[methods],
-	);
-	const inactiveMethods = useMemo(
-		() => sortAdultLookupRows(methods.filter((method) => !method.isActive)),
-		[methods],
-	);
+	const { activeRows: activeMethods, inactiveRows: inactiveMethods } =
+		useActiveNamedCollectionRows(methods);
 
 	return (
 		<LookupListFrame
@@ -392,21 +386,88 @@ export function ControlAssetLookupList({
 	canManage,
 	collectionKey,
 	organization,
+}:
+	| {
+			readonly assets: Collection<VehicleRow, string | number>;
+			readonly canManage: boolean;
+			readonly collectionKey: 'vehicles';
+			readonly organization: OrganizationRow | null;
+	  }
+	| {
+			readonly assets: Collection<EquipmentRow, string | number>;
+			readonly canManage: boolean;
+			readonly collectionKey: 'equipment';
+			readonly organization: OrganizationRow | null;
+	  }) {
+	if (collectionKey === 'vehicles') {
+		return (
+			<VehicleAssetLookupList assets={assets} canManage={canManage} organization={organization} />
+		);
+	}
+
+	return (
+		<EquipmentAssetLookupList assets={assets} canManage={canManage} organization={organization} />
+	);
+}
+
+function VehicleAssetLookupList({
+	assets,
+	canManage,
+	organization,
 }: {
-	readonly assets: readonly ControlAssetRow[];
+	readonly assets: Collection<VehicleRow, string | number>;
+	readonly canManage: boolean;
+	readonly organization: OrganizationRow | null;
+}) {
+	const { activeRows, inactiveRows } = useActiveVehicleRows(assets);
+
+	return (
+		<ControlAssetLookupContent
+			activeAssets={activeRows}
+			canManage={canManage}
+			collectionKey="vehicles"
+			inactiveAssets={inactiveRows}
+			organization={organization}
+		/>
+	);
+}
+
+function EquipmentAssetLookupList({
+	assets,
+	canManage,
+	organization,
+}: {
+	readonly assets: Collection<EquipmentRow, string | number>;
+	readonly canManage: boolean;
+	readonly organization: OrganizationRow | null;
+}) {
+	const { activeRows, inactiveRows } = useActiveEquipmentRows(assets);
+
+	return (
+		<ControlAssetLookupContent
+			activeAssets={activeRows}
+			canManage={canManage}
+			collectionKey="equipment"
+			inactiveAssets={inactiveRows}
+			organization={organization}
+		/>
+	);
+}
+
+function ControlAssetLookupContent({
+	activeAssets,
+	canManage,
+	collectionKey,
+	inactiveAssets,
+	organization,
+}: {
+	readonly activeAssets: readonly ControlAssetRow[];
 	readonly canManage: boolean;
 	readonly collectionKey: ControlAssetCollectionKey;
+	readonly inactiveAssets: readonly ControlAssetRow[];
 	readonly organization: OrganizationRow | null;
 }) {
 	const config = controlAssetListConfigs[collectionKey];
-	const activeAssets = useMemo(
-		() => sortControlAssetRows(assets.filter((asset) => asset.isActive)),
-		[assets],
-	);
-	const inactiveAssets = useMemo(
-		() => sortControlAssetRows(assets.filter((asset) => !asset.isActive)),
-		[assets],
-	);
 
 	return (
 		<LookupListFrame
@@ -444,6 +505,54 @@ export function ControlAssetLookupList({
 			) : null}
 		</LookupListFrame>
 	);
+}
+
+function useActiveVehicleRows(collection: Collection<VehicleRow, string | number>) {
+	const activeResult = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ vehicle: collection })
+				.where(({ vehicle }) => eq(vehicle.isActive, true))
+				.orderBy(({ vehicle }) => vehicle.vehicleName, 'asc'),
+		[collection],
+	);
+	const inactiveResult = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ vehicle: collection })
+				.where(({ vehicle }) => eq(vehicle.isActive, false))
+				.orderBy(({ vehicle }) => vehicle.vehicleName, 'asc'),
+		[collection],
+	);
+
+	return {
+		activeRows: activeResult.data,
+		inactiveRows: inactiveResult.data,
+	};
+}
+
+function useActiveEquipmentRows(collection: Collection<EquipmentRow, string | number>) {
+	const activeResult = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ equipment: collection })
+				.where(({ equipment }) => eq(equipment.isActive, true))
+				.orderBy(({ equipment }) => equipment.equipmentName, 'asc'),
+		[collection],
+	);
+	const inactiveResult = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ equipment: collection })
+				.where(({ equipment }) => eq(equipment.isActive, false))
+				.orderBy(({ equipment }) => equipment.equipmentName, 'asc'),
+		[collection],
+	);
+
+	return {
+		activeRows: activeResult.data,
+		inactiveRows: inactiveResult.data,
+	};
 }
 
 export function ControlAssetTable({

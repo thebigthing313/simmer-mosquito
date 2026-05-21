@@ -4,6 +4,7 @@ import {
 	decodeShapeColumnName,
 	electricShapeCollectionOptions,
 	encodeShapeColumnName,
+	membershipsSyncDescriptor,
 	profilesSyncDescriptor,
 	type SyncDescriptor,
 	unitsSyncDescriptor,
@@ -44,6 +45,28 @@ describe('sync descriptors', () => {
 			'displayName',
 			'email',
 			'isActive',
+			'createdAt',
+			'updatedAt',
+		]);
+	});
+
+	it('defines memberships as selected-organization access sync', () => {
+		expect(membershipsSyncDescriptor).toMatchObject({
+			id: 'memberships',
+			table: 'memberships',
+			endpointPath: '/sync/shapes/memberships',
+			syncMode: 'eager',
+		});
+		expect(membershipsSyncDescriptor.columns).toEqual([
+			'id',
+			'organizationId',
+			'userId',
+			'profileId',
+			'role',
+			'status',
+			'isDefault',
+			'invitedEmail',
+			'workosInvitationId',
 			'createdAt',
 			'updatedAt',
 		]);
@@ -119,6 +142,7 @@ describe('sync descriptors', () => {
 		expect(webReadOnlyTracerDescriptors.map((descriptor) => descriptor.id)).toEqual([
 			'units',
 			'profiles',
+			'memberships',
 			'genera',
 			'species',
 			'organization_species',
