@@ -16,8 +16,8 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
-		"@tanstack/db": "^0.6.5",
-		"@tanstack/electric-db-collection": "0.3.3"
+		"@tanstack/db": "^0.6.6",
+		"@tanstack/electric-db-collection": "0.3.4"
 	},
 	"types": "./dist/index.d.ts"
 }
