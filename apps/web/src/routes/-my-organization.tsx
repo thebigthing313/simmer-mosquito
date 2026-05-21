@@ -8,8 +8,11 @@ import type {
 	CollectionLureRow,
 	CollectionMethodRow,
 	OrganizationRow,
+	ProfileRow,
+	TagRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
+import { ColorPicker } from '@simmer-mosquito/ui-web/components/color-picker';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -34,6 +37,14 @@ import {
 	SheetTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@simmer-mosquito/ui-web/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -41,16 +52,19 @@ import { Link, useLocation } from '@tanstack/react-router';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import type { AuthMe } from '../auth';
+import { type AuthMe, getServerUrl } from '../auth';
 import { useAppForm } from '../forms';
+import { inviteOrganizationProfile } from '../sync/profileMutations';
 import { useCollectionRows } from '../sync/useCollectionRows';
 import { webCollections } from '../sync/webCollections';
 
 type OrgRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 
 const collections = webCollections;
+const ORG_ROLE_OPTIONS: readonly OrgRole[] = ['viewer', 'collector', 'manager', 'admin', 'owner'];
 const AddIcon = iconRegistry.actions.add.icon;
 const CloseIcon = iconRegistry.actions.close.icon;
+const DeleteIcon = iconRegistry.actions.delete.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const SaveIcon = iconRegistry.actions.save.icon;
 const US_TIMEZONE_OPTIONS = [
@@ -141,6 +155,7 @@ export function MyOrganizationPage({
 	const { rows: collectionMethods } = useCollectionRows(collections.collectionMethods);
 	const { rows: collectionLures } = useCollectionRows(collections.collectionLures);
 	const { rows: profiles } = useCollectionRows(collections.profiles);
+	const { rows: tags } = useCollectionRows(collections.tags);
 	const setup = useSetupCatalogRows();
 	const organization = findCurrentOrganization(organizationRows, auth);
 	const organizationFallback = readOrganizationFallback(auth);
@@ -198,14 +213,21 @@ export function MyOrganizationPage({
 						organizationFallback={organizationFallback}
 						organizationName={organizationName}
 						settings={settings}
-						setup={setup}
 						status={status}
+						tags={tags}
 						timezone={settings.timezone}
 						unitFields={unitFields}
+						units={units}
 					/>
 				) : null}
 				{section === 'people' ? (
-					<PeopleSection auth={auth} canManage={canManage} profiles={profiles} role={role} />
+					<PeopleSection
+						auth={auth}
+						canManage={role === 'owner'}
+						organization={organization}
+						profiles={profiles}
+						role={role}
+					/>
 				) : null}
 				{section === 'adult' ? (
 					<DomainSection
@@ -305,9 +327,7 @@ export function MyOrganizationPage({
 
 function OrganizationRouteTabs({ section }: { readonly section: OrganizationSectionId }) {
 	const { pathname } = useLocation();
-	const value =
-		sections.find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`))?.id ??
-		section;
+	const value = activeOrganizationSectionForPath(pathname, section);
 
 	return (
 		<Tabs value={value} className="pt-1.5">
@@ -331,6 +351,23 @@ function OrganizationRouteTabs({ section }: { readonly section: OrganizationSect
 	);
 }
 
+export function activeOrganizationSectionForPath(
+	pathname: string,
+	fallback: OrganizationSectionId,
+): OrganizationSectionId {
+	const normalizedPath = pathname === '/my-organization/' ? '/my-organization' : pathname;
+	const exactMatch = sections.find((item) => normalizedPath === item.to);
+	if (exactMatch !== undefined) {
+		return exactMatch.id;
+	}
+
+	return (
+		sections
+			.filter((item) => item.id !== 'general')
+			.find((item) => normalizedPath.startsWith(`${item.to}/`))?.id ?? fallback
+	);
+}
+
 function GeneralOrganizationSection({
 	agencyFields,
 	canManage,
@@ -338,10 +375,11 @@ function GeneralOrganizationSection({
 	organizationFallback,
 	organizationName,
 	settings,
-	setup,
 	status,
+	tags,
 	timezone,
 	unitFields,
+	units,
 }: {
 	readonly agencyFields: readonly SettingField[];
 	readonly canManage: boolean;
@@ -349,11 +387,16 @@ function GeneralOrganizationSection({
 	readonly organizationFallback: OrganizationFallback;
 	readonly organizationName: string;
 	readonly settings: OrganizationSettings;
-	readonly setup: readonly SetupCatalog[];
 	readonly status: string;
+	readonly tags: readonly TagRow[];
 	readonly timezone: string;
 	readonly unitFields: readonly SettingField[];
+	readonly units: readonly UnitRow[];
 }) {
+	const organizationTags =
+		organization === null ? tags : tags.filter((tag) => tag.organizationId === organization.id);
+	const [isCreatingTag, setIsCreatingTag] = useState(false);
+
 	return (
 		<>
 			<DomainSection
@@ -384,23 +427,52 @@ function GeneralOrganizationSection({
 			<DomainSection
 				canManage={canManage}
 				editDescription="Set default units used across collection forms, summaries, and operational reports."
+				editAction={
+					<EditUnitDefaultsSheet
+						defaultValues={unitDefaultsFormValues(settings.unitDefaults)}
+						description="Set default units used across collection forms, summaries, and operational reports."
+						organization={organization}
+						settings={settings}
+						title="Edit Unit defaults"
+						units={units}
+					/>
+				}
 				fields={unitFields}
 				id="units"
 				meta="Measurement choices used across forms and summaries"
-				onSave={(formData) => saveUnitDefaults(organization, settings, formData)}
 				setupItems={[]}
 				title="Unit defaults"
 			/>
 
 			<DomainSection
 				canManage={canManage}
-				editDescription="Shared tagging is managed by SIMMER setup for now."
+				editDescription="Manage shared labels, display colors, and tag lifecycle state."
+				editAction={
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						disabled={organization === null || isCreatingTag}
+						onClick={() => setIsCreatingTag(true)}
+					>
+						<AddIcon aria-hidden="true" />
+						Add tag
+					</Button>
+				}
 				fields={[]}
 				id="tags"
 				meta="Shared record tagging vocabulary"
-				setupItems={setup.filter((item) => item.label === 'Tags')}
+				setupItems={[]}
 				title="Tags"
-			/>
+			>
+				<TagSections
+					canManage={canManage}
+					isCreating={isCreatingTag}
+					onCancelCreate={() => setIsCreatingTag(false)}
+					organization={organization}
+					tags={organizationTags}
+				/>
+			</DomainSection>
 		</>
 	);
 }
@@ -408,35 +480,66 @@ function GeneralOrganizationSection({
 function PeopleSection({
 	auth,
 	canManage,
+	organization,
 	profiles,
 	role,
 }: {
 	readonly auth: AuthMe | null;
 	readonly canManage: boolean;
-	readonly profiles: readonly { readonly id: string; readonly displayName: string }[];
+	readonly organization: OrganizationRow | null;
+	readonly profiles: readonly ProfileRow[];
 	readonly role: OrgRole;
 }) {
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
-	const currentProfile = profiles.find((profile) => profile.id === localIdentity?.profileId);
+	const organizationProfiles =
+		localIdentity?.organizationId === null || localIdentity?.organizationId === undefined
+			? profiles
+			: profiles.filter((profile) => profile.organizationId === localIdentity.organizationId);
+	const currentProfile = organizationProfiles.find(
+		(profile) => profile.id === localIdentity?.profileId,
+	);
 	const displayName = currentProfile?.displayName ?? user?.displayName ?? 'Current member';
 	const email = user?.email ?? null;
+	const [isAddingHistorical, setIsAddingHistorical] = useState(false);
+	const [isInviting, setIsInviting] = useState(false);
+	const groups = profileGroups(organizationProfiles);
 
 	return (
 		<OrgSection id="people">
 			<OrgSurface>
 				<SectionHeader
 					action={
-						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
-							<AddIcon aria-hidden="true" />
-							Invite
-						</Button>
+						canManage ? (
+							<div className="flex flex-wrap justify-end gap-2">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									disabled={organization === null}
+									onClick={() => setIsAddingHistorical(true)}
+								>
+									<AddIcon aria-hidden="true" />
+									Historical profile
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									disabled={organization === null}
+									onClick={() => setIsInviting(true)}
+								>
+									<AddIcon aria-hidden="true" />
+									Invite
+								</Button>
+							</div>
+						) : undefined
 					}
-					meta="Membership access and role visibility"
+					meta="Profile records, current access, and field history"
 					title="People"
 				/>
-				<div className="grid gap-2">
-					<article className="grid min-w-0 items-center gap-3 rounded-md border border-border/30 bg-muted/40 p-2.5 md:grid-cols-[minmax(240px,1fr)_auto]">
+				<div className="grid gap-3">
+					<article className="grid min-w-0 items-center gap-3 rounded-md border border-border/40 bg-muted/40 p-2.5 md:grid-cols-[minmax(240px,1fr)_auto]">
 						<div className="min-w-0">
 							<strong className="[overflow-wrap:anywhere] text-[0.92rem] text-foreground">
 								{displayName}
@@ -449,18 +552,780 @@ function PeopleSection({
 							{formatRole(role)}
 						</Badge>
 					</article>
-					<p className="m-0 max-w-[68ch] text-[0.86rem] leading-normal text-muted-foreground">
-						Invitations and full membership management will live here once agency-facing people
-						administration is connected to the organization membership API.
-					</p>
+					<ProfileGroup
+						canManage={canManage}
+						emptyLabel="No active linked profiles"
+						profiles={groups.activeLinked}
+						title="Active linked profiles"
+					/>
+					<ProfileGroup
+						canManage={canManage}
+						emptyLabel="No inactive linked profiles"
+						profiles={groups.inactiveLinked}
+						title="Inactive linked profiles"
+					/>
+					<ProfileGroup
+						canManage={canManage}
+						emptyLabel="No historical profiles"
+						profiles={groups.historical}
+						title="Historical profiles"
+					/>
 				</div>
+				{canManage ? (
+					<>
+						<HistoricalProfileSheet
+							open={isAddingHistorical}
+							onOpenChange={setIsAddingHistorical}
+							organization={organization}
+						/>
+						<InviteProfileSheet
+							open={isInviting}
+							onOpenChange={setIsInviting}
+							profiles={groups.historical.filter((profile) => profile.isActive)}
+						/>
+					</>
+				) : null}
 			</OrgSurface>
 		</OrgSection>
 	);
 }
 
+function ProfileGroup({
+	canManage,
+	emptyLabel,
+	profiles,
+	title,
+}: {
+	readonly canManage: boolean;
+	readonly emptyLabel: string;
+	readonly profiles: readonly ProfileRow[];
+	readonly title: string;
+}) {
+	return (
+		<div className="grid gap-2">
+			<div className="flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+				<h3 className="eyebrow m-0">{title}</h3>
+				<Badge tone="neutral" variant="outline">
+					{profiles.length}
+				</Badge>
+			</div>
+			{profiles.length === 0 ? (
+				<p className="m-0 rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-[0.86rem] text-muted-foreground">
+					{emptyLabel}
+				</p>
+			) : (
+				<div className="grid gap-2">
+					{profiles.map((profile) => (
+						<ProfileRowItem canManage={canManage} key={profile.id} profile={profile} />
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function ProfileRowItem({
+	canManage,
+	profile,
+}: {
+	readonly canManage: boolean;
+	readonly profile: ProfileRow;
+}) {
+	return (
+		<article className="grid min-w-0 items-start gap-3 rounded-md border border-border/40 bg-card px-3 py-2.5 md:grid-cols-[minmax(220px,1fr)_auto]">
+			<div className="grid min-w-0 gap-1">
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
+					<strong className="[overflow-wrap:anywhere] text-[0.93rem] leading-snug text-foreground">
+						{profile.displayName}
+					</strong>
+					<Badge tone={profile.isActive ? 'success' : 'neutral'} variant="outline">
+						{profile.isActive ? 'Active' : 'Inactive'}
+					</Badge>
+					<Badge tone={profile.userId === null ? 'neutral' : 'info'} variant="outline">
+						{profile.userId === null ? 'Historical' : 'Linked'}
+					</Badge>
+				</div>
+				<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">
+					{profile.email ?? 'No login link'}
+				</p>
+			</div>
+			{canManage ? <EditProfileSheet profile={profile} /> : null}
+		</article>
+	);
+}
+
+function HistoricalProfileSheet({
+	onOpenChange,
+	open,
+	organization,
+}: {
+	readonly onOpenChange: (open: boolean) => void;
+	readonly open: boolean;
+	readonly organization: OrganizationRow | null;
+}) {
+	const [displayName, setDisplayName] = useState('');
+	const [isActive, setIsActive] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	function updateOpen(nextOpen: boolean) {
+		if (nextOpen) {
+			setDisplayName('');
+			setIsActive(false);
+			setError(null);
+		}
+		onOpenChange(nextOpen);
+	}
+
+	function submit(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setError(null);
+		try {
+			const transaction = createHistoricalProfile(organization, {
+				displayName,
+				isActive,
+			});
+			updateOpen(false);
+			watchPersistence(transaction, 'Unable to add historical profile.');
+		} catch (saveError) {
+			setError(errorMessageForSave(saveError));
+		}
+	}
+
+	return (
+		<Sheet open={open} onOpenChange={updateOpen}>
+			<SheetContent className="w-[min(420px,100%)]">
+				<SheetHeader>
+					<SheetTitle>Add historical profile</SheetTitle>
+					<SheetDescription>
+						Create a person record for field history without inviting them to SIMMER.
+					</SheetDescription>
+				</SheetHeader>
+				<form className="grid gap-3.5" onSubmit={submit}>
+					<div className="grid gap-3 px-4">
+						<Field className="gap-1">
+							<FieldLabel>Display name</FieldLabel>
+							<Input
+								value={displayName}
+								onChange={(event) => setDisplayName(event.target.value)}
+								placeholder="Name used on historical records"
+							/>
+						</Field>
+						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 text-[0.88rem] font-bold">
+							<span>Active for assignment</span>
+							<Switch checked={isActive} onCheckedChange={setIsActive} />
+						</div>
+						{error === null ? null : (
+							<p className="m-0 text-[0.84rem] leading-snug text-destructive">{error}</p>
+						)}
+					</div>
+					<SheetFooter>
+						<Button type="submit" disabled={organization === null}>
+							<SaveIcon aria-hidden="true" />
+							Save profile
+						</Button>
+						<SheetClose asChild>
+							<Button type="button" variant="outline">
+								<CloseIcon data-icon="inline-start" aria-hidden="true" />
+								Cancel
+							</Button>
+						</SheetClose>
+					</SheetFooter>
+				</form>
+			</SheetContent>
+		</Sheet>
+	);
+}
+
+function InviteProfileSheet({
+	onOpenChange,
+	open,
+	profiles,
+}: {
+	readonly onOpenChange: (open: boolean) => void;
+	readonly open: boolean;
+	readonly profiles: readonly ProfileRow[];
+}) {
+	const [displayName, setDisplayName] = useState('');
+	const [email, setEmail] = useState('');
+	const [role, setRole] = useState<OrgRole>('viewer');
+	const [profileId, setProfileId] = useState('new');
+	const [error, setError] = useState<string | null>(null);
+	const [isSaving, setIsSaving] = useState(false);
+
+	function updateOpen(nextOpen: boolean) {
+		if (nextOpen) {
+			setDisplayName('');
+			setEmail('');
+			setRole('viewer');
+			setProfileId('new');
+			setError(null);
+		}
+		onOpenChange(nextOpen);
+	}
+
+	async function submit(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setError(null);
+		setIsSaving(true);
+		try {
+			await inviteOrganizationProfile(getServerUrl(), {
+				displayName,
+				email,
+				role,
+				profileId: profileId === 'new' ? null : profileId,
+			});
+			toast.success('Invitation sent.');
+			updateOpen(false);
+		} catch (saveError) {
+			setError(errorMessageForSave(saveError));
+		} finally {
+			setIsSaving(false);
+		}
+	}
+
+	return (
+		<Sheet open={open} onOpenChange={updateOpen}>
+			<SheetContent className="w-[min(440px,100%)]">
+				<SheetHeader>
+					<SheetTitle>Invite linked profile</SheetTitle>
+					<SheetDescription>
+						Send an invitation and create or attach the access profile for this organization.
+					</SheetDescription>
+				</SheetHeader>
+				<form className="grid gap-3.5" onSubmit={submit}>
+					<div className="grid gap-3 px-4">
+						<Field className="gap-1">
+							<FieldLabel>Historical profile</FieldLabel>
+							<Select value={profileId} onValueChange={setProfileId}>
+								<SelectTrigger size="sm" className="w-full">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="new">Create a new linked profile</SelectItem>
+									{profiles.map((profile) => (
+										<SelectItem key={profile.id} value={profile.id}>
+											{profile.displayName}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</Field>
+						<Field className="gap-1">
+							<FieldLabel>Email</FieldLabel>
+							<Input
+								type="email"
+								value={email}
+								onChange={(event) => setEmail(event.target.value)}
+								placeholder="person@example.gov"
+							/>
+						</Field>
+						<Field className="gap-1">
+							<FieldLabel>Display name</FieldLabel>
+							<Input
+								value={displayName}
+								onChange={(event) => setDisplayName(event.target.value)}
+								placeholder="Optional, defaults to email"
+							/>
+						</Field>
+						<Field className="gap-1">
+							<FieldLabel>Role</FieldLabel>
+							<Select value={role} onValueChange={(value) => setRole(value as OrgRole)}>
+								<SelectTrigger size="sm" className="w-full">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{ORG_ROLE_OPTIONS.map((option) => (
+										<SelectItem key={option} value={option}>
+											{formatRole(option)}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</Field>
+						{error === null ? null : (
+							<p className="m-0 text-[0.84rem] leading-snug text-destructive">{error}</p>
+						)}
+					</div>
+					<SheetFooter>
+						<Button type="submit" disabled={isSaving}>
+							<SaveIcon aria-hidden="true" />
+							Send invite
+						</Button>
+						<SheetClose asChild>
+							<Button type="button" variant="outline">
+								<CloseIcon data-icon="inline-start" aria-hidden="true" />
+								Cancel
+							</Button>
+						</SheetClose>
+					</SheetFooter>
+				</form>
+			</SheetContent>
+		</Sheet>
+	);
+}
+
+function EditProfileSheet({ profile }: { readonly profile: ProfileRow }) {
+	const [open, setOpen] = useState(false);
+	const [displayName, setDisplayName] = useState(profile.displayName);
+	const [isActive, setIsActive] = useState(profile.isActive);
+	const [error, setError] = useState<string | null>(null);
+
+	function updateOpen(nextOpen: boolean) {
+		if (nextOpen) {
+			setDisplayName(profile.displayName);
+			setIsActive(profile.isActive);
+			setError(null);
+		}
+		setOpen(nextOpen);
+	}
+
+	function submit(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setError(null);
+		try {
+			const transaction = updateProfile(profile, { displayName, isActive });
+			updateOpen(false);
+			watchPersistence(transaction, 'Unable to save profile.');
+		} catch (saveError) {
+			setError(errorMessageForSave(saveError));
+		}
+	}
+
+	return (
+		<Sheet open={open} onOpenChange={updateOpen}>
+			<SheetTrigger asChild>
+				<Button type="button" variant="outline" size="sm">
+					<EditIcon aria-hidden="true" />
+					Edit
+				</Button>
+			</SheetTrigger>
+			<SheetContent className="w-[min(420px,100%)]">
+				<SheetHeader>
+					<SheetTitle>Edit {profile.displayName}</SheetTitle>
+					<SheetDescription>Update the profile label and whether it is active.</SheetDescription>
+				</SheetHeader>
+				<form className="grid gap-3.5" onSubmit={submit}>
+					<div className="grid gap-3 px-4">
+						<Field className="gap-1">
+							<FieldLabel>Display name</FieldLabel>
+							<Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+						</Field>
+						<div className="grid gap-1.5">
+							<span className="text-[0.78rem] font-bold text-muted-foreground">Link state</span>
+							<Badge tone={profile.userId === null ? 'neutral' : 'info'} variant="outline">
+								{profile.userId === null ? 'Historical profile' : 'Linked profile'}
+							</Badge>
+						</div>
+						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 text-[0.88rem] font-bold">
+							<span>Active</span>
+							<Switch checked={isActive} onCheckedChange={setIsActive} />
+						</div>
+						{error === null ? null : (
+							<p className="m-0 text-[0.84rem] leading-snug text-destructive">{error}</p>
+						)}
+					</div>
+					<SheetFooter>
+						<Button type="submit">
+							<SaveIcon aria-hidden="true" />
+							Save changes
+						</Button>
+						<SheetClose asChild>
+							<Button type="button" variant="outline">
+								<CloseIcon data-icon="inline-start" aria-hidden="true" />
+								Cancel
+							</Button>
+						</SheetClose>
+					</SheetFooter>
+				</form>
+			</SheetContent>
+		</Sheet>
+	);
+}
+
 function formatRole(role: OrgRole): string {
 	return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function profileGroups(profiles: readonly ProfileRow[]): ProfileGroups {
+	const sorted = [...profiles].sort(
+		(first, second) =>
+			Number(second.isActive) - Number(first.isActive) ||
+			first.displayName.localeCompare(second.displayName),
+	);
+
+	return {
+		activeLinked: sorted.filter((profile) => profile.isActive && profile.userId !== null),
+		inactiveLinked: sorted.filter((profile) => !profile.isActive && profile.userId !== null),
+		historical: sorted.filter((profile) => profile.userId === null),
+	};
+}
+
+function TagSections({
+	canManage,
+	isCreating,
+	onCancelCreate,
+	organization,
+	tags,
+}: {
+	readonly canManage: boolean;
+	readonly isCreating: boolean;
+	readonly onCancelCreate: () => void;
+	readonly organization: OrganizationRow | null;
+	readonly tags: readonly TagRow[];
+}) {
+	const activeTags = sortedTags(tags.filter((tag) => tag.isActive));
+	const deactivatedTags = sortedTags(tags.filter((tag) => !tag.isActive));
+	const [editingTagId, setEditingTagId] = useState<string | null>(null);
+
+	return (
+		<div className="grid gap-3">
+			{canManage && isCreating ? (
+				<TagCreatePanel organization={organization} onCancel={onCancelCreate} />
+			) : null}
+			<TagTableSection
+				canManage={canManage}
+				editingTagId={editingTagId}
+				emptyLabel="No active tags"
+				onCancelEdit={() => setEditingTagId(null)}
+				onEdit={setEditingTagId}
+				title="Active"
+				tags={activeTags}
+			/>
+			<TagTableSection
+				canManage={canManage}
+				editingTagId={editingTagId}
+				emptyLabel="No deactivated tags"
+				onCancelEdit={() => setEditingTagId(null)}
+				onEdit={setEditingTagId}
+				title="Deactivated"
+				tags={deactivatedTags}
+			/>
+		</div>
+	);
+}
+
+function TagTableSection({
+	canManage,
+	editingTagId,
+	emptyLabel,
+	onCancelEdit,
+	onEdit,
+	tags,
+	title,
+}: {
+	readonly canManage: boolean;
+	readonly editingTagId: string | null;
+	readonly emptyLabel: string;
+	readonly onCancelEdit: () => void;
+	readonly onEdit: (tagId: string) => void;
+	readonly tags: readonly TagRow[];
+	readonly title: string;
+}) {
+	return (
+		<div className="grid gap-2">
+			<h3 className="eyebrow mt-0.5 mb-0">{title}</h3>
+			{tags.length === 0 ? (
+				<p className="m-0 rounded-md border border-border/30 bg-muted/40 px-2.5 py-2 text-[0.86rem] text-muted-foreground">
+					{emptyLabel}
+				</p>
+			) : (
+				<div className="overflow-hidden rounded-md border border-border/30 [--tag-actions-column:156px] [--tag-color-column:150px] [--tag-description-column:clamp(220px,30vw,360px)] [--tag-preview-column:clamp(150px,18vw,220px)]">
+					<Table className="min-w-[calc(var(--tag-preview-column)+var(--tag-description-column)+var(--tag-color-column)+var(--tag-actions-column))] table-fixed">
+						<TableHeader>
+							<TableRow>
+								<TableHead className="w-[var(--tag-preview-column)]">Tag preview</TableHead>
+								<TableHead className="w-[var(--tag-description-column)]">Description</TableHead>
+								<TableHead className="w-[var(--tag-color-column)]">Color</TableHead>
+								{canManage ? (
+									<TableHead className="w-[var(--tag-actions-column)] text-right">
+										Actions
+									</TableHead>
+								) : null}
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{tags.map((tag) =>
+								editingTagId === tag.id ? (
+									<TagEditorTableRow key={tag.id} tag={tag} onCancel={onCancelEdit} />
+								) : (
+									<TagDisplayTableRow
+										canManage={canManage}
+										key={tag.id}
+										onEdit={() => onEdit(tag.id)}
+										tag={tag}
+									/>
+								),
+							)}
+						</TableBody>
+					</Table>
+				</div>
+			)}
+		</div>
+	);
+}
+
+function TagBadge({ tag }: { readonly tag: TagRow }) {
+	const color = validHexColor(tag.color);
+	const style =
+		color === null
+			? undefined
+			: ({
+					'--tag-color': color,
+					'--tag-bg': hexWithAlpha(color, 0.14),
+					'--tag-border': hexWithAlpha(color, 0.36),
+				} as React.CSSProperties);
+
+	return (
+		<Badge
+			variant={color === null ? 'secondary' : 'outline'}
+			className={
+				color === null
+					? undefined
+					: 'border-[var(--tag-border)] bg-[var(--tag-bg)] text-[var(--tag-color)]'
+			}
+			style={style}
+			title={tag.description ?? undefined}
+		>
+			{tag.tagName}
+		</Badge>
+	);
+}
+
+function TagColorSwatch({ color }: { readonly color: string | null }) {
+	const normalized = validHexColor(color);
+	const style =
+		normalized === null ? undefined : ({ '--tag-color': normalized } as React.CSSProperties);
+
+	return (
+		<span className="inline-flex items-center gap-2">
+			<span
+				aria-hidden="true"
+				className={
+					normalized === null
+						? 'size-3 rounded-sm border border-border bg-muted'
+						: 'size-3 rounded-sm border border-border bg-[var(--tag-color)]'
+				}
+				style={style}
+			/>
+			<span className="font-mono text-[0.8rem] text-muted-foreground">
+				{normalized ?? 'Default'}
+			</span>
+		</span>
+	);
+}
+
+function TagDisplayTableRow({
+	canManage,
+	onEdit,
+	tag,
+}: {
+	readonly canManage: boolean;
+	readonly onEdit: () => void;
+	readonly tag: TagRow;
+}) {
+	return (
+		<TableRow>
+			<TableCell className="w-[var(--tag-preview-column)]">
+				<TagBadge tag={tag} />
+			</TableCell>
+			<TableCell className="w-[var(--tag-description-column)] whitespace-normal text-muted-foreground [overflow-wrap:anywhere]">
+				{tag.description ?? 'No description'}
+			</TableCell>
+			<TableCell className="w-[var(--tag-color-column)]">
+				<TagColorSwatch color={tag.color} />
+			</TableCell>
+			{canManage ? (
+				<TableCell className="w-[var(--tag-actions-column)] text-right">
+					<Button type="button" variant="outline" size="sm" onClick={onEdit}>
+						<EditIcon aria-hidden="true" />
+						Edit
+					</Button>
+				</TableCell>
+			) : null}
+		</TableRow>
+	);
+}
+
+function TagCreatePanel({
+	onCancel,
+	organization,
+}: {
+	readonly organization: OrganizationRow | null;
+	readonly onCancel: () => void;
+}) {
+	const [values, setValues] = useState<TagFormValues>({
+		tagName: '',
+		description: '',
+		color: '',
+		isActive: true,
+	});
+
+	function createTag() {
+		try {
+			const transaction = createOrganizationTagFromValues(organization, values);
+			setValues({ tagName: '', description: '', color: '', isActive: true });
+			watchPersistence(transaction, 'Unable to create tag.');
+		} catch (error) {
+			toast.error(errorMessageForSave(error));
+		}
+	}
+
+	return (
+		<div className="grid gap-2 rounded-md border border-dashed border-border/50 bg-background/50 p-2.5">
+			<div className="grid gap-2 md:grid-cols-[minmax(180px,1fr)_132px_auto]">
+				<Field className="gap-1">
+					<FieldLabel>Name</FieldLabel>
+					<Input
+						value={values.tagName}
+						placeholder="New tag"
+						onChange={(event) => setValues({ ...values, tagName: event.target.value })}
+					/>
+				</Field>
+				<Field className="gap-1">
+					<FieldLabel>Color</FieldLabel>
+					<ColorPicker
+						value={values.color}
+						onChange={(color) => setValues({ ...values, color: color ?? '' })}
+					/>
+				</Field>
+				<div className="flex items-end gap-2">
+					<Button type="button" disabled={organization === null} onClick={createTag}>
+						<AddIcon aria-hidden="true" />
+						Add
+					</Button>
+					<Button type="button" variant="outline" onClick={onCancel}>
+						<CloseIcon aria-hidden="true" />
+						Cancel
+					</Button>
+				</div>
+			</div>
+			<Field className="gap-1">
+				<FieldLabel>Description</FieldLabel>
+				<Textarea
+					value={values.description}
+					className="min-h-14"
+					onChange={(event) => setValues({ ...values, description: event.target.value })}
+				/>
+			</Field>
+		</div>
+	);
+}
+
+function TagEditorTableRow({
+	onCancel,
+	tag,
+}: {
+	readonly onCancel: () => void;
+	readonly tag: TagRow;
+}) {
+	const [values, setValues] = useState<TagFormValues>({
+		tagName: tag.tagName,
+		description: tag.description ?? '',
+		color: tag.color ?? '',
+		isActive: tag.isActive,
+	});
+
+	useEffect(() => {
+		setValues({
+			tagName: tag.tagName,
+			description: tag.description ?? '',
+			color: tag.color ?? '',
+			isActive: tag.isActive,
+		});
+	}, [tag]);
+
+	function saveTag() {
+		try {
+			const transaction = updateOrganizationTagFromValues(tag, values);
+			watchPersistence(transaction, `Unable to save ${tag.tagName}.`);
+			onCancel();
+		} catch (error) {
+			toast.error(errorMessageForSave(error));
+		}
+	}
+
+	function deleteTag() {
+		const transaction = deleteOrganizationTag(tag);
+		watchPersistence(transaction, `Unable to delete ${tag.tagName}.`);
+		onCancel();
+	}
+
+	return (
+		<TableRow>
+			<TableCell className="w-[var(--tag-preview-column)] align-top">
+				<Field className="gap-1">
+					<FieldLabel>Name</FieldLabel>
+					<Input
+						value={values.tagName}
+						className="min-w-0"
+						onChange={(event) => setValues({ ...values, tagName: event.target.value })}
+					/>
+				</Field>
+			</TableCell>
+			<TableCell className="w-[var(--tag-description-column)] align-top whitespace-normal">
+				<Field className="gap-1">
+					<FieldLabel>Description</FieldLabel>
+					<Textarea
+						value={values.description}
+						className="min-h-14 min-w-0 max-w-full resize-y overflow-wrap-anywhere whitespace-pre-wrap"
+						onChange={(event) => setValues({ ...values, description: event.target.value })}
+					/>
+				</Field>
+			</TableCell>
+			<TableCell className="w-[var(--tag-color-column)] align-top">
+				<Field className="gap-1">
+					<FieldLabel>Color</FieldLabel>
+					<ColorPicker
+						value={values.color}
+						onChange={(color) => setValues({ ...values, color: color ?? '' })}
+					/>
+				</Field>
+				<Field className="mt-2 grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border/30 bg-muted/30 px-2.5 py-1">
+					<FieldLabel>{values.isActive ? 'Active' : 'Deactivated'}</FieldLabel>
+					<Switch
+						checked={values.isActive}
+						onCheckedChange={(isActive) => setValues({ ...values, isActive })}
+					/>
+				</Field>
+			</TableCell>
+			<TableCell className="w-[var(--tag-actions-column)] align-top">
+				<div className="flex justify-end gap-2">
+					<Button type="button" variant="destructive" size="icon" onClick={deleteTag}>
+						<DeleteIcon aria-hidden="true" />
+						<span className="sr-only">Delete {tag.tagName}</span>
+					</Button>
+					<Button type="button" variant="outline" size="icon" onClick={saveTag}>
+						<SaveIcon aria-hidden="true" />
+						<span className="sr-only">Save {tag.tagName}</span>
+					</Button>
+					<Button type="button" variant="outline" size="icon" onClick={onCancel}>
+						<CloseIcon aria-hidden="true" />
+						<span className="sr-only">Cancel editing {tag.tagName}</span>
+					</Button>
+				</div>
+			</TableCell>
+		</TableRow>
+	);
+}
+
+function sortedTags(tags: readonly TagRow[]): TagRow[] {
+	return [...tags].sort((first, second) => first.tagName.localeCompare(second.tagName));
+}
+
+function validHexColor(value: string | null): string | null {
+	if (value === null) {
+		return null;
+	}
+
+	const normalized = value.trim();
+	return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : null;
+}
+
+function hexWithAlpha(hex: string, alpha: number): string {
+	const alphaHex = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
+		.toString(16)
+		.padStart(2, '0');
+	return `${hex}${alphaHex}`;
 }
 
 function DomainSection({
@@ -486,25 +1351,22 @@ function DomainSection({
 	readonly setupItems: readonly SetupCatalog[];
 	readonly title: string;
 }) {
+	const action =
+		canManage && editAction !== undefined ? (
+			editAction
+		) : canManage && fields.length > 0 ? (
+			<EditSettingsSheet
+				description={editDescription}
+				fields={fields}
+				onSave={onSave}
+				title={`Edit ${title}`}
+			/>
+		) : null;
+
 	return (
 		<OrgSection id={id}>
 			<OrgSurface>
-				<SectionHeader
-					action={
-						canManage
-							? (editAction ?? (
-									<EditSettingsSheet
-										description={editDescription}
-										fields={fields}
-										onSave={onSave}
-										title={`Edit ${title}`}
-									/>
-								))
-							: null
-					}
-					meta={meta}
-					title={title}
-				/>
+				<SectionHeader action={action} meta={meta} title={title} />
 				{children ?? (fields.length === 0 ? null : <SettingsDisplayGrid fields={fields} />)}
 				<SetupList items={setupItems} />
 			</OrgSurface>
@@ -557,13 +1419,9 @@ function EditSettingsSheet({
 				</SheetHeader>
 				<form className="grid gap-3.5" onSubmit={submit}>
 					<div className="grid gap-2.5 px-4">
-						{fields.length === 0 ? (
-							<p className="m-0 text-[0.86rem] leading-snug text-muted-foreground">
-								This domain only has setup lists right now.
-							</p>
-						) : (
-							fields.map((field) => <SettingsEditor field={field} key={field.label} />)
-						)}
+						{fields.map((field) => (
+							<SettingsEditor field={field} key={field.label} />
+						))}
 					</div>
 					{error === null ? null : (
 						<p className="m-0 px-4 text-[0.84rem] leading-snug text-destructive">{error}</p>
@@ -604,11 +1462,11 @@ function EditAgencyDetailsSheet({
 			onSubmit: () =>
 				organization === null ? 'Organization details are still loading.' : undefined,
 		},
-		onSubmit: async ({ value }) => {
+		onSubmit: ({ value }) => {
 			try {
 				const transaction = saveAgencyDetailsFromValues(organization, settings, value);
-				await transaction.isPersisted.promise;
 				setOpen(false);
+				watchPersistence(transaction, 'Unable to save agency details.');
 			} catch (saveError) {
 				toast.error(errorMessageForSave(saveError));
 			}
@@ -690,6 +1548,111 @@ function EditAgencyDetailsSheet({
 							>
 								{(field) => <field.SelectField label="Timezone" options={US_TIMEZONE_OPTIONS} />}
 							</form.AppField>
+						</div>
+						<SheetFooter>
+							<form.FormActions>
+								<form.SubmitButton disabled={organization === null} />
+								<SheetClose asChild>
+									<Button type="button" variant="outline">
+										<CloseIcon data-icon="inline-start" aria-hidden="true" />
+										Cancel
+									</Button>
+								</SheetClose>
+							</form.FormActions>
+						</SheetFooter>
+					</form>
+				</form.AppForm>
+			</SheetContent>
+		</Sheet>
+	);
+}
+
+function EditUnitDefaultsSheet({
+	defaultValues,
+	description,
+	organization,
+	settings,
+	title,
+	units,
+}: {
+	readonly defaultValues: UnitDefaultsFormValues;
+	readonly description: string;
+	readonly organization: OrganizationRow | null;
+	readonly settings: OrganizationSettings;
+	readonly title: string;
+	readonly units: readonly UnitRow[];
+}) {
+	const [open, setOpen] = useState(false);
+	const form = useAppForm({
+		defaultValues,
+		validators: {
+			onSubmit: () =>
+				organization === null ? 'Organization details are still loading.' : undefined,
+		},
+		onSubmit: ({ value }) => {
+			try {
+				const transaction = saveUnitDefaultsFromValues(organization, settings, value);
+				setOpen(false);
+				watchPersistence(transaction, 'Unable to save unit defaults.');
+			} catch (saveError) {
+				toast.error(errorMessageForSave(saveError));
+			}
+		},
+	});
+	const unitTypes = Object.keys(defaultValues) as Array<keyof UnitDefaultsFormValues>;
+
+	function updateOpen(nextOpen: boolean) {
+		if (nextOpen) {
+			form.reset(defaultValues);
+		}
+		setOpen(nextOpen);
+	}
+
+	return (
+		<Sheet open={open} onOpenChange={updateOpen}>
+			<SheetTrigger asChild>
+				<Button type="button" variant="outline" size="sm">
+					<EditIcon aria-hidden="true" />
+					Edit
+				</Button>
+			</SheetTrigger>
+			<SheetContent className="w-[min(440px,100%)]">
+				<SheetHeader>
+					<SheetTitle>{title}</SheetTitle>
+					<SheetDescription>{description}</SheetDescription>
+				</SheetHeader>
+				<form.AppForm>
+					<form
+						className="grid gap-3.5"
+						onSubmit={(event) => {
+							event.preventDefault();
+							void form.handleSubmit();
+						}}
+					>
+						<div className="grid gap-2.5 px-4">
+							<form.FormErrorAlert />
+							{unitTypes.map((unitType) => (
+								<form.AppField
+									key={unitType}
+									name={unitType}
+									validators={{
+										onSubmit: ({ value }) =>
+											value.trim().length === 0
+												? `${formatMode(unitType)} is required.`
+												: undefined,
+									}}
+								>
+									{(field) => (
+										<field.SelectField
+											label={formatMode(unitType)}
+											options={unitOptionsForDefault(
+												defaultValues[unitType],
+												units.filter((unit) => unit.unitType === unitType),
+											)}
+										/>
+									)}
+								</form.AppField>
+							))}
 						</div>
 						<SheetFooter>
 							<form.FormActions>
@@ -1414,20 +2377,24 @@ function saveAgencyDetailsFromValues(
 	});
 }
 
-function saveUnitDefaults(
+function unitDefaultsFormValues(unitDefaults: UnitDefaults): UnitDefaultsFormValues {
+	return { ...unitDefaults };
+}
+
+function saveUnitDefaultsFromValues(
 	organization: OrganizationRow | null,
 	settings: OrganizationSettings,
-	formData: FormData,
-): Promise<void> {
-	return updateCurrentOrganization(organization, (draft) => {
+	values: UnitDefaultsFormValues,
+): PersistenceTransaction {
+	return updateCurrentOrganizationOptimistically(organization, (draft) => {
 		draft.settings = {
 			...settings,
 			unitDefaults: Object.fromEntries(
-				Object.keys(settings.unitDefaults).map((unitType) => [
+				Object.entries(values).map(([unitType, unitCode]) => [
 					unitType,
-					requiredFormText(formData, formatMode(unitType)),
+					requiredTextValue(unitCode, formatMode(unitType)),
 				]),
-			) as OrganizationSettings['unitDefaults'],
+			) as UnitDefaults,
 		};
 	});
 }
@@ -1512,6 +2479,98 @@ function savePublicSettings(
 	});
 }
 
+function createOrganizationTag(
+	organization: OrganizationRow | null,
+	formData: FormData,
+): PersistenceTransaction {
+	if (organization === null) {
+		throw new Error('Organization details are still loading.');
+	}
+
+	const now = new Date().toISOString();
+	return collections.tags.insert({
+		id: crypto.randomUUID(),
+		organizationId: organization.id,
+		tagName: requiredFormText(formData, 'tagName'),
+		description: nullableFormText(formData, 'description'),
+		color: nullableFormHexColor(formData, 'color'),
+		isActive: true,
+		createdAt: now,
+		updatedAt: now,
+	});
+}
+
+function createOrganizationTagFromValues(
+	organization: OrganizationRow | null,
+	values: TagFormValues,
+): PersistenceTransaction {
+	return createOrganizationTag(organization, tagFormData(values));
+}
+
+function createHistoricalProfile(
+	organization: OrganizationRow | null,
+	values: ProfileFormValues,
+): PersistenceTransaction {
+	if (organization === null) {
+		throw new Error('Organization details are still loading.');
+	}
+
+	const now = new Date().toISOString();
+	return collections.profiles.insert({
+		id: crypto.randomUUID(),
+		organizationId: organization.id,
+		userId: null,
+		displayName: requiredTextValue(values.displayName, 'Display name'),
+		email: null,
+		isActive: values.isActive,
+		createdAt: now,
+		updatedAt: now,
+	});
+}
+
+function updateProfile(profile: ProfileRow, values: ProfileFormValues): PersistenceTransaction {
+	return collections.profiles.update(profile.id, (draft) => {
+		const mutable = draft as MutableProfileRow;
+		mutable.displayName = requiredTextValue(values.displayName, 'Display name');
+		mutable.isActive = values.isActive;
+		mutable.updatedAt = new Date().toISOString();
+	});
+}
+
+function updateOrganizationTag(
+	tag: TagRow,
+	formData: FormData,
+	isActive: boolean,
+): PersistenceTransaction {
+	return collections.tags.update(tag.id, (draft) => {
+		const mutable = draft as MutableTagRow;
+		mutable.tagName = requiredFormText(formData, 'tagName');
+		mutable.description = nullableFormText(formData, 'description');
+		mutable.color = nullableFormHexColor(formData, 'color');
+		mutable.isActive = isActive;
+		mutable.updatedAt = new Date().toISOString();
+	});
+}
+
+function updateOrganizationTagFromValues(
+	tag: TagRow,
+	values: TagFormValues,
+): PersistenceTransaction {
+	return updateOrganizationTag(tag, tagFormData(values), values.isActive);
+}
+
+function deleteOrganizationTag(tag: TagRow): PersistenceTransaction {
+	return collections.tags.delete(tag.id);
+}
+
+function tagFormData(values: TagFormValues): FormData {
+	const formData = new FormData();
+	formData.set('tagName', values.tagName);
+	formData.set('description', values.description);
+	formData.set('color', values.color);
+	return formData;
+}
+
 function updateCurrentOrganization(
 	organization: OrganizationRow | null,
 	applyChanges: (draft: MutableOrganizationRow) => void,
@@ -1535,6 +2594,13 @@ function updateCurrentOrganizationOptimistically(
 	});
 }
 
+function watchPersistence(transaction: PersistenceTransaction, fallback: string): void {
+	void transaction.isPersisted.promise.catch((error) => {
+		const message = errorMessageForSave(error);
+		toast.error(message === 'Unable to save changes.' ? fallback : message);
+	});
+}
+
 function requiredFormText(formData: FormData, name: string): string {
 	const value = formData.get(name);
 	const text = typeof value === 'string' ? value.trim() : '';
@@ -1548,6 +2614,20 @@ function nullableFormText(formData: FormData, name: string): string | null {
 	const value = formData.get(name);
 	const text = typeof value === 'string' ? value.trim() : '';
 	return text.length === 0 ? null : text;
+}
+
+function nullableFormHexColor(formData: FormData, name: string): string | null {
+	const text = nullableFormText(formData, name);
+	if (text === null) {
+		return null;
+	}
+
+	const normalized = text.startsWith('#') ? text : `#${text}`;
+	if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+		throw new Error(`${name} must be a hex color like #2563EB.`);
+	}
+
+	return normalized.toUpperCase();
 }
 
 function requiredTextValue(value: string, label: string): string {
@@ -1995,6 +3075,14 @@ type MutableCollectionLureRow = {
 	-readonly [Key in keyof CollectionLureRow]: CollectionLureRow[Key];
 };
 
+type MutableProfileRow = {
+	-readonly [Key in keyof ProfileRow]: ProfileRow[Key];
+};
+
+type MutableTagRow = {
+	-readonly [Key in keyof TagRow]: TagRow[Key];
+};
+
 type AdultLookupKind = 'collectionMethods' | 'collectionLures';
 type AdultLookupRow = CollectionMethodRow | CollectionLureRow;
 
@@ -2028,6 +3116,26 @@ interface AgencyDetailsFormValues {
 	readonly mailingPostalCode: string;
 	readonly timezone: string;
 }
+
+interface TagFormValues {
+	readonly tagName: string;
+	readonly description: string;
+	readonly color: string;
+	readonly isActive: boolean;
+}
+
+interface ProfileFormValues {
+	readonly displayName: string;
+	readonly isActive: boolean;
+}
+
+interface ProfileGroups {
+	readonly activeLinked: readonly ProfileRow[];
+	readonly inactiveLinked: readonly ProfileRow[];
+	readonly historical: readonly ProfileRow[];
+}
+
+type UnitDefaultsFormValues = UnitDefaults;
 
 type SetupDomain =
 	| 'adultSurveillance'

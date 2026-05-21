@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { selectOptionsForValue, unitDefaultFields } from './-my-organization';
+import {
+	activeOrganizationSectionForPath,
+	selectOptionsForValue,
+	unitDefaultFields,
+} from './-my-organization';
+
+describe('organization route tabs', () => {
+	it('selects the specific subroute tab instead of the general prefix', () => {
+		expect(activeOrganizationSectionForPath('/my-organization/people', 'general')).toBe('people');
+		expect(activeOrganizationSectionForPath('/my-organization/adult-surveillance', 'general')).toBe(
+			'adult',
+		);
+		expect(activeOrganizationSectionForPath('/my-organization/control-methods', 'general')).toBe(
+			'control',
+		);
+	});
+
+	it('keeps general active for the organization index route', () => {
+		expect(activeOrganizationSectionForPath('/my-organization', 'people')).toBe('general');
+		expect(activeOrganizationSectionForPath('/my-organization/', 'people')).toBe('general');
+	});
+});
 
 describe('organization select options', () => {
 	it('does not render the empty select value as an option', () => {
