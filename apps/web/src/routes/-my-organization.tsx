@@ -52,9 +52,13 @@ import { Link, useLocation } from '@tanstack/react-router';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { type AuthMe, getServerUrl } from '../auth';
+import { type AdminMembership, type AuthMe, getServerUrl } from '../auth';
 import { useAppForm } from '../forms';
-import { inviteOrganizationProfile } from '../sync/profileMutations';
+import {
+	inviteOrganizationProfile,
+	listOrganizationMemberships,
+	updateOrganizationMembershipRole,
+} from '../sync/profileMutations';
 import { useCollectionRows } from '../sync/useCollectionRows';
 import { webCollections } from '../sync/webCollections';
 
@@ -503,7 +507,47 @@ function PeopleSection({
 	const email = user?.email ?? null;
 	const [isAddingHistorical, setIsAddingHistorical] = useState(false);
 	const [isInviting, setIsInviting] = useState(false);
+	const [memberships, setMemberships] = useState<readonly AdminMembership[]>([]);
+	const [membershipError, setMembershipError] = useState<string | null>(null);
 	const groups = profileGroups(organizationProfiles);
+	const membershipByProfileId = useMemo(
+		() => new Map(memberships.map((membership) => [membership.profileId, membership])),
+		[memberships],
+	);
+
+	useEffect(() => {
+		if (!canManage) {
+			setMemberships([]);
+			setMembershipError(null);
+			return;
+		}
+
+		let cancelled = false;
+		listOrganizationMemberships(getServerUrl())
+			.then((loadedMemberships) => {
+				if (!cancelled) {
+					setMemberships(loadedMemberships);
+					setMembershipError(null);
+				}
+			})
+			.catch((error) => {
+				if (!cancelled) {
+					setMembershipError(errorMessageForSave(error));
+				}
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [canManage]);
+
+	function refreshMembership(updatedMembership: AdminMembership) {
+		setMemberships((current) =>
+			current.map((membership) =>
+				membership.id === updatedMembership.id ? updatedMembership : membership,
+			),
+		);
+	}
 
 	return (
 		<OrgSection id="people">
@@ -555,21 +599,32 @@ function PeopleSection({
 					<ProfileGroup
 						canManage={canManage}
 						emptyLabel="No active linked profiles"
+						membershipByProfileId={membershipByProfileId}
+						onMembershipUpdated={refreshMembership}
 						profiles={groups.activeLinked}
 						title="Active linked profiles"
 					/>
 					<ProfileGroup
 						canManage={canManage}
 						emptyLabel="No inactive linked profiles"
+						membershipByProfileId={membershipByProfileId}
+						onMembershipUpdated={refreshMembership}
 						profiles={groups.inactiveLinked}
 						title="Inactive linked profiles"
 					/>
 					<ProfileGroup
 						canManage={canManage}
 						emptyLabel="No historical profiles"
+						membershipByProfileId={membershipByProfileId}
+						onMembershipUpdated={refreshMembership}
 						profiles={groups.historical}
 						title="Historical profiles"
 					/>
+					{membershipError === null ? null : (
+						<p className="m-0 rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-[0.84rem] leading-snug text-destructive">
+							{membershipError}
+						</p>
+					)}
 				</div>
 				{canManage ? (
 					<>
@@ -593,11 +648,15 @@ function PeopleSection({
 function ProfileGroup({
 	canManage,
 	emptyLabel,
+	membershipByProfileId,
+	onMembershipUpdated,
 	profiles,
 	title,
 }: {
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
+	readonly membershipByProfileId: ReadonlyMap<string, AdminMembership>;
+	readonly onMembershipUpdated: (membership: AdminMembership) => void;
 	readonly profiles: readonly ProfileRow[];
 	readonly title: string;
 }) {
@@ -616,7 +675,13 @@ function ProfileGroup({
 			) : (
 				<div className="grid gap-2">
 					{profiles.map((profile) => (
-						<ProfileRowItem canManage={canManage} key={profile.id} profile={profile} />
+						<ProfileRowItem
+							canManage={canManage}
+							key={profile.id}
+							membership={membershipByProfileId.get(profile.id) ?? null}
+							onMembershipUpdated={onMembershipUpdated}
+							profile={profile}
+						/>
 					))}
 				</div>
 			)}
@@ -626,9 +691,13 @@ function ProfileGroup({
 
 function ProfileRowItem({
 	canManage,
+	membership,
+	onMembershipUpdated,
 	profile,
 }: {
 	readonly canManage: boolean;
+	readonly membership: AdminMembership | null;
+	readonly onMembershipUpdated: (membership: AdminMembership) => void;
 	readonly profile: ProfileRow;
 }) {
 	return (
@@ -644,12 +713,23 @@ function ProfileRowItem({
 					<Badge tone={profile.userId === null ? 'neutral' : 'info'} variant="outline">
 						{profile.userId === null ? 'Historical' : 'Linked'}
 					</Badge>
+					{membership === null ? null : (
+						<Badge tone={membership.status === 'active' ? 'success' : 'neutral'} variant="outline">
+							{formatRole(membership.role)}
+						</Badge>
+					)}
 				</div>
 				<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">
 					{profile.email ?? 'No login link'}
 				</p>
 			</div>
-			{canManage ? <EditProfileSheet profile={profile} /> : null}
+			{canManage ? (
+				<EditProfileSheet
+					membership={membership}
+					onMembershipUpdated={onMembershipUpdated}
+					profile={profile}
+				/>
+			) : null}
 		</article>
 	);
 }
@@ -864,30 +944,54 @@ function InviteProfileSheet({
 	);
 }
 
-function EditProfileSheet({ profile }: { readonly profile: ProfileRow }) {
+function EditProfileSheet({
+	membership,
+	onMembershipUpdated,
+	profile,
+}: {
+	readonly membership: AdminMembership | null;
+	readonly onMembershipUpdated: (membership: AdminMembership) => void;
+	readonly profile: ProfileRow;
+}) {
 	const [open, setOpen] = useState(false);
 	const [displayName, setDisplayName] = useState(profile.displayName);
 	const [isActive, setIsActive] = useState(profile.isActive);
+	const [role, setRole] = useState<OrgRole>(membership?.role ?? 'viewer');
 	const [error, setError] = useState<string | null>(null);
+	const [isSaving, setIsSaving] = useState(false);
 
 	function updateOpen(nextOpen: boolean) {
 		if (nextOpen) {
 			setDisplayName(profile.displayName);
 			setIsActive(profile.isActive);
+			setRole(membership?.role ?? 'viewer');
 			setError(null);
+			setIsSaving(false);
 		}
 		setOpen(nextOpen);
 	}
 
-	function submit(event: React.FormEvent<HTMLFormElement>) {
+	async function submit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setError(null);
+		setIsSaving(true);
 		try {
-			const transaction = updateProfile(profile, { displayName, isActive });
+			const nextDisplayName = requiredTextValue(displayName, 'Display name');
+			if (membership !== null && role !== membership.role) {
+				const updatedMembership = await updateOrganizationMembershipRole(
+					getServerUrl(),
+					membership.id,
+					role,
+				);
+				onMembershipUpdated(updatedMembership);
+			}
+			const transaction = updateProfile(profile, { displayName: nextDisplayName, isActive });
 			updateOpen(false);
 			watchPersistence(transaction, 'Unable to save profile.');
 		} catch (saveError) {
 			setError(errorMessageForSave(saveError));
+		} finally {
+			setIsSaving(false);
 		}
 	}
 
@@ -902,7 +1006,9 @@ function EditProfileSheet({ profile }: { readonly profile: ProfileRow }) {
 			<SheetContent className="w-[min(420px,100%)]">
 				<SheetHeader>
 					<SheetTitle>Edit {profile.displayName}</SheetTitle>
-					<SheetDescription>Update the profile label and whether it is active.</SheetDescription>
+					<SheetDescription>
+						Update the profile label, assignment state, and access role.
+					</SheetDescription>
 				</SheetHeader>
 				<form className="grid gap-3.5" onSubmit={submit}>
 					<div className="grid gap-3 px-4">
@@ -916,6 +1022,25 @@ function EditProfileSheet({ profile }: { readonly profile: ProfileRow }) {
 								{profile.userId === null ? 'Historical profile' : 'Linked profile'}
 							</Badge>
 						</div>
+						{membership === null ? null : (
+							<Field className="gap-1">
+								<FieldLabel>Role</FieldLabel>
+								<Select value={role} onValueChange={(value) => setRole(value as OrgRole)}>
+									<SelectTrigger size="sm" className="w-full">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectGroup>
+											{ORG_ROLE_OPTIONS.map((option) => (
+												<SelectItem key={option} value={option}>
+													{formatRole(option)}
+												</SelectItem>
+											))}
+										</SelectGroup>
+									</SelectContent>
+								</Select>
+							</Field>
+						)}
 						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 text-[0.88rem] font-bold">
 							<span>Active</span>
 							<Switch checked={isActive} onCheckedChange={setIsActive} />
@@ -925,7 +1050,7 @@ function EditProfileSheet({ profile }: { readonly profile: ProfileRow }) {
 						)}
 					</div>
 					<SheetFooter>
-						<Button type="submit">
+						<Button type="submit" disabled={isSaving}>
 							<SaveIcon aria-hidden="true" />
 							Save changes
 						</Button>

@@ -1,12 +1,14 @@
 import {
 	assertOrganizationProfileCanBeInvited,
 	createHistoricalProfileWithTxid,
+	listOrganizationMemberships,
 	type MutationWriteResult,
 	type SafeOrganizationMembership,
 	type SafeProfile,
 	type SimmerRole,
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
+	updateOrganizationMembershipRoleWithTxid,
 	updateProfileWithTxid,
 } from '@simmer-mosquito/db';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
@@ -80,6 +82,49 @@ export function registerProfileCommandRoutes(
 
 		return context.json(toProfileWriteResponse(result as MutationWriteResult<SafeProfile>));
 	});
+
+	app.post('/organization/memberships/list', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const ownerResponse = requireOwner(context, authContext);
+		if (ownerResponse !== null) {
+			return ownerResponse;
+		}
+
+		const memberships = await listOrganizationMemberships(options.db, authContext.organization.id);
+
+		return context.json({ memberships: memberships.map(toMembershipResponse) });
+	});
+
+	app.patch(
+		'/organization/memberships/:membershipId/role',
+		options.authContextMiddleware,
+		async (context) => {
+			const authContext = context.get('authContext');
+			const ownerResponse = requireOwner(context, authContext);
+			if (ownerResponse !== null) {
+				return ownerResponse;
+			}
+
+			const payloadResult = await readMembershipRolePayload(context.req);
+			if (!payloadResult.ok) {
+				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+			}
+
+			const result = await updateOrganizationMembershipRoleWithTxid(options.db, {
+				id: context.req.param('membershipId'),
+				organizationId: authContext.organization.id,
+				role: payloadResult.payload.role,
+			});
+			if (result.row === null) {
+				return context.json({ error: 'membership_not_found' }, 404);
+			}
+
+			return context.json({
+				membership: toMembershipResponse(result.row),
+				txid: result.txid,
+			});
+		},
+	);
 
 	app.post('/organization/invitations', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
@@ -198,6 +243,10 @@ interface InvitePayload {
 	readonly profileId: string | null;
 }
 
+interface MembershipRolePayload {
+	readonly role: SimmerRole;
+}
+
 type PayloadResult<TPayload> =
 	| {
 			readonly ok: true;
@@ -264,6 +313,25 @@ async function readInvitePayload(request: {
 	};
 }
 
+async function readMembershipRolePayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<PayloadResult<MembershipRolePayload>> {
+	const raw = await readJsonObject(request);
+	if (!raw.ok) {
+		return raw;
+	}
+
+	const role = readRole(raw.value.role);
+	if (role === null) {
+		return { ok: false, reason: 'role must be owner, admin, manager, collector, or viewer.' };
+	}
+
+	return {
+		ok: true,
+		payload: { role },
+	};
+}
+
 async function readJsonObject(request: {
 	readonly json: () => Promise<unknown>;
 }): Promise<
@@ -318,4 +386,21 @@ function readOptionalText(value: unknown): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toMembershipResponse(membership: SafeOrganizationMembership) {
+	return {
+		id: membership.id,
+		organizationId: membership.organizationId,
+		userId: membership.userId,
+		profileId: membership.profileId,
+		role: membership.role,
+		status: membership.status,
+		isDefault: membership.isDefault,
+		invitedEmail: membership.invitedEmail,
+		workosInvitationId: membership.workosInvitationId,
+		profile: membership.profile,
+		createdAt: membership.createdAt,
+		updatedAt: membership.updatedAt,
+	};
 }

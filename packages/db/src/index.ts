@@ -1233,6 +1233,12 @@ export interface UpdateProfileInput {
 	readonly isActive: boolean;
 }
 
+export interface UpdateOrganizationMembershipRoleInput {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly role: SimmerRole;
+}
+
 export type StageOrganizationInvitationErrorCode =
 	| 'profile_not_found'
 	| 'profile_already_linked'
@@ -3618,6 +3624,31 @@ export async function listOrganizationMemberships(
 			profile_is_active: row.profile_is_active,
 		}),
 	);
+}
+
+export async function updateOrganizationMembershipRoleWithTxid(
+	db: Kysely<SimmerDatabase>,
+	input: UpdateOrganizationMembershipRoleInput,
+): Promise<MutationWriteResult<SafeOrganizationMembership | null>> {
+	return db.transaction().execute(async (trx) => {
+		const updated =
+			(await trx
+				.updateTable('memberships')
+				.set({
+					role: input.role,
+					updated_at: sql`now()`,
+				})
+				.where('id', '=', input.id)
+				.where('organization_id', '=', input.organizationId)
+				.returning(['id'])
+				.executeTakeFirst()) ?? null;
+		const txid = await readCurrentTransactionId(trx);
+		if (updated === null) {
+			return { row: null, txid };
+		}
+
+		return { row: await selectSafeOrganizationMembership(trx, updated.id), txid };
+	});
 }
 
 export async function createHistoricalProfileWithTxid(
