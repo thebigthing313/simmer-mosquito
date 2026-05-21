@@ -41,7 +41,9 @@ export interface ProfileRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
 	readonly organizationId: string;
+	readonly userId: string | null;
 	readonly displayName: string;
+	readonly email: string | null;
 	readonly isActive: boolean;
 	readonly createdAt: string;
 	readonly updatedAt: string;
@@ -191,7 +193,16 @@ export const profilesSyncDescriptor: SyncDescriptor<ProfileRow> = {
 	table: 'profiles',
 	endpointPath: '/sync/shapes/profiles',
 	syncMode: 'eager',
-	columns: ['id', 'organizationId', 'displayName', 'isActive', 'createdAt', 'updatedAt'],
+	columns: [
+		'id',
+		'organizationId',
+		'userId',
+		'displayName',
+		'email',
+		'isActive',
+		'createdAt',
+		'updatedAt',
+	],
 	getKey: (row) => row.id,
 };
 
@@ -413,7 +424,6 @@ export const webReadOnlyTracerDescriptors = [
 	vehiclesSyncDescriptor,
 	equipmentSyncDescriptor,
 	notificationTypesSyncDescriptor,
-	tagsSyncDescriptor,
 	routesSyncDescriptor,
 ] as const;
 
@@ -422,6 +432,7 @@ export const webCommandMutationDescriptors = [
 	collectionMethodsSyncDescriptor,
 	collectionLuresSyncDescriptor,
 	habitatTypesSyncDescriptor,
+	tagsSyncDescriptor,
 ] as const;
 
 export function electricShapeCollectionOptions<TRow extends { readonly id: string }>(

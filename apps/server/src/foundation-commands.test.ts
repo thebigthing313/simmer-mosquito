@@ -1,4 +1,4 @@
-import type { SafeOrgLookup } from '@simmer-mosquito/db';
+import type { SafeOrgLookup, SafeTag } from '@simmer-mosquito/db';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
@@ -162,12 +162,104 @@ describe('registerFoundationCommandRoutes', () => {
 			[{ type: 'foundation.updateHabitatType' }, { type: 'foundation.deactivateHabitatType' }],
 		]);
 	});
+
+	it('creates tags through agency-scoped domain commands', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			writeTagCommands: async (_db, commands) => {
+				calls.push(commands);
+				return { row: tagRow, txid: 46 };
+			},
+		});
+
+		const response = await app.request('/foundation/tags', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				id: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
+				tagName: 'High priority',
+				description: 'Needs attention',
+				color: '#dc2626',
+			}),
+		});
+
+		await expect(response.json()).resolves.toMatchObject({ txid: 46 });
+		expect(response.status).toBe(201);
+		expect(calls).toMatchObject([
+			[
+				{
+					type: 'fieldWork.createTag',
+					payload: {
+						organizationId,
+						actorProfileId: profileId,
+						tagId: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
+						tagName: 'High priority',
+						description: 'Needs attention',
+						color: '#dc2626',
+					},
+				},
+			],
+		]);
+	});
+
+	it('updates tag details and lifecycle in one txid-returning write', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			writeTagCommands: async (_db, commands) => {
+				calls.push(commands);
+				return { row: { ...tagRow, isActive: false }, txid: 47 };
+			},
+		});
+
+		const response = await app.request('/foundation/tags/c15223fd-f242-4e6f-8c0e-0229ecdd95c3', {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				tagName: 'High priority updated',
+				color: null,
+				isActive: false,
+			}),
+		});
+
+		await expect(response.json()).resolves.toMatchObject({ txid: 47 });
+		expect(calls).toMatchObject([
+			[{ type: 'fieldWork.updateTag' }, { type: 'fieldWork.deactivateTag' }],
+		]);
+	});
+
+	it('deletes tags through the agency-scoped delete command', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			writeTagCommands: async (_db, commands) => {
+				calls.push(commands);
+				return { row: tagRow, txid: 48 };
+			},
+		});
+
+		const response = await app.request('/foundation/tags/c15223fd-f242-4e6f-8c0e-0229ecdd95c3', {
+			method: 'DELETE',
+		});
+
+		await expect(response.json()).resolves.toMatchObject({ txid: 48 });
+		expect(calls).toMatchObject([
+			[
+				{
+					type: 'fieldWork.deleteTag',
+					payload: {
+						organizationId,
+						actorProfileId: profileId,
+						tagId: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
+					},
+				},
+			],
+		]);
+	});
 });
 
 function createApp(
 	options: Pick<
 		Parameters<typeof registerFoundationCommandRoutes>[1],
-		'writeCollectionMethodCommands'
+		'writeCollectionMethodCommands' | 'writeTagCommands'
 	>,
 ) {
 	const app = new Hono<{ Variables: AuthVariables }>();
@@ -197,6 +289,19 @@ const collectionMethodRow: SafeOrgLookup = {
 	description: 'Overnight trap',
 	customSchema: null,
 	actionThreshold: 12,
+	isActive: true,
+	createdByProfileId: profileId,
+	updatedByProfileId: profileId,
+	createdAt: new Date('2026-05-18T00:00:00.000Z'),
+	updatedAt: new Date('2026-05-18T00:00:00.000Z'),
+};
+
+const tagRow: SafeTag = {
+	id: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
+	organizationId,
+	tagName: 'High priority',
+	description: 'Needs attention',
+	color: '#dc2626',
 	isActive: true,
 	createdByProfileId: profileId,
 	updatedByProfileId: profileId,

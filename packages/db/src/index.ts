@@ -1189,6 +1189,17 @@ export interface SafeOrganizationMembership {
 	readonly updatedAt: Date;
 }
 
+export interface SafeProfile {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly userId: string | null;
+	readonly displayName: string;
+	readonly email: string | null;
+	readonly isActive: boolean;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
 export interface UpsertOperatorOrganizationInput extends OrganizationSubscriptionMetadata {
 	readonly workosOrganizationId: string;
 	readonly name: string;
@@ -1206,6 +1217,20 @@ export interface StageOrganizationInvitationInput {
 	readonly displayName: string | null;
 	readonly role: SimmerRole;
 	readonly workosInvitationId: string;
+}
+
+export interface CreateHistoricalProfileInput {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly displayName: string;
+	readonly isActive: boolean;
+}
+
+export interface UpdateProfileInput {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly displayName: string;
+	readonly isActive: boolean;
 }
 
 export type StageOrganizationInvitationErrorCode =
@@ -1389,6 +1414,43 @@ export interface SafeOrgLookup {
 	readonly description: string | null;
 	readonly customSchema: unknown | null;
 	readonly actionThreshold: number | null;
+	readonly isActive: boolean;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface CreateTagInput {
+	readonly id?: string;
+	readonly organizationId: string;
+	readonly tagName: string;
+	readonly description?: string | null;
+	readonly color?: string | null;
+	readonly isActive?: boolean;
+	readonly createdByProfileId?: string | null;
+	readonly updatedByProfileId?: string | null;
+}
+
+export interface UpdateTagInput {
+	readonly organizationId: string;
+	readonly tagName?: string;
+	readonly description?: string | null;
+	readonly color?: string | null;
+	readonly updatedByProfileId?: string | null;
+}
+
+export interface TagLifecycleInput {
+	readonly organizationId: string;
+	readonly actorProfileId?: string | null;
+}
+
+export interface SafeTag {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly tagName: string;
+	readonly description: string | null;
+	readonly color: string | null;
 	readonly isActive: boolean;
 	readonly createdByProfileId: string | null;
 	readonly updatedByProfileId: string | null;
@@ -2564,6 +2626,146 @@ export async function writeCollectionMethodLookupCommandsWithTxid(
 	});
 }
 
+export async function createTag(db: DbExecutor, input: CreateTagInput): Promise<SafeTag> {
+	const row = await db
+		.insertInto('tags')
+		.values({
+			...(input.id === undefined ? {} : { id: input.id }),
+			organization_id: input.organizationId,
+			tag_name: input.tagName,
+			description: input.description ?? null,
+			color: input.color ?? null,
+			is_active: input.isActive ?? true,
+			created_by_profile_id: input.createdByProfileId ?? null,
+			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+		})
+		.returning([
+			'id',
+			'organization_id',
+			'tag_name',
+			'description',
+			'color',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirstOrThrow();
+
+	return toSafeTag(row);
+}
+
+export async function updateTag(
+	db: DbExecutor,
+	tagId: string,
+	input: UpdateTagInput,
+): Promise<SafeTag | null> {
+	const row = await db
+		.updateTable('tags')
+		.set({
+			...(input.tagName === undefined ? {} : { tag_name: input.tagName }),
+			...(input.description === undefined ? {} : { description: input.description }),
+			...(input.color === undefined ? {} : { color: input.color }),
+			updated_by_profile_id: input.updatedByProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', tagId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'tag_name',
+			'description',
+			'color',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeTag(row);
+}
+
+export async function setTagActive(
+	db: DbExecutor,
+	tagId: string,
+	input: TagLifecycleInput & { readonly isActive: boolean },
+): Promise<SafeTag | null> {
+	const row = await db
+		.updateTable('tags')
+		.set({
+			is_active: input.isActive,
+			updated_by_profile_id: input.actorProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', tagId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'tag_name',
+			'description',
+			'color',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeTag(row);
+}
+
+export async function deleteTag(
+	db: DbExecutor,
+	tagId: string,
+	input: TagLifecycleInput,
+): Promise<SafeTag | null> {
+	const row = await db
+		.updateTable('tags')
+		.set({
+			deleted_at: sql`now()`,
+			deleted_by_profile_id: input.actorProfileId ?? null,
+			updated_by_profile_id: input.actorProfileId ?? null,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', tagId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.returning([
+			'id',
+			'organization_id',
+			'tag_name',
+			'description',
+			'color',
+			'is_active',
+			'created_by_profile_id',
+			'updated_by_profile_id',
+			'created_at',
+			'updated_at',
+		])
+		.executeTakeFirst();
+
+	return row === undefined ? null : toSafeTag(row);
+}
+
+export async function writeTagCommandsWithTxid(
+	db: Kysely<SimmerDatabase>,
+	write: (trx: Transaction<SimmerDatabase>) => Promise<SafeTag | null>,
+): Promise<MutationWriteResult<SafeTag | null>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await write(trx);
+		const txid = await readCurrentTransactionId(trx);
+		return { row, txid };
+	});
+}
+
 export async function updateCollectionLureLookup(
 	db: DbExecutor,
 	collectionLureId: string,
@@ -3418,6 +3620,69 @@ export async function listOrganizationMemberships(
 	);
 }
 
+export async function createHistoricalProfileWithTxid(
+	db: Kysely<SimmerDatabase>,
+	input: CreateHistoricalProfileInput,
+): Promise<MutationWriteResult<SafeProfile>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await trx
+			.insertInto('profiles')
+			.values({
+				id: input.id,
+				organization_id: input.organizationId,
+				user_id: null,
+				display_name: input.displayName,
+				email: null,
+				is_active: input.isActive,
+			})
+			.returning([
+				'id',
+				'organization_id',
+				'user_id',
+				'display_name',
+				'email',
+				'is_active',
+				'created_at',
+				'updated_at',
+			])
+			.executeTakeFirstOrThrow();
+		const txid = await readCurrentTransactionId(trx);
+		return { row: toSafeProfile(row), txid };
+	});
+}
+
+export async function updateProfileWithTxid(
+	db: Kysely<SimmerDatabase>,
+	input: UpdateProfileInput,
+): Promise<MutationWriteResult<SafeProfile | null>> {
+	return db.transaction().execute(async (trx) => {
+		const row =
+			(await trx
+				.updateTable('profiles')
+				.set({
+					display_name: input.displayName,
+					is_active: input.isActive,
+					updated_at: sql`now()`,
+				})
+				.where('id', '=', input.id)
+				.where('organization_id', '=', input.organizationId)
+				.where('deleted_at', 'is', null)
+				.returning([
+					'id',
+					'organization_id',
+					'user_id',
+					'display_name',
+					'email',
+					'is_active',
+					'created_at',
+					'updated_at',
+				])
+				.executeTakeFirst()) ?? null;
+		const txid = await readCurrentTransactionId(trx);
+		return { row: row === null ? null : toSafeProfile(row), txid };
+	});
+}
+
 export async function stageOrganizationInvitation(
 	db: Kysely<SimmerDatabase>,
 	input: StageOrganizationInvitationInput,
@@ -3809,6 +4074,28 @@ function toSafeOrganizationMembership(row: {
 	};
 }
 
+function toSafeProfile(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly user_id: string | null;
+	readonly display_name: string;
+	readonly email: string | null;
+	readonly is_active: boolean;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeProfile {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		userId: row.user_id,
+		displayName: row.display_name,
+		email: row.email,
+		isActive: row.is_active,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
 function toSpatialFeatureInfo(row: {
 	readonly id: string;
 	readonly lat: number;
@@ -4007,6 +4294,32 @@ function toSafeOrgLookup(row: {
 		description: row.description,
 		customSchema: row.custom_schema,
 		actionThreshold: row.action_threshold ?? null,
+		isActive: row.is_active,
+		createdByProfileId: row.created_by_profile_id,
+		updatedByProfileId: row.updated_by_profile_id,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
+function toSafeTag(row: {
+	readonly id: string;
+	readonly organization_id: string;
+	readonly tag_name: string;
+	readonly description: string | null;
+	readonly color: string | null;
+	readonly is_active: boolean;
+	readonly created_by_profile_id: string | null;
+	readonly updated_by_profile_id: string | null;
+	readonly created_at: Date;
+	readonly updated_at: Date;
+}): SafeTag {
+	return {
+		id: row.id,
+		organizationId: row.organization_id,
+		tagName: row.tag_name,
+		description: row.description,
+		color: row.color,
 		isActive: row.is_active,
 		createdByProfileId: row.created_by_profile_id,
 		updatedByProfileId: row.updated_by_profile_id,

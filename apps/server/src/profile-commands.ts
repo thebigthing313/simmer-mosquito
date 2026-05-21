@@ -1,0 +1,321 @@
+import {
+	assertOrganizationProfileCanBeInvited,
+	createHistoricalProfileWithTxid,
+	type MutationWriteResult,
+	type SafeOrganizationMembership,
+	type SafeProfile,
+	type SimmerRole,
+	StageOrganizationInvitationError,
+	stageOrganizationInvitation,
+	updateProfileWithTxid,
+} from '@simmer-mosquito/db';
+import type { Context, Hono, MiddlewareHandler } from 'hono';
+import type { AuthContext } from './auth-context.js';
+import type { AuthVariables } from './auth-middleware.js';
+
+type ProfileCommandDb = Parameters<typeof createHistoricalProfileWithTxid>[0];
+
+export interface ProfileInvitationAuth {
+	sendOrganizationInvitation(input: {
+		readonly email: string;
+		readonly workosOrganizationId: string;
+		readonly inviterWorkosUserId?: string;
+	}): Promise<{
+		readonly id: string;
+		readonly email: string;
+	}>;
+}
+
+export function registerProfileCommandRoutes(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: {
+		readonly db: ProfileCommandDb;
+		readonly auth: ProfileInvitationAuth;
+		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	},
+): void {
+	app.post('/organization/profiles', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const ownerResponse = requireOwner(context, authContext);
+		if (ownerResponse !== null) {
+			return ownerResponse;
+		}
+
+		const payloadResult = await readProfilePayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const result = await createHistoricalProfileWithTxid(options.db, {
+			id: payloadResult.payload.id,
+			organizationId: authContext.organization.id,
+			displayName: payloadResult.payload.displayName,
+			isActive: payloadResult.payload.isActive,
+		});
+
+		return context.json(toProfileWriteResponse(result), 201);
+	});
+
+	app.patch('/organization/profiles/:profileId', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const ownerResponse = requireOwner(context, authContext);
+		if (ownerResponse !== null) {
+			return ownerResponse;
+		}
+
+		const payloadResult = await readProfilePayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const result = await updateProfileWithTxid(options.db, {
+			id: context.req.param('profileId'),
+			organizationId: authContext.organization.id,
+			displayName: payloadResult.payload.displayName,
+			isActive: payloadResult.payload.isActive,
+		});
+		if (result.row === null) {
+			return context.json({ error: 'profile_not_found' }, 404);
+		}
+
+		return context.json(toProfileWriteResponse(result as MutationWriteResult<SafeProfile>));
+	});
+
+	app.post('/organization/invitations', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const ownerResponse = requireOwner(context, authContext);
+		if (ownerResponse !== null) {
+			return ownerResponse;
+		}
+
+		const payloadResult = await readInvitePayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		if (payloadResult.payload.profileId !== null) {
+			const errorResponse = await validateProfileInviteTarget(context, options.db, {
+				organizationId: authContext.organization.id,
+				profileId: payloadResult.payload.profileId,
+				email: payloadResult.payload.email,
+			});
+			if (errorResponse !== null) {
+				return errorResponse;
+			}
+		}
+
+		const invitation = await options.auth.sendOrganizationInvitation({
+			email: payloadResult.payload.email,
+			workosOrganizationId: authContext.organization.workosOrganizationId,
+			inviterWorkosUserId: authContext.workosUser.workosUserId,
+		});
+
+		let membership: SafeOrganizationMembership;
+		try {
+			membership = await stageOrganizationInvitation(options.db, {
+				organizationId: authContext.organization.id,
+				...(payloadResult.payload.profileId === null
+					? {}
+					: { profileId: payloadResult.payload.profileId }),
+				email: invitation.email,
+				displayName: payloadResult.payload.displayName,
+				role: payloadResult.payload.role,
+				workosInvitationId: invitation.id,
+			});
+		} catch (error) {
+			const errorResponse = invitationErrorResponse(context, error);
+			if (errorResponse !== null) {
+				return errorResponse;
+			}
+			throw error;
+		}
+
+		return context.json({ membership, txid: null }, 201);
+	});
+}
+
+function requireOwner(context: Context<{ Variables: AuthVariables }>, authContext: AuthContext) {
+	return authContext.role === 'owner'
+		? null
+		: context.json(
+				{ error: 'forbidden', reason: 'Only organization owners can manage people.' },
+				403,
+			);
+}
+
+function toProfileWriteResponse(result: MutationWriteResult<SafeProfile>) {
+	return {
+		profile: {
+			id: result.row.id,
+			organizationId: result.row.organizationId,
+			userId: result.row.userId,
+			displayName: result.row.displayName,
+			email: result.row.email,
+			isActive: result.row.isActive,
+			createdAt: result.row.createdAt,
+			updatedAt: result.row.updatedAt,
+		},
+		txid: result.txid,
+	};
+}
+
+async function validateProfileInviteTarget(
+	context: Context<{ Variables: AuthVariables }>,
+	db: ProfileCommandDb,
+	input: {
+		readonly organizationId: string;
+		readonly profileId: string;
+		readonly email: string;
+	},
+) {
+	try {
+		await assertOrganizationProfileCanBeInvited(db, input);
+		return null;
+	} catch (error) {
+		return invitationErrorResponse(context, error);
+	}
+}
+
+function invitationErrorResponse(context: Context<{ Variables: AuthVariables }>, error: unknown) {
+	if (error instanceof StageOrganizationInvitationError) {
+		const status = error.code === 'profile_not_found' ? 404 : 409;
+		return context.json({ error: error.code }, status);
+	}
+
+	return null;
+}
+
+interface ProfilePayload {
+	readonly id: string;
+	readonly displayName: string;
+	readonly isActive: boolean;
+}
+
+interface InvitePayload {
+	readonly email: string;
+	readonly role: SimmerRole;
+	readonly displayName: string | null;
+	readonly profileId: string | null;
+}
+
+type PayloadResult<TPayload> =
+	| {
+			readonly ok: true;
+			readonly payload: TPayload;
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: string;
+	  };
+
+async function readProfilePayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<PayloadResult<ProfilePayload>> {
+	const raw = await readJsonObject(request);
+	if (!raw.ok) {
+		return raw;
+	}
+
+	const id = readRequiredText(raw.value.id);
+	const displayName = readRequiredText(raw.value.displayName);
+	if (id === null) {
+		return { ok: false, reason: 'id is required.' };
+	}
+	if (displayName === null) {
+		return { ok: false, reason: 'displayName is required.' };
+	}
+
+	return {
+		ok: true,
+		payload: {
+			id,
+			displayName,
+			isActive: raw.value.isActive !== false,
+		},
+	};
+}
+
+async function readInvitePayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<PayloadResult<InvitePayload>> {
+	const raw = await readJsonObject(request);
+	if (!raw.ok) {
+		return raw;
+	}
+
+	const email = readRequiredText(raw.value.email);
+	if (email === null || !email.includes('@')) {
+		return { ok: false, reason: 'email is required.' };
+	}
+
+	const role = readRole(raw.value.role);
+	if (role === null) {
+		return { ok: false, reason: 'role must be owner, admin, manager, collector, or viewer.' };
+	}
+
+	return {
+		ok: true,
+		payload: {
+			email,
+			role,
+			displayName: readOptionalText(raw.value.displayName),
+			profileId: readOptionalText(raw.value.profileId),
+		},
+	};
+}
+
+async function readJsonObject(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<
+	| { readonly ok: true; readonly value: Record<string, unknown> }
+	| { readonly ok: false; readonly reason: string }
+> {
+	let raw: unknown;
+	try {
+		raw = await request.json();
+	} catch {
+		return { ok: false, reason: 'Request body must be JSON.' };
+	}
+
+	if (!isRecord(raw)) {
+		return { ok: false, reason: 'Request body must be an object.' };
+	}
+
+	return { ok: true, value: raw };
+}
+
+function readRole(value: unknown): SimmerRole | null {
+	if (
+		value === 'owner' ||
+		value === 'admin' ||
+		value === 'manager' ||
+		value === 'collector' ||
+		value === 'viewer'
+	) {
+		return value;
+	}
+
+	return null;
+}
+
+function readRequiredText(value: unknown): string | null {
+	const text = readOptionalText(value);
+	return text === null ? null : text;
+}
+
+function readOptionalText(value: unknown): string | null {
+	if (value === undefined || value === null) {
+		return null;
+	}
+
+	if (typeof value !== 'string') {
+		return null;
+	}
+
+	const trimmed = value.trim();
+	return trimmed.length === 0 ? null : trimmed;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}

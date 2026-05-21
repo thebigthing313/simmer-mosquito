@@ -30,7 +30,7 @@ describe('sync descriptors', () => {
 		]);
 	});
 
-	it('defines profiles as selected-organization label sync only', () => {
+	it('defines profiles as selected-organization people sync', () => {
 		expect(profilesSyncDescriptor).toMatchObject({
 			id: 'profiles',
 			table: 'profiles',
@@ -40,13 +40,13 @@ describe('sync descriptors', () => {
 		expect(profilesSyncDescriptor.columns).toEqual([
 			'id',
 			'organizationId',
+			'userId',
 			'displayName',
+			'email',
 			'isActive',
 			'createdAt',
 			'updatedAt',
 		]);
-		expect(profilesSyncDescriptor.columns).not.toContain('email');
-		expect(profilesSyncDescriptor.columns).not.toContain('userId');
 	});
 
 	it('defines the current organization row without subscription fields', () => {
@@ -111,6 +111,7 @@ describe('sync descriptors', () => {
 			'collection_methods',
 			'collection_lures',
 			'habitat_types',
+			'tags',
 		]);
 	});
 
@@ -128,7 +129,6 @@ describe('sync descriptors', () => {
 			'vehicles',
 			'equipment',
 			'notification_types',
-			'tags',
 			'routes',
 		]);
 

@@ -37,6 +37,8 @@ import {
 import { type Collection, createCollection } from '@tanstack/db';
 import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createOrgLookupMutationHandlers } from './orgLookupMutations';
+import { createProfileMutationHandlers } from './profileMutations';
+import { createTagMutationHandlers } from './tagMutations';
 
 export interface WebCollections {
 	readonly applicationMethods: Collection<ControlMethodRow, string | number>;
@@ -99,6 +101,9 @@ export function createWebCollections(options: {
 		electricShapeCollectionOptions<ProfileRow>({
 			descriptor: profilesSyncDescriptor,
 			url: `${shapeServerUrl}${profilesSyncDescriptor.endpointPath}`,
+			...createProfileMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
 	const genera = createCollection(
@@ -207,6 +212,9 @@ export function createWebCollections(options: {
 		electricShapeCollectionOptions<TagRow>({
 			descriptor: tagsSyncDescriptor,
 			url: `${shapeServerUrl}${tagsSyncDescriptor.endpointPath}`,
+			...createTagMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
 	const routes = createCollection(

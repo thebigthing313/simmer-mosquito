@@ -1,38 +1,52 @@
 import {
 	createOrgLookup,
+	createTag,
 	deleteCollectionLureLookup,
 	deleteCollectionMethodLookup,
 	deleteHabitatTypeLookup,
+	deleteTag,
 	type MutationWriteResult,
 	type SafeOrgLookup,
+	type SafeTag,
 	setCollectionLureLookupActive,
 	setCollectionMethodLookupActive,
 	setHabitatTypeLookupActive,
+	setTagActive,
 	updateCollectionLureLookup,
 	updateCollectionMethodLookup,
 	updateHabitatTypeLookup,
+	updateTag,
 	writeCollectionMethodLookupCommandsWithTxid,
+	writeTagCommandsWithTxid,
 } from '@simmer-mosquito/db';
 import {
+	type ActivateTagCommand,
+	activateTagCommand,
 	type CreateCollectionLureCommand,
 	type CreateCollectionMethodCommand,
 	type CreateHabitatTypeCommand,
+	type CreateTagCommand,
 	createCollectionLureCommand,
 	createCollectionMethodCommand,
 	createHabitatTypeCommand,
+	createTagCommand,
 	type DeactivateCollectionLureCommand,
 	type DeactivateCollectionMethodCommand,
 	type DeactivateHabitatTypeCommand,
+	type DeactivateTagCommand,
 	type DeleteCollectionLureCommand,
 	type DeleteCollectionMethodCommand,
 	type DeleteHabitatTypeCommand,
+	type DeleteTagCommand,
 	DomainValidationError,
 	deactivateCollectionLureCommand,
 	deactivateCollectionMethodCommand,
 	deactivateHabitatTypeCommand,
+	deactivateTagCommand,
 	deleteCollectionLureCommand,
 	deleteCollectionMethodCommand,
 	deleteHabitatTypeCommand,
+	deleteTagCommand,
 	type ReactivateCollectionLureCommand,
 	type ReactivateCollectionMethodCommand,
 	type ReactivateHabitatTypeCommand,
@@ -42,9 +56,11 @@ import {
 	type UpdateCollectionLureCommand,
 	type UpdateCollectionMethodCommand,
 	type UpdateHabitatTypeCommand,
+	type UpdateTagCommand,
 	updateCollectionLureCommand,
 	updateCollectionMethodCommand,
 	updateHabitatTypeCommand,
+	updateTagCommand,
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
@@ -69,12 +85,23 @@ type HabitatTypeCommand =
 	| DeactivateHabitatTypeCommand
 	| ReactivateHabitatTypeCommand
 	| DeleteHabitatTypeCommand;
+type TagCommand =
+	| CreateTagCommand
+	| UpdateTagCommand
+	| DeactivateTagCommand
+	| ActivateTagCommand
+	| DeleteTagCommand;
 type LookupCommand = CollectionMethodCommand | CollectionLureCommand | HabitatTypeCommand;
+type FoundationCommand = LookupCommand | TagCommand;
 
 type CollectionMethodCommandWriter = (
 	db: FoundationCommandDb,
 	commands: readonly LookupCommand[],
 ) => Promise<MutationWriteResult<SafeOrgLookup | null>>;
+type TagCommandWriter = (
+	db: FoundationCommandDb,
+	commands: readonly TagCommand[],
+) => Promise<MutationWriteResult<SafeTag | null>>;
 
 export function registerFoundationCommandRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -82,10 +109,12 @@ export function registerFoundationCommandRoutes(
 		readonly db: FoundationCommandDb;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly writeCollectionMethodCommands?: CollectionMethodCommandWriter;
+		readonly writeTagCommands?: TagCommandWriter;
 	},
 ): void {
 	const writeCollectionMethodCommands =
 		options.writeCollectionMethodCommands ?? writeFoundationLookupCommands;
+	const writeTagCommands = options.writeTagCommands ?? writeFoundationTagCommands;
 
 	app.post('/foundation/collection-methods', options.authContextMiddleware, async (context) => {
 		const payloadResult = await readCollectionMethodCreatePayload(context.req);
@@ -338,6 +367,71 @@ export function registerFoundationCommandRoutes(
 			});
 		},
 	);
+
+	app.post('/foundation/tags', options.authContextMiddleware, async (context) => {
+		const payloadResult = await readTagCreatePayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const commandResult = createCommand(() =>
+			createTagCommand({
+				...agencyCommandContext(context.get('authContext')),
+				tagId: payloadResult.payload.id,
+				tagName: payloadResult.payload.tagName,
+				description: payloadResult.payload.description,
+				color: payloadResult.payload.color,
+			}),
+		);
+		if (!commandResult.ok) {
+			return context.json(commandResult.body, 400);
+		}
+
+		const result = await writeTagCommands(options.db, [commandResult.command]);
+		return context.json({ tag: toTagResponse(result.row), txid: result.txid }, 201);
+	});
+
+	app.patch('/foundation/tags/:tagId', options.authContextMiddleware, async (context) => {
+		const payloadResult = await readTagUpdatePayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const commandsResult = buildTagUpdateCommands(
+			context.get('authContext'),
+			context.req.param('tagId'),
+			payloadResult.payload,
+		);
+		if (!commandsResult.ok) {
+			return context.json(commandsResult.body, 400);
+		}
+
+		const result = await writeTagCommands(options.db, commandsResult.commands);
+		if (result.row === null) {
+			return context.json({ error: 'tag_not_found' }, 404);
+		}
+
+		return context.json({ tag: toTagResponse(result.row), txid: result.txid });
+	});
+
+	app.delete('/foundation/tags/:tagId', options.authContextMiddleware, async (context) => {
+		const commandResult = createCommand(() =>
+			deleteTagCommand({
+				...agencyCommandContext(context.get('authContext')),
+				tagId: context.req.param('tagId'),
+			}),
+		);
+		if (!commandResult.ok) {
+			return context.json(commandResult.body, 400);
+		}
+
+		const result = await writeTagCommands(options.db, [commandResult.command]);
+		if (result.row === null) {
+			return context.json({ error: 'tag_not_found' }, 404);
+		}
+
+		return context.json({ tag: toTagResponse(result.row), txid: result.txid });
+	});
 }
 
 export async function writeFoundationLookupCommands(
@@ -348,6 +442,20 @@ export async function writeFoundationLookupCommands(
 		let row: SafeOrgLookup | null = null;
 		for (const command of commands) {
 			row = await writeFoundationLookupCommand(trx, command);
+		}
+
+		return row;
+	});
+}
+
+export async function writeFoundationTagCommands(
+	db: FoundationCommandDb,
+	commands: readonly TagCommand[],
+): Promise<MutationWriteResult<SafeTag | null>> {
+	return writeTagCommandsWithTxid(db, async (trx) => {
+		let row: SafeTag | null = null;
+		for (const command of commands) {
+			row = await writeFoundationTagCommand(trx, command);
 		}
 
 		return row;
@@ -489,6 +597,58 @@ async function writeFoundationLookupCommand(
 			return deleteHabitatTypeLookup(db, lifecyclePayload.habitatTypeId, {
 				organizationId: lifecyclePayload.organizationId,
 				actorProfileId: lifecyclePayload.actorProfileId,
+			});
+		}
+	}
+}
+
+async function writeFoundationTagCommand(
+	db: Parameters<Parameters<typeof writeTagCommandsWithTxid>[1]>[0],
+	command: TagCommand,
+): Promise<SafeTag | null> {
+	switch (command.type) {
+		case 'fieldWork.createTag': {
+			const payload = command.payload;
+			return createTag(db, {
+				id: payload.tagId,
+				organizationId: payload.organizationId,
+				tagName: payload.tagName,
+				description: payload.description,
+				color: payload.color,
+				isActive: true,
+				createdByProfileId: payload.actorProfileId,
+				updatedByProfileId: payload.actorProfileId,
+			});
+		}
+		case 'fieldWork.updateTag': {
+			const payload = command.payload;
+			return updateTag(db, payload.tagId, {
+				organizationId: payload.organizationId,
+				...payload.changes,
+				updatedByProfileId: payload.actorProfileId,
+			});
+		}
+		case 'fieldWork.activateTag': {
+			const payload = command.payload;
+			return setTagActive(db, payload.tagId, {
+				organizationId: payload.organizationId,
+				actorProfileId: payload.actorProfileId,
+				isActive: true,
+			});
+		}
+		case 'fieldWork.deactivateTag': {
+			const payload = command.payload;
+			return setTagActive(db, payload.tagId, {
+				organizationId: payload.organizationId,
+				actorProfileId: payload.actorProfileId,
+				isActive: false,
+			});
+		}
+		case 'fieldWork.deleteTag': {
+			const payload = command.payload;
+			return deleteTag(db, payload.tagId, {
+				organizationId: payload.organizationId,
+				actorProfileId: payload.actorProfileId,
 			});
 		}
 	}
@@ -666,6 +826,60 @@ function buildHabitatTypeUpdateCommands(
 	return { ok: true, commands };
 }
 
+function buildTagUpdateCommands(
+	authContext: AuthContext,
+	tagId: string,
+	payload: TagUpdatePayload,
+):
+	| { readonly ok: true; readonly commands: readonly TagCommand[] }
+	| { readonly ok: false; readonly body: InvalidCommandBody } {
+	const commands: TagCommand[] = [];
+	const hasDetailChange =
+		payload.tagName !== undefined ||
+		payload.description !== undefined ||
+		payload.color !== undefined;
+
+	if (hasDetailChange) {
+		const commandResult = createCommand(() =>
+			updateTagCommand({
+				...agencyCommandContext(authContext),
+				tagId,
+				...(payload.tagName === undefined ? {} : { tagName: payload.tagName }),
+				...(payload.description === undefined ? {} : { description: payload.description }),
+				...(payload.color === undefined ? {} : { color: payload.color }),
+			}),
+		);
+		if (!commandResult.ok) {
+			return commandResult;
+		}
+		commands.push(commandResult.command);
+	}
+
+	if (payload.isActive !== undefined) {
+		const commandResult = createCommand(() =>
+			payload.isActive
+				? activateTagCommand({
+						...agencyCommandContext(authContext),
+						tagId,
+					})
+				: deactivateTagCommand({
+						...agencyCommandContext(authContext),
+						tagId,
+					}),
+		);
+		if (!commandResult.ok) {
+			return commandResult;
+		}
+		commands.push(commandResult.command);
+	}
+
+	if (commands.length === 0) {
+		return invalidUpdateCommand('tag');
+	}
+
+	return { ok: true, commands };
+}
+
 function invalidUpdateCommand(changeNoun: string): {
 	readonly ok: false;
 	readonly body: InvalidCommandBody;
@@ -687,7 +901,7 @@ type InvalidCommandBody = {
 	readonly issues: readonly { readonly path: string; readonly message: string }[];
 };
 
-function createCommand<TCommand extends LookupCommand>(
+function createCommand<TCommand extends FoundationCommand>(
 	build: () => TCommand,
 ):
 	| { readonly ok: true; readonly command: TCommand }
@@ -723,6 +937,20 @@ interface CollectionMethodUpdatePayload {
 	readonly description?: string | null;
 	readonly customSchema?: unknown | null;
 	readonly actionThreshold?: number | null;
+	readonly isActive?: boolean;
+}
+
+interface TagCreatePayload {
+	readonly id: string;
+	readonly tagName: string;
+	readonly description: string | null;
+	readonly color: string | null;
+}
+
+interface TagUpdatePayload {
+	readonly tagName?: string;
+	readonly description?: string | null;
+	readonly color?: string | null;
 	readonly isActive?: boolean;
 }
 
@@ -785,6 +1013,54 @@ async function readCollectionMethodUpdatePayload(request: {
 				? {}
 				: { customSchema: readOptionalJson(raw.customSchema) }),
 			...(raw.actionThreshold === undefined ? {} : { actionThreshold }),
+			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
+		},
+	};
+}
+
+async function readTagCreatePayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<PayloadResult<TagCreatePayload>> {
+	const rawResult = await readJsonObject(request);
+	if (!rawResult.ok) {
+		return rawResult;
+	}
+	const raw = rawResult.payload;
+	const id = readRequiredText(raw.id);
+	const tagName = readRequiredText(raw.tagName);
+	if (id === null || tagName === null) {
+		return invalid('id and tagName are required.');
+	}
+
+	return {
+		ok: true,
+		payload: {
+			id,
+			tagName,
+			description: readOptionalText(raw.description),
+			color: readOptionalText(raw.color),
+		},
+	};
+}
+
+async function readTagUpdatePayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<PayloadResult<TagUpdatePayload>> {
+	const rawResult = await readJsonObject(request);
+	if (!rawResult.ok) {
+		return rawResult;
+	}
+	const raw = rawResult.payload;
+	if (raw.isActive !== undefined && typeof raw.isActive !== 'boolean') {
+		return invalid('isActive must be a boolean.');
+	}
+
+	return {
+		ok: true,
+		payload: {
+			...(raw.tagName === undefined ? {} : { tagName: readRequiredText(raw.tagName) ?? '' }),
+			...(raw.description === undefined ? {} : { description: readOptionalText(raw.description) }),
+			...(raw.color === undefined ? {} : { color: readOptionalText(raw.color) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
 		},
 	};
@@ -863,6 +1139,23 @@ function toCollectionMethodResponse(row: SafeOrgLookup | null) {
 		description: row.description,
 		customSchema: row.customSchema,
 		actionThreshold: row.actionThreshold,
+		isActive: row.isActive,
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+	};
+}
+
+function toTagResponse(row: SafeTag | null) {
+	if (row === null) {
+		return null;
+	}
+
+	return {
+		id: row.id,
+		organizationId: row.organizationId,
+		tagName: row.tagName,
+		description: row.description,
+		color: row.color,
 		isActive: row.isActive,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,

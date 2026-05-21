@@ -62,5 +62,8 @@ describe('web sync baseline preload', () => {
 		expect(collections.habitatTypes.config.onInsert).toBeTypeOf('function');
 		expect(collections.habitatTypes.config.onUpdate).toBeTypeOf('function');
 		expect(collections.habitatTypes.config.onDelete).toBeTypeOf('function');
+		expect(collections.tags.config.onInsert).toBeTypeOf('function');
+		expect(collections.tags.config.onUpdate).toBeTypeOf('function');
+		expect(collections.tags.config.onDelete).toBeTypeOf('function');
 	});
 });

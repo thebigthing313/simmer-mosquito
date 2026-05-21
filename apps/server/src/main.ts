@@ -33,6 +33,7 @@ import { readServerEnv } from './env.js';
 import { registerFoundationCommandRoutes } from './foundation-commands.js';
 import { registerOrganizationCommandRoutes } from './organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
+import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 
 const env = readServerEnv();
@@ -115,7 +116,7 @@ app.use(
 	cors({
 		origin: allowedCorsOrigins(),
 		credentials: true,
-		allowMethods: ['PATCH', 'OPTIONS'],
+		allowMethods: ['POST', 'PATCH', 'OPTIONS'],
 	}),
 );
 
@@ -277,6 +278,12 @@ registerOrganizationCommandRoutes(app, {
 
 registerOrganizationSettingsCommandRoutes(app, {
 	db,
+	authContextMiddleware,
+});
+
+registerProfileCommandRoutes(app, {
+	db,
+	auth,
 	authContextMiddleware,
 });
 
