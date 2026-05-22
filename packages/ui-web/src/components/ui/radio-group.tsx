@@ -1,5 +1,5 @@
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { CircleIcon } from 'lucide-react';
+import { CircleIcon } from '../../icons/registry';
 import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 import type * as React from 'react';
 

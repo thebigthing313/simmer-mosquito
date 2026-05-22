@@ -52,6 +52,23 @@ describe('sync baseline seed fixture', () => {
 		);
 	});
 
+	it('includes every organization settings default unit code in the synced server list', () => {
+		const seededCodes = syncBaselineUnits.map((row) => row.code);
+
+		expect(seededCodes).toEqual(
+			expect.arrayContaining([
+				'pound',
+				'mile',
+				'acre',
+				'gallon',
+				'fahrenheit',
+				'hour',
+				'count',
+				'miles_per_hour',
+			]),
+		);
+	});
+
 	it('selects a useful subset of seeded species for the organization', () => {
 		const selectedSpecies = syncBaselineSpecies.filter((row) => row.selectedForOrganization);
 

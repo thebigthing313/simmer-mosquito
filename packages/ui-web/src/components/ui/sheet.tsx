@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { XIcon } from 'lucide-react';
+import { XIcon } from '../../icons/registry';
 import { Dialog as SheetPrimitive } from 'radix-ui';
 import type * as React from 'react';
 
@@ -53,7 +53,7 @@ function SheetContent({
 			<SheetPrimitive.Content
 				data-slot="sheet-content"
 				className={cn(
-					'fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500',
+					'fixed z-50 flex flex-col gap-4 overflow-y-auto bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500',
 					side === 'right' &&
 						'inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm',
 					side === 'left' &&
@@ -92,7 +92,10 @@ function SheetFooter({ className, ...props }: React.ComponentProps<'div'>) {
 	return (
 		<div
 			data-slot="sheet-footer"
-			className={cn('mt-auto flex flex-col gap-2 p-4', className)}
+			className={cn(
+				'sticky bottom-0 mt-auto flex flex-col gap-2 border-t border-border/40 bg-background/95 p-4 backdrop-blur',
+				className,
+			)}
 			{...props}
 		/>
 	);

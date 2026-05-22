@@ -1,5 +1,5 @@
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon } from '../../icons/registry';
 
 function Spinner({ className, ...props }: React.ComponentProps<'svg'>) {
 	return (

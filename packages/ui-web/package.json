@@ -16,6 +16,10 @@
 			"types": "./src/hooks/*.ts",
 			"import": "./src/hooks/*.ts"
 		},
+		"./icons/*": {
+			"types": "./src/icons/*.ts",
+			"import": "./src/icons/*.ts"
+		},
 		"./lib/*": {
 			"types": "./src/lib/*.ts",
 			"import": "./src/lib/*.ts"

@@ -1,5 +1,5 @@
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon } from '../../icons/registry';
 import { Accordion as AccordionPrimitive } from 'radix-ui';
 import type * as React from 'react';
 

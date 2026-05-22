@@ -1,6 +1,6 @@
 import { type Button, buttonVariants } from '@simmer-mosquito/ui-web/components/ui/button';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from '../../icons/registry';
 import type * as React from 'react';
 
 function Pagination({ className, ...props }: React.ComponentProps<'nav'>) {

@@ -28,7 +28,15 @@ import {
 	createAuthContextMiddleware,
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
+import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
+import { registerControlMethodCommandRoutes } from './control-method-commands.js';
+import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
 import { readServerEnv } from './env.js';
+import { registerFoundationCommandRoutes } from './foundation-commands.js';
+import { registerOrganizationCommandRoutes } from './organization-commands.js';
+import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
+import { registerProfileCommandRoutes } from './profile-commands.js';
+import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 
 const env = readServerEnv();
@@ -75,7 +83,7 @@ app.use(
 	cors({
 		origin: allowedCorsOrigins(),
 		credentials: true,
-		allowMethods: ['GET', 'POST', 'OPTIONS'],
+		allowMethods: ADMIN_CORS_ALLOW_METHODS,
 	}),
 );
 
@@ -85,6 +93,60 @@ app.use(
 		origin: allowedCorsOrigins(),
 		credentials: true,
 		allowMethods: ['GET', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/foundation/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/control-methods/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/control-assets/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/organization-settings/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['PATCH', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/public-engagement/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/organization/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'OPTIONS'],
 	}),
 );
 
@@ -234,6 +296,42 @@ registerAdminFoundationRoutes(app, {
 	operatorAuthContextMiddleware,
 });
 
+registerFoundationCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerControlMethodCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerControlAssetCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerOrganizationCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerOrganizationSettingsCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerProfileCommandRoutes(app, {
+	db,
+	auth,
+	authContextMiddleware,
+});
+
+registerPublicEngagementCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
 registerSyncShapeRoutes(app, {
 	electricUrl: env.electricUrl,
 	authContextMiddleware,
@@ -265,7 +363,7 @@ app.post('/auth/logout', async (context) => {
 	return context.redirect(logoutUrl ?? env.appOrigin);
 });
 
-serve(
+const server = serve(
 	{
 		fetch: app.fetch,
 		hostname: env.host,
@@ -275,6 +373,88 @@ serve(
 		console.log(`Server listening on http://${info.address}:${info.port}`);
 	},
 );
+
+let isShuttingDown = false;
+const shutdownTimeoutMs = env.nodeEnv === 'production' ? 5000 : 1000;
+
+server.on('error', (error: NodeJS.ErrnoException) => {
+	if (error.code === 'EADDRINUSE') {
+		console.error(
+			`Port ${env.port} is already in use. Stop the other server process or set PORT to a free port.`,
+		);
+		process.exit(1);
+	}
+
+	throw error;
+});
+
+function shutdown(signal: NodeJS.Signals): void {
+	if (isShuttingDown) {
+		return;
+	}
+	console.log(`Received ${signal}; closing server.`);
+
+	const timeout = setTimeout(() => {
+		console.error('Server shutdown timed out.');
+		process.exit(1);
+	}, shutdownTimeoutMs);
+	timeout.unref();
+
+	void closeServer()
+		.then(() => {
+			clearTimeout(timeout);
+			process.exit(0);
+		})
+		.catch((error: unknown) => {
+			console.error(error);
+			process.exit(1);
+		});
+}
+
+process.once('SIGINT', shutdown);
+process.once('SIGTERM', shutdown);
+
+export async function disposeServerForRestart(): Promise<void> {
+	await closeServer();
+}
+
+async function closeServer(): Promise<void> {
+	if (isShuttingDown) {
+		return;
+	}
+	isShuttingDown = true;
+
+	process.off('SIGINT', shutdown);
+	process.off('SIGTERM', shutdown);
+	closeOpenHttpConnectionsForShutdown();
+
+	await new Promise<void>((resolve, reject) => {
+		server.close((error) => {
+			if (error !== undefined) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
+	await db.destroy();
+}
+
+function closeOpenHttpConnectionsForShutdown(): void {
+	const connectionCloser = server as {
+		readonly closeAllConnections?: () => void;
+		readonly closeIdleConnections?: () => void;
+	};
+
+	connectionCloser.closeIdleConnections?.();
+
+	if (env.nodeEnv === 'production') {
+		return;
+	}
+
+	connectionCloser.closeAllConnections?.();
+}
 
 function setAuthCookie(
 	context: Parameters<typeof setCookie>[0],

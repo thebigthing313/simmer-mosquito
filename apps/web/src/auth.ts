@@ -13,6 +13,8 @@ export interface AuthUser {
 export interface LocalIdentity {
 	readonly userId: string;
 	readonly organizationId: string | null;
+	readonly organizationName?: string;
+	readonly organizationSlug?: string | null;
 	readonly profileId: string | null;
 	readonly membershipId: string | null;
 	readonly role: string | null;
@@ -276,6 +278,12 @@ export interface CreateTrapInput {
 
 export function getServerUrl(): string {
 	return trimTrailingSlash(import.meta.env.VITE_SERVER_URL ?? DEFAULT_SERVER_URL);
+}
+
+export function getShapeServerUrl(): string {
+	return trimTrailingSlash(
+		import.meta.env.VITE_SHAPE_SERVER_URL ?? import.meta.env.VITE_SERVER_URL ?? DEFAULT_SERVER_URL,
+	);
 }
 
 export async function getAuthMe(serverUrl = getServerUrl()): Promise<AuthMe> {

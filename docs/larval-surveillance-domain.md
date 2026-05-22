@@ -1,5 +1,9 @@
 # Larval Surveillance Domain Decisions
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records larval
+surveillance vocabulary and exceptions.
+
 This captures the larval surveillance command and schema decisions from the
 domain interview. It is intentionally implementation-facing; broader
 architecture decisions remain in `docs/adr/`.
@@ -591,24 +595,20 @@ is explicit geometry.
 
 ## Mobile And Offline
 
-Larval commands should accept client-generated UUIDs where possible:
+Larval commands follow `docs/domain-command-contract.md`. Domain-specific
+created-row IDs are:
 
 - `habitatId`
 - `inspectionId`
 - `sampleId`
 - `sampleSpeciesId`
 
-Offline queues should store domain commands, not DB-shaped patches. Server
-handlers revalidate permissions, organization settings, active references,
-dates, density inference, geometry, and same-organization consistency when
-commands replay.
+Larval-specific replay must also revalidate organization settings, density
+inference, geometry, and same-organization consistency.
 
 Offline collectors can create ad hoc inspections, cataloged habitat inspections,
 and labeled samples. Offline unlabeled sample creation requires a cached
 manager-and-above role and is still server-revalidated.
-
-Conflicts should produce command failure visible to the client, not silent patch
-merging.
 
 ## Schema Migration Backlog
 

@@ -1,5 +1,9 @@
 # Adult Surveillance Domain Decisions
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records adult
+surveillance vocabulary and exceptions.
+
 This captures the adult surveillance command and schema decisions from the
 domain interview. It is intentionally implementation-facing; broader
 architecture decisions remain in `docs/adr/`.

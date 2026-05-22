@@ -14,6 +14,8 @@
 		"db:status": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql status",
 		"dev:server": "nx dev @simmer-mosquito/server",
 		"dev:admin": "nx dev @simmer-mosquito/admin",
+		"dev:caddy": "caddy run --config Caddyfile.local --adapter caddyfile",
+		"dev:preview": "nx dev @simmer-mosquito/preview",
 		"dev:web": "nx dev @simmer-mosquito/web",
 		"dev:worker": "nx dev @simmer-mosquito/worker",
 		"format": "biome format --write .",
@@ -39,6 +41,6 @@
 		"vitest": "4.1.5"
 	},
 	"dependencies": {
-		"@tanstack/db": "^0.6.5"
+		"@tanstack/db": "^0.6.6"
 	}
 }

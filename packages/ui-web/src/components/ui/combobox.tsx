@@ -10,7 +10,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/input-group';
 
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { CheckIcon, ChevronDownIcon, XIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon, XIcon } from '../../icons/registry';
 import * as React from 'react';
 
 const Combobox = ComboboxPrimitive.Root;

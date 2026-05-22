@@ -1,5 +1,9 @@
 # Weather Domain Decisions
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records weather
+vocabulary and exceptions.
+
 This captures the weather command decisions from the domain interview. V1 is
 agency-uploaded weather summary data only. Provider feeds, NWS sources,
 subscriptions, server-side raw observation aggregation, persisted import
@@ -259,41 +263,18 @@ rows should be loaded by station/date/report need.
 
 ## Validation Boundary
 
-Pure command builders validate context-free rules:
+Use the shared validation boundary in `docs/domain-command-contract.md`.
+Weather-specific builder checks include station point geometry, explicit
+`endDate`, date ordering, metric bounds and precision, import row count limits,
+and duplicate/overlap detection within an import payload.
 
-- UUID shape
-- command context
-- point geometry shape for stations
-- required and nullable text normalization
-- metadata JSON object/null shape
-- date shape and real calendar dates
-- explicit `endDate`
-- date order when both dates are visible
-- metric bounds, two-decimal precision, min/max ordering, and at-least-one
-  metric
-- empty patch rejection
-- import row count limit
-- duplicate client row IDs, proposed summary IDs, date buckets, and overlaps
-  within an import payload
-- acknowledgement flags carried through
+Weather-specific server checks include organization-owned station state,
+`source_type = 'organization'`, optional optimistic concurrency, current
+organization-local date for future-date rejection, stored summary uniqueness and
+overlap checks, station identity/location acknowledgement, station cleanup
+acknowledgement, and batch import acknowledgement.
 
-Server command handlers validate context-dependent rules:
-
-- actor role and `AuthContext`
-- command context matches `AuthContext`
-- same-organization station ownership
-- `source_type = 'organization'` and `provider_source_id is null`
-- active/non-deleted station state for creates/imports
-- active or inactive but non-deleted station state for summary edits/deletes
-- optional optimistic concurrency
-- current organization-local date for future-date rejection
-- exact uniqueness and partial overlap against stored summaries
-- historical station identity/location acknowledgement requirements
-- station cleanup summary deletion acknowledgement
-- batch-level update and partial-import acknowledgement requirements
-
-Errors should use structured issue paths matching command payload names, for
-example:
+Structured issue paths should match command payload names, for example:
 
 - `stationName`
 - `geometry`
@@ -320,15 +301,10 @@ example:
 - command builder functions for every `weather.*` command
 - `assessWeatherSummaryImportRows`
 
-Keep the module framework-agnostic:
-
-- no DB access
-- no React/platform dependencies
-- `LocalDateString` for date buckets
-- `Date` objects for optimistic timestamps
-- patch semantics for manual updates
-- full-row replacement semantics for import updates
-- `DomainValidationError` with structured issues
+Keep implementation style consistent with `docs/domain-command-contract.md`.
+Weather-specific conventions are `LocalDateString` for date buckets, `Date`
+objects for optimistic timestamps, patch semantics for manual updates, and
+full-row replacement semantics for import updates.
 
 ## Schema Backlog
 

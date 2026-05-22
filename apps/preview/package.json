@@ -1,0 +1,28 @@
+{
+	"name": "@simmer-mosquito/preview",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "tsc -b && vite build",
+		"dev": "vite --host 0.0.0.0 --port 5175",
+		"preview": "vite preview --host 0.0.0.0 --port 4175",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+	},
+	"dependencies": {
+		"@simmer-mosquito/design-tokens": "workspace:*",
+		"@simmer-mosquito/ui-web": "workspace:*",
+		"@tanstack/react-router": "^1.170.4",
+		"react": "^19.2.6",
+		"react-dom": "^19.2.6"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "^4.3.0",
+		"@tanstack/router-plugin": "1.168.6",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^6.0.1",
+		"vite": "^8.0.10"
+	}
+}

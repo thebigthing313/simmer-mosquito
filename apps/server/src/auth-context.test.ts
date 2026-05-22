@@ -164,6 +164,8 @@ describe('resolveAuthContext', () => {
 			localIdentity: {
 				userId: 'user-1',
 				organizationId: 'org-1',
+				organizationName: 'County Mosquito Control',
+				organizationSlug: 'county-mosquito',
 				profileId: 'profile-1',
 				membershipId: 'membership-1',
 				role: 'manager',

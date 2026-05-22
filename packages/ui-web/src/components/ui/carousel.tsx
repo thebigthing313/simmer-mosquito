@@ -3,7 +3,7 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import useEmblaCarousel, { type UseEmblaCarouselType } from 'embla-carousel-react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from '../../icons/registry';
 import * as React from 'react';
 
 type CarouselApi = UseEmblaCarouselType[1];

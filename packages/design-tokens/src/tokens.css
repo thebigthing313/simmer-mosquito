@@ -7,16 +7,117 @@
  */
 
 :root {
-	--simmer-green: oklch(0.5271 0.1114 159.1429);
-	--simmer-dark-green: oklch(0.3915 0.0882 156.38);
-	--simmer-darker-green: oklch(0.3182 0.0732 156.0959);
-	--simmer-yellow: oklch(0.9623 0.052 108.52);
+	--simmer-green-50: oklch(96.7% 0.025 156);
+	--simmer-green-100: oklch(92.8% 0.048 156);
+	--simmer-green-200: oklch(84.7% 0.072 156);
+	--simmer-green-300: oklch(75.6% 0.096 156);
+	--simmer-green-400: oklch(64.6% 0.112 157);
+	--simmer-green-500: oklch(57.2% 0.116 158);
+	--simmer-green-600: oklch(52.71% 0.1114 159.1429);
+	--simmer-green-700: oklch(39.15% 0.0882 156.38);
+	--simmer-green-800: oklch(31.82% 0.0732 156.0959);
+	--simmer-green-900: oklch(24.5% 0.055 156);
+	--simmer-yellow-50: oklch(98.6% 0.024 108);
+	--simmer-yellow-100: oklch(96.23% 0.052 108.52);
+	--simmer-yellow-200: oklch(91.5% 0.083 106);
+	--simmer-yellow-300: oklch(85.8% 0.119 104);
+	--simmer-yellow-400: oklch(78.8% 0.139 101);
+	--simmer-yellow-500: oklch(68.7% 0.13 98);
+	--simmer-yellow-600: oklch(57.8% 0.113 94);
+	--simmer-yellow-700: oklch(45.7% 0.086 90);
+	--simmer-yellow-800: oklch(34.7% 0.061 86);
+	--simmer-yellow-900: oklch(25.7% 0.042 82);
+	--simmer-green: var(--simmer-green-600);
+	--simmer-dark-green: var(--simmer-green-700);
+	--simmer-darker-green: var(--simmer-green-800);
+	--simmer-yellow: var(--simmer-yellow-100);
 	--simmer-purple: oklch(0.4937 0.1424 325.97);
 	--simmer-red: oklch(0.6156 0.2307 16.37);
 	--simmer-blue: oklch(0.4483 0.1791 268.37);
+	--simmer-radius-sm: 6px;
+	--simmer-radius-md: 8px;
+	--simmer-space-1: 4px;
+	--simmer-space-2: 8px;
+	--simmer-space-3: 12px;
+	--simmer-space-4: 16px;
+	--simmer-space-5: 20px;
+	--simmer-space-6: 24px;
+	--simmer-motion-quick: 120ms;
+	--simmer-motion-standard: 180ms;
+	--simmer-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+	--simmer-field-paper: color-mix(in oklch, var(--simmer-green-50) 54%, oklch(99% 0.004 165));
+	--simmer-field-paper-muted: color-mix(
+		in oklch,
+		var(--simmer-green-100) 42%,
+		oklch(94.5% 0.009 165)
+	);
+	--simmer-field-paper-strong: color-mix(
+		in oklch,
+		var(--simmer-green-200) 34%,
+		oklch(90% 0.016 165)
+	);
+	--simmer-field-border: color-mix(in oklch, var(--simmer-green-700) 16%, oklch(86% 0.018 205));
+	--simmer-field-border-strong: color-mix(
+		in oklch,
+		var(--simmer-green-700) 28%,
+		oklch(77% 0.03 205)
+	);
+	--simmer-workshop-panel-tint: color-mix(
+		in oklch,
+		var(--simmer-green-600) 4%,
+		var(--simmer-field-paper)
+	);
+	--simmer-workshop-panel-hover: color-mix(
+		in oklch,
+		var(--simmer-yellow-100) 24%,
+		var(--simmer-field-paper-muted)
+	);
+	--simmer-workshop-chrome: color-mix(in oklch, var(--simmer-field-paper) 94%, transparent);
+	--simmer-workshop-grid-line: color-mix(in oklch, var(--simmer-green-700) 10%, transparent);
+	--simmer-workshop-map-wash: color-mix(
+		in oklch,
+		var(--simmer-green-200) 40%,
+		var(--simmer-field-paper-muted)
+	);
+	--simmer-workshop-map-highlight: color-mix(in oklch, var(--simmer-yellow-100) 48%, transparent);
+	--simmer-workshop-swatch-border: color-mix(
+		in oklch,
+		var(--simmer-green-900) 12%,
+		var(--simmer-field-border)
+	);
+	--simmer-workshop-swatch-hover: color-mix(
+		in oklch,
+		var(--simmer-yellow-100) 34%,
+		var(--simmer-field-paper)
+	);
+	--simmer-workshop-meter-border: color-mix(
+		in oklch,
+		var(--simmer-green-700) 40%,
+		var(--simmer-field-border)
+	);
 }
 
 @theme {
+	--color-simmer-green-50: var(--simmer-green-50);
+	--color-simmer-green-100: var(--simmer-green-100);
+	--color-simmer-green-200: var(--simmer-green-200);
+	--color-simmer-green-300: var(--simmer-green-300);
+	--color-simmer-green-400: var(--simmer-green-400);
+	--color-simmer-green-500: var(--simmer-green-500);
+	--color-simmer-green-600: var(--simmer-green-600);
+	--color-simmer-green-700: var(--simmer-green-700);
+	--color-simmer-green-800: var(--simmer-green-800);
+	--color-simmer-green-900: var(--simmer-green-900);
+	--color-simmer-yellow-50: var(--simmer-yellow-50);
+	--color-simmer-yellow-100: var(--simmer-yellow-100);
+	--color-simmer-yellow-200: var(--simmer-yellow-200);
+	--color-simmer-yellow-300: var(--simmer-yellow-300);
+	--color-simmer-yellow-400: var(--simmer-yellow-400);
+	--color-simmer-yellow-500: var(--simmer-yellow-500);
+	--color-simmer-yellow-600: var(--simmer-yellow-600);
+	--color-simmer-yellow-700: var(--simmer-yellow-700);
+	--color-simmer-yellow-800: var(--simmer-yellow-800);
+	--color-simmer-yellow-900: var(--simmer-yellow-900);
 	--color-simmer-green: var(--simmer-green);
 	--color-simmer-dark-green: var(--simmer-dark-green);
 	--color-simmer-darker-green: var(--simmer-darker-green);

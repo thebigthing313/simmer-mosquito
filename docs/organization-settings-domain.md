@@ -1,5 +1,9 @@
 # Organization Settings Domain Decisions
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records organization
+settings vocabulary and exceptions.
+
 This captures the organization settings command and schema decisions from the
 domain interview. Settings are shared command context for multiple workflows,
 especially date handling, larval inspection validation, control UI behavior,
@@ -29,6 +33,9 @@ missing legacy version data.
     count: "count",
     speed: "mph"
   },
+  adultSurveillance: {
+    collectionTimingMode: "exact_timestamps"
+  },
   larvalSurveillance: {
     inspectionEntryPolicy: {
       mode: "hybrid",
@@ -54,7 +61,7 @@ missing legacy version data.
 ```
 
 Top-level settings are shared across domains. Domain-specific settings live
-under product language namespaces such as `larvalSurveillance`,
+under product language namespaces such as `adultSurveillance`, `larvalSurveillance`,
 `controlOperations`, and `publicEngagement`.
 
 ## Defaults
@@ -63,6 +70,7 @@ Missing settings resolve to defaults instead of blocking workflows.
 
 - `timezone`: `America/New_York`
 - `unitDefaults`: US customary defaults by unit type
+- `adultSurveillance.collectionTimingMode`: `exact_timestamps`
 - `larvalSurveillance.inspectionEntryPolicy.mode`: `hybrid`
 - `larvalSurveillance.inspectionEntryPolicy.densityRanges`: `null`
 - `controlOperations.trackInsecticideBatches`: `true`
@@ -77,31 +85,22 @@ by apps in the appropriate local context.
 
 ## Validation Boundary
 
-Settings writes are strict. Command builders and server handlers reject invalid
-settings input.
+Settings commands follow `docs/domain-command-contract.md`. Settings writes are
+strict. Command builders and server handlers reject invalid settings input.
 
 Settings reads are tolerant. `resolveOrganizationSettings(raw)` returns a
 resolved settings object plus non-fatal issues. It does not throw on malformed
 stored JSON because legacy imports or manual edits should not break field entry.
 
-Pure domain builders validate context-free rules:
+Settings-specific builder checks include `expectedUpdatedAt` shape, timezone
+support/canonicalization through `Intl`, unit-default completeness, larval
+policy and density-range shape, adult collection timing mode, boolean
+batch-tracking setting, positive service request radius, and nonnegative service
+request day windows.
 
-- command context UUID shape
-- valid `expectedUpdatedAt` Date when provided
-- timezone support and canonicalization through `Intl`
-- complete unit-default shape by unit type
-- larval policy modes and density-range shape
-- boolean batch-tracking setting
-- positive service request radius
-- nonnegative integer service request day windows
-
-Server command handlers validate context-dependent rules:
-
-- actor role and AuthContext organization/profile
-- owner/admin permissions for all organization settings
-- optional `expectedUpdatedAt` optimistic concurrency
-- unit code existence and matching `unit_type`
-- full-document merge and persistence
+Settings-specific server checks include owner/admin permissions, optional
+`expectedUpdatedAt` optimistic concurrency, unit code existence and matching
+`unit_type`, and full-document merge/persistence.
 
 ## Commands
 
@@ -109,6 +108,7 @@ V1 settings commands are narrow, explicit, web-management workflows:
 
 - `organizationSettings.updateTimezone`
 - `organizationSettings.updateUnitDefaults`
+- `organizationSettings.updateAdultCollectionTimingMode`
 - `organizationSettings.updateLarvalInspectionEntryPolicy`
 - `organizationSettings.updateInsecticideBatchTracking`
 - `organizationSettings.updateServiceRequestContext`
@@ -177,6 +177,21 @@ Canonical settings include every current unit type:
 - `speed`
 
 Seed data must include the default unit codes and other commonly used units.
+
+## Adult Collection Timing
+
+`adultSurveillance.collectionTimingMode` controls whether adult collection
+workflows ask for exact set/collection timestamps or for a collection date plus
+duration.
+
+Supported modes:
+
+- `exact_timestamps`
+- `collection_date_duration`
+
+The default is `exact_timestamps` to preserve the original pending-collection
+workflow. Agencies that enter records after lab arrival can choose
+`collection_date_duration` and create collected records directly.
 
 ## Larval Inspection Entry Policy
 

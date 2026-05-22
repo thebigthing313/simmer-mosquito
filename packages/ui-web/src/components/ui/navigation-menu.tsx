@@ -1,6 +1,6 @@
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { cva } from 'class-variance-authority';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon } from '../../icons/registry';
 import { NavigationMenu as NavigationMenuPrimitive } from 'radix-ui';
 import type * as React from 'react';
 

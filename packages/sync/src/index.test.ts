@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+	currentOrganizationSyncDescriptor,
+	decodeShapeColumnName,
 	electricShapeCollectionOptions,
+	encodeShapeColumnName,
+	membershipsSyncDescriptor,
 	profilesSyncDescriptor,
 	type SyncDescriptor,
 	unitsSyncDescriptor,
+	webCommandMutationDescriptors,
 	webReadOnlyTracerDescriptors,
 } from './index.js';
 
@@ -26,7 +31,7 @@ describe('sync descriptors', () => {
 		]);
 	});
 
-	it('defines profiles as selected-organization label sync only', () => {
+	it('defines profiles as selected-organization people sync', () => {
 		expect(profilesSyncDescriptor).toMatchObject({
 			id: 'profiles',
 			table: 'profiles',
@@ -36,13 +41,63 @@ describe('sync descriptors', () => {
 		expect(profilesSyncDescriptor.columns).toEqual([
 			'id',
 			'organizationId',
+			'userId',
 			'displayName',
+			'email',
 			'isActive',
 			'createdAt',
 			'updatedAt',
 		]);
-		expect(profilesSyncDescriptor.columns).not.toContain('email');
-		expect(profilesSyncDescriptor.columns).not.toContain('userId');
+	});
+
+	it('defines memberships as selected-organization access sync', () => {
+		expect(membershipsSyncDescriptor).toMatchObject({
+			id: 'memberships',
+			table: 'memberships',
+			endpointPath: '/sync/shapes/memberships',
+			syncMode: 'eager',
+		});
+		expect(membershipsSyncDescriptor.columns).toEqual([
+			'id',
+			'organizationId',
+			'userId',
+			'profileId',
+			'role',
+			'status',
+			'isDefault',
+			'invitedEmail',
+			'workosInvitationId',
+			'createdAt',
+			'updatedAt',
+		]);
+	});
+
+	it('defines the current organization row without subscription fields', () => {
+		expect(currentOrganizationSyncDescriptor).toMatchObject({
+			id: 'current_organization',
+			table: 'organizations',
+			endpointPath: '/sync/shapes/organization',
+			syncMode: 'eager',
+		});
+		expect(currentOrganizationSyncDescriptor.columns).toEqual([
+			'id',
+			'workosOrganizationId',
+			'name',
+			'slug',
+			'mainContactEmail',
+			'phoneNumber',
+			'mailingCountry',
+			'mailingAddressLine1',
+			'mailingAddressLine2',
+			'mailingLocality',
+			'mailingRegion',
+			'mailingPostalCode',
+			'settings',
+			'updatedAt',
+			'updatedByProfileId',
+		]);
+		expect(currentOrganizationSyncDescriptor.columns).not.toContain('subscriptionStatus');
+		expect(currentOrganizationSyncDescriptor.columns).not.toContain('billingContactEmail');
 	});
 
 	it('creates Electric-backed collection options for descriptor-owned shapes', () => {
@@ -66,17 +121,38 @@ describe('sync descriptors', () => {
 		).toBe('unit-1');
 	});
 
-	it('keeps the current web tracer read-only', () => {
-		expect(webReadOnlyTracerDescriptors.map((descriptor) => descriptor.id)).toEqual([
-			'units',
-			'profiles',
-			'genera',
-			'species',
-			'organization_species',
+	it('maps numbered address columns between client and Electric column names', () => {
+		expect(encodeShapeColumnName('mailingAddressLine1')).toBe('mailing_address_line_1');
+		expect(encodeShapeColumnName('mailingAddressLine2')).toBe('mailing_address_line_2');
+		expect(decodeShapeColumnName('mailing_address_line_1')).toBe('mailingAddressLine1');
+		expect(decodeShapeColumnName('mailing_address_line_2')).toBe('mailingAddressLine2');
+	});
+
+	it('keeps foundation lookup catalogs as command-backed tracer descriptors', () => {
+		expect(webCommandMutationDescriptors.map((descriptor) => descriptor.id)).toEqual([
+			'current_organization',
 			'collection_methods',
 			'collection_lures',
 			'habitat_types',
 			'tags',
+		]);
+	});
+
+	it('keeps the remaining web tracer descriptors read-only', () => {
+		expect(webReadOnlyTracerDescriptors.map((descriptor) => descriptor.id)).toEqual([
+			'units',
+			'profiles',
+			'memberships',
+			'genera',
+			'species',
+			'organization_species',
+			'application_methods',
+			'source_reduction_methods',
+			'outreach_methods',
+			'biocontrol_methods',
+			'vehicles',
+			'equipment',
+			'notification_types',
 			'routes',
 		]);
 

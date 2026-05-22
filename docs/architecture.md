@@ -68,6 +68,12 @@ taxonomy management, and global unit management. Agency-owned operational
 catalogs and workflows remain in `apps/web` unless a future support/repair tool
 is explicitly operator-owned.
 
+`apps/preview` is an internal Vite React/TanStack Router application for
+component preview, design-token inspection, visual-regression surfaces, and
+design-system workshop flows. It is not a production product surface. It imports
+workspace packages directly so changes in `packages/design-tokens` and
+`packages/ui-web` are visible during local preview development.
+
 `apps/mobile` is planned as an Expo managed React Native app using TanStack DB,
 ElectricSQL, SecureStore-backed auth, and later local persistence/offline
 transactions.
@@ -94,10 +100,12 @@ Existing:
 - `packages/config`: shared env parsing primitives.
 - `packages/db`: dbmate SQL migrations, Kysely/Postgres helpers, generated DB
   type target.
-- `packages/design-tokens`: framework-free design tokens, currently SIMMER
-  brand colors as CSS variables and TypeScript constants.
+- `packages/design-tokens`: framework-free design tokens for SIMMER colors,
+  surfaces, type, spacing, radius, motion, and CSS/TypeScript consumers.
 - `packages/domain`: framework-agnostic domain types, commands, validators, and
   aggregate helpers.
+- `packages/ui-web`: shadcn-style web component source, shared styles, and the
+  semantic web icon registry.
 
 `packages/domain/src` keeps stable public domain seams as top-level barrel
 modules such as `control-operations.ts`, `public-engagement.ts`, and
@@ -118,8 +126,7 @@ Planned:
 - `packages/client`: framework-agnostic server command client.
 - `packages/mapping`: provider-neutral geometry, GeoJSON, feature reference, and
   viewport helpers.
-- `packages/ui-web` and `packages/ui-mobile`: separate platform component
-  systems.
+- `packages/ui-mobile`: mobile platform component system.
 
 Shared packages should avoid React and platform-specific storage unless their
 name explicitly says otherwise.
@@ -141,12 +148,28 @@ App code should compose these components first, use `cva` variants for repeated
 styling choices, merge classes with `cn`, and reserve route-level class names
 mostly for layout.
 
+Web styling should not split into parallel CSS-only and Tailwind/shadcn
+methodologies. Ordinary UI surfaces in `apps/web` and `apps/admin`, including
+details cards, panels, rows, tabs, badges, and forms, should be React components
+composed from shadcn primitives with Tailwind classes. Product-specific styling
+may live in app-owned components while it is isolated to one workflow; repeated
+styling should be promoted into `packages/ui-web` as a `cva` variant or a small
+shared component. App CSS is reserved for globals, token exposure, vendor or
+browser-specific selectors, keyframes, and rare cases Tailwind cannot express
+clearly.
+
+Web icons are owned by `packages/ui-web` through a semantic icon registry.
+Frontends should import registered icons from
+`@simmer-mosquito/ui-web/icons/registry`, not from `lucide-react` directly.
+Lucide is the default registry source for now, with SIMMER-owned assets for the
+brand mark and mosquito/adult-surveillance icon.
+
 The planned `packages/ui-mobile` module owns mobile UI. It shares design-token
 decisions with web, but it does not share web components.
 
-SIMMER does not use Storybook as a design-system contract. If visual previews
-are useful, prefer lightweight development-only preview routes inside `apps/web`
-so previews run in the real app environment.
+SIMMER does not use Storybook as a design-system contract. Use `apps/preview`
+for living styleguide pages, kitchen-sink visual regression, sandbox controls,
+and template/accessibility stress tests.
 
 The fuller design-system architecture lives in `docs/design-system.md`.
 

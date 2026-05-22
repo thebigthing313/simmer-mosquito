@@ -81,6 +81,19 @@ Shipped pieces:
 - `apps/web` owns concrete collection singletons, the explicit eager baseline
   preload bundle, and the current signed-in smoke rendering panels.
 
+Current command-backed tracer descriptor set:
+
+- selected-organization `collection_methods`
+- selected-organization `collection_lures`
+- selected-organization `habitat_types`
+
+The foundation lookup catalogs are the first optimistic mutation tracers. Web
+inserts, updates, and deletes go through TanStack DB mutation handlers, then
+through authenticated server foundation command routes. The server validates the
+matching foundation domain command, commits with Kysely, and returns
+`pg_current_xact_id()` from the same transaction so Electric can confirm the
+optimistic write.
+
 Current read-only tracer descriptor set:
 
 - global `units`
@@ -88,18 +101,20 @@ Current read-only tracer descriptor set:
 - global `genera`
 - global `species`
 - selected-organization `organization_species`
-- selected-organization `collection_methods`
-- selected-organization `collection_lures`
-- selected-organization `habitat_types`
+- selected-organization `application_methods`
+- selected-organization `source_reduction_methods`
+- selected-organization `outreach_methods`
+- selected-organization `biocontrol_methods`
+- selected-organization `vehicles`
+- selected-organization `equipment`
+- selected-organization `notification_types`
 - selected-organization `tags`
 - selected-organization `routes`
 
-The tracer deliberately excludes TanStack DB optimistic mutation handlers,
-domain command endpoints, and Electric transaction-id confirmation. Current
-collection options should not provide `onInsert`, `onUpdate`, or `onDelete`.
-The next mutation tracer should add those only alongside server command
-handlers that commit to Postgres and return the matching
-`pg_current_xact_id()`/Electric txid from the same transaction.
+Collections in the read-only set deliberately exclude TanStack DB optimistic
+mutation handlers, domain command endpoints, and Electric transaction-id
+confirmation. Their collection options should not provide `onInsert`,
+`onUpdate`, or `onDelete`.
 
 ## Local Electric Testing Notes
 

@@ -1,12 +1,54 @@
-import { createRootRoute } from '@tanstack/react-router';
-import { RootLayout } from './-components';
+import { createRootRouteWithContext, Outlet, redirect, useLocation } from '@tanstack/react-router';
+import type { AppAuthController } from '../app-auth';
+import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
+import { RootLayout, WorkspaceChromeError, WorkspaceChromeFallback } from './-components';
 
 export interface RootSearch {
 	readonly auth?: 'organization_required';
 }
 
-export const Route = createRootRoute({
+export interface RouterContext {
+	readonly auth: AppAuthController;
+}
+
+const publicPaths = new Set(['/landing', '/login']);
+
+export const Route = createRootRouteWithContext<RouterContext>()({
 	validateSearch: (search): RootSearch =>
 		search.auth === 'organization_required' ? { auth: 'organization_required' } : {},
-	component: RootLayout,
+	beforeLoad: async ({ context, location }) => {
+		if (publicPaths.has(location.pathname)) {
+			return;
+		}
+
+		const auth = await context.auth.load();
+		if (auth.authenticated !== true) {
+			throw redirect({
+				to: '/landing',
+				search: {
+					redirect: location.href,
+				},
+			});
+		}
+	},
+	component: RootComponent,
 });
+
+function RootComponent() {
+	const location = useLocation();
+	const { auth } = Route.useRouteContext();
+
+	if (publicPaths.has(location.pathname)) {
+		return <Outlet />;
+	}
+
+	return (
+		<SuspenseQueryBoundary
+			errorFallback={<WorkspaceChromeError />}
+			loadingFallback={<WorkspaceChromeFallback />}
+			resetKey="root-layout"
+		>
+			<RootLayout auth={auth.snapshot} />
+		</SuspenseQueryBoundary>
+	);
+}

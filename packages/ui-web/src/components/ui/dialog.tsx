@@ -1,6 +1,6 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { XIcon } from 'lucide-react';
+import { XIcon } from '../../icons/registry';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';
 

@@ -1,5 +1,9 @@
 # Foundation And Reference Data Domain
 
+Shared command, validation, offline, sync, location-source, and module-shape
+rules live in `docs/domain-command-contract.md`. This file records foundation
+and reference-data vocabulary and exceptions.
+
 This captures the foundation/reference-data command decisions from the domain
 interview. These commands harden organization-owned address/region/reference
 data and SIMMER-controlled taxonomy. Server endpoints are still deferred.
@@ -259,15 +263,14 @@ deferred to separate SIMMER onboarding tooling or later product work.
 
 ## Sync And Offline
 
-Offline queues store domain commands. Mobile/offline frontends may sync scoped
-working sets of address, region, taxonomy, and lookup data. The web app should
-not automatically download large address books; it can page, search, or load
-on demand.
+Foundation commands follow `docs/domain-command-contract.md`. Mobile/offline
+frontends may sync scoped working sets of address, region, taxonomy, and lookup
+data. The web app should not automatically download large address books; it can
+page, search, or load on demand.
 
 Sync behavior will differ by frontend and needs a dedicated follow-up session.
-Regardless of frontend, server command replay revalidates permissions,
-organization ownership, active/non-deleted references, geometry, lifecycle
-state, acknowledgement flags, and duplicate-warning acknowledgements.
+Foundation-specific replay must also revalidate duplicate-warning
+acknowledgements.
 
 ## Schema Changes Surfaced
 

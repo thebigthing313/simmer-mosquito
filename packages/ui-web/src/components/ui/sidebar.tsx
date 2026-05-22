@@ -18,7 +18,7 @@ import {
 import { useIsMobile } from '@simmer-mosquito/ui-web/hooks/use-mobile';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { PanelLeftIcon } from 'lucide-react';
+import { PanelLeftIcon } from '../../icons/registry';
 import { Slot } from 'radix-ui';
 import * as React from 'react';
 

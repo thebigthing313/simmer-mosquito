@@ -9,20 +9,211 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrapsRouteImport } from './routes/traps'
+import { Route as TodayRouteImport } from './routes/today'
+import { Route as SourceReductionsRouteImport } from './routes/source-reductions'
+import { Route as ServiceRequestsRouteImport } from './routes/service-requests'
+import { Route as SamplesRouteImport } from './routes/samples'
+import { Route as RoutesRouteImport } from './routes/routes'
+import { Route as RequestsForControlRouteImport } from './routes/requests-for-control'
+import { Route as RegionsRouteImport } from './routes/regions'
+import { Route as PublicOutreachRouteImport } from './routes/public-outreach'
+import { Route as MyOrganizationRouteImport } from './routes/my-organization'
+import { Route as MissionsRouteImport } from './routes/missions'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LandingRouteImport } from './routes/landing'
+import { Route as InspectionsRouteImport } from './routes/inspections'
+import { Route as HabitatsRouteImport } from './routes/habitats'
+import { Route as GroupsRouteImport } from './routes/groups'
+import { Route as GroupSettingsRouteImport } from './routes/group-settings'
+import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as CollectionsRouteImport } from './routes/collections'
+import { Route as ChemicalControlRouteImport } from './routes/chemical-control'
+import { Route as BiocontrolRouteImport } from './routes/biocontrol'
+import { Route as AssignmentsRouteImport } from './routes/assignments'
+import { Route as AddressBookRouteImport } from './routes/address-book'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ServiceRequestsIndexRouteImport } from './routes/service-requests.index'
+import { Route as MyOrganizationIndexRouteImport } from './routes/my-organization/index'
+import { Route as ServiceRequestsRequestIdRouteImport } from './routes/service-requests.$requestId'
+import { Route as MyOrganizationPublicEngagementRouteImport } from './routes/my-organization/public-engagement'
+import { Route as MyOrganizationPeopleRouteImport } from './routes/my-organization/people'
+import { Route as MyOrganizationLarvalSurveillanceRouteImport } from './routes/my-organization/larval-surveillance'
+import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
+import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
+import { Route as MissionsEditRouteImport } from './routes/missions.edit'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin.organizations.$organizationId'
 
+const TrapsRoute = TrapsRouteImport.update({
+  id: '/traps',
+  path: '/traps',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TodayRoute = TodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SourceReductionsRoute = SourceReductionsRouteImport.update({
+  id: '/source-reductions',
+  path: '/source-reductions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServiceRequestsRoute = ServiceRequestsRouteImport.update({
+  id: '/service-requests',
+  path: '/service-requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SamplesRoute = SamplesRouteImport.update({
+  id: '/samples',
+  path: '/samples',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoutesRoute = RoutesRouteImport.update({
+  id: '/routes',
+  path: '/routes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestsForControlRoute = RequestsForControlRouteImport.update({
+  id: '/requests-for-control',
+  path: '/requests-for-control',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegionsRoute = RegionsRouteImport.update({
+  id: '/regions',
+  path: '/regions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicOutreachRoute = PublicOutreachRouteImport.update({
+  id: '/public-outreach',
+  path: '/public-outreach',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyOrganizationRoute = MyOrganizationRouteImport.update({
+  id: '/my-organization',
+  path: '/my-organization',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MissionsRoute = MissionsRouteImport.update({
+  id: '/missions',
+  path: '/missions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingRoute = LandingRouteImport.update({
+  id: '/landing',
+  path: '/landing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InspectionsRoute = InspectionsRouteImport.update({
+  id: '/inspections',
+  path: '/inspections',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HabitatsRoute = HabitatsRouteImport.update({
+  id: '/habitats',
+  path: '/habitats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroupsRoute = GroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroupSettingsRoute = GroupSettingsRouteImport.update({
+  id: '/group-settings',
+  path: '/group-settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactsRoute = ContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CollectionsRoute = CollectionsRouteImport.update({
+  id: '/collections',
+  path: '/collections',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChemicalControlRoute = ChemicalControlRouteImport.update({
+  id: '/chemical-control',
+  path: '/chemical-control',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BiocontrolRoute = BiocontrolRouteImport.update({
+  id: '/biocontrol',
+  path: '/biocontrol',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssignmentsRoute = AssignmentsRouteImport.update({
+  id: '/assignments',
+  path: '/assignments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AddressBookRoute = AddressBookRouteImport.update({
+  id: '/address-book',
+  path: '/address-book',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ServiceRequestsIndexRoute = ServiceRequestsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ServiceRequestsRoute,
+} as any)
+const MyOrganizationIndexRoute = MyOrganizationIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MyOrganizationRoute,
+} as any)
+const ServiceRequestsRequestIdRoute =
+  ServiceRequestsRequestIdRouteImport.update({
+    id: '/$requestId',
+    path: '/$requestId',
+    getParentRoute: () => ServiceRequestsRoute,
+  } as any)
+const MyOrganizationPublicEngagementRoute =
+  MyOrganizationPublicEngagementRouteImport.update({
+    id: '/public-engagement',
+    path: '/public-engagement',
+    getParentRoute: () => MyOrganizationRoute,
+  } as any)
+const MyOrganizationPeopleRoute = MyOrganizationPeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
+  getParentRoute: () => MyOrganizationRoute,
+} as any)
+const MyOrganizationLarvalSurveillanceRoute =
+  MyOrganizationLarvalSurveillanceRouteImport.update({
+    id: '/larval-surveillance',
+    path: '/larval-surveillance',
+    getParentRoute: () => MyOrganizationRoute,
+  } as any)
+const MyOrganizationControlMethodsRoute =
+  MyOrganizationControlMethodsRouteImport.update({
+    id: '/control-methods',
+    path: '/control-methods',
+    getParentRoute: () => MyOrganizationRoute,
+  } as any)
+const MyOrganizationAdultSurveillanceRoute =
+  MyOrganizationAdultSurveillanceRouteImport.update({
+    id: '/adult-surveillance',
+    path: '/adult-surveillance',
+    getParentRoute: () => MyOrganizationRoute,
+  } as any)
+const MissionsEditRoute = MissionsEditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => MissionsRoute,
 } as any)
 const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
   id: '/admin/organizations',
@@ -38,57 +229,415 @@ const AdminOrganizationsOrganizationIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/address-book': typeof AddressBookRoute
+  '/assignments': typeof AssignmentsRoute
+  '/biocontrol': typeof BiocontrolRoute
+  '/chemical-control': typeof ChemicalControlRoute
+  '/collections': typeof CollectionsRoute
+  '/contacts': typeof ContactsRoute
+  '/group-settings': typeof GroupSettingsRoute
+  '/groups': typeof GroupsRoute
+  '/habitats': typeof HabitatsRoute
+  '/inspections': typeof InspectionsRoute
+  '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
+  '/missions': typeof MissionsRouteWithChildren
+  '/my-organization': typeof MyOrganizationRouteWithChildren
+  '/public-outreach': typeof PublicOutreachRoute
+  '/regions': typeof RegionsRoute
+  '/requests-for-control': typeof RequestsForControlRoute
+  '/routes': typeof RoutesRoute
+  '/samples': typeof SamplesRoute
+  '/service-requests': typeof ServiceRequestsRouteWithChildren
+  '/source-reductions': typeof SourceReductionsRoute
+  '/today': typeof TodayRoute
+  '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/missions/edit': typeof MissionsEditRoute
+  '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
+  '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
+  '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
+  '/my-organization/people': typeof MyOrganizationPeopleRoute
+  '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
+  '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/my-organization/': typeof MyOrganizationIndexRoute
+  '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/address-book': typeof AddressBookRoute
+  '/assignments': typeof AssignmentsRoute
+  '/biocontrol': typeof BiocontrolRoute
+  '/chemical-control': typeof ChemicalControlRoute
+  '/collections': typeof CollectionsRoute
+  '/contacts': typeof ContactsRoute
+  '/group-settings': typeof GroupSettingsRoute
+  '/groups': typeof GroupsRoute
+  '/habitats': typeof HabitatsRoute
+  '/inspections': typeof InspectionsRoute
+  '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
+  '/missions': typeof MissionsRouteWithChildren
+  '/public-outreach': typeof PublicOutreachRoute
+  '/regions': typeof RegionsRoute
+  '/requests-for-control': typeof RequestsForControlRoute
+  '/routes': typeof RoutesRoute
+  '/samples': typeof SamplesRoute
+  '/source-reductions': typeof SourceReductionsRoute
+  '/today': typeof TodayRoute
+  '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/missions/edit': typeof MissionsEditRoute
+  '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
+  '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
+  '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
+  '/my-organization/people': typeof MyOrganizationPeopleRoute
+  '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
+  '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/my-organization': typeof MyOrganizationIndexRoute
+  '/service-requests': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/address-book': typeof AddressBookRoute
+  '/assignments': typeof AssignmentsRoute
+  '/biocontrol': typeof BiocontrolRoute
+  '/chemical-control': typeof ChemicalControlRoute
+  '/collections': typeof CollectionsRoute
+  '/contacts': typeof ContactsRoute
+  '/group-settings': typeof GroupSettingsRoute
+  '/groups': typeof GroupsRoute
+  '/habitats': typeof HabitatsRoute
+  '/inspections': typeof InspectionsRoute
+  '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
+  '/missions': typeof MissionsRouteWithChildren
+  '/my-organization': typeof MyOrganizationRouteWithChildren
+  '/public-outreach': typeof PublicOutreachRoute
+  '/regions': typeof RegionsRoute
+  '/requests-for-control': typeof RequestsForControlRoute
+  '/routes': typeof RoutesRoute
+  '/samples': typeof SamplesRoute
+  '/service-requests': typeof ServiceRequestsRouteWithChildren
+  '/source-reductions': typeof SourceReductionsRoute
+  '/today': typeof TodayRoute
+  '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/missions/edit': typeof MissionsEditRoute
+  '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
+  '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
+  '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
+  '/my-organization/people': typeof MyOrganizationPeopleRoute
+  '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
+  '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/my-organization/': typeof MyOrganizationIndexRoute
+  '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/address-book'
+    | '/assignments'
+    | '/biocontrol'
+    | '/chemical-control'
+    | '/collections'
+    | '/contacts'
+    | '/group-settings'
+    | '/groups'
+    | '/habitats'
+    | '/inspections'
+    | '/landing'
     | '/login'
+    | '/missions'
+    | '/my-organization'
+    | '/public-outreach'
+    | '/regions'
+    | '/requests-for-control'
+    | '/routes'
+    | '/samples'
+    | '/service-requests'
+    | '/source-reductions'
+    | '/today'
+    | '/traps'
     | '/admin/organizations'
+    | '/missions/edit'
+    | '/my-organization/adult-surveillance'
+    | '/my-organization/control-methods'
+    | '/my-organization/larval-surveillance'
+    | '/my-organization/people'
+    | '/my-organization/public-engagement'
+    | '/service-requests/$requestId'
+    | '/my-organization/'
+    | '/service-requests/'
     | '/admin/organizations/$organizationId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/address-book'
+    | '/assignments'
+    | '/biocontrol'
+    | '/chemical-control'
+    | '/collections'
+    | '/contacts'
+    | '/group-settings'
+    | '/groups'
+    | '/habitats'
+    | '/inspections'
+    | '/landing'
     | '/login'
+    | '/missions'
+    | '/public-outreach'
+    | '/regions'
+    | '/requests-for-control'
+    | '/routes'
+    | '/samples'
+    | '/source-reductions'
+    | '/today'
+    | '/traps'
     | '/admin/organizations'
+    | '/missions/edit'
+    | '/my-organization/adult-surveillance'
+    | '/my-organization/control-methods'
+    | '/my-organization/larval-surveillance'
+    | '/my-organization/people'
+    | '/my-organization/public-engagement'
+    | '/service-requests/$requestId'
+    | '/my-organization'
+    | '/service-requests'
     | '/admin/organizations/$organizationId'
   id:
     | '__root__'
     | '/'
+    | '/address-book'
+    | '/assignments'
+    | '/biocontrol'
+    | '/chemical-control'
+    | '/collections'
+    | '/contacts'
+    | '/group-settings'
+    | '/groups'
+    | '/habitats'
+    | '/inspections'
+    | '/landing'
     | '/login'
+    | '/missions'
+    | '/my-organization'
+    | '/public-outreach'
+    | '/regions'
+    | '/requests-for-control'
+    | '/routes'
+    | '/samples'
+    | '/service-requests'
+    | '/source-reductions'
+    | '/today'
+    | '/traps'
     | '/admin/organizations'
+    | '/missions/edit'
+    | '/my-organization/adult-surveillance'
+    | '/my-organization/control-methods'
+    | '/my-organization/larval-surveillance'
+    | '/my-organization/people'
+    | '/my-organization/public-engagement'
+    | '/service-requests/$requestId'
+    | '/my-organization/'
+    | '/service-requests/'
     | '/admin/organizations/$organizationId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AddressBookRoute: typeof AddressBookRoute
+  AssignmentsRoute: typeof AssignmentsRoute
+  BiocontrolRoute: typeof BiocontrolRoute
+  ChemicalControlRoute: typeof ChemicalControlRoute
+  CollectionsRoute: typeof CollectionsRoute
+  ContactsRoute: typeof ContactsRoute
+  GroupSettingsRoute: typeof GroupSettingsRoute
+  GroupsRoute: typeof GroupsRoute
+  HabitatsRoute: typeof HabitatsRoute
+  InspectionsRoute: typeof InspectionsRoute
+  LandingRoute: typeof LandingRoute
   LoginRoute: typeof LoginRoute
+  MissionsRoute: typeof MissionsRouteWithChildren
+  MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
+  PublicOutreachRoute: typeof PublicOutreachRoute
+  RegionsRoute: typeof RegionsRoute
+  RequestsForControlRoute: typeof RequestsForControlRoute
+  RoutesRoute: typeof RoutesRoute
+  SamplesRoute: typeof SamplesRoute
+  ServiceRequestsRoute: typeof ServiceRequestsRouteWithChildren
+  SourceReductionsRoute: typeof SourceReductionsRoute
+  TodayRoute: typeof TodayRoute
+  TrapsRoute: typeof TrapsRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/traps': {
+      id: '/traps'
+      path: '/traps'
+      fullPath: '/traps'
+      preLoaderRoute: typeof TrapsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/today': {
+      id: '/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof TodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/source-reductions': {
+      id: '/source-reductions'
+      path: '/source-reductions'
+      fullPath: '/source-reductions'
+      preLoaderRoute: typeof SourceReductionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/service-requests': {
+      id: '/service-requests'
+      path: '/service-requests'
+      fullPath: '/service-requests'
+      preLoaderRoute: typeof ServiceRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/samples': {
+      id: '/samples'
+      path: '/samples'
+      fullPath: '/samples'
+      preLoaderRoute: typeof SamplesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/routes': {
+      id: '/routes'
+      path: '/routes'
+      fullPath: '/routes'
+      preLoaderRoute: typeof RoutesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/requests-for-control': {
+      id: '/requests-for-control'
+      path: '/requests-for-control'
+      fullPath: '/requests-for-control'
+      preLoaderRoute: typeof RequestsForControlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/regions': {
+      id: '/regions'
+      path: '/regions'
+      fullPath: '/regions'
+      preLoaderRoute: typeof RegionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-outreach': {
+      id: '/public-outreach'
+      path: '/public-outreach'
+      fullPath: '/public-outreach'
+      preLoaderRoute: typeof PublicOutreachRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-organization': {
+      id: '/my-organization'
+      path: '/my-organization'
+      fullPath: '/my-organization'
+      preLoaderRoute: typeof MyOrganizationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/missions': {
+      id: '/missions'
+      path: '/missions'
+      fullPath: '/missions'
+      preLoaderRoute: typeof MissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing': {
+      id: '/landing'
+      path: '/landing'
+      fullPath: '/landing'
+      preLoaderRoute: typeof LandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inspections': {
+      id: '/inspections'
+      path: '/inspections'
+      fullPath: '/inspections'
+      preLoaderRoute: typeof InspectionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/habitats': {
+      id: '/habitats'
+      path: '/habitats'
+      fullPath: '/habitats'
+      preLoaderRoute: typeof HabitatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groups': {
+      id: '/groups'
+      path: '/groups'
+      fullPath: '/groups'
+      preLoaderRoute: typeof GroupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/group-settings': {
+      id: '/group-settings'
+      path: '/group-settings'
+      fullPath: '/group-settings'
+      preLoaderRoute: typeof GroupSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contacts': {
+      id: '/contacts'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof ContactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/collections': {
+      id: '/collections'
+      path: '/collections'
+      fullPath: '/collections'
+      preLoaderRoute: typeof CollectionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chemical-control': {
+      id: '/chemical-control'
+      path: '/chemical-control'
+      fullPath: '/chemical-control'
+      preLoaderRoute: typeof ChemicalControlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/biocontrol': {
+      id: '/biocontrol'
+      path: '/biocontrol'
+      fullPath: '/biocontrol'
+      preLoaderRoute: typeof BiocontrolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assignments': {
+      id: '/assignments'
+      path: '/assignments'
+      fullPath: '/assignments'
+      preLoaderRoute: typeof AssignmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/address-book': {
+      id: '/address-book'
+      path: '/address-book'
+      fullPath: '/address-book'
+      preLoaderRoute: typeof AddressBookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -97,6 +646,69 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/service-requests/': {
+      id: '/service-requests/'
+      path: '/'
+      fullPath: '/service-requests/'
+      preLoaderRoute: typeof ServiceRequestsIndexRouteImport
+      parentRoute: typeof ServiceRequestsRoute
+    }
+    '/my-organization/': {
+      id: '/my-organization/'
+      path: '/'
+      fullPath: '/my-organization/'
+      preLoaderRoute: typeof MyOrganizationIndexRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/service-requests/$requestId': {
+      id: '/service-requests/$requestId'
+      path: '/$requestId'
+      fullPath: '/service-requests/$requestId'
+      preLoaderRoute: typeof ServiceRequestsRequestIdRouteImport
+      parentRoute: typeof ServiceRequestsRoute
+    }
+    '/my-organization/public-engagement': {
+      id: '/my-organization/public-engagement'
+      path: '/public-engagement'
+      fullPath: '/my-organization/public-engagement'
+      preLoaderRoute: typeof MyOrganizationPublicEngagementRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/my-organization/people': {
+      id: '/my-organization/people'
+      path: '/people'
+      fullPath: '/my-organization/people'
+      preLoaderRoute: typeof MyOrganizationPeopleRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/my-organization/larval-surveillance': {
+      id: '/my-organization/larval-surveillance'
+      path: '/larval-surveillance'
+      fullPath: '/my-organization/larval-surveillance'
+      preLoaderRoute: typeof MyOrganizationLarvalSurveillanceRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/my-organization/control-methods': {
+      id: '/my-organization/control-methods'
+      path: '/control-methods'
+      fullPath: '/my-organization/control-methods'
+      preLoaderRoute: typeof MyOrganizationControlMethodsRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/my-organization/adult-surveillance': {
+      id: '/my-organization/adult-surveillance'
+      path: '/adult-surveillance'
+      fullPath: '/my-organization/adult-surveillance'
+      preLoaderRoute: typeof MyOrganizationAdultSurveillanceRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/missions/edit': {
+      id: '/missions/edit'
+      path: '/edit'
+      fullPath: '/missions/edit'
+      preLoaderRoute: typeof MissionsEditRouteImport
+      parentRoute: typeof MissionsRoute
     }
     '/admin/organizations': {
       id: '/admin/organizations'
@@ -115,6 +727,54 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface MissionsRouteChildren {
+  MissionsEditRoute: typeof MissionsEditRoute
+}
+
+const MissionsRouteChildren: MissionsRouteChildren = {
+  MissionsEditRoute: MissionsEditRoute,
+}
+
+const MissionsRouteWithChildren = MissionsRoute._addFileChildren(
+  MissionsRouteChildren,
+)
+
+interface MyOrganizationRouteChildren {
+  MyOrganizationAdultSurveillanceRoute: typeof MyOrganizationAdultSurveillanceRoute
+  MyOrganizationControlMethodsRoute: typeof MyOrganizationControlMethodsRoute
+  MyOrganizationLarvalSurveillanceRoute: typeof MyOrganizationLarvalSurveillanceRoute
+  MyOrganizationPeopleRoute: typeof MyOrganizationPeopleRoute
+  MyOrganizationPublicEngagementRoute: typeof MyOrganizationPublicEngagementRoute
+  MyOrganizationIndexRoute: typeof MyOrganizationIndexRoute
+}
+
+const MyOrganizationRouteChildren: MyOrganizationRouteChildren = {
+  MyOrganizationAdultSurveillanceRoute: MyOrganizationAdultSurveillanceRoute,
+  MyOrganizationControlMethodsRoute: MyOrganizationControlMethodsRoute,
+  MyOrganizationLarvalSurveillanceRoute: MyOrganizationLarvalSurveillanceRoute,
+  MyOrganizationPeopleRoute: MyOrganizationPeopleRoute,
+  MyOrganizationPublicEngagementRoute: MyOrganizationPublicEngagementRoute,
+  MyOrganizationIndexRoute: MyOrganizationIndexRoute,
+}
+
+const MyOrganizationRouteWithChildren = MyOrganizationRoute._addFileChildren(
+  MyOrganizationRouteChildren,
+)
+
+interface ServiceRequestsRouteChildren {
+  ServiceRequestsRequestIdRoute: typeof ServiceRequestsRequestIdRoute
+  ServiceRequestsIndexRoute: typeof ServiceRequestsIndexRoute
+}
+
+const ServiceRequestsRouteChildren: ServiceRequestsRouteChildren = {
+  ServiceRequestsRequestIdRoute: ServiceRequestsRequestIdRoute,
+  ServiceRequestsIndexRoute: ServiceRequestsIndexRoute,
+}
+
+const ServiceRequestsRouteWithChildren = ServiceRequestsRoute._addFileChildren(
+  ServiceRequestsRouteChildren,
+)
+
 interface AdminOrganizationsRouteChildren {
   AdminOrganizationsOrganizationIdRoute: typeof AdminOrganizationsOrganizationIdRoute
 }
@@ -128,7 +788,29 @@ const AdminOrganizationsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AddressBookRoute: AddressBookRoute,
+  AssignmentsRoute: AssignmentsRoute,
+  BiocontrolRoute: BiocontrolRoute,
+  ChemicalControlRoute: ChemicalControlRoute,
+  CollectionsRoute: CollectionsRoute,
+  ContactsRoute: ContactsRoute,
+  GroupSettingsRoute: GroupSettingsRoute,
+  GroupsRoute: GroupsRoute,
+  HabitatsRoute: HabitatsRoute,
+  InspectionsRoute: InspectionsRoute,
+  LandingRoute: LandingRoute,
   LoginRoute: LoginRoute,
+  MissionsRoute: MissionsRouteWithChildren,
+  MyOrganizationRoute: MyOrganizationRouteWithChildren,
+  PublicOutreachRoute: PublicOutreachRoute,
+  RegionsRoute: RegionsRoute,
+  RequestsForControlRoute: RequestsForControlRoute,
+  RoutesRoute: RoutesRoute,
+  SamplesRoute: SamplesRoute,
+  ServiceRequestsRoute: ServiceRequestsRouteWithChildren,
+  SourceReductionsRoute: SourceReductionsRoute,
+  TodayRoute: TodayRoute,
+  TrapsRoute: TrapsRoute,
   AdminOrganizationsRoute: AdminOrganizationsRouteWithChildren,
 }
 export const routeTree = rootRouteImport

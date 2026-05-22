@@ -41,8 +41,28 @@ export interface ProfileRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
 	readonly organizationId: string;
+	readonly userId: string | null;
 	readonly displayName: string;
+	readonly email: string | null;
 	readonly isActive: boolean;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export type MembershipStatus = 'active' | 'inactive' | 'invited';
+export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
+
+export interface MembershipRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly userId: string | null;
+	readonly profileId: string;
+	readonly role: SimmerRole;
+	readonly status: MembershipStatus;
+	readonly isDefault: boolean;
+	readonly invitedEmail: string | null;
+	readonly workosInvitationId: string | null;
 	readonly createdAt: string;
 	readonly updatedAt: string;
 }
@@ -76,6 +96,25 @@ export interface OrganizationSpeciesRow {
 	readonly updatedAt: string;
 }
 
+export interface OrganizationRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly workosOrganizationId: string | null;
+	readonly name: string;
+	readonly slug: string | null;
+	readonly mainContactEmail: string | null;
+	readonly phoneNumber: string | null;
+	readonly mailingCountry: string | null;
+	readonly mailingAddressLine1: string | null;
+	readonly mailingAddressLine2: string | null;
+	readonly mailingLocality: string | null;
+	readonly mailingRegion: string | null;
+	readonly mailingPostalCode: string | null;
+	readonly settings: unknown | null;
+	readonly updatedAt: string;
+	readonly updatedByProfileId: string | null;
+}
+
 interface OrgLookupRowBase {
 	readonly [key: string]: unknown;
 	readonly id: string;
@@ -97,6 +136,42 @@ export interface CollectionLureRow extends OrgLookupRowBase {}
 export interface HabitatTypeRow extends OrgLookupRowBase {
 	readonly customSchema: unknown | null;
 }
+
+export interface ControlMethodRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly name: string;
+	readonly customSchema: unknown;
+	readonly isActive: boolean;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface VehicleRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly vehicleName: string;
+	readonly metadata: unknown;
+	readonly isActive: boolean;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface EquipmentRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly equipmentName: string;
+	readonly serialNumber: string | null;
+	readonly metadata: unknown;
+	readonly isActive: boolean;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface NotificationTypeRow extends OrgLookupRowBase {}
 
 export interface TagRow {
 	readonly [key: string]: unknown;
@@ -136,7 +211,37 @@ export const profilesSyncDescriptor: SyncDescriptor<ProfileRow> = {
 	table: 'profiles',
 	endpointPath: '/sync/shapes/profiles',
 	syncMode: 'eager',
-	columns: ['id', 'organizationId', 'displayName', 'isActive', 'createdAt', 'updatedAt'],
+	columns: [
+		'id',
+		'organizationId',
+		'userId',
+		'displayName',
+		'email',
+		'isActive',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const membershipsSyncDescriptor: SyncDescriptor<MembershipRow> = {
+	id: 'memberships',
+	table: 'memberships',
+	endpointPath: '/sync/shapes/memberships',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'userId',
+		'profileId',
+		'role',
+		'status',
+		'isDefault',
+		'invitedEmail',
+		'workosInvitationId',
+		'createdAt',
+		'updatedAt',
+	],
 	getKey: (row) => row.id,
 };
 
@@ -164,6 +269,31 @@ export const organizationSpeciesSyncDescriptor: SyncDescriptor<OrganizationSpeci
 	endpointPath: '/sync/shapes/organization-species',
 	syncMode: 'eager',
 	columns: ['id', 'organizationId', 'speciesId', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const currentOrganizationSyncDescriptor: SyncDescriptor<OrganizationRow> = {
+	id: 'current_organization',
+	table: 'organizations',
+	endpointPath: '/sync/shapes/organization',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'workosOrganizationId',
+		'name',
+		'slug',
+		'mainContactEmail',
+		'phoneNumber',
+		'mailingCountry',
+		'mailingAddressLine1',
+		'mailingAddressLine2',
+		'mailingLocality',
+		'mailingRegion',
+		'mailingPostalCode',
+		'settings',
+		'updatedAt',
+		'updatedByProfileId',
+	],
 	getKey: (row) => row.id,
 };
 
@@ -213,6 +343,86 @@ export const habitatTypesSyncDescriptor: SyncDescriptor<HabitatTypeRow> = {
 	getKey: (row) => row.id,
 };
 
+export const applicationMethodsSyncDescriptor: SyncDescriptor<ControlMethodRow> = {
+	id: 'application_methods',
+	table: 'application_methods',
+	endpointPath: '/sync/shapes/application-methods',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const sourceReductionMethodsSyncDescriptor: SyncDescriptor<ControlMethodRow> = {
+	id: 'source_reduction_methods',
+	table: 'source_reduction_methods',
+	endpointPath: '/sync/shapes/source-reduction-methods',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const outreachMethodsSyncDescriptor: SyncDescriptor<ControlMethodRow> = {
+	id: 'outreach_methods',
+	table: 'outreach_methods',
+	endpointPath: '/sync/shapes/outreach-methods',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const biocontrolMethodsSyncDescriptor: SyncDescriptor<ControlMethodRow> = {
+	id: 'biocontrol_methods',
+	table: 'biocontrol_methods',
+	endpointPath: '/sync/shapes/biocontrol-methods',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
+export const vehiclesSyncDescriptor: SyncDescriptor<VehicleRow> = {
+	id: 'vehicles',
+	table: 'vehicles',
+	endpointPath: '/sync/shapes/vehicles',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'vehicleName',
+		'metadata',
+		'isActive',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const equipmentSyncDescriptor: SyncDescriptor<EquipmentRow> = {
+	id: 'equipment',
+	table: 'equipment',
+	endpointPath: '/sync/shapes/equipment',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'equipmentName',
+		'serialNumber',
+		'metadata',
+		'isActive',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const notificationTypesSyncDescriptor: SyncDescriptor<NotificationTypeRow> = {
+	id: 'notification_types',
+	table: 'notification_types',
+	endpointPath: '/sync/shapes/notification-types',
+	syncMode: 'eager',
+	columns: ['id', 'organizationId', 'name', 'description', 'isActive', 'createdAt', 'updatedAt'],
+	getKey: (row) => row.id,
+};
+
 export const tagsSyncDescriptor: SyncDescriptor<TagRow> = {
 	id: 'tags',
 	table: 'tags',
@@ -243,14 +453,26 @@ export const routesSyncDescriptor: SyncDescriptor<RouteRow> = {
 export const webReadOnlyTracerDescriptors = [
 	unitsSyncDescriptor,
 	profilesSyncDescriptor,
+	membershipsSyncDescriptor,
 	generaSyncDescriptor,
 	speciesSyncDescriptor,
 	organizationSpeciesSyncDescriptor,
+	applicationMethodsSyncDescriptor,
+	sourceReductionMethodsSyncDescriptor,
+	outreachMethodsSyncDescriptor,
+	biocontrolMethodsSyncDescriptor,
+	vehiclesSyncDescriptor,
+	equipmentSyncDescriptor,
+	notificationTypesSyncDescriptor,
+	routesSyncDescriptor,
+] as const;
+
+export const webCommandMutationDescriptors = [
+	currentOrganizationSyncDescriptor,
 	collectionMethodsSyncDescriptor,
 	collectionLuresSyncDescriptor,
 	habitatTypesSyncDescriptor,
 	tagsSyncDescriptor,
-	routesSyncDescriptor,
 ] as const;
 
 export function electricShapeCollectionOptions<TRow extends { readonly id: string }>(
@@ -283,14 +505,28 @@ export function electricShapeCollectionOptions<TRow extends { readonly id: strin
 }
 
 const snakeCamelColumnMapper = {
-	encode: camelToSnake,
-	decode: snakeToCamel,
+	encode: encodeShapeColumnName,
+	decode: decodeShapeColumnName,
 };
 
-function camelToSnake(value: string): string {
+export function encodeShapeColumnName(value: string): string {
+	if (value === 'mailingAddressLine1') {
+		return 'mailing_address_line_1';
+	}
+	if (value === 'mailingAddressLine2') {
+		return 'mailing_address_line_2';
+	}
+
 	return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
-function snakeToCamel(value: string): string {
+export function decodeShapeColumnName(value: string): string {
+	if (value === 'mailing_address_line_1') {
+		return 'mailingAddressLine1';
+	}
+	if (value === 'mailing_address_line_2') {
+		return 'mailingAddressLine2';
+	}
+
 	return value.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 }

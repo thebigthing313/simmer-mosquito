@@ -9,7 +9,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Command as CommandPrimitive } from 'cmdk';
-import { SearchIcon } from 'lucide-react';
+import { SearchIcon } from '../../icons/registry';
 import type * as React from 'react';
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
