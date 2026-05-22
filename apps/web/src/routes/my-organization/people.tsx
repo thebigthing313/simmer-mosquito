@@ -1,5 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { MyOrganizationPage } from '../-my-organization';
+import { collections } from './-components/constants';
+import { OrganizationWorkspaceShell } from './-components/layout';
+import { useOrganizationWorkspace } from './-components/organization-workspace';
+import { PeopleSection } from './-components/people';
 
 export const Route = createFileRoute('/my-organization/people')({
 	component: MyOrganizationPeopleRoute,
@@ -7,6 +10,22 @@ export const Route = createFileRoute('/my-organization/people')({
 
 function MyOrganizationPeopleRoute() {
 	const { auth } = Route.useRouteContext();
+	const workspace = useOrganizationWorkspace(auth.snapshot);
 
-	return <MyOrganizationPage auth={auth.snapshot} section="people" />;
+	return (
+		<OrganizationWorkspaceShell
+			canManage={workspace.canManage}
+			role={workspace.role}
+			section="people"
+		>
+			<PeopleSection
+				auth={auth.snapshot}
+				canManage={workspace.role === 'owner'}
+				organization={workspace.organization}
+				memberships={collections.memberships}
+				profiles={collections.profiles}
+				role={workspace.role}
+			/>
+		</OrganizationWorkspaceShell>
+	);
 }

@@ -1,5 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { MyOrganizationPage } from '../-my-organization';
+import { AdultSurveillanceSettings } from './-components/adult';
+import { collections } from './-components/constants';
+import { saveAdultSettings, selectField } from './-components/helpers';
+import { DomainSection, OrganizationWorkspaceShell } from './-components/layout';
+import { useOrganizationWorkspace } from './-components/organization-workspace';
+import type { SettingField } from './-components/types';
 
 export const Route = createFileRoute('/my-organization/adult-surveillance')({
 	component: MyOrganizationAdultSurveillanceRoute,
@@ -7,6 +12,40 @@ export const Route = createFileRoute('/my-organization/adult-surveillance')({
 
 function MyOrganizationAdultSurveillanceRoute() {
 	const { auth } = Route.useRouteContext();
+	const workspace = useOrganizationWorkspace(auth.snapshot);
+	const adultFields: readonly SettingField[] = [
+		selectField('Collection timing', workspace.settings.adultSurveillance.collectionTimingMode, [
+			{ label: 'Exact timestamps', value: 'exact_timestamps' },
+			{ label: 'Collection date and duration', value: 'collection_date_duration' },
+		]),
+	];
 
-	return <MyOrganizationPage auth={auth.snapshot} section="adult" />;
+	return (
+		<OrganizationWorkspaceShell
+			canManage={workspace.canManage}
+			role={workspace.role}
+			section="adult"
+		>
+			<DomainSection
+				canManage={workspace.canManage}
+				editDescription="Choose how adult collection timing is recorded by this agency."
+				fields={adultFields}
+				id="adult"
+				meta="Trap collection methods, lures, and adult surveillance references"
+				onSave={(formData) =>
+					saveAdultSettings(workspace.organization, workspace.settings, formData)
+				}
+				setupItems={[]}
+				title="Adult surveillance"
+			>
+				<AdultSurveillanceSettings
+					canManage={workspace.canManage}
+					collectionLures={collections.collectionLures}
+					collectionMethods={collections.collectionMethods}
+					fields={adultFields}
+					organization={workspace.organization}
+				/>
+			</DomainSection>
+		</OrganizationWorkspaceShell>
+	);
 }
