@@ -825,9 +825,7 @@ function readOptionalUuid(value: unknown): string | null | undefined {
 		return null;
 	}
 
-	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-		text,
-	)
+	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)
 		? text
 		: undefined;
 }
