@@ -69,7 +69,7 @@ export function ColorPicker({
 					disabled={disabled}
 					className={cn(
 						'border-border bg-background p-0 shadow-xs hover:border-ring hover:bg-background',
-						selectedColor !== null && 'border-[var(--color-picker-value)]',
+						selectedColor !== null && 'border-(--color-picker-value)',
 					)}
 					style={
 						selectedColor === null
@@ -83,7 +83,7 @@ export function ColorPicker({
 					) : (
 						<span
 							aria-hidden="true"
-							className="size-4 rounded-sm border border-border/60 bg-[var(--color-picker-value)]"
+							className="size-4 rounded-sm border border-border/60 bg-(--color-picker-value)"
 						/>
 					)}
 				</Button>

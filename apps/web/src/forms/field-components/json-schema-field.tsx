@@ -5,7 +5,7 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useFieldContext } from '../form-contexts';
 import { FormFieldFrame } from './field-frame';
 import type { BaseFieldProps } from './text-field';
@@ -39,13 +39,9 @@ const valueTypeOptions: readonly { readonly label: string; readonly value: Custo
 	{ label: 'Date', value: 'date' },
 ];
 
-export function JsonSchemaField({
-	label,
-	description,
-	disabled,
-	className,
-}: JsonSchemaFieldProps) {
+export function JsonSchemaField({ label, description, disabled, className }: JsonSchemaFieldProps) {
 	const field = useFieldContext<JsonSchemaValue>();
+	const fieldId = useId();
 	const [rows, setRows] = useState<readonly CustomFieldRow[]>(() =>
 		customFieldRowsFromSchema(field.state.value),
 	);
@@ -83,111 +79,126 @@ export function JsonSchemaField({
 							No custom fields.
 						</p>
 					) : (
-						rows.map((row, index) => (
-							<section
-								className="grid gap-2 rounded-md border border-border/30 bg-background p-2.5"
-								key={row.id}
-							>
-								<label className="grid gap-1">
-									<span className="text-[0.74rem] font-bold text-muted-foreground">
-										Field name
-									</span>
-									<Input
-										disabled={disabled}
-										onBlur={field.handleBlur}
-										onChange={(event) =>
-											commitRows(
-												rows.map((current) =>
-													current.id === row.id
-														? { ...current, name: event.target.value }
-														: current,
-												),
-											)
-										}
-										placeholder="e.g. Wing condition"
-										value={row.name}
-									/>
-								</label>
-								<label className="grid gap-1">
-									<span className="text-[0.74rem] font-bold text-muted-foreground">
-										Value type
-									</span>
-									<NativeSelect
-										disabled={disabled}
-										onBlur={field.handleBlur}
-										onChange={(event) =>
-											commitRows(
-												rows.map((current) =>
-													current.id === row.id
-														? {
-																...current,
-																valueType: event.target.value as CustomFieldType,
-															}
-														: current,
-												),
-											)
-										}
-										value={row.valueType}
-									>
-										{valueTypeOptions.map((option) => (
-											<option key={option.value} value={option.value}>
-												{option.label}
-											</option>
-										))}
-									</NativeSelect>
-								</label>
-								<div className="flex flex-wrap items-center justify-between gap-2">
-									<label className="flex min-h-9 items-center gap-2 rounded-md border border-border/30 bg-muted/30 px-2.5 text-[0.8rem] font-bold text-muted-foreground">
-										<span>Required</span>
-										<Switch
-											aria-label={`${row.name.trim().length === 0 ? 'Custom field' : row.name} required`}
-											checked={row.required}
+						rows.map((row, index) => {
+							const nameId = `${fieldId}-${row.id}-name`;
+							const typeId = `${fieldId}-${row.id}-type`;
+							const requiredId = `${fieldId}-${row.id}-required`;
+
+							return (
+								<section
+									className="grid gap-2 rounded-md border border-border/30 bg-background p-2.5"
+									key={row.id}
+								>
+									<div className="grid gap-1">
+										<label
+											className="text-[0.74rem] font-bold text-muted-foreground"
+											htmlFor={nameId}
+										>
+											Field name
+										</label>
+										<Input
+											id={nameId}
 											disabled={disabled}
 											onBlur={field.handleBlur}
-											onCheckedChange={(required) =>
+											onChange={(event) =>
 												commitRows(
 													rows.map((current) =>
-														current.id === row.id ? { ...current, required } : current,
+														current.id === row.id
+															? { ...current, name: event.target.value }
+															: current,
 													),
 												)
 											}
+											placeholder="e.g. Wing condition"
+											value={row.name}
 										/>
-									</label>
-									<div className="flex items-center gap-1.5">
-										<Button
-											aria-label={`Move ${row.name.trim().length === 0 ? 'custom field' : row.name} up`}
-											disabled={disabled || index === 0}
-											onClick={() => commitRows(moveRow(rows, index, index - 1))}
-											size="icon"
-											type="button"
-											variant="outline"
-										>
-											<MoveUpIcon aria-hidden="true" />
-										</Button>
-										<Button
-											aria-label={`Move ${row.name.trim().length === 0 ? 'custom field' : row.name} down`}
-											disabled={disabled || index === rows.length - 1}
-											onClick={() => commitRows(moveRow(rows, index, index + 1))}
-											size="icon"
-											type="button"
-											variant="outline"
-										>
-											<MoveDownIcon aria-hidden="true" />
-										</Button>
-										<Button
-											aria-label={`Remove ${row.name.trim().length === 0 ? 'custom field' : row.name}`}
-											disabled={disabled}
-											onClick={() => commitRows(rows.filter((current) => current.id !== row.id))}
-											size="icon"
-											type="button"
-											variant="destructive"
-										>
-											<DeleteIcon aria-hidden="true" />
-										</Button>
 									</div>
-								</div>
-							</section>
-						))
+									<div className="grid gap-1">
+										<label
+											className="text-[0.74rem] font-bold text-muted-foreground"
+											htmlFor={typeId}
+										>
+											Value type
+										</label>
+										<NativeSelect
+											id={typeId}
+											disabled={disabled}
+											onBlur={field.handleBlur}
+											onChange={(event) =>
+												commitRows(
+													rows.map((current) =>
+														current.id === row.id
+															? {
+																	...current,
+																	valueType: event.target.value as CustomFieldType,
+																}
+															: current,
+													),
+												)
+											}
+											value={row.valueType}
+										>
+											{valueTypeOptions.map((option) => (
+												<option key={option.value} value={option.value}>
+													{option.label}
+												</option>
+											))}
+										</NativeSelect>
+									</div>
+									<div className="flex flex-wrap items-center justify-between gap-2">
+										<div className="flex min-h-9 items-center gap-2 rounded-md border border-border/30 bg-muted/30 px-2.5 text-[0.8rem] font-bold text-muted-foreground">
+											<span id={requiredId}>Required</span>
+											<Switch
+												aria-label={`${row.name.trim().length === 0 ? 'Custom field' : row.name} required`}
+												aria-labelledby={requiredId}
+												checked={row.required}
+												disabled={disabled}
+												onBlur={field.handleBlur}
+												onCheckedChange={(required) =>
+													commitRows(
+														rows.map((current) =>
+															current.id === row.id ? { ...current, required } : current,
+														),
+													)
+												}
+											/>
+										</div>
+										<div className="flex items-center gap-1.5">
+											<Button
+												aria-label={`Move ${row.name.trim().length === 0 ? 'custom field' : row.name} up`}
+												disabled={disabled || index === 0}
+												onClick={() => commitRows(moveRow(rows, index, index - 1))}
+												size="icon"
+												type="button"
+												variant="outline"
+											>
+												<MoveUpIcon aria-hidden="true" />
+											</Button>
+											<Button
+												aria-label={`Move ${row.name.trim().length === 0 ? 'custom field' : row.name} down`}
+												disabled={disabled || index === rows.length - 1}
+												onClick={() => commitRows(moveRow(rows, index, index + 1))}
+												size="icon"
+												type="button"
+												variant="outline"
+											>
+												<MoveDownIcon aria-hidden="true" />
+											</Button>
+											<Button
+												aria-label={`Remove ${row.name.trim().length === 0 ? 'custom field' : row.name}`}
+												disabled={disabled}
+												onClick={() => commitRows(rows.filter((current) => current.id !== row.id))}
+												size="icon"
+												type="button"
+												variant="destructive"
+											>
+												<DeleteIcon aria-hidden="true" />
+											</Button>
+										</div>
+									</div>
+								</section>
+							);
+						})
 					)}
 					<Button
 						className="w-fit"
@@ -236,25 +247,27 @@ function customFieldRowsFromSchema(value: JsonSchemaValue): readonly CustomField
 		return customFieldRowsFromJsonSchema(value);
 	}
 
-	return Object.entries(value).map(([key, config]) => {
-		if (isPlainJsonObject(config)) {
+	return Object.entries(value)
+		.map(([key, config]) => {
+			if (isPlainJsonObject(config)) {
+				return {
+					id: crypto.randomUUID(),
+					name: typeof config.label === 'string' ? config.label : labelFromFieldKey(key),
+					order: numericOrder(config.order),
+					required: config.required === true,
+					valueType: customFieldTypeFromValue(config.type),
+				};
+			}
+
 			return {
 				id: crypto.randomUUID(),
-				name: typeof config.label === 'string' ? config.label : labelFromFieldKey(key),
-				order: numericOrder(config.order),
-				required: config.required === true,
-				valueType: customFieldTypeFromValue(config.type),
+				name: labelFromFieldKey(key),
+				order: null,
+				required: false,
+				valueType: customFieldTypeFromValue(config),
 			};
-		}
-
-		return {
-			id: crypto.randomUUID(),
-			name: labelFromFieldKey(key),
-			order: null,
-			required: false,
-			valueType: customFieldTypeFromValue(config),
-		};
-	}).sort(compareCustomFieldRows);
+		})
+		.sort(compareCustomFieldRows);
 }
 
 function moveRow(
