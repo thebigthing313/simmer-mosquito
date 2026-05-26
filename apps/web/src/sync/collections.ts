@@ -14,6 +14,10 @@ import {
 	generaSyncDescriptor,
 	type HabitatTypeRow,
 	habitatTypesSyncDescriptor,
+	type InsecticideBatchRow,
+	type InsecticideRow,
+	insecticideBatchesSyncDescriptor,
+	insecticidesSyncDescriptor,
 	type MembershipRow,
 	membershipsSyncDescriptor,
 	type NotificationTypeRow,
@@ -42,6 +46,10 @@ import {
 	createVehicleMutationHandlers,
 } from './controlAssetMutations';
 import { createControlMethodMutationHandlers } from './controlMethodMutations';
+import {
+	createInsecticideBatchMutationHandlers,
+	createInsecticideMutationHandlers,
+} from './controlProductMutations';
 import { createNotificationTypeMutationHandlers } from './notificationTypeMutations';
 import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createOrgLookupMutationHandlers } from './orgLookupMutations';
@@ -56,6 +64,10 @@ export interface WebCollections {
 	readonly equipment: Collection<EquipmentRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
 	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
+	readonly createInsecticideBatchCollection: (
+		insecticideId: string,
+	) => Collection<InsecticideBatchRow, string | number>;
+	readonly insecticides: Collection<InsecticideRow, string | number>;
 	readonly memberships: Collection<MembershipRow, string | number>;
 	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
 	readonly currentOrganization: Collection<OrganizationRow, string | number>;
@@ -87,6 +99,7 @@ export const webBaselineCollectionKeys = [
 	'biocontrolMethods',
 	'vehicles',
 	'equipment',
+	'insecticides',
 	'notificationTypes',
 	'tags',
 	'routes',
@@ -244,6 +257,28 @@ export function createWebCollections(options: {
 			}),
 		}),
 	);
+	const insecticides = createCollection(
+		electricShapeCollectionOptions<InsecticideRow>({
+			descriptor: insecticidesSyncDescriptor,
+			url: `${shapeServerUrl}${insecticidesSyncDescriptor.endpointPath}`,
+			...createInsecticideMutationHandlers<InsecticideRow>({
+				serverUrl: options.serverUrl,
+			}),
+		}),
+	);
+	const createInsecticideBatchCollection = (insecticideId: string) =>
+		createCollection(
+			electricShapeCollectionOptions<InsecticideBatchRow>({
+				descriptor: {
+					...insecticideBatchesSyncDescriptor,
+					id: `${insecticideBatchesSyncDescriptor.id}:${insecticideId}`,
+				},
+				url: `${shapeServerUrl}${insecticideBatchesSyncDescriptor.endpointPath}/${encodeURIComponent(insecticideId)}`,
+				...createInsecticideBatchMutationHandlers<InsecticideBatchRow>({
+					serverUrl: options.serverUrl,
+				}),
+			}),
+		);
 	const notificationTypes = createCollection(
 		electricShapeCollectionOptions<NotificationTypeRow>({
 			descriptor: notificationTypesSyncDescriptor,
@@ -277,6 +312,8 @@ export function createWebCollections(options: {
 		equipment,
 		genera,
 		habitatTypes,
+		createInsecticideBatchCollection,
+		insecticides,
 		memberships,
 		notificationTypes,
 		currentOrganization,

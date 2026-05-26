@@ -39,6 +39,7 @@ import { Route as ServiceRequestsRequestIdRouteImport } from './routes/service-r
 import { Route as MyOrganizationPublicEngagementRouteImport } from './routes/my-organization/public-engagement'
 import { Route as MyOrganizationPeopleRouteImport } from './routes/my-organization/people'
 import { Route as MyOrganizationLarvalSurveillanceRouteImport } from './routes/my-organization/larval-surveillance'
+import { Route as MyOrganizationInsecticidesRouteImport } from './routes/my-organization/insecticides'
 import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as MissionsEditRouteImport } from './routes/missions.edit'
@@ -198,6 +199,12 @@ const MyOrganizationLarvalSurveillanceRoute =
     path: '/larval-surveillance',
     getParentRoute: () => MyOrganizationRoute,
   } as any)
+const MyOrganizationInsecticidesRoute =
+  MyOrganizationInsecticidesRouteImport.update({
+    id: '/insecticides',
+    path: '/insecticides',
+    getParentRoute: () => MyOrganizationRoute,
+  } as any)
 const MyOrganizationControlMethodsRoute =
   MyOrganizationControlMethodsRouteImport.update({
     id: '/control-methods',
@@ -256,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
+  '/my-organization/insecticides': typeof MyOrganizationInsecticidesRoute
   '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
@@ -291,6 +299,7 @@ export interface FileRoutesByTo {
   '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
+  '/my-organization/insecticides': typeof MyOrganizationInsecticidesRoute
   '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
@@ -329,6 +338,7 @@ export interface FileRoutesById {
   '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
+  '/my-organization/insecticides': typeof MyOrganizationInsecticidesRoute
   '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
@@ -368,6 +378,7 @@ export interface FileRouteTypes {
     | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
+    | '/my-organization/insecticides'
     | '/my-organization/larval-surveillance'
     | '/my-organization/people'
     | '/my-organization/public-engagement'
@@ -403,6 +414,7 @@ export interface FileRouteTypes {
     | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
+    | '/my-organization/insecticides'
     | '/my-organization/larval-surveillance'
     | '/my-organization/people'
     | '/my-organization/public-engagement'
@@ -440,6 +452,7 @@ export interface FileRouteTypes {
     | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
+    | '/my-organization/insecticides'
     | '/my-organization/larval-surveillance'
     | '/my-organization/people'
     | '/my-organization/public-engagement'
@@ -689,6 +702,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyOrganizationLarvalSurveillanceRouteImport
       parentRoute: typeof MyOrganizationRoute
     }
+    '/my-organization/insecticides': {
+      id: '/my-organization/insecticides'
+      path: '/insecticides'
+      fullPath: '/my-organization/insecticides'
+      preLoaderRoute: typeof MyOrganizationInsecticidesRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
     '/my-organization/control-methods': {
       id: '/my-organization/control-methods'
       path: '/control-methods'
@@ -742,6 +762,7 @@ const MissionsRouteWithChildren = MissionsRoute._addFileChildren(
 interface MyOrganizationRouteChildren {
   MyOrganizationAdultSurveillanceRoute: typeof MyOrganizationAdultSurveillanceRoute
   MyOrganizationControlMethodsRoute: typeof MyOrganizationControlMethodsRoute
+  MyOrganizationInsecticidesRoute: typeof MyOrganizationInsecticidesRoute
   MyOrganizationLarvalSurveillanceRoute: typeof MyOrganizationLarvalSurveillanceRoute
   MyOrganizationPeopleRoute: typeof MyOrganizationPeopleRoute
   MyOrganizationPublicEngagementRoute: typeof MyOrganizationPublicEngagementRoute
@@ -751,6 +772,7 @@ interface MyOrganizationRouteChildren {
 const MyOrganizationRouteChildren: MyOrganizationRouteChildren = {
   MyOrganizationAdultSurveillanceRoute: MyOrganizationAdultSurveillanceRoute,
   MyOrganizationControlMethodsRoute: MyOrganizationControlMethodsRoute,
+  MyOrganizationInsecticidesRoute: MyOrganizationInsecticidesRoute,
   MyOrganizationLarvalSurveillanceRoute: MyOrganizationLarvalSurveillanceRoute,
   MyOrganizationPeopleRoute: MyOrganizationPeopleRoute,
   MyOrganizationPublicEngagementRoute: MyOrganizationPublicEngagementRoute,

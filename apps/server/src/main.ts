@@ -30,6 +30,7 @@ import {
 } from './auth-middleware.js';
 import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
 import { registerControlMethodCommandRoutes } from './control-method-commands.js';
+import { registerControlProductCommandRoutes } from './control-product-commands.js';
 import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
 import { readServerEnv } from './env.js';
 import { registerFoundationCommandRoutes } from './foundation-commands.js';
@@ -116,6 +117,15 @@ app.use(
 
 app.use(
 	'/control-assets/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/control-products/*',
 	cors({
 		origin: allowedCorsOrigins(),
 		credentials: true,
@@ -311,6 +321,11 @@ registerControlAssetCommandRoutes(app, {
 	authContextMiddleware,
 });
 
+registerControlProductCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
 registerOrganizationCommandRoutes(app, {
 	db,
 	authContextMiddleware,
@@ -333,6 +348,7 @@ registerPublicEngagementCommandRoutes(app, {
 });
 
 registerSyncShapeRoutes(app, {
+	db,
 	electricUrl: env.electricUrl,
 	authContextMiddleware,
 	operatorAuthContextMiddleware,

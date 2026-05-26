@@ -1,5 +1,12 @@
+import { Hono } from 'hono';
+import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
-import { buildElectricShapeRequest, buildElectricShapeUrl } from './sync-shapes.js';
+import type { AuthVariables } from './auth-middleware.js';
+import {
+	buildElectricShapeRequest,
+	buildElectricShapeUrl,
+	registerSyncShapeRoutes,
+} from './sync-shapes.js';
 
 describe('buildElectricShapeUrl', () => {
 	it('forces server-owned shape params while preserving Electric stream params', () => {
@@ -102,5 +109,56 @@ describe('buildElectricShapeUrl', () => {
 		expect(url.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
 		expect(url.searchParams.get('params[1]')).toBe('org-1');
 		expect(url.searchParams.get('subset__where')).toBeNull();
+	});
+});
+
+describe('registerSyncShapeRoutes', () => {
+	it.each([['/sync/shapes/insecticides']])('registers %s', async (path) => {
+		const app = new Hono<{ Variables: AuthVariables }>();
+
+		registerSyncShapeRoutes(app, {
+			db: {} as never,
+			electricUrl: null,
+			authContextMiddleware: createMiddleware(async (_context, next) => next()),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+		});
+
+		const response = await app.request(path);
+
+		expect(response.status).toBe(503);
+		expect(await response.json()).toEqual({ error: 'electric_url_required' });
+	});
+
+	it('registers org-scoped insecticide batch shapes without parent lookups', async () => {
+		const app = new Hono<{ Variables: AuthVariables }>();
+		const requests: string[] = [];
+
+		registerSyncShapeRoutes(app, {
+			db: {} as never,
+			electricUrl: 'http://localhost:3001/v1/shape',
+			authContextMiddleware: createMiddleware(async (context, next) => {
+				context.set('authContext', {
+					organization: { id: 'org-1' },
+				} as never);
+				await next();
+			}),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+			fetch: ((request) => {
+				requests.push(String(request));
+				return Promise.resolve(new Response('[]'));
+			}) as typeof fetch,
+		});
+
+		const response = await app.request('/sync/shapes/insecticide-batches/insecticide-1');
+		const upstream = new URL(requests[0] ?? '');
+
+		expect(response.status).toBe(200);
+		expect(upstream.searchParams.get('table')).toBe('insecticide_batches');
+		expect(upstream.searchParams.get('columns')).toContain('organization_id');
+		expect(upstream.searchParams.get('where')).toBe(
+			'organization_id = $1 and insecticide_id = $2 and deleted_at is null',
+		);
+		expect(upstream.searchParams.get('params[1]')).toBe('org-1');
+		expect(upstream.searchParams.get('params[2]')).toBe('insecticide-1');
 	});
 });

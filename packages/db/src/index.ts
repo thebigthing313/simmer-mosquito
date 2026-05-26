@@ -139,6 +139,7 @@ export interface SpatialFeaturesTable {
 
 export interface SpatialFeatureRegionsTable {
 	id: Generated<string>;
+	organization_id: string;
 	feature_id: string;
 	region_folder_id: string;
 	intersected_region_ids: string[];
@@ -300,6 +301,7 @@ export interface CollectionsTable {
 
 export interface CollectionSpeciesTable {
 	id: Generated<string>;
+	organization_id: string;
 	collection_id: string;
 	species_id: string;
 	count: number;
@@ -363,6 +365,7 @@ export interface InspectionsTable {
 
 export interface SamplesTable {
 	id: Generated<string>;
+	organization_id: string;
 	inspection_id: string;
 	display_name: string | null;
 	is_zero_larvae: BooleanWithDefault;
@@ -378,6 +381,7 @@ export interface SamplesTable {
 
 export interface SampleSpeciesTable {
 	id: Generated<string>;
+	organization_id: string;
 	sample_id: string;
 	species_id: string;
 	identified_by_profile_id: string | null;
@@ -508,6 +512,7 @@ export interface InsecticidesTable {
 
 export interface InsecticideBatchesTable {
 	id: Generated<string>;
+	organization_id: string;
 	insecticide_id: string;
 	batch_name: string;
 	is_active: BooleanWithDefault;
@@ -536,6 +541,7 @@ export interface FormulationsTable {
 
 export interface FormulationInsecticidesTable {
 	id: Generated<string>;
+	organization_id: string;
 	formulation_id: string;
 	insecticide_id: string;
 	ratio: number;
@@ -576,6 +582,7 @@ export interface ApplicationsTable {
 
 export interface ApplicationBatchesTable {
 	id: Generated<string>;
+	organization_id: string;
 	application_id: string;
 	insecticide_batch_id: string;
 	created_by_profile_id: string | null;
@@ -773,6 +780,7 @@ export interface RoutesTable {
 
 export interface RouteItemsTable {
 	id: Generated<string>;
+	organization_id: string;
 	route_id: string;
 	entity_type: string;
 	entity_id: string;
@@ -808,6 +816,7 @@ export interface AssignmentsTable {
 
 export interface AssignmentItemsTable {
 	id: Generated<string>;
+	organization_id: string;
 	assignment_id: string;
 	entity_type: string;
 	entity_id: string;
@@ -875,6 +884,7 @@ export interface MissionsTable {
 
 export interface MissionItemsTable {
 	id: Generated<string>;
+	organization_id: string;
 	mission_id: string;
 	requested_control_action_id: string | null;
 	feature_id: string;
@@ -909,6 +919,7 @@ export interface NotificationTypesTable {
 
 export interface NotificationRegistrationsTable {
 	id: Generated<string>;
+	organization_id: string;
 	contact_id: string;
 	feature_id: string;
 	address_id: string | null;
@@ -927,6 +938,7 @@ export interface NotificationRegistrationsTable {
 
 export interface NotificationRegistrationTypesTable {
 	id: Generated<string>;
+	organization_id: string;
 	notification_registration_id: string;
 	notification_type_id: string;
 	created_by_profile_id: string | null;
@@ -939,6 +951,7 @@ export interface NotificationRegistrationTypesTable {
 
 export interface MissionNotificationsTable {
 	id: Generated<string>;
+	organization_id: string;
 	mission_id: string;
 	notification_registration_id: string;
 	contact_id: string;
@@ -992,6 +1005,7 @@ export interface WeatherSourceSubscriptionsTable {
 
 export interface WeatherSummariesTable {
 	id: Generated<string>;
+	organization_id: string | null;
 	weather_source_id: string;
 	start_date: DateColumn;
 	end_date: DateColumn;

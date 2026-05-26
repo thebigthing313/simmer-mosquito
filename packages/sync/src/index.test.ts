@@ -4,6 +4,7 @@ import {
 	decodeShapeColumnName,
 	electricShapeCollectionOptions,
 	encodeShapeColumnName,
+	insecticideBatchesSyncDescriptor,
 	membershipsSyncDescriptor,
 	profilesSyncDescriptor,
 	type SyncDescriptor,
@@ -138,6 +139,11 @@ describe('sync descriptors', () => {
 		]);
 	});
 
+	it('syncs insecticide batches on demand', () => {
+		expect(insecticideBatchesSyncDescriptor.syncMode).toBe('on-demand');
+		expect(insecticideBatchesSyncDescriptor.columns).toContain('organizationId');
+	});
+
 	it('keeps the remaining web tracer descriptors read-only', () => {
 		expect(webReadOnlyTracerDescriptors.map((descriptor) => descriptor.id)).toEqual([
 			'units',
@@ -152,6 +158,8 @@ describe('sync descriptors', () => {
 			'biocontrol_methods',
 			'vehicles',
 			'equipment',
+			'insecticides',
+			'insecticide_batches',
 			'notification_types',
 			'routes',
 		]);

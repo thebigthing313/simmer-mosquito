@@ -25,6 +25,7 @@ describe('web sync baseline preload', () => {
 			'biocontrolMethods',
 			'vehicles',
 			'equipment',
+			'insecticides',
 			'notificationTypes',
 			'tags',
 			'routes',

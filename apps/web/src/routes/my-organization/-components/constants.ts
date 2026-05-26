@@ -177,11 +177,19 @@ export const controlAssetListConfigs: Record<ControlAssetCollectionKey, ControlA
 	},
 };
 
+export const insecticideTypeOptions = [
+	{ label: 'Larvicide', value: 'larvicide' },
+	{ label: 'Adulticide', value: 'adulticide' },
+	{ label: 'Pupicide', value: 'pupicide' },
+	{ label: 'Other', value: 'other' },
+] as const;
+
 export const sections = [
 	{ id: 'general', label: 'General', to: '/my-organization' },
 	{ id: 'people', label: 'People', to: '/my-organization/people' },
 	{ id: 'adult', label: 'Adult Surveillance', to: '/my-organization/adult-surveillance' },
 	{ id: 'larval', label: 'Larval Surveillance', to: '/my-organization/larval-surveillance' },
 	{ id: 'control', label: 'Control Methods', to: '/my-organization/control-methods' },
+	{ id: 'insecticides', label: 'Insecticides', to: '/my-organization/insecticides' },
 	{ id: 'public', label: 'Public Engagement', to: '/my-organization/public-engagement' },
 ] as const;

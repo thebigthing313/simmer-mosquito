@@ -11,6 +11,7 @@ import {
 	SwitchField,
 	TextareaField,
 	TextField,
+	UrlField,
 } from './field-components';
 import {
 	AppFieldGroup,
@@ -35,6 +36,7 @@ export const { useAppForm, withForm, withFieldGroup, useTypedAppFormContext, ext
 			SwitchField,
 			TextareaField,
 			TextField,
+			UrlField,
 		},
 		formComponents: {
 			AppFieldGroup,

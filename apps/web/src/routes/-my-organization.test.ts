@@ -14,6 +14,9 @@ describe('organization route tabs', () => {
 		expect(activeOrganizationSectionForPath('/my-organization/control-methods', 'general')).toBe(
 			'control',
 		);
+		expect(activeOrganizationSectionForPath('/my-organization/insecticides', 'general')).toBe(
+			'insecticides',
+		);
 	});
 
 	it('keeps general active for the organization index route', () => {

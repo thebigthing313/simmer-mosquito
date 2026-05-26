@@ -413,10 +413,10 @@ export function LookupListFrame({
 	title,
 }: {
 	readonly action?: React.ReactNode;
-	readonly activeCount: number;
+	readonly activeCount?: number;
 	readonly children: React.ReactNode;
 	readonly detail: string;
-	readonly inactiveCount: number;
+	readonly inactiveCount?: number;
 	readonly title: string;
 }) {
 	return (
@@ -427,12 +427,16 @@ export function LookupListFrame({
 					<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">{detail}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
-					<Badge tone="success" variant="outline">
-						{activeCount} active
-					</Badge>
-					<Badge tone="neutral" variant="outline">
-						{inactiveCount} inactive
-					</Badge>
+					{activeCount === undefined ? null : (
+						<Badge tone="success" variant="outline">
+							{activeCount} active
+						</Badge>
+					)}
+					{inactiveCount === undefined ? null : (
+						<Badge tone="neutral" variant="outline">
+							{inactiveCount} inactive
+						</Badge>
+					)}
 					{action}
 				</div>
 			</div>

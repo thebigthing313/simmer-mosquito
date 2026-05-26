@@ -1,11 +1,9 @@
-import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type {
 	ControlMethodRow,
 	EquipmentRow,
 	OrganizationRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Drawer,
@@ -47,12 +45,11 @@ import {
 	errorMessageForSave,
 	hasMetadata,
 	isEquipmentRow,
-	saveControlSettingsFromValues,
 	updateControlAssetFromValues,
 	updateControlMethodFromValues,
 	watchPersistence,
 } from './helpers';
-import { EditSettingsSheet, LookupListFrame } from './layout';
+import { LookupListFrame } from './layout';
 import type {
 	ControlAssetCollectionKey,
 	ControlAssetRow,
@@ -64,7 +61,6 @@ export function ControlOperationsSettings({
 	biocontrolMethods,
 	canManage,
 	organization,
-	settings,
 	sourceReductionMethods,
 	vehicles,
 	equipment,
@@ -73,14 +69,12 @@ export function ControlOperationsSettings({
 	readonly biocontrolMethods: Collection<ControlMethodRow, string | number>;
 	readonly canManage: boolean;
 	readonly organization: OrganizationRow | null;
-	readonly settings: OrganizationSettings;
 	readonly sourceReductionMethods: Collection<ControlMethodRow, string | number>;
 	readonly vehicles: Collection<VehicleRow, string | number>;
 	readonly equipment: Collection<EquipmentRow, string | number>;
 }) {
 	return (
 		<div className="grid gap-3">
-			<BatchTrackingGuide enabled={settings.controlOperations.trackInsecticideBatches} />
 			<div className="grid gap-2">
 				<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
 				<div className="grid gap-3">
@@ -117,53 +111,6 @@ export function ControlOperationsSettings({
 				</div>
 			</div>
 		</div>
-	);
-}
-
-export function BatchTrackingGuide({ enabled }: { readonly enabled: boolean }) {
-	return (
-		<section className="grid gap-1 rounded-md border border-border/30 bg-muted/30 p-2.5">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<strong className="text-[0.92rem] text-foreground">Batch tracking</strong>
-				<Badge tone={enabled ? 'success' : 'neutral'} variant="outline">
-					{enabled ? 'Enabled' : 'Disabled'}
-				</Badge>
-			</div>
-			<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">
-				Batch tracking controls whether treatment records ask crews to capture insecticide lot or
-				batch details for traceability.
-			</p>
-		</section>
-	);
-}
-
-export function ControlSettingsDrawer({
-	canManage,
-	organization,
-	settings,
-}: {
-	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
-	readonly settings: OrganizationSettings;
-}) {
-	return (
-		<EditSettingsSheet
-			description="Choose whether treatment records should capture insecticide lot or batch details."
-			fields={[
-				{
-					kind: 'switch',
-					label: 'Track insecticide batches',
-					checked: settings.controlOperations.trackInsecticideBatches,
-					editable: canManage,
-				},
-			]}
-			onSave={(formData) =>
-				saveControlSettingsFromValues(organization, settings, {
-					trackInsecticideBatches: formData.get('Track insecticide batches') === 'true',
-				})
-			}
-			title="Edit Control operations"
-		/>
 	);
 }
 

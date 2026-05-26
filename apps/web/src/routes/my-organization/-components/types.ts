@@ -5,6 +5,9 @@ import type {
 	ControlMethodRow,
 	EquipmentRow,
 	HabitatTypeRow,
+	InsecticideBatchRow,
+	InsecticideRow,
+	InsecticideType,
 	NotificationTypeRow,
 	OrganizationRow,
 	ProfileRow,
@@ -21,6 +24,7 @@ export type OrganizationSectionId =
 	| 'adult'
 	| 'larval'
 	| 'control'
+	| 'insecticides'
 	| 'public';
 
 export type MutableOrganizationRow = {
@@ -49,6 +53,14 @@ export type MutableVehicleRow = {
 
 export type MutableEquipmentRow = {
 	-readonly [Key in keyof EquipmentRow]: EquipmentRow[Key];
+};
+
+export type MutableInsecticideRow = {
+	-readonly [Key in keyof InsecticideRow]: InsecticideRow[Key];
+};
+
+export type MutableInsecticideBatchRow = {
+	-readonly [Key in keyof InsecticideBatchRow]: InsecticideBatchRow[Key];
 };
 
 export type MutableNotificationTypeRow = {
@@ -147,6 +159,25 @@ export interface ControlAssetFormValues {
 	readonly name: string;
 	readonly serialNumber: string;
 	readonly metadata: MetadataValue;
+	readonly isActive: boolean;
+}
+
+export interface InsecticideFormValues {
+	readonly tradeName: string;
+	readonly activeIngredient: string;
+	readonly type: InsecticideType;
+	readonly registrationNumber: string;
+	readonly defaultUnitId: string;
+	readonly labelUrl: string;
+	readonly msdsUrl: string;
+	readonly shorthand: string;
+	readonly metadata: MetadataValue;
+	readonly isActive: boolean;
+}
+
+export interface InsecticideBatchFormValues {
+	readonly insecticideId: string;
+	readonly batchName: string;
 	readonly isActive: boolean;
 }
 

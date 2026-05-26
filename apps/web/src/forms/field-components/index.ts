@@ -17,3 +17,5 @@ export type { BaseFieldProps, TextFieldProps } from './text-field';
 export { TextField } from './text-field';
 export type { TextareaFieldProps } from './textarea-field';
 export { TextareaField } from './textarea-field';
+export type { UrlFieldProps } from './url-field';
+export { UrlField } from './url-field';

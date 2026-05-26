@@ -171,6 +171,37 @@ export interface EquipmentRow {
 	readonly updatedAt: string;
 }
 
+export type InsecticideType = 'larvicide' | 'adulticide' | 'pupicide' | 'other';
+
+export interface InsecticideRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly tradeName: string;
+	readonly activeIngredient: string;
+	readonly isActive: boolean;
+	readonly type: InsecticideType;
+	readonly registrationNumber: string;
+	readonly defaultUnitId: string;
+	readonly labelUrl: string | null;
+	readonly msdsUrl: string | null;
+	readonly shorthand: string | null;
+	readonly metadata: unknown;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface InsecticideBatchRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly insecticideId: string;
+	readonly batchName: string;
+	readonly isActive: boolean;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
 export interface NotificationTypeRow extends OrgLookupRowBase {}
 
 export interface TagRow {
@@ -414,6 +445,47 @@ export const equipmentSyncDescriptor: SyncDescriptor<EquipmentRow> = {
 	getKey: (row) => row.id,
 };
 
+export const insecticidesSyncDescriptor: SyncDescriptor<InsecticideRow> = {
+	id: 'insecticides',
+	table: 'insecticides',
+	endpointPath: '/sync/shapes/insecticides',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'tradeName',
+		'activeIngredient',
+		'isActive',
+		'type',
+		'registrationNumber',
+		'defaultUnitId',
+		'labelUrl',
+		'msdsUrl',
+		'shorthand',
+		'metadata',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const insecticideBatchesSyncDescriptor: SyncDescriptor<InsecticideBatchRow> = {
+	id: 'insecticide_batches',
+	table: 'insecticide_batches',
+	endpointPath: '/sync/shapes/insecticide-batches',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'insecticideId',
+		'batchName',
+		'isActive',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
 export const notificationTypesSyncDescriptor: SyncDescriptor<NotificationTypeRow> = {
 	id: 'notification_types',
 	table: 'notification_types',
@@ -463,6 +535,8 @@ export const webReadOnlyTracerDescriptors = [
 	biocontrolMethodsSyncDescriptor,
 	vehiclesSyncDescriptor,
 	equipmentSyncDescriptor,
+	insecticidesSyncDescriptor,
+	insecticideBatchesSyncDescriptor,
 	notificationTypesSyncDescriptor,
 	routesSyncDescriptor,
 ] as const;
