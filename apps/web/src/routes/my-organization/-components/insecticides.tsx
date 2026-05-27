@@ -11,6 +11,17 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/accordion';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -37,10 +48,12 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
 import { validateMetadataValue } from '../../../forms/field-components';
-import { AddIcon, CloseIcon, EditIcon, insecticideTypeOptions } from './constants';
+import { AddIcon, CloseIcon, DeleteIcon, EditIcon, insecticideTypeOptions } from './constants';
 import {
 	createInsecticideBatchFromValues,
 	createInsecticideFromValues,
+	deleteInsecticide,
+	deleteInsecticideBatch,
 	errorMessageForSave,
 	formatMode,
 	hasMetadata,
@@ -54,17 +67,15 @@ import {
 import { EditSettingsSheet, LookupListFrame } from './layout';
 
 export function InsecticideSettings({
+	batches,
 	canManage,
-	createBatchCollection,
 	insecticides,
 	organization,
 	settings,
 	units,
 }: {
+	readonly batches: Collection<InsecticideBatchRow, string | number>;
 	readonly canManage: boolean;
-	readonly createBatchCollection: (
-		insecticideId: string,
-	) => Collection<InsecticideBatchRow, string | number>;
 	readonly insecticides: Collection<InsecticideRow, string | number>;
 	readonly organization: OrganizationRow | null;
 	readonly settings: OrganizationSettings;
@@ -122,8 +133,8 @@ export function InsecticideSettings({
 					>
 						{batchTrackingEnabled ? null : <BatchTrackingDisabledNotice />}
 						<InsecticideBatchAccordion
+							batches={batches}
 							canManage={canManage && batchTrackingEnabled}
-							createBatchCollection={createBatchCollection}
 							disabled={!batchTrackingEnabled}
 							insecticides={allInsecticides}
 							organization={organization}
@@ -257,7 +268,7 @@ function InsecticideTable({
 						<TableHead className="w-36">Default usage unit</TableHead>
 						<TableHead className="w-28">Status</TableHead>
 						<TableHead className="w-28">Metadata</TableHead>
-						{canManage ? <TableHead className="w-16 text-right">Edit</TableHead> : null}
+						{canManage ? <TableHead className="w-24 text-right">Actions</TableHead> : null}
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -273,18 +284,21 @@ function InsecticideTable({
 							<TableCell>{hasMetadata(insecticide.metadata) ? 'Configured' : 'None'}</TableCell>
 							{canManage ? (
 								<TableCell className="text-right">
-									<InsecticideDrawer
-										canManage={canManage}
-										insecticide={insecticide}
-										organization={organization}
-										trigger={
-											<Button type="button" variant="outline" size="icon">
-												<EditIcon aria-hidden="true" />
-												<span className="sr-only">Edit {insecticide.tradeName}</span>
-											</Button>
-										}
-										units={units}
-									/>
+									<div className="flex justify-end gap-2">
+										<InsecticideDrawer
+											canManage={canManage}
+											insecticide={insecticide}
+											organization={organization}
+											trigger={
+												<Button type="button" variant="outline" size="icon">
+													<EditIcon aria-hidden="true" />
+													<span className="sr-only">Edit {insecticide.tradeName}</span>
+												</Button>
+											}
+											units={units}
+										/>
+										<DeleteInsecticideDialog insecticide={insecticide} />
+									</div>
 								</TableCell>
 							) : null}
 						</TableRow>
@@ -492,16 +506,14 @@ function InsecticideDrawer({
 }
 
 function InsecticideBatchAccordion({
+	batches,
 	canManage,
-	createBatchCollection,
 	disabled,
 	insecticides,
 	organization,
 }: {
+	readonly batches: Collection<InsecticideBatchRow, string | number>;
 	readonly canManage: boolean;
-	readonly createBatchCollection: (
-		insecticideId: string,
-	) => Collection<InsecticideBatchRow, string | number>;
 	readonly disabled: boolean;
 	readonly insecticides: readonly InsecticideRow[];
 	readonly organization: OrganizationRow | null;
@@ -528,7 +540,7 @@ function InsecticideBatchAccordion({
 				<InsecticideBatchAccordionItem
 					key={insecticide.id}
 					canManage={canManage}
-					createBatchCollection={createBatchCollection}
+					collection={batches}
 					disabled={disabled}
 					insecticide={insecticide}
 					insecticides={insecticides}
@@ -541,25 +553,19 @@ function InsecticideBatchAccordion({
 
 function InsecticideBatchAccordionItem({
 	canManage,
-	createBatchCollection,
+	collection,
 	disabled,
 	insecticide,
 	insecticides,
 	organization,
 }: {
 	readonly canManage: boolean;
-	readonly createBatchCollection: (
-		insecticideId: string,
-	) => Collection<InsecticideBatchRow, string | number>;
+	readonly collection: Collection<InsecticideBatchRow, string | number>;
 	readonly disabled: boolean;
 	readonly insecticide: InsecticideRow;
 	readonly insecticides: readonly InsecticideRow[];
 	readonly organization: OrganizationRow | null;
 }) {
-	const collection = useMemo(
-		() => createBatchCollection(insecticide.id),
-		[createBatchCollection, insecticide.id],
-	);
 	const batches = useInsecticideBatches(collection, insecticide.id);
 
 	return (
@@ -660,7 +666,7 @@ function InsecticideBatchTable({
 					<TableRow>
 						<TableHead>Batch</TableHead>
 						<TableHead className="w-28">Status</TableHead>
-						{canManage ? <TableHead className="w-16 text-right">Edit</TableHead> : null}
+						{canManage ? <TableHead className="w-24 text-right">Actions</TableHead> : null}
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -678,19 +684,22 @@ function InsecticideBatchTable({
 							</TableCell>
 							{canManage ? (
 								<TableCell className="text-right">
-									<InsecticideBatchDrawer
-										batch={batch}
-										canManage={canManage}
-										collection={collection}
-										insecticides={insecticides}
-										organization={organization}
-										trigger={
-											<Button type="button" variant="outline" size="icon">
-												<EditIcon aria-hidden="true" />
-												<span className="sr-only">Edit {batch.batchName}</span>
-											</Button>
-										}
-									/>
+									<div className="flex justify-end gap-2">
+										<InsecticideBatchDrawer
+											batch={batch}
+											canManage={canManage}
+											collection={collection}
+											insecticides={insecticides}
+											organization={organization}
+											trigger={
+												<Button type="button" variant="outline" size="icon">
+													<EditIcon aria-hidden="true" />
+													<span className="sr-only">Edit {batch.batchName}</span>
+												</Button>
+											}
+										/>
+										<DeleteInsecticideBatchDialog batch={batch} collection={collection} />
+									</div>
 								</TableCell>
 							) : null}
 						</TableRow>
@@ -836,6 +845,86 @@ function InsecticideBatchDrawer({
 				</form.AppForm>
 			</DrawerContent>
 		</Drawer>
+	);
+}
+
+function DeleteInsecticideDialog({ insecticide }: { readonly insecticide: InsecticideRow }) {
+	function removeInsecticide() {
+		try {
+			const transaction = deleteInsecticide(insecticide);
+			watchPersistence(transaction, `Unable to delete ${insecticide.tradeName}.`);
+		} catch (deleteError) {
+			toast.error(errorMessageForSave(deleteError));
+		}
+	}
+
+	return (
+		<AlertDialog>
+			<AlertDialogTrigger asChild>
+				<Button type="button" variant="destructive" size="icon">
+					<DeleteIcon aria-hidden="true" />
+					<span className="sr-only">Delete {insecticide.tradeName}</span>
+				</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent size="sm">
+				<AlertDialogHeader>
+					<AlertDialogTitle>Delete insecticide?</AlertDialogTitle>
+					<AlertDialogDescription>
+						This removes {insecticide.tradeName} from setup lists. If a server rule blocks the
+						delete, the record will stay in place.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogAction variant="destructive" onClick={removeInsecticide}>
+						Delete
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function DeleteInsecticideBatchDialog({
+	batch,
+	collection,
+}: {
+	readonly batch: InsecticideBatchRow;
+	readonly collection: Collection<InsecticideBatchRow, string | number>;
+}) {
+	function removeBatch() {
+		try {
+			const transaction = deleteInsecticideBatch(collection, batch);
+			watchPersistence(transaction, `Unable to delete ${batch.batchName}.`);
+		} catch (deleteError) {
+			toast.error(errorMessageForSave(deleteError));
+		}
+	}
+
+	return (
+		<AlertDialog>
+			<AlertDialogTrigger asChild>
+				<Button type="button" variant="destructive" size="icon">
+					<DeleteIcon aria-hidden="true" />
+					<span className="sr-only">Delete {batch.batchName}</span>
+				</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent size="sm">
+				<AlertDialogHeader>
+					<AlertDialogTitle>Delete batch?</AlertDialogTitle>
+					<AlertDialogDescription>
+						This removes {batch.batchName} from batch choices. If a server rule blocks the delete,
+						the record will stay in place.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogAction variant="destructive" onClick={removeBatch}>
+						Delete
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
 	);
 }
 

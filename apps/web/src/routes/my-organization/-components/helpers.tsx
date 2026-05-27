@@ -797,6 +797,17 @@ export function updateInsecticideBatchFromValues(
 	});
 }
 
+export function deleteInsecticide(insecticide: InsecticideRow): PersistenceTransaction {
+	return collections.insecticides.delete(insecticide.id);
+}
+
+export function deleteInsecticideBatch(
+	collection: Collection<InsecticideBatchRow, string | number>,
+	batch: InsecticideBatchRow,
+): PersistenceTransaction {
+	return collection.delete(batch.id);
+}
+
 export function nullableNonnegativeIntegerValue(
 	value: number | null,
 	label: string,

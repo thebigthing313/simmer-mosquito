@@ -113,11 +113,13 @@ describe('buildElectricShapeUrl', () => {
 });
 
 describe('registerSyncShapeRoutes', () => {
-	it.each([['/sync/shapes/insecticides']])('registers %s', async (path) => {
+	it.each([
+		['/sync/shapes/insecticides'],
+		['/sync/shapes/insecticide-batches'],
+	])('registers %s', async (path) => {
 		const app = new Hono<{ Variables: AuthVariables }>();
 
 		registerSyncShapeRoutes(app, {
-			db: {} as never,
 			electricUrl: null,
 			authContextMiddleware: createMiddleware(async (_context, next) => next()),
 			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
@@ -129,12 +131,11 @@ describe('registerSyncShapeRoutes', () => {
 		expect(await response.json()).toEqual({ error: 'electric_url_required' });
 	});
 
-	it('registers org-scoped insecticide batch shapes without parent lookups', async () => {
+	it('registers org-scoped insecticide batch shapes', async () => {
 		const app = new Hono<{ Variables: AuthVariables }>();
 		const requests: string[] = [];
 
 		registerSyncShapeRoutes(app, {
-			db: {} as never,
 			electricUrl: 'http://localhost:3001/v1/shape',
 			authContextMiddleware: createMiddleware(async (context, next) => {
 				context.set('authContext', {
@@ -149,16 +150,13 @@ describe('registerSyncShapeRoutes', () => {
 			}) as typeof fetch,
 		});
 
-		const response = await app.request('/sync/shapes/insecticide-batches/insecticide-1');
+		const response = await app.request('/sync/shapes/insecticide-batches');
 		const upstream = new URL(requests[0] ?? '');
 
 		expect(response.status).toBe(200);
 		expect(upstream.searchParams.get('table')).toBe('insecticide_batches');
 		expect(upstream.searchParams.get('columns')).toContain('organization_id');
-		expect(upstream.searchParams.get('where')).toBe(
-			'organization_id = $1 and insecticide_id = $2 and deleted_at is null',
-		);
+		expect(upstream.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
 		expect(upstream.searchParams.get('params[1]')).toBe('org-1');
-		expect(upstream.searchParams.get('params[2]')).toBe('insecticide-1');
 	});
 });

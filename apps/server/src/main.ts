@@ -348,7 +348,6 @@ registerPublicEngagementCommandRoutes(app, {
 });
 
 registerSyncShapeRoutes(app, {
-	db,
 	electricUrl: env.electricUrl,
 	authContextMiddleware,
 	operatorAuthContextMiddleware,

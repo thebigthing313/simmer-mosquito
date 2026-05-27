@@ -1,4 +1,3 @@
-import type { Kysely, SimmerDatabase } from '@simmer-mosquito/db';
 import {
 	applicationMethodsSyncDescriptor,
 	biocontrolMethodsSyncDescriptor,
@@ -28,7 +27,6 @@ import type { AuthVariables } from './auth-middleware.js';
 export function registerSyncShapeRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
-		readonly db: Kysely<SimmerDatabase>;
 		readonly electricUrl: string | null;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
@@ -251,30 +249,10 @@ export function registerSyncShapeRoutes(
 		path: '/sync/shapes/insecticides',
 		descriptor: insecticidesSyncDescriptor,
 	});
-	app.get(
-		'/sync/shapes/insecticide-batches/:insecticideId',
-		options.authContextMiddleware,
-		async (context) => {
-			if (options.electricUrl === null) {
-				return context.json({ error: 'electric_url_required' }, 503);
-			}
-
-			const authContext = context.get('authContext');
-			const insecticideId = context.req.param('insecticideId');
-
-			return proxyElectricShape(context, {
-				fetch: options.fetch,
-				upstreamRequest: buildElectricShapeRequest({
-					electricUrl: options.electricUrl,
-					incomingUrl: context.req.url,
-					columns: insecticideBatchesSyncDescriptor.columns.map(camelToSnake),
-					table: insecticideBatchesSyncDescriptor.table,
-					where: 'organization_id = $1 and insecticide_id = $2 and deleted_at is null',
-					params: [authContext.organization.id, insecticideId],
-				}),
-			});
-		},
-	);
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/insecticide-batches',
+		descriptor: insecticideBatchesSyncDescriptor,
+	});
 	registerSelectedOrganizationShapeRoute(app, options, {
 		path: '/sync/shapes/notification-types',
 		descriptor: notificationTypesSyncDescriptor,

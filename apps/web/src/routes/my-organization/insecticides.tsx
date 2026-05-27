@@ -35,8 +35,8 @@ function MyOrganizationInsecticidesRoute() {
 				title="Insecticides"
 			>
 				<InsecticideSettings
+					batches={collections.insecticideBatches}
 					canManage={workspace.canManage}
-					createBatchCollection={collections.createInsecticideBatchCollection}
 					insecticides={collections.insecticides}
 					organization={workspace.organization}
 					settings={workspace.settings}

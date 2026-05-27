@@ -66,26 +66,27 @@ function createControlProductMutationHandlers<
 	readonly toPayload: (row: TRow) => Record<string, unknown>;
 }) {
 	return {
-		onInsert: async ({ transaction }: CollectionMutationHandlerInput<TRow>) => {
-			const txids = await Promise.all(
+		onInsert: async ({ collection, transaction }: CollectionMutationHandlerInput<TRow>) => {
+			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const result = await writeControlProduct(
+					await writeControlProduct(
 						`${options.serverUrl}${options.endpointPath}`,
 						'POST',
 						options.toPayload(mutation.modified),
 						options.fallbackName,
 					);
-					return result.txid;
+					await collection.utils.awaitMatch(
+						(message) => matchesRowChange(message, mutation.modified.id, ['insert']),
+						controlProductSyncTimeoutMs,
+					);
 				}),
 			);
-
-			return { txid: txids };
 		},
-		onUpdate: async ({ transaction }: CollectionMutationHandlerInput<TRow>) => {
-			const txids = await Promise.all(
+		onUpdate: async ({ collection, transaction }: CollectionMutationHandlerInput<TRow>) => {
+			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					const row = mutation.modified;
-					const result = await writeControlProduct(
+					await writeControlProduct(
 						`${options.serverUrl}${options.endpointPath}/${row.id}`,
 						'PATCH',
 						{
@@ -94,34 +95,45 @@ function createControlProductMutationHandlers<
 						},
 						options.fallbackName,
 					);
-					return result.txid;
+					await collection.utils.awaitMatch(
+						(message) => matchesRowChange(message, row.id, ['update', 'insert']),
+						controlProductSyncTimeoutMs,
+					);
 				}),
 			);
-
-			return { txid: txids };
 		},
-		onDelete: async ({ transaction }: CollectionMutationHandlerInput<TRow>) => {
-			const txids = await Promise.all(
+		onDelete: async ({ collection, transaction }: CollectionMutationHandlerInput<TRow>) => {
+			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					if (mutation.original.id === undefined) {
 						throw new Error(`Unable to delete ${options.fallbackName} without an id.`);
 					}
-					const result = await writeControlProduct(
+					await writeControlProduct(
 						`${options.serverUrl}${options.endpointPath}/${mutation.original.id}`,
 						'DELETE',
 						undefined,
 						options.fallbackName,
 					);
-					return result.txid;
+					await collection.utils.awaitMatch(
+						(message) =>
+							matchesRowChange(message, mutation.original.id as string, ['delete', 'update']),
+						controlProductSyncTimeoutMs,
+					);
 				}),
 			);
-
-			return { txid: txids };
 		},
 	};
 }
 
 interface CollectionMutationHandlerInput<TRow> {
+	readonly collection: {
+		readonly utils: {
+			readonly awaitMatch: (
+				matches: (message: ElectricMutationMessage<TRow>) => boolean,
+				timeout?: number,
+			) => Promise<boolean>;
+		};
+	};
 	readonly transaction: {
 		readonly mutations: readonly {
 			readonly original: Partial<TRow>;
@@ -130,8 +142,31 @@ interface CollectionMutationHandlerInput<TRow> {
 	};
 }
 
+interface ElectricMutationMessage<TRow> {
+	readonly key?: string;
+	readonly value?: Partial<TRow> | null;
+	readonly headers?: {
+		readonly operation?: string;
+	};
+}
+
 interface ControlProductMutationResult {
 	readonly txid: number;
+}
+
+const controlProductSyncTimeoutMs = 15_000;
+
+function matchesRowChange<TRow extends { readonly id: string }>(
+	message: ElectricMutationMessage<TRow>,
+	rowId: string,
+	operations: readonly string[],
+): boolean {
+	const operation = message.headers?.operation;
+	if (operation === undefined || !operations.includes(operation)) {
+		return false;
+	}
+
+	return message.value?.id === rowId || message.key?.includes(`"${rowId}"`) === true;
 }
 
 async function writeControlProduct(
