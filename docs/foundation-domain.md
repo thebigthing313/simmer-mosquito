@@ -36,9 +36,8 @@ Supported v1 command geometry types:
 - locatable operational geometry: `Point`, `LineString`, `Polygon`
 
 Multi-geometries, geometry collections, and GeoJSON Feature wrappers are
-deferred. Polygon holes are allowed as Polygon interior rings. Points always use
-the `snap_5_decimal` precision policy. LineStrings and Polygons preserve
-submitted coordinates.
+deferred. Polygon holes are allowed as Polygon interior rings. SIMMER preserves
+submitted coordinates for Points, LineStrings, and Polygons.
 
 ## Addresses
 

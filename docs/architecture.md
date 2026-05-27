@@ -226,9 +226,10 @@ The source may be explicit GeoJSON geometry or a same-organization locatable
 domain record such as a habitat, inspection, trap, collection, service request,
 requested control action, or mission item. The server maps explicit geometry to
 `spatial_features.id` or snapshots the source record's existing `feature_id`
-inside the authorized transaction, applying the domain precision policy for the
-workflow when geometry is explicit. Read/sync rows may still expose `feature_id`
-and spatial feature data because those are database representation details.
+inside the authorized transaction. Geometry coordinates are preserved as
+submitted by apps or source imports. Read/sync rows may still expose
+`feature_id` and spatial feature data because those are database representation
+details.
 
 ## Authorization
 

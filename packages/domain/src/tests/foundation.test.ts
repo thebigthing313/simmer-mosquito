@@ -161,8 +161,8 @@ describe('foundation commands', () => {
 		});
 	});
 
-	it('infers geometry precision policy from geometry type', () => {
-		expect(inferGeometryPrecisionPolicy(pointGeometry)).toBe('snap_5_decimal');
+	it('preserves geometry precision for every geometry type', () => {
+		expect(inferGeometryPrecisionPolicy(pointGeometry)).toBe('preserve');
 		expect(inferGeometryPrecisionPolicy(polygonGeometry)).toBe('preserve');
 	});
 });

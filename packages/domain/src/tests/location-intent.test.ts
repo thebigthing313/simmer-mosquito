@@ -8,7 +8,11 @@ import {
 	validateRequestedControlActionLocationSource,
 	validateTrapLocationSource,
 } from '../location-intent.js';
-import type { DomainValidationIssue } from '../shared.js';
+import {
+	type DomainValidationIssue,
+	getOwnedGeometryPolicy,
+	OWNED_GEOMETRY_POLICIES,
+} from '../shared.js';
 
 const addressId = '11111111-1111-4111-8111-111111111111';
 const habitatId = '22222222-2222-4222-8222-222222222222';
@@ -130,5 +134,32 @@ describe('location source flows', () => {
 				validateControlActionLocationSource({ kind: 'trap', trapId }, 'locationSource', issues),
 			),
 		).toHaveLength(1);
+	});
+});
+
+describe('owned geometry policies', () => {
+	it('records geometry types by domain-owned geometry concept', () => {
+		expect(OWNED_GEOMETRY_POLICIES.map((policy) => policy.kind)).toEqual([
+			'address',
+			'region',
+			'trap',
+			'collection',
+			'habitat',
+			'inspection',
+			'controlAction',
+			'requestedControlAction',
+			'missionItem',
+			'serviceRequest',
+			'notificationRegistration',
+			'weatherStation',
+		]);
+
+		expect(getOwnedGeometryPolicy('address').allowedTypes).toEqual(['Point']);
+		expect(getOwnedGeometryPolicy('region').allowedTypes).toEqual(['Polygon']);
+		expect(getOwnedGeometryPolicy('missionItem').allowedTypes).toEqual([
+			'Point',
+			'LineString',
+			'Polygon',
+		]);
 	});
 });

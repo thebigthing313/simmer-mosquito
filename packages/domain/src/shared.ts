@@ -46,6 +46,77 @@ export const ADDRESS_GEOMETRY_TYPES = ['Point'] as const;
 export const REGION_GEOMETRY_TYPES = ['Polygon'] as const;
 export const LOCATABLE_GEOMETRY_TYPES = SUPPORTED_GEOMETRY_TYPES;
 
+export type OwnedGeometryKind =
+	| 'address'
+	| 'region'
+	| 'trap'
+	| 'collection'
+	| 'habitat'
+	| 'inspection'
+	| 'controlAction'
+	| 'requestedControlAction'
+	| 'missionItem'
+	| 'serviceRequest'
+	| 'notificationRegistration'
+	| 'weatherStation';
+
+export interface OwnedGeometryPolicy {
+	readonly kind: OwnedGeometryKind;
+	readonly domainName: string;
+	readonly allowedTypes: readonly SupportedGeometryType[];
+}
+
+export const OWNED_GEOMETRY_POLICIES = [
+	{ kind: 'address', domainName: 'Address Geometry', allowedTypes: ADDRESS_GEOMETRY_TYPES },
+	{ kind: 'region', domainName: 'Region Geometry', allowedTypes: REGION_GEOMETRY_TYPES },
+	{ kind: 'trap', domainName: 'Trap Geometry', allowedTypes: ADDRESS_GEOMETRY_TYPES },
+	{ kind: 'collection', domainName: 'Collection Geometry', allowedTypes: ADDRESS_GEOMETRY_TYPES },
+	{ kind: 'habitat', domainName: 'Habitat Geometry', allowedTypes: LOCATABLE_GEOMETRY_TYPES },
+	{
+		kind: 'inspection',
+		domainName: 'Inspection Geometry',
+		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+	},
+	{
+		kind: 'controlAction',
+		domainName: 'Control Action Geometry',
+		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+	},
+	{
+		kind: 'requestedControlAction',
+		domainName: 'Requested Control Action Geometry',
+		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+	},
+	{
+		kind: 'missionItem',
+		domainName: 'Mission Item Geometry',
+		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+	},
+	{
+		kind: 'serviceRequest',
+		domainName: 'Service Request Geometry',
+		allowedTypes: ADDRESS_GEOMETRY_TYPES,
+	},
+	{
+		kind: 'notificationRegistration',
+		domainName: 'Notification Registration Geometry',
+		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+	},
+	{
+		kind: 'weatherStation',
+		domainName: 'Weather Station Geometry',
+		allowedTypes: ADDRESS_GEOMETRY_TYPES,
+	},
+] as const satisfies readonly OwnedGeometryPolicy[];
+
+export function getOwnedGeometryPolicy(kind: OwnedGeometryKind): OwnedGeometryPolicy {
+	const policy = OWNED_GEOMETRY_POLICIES.find((candidate) => candidate.kind === kind);
+	if (policy === undefined) {
+		throw new Error(`Unknown owned geometry kind: ${kind}`);
+	}
+	return policy;
+}
+
 export function normalizePointGeometry(input: unknown, path = 'geometry'): GeoJsonPoint {
 	return normalizeGeometryForTypes(input, ADDRESS_GEOMETRY_TYPES, path) as GeoJsonPoint;
 }
@@ -70,9 +141,9 @@ export function normalizeGeometry(
 }
 
 export function inferGeometryPrecisionPolicy(
-	geometry: SupportedGeoJsonGeometry,
+	_geometry: SupportedGeoJsonGeometry,
 ): GeometryPrecisionPolicy {
-	return geometry.type === 'Point' ? 'snap_5_decimal' : 'preserve';
+	return 'preserve';
 }
 
 export function validateGeometry(

@@ -81,10 +81,9 @@ optional, trimmed, limited to 100 characters, empty-to-null, and unique per
 organization after trim/case-fold when non-null among non-deleted stations.
 
 Stations are point-only. Commands carry explicit GeoJSON geometry; the server
-derives `feature_id` using the shared spatial feature pipeline and point
-precision policy. Stations do not reference addresses in v1. Address lookup may
-help the UI choose a point, but weather commands do not source geometry from
-address records.
+preserves submitted coordinates when deriving the transitional `feature_id`.
+Stations do not reference addresses in v1. Address lookup may help the UI choose
+a point, but weather commands do not source geometry from address records.
 
 New stations are active. Deactivation and reactivation are idempotent. Inactive
 stations remain visible for reports, filters, and data cleanup. Deleted stations
