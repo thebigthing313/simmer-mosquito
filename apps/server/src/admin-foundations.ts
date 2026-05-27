@@ -4,7 +4,6 @@ import {
 	createOrgLookup,
 	createRegion,
 	createRegionFolder,
-	createSpatialFeature,
 	createSpeciesWithTxid,
 	createTrap,
 	createUnitWithTxid,
@@ -115,13 +114,8 @@ export function registerAdminFoundationRoutes(
 				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
 			}
 
-			const feature = await createSpatialFeature(options.db, {
-				geojson: payloadResult.payload.geojson,
-				precisionPolicy: 'snap_5_decimal',
-			});
 			const address = await createAddress(options.db, {
 				organizationId: guard.organizationId,
-				featureId: feature.id,
 				...payloadResult.payload,
 			});
 
@@ -166,13 +160,8 @@ export function registerAdminFoundationRoutes(
 				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
 			}
 
-			const feature = await createSpatialFeature(options.db, {
-				geojson: payloadResult.payload.geojson,
-				precisionPolicy: 'preserve',
-			});
 			const region = await createRegion(options.db, {
 				organizationId: guard.organizationId,
-				featureId: feature.id,
 				...payloadResult.payload,
 			});
 
@@ -374,13 +363,8 @@ export function registerAdminFoundationRoutes(
 				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
 			}
 
-			const feature = await createSpatialFeature(options.db, {
-				geojson: payloadResult.payload.geojson,
-				precisionPolicy: 'snap_5_decimal',
-			});
 			const trap = await createTrap(options.db, {
 				organizationId: guard.organizationId,
-				featureId: feature.id,
 				...payloadResult.payload,
 			});
 
@@ -858,7 +842,7 @@ function toAddressResponse(address: SafeAddress) {
 	return {
 		id: address.id,
 		organizationId: address.organizationId,
-		featureId: address.featureId,
+		geometry: address.geometry,
 		displayName: address.displayName,
 		country: address.country,
 		addressLine1: address.addressLine1,
@@ -887,7 +871,7 @@ function toRegionResponse(region: SafeRegion) {
 		id: region.id,
 		organizationId: region.organizationId,
 		regionFolderId: region.regionFolderId,
-		featureId: region.featureId,
+		geometry: region.geometry,
 		name: region.name,
 		description: region.description,
 		metadata: region.metadata,
@@ -958,7 +942,7 @@ function toTrapResponse(trap: SafeTrap) {
 	return {
 		id: trap.id,
 		organizationId: trap.organizationId,
-		featureId: trap.featureId,
+		geometry: trap.geometry,
 		collectionMethodId: trap.collectionMethodId,
 		addressId: trap.addressId,
 		collectionLureId: trap.collectionLureId,

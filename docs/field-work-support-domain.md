@@ -1228,7 +1228,8 @@ Region deletion:
 - refreshes or removes GIS intersection cache entries through a GIS/cache
   concern
 - does not block on notification registrations or operational records in the
-  current schema because they reference `feature_id`, not `region_id`
+  current schema because they own geometry snapshots and do not reference
+  `region_id`
 
 Contact deletion:
 

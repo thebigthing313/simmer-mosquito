@@ -536,7 +536,7 @@ answers "which request/recommendation is this associated with?", while context
 answers "what source record triggered or contextualizes this action?"
 
 `locationSource` answers "where should this action/request snapshot its
-feature from?" Source flows are command-specific:
+geometry from?" Source flows are command-specific:
 
 - actual control actions may be created ad hoc from explicit geometry, address
   geometry, service request geometry, or habitat geometry.
@@ -571,17 +571,17 @@ Invalid combinations:
 - `collectionId` on source reduction or biocontrol
 - direct `habitatId` or `collectionId` on outreach
 
-Context and actual geometry are related but independent. Action/request feature
+Context and actual geometry are related but independent. Action/request
 geometry may differ from linked habitat, inspection, collection, or requested
 action geometry because treatment boundaries may be more precise or different.
 
-## Spatial Features And Addresses
+## Owned Geometry And Addresses
 
-`spatial_features` are SIMMER-owned/shared geometry records, not org-scoped
-records. Control commands carry `locationSource`, not `featureId`; the server
-maps explicit geometry to `spatial_features.id` or snapshots the known source
-record's `feature_id` and stores `feature_id` on database rows. They do not
-require `spatial_features.organization_id`.
+Control commands carry `locationSource`, not database geometry columns. The
+server stores explicit geometry directly on the target row or snapshots the
+known source record's owned geometry onto the target row. Address selection can
+prefill or contextualize geometry, but the control record owns its final
+geometry snapshot.
 
 Allowed geometry types for v1:
 

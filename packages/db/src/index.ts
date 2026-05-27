@@ -3,6 +3,7 @@ import {
 	type Generated,
 	Kysely,
 	PostgresDialect,
+	type RawBuilder,
 	sql,
 	type Transaction,
 } from 'kysely';
@@ -24,13 +25,16 @@ type JsonColumn = ColumnType<unknown | null, unknown | null | undefined, unknown
 type GeneratedColumn<T> = ColumnType<T, never, never>;
 type DateColumn = ColumnType<Date, Date, Date>;
 type NullableDateColumn = ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
-type GeometryColumn = ColumnType<string, string | undefined, string | undefined>;
+type GeometryColumn = ColumnType<
+	string,
+	string | RawBuilder<string> | undefined,
+	string | RawBuilder<string> | undefined
+>;
 
 export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
 export type OrganizationSubscriptionStatus = 'trial' | 'active' | 'suspended' | 'canceled';
 export type OrganizationBillingMode = 'manual_invoice';
-export type SpatialFeaturePrecisionPolicy = 'preserve' | 'snap_5_decimal';
 export type SpeciesSex = 'male' | 'female';
 export type SpeciesStatus = 'damaged' | 'unfed' | 'bloodfed' | 'gravid';
 export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
@@ -128,29 +132,9 @@ export interface MembershipsTable {
 	updated_at: TimestampWithDefault;
 }
 
-export interface SpatialFeaturesTable {
-	id: Generated<string>;
-	geom: GeneratedColumn<string>;
-	lat: GeneratedColumn<number>;
-	lng: GeneratedColumn<number>;
-	geojson: GeneratedColumn<GeoJsonGeometry>;
-	geom_type: GeneratedColumn<string>;
-	created_at: TimestampWithDefault;
-}
-
-export interface SpatialFeatureRegionsTable {
-	id: Generated<string>;
-	organization_id: string;
-	feature_id: string;
-	region_folder_id: string;
-	intersected_region_ids: string[];
-	cached_at: TimestampWithDefault;
-}
-
 export interface AddressesTable {
 	id: Generated<string>;
 	organization_id: string;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -189,7 +173,6 @@ export interface RegionsTable {
 	id: Generated<string>;
 	organization_id: string;
 	region_folder_id: string | null;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -262,7 +245,6 @@ export interface HabitatTypesTable extends OrgLookupTableBase {
 export interface TrapsTable {
 	id: Generated<string>;
 	organization_id: string;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -289,7 +271,6 @@ export interface CollectionsTable {
 	trap_id: string | null;
 	collection_method_id: string;
 	collection_lure_id: string | null;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -341,7 +322,6 @@ export interface CollectionSpeciesTable {
 export interface HabitatsTable {
 	id: Generated<string>;
 	organization_id: string;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -365,7 +345,6 @@ export interface HabitatsTable {
 export interface InspectionsTable {
 	id: Generated<string>;
 	organization_id: string;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -591,7 +570,6 @@ export interface ApplicationsTable {
 	insecticide_id: string;
 	applicator_profile_id: string | null;
 	application_date: DateColumn;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -635,7 +613,6 @@ export interface SourceReductionsTable {
 	source_reduction_method_id: string;
 	technician_profile_id: string | null;
 	source_reduction_date: DateColumn;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -663,7 +640,6 @@ export interface OutreachActionsTable {
 	outreach_method_id: string;
 	technician_profile_id: string | null;
 	outreach_date: DateColumn;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -690,7 +666,6 @@ export interface BiocontrolActionsTable {
 	biocontrol_method_id: string;
 	technician_profile_id: string | null;
 	biocontrol_date: DateColumn;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -740,7 +715,6 @@ export interface ServiceRequestsTable {
 	display_name: ColumnType<number | null, number | null | undefined, number | null>;
 	intake_type: ColumnType<RequestIntakeType, RequestIntakeType | undefined, RequestIntakeType>;
 	request_date: DateColumn;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -900,7 +874,6 @@ export interface RequestedControlActionsTable {
 	habitat_id: string | null;
 	inspection_id: string | null;
 	collection_id: string | null;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -948,7 +921,6 @@ export interface MissionItemsTable {
 	organization_id: string;
 	mission_id: string;
 	requested_control_action_id: string | null;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -987,7 +959,6 @@ export interface NotificationRegistrationsTable {
 	id: Generated<string>;
 	organization_id: string;
 	contact_id: string;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -1047,7 +1018,6 @@ export interface MissionNotificationsTable {
 export interface WeatherSourcesTable {
 	id: Generated<string>;
 	organization_id: string | null;
-	feature_id: string;
 	geom: GeometryColumn;
 	lat: GeneratedColumn<number>;
 	lng: GeneratedColumn<number>;
@@ -1103,8 +1073,6 @@ export interface SimmerDatabase {
 	organizations: OrganizationsTable;
 	profiles: ProfilesTable;
 	memberships: MembershipsTable;
-	spatial_features: SpatialFeaturesTable;
-	spatial_feature_regions: SpatialFeatureRegionsTable;
 	addresses: AddressesTable;
 	region_folders: RegionFoldersTable;
 	regions: RegionsTable;
@@ -1345,23 +1313,16 @@ export class StageOrganizationInvitationError extends Error {
 	}
 }
 
-export interface SpatialFeatureInfo {
-	readonly id: string;
+export interface OwnedGeometryInfo {
 	readonly lat: number;
 	readonly lng: number;
 	readonly geojson: GeoJsonGeometry;
 	readonly geomType: string;
-	readonly createdAt: Date;
-}
-
-export interface CreateSpatialFeatureInput {
-	readonly geojson: GeoJsonGeometry;
-	readonly precisionPolicy?: SpatialFeaturePrecisionPolicy;
 }
 
 export interface CreateAddressInput {
 	readonly organizationId: string;
-	readonly featureId: string;
+	readonly geojson: GeoJsonGeometry;
 	readonly displayName: string;
 	readonly country: string;
 	readonly addressLine1?: string | null;
@@ -1377,7 +1338,7 @@ export interface CreateAddressInput {
 export interface SafeAddress {
 	readonly id: string;
 	readonly organizationId: string;
-	readonly featureId: string;
+	readonly geometry: OwnedGeometryInfo;
 	readonly displayName: string;
 	readonly country: string;
 	readonly addressLine1: string | null;
@@ -1412,7 +1373,7 @@ export interface SafeRegionFolder {
 
 export interface CreateRegionInput {
 	readonly organizationId: string;
-	readonly featureId: string;
+	readonly geojson: GeoJsonGeometry;
 	readonly name: string;
 	readonly regionFolderId?: string | null;
 	readonly description?: string | null;
@@ -1425,7 +1386,7 @@ export interface SafeRegion {
 	readonly id: string;
 	readonly organizationId: string;
 	readonly regionFolderId: string | null;
-	readonly featureId: string;
+	readonly geometry: OwnedGeometryInfo;
 	readonly name: string;
 	readonly description: string | null;
 	readonly metadata: unknown | null;
@@ -1595,7 +1556,7 @@ export interface HabitatTypeLookupLifecycleInput {
 
 export interface CreateTrapInput {
 	readonly organizationId: string;
-	readonly featureId: string;
+	readonly geojson: GeoJsonGeometry;
 	readonly collectionMethodId: string;
 	readonly addressId?: string | null;
 	readonly collectionLureId?: string | null;
@@ -1610,7 +1571,7 @@ export interface CreateTrapInput {
 export interface SafeTrap {
 	readonly id: string;
 	readonly organizationId: string;
-	readonly featureId: string;
+	readonly geometry: OwnedGeometryInfo;
 	readonly collectionMethodId: string;
 	readonly addressId: string | null;
 	readonly collectionLureId: string | null;
@@ -1629,7 +1590,7 @@ export interface CreateCollectionInput {
 	readonly trapId?: string | null;
 	readonly collectionMethodId?: string | null;
 	readonly collectionLureId?: string | null;
-	readonly featureId?: string | null;
+	readonly geojson?: GeoJsonGeometry | null;
 	readonly addressId?: string | null;
 	readonly timingMode?: CollectionTimingMode;
 	readonly collectedAt?: Date | null;
@@ -1653,7 +1614,7 @@ export interface SafeCollection {
 	readonly trapId: string | null;
 	readonly collectionMethodId: string;
 	readonly collectionLureId: string | null;
-	readonly featureId: string;
+	readonly geometry: OwnedGeometryInfo;
 	readonly addressId: string | null;
 	readonly collectedAt: Date | null;
 	readonly collectedByProfileId: string | null;
@@ -1803,36 +1764,15 @@ export interface MutationWriteResult<TRow> {
 	readonly txid: number;
 }
 
-export async function createSpatialFeature(
-	db: DbExecutor,
-	input: CreateSpatialFeatureInput,
-): Promise<SpatialFeatureInfo> {
-	const precisionPolicy = input.precisionPolicy ?? 'preserve';
-	const geojson = JSON.stringify(input.geojson);
-
-	const row = await db
-		.selectNoFrom(
-			sql<string>`get_or_create_spatial_feature(
-				${geojson}::jsonb,
-				${precisionPolicy}
-			)`.as('id'),
-		)
-		.executeTakeFirstOrThrow();
-
-	return getSpatialFeature(db, row.id);
-}
-
-export async function getSpatialFeature(
-	db: DbExecutor,
-	featureId: string,
-): Promise<SpatialFeatureInfo> {
-	const row = await db
-		.selectFrom('spatial_features')
-		.select(['id', 'lat', 'lng', 'geojson', 'geom_type', 'created_at'])
-		.where('id', '=', featureId)
-		.executeTakeFirstOrThrow();
-
-	return toSpatialFeatureInfo(row);
+function geojsonToGeom(geojson: GeoJsonGeometry): RawBuilder<string> {
+	const serialized = JSON.stringify(geojson);
+	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
+		case
+			when (${serialized}::jsonb -> 'geometry') is not null
+				then (${serialized}::jsonb -> 'geometry')::text
+			else ${serialized}
+		end
+	), 4326))`;
 }
 
 export async function createAddress(
@@ -1843,7 +1783,7 @@ export async function createAddress(
 		.insertInto('addresses')
 		.values({
 			organization_id: input.organizationId,
-			feature_id: input.featureId,
+			geom: geojsonToGeom(input.geojson),
 			display_name: input.displayName,
 			country: input.country,
 			address_line_1: input.addressLine1 ?? null,
@@ -1858,7 +1798,10 @@ export async function createAddress(
 		.returning([
 			'id',
 			'organization_id',
-			'feature_id',
+			'lat',
+			'lng',
+			'geojson',
+			'geom_type',
 			'display_name',
 			'country',
 			'address_line_1',
@@ -1885,7 +1828,10 @@ export async function listAddresses(
 		.select([
 			'id',
 			'organization_id',
-			'feature_id',
+			'lat',
+			'lng',
+			'geojson',
+			'geom_type',
 			'display_name',
 			'country',
 			'address_line_1',
@@ -1964,7 +1910,7 @@ export async function createRegion(db: DbExecutor, input: CreateRegionInput): Pr
 		.values({
 			organization_id: input.organizationId,
 			region_folder_id: input.regionFolderId ?? null,
-			feature_id: input.featureId,
+			geom: geojsonToGeom(input.geojson),
 			name: input.name,
 			description: input.description ?? null,
 			metadata: input.metadata ?? null,
@@ -1975,7 +1921,10 @@ export async function createRegion(db: DbExecutor, input: CreateRegionInput): Pr
 			'id',
 			'organization_id',
 			'region_folder_id',
-			'feature_id',
+			'lat',
+			'lng',
+			'geojson',
+			'geom_type',
 			'name',
 			'description',
 			'metadata',
@@ -1996,7 +1945,10 @@ export async function listRegions(db: DbExecutor, organizationId: string): Promi
 			'id',
 			'organization_id',
 			'region_folder_id',
-			'feature_id',
+			'lat',
+			'lng',
+			'geojson',
+			'geom_type',
 			'name',
 			'description',
 			'metadata',
@@ -3059,7 +3011,10 @@ export async function deleteHabitatTypeLookup(
 const trapReturnColumns = [
 	'id',
 	'organization_id',
-	'feature_id',
+	'lat',
+	'lng',
+	'geojson',
+	'geom_type',
 	'collection_method_id',
 	'address_id',
 	'collection_lure_id',
@@ -3078,7 +3033,7 @@ export async function createTrap(db: DbExecutor, input: CreateTrapInput): Promis
 		.insertInto('traps')
 		.values({
 			organization_id: input.organizationId,
-			feature_id: input.featureId,
+			geom: geojsonToGeom(input.geojson),
 			collection_method_id: input.collectionMethodId,
 			address_id: input.addressId ?? null,
 			collection_lure_id: input.collectionLureId ?? null,
@@ -3114,7 +3069,10 @@ const collectionReturnColumns = [
 	'trap_id',
 	'collection_method_id',
 	'collection_lure_id',
-	'feature_id',
+	'lat',
+	'lng',
+	'geojson',
+	'geom_type',
 	'address_id',
 	'collected_at',
 	'collected_by_profile_id',
@@ -3147,7 +3105,7 @@ export async function createCollection(
 			trap_id: input.trapId ?? null,
 			collection_method_id: snapshot.collectionMethodId,
 			collection_lure_id: snapshot.collectionLureId,
-			feature_id: snapshot.featureId,
+			geom: snapshot.geom,
 			address_id: snapshot.addressId,
 			collected_at: timing.collectedAt,
 			collected_by_profile_id: input.collectedByProfileId ?? null,
@@ -3192,13 +3150,13 @@ async function resolveCollectionSnapshot(
 ): Promise<{
 	readonly collectionMethodId: string;
 	readonly collectionLureId: string | null;
-	readonly featureId: string;
+	readonly geom: RawBuilder<string>;
 	readonly addressId: string | null;
 }> {
 	if (input.trapId !== undefined && input.trapId !== null) {
 		const trap = await db
 			.selectFrom('traps')
-			.select(['feature_id', 'collection_method_id', 'collection_lure_id', 'address_id'])
+			.select(['collection_method_id', 'collection_lure_id', 'address_id', 'geojson'])
 			.where('id', '=', input.trapId)
 			.where('organization_id', '=', input.organizationId)
 			.where('deleted_at', 'is', null)
@@ -3211,7 +3169,7 @@ async function resolveCollectionSnapshot(
 		return {
 			collectionMethodId: trap.collection_method_id,
 			collectionLureId: trap.collection_lure_id,
-			featureId: trap.feature_id,
+			geom: geojsonToGeom(trap.geojson),
 			addressId: trap.address_id,
 		};
 	}
@@ -3219,14 +3177,14 @@ async function resolveCollectionSnapshot(
 	if (input.collectionMethodId === undefined || input.collectionMethodId === null) {
 		throw new Error('collectionMethodId is required for ad hoc collections.');
 	}
-	if (input.featureId === undefined || input.featureId === null) {
-		throw new Error('featureId is required for ad hoc collections.');
+	if (input.geojson === undefined || input.geojson === null) {
+		throw new Error('geojson is required for ad hoc collections.');
 	}
 
 	return {
 		collectionMethodId: input.collectionMethodId,
 		collectionLureId: input.collectionLureId ?? null,
-		featureId: input.featureId,
+		geom: geojsonToGeom(input.geojson),
 		addressId: input.addressId ?? null,
 	};
 }
@@ -4217,28 +4175,27 @@ function toSafeProfile(row: {
 	};
 }
 
-function toSpatialFeatureInfo(row: {
-	readonly id: string;
+function toOwnedGeometryInfo(row: {
 	readonly lat: number;
 	readonly lng: number;
 	readonly geojson: GeoJsonGeometry;
 	readonly geom_type: string;
-	readonly created_at: Date;
-}): SpatialFeatureInfo {
+}): OwnedGeometryInfo {
 	return {
-		id: row.id,
 		lat: row.lat,
 		lng: row.lng,
 		geojson: row.geojson,
 		geomType: row.geom_type,
-		createdAt: row.created_at,
 	};
 }
 
 function toSafeAddress(row: {
 	readonly id: string;
 	readonly organization_id: string;
-	readonly feature_id: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geom_type: string;
 	readonly display_name: string;
 	readonly country: string;
 	readonly address_line_1: string | null;
@@ -4254,7 +4211,7 @@ function toSafeAddress(row: {
 	return {
 		id: row.id,
 		organizationId: row.organization_id,
-		featureId: row.feature_id,
+		geometry: toOwnedGeometryInfo(row),
 		displayName: row.display_name,
 		country: row.country,
 		addressLine1: row.address_line_1,
@@ -4295,7 +4252,10 @@ function toSafeRegion(row: {
 	readonly id: string;
 	readonly organization_id: string;
 	readonly region_folder_id: string | null;
-	readonly feature_id: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geom_type: string;
 	readonly name: string;
 	readonly description: string | null;
 	readonly metadata: unknown | null;
@@ -4308,7 +4268,7 @@ function toSafeRegion(row: {
 		id: row.id,
 		organizationId: row.organization_id,
 		regionFolderId: row.region_folder_id,
-		featureId: row.feature_id,
+		geometry: toOwnedGeometryInfo(row),
 		name: row.name,
 		description: row.description,
 		metadata: row.metadata,
@@ -4452,7 +4412,10 @@ function toSafeTag(row: {
 function toSafeTrap(row: {
 	readonly id: string;
 	readonly organization_id: string;
-	readonly feature_id: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geom_type: string;
 	readonly collection_method_id: string;
 	readonly address_id: string | null;
 	readonly collection_lure_id: string | null;
@@ -4468,7 +4431,7 @@ function toSafeTrap(row: {
 	return {
 		id: row.id,
 		organizationId: row.organization_id,
-		featureId: row.feature_id,
+		geometry: toOwnedGeometryInfo(row),
 		collectionMethodId: row.collection_method_id,
 		addressId: row.address_id,
 		collectionLureId: row.collection_lure_id,
@@ -4489,7 +4452,10 @@ function toSafeCollection(row: {
 	readonly trap_id: string | null;
 	readonly collection_method_id: string;
 	readonly collection_lure_id: string | null;
-	readonly feature_id: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geom_type: string;
 	readonly address_id: string | null;
 	readonly collected_at: Date | null;
 	readonly collected_by_profile_id: string | null;
@@ -4514,7 +4480,7 @@ function toSafeCollection(row: {
 		trapId: row.trap_id,
 		collectionMethodId: row.collection_method_id,
 		collectionLureId: row.collection_lure_id,
-		featureId: row.feature_id,
+		geometry: toOwnedGeometryInfo(row),
 		addressId: row.address_id,
 		collectedAt: row.collected_at,
 		collectedByProfileId: row.collected_by_profile_id,

@@ -200,10 +200,9 @@ Mission items carry:
 - fractional `position`
 
 Mission item commands carry either explicit GeoJSON geometry or a
-`locationSource`, not both. The server derives or reuses `spatial_features.id`.
-Read/sync rows may expose `feature_id`. The feasibility and efficiency of
-spatial-feature derivation/reuse is intentionally deferred to a separate
-architecture discussion.
+`locationSource`, not both. The server stores explicit geometry directly on the
+mission item or snapshots the chosen source record's owned geometry. Read/sync
+rows expose the mission item's owned geometry projection.
 
 V1 geometry types:
 

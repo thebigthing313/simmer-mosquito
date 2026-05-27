@@ -1,9 +1,9 @@
 import { expect, it } from 'vitest';
-import { createAddress, createSpatialFeature } from './index.js';
+import { createAddress } from './index.js';
 import { describeDbIntegration, withTestDb } from './test-support/db-integration.js';
 
 describeDbIntegration('owned geometry columns', () => {
-	it('backfills direct address geometry from the transitional feature id path', async () => {
+	it('stores direct address geometry without spatial feature indirection', async () => {
 		await withTestDb(async ({ db }) => {
 			const organization = await db
 				.insertInto('organizations')
@@ -14,14 +14,9 @@ describeDbIntegration('owned geometry columns', () => {
 				.returning(['id'])
 				.executeTakeFirstOrThrow();
 
-			const feature = await createSpatialFeature(db, {
-				geojson: { type: 'Point', coordinates: [-90.1234567, 35.7654321] },
-				precisionPolicy: 'snap_5_decimal',
-			});
-
 			const address = await createAddress(db, {
 				organizationId: organization.id,
-				featureId: feature.id,
+				geojson: { type: 'Point', coordinates: [-90.1234567, 35.7654321] },
 				displayName: 'Field Office',
 				country: 'US',
 			});

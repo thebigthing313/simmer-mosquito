@@ -146,14 +146,15 @@ Server command handlers should validate explicit geometry sources:
 - adult ad hoc collection create/location commands carry Point geometry.
 
 Adult trap and ad hoc collection create/location commands carry
-`locationSource`, not `featureId`. The source flow is intentionally narrow:
+`locationSource`, not database geometry columns. The source flow is
+intentionally narrow:
 
 - trap geometry may come from explicit point geometry or address geometry.
 - adult ad hoc collection geometry may come from explicit point geometry,
   address geometry, or trap geometry.
 
-The server maps explicit geometry to `spatial_features.id` or copies the source
-record's existing `feature_id` and stores `feature_id` on the database rows.
+The server stores explicit geometry directly on the target row or copies the
+source record's owned geometry onto the target row.
 
 ### Trap Display And Lifecycle
 

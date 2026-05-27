@@ -26,7 +26,7 @@ implementation remain separate implementation work.
 | Area | Eager | On-demand / excluded |
 | --- | --- | --- |
 | Identity | `profiles` for selected org, label fields for all roles | `users` no sync; `organizations` no normal app collection; `memberships` API/control-plane |
-| Foundation | `units`, `genera`, `species`, `organization_species`, `collection_methods`, `collection_lures`, `habitat_types`, `region_folders` | `regions`, `addresses`, `spatial_features`, `spatial_feature_regions` |
+| Foundation | `units`, `genera`, `species`, `organization_species`, `collection_methods`, `collection_lures`, `habitat_types`, `region_folders` | `regions`, `addresses`, region intersection cache data |
 | Adult surveillance | `traps` | `collections`, `collection_species` |
 | Larval surveillance | none | `habitats`, `inspections`, `samples`, `sample_species` |
 | Field-work support | `tags`, `routes` | `tag_items`, `comments`, `additional_personnel`, `route_items`, `assignments`, `assignment_items` |
@@ -53,9 +53,9 @@ implementation remain separate implementation work.
 - `region_folders` is eager, but `regions` is on-demand because agencies may
   store complex administrative boundary polygons.
 - `addresses` is on-demand because address books can be large.
-- `spatial_features` is supporting geometry data, not an eager standalone web
-  collection.
-- `spatial_feature_regions` is derived GIS cache data and is not part of normal
+- Owned geometry lives on the locatable rows themselves. It is not a standalone
+  web collection.
+- Region intersection cache data is derived GIS data and is not part of normal
   app sync unless a specific reporting/GIS screen proves it needs direct client
   access.
 - `route_items` is on-demand because large habitat catalogs can make route
@@ -177,7 +177,7 @@ organization database.
 | Habitats | progressive and persisted, eventually full selected-org habitat catalog |
 | Routes / route items | progressive and persisted |
 | Addresses | progressive and persisted |
-| Spatial features | dependency-loaded and persisted only for records already persisted on the device |
+| Owned geometry | persisted with the locatable records already persisted on the device |
 | Regions / region folders | on-demand, user-selected downloads |
 | Adult collections | three-year persisted history, older on request |
 | Collection species | persisted with loaded parent collections |
@@ -204,8 +204,8 @@ organization database.
   not assumed to be automatic TanStack DB persistence behavior.
 - Sync config should record rolling-window policies, and cleanup must not prune
   rows with pending local mutations.
-- `spatial_features` is not organization-scoped and must not be treated as a
-  full selected-organization collection.
+- Owned geometry is scoped by the table row that carries it. Mobile should not
+  expect a shared geometry collection to load separately.
 - Users can choose region context to load onto the device when needed because
   folders such as parks or administrative boundaries may contain thousands of
   complex polygons.
@@ -223,7 +223,8 @@ sync descriptors, while each frontend owns concrete collection instances.
 - row schemas and parsers;
 - `getKey` functions;
 - table and shape descriptors;
-- dependency relationships such as `address_id` and `feature_id`;
+- dependency relationships such as `address_id` plus owned geometry projection
+  columns;
 - web and mobile policy descriptors;
 - retention metadata for rolling windows;
 - shared helpers for Electric transaction-id mutation handling.

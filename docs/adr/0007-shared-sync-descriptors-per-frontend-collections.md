@@ -31,7 +31,8 @@ while each frontend owns its concrete TanStack DB collection instances.
 - `getKey` functions;
 - table and shape descriptors;
 - named tracer descriptor sets when a vertical slice needs an explicit boundary;
-- dependency relationships such as `address_id` and `feature_id`;
+- dependency relationships such as `address_id` plus owned geometry projection
+  columns;
 - web and mobile policy descriptors;
 - retention metadata for rolling windows;
 - shared helpers for Electric transaction-id mutation handling.

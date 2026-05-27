@@ -75,16 +75,17 @@ catalog records, not inspections.
 `inspections` are field visit or observation transactions. They may reference a
 cataloged habitat, or they may be ad hoc records with `habitat_id = null`.
 Ad hoc inspection commands carry a `locationSource`, optional `address_id`, and
-optional `habitat_type_id`; the server stores the resulting `feature_id`.
+optional `habitat_type_id`; the server stores the resulting geometry directly
+on the inspection row.
 `locationSource` may be explicit geometry, address geometry, habitat geometry,
 or service request geometry to snapshot from without linking the inspection to
 that record.
 
 `recordHabitatInspection` and `recordAdHocInspection` are separate commands.
-Habitat inspection creation copies the habitat's current `feature_id`,
-`address_id`, and `habitat_type_id` into the inspection row. It does not allow
-creation-time overrides. Later habitat edits affect future inspections only;
-historical inspection snapshot fields remain unchanged.
+Habitat inspection creation copies the habitat's current geometry, `address_id`,
+and `habitat_type_id` into the inspection row. It does not allow creation-time
+overrides. Later habitat edits affect future inspections only; historical
+inspection snapshot fields remain unchanged.
 
 Inspections can stand alone. Not every inspection creates a sample. Samples and
 sample species counts are separate downstream transactions.
@@ -140,7 +141,7 @@ warning, not a hard rejection. Metadata updates replace the whole object.
 Manager-and-above commands own higher-risk changes:
 
 - `updateHabitatLocation` carries a new `locationSource` and changes the
-  stored `feature_id`.
+  stored geometry.
 - `updateHabitatConfiguration` changes `address_id` and `habitat_type_id`.
 
 If a habitat already has inspections or cross-domain references, location or
@@ -158,7 +159,7 @@ manager explicitly acknowledges detaching those inspections. With acknowledgemen
 
 - the habitat is soft-deleted;
 - referencing inspections are preserved with `habitat_id = null`;
-- inspection snapshot `feature_id`, `address_id`, and `habitat_type_id` remain
+- inspection snapshot geometry, `address_id`, and `habitat_type_id` remain
   unchanged;
 - samples, sample species rows, and inspection/sample comments remain intact;
 - direct habitat comments, tags, and additional personnel are soft-deleted;
@@ -181,7 +182,7 @@ The source inspection must be:
 
 The command creates a new habitat using the inspection snapshot:
 
-- `feature_id`
+- geometry
 - `address_id`
 - `habitat_type_id`
 
@@ -223,7 +224,7 @@ fields into the target:
 - `habitat_name`
 - `description`
 - `metadata`
-- `feature_id`
+- geometry
 - `address_id`
 - `habitat_type_id`
 - `is_inaccessible`
@@ -353,7 +354,7 @@ every active `sample_species.identified_at >= newInspectionDate`.
 `updateAdHocInspectionLocation` is separate and applies only to ad hoc
 inspections. It may update:
 
-- `feature_id`
+- geometry
 - `address_id`
 - `habitat_type_id`
 
@@ -576,7 +577,7 @@ Multi-geometries and geometry collections are deferred:
 - `MultiPolygon`
 - `GeometryCollection`
 
-Habitat inspections copy the habitat's feature regardless of allowed type.
+Habitat inspections copy the habitat's geometry regardless of allowed type.
 Habitat and ad hoc location commands carry `locationSource`, but their source
 flows differ:
 
@@ -587,11 +588,11 @@ flows differ:
 - habitat inspection geometry is locked to the habitat geometry at that
   instance and does not accept a location override.
 
-The server maps explicit geometry to `spatial_features.id` or snapshots the
-known source record's `feature_id` and stores it on database rows. Server
-command handlers validate allowed geometry for habitat creation, habitat
-location updates, and ad hoc inspection creation or correction when the source
-is explicit geometry.
+The server stores explicit geometry directly on the target row or snapshots the
+known source record's owned geometry onto the target row. Server command
+handlers validate allowed geometry for habitat creation, habitat location
+updates, and ad hoc inspection creation or correction when the source is
+explicit geometry.
 
 ## Mobile And Offline
 

@@ -49,8 +49,8 @@ Server command handlers validate context-dependent rules:
 
 Location-bearing commands carry a domain location source. The source may be
 explicit GeoJSON geometry or an allowed same-organization locatable record.
-Server handlers map explicit geometry to `spatial_features.id` or snapshot the
-source record's existing feature id inside the authorized transaction.
+Server handlers store explicit geometry directly on the target row or snapshot
+the source record's owned geometry inside the authorized transaction.
 
 Domain docs own the allowed source flows for each workflow.
 

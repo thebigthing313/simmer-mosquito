@@ -83,10 +83,17 @@ export interface AdminMembership {
 	readonly updatedAt: string;
 }
 
+export interface AdminGeometry {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: unknown;
+	readonly geomType: string;
+}
+
 export interface AdminAddress {
 	readonly id: string;
 	readonly organizationId: string;
-	readonly featureId: string;
+	readonly geometry: AdminGeometry;
 	readonly displayName: string;
 	readonly country: string;
 	readonly addressLine1: string | null;
@@ -111,7 +118,7 @@ export interface AdminRegion {
 	readonly id: string;
 	readonly organizationId: string;
 	readonly regionFolderId: string | null;
-	readonly featureId: string;
+	readonly geometry: AdminGeometry;
 	readonly name: string;
 	readonly description: string | null;
 	readonly metadata: unknown | null;
@@ -162,7 +169,7 @@ export type AdminLookupKind = 'collection_methods' | 'collection_lures' | 'habit
 export interface AdminTrap {
 	readonly id: string;
 	readonly organizationId: string;
-	readonly featureId: string;
+	readonly geometry: AdminGeometry;
 	readonly collectionMethodId: string;
 	readonly addressId: string | null;
 	readonly collectionLureId: string | null;

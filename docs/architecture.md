@@ -221,15 +221,15 @@ UI intent
 Future offline queues should store domain commands, not DB-shaped patches. The
 v1 web app does not queue commands for offline replay.
 
-Location-bearing commands carry a domain location source, not `feature_id`.
+Location-bearing commands carry a domain location source, not database geometry
+columns.
 The source may be explicit GeoJSON geometry or a same-organization locatable
 domain record such as a habitat, inspection, trap, collection, service request,
-requested control action, or mission item. The server maps explicit geometry to
-`spatial_features.id` or snapshots the source record's existing `feature_id`
-inside the authorized transaction. Geometry coordinates are preserved as
-submitted by apps or source imports. Read/sync rows may still expose
-`feature_id` and spatial feature data because those are database representation
-details.
+requested control action, or mission item. The server stores explicit geometry
+directly on the target row or snapshots the source record's existing owned
+geometry inside the authorized transaction. Geometry coordinates are preserved
+as submitted by apps or source imports. Read/sync rows expose each table's owned
+geometry projection rather than a shared geometry record.
 
 ## Authorization
 

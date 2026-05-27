@@ -151,10 +151,11 @@ number. It is not part of normal command payloads and should not be recycled
 after deletion.
 
 Service requests are address-backed and geometry-backed. Commands carry a
-Point-only GeoJSON `geometry`; the server derives `feature_id`. The request
-geometry is independent from the address geometry and does not follow later
-address location changes. Create and location update commands require complete
-location intent: address selection/creation plus request geometry.
+Point-only GeoJSON `geometry`; the server stores that geometry directly on the
+request row. The request geometry is independent from the address geometry and
+does not follow later address location changes. Create and location update
+commands require complete location intent: address selection/creation plus
+request geometry.
 
 `createServiceRequest` can create a contact and/or address inline. Inline
 creates use nested detail objects, not nested command envelopes. Inline contact

@@ -22,12 +22,12 @@ operator taxonomy commands are separate operator workflows and carry
 
 Commands carry domain intent, not DB-shaped patches. Foundation address and
 region catalog commands carry explicit GeoJSON `geometry` because they define
-the catalog feature itself; command clients do not submit `featureId`. The
-server maps geometry to `spatial_features.id` inside the transaction. Other
-operational domains use named `locationSource` flows when a command should
-snapshot an existing allowed source record without exposing raw `feature_id`.
-Those flows are domain-specific; not every locatable record is a valid source
-for every command.
+the catalog geometry itself. The server stores geometry directly on the owned
+address or region row. Other operational domains use named `locationSource`
+flows when a command should snapshot an existing allowed source record's
+geometry without exposing database geometry columns. Those flows are
+domain-specific; not every locatable record is a valid source for every
+command.
 
 Supported v1 command geometry types:
 
@@ -64,8 +64,8 @@ address, but the command does not derive it. V1 addresses are US-only:
 `geocoderResponse` is optional JSON object-or-null and is preserved as support
 metadata.
 
-`address.feature_id` is not canonical location for operational records. It is a
-UX convenience: choosing an address may prefill the operational geometry. Later
+Address geometry is not canonical location for operational records. It is a UX
+convenience: choosing an address may prefill the operational geometry. Later
 address location changes do not cascade to traps, habitats, inspections,
 applications, or other operational records.
 
@@ -78,7 +78,7 @@ comments and tags are soft-deleted with the address.
 
 `mergeAddresses` re-points non-deleted direct `address_id` references from one
 or more sources to a target, preserves each operational row's existing
-`feature_id`, moves comments, moves/deduplicates tags, and soft-deletes source
+geometry snapshot, moves comments, moves/deduplicates tags, and soft-deletes source
 addresses. It requires explicit acknowledgement that history is being
 consolidated.
 
@@ -119,12 +119,12 @@ lifecycle state.
 
 Region names and geometries may duplicate. SIMMER does not own agency GIS data
 integrity in v1. The app may warn on duplicate normalized names or same
-`feature_id` within the same folder, including the uncategorized bucket, but
+geometry within the same folder, including the uncategorized bucket, but
 does not block. Topology validation is limited to PostGIS geometry validity.
 
 `updateRegionGeometry` requires acknowledgement that region boundaries may
-change future reporting/cache results. It creates or reuses the server-side
-spatial feature from command geometry and invalidates affected cache rows.
+change future reporting/cache results. It stores the command geometry directly
+on the region and invalidates affected cache rows.
 
 `deleteRegion` requires acknowledgement, soft-deletes the region, soft-deletes
 direct region comments/tags, and invalidates affected cache rows. Region delete
@@ -132,9 +132,10 @@ is not blocked by cached intersections. There is no v1 region merge command.
 
 ## Region Intersection Cache
 
-`spatial_feature_regions` has no public commands. It is derived cache for
-feature/folder intersections. Region and folder mutations should delete or
-invalidate affected folder cache rows. Uncategorized regions are not cached.
+Region intersection cache has no public commands. It is derived from owned
+locatable-row geometry against a region folder. Region and folder mutations
+should delete or invalidate affected folder cache rows. Uncategorized regions
+are not cached.
 
 ## Global Taxonomy
 
