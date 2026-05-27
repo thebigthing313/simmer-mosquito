@@ -628,6 +628,7 @@ export function createInsecticideFromValues(
 		isActive: values.isActive,
 		createdAt: now,
 		updatedAt: now,
+		deletedAt: null,
 	});
 }
 
@@ -649,6 +650,7 @@ export function createInsecticideBatchFromValues(
 		isActive: values.isActive,
 		createdAt: now,
 		updatedAt: now,
+		deletedAt: null,
 	});
 }
 

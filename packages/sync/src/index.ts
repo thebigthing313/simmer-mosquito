@@ -189,6 +189,7 @@ export interface InsecticideRow {
 	readonly metadata: unknown;
 	readonly createdAt: string;
 	readonly updatedAt: string;
+	readonly deletedAt: string | null;
 }
 
 export interface InsecticideBatchRow {
@@ -200,6 +201,7 @@ export interface InsecticideBatchRow {
 	readonly isActive: boolean;
 	readonly createdAt: string;
 	readonly updatedAt: string;
+	readonly deletedAt: string | null;
 }
 
 export interface NotificationTypeRow extends OrgLookupRowBase {}
@@ -465,6 +467,7 @@ export const insecticidesSyncDescriptor: SyncDescriptor<InsecticideRow> = {
 		'metadata',
 		'createdAt',
 		'updatedAt',
+		'deletedAt',
 	],
 	getKey: (row) => row.id,
 };
@@ -482,6 +485,7 @@ export const insecticideBatchesSyncDescriptor: SyncDescriptor<InsecticideBatchRo
 		'isActive',
 		'createdAt',
 		'updatedAt',
+		'deletedAt',
 	],
 	getKey: (row) => row.id,
 };

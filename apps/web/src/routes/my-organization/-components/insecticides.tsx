@@ -211,26 +211,18 @@ function BatchTrackingDisabledNotice() {
 }
 
 function useActiveInsecticideRows(collection: Collection<InsecticideRow, string | number>) {
-	const activeResult = useLiveSuspenseQuery(
+	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
 				.from({ insecticide: collection })
-				.where(({ insecticide }) => eq(insecticide.isActive, true))
 				.orderBy(({ insecticide }) => insecticide.tradeName, 'asc'),
 		[collection],
 	);
-	const inactiveResult = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ insecticide: collection })
-				.where(({ insecticide }) => eq(insecticide.isActive, false))
-				.orderBy(({ insecticide }) => insecticide.tradeName, 'asc'),
-		[collection],
-	);
+	const rows = result.data;
 
 	return {
-		activeRows: activeResult.data,
-		inactiveRows: inactiveResult.data,
+		activeRows: rows.filter((insecticide) => isActiveValue(insecticide.isActive)),
+		inactiveRows: rows.filter((insecticide) => !isActiveValue(insecticide.isActive)),
 	};
 }
 
@@ -280,7 +272,7 @@ function InsecticideTable({
 							<TableCell>{insecticide.activeIngredient}</TableCell>
 							<TableCell>{formatMode(insecticide.type)}</TableCell>
 							<TableCell>{unitLabel(units, insecticide.defaultUnitId)}</TableCell>
-							<TableCell>{insecticide.isActive ? 'Active' : 'Inactive'}</TableCell>
+							<TableCell>{isActiveValue(insecticide.isActive) ? 'Active' : 'Inactive'}</TableCell>
 							<TableCell>{hasMetadata(insecticide.metadata) ? 'Configured' : 'None'}</TableCell>
 							{canManage ? (
 								<TableCell className="text-right">
@@ -576,7 +568,7 @@ function InsecticideBatchAccordionItem({
 						<span className="wrap-anywhere text-[0.9rem] font-semibold text-foreground">
 							{insecticideLabel(insecticides, insecticide.id)}
 						</span>
-						{insecticide.isActive ? null : (
+						{isActiveValue(insecticide.isActive) ? null : (
 							<Badge tone="neutral" variant="outline">
 								Inactive
 							</Badge>
@@ -676,7 +668,7 @@ function InsecticideBatchTable({
 							<TableCell>
 								{disabled ? (
 									<span className="font-medium text-muted-foreground">Tracking off</span>
-								) : batch.isActive ? (
+								) : isActiveValue(batch.isActive) ? (
 									'Active'
 								) : (
 									'Inactive'
@@ -731,7 +723,7 @@ function InsecticideBatchDrawer({
 }) {
 	const [open, setOpen] = useState(false);
 	const activeInsecticides = insecticides.filter(
-		(item) => item.isActive || item.id === batch?.insecticideId,
+		(item) => isActiveValue(item.isActive) || item.id === batch?.insecticideId,
 	);
 	const fallbackInsecticideId = defaultInsecticideId ?? activeInsecticides[0]?.id ?? '';
 	const defaultValues = insecticideBatchFormValues(batch, fallbackInsecticideId);
@@ -957,7 +949,11 @@ function batchGroupSummary(batches: readonly InsecticideBatchRow[]): string {
 	if (batches.length === 0) {
 		return 'No batches recorded';
 	}
-	const activeCount = batches.filter((batch) => batch.isActive).length;
+	const activeCount = batches.filter((batch) => isActiveValue(batch.isActive)).length;
 	const inactiveCount = batches.length - activeCount;
 	return `${activeCount} active, ${inactiveCount} inactive`;
+}
+
+function isActiveValue(value: boolean | string): boolean {
+	return value === true || value === 'true';
 }

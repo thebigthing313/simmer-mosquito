@@ -66,7 +66,7 @@ function createControlProductMutationHandlers<
 	readonly toPayload: (row: TRow) => Record<string, unknown>;
 }) {
 	return {
-		onInsert: async ({ collection, transaction }: CollectionMutationHandlerInput<TRow>) => {
+		onInsert: async ({ transaction }: CollectionMutationHandlerInput<TRow>) => {
 			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					await writeControlProduct(
@@ -75,14 +75,10 @@ function createControlProductMutationHandlers<
 						options.toPayload(mutation.modified),
 						options.fallbackName,
 					);
-					await collection.utils.awaitMatch(
-						(message) => matchesRowChange(message, mutation.modified.id, ['insert']),
-						controlProductSyncTimeoutMs,
-					);
 				}),
 			);
 		},
-		onUpdate: async ({ collection, transaction }: CollectionMutationHandlerInput<TRow>) => {
+		onUpdate: async ({ transaction }: CollectionMutationHandlerInput<TRow>) => {
 			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					const row = mutation.modified;
@@ -95,14 +91,10 @@ function createControlProductMutationHandlers<
 						},
 						options.fallbackName,
 					);
-					await collection.utils.awaitMatch(
-						(message) => matchesRowChange(message, row.id, ['update', 'insert']),
-						controlProductSyncTimeoutMs,
-					);
 				}),
 			);
 		},
-		onDelete: async ({ collection, transaction }: CollectionMutationHandlerInput<TRow>) => {
+		onDelete: async ({ transaction }: CollectionMutationHandlerInput<TRow>) => {
 			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					if (mutation.original.id === undefined) {
@@ -114,11 +106,6 @@ function createControlProductMutationHandlers<
 						undefined,
 						options.fallbackName,
 					);
-					await collection.utils.awaitMatch(
-						(message) =>
-							matchesRowChange(message, mutation.original.id as string, ['delete', 'update']),
-						controlProductSyncTimeoutMs,
-					);
 				}),
 			);
 		},
@@ -126,14 +113,6 @@ function createControlProductMutationHandlers<
 }
 
 interface CollectionMutationHandlerInput<TRow> {
-	readonly collection: {
-		readonly utils: {
-			readonly awaitMatch: (
-				matches: (message: ElectricMutationMessage<TRow>) => boolean,
-				timeout?: number,
-			) => Promise<boolean>;
-		};
-	};
 	readonly transaction: {
 		readonly mutations: readonly {
 			readonly original: Partial<TRow>;
@@ -142,31 +121,8 @@ interface CollectionMutationHandlerInput<TRow> {
 	};
 }
 
-interface ElectricMutationMessage<TRow> {
-	readonly key?: string;
-	readonly value?: Partial<TRow> | null;
-	readonly headers?: {
-		readonly operation?: string;
-	};
-}
-
 interface ControlProductMutationResult {
 	readonly txid: number;
-}
-
-const controlProductSyncTimeoutMs = 15_000;
-
-function matchesRowChange<TRow extends { readonly id: string }>(
-	message: ElectricMutationMessage<TRow>,
-	rowId: string,
-	operations: readonly string[],
-): boolean {
-	const operation = message.headers?.operation;
-	if (operation === undefined || !operations.includes(operation)) {
-		return false;
-	}
-
-	return message.value?.id === rowId || message.key?.includes(`"${rowId}"`) === true;
 }
 
 async function writeControlProduct(

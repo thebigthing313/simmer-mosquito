@@ -142,6 +142,7 @@ describe('sync descriptors', () => {
 	it('syncs insecticide batches on demand', () => {
 		expect(insecticideBatchesSyncDescriptor.syncMode).toBe('on-demand');
 		expect(insecticideBatchesSyncDescriptor.columns).toContain('organizationId');
+		expect(insecticideBatchesSyncDescriptor.columns).toContain('deletedAt');
 	});
 
 	it('keeps the remaining web tracer descriptors read-only', () => {
