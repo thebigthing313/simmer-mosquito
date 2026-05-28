@@ -1,9 +1,15 @@
+import { createRowPayloadMapper } from '@simmer-mosquito/sync';
+
 interface NotificationTypeMutationRow {
 	readonly id: string;
 	readonly name: string;
 	readonly description: string | null;
 	readonly isActive: boolean;
 }
+
+const mapNotificationTypePayload = createRowPayloadMapper<NotificationTypeMutationRow>(
+	['id', 'name', 'description'] as const,
+);
 
 export function createNotificationTypeMutationHandlers<
 	TRow extends NotificationTypeMutationRow,
@@ -75,11 +81,7 @@ interface NotificationTypeMutationResult {
 }
 
 function toNotificationTypePayload(row: NotificationTypeMutationRow) {
-	return {
-		id: row.id,
-		name: row.name,
-		description: row.description,
-	};
+	return mapNotificationTypePayload(row);
 }
 
 async function writeNotificationType(

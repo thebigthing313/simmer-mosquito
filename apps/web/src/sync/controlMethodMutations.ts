@@ -1,9 +1,15 @@
+import { createRowPayloadMapper } from '@simmer-mosquito/sync';
+
 interface ControlMethodMutationRow {
 	readonly id: string;
 	readonly name: string;
 	readonly customSchema?: unknown | null;
 	readonly isActive: boolean;
 }
+
+const mapControlMethodPayload = createRowPayloadMapper<ControlMethodMutationRow>(
+	['id', 'name', 'customSchema'] as const,
+);
 
 export function createControlMethodMutationHandlers<
 	TRow extends ControlMethodMutationRow,
@@ -83,8 +89,7 @@ interface ControlMethodMutationResult {
 
 function toControlMethodPayload(row: ControlMethodMutationRow) {
 	return {
-		id: row.id,
-		name: row.name,
+		...mapControlMethodPayload(row),
 		customSchema: row.customSchema ?? null,
 	};
 }

@@ -1,3 +1,5 @@
+import { createRowPayloadMapper } from '@simmer-mosquito/sync';
+
 interface InsecticideMutationRow {
 	readonly id: string;
 	readonly tradeName: string;
@@ -20,6 +22,23 @@ interface InsecticideBatchMutationRow {
 	readonly isActive: boolean;
 }
 
+const mapInsecticidePayload = createRowPayloadMapper<InsecticideMutationRow>(
+	[
+		'id',
+		'tradeName',
+		'activeIngredient',
+		'type',
+		'registrationNumber',
+		'defaultUnitId',
+		'labelUrl',
+		'msdsUrl',
+		'shorthand',
+	] as const,
+);
+const mapInsecticideBatchPayload = createRowPayloadMapper<InsecticideBatchMutationRow>(
+	['id', 'insecticideId', 'batchName'] as const,
+);
+
 export function createInsecticideMutationHandlers<TRow extends InsecticideMutationRow>(options: {
 	readonly serverUrl: string;
 }) {
@@ -28,15 +47,7 @@ export function createInsecticideMutationHandlers<TRow extends InsecticideMutati
 		endpointPath: '/control-products/insecticides',
 		fallbackName: 'insecticide',
 		toPayload: (row) => ({
-			id: row.id,
-			tradeName: row.tradeName,
-			activeIngredient: row.activeIngredient,
-			type: row.type,
-			registrationNumber: row.registrationNumber,
-			defaultUnitId: row.defaultUnitId,
-			labelUrl: row.labelUrl,
-			msdsUrl: row.msdsUrl,
-			shorthand: row.shorthand,
+			...mapInsecticidePayload(row),
 			metadata: row.metadata ?? null,
 		}),
 	});
@@ -49,11 +60,7 @@ export function createInsecticideBatchMutationHandlers<
 		serverUrl: options.serverUrl,
 		endpointPath: '/control-products/insecticide-batches',
 		fallbackName: 'insecticide batch',
-		toPayload: (row) => ({
-			id: row.id,
-			insecticideId: row.insecticideId,
-			batchName: row.batchName,
-		}),
+		toPayload: (row) => mapInsecticideBatchPayload(row),
 	});
 }
 

@@ -1,4 +1,16 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
+import { createRowPayloadMapper, type AddressRow } from '@simmer-mosquito/sync';
+
+const mapAddressPayload = createRowPayloadMapper<AddressRow>([
+	'id',
+	'displayName',
+	'country',
+	'addressLine1',
+	'addressLine2',
+	'locality',
+	'region',
+	'postalCode',
+	'geocoderResponse',
+] as const);
 
 export function createAddressMutationHandlers(options: { readonly serverUrl: string }) {
 	return {
@@ -33,15 +45,7 @@ function toAddressPayload(row: AddressRow) {
 	}
 
 	return {
-		id: row.id,
-		displayName: row.displayName,
-		country: row.country,
-		addressLine1: row.addressLine1,
-		addressLine2: row.addressLine2,
-		locality: row.locality,
-		region: row.region,
-		postalCode: row.postalCode,
-		geocoderResponse: row.geocoderResponse,
+		...mapAddressPayload(row),
 		geojson: row.geojson,
 	};
 }

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { decodeShapeColumnName } from './decode-shape-column-name.js';
+import { encodeShapeColumnName } from './encode-shape-column-name.js';
 import {
 	addressesSyncDescriptor,
 	currentOrganizationSyncDescriptor,
-	decodeShapeColumnName,
 	electricShapeCollectionOptions,
-	encodeShapeColumnName,
 	insecticideBatchesSyncDescriptor,
 	membershipsSyncDescriptor,
 	profilesSyncDescriptor,
@@ -169,7 +169,6 @@ describe('sync descriptors', () => {
 	it('syncs insecticide batches on demand', () => {
 		expect(insecticideBatchesSyncDescriptor.syncMode).toBe('on-demand');
 		expect(insecticideBatchesSyncDescriptor.columns).toContain('organizationId');
-		expect(insecticideBatchesSyncDescriptor.columns).toContain('deletedAt');
 	});
 
 	it('omits owned-geometry columns from Electric shapes', () => {

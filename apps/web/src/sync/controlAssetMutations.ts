@@ -1,3 +1,5 @@
+import { createRowPayloadMapper } from '@simmer-mosquito/sync';
+
 interface ControlAssetMutationRow {
 	readonly id: string;
 	readonly metadata?: unknown | null;
@@ -13,6 +15,11 @@ interface EquipmentMutationRow extends ControlAssetMutationRow {
 	readonly serialNumber: string | null;
 }
 
+const mapVehiclePayload = createRowPayloadMapper<VehicleMutationRow>(['id', 'vehicleName'] as const);
+const mapEquipmentPayload = createRowPayloadMapper<EquipmentMutationRow>(
+	['id', 'equipmentName', 'serialNumber'] as const,
+);
+
 export function createVehicleMutationHandlers<TRow extends VehicleMutationRow>(options: {
 	readonly serverUrl: string;
 }) {
@@ -21,8 +28,7 @@ export function createVehicleMutationHandlers<TRow extends VehicleMutationRow>(o
 		endpointPath: '/control-assets/vehicles',
 		fallbackName: 'vehicle',
 		toPayload: (row) => ({
-			id: row.id,
-			vehicleName: row.vehicleName,
+			...mapVehiclePayload(row),
 			metadata: row.metadata ?? null,
 		}),
 	});
@@ -36,9 +42,7 @@ export function createEquipmentMutationHandlers<TRow extends EquipmentMutationRo
 		endpointPath: '/control-assets/equipment',
 		fallbackName: 'equipment',
 		toPayload: (row) => ({
-			id: row.id,
-			equipmentName: row.equipmentName,
-			serialNumber: row.serialNumber,
+			...mapEquipmentPayload(row),
 			metadata: row.metadata ?? null,
 		}),
 	});

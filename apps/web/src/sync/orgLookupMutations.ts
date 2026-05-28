@@ -1,3 +1,5 @@
+import { createRowPayloadMapper } from '@simmer-mosquito/sync';
+
 interface OrgLookupMutationRow {
 	readonly id: string;
 	readonly name: string;
@@ -6,6 +8,10 @@ interface OrgLookupMutationRow {
 	readonly actionThreshold?: number | null;
 	readonly isActive: boolean;
 }
+
+const mapOrgLookupPayload = createRowPayloadMapper<OrgLookupMutationRow>(
+	['id', 'name', 'description'] as const,
+);
 
 export function createOrgLookupMutationHandlers<TRow extends OrgLookupMutationRow>(options: {
 	readonly serverUrl: string;
@@ -83,9 +89,7 @@ interface OrgLookupMutationResult {
 
 function toOrgLookupPayload(row: OrgLookupMutationRow) {
 	return {
-		id: row.id,
-		name: row.name,
-		description: row.description,
+		...mapOrgLookupPayload(row),
 		...(row.customSchema === undefined ? {} : { customSchema: row.customSchema }),
 		...(row.actionThreshold === undefined ? {} : { actionThreshold: row.actionThreshold }),
 	};

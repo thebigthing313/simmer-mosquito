@@ -1,0 +1,34 @@
+import { createSyncDescriptor } from '../descriptor-factory.js';
+import type { AdultCollectionRow } from '../index.js';
+
+export const collectionsSyncDescriptor = createSyncDescriptor<AdultCollectionRow>({
+	id: 'collections',
+	table: 'collections',
+	endpointPath: '/sync/shapes/collections',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'trapId',
+		'collectionMethodId',
+		'collectionLureId',
+		'addressId',
+		'collectedAt',
+		'collectedByProfileId',
+		'startedAt',
+		'setByProfileId',
+		'collectionTimingMode',
+		'collectionDate',
+		'durationAmount',
+		'durationUnitId',
+		'hasProblem',
+		'isZeroResult',
+		'hasBycatch',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+});

@@ -1,5 +1,7 @@
-import type { ProfileRow } from '@simmer-mosquito/sync';
+import { createRowPayloadMapper, type ProfileRow } from '@simmer-mosquito/sync';
 import type { AdminMembership, SimmerRole } from '../auth';
+
+const mapProfilePayload = createRowPayloadMapper<ProfileRow>(['id', 'displayName', 'isActive'] as const);
 
 export function createProfileMutationHandlers(options: { readonly serverUrl: string }) {
 	return {
@@ -101,11 +103,7 @@ interface ProfileMutationResult {
 }
 
 function toProfilePayload(row: ProfileRow) {
-	return {
-		id: row.id,
-		displayName: row.displayName,
-		isActive: row.isActive,
-	};
+	return mapProfilePayload(row);
 }
 
 async function writeProfile(

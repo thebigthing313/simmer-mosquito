@@ -1,0 +1,33 @@
+import { createSyncDescriptor } from '../descriptor-factory.js';
+import type { ApplicationRow } from '../index.js';
+
+export const applicationsSyncDescriptor = createSyncDescriptor<ApplicationRow>({
+	id: 'applications',
+	table: 'applications',
+	endpointPath: '/sync/shapes/applications',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'applicationMethodId',
+		'insecticideId',
+		'applicatorProfileId',
+		'applicationDate',
+		'addressId',
+		'vehicleId',
+		'equipmentId',
+		'amountApplied',
+		'applicationUnitId',
+		'habitatId',
+		'collectionId',
+		'inspectionId',
+		'requestedControlActionId',
+		'missionItemId',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+});
