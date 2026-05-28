@@ -3,17 +3,14 @@ import type { AddressRow } from '@simmer-mosquito/sync';
 export function createAddressMutationHandlers(options: { readonly serverUrl: string }) {
 	return {
 		onInsert: async ({ transaction }: CollectionMutationHandlerInput<AddressRow>) => {
-			const txids = await Promise.all(
+			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const result = await writeAddress(
+					await writeAddress(
 						`${options.serverUrl}/foundation/addresses`,
 						toAddressPayload(mutation.modified),
 					);
-					return result.txid;
 				}),
 			);
-
-			return { txid: txids };
 		},
 	};
 }

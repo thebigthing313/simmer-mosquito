@@ -1,10 +1,19 @@
 import {
 	addressesSyncDescriptor,
+	applicationsSyncDescriptor,
+	collectionsSyncDescriptor,
+	formulationInsecticidesSyncDescriptor,
+	formulationsSyncDescriptor,
 	habitatsSyncDescriptor,
 	habitatTypesSyncDescriptor,
 	inspectionsSyncDescriptor,
+	regionFoldersSyncDescriptor,
 	sampleSpeciesSyncDescriptor,
 	samplesSyncDescriptor,
+	trapsSyncDescriptor,
+	weatherSourceSubscriptionsSyncDescriptor,
+	weatherSourcesSyncDescriptor,
+	weatherSummariesSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import { describe, expect, it } from 'vitest';
 import {
@@ -37,6 +46,11 @@ describe('web sync baseline preload', () => {
 			'notificationTypes',
 			'tags',
 			'routes',
+			'regionFolders',
+			'traps',
+			'formulations',
+			'formulationInsecticides',
+			'weatherSources',
 		]);
 	});
 
@@ -93,5 +107,32 @@ describe('web sync baseline preload', () => {
 		expect(inspectionsSyncDescriptor.syncMode).toBe('on-demand');
 		expect(samplesSyncDescriptor.syncMode).toBe('on-demand');
 		expect(sampleSpeciesSyncDescriptor.syncMode).toBe('on-demand');
+	});
+
+	it('wires the remaining web sync collections without mutation handlers', () => {
+		const collections = createWebCollections({ serverUrl: 'https://example.test' });
+
+		expect(collections.regionFolders.config.id).toBe(regionFoldersSyncDescriptor.id);
+		expect(collections.traps.config.id).toBe(trapsSyncDescriptor.id);
+		expect(collections.formulations.config.id).toBe(formulationsSyncDescriptor.id);
+		expect(collections.formulationInsecticides.config.id).toBe(
+			formulationInsecticidesSyncDescriptor.id,
+		);
+		expect(collections.collections.config.id).toBe(collectionsSyncDescriptor.id);
+		expect(collections.applications.config.id).toBe(applicationsSyncDescriptor.id);
+		expect(collections.weatherSources.config.id).toBe(weatherSourcesSyncDescriptor.id);
+		expect(collections.weatherSummaries.config.id).toBe(weatherSummariesSyncDescriptor.id);
+
+		expect(collections.regionFolders.config.onInsert).toBeUndefined();
+		expect(collections.traps.config.onUpdate).toBeUndefined();
+		expect(collections.applications.config.onDelete).toBeUndefined();
+		expect(collections.weatherSummaries.config.onInsert).toBeUndefined();
+	});
+
+	it('leaves weather source subscriptions unwired for web', () => {
+		const collections = createWebCollections({ serverUrl: 'https://example.test' });
+
+		expect(weatherSourceSubscriptionsSyncDescriptor.syncMode).toBe('on-demand');
+		expect('weatherSourceSubscriptions' in collections).toBe(false);
 	});
 });

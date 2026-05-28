@@ -21,6 +21,7 @@ import {
 	PopoverContent,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
 	CheckIcon,
 	Loader2Icon,
@@ -30,7 +31,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { and, eq, ilike, or, useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useId, useState } from 'react';
+import { Suspense, useDeferredValue, useId, useState } from 'react';
 import { getServerUrl } from '../auth';
 import { webCollections } from '../sync/webCollections';
 import type { GeoJsonPointGeometry, MapPointDrawOptions } from './habitats';
@@ -45,6 +46,9 @@ export type HabitatGeometryValue =
 			readonly type: 'Polygon';
 			readonly coordinates: readonly (readonly (readonly [number, number])[])[];
 	  };
+
+type HabitatGeometryMode = HabitatGeometryValue['type'];
+type GeoJsonPosition = readonly [number, number];
 
 interface AddressIdInputProps {
 	readonly actorProfileId: string | null;
@@ -69,9 +73,9 @@ export function AddressIdInput({
 }: AddressIdInputProps) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
+	const deferredSearch = useDeferredValue(search);
 	const [isCreating, setIsCreating] = useState(false);
-	const addresses = useAddressSearch(organizationId, search);
-	const selectedAddress = addresses.find((address) => address.id === value) ?? null;
+	const [selectedAddress, setSelectedAddress] = useState<AddressRow | null>(null);
 
 	return (
 		<FieldGroup className="gap-3">
@@ -102,6 +106,7 @@ export function AddressIdInput({
 									className="absolute top-1/2 right-1.5 -translate-y-1/2"
 									aria-label="Clear address"
 									onClick={() => {
+										setSelectedAddress(null);
 										onValueChange(null);
 										setSearch('');
 									}}
@@ -116,27 +121,19 @@ export function AddressIdInput({
 						className="grid w-(--radix-popover-trigger-width) min-w-80 gap-2 p-2"
 						onOpenAutoFocus={(event) => event.preventDefault()}
 					>
-						<div className="grid gap-1">
-							{addresses.length === 0 ? (
-								<div className="flex min-h-16 items-center justify-center gap-2 rounded-md bg-muted/50 text-sm text-muted-foreground">
-									<SearchIcon aria-hidden="true" />
-									No address matches
-								</div>
-							) : (
-								addresses.map((address) => (
-									<AddressSearchResult
-										address={address}
-										key={address.id}
-										selected={address.id === value}
-										onSelect={() => {
-											onValueChange(address.id);
-											setSearch(address.displayName);
-											setOpen(false);
-										}}
-									/>
-								))
-							)}
-						</div>
+						<Suspense fallback={<AddressSearchFallback label="Searching addresses" />}>
+							<AddressSearchResults
+								organizationId={organizationId}
+								search={deferredSearch}
+								selectedValue={value}
+								onSelect={(address) => {
+									setSelectedAddress(address);
+									onValueChange(address.id);
+									setSearch(address.displayName);
+									setOpen(false);
+								}}
+							/>
+						</Suspense>
 						<Separator />
 						<Button
 							type="button"
@@ -166,6 +163,7 @@ export function AddressIdInput({
 					requestMapPoint={requestMapPoint}
 					onCancel={() => setIsCreating(false)}
 					onCreated={(address) => {
+						setSelectedAddress(address);
 						onValueChange(address.id);
 						setSearch(address.displayName);
 						setIsCreating(false);
@@ -182,17 +180,27 @@ export function HabitatGeometryInput({
 	onValueChange,
 }: HabitatGeometryInputProps) {
 	const [drawError, setDrawError] = useState<string | null>(null);
+	const [geometryMode, setGeometryMode] = useState<HabitatGeometryMode>(value?.type ?? 'Point');
+	const [draftPoints, setDraftPoints] = useState<readonly GeoJsonPosition[]>(() =>
+		pointsFromGeometry(value),
+	);
 	const [isDrawing, setIsDrawing] = useState(false);
 
-	async function drawPoint() {
+	async function addMapPoint() {
 		setDrawError(null);
 		setIsDrawing(true);
 		try {
-			onValueChange(
-				await requestMapPoint({
-					prompt: 'Click the map to place the habitat geometry.',
-				}),
-			);
+			const point = await requestMapPoint({
+				prompt: pointPromptForMode(geometryMode, draftPoints.length),
+			});
+			const nextPoints =
+				geometryMode === 'Point' ? [point.coordinates] : [...draftPoints, point.coordinates];
+
+			setDraftPoints(nextPoints);
+			const nextGeometry = geometryFromPoints(geometryMode, nextPoints);
+			if (nextGeometry !== null) {
+				onValueChange(nextGeometry);
+			}
 		} catch (error) {
 			setDrawError(error instanceof Error ? error.message : 'Unable to draw geometry.');
 		} finally {
@@ -215,12 +223,30 @@ export function HabitatGeometryInput({
 						</p>
 					</div>
 				</div>
+				<ToggleGroup
+					type="single"
+					variant="outline"
+					size="sm"
+					value={geometryMode}
+					onValueChange={(nextMode) => {
+						if (isHabitatGeometryMode(nextMode)) {
+							setGeometryMode(nextMode);
+							setDraftPoints([]);
+							onValueChange(null);
+							setDrawError(null);
+						}
+					}}
+				>
+					<ToggleGroupItem value="Point">Point</ToggleGroupItem>
+					<ToggleGroupItem value="LineString">Line</ToggleGroupItem>
+					<ToggleGroupItem value="Polygon">Polygon</ToggleGroupItem>
+				</ToggleGroup>
 				<div className="flex flex-wrap gap-2">
 					<Button
 						type="button"
 						variant="outline"
 						size="sm"
-						onClick={drawPoint}
+						onClick={addMapPoint}
 						disabled={isDrawing}
 					>
 						{isDrawing ? (
@@ -228,15 +254,29 @@ export function HabitatGeometryInput({
 						) : (
 							<MapPinnedIcon data-icon="inline-start" aria-hidden="true" />
 						)}
-						Draw point
+						{drawActionLabel(geometryMode, draftPoints.length)}
 					</Button>
 					{value === null ? null : (
-						<Button type="button" variant="ghost" size="sm" onClick={() => onValueChange(null)}>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={() => {
+								setDraftPoints([]);
+								onValueChange(null);
+							}}
+						>
 							<XIcon data-icon="inline-start" aria-hidden="true" />
 							Clear
 						</Button>
 					)}
 				</div>
+				{geometryMode === 'Point' ? null : (
+					<p className="m-0 text-xs text-muted-foreground">
+						{draftPoints.length} {draftPoints.length === 1 ? 'vertex' : 'vertices'} captured.
+						{minimumVertexHint(geometryMode, draftPoints.length)}
+					</p>
+				)}
 				{drawError === null ? null : <p className="m-0 text-sm text-destructive">{drawError}</p>}
 			</div>
 		</Field>
@@ -274,6 +314,46 @@ function useAddressSearch(organizationId: string, search: string): readonly Addr
 	);
 
 	return result.data;
+}
+
+function AddressSearchResults({
+	organizationId,
+	search,
+	selectedValue,
+	onSelect,
+}: {
+	readonly organizationId: string;
+	readonly search: string;
+	readonly selectedValue: string | null;
+	readonly onSelect: (address: AddressRow) => void;
+}) {
+	const addresses = useAddressSearch(organizationId, search);
+
+	if (addresses.length === 0) {
+		return <AddressSearchFallback label="No address matches" />;
+	}
+
+	return (
+		<div className="grid gap-1">
+			{addresses.map((address) => (
+				<AddressSearchResult
+					address={address}
+					key={address.id}
+					selected={address.id === selectedValue}
+					onSelect={() => onSelect(address)}
+				/>
+			))}
+		</div>
+	);
+}
+
+function AddressSearchFallback({ label }: { readonly label: string }) {
+	return (
+		<div className="flex min-h-16 items-center justify-center gap-2 rounded-md bg-muted/50 text-sm text-muted-foreground">
+			<SearchIcon aria-hidden="true" />
+			{label}
+		</div>
+	);
 }
 
 function AddressSearchResult({
@@ -577,12 +657,106 @@ function geometrySummary(geometry: HabitatGeometryValue): string {
 	if (geometry.type === 'Point') {
 		return `Point at ${coordinatePair(geometry)}`;
 	}
+	if (geometry.type === 'LineString') {
+		return `Line with ${geometry.coordinates.length} vertices`;
+	}
 
-	return geometry.type;
+	const ring = geometry.coordinates[0] ?? [];
+	return `Polygon with ${Math.max(ring.length - 1, 0)} vertices`;
 }
 
 function coordinatePair(point: GeoJsonPointGeometry): string {
 	return `${point.coordinates[1].toFixed(5)}, ${point.coordinates[0].toFixed(5)}`;
+}
+
+function isHabitatGeometryMode(value: string): value is HabitatGeometryMode {
+	return value === 'Point' || value === 'LineString' || value === 'Polygon';
+}
+
+function geometryFromPoints(
+	mode: HabitatGeometryMode,
+	points: readonly GeoJsonPosition[],
+): HabitatGeometryValue | null {
+	if (mode === 'Point') {
+		const point = points[0];
+		return point === undefined ? null : { type: 'Point', coordinates: point };
+	}
+	if (mode === 'LineString') {
+		return points.length < 2 ? null : { type: 'LineString', coordinates: points };
+	}
+
+	return points.length < 3
+		? null
+		: {
+				type: 'Polygon',
+				coordinates: [closeRing(points)],
+			};
+}
+
+function closeRing(points: readonly GeoJsonPosition[]): readonly GeoJsonPosition[] {
+	const first = points[0];
+	const last = points.at(-1);
+	if (first === undefined || last === undefined) {
+		return points;
+	}
+	if (first[0] === last[0] && first[1] === last[1]) {
+		return points;
+	}
+
+	return [...points, first];
+}
+
+function pointsFromGeometry(value: HabitatGeometryValue | null): readonly GeoJsonPosition[] {
+	if (value === null) {
+		return [];
+	}
+	if (value.type === 'Point') {
+		return [value.coordinates];
+	}
+	if (value.type === 'LineString') {
+		return value.coordinates;
+	}
+
+	const ring = value.coordinates[0] ?? [];
+	const first = ring[0];
+	const last = ring.at(-1);
+	return first !== undefined && last !== undefined && first[0] === last[0] && first[1] === last[1]
+		? ring.slice(0, -1)
+		: ring;
+}
+
+function pointPromptForMode(mode: HabitatGeometryMode, pointCount: number): string {
+	if (mode === 'Point') {
+		return 'Click the map to place the habitat point.';
+	}
+	if (mode === 'LineString') {
+		return pointCount === 0
+			? 'Click the map to place the first line vertex.'
+			: 'Click the map to add another line vertex.';
+	}
+
+	return pointCount === 0
+		? 'Click the map to place the first polygon vertex.'
+		: 'Click the map to add another polygon vertex.';
+}
+
+function drawActionLabel(mode: HabitatGeometryMode, pointCount: number): string {
+	if (mode === 'Point') {
+		return pointCount === 0 ? 'Draw point' : 'Replace point';
+	}
+
+	return pointCount === 0 ? 'Start drawing' : 'Add vertex';
+}
+
+function minimumVertexHint(mode: HabitatGeometryMode, pointCount: number): string {
+	if (mode === 'LineString' && pointCount < 2) {
+		return ` Add ${2 - pointCount} more to save a line.`;
+	}
+	if (mode === 'Polygon' && pointCount < 3) {
+		return ` Add ${3 - pointCount} more to save a polygon.`;
+	}
+
+	return '';
 }
 
 function addressLine(address: AddressRow): string {

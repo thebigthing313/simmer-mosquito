@@ -10,17 +10,14 @@ export interface HabitatMutationLocationMetadata {
 export function createHabitatMutationHandlers(options: { readonly serverUrl: string }) {
 	return {
 		onInsert: async ({ transaction }: CollectionMutationHandlerInput<HabitatRow>) => {
-			const txids = await Promise.all(
+			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const result = await writeHabitat(
+					await writeHabitat(
 						`${options.serverUrl}/larval-surveillance/habitats`,
 						toHabitatPayload(mutation.modified, mutation.metadata),
 					);
-					return result.txid;
 				}),
 			);
-
-			return { txid: txids };
 		},
 	};
 }
