@@ -87,7 +87,8 @@ database.
 `apps/server` is the Hono control plane. It owns WorkOS callbacks, web/admin
 session cookies, reusable AuthContext resolution, SIMMER operator control-plane
 endpoints, future mobile session exchange, Electric shape authorization, command
-endpoints, and server-authorized Postgres writes.
+endpoints, authenticated map vector tile reads, and server-authorized Postgres
+writes.
 
 `apps/worker` owns background work: WorkOS event sync, scheduled maintenance,
 imports, reports, and future retryable jobs if needed.
@@ -230,6 +231,12 @@ directly on the target row or snapshots the source record's existing owned
 geometry inside the authorized transaction. Geometry coordinates are preserved
 as submitted by apps or source imports. Read/sync rows expose each table's owned
 geometry projection rather than a shared geometry record.
+
+Open-ended map browsing uses authenticated MVT endpoints from `apps/server`.
+Those tile endpoints are viewport and zoom render projections over owned
+geometry, not the authoritative row read model. Bounded object-context maps,
+such as route and mission detail views, may continue to use GeoJSON for the
+selected work items and optionally overlay MVT context layers.
 
 ## Authorization
 
