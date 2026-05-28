@@ -139,14 +139,14 @@ export interface HabitatTypeRow extends OrgLookupRowBase {
 
 export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
 
-interface OwnedGeometryRow {
+interface OwnedGeometryProjection {
 	readonly lat: number;
 	readonly lng: number;
 	readonly geojson: unknown;
 	readonly geomType: string;
 }
 
-export interface HabitatRow extends OwnedGeometryRow {
+export interface HabitatRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
 	readonly organizationId: string;
@@ -163,7 +163,9 @@ export interface HabitatRow extends OwnedGeometryRow {
 	readonly updatedAt: string;
 }
 
-export interface InspectionRow extends OwnedGeometryRow {
+export interface HabitatDisplayRow extends HabitatRow, OwnedGeometryProjection {}
+
+export interface InspectionRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
 	readonly organizationId: string;
@@ -187,6 +189,8 @@ export interface InspectionRow extends OwnedGeometryRow {
 	readonly createdAt: string;
 	readonly updatedAt: string;
 }
+
+export interface InspectionDisplayRow extends InspectionRow, OwnedGeometryProjection {}
 
 export interface SampleRow {
 	readonly [key: string]: unknown;
@@ -465,10 +469,6 @@ export const habitatsSyncDescriptor: SyncDescriptor<HabitatRow> = {
 	columns: [
 		'id',
 		'organizationId',
-		'lat',
-		'lng',
-		'geojson',
-		'geomType',
 		'addressId',
 		'habitatTypeId',
 		'habitatName',
@@ -492,10 +492,6 @@ export const inspectionsSyncDescriptor: SyncDescriptor<InspectionRow> = {
 	columns: [
 		'id',
 		'organizationId',
-		'lat',
-		'lng',
-		'geojson',
-		'geomType',
 		'habitatId',
 		'habitatTypeId',
 		'addressId',

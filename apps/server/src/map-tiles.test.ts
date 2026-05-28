@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
+	parseHabitatDisplayQuery,
 	parseHabitatTileFilters,
 	parseTileCoordinate,
 	registerMapTileRoutes,
@@ -75,7 +76,132 @@ describe('parseHabitatTileFilters', () => {
 	});
 });
 
+describe('parseHabitatDisplayQuery', () => {
+	it('parses bbox, limit, and habitat filters', () => {
+		expect(
+			parseHabitatDisplayQuery(
+				new URLSearchParams({
+					bbox: '-91,35,-90,36',
+					limit: '25',
+					isActive: 'true',
+					isInaccessible: 'false',
+				}),
+				organizationId,
+			),
+		).toEqual({
+			ok: true,
+			input: {
+				organizationId,
+				bounds: {
+					west: -91,
+					south: 35,
+					east: -90,
+					north: 36,
+				},
+				filters: {
+					isActive: true,
+					isInaccessible: false,
+				},
+				limit: 25,
+			},
+		});
+	});
+
+	it('rejects invalid bbox and oversized limits', () => {
+		expect(parseHabitatDisplayQuery(new URLSearchParams(), organizationId)).toMatchObject({
+			ok: false,
+			reason: 'bbox is required.',
+		});
+		expect(
+			parseHabitatDisplayQuery(
+				new URLSearchParams({
+					bbox: '-91,35,-90,36',
+					limit: '100',
+				}),
+				organizationId,
+			),
+		).toMatchObject({
+			ok: false,
+			reason: 'limit must be between 1 and 50.',
+		});
+	});
+});
+
 describe('registerMapTileRoutes', () => {
+	it('returns authenticated habitat display rows scoped to the selected organization', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			listHabitatDisplayRows: async (_db, input) => {
+				calls.push(input);
+				return [
+					{
+						id: 'habitat-1',
+						organizationId,
+						lat: 35.5,
+						lng: -90.5,
+						geojson: { type: 'Point', coordinates: [-90.5, 35.5] },
+						geomType: 'st_point',
+						addressId: null,
+						habitatTypeId: null,
+						habitatName: 'Retention pond',
+						description: '',
+						isActive: true,
+						isInaccessible: false,
+						metadata: null,
+						createdByProfileId: null,
+						updatedByProfileId: null,
+						createdAt: new Date('2026-05-01T00:00:00.000Z'),
+						updatedAt: new Date('2026-05-02T00:00:00.000Z'),
+					},
+				];
+			},
+		});
+
+		const response = await app.request('/map/habitats?bbox=-91,35,-90,36&limit=10&isActive=true');
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({
+			habitats: [
+				{
+					id: 'habitat-1',
+					organizationId,
+					lat: 35.5,
+					lng: -90.5,
+				},
+			],
+		});
+		expect(calls).toEqual([
+			{
+				organizationId,
+				bounds: {
+					west: -91,
+					south: 35,
+					east: -90,
+					north: 36,
+				},
+				filters: {
+					isActive: true,
+				},
+				limit: 10,
+			},
+		]);
+	});
+
+	it('rejects invalid habitat display queries before reading rows', async () => {
+		const listHabitatDisplayRows = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			listHabitatDisplayRows,
+		});
+
+		const response = await app.request('/map/habitats?bbox=-91,35,-90,36&limit=99');
+
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(response.status).toBe(400);
+		expect(listHabitatDisplayRows).not.toHaveBeenCalled();
+	});
+
 	it('returns authenticated habitat tiles scoped to the selected organization', async () => {
 		const calls: unknown[] = [];
 		const tile = new Uint8Array([1, 2, 3]);
@@ -172,6 +298,9 @@ function createApp(options: {
 	readonly getHabitatTile: NonNullable<
 		Parameters<typeof registerMapTileRoutes>[1]['getHabitatTile']
 	>;
+	readonly listHabitatDisplayRows?: NonNullable<
+		Parameters<typeof registerMapTileRoutes>[1]['listHabitatDisplayRows']
+	>;
 }) {
 	const app = new Hono<{ Variables: AuthVariables }>();
 	registerMapTileRoutes(app, {
@@ -185,6 +314,9 @@ function createApp(options: {
 			await next();
 		}),
 		getHabitatTile: options.getHabitatTile,
+		...(options.listHabitatDisplayRows === undefined
+			? {}
+			: { listHabitatDisplayRows: options.listHabitatDisplayRows }),
 	});
 	return app;
 }

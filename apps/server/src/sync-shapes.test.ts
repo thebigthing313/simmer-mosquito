@@ -193,4 +193,34 @@ describe('registerSyncShapeRoutes', () => {
 		expect(upstream.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
 		expect(upstream.searchParams.get('params[1]')).toBe('org-1');
 	});
+
+	it('does not request generated owned-geometry columns from Electric', async () => {
+		const app = new Hono<{ Variables: AuthVariables }>();
+		const requests: string[] = [];
+
+		registerSyncShapeRoutes(app, {
+			electricUrl: 'http://localhost:3001/v1/shape',
+			authContextMiddleware: createMiddleware(async (context, next) => {
+				context.set('authContext', {
+					organization: { id: 'org-1' },
+				} as never);
+				await next();
+			}),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+			fetch: ((request) => {
+				requests.push(String(request));
+				return Promise.resolve(new Response('[]'));
+			}) as typeof fetch,
+		});
+
+		const response = await app.request('/sync/shapes/habitats');
+		const upstream = new URL(requests[0] ?? '');
+		const columns = upstream.searchParams.get('columns')?.split(',') ?? [];
+
+		expect(response.status).toBe(200);
+		expect(columns).not.toContain('lat');
+		expect(columns).not.toContain('lng');
+		expect(columns).not.toContain('geojson');
+		expect(columns).not.toContain('geom_type');
+	});
 });

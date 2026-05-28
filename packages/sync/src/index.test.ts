@@ -4,7 +4,9 @@ import {
 	decodeShapeColumnName,
 	electricShapeCollectionOptions,
 	encodeShapeColumnName,
+	habitatsSyncDescriptor,
 	insecticideBatchesSyncDescriptor,
+	inspectionsSyncDescriptor,
 	membershipsSyncDescriptor,
 	profilesSyncDescriptor,
 	type SyncDescriptor,
@@ -145,6 +147,15 @@ describe('sync descriptors', () => {
 		expect(insecticideBatchesSyncDescriptor.columns).toContain('deletedAt');
 	});
 
+	it('omits generated owned-geometry projections from Electric shapes', () => {
+		for (const descriptor of [habitatsSyncDescriptor, inspectionsSyncDescriptor]) {
+			expect(descriptor.columns).not.toContain('lat');
+			expect(descriptor.columns).not.toContain('lng');
+			expect(descriptor.columns).not.toContain('geojson');
+			expect(descriptor.columns).not.toContain('geomType');
+		}
+	});
+
 	it('keeps the remaining web tracer descriptors read-only', () => {
 		expect(webReadOnlyTracerDescriptors.map((descriptor) => descriptor.id)).toEqual([
 			'units',
@@ -162,6 +173,10 @@ describe('sync descriptors', () => {
 			'insecticides',
 			'insecticide_batches',
 			'notification_types',
+			'habitats',
+			'inspections',
+			'samples',
+			'sample_species',
 			'routes',
 		]);
 

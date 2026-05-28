@@ -247,6 +247,7 @@ const navigationGroups = [
 ] as const;
 
 export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
+	const { pathname } = useLocation();
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
 	const { rows: organizations, status: organizationStatus } = useCollectionRows(
@@ -261,6 +262,19 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 	const roleLabel = formatRole(localIdentity?.role);
 	const liveStatus =
 		organizationStatus === 'ready' && profileStatus === 'ready' ? 'Live' : 'Updating';
+	const fullHeightWorkspace = pathname === '/habitats';
+	const workspaceContent = (
+		<div
+			className={cn(
+				'min-h-0 p-[clamp(18px,2.6vw,30px)] max-[560px]:p-4',
+				fullHeightWorkspace ? 'h-full overflow-hidden' : 'h-full',
+			)}
+		>
+			<WorkspaceOutletBoundary>
+				<Outlet />
+			</WorkspaceOutletBoundary>
+		</div>
+	);
 
 	return (
 		<SidebarProvider className="h-svh min-h-0 overflow-hidden bg-(--app-stage)">
@@ -307,13 +321,15 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 						</div>
 					</div>
 				</header>
-				<ScrollArea className="min-h-0 flex-auto bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_340px),var(--app-stage)]">
-					<div className="min-h-0 p-[clamp(18px,2.6vw,30px)] max-[560px]:p-4">
-						<WorkspaceOutletBoundary>
-							<Outlet />
-						</WorkspaceOutletBoundary>
+				{fullHeightWorkspace ? (
+					<div className="min-h-0 flex-auto overflow-hidden bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_340px),var(--app-stage)]">
+						{workspaceContent}
 					</div>
-				</ScrollArea>
+				) : (
+					<ScrollArea className="min-h-0 flex-auto bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_340px),var(--app-stage)]">
+						{workspaceContent}
+					</ScrollArea>
+				)}
 			</SidebarInset>
 			<Toaster richColors />
 		</SidebarProvider>

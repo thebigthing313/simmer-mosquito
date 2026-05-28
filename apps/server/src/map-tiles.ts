@@ -3,6 +3,8 @@ import {
 	type HabitatMvtTileFilters,
 	type HabitatMvtTileInput,
 	type Kysely,
+	listHabitatDisplayRowsByBounds,
+	type SafeHabitatDisplayRow,
 	type SimmerDatabase,
 } from '@simmer-mosquito/db';
 import type { Hono, MiddlewareHandler } from 'hono';
@@ -14,6 +16,10 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 type TileDb = Kysely<SimmerDatabase>;
 type HabitatTileReader = (db: TileDb, input: HabitatMvtTileInput) => Promise<Uint8Array>;
+type HabitatDisplayReader = (
+	db: TileDb,
+	input: HabitatDisplayInput,
+) => Promise<SafeHabitatDisplayRow[]>;
 
 type TileCoordinateResult =
 	| {
@@ -41,6 +47,28 @@ type HabitatFilterResult =
 			readonly reason: string;
 	  };
 
+type HabitatDisplayQueryResult =
+	| {
+			readonly ok: true;
+			readonly input: HabitatDisplayInput;
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: string;
+	  };
+
+interface HabitatDisplayInput {
+	readonly organizationId: string;
+	readonly bounds: {
+		readonly west: number;
+		readonly south: number;
+		readonly east: number;
+		readonly north: number;
+	};
+	readonly filters?: HabitatMvtTileFilters;
+	readonly limit: number;
+}
+
 interface TileSetDefinition {
 	readonly parseFilters: (searchParams: URLSearchParams) => HabitatFilterResult;
 	readonly getTile: (
@@ -59,10 +87,28 @@ export function registerMapTileRoutes(
 		readonly db: TileDb;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly getHabitatTile?: HabitatTileReader;
+		readonly listHabitatDisplayRows?: HabitatDisplayReader;
 	},
 ): void {
 	const tileSets = createTileSetRegistry({
 		getHabitatTile: options.getHabitatTile ?? getHabitatMvtTile,
+	});
+	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
+
+	app.get('/map/habitats', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseHabitatDisplayQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const habitats = await listDisplayRows(options.db, queryResult.input);
+
+		return context.json({ habitats });
 	});
 
 	app.get(
@@ -199,7 +245,42 @@ export function parseHabitatTileFilters(searchParams: URLSearchParams): HabitatF
 	};
 }
 
+export function parseHabitatDisplayQuery(
+	searchParams: URLSearchParams,
+	organizationId: string,
+): HabitatDisplayQueryResult {
+	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
+	if (!bbox.ok) {
+		return bbox;
+	}
+
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('bbox');
+	filterParams.delete('limit');
+
+	const filterResult = parseHabitatTileFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			bounds: bbox.bounds,
+			filters: filterResult.filters,
+			limit: limit.value,
+		},
+	};
+}
+
 const habitatFilterParams = new Set(['isActive', 'isInaccessible', 'habitatTypeId']);
+const maxDisplayLimit = 50;
 
 function parseInteger(value: string): number | null {
 	if (!/^\d+$/.test(value)) {
@@ -260,4 +341,65 @@ function parseOptionalUuidListFilter(
 	}
 
 	return { ok: true, value: [...new Set(values)] };
+}
+
+function parseBoundingBoxParam(value: string | null):
+	| {
+			readonly ok: true;
+			readonly bounds: HabitatDisplayInput['bounds'];
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: string;
+	  } {
+	if (value === null) {
+		return { ok: false, reason: 'bbox is required.' };
+	}
+
+	const parts = value.split(',').map((part) => Number.parseFloat(part.trim()));
+	const [west, south, east, north] = parts;
+
+	if (
+		parts.length !== 4 ||
+		west === undefined ||
+		south === undefined ||
+		east === undefined ||
+		north === undefined ||
+		!isValidLng(west) ||
+		!isValidLng(east) ||
+		!isValidLat(south) ||
+		!isValidLat(north) ||
+		west > east ||
+		south > north
+	) {
+		return { ok: false, reason: 'bbox must be west,south,east,north.' };
+	}
+
+	return {
+		ok: true,
+		bounds: { west, south, east, north },
+	};
+}
+
+function parseLimitParam(
+	value: string | null,
+): { readonly ok: true; readonly value: number } | { readonly ok: false; readonly reason: string } {
+	if (value === null || value.trim() === '') {
+		return { ok: true, value: maxDisplayLimit };
+	}
+
+	const parsed = parseInteger(value);
+	if (parsed === null || parsed < 1 || parsed > maxDisplayLimit) {
+		return { ok: false, reason: `limit must be between 1 and ${maxDisplayLimit}.` };
+	}
+
+	return { ok: true, value: parsed };
+}
+
+function isValidLng(value: number): boolean {
+	return Number.isFinite(value) && value >= -180 && value <= 180;
+}
+
+function isValidLat(value: number): boolean {
+	return Number.isFinite(value) && value >= -90 && value <= 90;
 }

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -9,6 +10,15 @@ import '@fontsource/poppins/800.css';
 import { appAuthController } from './app-auth';
 import { routeTree } from './routeTree.gen';
 import './styles.css';
+
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			refetchOnWindowFocus: false,
+			staleTime: 5000,
+		},
+	},
+});
 
 const router = createRouter({
 	routeTree,
@@ -40,6 +50,8 @@ function App() {
 
 createRoot(rootElement).render(
 	<StrictMode>
-		<App />
+		<QueryClientProvider client={queryClient}>
+			<App />
+		</QueryClientProvider>
 	</StrictMode>,
 );

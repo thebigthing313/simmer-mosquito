@@ -43,6 +43,7 @@ import { Route as MyOrganizationInsecticidesRouteImport } from './routes/my-orga
 import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as MissionsEditRouteImport } from './routes/missions.edit'
+import { Route as HabitatsCreateRouteImport } from './routes/habitats.create'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin.organizations.$organizationId'
 
@@ -222,6 +223,11 @@ const MissionsEditRoute = MissionsEditRouteImport.update({
   path: '/edit',
   getParentRoute: () => MissionsRoute,
 } as any)
+const HabitatsCreateRoute = HabitatsCreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => HabitatsRoute,
+} as any)
 const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
   id: '/admin/organizations',
   path: '/admin/organizations',
@@ -244,7 +250,7 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
-  '/habitats': typeof HabitatsRoute
+  '/habitats': typeof HabitatsRouteWithChildren
   '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
@@ -260,6 +266,7 @@ export interface FileRoutesByFullPath {
   '/today': typeof TodayRoute
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/habitats/create': typeof HabitatsCreateRoute
   '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -282,7 +289,7 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
-  '/habitats': typeof HabitatsRoute
+  '/habitats': typeof HabitatsRouteWithChildren
   '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
@@ -296,6 +303,7 @@ export interface FileRoutesByTo {
   '/today': typeof TodayRoute
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/habitats/create': typeof HabitatsCreateRoute
   '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -319,7 +327,7 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
-  '/habitats': typeof HabitatsRoute
+  '/habitats': typeof HabitatsRouteWithChildren
   '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
@@ -335,6 +343,7 @@ export interface FileRoutesById {
   '/today': typeof TodayRoute
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/habitats/create': typeof HabitatsCreateRoute
   '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -375,6 +384,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/traps'
     | '/admin/organizations'
+    | '/habitats/create'
     | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -411,6 +421,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/traps'
     | '/admin/organizations'
+    | '/habitats/create'
     | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/traps'
     | '/admin/organizations'
+    | '/habitats/create'
     | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -472,7 +484,7 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   GroupSettingsRoute: typeof GroupSettingsRoute
   GroupsRoute: typeof GroupsRoute
-  HabitatsRoute: typeof HabitatsRoute
+  HabitatsRoute: typeof HabitatsRouteWithChildren
   InspectionsRoute: typeof InspectionsRoute
   LandingRoute: typeof LandingRoute
   LoginRoute: typeof LoginRoute
@@ -730,6 +742,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MissionsEditRouteImport
       parentRoute: typeof MissionsRoute
     }
+    '/habitats/create': {
+      id: '/habitats/create'
+      path: '/create'
+      fullPath: '/habitats/create'
+      preLoaderRoute: typeof HabitatsCreateRouteImport
+      parentRoute: typeof HabitatsRoute
+    }
     '/admin/organizations': {
       id: '/admin/organizations'
       path: '/admin/organizations'
@@ -746,6 +765,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface HabitatsRouteChildren {
+  HabitatsCreateRoute: typeof HabitatsCreateRoute
+}
+
+const HabitatsRouteChildren: HabitatsRouteChildren = {
+  HabitatsCreateRoute: HabitatsCreateRoute,
+}
+
+const HabitatsRouteWithChildren = HabitatsRoute._addFileChildren(
+  HabitatsRouteChildren,
+)
 
 interface MissionsRouteChildren {
   MissionsEditRoute: typeof MissionsEditRoute
@@ -818,7 +849,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   GroupSettingsRoute: GroupSettingsRoute,
   GroupsRoute: GroupsRoute,
-  HabitatsRoute: HabitatsRoute,
+  HabitatsRoute: HabitatsRouteWithChildren,
   InspectionsRoute: InspectionsRoute,
   LandingRoute: LandingRoute,
   LoginRoute: LoginRoute,
