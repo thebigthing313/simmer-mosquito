@@ -34,6 +34,7 @@ import { registerControlProductCommandRoutes } from './control-product-commands.
 import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
 import { readServerEnv } from './env.js';
 import { registerFoundationCommandRoutes } from './foundation-commands.js';
+import { registerMapTileRoutes } from './map-tiles.js';
 import { registerOrganizationCommandRoutes } from './organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
@@ -90,6 +91,15 @@ app.use(
 
 app.use(
 	'/sync/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['GET', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/map/*',
 	cors({
 		origin: allowedCorsOrigins(),
 		credentials: true,
@@ -343,6 +353,11 @@ registerProfileCommandRoutes(app, {
 });
 
 registerPublicEngagementCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerMapTileRoutes(app, {
 	db,
 	authContextMiddleware,
 });

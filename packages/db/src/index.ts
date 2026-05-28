@@ -1143,6 +1143,77 @@ export function createDb(options: CreateDbOptions): Kysely<SimmerDatabase> {
 	});
 }
 
+export interface HabitatMvtTileFilters {
+	readonly isActive?: boolean;
+	readonly isInaccessible?: boolean;
+	readonly habitatTypeIds?: readonly string[];
+}
+
+export interface HabitatMvtTileInput {
+	readonly z: number;
+	readonly x: number;
+	readonly y: number;
+	readonly organizationId: string;
+	readonly filters?: HabitatMvtTileFilters;
+}
+
+export async function getHabitatMvtTile(
+	db: Kysely<SimmerDatabase>,
+	input: HabitatMvtTileInput,
+): Promise<Uint8Array> {
+	const whereClauses: RawBuilder<boolean>[] = [
+		sql<boolean>`h.organization_id = ${input.organizationId}`,
+		sql<boolean>`h.deleted_at is null`,
+		sql<boolean>`h.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(h.geom, bounds.geom_4326)`,
+	];
+
+	if (input.filters?.isActive !== undefined) {
+		whereClauses.push(sql<boolean>`h.is_active = ${input.filters.isActive}`);
+	}
+
+	if (input.filters?.isInaccessible !== undefined) {
+		whereClauses.push(sql<boolean>`h.is_inaccessible = ${input.filters.isInaccessible}`);
+	}
+
+	if (input.filters?.habitatTypeIds !== undefined) {
+		whereClauses.push(
+			sql<boolean>`h.habitat_type_id = any(${[...input.filters.habitatTypeIds]}::uuid[])`,
+		);
+	}
+
+	const result = await sql<{ readonly tile: Uint8Array | null }>`
+		with
+		bounds as (
+			select
+				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
+				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
+		),
+		tile_rows as (
+			select
+				h.id,
+				h.habitat_name as "habitatName",
+				h.habitat_type_id as "habitatTypeId",
+				h.is_active as "isActive",
+				h.is_inaccessible as "isInaccessible",
+				h.geom_type as "geomType",
+				st_asmvtgeom(
+					st_transform(h.geom, 3857),
+					bounds.geom_3857,
+					extent => 4096,
+					buffer => 64
+				) as geom
+			from habitats h
+			cross join bounds
+			where ${sql.join(whereClauses, sql` and `)}
+		)
+		select coalesce(st_asmvt(tile_rows, 'habitats', 4096, 'geom'), ''::bytea) as tile
+		from tile_rows
+	`.execute(db);
+
+	return result.rows[0]?.tile ?? new Uint8Array();
+}
+
 export interface WorkOsIdentityInput {
 	readonly workosUserId: string;
 	readonly email: string;
