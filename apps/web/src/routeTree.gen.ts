@@ -35,6 +35,7 @@ import { Route as AddressBookRouteImport } from './routes/address-book'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ServiceRequestsIndexRouteImport } from './routes/service-requests.index'
 import { Route as MyOrganizationIndexRouteImport } from './routes/my-organization/index'
+import { Route as HabitatsIndexRouteImport } from './routes/habitats.index'
 import { Route as ServiceRequestsRequestIdRouteImport } from './routes/service-requests.$requestId'
 import { Route as MyOrganizationPublicEngagementRouteImport } from './routes/my-organization/public-engagement'
 import { Route as MyOrganizationPeopleRouteImport } from './routes/my-organization/people'
@@ -177,6 +178,11 @@ const MyOrganizationIndexRoute = MyOrganizationIndexRouteImport.update({
   path: '/',
   getParentRoute: () => MyOrganizationRoute,
 } as any)
+const HabitatsIndexRoute = HabitatsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => HabitatsRoute,
+} as any)
 const ServiceRequestsRequestIdRoute =
   ServiceRequestsRequestIdRouteImport.update({
     id: '/$requestId',
@@ -275,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/habitats/': typeof HabitatsIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
@@ -289,7 +296,6 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
-  '/habitats': typeof HabitatsRouteWithChildren
   '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
@@ -312,6 +318,7 @@ export interface FileRoutesByTo {
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/habitats': typeof HabitatsIndexRoute
   '/my-organization': typeof MyOrganizationIndexRoute
   '/service-requests': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
@@ -352,6 +359,7 @@ export interface FileRoutesById {
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/habitats/': typeof HabitatsIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
@@ -393,6 +401,7 @@ export interface FileRouteTypes {
     | '/my-organization/people'
     | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
+    | '/habitats/'
     | '/my-organization/'
     | '/service-requests/'
     | '/admin/organizations/$organizationId'
@@ -407,7 +416,6 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/group-settings'
     | '/groups'
-    | '/habitats'
     | '/inspections'
     | '/landing'
     | '/login'
@@ -430,6 +438,7 @@ export interface FileRouteTypes {
     | '/my-organization/people'
     | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
+    | '/habitats'
     | '/my-organization'
     | '/service-requests'
     | '/admin/organizations/$organizationId'
@@ -469,6 +478,7 @@ export interface FileRouteTypes {
     | '/my-organization/people'
     | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
+    | '/habitats/'
     | '/my-organization/'
     | '/service-requests/'
     | '/admin/organizations/$organizationId'
@@ -686,6 +696,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyOrganizationIndexRouteImport
       parentRoute: typeof MyOrganizationRoute
     }
+    '/habitats/': {
+      id: '/habitats/'
+      path: '/'
+      fullPath: '/habitats/'
+      preLoaderRoute: typeof HabitatsIndexRouteImport
+      parentRoute: typeof HabitatsRoute
+    }
     '/service-requests/$requestId': {
       id: '/service-requests/$requestId'
       path: '/$requestId'
@@ -768,10 +785,12 @@ declare module '@tanstack/react-router' {
 
 interface HabitatsRouteChildren {
   HabitatsCreateRoute: typeof HabitatsCreateRoute
+  HabitatsIndexRoute: typeof HabitatsIndexRoute
 }
 
 const HabitatsRouteChildren: HabitatsRouteChildren = {
   HabitatsCreateRoute: HabitatsCreateRoute,
+  HabitatsIndexRoute: HabitatsIndexRoute,
 }
 
 const HabitatsRouteWithChildren = HabitatsRoute._addFileChildren(

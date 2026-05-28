@@ -120,6 +120,35 @@ describe('registerSyncShapeRoutes', () => {
 		['/sync/shapes/inspections'],
 		['/sync/shapes/samples'],
 		['/sync/shapes/sample-species'],
+		['/sync/shapes/region-folders'],
+		['/sync/shapes/regions'],
+		['/sync/shapes/traps'],
+		['/sync/shapes/collections'],
+		['/sync/shapes/collection-species'],
+		['/sync/shapes/comments'],
+		['/sync/shapes/tag-items'],
+		['/sync/shapes/additional-personnel'],
+		['/sync/shapes/route-items'],
+		['/sync/shapes/assignments'],
+		['/sync/shapes/assignment-items'],
+		['/sync/shapes/formulations'],
+		['/sync/shapes/formulation-insecticides'],
+		['/sync/shapes/applications'],
+		['/sync/shapes/application-batches'],
+		['/sync/shapes/source-reductions'],
+		['/sync/shapes/outreach-actions'],
+		['/sync/shapes/biocontrol-actions'],
+		['/sync/shapes/contacts'],
+		['/sync/shapes/service-requests'],
+		['/sync/shapes/requested-control-actions'],
+		['/sync/shapes/missions'],
+		['/sync/shapes/mission-items'],
+		['/sync/shapes/notification-registrations'],
+		['/sync/shapes/notification-registration-types'],
+		['/sync/shapes/mission-notifications'],
+		['/sync/shapes/weather-sources'],
+		['/sync/shapes/weather-source-subscriptions'],
+		['/sync/shapes/weather-summaries'],
 	])('registers %s', async (path) => {
 		const app = new Hono<{ Variables: AuthVariables }>();
 
@@ -222,5 +251,50 @@ describe('registerSyncShapeRoutes', () => {
 		expect(columns).not.toContain('lng');
 		expect(columns).not.toContain('geojson');
 		expect(columns).not.toContain('geom_type');
+	});
+
+	it('does not request generated owned-geometry columns from new locatable shapes', async () => {
+		const app = new Hono<{ Variables: AuthVariables }>();
+		const requests: string[] = [];
+
+		registerSyncShapeRoutes(app, {
+			electricUrl: 'http://localhost:3001/v1/shape',
+			authContextMiddleware: createMiddleware(async (context, next) => {
+				context.set('authContext', {
+					organization: { id: 'org-1' },
+				} as never);
+				await next();
+			}),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+			fetch: ((request) => {
+				requests.push(String(request));
+				return Promise.resolve(new Response('[]'));
+			}) as typeof fetch,
+		});
+
+		for (const path of [
+			'/sync/shapes/traps',
+			'/sync/shapes/collections',
+			'/sync/shapes/applications',
+			'/sync/shapes/source-reductions',
+			'/sync/shapes/outreach-actions',
+			'/sync/shapes/biocontrol-actions',
+			'/sync/shapes/service-requests',
+			'/sync/shapes/requested-control-actions',
+			'/sync/shapes/mission-items',
+			'/sync/shapes/notification-registrations',
+			'/sync/shapes/weather-sources',
+		]) {
+			const response = await app.request(path);
+			const upstream = new URL(requests.at(-1) ?? '');
+			const columns = upstream.searchParams.get('columns')?.split(',') ?? [];
+
+			expect(response.status).toBe(200);
+			expect(columns).not.toContain('geom');
+			expect(columns).not.toContain('lat');
+			expect(columns).not.toContain('lng');
+			expect(columns).not.toContain('geojson');
+			expect(columns).not.toContain('geom_type');
+		}
 	});
 });

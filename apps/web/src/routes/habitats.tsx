@@ -1,76 +1,115 @@
 import type { BoundingBox } from '@simmer-mosquito/mapping';
 import { formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { HabitatDisplayRow, HabitatTypeRow } from '@simmer-mosquito/sync';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Card,
-	CardAction,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Field, FieldGroup, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@simmer-mosquito/ui-web/components/ui/select';
-import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
-import {
-	AlertTriangleIcon,
-	CheckCircle2Icon,
-	PlusIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
+import type { Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useState,
+	useSyncExternalStore,
+} from 'react';
 import { getServerUrl } from '../auth';
 import { MapView } from '../map';
 import { createHabitatTileSource, type HabitatTileFilters } from '../map/styles';
 import { useCollectionRows } from '../sync/useCollectionRows';
 import { webCollections } from '../sync/webCollections';
 
-type LifecycleFilter = 'all' | 'active' | 'inactive';
-type AccessFilter = 'all' | 'accessible' | 'inaccessible';
+export type HabitatStatusFilter = 'all' | 'active' | 'inactive';
+export type HabitatAccessFilter = 'all' | 'accessible' | 'inaccessible';
 
-interface HabitatFilters {
-	readonly lifecycle: LifecycleFilter;
-	readonly access: AccessFilter;
+export interface HabitatFilters {
+	readonly status: HabitatStatusFilter;
+	readonly access: HabitatAccessFilter;
 	readonly habitatTypeId: string;
 }
 
-interface VisibleHabitat {
+export interface VisibleHabitat {
 	readonly row: HabitatDisplayRow;
 	readonly typeName: string;
+}
+
+export interface GeoJsonPointGeometry {
+	readonly type: 'Point';
+	readonly coordinates: readonly [number, number];
+}
+
+export interface HabitatsLayoutContextValue {
+	readonly bounds: BoundingBox | null;
+	readonly filters: HabitatFilters;
+	readonly habitatTypes: readonly HabitatTypeRow[];
+	readonly onFiltersChange: (filters: HabitatFilters) => void;
+	readonly requestMapPoint: (options?: MapPointDrawOptions) => Promise<GeoJsonPointGeometry>;
+	readonly visibleHabitats: readonly VisibleHabitat[];
+}
+
+export interface MapPointDrawOptions {
+	readonly prompt?: string;
 }
 
 const initialFilters: HabitatFilters = {
 	access: 'all',
 	habitatTypeId: 'all',
-	lifecycle: 'active',
+	status: 'active',
 };
 
+const defaultHabitatsLayoutContext: HabitatsLayoutContextValue = {
+	bounds: null,
+	filters: initialFilters,
+	habitatTypes: [],
+	onFiltersChange: ignoreFiltersChange,
+	requestMapPoint: rejectMapPointRequest,
+	visibleHabitats: [],
+};
+
+interface HabitatsLayoutContextStore {
+	snapshot: HabitatsLayoutContextValue;
+	readonly listeners: Set<() => void>;
+}
+
+const habitatsLayoutContextStoreKey = '__simmerMosquitoHabitatsLayoutContextStore';
+type HabitatsLayoutContextGlobal = typeof globalThis & {
+	[habitatsLayoutContextStoreKey]?: HabitatsLayoutContextStore;
+};
+
+const habitatsLayoutContextGlobal = globalThis as HabitatsLayoutContextGlobal;
+const habitatsLayoutContextStore = getGlobalHabitatsLayoutContextStore();
+
 export const Route = createFileRoute('/habitats')({
-	component: HabitatsRoute,
+	component: HabitatsLayoutRoute,
 });
 
-function HabitatsRoute() {
+export function useHabitatsLayoutContext(): HabitatsLayoutContextValue {
+	return useSyncExternalStore(
+		subscribeToHabitatsLayoutContext,
+		getHabitatsLayoutContextSnapshot,
+		getHabitatsLayoutContextSnapshot,
+	);
+}
+
+function getGlobalHabitatsLayoutContextStore(): HabitatsLayoutContextStore {
+	const existingStore = habitatsLayoutContextGlobal[habitatsLayoutContextStoreKey];
+	if (existingStore !== undefined) {
+		return existingStore;
+	}
+
+	const store = {
+		listeners: new Set<() => void>(),
+		snapshot: defaultHabitatsLayoutContext,
+	};
+	habitatsLayoutContextGlobal[habitatsLayoutContextStoreKey] = store;
+	return store;
+}
+
+function HabitatsLayoutRoute() {
 	const [filters, setFilters] = useState<HabitatFilters>(initialFilters);
 	const [map, setMap] = useState<MapboxMap | null>(null);
+	const [pointDrawRequest, setPointDrawRequest] = useState<PointDrawRequest | null>(null);
 	const bounds = useMapBounds(map);
 	const { rows: habitatRows } = useVisibleHabitatRows(bounds, filters);
 	const { rows: habitatTypes } = useCollectionRows(webCollections.habitatTypes);
@@ -100,238 +139,155 @@ function HabitatsRoute() {
 	const handleMapReady = useCallback((nextMap: MapboxMap) => {
 		setMap(nextMap);
 	}, []);
-	const common = {
-		bounds,
-		filters,
-		habitatTypes,
-		onFiltersChange: setFilters,
-		onMapReady: handleMapReady,
-		source: habitatSource,
-		visibleHabitats,
-	};
+	const requestMapPoint = useCallback(
+		(options: MapPointDrawOptions = {}) =>
+			new Promise<GeoJsonPointGeometry>((resolve, reject) => {
+				if (map === null) {
+					reject(new Error('The map is not ready yet.'));
+					return;
+				}
+
+				setPointDrawRequest((currentRequest) => {
+					currentRequest?.reject(new Error('A new map drawing request replaced this one.'));
+					return {
+						id: crypto.randomUUID(),
+						prompt: options.prompt ?? 'Click the map to place a point.',
+						reject,
+						resolve,
+					};
+				});
+			}),
+		[map],
+	);
+	const contextValue = useMemo(
+		(): HabitatsLayoutContextValue => ({
+			bounds,
+			filters,
+			habitatTypes,
+			onFiltersChange: setFilters,
+			requestMapPoint,
+			visibleHabitats,
+		}),
+		[bounds, filters, habitatTypes, requestMapPoint, visibleHabitats],
+	);
+
+	useLayoutEffect(() => {
+		setHabitatsLayoutContextSnapshot(contextValue);
+	}, [contextValue]);
+
+	useEffect(() => {
+		return () => {
+			setHabitatsLayoutContextSnapshot(defaultHabitatsLayoutContext);
+		};
+	}, []);
+
+	useMapPointDrawRequest(map, pointDrawRequest, setPointDrawRequest);
 
 	return (
 		<div className="h-full min-h-0 overflow-hidden">
-			<AtlasDesign {...common} />
+			<section className="grid h-full min-h-0 grid-cols-[minmax(420px,1fr)_minmax(360px,0.44fr)] gap-4 overflow-hidden max-[1120px]:grid-cols-1">
+				<div className="relative min-h-0 overflow-hidden rounded-md border border-border/40 bg-card">
+					<HabitatMap
+						className="rounded-none border-0"
+						onMapReady={handleMapReady}
+						source={habitatSource}
+					/>
+					{pointDrawRequest === null ? null : (
+						<div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-md border border-border/60 bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md">
+							{pointDrawRequest.prompt}
+						</div>
+					)}
+				</div>
+				<Card
+					variant="surface"
+					className="flex min-h-0 flex-col overflow-hidden border border-border/40"
+				>
+					<Outlet />
+				</Card>
+			</section>
 		</div>
 	);
 }
 
-function AtlasDesign(props: HabitatDesignProps) {
-	return (
-		<section className="grid h-full min-h-0 grid-cols-[minmax(420px,1fr)_minmax(360px,0.44fr)] gap-4 overflow-hidden max-[1120px]:grid-cols-1">
-			<div className="min-h-0 overflow-hidden rounded-md border border-border/40 bg-card">
-				<HabitatMap className="rounded-none border-0" {...props} />
-			</div>
-			<Card variant="surface" className="flex min-h-0 flex-col border border-border/40">
-				<CardHeader className="px-4 py-4">
-					<div>
-						<CardTitle>Habitats</CardTitle>
-						<CardDescription>{visibleCountLabel(props.visibleHabitats.length)}</CardDescription>
-					</div>
-					<CardAction>
-						<Button asChild size="sm">
-							<Link to="/habitats/create">
-								<PlusIcon data-icon="inline-start" />
-								New habitat
-							</Link>
-						</Button>
-					</CardAction>
-				</CardHeader>
-				<CardContent padding="compact" className="flex min-h-0 flex-1 flex-col gap-4">
-					<HabitatFiltersPanel {...props} />
-					<Separator />
-					<HabitatCards habitats={props.visibleHabitats} />
-				</CardContent>
-			</Card>
-		</section>
-	);
+function ignoreFiltersChange(_filters: HabitatFilters): void {}
+
+function rejectMapPointRequest(): Promise<GeoJsonPointGeometry> {
+	return Promise.reject(new Error('The habitats map is not ready yet.'));
 }
 
-interface HabitatDesignProps {
-	readonly bounds: BoundingBox | null;
-	readonly filters: HabitatFilters;
-	readonly habitatTypes: readonly HabitatTypeRow[];
-	readonly onFiltersChange: (filters: HabitatFilters) => void;
-	readonly onMapReady: (map: MapboxMap) => void;
-	readonly source: ReturnType<typeof createHabitatTileSource>;
-	readonly visibleHabitats: readonly VisibleHabitat[];
+interface PointDrawRequest {
+	readonly id: string;
+	readonly prompt: string;
+	readonly resolve: (point: GeoJsonPointGeometry) => void;
+	readonly reject: (error: Error) => void;
+}
+
+function useMapPointDrawRequest(
+	map: MapboxMap | null,
+	request: PointDrawRequest | null,
+	setRequest: (request: PointDrawRequest | null) => void,
+): void {
+	useEffect(() => {
+		if (map === null || request === null) {
+			return;
+		}
+
+		const activeRequest = request;
+		const canvas = map.getCanvas();
+		const previousCursor = canvas.style.cursor;
+		canvas.style.cursor = 'crosshair';
+
+		function handleClick(event: MapMouseEvent) {
+			activeRequest.resolve({
+				type: 'Point',
+				coordinates: [event.lngLat.lng, event.lngLat.lat],
+			});
+			setRequest(null);
+		}
+
+		map.once('click', handleClick);
+
+		return () => {
+			canvas.style.cursor = previousCursor;
+			map.off('click', handleClick);
+		};
+	}, [map, request, setRequest]);
+}
+
+function subscribeToHabitatsLayoutContext(listener: () => void): () => void {
+	habitatsLayoutContextStore.listeners.add(listener);
+	return () => {
+		habitatsLayoutContextStore.listeners.delete(listener);
+	};
+}
+
+function getHabitatsLayoutContextSnapshot(): HabitatsLayoutContextValue {
+	return habitatsLayoutContextStore.snapshot;
+}
+
+function setHabitatsLayoutContextSnapshot(nextSnapshot: HabitatsLayoutContextValue): void {
+	habitatsLayoutContextStore.snapshot = nextSnapshot;
+	for (const listener of habitatsLayoutContextStore.listeners) {
+		listener();
+	}
 }
 
 function HabitatMap({
 	className,
 	onMapReady,
 	source,
-}: HabitatDesignProps & {
+}: {
 	readonly className?: string;
+	readonly onMapReady: (map: MapboxMap) => void;
+	readonly source: ReturnType<typeof createHabitatTileSource>;
 }) {
 	return (
 		<MapView
 			className={cn('min-h-0', className)}
 			onMapReady={onMapReady}
-			reuseKey="habitats-index-map"
+			reuseKey="habitats-map"
 			vectorTileSources={[source]}
 		/>
-	);
-}
-
-function HabitatFiltersPanel({ filters, habitatTypes, onFiltersChange }: HabitatDesignProps) {
-	return (
-		<FieldGroup className="grid gap-4">
-			<Field>
-				<FieldLabel>Lifecycle</FieldLabel>
-				<Select
-					onValueChange={(value) =>
-						onFiltersChange({ ...filters, lifecycle: value as LifecycleFilter })
-					}
-					value={filters.lifecycle}
-				>
-					<SelectTrigger className="w-full">
-						<SelectValue placeholder="Lifecycle" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectGroup>
-							<SelectItem value="all">All habitats</SelectItem>
-							<SelectItem value="active">Active only</SelectItem>
-							<SelectItem value="inactive">Inactive only</SelectItem>
-						</SelectGroup>
-					</SelectContent>
-				</Select>
-			</Field>
-			<Field>
-				<FieldLabel>Access</FieldLabel>
-				<Select
-					onValueChange={(value) => onFiltersChange({ ...filters, access: value as AccessFilter })}
-					value={filters.access}
-				>
-					<SelectTrigger className="w-full">
-						<SelectValue placeholder="Access" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectGroup>
-							<SelectItem value="all">All access states</SelectItem>
-							<SelectItem value="accessible">Accessible</SelectItem>
-							<SelectItem value="inaccessible">Inaccessible</SelectItem>
-						</SelectGroup>
-					</SelectContent>
-				</Select>
-			</Field>
-			<Field>
-				<FieldLabel>Habitat type</FieldLabel>
-				<Select
-					onValueChange={(value) => onFiltersChange({ ...filters, habitatTypeId: value })}
-					value={filters.habitatTypeId}
-				>
-					<SelectTrigger className="w-full">
-						<SelectValue placeholder="Type" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectGroup>
-							<SelectItem value="all">All types</SelectItem>
-							{habitatTypes.map((type) => (
-								<SelectItem key={type.id} value={type.id}>
-									{type.name}
-								</SelectItem>
-							))}
-						</SelectGroup>
-					</SelectContent>
-				</Select>
-			</Field>
-		</FieldGroup>
-	);
-}
-
-function HabitatCards({ habitats }: { readonly habitats: readonly VisibleHabitat[] }) {
-	if (habitats.length === 0) {
-		return <HabitatEmpty />;
-	}
-
-	return (
-		<ScrollArea className="min-h-0 flex-1 pr-3">
-			<div className="grid gap-3">
-				{habitats.map((habitat) => (
-					<Card
-						key={habitat.row.id}
-						variant="inset"
-						className="border border-border/40 bg-muted/30"
-					>
-						<CardHeader className="px-4 py-4">
-							<div className="grid gap-1">
-								<CardTitle className="text-[0.98rem]">{habitatName(habitat.row)}</CardTitle>
-								<CardDescription>{habitat.typeName}</CardDescription>
-							</div>
-							<CardAction>
-								<HabitatStateBadge habitat={habitat.row} />
-							</CardAction>
-						</CardHeader>
-						<CardContent padding="compact" className="grid gap-3">
-							<p className="m-0 line-clamp-2 text-[0.88rem] text-muted-foreground">
-								{habitatDescription(habitat.row)}
-							</p>
-							<HabitatFacts habitat={habitat.row} />
-						</CardContent>
-					</Card>
-				))}
-			</div>
-		</ScrollArea>
-	);
-}
-
-function HabitatFacts({ habitat }: { readonly habitat: HabitatDisplayRow }) {
-	return (
-		<div className="grid grid-cols-3 gap-2 text-[0.78rem] max-[560px]:grid-cols-1">
-			<Fact label="Geometry" value={habitat.geomType} />
-			<Fact label="Location" value={coordinateLabel(habitat)} />
-			<Fact label="Updated" value={formatShortDate(habitat.updatedAt)} />
-		</div>
-	);
-}
-
-function Fact({ label, value }: { readonly label: string; readonly value: string }) {
-	return (
-		<div className="grid gap-1 rounded-md border border-border/40 bg-background px-2.5 py-2">
-			<span className="font-bold text-muted-foreground">{label}</span>
-			<strong className="truncate font-semibold text-foreground">{value}</strong>
-		</div>
-	);
-}
-
-function HabitatStateBadge({ habitat }: { readonly habitat: HabitatDisplayRow }) {
-	if (habitat.isInaccessible) {
-		return (
-			<Badge variant="outline" tone="danger">
-				<AlertTriangleIcon aria-hidden="true" />
-				Inaccessible
-			</Badge>
-		);
-	}
-
-	if (habitat.isActive) {
-		return (
-			<Badge variant="outline" tone="success">
-				<CheckCircle2Icon aria-hidden="true" />
-				Active
-			</Badge>
-		);
-	}
-
-	return (
-		<Badge variant="outline" tone="neutral">
-			Inactive
-		</Badge>
-	);
-}
-
-function HabitatEmpty() {
-	return (
-		<Empty className="min-h-[220px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>No habitats in the current display</EmptyTitle>
-				<EmptyDescription>
-					Pan the map or loosen filters to bring habitat records into the bounded list.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }
 
@@ -351,12 +307,19 @@ function useMapBounds(map: MapboxMap | null): BoundingBox | null {
 				return;
 			}
 
-			setBounds({
+			const updatedBounds = {
 				east: nextBounds.getEast(),
 				north: nextBounds.getNorth(),
 				south: nextBounds.getSouth(),
 				west: nextBounds.getWest(),
-			});
+			};
+			setBounds((currentBounds) =>
+				currentBounds !== null &&
+				formatBoundingBox(normalizeMapBoundsForQuery(currentBounds)) ===
+					formatBoundingBox(normalizeMapBoundsForQuery(updatedBounds))
+					? currentBounds
+					: updatedBounds,
+			);
 		}
 
 		updateBounds();
@@ -382,19 +345,13 @@ function useVisibleHabitatRows(
 } {
 	const queryBounds = bounds === null ? null : normalizeMapBoundsForQuery(bounds);
 	const bbox = queryBounds === null ? null : formatBoundingBox(queryBounds);
-	const { data } = useSuspenseQuery({
-		queryKey: [
-			'habitats',
-			'visible',
-			bbox,
-			filters.lifecycle,
-			filters.access,
-			filters.habitatTypeId,
-		],
+	const { data } = useQuery({
+		queryKey: ['habitats', 'visible', bbox, filters.status, filters.access, filters.habitatTypeId],
 		queryFn: ({ signal }) => fetchVisibleHabitatRows(queryBounds, filters, signal),
+		placeholderData: (previousRows) => previousRows ?? [],
 	});
 
-	return { rows: data };
+	return { rows: data ?? [] };
 }
 
 async function fetchVisibleHabitatRows(
@@ -473,37 +430,8 @@ function clamp(value: number, minimum: number, maximum: number): number {
 
 function toTileFilters(filters: HabitatFilters): HabitatTileFilters {
 	return {
-		...(filters.lifecycle === 'all' ? {} : { isActive: filters.lifecycle === 'active' }),
+		...(filters.status === 'all' ? {} : { isActive: filters.status === 'active' }),
 		...(filters.access === 'all' ? {} : { isInaccessible: filters.access === 'inaccessible' }),
 		...(filters.habitatTypeId === 'all' ? {} : { habitatTypeId: [filters.habitatTypeId] }),
 	};
-}
-
-function habitatName(habitat: HabitatDisplayRow): string {
-	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
-}
-
-function habitatDescription(habitat: HabitatDisplayRow): string {
-	return habitat.description.trim() || 'No description recorded.';
-}
-
-function coordinateLabel(habitat: HabitatDisplayRow): string {
-	return `${habitat.lat.toFixed(4)}, ${habitat.lng.toFixed(4)}`;
-}
-
-function visibleCountLabel(total: number): string {
-	return `Showing ${total} habitats in map bounds, limit 50`;
-}
-
-function formatShortDate(value: string): string {
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
-		return 'Unknown';
-	}
-
-	return new Intl.DateTimeFormat(undefined, {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-	}).format(date);
 }

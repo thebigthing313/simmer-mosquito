@@ -1,10 +1,23 @@
 import {
+	additionalPersonnelSyncDescriptor,
+	addressesSyncDescriptor,
+	applicationBatchesSyncDescriptor,
 	applicationMethodsSyncDescriptor,
+	applicationsSyncDescriptor,
+	assignmentItemsSyncDescriptor,
+	assignmentsSyncDescriptor,
+	biocontrolActionsSyncDescriptor,
 	biocontrolMethodsSyncDescriptor,
 	collectionLuresSyncDescriptor,
 	collectionMethodsSyncDescriptor,
+	collectionSpeciesSyncDescriptor,
+	collectionsSyncDescriptor,
+	commentsSyncDescriptor,
+	contactsSyncDescriptor,
 	currentOrganizationSyncDescriptor,
 	equipmentSyncDescriptor,
+	formulationInsecticidesSyncDescriptor,
+	formulationsSyncDescriptor,
 	generaSyncDescriptor,
 	habitatsSyncDescriptor,
 	habitatTypesSyncDescriptor,
@@ -12,18 +25,35 @@ import {
 	insecticidesSyncDescriptor,
 	inspectionsSyncDescriptor,
 	membershipsSyncDescriptor,
+	missionItemsSyncDescriptor,
+	missionNotificationsSyncDescriptor,
+	missionsSyncDescriptor,
+	notificationRegistrationsSyncDescriptor,
+	notificationRegistrationTypesSyncDescriptor,
 	notificationTypesSyncDescriptor,
 	organizationSpeciesSyncDescriptor,
+	outreachActionsSyncDescriptor,
 	outreachMethodsSyncDescriptor,
 	profilesSyncDescriptor,
+	regionFoldersSyncDescriptor,
+	regionsSyncDescriptor,
+	requestedControlActionsSyncDescriptor,
+	routeItemsSyncDescriptor,
 	routesSyncDescriptor,
 	sampleSpeciesSyncDescriptor,
 	samplesSyncDescriptor,
+	serviceRequestsSyncDescriptor,
 	sourceReductionMethodsSyncDescriptor,
+	sourceReductionsSyncDescriptor,
 	speciesSyncDescriptor,
+	tagItemsSyncDescriptor,
 	tagsSyncDescriptor,
+	trapsSyncDescriptor,
 	unitsSyncDescriptor,
 	vehiclesSyncDescriptor,
+	weatherSourceSubscriptionsSyncDescriptor,
+	weatherSourcesSyncDescriptor,
+	weatherSummariesSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
@@ -262,6 +292,10 @@ export function registerSyncShapeRoutes(
 		descriptor: notificationTypesSyncDescriptor,
 	});
 	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/addresses',
+		descriptor: addressesSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
 		path: '/sync/shapes/habitats',
 		descriptor: habitatsSyncDescriptor,
 	});
@@ -276,6 +310,124 @@ export function registerSyncShapeRoutes(
 	registerSelectedOrganizationShapeRoute(app, options, {
 		path: '/sync/shapes/sample-species',
 		descriptor: sampleSpeciesSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/region-folders',
+		descriptor: regionFoldersSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/regions',
+		descriptor: regionsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/traps',
+		descriptor: trapsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/collections',
+		descriptor: collectionsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/collection-species',
+		descriptor: collectionSpeciesSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/comments',
+		descriptor: commentsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/tag-items',
+		descriptor: tagItemsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/additional-personnel',
+		descriptor: additionalPersonnelSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/route-items',
+		descriptor: routeItemsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/assignments',
+		descriptor: assignmentsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/assignment-items',
+		descriptor: assignmentItemsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/formulations',
+		descriptor: formulationsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/formulation-insecticides',
+		descriptor: formulationInsecticidesSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/applications',
+		descriptor: applicationsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/application-batches',
+		descriptor: applicationBatchesSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/source-reductions',
+		descriptor: sourceReductionsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/outreach-actions',
+		descriptor: outreachActionsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/biocontrol-actions',
+		descriptor: biocontrolActionsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/contacts',
+		descriptor: contactsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/service-requests',
+		descriptor: serviceRequestsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/requested-control-actions',
+		descriptor: requestedControlActionsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/missions',
+		descriptor: missionsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/mission-items',
+		descriptor: missionItemsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/notification-registrations',
+		descriptor: notificationRegistrationsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/notification-registration-types',
+		descriptor: notificationRegistrationTypesSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/mission-notifications',
+		descriptor: missionNotificationsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/weather-sources',
+		descriptor: weatherSourcesSyncDescriptor,
+		where: selectedOrganizationOrGlobalWhere,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/weather-source-subscriptions',
+		descriptor: weatherSourceSubscriptionsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/weather-summaries',
+		descriptor: weatherSummariesSyncDescriptor,
+		where: selectedOrganizationOrGlobalOnlyWhere,
 	});
 
 	app.get('/sync/shapes/tags', options.authContextMiddleware, async (context) => {
@@ -353,6 +505,7 @@ function registerSelectedOrganizationShapeRoute(
 			readonly columns: readonly string[];
 			readonly table: string;
 		};
+		readonly where?: string;
 	},
 ): void {
 	app.get(shape.path, options.authContextMiddleware, async (context) => {
@@ -369,7 +522,7 @@ function registerSelectedOrganizationShapeRoute(
 				incomingUrl: context.req.url,
 				columns: shape.descriptor.columns.map(camelToSnake),
 				table: shape.descriptor.table,
-				where: selectedOrganizationWhere,
+				where: shape.where ?? selectedOrganizationWhere,
 				params: [authContext.organization.id],
 			}),
 		});
@@ -520,6 +673,9 @@ const subsetShapeParamPrefix = 'subset__';
 const selectedOrganizationOnlyWhere = 'organization_id = $1';
 const selectedOrganizationWhere = 'organization_id = $1 and deleted_at is null';
 const selectedOrganizationByIdWhere = 'id = $1 and deleted_at is null';
+const selectedOrganizationOrGlobalWhere =
+	'(organization_id = $1 or organization_id is null) and deleted_at is null';
+const selectedOrganizationOrGlobalOnlyWhere = '(organization_id = $1 or organization_id is null)';
 const electricExposeHeaders = [
 	'electric-offset',
 	'electric-handle',
@@ -528,6 +684,12 @@ const electricExposeHeaders = [
 ];
 
 function camelToSnake(value: string): string {
+	if (value === 'addressLine1') {
+		return 'address_line_1';
+	}
+	if (value === 'addressLine2') {
+		return 'address_line_2';
+	}
 	if (value === 'mailingAddressLine1') {
 		return 'mailing_address_line_1';
 	}

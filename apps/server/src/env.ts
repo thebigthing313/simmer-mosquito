@@ -10,6 +10,7 @@ export interface ServerEnv {
 	readonly appOrigins: readonly string[];
 	readonly databaseUrl: string;
 	readonly electricUrl: string | null;
+	readonly geocodioApiKey: string | null;
 	readonly host: string;
 	readonly nodeEnv: 'development' | 'production' | 'test';
 	readonly port: number;
@@ -30,6 +31,7 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		appOrigins: adminAppOrigin === null ? [appOrigin] : [appOrigin, adminAppOrigin],
 		databaseUrl: readRequiredString(source, 'DATABASE_URL'),
 		electricUrl: readOptionalUrl(source, 'ELECTRIC_URL'),
+		geocodioApiKey: readOptionalString(source, 'GEOCODIO_API_KEY') ?? null,
 		host: base.host,
 		nodeEnv: base.nodeEnv,
 		port: base.port,

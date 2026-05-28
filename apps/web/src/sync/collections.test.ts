@@ -1,4 +1,5 @@
 import {
+	addressesSyncDescriptor,
 	habitatsSyncDescriptor,
 	habitatTypesSyncDescriptor,
 	inspectionsSyncDescriptor,
@@ -79,11 +80,15 @@ describe('web sync baseline preload', () => {
 	it('keeps larval surveillance operational collections on demand', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
+		expect(collections.addresses.config.id).toBe(addressesSyncDescriptor.id);
+		expect(collections.addresses.config.onInsert).toBeTypeOf('function');
 		expect(collections.habitats.config.id).toBe(habitatsSyncDescriptor.id);
+		expect(collections.habitats.config.onInsert).toBeTypeOf('function');
 		expect(collections.inspections.config.id).toBe(inspectionsSyncDescriptor.id);
 		expect(collections.samples.config.id).toBe(samplesSyncDescriptor.id);
 		expect(collections.sampleSpecies.config.id).toBe(sampleSpeciesSyncDescriptor.id);
 		expect(habitatTypesSyncDescriptor.syncMode).toBe('eager');
+		expect(addressesSyncDescriptor.syncMode).toBe('on-demand');
 		expect(habitatsSyncDescriptor.syncMode).toBe('on-demand');
 		expect(inspectionsSyncDescriptor.syncMode).toBe('on-demand');
 		expect(samplesSyncDescriptor.syncMode).toBe('on-demand');

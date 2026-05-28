@@ -1479,6 +1479,7 @@ export interface OwnedGeometryInfo {
 }
 
 export interface CreateAddressInput {
+	readonly id?: string;
 	readonly organizationId: string;
 	readonly geojson: GeoJsonGeometry;
 	readonly displayName: string;
@@ -1940,6 +1941,7 @@ export async function createAddress(
 	const row = await db
 		.insertInto('addresses')
 		.values({
+			...(input.id === undefined ? {} : { id: input.id }),
 			organization_id: input.organizationId,
 			geom: geojsonToGeom(input.geojson),
 			display_name: input.displayName,

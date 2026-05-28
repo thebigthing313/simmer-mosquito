@@ -13,25 +13,40 @@ import { getMapboxAccessToken } from '../hooks/use-map-instance';
 
 interface MapboxSearchResult {
 	readonly id: string;
+	readonly mapboxId: string;
 	readonly label: string;
 	readonly description: string;
+}
+
+interface MapboxResolvedSearchResult {
 	readonly center: readonly [number, number];
 	readonly bbox: readonly [number, number, number, number] | null;
 }
 
-interface MapboxFeature {
-	readonly id?: string;
-	readonly place_name?: string;
-	readonly text?: string;
-	readonly center?: readonly [number, number];
-	readonly bbox?: readonly [number, number, number, number];
-	readonly properties?: {
-		readonly address?: string;
-	};
+interface MapboxSuggestion {
+	readonly mapbox_id: string;
+	readonly name: string;
+	readonly name_preferred?: string;
+	readonly feature_type: string;
+	readonly address?: string;
+	readonly full_address?: string;
+	readonly place_formatted?: string;
 }
 
-interface MapboxGeocodeResponse {
-	readonly features?: readonly MapboxFeature[];
+interface MapboxSuggestResponse {
+	readonly suggestions?: readonly MapboxSuggestion[];
+}
+
+interface MapboxRetrieveFeature {
+	readonly geometry?: {
+		readonly coordinates?: readonly number[];
+		readonly type?: string;
+	};
+	readonly bbox?: readonly [number, number, number, number];
+}
+
+interface MapboxRetrieveResponse {
+	readonly features?: readonly MapboxRetrieveFeature[];
 }
 
 export function MapboxSearchControl({ map }: { readonly map: MapboxMap | null }) {
@@ -39,17 +54,22 @@ export function MapboxSearchControl({ map }: { readonly map: MapboxMap | null })
 	const [open, setOpen] = useState(false);
 	const [results, setResults] = useState<readonly MapboxSearchResult[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
+	const [selectingId, setSelectingId] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const requestId = useRef(0);
+	const retrieveController = useRef<AbortController | null>(null);
+	const sessionToken = useRef(createMapboxSessionToken());
 	const accessToken = getMapboxAccessToken().trim();
 	const canSearch = accessToken.length > 0;
 	const trimmedQuery = query.trim();
+	const shouldShowResults = open && trimmedQuery.length > 0;
 
 	useEffect(() => {
-		if (!open || trimmedQuery.length < 3 || !canSearch) {
+		if (!shouldShowResults || trimmedQuery.length < 3 || !canSearch) {
 			setResults([]);
 			setIsLoading(false);
 			setError(null);
+			setSelectingId(null);
 			return;
 		}
 
@@ -58,21 +78,30 @@ export function MapboxSearchControl({ map }: { readonly map: MapboxMap | null })
 		requestId.current = currentRequestId;
 		const timeoutId = window.setTimeout(() => {
 			setIsLoading(true);
+			setSelectingId(null);
 			setError(null);
-			void fetch(createMapboxGeocodeUrl(trimmedQuery, accessToken), {
-				signal: controller.signal,
-			})
+			void fetch(
+				createMapboxSuggestUrl({
+					accessToken,
+					map,
+					query: trimmedQuery,
+					sessionToken: sessionToken.current,
+				}),
+				{
+					signal: controller.signal,
+				},
+			)
 				.then(async (response) => {
 					if (!response.ok) {
 						throw new Error(`Mapbox search failed with ${response.status}`);
 					}
-					return (await response.json()) as MapboxGeocodeResponse;
+					return (await response.json()) as MapboxSuggestResponse;
 				})
 				.then((body) => {
 					if (requestId.current !== currentRequestId) {
 						return;
 					}
-					setResults((body.features ?? []).flatMap(toSearchResult));
+					setResults((body.suggestions ?? []).map(toSearchResult));
 				})
 				.catch((unknownError: unknown) => {
 					if (unknownError instanceof DOMException && unknownError.name === 'AbortError') {
@@ -94,42 +123,63 @@ export function MapboxSearchControl({ map }: { readonly map: MapboxMap | null })
 			window.clearTimeout(timeoutId);
 			controller.abort();
 		};
-	}, [accessToken, canSearch, open, trimmedQuery]);
+	}, [accessToken, canSearch, map, shouldShowResults, trimmedQuery]);
 
 	function selectResult(result: MapboxSearchResult) {
-		setQuery(result.label);
-		setOpen(false);
+		setSelectingId(result.id);
+		setError(null);
 
 		if (map === null) {
+			setQuery(result.label);
+			setOpen(false);
+			setSelectingId(null);
 			return;
 		}
 
-		if (result.bbox !== null) {
-			const [west, south, east, north] = result.bbox;
-			map.fitBounds(
-				[
-					[west, south],
-					[east, north],
-				],
-				{
-					duration: 700,
-					maxZoom: 16,
-					padding: 72,
-				},
-			);
-			return;
-		}
+		retrieveController.current?.abort();
+		const controller = new AbortController();
+		retrieveController.current = controller;
 
-		map.flyTo({
-			center: [result.center[0], result.center[1]],
-			duration: 700,
-			essential: true,
-			zoom: Math.max(map.getZoom(), 14),
-		});
+		void fetch(createMapboxRetrieveUrl(result.mapboxId, accessToken, sessionToken.current), {
+			signal: controller.signal,
+		})
+			.then(async (response) => {
+				if (!response.ok) {
+					throw new Error(`Mapbox retrieve failed with ${response.status}`);
+				}
+				return (await response.json()) as MapboxRetrieveResponse;
+			})
+			.then((body) => {
+				const resolvedResult = toResolvedSearchResult(body);
+				if (resolvedResult === null) {
+					throw new Error('Mapbox retrieve did not include coordinates');
+				}
+				setQuery(result.label);
+				moveMapToSearchResult(map, resolvedResult);
+				setOpen(false);
+				setResults([]);
+				sessionToken.current = createMapboxSessionToken();
+			})
+			.catch((unknownError: unknown) => {
+				if (unknownError instanceof DOMException && unknownError.name === 'AbortError') {
+					return;
+				}
+				setError('Search result unavailable');
+			})
+			.finally(() => {
+				if (retrieveController.current === controller) {
+					retrieveController.current = null;
+					setSelectingId(null);
+				}
+			});
 	}
 
+	useEffect(() => {
+		return () => retrieveController.current?.abort();
+	}, []);
+
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
+		<Popover open={shouldShowResults} onOpenChange={setOpen}>
 			<PopoverAnchor asChild>
 				<div className="relative w-[min(24rem,calc(100vw-8rem))]">
 					<SearchIcon
@@ -141,10 +191,12 @@ export function MapboxSearchControl({ map }: { readonly map: MapboxMap | null })
 						className="h-9 bg-background pr-9 pl-9 text-[0.86rem] shadow-md"
 						disabled={!canSearch}
 						onChange={(event) => {
+							retrieveController.current?.abort();
+							setSelectingId(null);
 							setQuery(event.target.value);
 							setOpen(true);
 						}}
-						onFocus={() => setOpen(true)}
+						onFocus={() => setOpen(trimmedQuery.length > 0)}
 						placeholder={canSearch ? 'Search places' : 'Mapbox token required'}
 						value={query}
 					/>
@@ -153,9 +205,12 @@ export function MapboxSearchControl({ map }: { readonly map: MapboxMap | null })
 							aria-label="Clear map search"
 							className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
 							onClick={() => {
+								retrieveController.current?.abort();
+								setSelectingId(null);
 								setQuery('');
 								setResults([]);
 								setError(null);
+								sessionToken.current = createMapboxSessionToken();
 							}}
 							type="button"
 						>
@@ -175,6 +230,7 @@ export function MapboxSearchControl({ map }: { readonly map: MapboxMap | null })
 					onSelect={selectResult}
 					query={trimmedQuery}
 					results={results}
+					selectingId={selectingId}
 				/>
 			</PopoverContent>
 		</Popover>
@@ -187,12 +243,14 @@ function MapboxSearchResults({
 	onSelect,
 	query,
 	results,
+	selectingId,
 }: {
 	readonly error: string | null;
 	readonly isLoading: boolean;
 	readonly onSelect: (result: MapboxSearchResult) => void;
 	readonly query: string;
 	readonly results: readonly MapboxSearchResult[];
+	readonly selectingId: string | null;
 }) {
 	if (query.length < 3) {
 		return <SearchMessage>Type at least 3 characters</SearchMessage>;
@@ -223,11 +281,20 @@ function MapboxSearchResults({
 						'grid min-h-11 w-full min-w-0 gap-0.5 rounded-sm px-2.5 py-2 text-left text-sm outline-none',
 						'hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground',
 					)}
+					disabled={selectingId !== null}
 					key={result.id}
 					onClick={() => onSelect(result)}
 					type="button"
 				>
-					<span className="truncate font-semibold">{result.label}</span>
+					<span className="flex min-w-0 items-center gap-2">
+						<span className="truncate font-semibold">{result.label}</span>
+						{selectingId === result.id ? (
+							<Loader2Icon
+								aria-hidden="true"
+								className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+							/>
+						) : null}
+					</span>
 					<span className="truncate text-xs text-muted-foreground">{result.description}</span>
 				</button>
 			))}
@@ -243,33 +310,128 @@ function SearchMessage({ children }: { readonly children: ReactNode }) {
 	);
 }
 
-function createMapboxGeocodeUrl(query: string, accessToken: string): string {
-	const url = new URL(
-		`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
-	);
+function createMapboxSuggestUrl({
+	accessToken,
+	map,
+	query,
+	sessionToken,
+}: {
+	readonly accessToken: string;
+	readonly map: MapboxMap | null;
+	readonly query: string;
+	readonly sessionToken: string;
+}): string {
+	const url = new URL('https://api.mapbox.com/search/searchbox/v1/suggest');
 	url.searchParams.set('access_token', accessToken);
-	url.searchParams.set('autocomplete', 'true');
+	url.searchParams.set('q', query);
+	url.searchParams.set('session_token', sessionToken);
 	url.searchParams.set('limit', '6');
-	url.searchParams.set('types', 'address,poi,place,locality,neighborhood,region,postcode');
+	url.searchParams.set('types', 'address,poi,category,place,locality,neighborhood,region,postcode');
+
+	if (map !== null) {
+		const center = map.getCenter();
+		url.searchParams.set('proximity', `${center.lng},${center.lat}`);
+	}
 
 	return url.toString();
 }
 
-function toSearchResult(feature: MapboxFeature): readonly MapboxSearchResult[] {
-	if (feature.center === undefined) {
-		return [];
+function createMapboxRetrieveUrl(
+	mapboxId: string,
+	accessToken: string,
+	sessionToken: string,
+): string {
+	const url = new URL(
+		`https://api.mapbox.com/search/searchbox/v1/retrieve/${encodeURIComponent(mapboxId)}`,
+	);
+	url.searchParams.set('access_token', accessToken);
+	url.searchParams.set('session_token', sessionToken);
+
+	return url.toString();
+}
+
+function toSearchResult(suggestion: MapboxSuggestion): MapboxSearchResult {
+	const label = suggestion.name_preferred ?? suggestion.name;
+	const description =
+		suggestion.full_address ??
+		suggestion.place_formatted ??
+		suggestion.address ??
+		formatSearchFeatureType(suggestion.feature_type);
+
+	return {
+		id: suggestion.mapbox_id,
+		mapboxId: suggestion.mapbox_id,
+		label,
+		description,
+	};
+}
+
+function toResolvedSearchResult(
+	response: MapboxRetrieveResponse,
+): MapboxResolvedSearchResult | null {
+	const feature = response.features?.find((candidate) => {
+		const [lng, lat] = candidate.geometry?.coordinates ?? [];
+		return (
+			candidate.geometry?.type === 'Point' && typeof lng === 'number' && typeof lat === 'number'
+		);
+	});
+
+	const coordinates = feature?.geometry?.coordinates;
+	if (coordinates === undefined) {
+		return null;
 	}
 
-	const label = feature.text ?? feature.place_name ?? 'Map result';
-	const description = feature.place_name ?? label;
+	const [lng, lat] = coordinates;
+	if (typeof lng !== 'number' || typeof lat !== 'number') {
+		return null;
+	}
 
-	return [
-		{
-			id: feature.id ?? `${feature.center.join(',')}-${label}`,
-			label,
-			description,
-			center: feature.center,
-			bbox: feature.bbox ?? null,
-		},
-	];
+	return {
+		center: [lng, lat],
+		bbox: feature?.bbox ?? null,
+	};
+}
+
+function moveMapToSearchResult(map: MapboxMap, result: MapboxResolvedSearchResult): void {
+	if (result.bbox !== null) {
+		const [west, south, east, north] = result.bbox;
+		map.fitBounds(
+			[
+				[west, south],
+				[east, north],
+			],
+			{
+				duration: 700,
+				maxZoom: 16,
+				padding: 72,
+			},
+		);
+		return;
+	}
+
+	map.flyTo({
+		center: [result.center[0], result.center[1]],
+		duration: 700,
+		essential: true,
+		zoom: Math.max(map.getZoom(), 14),
+	});
+}
+
+function formatSearchFeatureType(featureType: string): string {
+	switch (featureType) {
+		case 'poi':
+			return 'Point of interest';
+		case 'category':
+			return 'Places category';
+		default:
+			return featureType;
+	}
+}
+
+function createMapboxSessionToken(): string {
+	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+		return crypto.randomUUID();
+	}
+
+	return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

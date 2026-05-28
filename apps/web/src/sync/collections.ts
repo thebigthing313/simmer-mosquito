@@ -1,4 +1,6 @@
 import {
+	type AddressRow,
+	addressesSyncDescriptor,
 	applicationMethodsSyncDescriptor,
 	biocontrolMethodsSyncDescriptor,
 	type CollectionLureRow,
@@ -49,6 +51,7 @@ import {
 	vehiclesSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import { type Collection, createCollection } from '@tanstack/react-db';
+import { createAddressMutationHandlers } from './addressMutations';
 import {
 	createEquipmentMutationHandlers,
 	createVehicleMutationHandlers,
@@ -58,6 +61,7 @@ import {
 	createInsecticideBatchMutationHandlers,
 	createInsecticideMutationHandlers,
 } from './controlProductMutations';
+import { createHabitatMutationHandlers } from './habitatMutations';
 import { createNotificationTypeMutationHandlers } from './notificationTypeMutations';
 import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createOrgLookupMutationHandlers } from './orgLookupMutations';
@@ -65,6 +69,7 @@ import { createProfileMutationHandlers } from './profileMutations';
 import { createTagMutationHandlers } from './tagMutations';
 
 export interface WebCollections {
+	readonly addresses: Collection<AddressRow, string | number>;
 	readonly applicationMethods: Collection<ControlMethodRow, string | number>;
 	readonly biocontrolMethods: Collection<ControlMethodRow, string | number>;
 	readonly collectionLures: Collection<CollectionLureRow, string | number>;
@@ -205,6 +210,15 @@ export function createWebCollections(options: {
 			}),
 		}),
 	);
+	const addresses = createCollection(
+		electricShapeCollectionOptions<AddressRow>({
+			descriptor: addressesSyncDescriptor,
+			url: `${shapeServerUrl}${addressesSyncDescriptor.endpointPath}`,
+			...createAddressMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
+		}),
+	);
 	const applicationMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: applicationMethodsSyncDescriptor,
@@ -313,6 +327,9 @@ export function createWebCollections(options: {
 		electricShapeCollectionOptions<HabitatRow>({
 			descriptor: habitatsSyncDescriptor,
 			url: `${shapeServerUrl}${habitatsSyncDescriptor.endpointPath}`,
+			...createHabitatMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
 	const inspections = createCollection(
@@ -335,6 +352,7 @@ export function createWebCollections(options: {
 	);
 
 	return {
+		addresses,
 		applicationMethods,
 		biocontrolMethods,
 		collectionLures,

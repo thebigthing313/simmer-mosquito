@@ -115,6 +115,28 @@ export interface OrganizationRow {
 	readonly updatedByProfileId: string | null;
 }
 
+export interface AddressRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly lat?: number;
+	readonly lng?: number;
+	readonly geojson?: unknown;
+	readonly geomType?: string;
+	readonly displayName: string;
+	readonly country: string;
+	readonly addressLine1: string | null;
+	readonly addressLine2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+	readonly geocoderResponse: unknown | null;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
 interface OrgLookupRowBase {
 	readonly [key: string]: unknown;
 	readonly id: string;
@@ -304,6 +326,14 @@ export interface TagRow {
 }
 
 export type RouteType = 'habitat' | 'trap';
+export type CollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
+export type SpeciesSex = 'male' | 'female';
+export type SpeciesStatus = 'damaged' | 'unfed' | 'bloodfed' | 'gravid';
+export type ControlType = 'application' | 'source_reduction' | 'biocontrol' | 'outreach';
+export type RequestIntakeType = 'online' | 'phone' | 'walk-in' | 'other';
+export type NotificationChannel = 'email' | 'sms' | 'phone';
+export type MissionNotificationStatus = 'pending' | 'completed' | 'failed' | 'skipped';
+export type WeatherSourceType = 'organization' | 'nws';
 
 export interface RouteRow {
 	readonly [key: string]: unknown;
@@ -311,6 +341,338 @@ export interface RouteRow {
 	readonly organizationId: string;
 	readonly routeName: string;
 	readonly routeType: RouteType;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+interface AuditedOrganizationRowBase {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly deletedAt: string | null;
+	readonly deletedByProfileId: string | null;
+}
+
+export interface RegionFolderRow extends AuditedOrganizationRowBase {
+	readonly name: string;
+	readonly description: string | null;
+}
+
+export interface RegionRow extends AuditedOrganizationRowBase {
+	readonly regionFolderId: string | null;
+	readonly name: string;
+	readonly description: string | null;
+	readonly metadata: unknown | null;
+}
+
+export interface TrapRow extends AuditedOrganizationRowBase {
+	readonly collectionMethodId: string;
+	readonly addressId: string | null;
+	readonly collectionLureId: string | null;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly description: string | null;
+	readonly isActive: boolean;
+}
+
+export interface AdultCollectionRow extends AuditedOrganizationRowBase {
+	readonly trapId: string | null;
+	readonly collectionMethodId: string;
+	readonly collectionLureId: string | null;
+	readonly addressId: string | null;
+	readonly collectedAt: string | null;
+	readonly collectedByProfileId: string | null;
+	readonly startedAt: string | null;
+	readonly setByProfileId: string | null;
+	readonly collectionTimingMode: CollectionTimingMode;
+	readonly collectionDate: string | null;
+	readonly durationAmount: number | null;
+	readonly durationUnitId: string | null;
+	readonly hasProblem: boolean;
+	readonly isZeroResult: boolean;
+	readonly hasBycatch: boolean;
+	readonly metadata: unknown | null;
+}
+
+export interface CollectionSpeciesRow extends AuditedOrganizationRowBase {
+	readonly collectionId: string;
+	readonly speciesId: string;
+	readonly count: number;
+	readonly sex: SpeciesSex | null;
+	readonly status: SpeciesStatus | null;
+	readonly identifiedByProfileId: string | null;
+	readonly identifiedDate: string;
+}
+
+export interface CommentRow extends AuditedOrganizationRowBase {
+	readonly entityType: string;
+	readonly entityId: string;
+	readonly commentText: string;
+	readonly commentedByProfileId: string | null;
+	readonly commentedAt: string;
+	readonly isPinned: boolean;
+}
+
+export interface TagItemRow extends AuditedOrganizationRowBase {
+	readonly tagId: string;
+	readonly entityType: string;
+	readonly entityId: string;
+}
+
+export interface AdditionalPersonnelRow extends AuditedOrganizationRowBase {
+	readonly personnelProfileId: string;
+	readonly entityType: string;
+	readonly entityId: string;
+}
+
+export interface RouteItemRow extends AuditedOrganizationRowBase {
+	readonly routeId: string;
+	readonly entityType: string;
+	readonly entityId: string;
+	readonly position: number;
+	readonly directionsToNextItem: string | null;
+}
+
+export interface AssignmentRow extends AuditedOrganizationRowBase {
+	readonly assignmentName: string | null;
+	readonly assignedToProfileId: string | null;
+	readonly assignedByProfileId: string | null;
+	readonly assignmentDate: string;
+	readonly dueAt: string | null;
+	readonly startedAt: string | null;
+	readonly completedAt: string | null;
+	readonly cancelledAt: string | null;
+	readonly cancellationReason: string | null;
+}
+
+export interface AssignmentItemRow extends AuditedOrganizationRowBase {
+	readonly assignmentId: string;
+	readonly entityType: string;
+	readonly entityId: string;
+	readonly position: number;
+	readonly directionsToNextItem: string | null;
+	readonly completedAt: string | null;
+	readonly completedByProfileId: string | null;
+	readonly skippedAt: string | null;
+	readonly skippedByProfileId: string | null;
+	readonly skipReason: string | null;
+}
+
+export interface FormulationRow extends AuditedOrganizationRowBase {
+	readonly formulationName: string;
+	readonly description: string | null;
+	readonly isActive: boolean;
+	readonly diluentRatio: number;
+}
+
+export interface FormulationInsecticideRow extends AuditedOrganizationRowBase {
+	readonly formulationId: string;
+	readonly insecticideId: string;
+	readonly ratio: number;
+}
+
+export interface ApplicationRow extends AuditedOrganizationRowBase {
+	readonly applicationMethodId: string | null;
+	readonly insecticideId: string;
+	readonly applicatorProfileId: string | null;
+	readonly applicationDate: string;
+	readonly addressId: string | null;
+	readonly vehicleId: string | null;
+	readonly equipmentId: string | null;
+	readonly amountApplied: number;
+	readonly applicationUnitId: string;
+	readonly habitatId: string | null;
+	readonly collectionId: string | null;
+	readonly inspectionId: string | null;
+	readonly requestedControlActionId: string | null;
+	readonly missionItemId: string | null;
+	readonly metadata: unknown | null;
+}
+
+export interface ApplicationBatchRow extends AuditedOrganizationRowBase {
+	readonly applicationId: string;
+	readonly insecticideBatchId: string;
+}
+
+export interface SourceReductionRow extends AuditedOrganizationRowBase {
+	readonly sourceReductionMethodId: string;
+	readonly technicianProfileId: string | null;
+	readonly sourceReductionDate: string;
+	readonly addressId: string | null;
+	readonly habitatId: string | null;
+	readonly sourcesEliminatedAmount: number;
+	readonly sourcesEliminatedUnitId: string;
+	readonly inspectionId: string | null;
+	readonly requestedControlActionId: string | null;
+	readonly missionItemId: string | null;
+	readonly metadata: unknown | null;
+}
+
+export interface OutreachActionRow extends AuditedOrganizationRowBase {
+	readonly outreachMethodId: string;
+	readonly technicianProfileId: string | null;
+	readonly outreachDate: string;
+	readonly addressId: string | null;
+	readonly inspectionId: string | null;
+	readonly reach: number;
+	readonly reachDescription: string | null;
+	readonly requestedControlActionId: string | null;
+	readonly missionItemId: string | null;
+	readonly metadata: unknown | null;
+}
+
+export interface BiocontrolActionRow extends AuditedOrganizationRowBase {
+	readonly biocontrolMethodId: string;
+	readonly technicianProfileId: string | null;
+	readonly biocontrolDate: string;
+	readonly addressId: string | null;
+	readonly habitatId: string | null;
+	readonly inspectionId: string | null;
+	readonly amountReleased: number;
+	readonly releaseUnitId: string;
+	readonly requestedControlActionId: string | null;
+	readonly missionItemId: string | null;
+	readonly metadata: unknown | null;
+}
+
+export interface ContactRow extends AuditedOrganizationRowBase {
+	readonly contactName: string | null;
+	readonly preferredPhone: string | null;
+	readonly alternatePhone: string | null;
+	readonly email: string | null;
+	readonly company: string | null;
+	readonly department: string | null;
+	readonly title: string | null;
+	readonly wantsEmail: boolean;
+	readonly wantsSms: boolean;
+	readonly wantsPhone: boolean;
+	readonly metadata: unknown | null;
+}
+
+export interface ServiceRequestRow extends AuditedOrganizationRowBase {
+	readonly displayName: number | null;
+	readonly intakeType: RequestIntakeType;
+	readonly requestDate: string;
+	readonly addressId: string;
+	readonly contactId: string;
+	readonly receivedByProfileId: string | null;
+	readonly details: string;
+	readonly closedAt: string | null;
+	readonly closedByProfileId: string | null;
+	readonly metadata: unknown | null;
+}
+
+export interface RequestedControlActionRow extends AuditedOrganizationRowBase {
+	readonly controlType: ControlType;
+	readonly recommendedMethodId: string | null;
+	readonly summary: string | null;
+	readonly habitatId: string | null;
+	readonly inspectionId: string | null;
+	readonly collectionId: string | null;
+	readonly addressId: string | null;
+	readonly requestedByProfileId: string | null;
+	readonly requestedAt: string;
+	readonly resolvedAt: string | null;
+	readonly resolvedByProfileId: string | null;
+}
+
+export interface MissionRow extends AuditedOrganizationRowBase {
+	readonly missionName: string | null;
+	readonly controlType: ControlType;
+	readonly plannedMethodId: string | null;
+	readonly assignedToProfileId: string | null;
+	readonly assignedByProfileId: string | null;
+	readonly scheduledStartAt: string;
+	readonly scheduledEndAt: string | null;
+	readonly rainDate: string | null;
+	readonly startedAt: string | null;
+	readonly completedAt: string | null;
+	readonly cancelledAt: string | null;
+	readonly cancellationReason: string | null;
+	readonly notificationTypeId: string | null;
+}
+
+export interface MissionItemRow extends AuditedOrganizationRowBase {
+	readonly missionId: string;
+	readonly requestedControlActionId: string | null;
+	readonly addressId: string | null;
+	readonly position: number;
+	readonly completedAt: string | null;
+	readonly completedByProfileId: string | null;
+	readonly skippedAt: string | null;
+	readonly skippedByProfileId: string | null;
+	readonly skipReason: string | null;
+}
+
+export interface NotificationRegistrationRow extends AuditedOrganizationRowBase {
+	readonly contactId: string;
+	readonly addressId: string | null;
+	readonly bufferDistance: number | null;
+	readonly bufferUnitId: string | null;
+	readonly hasBees: boolean;
+	readonly isNoSpray: boolean;
+	readonly isActive: boolean;
+}
+
+export interface NotificationRegistrationTypeRow extends AuditedOrganizationRowBase {
+	readonly notificationRegistrationId: string;
+	readonly notificationTypeId: string;
+}
+
+export interface MissionNotificationRow extends AuditedOrganizationRowBase {
+	readonly missionId: string;
+	readonly notificationRegistrationId: string;
+	readonly contactId: string;
+	readonly notificationTypeId: string;
+	readonly channel: NotificationChannel;
+	readonly destination: string | null;
+	readonly status: MissionNotificationStatus;
+	readonly statusChangedAt: string | null;
+	readonly statusChangedByProfileId: string | null;
+}
+
+export interface WeatherSourceRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string | null;
+	readonly sourceType: WeatherSourceType;
+	readonly sourceName: string;
+	readonly sourceCode: string | null;
+	readonly providerSourceId: string | null;
+	readonly isActive: boolean;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly deletedAt: string | null;
+	readonly deletedByProfileId: string | null;
+}
+
+export interface WeatherSourceSubscriptionRow extends AuditedOrganizationRowBase {
+	readonly weatherSourceId: string;
+	readonly isActive: boolean;
+}
+
+export interface WeatherSummaryRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string | null;
+	readonly weatherSourceId: string;
+	readonly startDate: string;
+	readonly endDate: string;
+	readonly temperatureMinF: number | null;
+	readonly temperatureMaxF: number | null;
+	readonly precipitationInches: number | null;
+	readonly relativeHumidityMin: number | null;
+	readonly relativeHumidityMax: number | null;
+	readonly windSpeedMinMph: number | null;
+	readonly windSpeedMaxMph: number | null;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
 	readonly createdAt: string;
 	readonly updatedAt: string;
 }
@@ -455,6 +817,30 @@ export const habitatTypesSyncDescriptor: SyncDescriptor<HabitatTypeRow> = {
 		'description',
 		'customSchema',
 		'isActive',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const addressesSyncDescriptor: SyncDescriptor<AddressRow> = {
+	id: 'addresses',
+	table: 'addresses',
+	endpointPath: '/sync/shapes/addresses',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'displayName',
+		'country',
+		'addressLine1',
+		'addressLine2',
+		'locality',
+		'region',
+		'postalCode',
+		'geocoderResponse',
+		'createdByProfileId',
+		'updatedByProfileId',
 		'createdAt',
 		'updatedAt',
 	],
@@ -707,6 +1093,746 @@ export const routesSyncDescriptor: SyncDescriptor<RouteRow> = {
 	getKey: (row) => row.id,
 };
 
+export const regionFoldersSyncDescriptor: SyncDescriptor<RegionFolderRow> = {
+	id: 'region_folders',
+	table: 'region_folders',
+	endpointPath: '/sync/shapes/region-folders',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'name',
+		'description',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const regionsSyncDescriptor: SyncDescriptor<RegionRow> = {
+	id: 'regions',
+	table: 'regions',
+	endpointPath: '/sync/shapes/regions',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'regionFolderId',
+		'name',
+		'description',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const trapsSyncDescriptor: SyncDescriptor<TrapRow> = {
+	id: 'traps',
+	table: 'traps',
+	endpointPath: '/sync/shapes/traps',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'collectionMethodId',
+		'addressId',
+		'collectionLureId',
+		'trapName',
+		'trapCode',
+		'description',
+		'isActive',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const collectionsSyncDescriptor: SyncDescriptor<AdultCollectionRow> = {
+	id: 'collections',
+	table: 'collections',
+	endpointPath: '/sync/shapes/collections',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'trapId',
+		'collectionMethodId',
+		'collectionLureId',
+		'addressId',
+		'collectedAt',
+		'collectedByProfileId',
+		'startedAt',
+		'setByProfileId',
+		'collectionTimingMode',
+		'collectionDate',
+		'durationAmount',
+		'durationUnitId',
+		'hasProblem',
+		'isZeroResult',
+		'hasBycatch',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const collectionSpeciesSyncDescriptor: SyncDescriptor<CollectionSpeciesRow> = {
+	id: 'collection_species',
+	table: 'collection_species',
+	endpointPath: '/sync/shapes/collection-species',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'collectionId',
+		'speciesId',
+		'count',
+		'sex',
+		'status',
+		'identifiedByProfileId',
+		'identifiedDate',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const commentsSyncDescriptor: SyncDescriptor<CommentRow> = {
+	id: 'comments',
+	table: 'comments',
+	endpointPath: '/sync/shapes/comments',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'entityType',
+		'entityId',
+		'commentText',
+		'commentedByProfileId',
+		'commentedAt',
+		'isPinned',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const tagItemsSyncDescriptor: SyncDescriptor<TagItemRow> = {
+	id: 'tag_items',
+	table: 'tag_items',
+	endpointPath: '/sync/shapes/tag-items',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'tagId',
+		'entityType',
+		'entityId',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const additionalPersonnelSyncDescriptor: SyncDescriptor<AdditionalPersonnelRow> = {
+	id: 'additional_personnel',
+	table: 'additional_personnel',
+	endpointPath: '/sync/shapes/additional-personnel',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'personnelProfileId',
+		'entityType',
+		'entityId',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const routeItemsSyncDescriptor: SyncDescriptor<RouteItemRow> = {
+	id: 'route_items',
+	table: 'route_items',
+	endpointPath: '/sync/shapes/route-items',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'routeId',
+		'entityType',
+		'entityId',
+		'position',
+		'directionsToNextItem',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const assignmentsSyncDescriptor: SyncDescriptor<AssignmentRow> = {
+	id: 'assignments',
+	table: 'assignments',
+	endpointPath: '/sync/shapes/assignments',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'assignmentName',
+		'assignedToProfileId',
+		'assignedByProfileId',
+		'assignmentDate',
+		'dueAt',
+		'startedAt',
+		'completedAt',
+		'cancelledAt',
+		'cancellationReason',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const assignmentItemsSyncDescriptor: SyncDescriptor<AssignmentItemRow> = {
+	id: 'assignment_items',
+	table: 'assignment_items',
+	endpointPath: '/sync/shapes/assignment-items',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'assignmentId',
+		'entityType',
+		'entityId',
+		'position',
+		'directionsToNextItem',
+		'completedAt',
+		'completedByProfileId',
+		'skippedAt',
+		'skippedByProfileId',
+		'skipReason',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const formulationsSyncDescriptor: SyncDescriptor<FormulationRow> = {
+	id: 'formulations',
+	table: 'formulations',
+	endpointPath: '/sync/shapes/formulations',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'formulationName',
+		'description',
+		'isActive',
+		'diluentRatio',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const formulationInsecticidesSyncDescriptor: SyncDescriptor<FormulationInsecticideRow> = {
+	id: 'formulation_insecticides',
+	table: 'formulation_insecticides',
+	endpointPath: '/sync/shapes/formulation-insecticides',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'formulationId',
+		'insecticideId',
+		'ratio',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const applicationsSyncDescriptor: SyncDescriptor<ApplicationRow> = {
+	id: 'applications',
+	table: 'applications',
+	endpointPath: '/sync/shapes/applications',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'applicationMethodId',
+		'insecticideId',
+		'applicatorProfileId',
+		'applicationDate',
+		'addressId',
+		'vehicleId',
+		'equipmentId',
+		'amountApplied',
+		'applicationUnitId',
+		'habitatId',
+		'collectionId',
+		'inspectionId',
+		'requestedControlActionId',
+		'missionItemId',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const applicationBatchesSyncDescriptor: SyncDescriptor<ApplicationBatchRow> = {
+	id: 'application_batches',
+	table: 'application_batches',
+	endpointPath: '/sync/shapes/application-batches',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'applicationId',
+		'insecticideBatchId',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const sourceReductionsSyncDescriptor: SyncDescriptor<SourceReductionRow> = {
+	id: 'source_reductions',
+	table: 'source_reductions',
+	endpointPath: '/sync/shapes/source-reductions',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'sourceReductionMethodId',
+		'technicianProfileId',
+		'sourceReductionDate',
+		'addressId',
+		'habitatId',
+		'sourcesEliminatedAmount',
+		'sourcesEliminatedUnitId',
+		'inspectionId',
+		'requestedControlActionId',
+		'missionItemId',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const outreachActionsSyncDescriptor: SyncDescriptor<OutreachActionRow> = {
+	id: 'outreach_actions',
+	table: 'outreach_actions',
+	endpointPath: '/sync/shapes/outreach-actions',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'outreachMethodId',
+		'technicianProfileId',
+		'outreachDate',
+		'addressId',
+		'inspectionId',
+		'reach',
+		'reachDescription',
+		'requestedControlActionId',
+		'missionItemId',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const biocontrolActionsSyncDescriptor: SyncDescriptor<BiocontrolActionRow> = {
+	id: 'biocontrol_actions',
+	table: 'biocontrol_actions',
+	endpointPath: '/sync/shapes/biocontrol-actions',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'biocontrolMethodId',
+		'technicianProfileId',
+		'biocontrolDate',
+		'addressId',
+		'habitatId',
+		'inspectionId',
+		'amountReleased',
+		'releaseUnitId',
+		'requestedControlActionId',
+		'missionItemId',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const contactsSyncDescriptor: SyncDescriptor<ContactRow> = {
+	id: 'contacts',
+	table: 'contacts',
+	endpointPath: '/sync/shapes/contacts',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'contactName',
+		'preferredPhone',
+		'alternatePhone',
+		'email',
+		'company',
+		'department',
+		'title',
+		'wantsEmail',
+		'wantsSms',
+		'wantsPhone',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const serviceRequestsSyncDescriptor: SyncDescriptor<ServiceRequestRow> = {
+	id: 'service_requests',
+	table: 'service_requests',
+	endpointPath: '/sync/shapes/service-requests',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'displayName',
+		'intakeType',
+		'requestDate',
+		'addressId',
+		'contactId',
+		'receivedByProfileId',
+		'details',
+		'closedAt',
+		'closedByProfileId',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const requestedControlActionsSyncDescriptor: SyncDescriptor<RequestedControlActionRow> = {
+	id: 'requested_control_actions',
+	table: 'requested_control_actions',
+	endpointPath: '/sync/shapes/requested-control-actions',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'controlType',
+		'recommendedMethodId',
+		'summary',
+		'habitatId',
+		'inspectionId',
+		'collectionId',
+		'addressId',
+		'requestedByProfileId',
+		'requestedAt',
+		'resolvedAt',
+		'resolvedByProfileId',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const missionsSyncDescriptor: SyncDescriptor<MissionRow> = {
+	id: 'missions',
+	table: 'missions',
+	endpointPath: '/sync/shapes/missions',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'missionName',
+		'controlType',
+		'plannedMethodId',
+		'assignedToProfileId',
+		'assignedByProfileId',
+		'scheduledStartAt',
+		'scheduledEndAt',
+		'rainDate',
+		'startedAt',
+		'completedAt',
+		'cancelledAt',
+		'cancellationReason',
+		'notificationTypeId',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const missionItemsSyncDescriptor: SyncDescriptor<MissionItemRow> = {
+	id: 'mission_items',
+	table: 'mission_items',
+	endpointPath: '/sync/shapes/mission-items',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'missionId',
+		'requestedControlActionId',
+		'addressId',
+		'position',
+		'completedAt',
+		'completedByProfileId',
+		'skippedAt',
+		'skippedByProfileId',
+		'skipReason',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const notificationRegistrationsSyncDescriptor: SyncDescriptor<NotificationRegistrationRow> =
+	{
+		id: 'notification_registrations',
+		table: 'notification_registrations',
+		endpointPath: '/sync/shapes/notification-registrations',
+		syncMode: 'on-demand',
+		columns: [
+			'id',
+			'organizationId',
+			'contactId',
+			'addressId',
+			'bufferDistance',
+			'bufferUnitId',
+			'hasBees',
+			'isNoSpray',
+			'isActive',
+			'createdByProfileId',
+			'updatedByProfileId',
+			'createdAt',
+			'updatedAt',
+			'deletedAt',
+			'deletedByProfileId',
+		],
+		getKey: (row) => row.id,
+	};
+
+export const notificationRegistrationTypesSyncDescriptor: SyncDescriptor<NotificationRegistrationTypeRow> =
+	{
+		id: 'notification_registration_types',
+		table: 'notification_registration_types',
+		endpointPath: '/sync/shapes/notification-registration-types',
+		syncMode: 'on-demand',
+		columns: [
+			'id',
+			'organizationId',
+			'notificationRegistrationId',
+			'notificationTypeId',
+			'createdByProfileId',
+			'updatedByProfileId',
+			'createdAt',
+			'updatedAt',
+			'deletedAt',
+			'deletedByProfileId',
+		],
+		getKey: (row) => row.id,
+	};
+
+export const missionNotificationsSyncDescriptor: SyncDescriptor<MissionNotificationRow> = {
+	id: 'mission_notifications',
+	table: 'mission_notifications',
+	endpointPath: '/sync/shapes/mission-notifications',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'missionId',
+		'notificationRegistrationId',
+		'contactId',
+		'notificationTypeId',
+		'channel',
+		'destination',
+		'status',
+		'statusChangedAt',
+		'statusChangedByProfileId',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const weatherSourcesSyncDescriptor: SyncDescriptor<WeatherSourceRow> = {
+	id: 'weather_sources',
+	table: 'weather_sources',
+	endpointPath: '/sync/shapes/weather-sources',
+	syncMode: 'eager',
+	columns: [
+		'id',
+		'organizationId',
+		'sourceType',
+		'sourceName',
+		'sourceCode',
+		'providerSourceId',
+		'isActive',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+		'deletedAt',
+		'deletedByProfileId',
+	],
+	getKey: (row) => row.id,
+};
+
+export const weatherSourceSubscriptionsSyncDescriptor: SyncDescriptor<WeatherSourceSubscriptionRow> =
+	{
+		id: 'weather_source_subscriptions',
+		table: 'weather_source_subscriptions',
+		endpointPath: '/sync/shapes/weather-source-subscriptions',
+		syncMode: 'on-demand',
+		columns: [
+			'id',
+			'organizationId',
+			'weatherSourceId',
+			'isActive',
+			'createdByProfileId',
+			'updatedByProfileId',
+			'createdAt',
+			'updatedAt',
+			'deletedAt',
+			'deletedByProfileId',
+		],
+		getKey: (row) => row.id,
+	};
+
+export const weatherSummariesSyncDescriptor: SyncDescriptor<WeatherSummaryRow> = {
+	id: 'weather_summaries',
+	table: 'weather_summaries',
+	endpointPath: '/sync/shapes/weather-summaries',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'weatherSourceId',
+		'startDate',
+		'endDate',
+		'temperatureMinF',
+		'temperatureMaxF',
+		'precipitationInches',
+		'relativeHumidityMin',
+		'relativeHumidityMax',
+		'windSpeedMinMph',
+		'windSpeedMaxMph',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
 export const webReadOnlyTracerDescriptors = [
 	unitsSyncDescriptor,
 	profilesSyncDescriptor,
@@ -723,18 +1849,48 @@ export const webReadOnlyTracerDescriptors = [
 	insecticidesSyncDescriptor,
 	insecticideBatchesSyncDescriptor,
 	notificationTypesSyncDescriptor,
-	habitatsSyncDescriptor,
 	inspectionsSyncDescriptor,
 	samplesSyncDescriptor,
 	sampleSpeciesSyncDescriptor,
 	routesSyncDescriptor,
+	regionFoldersSyncDescriptor,
+	regionsSyncDescriptor,
+	trapsSyncDescriptor,
+	collectionsSyncDescriptor,
+	collectionSpeciesSyncDescriptor,
+	commentsSyncDescriptor,
+	tagItemsSyncDescriptor,
+	additionalPersonnelSyncDescriptor,
+	routeItemsSyncDescriptor,
+	assignmentsSyncDescriptor,
+	assignmentItemsSyncDescriptor,
+	formulationsSyncDescriptor,
+	formulationInsecticidesSyncDescriptor,
+	applicationsSyncDescriptor,
+	applicationBatchesSyncDescriptor,
+	sourceReductionsSyncDescriptor,
+	outreachActionsSyncDescriptor,
+	biocontrolActionsSyncDescriptor,
+	contactsSyncDescriptor,
+	serviceRequestsSyncDescriptor,
+	requestedControlActionsSyncDescriptor,
+	missionsSyncDescriptor,
+	missionItemsSyncDescriptor,
+	notificationRegistrationsSyncDescriptor,
+	notificationRegistrationTypesSyncDescriptor,
+	missionNotificationsSyncDescriptor,
+	weatherSourcesSyncDescriptor,
+	weatherSourceSubscriptionsSyncDescriptor,
+	weatherSummariesSyncDescriptor,
 ] as const;
 
 export const webCommandMutationDescriptors = [
 	currentOrganizationSyncDescriptor,
+	addressesSyncDescriptor,
 	collectionMethodsSyncDescriptor,
 	collectionLuresSyncDescriptor,
 	habitatTypesSyncDescriptor,
+	habitatsSyncDescriptor,
 	tagsSyncDescriptor,
 ] as const;
 
@@ -773,6 +1929,12 @@ const snakeCamelColumnMapper = {
 };
 
 export function encodeShapeColumnName(value: string): string {
+	if (value === 'addressLine1') {
+		return 'address_line_1';
+	}
+	if (value === 'addressLine2') {
+		return 'address_line_2';
+	}
 	if (value === 'mailingAddressLine1') {
 		return 'mailing_address_line_1';
 	}
@@ -784,6 +1946,12 @@ export function encodeShapeColumnName(value: string): string {
 }
 
 export function decodeShapeColumnName(value: string): string {
+	if (value === 'address_line_1') {
+		return 'addressLine1';
+	}
+	if (value === 'address_line_2') {
+		return 'addressLine2';
+	}
 	if (value === 'mailing_address_line_1') {
 		return 'mailingAddressLine1';
 	}

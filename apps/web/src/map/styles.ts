@@ -11,6 +11,17 @@ export const defaultMapCamera = {
 
 export const mapboxHabitatStyle = 'mapbox://styles/mapbox/streets-v12';
 
+const mapColors = {
+	activeHabitat: '#0c5331',
+	blue: '#2d46b6',
+	inactiveHabitat: '#708587',
+	inaccessibleHabitat: '#ef2352',
+	mapBackground: '#e8efeb',
+	pointStroke: '#f9fdfb',
+	warningFill: '#ebc751',
+	warningStroke: '#7b461e',
+} as const;
+
 export const emptyMapStyle: StyleSpecification = {
 	version: 8,
 	name: 'SIMMER empty map',
@@ -20,7 +31,7 @@ export const emptyMapStyle: StyleSpecification = {
 			id: 'background',
 			type: 'background',
 			paint: {
-				'background-color': 'oklch(94.5% 0.009 165)',
+				'background-color': mapColors.mapBackground,
 			},
 		},
 	],
@@ -103,10 +114,10 @@ function createHabitatTileLayers(
 				'fill-color': [
 					'case',
 					['boolean', ['get', 'isInaccessible'], false],
-					'oklch(61.56% 0.2307 16.37)',
+					mapColors.inaccessibleHabitat,
 					['boolean', ['get', 'isActive'], true],
-					'oklch(52.71% 0.1114 159.1429)',
-					'oklch(60% 0.024 205)',
+					mapColors.activeHabitat,
+					mapColors.inactiveHabitat,
 				],
 				'fill-opacity': 0.22,
 			},
@@ -118,7 +129,7 @@ function createHabitatTileLayers(
 			'source-layer': sourceLayer,
 			filter: ['==', ['geometry-type'], 'Polygon'],
 			paint: {
-				'line-color': 'oklch(39.15% 0.0882 156.38)',
+				'line-color': mapColors.activeHabitat,
 				'line-opacity': 0.74,
 				'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 16, 2],
 			},
@@ -130,7 +141,7 @@ function createHabitatTileLayers(
 			'source-layer': sourceLayer,
 			filter: ['==', ['geometry-type'], 'LineString'],
 			paint: {
-				'line-color': 'oklch(44.83% 0.1791 268.37)',
+				'line-color': mapColors.blue,
 				'line-opacity': 0.78,
 				'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.2, 16, 3],
 			},
@@ -145,14 +156,14 @@ function createHabitatTileLayers(
 				'circle-color': [
 					'case',
 					['boolean', ['get', 'isInaccessible'], false],
-					'oklch(61.56% 0.2307 16.37)',
+					mapColors.inaccessibleHabitat,
 					['boolean', ['get', 'isActive'], true],
-					'oklch(39.15% 0.0882 156.38)',
-					'oklch(60% 0.024 205)',
+					mapColors.activeHabitat,
+					mapColors.inactiveHabitat,
 				],
 				'circle-opacity': 0.92,
 				'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3, 16, 6],
-				'circle-stroke-color': 'oklch(99% 0.004 165)',
+				'circle-stroke-color': mapColors.pointStroke,
 				'circle-stroke-width': 1.2,
 			},
 		},
@@ -167,7 +178,7 @@ function createDefaultGeoJsonLayers(sourceId: string): readonly LayerSpecificati
 			source: sourceId,
 			filter: ['==', ['geometry-type'], 'Polygon'],
 			paint: {
-				'fill-color': 'oklch(84% 0.14 92)',
+				'fill-color': mapColors.warningFill,
 				'fill-opacity': 0.3,
 			},
 		},
@@ -177,7 +188,7 @@ function createDefaultGeoJsonLayers(sourceId: string): readonly LayerSpecificati
 			source: sourceId,
 			filter: ['==', ['geometry-type'], 'Polygon'],
 			paint: {
-				'line-color': 'oklch(45% 0.09 55)',
+				'line-color': mapColors.warningStroke,
 				'line-width': 2,
 			},
 		},
@@ -187,7 +198,7 @@ function createDefaultGeoJsonLayers(sourceId: string): readonly LayerSpecificati
 			source: sourceId,
 			filter: ['==', ['geometry-type'], 'LineString'],
 			paint: {
-				'line-color': 'oklch(39.15% 0.0882 156.38)',
+				'line-color': mapColors.activeHabitat,
 				'line-width': 3,
 			},
 		},
@@ -197,9 +208,9 @@ function createDefaultGeoJsonLayers(sourceId: string): readonly LayerSpecificati
 			source: sourceId,
 			filter: ['==', ['geometry-type'], 'Point'],
 			paint: {
-				'circle-color': 'oklch(39.15% 0.0882 156.38)',
+				'circle-color': mapColors.activeHabitat,
 				'circle-radius': 5,
-				'circle-stroke-color': 'oklch(99% 0.004 165)',
+				'circle-stroke-color': mapColors.pointStroke,
 				'circle-stroke-width': 1.5,
 			},
 		},

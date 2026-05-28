@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+	addressesSyncDescriptor,
 	currentOrganizationSyncDescriptor,
 	decodeShapeColumnName,
 	electricShapeCollectionOptions,
 	encodeShapeColumnName,
-	habitatsSyncDescriptor,
 	insecticideBatchesSyncDescriptor,
-	inspectionsSyncDescriptor,
 	membershipsSyncDescriptor,
 	profilesSyncDescriptor,
 	type SyncDescriptor,
@@ -125,8 +124,12 @@ describe('sync descriptors', () => {
 	});
 
 	it('maps numbered address columns between client and Electric column names', () => {
+		expect(encodeShapeColumnName('addressLine1')).toBe('address_line_1');
+		expect(encodeShapeColumnName('addressLine2')).toBe('address_line_2');
 		expect(encodeShapeColumnName('mailingAddressLine1')).toBe('mailing_address_line_1');
 		expect(encodeShapeColumnName('mailingAddressLine2')).toBe('mailing_address_line_2');
+		expect(decodeShapeColumnName('address_line_1')).toBe('addressLine1');
+		expect(decodeShapeColumnName('address_line_2')).toBe('addressLine2');
 		expect(decodeShapeColumnName('mailing_address_line_1')).toBe('mailingAddressLine1');
 		expect(decodeShapeColumnName('mailing_address_line_2')).toBe('mailingAddressLine2');
 	});
@@ -134,10 +137,32 @@ describe('sync descriptors', () => {
 	it('keeps foundation lookup catalogs as command-backed tracer descriptors', () => {
 		expect(webCommandMutationDescriptors.map((descriptor) => descriptor.id)).toEqual([
 			'current_organization',
+			'addresses',
 			'collection_methods',
 			'collection_lures',
 			'habitat_types',
+			'habitats',
 			'tags',
+		]);
+	});
+
+	it('syncs address book records on demand without generated geometry projections', () => {
+		expect(addressesSyncDescriptor.syncMode).toBe('on-demand');
+		expect(addressesSyncDescriptor.columns).toEqual([
+			'id',
+			'organizationId',
+			'displayName',
+			'country',
+			'addressLine1',
+			'addressLine2',
+			'locality',
+			'region',
+			'postalCode',
+			'geocoderResponse',
+			'createdByProfileId',
+			'updatedByProfileId',
+			'createdAt',
+			'updatedAt',
 		]);
 	});
 
@@ -147,8 +172,9 @@ describe('sync descriptors', () => {
 		expect(insecticideBatchesSyncDescriptor.columns).toContain('deletedAt');
 	});
 
-	it('omits generated owned-geometry projections from Electric shapes', () => {
-		for (const descriptor of [habitatsSyncDescriptor, inspectionsSyncDescriptor]) {
+	it('omits owned-geometry columns from Electric shapes', () => {
+		for (const descriptor of [...webCommandMutationDescriptors, ...webReadOnlyTracerDescriptors]) {
+			expect(descriptor.columns).not.toContain('geom');
 			expect(descriptor.columns).not.toContain('lat');
 			expect(descriptor.columns).not.toContain('lng');
 			expect(descriptor.columns).not.toContain('geojson');
@@ -173,11 +199,39 @@ describe('sync descriptors', () => {
 			'insecticides',
 			'insecticide_batches',
 			'notification_types',
-			'habitats',
 			'inspections',
 			'samples',
 			'sample_species',
 			'routes',
+			'region_folders',
+			'regions',
+			'traps',
+			'collections',
+			'collection_species',
+			'comments',
+			'tag_items',
+			'additional_personnel',
+			'route_items',
+			'assignments',
+			'assignment_items',
+			'formulations',
+			'formulation_insecticides',
+			'applications',
+			'application_batches',
+			'source_reductions',
+			'outreach_actions',
+			'biocontrol_actions',
+			'contacts',
+			'service_requests',
+			'requested_control_actions',
+			'missions',
+			'mission_items',
+			'notification_registrations',
+			'notification_registration_types',
+			'mission_notifications',
+			'weather_sources',
+			'weather_source_subscriptions',
+			'weather_summaries',
 		]);
 
 		for (const descriptor of webReadOnlyTracerDescriptors) {

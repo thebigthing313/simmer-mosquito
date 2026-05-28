@@ -1,17 +1,21 @@
 import {
+	createAddress,
 	createOrgLookup,
 	createTag,
 	deleteCollectionLureLookup,
 	deleteCollectionMethodLookup,
 	deleteHabitatTypeLookup,
 	deleteTag,
+	type GeoJsonGeometry,
 	type MutationWriteResult,
+	type SafeAddress,
 	type SafeOrgLookup,
 	type SafeTag,
 	setCollectionLureLookupActive,
 	setCollectionMethodLookupActive,
 	setHabitatTypeLookupActive,
 	setTagActive,
+	sql,
 	updateCollectionLureLookup,
 	updateCollectionMethodLookup,
 	updateHabitatTypeLookup,
@@ -115,6 +119,23 @@ export function registerFoundationCommandRoutes(
 	const writeCollectionMethodCommands =
 		options.writeCollectionMethodCommands ?? writeFoundationLookupCommands;
 	const writeTagCommands = options.writeTagCommands ?? writeFoundationTagCommands;
+
+	app.post('/foundation/addresses', options.authContextMiddleware, async (context) => {
+		const payloadResult = await readAddressCreatePayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const result = await writeAddressWithTxid(options.db, {
+			...payloadResult.payload,
+			organizationId: authContext.organization.id,
+			createdByProfileId: authContext.profile.id,
+			updatedByProfileId: authContext.profile.id,
+		});
+
+		return context.json({ address: toAddressResponse(result.row), txid: result.txid }, 201);
+	});
 
 	app.post('/foundation/collection-methods', options.authContextMiddleware, async (context) => {
 		const payloadResult = await readCollectionMethodCreatePayload(context.req);
@@ -459,6 +480,24 @@ export async function writeFoundationTagCommands(
 		}
 
 		return row;
+	});
+}
+
+async function writeAddressWithTxid(
+	db: FoundationCommandDb,
+	input: AddressWriteInput,
+): Promise<MutationWriteResult<SafeAddress>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await createAddress(trx, input);
+		const result = await sql<{
+			txid: string;
+		}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
+		const txid = result.rows[0]?.txid;
+		if (txid === undefined) {
+			throw new Error('Unable to read current transaction id.');
+		}
+
+		return { row, txid: Number.parseInt(txid, 10) };
 	});
 }
 
@@ -932,6 +971,25 @@ interface CollectionMethodCreatePayload {
 	readonly actionThreshold: number | null;
 }
 
+interface AddressCreatePayload {
+	readonly id: string;
+	readonly displayName: string;
+	readonly country: string;
+	readonly addressLine1: string | null;
+	readonly addressLine2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+	readonly geocoderResponse: unknown | null;
+	readonly geojson: GeoJsonGeometry;
+}
+
+interface AddressWriteInput extends AddressCreatePayload {
+	readonly organizationId: string;
+	readonly createdByProfileId: string;
+	readonly updatedByProfileId: string;
+}
+
 interface CollectionMethodUpdatePayload {
 	readonly name?: string;
 	readonly description?: string | null;
@@ -957,6 +1015,46 @@ interface TagUpdatePayload {
 type PayloadResult<T> =
 	| { readonly ok: true; readonly payload: T }
 	| { readonly ok: false; readonly reason: string };
+
+async function readAddressCreatePayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<PayloadResult<AddressCreatePayload>> {
+	const rawResult = await readJsonObject(request);
+	if (!rawResult.ok) {
+		return rawResult;
+	}
+	const raw = rawResult.payload;
+	const id = readRequiredText(raw.id);
+	const displayName = readRequiredText(raw.displayName);
+	const country = readRequiredText(raw.country)?.toUpperCase() ?? null;
+	const geojson = readGeoJson(raw.geojson);
+
+	if (id === null || displayName === null) {
+		return invalid('id and displayName are required.');
+	}
+	if (country === null || country.length !== 2) {
+		return invalid('country must be a two-letter country code.');
+	}
+	if (geojson === null) {
+		return invalid('geojson must be a GeoJSON geometry object.');
+	}
+
+	return {
+		ok: true,
+		payload: {
+			id,
+			displayName,
+			country,
+			addressLine1: readOptionalText(raw.addressLine1),
+			addressLine2: readOptionalText(raw.addressLine2),
+			locality: readOptionalText(raw.locality),
+			region: readOptionalText(raw.region),
+			postalCode: readOptionalText(raw.postalCode),
+			geocoderResponse: readOptionalJson(raw.geocoderResponse),
+			geojson,
+		},
+	};
+}
 
 async function readCollectionMethodCreatePayload(request: {
 	readonly json: () => Promise<unknown>;
@@ -1112,6 +1210,14 @@ function readOptionalNonnegativeInteger(value: unknown): number | null | undefin
 	return value;
 }
 
+function readGeoJson(value: unknown): GeoJsonGeometry | null {
+	if (!isRecord(value) || typeof value.type !== 'string') {
+		return null;
+	}
+
+	return value;
+}
+
 function invalid(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
 }
@@ -1124,6 +1230,25 @@ function agencyCommandContext(authContext: AuthContext) {
 	return {
 		organizationId: authContext.organization.id,
 		actorProfileId: authContext.profile.id,
+	};
+}
+
+function toAddressResponse(row: SafeAddress) {
+	return {
+		id: row.id,
+		organizationId: row.organizationId,
+		geometry: row.geometry,
+		displayName: row.displayName,
+		country: row.country,
+		addressLine1: row.addressLine1,
+		addressLine2: row.addressLine2,
+		locality: row.locality,
+		region: row.region,
+		postalCode: row.postalCode,
+		createdByProfileId: row.createdByProfileId,
+		updatedByProfileId: row.updatedByProfileId,
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
 	};
 }
 

@@ -262,7 +262,7 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 	const roleLabel = formatRole(localIdentity?.role);
 	const liveStatus =
 		organizationStatus === 'ready' && profileStatus === 'ready' ? 'Live' : 'Updating';
-	const fullHeightWorkspace = pathname === '/habitats';
+	const fullHeightWorkspace = pathname === '/habitats' || pathname.startsWith('/habitats/');
 	const workspaceContent = (
 		<div
 			className={cn(

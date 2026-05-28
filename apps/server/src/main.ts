@@ -34,6 +34,8 @@ import { registerControlProductCommandRoutes } from './control-product-commands.
 import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
 import { readServerEnv } from './env.js';
 import { registerFoundationCommandRoutes } from './foundation-commands.js';
+import { registerGeocoderRoutes } from './geocoder.js';
+import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands.js';
 import { registerMapTileRoutes } from './map-tiles.js';
 import { registerOrganizationCommandRoutes } from './organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
@@ -108,6 +110,15 @@ app.use(
 );
 
 app.use(
+	'/geocoder/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['GET', 'OPTIONS'],
+	}),
+);
+
+app.use(
 	'/foundation/*',
 	cors({
 		origin: allowedCorsOrigins(),
@@ -154,6 +165,15 @@ app.use(
 
 app.use(
 	'/public-engagement/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/larval-surveillance/*',
 	cors({
 		origin: allowedCorsOrigins(),
 		credentials: true,
@@ -357,8 +377,18 @@ registerPublicEngagementCommandRoutes(app, {
 	authContextMiddleware,
 });
 
+registerLarvalSurveillanceCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
 registerMapTileRoutes(app, {
 	db,
+	authContextMiddleware,
+});
+
+registerGeocoderRoutes(app, {
+	apiKey: env.geocodioApiKey,
 	authContextMiddleware,
 });
 

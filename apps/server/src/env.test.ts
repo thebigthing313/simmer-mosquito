@@ -29,4 +29,14 @@ describe('readServerEnv', () => {
 			}).electricUrl,
 		).toBe('http://localhost:3001/v1/shape');
 	});
+
+	it('reads GEOCODIO_API_KEY when geocoding is configured', () => {
+		expect(readServerEnv(baseEnv).geocodioApiKey).toBeNull();
+		expect(
+			readServerEnv({
+				...baseEnv,
+				GEOCODIO_API_KEY: 'geocodio_test',
+			}).geocodioApiKey,
+		).toBe('geocodio_test');
+	});
 });
