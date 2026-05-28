@@ -137,6 +137,87 @@ export interface HabitatTypeRow extends OrgLookupRowBase {
 	readonly customSchema: unknown | null;
 }
 
+export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
+
+interface OwnedGeometryRow {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: unknown;
+	readonly geomType: string;
+}
+
+export interface HabitatRow extends OwnedGeometryRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly addressId: string | null;
+	readonly habitatTypeId: string | null;
+	readonly habitatName: string | null;
+	readonly description: string;
+	readonly isActive: boolean;
+	readonly isInaccessible: boolean;
+	readonly metadata: unknown | null;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface InspectionRow extends OwnedGeometryRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly habitatId: string | null;
+	readonly habitatTypeId: string | null;
+	readonly addressId: string | null;
+	readonly inspectedByProfileId: string | null;
+	readonly inspectionDate: string;
+	readonly isWet: boolean;
+	readonly dipCount: number | null;
+	readonly density: LarvalDensity | null;
+	readonly larvaeCount: number | null;
+	readonly hasFirstInstar: boolean;
+	readonly hasSecondInstar: boolean;
+	readonly hasThirdInstar: boolean;
+	readonly hasFourthInstar: boolean;
+	readonly hasPupae: boolean;
+	readonly hasEggs: boolean;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface SampleRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly inspectionId: string;
+	readonly displayName: string | null;
+	readonly isZeroLarvae: boolean;
+	readonly hasNonMosquito: boolean;
+	readonly unidentifiableReason: string | null;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+export interface SampleSpeciesRow {
+	readonly [key: string]: unknown;
+	readonly id: string;
+	readonly organizationId: string;
+	readonly sampleId: string;
+	readonly speciesId: string;
+	readonly identifiedByProfileId: string | null;
+	readonly identifiedAt: string;
+	readonly larvaeCount: number;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
 export interface ControlMethodRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
@@ -376,6 +457,110 @@ export const habitatTypesSyncDescriptor: SyncDescriptor<HabitatTypeRow> = {
 	getKey: (row) => row.id,
 };
 
+export const habitatsSyncDescriptor: SyncDescriptor<HabitatRow> = {
+	id: 'habitats',
+	table: 'habitats',
+	endpointPath: '/sync/shapes/habitats',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'lat',
+		'lng',
+		'geojson',
+		'geomType',
+		'addressId',
+		'habitatTypeId',
+		'habitatName',
+		'description',
+		'isActive',
+		'isInaccessible',
+		'metadata',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const inspectionsSyncDescriptor: SyncDescriptor<InspectionRow> = {
+	id: 'inspections',
+	table: 'inspections',
+	endpointPath: '/sync/shapes/inspections',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'lat',
+		'lng',
+		'geojson',
+		'geomType',
+		'habitatId',
+		'habitatTypeId',
+		'addressId',
+		'inspectedByProfileId',
+		'inspectionDate',
+		'isWet',
+		'dipCount',
+		'density',
+		'larvaeCount',
+		'hasFirstInstar',
+		'hasSecondInstar',
+		'hasThirdInstar',
+		'hasFourthInstar',
+		'hasPupae',
+		'hasEggs',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const samplesSyncDescriptor: SyncDescriptor<SampleRow> = {
+	id: 'samples',
+	table: 'samples',
+	endpointPath: '/sync/shapes/samples',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'inspectionId',
+		'displayName',
+		'isZeroLarvae',
+		'hasNonMosquito',
+		'unidentifiableReason',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
+export const sampleSpeciesSyncDescriptor: SyncDescriptor<SampleSpeciesRow> = {
+	id: 'sample_species',
+	table: 'sample_species',
+	endpointPath: '/sync/shapes/sample-species',
+	syncMode: 'on-demand',
+	columns: [
+		'id',
+		'organizationId',
+		'sampleId',
+		'speciesId',
+		'identifiedByProfileId',
+		'identifiedAt',
+		'larvaeCount',
+		'createdByProfileId',
+		'updatedByProfileId',
+		'createdAt',
+		'updatedAt',
+	],
+	getKey: (row) => row.id,
+};
+
 export const applicationMethodsSyncDescriptor: SyncDescriptor<ControlMethodRow> = {
 	id: 'application_methods',
 	table: 'application_methods',
@@ -542,6 +727,10 @@ export const webReadOnlyTracerDescriptors = [
 	insecticidesSyncDescriptor,
 	insecticideBatchesSyncDescriptor,
 	notificationTypesSyncDescriptor,
+	habitatsSyncDescriptor,
+	inspectionsSyncDescriptor,
+	samplesSyncDescriptor,
+	sampleSpeciesSyncDescriptor,
 	routesSyncDescriptor,
 ] as const;
 

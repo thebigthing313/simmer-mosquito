@@ -116,6 +116,10 @@ describe('registerSyncShapeRoutes', () => {
 	it.each([
 		['/sync/shapes/insecticides'],
 		['/sync/shapes/insecticide-batches'],
+		['/sync/shapes/habitats'],
+		['/sync/shapes/inspections'],
+		['/sync/shapes/samples'],
+		['/sync/shapes/sample-species'],
 	])('registers %s', async (path) => {
 		const app = new Hono<{ Variables: AuthVariables }>();
 
@@ -156,6 +160,36 @@ describe('registerSyncShapeRoutes', () => {
 		expect(response.status).toBe(200);
 		expect(upstream.searchParams.get('table')).toBe('insecticide_batches');
 		expect(upstream.searchParams.get('columns')).toContain('organization_id');
+		expect(upstream.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
+		expect(upstream.searchParams.get('params[1]')).toBe('org-1');
+	});
+
+	it('registers org-scoped larval surveillance shapes', async () => {
+		const app = new Hono<{ Variables: AuthVariables }>();
+		const requests: string[] = [];
+
+		registerSyncShapeRoutes(app, {
+			electricUrl: 'http://localhost:3001/v1/shape',
+			authContextMiddleware: createMiddleware(async (context, next) => {
+				context.set('authContext', {
+					organization: { id: 'org-1' },
+				} as never);
+				await next();
+			}),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+			fetch: ((request) => {
+				requests.push(String(request));
+				return Promise.resolve(new Response('[]'));
+			}) as typeof fetch,
+		});
+
+		const response = await app.request('/sync/shapes/inspections');
+		const upstream = new URL(requests[0] ?? '');
+
+		expect(response.status).toBe(200);
+		expect(upstream.searchParams.get('table')).toBe('inspections');
+		expect(upstream.searchParams.get('columns')).toContain('habitat_id');
+		expect(upstream.searchParams.get('columns')).toContain('inspection_date');
 		expect(upstream.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
 		expect(upstream.searchParams.get('params[1]')).toBe('org-1');
 	});

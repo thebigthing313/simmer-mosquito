@@ -12,12 +12,16 @@ import {
 	equipmentSyncDescriptor,
 	type GenusRow,
 	generaSyncDescriptor,
+	type HabitatRow,
 	type HabitatTypeRow,
+	habitatsSyncDescriptor,
 	habitatTypesSyncDescriptor,
 	type InsecticideBatchRow,
 	type InsecticideRow,
+	type InspectionRow,
 	insecticideBatchesSyncDescriptor,
 	insecticidesSyncDescriptor,
+	inspectionsSyncDescriptor,
 	type MembershipRow,
 	membershipsSyncDescriptor,
 	type NotificationTypeRow,
@@ -30,7 +34,11 @@ import {
 	profilesSyncDescriptor,
 	type RouteRow,
 	routesSyncDescriptor,
+	type SampleRow,
+	type SampleSpeciesRow,
 	type SpeciesRow,
+	sampleSpeciesSyncDescriptor,
+	samplesSyncDescriptor,
 	sourceReductionMethodsSyncDescriptor,
 	speciesSyncDescriptor,
 	type TagRow,
@@ -63,9 +71,11 @@ export interface WebCollections {
 	readonly collectionMethods: Collection<CollectionMethodRow, string | number>;
 	readonly equipment: Collection<EquipmentRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
+	readonly habitats: Collection<HabitatRow, string | number>;
 	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
 	readonly insecticideBatches: Collection<InsecticideBatchRow, string | number>;
 	readonly insecticides: Collection<InsecticideRow, string | number>;
+	readonly inspections: Collection<InspectionRow, string | number>;
 	readonly memberships: Collection<MembershipRow, string | number>;
 	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
 	readonly currentOrganization: Collection<OrganizationRow, string | number>;
@@ -73,6 +83,8 @@ export interface WebCollections {
 	readonly outreachMethods: Collection<ControlMethodRow, string | number>;
 	readonly profiles: Collection<ProfileRow, string | number>;
 	readonly routes: Collection<RouteRow, string | number>;
+	readonly samples: Collection<SampleRow, string | number>;
+	readonly sampleSpecies: Collection<SampleSpeciesRow, string | number>;
 	readonly species: Collection<SpeciesRow, string | number>;
 	readonly sourceReductionMethods: Collection<ControlMethodRow, string | number>;
 	readonly tags: Collection<TagRow, string | number>;
@@ -297,6 +309,30 @@ export function createWebCollections(options: {
 			url: `${shapeServerUrl}${routesSyncDescriptor.endpointPath}`,
 		}),
 	);
+	const habitats = createCollection(
+		electricShapeCollectionOptions<HabitatRow>({
+			descriptor: habitatsSyncDescriptor,
+			url: `${shapeServerUrl}${habitatsSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const inspections = createCollection(
+		electricShapeCollectionOptions<InspectionRow>({
+			descriptor: inspectionsSyncDescriptor,
+			url: `${shapeServerUrl}${inspectionsSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const samples = createCollection(
+		electricShapeCollectionOptions<SampleRow>({
+			descriptor: samplesSyncDescriptor,
+			url: `${shapeServerUrl}${samplesSyncDescriptor.endpointPath}`,
+		}),
+	);
+	const sampleSpecies = createCollection(
+		electricShapeCollectionOptions<SampleSpeciesRow>({
+			descriptor: sampleSpeciesSyncDescriptor,
+			url: `${shapeServerUrl}${sampleSpeciesSyncDescriptor.endpointPath}`,
+		}),
+	);
 
 	return {
 		applicationMethods,
@@ -305,9 +341,11 @@ export function createWebCollections(options: {
 		collectionMethods,
 		equipment,
 		genera,
+		habitats,
 		habitatTypes,
 		insecticideBatches,
 		insecticides,
+		inspections,
 		memberships,
 		notificationTypes,
 		currentOrganization,
@@ -315,6 +353,8 @@ export function createWebCollections(options: {
 		outreachMethods,
 		profiles,
 		routes,
+		samples,
+		sampleSpecies,
 		species,
 		sourceReductionMethods,
 		tags,

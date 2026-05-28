@@ -6,15 +6,19 @@ import {
 	currentOrganizationSyncDescriptor,
 	equipmentSyncDescriptor,
 	generaSyncDescriptor,
+	habitatsSyncDescriptor,
 	habitatTypesSyncDescriptor,
 	insecticideBatchesSyncDescriptor,
 	insecticidesSyncDescriptor,
+	inspectionsSyncDescriptor,
 	membershipsSyncDescriptor,
 	notificationTypesSyncDescriptor,
 	organizationSpeciesSyncDescriptor,
 	outreachMethodsSyncDescriptor,
 	profilesSyncDescriptor,
 	routesSyncDescriptor,
+	sampleSpeciesSyncDescriptor,
+	samplesSyncDescriptor,
 	sourceReductionMethodsSyncDescriptor,
 	speciesSyncDescriptor,
 	tagsSyncDescriptor,
@@ -256,6 +260,22 @@ export function registerSyncShapeRoutes(
 	registerSelectedOrganizationShapeRoute(app, options, {
 		path: '/sync/shapes/notification-types',
 		descriptor: notificationTypesSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/habitats',
+		descriptor: habitatsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/inspections',
+		descriptor: inspectionsSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/samples',
+		descriptor: samplesSyncDescriptor,
+	});
+	registerSelectedOrganizationShapeRoute(app, options, {
+		path: '/sync/shapes/sample-species',
+		descriptor: sampleSpeciesSyncDescriptor,
 	});
 
 	app.get('/sync/shapes/tags', options.authContextMiddleware, async (context) => {
