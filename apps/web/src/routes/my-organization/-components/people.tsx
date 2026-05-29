@@ -39,7 +39,9 @@ import {
 	updateProfile,
 	watchPersistence,
 } from './helpers';
-import { OrgSection, OrgSurface, SectionHeader } from './layout';
+import { OrgSurface } from './layout/layout';
+import { OrgSection } from './layout/org-section';
+import { SectionHeader } from './layout/section-header';
 import type { OrgRole } from './types';
 
 export function PeopleSection({

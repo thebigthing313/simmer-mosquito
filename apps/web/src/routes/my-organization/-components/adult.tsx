@@ -31,7 +31,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue } from '../../../forms/field-components';
-import { useActiveNamedCollectionRows } from '../../../sync/useCollectionRows';
+import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import {
 	collectionLureFormValues,
@@ -44,7 +44,7 @@ import {
 	updateAdultCollectionMethodFromValues,
 	watchPersistence,
 } from './helpers';
-import { LookupListFrame } from './layout';
+import { LookupListFrame } from './layout/layout';
 import type { SettingField } from './types';
 
 export function AdultSurveillanceSettings({

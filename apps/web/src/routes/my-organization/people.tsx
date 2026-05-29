@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { collections } from './-components/constants';
-import { OrganizationWorkspaceShell } from './-components/layout';
-import { useOrganizationWorkspace } from './-components/organization-workspace';
+import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { PeopleSection } from './-components/people';
 
 export const Route = createFileRoute('/my-organization/people')({

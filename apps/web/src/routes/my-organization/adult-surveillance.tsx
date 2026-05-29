@@ -2,8 +2,9 @@ import { createFileRoute } from '@tanstack/react-router';
 import { AdultSurveillanceSettings } from './-components/adult';
 import { collections } from './-components/constants';
 import { saveAdultSettings, selectField } from './-components/helpers';
-import { DomainSection, OrganizationWorkspaceShell } from './-components/layout';
-import { useOrganizationWorkspace } from './-components/organization-workspace';
+import { DomainSection } from './-components/layout/layout';
+import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import type { SettingField } from './-components/types';
 
 export const Route = createFileRoute('/my-organization/adult-surveillance')({

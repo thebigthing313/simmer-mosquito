@@ -32,7 +32,7 @@ import { Link, Outlet, useLocation, useParams } from '@tanstack/react-router';
 import type React from 'react';
 import { type AuthMe, getServerUrl } from '../auth';
 import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
-import { useCollectionRows } from '../sync/useCollectionRows';
+import { useCollectionRows } from '../hooks/use-collection-rows';
 import { webCollections } from '../sync/webCollections';
 
 type Tone = 'neutral' | 'attention' | 'success' | 'info' | 'danger';
@@ -311,12 +311,16 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 	const { pathname } = useLocation();
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
-	const { rows: organizations } = useCollectionRows(webCollections.currentOrganization);
+	const { rows: organizations, status: organizationStatus } = useCollectionRows(
+		webCollections.currentOrganization,
+	);
 	const { rows: profiles } = useCollectionRows(webCollections.profiles);
 	const organization = organizations.find((row) => row.id === localIdentity?.organizationId);
+	if (organizationStatus === 'ready' && localIdentity !== null && organization === undefined) {
+		throw new Error('Unable to resolve active organization for this workspace.');
+	}
 	const profile = profiles.find((row) => row.id === localIdentity?.profileId);
-	const organizationName =
-		organization?.name ?? localIdentity?.organizationName ?? 'Selected organization';
+	const organizationName = organization?.name ?? 'Selected organization';
 	const profileName = profile?.displayName ?? user?.displayName ?? 'SIMMER User';
 	const roleLabel = formatRole(localIdentity?.role);
 	const workspaceHeader = getWorkspaceHeader(pathname, organizationName);

@@ -20,7 +20,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useAppForm } from '../forms';
 import type { MetadataValue } from '../forms/field-components/metadata-field';
-import { useCollectionRows } from '../sync/useCollectionRows';
+import { useCollectionRows } from '../hooks/use-collection-rows';
 import { webCollections } from '../sync/webCollections';
 import {
 	AddressIdInput,

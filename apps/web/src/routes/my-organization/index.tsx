@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useCollectionRows } from '../../sync/useCollectionRows';
+import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { collections, US_STATE_SELECT_OPTIONS, US_TIMEZONE_OPTIONS } from './-components/constants';
 import { GeneralOrganizationSection } from './-components/general';
 import { selectField, textField, unitDefaultFields } from './-components/helpers';
-import { OrganizationWorkspaceShell } from './-components/layout';
-import { useOrganizationWorkspace } from './-components/organization-workspace';
+import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import type { SettingField } from './-components/types';
 
 export const Route = createFileRoute('/my-organization/')({
@@ -17,11 +17,8 @@ function MyOrganizationGeneralRoute() {
 	const { rows: units } = useCollectionRows(collections.units);
 	const { rows: tags } = useCollectionRows(collections.tags);
 	const agencyFields: readonly SettingField[] = [
-		textField(
-			'Organization name',
-			workspace.organization?.name ?? workspace.organizationFallback.name ?? '',
-		),
-		textField('Slug', workspace.organization?.slug ?? workspace.organizationFallback.slug ?? '', {
+		textField('Organization name', workspace.organization?.name ?? ''),
+		textField('Slug', workspace.organization?.slug ?? '', {
 			editable: false,
 		}),
 		textField('Main contact', workspace.organization?.mainContactEmail ?? '', {
@@ -47,7 +44,6 @@ function MyOrganizationGeneralRoute() {
 				agencyFields={agencyFields}
 				canManage={workspace.canManage}
 				organization={workspace.organization}
-				organizationFallback={workspace.organizationFallback}
 				organizationName={workspace.organizationName}
 				settings={workspace.settings}
 				status={workspace.status}

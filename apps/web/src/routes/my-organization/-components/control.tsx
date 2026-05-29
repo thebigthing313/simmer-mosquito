@@ -28,7 +28,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue, validateMetadataValue } from '../../../forms/field-components';
-import { useActiveNamedCollectionRows } from '../../../sync/useCollectionRows';
+import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
 import {
 	AddIcon,
 	CloseIcon,
@@ -49,7 +49,7 @@ import {
 	updateControlMethodFromValues,
 	watchPersistence,
 } from './helpers';
-import { LookupListFrame } from './layout';
+import { LookupListFrame } from './layout/layout';
 import type {
 	ControlAssetCollectionKey,
 	ControlAssetRow,

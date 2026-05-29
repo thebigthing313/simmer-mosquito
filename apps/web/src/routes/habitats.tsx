@@ -19,7 +19,7 @@ import {
 import { getServerUrl } from '../auth';
 import { MapView, type MapFeatureClickEvent } from '../map';
 import { createHabitatTileSource, type HabitatTileFilters } from '../map/styles';
-import { useCollectionRows } from '../sync/useCollectionRows';
+import { useCollectionRows } from '../hooks/use-collection-rows';
 import { webCollections } from '../sync/webCollections';
 import { HabitatCard } from './-habitat-card';
 
@@ -230,9 +230,7 @@ function HabitatsLayoutRoute() {
 				<div className="relative min-h-0 overflow-hidden rounded-md border border-border/40 bg-card">
 					<HabitatMap
 						className="rounded-none border-0"
-						{...(pointDrawRequest === null
-							? { onFeatureClick: handleHabitatFeatureClick }
-							: {})}
+						{...(pointDrawRequest === null ? { onFeatureClick: handleHabitatFeatureClick } : {})}
 						onMapReady={handleMapReady}
 						source={habitatSource}
 					/>

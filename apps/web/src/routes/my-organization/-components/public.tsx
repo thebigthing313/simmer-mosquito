@@ -23,7 +23,7 @@ import type { Collection } from '@tanstack/react-db';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
-import { useActiveNamedCollectionRows } from '../../../sync/useCollectionRows';
+import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control';
 import {
@@ -34,7 +34,7 @@ import {
 	updateNotificationTypeFromValues,
 	watchPersistence,
 } from './helpers';
-import { EditSettingsSheet, LookupListFrame } from './layout';
+import { EditSettingsSheet, LookupListFrame } from './layout/layout';
 import type { NotificationTypeFormValues } from './types';
 
 export function PublicEngagementSettings({

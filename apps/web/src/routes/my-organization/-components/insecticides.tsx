@@ -64,7 +64,7 @@ import {
 	updateInsecticideFromValues,
 	watchPersistence,
 } from './helpers';
-import { EditSettingsSheet, LookupListFrame } from './layout';
+import { EditSettingsSheet, LookupListFrame } from './layout/layout';
 
 export function InsecticideSettings({
 	batches,

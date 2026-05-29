@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { collections } from './-components/constants';
 import { InsecticideBatchTrackingDrawer, InsecticideSettings } from './-components/insecticides';
-import { DomainSection, OrganizationWorkspaceShell } from './-components/layout';
-import { useOrganizationWorkspace } from './-components/organization-workspace';
+import { DomainSection } from './-components/layout/layout';
+import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/my-organization/insecticides')({
 	component: MyOrganizationInsecticidesRoute,

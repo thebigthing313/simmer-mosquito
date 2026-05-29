@@ -30,8 +30,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 				},
 			});
 		}
+
+		if (auth.localIdentity.organizationId === null) {
+			throw new Error('Authenticated user is missing an active organization.');
+		}
 	},
 	component: RootComponent,
+	errorComponent: WorkspaceChromeError,
 });
 
 function RootComponent() {
