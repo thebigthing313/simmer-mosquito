@@ -37,10 +37,15 @@ import { webCollections } from '../sync/webCollections';
 
 type Tone = 'neutral' | 'attention' | 'success' | 'info' | 'danger';
 
-const pageGridClass = 'grid gap-5';
-const twelveColumnGridClass = 'grid grid-cols-12 gap-4 max-[820px]:grid-cols-1';
+const pageGridClass = 'mx-auto grid w-full max-w-[1380px] content-start gap-6';
+const twelveColumnGridClass = 'grid grid-cols-12 gap-5 max-[820px]:grid-cols-1';
+const splitPageClass =
+	'mx-auto grid min-h-[calc(100vh-128px)] w-full max-w-[1380px] grid-cols-[minmax(380px,0.44fr)_minmax(0,1fr)] items-start gap-5 max-[1120px]:grid-cols-1';
+const splitContentClass = 'grid min-w-0 content-start gap-5';
+const controlPanelClass =
+	'grid min-w-0 content-start gap-4 rounded-lg border border-border/35 bg-card/90 p-5';
 const panelRowClass =
-	'grid items-center gap-3.5 rounded-md border border-border/30 bg-muted/40 p-3';
+	'grid items-center gap-3.5 rounded-lg border border-border/35 bg-card/72 p-3.5';
 const mutedBodyClass = 'm-0 text-[0.86rem] leading-normal text-muted-foreground';
 const rowTitleClass = 'text-[0.95rem] text-foreground';
 const compactLabelClass = 'text-[0.78rem] font-bold text-muted-foreground';
@@ -246,22 +251,75 @@ const navigationGroups = [
 	},
 ] as const;
 
+function matchNavigationItem(pathname: string) {
+	let activeGroup: (typeof navigationGroups)[number] | null = null;
+	let activeItem: (typeof navigationGroups)[number]['items'][number] | null = null;
+	let longestMatch = -1;
+
+	for (const group of navigationGroups) {
+		for (const item of group.items) {
+			const matches =
+				item.to === '/'
+					? pathname === '/'
+					: pathname === item.to || pathname.startsWith(`${item.to}/`);
+
+			if (matches && item.to.length > longestMatch) {
+				activeGroup = group;
+				activeItem = item;
+				longestMatch = item.to.length;
+			}
+		}
+	}
+
+	return { activeGroup, activeItem };
+}
+
+function formatPathSegment(segment: string) {
+	return segment.replace(/[-_]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function isLikelyRecordIdentifier(segment: string) {
+	return /\d/.test(segment) || /^[0-9a-f]{8,}$/i.test(segment);
+}
+
+function getWorkspaceHeader(pathname: string, organizationName: string) {
+	const { activeGroup, activeItem } = matchNavigationItem(pathname);
+	const baseSegments = (activeItem?.to ?? pathname).split('/').filter(Boolean);
+	const pathSegments = pathname.split('/').filter(Boolean);
+	const trailingSegments = pathSegments.slice(baseSegments.length).filter(Boolean);
+	const lastMeaningfulSegment = [...trailingSegments]
+		.reverse()
+		.find((segment) => !isLikelyRecordIdentifier(segment));
+	const nestedTitle = lastMeaningfulSegment ? formatPathSegment(lastMeaningfulSegment) : null;
+	const section = activeGroup?.label ?? 'Workspace';
+	const title = nestedTitle ?? activeItem?.label ?? 'Operations workspace';
+	const context = activeItem && nestedTitle ? activeItem.label : section;
+	const summary =
+		title === 'Dashboard'
+			? `Operational overview for ${organizationName}`
+			: `${organizationName} records, map context, and active workflow details.`;
+
+	return {
+		section,
+		context,
+		title,
+		summary,
+	};
+}
+
 export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 	const { pathname } = useLocation();
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
-	const { rows: organizations, status: organizationStatus } = useCollectionRows(
-		webCollections.currentOrganization,
-	);
-	const { rows: profiles, status: profileStatus } = useCollectionRows(webCollections.profiles);
+	const { rows: organizations } = useCollectionRows(webCollections.currentOrganization);
+	const { rows: profiles } = useCollectionRows(webCollections.profiles);
 	const organization = organizations.find((row) => row.id === localIdentity?.organizationId);
 	const profile = profiles.find((row) => row.id === localIdentity?.profileId);
 	const organizationName =
 		organization?.name ?? localIdentity?.organizationName ?? 'Selected organization';
 	const profileName = profile?.displayName ?? user?.displayName ?? 'SIMMER User';
 	const roleLabel = formatRole(localIdentity?.role);
-	const liveStatus =
-		organizationStatus === 'ready' && profileStatus === 'ready' ? 'Live' : 'Updating';
+	const workspaceHeader = getWorkspaceHeader(pathname, organizationName);
 	const fullHeightWorkspace = pathname === '/habitats' || pathname.startsWith('/habitats/');
 	const workspaceContent = (
 		<div
@@ -280,37 +338,25 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 		<SidebarProvider className="h-svh min-h-0 overflow-hidden bg-(--app-stage)">
 			<ProductSidebar />
 			<SidebarInset className="h-svh min-h-0 min-w-0 overflow-hidden bg-(--app-stage)">
-				<header className="sticky top-0 z-10 flex min-h-[74px] items-center justify-between gap-5 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--app-chrome-strong)_34%,var(--app-chrome)),var(--app-chrome))] px-[clamp(18px,3vw,32px)] py-3 shadow-[0_14px_20px_-24px_oklch(36%_0.024_205/50%)] max-[820px]:flex-col max-[820px]:items-start">
-					<div className="flex min-w-0 items-center gap-[18px] max-[820px]:flex-col max-[820px]:items-start max-[820px]:gap-2">
-						<div>
-							<p className="eyebrow">{organizationName}</p>
-							<p className="mt-0.5 text-[1.05rem] leading-tight font-extrabold text-foreground">
-								Operations workspace
+				<header className="sticky top-0 z-10 grid min-h-[88px] grid-cols-[minmax(0,1fr)_auto] items-center gap-5 border-b border-border/50 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--app-chrome-strong)_22%,var(--app-chrome)),var(--app-chrome))] px-[clamp(18px,3vw,32px)] py-3 shadow-[0_14px_20px_-24px_oklch(36%_0.024_205/30%)] max-[900px]:grid-cols-1 max-[900px]:items-start">
+					<div className="min-w-0">
+						<div className="grid gap-1">
+							<p className="eyebrow">{workspaceHeader.context}</p>
+							<h1 className="m-0 text-[1.28rem] leading-tight font-extrabold text-foreground">
+								{workspaceHeader.title}
+							</h1>
+							<p className="m-0 max-w-[72ch] text-[0.88rem] leading-normal text-muted-foreground">
+								{workspaceHeader.summary}
 							</p>
 						</div>
-						<div className="flex flex-wrap items-center gap-2 pl-4 text-[0.82rem] font-bold text-muted-foreground max-[820px]:pl-0">
-							<HeaderContextItem>{roleLabel}</HeaderContextItem>
-							<HeaderContextItem tone="info">{liveStatus}</HeaderContextItem>
-						</div>
 					</div>
-					<div className="flex items-center gap-[18px] text-[0.84rem] font-semibold text-muted-foreground max-[560px]:flex-wrap">
-						<div className="flex items-center gap-2 text-right">
-							<span className="block text-[0.72rem] leading-tight font-bold text-(--quiet)">
-								Organization
-							</span>
-							<strong className="block whitespace-nowrap text-[0.86rem] leading-tight font-extrabold text-foreground">
-								{organization?.slug ??
-									localIdentity?.organizationSlug ??
-									localIdentity?.organizationId ??
-									'Loading'}
-							</strong>
-						</div>
-						<div className="flex items-center gap-2">
+					<div className="flex items-center gap-3 rounded-md border border-border/45 bg-card/75 px-3 py-2 text-[0.84rem] font-semibold text-muted-foreground max-[560px]:w-full max-[560px]:justify-between">
+						<div className="flex min-w-0 items-center gap-2">
 							<Avatar size="sm" className="bg-(--app-selection) text-primary">
 								<AvatarFallback>{initialsFor(profileName)}</AvatarFallback>
 								<AvatarBadge />
 							</Avatar>
-							<div>
+							<div className="min-w-0">
 								<strong className="block whitespace-nowrap text-[0.86rem] leading-tight font-extrabold text-foreground">
 									{profileName}
 								</strong>
@@ -318,6 +364,15 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 									{roleLabel}
 								</span>
 							</div>
+						</div>
+						<div className="hidden h-8 w-px bg-border/70 max-[560px]:hidden min-[561px]:block" />
+						<div className="text-right max-[560px]:text-left">
+							<span className="block text-[0.72rem] leading-tight font-bold text-(--quiet)">
+								Organization
+							</span>
+							<strong className="block whitespace-nowrap text-[0.86rem] leading-tight font-extrabold text-foreground">
+								{organizationName}
+							</strong>
 						</div>
 					</div>
 				</header>
@@ -523,23 +578,6 @@ function ProductSidebar() {
 	);
 }
 
-function HeaderContextItem({
-	children,
-	tone = 'primary',
-}: {
-	readonly children: React.ReactNode;
-	readonly tone?: 'primary' | 'info';
-}) {
-	return (
-		<span
-			className="inline-flex items-center gap-1.5 whitespace-nowrap before:block before:size-[0.42rem] before:rounded-full before:bg-primary data-[tone=info]:before:bg-(--simmer-blue)"
-			data-tone={tone}
-		>
-			{children}
-		</span>
-	);
-}
-
 function BrandMark() {
 	return (
 		<span className="inline-grid size-[34px] place-items-center rounded-md bg-primary font-extrabold text-primary-foreground">
@@ -563,7 +601,7 @@ export function DashboardPage() {
 			/>
 
 			<section
-				className="grid grid-cols-4 gap-4 max-[820px]:grid-cols-1"
+				className="grid grid-cols-4 gap-5 max-[1080px]:grid-cols-2 max-[820px]:grid-cols-1"
 				aria-label="Operational overview"
 			>
 				<SummaryTile label="Activities scheduled" value="42" detail="16 not started" tone="info" />
@@ -650,14 +688,14 @@ export function DashboardPage() {
 
 export function TodayActivitiesPage() {
 	return (
-		<div className="grid min-h-[calc(100vh-128px)] grid-cols-[minmax(420px,0.42fr)_minmax(480px,1fr)] gap-[18px] max-[1120px]:grid-cols-1">
-			<section className="grid min-w-0 content-start gap-4">
+		<div className={splitPageClass}>
+			<section className={splitContentClass}>
 				<PageHeader
 					kicker="Focused dashboard with map"
 					title="Today’s activities"
 					body="This route has one spatial question: where is today’s work, what is next, and what needs intervention?"
 				/>
-				<div className="flex flex-wrap gap-2">
+				<div className="flex flex-wrap gap-2 rounded-lg border border-border/35 bg-card/78 px-3 py-3">
 					<Button type="button" variant="secondary" size="sm">
 						All
 					</Button>
@@ -756,8 +794,8 @@ export function ServiceRequestDetailPage() {
 	}
 
 	return (
-		<div className="grid min-h-[calc(100vh-128px)] grid-cols-[minmax(420px,0.42fr)_minmax(480px,1fr)] gap-[18px] max-[1120px]:grid-cols-1">
-			<section className="grid min-w-0 content-start gap-4">
+		<div className={splitPageClass}>
+			<section className={splitContentClass}>
 				<Link className="text-[0.86rem] font-bold text-primary no-underline" to="/service-requests">
 					Back to requests
 				</Link>
@@ -851,8 +889,8 @@ export function MissionEditPage() {
 				title="Schedule larval inspection mission"
 				body="Forms are focused command builders. The map appears only when the command needs location or route geometry."
 			/>
-			<section className="grid min-h-[calc(100vh-128px)] grid-cols-[minmax(420px,0.42fr)_minmax(480px,1fr)] items-stretch gap-[18px] max-[1120px]:grid-cols-1">
-				<div className="grid min-w-0 content-start gap-4 rounded-md border border-border/30 bg-card p-[18px]">
+			<section className={cn(splitPageClass, 'items-stretch')}>
+				<div className={controlPanelClass}>
 					<div className="grid grid-cols-4 gap-2 max-[560px]:grid-cols-2">
 						<StepperItem active>Details</StepperItem>
 						<StepperItem active>Stops</StepperItem>
@@ -984,7 +1022,7 @@ function Surface({
 	readonly children: React.ReactNode;
 }) {
 	return (
-		<Card variant="surface" className={className}>
+		<Card variant="surface" className={cn('rounded-lg border-border/35 bg-card/88', className)}>
 			<CardContent padding="default" className="grid gap-4">
 				{children}
 			</CardContent>
@@ -1004,7 +1042,7 @@ function PageHeader({
 	readonly action?: React.ReactNode;
 }) {
 	return (
-		<header className="flex items-end justify-between gap-6 max-[820px]:flex-col max-[820px]:items-start">
+		<header className="grid gap-4 border-b border-border/45 pb-4 min-[821px]:grid-cols-[minmax(0,1fr)_auto] min-[821px]:items-end">
 			<div className="grid max-w-[72ch] gap-2">
 				<p className="eyebrow">{kicker}</p>
 				<h1 className="m-0 text-[1.65rem] leading-tight font-extrabold text-foreground">{title}</h1>
@@ -1029,13 +1067,20 @@ function SummaryTile({
 	return (
 		<div
 			className={cn(
-				'grid min-h-[132px] content-start gap-2 rounded-md border border-border/30 p-4',
+				'grid min-h-[124px] content-start gap-3 rounded-lg border border-border/35 p-4',
 				toneBackgroundClass(tone),
 			)}
 		>
-			<span className={compactLabelClass}>{label}</span>
-			<strong className="text-[2rem] leading-none text-foreground">{value}</strong>
-			<p className={mutedBodyClass}>{detail}</p>
+			<div className="flex items-start justify-between gap-3">
+				<span className={compactLabelClass}>{label}</span>
+				<span className="mt-1 size-2.5 rounded-full bg-primary/65" aria-hidden="true" />
+			</div>
+			<div className="flex items-end justify-between gap-3 max-[560px]:items-start max-[560px]:flex-col">
+				<strong className="text-[1.65rem] leading-none text-foreground">{value}</strong>
+				<p className="m-0 text-right text-[0.82rem] leading-normal text-muted-foreground max-[560px]:text-left">
+					{detail}
+				</p>
+			</div>
 		</div>
 	);
 }
@@ -1050,7 +1095,7 @@ function SectionHeader({
 	readonly action?: React.ReactNode;
 }) {
 	return (
-		<div className="flex items-center justify-between gap-4">
+		<div className="flex items-start justify-between gap-4 border-b border-border/35 pb-3">
 			<div>
 				<h2 className="m-0 text-[1.06rem] font-extrabold">{title}</h2>
 				{meta === undefined ? null : (
@@ -1087,6 +1132,7 @@ function SignalRow({
 	label,
 	value,
 	detail,
+	tone,
 }: {
 	readonly label: string;
 	readonly value: string;
@@ -1094,7 +1140,7 @@ function SignalRow({
 	readonly tone: Tone;
 }) {
 	return (
-		<div className="rounded-md border border-border/30 bg-card p-3">
+		<div className={cn('rounded-lg border border-border/35 p-3.5', toneBackgroundClass(tone))}>
 			<div>
 				<strong className={rowTitleClass}>{label}</strong>
 				<p className={mutedBodyClass}>{detail}</p>
@@ -1154,7 +1200,7 @@ function StatusBadge({
 
 function Fact({ label, value }: { readonly label: string; readonly value: string }) {
 	return (
-		<div className="grid gap-1 rounded-md border border-border/30 bg-card p-2.5">
+		<div className="grid gap-1 rounded-lg border border-border/35 bg-card/78 p-3">
 			<span className={compactLabelClass}>{label}</span>
 			<strong className="text-[0.9rem]">{value}</strong>
 		</div>
@@ -1173,7 +1219,7 @@ function GroupRow({
 	readonly equipment: string;
 }) {
 	return (
-		<article className="flex items-center justify-between gap-4 rounded-md border border-border/30 bg-card p-3">
+		<article className="flex items-center justify-between gap-4 rounded-lg border border-border/35 bg-card/78 p-3.5">
 			<div>
 				<strong className={rowTitleClass}>{name}</strong>
 				<p className={mutedBodyClass}>{members}</p>
@@ -1194,7 +1240,7 @@ function RouteStop({
 	readonly detail: string;
 }) {
 	return (
-		<div className="flex items-center justify-between gap-4 rounded-md border border-border/30 bg-muted p-3">
+		<div className="flex items-center justify-between gap-4 rounded-lg border border-border/35 bg-muted/65 p-3.5">
 			<span className="inline-grid size-7 place-items-center rounded-full bg-primary font-extrabold text-primary-foreground">
 				{index}
 			</span>
@@ -1238,7 +1284,7 @@ function MapPanel({
 }) {
 	return (
 		<section
-			className="grid min-w-0 grid-rows-[auto_minmax(360px,1fr)_auto] overflow-hidden rounded-md border border-border/30 bg-card max-[1120px]:min-h-[560px]"
+			className="grid min-w-0 grid-rows-[auto_minmax(360px,1fr)_auto] overflow-hidden rounded-lg border border-border/35 bg-card/92 max-[1120px]:min-h-[560px]"
 			data-variant={variant}
 			aria-label={title}
 		>

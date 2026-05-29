@@ -1,7 +1,9 @@
 import type { BoundingBox } from '@simmer-mosquito/mapping';
 import { formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { HabitatDisplayRow, HabitatTypeRow } from '@simmer-mosquito/sync';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
+import { XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
@@ -15,10 +17,11 @@ import {
 	useSyncExternalStore,
 } from 'react';
 import { getServerUrl } from '../auth';
-import { MapView } from '../map';
+import { MapView, type MapFeatureClickEvent } from '../map';
 import { createHabitatTileSource, type HabitatTileFilters } from '../map/styles';
 import { useCollectionRows } from '../sync/useCollectionRows';
 import { webCollections } from '../sync/webCollections';
+import { HabitatCard } from './-habitat-card';
 
 export type HabitatStatusFilter = 'all' | 'active' | 'inactive';
 export type HabitatAccessFilter = 'all' | 'accessible' | 'inaccessible';
@@ -110,6 +113,7 @@ function HabitatsLayoutRoute() {
 	const [filters, setFilters] = useState<HabitatFilters>(initialFilters);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [pointDrawRequest, setPointDrawRequest] = useState<PointDrawRequest | null>(null);
+	const [selectedHabitatId, setSelectedHabitatId] = useState<string | null>(null);
 	const bounds = useMapBounds(map);
 	const { rows: habitatRows } = useVisibleHabitatRows(bounds, filters);
 	const { rows: habitatTypes } = useCollectionRows(webCollections.habitatTypes);
@@ -136,9 +140,36 @@ function HabitatsLayoutRoute() {
 			})),
 		[habitatRows, typeNameById],
 	);
+	const visibleHabitatById = useMemo(
+		() => new Map(visibleHabitats.map((habitat) => [habitat.row.id, habitat])),
+		[visibleHabitats],
+	);
+	const selectedHabitat =
+		selectedHabitatId === null ? null : (visibleHabitatById.get(selectedHabitatId) ?? null);
 	const handleMapReady = useCallback((nextMap: MapboxMap) => {
 		setMap(nextMap);
 	}, []);
+	const handleHabitatFeatureClick = useCallback(
+		(event: MapFeatureClickEvent) => {
+			const selectedFeature = event.features.find((feature) => feature.layerId.endsWith('-points'));
+			if (selectedFeature === undefined) {
+				setSelectedHabitatId(null);
+				return;
+			}
+
+			const selectedFeatureId =
+				typeof selectedFeature.id === 'string' || typeof selectedFeature.id === 'number'
+					? String(selectedFeature.id)
+					: null;
+			if (selectedFeatureId === null) {
+				setSelectedHabitatId(null);
+				return;
+			}
+
+			setSelectedHabitatId(visibleHabitatById.has(selectedFeatureId) ? selectedFeatureId : null);
+		},
+		[visibleHabitatById],
+	);
 	const requestMapPoint = useCallback(
 		(options: MapPointDrawOptions = {}) =>
 			new Promise<GeoJsonPointGeometry>((resolve, reject) => {
@@ -159,6 +190,16 @@ function HabitatsLayoutRoute() {
 			}),
 		[map],
 	);
+
+	useEffect(() => {
+		if (selectedHabitatId === null) {
+			return;
+		}
+
+		if (!visibleHabitatById.has(selectedHabitatId)) {
+			setSelectedHabitatId(null);
+		}
+	}, [selectedHabitatId, visibleHabitatById]);
 	const contextValue = useMemo(
 		(): HabitatsLayoutContextValue => ({
 			bounds,
@@ -189,6 +230,9 @@ function HabitatsLayoutRoute() {
 				<div className="relative min-h-0 overflow-hidden rounded-md border border-border/40 bg-card">
 					<HabitatMap
 						className="rounded-none border-0"
+						{...(pointDrawRequest === null
+							? { onFeatureClick: handleHabitatFeatureClick }
+							: {})}
 						onMapReady={handleMapReady}
 						source={habitatSource}
 					/>
@@ -196,6 +240,21 @@ function HabitatsLayoutRoute() {
 						<div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-md border border-border/60 bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md">
 							{pointDrawRequest.prompt}
 						</div>
+					)}
+					{selectedHabitat === null ? null : (
+						<section className="absolute inset-x-4 bottom-4 z-10 max-w-[460px]">
+							<div className="mb-2 flex justify-end">
+								<Button
+									aria-label="Clear selected habitat"
+									size="icon"
+									variant="secondary"
+									onClick={() => setSelectedHabitatId(null)}
+								>
+									<XIcon aria-hidden="true" />
+								</Button>
+							</div>
+							<HabitatCard habitat={selectedHabitat} mode="normal" />
+						</section>
 					)}
 				</div>
 				<Card
@@ -274,16 +333,19 @@ function setHabitatsLayoutContextSnapshot(nextSnapshot: HabitatsLayoutContextVal
 
 function HabitatMap({
 	className,
+	onFeatureClick,
 	onMapReady,
 	source,
 }: {
 	readonly className?: string;
+	readonly onFeatureClick?: (event: MapFeatureClickEvent) => void;
 	readonly onMapReady: (map: MapboxMap) => void;
 	readonly source: ReturnType<typeof createHabitatTileSource>;
 }) {
 	return (
 		<MapView
 			className={cn('min-h-0', className)}
+			{...(onFeatureClick === undefined ? {} : { onFeatureClick })}
 			onMapReady={onMapReady}
 			reuseKey="habitats-map"
 			vectorTileSources={[source]}

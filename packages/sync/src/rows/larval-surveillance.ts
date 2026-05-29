@@ -1,16 +1,20 @@
 export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
 
 interface OwnedGeometryProjection {
-	readonly lat: number;
-	readonly lng: number;
-	readonly geojson: unknown;
-	readonly geomType: string;
+	readonly lat?: number;
+	readonly lng?: number;
+	readonly geojson?: unknown;
+	readonly geomType?: string;
 }
 
 export interface HabitatRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
 	readonly organizationId: string;
+	readonly lat?: number;
+	readonly lng?: number;
+	readonly geojson?: unknown;
+	readonly geomType?: string;
 	readonly addressId: string | null;
 	readonly habitatTypeId: string | null;
 	readonly habitatName: string | null;

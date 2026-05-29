@@ -44,6 +44,7 @@ import { Route as MyOrganizationInsecticidesRouteImport } from './routes/my-orga
 import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as MissionsEditRouteImport } from './routes/missions.edit'
+import { Route as HabitatsIdRouteImport } from './routes/habitats_.$id'
 import { Route as HabitatsCreateRouteImport } from './routes/habitats.create'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin.organizations.$organizationId'
@@ -229,6 +230,11 @@ const MissionsEditRoute = MissionsEditRouteImport.update({
   path: '/edit',
   getParentRoute: () => MissionsRoute,
 } as any)
+const HabitatsIdRoute = HabitatsIdRouteImport.update({
+  id: '/habitats_/$id',
+  path: '/habitats/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HabitatsCreateRoute = HabitatsCreateRouteImport.update({
   id: '/create',
   path: '/create',
@@ -273,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/habitats/create': typeof HabitatsCreateRoute
+  '/habitats/$id': typeof HabitatsIdRoute
   '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -310,6 +317,7 @@ export interface FileRoutesByTo {
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/habitats/create': typeof HabitatsCreateRoute
+  '/habitats/$id': typeof HabitatsIdRoute
   '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -351,6 +359,7 @@ export interface FileRoutesById {
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/habitats/create': typeof HabitatsCreateRoute
+  '/habitats_/$id': typeof HabitatsIdRoute
   '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -393,6 +402,7 @@ export interface FileRouteTypes {
     | '/traps'
     | '/admin/organizations'
     | '/habitats/create'
+    | '/habitats/$id'
     | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -430,6 +440,7 @@ export interface FileRouteTypes {
     | '/traps'
     | '/admin/organizations'
     | '/habitats/create'
+    | '/habitats/$id'
     | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -470,6 +481,7 @@ export interface FileRouteTypes {
     | '/traps'
     | '/admin/organizations'
     | '/habitats/create'
+    | '/habitats_/$id'
     | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -510,6 +522,7 @@ export interface RootRouteChildren {
   TodayRoute: typeof TodayRoute
   TrapsRoute: typeof TrapsRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
+  HabitatsIdRoute: typeof HabitatsIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -759,6 +772,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MissionsEditRouteImport
       parentRoute: typeof MissionsRoute
     }
+    '/habitats_/$id': {
+      id: '/habitats_/$id'
+      path: '/habitats/$id'
+      fullPath: '/habitats/$id'
+      preLoaderRoute: typeof HabitatsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/habitats/create': {
       id: '/habitats/create'
       path: '/create'
@@ -884,6 +904,7 @@ const rootRouteChildren: RootRouteChildren = {
   TodayRoute: TodayRoute,
   TrapsRoute: TrapsRoute,
   AdminOrganizationsRoute: AdminOrganizationsRouteWithChildren,
+  HabitatsIdRoute: HabitatsIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
