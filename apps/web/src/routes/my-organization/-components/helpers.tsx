@@ -54,7 +54,6 @@ import type {
 	MutableTagRow,
 	MutableVehicleRow,
 	NotificationTypeFormValues,
-	OrganizationFallback,
 	OrgRole,
 	PersistenceTransaction,
 	ProfileFormValues,
@@ -142,11 +141,10 @@ export function formatMailingAddress(organization: OrganizationRow | null): stri
 
 export function agencyDetailsFormValues(
 	organization: OrganizationRow | null,
-	organizationFallback: OrganizationFallback,
 	settings: OrganizationSettings,
 ): AgencyDetailsFormValues {
 	return {
-		name: organization?.name ?? organizationFallback.name ?? '',
+		name: organization?.name ?? '',
 		mainContactEmail: organization?.mainContactEmail ?? '',
 		phoneNumber: organization?.phoneNumber ?? '',
 		mailingAddressLine1: organization?.mailingAddressLine1 ?? '',
@@ -1182,33 +1180,6 @@ export function collectionTimingModeFromFields(
 	return field?.value === 'collection_date_duration'
 		? 'collection_date_duration'
 		: 'exact_timestamps';
-}
-
-export function findCurrentOrganization(
-	organizations: readonly OrganizationRow[],
-	auth: AuthMe | null,
-): OrganizationRow | null {
-	const organizationId = auth?.authenticated === true ? auth.localIdentity.organizationId : null;
-	return (
-		organizations.find((organization) => organization.id === organizationId) ??
-		organizations[0] ??
-		null
-	);
-}
-
-export function readOrganizationFallback(auth: AuthMe | null): OrganizationFallback {
-	if (auth?.authenticated !== true) {
-		return {};
-	}
-
-	return {
-		...(auth.localIdentity.organizationName === undefined
-			? {}
-			: { name: auth.localIdentity.organizationName }),
-		...(auth.localIdentity.organizationSlug === undefined
-			? {}
-			: { slug: auth.localIdentity.organizationSlug }),
-	};
 }
 
 export function readRole(auth: AuthMe | null): OrgRole {

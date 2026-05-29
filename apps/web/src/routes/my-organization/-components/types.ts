@@ -99,11 +99,6 @@ export interface SetupCatalog {
 	readonly detail: string;
 }
 
-export interface OrganizationFallback {
-	readonly name?: string;
-	readonly slug?: string | null;
-}
-
 export interface AgencyDetailsFormValues {
 	readonly name: string;
 	readonly mainContactEmail: string;

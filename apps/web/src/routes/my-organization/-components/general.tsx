@@ -53,10 +53,9 @@ import {
 	validateEmail,
 	watchPersistence,
 } from './helpers';
-import { DomainSection } from './layout';
+import { DomainSection } from './layout/layout';
 import type {
 	AgencyDetailsFormValues,
-	OrganizationFallback,
 	SettingField,
 	TagFormValues,
 	UnitDefaultsFormValues,
@@ -66,7 +65,6 @@ export function GeneralOrganizationSection({
 	agencyFields,
 	canManage,
 	organization,
-	organizationFallback,
 	organizationName,
 	settings,
 	status,
@@ -78,7 +76,6 @@ export function GeneralOrganizationSection({
 	readonly agencyFields: readonly SettingField[];
 	readonly canManage: boolean;
 	readonly organization: OrganizationRow | null;
-	readonly organizationFallback: OrganizationFallback;
 	readonly organizationName: string;
 	readonly settings: OrganizationSettings;
 	readonly status: string;
@@ -98,7 +95,7 @@ export function GeneralOrganizationSection({
 				editDescription="Update the agency profile details available to organization members."
 				editAction={
 					<EditAgencyDetailsSheet
-						defaultValues={agencyDetailsFormValues(organization, organizationFallback, settings)}
+						defaultValues={agencyDetailsFormValues(organization, settings)}
 						description="Update the agency profile details available to organization members."
 						organization={organization}
 						settings={settings}
@@ -113,7 +110,6 @@ export function GeneralOrganizationSection({
 			>
 				<AgencyDetailsSummary
 					organization={organization}
-					organizationFallback={organizationFallback}
 					timezone={timezone}
 				/>
 			</DomainSection>
@@ -767,14 +763,12 @@ export function EditUnitDefaultsSheet({
 
 export function AgencyDetailsSummary({
 	organization,
-	organizationFallback,
 	timezone,
 }: {
 	readonly organization: OrganizationRow | null;
-	readonly organizationFallback: OrganizationFallback;
 	readonly timezone: string;
 }) {
-	const slug = organization?.slug ?? organizationFallback.slug ?? null;
+	const slug = organization?.slug ?? null;
 	const address = formatMailingAddress(organization);
 
 	return (
