@@ -4,12 +4,15 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "tsc -b",
+		"build": "tsgo -b",
+		"build:ts6": "tsc -b",
 		"build:ts7": "tsgo -b",
 		"dev": "node --import tsx scripts/dev.mjs",
 		"start": "node dist/main.js",
 		"test": "vitest run --passWithNoTests",
-		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+		"typecheck": "tsgo -p tsconfig.json --noEmit --pretty false",
+		"typecheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
+		"typcheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
 		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {

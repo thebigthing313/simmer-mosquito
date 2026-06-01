@@ -13,10 +13,13 @@
 	},
 	"main": "./dist/index.js",
 	"scripts": {
-		"build": "tsc -b",
+		"build": "tsgo -b",
+		"build:ts6": "tsc -b",
 		"build:ts7": "tsgo -b",
 		"test": "vitest run src --passWithNoTests",
-		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+		"typecheck": "tsgo -p tsconfig.json --noEmit --pretty false",
+		"typecheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
+		"typcheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
 		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
 	},
 	"types": "./dist/index.d.ts"

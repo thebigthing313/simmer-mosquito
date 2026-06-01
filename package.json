@@ -6,6 +6,7 @@
 	"packageManager": "pnpm@10.33.2",
 	"scripts": {
 		"build": "nx run-many -t build",
+		"build:ts6": "nx run-many -t build:ts6",
 		"build:ts7": "nx run-many -t build:ts7",
 		"check": "biome check .",
 		"check:write": "biome check --write .",
@@ -25,6 +26,8 @@
 		"nx": "nx",
 		"test": "nx run-many -t test",
 		"typecheck": "nx run-many -t typecheck",
+		"typecheck:ts6": "nx run-many -t typecheck:ts6",
+		"typcheck:ts6": "nx run-many -t typcheck:ts6",
 		"typecheck:ts7": "nx run-many -t typecheck:ts7"
 	},
 	"devDependencies": {

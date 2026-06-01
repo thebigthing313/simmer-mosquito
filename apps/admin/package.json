@@ -4,12 +4,17 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "tsc -b && vite build",
+		"build": "tsgo -b && vite build",
+		"build:ts6": "tsc -b && vite build",
+		"build:ts7": "tsgo -b && vite build",
 		"dev": "vite --host 0.0.0.0 --port 5174",
 		"preview": "vite preview --host 0.0.0.0 --port 4174",
 		"start": "node scripts/preview.mjs",
 		"test": "vitest run --passWithNoTests",
-		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+		"typecheck": "tsgo -p tsconfig.json --noEmit --pretty false",
+		"typecheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
+		"typcheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
+		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
 		"@simmer-mosquito/sync": "workspace:*",
