@@ -17,7 +17,6 @@ pnpm dev:admin
 pnpm dev:preview
 pnpm dev:server
 pnpm dev:web
-pnpm dev:worker
 pnpm graph
 ```
 
@@ -31,7 +30,6 @@ On Windows or from Codex automation, prefer `pnpm.cmd ...` as described in
 - `apps/server`: Hono HTTP control plane for auth, sync proxies, and command
   endpoints.
 - `apps/web`: agency-facing Vite React SPA shell.
-- `apps/worker`: background worker for scheduled jobs.
 - `packages/auth`: WorkOS AuthKit/session helpers.
 - `packages/config`: shared environment parsing.
 - `packages/db`: SQL migrations and Kysely/Postgres helpers.

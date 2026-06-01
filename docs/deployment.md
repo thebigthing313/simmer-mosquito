@@ -13,8 +13,7 @@ The deployed Railway shape is one project with separate `staging` and
 - ElectricSQL;
 - `server`;
 - `admin`;
-- `web`;
-- `worker`.
+- `web`.
 
 Use a PostGIS-capable PostgreSQL service for the database. Use an image-based
 service for ElectricSQL with the `electricsql/electric:latest` image.
@@ -50,7 +49,6 @@ Run the apps:
 pnpm dev:server
 pnpm dev:admin
 pnpm dev:web
-pnpm dev:worker
 ```
 
 Local `.env` should use the values in `.env.example`. Local development should
@@ -75,7 +73,6 @@ Each environment needs these variables:
 - `RAILWAY_SERVER_SERVICE`: Railway server service name or id.
 - `RAILWAY_ADMIN_SERVICE`: Railway admin service name or id.
 - `RAILWAY_WEB_SERVICE`: Railway web service name or id.
-- `RAILWAY_WORKER_SERVICE`: Railway worker service name or id.
 
 ## Railway Service Settings
 
@@ -103,14 +100,6 @@ Admin:
 pnpm install --frozen-lockfile
 pnpm --filter @simmer-mosquito/admin build
 pnpm --filter @simmer-mosquito/admin start
-```
-
-Worker:
-
-```sh
-pnpm install --frozen-lockfile
-pnpm --filter @simmer-mosquito/worker build
-pnpm --filter @simmer-mosquito/worker start
 ```
 
 ## Runtime Variables
@@ -153,12 +142,6 @@ Set this on the Railway admin service:
 ```sh
 VITE_SERVER_URL=https://<server-domain>
 VITE_PREVIEW_ALLOWED_HOSTS=<admin-domain>
-```
-
-Set this on the Railway worker service:
-
-```sh
-NODE_ENV=production
 ```
 
 Set these on the Railway Electric service:
@@ -218,7 +201,7 @@ The deployment workflow maps branches to environments:
 - push to `main` deploys the Railway `production` environment.
 
 The Railway deploy workflow verifies the workspace, applies dbmate migrations,
-then deploys server, admin, web, and worker services. The separate DB migration
+then deploys server, admin, and web services. The separate DB migration
 workflow remains available for targeted migration retries.
 
 GitHub staging environment values:
@@ -228,7 +211,6 @@ RAILWAY_ENVIRONMENT=staging
 RAILWAY_SERVER_SERVICE=server
 RAILWAY_ADMIN_SERVICE=admin
 RAILWAY_WEB_SERVICE=web
-RAILWAY_WORKER_SERVICE=worker
 ```
 
 GitHub production environment values:
@@ -238,7 +220,6 @@ RAILWAY_ENVIRONMENT=production
 RAILWAY_SERVER_SERVICE=server
 RAILWAY_ADMIN_SERVICE=admin
 RAILWAY_WEB_SERVICE=web
-RAILWAY_WORKER_SERVICE=worker
 ```
 
 ## Demo Bootstrap

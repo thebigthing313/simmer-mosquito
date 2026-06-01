@@ -17,7 +17,6 @@
 		"dev:caddy": "caddy run --config Caddyfile.local --adapter caddyfile",
 		"dev:preview": "nx dev @simmer-mosquito/preview",
 		"dev:web": "nx dev @simmer-mosquito/web",
-		"dev:worker": "nx dev @simmer-mosquito/worker",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"graph": "nx graph",

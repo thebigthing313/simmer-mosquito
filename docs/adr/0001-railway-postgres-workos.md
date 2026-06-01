@@ -14,8 +14,8 @@ deployment and monitoring where possible.
 ## Decision
 
 Use Railway as the primary operational platform. Railway hosts Postgres,
-ElectricSQL, the Hono server, the worker, and the web app. Use WorkOS for
-authentication and organization identity.
+ElectricSQL, the Hono server, and the web app. Use WorkOS for authentication
+and organization identity.
 
 Postgres is the durable product source of truth. WorkOS owns login identity.
 SIMMER owns agency data, roles, permissions, workflows, and subscription status.

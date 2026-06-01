@@ -30,7 +30,6 @@ Railway hosts:
 - Postgres with PostGIS.
 - ElectricSQL.
 - Hono server.
-- Background worker.
 - Web SPA service or static hosting.
 - Admin SPA service or static hosting.
 
@@ -89,9 +88,6 @@ session cookies, reusable AuthContext resolution, SIMMER operator control-plane
 endpoints, future mobile session exchange, Electric shape authorization, command
 endpoints, authenticated map vector tile reads, and server-authorized Postgres
 writes.
-
-`apps/worker` owns background work: WorkOS event sync, scheduled maintenance,
-imports, reports, and future retryable jobs if needed.
 
 ## Packages
 
@@ -326,7 +322,6 @@ Apps run as local pnpm/Nx processes:
 - `pnpm dev:server`
 - `pnpm dev:admin`
 - `pnpm dev:web`
-- `pnpm dev:worker`
 - future mobile Expo commands
 
 Daily development should not require Railway local tooling.

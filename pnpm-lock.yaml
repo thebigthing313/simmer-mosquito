@@ -208,15 +208,6 @@ importers:
         specifier: ^8.0.10
         version: 8.0.10(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3)
 
-  apps/worker:
-    dependencies:
-      '@simmer-mosquito/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@simmer-mosquito/domain':
-        specifier: workspace:*
-        version: link:../../packages/domain
-
   packages/auth:
     dependencies:
       '@workos-inc/node':

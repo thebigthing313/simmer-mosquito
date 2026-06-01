@@ -123,7 +123,6 @@ Acceptance criteria:
 ## Deferred
 
 - Mobile auth/session token bridge.
-- WorkOS event sync worker.
 - More Electric shape authorization hardening.
 - Generic `sites` abstraction.
 - Trap route runs and habitat route runs.
