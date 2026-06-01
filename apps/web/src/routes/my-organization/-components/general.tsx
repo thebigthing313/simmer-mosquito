@@ -108,10 +108,7 @@ export function GeneralOrganizationSection({
 				setupItems={[]}
 				title={organizationName}
 			>
-				<AgencyDetailsSummary
-					organization={organization}
-					timezone={timezone}
-				/>
+				<AgencyDetailsSummary organization={organization} timezone={timezone} />
 			</DomainSection>
 
 			<DomainSection

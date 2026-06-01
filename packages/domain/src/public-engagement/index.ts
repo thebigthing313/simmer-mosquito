@@ -1,4 +1,4 @@
-export * from './public-engagement/contacts.js';
+export * from './contacts.js';
 export type {
 	ContactReference,
 	ContactReferenceInput,
@@ -22,15 +22,15 @@ export type {
 	ServiceRequestAddressInput,
 	ServiceRequestLocation,
 	ServiceRequestLocationInput,
-} from './public-engagement/core.js';
+} from './core.js';
 export {
 	MISSION_NOTIFICATION_STATUSES,
 	NOTIFICATION_CHANNELS,
-} from './public-engagement/core.js';
-export * from './public-engagement/mission-notifications.js';
-export * from './public-engagement/notification-types.js';
-export * from './public-engagement/registrations.js';
-export * from './public-engagement/service-requests.js';
+} from './core.js';
+export * from './mission-notifications.js';
+export * from './notification-types.js';
+export * from './registrations.js';
+export * from './service-requests.js';
 
 import type {
 	CreateContactCommand,
@@ -38,21 +38,21 @@ import type {
 	MergeContactsCommand,
 	UpdateContactCommunicationCommand,
 	UpdateContactDetailsCommand,
-} from './public-engagement/contacts.js';
+} from './contacts.js';
 import type {
 	CompleteMissionNotificationCommand,
 	FailMissionNotificationCommand,
 	GenerateMissionNotificationsCommand,
 	ReopenMissionNotificationCommand,
 	SkipMissionNotificationCommand,
-} from './public-engagement/mission-notifications.js';
+} from './mission-notifications.js';
 import type {
 	CreateNotificationTypeCommand,
 	DeactivateNotificationTypeCommand,
 	DeleteNotificationTypeCommand,
 	ReactivateNotificationTypeCommand,
 	UpdateNotificationTypeCommand,
-} from './public-engagement/notification-types.js';
+} from './notification-types.js';
 import type {
 	CreateNotificationRegistrationCommand,
 	DeactivateNotificationRegistrationCommand,
@@ -64,7 +64,7 @@ import type {
 	UpdateNotificationRegistrationContactCommand,
 	UpdateNotificationRegistrationFlagsCommand,
 	UpdateNotificationRegistrationLocationCommand,
-} from './public-engagement/registrations.js';
+} from './registrations.js';
 import type {
 	CloseServiceRequestCommand,
 	CreateServiceRequestCommand,
@@ -73,7 +73,7 @@ import type {
 	UpdateServiceRequestContactCommand,
 	UpdateServiceRequestDetailsCommand,
 	UpdateServiceRequestLocationCommand,
-} from './public-engagement/service-requests.js';
+} from './service-requests.js';
 
 export type PublicEngagementCommand =
 	| CreateContactCommand

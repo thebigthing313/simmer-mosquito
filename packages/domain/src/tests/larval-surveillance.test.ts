@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DomainValidationError } from '../adult-surveillance.js';
+import { DomainValidationError } from '../adult-surveillance/index.js';
 import {
 	addInspectionSampleCommand,
 	addSampleSpeciesCountCommand,
@@ -11,8 +11,8 @@ import {
 	setSampleNonMosquitoPresenceCommand,
 	updateHabitatDetailsCommand,
 	updateHabitatLocationCommand,
-} from '../larval-surveillance.js';
-import { validateLarvalInspectionEntryPolicy } from '../organization-settings.js';
+} from '../larval-surveillance/index.js';
+import { validateLarvalInspectionEntryPolicy } from '../organization-settings/index.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const actorProfileId = '22222222-2222-4222-8222-222222222222';

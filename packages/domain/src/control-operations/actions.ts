@@ -12,7 +12,7 @@ import type {
 	ControlActionLocationSource,
 	ControlActionLocationSourceInput,
 } from '../location-intent.js';
-import type { UnitType } from '../organization-settings.js';
+import type { UnitType } from '../organization-settings/index.js';
 import {
 	type ApplicationBatchInput,
 	type ControlActionContext,

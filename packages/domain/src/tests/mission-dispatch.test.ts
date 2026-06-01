@@ -15,7 +15,7 @@ import {
 	updateMissionItemLocationAndLinkCommand,
 	updateMissionPlanCommand,
 	updateMissionScheduleCommand,
-} from '../mission-dispatch.js';
+} from '../mission-dispatch/index.js';
 import { DomainValidationError } from '../shared.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';

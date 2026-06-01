@@ -15,7 +15,7 @@ import {
 	updateNotificationRegistrationLocationCommand,
 	updateNotificationTypeCommand,
 	updateServiceRequestDetailsCommand,
-} from '../public-engagement.js';
+} from '../public-engagement/index.js';
 import { DomainValidationError } from '../shared.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';

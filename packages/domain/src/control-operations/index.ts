@@ -1,18 +1,18 @@
-export * from './control-operations/actions.js';
-export * from './control-operations/assets.js';
-export type {
-	ControlOperationsCommandType,
-	ControlOperationsDomainCommand,
-	InsecticideType,
-} from './control-operations/core.js';
-export * from './control-operations/methods.js';
-export * from './control-operations/products.js';
-export * from './control-operations/requests.js';
 export type {
 	ApplicationBatchInput,
 	ControlActionContext,
 	ControlType,
-} from './performed-control-actions.js';
+} from '../performed-control-actions.js';
+export * from './actions.js';
+export * from './assets.js';
+export type {
+	ControlOperationsCommandType,
+	ControlOperationsDomainCommand,
+	InsecticideType,
+} from './core.js';
+export * from './methods.js';
+export * from './products.js';
+export * from './requests.js';
 
 import type {
 	AddChemicalApplicationBatchCommand,
@@ -33,7 +33,7 @@ import type {
 	UpdateOutreachActionLocationAndContextCommand,
 	UpdateSourceReductionFieldDetailsCommand,
 	UpdateSourceReductionLocationAndContextCommand,
-} from './control-operations/actions.js';
+} from './actions.js';
 import type {
 	CreateEquipmentCommand,
 	CreateVehicleCommand,
@@ -45,7 +45,7 @@ import type {
 	ReactivateVehicleCommand,
 	UpdateEquipmentCommand,
 	UpdateVehicleCommand,
-} from './control-operations/assets.js';
+} from './assets.js';
 import type {
 	CreateApplicationMethodCommand,
 	CreateBiocontrolMethodCommand,
@@ -67,7 +67,7 @@ import type {
 	UpdateBiocontrolMethodCommand,
 	UpdateOutreachMethodCommand,
 	UpdateSourceReductionMethodCommand,
-} from './control-operations/methods.js';
+} from './methods.js';
 import type {
 	ActivateFormulationCommand,
 	AddFormulationInsecticideCommand,
@@ -87,7 +87,7 @@ import type {
 	UpdateFormulationInsecticideCommand,
 	UpdateInsecticideBatchCommand,
 	UpdateInsecticideCommand,
-} from './control-operations/products.js';
+} from './products.js';
 import type {
 	DeleteRequestedControlActionCommand,
 	ReopenRequestedControlActionCommand,
@@ -95,7 +95,7 @@ import type {
 	ResolveRequestedControlActionCommand,
 	UpdateRequestedControlActionDetailsCommand,
 	UpdateRequestedControlActionLocationAndContextCommand,
-} from './control-operations/requests.js';
+} from './requests.js';
 
 export type ControlOperationsCommand =
 	| CreateApplicationMethodCommand

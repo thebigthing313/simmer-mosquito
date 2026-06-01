@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DomainValidationError } from '../adult-surveillance.js';
+import { DomainValidationError } from '../adult-surveillance/index.js';
 import {
 	DEFAULT_ORGANIZATION_SETTINGS,
 	mergeOrganizationSettingsChange,
@@ -11,7 +11,7 @@ import {
 	updateTimezoneCommand,
 	updateUnitDefaultsCommand,
 	validateLarvalInspectionEntryPolicy,
-} from '../organization-settings.js';
+} from '../organization-settings/index.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const actorProfileId = '22222222-2222-4222-8222-222222222222';
