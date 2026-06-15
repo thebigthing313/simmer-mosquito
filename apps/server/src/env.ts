@@ -9,6 +9,7 @@ export interface ServerEnv {
 	readonly appOrigin: string;
 	readonly appOrigins: readonly string[];
 	readonly databaseUrl: string;
+	readonly devImpersonate: DevImpersonationConfig | null;
 	readonly electricUrl: string | null;
 	readonly geocodioApiKey: string | null;
 	readonly host: string;
@@ -21,6 +22,18 @@ export interface ServerEnv {
 	readonly workosRedirectUri: string;
 }
 
+/**
+ * DEV-ONLY: fixed identity used to bypass WorkOS when developing against a copy
+ * of the production database. Resolved to `null` unless both impersonation ids
+ * are set, and forced to `null` when `NODE_ENV=production`.
+ */
+export interface DevImpersonationConfig {
+	readonly workosUserId: string;
+	readonly workosOrganizationId: string;
+	readonly email: string;
+	readonly displayName: string;
+}
+
 export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
 	const base = readEnv(source);
 	const appOrigin = readRequiredOrigin(source, 'APP_ORIGIN');
@@ -30,6 +43,7 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		appOrigin,
 		appOrigins: adminAppOrigin === null ? [appOrigin] : [appOrigin, adminAppOrigin],
 		databaseUrl: readRequiredString(source, 'DATABASE_URL'),
+		devImpersonate: readDevImpersonation(source, base.nodeEnv),
 		electricUrl: readOptionalUrl(source, 'ELECTRIC_URL'),
 		geocodioApiKey: readOptionalString(source, 'GEOCODIO_API_KEY') ?? null,
 		host: base.host,
@@ -40,6 +54,40 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		workosClientId: readRequiredString(source, 'WORKOS_CLIENT_ID'),
 		workosCookiePassword: readRequiredString(source, 'WORKOS_COOKIE_PASSWORD'),
 		workosRedirectUri: readRequiredUrl(source, 'WORKOS_REDIRECT_URI'),
+	};
+}
+
+function readDevImpersonation(
+	source: NodeJS.ProcessEnv,
+	nodeEnv: ServerEnv['nodeEnv'],
+): DevImpersonationConfig | null {
+	const workosUserId = readOptionalString(source, 'DEV_IMPERSONATE_WORKOS_USER_ID');
+	const workosOrganizationId = readOptionalString(source, 'DEV_IMPERSONATE_WORKOS_ORG_ID');
+
+	if (workosUserId === undefined && workosOrganizationId === undefined) {
+		return null;
+	}
+
+	// Fail closed: never let the auth bypass activate in production, even if the
+	// vars leak into the deployed environment.
+	if (nodeEnv === 'production') {
+		console.warn(
+			'[dev-impersonation] DEV_IMPERSONATE_* env vars are set but ignored because NODE_ENV=production.',
+		);
+		return null;
+	}
+
+	if (workosUserId === undefined || workosOrganizationId === undefined) {
+		throw new Error(
+			'Dev impersonation requires BOTH DEV_IMPERSONATE_WORKOS_USER_ID and DEV_IMPERSONATE_WORKOS_ORG_ID.',
+		);
+	}
+
+	return {
+		workosUserId,
+		workosOrganizationId,
+		email: readOptionalString(source, 'DEV_IMPERSONATE_EMAIL') ?? 'dev-impersonation@localhost',
+		displayName: readOptionalString(source, 'DEV_IMPERSONATE_DISPLAY_NAME') ?? 'Dev Impersonation',
 	};
 }
 
