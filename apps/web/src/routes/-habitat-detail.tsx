@@ -1,10 +1,14 @@
 import {
+	type LarvalInspectionEntryMode,
+	resolveOrganizationSettings,
+} from '@simmer-mosquito/domain';
+import {
 	boundsFromGeoJson,
 	centroidFromGeoJson,
 	countGeoJsonVertices,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
-import type { HabitatRow, LarvalDensity } from '@simmer-mosquito/sync';
+import type { HabitatRow, LarvalDensity, TagRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Card,
@@ -19,6 +23,15 @@ import {
 	EmptyHeader,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import {
+	Pagination,
+	PaginationContent,
+	PaginationEllipsis,
+	PaginationItem,
+	PaginationLink,
+	PaginationNext,
+	PaginationPrevious,
+} from '@simmer-mosquito/ui-web/components/ui/pagination';
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
@@ -41,19 +54,31 @@ import {
 	CheckCircle2Icon,
 	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { and, eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+	type CSSProperties,
+	type ReactNode,
+	Suspense,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import { getServerUrl } from '../auth';
 import { createGeoJsonMapSource, type MapCamera, MapView } from '../map';
 import { webCollections } from '../sync/webCollections';
 
-const historyPreviewLimit = 25;
+const historyPageSize = 25;
 // Keep the on-demand inspection/sample/species subsets warm briefly after unmount
 // so quick navigation between habitats reuses them instead of refetching them.
 const historyGcTimeMs = 30_000;
+// Same rationale for the on-demand tag_items subset behind the Details "Tags" row.
+const tagsGcTimeMs = 30_000;
 
 interface HabitatGeometry {
 	readonly geojson: GeoJsonGeometry | null;
@@ -347,6 +372,11 @@ function HabitatDetailsCard({
 							<HabitatAddress addressId={habitat.addressId} />
 						</Suspense>
 					</DetailRow>
+					<DetailRow label="Tags">
+						<Suspense fallback={<span className="text-muted-foreground">Loading tags…</span>}>
+							<HabitatTags habitatId={habitat.id} />
+						</Suspense>
+					</DetailRow>
 					<DetailRow label="Geometry">{geometrySummary(geometry, isGeometryPending)}</DetailRow>
 					<DetailRow label="Coordinates">
 						{isGeometryPending ? 'Loading…' : coordinateLabel(geometry)}
@@ -437,6 +467,81 @@ function ResolvedHabitatAddress({ addressId }: { readonly addressId: string }) {
 			<MapPinnedIcon aria-hidden="true" className="text-muted-foreground" />
 			{address.displayName}
 		</span>
+	);
+}
+
+function HabitatTags({ habitatId }: { readonly habitatId: string }) {
+	// tag_items is an on-demand collection, so this mirrors HabitatHistoryCard:
+	// non-suspense useLiveQuery gated on status, NOT useLiveSuspenseQuery, to
+	// avoid the permanent post-unmount suspense hang on on-demand collections.
+	const assigned = useLiveQuery(
+		{
+			gcTime: tagsGcTimeMs,
+			query: (query) =>
+				query
+					.from({ tagItem: webCollections.tagItems })
+					.where(({ tagItem }) =>
+						and(eq(tagItem.entityType, 'habitat'), eq(tagItem.entityId, habitatId)),
+					)
+					.select(({ tagItem }) => ({ id: tagItem.id, tagId: tagItem.tagId })),
+		},
+		[habitatId],
+	);
+
+	// tags is an eager baseline collection, so suspense is safe here.
+	const catalog = useLiveSuspenseQuery((query) => query.from({ tag: webCollections.tags }), []);
+
+	const tags = useMemo(() => {
+		const tagsById = new Map(catalog.data.map((tag) => [tag.id, tag]));
+		return (assigned.data ?? [])
+			.flatMap((item) => {
+				const tag = tagsById.get(item.tagId);
+				return tag === undefined ? [] : [tag];
+			})
+			.sort((first, second) => first.tagName.localeCompare(second.tagName));
+	}, [assigned.data, catalog.data]);
+
+	if (assigned.isError) {
+		return <span className="text-muted-foreground">Tags unavailable</span>;
+	}
+	if (!assigned.isReady) {
+		return <span className="text-muted-foreground">Loading tags…</span>;
+	}
+	if (tags.length === 0) {
+		return <span className="text-muted-foreground">No tags</span>;
+	}
+
+	return (
+		<div className="flex flex-wrap gap-1.5">
+			{tags.map((tag) => (
+				<TagBadge key={tag.id} tag={tag} />
+			))}
+		</div>
+	);
+}
+
+function TagBadge({ tag }: { readonly tag: TagRow }) {
+	const color = validHexColor(tag.color);
+	const style =
+		color === null
+			? undefined
+			: ({
+					'--tag-bg': hexWithAlpha(color, 0.14),
+					'--tag-border': hexWithAlpha(color, 0.36),
+					'--tag-color': color,
+				} as CSSProperties);
+
+	return (
+		<Badge
+			variant={color === null ? 'secondary' : 'outline'}
+			className={
+				color === null ? undefined : 'border-(--tag-border) bg-(--tag-bg) text-(--tag-color)'
+			}
+			style={style}
+			title={tag.description ?? undefined}
+		>
+			{tag.tagName}
+		</Badge>
 	);
 }
 
@@ -550,6 +655,12 @@ function InspectionHistory({
 }: {
 	readonly inspections: readonly HistoryInspection[];
 }) {
+	const { page, pageCount, pageRows, setPage } = usePagedRows(inspections, historyPageSize);
+	// The agency's larval data mode decides which abundance columns are meaningful:
+	// density-only entry hides larvae, count-and-dips entry hides the derived
+	// density, and hybrid shows all three.
+	const columns = inspectionColumnsForMode(useLarvalEntryMode());
+
 	if (inspections.length === 0) {
 		return (
 			<HistoryEmpty
@@ -558,8 +669,6 @@ function InspectionHistory({
 			/>
 		);
 	}
-
-	const preview = inspections.slice(0, historyPreviewLimit);
 
 	return (
 		<div className="grid gap-2">
@@ -570,15 +679,14 @@ function InspectionHistory({
 							<TableHead>Date</TableHead>
 							<TableHead>Inspector</TableHead>
 							<TableHead>Wet</TableHead>
-							<TableHead className="text-right">Dips</TableHead>
-							<TableHead>Density</TableHead>
-							<TableHead className="text-right">Larvae</TableHead>
-							<TableHead className="text-right">Samples</TableHead>
+							{columns.dips ? <TableHead className="text-right">Dips</TableHead> : null}
+							{columns.density ? <TableHead>Density</TableHead> : null}
+							{columns.larvae ? <TableHead className="text-right">Larvae</TableHead> : null}
 							<TableHead>Stages</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{preview.map((inspection) => (
+						{pageRows.map((inspection) => (
 							<TableRow key={inspection.id}>
 								<TableCell className="whitespace-nowrap">
 									{formatDate(inspection.inspectionDate)}
@@ -593,23 +701,36 @@ function InspectionHistory({
 									)}
 								</TableCell>
 								<TableCell>{inspection.isWet ? 'Yes' : 'No'}</TableCell>
-								<TableCell className="text-right tabular-nums">
-									{inspection.dipCount ?? '—'}
+								{columns.dips ? (
+									<TableCell className="text-right tabular-nums">
+										{inspection.dipCount ?? '—'}
+									</TableCell>
+								) : null}
+								{columns.density ? (
+									<TableCell>
+										<DensityBadge density={inspection.density} />
+									</TableCell>
+								) : null}
+								{columns.larvae ? (
+									<TableCell className="text-right tabular-nums">
+										{inspection.larvaeCount ?? '—'}
+									</TableCell>
+								) : null}
+								<TableCell>
+									<LifeStageStrip inspection={inspection} />
 								</TableCell>
-								<TableCell>{formatDensity(inspection.density)}</TableCell>
-								<TableCell className="text-right tabular-nums">
-									{inspection.larvaeCount ?? '—'}
-								</TableCell>
-								<TableCell className="text-right tabular-nums">
-									{inspection.samples.length}
-								</TableCell>
-								<TableCell>{formatLifeStages(inspection)}</TableCell>
 							</TableRow>
 						))}
 					</TableBody>
 				</Table>
 			</ScrollArea>
-			<TruncationNote shown={preview.length} total={inspections.length} noun="inspections" />
+			<HistoryPagination
+				noun="inspections"
+				onPageChange={setPage}
+				page={page}
+				pageCount={pageCount}
+				total={inspections.length}
+			/>
 		</div>
 	);
 }
@@ -619,6 +740,7 @@ function SampleHistory({ samples }: { readonly samples: readonly HistorySampleRo
 		() => [...samples].sort((a, b) => b.inspectionDate.localeCompare(a.inspectionDate)),
 		[samples],
 	);
+	const { page, pageCount, pageRows, setPage } = usePagedRows(sortedSamples, historyPageSize);
 
 	if (samples.length === 0) {
 		return (
@@ -628,8 +750,6 @@ function SampleHistory({ samples }: { readonly samples: readonly HistorySampleRo
 			/>
 		);
 	}
-
-	const preview = sortedSamples.slice(0, historyPreviewLimit);
 
 	return (
 		<div className="grid gap-2">
@@ -644,7 +764,7 @@ function SampleHistory({ samples }: { readonly samples: readonly HistorySampleRo
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{preview.map((sample) => (
+						{pageRows.map((sample) => (
 							<TableRow key={sample.id}>
 								<TableCell className="whitespace-nowrap">{sampleName(sample)}</TableCell>
 								<TableCell className="whitespace-nowrap">
@@ -659,7 +779,13 @@ function SampleHistory({ samples }: { readonly samples: readonly HistorySampleRo
 					</TableBody>
 				</Table>
 			</ScrollArea>
-			<TruncationNote shown={preview.length} total={samples.length} noun="samples" />
+			<HistoryPagination
+				noun="samples"
+				onPageChange={setPage}
+				page={page}
+				pageCount={pageCount}
+				total={samples.length}
+			/>
 		</div>
 	);
 }
@@ -715,6 +841,34 @@ function useHabitatTypeName(habitatTypeId: string | null): string {
 
 	const match = result.data.find((habitatType) => habitatType.id === habitatTypeId);
 	return match?.name ?? 'Unknown type';
+}
+
+interface InspectionColumns {
+	readonly dips: boolean;
+	readonly density: boolean;
+	readonly larvae: boolean;
+}
+
+function inspectionColumnsForMode(mode: LarvalInspectionEntryMode): InspectionColumns {
+	switch (mode) {
+		case 'density_only':
+			return { dips: true, density: true, larvae: false };
+		case 'count_and_dips_required':
+			return { dips: true, density: false, larvae: true };
+		default:
+			return { dips: true, density: true, larvae: true };
+	}
+}
+
+function useLarvalEntryMode(): LarvalInspectionEntryMode {
+	// currentOrganization is an eager baseline collection, so suspense is safe.
+	const result = useLiveSuspenseQuery(
+		(query) => query.from({ organization: webCollections.currentOrganization }),
+		[],
+	);
+	const organization = result.data[0];
+	return resolveOrganizationSettings(organization?.settings).settings.larvalSurveillance
+		.inspectionEntryPolicy.mode;
 }
 
 function useSpeciesName(speciesId: string): string {
@@ -793,24 +947,130 @@ function HistoryEmpty({
 	);
 }
 
-function TruncationNote({
-	shown,
+// Client-side paging over an already-loaded history slice. The current page is
+// clamped when live sync shrinks the underlying data beneath it.
+function usePagedRows<T>(rows: readonly T[], pageSize: number) {
+	const [page, setPage] = useState(0);
+	const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+	const safePage = Math.min(page, pageCount - 1);
+	useEffect(() => {
+		if (page !== safePage) {
+			setPage(safePage);
+		}
+	}, [page, safePage]);
+
+	const start = safePage * pageSize;
+	return {
+		page: safePage,
+		pageCount,
+		pageRows: rows.slice(start, start + pageSize),
+		setPage,
+	};
+}
+
+function HistoryPagination({
+	page,
+	pageCount,
 	total,
 	noun,
+	onPageChange,
 }: {
-	readonly shown: number;
+	readonly page: number;
+	readonly pageCount: number;
 	readonly total: number;
 	readonly noun: string;
+	readonly onPageChange: (page: number) => void;
 }) {
-	if (shown >= total) {
-		return null;
+	if (pageCount <= 1) {
+		return (
+			<p className="m-0 text-xs text-muted-foreground">
+				{total} {noun}
+			</p>
+		);
 	}
 
+	const atStart = page === 0;
+	const atEnd = page >= pageCount - 1;
+
 	return (
-		<p className="m-0 text-xs text-muted-foreground">
-			Showing the {shown} most recent of {total} {noun}.
-		</p>
+		<div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
+			<p className="m-0 text-xs text-muted-foreground">
+				Page {page + 1} of {pageCount} · {total} {noun}
+			</p>
+			<Pagination className="mx-0 w-auto justify-end">
+				<PaginationContent>
+					<PaginationItem>
+						<PaginationPrevious
+							aria-disabled={atStart}
+							className={atStart ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+							onClick={() => {
+								if (!atStart) {
+									onPageChange(page - 1);
+								}
+							}}
+						/>
+					</PaginationItem>
+					{historyPageEntries(page, pageCount).map((entry) =>
+						entry.page === null ? (
+							<PaginationItem key={entry.key}>
+								<PaginationEllipsis />
+							</PaginationItem>
+						) : (
+							<PaginationItem key={entry.key}>
+								<PaginationLink
+									className="cursor-pointer"
+									isActive={entry.page === page}
+									onClick={() => onPageChange(entry.page as number)}
+								>
+									{entry.page + 1}
+								</PaginationLink>
+							</PaginationItem>
+						),
+					)}
+					<PaginationItem>
+						<PaginationNext
+							aria-disabled={atEnd}
+							className={atEnd ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+							onClick={() => {
+								if (!atEnd) {
+									onPageChange(page + 1);
+								}
+							}}
+						/>
+					</PaginationItem>
+				</PaginationContent>
+			</Pagination>
+		</div>
 	);
+}
+
+interface HistoryPageEntry {
+	readonly key: string;
+	readonly page: number | null;
+}
+
+// First page, last page, and a window around the current page, with `null`
+// sentinels marking the gaps that render as ellipses.
+function historyPageEntries(page: number, pageCount: number): readonly HistoryPageEntry[] {
+	const pages = new Set<number>([0, pageCount - 1]);
+	for (let offset = -1; offset <= 1; offset += 1) {
+		const candidate = page + offset;
+		if (candidate >= 0 && candidate <= pageCount - 1) {
+			pages.add(candidate);
+		}
+	}
+
+	const sorted = [...pages].sort((first, second) => first - second);
+	const entries: HistoryPageEntry[] = [];
+	let previous = -1;
+	for (const value of sorted) {
+		if (previous !== -1 && value - previous > 1) {
+			entries.push({ key: `gap-${previous}`, page: null });
+		}
+		entries.push({ key: `page-${value}`, page: value });
+		previous = value;
+	}
+	return entries;
 }
 
 function HabitatDetailSkeleton() {
@@ -933,45 +1193,87 @@ type LifeStageKey =
 	| 'hasFourthInstar'
 	| 'hasPupae';
 
-const lifeStages: readonly { readonly key: LifeStageKey; readonly label: string }[] = [
-	{ key: 'hasEggs', label: 'Eggs' },
-	{ key: 'hasFirstInstar', label: '1st' },
-	{ key: 'hasSecondInstar', label: '2nd' },
-	{ key: 'hasThirdInstar', label: '3rd' },
-	{ key: 'hasFourthInstar', label: '4th' },
-	{ key: 'hasPupae', label: 'Pupae' },
+// Ordered egg -> instars -> pupae, rendered as a single "E1234P" strip.
+const lifeStageSegments: readonly {
+	readonly key: LifeStageKey;
+	readonly symbol: string;
+	readonly label: string;
+}[] = [
+	{ key: 'hasEggs', symbol: 'E', label: 'Eggs' },
+	{ key: 'hasFirstInstar', symbol: '1', label: '1st instar' },
+	{ key: 'hasSecondInstar', symbol: '2', label: '2nd instar' },
+	{ key: 'hasThirdInstar', symbol: '3', label: '3rd instar' },
+	{ key: 'hasFourthInstar', symbol: '4', label: '4th instar' },
+	{ key: 'hasPupae', symbol: 'P', label: 'Pupae' },
 ];
 
-function formatLifeStages(inspection: HistoryInspection): ReactNode {
-	const present = lifeStages.filter((stage) => inspection[stage.key] === true);
-	if (present.length === 0) {
-		return <span className="text-muted-foreground">—</span>;
-	}
+// Read-only segmented indicator styled like a toggle group: each life stage is
+// a fixed cell, highlighted when present and dimmed when absent, so the strip
+// keeps a stable "E1234P" shape regardless of which stages were recorded.
+function LifeStageStrip({ inspection }: { readonly inspection: HistoryInspection }) {
+	const present = lifeStageSegments.filter((segment) => inspection[segment.key] === true);
+	const ariaLabel =
+		present.length === 0
+			? 'No life stages recorded'
+			: `Life stages present: ${present.map((segment) => segment.label).join(', ')}`;
 
 	return (
-		<div className="flex flex-wrap gap-1">
-			{present.map((stage) => (
-				<Badge key={stage.label} variant="outline" tone="neutral">
-					{stage.label}
-				</Badge>
-			))}
+		<div
+			aria-label={ariaLabel}
+			className="inline-flex overflow-hidden rounded-md border border-border"
+			role="img"
+		>
+			{lifeStageSegments.map((segment, index) => {
+				const isPresent = inspection[segment.key] === true;
+				return (
+					<span
+						aria-hidden="true"
+						className={cn(
+							'flex size-6 items-center justify-center text-xs font-semibold tabular-nums',
+							index > 0 && 'border-l border-border',
+							isPresent
+								? 'bg-primary text-primary-foreground'
+								: 'bg-muted/40 text-muted-foreground/40',
+						)}
+						key={segment.key}
+						title={segment.label}
+					>
+						{segment.symbol}
+					</span>
+				);
+			})}
 		</div>
 	);
 }
 
-const densityLabels: Record<LarvalDensity, string> = {
-	none: 'None',
-	light: 'Light',
-	medium: 'Medium',
-	heavy: 'Heavy',
-	very_heavy: 'Very heavy',
+const densityBadges: Record<
+	LarvalDensity,
+	{ readonly label: string; readonly tone: 'neutral' | 'info' | 'warning' | 'danger' }
+> = {
+	none: { label: 'None', tone: 'neutral' },
+	light: { label: 'Light', tone: 'info' },
+	medium: { label: 'Medium', tone: 'warning' },
+	heavy: { label: 'Heavy', tone: 'danger' },
+	very_heavy: { label: 'Very heavy', tone: 'danger' },
 };
 
-function formatDensity(density: LarvalDensity | null): string {
+function DensityBadge({ density }: { readonly density: LarvalDensity | null }) {
 	if (density === null) {
-		return '—';
+		return <span className="text-muted-foreground">—</span>;
 	}
-	return densityLabels[density];
+
+	// very_heavy escalates to the solid destructive variant so it reads as more
+	// severe than heavy, which there is no distinct second danger tone for.
+	if (density === 'very_heavy') {
+		return <Badge variant="destructive">{densityBadges[density].label}</Badge>;
+	}
+
+	const { label, tone } = densityBadges[density];
+	return (
+		<Badge variant="outline" tone={tone}>
+			{label}
+		</Badge>
+	);
 }
 
 function formatGeometryTypeLabel(value: string): string {
@@ -1016,6 +1318,22 @@ function formatMetadataValue(value: unknown): string {
 		return String(value);
 	}
 	return JSON.stringify(value);
+}
+
+function validHexColor(value: string | null): string | null {
+	if (value === null) {
+		return null;
+	}
+
+	const normalized = value.trim();
+	return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : null;
+}
+
+function hexWithAlpha(hex: string, alpha: number): string {
+	const alphaHex = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
+		.toString(16)
+		.padStart(2, '0');
+	return `${hex}${alphaHex}`;
 }
 
 function formatDate(value: string): string {
