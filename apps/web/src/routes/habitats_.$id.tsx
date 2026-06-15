@@ -1,9 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router';
+import { HabitatDetail } from './-habitat-detail';
 
 export const Route = createFileRoute('/habitats_/$id')({
-  component: RouteComponent,
-})
+	component: RouteComponent,
+});
 
 function RouteComponent() {
-  return <div>Hello "/habitats_/$id"!</div>
+	const { id } = Route.useParams();
+	return <HabitatDetail habitatId={id} />;
 }

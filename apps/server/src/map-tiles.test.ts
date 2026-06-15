@@ -291,6 +291,69 @@ describe('registerMapTileRoutes', () => {
 		expect(response.status).toBe(401);
 		expect(getHabitatTile).not.toHaveBeenCalled();
 	});
+
+	it('returns a single habitat display row scoped to the selected organization', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getHabitatDisplayRow: async (_db, input) => {
+				calls.push(input);
+				return {
+					id: habitatId,
+					organizationId,
+					lat: 35.5,
+					lng: -90.5,
+					geojson: { type: 'Point', coordinates: [-90.5, 35.5] },
+					geomType: 'st_point',
+					addressId: null,
+					habitatTypeId: null,
+					habitatName: 'Retention pond',
+					description: '',
+					isActive: true,
+					isInaccessible: false,
+					metadata: null,
+					createdByProfileId: null,
+					updatedByProfileId: null,
+					createdAt: new Date('2026-05-01T00:00:00.000Z'),
+					updatedAt: new Date('2026-05-02T00:00:00.000Z'),
+				};
+			},
+		});
+
+		const response = await app.request(`/map/habitats/${habitatId}`);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({
+			habitat: { id: habitatId, organizationId, lat: 35.5, lng: -90.5 },
+		});
+		expect(calls).toEqual([{ id: habitatId, organizationId }]);
+	});
+
+	it('returns 404 when the habitat is not found', async () => {
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getHabitatDisplayRow: async () => undefined,
+		});
+
+		const response = await app.request(`/map/habitats/${habitatId}`);
+
+		expect(response.status).toBe(404);
+		await expect(response.json()).resolves.toMatchObject({ error: 'not_found' });
+	});
+
+	it('rejects a non-UUID habitat id before reading rows', async () => {
+		const getHabitatDisplayRow = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getHabitatDisplayRow,
+		});
+
+		const response = await app.request('/map/habitats/not-a-uuid');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
+		expect(getHabitatDisplayRow).not.toHaveBeenCalled();
+	});
 });
 
 function createApp(options: {
@@ -300,6 +363,9 @@ function createApp(options: {
 	>;
 	readonly listHabitatDisplayRows?: NonNullable<
 		Parameters<typeof registerMapTileRoutes>[1]['listHabitatDisplayRows']
+	>;
+	readonly getHabitatDisplayRow?: NonNullable<
+		Parameters<typeof registerMapTileRoutes>[1]['getHabitatDisplayRow']
 	>;
 }) {
 	const app = new Hono<{ Variables: AuthVariables }>();
@@ -317,11 +383,15 @@ function createApp(options: {
 		...(options.listHabitatDisplayRows === undefined
 			? {}
 			: { listHabitatDisplayRows: options.listHabitatDisplayRows }),
+		...(options.getHabitatDisplayRow === undefined
+			? {}
+			: { getHabitatDisplayRow: options.getHabitatDisplayRow }),
 	});
 	return app;
 }
 
 const organizationId = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';
+const habitatId = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 
 const authContext = {
 	organization: { id: organizationId },

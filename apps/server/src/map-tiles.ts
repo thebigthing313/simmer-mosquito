@@ -1,5 +1,7 @@
 import {
+	getHabitatDisplayRowById,
 	getHabitatMvtTile,
+	type HabitatByIdInput,
 	type HabitatMvtTileFilters,
 	type HabitatMvtTileInput,
 	type Kysely,
@@ -20,6 +22,10 @@ type HabitatDisplayReader = (
 	db: TileDb,
 	input: HabitatDisplayInput,
 ) => Promise<SafeHabitatDisplayRow[]>;
+type HabitatDisplayByIdReader = (
+	db: TileDb,
+	input: HabitatByIdInput,
+) => Promise<SafeHabitatDisplayRow | undefined>;
 
 type TileCoordinateResult =
 	| {
@@ -88,12 +94,14 @@ export function registerMapTileRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly getHabitatTile?: HabitatTileReader;
 		readonly listHabitatDisplayRows?: HabitatDisplayReader;
+		readonly getHabitatDisplayRow?: HabitatDisplayByIdReader;
 	},
 ): void {
 	const tileSets = createTileSetRegistry({
 		getHabitatTile: options.getHabitatTile ?? getHabitatMvtTile,
 	});
 	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
+	const getDisplayRow = options.getHabitatDisplayRow ?? getHabitatDisplayRowById;
 
 	app.get('/map/habitats', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
@@ -109,6 +117,25 @@ export function registerMapTileRoutes(
 		const habitats = await listDisplayRows(options.db, queryResult.input);
 
 		return context.json({ habitats });
+	});
+
+	app.get('/map/habitats/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Habitat id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const habitat = await getDisplayRow(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (habitat === undefined) {
+			return context.json({ error: 'not_found', reason: 'Habitat not found.' }, 404);
+		}
+
+		return context.json({ habitat });
 	});
 
 	app.get(

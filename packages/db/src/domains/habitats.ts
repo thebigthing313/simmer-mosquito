@@ -132,6 +132,44 @@ export async function listHabitatDisplayRowsByBounds(
 	return result.rows;
 }
 
+export interface HabitatByIdInput {
+	readonly organizationId: string;
+	readonly id: string;
+}
+
+export async function getHabitatDisplayRowById(
+	db: Kysely<SimmerDatabase>,
+	input: HabitatByIdInput,
+): Promise<SafeHabitatDisplayRow | undefined> {
+	const result = await sql<SafeHabitatDisplayRow>`
+		select
+			h.id,
+			h.organization_id as "organizationId",
+			h.lat,
+			h.lng,
+			h.geojson,
+			h.geom_type as "geomType",
+			h.address_id as "addressId",
+			h.habitat_type_id as "habitatTypeId",
+			h.habitat_name as "habitatName",
+			h.description,
+			h.is_active as "isActive",
+			h.is_inaccessible as "isInaccessible",
+			h.metadata,
+			h.created_by_profile_id as "createdByProfileId",
+			h.updated_by_profile_id as "updatedByProfileId",
+			h.created_at as "createdAt",
+			h.updated_at as "updatedAt"
+		from habitats h
+		where h.id = ${input.id}
+			and h.organization_id = ${input.organizationId}
+			and h.deleted_at is null
+		limit 1
+	`.execute(db);
+
+	return result.rows[0];
+}
+
 function habitatSpatialWhereClauses(input: {
 	readonly organizationId: string;
 	readonly filters?: HabitatMvtTileFilters;
