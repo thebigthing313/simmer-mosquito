@@ -1,0 +1,10 @@
+# mprocs dev orchestrator — run `pnpm dev` to launch.
+# Tab/arrows switch panes; `r` restarts the focused process,
+# `s` starts/stops it, `x` kills, `q` quits all. See https://github.com/pvolok/mprocs
+procs:
+  server:
+    shell: pnpm.cmd dev:server
+  web:
+    shell: pnpm.cmd dev:web
+  caddy:
+    shell: pnpm.cmd dev:caddy
