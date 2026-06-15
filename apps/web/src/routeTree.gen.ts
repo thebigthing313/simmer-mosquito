@@ -21,6 +21,7 @@ import { Route as PublicOutreachRouteImport } from './routes/public-outreach'
 import { Route as MyOrganizationRouteImport } from './routes/my-organization'
 import { Route as MissionsRouteImport } from './routes/missions'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LayoutPreviewRouteImport } from './routes/layout-preview'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as InspectionsRouteImport } from './routes/inspections'
 import { Route as HabitatsRouteImport } from './routes/habitats'
@@ -35,6 +36,7 @@ import { Route as AddressBookRouteImport } from './routes/address-book'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ServiceRequestsIndexRouteImport } from './routes/service-requests.index'
 import { Route as MyOrganizationIndexRouteImport } from './routes/my-organization/index'
+import { Route as LayoutPreviewIndexRouteImport } from './routes/layout-preview.index'
 import { Route as HabitatsIndexRouteImport } from './routes/habitats.index'
 import { Route as ServiceRequestsRequestIdRouteImport } from './routes/service-requests.$requestId'
 import { Route as MyOrganizationPublicEngagementRouteImport } from './routes/my-organization/public-engagement'
@@ -47,6 +49,7 @@ import { Route as MissionsEditRouteImport } from './routes/missions.edit'
 import { Route as HabitatsIdRouteImport } from './routes/habitats_.$id'
 import { Route as HabitatsCreateRouteImport } from './routes/habitats.create'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
+import { Route as LayoutPreviewDesignPageRouteImport } from './routes/layout-preview.$design.$page'
 import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin.organizations.$organizationId'
 
 const TrapsRoute = TrapsRouteImport.update({
@@ -107,6 +110,11 @@ const MissionsRoute = MissionsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LayoutPreviewRoute = LayoutPreviewRouteImport.update({
+  id: '/layout-preview',
+  path: '/layout-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LandingRoute = LandingRouteImport.update({
@@ -179,6 +187,11 @@ const MyOrganizationIndexRoute = MyOrganizationIndexRouteImport.update({
   path: '/',
   getParentRoute: () => MyOrganizationRoute,
 } as any)
+const LayoutPreviewIndexRoute = LayoutPreviewIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LayoutPreviewRoute,
+} as any)
 const HabitatsIndexRoute = HabitatsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -245,6 +258,11 @@ const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
   path: '/admin/organizations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LayoutPreviewDesignPageRoute = LayoutPreviewDesignPageRouteImport.update({
+  id: '/$design/$page',
+  path: '/$design/$page',
+  getParentRoute: () => LayoutPreviewRoute,
+} as any)
 const AdminOrganizationsOrganizationIdRoute =
   AdminOrganizationsOrganizationIdRouteImport.update({
     id: '/$organizationId',
@@ -265,6 +283,7 @@ export interface FileRoutesByFullPath {
   '/habitats': typeof HabitatsRouteWithChildren
   '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
+  '/layout-preview': typeof LayoutPreviewRouteWithChildren
   '/login': typeof LoginRoute
   '/missions': typeof MissionsRouteWithChildren
   '/my-organization': typeof MyOrganizationRouteWithChildren
@@ -289,9 +308,11 @@ export interface FileRoutesByFullPath {
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
   '/habitats/': typeof HabitatsIndexRoute
+  '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
+  '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -327,9 +348,11 @@ export interface FileRoutesByTo {
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
   '/habitats': typeof HabitatsIndexRoute
+  '/layout-preview': typeof LayoutPreviewIndexRoute
   '/my-organization': typeof MyOrganizationIndexRoute
   '/service-requests': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
+  '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -345,6 +368,7 @@ export interface FileRoutesById {
   '/habitats': typeof HabitatsRouteWithChildren
   '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
+  '/layout-preview': typeof LayoutPreviewRouteWithChildren
   '/login': typeof LoginRoute
   '/missions': typeof MissionsRouteWithChildren
   '/my-organization': typeof MyOrganizationRouteWithChildren
@@ -369,9 +393,11 @@ export interface FileRoutesById {
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
   '/habitats/': typeof HabitatsIndexRoute
+  '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
+  '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -388,6 +414,7 @@ export interface FileRouteTypes {
     | '/habitats'
     | '/inspections'
     | '/landing'
+    | '/layout-preview'
     | '/login'
     | '/missions'
     | '/my-organization'
@@ -412,9 +439,11 @@ export interface FileRouteTypes {
     | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
     | '/habitats/'
+    | '/layout-preview/'
     | '/my-organization/'
     | '/service-requests/'
     | '/admin/organizations/$organizationId'
+    | '/layout-preview/$design/$page'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -450,9 +479,11 @@ export interface FileRouteTypes {
     | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
     | '/habitats'
+    | '/layout-preview'
     | '/my-organization'
     | '/service-requests'
     | '/admin/organizations/$organizationId'
+    | '/layout-preview/$design/$page'
   id:
     | '__root__'
     | '/'
@@ -467,6 +498,7 @@ export interface FileRouteTypes {
     | '/habitats'
     | '/inspections'
     | '/landing'
+    | '/layout-preview'
     | '/login'
     | '/missions'
     | '/my-organization'
@@ -491,9 +523,11 @@ export interface FileRouteTypes {
     | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
     | '/habitats/'
+    | '/layout-preview/'
     | '/my-organization/'
     | '/service-requests/'
     | '/admin/organizations/$organizationId'
+    | '/layout-preview/$design/$page'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -509,6 +543,7 @@ export interface RootRouteChildren {
   HabitatsRoute: typeof HabitatsRouteWithChildren
   InspectionsRoute: typeof InspectionsRoute
   LandingRoute: typeof LandingRoute
+  LayoutPreviewRoute: typeof LayoutPreviewRouteWithChildren
   LoginRoute: typeof LoginRoute
   MissionsRoute: typeof MissionsRouteWithChildren
   MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
@@ -611,6 +646,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/layout-preview': {
+      id: '/layout-preview'
+      path: '/layout-preview'
+      fullPath: '/layout-preview'
+      preLoaderRoute: typeof LayoutPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/landing': {
       id: '/landing'
       path: '/landing'
@@ -709,6 +751,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyOrganizationIndexRouteImport
       parentRoute: typeof MyOrganizationRoute
     }
+    '/layout-preview/': {
+      id: '/layout-preview/'
+      path: '/'
+      fullPath: '/layout-preview/'
+      preLoaderRoute: typeof LayoutPreviewIndexRouteImport
+      parentRoute: typeof LayoutPreviewRoute
+    }
     '/habitats/': {
       id: '/habitats/'
       path: '/'
@@ -793,6 +842,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrganizationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/layout-preview/$design/$page': {
+      id: '/layout-preview/$design/$page'
+      path: '/$design/$page'
+      fullPath: '/layout-preview/$design/$page'
+      preLoaderRoute: typeof LayoutPreviewDesignPageRouteImport
+      parentRoute: typeof LayoutPreviewRoute
+    }
     '/admin/organizations/$organizationId': {
       id: '/admin/organizations/$organizationId'
       path: '/$organizationId'
@@ -815,6 +871,20 @@ const HabitatsRouteChildren: HabitatsRouteChildren = {
 
 const HabitatsRouteWithChildren = HabitatsRoute._addFileChildren(
   HabitatsRouteChildren,
+)
+
+interface LayoutPreviewRouteChildren {
+  LayoutPreviewIndexRoute: typeof LayoutPreviewIndexRoute
+  LayoutPreviewDesignPageRoute: typeof LayoutPreviewDesignPageRoute
+}
+
+const LayoutPreviewRouteChildren: LayoutPreviewRouteChildren = {
+  LayoutPreviewIndexRoute: LayoutPreviewIndexRoute,
+  LayoutPreviewDesignPageRoute: LayoutPreviewDesignPageRoute,
+}
+
+const LayoutPreviewRouteWithChildren = LayoutPreviewRoute._addFileChildren(
+  LayoutPreviewRouteChildren,
 )
 
 interface MissionsRouteChildren {
@@ -891,6 +961,7 @@ const rootRouteChildren: RootRouteChildren = {
   HabitatsRoute: HabitatsRouteWithChildren,
   InspectionsRoute: InspectionsRoute,
   LandingRoute: LandingRoute,
+  LayoutPreviewRoute: LayoutPreviewRouteWithChildren,
   LoginRoute: LoginRoute,
   MissionsRoute: MissionsRouteWithChildren,
   MyOrganizationRoute: MyOrganizationRouteWithChildren,

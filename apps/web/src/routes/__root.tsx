@@ -13,11 +13,14 @@ export interface RouterContext {
 
 const publicPaths = new Set(['/landing', '/login']);
 
+/** Dev-only layout design previews render standalone, without the product chrome or auth. */
+const isPreviewPath = (pathname: string) => pathname.startsWith('/layout-preview');
+
 export const Route = createRootRouteWithContext<RouterContext>()({
 	validateSearch: (search): RootSearch =>
 		search.auth === 'organization_required' ? { auth: 'organization_required' } : {},
 	beforeLoad: async ({ context, location }) => {
-		if (publicPaths.has(location.pathname)) {
+		if (publicPaths.has(location.pathname) || isPreviewPath(location.pathname)) {
 			return;
 		}
 
@@ -43,7 +46,7 @@ function RootComponent() {
 	const location = useLocation();
 	const { auth } = Route.useRouteContext();
 
-	if (publicPaths.has(location.pathname)) {
+	if (publicPaths.has(location.pathname) || isPreviewPath(location.pathname)) {
 		return <Outlet />;
 	}
 

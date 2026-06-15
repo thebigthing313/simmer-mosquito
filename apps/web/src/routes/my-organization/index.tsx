@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { collections, US_STATE_SELECT_OPTIONS, US_TIMEZONE_OPTIONS } from './-components/constants';
 import { GeneralOrganizationSection } from './-components/general';
 import { selectField, textField, unitDefaultFields } from './-components/helpers';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
-import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import type { SettingField } from './-components/types';
 
 export const Route = createFileRoute('/my-organization/')({
@@ -35,11 +35,7 @@ function MyOrganizationGeneralRoute() {
 	const unitFields = unitDefaultFields(workspace.settings.unitDefaults, units);
 
 	return (
-		<OrganizationWorkspaceShell
-			canManage={workspace.canManage}
-			role={workspace.role}
-			section="general"
-		>
+		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<GeneralOrganizationSection
 				agencyFields={agencyFields}
 				canManage={workspace.canManage}

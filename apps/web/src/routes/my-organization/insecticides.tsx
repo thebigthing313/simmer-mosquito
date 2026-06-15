@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { collections } from './-components/constants';
 import { InsecticideBatchTrackingDrawer, InsecticideSettings } from './-components/insecticides';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
-import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/my-organization/insecticides')({
 	component: MyOrganizationInsecticidesRoute,
@@ -14,11 +14,7 @@ function MyOrganizationInsecticidesRoute() {
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 
 	return (
-		<OrganizationWorkspaceShell
-			canManage={workspace.canManage}
-			role={workspace.role}
-			section="insecticides"
-		>
+		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
 				editDescription="Adjust insecticide products, batches, and traceability settings."

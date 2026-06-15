@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { AdultSurveillanceSettings } from './-components/adult';
 import { collections } from './-components/constants';
 import { saveAdultSettings, selectField } from './-components/helpers';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
-import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import type { SettingField } from './-components/types';
 
 export const Route = createFileRoute('/my-organization/adult-surveillance')({
@@ -22,11 +22,7 @@ function MyOrganizationAdultSurveillanceRoute() {
 	];
 
 	return (
-		<OrganizationWorkspaceShell
-			canManage={workspace.canManage}
-			role={workspace.role}
-			section="adult"
-		>
+		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
 				editDescription="Choose how adult collection timing is recorded by this agency."

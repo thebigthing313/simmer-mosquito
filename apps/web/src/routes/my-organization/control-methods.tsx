@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { collections } from './-components/constants';
 import { ControlOperationsSettings } from './-components/control';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
-import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/my-organization/control-methods')({
 	component: MyOrganizationControlMethodsRoute,
@@ -14,11 +14,7 @@ function MyOrganizationControlMethodsRoute() {
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 
 	return (
-		<OrganizationWorkspaceShell
-			canManage={workspace.canManage}
-			role={workspace.role}
-			section="control"
-		>
+		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
 				editDescription="Adjust control defaults and related operational setup lists."

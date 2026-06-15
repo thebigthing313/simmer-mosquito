@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { collections } from './-components/constants';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
-import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { PeopleSection } from './-components/people';
 
 export const Route = createFileRoute('/my-organization/people')({
@@ -13,11 +13,7 @@ function MyOrganizationPeopleRoute() {
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 
 	return (
-		<OrganizationWorkspaceShell
-			canManage={workspace.canManage}
-			role={workspace.role}
-			section="people"
-		>
+		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<PeopleSection
 				auth={auth.snapshot}
 				canManage={workspace.role === 'owner'}

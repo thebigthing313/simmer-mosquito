@@ -1,4 +1,3 @@
-import { Avatar, AvatarBadge, AvatarFallback } from '@simmer-mosquito/ui-web/components/ui/avatar';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -10,30 +9,17 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
-import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
-import {
-	Sidebar,
-	SidebarContent,
-	SidebarFooter,
-	SidebarGroup,
-	SidebarGroupContent,
-	SidebarGroupLabel,
-	SidebarHeader,
-	SidebarInset,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	SidebarProvider,
-} from '@simmer-mosquito/ui-web/components/ui/sidebar';
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, Outlet, useLocation, useParams } from '@tanstack/react-router';
 import type React from 'react';
 import { type AuthMe, getServerUrl } from '../auth';
-import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
+import { DualPaneShell } from '../components/layout/dual-pane/outlet-shell';
 import { useCollectionRows } from '../hooks/use-collection-rows';
+import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
 import { webCollections } from '../sync/webCollections';
+import { organizationHeaderTabs } from './my-organization/-components/section-routing';
 
 type Tone = 'neutral' | 'attention' | 'success' | 'info' | 'danger';
 
@@ -325,73 +311,41 @@ export function RootLayout({ auth }: { readonly auth: AuthMe | null }) {
 	const roleLabel = formatRole(localIdentity?.role);
 	const workspaceHeader = getWorkspaceHeader(pathname, organizationName);
 	const fullHeightWorkspace = pathname === '/habitats' || pathname.startsWith('/habitats/');
-	const workspaceContent = (
-		<div
-			className={cn(
-				'min-h-0 p-[clamp(18px,2.6vw,30px)] max-[560px]:p-4',
-				fullHeightWorkspace ? 'h-full overflow-hidden' : 'h-full',
-			)}
-		>
-			<WorkspaceOutletBoundary>
-				<Outlet />
-			</WorkspaceOutletBoundary>
-		</div>
+	const settingsTabs = pathname.startsWith('/my-organization')
+		? organizationHeaderTabs(pathname)
+		: null;
+	const page = settingsTabs
+		? {
+				context: 'Organization',
+				title: 'My Organization',
+				tabs: settingsTabs.tabs,
+				activeTab: settingsTabs.activeTab,
+			}
+		: { context: workspaceHeader.context, title: workspaceHeader.title };
+	const outlet = (
+		<WorkspaceOutletBoundary>
+			<Outlet />
+		</WorkspaceOutletBoundary>
 	);
 
 	return (
-		<SidebarProvider className="h-svh min-h-0 overflow-hidden bg-(--app-stage)">
-			<ProductSidebar />
-			<SidebarInset className="h-svh min-h-0 min-w-0 overflow-hidden bg-(--app-stage)">
-				<header className="sticky top-0 z-10 grid min-h-[88px] grid-cols-[minmax(0,1fr)_auto] items-center gap-5 border-b border-border/50 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--app-chrome-strong)_22%,var(--app-chrome)),var(--app-chrome))] px-[clamp(18px,3vw,32px)] py-3 shadow-[0_14px_20px_-24px_oklch(36%_0.024_205/30%)] max-[900px]:grid-cols-1 max-[900px]:items-start">
-					<div className="min-w-0">
-						<div className="grid gap-1">
-							<p className="eyebrow">{workspaceHeader.context}</p>
-							<h1 className="m-0 text-[1.28rem] leading-tight font-extrabold text-foreground">
-								{workspaceHeader.title}
-							</h1>
-							<p className="m-0 max-w-[72ch] text-[0.88rem] leading-normal text-muted-foreground">
-								{workspaceHeader.summary}
-							</p>
-						</div>
-					</div>
-					<div className="flex items-center gap-3 rounded-md border border-border/45 bg-card/75 px-3 py-2 text-[0.84rem] font-semibold text-muted-foreground max-[560px]:w-full max-[560px]:justify-between">
-						<div className="flex min-w-0 items-center gap-2">
-							<Avatar size="sm" className="bg-(--app-selection) text-primary">
-								<AvatarFallback>{initialsFor(profileName)}</AvatarFallback>
-								<AvatarBadge />
-							</Avatar>
-							<div className="min-w-0">
-								<strong className="block whitespace-nowrap text-[0.86rem] leading-tight font-extrabold text-foreground">
-									{profileName}
-								</strong>
-								<span className="block text-[0.72rem] leading-tight font-bold text-(--quiet)">
-									{roleLabel}
-								</span>
-							</div>
-						</div>
-						<div className="hidden h-8 w-px bg-border/70 max-[560px]:hidden min-[561px]:block" />
-						<div className="text-right max-[560px]:text-left">
-							<span className="block text-[0.72rem] leading-tight font-bold text-(--quiet)">
-								Organization
-							</span>
-							<strong className="block whitespace-nowrap text-[0.86rem] leading-tight font-extrabold text-foreground">
-								{organizationName}
-							</strong>
-						</div>
-					</div>
-				</header>
+		<>
+			<DualPaneShell
+				activePath={pathname}
+				fullBleed={fullHeightWorkspace}
+				identity={{ organizationName, profileName, role: roleLabel }}
+				page={page}
+			>
 				{fullHeightWorkspace ? (
-					<div className="min-h-0 flex-auto overflow-hidden bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_340px),var(--app-stage)]">
-						{workspaceContent}
+					<div className="h-full overflow-hidden p-[clamp(18px,2.6vw,30px)] max-[560px]:p-4">
+						{outlet}
 					</div>
 				) : (
-					<ScrollArea className="min-h-0 flex-auto bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_340px),var(--app-stage)]">
-						{workspaceContent}
-					</ScrollArea>
+					outlet
 				)}
-			</SidebarInset>
+			</DualPaneShell>
 			<Toaster richColors />
-		</SidebarProvider>
+		</>
 	);
 }
 
@@ -503,82 +457,6 @@ export function LandingPage({
 				</div>
 			</section>
 		</div>
-	);
-}
-
-function ProductSidebar() {
-	const { pathname } = useLocation();
-
-	return (
-		<Sidebar
-			className="bg-(--app-chrome) shadow-[inset_-14px_0_22px_-24px_oklch(36%_0.024_205/55%)]"
-			collapsible="none"
-			aria-label="Primary"
-		>
-			<SidebarHeader className="min-h-[74px] justify-center bg-[linear-gradient(180deg,color-mix(in_oklch,var(--app-chrome-strong)_36%,var(--app-chrome)),var(--app-chrome))] p-3">
-				<SidebarMenu>
-					<SidebarMenuItem>
-						<SidebarMenuButton asChild size="lg" tooltip="SIMMER">
-							<Link
-								className="inline-flex min-h-[42px] items-center gap-2.5 font-extrabold text-(--simmer-darker-green) no-underline"
-								to="/"
-							>
-								<img src="/favicon.svg" alt="" className="block size-[30px] rounded-sm" />
-								<span>SIMMER</span>
-							</Link>
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-				</SidebarMenu>
-			</SidebarHeader>
-			<ScrollArea className="min-h-0 flex-auto">
-				<SidebarContent
-					className="flex flex-none flex-col gap-0 overflow-visible px-2 pb-2"
-					role="navigation"
-					aria-label="Primary navigation"
-				>
-					{navigationGroups.map((group) => (
-						<SidebarGroup className="gap-1 px-1 py-1.5" key={group.label}>
-							<SidebarGroupLabel className="h-[1.65rem] px-2 text-[0.74rem] leading-tight font-extrabold tracking-[0.06em] text-primary uppercase">
-								{group.label}
-							</SidebarGroupLabel>
-							<SidebarGroupContent>
-								<SidebarMenu className="gap-0.5">
-									{group.items.map((item) => {
-										const active =
-											item.to === '/'
-												? pathname === '/'
-												: pathname === item.to || pathname.startsWith(`${item.to}/`);
-										return (
-											<SidebarMenuItem key={item.to}>
-												<SidebarMenuButton
-													asChild
-													className="h-[1.85rem] px-2 text-[0.86rem] font-semibold text-sidebar-foreground/70 data-[active=true]:bg-(--app-selection) data-[active=true]:shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--primary)_12%,transparent)]"
-													isActive={active}
-													tooltip={item.label}
-												>
-													<Link aria-current={active ? 'page' : undefined} to={item.to}>
-														<item.icon aria-hidden="true" />
-														<span>{item.label}</span>
-													</Link>
-												</SidebarMenuButton>
-											</SidebarMenuItem>
-										);
-									})}
-								</SidebarMenu>
-							</SidebarGroupContent>
-						</SidebarGroup>
-					))}
-				</SidebarContent>
-			</ScrollArea>
-			<SidebarFooter>
-				<div className="mt-auto rounded-md bg-[color-mix(in_oklch,var(--app-chrome-strong)_58%,var(--app-chrome))] p-3">
-					<p className="eyebrow">Pattern reserves</p>
-					<p className="m-0 text-[0.8rem] leading-normal text-muted-foreground">
-						Atlas details and planning grids are preserved for records, routes, and scheduling.
-					</p>
-				</div>
-			</SidebarFooter>
-		</Sidebar>
 	);
 }
 
@@ -1345,17 +1223,6 @@ function MapPanel({
 			</div>
 		</section>
 	);
-}
-
-function initialsFor(name: string): string {
-	const initials = name
-		.split(/\s+/)
-		.filter(Boolean)
-		.slice(0, 2)
-		.map((part) => part[0]?.toUpperCase() ?? '')
-		.join('');
-
-	return initials.length === 0 ? 'SU' : initials;
 }
 
 function formatRole(role: string | null | undefined): string {

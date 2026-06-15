@@ -23,69 +23,18 @@ import {
 	SheetTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
-import { Tabs, TabsList, TabsTrigger } from '@simmer-mosquito/ui-web/components/ui/tabs';
-import { Link, useLocation } from '@tanstack/react-router';
 import type React from 'react';
 import { useState } from 'react';
-import { EditIcon, sections } from '../constants';
+import { EditIcon } from '../constants';
 import {
 	collectionTimingModeFromFields,
 	displayFieldValue,
 	errorMessageForSave,
 	formatMode,
 } from '../helpers';
-import type {
-	OrganizationSectionId,
-	OrgRole,
-	SettingField,
-	SetupCatalog,
-	SwitchSettingField,
-} from '../types';
-import { SectionHeader } from './section-header';
+import type { OrgRole, SettingField, SetupCatalog, SwitchSettingField } from '../types';
 import { OrgSection } from './org-section';
-
-export function OrganizationRouteTabs({ section }: { readonly section: OrganizationSectionId }) {
-	const { pathname } = useLocation();
-	const value = activeOrganizationSectionForPath(pathname, section);
-
-	return (
-		<Tabs value={value} className="pt-1.5">
-			<TabsList
-				variant="line"
-				className="w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-				aria-label="Organization sections"
-			>
-				{sections.map((section) => (
-					<TabsTrigger
-						className="min-w-max flex-none px-1.5 text-[0.82rem] font-bold"
-						key={section.id}
-						value={section.id}
-						asChild
-					>
-						<Link to={section.to}>{section.label}</Link>
-					</TabsTrigger>
-				))}
-			</TabsList>
-		</Tabs>
-	);
-}
-
-export function activeOrganizationSectionForPath(
-	pathname: string,
-	fallback: OrganizationSectionId,
-): OrganizationSectionId {
-	const normalizedPath = pathname === '/my-organization/' ? '/my-organization' : pathname;
-	const exactMatch = sections.find((item) => normalizedPath === item.to);
-	if (exactMatch !== undefined) {
-		return exactMatch.id;
-	}
-
-	return (
-		sections
-			.filter((item) => item.id !== 'general')
-			.find((item) => normalizedPath.startsWith(`${item.to}/`))?.id ?? fallback
-	);
-}
+import { SectionHeader } from './section-header';
 
 export function DomainSection({
 	canManage,

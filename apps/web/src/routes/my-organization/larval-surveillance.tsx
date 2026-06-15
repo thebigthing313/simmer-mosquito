@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { collections } from './-components/constants';
 import { LarvalSettingsDrawer, LarvalSurveillanceSettings } from './-components/larval';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
-import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/my-organization/larval-surveillance')({
 	component: MyOrganizationLarvalSurveillanceRoute,
@@ -14,11 +14,7 @@ function MyOrganizationLarvalSurveillanceRoute() {
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 
 	return (
-		<OrganizationWorkspaceShell
-			canManage={workspace.canManage}
-			role={workspace.role}
-			section="larval"
-		>
+		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
 				editDescription="Adjust larval inspection entry rules and the setup lists used during habitat inspections."
