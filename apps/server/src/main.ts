@@ -17,6 +17,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { registerAdminFoundationRoutes } from './admin-foundations.js';
 import { registerAdminInvitationRoutes } from './admin-invitations.js';
+import { registerAdultSurveillanceCommandRoutes } from './adult-surveillance-commands.js';
 import {
 	resolveAuthContext,
 	toAuthFailureBody,
@@ -30,17 +31,23 @@ import {
 } from './auth-middleware.js';
 import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
 import { registerControlMethodCommandRoutes } from './control-method-commands.js';
+import { registerControlOperationsCommandRoutes } from './control-operations-commands.js';
 import { registerControlProductCommandRoutes } from './control-product-commands.js';
 import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
+import { createDevSessionProvider } from './dev-impersonation.js';
 import { readServerEnv } from './env.js';
+import { registerFieldWorkCommandRoutes } from './field-work-commands.js';
 import { registerFoundationCommandRoutes } from './foundation-commands.js';
+import { registerFoundationGeographyCommandRoutes } from './foundation-geography-commands.js';
 import { registerGeocoderRoutes } from './geocoder.js';
 import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands.js';
 import { registerMapTileRoutes } from './map-tiles.js';
+import { registerMissionDispatchCommandRoutes } from './mission-dispatch-commands.js';
 import { registerOrganizationCommandRoutes } from './organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
+import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 
 const env = readServerEnv();
@@ -61,13 +68,25 @@ const localIdentityResolver = {
 		readonly workosOrganizationId: string;
 	}) => resolveActiveLocalAuthIdentity(db, input),
 };
+
+// DEV-ONLY: when impersonation is configured (never in production — see env.ts),
+// every request authenticates as a fixed WorkOS user + organization instead of
+// validating the WorkOS session cookie. The real WorkOS `auth` object is kept
+// for the login/callback routes; only the per-request session check is swapped.
+const sessionProvider = env.devImpersonate ? createDevSessionProvider(env.devImpersonate) : auth;
+if (env.devImpersonate) {
+	console.warn(
+		`[dev-impersonation] AUTH BYPASS ACTIVE — every request is authenticated as workosUserId=${env.devImpersonate.workosUserId} workosOrganizationId=${env.devImpersonate.workosOrganizationId}. Never use this against production.`,
+	);
+}
+
 const authContextMiddleware = createAuthContextMiddleware({
-	auth,
+	auth: sessionProvider,
 	localIdentityResolver,
 	setAuthCookie,
 });
 const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
-	auth,
+	auth: sessionProvider,
 	localIdentityResolver,
 	isOperatorEmail,
 	setAuthCookie,
@@ -182,6 +201,42 @@ app.use(
 );
 
 app.use(
+	'/adult-surveillance/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/control-operations/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/field-work/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/mission-dispatch/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
+	}),
+);
+
+app.use(
 	'/organization/*',
 	cors({
 		origin: allowedCorsOrigins(),
@@ -244,7 +299,7 @@ app.get('/auth/callback', async (context) => {
 app.get('/auth/me', async (context) => {
 	const result = await resolveAuthContext({
 		sealedSession: getCookie(context, WORKOS_SESSION_COOKIE_NAME),
-		auth,
+		auth: sessionProvider,
 		localIdentityResolver,
 	});
 
@@ -341,6 +396,11 @@ registerFoundationCommandRoutes(app, {
 	authContextMiddleware,
 });
 
+registerFoundationGeographyCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
 registerControlMethodCommandRoutes(app, {
 	db,
 	authContextMiddleware,
@@ -378,6 +438,31 @@ registerPublicEngagementCommandRoutes(app, {
 });
 
 registerLarvalSurveillanceCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerAdultSurveillanceCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerControlOperationsCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerFieldWorkCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerMissionDispatchCommandRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerPublicEngagementRecordRoutes(app, {
 	db,
 	authContextMiddleware,
 });

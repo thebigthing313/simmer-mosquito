@@ -110,19 +110,62 @@ import {
 import { BasicIndex, type Collection, createCollection } from '@tanstack/react-db';
 import { createAddressMutationHandlers } from './addressMutations';
 import {
+	createCollectionMutationHandlers,
+	createCollectionSpeciesMutationHandlers,
+	createTrapMutationHandlers,
+} from './adultSurveillanceMutations';
+import {
 	createEquipmentMutationHandlers,
 	createVehicleMutationHandlers,
 } from './controlAssetMutations';
 import { createControlMethodMutationHandlers } from './controlMethodMutations';
 import {
+	createApplicationBatchMutationHandlers,
+	createApplicationMutationHandlers,
+	createBiocontrolActionMutationHandlers,
+	createFormulationInsecticideMutationHandlers,
+	createFormulationMutationHandlers,
+	createOutreachActionMutationHandlers,
+	createRequestedControlActionMutationHandlers,
+	createSourceReductionMutationHandlers,
+} from './controlOperationsMutations';
+import {
 	createInsecticideBatchMutationHandlers,
 	createInsecticideMutationHandlers,
 } from './controlProductMutations';
+import {
+	createAdditionalPersonnelMutationHandlers,
+	createAssignmentItemMutationHandlers,
+	createAssignmentMutationHandlers,
+	createCommentMutationHandlers,
+	createMissionItemMutationHandlers,
+	createMissionMutationHandlers,
+	createRouteItemMutationHandlers,
+	createRouteMutationHandlers,
+	createTagItemMutationHandlers,
+} from './fieldWorkMissionMutations';
+import {
+	createOrganizationSpeciesMutationHandlers,
+	createRegionFolderMutationHandlers,
+	createRegionMutationHandlers,
+} from './foundationGeographyMutations';
 import { createHabitatMutationHandlers } from './habitatMutations';
+import {
+	createInspectionMutationHandlers,
+	createSampleMutationHandlers,
+	createSampleSpeciesMutationHandlers,
+} from './larvalSurveillanceMutations';
 import { createNotificationTypeMutationHandlers } from './notificationTypeMutations';
 import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createOrgLookupMutationHandlers } from './orgLookupMutations';
 import { createProfileMutationHandlers } from './profileMutations';
+import {
+	createContactMutationHandlers,
+	createMissionNotificationMutationHandlers,
+	createNotificationRegistrationMutationHandlers,
+	createNotificationRegistrationTypeMutationHandlers,
+	createServiceRequestMutationHandlers,
+} from './publicEngagementMutations';
 import { createTagMutationHandlers } from './tagMutations';
 
 export interface WebCollections {
@@ -271,6 +314,7 @@ export function createWebCollections(options: {
 		electricShapeCollectionOptions<OrganizationSpeciesRow>({
 			descriptor: organizationSpeciesSyncDescriptor,
 			url: `${shapeServerUrl}${organizationSpeciesSyncDescriptor.endpointPath}`,
+			...createOrganizationSpeciesMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
 	const currentOrganization = createCollection(
@@ -427,6 +471,7 @@ export function createWebCollections(options: {
 		electricShapeCollectionOptions<RouteRow>({
 			descriptor: routesSyncDescriptor,
 			url: `${shapeServerUrl}${routesSyncDescriptor.endpointPath}`,
+			...createRouteMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
 	const habitats = createCollection(
@@ -442,106 +487,216 @@ export function createWebCollections(options: {
 		electricShapeCollectionOptions<InspectionRow>({
 			descriptor: inspectionsSyncDescriptor,
 			url: `${shapeServerUrl}${inspectionsSyncDescriptor.endpointPath}`,
+			...createInspectionMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
 	const samples = createCollection(
 		electricShapeCollectionOptions<SampleRow>({
 			descriptor: samplesSyncDescriptor,
 			url: `${shapeServerUrl}${samplesSyncDescriptor.endpointPath}`,
+			...createSampleMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
 	const sampleSpecies = createCollection(
 		electricShapeCollectionOptions<SampleSpeciesRow>({
 			descriptor: sampleSpeciesSyncDescriptor,
 			url: `${shapeServerUrl}${sampleSpeciesSyncDescriptor.endpointPath}`,
+			...createSampleSpeciesMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
 		}),
 	);
-	const regionFolders = createReadOnlyWebCollection<RegionFolderRow>(
-		regionFoldersSyncDescriptor,
-		shapeServerUrl,
+	const regionFolders = createCollection(
+		electricShapeCollectionOptions<RegionFolderRow>({
+			descriptor: regionFoldersSyncDescriptor,
+			url: `${shapeServerUrl}${regionFoldersSyncDescriptor.endpointPath}`,
+			...createRegionFolderMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const regions = createReadOnlyWebCollection<RegionRow>(regionsSyncDescriptor, shapeServerUrl);
-	const traps = createReadOnlyWebCollection<TrapRow>(trapsSyncDescriptor, shapeServerUrl);
-	const collections = createReadOnlyWebCollection<AdultCollectionRow>(
-		collectionsSyncDescriptor,
-		shapeServerUrl,
+	const regions = createCollection(
+		electricShapeCollectionOptions<RegionRow>({
+			descriptor: regionsSyncDescriptor,
+			url: `${shapeServerUrl}${regionsSyncDescriptor.endpointPath}`,
+			...createRegionMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const collectionSpecies = createReadOnlyWebCollection<CollectionSpeciesRow>(
-		collectionSpeciesSyncDescriptor,
-		shapeServerUrl,
+	const traps = createCollection(
+		electricShapeCollectionOptions<TrapRow>({
+			descriptor: trapsSyncDescriptor,
+			url: `${shapeServerUrl}${trapsSyncDescriptor.endpointPath}`,
+			...createTrapMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
+		}),
 	);
-	const comments = createReadOnlyWebCollection<CommentRow>(commentsSyncDescriptor, shapeServerUrl);
-	const tagItems = createReadOnlyWebCollection<TagItemRow>(tagItemsSyncDescriptor, shapeServerUrl);
-	const additionalPersonnel = createReadOnlyWebCollection<AdditionalPersonnelRow>(
-		additionalPersonnelSyncDescriptor,
-		shapeServerUrl,
+	const collections = createCollection(
+		electricShapeCollectionOptions<AdultCollectionRow>({
+			descriptor: collectionsSyncDescriptor,
+			url: `${shapeServerUrl}${collectionsSyncDescriptor.endpointPath}`,
+			...createCollectionMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
+		}),
 	);
-	const routeItems = createReadOnlyWebCollection<RouteItemRow>(
-		routeItemsSyncDescriptor,
-		shapeServerUrl,
+	const collectionSpecies = createCollection(
+		electricShapeCollectionOptions<CollectionSpeciesRow>({
+			descriptor: collectionSpeciesSyncDescriptor,
+			url: `${shapeServerUrl}${collectionSpeciesSyncDescriptor.endpointPath}`,
+			...createCollectionSpeciesMutationHandlers({
+				serverUrl: options.serverUrl,
+			}),
+		}),
 	);
-	const assignments = createReadOnlyWebCollection<AssignmentRow>(
-		assignmentsSyncDescriptor,
-		shapeServerUrl,
+	const comments = createCollection(
+		electricShapeCollectionOptions<CommentRow>({
+			descriptor: commentsSyncDescriptor,
+			url: `${shapeServerUrl}${commentsSyncDescriptor.endpointPath}`,
+			...createCommentMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const assignmentItems = createReadOnlyWebCollection<AssignmentItemRow>(
-		assignmentItemsSyncDescriptor,
-		shapeServerUrl,
+	const tagItems = createCollection(
+		electricShapeCollectionOptions<TagItemRow>({
+			descriptor: tagItemsSyncDescriptor,
+			url: `${shapeServerUrl}${tagItemsSyncDescriptor.endpointPath}`,
+			...createTagItemMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const formulations = createReadOnlyWebCollection<FormulationRow>(
-		formulationsSyncDescriptor,
-		shapeServerUrl,
+	const additionalPersonnel = createCollection(
+		electricShapeCollectionOptions<AdditionalPersonnelRow>({
+			descriptor: additionalPersonnelSyncDescriptor,
+			url: `${shapeServerUrl}${additionalPersonnelSyncDescriptor.endpointPath}`,
+			...createAdditionalPersonnelMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const formulationInsecticides = createReadOnlyWebCollection<FormulationInsecticideRow>(
-		formulationInsecticidesSyncDescriptor,
-		shapeServerUrl,
+	const routeItems = createCollection(
+		electricShapeCollectionOptions<RouteItemRow>({
+			descriptor: routeItemsSyncDescriptor,
+			url: `${shapeServerUrl}${routeItemsSyncDescriptor.endpointPath}`,
+			...createRouteItemMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const applications = createReadOnlyWebCollection<ApplicationRow>(
-		applicationsSyncDescriptor,
-		shapeServerUrl,
+	const assignments = createCollection(
+		electricShapeCollectionOptions<AssignmentRow>({
+			descriptor: assignmentsSyncDescriptor,
+			url: `${shapeServerUrl}${assignmentsSyncDescriptor.endpointPath}`,
+			...createAssignmentMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const applicationBatches = createReadOnlyWebCollection<ApplicationBatchRow>(
-		applicationBatchesSyncDescriptor,
-		shapeServerUrl,
+	const assignmentItems = createCollection(
+		electricShapeCollectionOptions<AssignmentItemRow>({
+			descriptor: assignmentItemsSyncDescriptor,
+			url: `${shapeServerUrl}${assignmentItemsSyncDescriptor.endpointPath}`,
+			...createAssignmentItemMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const sourceReductions = createReadOnlyWebCollection<SourceReductionRow>(
-		sourceReductionsSyncDescriptor,
-		shapeServerUrl,
+	const formulations = createCollection(
+		electricShapeCollectionOptions<FormulationRow>({
+			descriptor: formulationsSyncDescriptor,
+			url: `${shapeServerUrl}${formulationsSyncDescriptor.endpointPath}`,
+			...createFormulationMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const outreachActions = createReadOnlyWebCollection<OutreachActionRow>(
-		outreachActionsSyncDescriptor,
-		shapeServerUrl,
+	const formulationInsecticides = createCollection(
+		electricShapeCollectionOptions<FormulationInsecticideRow>({
+			descriptor: formulationInsecticidesSyncDescriptor,
+			url: `${shapeServerUrl}${formulationInsecticidesSyncDescriptor.endpointPath}`,
+			...createFormulationInsecticideMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const biocontrolActions = createReadOnlyWebCollection<BiocontrolActionRow>(
-		biocontrolActionsSyncDescriptor,
-		shapeServerUrl,
+	const applications = createCollection(
+		electricShapeCollectionOptions<ApplicationRow>({
+			descriptor: applicationsSyncDescriptor,
+			url: `${shapeServerUrl}${applicationsSyncDescriptor.endpointPath}`,
+			...createApplicationMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const contacts = createReadOnlyWebCollection<ContactRow>(contactsSyncDescriptor, shapeServerUrl);
-	const serviceRequests = createReadOnlyWebCollection<ServiceRequestRow>(
-		serviceRequestsSyncDescriptor,
-		shapeServerUrl,
+	const applicationBatches = createCollection(
+		electricShapeCollectionOptions<ApplicationBatchRow>({
+			descriptor: applicationBatchesSyncDescriptor,
+			url: `${shapeServerUrl}${applicationBatchesSyncDescriptor.endpointPath}`,
+			...createApplicationBatchMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const requestedControlActions = createReadOnlyWebCollection<RequestedControlActionRow>(
-		requestedControlActionsSyncDescriptor,
-		shapeServerUrl,
+	const sourceReductions = createCollection(
+		electricShapeCollectionOptions<SourceReductionRow>({
+			descriptor: sourceReductionsSyncDescriptor,
+			url: `${shapeServerUrl}${sourceReductionsSyncDescriptor.endpointPath}`,
+			...createSourceReductionMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const missions = createReadOnlyWebCollection<MissionRow>(missionsSyncDescriptor, shapeServerUrl);
-	const missionItems = createReadOnlyWebCollection<MissionItemRow>(
-		missionItemsSyncDescriptor,
-		shapeServerUrl,
+	const outreachActions = createCollection(
+		electricShapeCollectionOptions<OutreachActionRow>({
+			descriptor: outreachActionsSyncDescriptor,
+			url: `${shapeServerUrl}${outreachActionsSyncDescriptor.endpointPath}`,
+			...createOutreachActionMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const notificationRegistrations = createReadOnlyWebCollection<NotificationRegistrationRow>(
-		notificationRegistrationsSyncDescriptor,
-		shapeServerUrl,
+	const biocontrolActions = createCollection(
+		electricShapeCollectionOptions<BiocontrolActionRow>({
+			descriptor: biocontrolActionsSyncDescriptor,
+			url: `${shapeServerUrl}${biocontrolActionsSyncDescriptor.endpointPath}`,
+			...createBiocontrolActionMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
-	const notificationRegistrationTypes =
-		createReadOnlyWebCollection<NotificationRegistrationTypeRow>(
-			notificationRegistrationTypesSyncDescriptor,
-			shapeServerUrl,
-		);
-	const missionNotifications = createReadOnlyWebCollection<MissionNotificationRow>(
-		missionNotificationsSyncDescriptor,
-		shapeServerUrl,
+	const contacts = createCollection(
+		electricShapeCollectionOptions<ContactRow>({
+			descriptor: contactsSyncDescriptor,
+			url: `${shapeServerUrl}${contactsSyncDescriptor.endpointPath}`,
+			...createContactMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
+	);
+	const serviceRequests = createCollection(
+		electricShapeCollectionOptions<ServiceRequestRow>({
+			descriptor: serviceRequestsSyncDescriptor,
+			url: `${shapeServerUrl}${serviceRequestsSyncDescriptor.endpointPath}`,
+			...createServiceRequestMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
+	);
+	const requestedControlActions = createCollection(
+		electricShapeCollectionOptions<RequestedControlActionRow>({
+			descriptor: requestedControlActionsSyncDescriptor,
+			url: `${shapeServerUrl}${requestedControlActionsSyncDescriptor.endpointPath}`,
+			...createRequestedControlActionMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
+	);
+	const missions = createCollection(
+		electricShapeCollectionOptions<MissionRow>({
+			descriptor: missionsSyncDescriptor,
+			url: `${shapeServerUrl}${missionsSyncDescriptor.endpointPath}`,
+			...createMissionMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
+	);
+	const missionItems = createCollection(
+		electricShapeCollectionOptions<MissionItemRow>({
+			descriptor: missionItemsSyncDescriptor,
+			url: `${shapeServerUrl}${missionItemsSyncDescriptor.endpointPath}`,
+			...createMissionItemMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
+	);
+	const notificationRegistrations = createCollection(
+		electricShapeCollectionOptions<NotificationRegistrationRow>({
+			descriptor: notificationRegistrationsSyncDescriptor,
+			url: `${shapeServerUrl}${notificationRegistrationsSyncDescriptor.endpointPath}`,
+			...createNotificationRegistrationMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
+	);
+	const notificationRegistrationTypes = createCollection(
+		electricShapeCollectionOptions<NotificationRegistrationTypeRow>({
+			descriptor: notificationRegistrationTypesSyncDescriptor,
+			url: `${shapeServerUrl}${notificationRegistrationTypesSyncDescriptor.endpointPath}`,
+			...createNotificationRegistrationTypeMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
+	);
+	const missionNotifications = createCollection(
+		electricShapeCollectionOptions<MissionNotificationRow>({
+			descriptor: missionNotificationsSyncDescriptor,
+			url: `${shapeServerUrl}${missionNotificationsSyncDescriptor.endpointPath}`,
+			...createMissionNotificationMutationHandlers({ serverUrl: options.serverUrl }),
+		}),
 	);
 	const weatherSources = createReadOnlyWebCollection<WeatherSourceRow>(
 		weatherSourcesSyncDescriptor,

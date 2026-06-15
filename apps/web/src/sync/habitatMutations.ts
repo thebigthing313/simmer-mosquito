@@ -7,26 +7,80 @@ export interface HabitatMutationLocationMetadata {
 	};
 }
 
+const HABITAT_PATCH_KEYS = [
+	'habitatName',
+	'description',
+	'addressId',
+	'habitatTypeId',
+	'isActive',
+	'isInaccessible',
+] as const satisfies readonly (keyof HabitatRow)[];
+
 export function createHabitatMutationHandlers(options: { readonly serverUrl: string }) {
+	const endpoint = `${options.serverUrl}/larval-surveillance/habitats`;
 	return {
-		onInsert: async ({ transaction }: CollectionMutationHandlerInput<HabitatRow>) => {
+		onInsert: async ({ transaction }: HabitatInsertInput) => {
 			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					await writeHabitat(
-						`${options.serverUrl}/larval-surveillance/habitats`,
+						endpoint,
+						'POST',
 						toHabitatPayload(mutation.modified, mutation.metadata),
 					);
+				}),
+			);
+		},
+		onUpdate: async ({ transaction }: HabitatUpdateInput) => {
+			await Promise.all(
+				transaction.mutations.map(async (mutation) => {
+					const body = pickChanged(mutation.original, mutation.modified, HABITAT_PATCH_KEYS);
+					if (metadataChanged(mutation.original.metadata, mutation.modified.metadata)) {
+						body.metadata = mutation.modified.metadata;
+					}
+					const locationSource = readOptionalLocationSource(mutation.metadata);
+					if (locationSource !== undefined) {
+						body.locationSource = locationSource;
+					}
+					await writeHabitat(`${endpoint}/${mutation.modified.id}`, 'PATCH', body);
+				}),
+			);
+		},
+		onDelete: async ({ transaction }: HabitatDeleteInput) => {
+			await Promise.all(
+				transaction.mutations.map(async (mutation) => {
+					if (mutation.original.id === undefined) {
+						throw new Error('Unable to delete habitat without an id.');
+					}
+					await writeHabitat(`${endpoint}/${mutation.original.id}`, 'DELETE', undefined);
 				}),
 			);
 		},
 	};
 }
 
-interface CollectionMutationHandlerInput<TRow> {
+interface HabitatInsertInput {
 	readonly transaction: {
 		readonly mutations: readonly {
-			readonly modified: TRow;
+			readonly modified: HabitatRow;
 			readonly metadata: unknown;
+		}[];
+	};
+}
+
+interface HabitatUpdateInput {
+	readonly transaction: {
+		readonly mutations: readonly {
+			readonly original: Partial<HabitatRow>;
+			readonly modified: HabitatRow;
+			readonly metadata?: unknown;
+		}[];
+	};
+}
+
+interface HabitatDeleteInput {
+	readonly transaction: {
+		readonly mutations: readonly {
+			readonly original: Partial<HabitatRow>;
 		}[];
 	};
 }
@@ -67,15 +121,44 @@ function readLocationMetadata(metadata: unknown): HabitatMutationLocationMetadat
 	};
 }
 
-async function writeHabitat(url: string, body: unknown): Promise<HabitatMutationResult> {
+function readOptionalLocationSource(metadata: unknown): unknown {
+	if (isRecord(metadata) && metadata.locationSource !== undefined) {
+		return metadata.locationSource;
+	}
+	return undefined;
+}
+
+function pickChanged<TKey extends keyof HabitatRow>(
+	original: Partial<HabitatRow>,
+	modified: HabitatRow,
+	keys: readonly TKey[],
+): Record<string, unknown> {
+	const body: Record<string, unknown> = {};
+	for (const key of keys) {
+		if (original[key] !== modified[key]) {
+			body[key as string] = modified[key];
+		}
+	}
+	return body;
+}
+
+function metadataChanged(original: unknown, modified: unknown): boolean {
+	return JSON.stringify(original ?? null) !== JSON.stringify(modified ?? null);
+}
+
+async function writeHabitat(
+	url: string,
+	method: 'POST' | 'PATCH' | 'DELETE',
+	body: unknown,
+): Promise<HabitatMutationResult> {
 	const response = await fetch(url, {
-		method: 'POST',
+		method,
 		credentials: 'include',
 		headers: {
 			accept: 'application/json',
-			'content-type': 'application/json',
+			...(body === undefined ? {} : { 'content-type': 'application/json' }),
 		},
-		body: JSON.stringify(body),
+		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
 	const result = (await response.json()) as
 		| HabitatMutationResult

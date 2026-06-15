@@ -1,13 +1,10 @@
 import {
 	addressesSyncDescriptor,
-	applicationsSyncDescriptor,
 	collectionsSyncDescriptor,
-	formulationInsecticidesSyncDescriptor,
 	formulationsSyncDescriptor,
 	habitatsSyncDescriptor,
 	habitatTypesSyncDescriptor,
 	inspectionsSyncDescriptor,
-	regionFoldersSyncDescriptor,
 	sampleSpeciesSyncDescriptor,
 	samplesSyncDescriptor,
 	trapsSyncDescriptor,
@@ -98,9 +95,16 @@ describe('web sync baseline preload', () => {
 		expect(collections.addresses.config.onInsert).toBeTypeOf('function');
 		expect(collections.habitats.config.id).toBe(habitatsSyncDescriptor.id);
 		expect(collections.habitats.config.onInsert).toBeTypeOf('function');
+		expect(collections.habitats.config.onUpdate).toBeTypeOf('function');
+		expect(collections.habitats.config.onDelete).toBeTypeOf('function');
 		expect(collections.inspections.config.id).toBe(inspectionsSyncDescriptor.id);
+		expect(collections.inspections.config.onInsert).toBeTypeOf('function');
+		expect(collections.inspections.config.onUpdate).toBeTypeOf('function');
+		expect(collections.inspections.config.onDelete).toBeTypeOf('function');
 		expect(collections.samples.config.id).toBe(samplesSyncDescriptor.id);
+		expect(collections.samples.config.onInsert).toBeTypeOf('function');
 		expect(collections.sampleSpecies.config.id).toBe(sampleSpeciesSyncDescriptor.id);
+		expect(collections.sampleSpecies.config.onInsert).toBeTypeOf('function');
 		expect(habitatTypesSyncDescriptor.syncMode).toBe('eager');
 		expect(addressesSyncDescriptor.syncMode).toBe('on-demand');
 		expect(habitatsSyncDescriptor.syncMode).toBe('on-demand');
@@ -112,21 +116,103 @@ describe('web sync baseline preload', () => {
 	it('wires the remaining web sync collections without mutation handlers', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		expect(collections.regionFolders.config.id).toBe(regionFoldersSyncDescriptor.id);
 		expect(collections.traps.config.id).toBe(trapsSyncDescriptor.id);
-		expect(collections.formulations.config.id).toBe(formulationsSyncDescriptor.id);
-		expect(collections.formulationInsecticides.config.id).toBe(
-			formulationInsecticidesSyncDescriptor.id,
-		);
 		expect(collections.collections.config.id).toBe(collectionsSyncDescriptor.id);
-		expect(collections.applications.config.id).toBe(applicationsSyncDescriptor.id);
 		expect(collections.weatherSources.config.id).toBe(weatherSourcesSyncDescriptor.id);
 		expect(collections.weatherSummaries.config.id).toBe(weatherSummariesSyncDescriptor.id);
 
-		expect(collections.regionFolders.config.onInsert).toBeUndefined();
-		expect(collections.traps.config.onUpdate).toBeUndefined();
-		expect(collections.applications.config.onDelete).toBeUndefined();
 		expect(collections.weatherSummaries.config.onInsert).toBeUndefined();
+		expect(collections.weatherSummaries.config.onUpdate).toBeUndefined();
+		expect(collections.weatherSummaries.config.onDelete).toBeUndefined();
+		expect(collections.weatherSources.config.onInsert).toBeUndefined();
+	});
+
+	it('attaches optimistic write handlers to foundation geography collections', () => {
+		const collections = createWebCollections({ serverUrl: 'https://example.test' });
+
+		for (const key of ['regionFolders', 'regions'] as const) {
+			expect(collections[key].config.onInsert).toBeTypeOf('function');
+			expect(collections[key].config.onUpdate).toBeTypeOf('function');
+			expect(collections[key].config.onDelete).toBeTypeOf('function');
+		}
+		// Organization-species selection is add/remove only.
+		expect(collections.organizationSpecies.config.onInsert).toBeTypeOf('function');
+		expect(collections.organizationSpecies.config.onUpdate).toBeUndefined();
+		expect(collections.organizationSpecies.config.onDelete).toBeTypeOf('function');
+	});
+
+	it('attaches optimistic write handlers to adult surveillance collections', () => {
+		const collections = createWebCollections({ serverUrl: 'https://example.test' });
+
+		for (const key of ['traps', 'collections', 'collectionSpecies'] as const) {
+			expect(collections[key].config.onInsert).toBeTypeOf('function');
+			expect(collections[key].config.onUpdate).toBeTypeOf('function');
+			expect(collections[key].config.onDelete).toBeTypeOf('function');
+		}
+	});
+
+	it('attaches optimistic write handlers to control operations collections', () => {
+		const collections = createWebCollections({ serverUrl: 'https://example.test' });
+
+		expect(collections.formulations.config.id).toBe(formulationsSyncDescriptor.id);
+		for (const key of [
+			'formulations',
+			'formulationInsecticides',
+			'applications',
+			'sourceReductions',
+			'outreachActions',
+			'biocontrolActions',
+			'requestedControlActions',
+		] as const) {
+			expect(collections[key].config.onInsert).toBeTypeOf('function');
+			expect(collections[key].config.onUpdate).toBeTypeOf('function');
+			expect(collections[key].config.onDelete).toBeTypeOf('function');
+		}
+		// Application batches are add/remove only.
+		expect(collections.applicationBatches.config.onInsert).toBeTypeOf('function');
+		expect(collections.applicationBatches.config.onUpdate).toBeUndefined();
+		expect(collections.applicationBatches.config.onDelete).toBeTypeOf('function');
+	});
+
+	it('attaches optimistic write handlers to field-work and mission collections', () => {
+		const collections = createWebCollections({ serverUrl: 'https://example.test' });
+
+		for (const key of [
+			'comments',
+			'routes',
+			'routeItems',
+			'assignments',
+			'assignmentItems',
+			'missions',
+			'missionItems',
+		] as const) {
+			expect(collections[key].config.onInsert).toBeTypeOf('function');
+			expect(collections[key].config.onUpdate).toBeTypeOf('function');
+			expect(collections[key].config.onDelete).toBeTypeOf('function');
+		}
+		// Tag assignments and additional personnel are add/remove only.
+		for (const key of ['tagItems', 'additionalPersonnel'] as const) {
+			expect(collections[key].config.onInsert).toBeTypeOf('function');
+			expect(collections[key].config.onUpdate).toBeUndefined();
+			expect(collections[key].config.onDelete).toBeTypeOf('function');
+		}
+	});
+
+	it('attaches optimistic write handlers to public engagement collections', () => {
+		const collections = createWebCollections({ serverUrl: 'https://example.test' });
+
+		for (const key of ['contacts', 'serviceRequests', 'notificationRegistrations'] as const) {
+			expect(collections[key].config.onInsert).toBeTypeOf('function');
+			expect(collections[key].config.onUpdate).toBeTypeOf('function');
+			expect(collections[key].config.onDelete).toBeTypeOf('function');
+		}
+		// Subscriptions are add/remove only; mission notifications are status-only.
+		expect(collections.notificationRegistrationTypes.config.onInsert).toBeTypeOf('function');
+		expect(collections.notificationRegistrationTypes.config.onUpdate).toBeUndefined();
+		expect(collections.notificationRegistrationTypes.config.onDelete).toBeTypeOf('function');
+		expect(collections.missionNotifications.config.onInsert).toBeUndefined();
+		expect(collections.missionNotifications.config.onUpdate).toBeTypeOf('function');
+		expect(collections.missionNotifications.config.onDelete).toBeUndefined();
 	});
 
 	it('leaves weather source subscriptions unwired for web', () => {
