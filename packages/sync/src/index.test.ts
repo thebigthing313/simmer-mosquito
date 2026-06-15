@@ -134,6 +134,14 @@ describe('sync descriptors', () => {
 		expect(decodeShapeColumnName('mailing_address_line_2')).toBe('mailingAddressLine2');
 	});
 
+	it('leaves all-caps SQL keywords untouched so Electric subset where clauses stay valid', () => {
+		// The Electric subset-where compiler emits `= ANY($1)` for inArray filters and
+		// re-maps identifier tokens through this encoder; ANY must not become _a_n_y.
+		expect(encodeShapeColumnName('ANY')).toBe('ANY');
+		expect(encodeShapeColumnName('AND')).toBe('AND');
+		expect(encodeShapeColumnName('LIKE')).toBe('LIKE');
+	});
+
 	it('keeps foundation lookup catalogs as command-backed tracer descriptors', () => {
 		expect(webCommandMutationDescriptors.map((descriptor) => descriptor.id)).toEqual([
 			'current_organization',
