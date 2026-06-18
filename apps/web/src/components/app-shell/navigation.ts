@@ -157,6 +157,12 @@ export const shellDomains: readonly ShellDomain[] = [
 				id: 'gis-main',
 				items: [
 					{
+						id: 'data-explorer',
+						label: 'Data Explorer',
+						to: '/gis-data/data-explorer',
+						icon: iconRegistry.generic.compass.icon,
+					},
+					{
 						id: 'regions',
 						label: 'Regions',
 						to: '/regions',

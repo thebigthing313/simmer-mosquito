@@ -50,6 +50,7 @@ import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my
 import { Route as MissionsEditRouteImport } from './routes/missions.edit'
 import { Route as HabitatsIdRouteImport } from './routes/habitats_.$id'
 import { Route as HabitatsCreateRouteImport } from './routes/habitats.create'
+import { Route as GisDataDataExplorerRouteImport } from './routes/gis-data/data-explorer'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as PublicEngagementServiceRequestsIndexRouteImport } from './routes/public-engagement/service-requests/index'
 import { Route as PublicEngagementContactsIndexRouteImport } from './routes/public-engagement/contacts/index'
@@ -303,6 +304,11 @@ const HabitatsCreateRoute = HabitatsCreateRouteImport.update({
   id: '/create',
   path: '/create',
   getParentRoute: () => HabitatsRoute,
+} as any)
+const GisDataDataExplorerRoute = GisDataDataExplorerRouteImport.update({
+  id: '/gis-data/data-explorer',
+  path: '/gis-data/data-explorer',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
   id: '/admin/organizations',
@@ -571,6 +577,7 @@ export interface FileRoutesByFullPath {
   '/today': typeof TodayRoute
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/gis-data/data-explorer': typeof GisDataDataExplorerRoute
   '/habitats/create': typeof HabitatsCreateRoute
   '/habitats/$id': typeof HabitatsIdRoute
   '/missions/edit': typeof MissionsEditRoute
@@ -652,6 +659,7 @@ export interface FileRoutesByTo {
   '/today': typeof TodayRoute
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/gis-data/data-explorer': typeof GisDataDataExplorerRoute
   '/habitats/create': typeof HabitatsCreateRoute
   '/habitats/$id': typeof HabitatsIdRoute
   '/missions/edit': typeof MissionsEditRoute
@@ -738,6 +746,7 @@ export interface FileRoutesById {
   '/today': typeof TodayRoute
   '/traps': typeof TrapsRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/gis-data/data-explorer': typeof GisDataDataExplorerRoute
   '/habitats/create': typeof HabitatsCreateRoute
   '/habitats_/$id': typeof HabitatsIdRoute
   '/missions/edit': typeof MissionsEditRoute
@@ -825,6 +834,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/traps'
     | '/admin/organizations'
+    | '/gis-data/data-explorer'
     | '/habitats/create'
     | '/habitats/$id'
     | '/missions/edit'
@@ -906,6 +916,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/traps'
     | '/admin/organizations'
+    | '/gis-data/data-explorer'
     | '/habitats/create'
     | '/habitats/$id'
     | '/missions/edit'
@@ -991,6 +1002,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/traps'
     | '/admin/organizations'
+    | '/gis-data/data-explorer'
     | '/habitats/create'
     | '/habitats_/$id'
     | '/missions/edit'
@@ -1077,6 +1089,7 @@ export interface RootRouteChildren {
   TodayRoute: typeof TodayRoute
   TrapsRoute: typeof TrapsRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
+  GisDataDataExplorerRoute: typeof GisDataDataExplorerRoute
   HabitatsIdRoute: typeof HabitatsIdRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
   AdultSurveillanceCollectionsIdRoute: typeof AdultSurveillanceCollectionsIdRouteWithChildren
@@ -1399,6 +1412,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/habitats/create'
       preLoaderRoute: typeof HabitatsCreateRouteImport
       parentRoute: typeof HabitatsRoute
+    }
+    '/gis-data/data-explorer': {
+      id: '/gis-data/data-explorer'
+      path: '/gis-data/data-explorer'
+      fullPath: '/gis-data/data-explorer'
+      preLoaderRoute: typeof GisDataDataExplorerRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/organizations': {
       id: '/admin/organizations'
@@ -1934,6 +1954,7 @@ const rootRouteChildren: RootRouteChildren = {
   TodayRoute: TodayRoute,
   TrapsRoute: TrapsRoute,
   AdminOrganizationsRoute: AdminOrganizationsRouteWithChildren,
+  GisDataDataExplorerRoute: GisDataDataExplorerRoute,
   HabitatsIdRoute: HabitatsIdRoute,
   AdultSurveillanceIndexRoute: AdultSurveillanceIndexRoute,
   AdultSurveillanceCollectionsIdRoute:

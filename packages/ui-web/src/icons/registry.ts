@@ -12,6 +12,7 @@ import {
 	Clipboard,
 	ClipboardCheck,
 	CloudSun,
+	Compass,
 	Component,
 	Contrast,
 	Download,
@@ -23,6 +24,7 @@ import {
 	Info,
 	Layers,
 	Loader2,
+	LocateFixed,
 	ArrowLeft as LucideArrowLeft,
 	ArrowRight as LucideArrowRight,
 	ChevronRight as LucideChevronRight,
@@ -41,6 +43,7 @@ import {
 	Puzzle,
 	Route,
 	Ruler,
+	Satellite,
 	Save,
 	ScanEye,
 	Search,
@@ -123,6 +126,7 @@ export const iconRegistry = {
 		edit: icon('edit', 'Edit', 'actions', Edit),
 		info: icon('info', 'Info', 'actions', Info),
 		loading: icon('loading', 'Loading', 'actions', Loader2),
+		locate: icon('locate', 'Locate', 'actions', LocateFixed),
 		paste: icon('paste', 'Paste', 'actions', Clipboard),
 		remove: icon('remove', 'Remove', 'actions', Minus),
 		save: icon('save', 'Save', 'actions', Save),
@@ -144,6 +148,7 @@ export const iconRegistry = {
 	generic: {
 		calendar: icon('calendar', 'Calendar', 'generic', Calendar),
 		circle: icon('circle', 'Circle', 'generic', Circle),
+		compass: icon('compass', 'Compass', 'generic', Compass),
 		component: icon('component', 'Component', 'generic', Component),
 		contrast: icon('contrast', 'Contrast', 'generic', Contrast),
 		error: icon('error', 'Error', 'generic', OctagonX),
@@ -152,6 +157,7 @@ export const iconRegistry = {
 		moon: icon('moon', 'Moon', 'generic', Moon),
 		print: icon('print', 'Print', 'generic', Printer),
 		puzzle: icon('puzzle', 'Puzzle', 'generic', Puzzle),
+		satellite: icon('satellite', 'Satellite', 'generic', Satellite),
 		scanEye: icon('scanEye', 'Scan eye', 'generic', ScanEye),
 		settings: icon('settings', 'Settings', 'generic', Settings),
 		success: icon('success', 'Success', 'generic', CircleCheck),
@@ -188,6 +194,7 @@ export const ChevronRightIcon = iconRegistry.arrows.chevronRight.icon;
 export const ChevronUpIcon = iconRegistry.arrows.chevronUp.icon;
 export const CircleCheckIcon = iconRegistry.generic.success.icon;
 export const CircleIcon = iconRegistry.generic.circle.icon;
+export const CompassIcon = iconRegistry.generic.compass.icon;
 export const ComponentIcon = iconRegistry.generic.component.icon;
 export const ContrastIcon = iconRegistry.generic.contrast.icon;
 export const DownloadIcon = iconRegistry.actions.download.icon;
@@ -195,6 +202,7 @@ export const GripVerticalIcon = iconRegistry.generic.gripVertical.icon;
 export const HomeIcon = iconRegistry.generic.home.icon;
 export const InfoIcon = iconRegistry.actions.info.icon;
 export const Loader2Icon = iconRegistry.actions.loading.icon;
+export const LocateFixedIcon = iconRegistry.actions.locate.icon;
 export const MapPinnedIcon = iconRegistry.simmer.fieldWork.icon;
 export const MinusIcon = iconRegistry.actions.remove.icon;
 export const MoonIcon = iconRegistry.generic.moon.icon;
@@ -206,6 +214,7 @@ export const PanelLeftIcon = iconRegistry.arrows.panelLeft.icon;
 export const PlusIcon = iconRegistry.actions.add.icon;
 export const PuzzleIcon = iconRegistry.generic.puzzle.icon;
 export const SaveIcon = iconRegistry.actions.save.icon;
+export const SatelliteIcon = iconRegistry.generic.satellite.icon;
 export const ScanEyeIcon = iconRegistry.generic.scanEye.icon;
 export const SearchIcon = iconRegistry.actions.search.icon;
 export const SettingsIcon = iconRegistry.generic.settings.icon;
