@@ -1,6 +1,7 @@
 import {
 	AlertTriangle,
 	Box,
+	Calendar,
 	Check,
 	CheckCircle2,
 	ChevronDown,
@@ -18,6 +19,7 @@ import {
 	Fish,
 	FlaskConical,
 	GripVertical,
+	Home,
 	Info,
 	Layers,
 	Loader2,
@@ -49,7 +51,7 @@ import {
 	Trash2,
 	Truck,
 	Users,
-	Waves,
+	Worm,
 	Wrench,
 	X,
 } from 'lucide-react';
@@ -85,7 +87,7 @@ export const iconRegistry = {
 		),
 		controlOperations: icon('controlOperations', 'Control operations', 'domains', SprayCan),
 		gis: icon('gis', 'GIS', 'domains', LucideMap),
-		larvalSurveillance: icon('larvalSurveillance', 'Larval surveillance', 'domains', Waves),
+		larvalSurveillance: icon('larvalSurveillance', 'Larval surveillance', 'domains', Worm),
 		publicEngagement: icon('publicEngagement', 'Public engagement', 'domains', Megaphone),
 		weather: icon('weather', 'Weather', 'domains', CloudSun),
 	},
@@ -140,11 +142,13 @@ export const iconRegistry = {
 		panelLeft: icon('panelLeft', 'Panel left', 'arrows', PanelLeft),
 	},
 	generic: {
+		calendar: icon('calendar', 'Calendar', 'generic', Calendar),
 		circle: icon('circle', 'Circle', 'generic', Circle),
 		component: icon('component', 'Component', 'generic', Component),
 		contrast: icon('contrast', 'Contrast', 'generic', Contrast),
 		error: icon('error', 'Error', 'generic', OctagonX),
 		gripVertical: icon('gripVertical', 'Vertical grip', 'generic', GripVertical),
+		home: icon('home', 'Home', 'generic', Home),
 		moon: icon('moon', 'Moon', 'generic', Moon),
 		print: icon('print', 'Print', 'generic', Printer),
 		puzzle: icon('puzzle', 'Puzzle', 'generic', Puzzle),
@@ -174,6 +178,7 @@ export const ArrowRight = iconRegistry.arrows.arrowRight.icon;
 export const ArrowRightIcon = iconRegistry.arrows.arrowRight.icon;
 export const BoxIcon = iconRegistry.simmer.brandMark.icon;
 export const BrandMarkIcon = iconRegistry.simmer.brandMark.icon;
+export const CalendarIcon = iconRegistry.generic.calendar.icon;
 export const CheckCircle2Icon = iconRegistry.actions.select.icon;
 export const CheckIcon = iconRegistry.actions.check.icon;
 export const ChevronDownIcon = iconRegistry.arrows.chevronDown.icon;
@@ -187,6 +192,7 @@ export const ComponentIcon = iconRegistry.generic.component.icon;
 export const ContrastIcon = iconRegistry.generic.contrast.icon;
 export const DownloadIcon = iconRegistry.actions.download.icon;
 export const GripVerticalIcon = iconRegistry.generic.gripVertical.icon;
+export const HomeIcon = iconRegistry.generic.home.icon;
 export const InfoIcon = iconRegistry.actions.info.icon;
 export const Loader2Icon = iconRegistry.actions.loading.icon;
 export const MapPinnedIcon = iconRegistry.simmer.fieldWork.icon;
