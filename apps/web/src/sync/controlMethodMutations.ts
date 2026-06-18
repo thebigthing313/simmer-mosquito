@@ -7,9 +7,11 @@ interface ControlMethodMutationRow {
 	readonly isActive: boolean;
 }
 
-const mapControlMethodPayload = createRowPayloadMapper<ControlMethodMutationRow>(
-	['id', 'name', 'customSchema'] as const,
-);
+const mapControlMethodPayload = createRowPayloadMapper<ControlMethodMutationRow>([
+	'id',
+	'name',
+	'customSchema',
+] as const);
 
 export function createControlMethodMutationHandlers<
 	TRow extends ControlMethodMutationRow,

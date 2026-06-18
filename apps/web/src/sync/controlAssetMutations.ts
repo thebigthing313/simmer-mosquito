@@ -15,10 +15,15 @@ interface EquipmentMutationRow extends ControlAssetMutationRow {
 	readonly serialNumber: string | null;
 }
 
-const mapVehiclePayload = createRowPayloadMapper<VehicleMutationRow>(['id', 'vehicleName'] as const);
-const mapEquipmentPayload = createRowPayloadMapper<EquipmentMutationRow>(
-	['id', 'equipmentName', 'serialNumber'] as const,
-);
+const mapVehiclePayload = createRowPayloadMapper<VehicleMutationRow>([
+	'id',
+	'vehicleName',
+] as const);
+const mapEquipmentPayload = createRowPayloadMapper<EquipmentMutationRow>([
+	'id',
+	'equipmentName',
+	'serialNumber',
+] as const);
 
 export function createVehicleMutationHandlers<TRow extends VehicleMutationRow>(options: {
 	readonly serverUrl: string;

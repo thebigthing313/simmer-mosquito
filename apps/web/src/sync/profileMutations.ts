@@ -1,7 +1,11 @@
 import { createRowPayloadMapper, type ProfileRow } from '@simmer-mosquito/sync';
 import type { AdminMembership, SimmerRole } from '../auth';
 
-const mapProfilePayload = createRowPayloadMapper<ProfileRow>(['id', 'displayName', 'isActive'] as const);
+const mapProfilePayload = createRowPayloadMapper<ProfileRow>([
+	'id',
+	'displayName',
+	'isActive',
+] as const);
 
 export function createProfileMutationHandlers(options: { readonly serverUrl: string }) {
 	return {

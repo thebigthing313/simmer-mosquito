@@ -9,9 +9,11 @@ interface OrgLookupMutationRow {
 	readonly isActive: boolean;
 }
 
-const mapOrgLookupPayload = createRowPayloadMapper<OrgLookupMutationRow>(
-	['id', 'name', 'description'] as const,
-);
+const mapOrgLookupPayload = createRowPayloadMapper<OrgLookupMutationRow>([
+	'id',
+	'name',
+	'description',
+] as const);
 
 export function createOrgLookupMutationHandlers<TRow extends OrgLookupMutationRow>(options: {
 	readonly serverUrl: string;

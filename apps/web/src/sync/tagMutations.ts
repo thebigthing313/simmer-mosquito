@@ -1,9 +1,16 @@
 import { createRowPayloadMapper, type TagRow } from '@simmer-mosquito/sync';
 
-const mapTagCreatePayload = createRowPayloadMapper<TagRow>(
-	['id', 'tagName', 'description', 'color'] as const,
-);
-const mapTagUpdatePayload = createRowPayloadMapper<TagRow>(['tagName', 'description', 'color'] as const);
+const mapTagCreatePayload = createRowPayloadMapper<TagRow>([
+	'id',
+	'tagName',
+	'description',
+	'color',
+] as const);
+const mapTagUpdatePayload = createRowPayloadMapper<TagRow>([
+	'tagName',
+	'description',
+	'color',
+] as const);
 
 export function createTagMutationHandlers(options: { readonly serverUrl: string }) {
 	return {

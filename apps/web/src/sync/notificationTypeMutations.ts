@@ -7,9 +7,11 @@ interface NotificationTypeMutationRow {
 	readonly isActive: boolean;
 }
 
-const mapNotificationTypePayload = createRowPayloadMapper<NotificationTypeMutationRow>(
-	['id', 'name', 'description'] as const,
-);
+const mapNotificationTypePayload = createRowPayloadMapper<NotificationTypeMutationRow>([
+	'id',
+	'name',
+	'description',
+] as const);
 
 export function createNotificationTypeMutationHandlers<
 	TRow extends NotificationTypeMutationRow,

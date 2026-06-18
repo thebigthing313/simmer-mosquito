@@ -22,22 +22,22 @@ interface InsecticideBatchMutationRow {
 	readonly isActive: boolean;
 }
 
-const mapInsecticidePayload = createRowPayloadMapper<InsecticideMutationRow>(
-	[
-		'id',
-		'tradeName',
-		'activeIngredient',
-		'type',
-		'registrationNumber',
-		'defaultUnitId',
-		'labelUrl',
-		'msdsUrl',
-		'shorthand',
-	] as const,
-);
-const mapInsecticideBatchPayload = createRowPayloadMapper<InsecticideBatchMutationRow>(
-	['id', 'insecticideId', 'batchName'] as const,
-);
+const mapInsecticidePayload = createRowPayloadMapper<InsecticideMutationRow>([
+	'id',
+	'tradeName',
+	'activeIngredient',
+	'type',
+	'registrationNumber',
+	'defaultUnitId',
+	'labelUrl',
+	'msdsUrl',
+	'shorthand',
+] as const);
+const mapInsecticideBatchPayload = createRowPayloadMapper<InsecticideBatchMutationRow>([
+	'id',
+	'insecticideId',
+	'batchName',
+] as const);
 
 export function createInsecticideMutationHandlers<TRow extends InsecticideMutationRow>(options: {
 	readonly serverUrl: string;

@@ -1,4 +1,4 @@
-import { createRowPayloadMapper, type AddressRow } from '@simmer-mosquito/sync';
+import { type AddressRow, createRowPayloadMapper } from '@simmer-mosquito/sync';
 
 const mapAddressPayload = createRowPayloadMapper<AddressRow>([
 	'id',
