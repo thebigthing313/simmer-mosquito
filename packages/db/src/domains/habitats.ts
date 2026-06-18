@@ -6,6 +6,10 @@ export interface HabitatMvtTileFilters {
 	readonly isActive?: boolean;
 	readonly isInaccessible?: boolean;
 	readonly habitatTypeIds?: readonly string[];
+	/** Match habitats carrying any of these tag ids (polymorphic `tag_items`). */
+	readonly tagIds?: readonly string[];
+	/** Case-insensitive substring match across habitat name + description. */
+	readonly search?: string;
 }
 
 export interface HabitatMvtTileInput {
@@ -192,6 +196,30 @@ function habitatSpatialWhereClauses(input: {
 	if (input.filters?.habitatTypeIds !== undefined) {
 		whereClauses.push(
 			sql<boolean>`h.habitat_type_id = any(${[...input.filters.habitatTypeIds]}::uuid[])`,
+		);
+	}
+
+	if (input.filters?.tagIds !== undefined) {
+		whereClauses.push(
+			sql<boolean>`exists (
+				select 1
+				from tag_items ti
+				where ti.entity_type = 'habitat'
+					and ti.entity_id = h.id
+					and ti.deleted_at is null
+					and ti.tag_id = any(${[...input.filters.tagIds]}::uuid[])
+			)`,
+		);
+	}
+
+	const search = input.filters?.search?.trim();
+	if (search !== undefined && search.length > 0) {
+		// position()-based match keeps user input literal — no LIKE wildcard escaping.
+		whereClauses.push(
+			sql<boolean>`(
+				position(lower(${search}) in lower(coalesce(h.habitat_name, ''))) > 0
+				or position(lower(${search}) in lower(h.description)) > 0
+			)`,
 		);
 	}
 

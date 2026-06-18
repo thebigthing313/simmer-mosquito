@@ -1,7 +1,8 @@
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useState } from 'react';
+import type { Map as MapboxMap } from 'mapbox-gl';
+import { useEffect, useRef, useState } from 'react';
 import { BasemapSwitcher } from './basemap-switcher';
 import { GeolocateControl } from './geolocate-control';
 import { MapFallback } from './map-fallback';
@@ -9,6 +10,7 @@ import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
+import { type HabitatTileLayerConfig, useHabitatTileLayer } from './use-habitat-tile-layer';
 import { useMapboxMap } from './use-mapbox-map';
 
 /**
@@ -35,10 +37,16 @@ export function MapCanvas({
 	className,
 	camera,
 	controls,
+	habitatLayer,
+	onMapReady,
 }: {
 	readonly className?: string;
 	readonly camera?: MapCamera;
 	readonly controls?: MapControlsConfig;
+	/** Mount the habitat vector-tile layer with these filters + selection wiring. */
+	readonly habitatLayer?: HabitatTileLayerConfig;
+	/** Called once with the GL instance after it loads, for camera/bounds reads. */
+	readonly onMapReady?: (map: MapboxMap) => void;
 }) {
 	const [container, setContainer] = useState<HTMLDivElement | null>(null);
 	const [basemapId, setBasemapId] = useState<BasemapId>(DEFAULT_BASEMAP_ID);
@@ -58,6 +66,21 @@ export function MapCanvas({
 		attribution: show.attribution,
 		...(camera === undefined ? {} : { camera }),
 	});
+
+	useHabitatTileLayer(map, isLoaded, habitatLayer);
+
+	const onMapReadyRef = useRef(onMapReady);
+	onMapReadyRef.current = onMapReady;
+	const readySignaledFor = useRef<MapboxMap | null>(null);
+	useEffect(() => {
+		if (map !== null && isLoaded && readySignaledFor.current !== map) {
+			readySignaledFor.current = map;
+			onMapReadyRef.current?.(map);
+		}
+		if (map === null) {
+			readySignaledFor.current = null;
+		}
+	}, [map, isLoaded]);
 
 	const showFatalError = hasToken && error !== null && !isLoaded;
 	const showLoading = hasToken && error === null && !isLoaded;

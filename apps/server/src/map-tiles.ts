@@ -262,12 +262,24 @@ export function parseHabitatTileFilters(searchParams: URLSearchParams): HabitatF
 		return habitatTypeIds;
 	}
 
+	const tagIds = parseOptionalUuidListFilter(searchParams, 'tagId');
+	if (!tagIds.ok) {
+		return tagIds;
+	}
+
+	const search = parseOptionalTextFilter(searchParams, 'search');
+	if (!search.ok) {
+		return search;
+	}
+
 	return {
 		ok: true,
 		filters: {
 			...(isActive.value === undefined ? {} : { isActive: isActive.value }),
 			...(isInaccessible.value === undefined ? {} : { isInaccessible: isInaccessible.value }),
 			...(habitatTypeIds.value === undefined ? {} : { habitatTypeIds: habitatTypeIds.value }),
+			...(tagIds.value === undefined ? {} : { tagIds: tagIds.value }),
+			...(search.value === undefined ? {} : { search: search.value }),
 		},
 	};
 }
@@ -306,8 +318,15 @@ export function parseHabitatDisplayQuery(
 	};
 }
 
-const habitatFilterParams = new Set(['isActive', 'isInaccessible', 'habitatTypeId']);
+const habitatFilterParams = new Set([
+	'isActive',
+	'isInaccessible',
+	'habitatTypeId',
+	'tagId',
+	'search',
+]);
 const maxDisplayLimit = 50;
+const maxSearchLength = 200;
 
 function parseInteger(value: string): number | null {
 	if (!/^\d+$/.test(value)) {
@@ -368,6 +387,31 @@ function parseOptionalUuidListFilter(
 	}
 
 	return { ok: true, value: [...new Set(values)] };
+}
+
+function parseOptionalTextFilter(
+	searchParams: URLSearchParams,
+	param: string,
+):
+	| { readonly ok: true; readonly value: string | undefined }
+	| { readonly ok: false; readonly reason: string } {
+	const values = searchParams.getAll(param);
+	if (values.length === 0) {
+		return { ok: true, value: undefined };
+	}
+	if (values.length > 1) {
+		return { ok: false, reason: `${param} may only be provided once.` };
+	}
+
+	const trimmed = values[0]?.trim() ?? '';
+	if (trimmed.length === 0) {
+		return { ok: true, value: undefined };
+	}
+	if (trimmed.length > maxSearchLength) {
+		return { ok: false, reason: `${param} must be ${maxSearchLength} characters or fewer.` };
+	}
+
+	return { ok: true, value: trimmed };
 }
 
 function parseBoundingBoxParam(value: string | null):

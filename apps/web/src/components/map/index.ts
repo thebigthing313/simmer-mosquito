@@ -1,3 +1,4 @@
+export { buildHabitatTileUrl, type HabitatTileFilters } from './habitat-tiles';
 export { MapCanvas, type MapControlsConfig } from './map-canvas';
 export {
 	BASEMAP_STYLES,
@@ -7,3 +8,4 @@ export {
 	type MapCamera,
 } from './map-styles';
 export { type GeolocationCoords, useGeolocation } from './use-geolocation';
+export type { HabitatTileLayerConfig } from './use-habitat-tile-layer';

@@ -1,6 +1,6 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { LinkProps } from '@tanstack/react-router';
-import type { ShellCrumb, ShellDomain, ShellNavItem } from './types';
+import type { ShellCrumb, ShellDomain, ShellNavGroup, ShellNavItem } from './types';
 
 /**
  * The product's operational domains, expressed fresh from the SIMMER domain
@@ -355,18 +355,26 @@ function pathMatches(activePath: string, target: string): boolean {
 	return activePath === target || activePath.startsWith(`${target}/`);
 }
 
-/** Flat list of every item across all domains, paired with its owning domain. */
-const flatItems: readonly { readonly domain: ShellDomain; readonly item: ShellNavItem }[] =
-	shellDomains.flatMap((domain) =>
-		domain.groups.flatMap((group) => group.items.map((item) => ({ domain, item }))),
-	);
+/** Flat list of every item across all domains, paired with its owning domain + group. */
+const flatItems: readonly {
+	readonly domain: ShellDomain;
+	readonly group: ShellNavGroup;
+	readonly item: ShellNavItem;
+}[] = shellDomains.flatMap((domain) =>
+	domain.groups.flatMap((group) => group.items.map((item) => ({ domain, group, item }))),
+);
 
-/** Resolve the active domain + item for a path, falling back to the first domain. */
+/** Resolve the active domain + group + item for a path, falling back to the first domain. */
 export function resolveActive(activePath: string): {
 	readonly domain: ShellDomain;
+	readonly group: ShellNavGroup | null;
 	readonly item: ShellNavItem | null;
 } {
-	let best: { readonly domain: ShellDomain; readonly item: ShellNavItem } | null = null;
+	let best: {
+		readonly domain: ShellDomain;
+		readonly group: ShellNavGroup;
+		readonly item: ShellNavItem;
+	} | null = null;
 	let bestLength = -1;
 
 	for (const candidate of flatItems) {
@@ -386,7 +394,7 @@ export function resolveActive(activePath: string): {
 		throw new Error('shellDomains must not be empty.');
 	}
 
-	return { domain: first, item: null };
+	return { domain: first, group: null, item: null };
 }
 
 /** The first navigable destination of a domain (used when its icon is clicked). */
@@ -414,11 +422,15 @@ function looksLikeRecordId(segment: string): boolean {
  * meaningful trailing segments (record ids are skipped as labels).
  */
 export function buildBreadcrumbs(activePath: string): readonly ShellCrumb[] {
-	const { domain, item } = resolveActive(activePath);
+	const { domain, group, item } = resolveActive(activePath);
 	const crumbs: ShellCrumb[] = [{ label: domain.label }];
 
 	if (item === null) {
 		return crumbs;
+	}
+
+	if (group?.label !== undefined) {
+		crumbs.push({ label: group.label });
 	}
 
 	crumbs.push({ label: item.label, to: item.to });
