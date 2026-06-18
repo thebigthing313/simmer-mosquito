@@ -32,12 +32,14 @@ import { Route as CollectionsRouteImport } from './routes/collections'
 import { Route as ChemicalControlRouteImport } from './routes/chemical-control'
 import { Route as BiocontrolRouteImport } from './routes/biocontrol'
 import { Route as AssignmentsRouteImport } from './routes/assignments'
+import { Route as AppShellPreviewRouteImport } from './routes/app-shell-preview'
 import { Route as AddressBookRouteImport } from './routes/address-book'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ServiceRequestsIndexRouteImport } from './routes/service-requests.index'
 import { Route as MyOrganizationIndexRouteImport } from './routes/my-organization/index'
 import { Route as LayoutPreviewIndexRouteImport } from './routes/layout-preview.index'
 import { Route as HabitatsIndexRouteImport } from './routes/habitats.index'
+import { Route as AdultSurveillanceIndexRouteImport } from './routes/adult-surveillance/index'
 import { Route as ServiceRequestsRequestIdRouteImport } from './routes/service-requests.$requestId'
 import { Route as MyOrganizationPublicEngagementRouteImport } from './routes/my-organization/public-engagement'
 import { Route as MyOrganizationPeopleRouteImport } from './routes/my-organization/people'
@@ -49,8 +51,47 @@ import { Route as MissionsEditRouteImport } from './routes/missions.edit'
 import { Route as HabitatsIdRouteImport } from './routes/habitats_.$id'
 import { Route as HabitatsCreateRouteImport } from './routes/habitats.create'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
+import { Route as PublicEngagementServiceRequestsIndexRouteImport } from './routes/public-engagement/service-requests/index'
+import { Route as PublicEngagementContactsIndexRouteImport } from './routes/public-engagement/contacts/index'
+import { Route as OperationsRequestsForControlIndexRouteImport } from './routes/operations/requests-for-control/index'
+import { Route as OperationsMissionsIndexRouteImport } from './routes/operations/missions/index'
+import { Route as OperationsAssignmentsIndexRouteImport } from './routes/operations/assignments/index'
+import { Route as LarvalSurveillanceSamplesIndexRouteImport } from './routes/larval-surveillance/samples/index'
+import { Route as LarvalSurveillanceInspectionsIndexRouteImport } from './routes/larval-surveillance/inspections/index'
+import { Route as LarvalSurveillanceHabitatsIndexRouteImport } from './routes/larval-surveillance/habitats/index'
+import { Route as GisDataWeatherIndexRouteImport } from './routes/gis-data/weather/index'
+import { Route as GisDataRegionsIndexRouteImport } from './routes/gis-data/regions/index'
+import { Route as GisDataAddressesIndexRouteImport } from './routes/gis-data/addresses/index'
+import { Route as AdultSurveillanceTrapsIndexRouteImport } from './routes/adult-surveillance/traps/index'
+import { Route as AdultSurveillanceCollectionsIndexRouteImport } from './routes/adult-surveillance/collections/index'
+import { Route as PublicEngagementServiceRequestsCreateRouteImport } from './routes/public-engagement/service-requests/create'
+import { Route as PublicEngagementServiceRequestsIdRouteImport } from './routes/public-engagement/service-requests/$id'
+import { Route as PublicEngagementContactsIdRouteImport } from './routes/public-engagement/contacts/$id'
+import { Route as OperationsRequestsForControlCreateRouteImport } from './routes/operations/requests-for-control/create'
+import { Route as OperationsRequestsForControlIdRouteImport } from './routes/operations/requests-for-control/$id'
+import { Route as OperationsMissionsCreateRouteImport } from './routes/operations/missions/create'
+import { Route as OperationsMissionsIdRouteImport } from './routes/operations/missions/$id'
+import { Route as OperationsAssignmentsCreateRouteImport } from './routes/operations/assignments/create'
+import { Route as OperationsAssignmentsIdRouteImport } from './routes/operations/assignments/$id'
 import { Route as LayoutPreviewDesignPageRouteImport } from './routes/layout-preview.$design.$page'
+import { Route as GisDataRegionsCreateRouteImport } from './routes/gis-data/regions/create'
+import { Route as GisDataRegionsIdRouteImport } from './routes/gis-data/regions/$id'
+import { Route as GisDataAddressesCreateRouteImport } from './routes/gis-data/addresses/create'
+import { Route as GisDataAddressesIdRouteImport } from './routes/gis-data/addresses/$id'
+import { Route as AdultSurveillanceTrapsCreateRouteImport } from './routes/adult-surveillance/traps/create'
+import { Route as AdultSurveillanceTrapsIdRouteImport } from './routes/adult-surveillance/traps/$id'
+import { Route as AdultSurveillanceCollectionsCreateRouteImport } from './routes/adult-surveillance/collections/create'
+import { Route as AdultSurveillanceCollectionsIdRouteImport } from './routes/adult-surveillance/collections/$id'
 import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin.organizations.$organizationId'
+import { Route as PublicEngagementServiceRequestsIdEditRouteImport } from './routes/public-engagement/service-requests/$id.edit'
+import { Route as PublicEngagementContactsIdEditRouteImport } from './routes/public-engagement/contacts/$id.edit'
+import { Route as OperationsRequestsForControlIdEditRouteImport } from './routes/operations/requests-for-control/$id.edit'
+import { Route as OperationsMissionsIdEditRouteImport } from './routes/operations/missions/$id.edit'
+import { Route as OperationsAssignmentsIdEditRouteImport } from './routes/operations/assignments/$id.edit'
+import { Route as GisDataRegionsIdEditRouteImport } from './routes/gis-data/regions/$id.edit'
+import { Route as GisDataAddressesIdEditRouteImport } from './routes/gis-data/addresses/$id.edit'
+import { Route as AdultSurveillanceTrapsIdEditRouteImport } from './routes/adult-surveillance/traps/$id.edit'
+import { Route as AdultSurveillanceCollectionsIdEditRouteImport } from './routes/adult-surveillance/collections/$id.edit'
 
 const TrapsRoute = TrapsRouteImport.update({
   id: '/traps',
@@ -167,6 +208,11 @@ const AssignmentsRoute = AssignmentsRouteImport.update({
   path: '/assignments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppShellPreviewRoute = AppShellPreviewRouteImport.update({
+  id: '/app-shell-preview',
+  path: '/app-shell-preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AddressBookRoute = AddressBookRouteImport.update({
   id: '/address-book',
   path: '/address-book',
@@ -196,6 +242,11 @@ const HabitatsIndexRoute = HabitatsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => HabitatsRoute,
+} as any)
+const AdultSurveillanceIndexRoute = AdultSurveillanceIndexRouteImport.update({
+  id: '/adult-surveillance/',
+  path: '/adult-surveillance/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ServiceRequestsRequestIdRoute =
   ServiceRequestsRequestIdRouteImport.update({
@@ -258,21 +309,244 @@ const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
   path: '/admin/organizations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PublicEngagementServiceRequestsIndexRoute =
+  PublicEngagementServiceRequestsIndexRouteImport.update({
+    id: '/public-engagement/service-requests/',
+    path: '/public-engagement/service-requests/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementContactsIndexRoute =
+  PublicEngagementContactsIndexRouteImport.update({
+    id: '/public-engagement/contacts/',
+    path: '/public-engagement/contacts/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const OperationsRequestsForControlIndexRoute =
+  OperationsRequestsForControlIndexRouteImport.update({
+    id: '/operations/requests-for-control/',
+    path: '/operations/requests-for-control/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const OperationsMissionsIndexRoute = OperationsMissionsIndexRouteImport.update({
+  id: '/operations/missions/',
+  path: '/operations/missions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperationsAssignmentsIndexRoute =
+  OperationsAssignmentsIndexRouteImport.update({
+    id: '/operations/assignments/',
+    path: '/operations/assignments/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceSamplesIndexRoute =
+  LarvalSurveillanceSamplesIndexRouteImport.update({
+    id: '/larval-surveillance/samples/',
+    path: '/larval-surveillance/samples/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceInspectionsIndexRoute =
+  LarvalSurveillanceInspectionsIndexRouteImport.update({
+    id: '/larval-surveillance/inspections/',
+    path: '/larval-surveillance/inspections/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceHabitatsIndexRoute =
+  LarvalSurveillanceHabitatsIndexRouteImport.update({
+    id: '/larval-surveillance/habitats/',
+    path: '/larval-surveillance/habitats/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const GisDataWeatherIndexRoute = GisDataWeatherIndexRouteImport.update({
+  id: '/gis-data/weather/',
+  path: '/gis-data/weather/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GisDataRegionsIndexRoute = GisDataRegionsIndexRouteImport.update({
+  id: '/gis-data/regions/',
+  path: '/gis-data/regions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GisDataAddressesIndexRoute = GisDataAddressesIndexRouteImport.update({
+  id: '/gis-data/addresses/',
+  path: '/gis-data/addresses/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdultSurveillanceTrapsIndexRoute =
+  AdultSurveillanceTrapsIndexRouteImport.update({
+    id: '/adult-surveillance/traps/',
+    path: '/adult-surveillance/traps/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdultSurveillanceCollectionsIndexRoute =
+  AdultSurveillanceCollectionsIndexRouteImport.update({
+    id: '/adult-surveillance/collections/',
+    path: '/adult-surveillance/collections/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementServiceRequestsCreateRoute =
+  PublicEngagementServiceRequestsCreateRouteImport.update({
+    id: '/public-engagement/service-requests/create',
+    path: '/public-engagement/service-requests/create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementServiceRequestsIdRoute =
+  PublicEngagementServiceRequestsIdRouteImport.update({
+    id: '/public-engagement/service-requests/$id',
+    path: '/public-engagement/service-requests/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementContactsIdRoute =
+  PublicEngagementContactsIdRouteImport.update({
+    id: '/public-engagement/contacts/$id',
+    path: '/public-engagement/contacts/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const OperationsRequestsForControlCreateRoute =
+  OperationsRequestsForControlCreateRouteImport.update({
+    id: '/operations/requests-for-control/create',
+    path: '/operations/requests-for-control/create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const OperationsRequestsForControlIdRoute =
+  OperationsRequestsForControlIdRouteImport.update({
+    id: '/operations/requests-for-control/$id',
+    path: '/operations/requests-for-control/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const OperationsMissionsCreateRoute =
+  OperationsMissionsCreateRouteImport.update({
+    id: '/operations/missions/create',
+    path: '/operations/missions/create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const OperationsMissionsIdRoute = OperationsMissionsIdRouteImport.update({
+  id: '/operations/missions/$id',
+  path: '/operations/missions/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperationsAssignmentsCreateRoute =
+  OperationsAssignmentsCreateRouteImport.update({
+    id: '/operations/assignments/create',
+    path: '/operations/assignments/create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const OperationsAssignmentsIdRoute = OperationsAssignmentsIdRouteImport.update({
+  id: '/operations/assignments/$id',
+  path: '/operations/assignments/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LayoutPreviewDesignPageRoute = LayoutPreviewDesignPageRouteImport.update({
   id: '/$design/$page',
   path: '/$design/$page',
   getParentRoute: () => LayoutPreviewRoute,
 } as any)
+const GisDataRegionsCreateRoute = GisDataRegionsCreateRouteImport.update({
+  id: '/gis-data/regions/create',
+  path: '/gis-data/regions/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GisDataRegionsIdRoute = GisDataRegionsIdRouteImport.update({
+  id: '/gis-data/regions/$id',
+  path: '/gis-data/regions/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GisDataAddressesCreateRoute = GisDataAddressesCreateRouteImport.update({
+  id: '/gis-data/addresses/create',
+  path: '/gis-data/addresses/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GisDataAddressesIdRoute = GisDataAddressesIdRouteImport.update({
+  id: '/gis-data/addresses/$id',
+  path: '/gis-data/addresses/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdultSurveillanceTrapsCreateRoute =
+  AdultSurveillanceTrapsCreateRouteImport.update({
+    id: '/adult-surveillance/traps/create',
+    path: '/adult-surveillance/traps/create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdultSurveillanceTrapsIdRoute =
+  AdultSurveillanceTrapsIdRouteImport.update({
+    id: '/adult-surveillance/traps/$id',
+    path: '/adult-surveillance/traps/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdultSurveillanceCollectionsCreateRoute =
+  AdultSurveillanceCollectionsCreateRouteImport.update({
+    id: '/adult-surveillance/collections/create',
+    path: '/adult-surveillance/collections/create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdultSurveillanceCollectionsIdRoute =
+  AdultSurveillanceCollectionsIdRouteImport.update({
+    id: '/adult-surveillance/collections/$id',
+    path: '/adult-surveillance/collections/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminOrganizationsOrganizationIdRoute =
   AdminOrganizationsOrganizationIdRouteImport.update({
     id: '/$organizationId',
     path: '/$organizationId',
     getParentRoute: () => AdminOrganizationsRoute,
   } as any)
+const PublicEngagementServiceRequestsIdEditRoute =
+  PublicEngagementServiceRequestsIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => PublicEngagementServiceRequestsIdRoute,
+  } as any)
+const PublicEngagementContactsIdEditRoute =
+  PublicEngagementContactsIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => PublicEngagementContactsIdRoute,
+  } as any)
+const OperationsRequestsForControlIdEditRoute =
+  OperationsRequestsForControlIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => OperationsRequestsForControlIdRoute,
+  } as any)
+const OperationsMissionsIdEditRoute =
+  OperationsMissionsIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => OperationsMissionsIdRoute,
+  } as any)
+const OperationsAssignmentsIdEditRoute =
+  OperationsAssignmentsIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => OperationsAssignmentsIdRoute,
+  } as any)
+const GisDataRegionsIdEditRoute = GisDataRegionsIdEditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => GisDataRegionsIdRoute,
+} as any)
+const GisDataAddressesIdEditRoute = GisDataAddressesIdEditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => GisDataAddressesIdRoute,
+} as any)
+const AdultSurveillanceTrapsIdEditRoute =
+  AdultSurveillanceTrapsIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AdultSurveillanceTrapsIdRoute,
+  } as any)
+const AdultSurveillanceCollectionsIdEditRoute =
+  AdultSurveillanceCollectionsIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AdultSurveillanceCollectionsIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/address-book': typeof AddressBookRoute
+  '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
   '/biocontrol': typeof BiocontrolRoute
   '/chemical-control': typeof ChemicalControlRoute
@@ -307,16 +581,57 @@ export interface FileRoutesByFullPath {
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/adult-surveillance/': typeof AdultSurveillanceIndexRoute
   '/habitats/': typeof HabitatsIndexRoute
   '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
+  '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRouteWithChildren
+  '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
+  '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRouteWithChildren
+  '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
+  '/gis-data/addresses/$id': typeof GisDataAddressesIdRouteWithChildren
+  '/gis-data/addresses/create': typeof GisDataAddressesCreateRoute
+  '/gis-data/regions/$id': typeof GisDataRegionsIdRouteWithChildren
+  '/gis-data/regions/create': typeof GisDataRegionsCreateRoute
   '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
+  '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
+  '/operations/assignments/create': typeof OperationsAssignmentsCreateRoute
+  '/operations/missions/$id': typeof OperationsMissionsIdRouteWithChildren
+  '/operations/missions/create': typeof OperationsMissionsCreateRoute
+  '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRouteWithChildren
+  '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
+  '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRouteWithChildren
+  '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRouteWithChildren
+  '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
+  '/adult-surveillance/collections/': typeof AdultSurveillanceCollectionsIndexRoute
+  '/adult-surveillance/traps/': typeof AdultSurveillanceTrapsIndexRoute
+  '/gis-data/addresses/': typeof GisDataAddressesIndexRoute
+  '/gis-data/regions/': typeof GisDataRegionsIndexRoute
+  '/gis-data/weather/': typeof GisDataWeatherIndexRoute
+  '/larval-surveillance/habitats/': typeof LarvalSurveillanceHabitatsIndexRoute
+  '/larval-surveillance/inspections/': typeof LarvalSurveillanceInspectionsIndexRoute
+  '/larval-surveillance/samples/': typeof LarvalSurveillanceSamplesIndexRoute
+  '/operations/assignments/': typeof OperationsAssignmentsIndexRoute
+  '/operations/missions/': typeof OperationsMissionsIndexRoute
+  '/operations/requests-for-control/': typeof OperationsRequestsForControlIndexRoute
+  '/public-engagement/contacts/': typeof PublicEngagementContactsIndexRoute
+  '/public-engagement/service-requests/': typeof PublicEngagementServiceRequestsIndexRoute
+  '/adult-surveillance/collections/$id/edit': typeof AdultSurveillanceCollectionsIdEditRoute
+  '/adult-surveillance/traps/$id/edit': typeof AdultSurveillanceTrapsIdEditRoute
+  '/gis-data/addresses/$id/edit': typeof GisDataAddressesIdEditRoute
+  '/gis-data/regions/$id/edit': typeof GisDataRegionsIdEditRoute
+  '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
+  '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
+  '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
+  '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/address-book': typeof AddressBookRoute
+  '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
   '/biocontrol': typeof BiocontrolRoute
   '/chemical-control': typeof ChemicalControlRoute
@@ -347,17 +662,58 @@ export interface FileRoutesByTo {
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/adult-surveillance': typeof AdultSurveillanceIndexRoute
   '/habitats': typeof HabitatsIndexRoute
   '/layout-preview': typeof LayoutPreviewIndexRoute
   '/my-organization': typeof MyOrganizationIndexRoute
   '/service-requests': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
+  '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRouteWithChildren
+  '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
+  '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRouteWithChildren
+  '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
+  '/gis-data/addresses/$id': typeof GisDataAddressesIdRouteWithChildren
+  '/gis-data/addresses/create': typeof GisDataAddressesCreateRoute
+  '/gis-data/regions/$id': typeof GisDataRegionsIdRouteWithChildren
+  '/gis-data/regions/create': typeof GisDataRegionsCreateRoute
   '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
+  '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
+  '/operations/assignments/create': typeof OperationsAssignmentsCreateRoute
+  '/operations/missions/$id': typeof OperationsMissionsIdRouteWithChildren
+  '/operations/missions/create': typeof OperationsMissionsCreateRoute
+  '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRouteWithChildren
+  '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
+  '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRouteWithChildren
+  '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRouteWithChildren
+  '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
+  '/adult-surveillance/collections': typeof AdultSurveillanceCollectionsIndexRoute
+  '/adult-surveillance/traps': typeof AdultSurveillanceTrapsIndexRoute
+  '/gis-data/addresses': typeof GisDataAddressesIndexRoute
+  '/gis-data/regions': typeof GisDataRegionsIndexRoute
+  '/gis-data/weather': typeof GisDataWeatherIndexRoute
+  '/larval-surveillance/habitats': typeof LarvalSurveillanceHabitatsIndexRoute
+  '/larval-surveillance/inspections': typeof LarvalSurveillanceInspectionsIndexRoute
+  '/larval-surveillance/samples': typeof LarvalSurveillanceSamplesIndexRoute
+  '/operations/assignments': typeof OperationsAssignmentsIndexRoute
+  '/operations/missions': typeof OperationsMissionsIndexRoute
+  '/operations/requests-for-control': typeof OperationsRequestsForControlIndexRoute
+  '/public-engagement/contacts': typeof PublicEngagementContactsIndexRoute
+  '/public-engagement/service-requests': typeof PublicEngagementServiceRequestsIndexRoute
+  '/adult-surveillance/collections/$id/edit': typeof AdultSurveillanceCollectionsIdEditRoute
+  '/adult-surveillance/traps/$id/edit': typeof AdultSurveillanceTrapsIdEditRoute
+  '/gis-data/addresses/$id/edit': typeof GisDataAddressesIdEditRoute
+  '/gis-data/regions/$id/edit': typeof GisDataRegionsIdEditRoute
+  '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
+  '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
+  '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
+  '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/address-book': typeof AddressBookRoute
+  '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
   '/biocontrol': typeof BiocontrolRoute
   '/chemical-control': typeof ChemicalControlRoute
@@ -392,18 +748,59 @@ export interface FileRoutesById {
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
+  '/adult-surveillance/': typeof AdultSurveillanceIndexRoute
   '/habitats/': typeof HabitatsIndexRoute
   '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
+  '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRouteWithChildren
+  '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
+  '/adult-surveillance/traps/$id': typeof AdultSurveillanceTrapsIdRouteWithChildren
+  '/adult-surveillance/traps/create': typeof AdultSurveillanceTrapsCreateRoute
+  '/gis-data/addresses/$id': typeof GisDataAddressesIdRouteWithChildren
+  '/gis-data/addresses/create': typeof GisDataAddressesCreateRoute
+  '/gis-data/regions/$id': typeof GisDataRegionsIdRouteWithChildren
+  '/gis-data/regions/create': typeof GisDataRegionsCreateRoute
   '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
+  '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
+  '/operations/assignments/create': typeof OperationsAssignmentsCreateRoute
+  '/operations/missions/$id': typeof OperationsMissionsIdRouteWithChildren
+  '/operations/missions/create': typeof OperationsMissionsCreateRoute
+  '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRouteWithChildren
+  '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
+  '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRouteWithChildren
+  '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRouteWithChildren
+  '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
+  '/adult-surveillance/collections/': typeof AdultSurveillanceCollectionsIndexRoute
+  '/adult-surveillance/traps/': typeof AdultSurveillanceTrapsIndexRoute
+  '/gis-data/addresses/': typeof GisDataAddressesIndexRoute
+  '/gis-data/regions/': typeof GisDataRegionsIndexRoute
+  '/gis-data/weather/': typeof GisDataWeatherIndexRoute
+  '/larval-surveillance/habitats/': typeof LarvalSurveillanceHabitatsIndexRoute
+  '/larval-surveillance/inspections/': typeof LarvalSurveillanceInspectionsIndexRoute
+  '/larval-surveillance/samples/': typeof LarvalSurveillanceSamplesIndexRoute
+  '/operations/assignments/': typeof OperationsAssignmentsIndexRoute
+  '/operations/missions/': typeof OperationsMissionsIndexRoute
+  '/operations/requests-for-control/': typeof OperationsRequestsForControlIndexRoute
+  '/public-engagement/contacts/': typeof PublicEngagementContactsIndexRoute
+  '/public-engagement/service-requests/': typeof PublicEngagementServiceRequestsIndexRoute
+  '/adult-surveillance/collections/$id/edit': typeof AdultSurveillanceCollectionsIdEditRoute
+  '/adult-surveillance/traps/$id/edit': typeof AdultSurveillanceTrapsIdEditRoute
+  '/gis-data/addresses/$id/edit': typeof GisDataAddressesIdEditRoute
+  '/gis-data/regions/$id/edit': typeof GisDataRegionsIdEditRoute
+  '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
+  '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
+  '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
+  '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/address-book'
+    | '/app-shell-preview'
     | '/assignments'
     | '/biocontrol'
     | '/chemical-control'
@@ -438,16 +835,57 @@ export interface FileRouteTypes {
     | '/my-organization/people'
     | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
+    | '/adult-surveillance/'
     | '/habitats/'
     | '/layout-preview/'
     | '/my-organization/'
     | '/service-requests/'
     | '/admin/organizations/$organizationId'
+    | '/adult-surveillance/collections/$id'
+    | '/adult-surveillance/collections/create'
+    | '/adult-surveillance/traps/$id'
+    | '/adult-surveillance/traps/create'
+    | '/gis-data/addresses/$id'
+    | '/gis-data/addresses/create'
+    | '/gis-data/regions/$id'
+    | '/gis-data/regions/create'
     | '/layout-preview/$design/$page'
+    | '/operations/assignments/$id'
+    | '/operations/assignments/create'
+    | '/operations/missions/$id'
+    | '/operations/missions/create'
+    | '/operations/requests-for-control/$id'
+    | '/operations/requests-for-control/create'
+    | '/public-engagement/contacts/$id'
+    | '/public-engagement/service-requests/$id'
+    | '/public-engagement/service-requests/create'
+    | '/adult-surveillance/collections/'
+    | '/adult-surveillance/traps/'
+    | '/gis-data/addresses/'
+    | '/gis-data/regions/'
+    | '/gis-data/weather/'
+    | '/larval-surveillance/habitats/'
+    | '/larval-surveillance/inspections/'
+    | '/larval-surveillance/samples/'
+    | '/operations/assignments/'
+    | '/operations/missions/'
+    | '/operations/requests-for-control/'
+    | '/public-engagement/contacts/'
+    | '/public-engagement/service-requests/'
+    | '/adult-surveillance/collections/$id/edit'
+    | '/adult-surveillance/traps/$id/edit'
+    | '/gis-data/addresses/$id/edit'
+    | '/gis-data/regions/$id/edit'
+    | '/operations/assignments/$id/edit'
+    | '/operations/missions/$id/edit'
+    | '/operations/requests-for-control/$id/edit'
+    | '/public-engagement/contacts/$id/edit'
+    | '/public-engagement/service-requests/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/address-book'
+    | '/app-shell-preview'
     | '/assignments'
     | '/biocontrol'
     | '/chemical-control'
@@ -478,16 +916,57 @@ export interface FileRouteTypes {
     | '/my-organization/people'
     | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
+    | '/adult-surveillance'
     | '/habitats'
     | '/layout-preview'
     | '/my-organization'
     | '/service-requests'
     | '/admin/organizations/$organizationId'
+    | '/adult-surveillance/collections/$id'
+    | '/adult-surveillance/collections/create'
+    | '/adult-surveillance/traps/$id'
+    | '/adult-surveillance/traps/create'
+    | '/gis-data/addresses/$id'
+    | '/gis-data/addresses/create'
+    | '/gis-data/regions/$id'
+    | '/gis-data/regions/create'
     | '/layout-preview/$design/$page'
+    | '/operations/assignments/$id'
+    | '/operations/assignments/create'
+    | '/operations/missions/$id'
+    | '/operations/missions/create'
+    | '/operations/requests-for-control/$id'
+    | '/operations/requests-for-control/create'
+    | '/public-engagement/contacts/$id'
+    | '/public-engagement/service-requests/$id'
+    | '/public-engagement/service-requests/create'
+    | '/adult-surveillance/collections'
+    | '/adult-surveillance/traps'
+    | '/gis-data/addresses'
+    | '/gis-data/regions'
+    | '/gis-data/weather'
+    | '/larval-surveillance/habitats'
+    | '/larval-surveillance/inspections'
+    | '/larval-surveillance/samples'
+    | '/operations/assignments'
+    | '/operations/missions'
+    | '/operations/requests-for-control'
+    | '/public-engagement/contacts'
+    | '/public-engagement/service-requests'
+    | '/adult-surveillance/collections/$id/edit'
+    | '/adult-surveillance/traps/$id/edit'
+    | '/gis-data/addresses/$id/edit'
+    | '/gis-data/regions/$id/edit'
+    | '/operations/assignments/$id/edit'
+    | '/operations/missions/$id/edit'
+    | '/operations/requests-for-control/$id/edit'
+    | '/public-engagement/contacts/$id/edit'
+    | '/public-engagement/service-requests/$id/edit'
   id:
     | '__root__'
     | '/'
     | '/address-book'
+    | '/app-shell-preview'
     | '/assignments'
     | '/biocontrol'
     | '/chemical-control'
@@ -522,17 +1001,58 @@ export interface FileRouteTypes {
     | '/my-organization/people'
     | '/my-organization/public-engagement'
     | '/service-requests/$requestId'
+    | '/adult-surveillance/'
     | '/habitats/'
     | '/layout-preview/'
     | '/my-organization/'
     | '/service-requests/'
     | '/admin/organizations/$organizationId'
+    | '/adult-surveillance/collections/$id'
+    | '/adult-surveillance/collections/create'
+    | '/adult-surveillance/traps/$id'
+    | '/adult-surveillance/traps/create'
+    | '/gis-data/addresses/$id'
+    | '/gis-data/addresses/create'
+    | '/gis-data/regions/$id'
+    | '/gis-data/regions/create'
     | '/layout-preview/$design/$page'
+    | '/operations/assignments/$id'
+    | '/operations/assignments/create'
+    | '/operations/missions/$id'
+    | '/operations/missions/create'
+    | '/operations/requests-for-control/$id'
+    | '/operations/requests-for-control/create'
+    | '/public-engagement/contacts/$id'
+    | '/public-engagement/service-requests/$id'
+    | '/public-engagement/service-requests/create'
+    | '/adult-surveillance/collections/'
+    | '/adult-surveillance/traps/'
+    | '/gis-data/addresses/'
+    | '/gis-data/regions/'
+    | '/gis-data/weather/'
+    | '/larval-surveillance/habitats/'
+    | '/larval-surveillance/inspections/'
+    | '/larval-surveillance/samples/'
+    | '/operations/assignments/'
+    | '/operations/missions/'
+    | '/operations/requests-for-control/'
+    | '/public-engagement/contacts/'
+    | '/public-engagement/service-requests/'
+    | '/adult-surveillance/collections/$id/edit'
+    | '/adult-surveillance/traps/$id/edit'
+    | '/gis-data/addresses/$id/edit'
+    | '/gis-data/regions/$id/edit'
+    | '/operations/assignments/$id/edit'
+    | '/operations/missions/$id/edit'
+    | '/operations/requests-for-control/$id/edit'
+    | '/public-engagement/contacts/$id/edit'
+    | '/public-engagement/service-requests/$id/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AddressBookRoute: typeof AddressBookRoute
+  AppShellPreviewRoute: typeof AppShellPreviewRoute
   AssignmentsRoute: typeof AssignmentsRoute
   BiocontrolRoute: typeof BiocontrolRoute
   ChemicalControlRoute: typeof ChemicalControlRoute
@@ -558,6 +1078,37 @@ export interface RootRouteChildren {
   TrapsRoute: typeof TrapsRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
   HabitatsIdRoute: typeof HabitatsIdRoute
+  AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
+  AdultSurveillanceCollectionsIdRoute: typeof AdultSurveillanceCollectionsIdRouteWithChildren
+  AdultSurveillanceCollectionsCreateRoute: typeof AdultSurveillanceCollectionsCreateRoute
+  AdultSurveillanceTrapsIdRoute: typeof AdultSurveillanceTrapsIdRouteWithChildren
+  AdultSurveillanceTrapsCreateRoute: typeof AdultSurveillanceTrapsCreateRoute
+  GisDataAddressesIdRoute: typeof GisDataAddressesIdRouteWithChildren
+  GisDataAddressesCreateRoute: typeof GisDataAddressesCreateRoute
+  GisDataRegionsIdRoute: typeof GisDataRegionsIdRouteWithChildren
+  GisDataRegionsCreateRoute: typeof GisDataRegionsCreateRoute
+  OperationsAssignmentsIdRoute: typeof OperationsAssignmentsIdRouteWithChildren
+  OperationsAssignmentsCreateRoute: typeof OperationsAssignmentsCreateRoute
+  OperationsMissionsIdRoute: typeof OperationsMissionsIdRouteWithChildren
+  OperationsMissionsCreateRoute: typeof OperationsMissionsCreateRoute
+  OperationsRequestsForControlIdRoute: typeof OperationsRequestsForControlIdRouteWithChildren
+  OperationsRequestsForControlCreateRoute: typeof OperationsRequestsForControlCreateRoute
+  PublicEngagementContactsIdRoute: typeof PublicEngagementContactsIdRouteWithChildren
+  PublicEngagementServiceRequestsIdRoute: typeof PublicEngagementServiceRequestsIdRouteWithChildren
+  PublicEngagementServiceRequestsCreateRoute: typeof PublicEngagementServiceRequestsCreateRoute
+  AdultSurveillanceCollectionsIndexRoute: typeof AdultSurveillanceCollectionsIndexRoute
+  AdultSurveillanceTrapsIndexRoute: typeof AdultSurveillanceTrapsIndexRoute
+  GisDataAddressesIndexRoute: typeof GisDataAddressesIndexRoute
+  GisDataRegionsIndexRoute: typeof GisDataRegionsIndexRoute
+  GisDataWeatherIndexRoute: typeof GisDataWeatherIndexRoute
+  LarvalSurveillanceHabitatsIndexRoute: typeof LarvalSurveillanceHabitatsIndexRoute
+  LarvalSurveillanceInspectionsIndexRoute: typeof LarvalSurveillanceInspectionsIndexRoute
+  LarvalSurveillanceSamplesIndexRoute: typeof LarvalSurveillanceSamplesIndexRoute
+  OperationsAssignmentsIndexRoute: typeof OperationsAssignmentsIndexRoute
+  OperationsMissionsIndexRoute: typeof OperationsMissionsIndexRoute
+  OperationsRequestsForControlIndexRoute: typeof OperationsRequestsForControlIndexRoute
+  PublicEngagementContactsIndexRoute: typeof PublicEngagementContactsIndexRoute
+  PublicEngagementServiceRequestsIndexRoute: typeof PublicEngagementServiceRequestsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -723,6 +1274,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AssignmentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app-shell-preview': {
+      id: '/app-shell-preview'
+      path: '/app-shell-preview'
+      fullPath: '/app-shell-preview'
+      preLoaderRoute: typeof AppShellPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/address-book': {
       id: '/address-book'
       path: '/address-book'
@@ -764,6 +1322,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/habitats/'
       preLoaderRoute: typeof HabitatsIndexRouteImport
       parentRoute: typeof HabitatsRoute
+    }
+    '/adult-surveillance/': {
+      id: '/adult-surveillance/'
+      path: '/adult-surveillance'
+      fullPath: '/adult-surveillance/'
+      preLoaderRoute: typeof AdultSurveillanceIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/service-requests/$requestId': {
       id: '/service-requests/$requestId'
@@ -842,6 +1407,160 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrganizationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/public-engagement/service-requests/': {
+      id: '/public-engagement/service-requests/'
+      path: '/public-engagement/service-requests'
+      fullPath: '/public-engagement/service-requests/'
+      preLoaderRoute: typeof PublicEngagementServiceRequestsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/contacts/': {
+      id: '/public-engagement/contacts/'
+      path: '/public-engagement/contacts'
+      fullPath: '/public-engagement/contacts/'
+      preLoaderRoute: typeof PublicEngagementContactsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations/requests-for-control/': {
+      id: '/operations/requests-for-control/'
+      path: '/operations/requests-for-control'
+      fullPath: '/operations/requests-for-control/'
+      preLoaderRoute: typeof OperationsRequestsForControlIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations/missions/': {
+      id: '/operations/missions/'
+      path: '/operations/missions'
+      fullPath: '/operations/missions/'
+      preLoaderRoute: typeof OperationsMissionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations/assignments/': {
+      id: '/operations/assignments/'
+      path: '/operations/assignments'
+      fullPath: '/operations/assignments/'
+      preLoaderRoute: typeof OperationsAssignmentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/samples/': {
+      id: '/larval-surveillance/samples/'
+      path: '/larval-surveillance/samples'
+      fullPath: '/larval-surveillance/samples/'
+      preLoaderRoute: typeof LarvalSurveillanceSamplesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/inspections/': {
+      id: '/larval-surveillance/inspections/'
+      path: '/larval-surveillance/inspections'
+      fullPath: '/larval-surveillance/inspections/'
+      preLoaderRoute: typeof LarvalSurveillanceInspectionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/habitats/': {
+      id: '/larval-surveillance/habitats/'
+      path: '/larval-surveillance/habitats'
+      fullPath: '/larval-surveillance/habitats/'
+      preLoaderRoute: typeof LarvalSurveillanceHabitatsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gis-data/weather/': {
+      id: '/gis-data/weather/'
+      path: '/gis-data/weather'
+      fullPath: '/gis-data/weather/'
+      preLoaderRoute: typeof GisDataWeatherIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gis-data/regions/': {
+      id: '/gis-data/regions/'
+      path: '/gis-data/regions'
+      fullPath: '/gis-data/regions/'
+      preLoaderRoute: typeof GisDataRegionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gis-data/addresses/': {
+      id: '/gis-data/addresses/'
+      path: '/gis-data/addresses'
+      fullPath: '/gis-data/addresses/'
+      preLoaderRoute: typeof GisDataAddressesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/traps/': {
+      id: '/adult-surveillance/traps/'
+      path: '/adult-surveillance/traps'
+      fullPath: '/adult-surveillance/traps/'
+      preLoaderRoute: typeof AdultSurveillanceTrapsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/collections/': {
+      id: '/adult-surveillance/collections/'
+      path: '/adult-surveillance/collections'
+      fullPath: '/adult-surveillance/collections/'
+      preLoaderRoute: typeof AdultSurveillanceCollectionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/service-requests/create': {
+      id: '/public-engagement/service-requests/create'
+      path: '/public-engagement/service-requests/create'
+      fullPath: '/public-engagement/service-requests/create'
+      preLoaderRoute: typeof PublicEngagementServiceRequestsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/service-requests/$id': {
+      id: '/public-engagement/service-requests/$id'
+      path: '/public-engagement/service-requests/$id'
+      fullPath: '/public-engagement/service-requests/$id'
+      preLoaderRoute: typeof PublicEngagementServiceRequestsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/contacts/$id': {
+      id: '/public-engagement/contacts/$id'
+      path: '/public-engagement/contacts/$id'
+      fullPath: '/public-engagement/contacts/$id'
+      preLoaderRoute: typeof PublicEngagementContactsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations/requests-for-control/create': {
+      id: '/operations/requests-for-control/create'
+      path: '/operations/requests-for-control/create'
+      fullPath: '/operations/requests-for-control/create'
+      preLoaderRoute: typeof OperationsRequestsForControlCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations/requests-for-control/$id': {
+      id: '/operations/requests-for-control/$id'
+      path: '/operations/requests-for-control/$id'
+      fullPath: '/operations/requests-for-control/$id'
+      preLoaderRoute: typeof OperationsRequestsForControlIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations/missions/create': {
+      id: '/operations/missions/create'
+      path: '/operations/missions/create'
+      fullPath: '/operations/missions/create'
+      preLoaderRoute: typeof OperationsMissionsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations/missions/$id': {
+      id: '/operations/missions/$id'
+      path: '/operations/missions/$id'
+      fullPath: '/operations/missions/$id'
+      preLoaderRoute: typeof OperationsMissionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations/assignments/create': {
+      id: '/operations/assignments/create'
+      path: '/operations/assignments/create'
+      fullPath: '/operations/assignments/create'
+      preLoaderRoute: typeof OperationsAssignmentsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations/assignments/$id': {
+      id: '/operations/assignments/$id'
+      path: '/operations/assignments/$id'
+      fullPath: '/operations/assignments/$id'
+      preLoaderRoute: typeof OperationsAssignmentsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/layout-preview/$design/$page': {
       id: '/layout-preview/$design/$page'
       path: '/$design/$page'
@@ -849,12 +1568,131 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutPreviewDesignPageRouteImport
       parentRoute: typeof LayoutPreviewRoute
     }
+    '/gis-data/regions/create': {
+      id: '/gis-data/regions/create'
+      path: '/gis-data/regions/create'
+      fullPath: '/gis-data/regions/create'
+      preLoaderRoute: typeof GisDataRegionsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gis-data/regions/$id': {
+      id: '/gis-data/regions/$id'
+      path: '/gis-data/regions/$id'
+      fullPath: '/gis-data/regions/$id'
+      preLoaderRoute: typeof GisDataRegionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gis-data/addresses/create': {
+      id: '/gis-data/addresses/create'
+      path: '/gis-data/addresses/create'
+      fullPath: '/gis-data/addresses/create'
+      preLoaderRoute: typeof GisDataAddressesCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gis-data/addresses/$id': {
+      id: '/gis-data/addresses/$id'
+      path: '/gis-data/addresses/$id'
+      fullPath: '/gis-data/addresses/$id'
+      preLoaderRoute: typeof GisDataAddressesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/traps/create': {
+      id: '/adult-surveillance/traps/create'
+      path: '/adult-surveillance/traps/create'
+      fullPath: '/adult-surveillance/traps/create'
+      preLoaderRoute: typeof AdultSurveillanceTrapsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/traps/$id': {
+      id: '/adult-surveillance/traps/$id'
+      path: '/adult-surveillance/traps/$id'
+      fullPath: '/adult-surveillance/traps/$id'
+      preLoaderRoute: typeof AdultSurveillanceTrapsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/collections/create': {
+      id: '/adult-surveillance/collections/create'
+      path: '/adult-surveillance/collections/create'
+      fullPath: '/adult-surveillance/collections/create'
+      preLoaderRoute: typeof AdultSurveillanceCollectionsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/collections/$id': {
+      id: '/adult-surveillance/collections/$id'
+      path: '/adult-surveillance/collections/$id'
+      fullPath: '/adult-surveillance/collections/$id'
+      preLoaderRoute: typeof AdultSurveillanceCollectionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/organizations/$organizationId': {
       id: '/admin/organizations/$organizationId'
       path: '/$organizationId'
       fullPath: '/admin/organizations/$organizationId'
       preLoaderRoute: typeof AdminOrganizationsOrganizationIdRouteImport
       parentRoute: typeof AdminOrganizationsRoute
+    }
+    '/public-engagement/service-requests/$id/edit': {
+      id: '/public-engagement/service-requests/$id/edit'
+      path: '/edit'
+      fullPath: '/public-engagement/service-requests/$id/edit'
+      preLoaderRoute: typeof PublicEngagementServiceRequestsIdEditRouteImport
+      parentRoute: typeof PublicEngagementServiceRequestsIdRoute
+    }
+    '/public-engagement/contacts/$id/edit': {
+      id: '/public-engagement/contacts/$id/edit'
+      path: '/edit'
+      fullPath: '/public-engagement/contacts/$id/edit'
+      preLoaderRoute: typeof PublicEngagementContactsIdEditRouteImport
+      parentRoute: typeof PublicEngagementContactsIdRoute
+    }
+    '/operations/requests-for-control/$id/edit': {
+      id: '/operations/requests-for-control/$id/edit'
+      path: '/edit'
+      fullPath: '/operations/requests-for-control/$id/edit'
+      preLoaderRoute: typeof OperationsRequestsForControlIdEditRouteImport
+      parentRoute: typeof OperationsRequestsForControlIdRoute
+    }
+    '/operations/missions/$id/edit': {
+      id: '/operations/missions/$id/edit'
+      path: '/edit'
+      fullPath: '/operations/missions/$id/edit'
+      preLoaderRoute: typeof OperationsMissionsIdEditRouteImport
+      parentRoute: typeof OperationsMissionsIdRoute
+    }
+    '/operations/assignments/$id/edit': {
+      id: '/operations/assignments/$id/edit'
+      path: '/edit'
+      fullPath: '/operations/assignments/$id/edit'
+      preLoaderRoute: typeof OperationsAssignmentsIdEditRouteImport
+      parentRoute: typeof OperationsAssignmentsIdRoute
+    }
+    '/gis-data/regions/$id/edit': {
+      id: '/gis-data/regions/$id/edit'
+      path: '/edit'
+      fullPath: '/gis-data/regions/$id/edit'
+      preLoaderRoute: typeof GisDataRegionsIdEditRouteImport
+      parentRoute: typeof GisDataRegionsIdRoute
+    }
+    '/gis-data/addresses/$id/edit': {
+      id: '/gis-data/addresses/$id/edit'
+      path: '/edit'
+      fullPath: '/gis-data/addresses/$id/edit'
+      preLoaderRoute: typeof GisDataAddressesIdEditRouteImport
+      parentRoute: typeof GisDataAddressesIdRoute
+    }
+    '/adult-surveillance/traps/$id/edit': {
+      id: '/adult-surveillance/traps/$id/edit'
+      path: '/edit'
+      fullPath: '/adult-surveillance/traps/$id/edit'
+      preLoaderRoute: typeof AdultSurveillanceTrapsIdEditRouteImport
+      parentRoute: typeof AdultSurveillanceTrapsIdRoute
+    }
+    '/adult-surveillance/collections/$id/edit': {
+      id: '/adult-surveillance/collections/$id/edit'
+      path: '/edit'
+      fullPath: '/adult-surveillance/collections/$id/edit'
+      preLoaderRoute: typeof AdultSurveillanceCollectionsIdEditRouteImport
+      parentRoute: typeof AdultSurveillanceCollectionsIdRoute
     }
   }
 }
@@ -948,9 +1786,130 @@ const AdminOrganizationsRouteChildren: AdminOrganizationsRouteChildren = {
 const AdminOrganizationsRouteWithChildren =
   AdminOrganizationsRoute._addFileChildren(AdminOrganizationsRouteChildren)
 
+interface AdultSurveillanceCollectionsIdRouteChildren {
+  AdultSurveillanceCollectionsIdEditRoute: typeof AdultSurveillanceCollectionsIdEditRoute
+}
+
+const AdultSurveillanceCollectionsIdRouteChildren: AdultSurveillanceCollectionsIdRouteChildren =
+  {
+    AdultSurveillanceCollectionsIdEditRoute:
+      AdultSurveillanceCollectionsIdEditRoute,
+  }
+
+const AdultSurveillanceCollectionsIdRouteWithChildren =
+  AdultSurveillanceCollectionsIdRoute._addFileChildren(
+    AdultSurveillanceCollectionsIdRouteChildren,
+  )
+
+interface AdultSurveillanceTrapsIdRouteChildren {
+  AdultSurveillanceTrapsIdEditRoute: typeof AdultSurveillanceTrapsIdEditRoute
+}
+
+const AdultSurveillanceTrapsIdRouteChildren: AdultSurveillanceTrapsIdRouteChildren =
+  {
+    AdultSurveillanceTrapsIdEditRoute: AdultSurveillanceTrapsIdEditRoute,
+  }
+
+const AdultSurveillanceTrapsIdRouteWithChildren =
+  AdultSurveillanceTrapsIdRoute._addFileChildren(
+    AdultSurveillanceTrapsIdRouteChildren,
+  )
+
+interface GisDataAddressesIdRouteChildren {
+  GisDataAddressesIdEditRoute: typeof GisDataAddressesIdEditRoute
+}
+
+const GisDataAddressesIdRouteChildren: GisDataAddressesIdRouteChildren = {
+  GisDataAddressesIdEditRoute: GisDataAddressesIdEditRoute,
+}
+
+const GisDataAddressesIdRouteWithChildren =
+  GisDataAddressesIdRoute._addFileChildren(GisDataAddressesIdRouteChildren)
+
+interface GisDataRegionsIdRouteChildren {
+  GisDataRegionsIdEditRoute: typeof GisDataRegionsIdEditRoute
+}
+
+const GisDataRegionsIdRouteChildren: GisDataRegionsIdRouteChildren = {
+  GisDataRegionsIdEditRoute: GisDataRegionsIdEditRoute,
+}
+
+const GisDataRegionsIdRouteWithChildren =
+  GisDataRegionsIdRoute._addFileChildren(GisDataRegionsIdRouteChildren)
+
+interface OperationsAssignmentsIdRouteChildren {
+  OperationsAssignmentsIdEditRoute: typeof OperationsAssignmentsIdEditRoute
+}
+
+const OperationsAssignmentsIdRouteChildren: OperationsAssignmentsIdRouteChildren =
+  {
+    OperationsAssignmentsIdEditRoute: OperationsAssignmentsIdEditRoute,
+  }
+
+const OperationsAssignmentsIdRouteWithChildren =
+  OperationsAssignmentsIdRoute._addFileChildren(
+    OperationsAssignmentsIdRouteChildren,
+  )
+
+interface OperationsMissionsIdRouteChildren {
+  OperationsMissionsIdEditRoute: typeof OperationsMissionsIdEditRoute
+}
+
+const OperationsMissionsIdRouteChildren: OperationsMissionsIdRouteChildren = {
+  OperationsMissionsIdEditRoute: OperationsMissionsIdEditRoute,
+}
+
+const OperationsMissionsIdRouteWithChildren =
+  OperationsMissionsIdRoute._addFileChildren(OperationsMissionsIdRouteChildren)
+
+interface OperationsRequestsForControlIdRouteChildren {
+  OperationsRequestsForControlIdEditRoute: typeof OperationsRequestsForControlIdEditRoute
+}
+
+const OperationsRequestsForControlIdRouteChildren: OperationsRequestsForControlIdRouteChildren =
+  {
+    OperationsRequestsForControlIdEditRoute:
+      OperationsRequestsForControlIdEditRoute,
+  }
+
+const OperationsRequestsForControlIdRouteWithChildren =
+  OperationsRequestsForControlIdRoute._addFileChildren(
+    OperationsRequestsForControlIdRouteChildren,
+  )
+
+interface PublicEngagementContactsIdRouteChildren {
+  PublicEngagementContactsIdEditRoute: typeof PublicEngagementContactsIdEditRoute
+}
+
+const PublicEngagementContactsIdRouteChildren: PublicEngagementContactsIdRouteChildren =
+  {
+    PublicEngagementContactsIdEditRoute: PublicEngagementContactsIdEditRoute,
+  }
+
+const PublicEngagementContactsIdRouteWithChildren =
+  PublicEngagementContactsIdRoute._addFileChildren(
+    PublicEngagementContactsIdRouteChildren,
+  )
+
+interface PublicEngagementServiceRequestsIdRouteChildren {
+  PublicEngagementServiceRequestsIdEditRoute: typeof PublicEngagementServiceRequestsIdEditRoute
+}
+
+const PublicEngagementServiceRequestsIdRouteChildren: PublicEngagementServiceRequestsIdRouteChildren =
+  {
+    PublicEngagementServiceRequestsIdEditRoute:
+      PublicEngagementServiceRequestsIdEditRoute,
+  }
+
+const PublicEngagementServiceRequestsIdRouteWithChildren =
+  PublicEngagementServiceRequestsIdRoute._addFileChildren(
+    PublicEngagementServiceRequestsIdRouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddressBookRoute: AddressBookRoute,
+  AppShellPreviewRoute: AppShellPreviewRoute,
   AssignmentsRoute: AssignmentsRoute,
   BiocontrolRoute: BiocontrolRoute,
   ChemicalControlRoute: ChemicalControlRoute,
@@ -976,6 +1935,47 @@ const rootRouteChildren: RootRouteChildren = {
   TrapsRoute: TrapsRoute,
   AdminOrganizationsRoute: AdminOrganizationsRouteWithChildren,
   HabitatsIdRoute: HabitatsIdRoute,
+  AdultSurveillanceIndexRoute: AdultSurveillanceIndexRoute,
+  AdultSurveillanceCollectionsIdRoute:
+    AdultSurveillanceCollectionsIdRouteWithChildren,
+  AdultSurveillanceCollectionsCreateRoute:
+    AdultSurveillanceCollectionsCreateRoute,
+  AdultSurveillanceTrapsIdRoute: AdultSurveillanceTrapsIdRouteWithChildren,
+  AdultSurveillanceTrapsCreateRoute: AdultSurveillanceTrapsCreateRoute,
+  GisDataAddressesIdRoute: GisDataAddressesIdRouteWithChildren,
+  GisDataAddressesCreateRoute: GisDataAddressesCreateRoute,
+  GisDataRegionsIdRoute: GisDataRegionsIdRouteWithChildren,
+  GisDataRegionsCreateRoute: GisDataRegionsCreateRoute,
+  OperationsAssignmentsIdRoute: OperationsAssignmentsIdRouteWithChildren,
+  OperationsAssignmentsCreateRoute: OperationsAssignmentsCreateRoute,
+  OperationsMissionsIdRoute: OperationsMissionsIdRouteWithChildren,
+  OperationsMissionsCreateRoute: OperationsMissionsCreateRoute,
+  OperationsRequestsForControlIdRoute:
+    OperationsRequestsForControlIdRouteWithChildren,
+  OperationsRequestsForControlCreateRoute:
+    OperationsRequestsForControlCreateRoute,
+  PublicEngagementContactsIdRoute: PublicEngagementContactsIdRouteWithChildren,
+  PublicEngagementServiceRequestsIdRoute:
+    PublicEngagementServiceRequestsIdRouteWithChildren,
+  PublicEngagementServiceRequestsCreateRoute:
+    PublicEngagementServiceRequestsCreateRoute,
+  AdultSurveillanceCollectionsIndexRoute:
+    AdultSurveillanceCollectionsIndexRoute,
+  AdultSurveillanceTrapsIndexRoute: AdultSurveillanceTrapsIndexRoute,
+  GisDataAddressesIndexRoute: GisDataAddressesIndexRoute,
+  GisDataRegionsIndexRoute: GisDataRegionsIndexRoute,
+  GisDataWeatherIndexRoute: GisDataWeatherIndexRoute,
+  LarvalSurveillanceHabitatsIndexRoute: LarvalSurveillanceHabitatsIndexRoute,
+  LarvalSurveillanceInspectionsIndexRoute:
+    LarvalSurveillanceInspectionsIndexRoute,
+  LarvalSurveillanceSamplesIndexRoute: LarvalSurveillanceSamplesIndexRoute,
+  OperationsAssignmentsIndexRoute: OperationsAssignmentsIndexRoute,
+  OperationsMissionsIndexRoute: OperationsMissionsIndexRoute,
+  OperationsRequestsForControlIndexRoute:
+    OperationsRequestsForControlIndexRoute,
+  PublicEngagementContactsIndexRoute: PublicEngagementContactsIndexRoute,
+  PublicEngagementServiceRequestsIndexRoute:
+    PublicEngagementServiceRequestsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

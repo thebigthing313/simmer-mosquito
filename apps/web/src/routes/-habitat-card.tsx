@@ -10,7 +10,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { Suspense, type ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { webCollections } from '../sync/webCollections';
 import type { VisibleHabitat } from './habitats';
 
@@ -52,7 +52,12 @@ export function HabitatCard({ habitat, mode, className }: HabitatCardProps) {
 				<HabitatStateBadge habitat={habitat.row} />
 			</div>
 			<div className="grid gap-3">
-				<p className={cn('m-0 text-muted-foreground', mode === 'compact' ? 'line-clamp-2 text-[0.88rem]' : 'text-sm')}>
+				<p
+					className={cn(
+						'm-0 text-muted-foreground',
+						mode === 'compact' ? 'line-clamp-2 text-[0.88rem]' : 'text-sm',
+					)}
+				>
 					{habitatDescription(habitat.row)}
 				</p>
 				<HabitatFacts habitat={habitat.row} mode={mode} />
@@ -145,7 +150,6 @@ function HabitatAddressFact({ addressId }: { readonly addressId: string | null }
 }
 
 function ResolvedHabitatAddressFact({ addressId }: { readonly addressId: string }) {
-
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
@@ -215,7 +219,9 @@ function Fact({
 				<strong className="truncate font-semibold text-foreground">{value}</strong>
 				{icon === undefined ? null : <span className="text-muted-foreground">{icon}</span>}
 			</div>
-			{detail === undefined ? null : <span className="truncate text-muted-foreground">{detail}</span>}
+			{detail === undefined ? null : (
+				<span className="truncate text-muted-foreground">{detail}</span>
+			)}
 		</div>
 	);
 }
@@ -237,7 +243,11 @@ function coordinateLabel(habitat: HabitatDisplayRow): string {
 }
 
 function formatGeometryTypeLabel(value: string): string {
-	const normalized = value.trim().toLowerCase().replace(/^st_?/, '').replace(/[_\s]+/g, '');
+	const normalized = value
+		.trim()
+		.toLowerCase()
+		.replace(/^st_?/, '')
+		.replace(/[_\s]+/g, '');
 
 	switch (normalized) {
 		case 'point':

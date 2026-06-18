@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { GroupsPage } from './-components';
+import { RouteStub } from '../components/app-shell/route-stub';
 
 export const Route = createFileRoute('/groups')({
-	component: GroupsPage,
+	component: () => <RouteStub title="Groups" />,
 });

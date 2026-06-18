@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ServiceRequestsIndexPage } from './-components';
+import { RouteStub } from '../components/app-shell/route-stub';
 
 export const Route = createFileRoute('/service-requests/')({
-	component: ServiceRequestsIndexPage,
+	component: RouteStub,
 });

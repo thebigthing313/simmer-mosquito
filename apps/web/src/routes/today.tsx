@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TodayActivitiesPage } from './-components';
+import { RouteStub } from '../components/app-shell/route-stub';
 
 export const Route = createFileRoute('/today')({
-	component: TodayActivitiesPage,
+	component: RouteStub,
 });

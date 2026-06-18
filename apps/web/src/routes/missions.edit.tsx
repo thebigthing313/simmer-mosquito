@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { MissionEditPage } from './-components';
+import { RouteStub } from '../components/app-shell/route-stub';
 
 export const Route = createFileRoute('/missions/edit')({
-	component: MissionEditPage,
+	component: RouteStub,
 });

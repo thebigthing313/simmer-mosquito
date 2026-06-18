@@ -1,7 +1,8 @@
 import { createRootRouteWithContext, Outlet, redirect, useLocation } from '@tanstack/react-router';
 import type { AppAuthController } from '../app-auth';
+import { AppShellRoot } from '../components/app-shell/app-shell-root';
 import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
-import { RootLayout, WorkspaceChromeError, WorkspaceChromeFallback } from './-components';
+import { WorkspaceChromeError, WorkspaceChromeFallback } from './-components';
 
 export interface RootSearch {
 	readonly auth?: 'organization_required';
@@ -14,7 +15,8 @@ export interface RouterContext {
 const publicPaths = new Set(['/landing', '/login']);
 
 /** Dev-only layout design previews render standalone, without the product chrome or auth. */
-const isPreviewPath = (pathname: string) => pathname.startsWith('/layout-preview');
+const isPreviewPath = (pathname: string) =>
+	pathname.startsWith('/layout-preview') || pathname.startsWith('/app-shell-preview');
 
 export const Route = createRootRouteWithContext<RouterContext>()({
 	validateSearch: (search): RootSearch =>
@@ -56,7 +58,7 @@ function RootComponent() {
 			loadingFallback={<WorkspaceChromeFallback />}
 			resetKey="root-layout"
 		>
-			<RootLayout auth={auth.snapshot} />
+			<AppShellRoot auth={auth.snapshot} />
 		</SuspenseQueryBoundary>
 	);
 }

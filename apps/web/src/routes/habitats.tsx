@@ -17,9 +17,9 @@ import {
 	useSyncExternalStore,
 } from 'react';
 import { getServerUrl } from '../auth';
-import { MapView, type MapFeatureClickEvent } from '../map';
-import { createHabitatTileSource, type HabitatTileFilters } from '../map/styles';
 import { useCollectionRows } from '../hooks/use-collection-rows';
+import { type MapFeatureClickEvent, MapView } from '../map';
+import { createHabitatTileSource, type HabitatTileFilters } from '../map/styles';
 import { webCollections } from '../sync/webCollections';
 import { HabitatCard } from './-habitat-card';
 
