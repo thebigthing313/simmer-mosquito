@@ -1,4 +1,4 @@
-export { MapCanvas } from './map-canvas';
+export { MapCanvas, type MapControlsConfig } from './map-canvas';
 export {
 	BASEMAP_STYLES,
 	type BasemapId,

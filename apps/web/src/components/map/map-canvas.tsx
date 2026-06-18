@@ -12,22 +12,50 @@ import { MapZoomControls } from './map-zoom-controls';
 import { useMapboxMap } from './use-mapbox-map';
 
 /**
+ * Which on-map controls to render. Every control defaults to on; a consuming
+ * route opts out of the ones it doesn't need — e.g. a habitat detail map turns
+ * off `search` and `layers` to keep a focused, single-purpose surface.
+ */
+export interface MapControlsConfig {
+	readonly search?: boolean;
+	readonly basemap?: boolean;
+	readonly layers?: boolean;
+	readonly geolocate?: boolean;
+	readonly zoom?: boolean;
+	readonly attribution?: boolean;
+}
+
+/**
  * The baseline full-bleed map surface for the GIS Data explorer. Owns the GL
  * instance and basemap choice, then arranges the floating controls — search,
- * basemap switch, geolocate, zoom — around the map without crowding it.
+ * basemap switch, layers, geolocate, zoom — around the map without crowding it.
+ * Routes choose which controls appear through {@link MapControlsConfig}.
  */
 export function MapCanvas({
 	className,
 	camera,
+	controls,
 }: {
 	readonly className?: string;
 	readonly camera?: MapCamera;
+	readonly controls?: MapControlsConfig;
 }) {
 	const [container, setContainer] = useState<HTMLDivElement | null>(null);
 	const [basemapId, setBasemapId] = useState<BasemapId>(DEFAULT_BASEMAP_ID);
+
+	const show = {
+		search: controls?.search ?? true,
+		basemap: controls?.basemap ?? true,
+		layers: controls?.layers ?? true,
+		geolocate: controls?.geolocate ?? true,
+		zoom: controls?.zoom ?? true,
+		attribution: controls?.attribution ?? true,
+	};
+
 	const { map, isLoaded, hasToken, error } = useMapboxMap({
 		container,
 		basemapId,
+		attribution: show.attribution,
 		...(camera === undefined ? {} : { camera }),
 	});
 
@@ -64,18 +92,31 @@ export function MapCanvas({
 					) : null}
 
 					<div className="pointer-events-none absolute inset-0">
-						<div className="pointer-events-auto absolute top-4 left-4">
-							<MapSearch map={map} />
-						</div>
-						<div className="pointer-events-auto absolute top-4 right-4 flex flex-col items-end gap-3">
-							<BasemapSwitcher onChange={setBasemapId} value={basemapId} />
-							<MapLayerControls />
-						</div>
-						{/* bottom-11 leaves the corner clear for the compact attribution chip. */}
-						<div className="pointer-events-auto absolute right-4 bottom-11 flex flex-col items-end gap-2">
-							<GeolocateControl map={map} />
-							<MapZoomControls map={map} />
-						</div>
+						{show.search ? (
+							<div className="pointer-events-auto absolute top-4 left-4">
+								<MapSearch map={map} />
+							</div>
+						) : null}
+						{show.basemap || show.layers ? (
+							<div className="pointer-events-auto absolute top-4 right-4 flex flex-col items-end gap-3">
+								{show.basemap ? (
+									<BasemapSwitcher onChange={setBasemapId} value={basemapId} />
+								) : null}
+								{show.layers ? <MapLayerControls /> : null}
+							</div>
+						) : null}
+						{show.geolocate || show.zoom ? (
+							// bottom-11 clears the attribution chip; without it, sit nearer the corner.
+							<div
+								className={cn(
+									'pointer-events-auto absolute right-4 flex flex-col items-end gap-2',
+									show.attribution ? 'bottom-11' : 'bottom-4',
+								)}
+							>
+								{show.geolocate ? <GeolocateControl map={map} /> : null}
+								{show.zoom ? <MapZoomControls map={map} /> : null}
+							</div>
+						) : null}
 					</div>
 				</>
 			)}

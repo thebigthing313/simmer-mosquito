@@ -15,6 +15,8 @@ export interface UseMapboxMapOptions {
 	readonly basemapId: BasemapId;
 	/** Initial camera; only read when the map is first created. */
 	readonly camera?: MapCamera;
+	/** Whether to mount the compact attribution control. Defaults to true. */
+	readonly attribution?: boolean;
 }
 
 export interface UseMapboxMapResult {
@@ -34,6 +36,7 @@ export function useMapboxMap({
 	container,
 	basemapId,
 	camera,
+	attribution,
 }: UseMapboxMapOptions): UseMapboxMapResult {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [isLoaded, setIsLoaded] = useState(false);
@@ -48,6 +51,8 @@ export function useMapboxMap({
 	cameraRef.current = camera;
 	const basemapRef = useRef(basemapId);
 	basemapRef.current = basemapId;
+	const attributionRef = useRef(attribution);
+	attributionRef.current = attribution;
 	const appliedBasemap = useRef<BasemapId | null>(null);
 
 	useEffect(() => {
@@ -64,11 +69,14 @@ export function useMapboxMap({
 			zoom: initialCamera.zoom,
 			bearing: initialCamera.bearing ?? 0,
 			pitch: initialCamera.pitch ?? 0,
-			// Start with no attribution, then add a compact one in the bottom-right
-			// corner so it tucks in beneath the zoom + locate control stack.
+			// Start with no attribution; we add a compact one ourselves (when the
+			// caller wants it) in the bottom-right corner so it tucks in beneath the
+			// zoom + locate control stack.
 			attributionControl: false,
 		});
-		instance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
+		if (attributionRef.current !== false) {
+			instance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
+		}
 		appliedBasemap.current = basemapRef.current;
 
 		let loaded = false;
