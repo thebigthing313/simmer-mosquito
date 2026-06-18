@@ -11,7 +11,7 @@ export function PrimarySidebarContent() {
 
 	function handleSelect(domain: ShellDomain) {
 		const destination = firstDestination(domain);
-		if (destination !== null) {
+		if (destination !== null && destination !== undefined) {
 			onNavigate(destination);
 		}
 	}

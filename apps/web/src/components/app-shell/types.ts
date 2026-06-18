@@ -1,4 +1,5 @@
 import type { RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import type { LinkProps } from '@tanstack/react-router';
 
 /**
  * Shell domain/navigation model.
@@ -13,8 +14,8 @@ import type { RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 export interface ShellNavItem {
 	readonly id: string;
 	readonly label: string;
-	/** Router-agnostic path. Compared against the active path for selection. */
-	readonly to: string;
+	/** Type-safe router destination. Compared against the active path for selection. */
+	readonly to: LinkProps['to'];
 	readonly icon?: RegistryIcon;
 	/** Optional compact count/indicator (e.g. items needing attention). */
 	readonly badge?: string | number;
@@ -60,5 +61,5 @@ export interface ShellUser {
 /** A resolved breadcrumb crumb. The last crumb is the current location. */
 export interface ShellCrumb {
 	readonly label: string;
-	readonly to?: string;
+	readonly to?: LinkProps['to'];
 }

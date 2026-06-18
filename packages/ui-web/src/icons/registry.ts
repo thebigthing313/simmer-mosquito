@@ -2,6 +2,7 @@ import {
 	AlertTriangle,
 	Box,
 	Calendar,
+	ChartColumn,
 	Check,
 	CheckCircle2,
 	ChevronDown,
@@ -147,6 +148,7 @@ export const iconRegistry = {
 	},
 	generic: {
 		calendar: icon('calendar', 'Calendar', 'generic', Calendar),
+		chart: icon('chart', 'Chart', 'generic', ChartColumn),
 		circle: icon('circle', 'Circle', 'generic', Circle),
 		compass: icon('compass', 'Compass', 'generic', Compass),
 		component: icon('component', 'Component', 'generic', Component),
@@ -154,6 +156,7 @@ export const iconRegistry = {
 		error: icon('error', 'Error', 'generic', OctagonX),
 		gripVertical: icon('gripVertical', 'Vertical grip', 'generic', GripVertical),
 		home: icon('home', 'Home', 'generic', Home),
+		map: icon('map', 'Map', 'generic', LucideMap),
 		moon: icon('moon', 'Moon', 'generic', Moon),
 		print: icon('print', 'Print', 'generic', Printer),
 		puzzle: icon('puzzle', 'Puzzle', 'generic', Puzzle),

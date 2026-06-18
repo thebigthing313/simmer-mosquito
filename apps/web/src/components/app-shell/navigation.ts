@@ -1,4 +1,5 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import type { LinkProps } from '@tanstack/react-router';
 import type { ShellCrumb, ShellDomain, ShellNavItem } from './types';
 
 /**
@@ -29,30 +30,96 @@ export const shellDomains: readonly ShellDomain[] = [
 	},
 	{
 		id: 'larval',
-		label: 'Larval surveillance',
-		summary: 'Habitats, inspections, and samples',
+		label: 'Larval Surveillance',
+		summary: 'Monitor immature mosquito populations in the field',
 		icon: iconRegistry.domains.larvalSurveillance.icon,
 		groups: [
 			{
-				id: 'larval-main',
+				id: 'larval-overview',
 				items: [
 					{
-						id: 'habitats',
-						label: 'Habitats',
-						to: '/habitats',
-						icon: iconRegistry.domains.larvalSurveillance.icon,
+						id: 'larval-overview-link',
+						label: 'Overview',
+						to: '/larval-surveillance',
+						icon: iconRegistry.generic.home.icon,
+					},
+				],
+			},
+			{
+				id: 'larval-habitats',
+				label: 'Habitats',
+				items: [
+					{
+						id: 'habitats-explorer',
+						label: 'Explorer',
+						to: '/larval-surveillance/habitats',
+						icon: iconRegistry.generic.map.icon,
 					},
 					{
-						id: 'inspections',
-						label: 'Inspections',
-						to: '/inspections',
-						icon: iconRegistry.entities.inspection.icon,
+						id: 'habitats-create',
+						label: 'Create habitat',
+						to: '/larval-surveillance/habitats/create',
+						icon: iconRegistry.actions.add.icon,
 					},
 					{
-						id: 'samples',
-						label: 'Samples',
-						to: '/samples',
-						icon: iconRegistry.entities.sample.icon,
+						id: 'habitats-types',
+						label: 'Habitat Types',
+						to: '/larval-surveillance/habitats/types',
+						icon: iconRegistry.generic.component.icon,
+					},
+					{
+						id: 'habitats-routes',
+						label: 'Manage Routes',
+						to: '/larval-surveillance/habitats/routes',
+						icon: iconRegistry.entities.route.icon,
+					},
+					{
+						id: 'habitats-stats',
+						label: 'Statistics',
+						to: '/larval-surveillance/habitats/stats',
+						icon: iconRegistry.generic.chart.icon,
+					},
+				],
+			},
+			{
+				id: 'larval-inspections',
+				label: 'Inspections',
+				items: [
+					{
+						id: 'inspections-explorer',
+						label: 'Explorer',
+						to: '/larval-surveillance/inspections',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'inspections-create',
+						label: 'Create inspection',
+						to: '/larval-surveillance/inspections/create',
+						icon: iconRegistry.actions.add.icon,
+					},
+					{
+						id: 'inspections-stats',
+						label: 'Statistics',
+						to: '/larval-surveillance/inspections/stats',
+						icon: iconRegistry.generic.chart.icon,
+					},
+				],
+			},
+			{
+				id: 'larval-samples',
+				label: 'Samples',
+				items: [
+					{
+						id: 'samples-explorer',
+						label: 'Explorer',
+						to: '/larval-surveillance/samples',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'samples-stats',
+						label: 'Statistics',
+						to: '/larval-surveillance/samples/stats',
+						icon: iconRegistry.generic.chart.icon,
 					},
 				],
 			},
@@ -303,9 +370,10 @@ export function resolveActive(activePath: string): {
 	let bestLength = -1;
 
 	for (const candidate of flatItems) {
-		if (pathMatches(activePath, candidate.item.to) && candidate.item.to.length > bestLength) {
+		const target = candidate.item.to;
+		if (target !== undefined && pathMatches(activePath, target) && target.length > bestLength) {
 			best = candidate;
-			bestLength = candidate.item.to.length;
+			bestLength = target.length;
 		}
 	}
 
@@ -322,10 +390,10 @@ export function resolveActive(activePath: string): {
 }
 
 /** The first navigable destination of a domain (used when its icon is clicked). */
-export function firstDestination(domain: ShellDomain): string | null {
+export function firstDestination(domain: ShellDomain): LinkProps['to'] | null {
 	for (const group of domain.groups) {
 		const [item] = group.items;
-		if (item !== undefined) {
+		if (item?.to !== undefined) {
 			return item.to;
 		}
 	}
@@ -355,7 +423,7 @@ export function buildBreadcrumbs(activePath: string): readonly ShellCrumb[] {
 
 	crumbs.push({ label: item.label, to: item.to });
 
-	const itemSegments = item.to.split('/').filter(Boolean);
+	const itemSegments = item.to?.split('/').filter(Boolean) ?? [];
 	const pathSegments = activePath.split('/').filter(Boolean);
 	const trailing = pathSegments.slice(itemSegments.length);
 	for (const segment of trailing) {

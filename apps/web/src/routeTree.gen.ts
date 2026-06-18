@@ -38,6 +38,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ServiceRequestsIndexRouteImport } from './routes/service-requests.index'
 import { Route as MyOrganizationIndexRouteImport } from './routes/my-organization/index'
 import { Route as LayoutPreviewIndexRouteImport } from './routes/layout-preview.index'
+import { Route as LarvalSurveillanceIndexRouteImport } from './routes/larval-surveillance/index'
 import { Route as HabitatsIndexRouteImport } from './routes/habitats.index'
 import { Route as AdultSurveillanceIndexRouteImport } from './routes/adult-surveillance/index'
 import { Route as ServiceRequestsRequestIdRouteImport } from './routes/service-requests.$requestId'
@@ -75,6 +76,13 @@ import { Route as OperationsMissionsIdRouteImport } from './routes/operations/mi
 import { Route as OperationsAssignmentsCreateRouteImport } from './routes/operations/assignments/create'
 import { Route as OperationsAssignmentsIdRouteImport } from './routes/operations/assignments/$id'
 import { Route as LayoutPreviewDesignPageRouteImport } from './routes/layout-preview.$design.$page'
+import { Route as LarvalSurveillanceSamplesStatsRouteImport } from './routes/larval-surveillance/samples/stats'
+import { Route as LarvalSurveillanceInspectionsStatsRouteImport } from './routes/larval-surveillance/inspections/stats'
+import { Route as LarvalSurveillanceInspectionsCreateRouteImport } from './routes/larval-surveillance/inspections/create'
+import { Route as LarvalSurveillanceHabitatsTypesRouteImport } from './routes/larval-surveillance/habitats/types'
+import { Route as LarvalSurveillanceHabitatsStatsRouteImport } from './routes/larval-surveillance/habitats/stats'
+import { Route as LarvalSurveillanceHabitatsRoutesRouteImport } from './routes/larval-surveillance/habitats/routes'
+import { Route as LarvalSurveillanceHabitatsCreateRouteImport } from './routes/larval-surveillance/habitats/create'
 import { Route as GisDataRegionsCreateRouteImport } from './routes/gis-data/regions/create'
 import { Route as GisDataRegionsIdRouteImport } from './routes/gis-data/regions/$id'
 import { Route as GisDataAddressesCreateRouteImport } from './routes/gis-data/addresses/create'
@@ -238,6 +246,11 @@ const LayoutPreviewIndexRoute = LayoutPreviewIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => LayoutPreviewRoute,
+} as any)
+const LarvalSurveillanceIndexRoute = LarvalSurveillanceIndexRouteImport.update({
+  id: '/larval-surveillance/',
+  path: '/larval-surveillance/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const HabitatsIndexRoute = HabitatsIndexRouteImport.update({
   id: '/',
@@ -446,6 +459,48 @@ const LayoutPreviewDesignPageRoute = LayoutPreviewDesignPageRouteImport.update({
   path: '/$design/$page',
   getParentRoute: () => LayoutPreviewRoute,
 } as any)
+const LarvalSurveillanceSamplesStatsRoute =
+  LarvalSurveillanceSamplesStatsRouteImport.update({
+    id: '/larval-surveillance/samples/stats',
+    path: '/larval-surveillance/samples/stats',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceInspectionsStatsRoute =
+  LarvalSurveillanceInspectionsStatsRouteImport.update({
+    id: '/larval-surveillance/inspections/stats',
+    path: '/larval-surveillance/inspections/stats',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceInspectionsCreateRoute =
+  LarvalSurveillanceInspectionsCreateRouteImport.update({
+    id: '/larval-surveillance/inspections/create',
+    path: '/larval-surveillance/inspections/create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceHabitatsTypesRoute =
+  LarvalSurveillanceHabitatsTypesRouteImport.update({
+    id: '/larval-surveillance/habitats/types',
+    path: '/larval-surveillance/habitats/types',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceHabitatsStatsRoute =
+  LarvalSurveillanceHabitatsStatsRouteImport.update({
+    id: '/larval-surveillance/habitats/stats',
+    path: '/larval-surveillance/habitats/stats',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceHabitatsRoutesRoute =
+  LarvalSurveillanceHabitatsRoutesRouteImport.update({
+    id: '/larval-surveillance/habitats/routes',
+    path: '/larval-surveillance/habitats/routes',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceHabitatsCreateRoute =
+  LarvalSurveillanceHabitatsCreateRouteImport.update({
+    id: '/larval-surveillance/habitats/create',
+    path: '/larval-surveillance/habitats/create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const GisDataRegionsCreateRoute = GisDataRegionsCreateRouteImport.update({
   id: '/gis-data/regions/create',
   path: '/gis-data/regions/create',
@@ -590,6 +645,7 @@ export interface FileRoutesByFullPath {
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
   '/adult-surveillance/': typeof AdultSurveillanceIndexRoute
   '/habitats/': typeof HabitatsIndexRoute
+  '/larval-surveillance/': typeof LarvalSurveillanceIndexRoute
   '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
@@ -602,6 +658,13 @@ export interface FileRoutesByFullPath {
   '/gis-data/addresses/create': typeof GisDataAddressesCreateRoute
   '/gis-data/regions/$id': typeof GisDataRegionsIdRouteWithChildren
   '/gis-data/regions/create': typeof GisDataRegionsCreateRoute
+  '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
+  '/larval-surveillance/habitats/routes': typeof LarvalSurveillanceHabitatsRoutesRoute
+  '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
+  '/larval-surveillance/habitats/types': typeof LarvalSurveillanceHabitatsTypesRoute
+  '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
+  '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
+  '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
   '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
   '/operations/assignments/create': typeof OperationsAssignmentsCreateRoute
@@ -672,6 +735,7 @@ export interface FileRoutesByTo {
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
   '/adult-surveillance': typeof AdultSurveillanceIndexRoute
   '/habitats': typeof HabitatsIndexRoute
+  '/larval-surveillance': typeof LarvalSurveillanceIndexRoute
   '/layout-preview': typeof LayoutPreviewIndexRoute
   '/my-organization': typeof MyOrganizationIndexRoute
   '/service-requests': typeof ServiceRequestsIndexRoute
@@ -684,6 +748,13 @@ export interface FileRoutesByTo {
   '/gis-data/addresses/create': typeof GisDataAddressesCreateRoute
   '/gis-data/regions/$id': typeof GisDataRegionsIdRouteWithChildren
   '/gis-data/regions/create': typeof GisDataRegionsCreateRoute
+  '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
+  '/larval-surveillance/habitats/routes': typeof LarvalSurveillanceHabitatsRoutesRoute
+  '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
+  '/larval-surveillance/habitats/types': typeof LarvalSurveillanceHabitatsTypesRoute
+  '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
+  '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
+  '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
   '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
   '/operations/assignments/create': typeof OperationsAssignmentsCreateRoute
@@ -759,6 +830,7 @@ export interface FileRoutesById {
   '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
   '/adult-surveillance/': typeof AdultSurveillanceIndexRoute
   '/habitats/': typeof HabitatsIndexRoute
+  '/larval-surveillance/': typeof LarvalSurveillanceIndexRoute
   '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/service-requests/': typeof ServiceRequestsIndexRoute
@@ -771,6 +843,13 @@ export interface FileRoutesById {
   '/gis-data/addresses/create': typeof GisDataAddressesCreateRoute
   '/gis-data/regions/$id': typeof GisDataRegionsIdRouteWithChildren
   '/gis-data/regions/create': typeof GisDataRegionsCreateRoute
+  '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
+  '/larval-surveillance/habitats/routes': typeof LarvalSurveillanceHabitatsRoutesRoute
+  '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
+  '/larval-surveillance/habitats/types': typeof LarvalSurveillanceHabitatsTypesRoute
+  '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
+  '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
+  '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
   '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
   '/operations/assignments/create': typeof OperationsAssignmentsCreateRoute
@@ -847,6 +926,7 @@ export interface FileRouteTypes {
     | '/service-requests/$requestId'
     | '/adult-surveillance/'
     | '/habitats/'
+    | '/larval-surveillance/'
     | '/layout-preview/'
     | '/my-organization/'
     | '/service-requests/'
@@ -859,6 +939,13 @@ export interface FileRouteTypes {
     | '/gis-data/addresses/create'
     | '/gis-data/regions/$id'
     | '/gis-data/regions/create'
+    | '/larval-surveillance/habitats/create'
+    | '/larval-surveillance/habitats/routes'
+    | '/larval-surveillance/habitats/stats'
+    | '/larval-surveillance/habitats/types'
+    | '/larval-surveillance/inspections/create'
+    | '/larval-surveillance/inspections/stats'
+    | '/larval-surveillance/samples/stats'
     | '/layout-preview/$design/$page'
     | '/operations/assignments/$id'
     | '/operations/assignments/create'
@@ -929,6 +1016,7 @@ export interface FileRouteTypes {
     | '/service-requests/$requestId'
     | '/adult-surveillance'
     | '/habitats'
+    | '/larval-surveillance'
     | '/layout-preview'
     | '/my-organization'
     | '/service-requests'
@@ -941,6 +1029,13 @@ export interface FileRouteTypes {
     | '/gis-data/addresses/create'
     | '/gis-data/regions/$id'
     | '/gis-data/regions/create'
+    | '/larval-surveillance/habitats/create'
+    | '/larval-surveillance/habitats/routes'
+    | '/larval-surveillance/habitats/stats'
+    | '/larval-surveillance/habitats/types'
+    | '/larval-surveillance/inspections/create'
+    | '/larval-surveillance/inspections/stats'
+    | '/larval-surveillance/samples/stats'
     | '/layout-preview/$design/$page'
     | '/operations/assignments/$id'
     | '/operations/assignments/create'
@@ -1015,6 +1110,7 @@ export interface FileRouteTypes {
     | '/service-requests/$requestId'
     | '/adult-surveillance/'
     | '/habitats/'
+    | '/larval-surveillance/'
     | '/layout-preview/'
     | '/my-organization/'
     | '/service-requests/'
@@ -1027,6 +1123,13 @@ export interface FileRouteTypes {
     | '/gis-data/addresses/create'
     | '/gis-data/regions/$id'
     | '/gis-data/regions/create'
+    | '/larval-surveillance/habitats/create'
+    | '/larval-surveillance/habitats/routes'
+    | '/larval-surveillance/habitats/stats'
+    | '/larval-surveillance/habitats/types'
+    | '/larval-surveillance/inspections/create'
+    | '/larval-surveillance/inspections/stats'
+    | '/larval-surveillance/samples/stats'
     | '/layout-preview/$design/$page'
     | '/operations/assignments/$id'
     | '/operations/assignments/create'
@@ -1092,6 +1195,7 @@ export interface RootRouteChildren {
   GisDataDataExplorerRoute: typeof GisDataDataExplorerRoute
   HabitatsIdRoute: typeof HabitatsIdRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
+  LarvalSurveillanceIndexRoute: typeof LarvalSurveillanceIndexRoute
   AdultSurveillanceCollectionsIdRoute: typeof AdultSurveillanceCollectionsIdRouteWithChildren
   AdultSurveillanceCollectionsCreateRoute: typeof AdultSurveillanceCollectionsCreateRoute
   AdultSurveillanceTrapsIdRoute: typeof AdultSurveillanceTrapsIdRouteWithChildren
@@ -1100,6 +1204,13 @@ export interface RootRouteChildren {
   GisDataAddressesCreateRoute: typeof GisDataAddressesCreateRoute
   GisDataRegionsIdRoute: typeof GisDataRegionsIdRouteWithChildren
   GisDataRegionsCreateRoute: typeof GisDataRegionsCreateRoute
+  LarvalSurveillanceHabitatsCreateRoute: typeof LarvalSurveillanceHabitatsCreateRoute
+  LarvalSurveillanceHabitatsRoutesRoute: typeof LarvalSurveillanceHabitatsRoutesRoute
+  LarvalSurveillanceHabitatsStatsRoute: typeof LarvalSurveillanceHabitatsStatsRoute
+  LarvalSurveillanceHabitatsTypesRoute: typeof LarvalSurveillanceHabitatsTypesRoute
+  LarvalSurveillanceInspectionsCreateRoute: typeof LarvalSurveillanceInspectionsCreateRoute
+  LarvalSurveillanceInspectionsStatsRoute: typeof LarvalSurveillanceInspectionsStatsRoute
+  LarvalSurveillanceSamplesStatsRoute: typeof LarvalSurveillanceSamplesStatsRoute
   OperationsAssignmentsIdRoute: typeof OperationsAssignmentsIdRouteWithChildren
   OperationsAssignmentsCreateRoute: typeof OperationsAssignmentsCreateRoute
   OperationsMissionsIdRoute: typeof OperationsMissionsIdRouteWithChildren
@@ -1328,6 +1439,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/layout-preview/'
       preLoaderRoute: typeof LayoutPreviewIndexRouteImport
       parentRoute: typeof LayoutPreviewRoute
+    }
+    '/larval-surveillance/': {
+      id: '/larval-surveillance/'
+      path: '/larval-surveillance'
+      fullPath: '/larval-surveillance/'
+      preLoaderRoute: typeof LarvalSurveillanceIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/habitats/': {
       id: '/habitats/'
@@ -1587,6 +1705,55 @@ declare module '@tanstack/react-router' {
       fullPath: '/layout-preview/$design/$page'
       preLoaderRoute: typeof LayoutPreviewDesignPageRouteImport
       parentRoute: typeof LayoutPreviewRoute
+    }
+    '/larval-surveillance/samples/stats': {
+      id: '/larval-surveillance/samples/stats'
+      path: '/larval-surveillance/samples/stats'
+      fullPath: '/larval-surveillance/samples/stats'
+      preLoaderRoute: typeof LarvalSurveillanceSamplesStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/inspections/stats': {
+      id: '/larval-surveillance/inspections/stats'
+      path: '/larval-surveillance/inspections/stats'
+      fullPath: '/larval-surveillance/inspections/stats'
+      preLoaderRoute: typeof LarvalSurveillanceInspectionsStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/inspections/create': {
+      id: '/larval-surveillance/inspections/create'
+      path: '/larval-surveillance/inspections/create'
+      fullPath: '/larval-surveillance/inspections/create'
+      preLoaderRoute: typeof LarvalSurveillanceInspectionsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/habitats/types': {
+      id: '/larval-surveillance/habitats/types'
+      path: '/larval-surveillance/habitats/types'
+      fullPath: '/larval-surveillance/habitats/types'
+      preLoaderRoute: typeof LarvalSurveillanceHabitatsTypesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/habitats/stats': {
+      id: '/larval-surveillance/habitats/stats'
+      path: '/larval-surveillance/habitats/stats'
+      fullPath: '/larval-surveillance/habitats/stats'
+      preLoaderRoute: typeof LarvalSurveillanceHabitatsStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/habitats/routes': {
+      id: '/larval-surveillance/habitats/routes'
+      path: '/larval-surveillance/habitats/routes'
+      fullPath: '/larval-surveillance/habitats/routes'
+      preLoaderRoute: typeof LarvalSurveillanceHabitatsRoutesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/habitats/create': {
+      id: '/larval-surveillance/habitats/create'
+      path: '/larval-surveillance/habitats/create'
+      fullPath: '/larval-surveillance/habitats/create'
+      preLoaderRoute: typeof LarvalSurveillanceHabitatsCreateRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/gis-data/regions/create': {
       id: '/gis-data/regions/create'
@@ -1957,6 +2124,7 @@ const rootRouteChildren: RootRouteChildren = {
   GisDataDataExplorerRoute: GisDataDataExplorerRoute,
   HabitatsIdRoute: HabitatsIdRoute,
   AdultSurveillanceIndexRoute: AdultSurveillanceIndexRoute,
+  LarvalSurveillanceIndexRoute: LarvalSurveillanceIndexRoute,
   AdultSurveillanceCollectionsIdRoute:
     AdultSurveillanceCollectionsIdRouteWithChildren,
   AdultSurveillanceCollectionsCreateRoute:
@@ -1967,6 +2135,15 @@ const rootRouteChildren: RootRouteChildren = {
   GisDataAddressesCreateRoute: GisDataAddressesCreateRoute,
   GisDataRegionsIdRoute: GisDataRegionsIdRouteWithChildren,
   GisDataRegionsCreateRoute: GisDataRegionsCreateRoute,
+  LarvalSurveillanceHabitatsCreateRoute: LarvalSurveillanceHabitatsCreateRoute,
+  LarvalSurveillanceHabitatsRoutesRoute: LarvalSurveillanceHabitatsRoutesRoute,
+  LarvalSurveillanceHabitatsStatsRoute: LarvalSurveillanceHabitatsStatsRoute,
+  LarvalSurveillanceHabitatsTypesRoute: LarvalSurveillanceHabitatsTypesRoute,
+  LarvalSurveillanceInspectionsCreateRoute:
+    LarvalSurveillanceInspectionsCreateRoute,
+  LarvalSurveillanceInspectionsStatsRoute:
+    LarvalSurveillanceInspectionsStatsRoute,
+  LarvalSurveillanceSamplesStatsRoute: LarvalSurveillanceSamplesStatsRoute,
   OperationsAssignmentsIdRoute: OperationsAssignmentsIdRouteWithChildren,
   OperationsAssignmentsCreateRoute: OperationsAssignmentsCreateRoute,
   OperationsMissionsIdRoute: OperationsMissionsIdRouteWithChildren,

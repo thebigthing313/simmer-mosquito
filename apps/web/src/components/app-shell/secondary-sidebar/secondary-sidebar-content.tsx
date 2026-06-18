@@ -9,7 +9,9 @@ export function SecondarySidebarContent() {
 	const activeItemId = item?.id ?? null;
 
 	function handleSelect(navItem: ShellNavItem) {
-		onNavigate(navItem.to);
+		if (navItem.to !== undefined) {
+			onNavigate(navItem.to);
+		}
 	}
 
 	return (
