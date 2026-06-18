@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { BasemapSwitcher } from './basemap-switcher';
 import { GeolocateControl } from './geolocate-control';
 import { MapFallback } from './map-fallback';
+import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
@@ -66,10 +67,12 @@ export function MapCanvas({
 						<div className="pointer-events-auto absolute top-4 left-4">
 							<MapSearch map={map} />
 						</div>
-						<div className="pointer-events-auto absolute top-4 right-4">
+						<div className="pointer-events-auto absolute top-4 right-4 flex flex-col items-end gap-3">
 							<BasemapSwitcher onChange={setBasemapId} value={basemapId} />
+							<MapLayerControls />
 						</div>
-						<div className="pointer-events-auto absolute right-4 bottom-4 flex flex-col items-end gap-2">
+						{/* bottom-11 leaves the corner clear for the compact attribution chip. */}
+						<div className="pointer-events-auto absolute right-4 bottom-11 flex flex-col items-end gap-2">
 							<GeolocateControl map={map} />
 							<MapZoomControls map={map} />
 						</div>

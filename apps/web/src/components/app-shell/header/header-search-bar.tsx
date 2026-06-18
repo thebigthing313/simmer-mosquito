@@ -1,13 +1,6 @@
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-} from '@simmer-mosquito/ui-web/components/ui/input-group';
 import { Kbd } from '@simmer-mosquito/ui-web/components/ui/kbd';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useEffect, useRef, useState } from 'react';
-
-const SearchIcon = iconRegistry.actions.search.icon;
+import { SearchInput } from '../../input/search-input';
 
 /**
  * Global search affordance. A focusable field with a platform-aware shortcut
@@ -34,22 +27,19 @@ export function HeaderSearchBar() {
 	}, []);
 
 	return (
-		<InputGroup className="h-9 w-full max-w-md bg-background">
-			<InputGroupAddon align="inline-start">
-				<SearchIcon aria-hidden="true" />
-			</InputGroupAddon>
-			<InputGroupInput
-				ref={inputRef}
-				type="search"
-				value={query}
-				onChange={(event) => setQuery(event.target.value)}
-				placeholder="Search records, places, requests…"
-				aria-label="Search"
-			/>
-			<InputGroupAddon align="inline-end">
-				<Kbd>{modKey}</Kbd>
-				<Kbd>K</Kbd>
-			</InputGroupAddon>
-		</InputGroup>
+		<SearchInput
+			aria-label="Search"
+			className="h-9 w-full max-w-md bg-background"
+			endAddon={
+				<>
+					<Kbd>{modKey}</Kbd>
+					<Kbd>K</Kbd>
+				</>
+			}
+			onChange={(event) => setQuery(event.target.value)}
+			placeholder="Search SIMMER…"
+			ref={inputRef}
+			value={query}
+		/>
 	);
 }

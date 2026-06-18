@@ -64,11 +64,11 @@ export function useMapboxMap({
 			zoom: initialCamera.zoom,
 			bearing: initialCamera.bearing ?? 0,
 			pitch: initialCamera.pitch ?? 0,
-			// We render attribution ourselves (bottom-left, compact) so the
-			// bottom-right corner is free for the zoom + locate controls.
+			// Start with no attribution, then add a compact one in the bottom-right
+			// corner so it tucks in beneath the zoom + locate control stack.
 			attributionControl: false,
 		});
-		instance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
+		instance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
 		appliedBasemap.current = basemapRef.current;
 
 		let loaded = false;

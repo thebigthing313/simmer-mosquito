@@ -32,3 +32,34 @@ select {
 	line-height: 1.1;
 	text-transform: uppercase;
 }
+
+/*
+ * Mapbox compact attribution, restyled to match our floating map controls. The
+ * descendant `.mapboxgl-map` selectors raise specificity so they win regardless
+ * of whether mapbox-gl.css loads before or after this sheet. When closed the
+ * container falls away and only the toggle carries the control chrome; when open
+ * the default readable pill returns for the attribution links.
+ */
+.mapboxgl-map .mapboxgl-ctrl.mapboxgl-ctrl-attrib.mapboxgl-compact {
+	margin: 0 1rem 1rem 0;
+}
+
+.mapboxgl-map .mapboxgl-ctrl-attrib.mapboxgl-compact:not(.mapboxgl-compact-show) {
+	background: transparent;
+	box-shadow: none;
+}
+
+.mapboxgl-map .mapboxgl-ctrl-attrib-button {
+	border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+	border-radius: var(--radius);
+	background-color: color-mix(in oklch, var(--background) 80%, transparent);
+	box-shadow:
+		0 4px 6px -1px rgb(0 0 0 / 0.1),
+		0 2px 4px -2px rgb(0 0 0 / 0.1),
+		0 0 0 1px rgb(0 0 0 / 0.03);
+	backdrop-filter: blur(4px);
+}
+
+.mapboxgl-map .mapboxgl-ctrl-attrib-button:hover {
+	background-color: color-mix(in oklch, var(--accent) 55%, var(--background));
+}

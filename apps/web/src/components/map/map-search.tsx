@@ -1,13 +1,14 @@
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { InputGroupButton } from '@simmer-mosquito/ui-web/components/ui/input-group';
 import {
 	Popover,
 	PopoverAnchor,
 	PopoverContent,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
-import { Loader2Icon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { Loader2Icon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { SearchInput } from '../input/search-input';
 import { getMapboxToken } from './map-styles';
 import {
 	createSessionToken,
@@ -143,15 +144,18 @@ export function MapSearch({ map }: { readonly map: MapboxMap | null }) {
 	return (
 		<Popover onOpenChange={setOpen} open={showResults}>
 			<PopoverAnchor asChild>
-				<div className="relative w-[min(22rem,calc(100vw-7rem))]">
-					<SearchIcon
-						aria-hidden="true"
-						className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-					/>
-					<Input
-						aria-label="Search places"
-						className="h-10 border-border/70 bg-background/85 pr-9 pl-9 text-sm shadow-md ring-1 ring-black/[0.03] backdrop-blur-sm supports-[backdrop-filter]:bg-background/75"
+				<div className="w-[min(22rem,calc(100vw-7rem))]">
+					<SearchInput
+						aria-label="Search for a location"
+						className="h-10 border-border/70 bg-background/85 text-sm shadow-md ring-1 ring-black/[0.03] backdrop-blur-sm supports-[backdrop-filter]:bg-background/75"
 						disabled={!canSearch}
+						endAddon={
+							query.length > 0 ? (
+								<InputGroupButton aria-label="Clear search" onClick={resetSearch} size="icon-xs">
+									<XIcon aria-hidden="true" />
+								</InputGroupButton>
+							) : null
+						}
 						onChange={(event) => {
 							retrieveController.current?.abort();
 							setSelectingId(null);
@@ -159,19 +163,9 @@ export function MapSearch({ map }: { readonly map: MapboxMap | null }) {
 							setOpen(true);
 						}}
 						onFocus={() => setOpen(trimmedQuery.length > 0)}
-						placeholder={canSearch ? 'Search places and addresses' : 'Mapbox token required'}
+						placeholder={canSearch ? 'Search for a location…' : 'Mapbox token required'}
 						value={query}
 					/>
-					{query.length > 0 ? (
-						<button
-							aria-label="Clear search"
-							className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-							onClick={resetSearch}
-							type="button"
-						>
-							<XIcon aria-hidden="true" className="size-4" />
-						</button>
-					) : null}
 				</div>
 			</PopoverAnchor>
 			<PopoverContent
