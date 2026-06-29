@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
+import { BreadcrumbLabelProvider } from './breadcrumb-labels';
 import { shellDomains } from './navigation';
 import { OutletShell } from './outlet/outlet-shell';
 import { ShellProvider } from './shell-context';
@@ -68,9 +69,11 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 					window.location.href = `${getServerUrl()}/auth/logout`;
 				}}
 			>
-				<OutletShell>
-					<Outlet />
-				</OutletShell>
+				<BreadcrumbLabelProvider>
+					<OutletShell>
+						<Outlet />
+					</OutletShell>
+				</BreadcrumbLabelProvider>
 			</ShellProvider>
 			<Toaster richColors />
 		</>

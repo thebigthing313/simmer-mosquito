@@ -1,9 +1,11 @@
 import {
+	countActiveHabitatsByType,
 	getHabitatDisplayRowById,
 	getHabitatMvtTile,
 	type HabitatByIdInput,
 	type HabitatMvtTileFilters,
 	type HabitatMvtTileInput,
+	type HabitatTypeUsageRow,
 	type Kysely,
 	listHabitatDisplayRowsByBounds,
 	type SafeHabitatDisplayRow,
@@ -26,6 +28,10 @@ type HabitatDisplayByIdReader = (
 	db: TileDb,
 	input: HabitatByIdInput,
 ) => Promise<SafeHabitatDisplayRow | undefined>;
+type HabitatTypeUsageReader = (
+	db: TileDb,
+	input: { readonly organizationId: string },
+) => Promise<HabitatTypeUsageRow[]>;
 
 type TileCoordinateResult =
 	| {
@@ -95,6 +101,7 @@ export function registerMapTileRoutes(
 		readonly getHabitatTile?: HabitatTileReader;
 		readonly listHabitatDisplayRows?: HabitatDisplayReader;
 		readonly getHabitatDisplayRow?: HabitatDisplayByIdReader;
+		readonly countHabitatTypeUsage?: HabitatTypeUsageReader;
 	},
 ): void {
 	const tileSets = createTileSetRegistry({
@@ -102,6 +109,7 @@ export function registerMapTileRoutes(
 	});
 	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
 	const getDisplayRow = options.getHabitatDisplayRow ?? getHabitatDisplayRowById;
+	const countTypeUsage = options.countHabitatTypeUsage ?? countActiveHabitatsByType;
 
 	app.get('/map/habitats', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
@@ -117,6 +125,16 @@ export function registerMapTileRoutes(
 		const habitats = await listDisplayRows(options.db, queryResult.input);
 
 		return context.json({ habitats });
+	});
+
+	// Registered before `/:id` so the literal segment wins over the UUID param.
+	app.get('/map/habitats/type-usage', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const usage = await countTypeUsage(options.db, {
+			organizationId: authContext.organization.id,
+		});
+
+		return context.json({ usage });
 	});
 
 	app.get('/map/habitats/:id', options.authContextMiddleware, async (context) => {

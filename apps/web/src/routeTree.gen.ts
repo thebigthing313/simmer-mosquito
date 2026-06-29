@@ -83,6 +83,7 @@ import { Route as LarvalSurveillanceHabitatsTypesRouteImport } from './routes/la
 import { Route as LarvalSurveillanceHabitatsStatsRouteImport } from './routes/larval-surveillance/habitats/stats'
 import { Route as LarvalSurveillanceHabitatsRoutesRouteImport } from './routes/larval-surveillance/habitats/routes'
 import { Route as LarvalSurveillanceHabitatsCreateRouteImport } from './routes/larval-surveillance/habitats/create'
+import { Route as LarvalSurveillanceHabitatsIdRouteImport } from './routes/larval-surveillance/habitats/$id'
 import { Route as GisDataRegionsCreateRouteImport } from './routes/gis-data/regions/create'
 import { Route as GisDataRegionsIdRouteImport } from './routes/gis-data/regions/$id'
 import { Route as GisDataAddressesCreateRouteImport } from './routes/gis-data/addresses/create'
@@ -501,6 +502,12 @@ const LarvalSurveillanceHabitatsCreateRoute =
     path: '/larval-surveillance/habitats/create',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LarvalSurveillanceHabitatsIdRoute =
+  LarvalSurveillanceHabitatsIdRouteImport.update({
+    id: '/larval-surveillance/habitats/$id',
+    path: '/larval-surveillance/habitats/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const GisDataRegionsCreateRoute = GisDataRegionsCreateRouteImport.update({
   id: '/gis-data/regions/create',
   path: '/gis-data/regions/create',
@@ -658,6 +665,7 @@ export interface FileRoutesByFullPath {
   '/gis-data/addresses/create': typeof GisDataAddressesCreateRoute
   '/gis-data/regions/$id': typeof GisDataRegionsIdRouteWithChildren
   '/gis-data/regions/create': typeof GisDataRegionsCreateRoute
+  '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
   '/larval-surveillance/habitats/routes': typeof LarvalSurveillanceHabitatsRoutesRoute
   '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
@@ -748,6 +756,7 @@ export interface FileRoutesByTo {
   '/gis-data/addresses/create': typeof GisDataAddressesCreateRoute
   '/gis-data/regions/$id': typeof GisDataRegionsIdRouteWithChildren
   '/gis-data/regions/create': typeof GisDataRegionsCreateRoute
+  '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
   '/larval-surveillance/habitats/routes': typeof LarvalSurveillanceHabitatsRoutesRoute
   '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
@@ -843,6 +852,7 @@ export interface FileRoutesById {
   '/gis-data/addresses/create': typeof GisDataAddressesCreateRoute
   '/gis-data/regions/$id': typeof GisDataRegionsIdRouteWithChildren
   '/gis-data/regions/create': typeof GisDataRegionsCreateRoute
+  '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
   '/larval-surveillance/habitats/routes': typeof LarvalSurveillanceHabitatsRoutesRoute
   '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
@@ -939,6 +949,7 @@ export interface FileRouteTypes {
     | '/gis-data/addresses/create'
     | '/gis-data/regions/$id'
     | '/gis-data/regions/create'
+    | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
     | '/larval-surveillance/habitats/routes'
     | '/larval-surveillance/habitats/stats'
@@ -1029,6 +1040,7 @@ export interface FileRouteTypes {
     | '/gis-data/addresses/create'
     | '/gis-data/regions/$id'
     | '/gis-data/regions/create'
+    | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
     | '/larval-surveillance/habitats/routes'
     | '/larval-surveillance/habitats/stats'
@@ -1123,6 +1135,7 @@ export interface FileRouteTypes {
     | '/gis-data/addresses/create'
     | '/gis-data/regions/$id'
     | '/gis-data/regions/create'
+    | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
     | '/larval-surveillance/habitats/routes'
     | '/larval-surveillance/habitats/stats'
@@ -1204,6 +1217,7 @@ export interface RootRouteChildren {
   GisDataAddressesCreateRoute: typeof GisDataAddressesCreateRoute
   GisDataRegionsIdRoute: typeof GisDataRegionsIdRouteWithChildren
   GisDataRegionsCreateRoute: typeof GisDataRegionsCreateRoute
+  LarvalSurveillanceHabitatsIdRoute: typeof LarvalSurveillanceHabitatsIdRoute
   LarvalSurveillanceHabitatsCreateRoute: typeof LarvalSurveillanceHabitatsCreateRoute
   LarvalSurveillanceHabitatsRoutesRoute: typeof LarvalSurveillanceHabitatsRoutesRoute
   LarvalSurveillanceHabitatsStatsRoute: typeof LarvalSurveillanceHabitatsStatsRoute
@@ -1755,6 +1769,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LarvalSurveillanceHabitatsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/larval-surveillance/habitats/$id': {
+      id: '/larval-surveillance/habitats/$id'
+      path: '/larval-surveillance/habitats/$id'
+      fullPath: '/larval-surveillance/habitats/$id'
+      preLoaderRoute: typeof LarvalSurveillanceHabitatsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gis-data/regions/create': {
       id: '/gis-data/regions/create'
       path: '/gis-data/regions/create'
@@ -2135,6 +2156,7 @@ const rootRouteChildren: RootRouteChildren = {
   GisDataAddressesCreateRoute: GisDataAddressesCreateRoute,
   GisDataRegionsIdRoute: GisDataRegionsIdRouteWithChildren,
   GisDataRegionsCreateRoute: GisDataRegionsCreateRoute,
+  LarvalSurveillanceHabitatsIdRoute: LarvalSurveillanceHabitatsIdRoute,
   LarvalSurveillanceHabitatsCreateRoute: LarvalSurveillanceHabitatsCreateRoute,
   LarvalSurveillanceHabitatsRoutesRoute: LarvalSurveillanceHabitatsRoutesRoute,
   LarvalSurveillanceHabitatsStatsRoute: LarvalSurveillanceHabitatsStatsRoute,

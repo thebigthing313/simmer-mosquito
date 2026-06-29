@@ -70,7 +70,8 @@ import {
 	useState,
 } from 'react';
 import { getServerUrl } from '../auth';
-import { createGeoJsonMapSource, type MapCamera, MapView } from '../map';
+import { useBreadcrumbLabel } from '../components/app-shell';
+import { type MapCamera, MapCanvas } from '../components/map';
 import { webCollections } from '../sync/webCollections';
 
 const historyPageSize = 25;
@@ -125,18 +126,37 @@ interface HistorySampleRow extends HistorySample {
 	readonly inspectionDate: string;
 }
 
-interface HabitatDetailProps {
-	readonly habitatId: string;
+// Applications are scoped to the habitat directly (application.habitatId), so they
+// surface here as a sibling of inspections — including any not tied to a specific
+// inspection — rather than nested under the inspection includes.
+interface HistoryApplication {
+	readonly id: string;
+	readonly applicationDate: string;
+	readonly applicatorProfileId: string | null;
+	readonly insecticideId: string;
+	readonly applicationMethodId: string | null;
+	readonly amountApplied: number;
+	readonly applicationUnitId: string;
 }
 
-export function HabitatDetail({ habitatId }: HabitatDetailProps) {
+// The detail view is reachable from more than one habitats index (the legacy
+// top-level list and the larval-surveillance explorer), so the caller decides
+// where "Back to habitats" returns to.
+type HabitatDetailBackTo = '/habitats' | '/larval-surveillance/habitats';
+
+interface HabitatDetailProps {
+	readonly habitatId: string;
+	readonly backTo?: HabitatDetailBackTo;
+}
+
+export function HabitatDetail({ habitatId, backTo = '/habitats' }: HabitatDetailProps) {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className="mx-auto grid w-full max-w-[1200px] content-start gap-5 pb-10">
 				<div>
 					<Link
 						className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-						to="/habitats"
+						to={backTo}
 					>
 						<ArrowLeftIcon aria-hidden="true" />
 						Back to habitats
@@ -171,6 +191,9 @@ function HabitatDetailLoader({ habitatId }: { readonly habitatId: string }) {
 }
 
 function HabitatDetailContent({ habitat }: { readonly habitat: HabitatRow }) {
+	// Surface the habitat's name in the breadcrumb trail in place of its uuid.
+	useBreadcrumbLabel(habitat.id, habitatName(habitat));
+
 	// Geometry is not part of the Electric shape (ADR 0009), so it is fetched from
 	// the server display endpoint. Keying on updatedAt makes it refetch whenever
 	// the synced record changes, keeping the map in step with edits.
@@ -259,18 +282,6 @@ function HabitatLocationCard({
 		() => (centroid === null ? undefined : { center: [centroid.lng, centroid.lat], zoom: 15 }),
 		[centroid],
 	);
-	const geoJsonSources = useMemo(
-		() =>
-			geojson === null
-				? []
-				: [
-						createGeoJsonMapSource({
-							id: 'habitat-geometry',
-							data: geojson as unknown as GeoJSON.GeoJSON,
-						}),
-					],
-		[geojson],
-	);
 	const mapRef = useRef<MapboxMap | null>(null);
 	const fitToBounds = useCallback(
 		(map: MapboxMap) => {
@@ -329,9 +340,9 @@ function HabitatLocationCard({
 					</Empty>
 				) : (
 					<div className="h-[380px] overflow-hidden rounded-md border border-border/40">
-						<MapView
-							className="min-h-0 rounded-none border-0"
-							geoJsonSources={geoJsonSources}
+						<MapCanvas
+							controls={{ search: false, layers: false, geolocate: false }}
+							geoJson={geojson as unknown as GeoJSON.GeoJSON}
 							onMapReady={handleMapReady}
 							{...(camera === undefined ? {} : { camera })}
 						/>
@@ -617,29 +628,74 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 		[inspections],
 	);
 
+	// Applications correlate to the habitat directly, so they load as their own
+	// on-demand live query alongside inspections (same gcTime + status-gated
+	// pattern), not as a nested include under the inspection rows.
+	const applicationsResult = useLiveQuery(
+		{
+			gcTime: historyGcTimeMs,
+			query: (query) =>
+				query
+					.from({ application: webCollections.applications })
+					.where(({ application }) => eq(application.habitatId, habitatId))
+					.orderBy(({ application }) => application.applicationDate, 'desc')
+					.select(({ application }) => ({
+						id: application.id,
+						applicationDate: application.applicationDate,
+						applicatorProfileId: application.applicatorProfileId,
+						insecticideId: application.insecticideId,
+						applicationMethodId: application.applicationMethodId,
+						amountApplied: application.amountApplied,
+						applicationUnitId: application.applicationUnitId,
+					})),
+		},
+		[habitatId],
+	);
+	const applications = (applicationsResult.data ?? []) as unknown as readonly HistoryApplication[];
+
+	const isError = result.isError;
+	// Hold the tabs behind a skeleton until both on-demand subsets settle so the
+	// Applications tab count isn't briefly wrong; an applications-only failure is
+	// surfaced inside its own tab rather than blanking the whole card.
+	const applicationsSettled = applicationsResult.isReady || applicationsResult.isError;
+	const isReady = result.isReady && applicationsSettled;
+
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
 				<CardTitle>History</CardTitle>
-				<CardDescription>Recent larval inspections and samples for this habitat.</CardDescription>
+				<CardDescription>
+					Recent larval inspections, samples, and applications for this habitat.
+				</CardDescription>
 			</CardHeader>
 			<CardContent padding="compact">
-				{result.isError ? (
+				{isError ? (
 					<HistoryEmpty
 						title="History unavailable"
 						description="Inspection and sample history could not be loaded."
 					/>
-				) : result.isReady ? (
+				) : isReady ? (
 					<Tabs defaultValue="inspections">
 						<TabsList>
 							<TabsTrigger value="inspections">Inspections ({inspections.length})</TabsTrigger>
 							<TabsTrigger value="samples">Samples ({samples.length})</TabsTrigger>
+							<TabsTrigger value="applications">Applications ({applications.length})</TabsTrigger>
 						</TabsList>
 						<TabsContent value="inspections" className="pt-4">
 							<InspectionHistory inspections={inspections} />
 						</TabsContent>
 						<TabsContent value="samples" className="pt-4">
 							<SampleHistory samples={samples} />
+						</TabsContent>
+						<TabsContent value="applications" className="pt-4">
+							{applicationsResult.isError ? (
+								<HistoryEmpty
+									title="Applications unavailable"
+									description="Application history could not be loaded."
+								/>
+							) : (
+								<ApplicationHistory applications={applications} />
+							)}
 						</TabsContent>
 					</Tabs>
 				) : (
@@ -790,6 +846,84 @@ function SampleHistory({ samples }: { readonly samples: readonly HistorySampleRo
 	);
 }
 
+function ApplicationHistory({
+	applications,
+}: {
+	readonly applications: readonly HistoryApplication[];
+}) {
+	const { page, pageCount, pageRows, setPage } = usePagedRows(applications, historyPageSize);
+
+	if (applications.length === 0) {
+		return (
+			<HistoryEmpty
+				title="No applications yet"
+				description="Control applications recorded on this habitat will show here."
+			/>
+		);
+	}
+
+	return (
+		<div className="grid gap-2">
+			<ScrollArea className="max-h-[420px]">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Date</TableHead>
+							<TableHead>Applicator</TableHead>
+							<TableHead>Insecticide</TableHead>
+							<TableHead>Method</TableHead>
+							<TableHead className="text-right">Amount</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{pageRows.map((application) => (
+							<TableRow key={application.id}>
+								<TableCell className="whitespace-nowrap">
+									{formatDate(application.applicationDate)}
+								</TableCell>
+								<TableCell className="whitespace-nowrap">
+									{application.applicatorProfileId === null ? (
+										<span className="text-muted-foreground">—</span>
+									) : (
+										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+											<ProfileName profileId={application.applicatorProfileId} />
+										</Suspense>
+									)}
+								</TableCell>
+								<TableCell>
+									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+										<InsecticideName insecticideId={application.insecticideId} />
+									</Suspense>
+								</TableCell>
+								<TableCell>
+									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+										<ApplicationMethodName applicationMethodId={application.applicationMethodId} />
+									</Suspense>
+								</TableCell>
+								<TableCell className="text-right tabular-nums">
+									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+										<ApplicationAmount
+											amount={application.amountApplied}
+											unitId={application.applicationUnitId}
+										/>
+									</Suspense>
+								</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			</ScrollArea>
+			<HistoryPagination
+				noun="applications"
+				onPageChange={setPage}
+				page={page}
+				pageCount={pageCount}
+				total={applications.length}
+			/>
+		</div>
+	);
+}
+
 function SampleSpeciesSummary({ species }: { readonly species: readonly HistorySampleSpecies[] }) {
 	if (species.length === 0) {
 		return <span className="text-muted-foreground">No species identified</span>;
@@ -827,6 +961,64 @@ function ProfileName({ profileId }: { readonly profileId: string }) {
 	);
 
 	return <>{result.data?.displayName ?? 'Unknown'}</>;
+}
+
+// insecticides, units, and application methods are eager baseline collections, so
+// suspense is safe — unlike the on-demand applications subset they decorate.
+function InsecticideName({ insecticideId }: { readonly insecticideId: string }) {
+	const result = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ insecticide: webCollections.insecticides })
+				.where(({ insecticide }) => eq(insecticide.id, insecticideId))
+				.findOne(),
+		[insecticideId],
+	);
+
+	return <>{result.data?.tradeName ?? 'Unknown insecticide'}</>;
+}
+
+function ApplicationMethodName({
+	applicationMethodId,
+}: {
+	readonly applicationMethodId: string | null;
+}) {
+	const result = useLiveSuspenseQuery(
+		(query) => query.from({ method: webCollections.applicationMethods }),
+		[],
+	);
+
+	if (applicationMethodId === null) {
+		return <span className="text-muted-foreground">No method recorded</span>;
+	}
+
+	const match = result.data.find((method) => method.id === applicationMethodId);
+	return <>{match?.name ?? 'Unknown method'}</>;
+}
+
+function ApplicationAmount({
+	amount,
+	unitId,
+}: {
+	readonly amount: number;
+	readonly unitId: string;
+}) {
+	const result = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ unit: webCollections.units })
+				.where(({ unit }) => eq(unit.id, unitId))
+				.findOne(),
+		[unitId],
+	);
+
+	const abbreviation = result.data?.abbreviation ?? '';
+	return (
+		<>
+			{formatAmount(amount)}
+			{abbreviation === '' ? null : ` ${abbreviation}`}
+		</>
+	);
 }
 
 function useHabitatTypeName(habitatTypeId: string | null): string {
@@ -1347,6 +1539,16 @@ function formatDate(value: string): string {
 		month: 'short',
 		year: 'numeric',
 	}).format(date);
+}
+
+// Trim trailing zeros from stored decimals (e.g. 2.50 -> 2.5) while keeping whole
+// amounts whole, so applied quantities read naturally next to their unit.
+function formatAmount(value: number): string {
+	if (!Number.isFinite(value)) {
+		return '—';
+	}
+
+	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value);
 }
 
 function formatDateTime(value: string): string {

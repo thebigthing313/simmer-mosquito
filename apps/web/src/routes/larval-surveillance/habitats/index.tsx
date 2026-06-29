@@ -30,7 +30,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
@@ -536,26 +536,36 @@ function HabitatListItem({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
+	// A full-row background button drives map selection/preview, while the name is
+	// a Link to the detail page layered above it (z-10). Keeping them as sibling
+	// interactive elements — rather than an <a> nested in a <button> — stays valid
+	// and lets "click row to preview, click name to open" coexist.
 	return (
-		<li>
+		<li className="relative">
 			<button
-				aria-current={isSelected ? 'true' : undefined}
+				aria-label={`Show ${habitatName(habitat)} on the map`}
+				aria-pressed={isSelected}
 				className={cn(
-					'flex w-full items-center gap-3 px-4 py-3 text-left transition-colors',
+					'absolute inset-0 size-full transition-colors',
 					isSelected ? 'bg-primary/8 ring-1 ring-primary/40 ring-inset' : 'hover:bg-muted/50',
 				)}
 				onClick={() => onSelect(habitat.id)}
 				type="button"
-			>
+			/>
+			<div className="pointer-events-none relative flex items-center gap-3 px-4 py-3">
 				<StatusDot habitat={habitat} />
 				<span className="min-w-0 flex-1">
-					<span className="block truncate font-medium text-foreground text-sm">
+					<Link
+						className="pointer-events-auto relative z-10 block w-fit max-w-full truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+						params={{ id: habitat.id }}
+						to="/larval-surveillance/habitats/$id"
+					>
 						{habitatName(habitat)}
-					</span>
+					</Link>
 					<span className="block truncate text-muted-foreground text-xs">{typeName}</span>
 				</span>
 				<StatusBadge habitat={habitat} />
-			</button>
+			</div>
 		</li>
 	);
 }
@@ -576,8 +586,14 @@ function HabitatDetailCard({
 			<article className="pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
 				<div className="flex items-start justify-between gap-3">
 					<div className="min-w-0 grid gap-0.5">
-						<h2 className="truncate font-semibold text-base text-foreground leading-tight">
-							{habitatName(habitat)}
+						<h2 className="font-semibold text-base text-foreground leading-tight">
+							<Link
+								className="block w-fit max-w-full truncate rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+								params={{ id: habitat.id }}
+								to="/larval-surveillance/habitats/$id"
+							>
+								{habitatName(habitat)}
+							</Link>
 						</h2>
 						<p className="truncate text-muted-foreground text-sm">{typeName}</p>
 					</div>

@@ -1,3 +1,8 @@
+export {
+	BreadcrumbLabelProvider,
+	useBreadcrumbLabel,
+	useBreadcrumbLabels,
+} from './breadcrumb-labels';
 export { AppHeader } from './header/app-header';
 export { HeaderSearchBar } from './header/header-search-bar';
 export { buildBreadcrumbs, firstDestination, resolveActive, shellDomains } from './navigation';

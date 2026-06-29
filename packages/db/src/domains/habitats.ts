@@ -136,6 +136,43 @@ export async function listHabitatDisplayRowsByBounds(
 	return result.rows;
 }
 
+export interface HabitatTypeUsageRow {
+	readonly habitatTypeId: string;
+	/** Count of the organization's active, non-deleted habitats carrying this type. */
+	readonly activeCount: number;
+}
+
+/**
+ * Active-habitat counts grouped by habitat type for one organization. Powers the
+ * habitat-types management view, where each type shows how many live sites still
+ * wear its label. Types with zero active habitats are simply absent from the
+ * result; callers default missing ids to 0.
+ */
+export async function countActiveHabitatsByType(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string },
+): Promise<HabitatTypeUsageRow[]> {
+	const result = await sql<{
+		readonly habitatTypeId: string;
+		readonly activeCount: string | number;
+	}>`
+		select
+			h.habitat_type_id as "habitatTypeId",
+			count(*) as "activeCount"
+		from habitats h
+		where h.organization_id = ${input.organizationId}
+			and h.deleted_at is null
+			and h.is_active = true
+			and h.habitat_type_id is not null
+		group by h.habitat_type_id
+	`.execute(db);
+
+	return result.rows.map((row) => ({
+		habitatTypeId: row.habitatTypeId,
+		activeCount: Number(row.activeCount),
+	}));
+}
+
 export interface HabitatByIdInput {
 	readonly organizationId: string;
 	readonly id: string;

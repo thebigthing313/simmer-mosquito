@@ -419,9 +419,14 @@ function looksLikeRecordId(segment: string): boolean {
 
 /**
  * Breadcrumb trail for a path: the active domain, the active item, and any
- * meaningful trailing segments (record ids are skipped as labels).
+ * meaningful trailing segments. A trailing segment uses its registered label
+ * when one is supplied (e.g. a record's name), otherwise a record id renders as
+ * `#id` and any other segment is title-cased.
  */
-export function buildBreadcrumbs(activePath: string): readonly ShellCrumb[] {
+export function buildBreadcrumbs(
+	activePath: string,
+	labels?: ReadonlyMap<string, string>,
+): readonly ShellCrumb[] {
 	const { domain, group, item } = resolveActive(activePath);
 	const crumbs: ShellCrumb[] = [{ label: domain.label }];
 
@@ -439,6 +444,11 @@ export function buildBreadcrumbs(activePath: string): readonly ShellCrumb[] {
 	const pathSegments = activePath.split('/').filter(Boolean);
 	const trailing = pathSegments.slice(itemSegments.length);
 	for (const segment of trailing) {
+		const override = labels?.get(segment);
+		if (override !== undefined && override !== '') {
+			crumbs.push({ label: override });
+			continue;
+		}
 		crumbs.push({ label: looksLikeRecordId(segment) ? `#${segment}` : titleCase(segment) });
 	}
 

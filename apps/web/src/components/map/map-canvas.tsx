@@ -10,6 +10,7 @@ import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
+import { useGeoJsonLayer } from './use-geojson-layer';
 import { type HabitatTileLayerConfig, useHabitatTileLayer } from './use-habitat-tile-layer';
 import { useMapboxMap } from './use-mapbox-map';
 
@@ -38,6 +39,7 @@ export function MapCanvas({
 	camera,
 	controls,
 	habitatLayer,
+	geoJson,
 	onMapReady,
 }: {
 	readonly className?: string;
@@ -45,6 +47,8 @@ export function MapCanvas({
 	readonly controls?: MapControlsConfig;
 	/** Mount the habitat vector-tile layer with these filters + selection wiring. */
 	readonly habitatLayer?: HabitatTileLayerConfig;
+	/** Draw a single GeoJSON overlay (e.g. one record's geometry on a detail map). */
+	readonly geoJson?: GeoJSON.GeoJSON | null;
 	/** Called once with the GL instance after it loads, for camera/bounds reads. */
 	readonly onMapReady?: (map: MapboxMap) => void;
 }) {
@@ -68,6 +72,7 @@ export function MapCanvas({
 	});
 
 	useHabitatTileLayer(map, isLoaded, habitatLayer);
+	useGeoJsonLayer(map, isLoaded, geoJson ?? null);
 
 	const onMapReadyRef = useRef(onMapReady);
 	onMapReadyRef.current = onMapReady;

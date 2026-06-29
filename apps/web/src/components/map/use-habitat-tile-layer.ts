@@ -104,14 +104,21 @@ export function useHabitatTileLayer(
 			activeMap.off('style.load', ensureLayers);
 			activeMap.off('click', handleClick);
 			activeMap.off('mousemove', handleMove);
-			activeMap.getCanvas().style.cursor = '';
-			for (const id of HABITAT_LAYER_IDS) {
-				if (activeMap.getLayer(id) !== undefined) {
-					activeMap.removeLayer(id);
+			// useMapboxMap's create-effect cleanup calls map.remove() and, on unmount,
+			// runs before this hook's cleanup — touching the canvas, style, sources, or
+			// layers afterward throws. Guard the teardown.
+			try {
+				activeMap.getCanvas().style.cursor = '';
+				for (const id of HABITAT_LAYER_IDS) {
+					if (activeMap.getLayer(id) !== undefined) {
+						activeMap.removeLayer(id);
+					}
 				}
-			}
-			if (activeMap.getSource(HABITAT_SOURCE_ID) !== undefined) {
-				activeMap.removeSource(HABITAT_SOURCE_ID);
+				if (activeMap.getSource(HABITAT_SOURCE_ID) !== undefined) {
+					activeMap.removeSource(HABITAT_SOURCE_ID);
+				}
+			} catch {
+				// Map already removed; nothing left to clean up.
 			}
 		};
 	}, [map, isLoaded, enabled]);

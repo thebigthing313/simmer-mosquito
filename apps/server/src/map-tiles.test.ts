@@ -354,6 +354,54 @@ describe('registerMapTileRoutes', () => {
 		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
 		expect(getHabitatDisplayRow).not.toHaveBeenCalled();
 	});
+
+	it('returns active-habitat usage counts scoped to the selected organization', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			countHabitatTypeUsage: async (_db, input) => {
+				calls.push(input);
+				return [{ habitatTypeId, activeCount: 4 }];
+			},
+		});
+
+		const response = await app.request('/map/habitats/type-usage');
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({
+			usage: [{ habitatTypeId, activeCount: 4 }],
+		});
+		expect(calls).toEqual([{ organizationId }]);
+	});
+
+	it('resolves type-usage to the literal route rather than the id param', async () => {
+		const getHabitatDisplayRow = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getHabitatDisplayRow,
+			countHabitatTypeUsage: async () => [],
+		});
+
+		const response = await app.request('/map/habitats/type-usage');
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ usage: [] });
+		expect(getHabitatDisplayRow).not.toHaveBeenCalled();
+	});
+
+	it('requires auth before reading usage counts', async () => {
+		const countHabitatTypeUsage = vi.fn();
+		const app = createApp({
+			authenticated: false,
+			getHabitatTile: async () => new Uint8Array(),
+			countHabitatTypeUsage,
+		});
+
+		const response = await app.request('/map/habitats/type-usage');
+
+		expect(response.status).toBe(401);
+		expect(countHabitatTypeUsage).not.toHaveBeenCalled();
+	});
 });
 
 function createApp(options: {
@@ -366,6 +414,9 @@ function createApp(options: {
 	>;
 	readonly getHabitatDisplayRow?: NonNullable<
 		Parameters<typeof registerMapTileRoutes>[1]['getHabitatDisplayRow']
+	>;
+	readonly countHabitatTypeUsage?: NonNullable<
+		Parameters<typeof registerMapTileRoutes>[1]['countHabitatTypeUsage']
 	>;
 }) {
 	const app = new Hono<{ Variables: AuthVariables }>();
@@ -386,12 +437,16 @@ function createApp(options: {
 		...(options.getHabitatDisplayRow === undefined
 			? {}
 			: { getHabitatDisplayRow: options.getHabitatDisplayRow }),
+		...(options.countHabitatTypeUsage === undefined
+			? {}
+			: { countHabitatTypeUsage: options.countHabitatTypeUsage }),
 	});
 	return app;
 }
 
 const organizationId = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';
 const habitatId = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
+const habitatTypeId = '4fe25a2d-925c-4d37-9d4e-07185ad19858';
 
 const authContext = {
 	organization: { id: organizationId },
