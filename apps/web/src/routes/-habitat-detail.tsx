@@ -71,6 +71,7 @@ import {
 } from 'react';
 import { getServerUrl } from '../auth';
 import { useBreadcrumbLabel } from '../components/app-shell';
+import { CommentsSection } from '../components/comments-section';
 import { type MapCamera, MapCanvas } from '../components/map';
 import { webCollections } from '../sync/webCollections';
 
@@ -206,17 +207,26 @@ function HabitatDetailContent({ habitat }: { readonly habitat: HabitatRow }) {
 	return (
 		<>
 			<HabitatDetailHeader habitat={habitat} />
-			<div className="grid gap-5 lg:grid-cols-2">
-				<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />
-				<HabitatDetailsCard
-					geometry={resolvedGeometry}
-					habitat={habitat}
-					isGeometryPending={isGeometryPending}
+			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+				<div className="grid min-w-0 content-start gap-5">
+					<div className="grid gap-5 lg:grid-cols-2">
+						<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />
+						<HabitatDetailsCard
+							geometry={resolvedGeometry}
+							habitat={habitat}
+							isGeometryPending={isGeometryPending}
+						/>
+					</div>
+					<Suspense fallback={<HistorySkeleton />}>
+						<HabitatHistoryCard habitatId={habitat.id} />
+					</Suspense>
+				</div>
+				<CommentsSection
+					className="xl:sticky xl:top-0 xl:max-h-[calc(100vh-6.5rem)]"
+					description="Field notes, access details, and status updates for this habitat."
+					target={{ type: 'habitat', id: habitat.id }}
 				/>
 			</div>
-			<Suspense fallback={<HistorySkeleton />}>
-				<HabitatHistoryCard habitatId={habitat.id} />
-			</Suspense>
 		</>
 	);
 }

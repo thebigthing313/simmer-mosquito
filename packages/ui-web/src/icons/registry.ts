@@ -34,11 +34,14 @@ import {
 	MoreHorizontal as LucideMoreHorizontal,
 	MapPinned,
 	Megaphone,
+	MessageSquare,
 	Minus,
 	Moon,
 	Network,
 	OctagonX,
 	PanelLeft,
+	Pin,
+	PinOff,
 	Plus,
 	Printer,
 	Puzzle,
@@ -49,6 +52,7 @@ import {
 	ScanEye,
 	Search,
 	SearchCheck,
+	Send,
 	Settings,
 	SprayCan,
 	Sun,
@@ -122,6 +126,7 @@ export const iconRegistry = {
 		add: icon('add', 'Add', 'actions', Plus),
 		check: icon('check', 'Check', 'actions', Check),
 		close: icon('close', 'Close', 'actions', X),
+		comment: icon('comment', 'Comment', 'actions', MessageSquare),
 		delete: icon('delete', 'Delete', 'actions', Trash2),
 		download: icon('download', 'Download', 'actions', Download),
 		edit: icon('edit', 'Edit', 'actions', Edit),
@@ -129,11 +134,14 @@ export const iconRegistry = {
 		loading: icon('loading', 'Loading', 'actions', Loader2),
 		locate: icon('locate', 'Locate', 'actions', LocateFixed),
 		paste: icon('paste', 'Paste', 'actions', Clipboard),
+		pin: icon('pin', 'Pin', 'actions', Pin),
 		remove: icon('remove', 'Remove', 'actions', Minus),
 		save: icon('save', 'Save', 'actions', Save),
 		search: icon('search', 'Search', 'actions', Search),
 		searchCheck: icon('searchCheck', 'Search check', 'actions', SearchCheck),
 		select: icon('select', 'Select', 'actions', CheckCircle2),
+		send: icon('send', 'Send', 'actions', Send),
+		unpin: icon('unpin', 'Unpin', 'actions', PinOff),
 		warning: icon('warning', 'Warning', 'actions', AlertTriangle),
 	},
 	arrows: {
@@ -207,6 +215,7 @@ export const InfoIcon = iconRegistry.actions.info.icon;
 export const Loader2Icon = iconRegistry.actions.loading.icon;
 export const LocateFixedIcon = iconRegistry.actions.locate.icon;
 export const MapPinnedIcon = iconRegistry.simmer.fieldWork.icon;
+export const MessageSquareIcon = iconRegistry.actions.comment.icon;
 export const MinusIcon = iconRegistry.actions.remove.icon;
 export const MoonIcon = iconRegistry.generic.moon.icon;
 export const MoreHorizontal = iconRegistry.arrows.moreHorizontal.icon;
@@ -214,12 +223,15 @@ export const MoreHorizontalIcon = iconRegistry.arrows.moreHorizontal.icon;
 export const MosquitoIcon = iconRegistry.simmer.mosquito.icon;
 export const OctagonXIcon = iconRegistry.generic.error.icon;
 export const PanelLeftIcon = iconRegistry.arrows.panelLeft.icon;
+export const PinIcon = iconRegistry.actions.pin.icon;
+export const PinOffIcon = iconRegistry.actions.unpin.icon;
 export const PlusIcon = iconRegistry.actions.add.icon;
 export const PuzzleIcon = iconRegistry.generic.puzzle.icon;
 export const SaveIcon = iconRegistry.actions.save.icon;
 export const SatelliteIcon = iconRegistry.generic.satellite.icon;
 export const ScanEyeIcon = iconRegistry.generic.scanEye.icon;
 export const SearchIcon = iconRegistry.actions.search.icon;
+export const SendIcon = iconRegistry.actions.send.icon;
 export const SettingsIcon = iconRegistry.generic.settings.icon;
 export const SunIcon = iconRegistry.generic.sun.icon;
 export const TriangleAlertIcon = iconRegistry.actions.warning.icon;
