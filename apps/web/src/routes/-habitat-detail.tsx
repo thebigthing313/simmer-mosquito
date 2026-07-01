@@ -10,6 +10,7 @@ import {
 } from '@simmer-mosquito/mapping';
 import type { HabitatRow, LarvalDensity, TagRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -56,7 +57,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useQuery } from '@tanstack/react-query';
+import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import {
@@ -74,6 +75,7 @@ import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { type MapCamera, MapCanvas } from '../components/map';
 import { webCollections } from '../sync/webCollections';
+import { HabitatInspectionStats } from './-habitat-inspection-stats';
 
 const historyPageSize = 25;
 // Keep the on-demand inspection/sample/species subsets warm briefly after unmount
@@ -154,7 +156,7 @@ export function HabitatDetail({ habitatId, backTo = '/habitats' }: HabitatDetail
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className="mx-auto grid w-full max-w-[1200px] content-start gap-5 pb-10">
-				<div>
+				<div className="flex items-center justify-between gap-3">
 					<Link
 						className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
 						to={backTo}
@@ -162,6 +164,13 @@ export function HabitatDetail({ habitatId, backTo = '/habitats' }: HabitatDetail
 						<ArrowLeftIcon aria-hidden="true" />
 						Back to habitats
 					</Link>
+					{backTo === '/larval-surveillance/habitats' ? (
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
+								Edit habitat
+							</Link>
+						</Button>
+					) : null}
 				</div>
 				<Suspense fallback={<HabitatDetailSkeleton />}>
 					<HabitatDetailLoader habitatId={habitatId} />
@@ -198,10 +207,7 @@ function HabitatDetailContent({ habitat }: { readonly habitat: HabitatRow }) {
 	// Geometry is not part of the Electric shape (ADR 0009), so it is fetched from
 	// the server display endpoint. Keying on updatedAt makes it refetch whenever
 	// the synced record changes, keeping the map in step with edits.
-	const { data: geometry, isPending: isGeometryPending } = useHabitatGeometry(
-		habitat.id,
-		habitat.updatedAt,
-	);
+	const { data: geometry, isPending: isGeometryPending } = useHabitatGeometry(habitat.id);
 	const resolvedGeometry = geometry ?? null;
 
 	return (
@@ -221,11 +227,13 @@ function HabitatDetailContent({ habitat }: { readonly habitat: HabitatRow }) {
 						<HabitatHistoryCard habitatId={habitat.id} />
 					</Suspense>
 				</div>
-				<CommentsSection
-					className="xl:sticky xl:top-0 xl:max-h-[calc(100vh-6.5rem)]"
-					description="Field notes, access details, and status updates for this habitat."
-					target={{ type: 'habitat', id: habitat.id }}
-				/>
+				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+					<HabitatInspectionStats habitatId={habitat.id} />
+					<CommentsSection
+						description="Field notes, access details, and status updates for this habitat."
+						target={{ type: 'habitat', id: habitat.id }}
+					/>
+				</div>
 			</div>
 		</>
 	);
@@ -1086,16 +1094,43 @@ function useSpeciesName(speciesId: string): string {
 	return result.data?.displayName ?? 'Unknown species';
 }
 
-function useHabitatGeometry(habitatId: string, updatedAt: string) {
+// Keyed on habitatId alone (not updatedAt): an unrelated field edit shouldn't
+// refetch geometry, and a geometry edit seeds this exact key via
+// seedHabitatGeometryCache, so the detail renders the new shape immediately
+// instead of flashing "No geometry recorded" while a freshly-keyed query loads.
+function habitatGeometryQueryKey(habitatId: string): readonly unknown[] {
+	return ['habitat-geometry', habitatId];
+}
+
+function useHabitatGeometry(habitatId: string) {
 	return useQuery({
-		// updatedAt is part of the key so a synced edit triggers a geometry refetch.
-		queryKey: ['habitat-geometry', habitatId, updatedAt],
+		queryKey: habitatGeometryQueryKey(habitatId),
 		queryFn: ({ signal }) => fetchHabitatGeometry(habitatId, signal),
 		staleTime: Number.POSITIVE_INFINITY,
-		// Keep the prior geometry visible while a new version refetches so an
-		// unrelated edit does not flash the map back to a skeleton.
 		placeholderData: (previous) => previous,
 	});
+}
+
+/**
+ * Prime the geometry cache so navigating to a habitat's detail right after a
+ * create/edit shows the saved geometry instantly. Then invalidate so the detail
+ * still revalidates against the server on mount — the cached value stays visible
+ * during that refetch, so there's no empty-state flash.
+ */
+export function seedHabitatGeometryCache(
+	queryClient: QueryClient,
+	habitatId: string,
+	geojson: GeoJsonGeometry,
+): void {
+	const centroid = centroidFromGeoJson(geojson);
+	const value: HabitatGeometry = {
+		geojson,
+		lat: centroid?.lat ?? null,
+		lng: centroid?.lng ?? null,
+		geomType: geojson.type,
+	};
+	queryClient.setQueryData(habitatGeometryQueryKey(habitatId), value);
+	void queryClient.invalidateQueries({ queryKey: habitatGeometryQueryKey(habitatId) });
 }
 
 async function fetchHabitatGeometry(
@@ -1350,7 +1385,7 @@ function locationSummary(geometry: HabitatGeometry | null, isPending: boolean): 
 	if (isPending) {
 		return 'Loading geometry…';
 	}
-	if (geometry === null || geometry.geojson === null) {
+	if (geometry == null || geometry.geojson == null) {
 		return 'No geometry recorded';
 	}
 	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${coordinateLabel(geometry)}`;
@@ -1360,14 +1395,14 @@ function geometrySummary(geometry: HabitatGeometry | null, isPending: boolean): 
 	if (isPending) {
 		return 'Loading…';
 	}
-	if (geometry === null || geometry.geojson === null) {
+	if (geometry == null || geometry.geojson == null) {
 		return 'No geometry recorded';
 	}
 	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${countGeoJsonVertices(geometry.geojson)} vertices`;
 }
 
 function coordinateLabel(geometry: HabitatGeometry | null): string {
-	if (geometry === null || geometry.lat === null || geometry.lng === null) {
+	if (geometry == null || typeof geometry.lat !== 'number' || typeof geometry.lng !== 'number') {
 		return 'Unknown coordinates';
 	}
 

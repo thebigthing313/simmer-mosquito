@@ -30,8 +30,8 @@ import {
 	SearchIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { and, eq, ilike, or, useLiveSuspenseQuery } from '@tanstack/react-db';
-import { Suspense, useDeferredValue, useId, useState } from 'react';
+import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
+import { useDeferredValue, useId, useRef, useState } from 'react';
 import { getServerUrl } from '../auth';
 import { webCollections } from '../sync/webCollections';
 import type { GeoJsonPointGeometry, MapPointDrawOptions } from './habitats';
@@ -76,6 +76,7 @@ export function AddressIdInput({
 	const deferredSearch = useDeferredValue(search);
 	const [isCreating, setIsCreating] = useState(false);
 	const [selectedAddress, setSelectedAddress] = useState<AddressRow | null>(null);
+	const anchorRef = useRef<HTMLDivElement>(null);
 
 	return (
 		<FieldGroup className="gap-3">
@@ -83,7 +84,7 @@ export function AddressIdInput({
 				<FieldLabel>Address</FieldLabel>
 				<Popover open={open} onOpenChange={setOpen}>
 					<PopoverAnchor asChild>
-						<div className="relative">
+						<div className="relative" ref={anchorRef}>
 							<SearchIcon
 								className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 								aria-hidden="true"
@@ -120,20 +121,29 @@ export function AddressIdInput({
 						align="start"
 						className="grid w-(--radix-popover-trigger-width) min-w-80 gap-2 p-2"
 						onOpenAutoFocus={(event) => event.preventDefault()}
+						onInteractOutside={(event) => {
+							// The input is the popover's anchor, which lives outside the
+							// portaled content — so focusing/clicking it reads as an "outside"
+							// interaction and would dismiss the popover the same gesture just
+							// opened (the open→close→open flicker). Keep it open for anchor
+							// interactions; genuine outside clicks still close it.
+							const target = event.detail.originalEvent.target as Node | null;
+							if (target !== null && anchorRef.current?.contains(target)) {
+								event.preventDefault();
+							}
+						}}
 					>
-						<Suspense fallback={<AddressSearchFallback label="Searching addresses" />}>
-							<AddressSearchResults
-								organizationId={organizationId}
-								search={deferredSearch}
-								selectedValue={value}
-								onSelect={(address) => {
-									setSelectedAddress(address);
-									onValueChange(address.id);
-									setSearch(address.displayName);
-									setOpen(false);
-								}}
-							/>
-						</Suspense>
+						<AddressSearchResults
+							organizationId={organizationId}
+							search={deferredSearch}
+							selectedValue={value}
+							onSelect={(address) => {
+								setSelectedAddress(address);
+								onValueChange(address.id);
+								setSearch(address.displayName);
+								setOpen(false);
+							}}
+						/>
 						<Separator />
 						<Button
 							type="button"
@@ -283,37 +293,44 @@ export function HabitatGeometryInput({
 	);
 }
 
-function useAddressSearch(organizationId: string, search: string): readonly AddressRow[] {
+// addresses is an on-demand collection: keep its subset warm briefly after the
+// popover closes so re-focusing the field doesn't re-load (and flash the loading
+// state) every time. Non-suspense useLiveQuery (gated on status) renders the
+// loading line inline instead of unmounting the popover content like Suspense.
+const addressSearchGcTimeMs = 30_000;
+
+function useAddressSearch(organizationId: string, search: string) {
 	const normalizedSearch = search.trim();
 	const pattern = `%${normalizedSearch}%`;
-	const result = useLiveSuspenseQuery(
-		(query) => {
-			let addressQuery = query
-				.from({ address: webCollections.addresses })
-				.where(({ address }) => eq(address.organizationId, organizationId));
+	return useLiveQuery(
+		{
+			gcTime: addressSearchGcTimeMs,
+			query: (query) => {
+				let addressQuery = query
+					.from({ address: webCollections.addresses })
+					.where(({ address }) => eq(address.organizationId, organizationId));
 
-			if (normalizedSearch.length > 0) {
-				addressQuery = addressQuery.where(({ address }) =>
-					and(
-						eq(address.organizationId, organizationId),
-						or(
-							ilike(address.displayName, pattern),
-							ilike(address.addressLine1, pattern),
-							ilike(address.addressLine2, pattern),
-							ilike(address.locality, pattern),
-							ilike(address.region, pattern),
-							ilike(address.postalCode, pattern),
+				if (normalizedSearch.length > 0) {
+					addressQuery = addressQuery.where(({ address }) =>
+						and(
+							eq(address.organizationId, organizationId),
+							or(
+								ilike(address.displayName, pattern),
+								ilike(address.addressLine1, pattern),
+								ilike(address.addressLine2, pattern),
+								ilike(address.locality, pattern),
+								ilike(address.region, pattern),
+								ilike(address.postalCode, pattern),
+							),
 						),
-					),
-				);
-			}
+					);
+				}
 
-			return addressQuery.orderBy(({ address }) => address.displayName, 'asc').limit(5);
+				return addressQuery.orderBy(({ address }) => address.displayName, 'asc').limit(5);
+			},
 		},
 		[organizationId, pattern],
 	);
-
-	return result.data;
 }
 
 function AddressSearchResults({
@@ -327,8 +344,18 @@ function AddressSearchResults({
 	readonly selectedValue: string | null;
 	readonly onSelect: (address: AddressRow) => void;
 }) {
-	const addresses = useAddressSearch(organizationId, search);
+	const { data, isReady, isError } = useAddressSearch(organizationId, search);
 
+	if (isError) {
+		return <AddressSearchFallback label="Addresses unavailable" />;
+	}
+	// Only show the loading line on the first load (no data yet); once the subset
+	// is warm, re-opening keeps the prior results visible while it refreshes.
+	if (!isReady && (data ?? []).length === 0) {
+		return <AddressSearchFallback label="Searching addresses" />;
+	}
+
+	const addresses = data ?? [];
 	if (addresses.length === 0) {
 		return <AddressSearchFallback label="No address matches" />;
 	}

@@ -98,6 +98,7 @@ import { Route as PublicEngagementContactsIdEditRouteImport } from './routes/pub
 import { Route as OperationsRequestsForControlIdEditRouteImport } from './routes/operations/requests-for-control/$id.edit'
 import { Route as OperationsMissionsIdEditRouteImport } from './routes/operations/missions/$id.edit'
 import { Route as OperationsAssignmentsIdEditRouteImport } from './routes/operations/assignments/$id.edit'
+import { Route as LarvalSurveillanceHabitatsIdEditRouteImport } from './routes/larval-surveillance/habitats/$id_.edit'
 import { Route as GisDataRegionsIdEditRouteImport } from './routes/gis-data/regions/$id.edit'
 import { Route as GisDataAddressesIdEditRouteImport } from './routes/gis-data/addresses/$id.edit'
 import { Route as AdultSurveillanceTrapsIdEditRouteImport } from './routes/adult-surveillance/traps/$id.edit'
@@ -588,6 +589,12 @@ const OperationsAssignmentsIdEditRoute =
     path: '/edit',
     getParentRoute: () => OperationsAssignmentsIdRoute,
   } as any)
+const LarvalSurveillanceHabitatsIdEditRoute =
+  LarvalSurveillanceHabitatsIdEditRouteImport.update({
+    id: '/larval-surveillance/habitats/$id_/edit',
+    path: '/larval-surveillance/habitats/$id/edit',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const GisDataRegionsIdEditRoute = GisDataRegionsIdEditRouteImport.update({
   id: '/edit',
   path: '/edit',
@@ -700,6 +707,7 @@ export interface FileRoutesByFullPath {
   '/adult-surveillance/traps/$id/edit': typeof AdultSurveillanceTrapsIdEditRoute
   '/gis-data/addresses/$id/edit': typeof GisDataAddressesIdEditRoute
   '/gis-data/regions/$id/edit': typeof GisDataRegionsIdEditRoute
+  '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
   '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
   '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
@@ -791,6 +799,7 @@ export interface FileRoutesByTo {
   '/adult-surveillance/traps/$id/edit': typeof AdultSurveillanceTrapsIdEditRoute
   '/gis-data/addresses/$id/edit': typeof GisDataAddressesIdEditRoute
   '/gis-data/regions/$id/edit': typeof GisDataRegionsIdEditRoute
+  '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
   '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
   '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
@@ -887,6 +896,7 @@ export interface FileRoutesById {
   '/adult-surveillance/traps/$id/edit': typeof AdultSurveillanceTrapsIdEditRoute
   '/gis-data/addresses/$id/edit': typeof GisDataAddressesIdEditRoute
   '/gis-data/regions/$id/edit': typeof GisDataRegionsIdEditRoute
+  '/larval-surveillance/habitats/$id_/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
   '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
   '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
@@ -984,6 +994,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/traps/$id/edit'
     | '/gis-data/addresses/$id/edit'
     | '/gis-data/regions/$id/edit'
+    | '/larval-surveillance/habitats/$id/edit'
     | '/operations/assignments/$id/edit'
     | '/operations/missions/$id/edit'
     | '/operations/requests-for-control/$id/edit'
@@ -1075,6 +1086,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/traps/$id/edit'
     | '/gis-data/addresses/$id/edit'
     | '/gis-data/regions/$id/edit'
+    | '/larval-surveillance/habitats/$id/edit'
     | '/operations/assignments/$id/edit'
     | '/operations/missions/$id/edit'
     | '/operations/requests-for-control/$id/edit'
@@ -1170,6 +1182,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/traps/$id/edit'
     | '/gis-data/addresses/$id/edit'
     | '/gis-data/regions/$id/edit'
+    | '/larval-surveillance/habitats/$id_/edit'
     | '/operations/assignments/$id/edit'
     | '/operations/missions/$id/edit'
     | '/operations/requests-for-control/$id/edit'
@@ -1247,6 +1260,7 @@ export interface RootRouteChildren {
   OperationsRequestsForControlIndexRoute: typeof OperationsRequestsForControlIndexRoute
   PublicEngagementContactsIndexRoute: typeof PublicEngagementContactsIndexRoute
   PublicEngagementServiceRequestsIndexRoute: typeof PublicEngagementServiceRequestsIndexRoute
+  LarvalSurveillanceHabitatsIdEditRoute: typeof LarvalSurveillanceHabitatsIdEditRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1874,6 +1888,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperationsAssignmentsIdEditRouteImport
       parentRoute: typeof OperationsAssignmentsIdRoute
     }
+    '/larval-surveillance/habitats/$id_/edit': {
+      id: '/larval-surveillance/habitats/$id_/edit'
+      path: '/larval-surveillance/habitats/$id/edit'
+      fullPath: '/larval-surveillance/habitats/$id/edit'
+      preLoaderRoute: typeof LarvalSurveillanceHabitatsIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gis-data/regions/$id/edit': {
       id: '/gis-data/regions/$id/edit'
       path: '/edit'
@@ -2196,6 +2217,7 @@ const rootRouteChildren: RootRouteChildren = {
   PublicEngagementContactsIndexRoute: PublicEngagementContactsIndexRoute,
   PublicEngagementServiceRequestsIndexRoute:
     PublicEngagementServiceRequestsIndexRoute,
+  LarvalSurveillanceHabitatsIdEditRoute: LarvalSurveillanceHabitatsIdEditRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
