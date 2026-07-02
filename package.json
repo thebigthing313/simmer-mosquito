@@ -45,6 +45,6 @@
 		"vitest": "4.1.5"
 	},
 	"dependencies": {
-		"@tanstack/db": "^0.6.6"
+		"@tanstack/db": "^0.6.14"
 	}
 }

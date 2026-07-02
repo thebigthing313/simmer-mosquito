@@ -1,0 +1,356 @@
+import type { LarvalDensity, SpeciesRow } from '@simmer-mosquito/sync';
+import { eq, gte, useLiveQuery } from '@tanstack/react-db';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { getServerUrl } from '../../auth';
+import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { webCollections } from '../../sync/webCollections';
+import type { LifeStageFlags } from './-larval-display';
+
+/** How far back the recent-window queries (heavy list, open samples) reach. */
+export const ACTIVITY_WINDOW_DAYS = 14;
+/** Days in a calendar week (the daily-inspections strip). */
+export const WEEK_LENGTH = 7;
+
+// Inspections, samples, and sample_species are on-demand shapes (docs/sync.md).
+// Keep the subset warm briefly after unmount so quick nav back reuses it.
+const activityGcTimeMs = 30_000;
+
+// --- projected query shapes -------------------------------------------------
+
+export interface ActivityInspection extends LifeStageFlags {
+	readonly id: string;
+	readonly inspectionDate: string;
+	readonly inspectedByProfileId: string | null;
+	readonly habitatId: string | null;
+	readonly habitatTypeId: string | null;
+	readonly isWet: boolean;
+	readonly density: LarvalDensity | null;
+	readonly larvaeCount: number | null;
+}
+
+/** One sample awaiting identification, as returned by the overview read endpoint. */
+export interface AwaitingSample {
+	readonly id: string;
+	readonly displayName: string | null;
+	readonly inspectionDate: string;
+	readonly habitatId: string | null;
+	readonly habitatName: string | null;
+}
+
+export interface SpeciesTotal {
+	readonly speciesId: string;
+	readonly name: string;
+	readonly total: number;
+}
+
+interface LoadState {
+	readonly isReady: boolean;
+	readonly isError: boolean;
+}
+
+// --- live-data hooks --------------------------------------------------------
+
+// Inspection queries stay deliberately flat — a single on-demand subset keyed on
+// `inspection_date` — rather than nesting samples/species includes: a nested
+// include fans out an Electric subset request over every inspection id in the
+// window, whose URL exceeds request limits and fails. Sample-derived panels read
+// from a server endpoint instead ({@link useSamplesAwaiting}).
+//
+// All use the status-gated {@link useLiveQuery} (not the suspense variant) because
+// the suspense hook hangs after a navigation unmount over on-demand collections.
+
+/**
+ * Inspections for a single day. Keyed on an equality subset so browsing to any
+ * historical week loads only that day's rows, not a rolling window.
+ */
+export function useInspectionsForDay(date: string): {
+	readonly inspections: readonly ActivityInspection[];
+} & LoadState {
+	const result = useLiveQuery(
+		{
+			gcTime: activityGcTimeMs,
+			query: (query) =>
+				query
+					.from({ inspection: webCollections.inspections })
+					.where(({ inspection }) => eq(inspection.inspectionDate, date))
+					.orderBy(({ inspection }) => inspection.createdAt, 'asc')
+					.select(selectInspection),
+		},
+		[date],
+	);
+
+	return {
+		inspections: (result.data ?? []) as unknown as readonly ActivityInspection[],
+		isReady: result.isReady,
+		isError: result.isError,
+	};
+}
+
+/** Recent inspections (last {@link ACTIVITY_WINDOW_DAYS} days) for the heavy list. */
+export function useRecentInspections(sinceDate: string): {
+	readonly inspections: readonly ActivityInspection[];
+} & LoadState {
+	const result = useLiveQuery(
+		{
+			gcTime: activityGcTimeMs,
+			query: (query) =>
+				query
+					.from({ inspection: webCollections.inspections })
+					.where(({ inspection }) => gte(inspection.inspectionDate, sinceDate))
+					.orderBy(({ inspection }) => inspection.inspectionDate, 'desc')
+					.select(selectInspection),
+		},
+		[sinceDate],
+	);
+
+	return {
+		inspections: (result.data ?? []) as unknown as readonly ActivityInspection[],
+		isReady: result.isReady,
+		isError: result.isError,
+	};
+}
+
+// Shared projection for both inspection queries.
+// biome-ignore lint/suspicious/noExplicitAny: query-builder ref proxy has no exported type
+function selectInspection({ inspection }: any) {
+	return {
+		id: inspection.id,
+		inspectionDate: inspection.inspectionDate,
+		inspectedByProfileId: inspection.inspectedByProfileId,
+		habitatId: inspection.habitatId,
+		habitatTypeId: inspection.habitatTypeId,
+		isWet: inspection.isWet,
+		density: inspection.density,
+		larvaeCount: inspection.larvaeCount,
+		hasEggs: inspection.hasEggs,
+		hasFirstInstar: inspection.hasFirstInstar,
+		hasSecondInstar: inspection.hasSecondInstar,
+		hasThirdInstar: inspection.hasThirdInstar,
+		hasFourthInstar: inspection.hasFourthInstar,
+		hasPupae: inspection.hasPupae,
+	};
+}
+
+/**
+ * Larvae totals by species over the given window (identified_at based), sorted
+ * high to low. Species names resolve from the eager `species` catalog.
+ */
+export function useSpeciesComposition(sinceDate: string): {
+	readonly totals: readonly SpeciesTotal[];
+	readonly grandTotal: number;
+} & LoadState {
+	const { rows: species } = useCollectionRows<SpeciesRow>(webCollections.species);
+	const nameById = useMemo(
+		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
+		[species],
+	);
+
+	const result = useLiveQuery(
+		{
+			gcTime: activityGcTimeMs,
+			query: (query) =>
+				query
+					.from({ sampleSpecies: webCollections.sampleSpecies })
+					.where(({ sampleSpecies }) => gte(sampleSpecies.identifiedAt, sinceDate))
+					.select(({ sampleSpecies }) => ({
+						speciesId: sampleSpecies.speciesId,
+						larvaeCount: sampleSpecies.larvaeCount,
+					})),
+		},
+		[sinceDate],
+	);
+
+	const { totals, grandTotal } = useMemo(() => {
+		const rows = (result.data ?? []) as readonly { speciesId: string; larvaeCount: number }[];
+		const byId = new Map<string, number>();
+		let sum = 0;
+		for (const row of rows) {
+			const count = row.larvaeCount ?? 0;
+			if (count <= 0) {
+				continue;
+			}
+			byId.set(row.speciesId, (byId.get(row.speciesId) ?? 0) + count);
+			sum += count;
+		}
+		const ranked: SpeciesTotal[] = [...byId.entries()]
+			.map(([speciesId, total]) => ({
+				speciesId,
+				total,
+				name: nameById.get(speciesId) ?? 'Unknown species',
+			}))
+			.sort((first, second) => second.total - first.total);
+		return { totals: ranked, grandTotal: sum };
+	}, [result.data, nameById]);
+
+	return { totals, grandTotal, isReady: result.isReady, isError: result.isError };
+}
+
+// --- samples awaiting identification (server read endpoint) -----------------
+
+/** The preview length the overview asks the endpoint for. */
+export const AWAITING_SAMPLES_PREVIEW = 6;
+
+/**
+ * Recent samples awaiting identification, resolved by the server rather than a
+ * client-side join: the awaiting set spans every habitat in the window, which a
+ * nested on-demand include can't gather in one bounded request.
+ */
+export function useSamplesAwaiting(sinceDate: string): {
+	readonly samples: readonly AwaitingSample[];
+	readonly total: number;
+	readonly isLoading: boolean;
+	readonly isError: boolean;
+} {
+	const query = useQuery({
+		queryKey: ['larval-overview', 'awaiting-samples', sinceDate, AWAITING_SAMPLES_PREVIEW],
+		queryFn: ({ signal }) => fetchSamplesAwaiting(sinceDate, AWAITING_SAMPLES_PREVIEW, signal),
+		placeholderData: (previous) => previous,
+		staleTime: 30_000,
+	});
+
+	return {
+		samples: query.data?.samples ?? [],
+		total: query.data?.total ?? 0,
+		isLoading: query.isLoading,
+		isError: query.isError,
+	};
+}
+
+async function fetchSamplesAwaiting(
+	sinceDate: string,
+	limit: number,
+	signal: AbortSignal,
+): Promise<{ readonly total: number; readonly samples: AwaitingSample[] }> {
+	const url = new URL('/larval-surveillance/samples/awaiting', getServerUrl());
+	url.searchParams.set('since', sinceDate);
+	url.searchParams.set('limit', String(limit));
+	const response = await fetch(url, { credentials: 'include', signal });
+	if (!response.ok) {
+		throw new Error(`Awaiting samples request failed (${response.status}).`);
+	}
+	return (await response.json()) as { readonly total: number; readonly samples: AwaitingSample[] };
+}
+
+// --- habitat name resolution (HTTP, not a synced collection) ----------------
+
+interface HabitatSiteName {
+	readonly id: string;
+	readonly habitatName: string | null;
+}
+
+/**
+ * Resolve habitat display names for a set of ids via the same `by-ids` endpoint
+ * the route planner uses, so the overview can name and link inspection rows
+ * without subscribing to the full habitats shape.
+ */
+// Matches the server's `maxHabitatIds` cap; unique habitats past this stay
+// unnamed (they fall back to a short-id label) rather than failing the request.
+const maxHabitatNameIds = 500;
+
+export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, string> {
+	const sortedIds = useMemo(() => [...new Set(ids)].sort().slice(0, maxHabitatNameIds), [ids]);
+	const query = useQuery({
+		enabled: sortedIds.length > 0,
+		queryKey: ['larval-overview', 'habitat-names', sortedIds],
+		queryFn: ({ signal }) => fetchHabitatNames(sortedIds, signal),
+		placeholderData: (previous) => previous,
+		staleTime: 30_000,
+	});
+
+	return useMemo(() => {
+		const map = new Map<string, string>();
+		for (const site of query.data ?? []) {
+			map.set(site.id, site.habitatName?.trim() || `Habitat ${site.id.slice(0, 8)}`);
+		}
+		return map;
+	}, [query.data]);
+}
+
+async function fetchHabitatNames(
+	ids: readonly string[],
+	signal: AbortSignal,
+): Promise<HabitatSiteName[]> {
+	if (ids.length === 0) {
+		return [];
+	}
+	// POST (not GET) so a large id set rides in the body instead of a `?ids=`
+	// query string that would blow past URL/header length limits.
+	const url = new URL('/map/habitats/by-ids', getServerUrl());
+	const response = await fetch(url, {
+		method: 'POST',
+		credentials: 'include',
+		headers: { accept: 'application/json', 'content-type': 'application/json' },
+		body: JSON.stringify({ ids }),
+		signal,
+	});
+	if (!response.ok) {
+		throw new Error(`Habitat names request failed (${response.status}).`);
+	}
+	const body = (await response.json()) as { readonly habitats?: HabitatSiteName[] };
+	return body.habitats ?? [];
+}
+
+// --- pure date helpers (operate on `YYYY-MM-DD` strings) --------------------
+
+/** Today's date in the org's timezone as a `YYYY-MM-DD` string. */
+export function todayInTimeZone(timeZone: string | undefined): string {
+	return new Intl.DateTimeFormat('en-CA', {
+		timeZone: timeZone || undefined,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+	}).format(new Date());
+}
+
+/** Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift. */
+export function addDaysToDateString(date: string, days: number): string {
+	const utc = parseDateString(date);
+	utc.setUTCDate(utc.getUTCDate() + days);
+	return utc.toISOString().slice(0, 10);
+}
+
+/** The Sunday that starts the calendar week containing `date`. */
+export function startOfWeek(date: string): string {
+	return addDaysToDateString(date, -parseDateString(date).getUTCDay());
+}
+
+/** The seven dates of the calendar week beginning at `weekStart`, Sunday first. */
+export function buildWeek(weekStart: string): readonly string[] {
+	return Array.from({ length: WEEK_LENGTH }, (_, index) => addDaysToDateString(weekStart, index));
+}
+
+export function weekdayLabel(date: string): string {
+	return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(
+		parseDateString(date),
+	);
+}
+
+export function dayOfMonth(date: string): number {
+	return parseDateString(date).getUTCDate();
+}
+
+export function formatMonthDay(date: string): string {
+	const parsed = parseDateString(date);
+	if (Number.isNaN(parsed.getTime())) {
+		return '—';
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(parsed);
+}
+
+// Tolerates a bare `YYYY-MM-DD` as well as a full ISO timestamp (e.g. a Postgres
+// date serialized through JSON) by reading only the leading date portion.
+function parseDateString(date: string): Date {
+	const parts = date.slice(0, 10).split('-');
+	const year = Number(parts[0]);
+	const month = Number(parts[1]);
+	const day = Number(parts[2]);
+	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
+		return new Date(Number.NaN);
+	}
+	return new Date(Date.UTC(year, month - 1, day));
+}

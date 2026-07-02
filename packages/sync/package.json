@@ -21,8 +21,8 @@
 		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
-		"@tanstack/db": "^0.6.6",
-		"@tanstack/electric-db-collection": "0.3.4"
+		"@tanstack/db": "^0.6.14",
+		"@tanstack/electric-db-collection": "0.3.12"
 	},
 	"types": "./dist/index.d.ts"
 }

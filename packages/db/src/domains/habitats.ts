@@ -178,6 +178,65 @@ export interface HabitatByIdInput {
 	readonly id: string;
 }
 
+export interface HabitatsByIdsInput {
+	readonly organizationId: string;
+	readonly ids: readonly string[];
+}
+
+/**
+ * A habitat display row enriched with its address's display name. Powers
+ * route/site views that cluster consecutive stops sharing one address without a
+ * second address lookup on the client.
+ */
+export interface HabitatSiteDisplayRow extends SafeHabitatDisplayRow {
+	readonly addressDisplayName: string | null;
+}
+
+/**
+ * Resolve a specific set of habitats (by id) for one organization, with each
+ * habitat's address label joined in. Unlike the bbox reader this is not spatially
+ * bounded — callers pass an explicit id set (e.g. the members of a route) and get
+ * geometry, status, and address back in a single round-trip. Result order is
+ * unspecified; callers order by their own sequence (route item position).
+ */
+export async function listHabitatDisplayRowsByIds(
+	db: Kysely<SimmerDatabase>,
+	input: HabitatsByIdsInput,
+): Promise<HabitatSiteDisplayRow[]> {
+	if (input.ids.length === 0) {
+		return [];
+	}
+
+	const result = await sql<HabitatSiteDisplayRow>`
+		select
+			h.id,
+			h.organization_id as "organizationId",
+			h.lat,
+			h.lng,
+			h.geojson,
+			h.geom_type as "geomType",
+			h.address_id as "addressId",
+			a.display_name as "addressDisplayName",
+			h.habitat_type_id as "habitatTypeId",
+			h.habitat_name as "habitatName",
+			h.description,
+			h.is_active as "isActive",
+			h.is_inaccessible as "isInaccessible",
+			h.metadata,
+			h.created_by_profile_id as "createdByProfileId",
+			h.updated_by_profile_id as "updatedByProfileId",
+			h.created_at as "createdAt",
+			h.updated_at as "updatedAt"
+		from habitats h
+		left join addresses a on a.id = h.address_id
+		where h.organization_id = ${input.organizationId}
+			and h.deleted_at is null
+			and h.id = any(${[...input.ids]}::uuid[])
+	`.execute(db);
+
+	return result.rows;
+}
+
 export async function getHabitatDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: HabitatByIdInput,
@@ -209,6 +268,63 @@ export async function getHabitatDisplayRowById(
 	`.execute(db);
 
 	return result.rows[0];
+}
+
+export interface HabitatSearchInput {
+	readonly organizationId: string;
+	readonly search: string;
+	readonly limit: number;
+}
+
+/**
+ * Name/address substring search across an organization's habitats, ordered by
+ * name. Non-spatial (unlike the tile/bbox readers) — it powers "add a stop"
+ * pickers where the user types a name rather than pans a map. Matches are literal
+ * (position()-based, no LIKE wildcard escaping) across habitat name and the
+ * joined address label.
+ */
+export async function searchHabitatSites(
+	db: Kysely<SimmerDatabase>,
+	input: HabitatSearchInput,
+): Promise<HabitatSiteDisplayRow[]> {
+	const search = input.search.trim();
+	if (search.length === 0) {
+		return [];
+	}
+
+	const result = await sql<HabitatSiteDisplayRow>`
+		select
+			h.id,
+			h.organization_id as "organizationId",
+			h.lat,
+			h.lng,
+			h.geojson,
+			h.geom_type as "geomType",
+			h.address_id as "addressId",
+			a.display_name as "addressDisplayName",
+			h.habitat_type_id as "habitatTypeId",
+			h.habitat_name as "habitatName",
+			h.description,
+			h.is_active as "isActive",
+			h.is_inaccessible as "isInaccessible",
+			h.metadata,
+			h.created_by_profile_id as "createdByProfileId",
+			h.updated_by_profile_id as "updatedByProfileId",
+			h.created_at as "createdAt",
+			h.updated_at as "updatedAt"
+		from habitats h
+		left join addresses a on a.id = h.address_id
+		where h.organization_id = ${input.organizationId}
+			and h.deleted_at is null
+			and (
+				position(lower(${search}) in lower(coalesce(h.habitat_name, ''))) > 0
+				or position(lower(${search}) in lower(coalesce(a.display_name, ''))) > 0
+			)
+		order by coalesce(h.habitat_name, h.id::text), h.id
+		limit ${input.limit}
+	`.execute(db);
+
+	return result.rows;
 }
 
 function habitatSpatialWhereClauses(input: {

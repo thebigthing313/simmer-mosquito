@@ -5,15 +5,21 @@ import {
 	type HabitatByIdInput,
 	type HabitatMvtTileFilters,
 	type HabitatMvtTileInput,
+	type HabitatSearchInput,
+	type HabitatSiteDisplayRow,
+	type HabitatsByIdsInput,
 	type HabitatTypeUsageRow,
 	type Kysely,
 	listHabitatDisplayRowsByBounds,
+	listHabitatDisplayRowsByIds,
 	type SafeHabitatDisplayRow,
 	type SimmerDatabase,
+	searchHabitatSites,
 } from '@simmer-mosquito/db';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
+// Route site + search readers registered below the literal habitat map routes.
 const mvtContentType = 'application/vnd.mapbox-vector-tile';
 const maxSupportedZoom = 22;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,6 +34,14 @@ type HabitatDisplayByIdReader = (
 	db: TileDb,
 	input: HabitatByIdInput,
 ) => Promise<SafeHabitatDisplayRow | undefined>;
+type HabitatDisplayByIdsReader = (
+	db: TileDb,
+	input: HabitatsByIdsInput,
+) => Promise<HabitatSiteDisplayRow[]>;
+type HabitatSearchReader = (
+	db: TileDb,
+	input: HabitatSearchInput,
+) => Promise<HabitatSiteDisplayRow[]>;
 type HabitatTypeUsageReader = (
 	db: TileDb,
 	input: { readonly organizationId: string },
@@ -101,6 +115,8 @@ export function registerMapTileRoutes(
 		readonly getHabitatTile?: HabitatTileReader;
 		readonly listHabitatDisplayRows?: HabitatDisplayReader;
 		readonly getHabitatDisplayRow?: HabitatDisplayByIdReader;
+		readonly listHabitatDisplayRowsByIds?: HabitatDisplayByIdsReader;
+		readonly searchHabitatDisplayRows?: HabitatSearchReader;
 		readonly countHabitatTypeUsage?: HabitatTypeUsageReader;
 	},
 ): void {
@@ -109,6 +125,8 @@ export function registerMapTileRoutes(
 	});
 	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
 	const getDisplayRow = options.getHabitatDisplayRow ?? getHabitatDisplayRowById;
+	const listDisplayRowsByIds = options.listHabitatDisplayRowsByIds ?? listHabitatDisplayRowsByIds;
+	const searchDisplayRows = options.searchHabitatDisplayRows ?? searchHabitatSites;
 	const countTypeUsage = options.countHabitatTypeUsage ?? countActiveHabitatsByType;
 
 	app.get('/map/habitats', options.authContextMiddleware, async (context) => {
@@ -135,6 +153,85 @@ export function registerMapTileRoutes(
 		});
 
 		return context.json({ usage });
+	});
+
+	// Resolve an explicit habitat id set (e.g. a route's stops) in one round-trip.
+	// Registered before `/:id` so the literal segment wins over the UUID param.
+	app.get('/map/habitats/by-ids', options.authContextMiddleware, async (context) => {
+		const idsResult = parseHabitatIdsParam(new URL(context.req.url).searchParams);
+		if (!idsResult.ok) {
+			return context.json({ error: 'invalid_query', reason: idsResult.reason }, 400);
+		}
+
+		if (idsResult.ids.length === 0) {
+			return context.json({ habitats: [] });
+		}
+
+		const authContext = context.get('authContext');
+		const habitats = await listDisplayRowsByIds(options.db, {
+			organizationId: authContext.organization.id,
+			ids: idsResult.ids,
+		});
+
+		return context.json({ habitats });
+	});
+
+	// POST sibling of `by-ids` for callers resolving a large id set (e.g. every
+	// habitat behind a window of inspections). The same lookup as the GET route,
+	// but the ids ride in the body so the request never runs into URL/header
+	// length limits that reject a long `?ids=` query string.
+	app.post('/map/habitats/by-ids', options.authContextMiddleware, async (context) => {
+		const body = (await context.req.json().catch(() => null)) as { readonly ids?: unknown } | null;
+		const rawIds = body?.ids;
+		if (!Array.isArray(rawIds) || rawIds.some((id) => typeof id !== 'string')) {
+			return context.json(
+				{ error: 'invalid_body', reason: 'ids must be an array of strings.' },
+				400,
+			);
+		}
+
+		// Reuse the query-param validator (uuid shape + count cap) so both routes
+		// enforce identical rules from a single source of truth.
+		const params = new URLSearchParams();
+		params.set('ids', (rawIds as string[]).join(','));
+		const idsResult = parseHabitatIdsParam(params);
+		if (!idsResult.ok) {
+			return context.json({ error: 'invalid_body', reason: idsResult.reason }, 400);
+		}
+
+		if (idsResult.ids.length === 0) {
+			return context.json({ habitats: [] });
+		}
+
+		const authContext = context.get('authContext');
+		const habitats = await listDisplayRowsByIds(options.db, {
+			organizationId: authContext.organization.id,
+			ids: idsResult.ids,
+		});
+
+		return context.json({ habitats });
+	});
+
+	// Name/address search for pickers (e.g. adding a stop to a route). Non-spatial.
+	// Registered before `/:id` so the literal segment wins over the UUID param.
+	app.get('/map/habitats/search', options.authContextMiddleware, async (context) => {
+		const searchResult = parseHabitatSearchQuery(new URL(context.req.url).searchParams);
+		if (!searchResult.ok) {
+			return context.json({ error: 'invalid_query', reason: searchResult.reason }, 400);
+		}
+
+		if (searchResult.search.length === 0) {
+			return context.json({ habitats: [] });
+		}
+
+		const authContext = context.get('authContext');
+		const habitats = await searchDisplayRows(options.db, {
+			organizationId: authContext.organization.id,
+			search: searchResult.search,
+			limit: searchResult.limit,
+		});
+
+		return context.json({ habitats });
 	});
 
 	app.get('/map/habitats/:id', options.authContextMiddleware, async (context) => {
@@ -334,6 +431,46 @@ export function parseHabitatDisplayQuery(
 			limit: limit.value,
 		},
 	};
+}
+
+const maxHabitatIds = 500;
+const maxSearchResults = 25;
+
+function parseHabitatSearchQuery(
+	searchParams: URLSearchParams,
+):
+	| { readonly ok: true; readonly search: string; readonly limit: number }
+	| { readonly ok: false; readonly reason: string } {
+	const search = parseOptionalTextFilter(searchParams, 'q');
+	if (!search.ok) {
+		return search;
+	}
+
+	const rawLimit = searchParams.get('limit');
+	if (rawLimit === null || rawLimit.trim() === '') {
+		return { ok: true, search: search.value ?? '', limit: maxSearchResults };
+	}
+	const parsed = parseInteger(rawLimit);
+	if (parsed === null || parsed < 1 || parsed > maxSearchResults) {
+		return { ok: false, reason: `limit must be between 1 and ${maxSearchResults}.` };
+	}
+	return { ok: true, search: search.value ?? '', limit: parsed };
+}
+
+function parseHabitatIdsParam(
+	searchParams: URLSearchParams,
+):
+	| { readonly ok: true; readonly ids: readonly string[] }
+	| { readonly ok: false; readonly reason: string } {
+	const result = parseOptionalUuidListFilter(searchParams, 'ids');
+	if (!result.ok) {
+		return result;
+	}
+	const ids = result.value ?? [];
+	if (ids.length > maxHabitatIds) {
+		return { ok: false, reason: `ids must contain ${maxHabitatIds} or fewer values.` };
+	}
+	return { ok: true, ids };
 }
 
 const habitatFilterParams = new Set([

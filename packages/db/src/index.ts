@@ -11,6 +11,7 @@ export * from './domains/adult-surveillance.js';
 export * from './domains/foundation.js';
 export * from './domains/habitats.js';
 export * from './domains/identity.js';
+export * from './domains/larval-surveillance.js';
 export * from './tables.js';
 
 export interface CreateDbOptions {

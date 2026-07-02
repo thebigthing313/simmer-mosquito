@@ -9,3 +9,4 @@ export {
 } from './map-styles';
 export { type GeolocationCoords, useGeolocation } from './use-geolocation';
 export type { HabitatTileLayerConfig } from './use-habitat-tile-layer';
+export type { RouteLayerConfig, RouteStopFeature } from './use-route-layer';

@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@tanstack/db':
-        specifier: ^0.6.6
-        version: 0.6.6(typescript@6.0.3)
+        specifier: ^0.6.14
+        version: 0.6.14(typescript@6.0.3)
     devDependencies:
       '@biomejs/biome':
         specifier: 2.4.14
@@ -55,8 +55,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui-web
       '@tanstack/db':
-        specifier: ^0.6.6
-        version: 0.6.6(typescript@6.0.3)
+        specifier: ^0.6.14
+        version: 0.6.14(typescript@6.0.3)
       '@tanstack/react-router':
         specifier: ^1.170.4
         version: 1.170.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -165,11 +165,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui-web
       '@tanstack/db':
-        specifier: ^0.6.6
-        version: 0.6.6(typescript@6.0.3)
+        specifier: ^0.6.14
+        version: 0.6.14(typescript@6.0.3)
       '@tanstack/react-db':
-        specifier: ^0.1.84
-        version: 0.1.84(react@19.2.6)(typescript@6.0.3)
+        specifier: ^0.1.92
+        version: 0.1.92(react@19.2.6)(typescript@6.0.3)
       '@tanstack/react-form':
         specifier: ^1.32.0
         version: 1.32.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -250,11 +250,11 @@ importers:
   packages/sync:
     dependencies:
       '@tanstack/db':
-        specifier: ^0.6.6
-        version: 0.6.6(typescript@6.0.3)
+        specifier: ^0.6.14
+        version: 0.6.14(typescript@6.0.3)
       '@tanstack/electric-db-collection':
-        specifier: 0.3.4
-        version: 0.3.4(typescript@6.0.3)
+        specifier: 0.3.12
+        version: 0.3.12(typescript@6.0.3)
 
   packages/ui-web:
     dependencies:
@@ -1005,8 +1005,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@electric-sql/client@1.5.17':
-    resolution: {integrity: sha512-IZbLnbfyfCGryb1SzXXY9pYWvEud1XJ3vCb3tPTq1O5mLGwKDD6O7IPt2axJSGKd83VXd1D3jZ8BreBfBaL0ZA==}
+  '@electric-sql/client@1.5.23':
+    resolution: {integrity: sha512-3b0ddP8/J7dIHNFwoXzuFcow40aXvKtGss1rpiF5H4AGvuYWHR7A/hCe7xE86wbvdJP3PNcpDAmtUNF1cc+vlQ==}
     hasBin: true
 
   '@emnapi/core@1.10.0':
@@ -2156,8 +2156,8 @@ packages:
   '@rolldown/pluginutils@1.0.0-rc.7':
     resolution: {integrity: sha512-qujRfC8sFVInYSPPMLQByRh7zhwkGFS4+tyMQ83srV1qrxL4g8E2tyxVVyxd0+8QeBM1mIk9KbWxkegRr76XzA==}
 
-  '@rollup/rollup-darwin-arm64@4.60.4':
-    resolution: {integrity: sha512-tua0TaJxMOB1R0V0RS1jFZ/RpURFDJIOR2A6jWwQeawuFyS4gBW+rntLRaQd0EQ4bd6Vp44Z2rXW+YYDBsj6IA==}
+  '@rollup/rollup-darwin-arm64@4.62.2':
+    resolution: {integrity: sha512-v39RCCvj4He82I9sFmk+M1VZ0PLM9sfsLVikjfx2hYBNALhrrOR2D3JjQA6AhlaSOgcR+RzrKY7e1+bT6SUO/A==}
     cpu: [arm64]
     os: [darwin]
 
@@ -2266,8 +2266,8 @@ packages:
     peerDependencies:
       typescript: '>=4.7'
 
-  '@tanstack/db@0.6.6':
-    resolution: {integrity: sha512-v1Mphjtwy/6m3ixhNFackRp8XYgdJYGFUUBQ80d0lsipk0MYKHIoePpHGSum95nerLDcP/8+fu5qj0Vrvmskqw==}
+  '@tanstack/db@0.6.14':
+    resolution: {integrity: sha512-Kqma/PcWhn2e21iJPM/FMKwdMuJUYII9zkKPUsD42/ceEOYRtimbBSe+xll7EY805xE2HuQ3NGSSU8UiYXpHUw==}
     peerDependencies:
       typescript: '>=4.7'
 
@@ -2276,8 +2276,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@tanstack/electric-db-collection@0.3.4':
-    resolution: {integrity: sha512-fzXsfG1+huBBVrioyodiQjdO0B1+iRNoaGMc9Q/EgLL4PBuNUcBIStkAqq9jEWg5roMqHHXRGRcP7zyiZYliuw==}
+  '@tanstack/electric-db-collection@0.3.12':
+    resolution: {integrity: sha512-jxVcWdNfdBS1W9CLhP98tNIo/pZd5l5JT/dN2YXYBsnvIDyQ4mV1EEzH/VGVfhZSLnL4fkWDBpoT79omW5Funw==}
 
   '@tanstack/form-core@1.32.0':
     resolution: {integrity: sha512-Tn5VRDSjyqjmaet2tJMuEWDRFyrCaon03vxXPlSSaiSs6C/N7lCIwGCXJbZXEUq1kTj8jYN9qyXHbsz4LQHcow==}
@@ -2304,8 +2304,8 @@ packages:
   '@tanstack/query-devtools@5.100.14':
     resolution: {integrity: sha512-g96SmSSQecYTYcyuAMRXr895GplJv01UGt7qttQWPOUyZ5EGz5tbRc589bMc2m5BsPFD6O0PCEAHdbDYNP6UBw==}
 
-  '@tanstack/react-db@0.1.84':
-    resolution: {integrity: sha512-2BrOdAX2hZTS2Z6nZZ0HySf+oSL+IIq6y2Yfh5np1d/J7omPkb8Q77OCO4o4efDMYAnK6LTXYHtWP8X2a7bBeQ==}
+  '@tanstack/react-db@0.1.92':
+    resolution: {integrity: sha512-Ymgwu+4Wq5n2ij/iCh8WxBla0dD8eP1/aivkNWfVe2GIQO9e3AM0vwtSIiOB6r5oFqJbE0x8sY7rQHPzljwf/Q==}
     peerDependencies:
       react: '>=16.8.0'
 
@@ -3031,8 +3031,8 @@ packages:
     resolution: {integrity: sha512-8RipRLol37bNs2bhoV67fiTEvdTrbMUYcFTiy3+wuuOnUog2QBHCZWXDRijWQfAkhBj2Uf5UnVaiWwA5vdd82w==}
     engines: {node: '>= 6'}
 
-  fractional-indexing@3.2.0:
-    resolution: {integrity: sha512-PcOxmqwYCW7O2ovKRU8OoQQj2yqTfEB/yeTYk4gPid6dN5ODRfU1hXd9tTVZzax/0NkO7AxpHykvZnT1aYp/BQ==}
+  fractional-indexing@3.4.0:
+    resolution: {integrity: sha512-8J3glhz2rrpKG6KmI7wmJo3zH1VjeOpN+vTJSw1fOyO+Viqq3zX6/5NGh6oaZB2qIAYdOYuu5Dz9xp4faOO0Pg==}
     engines: {node: ^14.13.1 || >=16.0.0}
 
   fs-constants@1.0.0:
@@ -4969,11 +4969,11 @@ snapshots:
   '@dbmate/win32-x64@2.33.0':
     optional: true
 
-  '@electric-sql/client@1.5.17':
+  '@electric-sql/client@1.5.23':
     dependencies:
       '@microsoft/fetch-event-source': 2.0.1
     optionalDependencies:
-      '@rollup/rollup-darwin-arm64': 4.60.4
+      '@rollup/rollup-darwin-arm64': 4.62.2
 
   '@emnapi/core@1.10.0':
     dependencies:
@@ -6083,7 +6083,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.0-rc.7': {}
 
-  '@rollup/rollup-darwin-arm64@4.60.4':
+  '@rollup/rollup-darwin-arm64@4.62.2':
     optional: true
 
   '@standard-schema/spec@1.1.0': {}
@@ -6160,11 +6160,11 @@ snapshots:
 
   '@tanstack/db-ivm@0.1.18(typescript@6.0.3)':
     dependencies:
-      fractional-indexing: 3.2.0
+      fractional-indexing: 3.4.0
       sorted-btree: 1.8.1
       typescript: 6.0.3
 
-  '@tanstack/db@0.6.6(typescript@6.0.3)':
+  '@tanstack/db@0.6.14(typescript@6.0.3)':
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@tanstack/db-ivm': 0.1.18(typescript@6.0.3)
@@ -6173,11 +6173,11 @@ snapshots:
 
   '@tanstack/devtools-event-client@0.4.3': {}
 
-  '@tanstack/electric-db-collection@0.3.4(typescript@6.0.3)':
+  '@tanstack/electric-db-collection@0.3.12(typescript@6.0.3)':
     dependencies:
-      '@electric-sql/client': 1.5.17
+      '@electric-sql/client': 1.5.23
       '@standard-schema/spec': 1.1.0
-      '@tanstack/db': 0.6.6(typescript@6.0.3)
+      '@tanstack/db': 0.6.14(typescript@6.0.3)
       '@tanstack/store': 0.9.3
       debug: 4.4.3
     transitivePeerDependencies:
@@ -6207,9 +6207,9 @@ snapshots:
 
   '@tanstack/query-devtools@5.100.14': {}
 
-  '@tanstack/react-db@0.1.84(react@19.2.6)(typescript@6.0.3)':
+  '@tanstack/react-db@0.1.92(react@19.2.6)(typescript@6.0.3)':
     dependencies:
-      '@tanstack/db': 0.6.6(typescript@6.0.3)
+      '@tanstack/db': 0.6.14(typescript@6.0.3)
       react: 19.2.6
       use-sync-external-store: 1.6.0(react@19.2.6)
     transitivePeerDependencies:
@@ -6958,7 +6958,7 @@ snapshots:
       hasown: 2.0.2
       mime-types: 2.1.35
 
-  fractional-indexing@3.2.0: {}
+  fractional-indexing@3.4.0: {}
 
   fs-constants@1.0.0: {}
 

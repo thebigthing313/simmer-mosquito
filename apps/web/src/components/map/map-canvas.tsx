@@ -13,6 +13,7 @@ import { MapZoomControls } from './map-zoom-controls';
 import { useGeoJsonLayer } from './use-geojson-layer';
 import { type HabitatTileLayerConfig, useHabitatTileLayer } from './use-habitat-tile-layer';
 import { useMapboxMap } from './use-mapbox-map';
+import { type RouteLayerConfig, useRouteLayer } from './use-route-layer';
 
 /**
  * Which on-map controls to render. Every control defaults to on; a consuming
@@ -39,6 +40,7 @@ export function MapCanvas({
 	camera,
 	controls,
 	habitatLayer,
+	routeLayer,
 	geoJson,
 	onMapReady,
 }: {
@@ -47,6 +49,8 @@ export function MapCanvas({
 	readonly controls?: MapControlsConfig;
 	/** Mount the habitat vector-tile layer with these filters + selection wiring. */
 	readonly habitatLayer?: HabitatTileLayerConfig;
+	/** Draw an ordered route: numbered stop pins + connecting path + selection sync. */
+	readonly routeLayer?: RouteLayerConfig;
 	/** Draw a single GeoJSON overlay (e.g. one record's geometry on a detail map). */
 	readonly geoJson?: GeoJSON.GeoJSON | null;
 	/** Called once with the GL instance after it loads, for camera/bounds reads. */
@@ -72,6 +76,7 @@ export function MapCanvas({
 	});
 
 	useHabitatTileLayer(map, isLoaded, habitatLayer);
+	useRouteLayer(map, isLoaded, routeLayer);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null);
 
 	const onMapReadyRef = useRef(onMapReady);
