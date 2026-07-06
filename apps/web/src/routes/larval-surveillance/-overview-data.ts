@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { getToday } from '../../lib/get-today';
 import { webCollections } from '../../sync/webCollections';
 import type { LifeStageFlags } from './-larval-display';
 
@@ -300,7 +301,7 @@ export function todayInTimeZone(timeZone: string | undefined): string {
 		year: 'numeric',
 		month: '2-digit',
 		day: '2-digit',
-	}).format(new Date());
+	}).format(getToday());
 }
 
 /** Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift. */

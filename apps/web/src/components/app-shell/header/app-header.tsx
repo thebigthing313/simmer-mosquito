@@ -8,6 +8,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/breadcrumb';
 import { CalendarIcon, HomeIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Fragment } from 'react';
+import { getToday } from '../../../lib/get-today';
 import { useBreadcrumbLabels } from '../breadcrumb-labels';
 import { buildBreadcrumbs, firstDestination } from '../navigation';
 import { useShell } from '../shell-context';
@@ -30,7 +31,7 @@ export function AppHeader() {
 		month: 'short',
 		day: 'numeric',
 		year: 'numeric',
-	}).format(new Date());
+	}).format(getToday());
 
 	return (
 		<header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-card px-4 md:px-5">
