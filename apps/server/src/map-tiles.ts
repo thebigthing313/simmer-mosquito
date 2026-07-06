@@ -2,6 +2,8 @@ import {
 	countActiveHabitatsByType,
 	getHabitatDisplayRowById,
 	getHabitatMvtTile,
+	getInspectionDisplayRowById,
+	getInspectionMvtTile,
 	type HabitatByIdInput,
 	type HabitatMvtTileFilters,
 	type HabitatMvtTileInput,
@@ -9,10 +11,17 @@ import {
 	type HabitatSiteDisplayRow,
 	type HabitatsByIdsInput,
 	type HabitatTypeUsageRow,
+	type InspectionByIdInput,
+	type InspectionDensity,
+	type InspectionMvtTileFilters,
+	type InspectionMvtTileInput,
+	inspectionDensityValues,
 	type Kysely,
 	listHabitatDisplayRowsByBounds,
 	listHabitatDisplayRowsByIds,
+	listInspectionDisplayRowsByBounds,
 	type SafeHabitatDisplayRow,
+	type SafeInspectionDisplayRow,
 	type SimmerDatabase,
 	searchHabitatSites,
 } from '@simmer-mosquito/db';
@@ -46,6 +55,15 @@ type HabitatTypeUsageReader = (
 	db: TileDb,
 	input: { readonly organizationId: string },
 ) => Promise<HabitatTypeUsageRow[]>;
+type InspectionTileReader = (db: TileDb, input: InspectionMvtTileInput) => Promise<Uint8Array>;
+type InspectionDisplayReader = (
+	db: TileDb,
+	input: InspectionDisplayInput,
+) => Promise<SafeInspectionDisplayRow[]>;
+type InspectionDisplayByIdReader = (
+	db: TileDb,
+	input: InspectionByIdInput,
+) => Promise<SafeInspectionDisplayRow | undefined>;
 
 type TileCoordinateResult =
 	| {
@@ -85,26 +103,67 @@ type HabitatDisplayQueryResult =
 
 interface HabitatDisplayInput {
 	readonly organizationId: string;
-	readonly bounds: {
-		readonly west: number;
-		readonly south: number;
-		readonly east: number;
-		readonly north: number;
-	};
+	readonly bounds: MapBounds;
 	readonly filters?: HabitatMvtTileFilters;
 	readonly limit: number;
 }
 
+interface MapBounds {
+	readonly west: number;
+	readonly south: number;
+	readonly east: number;
+	readonly north: number;
+}
+
+type InspectionFilterResult =
+	| { readonly ok: true; readonly filters: InspectionMvtTileFilters }
+	| { readonly ok: false; readonly reason: string };
+
+type InspectionDisplayQueryResult =
+	| { readonly ok: true; readonly input: InspectionDisplayInput }
+	| { readonly ok: false; readonly reason: string };
+
+interface InspectionDisplayInput {
+	readonly organizationId: string;
+	readonly bounds: MapBounds;
+	readonly filters?: InspectionMvtTileFilters;
+	readonly limit: number;
+}
+
+// The tileset registry is type-erased at the Map boundary so it can hold tilesets
+// with different filter shapes (habitats, inspections). `defineTileSet` keeps each
+// entry's parse/getTile pair internally type-safe; only the erasure to `unknown`
+// filters crosses the boundary, and the pair is defined together so they can't drift.
 interface TileSetDefinition {
-	readonly parseFilters: (searchParams: URLSearchParams) => HabitatFilterResult;
+	readonly parseFilters: (
+		searchParams: URLSearchParams,
+	) =>
+		| { readonly ok: true; readonly filters: unknown }
+		| { readonly ok: false; readonly reason: string };
 	readonly getTile: (
 		db: TileDb,
 		input: {
 			readonly coordinate: TileCoordinate;
 			readonly organizationId: string;
-			readonly filters: HabitatMvtTileFilters;
+			readonly filters: unknown;
 		},
 	) => Promise<Uint8Array>;
+}
+
+function defineTileSet<F>(def: {
+	readonly parseFilters: (
+		searchParams: URLSearchParams,
+	) => { readonly ok: true; readonly filters: F } | { readonly ok: false; readonly reason: string };
+	readonly getTile: (
+		db: TileDb,
+		input: {
+			readonly coordinate: TileCoordinate;
+			readonly organizationId: string;
+			readonly filters: F;
+		},
+	) => Promise<Uint8Array>;
+}): TileSetDefinition {
+	return def as unknown as TileSetDefinition;
 }
 
 export function registerMapTileRoutes(
@@ -118,16 +177,22 @@ export function registerMapTileRoutes(
 		readonly listHabitatDisplayRowsByIds?: HabitatDisplayByIdsReader;
 		readonly searchHabitatDisplayRows?: HabitatSearchReader;
 		readonly countHabitatTypeUsage?: HabitatTypeUsageReader;
+		readonly getInspectionTile?: InspectionTileReader;
+		readonly listInspectionDisplayRows?: InspectionDisplayReader;
+		readonly getInspectionDisplayRow?: InspectionDisplayByIdReader;
 	},
 ): void {
 	const tileSets = createTileSetRegistry({
 		getHabitatTile: options.getHabitatTile ?? getHabitatMvtTile,
+		getInspectionTile: options.getInspectionTile ?? getInspectionMvtTile,
 	});
 	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
 	const getDisplayRow = options.getHabitatDisplayRow ?? getHabitatDisplayRowById;
 	const listDisplayRowsByIds = options.listHabitatDisplayRowsByIds ?? listHabitatDisplayRowsByIds;
 	const searchDisplayRows = options.searchHabitatDisplayRows ?? searchHabitatSites;
 	const countTypeUsage = options.countHabitatTypeUsage ?? countActiveHabitatsByType;
+	const listInspectionRows = options.listInspectionDisplayRows ?? listInspectionDisplayRowsByBounds;
+	const getInspectionRow = options.getInspectionDisplayRow ?? getInspectionDisplayRowById;
 
 	app.get('/map/habitats', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
@@ -253,6 +318,41 @@ export function registerMapTileRoutes(
 		return context.json({ habitat });
 	});
 
+	app.get('/map/inspections', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseInspectionDisplayQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const inspections = await listInspectionRows(options.db, queryResult.input);
+
+		return context.json({ inspections });
+	});
+
+	app.get('/map/inspections/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Inspection id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const inspection = await getInspectionRow(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (inspection === undefined) {
+			return context.json({ error: 'not_found', reason: 'Inspection not found.' }, 404);
+		}
+
+		return context.json({ inspection });
+	});
+
 	app.get(
 		'/map/tiles/:tileset/:z/:x/:yWithExtension',
 		options.authContextMiddleware,
@@ -299,11 +399,12 @@ export function registerMapTileRoutes(
 
 function createTileSetRegistry(options: {
 	readonly getHabitatTile: HabitatTileReader;
+	readonly getInspectionTile: InspectionTileReader;
 }): ReadonlyMap<string, TileSetDefinition> {
-	return new Map([
+	return new Map<string, TileSetDefinition>([
 		[
 			'habitats',
-			{
+			defineTileSet<HabitatMvtTileFilters>({
 				parseFilters: parseHabitatTileFilters,
 				getTile: (db, input) =>
 					options.getHabitatTile(db, {
@@ -311,7 +412,19 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
-			},
+			}),
+		],
+		[
+			'inspections',
+			defineTileSet<InspectionMvtTileFilters>({
+				parseFilters: parseInspectionTileFilters,
+				getTile: (db, input) =>
+					options.getInspectionTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+			}),
 		],
 	]);
 }
@@ -418,6 +531,100 @@ export function parseHabitatDisplayQuery(
 	filterParams.delete('limit');
 
 	const filterResult = parseHabitatTileFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			bounds: bbox.bounds,
+			filters: filterResult.filters,
+			limit: limit.value,
+		},
+	};
+}
+
+const inspectionFilterParams = new Set([
+	'isWet',
+	'density',
+	'positive',
+	'habitatTypeId',
+	'dateFrom',
+	'dateTo',
+]);
+
+export function parseInspectionTileFilters(searchParams: URLSearchParams): InspectionFilterResult {
+	const unknownParams = [...searchParams.keys()].filter(
+		(param) => !inspectionFilterParams.has(param),
+	);
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported inspection tile filter: ${unknownParams[0]}.` };
+	}
+
+	const isWet = parseOptionalBooleanFilter(searchParams, 'isWet');
+	if (!isWet.ok) {
+		return isWet;
+	}
+
+	const positive = parseOptionalBooleanFilter(searchParams, 'positive');
+	if (!positive.ok) {
+		return positive;
+	}
+
+	const densities = parseOptionalDensityListFilter(searchParams, 'density');
+	if (!densities.ok) {
+		return densities;
+	}
+
+	const habitatTypeIds = parseOptionalUuidListFilter(searchParams, 'habitatTypeId');
+	if (!habitatTypeIds.ok) {
+		return habitatTypeIds;
+	}
+
+	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
+	if (!dateFrom.ok) {
+		return dateFrom;
+	}
+
+	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
+	if (!dateTo.ok) {
+		return dateTo;
+	}
+
+	return {
+		ok: true,
+		filters: {
+			...(isWet.value === undefined ? {} : { isWet: isWet.value }),
+			...(densities.value === undefined ? {} : { densities: densities.value }),
+			...(positive.value === undefined ? {} : { positiveOnly: positive.value }),
+			...(habitatTypeIds.value === undefined ? {} : { habitatTypeIds: habitatTypeIds.value }),
+			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
+			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
+		},
+	};
+}
+
+export function parseInspectionDisplayQuery(
+	searchParams: URLSearchParams,
+	organizationId: string,
+): InspectionDisplayQueryResult {
+	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
+	if (!bbox.ok) {
+		return bbox;
+	}
+
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('bbox');
+	filterParams.delete('limit');
+
+	const filterResult = parseInspectionTileFilters(filterParams);
 	if (!filterResult.ok) {
 		return filterResult;
 	}
@@ -564,6 +771,66 @@ function parseOptionalTextFilter(
 	}
 	if (trimmed.length > maxSearchLength) {
 		return { ok: false, reason: `${param} must be ${maxSearchLength} characters or fewer.` };
+	}
+
+	return { ok: true, value: trimmed };
+}
+
+const inspectionDensitySet = new Set<string>(inspectionDensityValues);
+
+function parseOptionalDensityListFilter(
+	searchParams: URLSearchParams,
+	param: string,
+):
+	| { readonly ok: true; readonly value: readonly InspectionDensity[] | undefined }
+	| { readonly ok: false; readonly reason: string } {
+	const values = searchParams
+		.getAll(param)
+		.flatMap((value) => value.split(','))
+		.map((value) => value.trim())
+		.filter((value) => value.length > 0);
+
+	if (values.length === 0) {
+		return searchParams.has(param)
+			? { ok: false, reason: `${param} must include at least one value.` }
+			: { ok: true, value: undefined };
+	}
+
+	for (const value of values) {
+		if (!inspectionDensitySet.has(value)) {
+			return {
+				ok: false,
+				reason: `${param} must be one of: ${inspectionDensityValues.join(', ')}.`,
+			};
+		}
+	}
+
+	return { ok: true, value: [...new Set(values)] as InspectionDensity[] };
+}
+
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseOptionalDateFilter(
+	searchParams: URLSearchParams,
+	param: string,
+):
+	| { readonly ok: true; readonly value: string | undefined }
+	| { readonly ok: false; readonly reason: string } {
+	const values = searchParams.getAll(param);
+	if (values.length === 0) {
+		return { ok: true, value: undefined };
+	}
+	if (values.length > 1) {
+		return { ok: false, reason: `${param} may only be provided once.` };
+	}
+
+	const trimmed = values[0]?.trim() ?? '';
+	if (trimmed.length === 0) {
+		return { ok: true, value: undefined };
+	}
+	// Shape check plus a real calendar-validity check (rejects e.g. 2026-13-40).
+	if (!isoDatePattern.test(trimmed) || Number.isNaN(Date.parse(`${trimmed}T00:00:00Z`))) {
+		return { ok: false, reason: `${param} must be a valid YYYY-MM-DD date.` };
 	}
 
 	return { ok: true, value: trimmed };

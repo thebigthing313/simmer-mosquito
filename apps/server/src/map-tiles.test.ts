@@ -6,6 +6,8 @@ import type { AuthVariables } from './auth-middleware.js';
 import {
 	parseHabitatDisplayQuery,
 	parseHabitatTileFilters,
+	parseInspectionDisplayQuery,
+	parseInspectionTileFilters,
 	parseTileCoordinate,
 	registerMapTileRoutes,
 } from './map-tiles.js';
@@ -404,6 +406,207 @@ describe('registerMapTileRoutes', () => {
 	});
 });
 
+describe('parseInspectionTileFilters', () => {
+	it('parses wetness, density, positive, type, and date filters', () => {
+		expect(
+			parseInspectionTileFilters(
+				new URLSearchParams({
+					isWet: 'true',
+					density: 'heavy,very_heavy',
+					positive: 'true',
+					habitatTypeId: '4fe25a2d-925c-4d37-9d4e-07185ad19858',
+					dateFrom: '2026-04-27',
+					dateTo: '2026-05-27',
+				}),
+			),
+		).toEqual({
+			ok: true,
+			filters: {
+				isWet: true,
+				densities: ['heavy', 'very_heavy'],
+				positiveOnly: true,
+				habitatTypeIds: ['4fe25a2d-925c-4d37-9d4e-07185ad19858'],
+				dateFrom: '2026-04-27',
+				dateTo: '2026-05-27',
+			},
+		});
+	});
+
+	it('rejects an unknown density value', () => {
+		expect(parseInspectionTileFilters(new URLSearchParams({ density: 'swarming' }))).toMatchObject({
+			ok: false,
+			reason: 'density must be one of: none, light, medium, heavy, very_heavy.',
+		});
+	});
+
+	it('rejects a malformed date filter', () => {
+		expect(
+			parseInspectionTileFilters(new URLSearchParams({ dateFrom: '2026-13-40' })),
+		).toMatchObject({
+			ok: false,
+			reason: 'dateFrom must be a valid YYYY-MM-DD date.',
+		});
+	});
+
+	it('rejects unknown filter params', () => {
+		expect(parseInspectionTileFilters(new URLSearchParams({ isActive: 'true' }))).toMatchObject({
+			ok: false,
+			reason: 'Unsupported inspection tile filter: isActive.',
+		});
+	});
+});
+
+describe('parseInspectionDisplayQuery', () => {
+	it('parses bbox, limit, and inspection filters', () => {
+		expect(
+			parseInspectionDisplayQuery(
+				new URLSearchParams({
+					bbox: '-91,35,-90,36',
+					limit: '25',
+					isWet: 'true',
+					density: 'medium',
+				}),
+				organizationId,
+			),
+		).toEqual({
+			ok: true,
+			input: {
+				organizationId,
+				bounds: { west: -91, south: 35, east: -90, north: 36 },
+				filters: { isWet: true, densities: ['medium'] },
+				limit: 25,
+			},
+		});
+	});
+
+	it('rejects an oversized limit before reading rows', () => {
+		expect(
+			parseInspectionDisplayQuery(
+				new URLSearchParams({ bbox: '-91,35,-90,36', limit: '500' }),
+				organizationId,
+			),
+		).toMatchObject({ ok: false, reason: 'limit must be between 1 and 50.' });
+	});
+});
+
+describe('registerMapTileRoutes — inspections', () => {
+	it('returns authenticated inspection display rows scoped to the organization', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			listInspectionDisplayRows: async (_db, input) => {
+				calls.push(input);
+				return [sampleInspectionRow];
+			},
+		});
+
+		const response = await app.request(
+			'/map/inspections?bbox=-91,35,-90,36&limit=10&isWet=true&density=heavy',
+		);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({
+			inspections: [{ id: inspectionId, organizationId, density: 'heavy' }],
+		});
+		expect(calls).toEqual([
+			{
+				organizationId,
+				bounds: { west: -91, south: 35, east: -90, north: 36 },
+				filters: { isWet: true, densities: ['heavy'] },
+				limit: 10,
+			},
+		]);
+	});
+
+	it('rejects invalid inspection display queries before reading rows', async () => {
+		const listInspectionDisplayRows = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			listInspectionDisplayRows,
+		});
+
+		const response = await app.request('/map/inspections?bbox=-91,35,-90,36&density=swarming');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(listInspectionDisplayRows).not.toHaveBeenCalled();
+	});
+
+	it('returns authenticated inspection tiles scoped to the organization', async () => {
+		const calls: unknown[] = [];
+		const tile = new Uint8Array([4, 5, 6]);
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getInspectionTile: async (_db, input) => {
+				calls.push(input);
+				return tile;
+			},
+		});
+
+		const response = await app.request(
+			'/map/tiles/inspections/13/1310/3166.mvt?isWet=true&density=very_heavy',
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get('content-type')).toBe('application/vnd.mapbox-vector-tile');
+		expect(new Uint8Array(await response.arrayBuffer())).toEqual(tile);
+		expect(calls).toEqual([
+			{
+				z: 13,
+				x: 1310,
+				y: 3166,
+				organizationId,
+				filters: { isWet: true, densities: ['very_heavy'] },
+			},
+		]);
+	});
+
+	it('returns a single inspection display row scoped to the organization', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getInspectionDisplayRow: async (_db, input) => {
+				calls.push(input);
+				return sampleInspectionRow;
+			},
+		});
+
+		const response = await app.request(`/map/inspections/${inspectionId}`);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({
+			inspection: { id: inspectionId, organizationId },
+		});
+		expect(calls).toEqual([{ id: inspectionId, organizationId }]);
+	});
+
+	it('returns 404 when the inspection is not found', async () => {
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getInspectionDisplayRow: async () => undefined,
+		});
+
+		const response = await app.request(`/map/inspections/${inspectionId}`);
+
+		expect(response.status).toBe(404);
+		await expect(response.json()).resolves.toMatchObject({ error: 'not_found' });
+	});
+
+	it('rejects a non-UUID inspection id before reading rows', async () => {
+		const getInspectionDisplayRow = vi.fn();
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getInspectionDisplayRow,
+		});
+
+		const response = await app.request('/map/inspections/not-a-uuid');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
+		expect(getInspectionDisplayRow).not.toHaveBeenCalled();
+	});
+});
+
 function createApp(options: {
 	readonly authenticated?: boolean;
 	readonly getHabitatTile: NonNullable<
@@ -417,6 +620,15 @@ function createApp(options: {
 	>;
 	readonly countHabitatTypeUsage?: NonNullable<
 		Parameters<typeof registerMapTileRoutes>[1]['countHabitatTypeUsage']
+	>;
+	readonly getInspectionTile?: NonNullable<
+		Parameters<typeof registerMapTileRoutes>[1]['getInspectionTile']
+	>;
+	readonly listInspectionDisplayRows?: NonNullable<
+		Parameters<typeof registerMapTileRoutes>[1]['listInspectionDisplayRows']
+	>;
+	readonly getInspectionDisplayRow?: NonNullable<
+		Parameters<typeof registerMapTileRoutes>[1]['getInspectionDisplayRow']
 	>;
 }) {
 	const app = new Hono<{ Variables: AuthVariables }>();
@@ -440,6 +652,15 @@ function createApp(options: {
 		...(options.countHabitatTypeUsage === undefined
 			? {}
 			: { countHabitatTypeUsage: options.countHabitatTypeUsage }),
+		...(options.getInspectionTile === undefined
+			? {}
+			: { getInspectionTile: options.getInspectionTile }),
+		...(options.listInspectionDisplayRows === undefined
+			? {}
+			: { listInspectionDisplayRows: options.listInspectionDisplayRows }),
+		...(options.getInspectionDisplayRow === undefined
+			? {}
+			: { getInspectionDisplayRow: options.getInspectionDisplayRow }),
 	});
 	return app;
 }
@@ -447,7 +668,37 @@ function createApp(options: {
 const organizationId = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';
 const habitatId = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const habitatTypeId = '4fe25a2d-925c-4d37-9d4e-07185ad19858';
+const inspectionId = 'b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e';
 
 const authContext = {
 	organization: { id: organizationId },
 } as AuthContext;
+
+const sampleInspectionRow = {
+	id: inspectionId,
+	organizationId,
+	lat: 35.5,
+	lng: -90.5,
+	geojson: { type: 'Point', coordinates: [-90.5, 35.5] },
+	geomType: 'st_point',
+	habitatId,
+	habitatName: 'Retention pond',
+	habitatTypeId,
+	addressId: null,
+	addressDisplayName: null,
+	inspectedByProfileId: null,
+	inspectedByName: null,
+	inspectionDate: '2026-05-27',
+	isWet: true,
+	dipCount: 5,
+	density: 'heavy',
+	larvaeCount: 42,
+	hasEggs: false,
+	hasFirstInstar: true,
+	hasSecondInstar: true,
+	hasThirdInstar: false,
+	hasFourthInstar: false,
+	hasPupae: false,
+	createdAt: new Date('2026-05-27T00:00:00.000Z'),
+	updatedAt: new Date('2026-05-27T00:00:00.000Z'),
+} as const;

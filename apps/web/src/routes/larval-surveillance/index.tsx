@@ -14,6 +14,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, Suspense, useMemo, useState } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
+import type { InspectionsSearch } from './-inspections-search';
 import { DensityBadge, hasAnyLifeStage, LifeStageStrip, WetnessBadge } from './-larval-display';
 import {
 	ACTIVITY_WINDOW_DAYS,
@@ -37,6 +38,29 @@ const LarvalIcon = iconRegistry.domains.larvalSurveillance.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
+const MapViewIcon = iconRegistry.generic.map.icon;
+
+/**
+ * A compact panel-header action that deep-links to the inspections explorer with
+ * a preset filter state, so a summary panel can hand its exact slice off to the
+ * map for spatial review. The `search` is validated by the explorer route's
+ * schema on arrival.
+ */
+function MapPreviewLink({
+	search,
+	label,
+}: {
+	readonly search: InspectionsSearch;
+	readonly label: string;
+}) {
+	return (
+		<Button aria-label={label} asChild className="size-8" size="icon" title={label} variant="ghost">
+			<Link search={search} to="/larval-surveillance/inspections">
+				<MapViewIcon aria-hidden="true" className="size-4" />
+			</Link>
+		</Button>
+	);
+}
 
 export const Route = createFileRoute('/larval-surveillance/')({
 	component: LarvalSurveillanceOverviewRoute,
@@ -99,7 +123,7 @@ function OverviewBody() {
 			</div>
 
 			<div className="xl:col-span-12">
-				<HeavyInspectionsPanel since={since} typeNameById={typeNameById} />
+				<HeavyInspectionsPanel since={since} today={today} typeNameById={typeNameById} />
 			</div>
 		</div>
 	);
@@ -295,6 +319,12 @@ function DailyInspectionsPanel({
 
 	return (
 		<Panel
+			actions={
+				<MapPreviewLink
+					label={`View ${formatMonthDay(selectedDate)} inspections on the map`}
+					search={{ from: selectedDate, to: selectedDate }}
+				/>
+			}
 			count={isReady ? inspections.length : undefined}
 			icon={<InspectionIcon className="size-4" />}
 			title="Daily inspections"
@@ -604,9 +634,11 @@ function isHot(density: LarvalDensity | null): boolean {
 
 function HeavyInspectionsPanel({
 	since,
+	today,
 	typeNameById,
 }: {
 	readonly since: string;
+	readonly today: string;
 	readonly typeNameById: ReadonlyMap<string, string>;
 }) {
 	const { inspections, isReady, isError } = useRecentInspections(since);
@@ -622,6 +654,12 @@ function HeavyInspectionsPanel({
 
 	return (
 		<Panel
+			actions={
+				<MapPreviewLink
+					label="View heavy & very heavy inspections on the map"
+					search={{ from: since, to: today, density: ['heavy', 'very_heavy'] }}
+				/>
+			}
 			count={isReady ? hot.length : undefined}
 			icon={<AlertTriangleIcon className="size-4" />}
 			title={`Heavy & very heavy · last ${ACTIVITY_WINDOW_DAYS} days`}

@@ -12,6 +12,10 @@ import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles
 import { MapZoomControls } from './map-zoom-controls';
 import { useGeoJsonLayer } from './use-geojson-layer';
 import { type HabitatTileLayerConfig, useHabitatTileLayer } from './use-habitat-tile-layer';
+import {
+	type InspectionTileLayerConfig,
+	useInspectionTileLayer,
+} from './use-inspection-tile-layer';
 import { useMapboxMap } from './use-mapbox-map';
 import { type RouteLayerConfig, useRouteLayer } from './use-route-layer';
 
@@ -40,6 +44,7 @@ export function MapCanvas({
 	camera,
 	controls,
 	habitatLayer,
+	inspectionLayer,
 	routeLayer,
 	geoJson,
 	onMapReady,
@@ -49,6 +54,8 @@ export function MapCanvas({
 	readonly controls?: MapControlsConfig;
 	/** Mount the habitat vector-tile layer with these filters + selection wiring. */
 	readonly habitatLayer?: HabitatTileLayerConfig;
+	/** Mount the inspection vector-tile layer with these filters + selection wiring. */
+	readonly inspectionLayer?: InspectionTileLayerConfig;
 	/** Draw an ordered route: numbered stop pins + connecting path + selection sync. */
 	readonly routeLayer?: RouteLayerConfig;
 	/** Draw a single GeoJSON overlay (e.g. one record's geometry on a detail map). */
@@ -76,6 +83,7 @@ export function MapCanvas({
 	});
 
 	useHabitatTileLayer(map, isLoaded, habitatLayer);
+	useInspectionTileLayer(map, isLoaded, inspectionLayer);
 	useRouteLayer(map, isLoaded, routeLayer);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null);
 
