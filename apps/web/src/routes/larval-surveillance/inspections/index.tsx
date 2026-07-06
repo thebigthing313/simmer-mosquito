@@ -23,6 +23,7 @@ import {
 	ChevronDownIcon,
 	ChevronRightIcon,
 	MapPinnedIcon,
+	PlusIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -261,9 +262,17 @@ function InspectionsExplorerRoute() {
 		>
 			<div className="flex h-full min-h-0 flex-col">
 				<div className="sticky top-0 z-10 grid gap-3 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
-					<div className="flex items-baseline justify-between gap-3">
+					<div className="flex items-center justify-between gap-3">
 						<h1 className="font-semibold text-foreground text-lg leading-none">Inspections</h1>
-						<ResultMeta count={rows.length} isLoading={isLoading} />
+						<div className="flex items-center gap-2.5">
+							<ResultMeta count={rows.length} isLoading={isLoading} />
+							<Button asChild size="sm">
+								<Link to="/larval-surveillance/inspections/create">
+									<PlusIcon aria-hidden="true" data-icon="inline-start" />
+									Record
+								</Link>
+							</Button>
+						</div>
 					</div>
 
 					<DateRangeFilter
