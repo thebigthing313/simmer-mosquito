@@ -21,6 +21,7 @@ import {
 	CalendarIcon,
 	CheckIcon,
 	ChevronDownIcon,
+	ChevronRightIcon,
 	MapPinnedIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
@@ -807,6 +808,15 @@ function InspectionListItem({
 						<LifeStageStrip size="sm" stages={inspection} />
 					) : null}
 				</div>
+				<Link
+					aria-label={`View details for the ${formatMonthDay(inspection.inspectionDate)} inspection of ${siteLabel(inspection)}`}
+					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					params={{ id: inspection.id }}
+					title="View inspection details"
+					to="/larval-surveillance/inspections/$id"
+				>
+					<ChevronRightIcon aria-hidden="true" className="size-4" />
+				</Link>
 			</div>
 		</li>
 	);
@@ -891,6 +901,15 @@ function InspectionDetailCard({
 					)}
 					<DetailFact label="Coordinates" value={coordinateLabel(inspection)} wide />
 				</dl>
+
+				<div className="mt-3 flex justify-end">
+					<Button asChild size="sm" variant="outline">
+						<Link params={{ id: inspection.id }} to="/larval-surveillance/inspections/$id">
+							View full details
+							<ChevronRightIcon aria-hidden="true" />
+						</Link>
+					</Button>
+				</div>
 			</article>
 		</div>
 	);

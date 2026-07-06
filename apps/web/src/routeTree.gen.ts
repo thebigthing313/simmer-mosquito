@@ -79,6 +79,7 @@ import { Route as LayoutPreviewDesignPageRouteImport } from './routes/layout-pre
 import { Route as LarvalSurveillanceSamplesStatsRouteImport } from './routes/larval-surveillance/samples/stats'
 import { Route as LarvalSurveillanceInspectionsStatsRouteImport } from './routes/larval-surveillance/inspections/stats'
 import { Route as LarvalSurveillanceInspectionsCreateRouteImport } from './routes/larval-surveillance/inspections/create'
+import { Route as LarvalSurveillanceInspectionsIdRouteImport } from './routes/larval-surveillance/inspections/$id'
 import { Route as LarvalSurveillanceHabitatsTypesRouteImport } from './routes/larval-surveillance/habitats/types'
 import { Route as LarvalSurveillanceHabitatsStatsRouteImport } from './routes/larval-surveillance/habitats/stats'
 import { Route as LarvalSurveillanceHabitatsCreateRouteImport } from './routes/larval-surveillance/habitats/create'
@@ -481,6 +482,12 @@ const LarvalSurveillanceInspectionsCreateRoute =
     path: '/larval-surveillance/inspections/create',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LarvalSurveillanceInspectionsIdRoute =
+  LarvalSurveillanceInspectionsIdRouteImport.update({
+    id: '/larval-surveillance/inspections/$id',
+    path: '/larval-surveillance/inspections/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LarvalSurveillanceHabitatsTypesRoute =
   LarvalSurveillanceHabitatsTypesRouteImport.update({
     id: '/larval-surveillance/habitats/types',
@@ -690,6 +697,7 @@ export interface FileRoutesByFullPath {
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
   '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
   '/larval-surveillance/habitats/types': typeof LarvalSurveillanceHabitatsTypesRoute
+  '/larval-surveillance/inspections/$id': typeof LarvalSurveillanceInspectionsIdRoute
   '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
@@ -784,6 +792,7 @@ export interface FileRoutesByTo {
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
   '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
   '/larval-surveillance/habitats/types': typeof LarvalSurveillanceHabitatsTypesRoute
+  '/larval-surveillance/inspections/$id': typeof LarvalSurveillanceInspectionsIdRoute
   '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
@@ -883,6 +892,7 @@ export interface FileRoutesById {
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
   '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
   '/larval-surveillance/habitats/types': typeof LarvalSurveillanceHabitatsTypesRoute
+  '/larval-surveillance/inspections/$id': typeof LarvalSurveillanceInspectionsIdRoute
   '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
@@ -983,6 +993,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/habitats/create'
     | '/larval-surveillance/habitats/stats'
     | '/larval-surveillance/habitats/types'
+    | '/larval-surveillance/inspections/$id'
     | '/larval-surveillance/inspections/create'
     | '/larval-surveillance/inspections/stats'
     | '/larval-surveillance/samples/stats'
@@ -1077,6 +1088,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/habitats/create'
     | '/larval-surveillance/habitats/stats'
     | '/larval-surveillance/habitats/types'
+    | '/larval-surveillance/inspections/$id'
     | '/larval-surveillance/inspections/create'
     | '/larval-surveillance/inspections/stats'
     | '/larval-surveillance/samples/stats'
@@ -1175,6 +1187,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/habitats/create'
     | '/larval-surveillance/habitats/stats'
     | '/larval-surveillance/habitats/types'
+    | '/larval-surveillance/inspections/$id'
     | '/larval-surveillance/inspections/create'
     | '/larval-surveillance/inspections/stats'
     | '/larval-surveillance/samples/stats'
@@ -1260,6 +1273,7 @@ export interface RootRouteChildren {
   LarvalSurveillanceHabitatsCreateRoute: typeof LarvalSurveillanceHabitatsCreateRoute
   LarvalSurveillanceHabitatsStatsRoute: typeof LarvalSurveillanceHabitatsStatsRoute
   LarvalSurveillanceHabitatsTypesRoute: typeof LarvalSurveillanceHabitatsTypesRoute
+  LarvalSurveillanceInspectionsIdRoute: typeof LarvalSurveillanceInspectionsIdRoute
   LarvalSurveillanceInspectionsCreateRoute: typeof LarvalSurveillanceInspectionsCreateRoute
   LarvalSurveillanceInspectionsStatsRoute: typeof LarvalSurveillanceInspectionsStatsRoute
   LarvalSurveillanceSamplesStatsRoute: typeof LarvalSurveillanceSamplesStatsRoute
@@ -1783,6 +1797,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LarvalSurveillanceInspectionsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/larval-surveillance/inspections/$id': {
+      id: '/larval-surveillance/inspections/$id'
+      path: '/larval-surveillance/inspections/$id'
+      fullPath: '/larval-surveillance/inspections/$id'
+      preLoaderRoute: typeof LarvalSurveillanceInspectionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/larval-surveillance/habitats/types': {
       id: '/larval-surveillance/habitats/types'
       path: '/larval-surveillance/habitats/types'
@@ -2223,6 +2244,7 @@ const rootRouteChildren: RootRouteChildren = {
   LarvalSurveillanceHabitatsCreateRoute: LarvalSurveillanceHabitatsCreateRoute,
   LarvalSurveillanceHabitatsStatsRoute: LarvalSurveillanceHabitatsStatsRoute,
   LarvalSurveillanceHabitatsTypesRoute: LarvalSurveillanceHabitatsTypesRoute,
+  LarvalSurveillanceInspectionsIdRoute: LarvalSurveillanceInspectionsIdRoute,
   LarvalSurveillanceInspectionsCreateRoute:
     LarvalSurveillanceInspectionsCreateRoute,
   LarvalSurveillanceInspectionsStatsRoute:
