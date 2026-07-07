@@ -4,6 +4,8 @@ import {
 	getHabitatMvtTile,
 	getInspectionDisplayRowById,
 	getInspectionMvtTile,
+	getSampleDisplayRowById,
+	getSampleMvtTile,
 	type HabitatByIdInput,
 	type HabitatMvtTileFilters,
 	type HabitatMvtTileInput,
@@ -20,9 +22,16 @@ import {
 	listHabitatDisplayRowsByBounds,
 	listHabitatDisplayRowsByIds,
 	listInspectionDisplayRowsByBounds,
+	listSampleDisplayRowsByBounds,
 	type SafeHabitatDisplayRow,
 	type SafeInspectionDisplayRow,
+	type SafeSampleDisplayRow,
+	type SampleByIdInput,
+	type SampleListFilters,
+	type SampleMvtTileInput,
+	type SampleStatus,
 	type SimmerDatabase,
+	sampleStatusValues,
 	searchHabitatSites,
 } from '@simmer-mosquito/db';
 import type { Hono, MiddlewareHandler } from 'hono';
@@ -64,6 +73,15 @@ type InspectionDisplayByIdReader = (
 	db: TileDb,
 	input: InspectionByIdInput,
 ) => Promise<SafeInspectionDisplayRow | undefined>;
+type SampleTileReader = (db: TileDb, input: SampleMvtTileInput) => Promise<Uint8Array>;
+type SampleDisplayReader = (
+	db: TileDb,
+	input: SampleDisplayInput,
+) => Promise<SafeSampleDisplayRow[]>;
+type SampleDisplayByIdReader = (
+	db: TileDb,
+	input: SampleByIdInput,
+) => Promise<SafeSampleDisplayRow | undefined>;
 
 type TileCoordinateResult =
 	| {
@@ -130,6 +148,21 @@ interface InspectionDisplayInput {
 	readonly limit: number;
 }
 
+type SampleFilterResult =
+	| { readonly ok: true; readonly filters: SampleListFilters }
+	| { readonly ok: false; readonly reason: string };
+
+type SampleDisplayQueryResult =
+	| { readonly ok: true; readonly input: SampleDisplayInput }
+	| { readonly ok: false; readonly reason: string };
+
+interface SampleDisplayInput {
+	readonly organizationId: string;
+	readonly bounds: MapBounds;
+	readonly filters?: SampleListFilters;
+	readonly limit: number;
+}
+
 // The tileset registry is type-erased at the Map boundary so it can hold tilesets
 // with different filter shapes (habitats, inspections). `defineTileSet` keeps each
 // entry's parse/getTile pair internally type-safe; only the erasure to `unknown`
@@ -180,11 +213,15 @@ export function registerMapTileRoutes(
 		readonly getInspectionTile?: InspectionTileReader;
 		readonly listInspectionDisplayRows?: InspectionDisplayReader;
 		readonly getInspectionDisplayRow?: InspectionDisplayByIdReader;
+		readonly getSampleTile?: SampleTileReader;
+		readonly listSampleDisplayRows?: SampleDisplayReader;
+		readonly getSampleDisplayRow?: SampleDisplayByIdReader;
 	},
 ): void {
 	const tileSets = createTileSetRegistry({
 		getHabitatTile: options.getHabitatTile ?? getHabitatMvtTile,
 		getInspectionTile: options.getInspectionTile ?? getInspectionMvtTile,
+		getSampleTile: options.getSampleTile ?? getSampleMvtTile,
 	});
 	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
 	const getDisplayRow = options.getHabitatDisplayRow ?? getHabitatDisplayRowById;
@@ -193,6 +230,8 @@ export function registerMapTileRoutes(
 	const countTypeUsage = options.countHabitatTypeUsage ?? countActiveHabitatsByType;
 	const listInspectionRows = options.listInspectionDisplayRows ?? listInspectionDisplayRowsByBounds;
 	const getInspectionRow = options.getInspectionDisplayRow ?? getInspectionDisplayRowById;
+	const listSampleRows = options.listSampleDisplayRows ?? listSampleDisplayRowsByBounds;
+	const getSampleRow = options.getSampleDisplayRow ?? getSampleDisplayRowById;
 
 	app.get('/map/habitats', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
@@ -353,6 +392,41 @@ export function registerMapTileRoutes(
 		return context.json({ inspection });
 	});
 
+	app.get('/map/samples', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseSampleDisplayQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const samples = await listSampleRows(options.db, queryResult.input);
+
+		return context.json({ samples });
+	});
+
+	app.get('/map/samples/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Sample id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const sample = await getSampleRow(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (sample === undefined) {
+			return context.json({ error: 'not_found', reason: 'Sample not found.' }, 404);
+		}
+
+		return context.json({ sample });
+	});
+
 	app.get(
 		'/map/tiles/:tileset/:z/:x/:yWithExtension',
 		options.authContextMiddleware,
@@ -400,6 +474,7 @@ export function registerMapTileRoutes(
 function createTileSetRegistry(options: {
 	readonly getHabitatTile: HabitatTileReader;
 	readonly getInspectionTile: InspectionTileReader;
+	readonly getSampleTile: SampleTileReader;
 }): ReadonlyMap<string, TileSetDefinition> {
 	return new Map<string, TileSetDefinition>([
 		[
@@ -420,6 +495,18 @@ function createTileSetRegistry(options: {
 				parseFilters: parseInspectionTileFilters,
 				getTile: (db, input) =>
 					options.getInspectionTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+			}),
+		],
+		[
+			'samples',
+			defineTileSet<SampleListFilters>({
+				parseFilters: parseSampleTileFilters,
+				getTile: (db, input) =>
+					options.getSampleTile(db, {
 						...input.coordinate,
 						organizationId: input.organizationId,
 						filters: input.filters,
@@ -638,6 +725,112 @@ export function parseInspectionDisplayQuery(
 			limit: limit.value,
 		},
 	};
+}
+
+const sampleFilterParams = new Set(['species', 'status', 'nonMosquito', 'dateFrom', 'dateTo']);
+const sampleStatusSet = new Set<string>(sampleStatusValues);
+
+export function parseSampleTileFilters(searchParams: URLSearchParams): SampleFilterResult {
+	const unknownParams = [...searchParams.keys()].filter((param) => !sampleFilterParams.has(param));
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported sample tile filter: ${unknownParams[0]}.` };
+	}
+
+	const speciesIds = parseOptionalUuidListFilter(searchParams, 'species');
+	if (!speciesIds.ok) {
+		return speciesIds;
+	}
+
+	const status = parseOptionalSampleStatusFilter(searchParams, 'status');
+	if (!status.ok) {
+		return status;
+	}
+
+	const nonMosquito = parseOptionalBooleanFilter(searchParams, 'nonMosquito');
+	if (!nonMosquito.ok) {
+		return nonMosquito;
+	}
+
+	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
+	if (!dateFrom.ok) {
+		return dateFrom;
+	}
+
+	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
+	if (!dateTo.ok) {
+		return dateTo;
+	}
+
+	return {
+		ok: true,
+		filters: {
+			...(speciesIds.value === undefined ? {} : { speciesIds: speciesIds.value }),
+			...(status.value === undefined ? {} : { status: status.value }),
+			// Only `true` narrows; `nonMosquito=false` is the same as omitting it.
+			...(nonMosquito.value === true ? { nonMosquitoOnly: true } : {}),
+			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
+			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
+		},
+	};
+}
+
+export function parseSampleDisplayQuery(
+	searchParams: URLSearchParams,
+	organizationId: string,
+): SampleDisplayQueryResult {
+	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
+	if (!bbox.ok) {
+		return bbox;
+	}
+
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('bbox');
+	filterParams.delete('limit');
+
+	const filterResult = parseSampleTileFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			bounds: bbox.bounds,
+			filters: filterResult.filters,
+			limit: limit.value,
+		},
+	};
+}
+
+function parseOptionalSampleStatusFilter(
+	searchParams: URLSearchParams,
+	param: string,
+):
+	| { readonly ok: true; readonly value: SampleStatus | undefined }
+	| { readonly ok: false; readonly reason: string } {
+	const values = searchParams.getAll(param);
+	if (values.length === 0) {
+		return { ok: true, value: undefined };
+	}
+	if (values.length > 1) {
+		return { ok: false, reason: `${param} may only be provided once.` };
+	}
+
+	const trimmed = values[0]?.trim() ?? '';
+	if (trimmed.length === 0) {
+		return { ok: true, value: undefined };
+	}
+	if (!sampleStatusSet.has(trimmed)) {
+		return { ok: false, reason: `${param} must be one of: ${sampleStatusValues.join(', ')}.` };
+	}
+
+	return { ok: true, value: trimmed as SampleStatus };
 }
 
 const maxHabitatIds = 500;

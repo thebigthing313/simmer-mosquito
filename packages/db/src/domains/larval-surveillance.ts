@@ -343,3 +343,321 @@ function inspectionSpatialWhereClauses(input: {
 
 	return whereClauses;
 }
+
+// --- sample map surface -----------------------------------------------------
+//
+// The samples explorer is map-paired like the inspection/habitat explorers, but a
+// sample has no geometry of its own: it inherits its parent inspection's owned
+// point/line/polygon. So the trio below (tile / bbox list / by-id) joins samples
+// to inspections and projects the inspection's geometry, while every sample's
+// identified species is rolled up server-side into a json array — the on-demand
+// samples / sample_species shapes can't gather a cross-habitat window in one
+// bounded client request, the same constraint that keeps the "awaiting" rollup
+// above here rather than in a client include.
+
+/**
+ * A sample's lifecycle state as the explorer filters, colors, and labels it. The
+ * states are not strictly exclusive in the data (a zero-larvae sample can also
+ * carry an unidentifiable reason), so the server resolves a single status by the
+ * precedence in {@link sampleStatusExpression}: an identified result wins over any
+ * closed-out reason.
+ */
+export type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidentifiable';
+
+export const sampleStatusValues: readonly SampleStatus[] = [
+	'identified',
+	'awaiting',
+	'zero_larvae',
+	'unidentifiable',
+];
+
+/** One identified species within a sample, as rolled up for the explorer row. */
+export interface SampleSpeciesResult {
+	readonly speciesId: string;
+	readonly larvaeCount: number;
+}
+
+/** Server-side filters shared by the sample tile, bbox list, and by-id readers. */
+export interface SampleListFilters {
+	/** Match samples that have an identified row for any of these species. */
+	readonly speciesIds?: readonly string[];
+	/** Restrict to samples in this lifecycle state. */
+	readonly status?: SampleStatus;
+	/** Only samples flagged as containing non-mosquito organisms or material. */
+	readonly nonMosquitoOnly?: boolean;
+	/** Inclusive lower bound on the parent inspection's date (`YYYY-MM-DD`). */
+	readonly dateFrom?: string;
+	/** Inclusive upper bound on the parent inspection's date (`YYYY-MM-DD`). */
+	readonly dateTo?: string;
+}
+
+/**
+ * A server-safe sample display row: the parent inspection's geometry projection
+ * plus the sample's own result flags, its inspection date and habitat (so the row
+ * can name and link itself), its resolved lifecycle status, and its identified
+ * species rolled up with counts. Species names resolve client-side from the eager
+ * taxonomy catalog, so only ids and counts ride here.
+ */
+export interface SafeSampleDisplayRow {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geomType: string;
+	readonly displayName: string | null;
+	readonly inspectionId: string;
+	readonly inspectionDate: string;
+	readonly habitatId: string | null;
+	readonly habitatName: string | null;
+	readonly isZeroLarvae: boolean;
+	readonly hasNonMosquito: boolean;
+	readonly unidentifiableReason: string | null;
+	readonly createdByProfileId: string | null;
+	readonly status: SampleStatus;
+	/** Most recent identification date across the sample's species rows, if any. */
+	readonly identifiedAt: string | null;
+	/** Total larvae counted across every identified species. */
+	readonly larvaeTotal: number;
+	/** Identified species with counts, highest count first. */
+	readonly results: SampleSpeciesResult[];
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface SampleBounds {
+	readonly west: number;
+	readonly south: number;
+	readonly east: number;
+	readonly north: number;
+}
+
+export interface SampleMvtTileInput {
+	readonly z: number;
+	readonly x: number;
+	readonly y: number;
+	readonly organizationId: string;
+	readonly filters?: SampleListFilters;
+}
+
+export interface SampleBoundingBoxInput {
+	readonly organizationId: string;
+	readonly bounds: SampleBounds;
+	readonly filters?: SampleListFilters;
+	readonly limit: number;
+}
+
+export interface SampleByIdInput {
+	readonly organizationId: string;
+	readonly id: string;
+}
+
+// Resolves a single lifecycle status by precedence. Shared by the tile (feature
+// paint) and the display readers so the map color and the list badge can never
+// disagree about what a sample is.
+const sampleStatusExpression = sql`
+	case
+		when exists (
+			select 1 from sample_species ss where ss.sample_id = s.id and ss.deleted_at is null
+		) then 'identified'
+		when s.is_zero_larvae then 'zero_larvae'
+		when s.unidentifiable_reason is not null then 'unidentifiable'
+		else 'awaiting'
+	end
+`;
+
+export async function getSampleMvtTile(
+	db: Kysely<SimmerDatabase>,
+	input: SampleMvtTileInput,
+): Promise<Uint8Array> {
+	const whereClauses = sampleSpatialWhereClauses(input);
+
+	const result = await sql<{ readonly tile: Uint8Array | null }>`
+		with
+		bounds as (
+			select
+				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
+				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
+		),
+		tile_rows as (
+			select
+				s.id,
+				(${sampleStatusExpression}) as "status",
+				st_asmvtgeom(
+					st_transform(i.geom, 3857),
+					bounds.geom_3857,
+					extent => 4096,
+					buffer => 64
+				) as geom
+			from samples s
+			join inspections i on i.id = s.inspection_id
+			cross join bounds
+			where ${sql.join(whereClauses, sql` and `)}
+		)
+		select coalesce(st_asmvt(tile_rows, 'samples', 4096, 'geom'), ''::bytea) as tile
+		from tile_rows
+	`.execute(db);
+
+	return result.rows[0]?.tile ?? new Uint8Array();
+}
+
+export async function listSampleDisplayRowsByBounds(
+	db: Kysely<SimmerDatabase>,
+	input: SampleBoundingBoxInput,
+): Promise<SafeSampleDisplayRow[]> {
+	const whereClauses = sampleSpatialWhereClauses(input);
+
+	const result = await sql<SafeSampleDisplayRow>`
+		with bounds as (
+			select st_makeenvelope(
+				${input.bounds.west},
+				${input.bounds.south},
+				${input.bounds.east},
+				${input.bounds.north},
+				4326
+			) as geom_4326
+		)
+		select ${sampleDisplayColumns}
+		from samples s
+		join inspections i on i.id = s.inspection_id
+		left join habitats h on h.id = i.habitat_id
+		${sampleResultsLateral}
+		cross join bounds
+		where ${sql.join(whereClauses, sql` and `)}
+		order by i.inspection_date desc, s.created_at desc, s.id
+		limit ${input.limit}
+	`.execute(db);
+
+	return result.rows;
+}
+
+export async function getSampleDisplayRowById(
+	db: Kysely<SimmerDatabase>,
+	input: SampleByIdInput,
+): Promise<SafeSampleDisplayRow | undefined> {
+	const result = await sql<SafeSampleDisplayRow>`
+		select ${sampleDisplayColumns}
+		from samples s
+		join inspections i on i.id = s.inspection_id
+		left join habitats h on h.id = i.habitat_id
+		${sampleResultsLateral}
+		where s.id = ${input.id}
+			and s.organization_id = ${input.organizationId}
+			and s.deleted_at is null
+			and i.deleted_at is null
+			and i.geom is not null
+		limit 1
+	`.execute(db);
+
+	return result.rows[0];
+}
+
+// The per-sample species roll-up, kept as one fragment so the bbox and by-id
+// readers can never drift in shape.
+const sampleResultsLateral = sql`
+	left join lateral (
+		select
+			max(ss.identified_at)::text as identified_at,
+			sum(ss.larvae_count)::int as larvae_total,
+			json_agg(
+				json_build_object('speciesId', ss.species_id, 'larvaeCount', ss.larvae_count)
+				order by ss.larvae_count desc, ss.species_id
+			) as results
+		from sample_species ss
+		where ss.sample_id = s.id and ss.deleted_at is null
+	) agg on true
+`;
+
+// Shared projection for the bbox list + by-id readers. Geometry comes from the
+// parent inspection; the roll-up columns come from the `agg` lateral above.
+const sampleDisplayColumns = sql`
+	s.id,
+	s.organization_id as "organizationId",
+	i.lat,
+	i.lng,
+	i.geojson,
+	i.geom_type as "geomType",
+	s.display_name as "displayName",
+	s.inspection_id as "inspectionId",
+	i.inspection_date::text as "inspectionDate",
+	i.habitat_id as "habitatId",
+	h.habitat_name as "habitatName",
+	s.is_zero_larvae as "isZeroLarvae",
+	s.has_non_mosquito as "hasNonMosquito",
+	s.unidentifiable_reason as "unidentifiableReason",
+	s.created_by_profile_id as "createdByProfileId",
+	(${sampleStatusExpression}) as "status",
+	agg.identified_at as "identifiedAt",
+	coalesce(agg.larvae_total, 0)::int as "larvaeTotal",
+	coalesce(agg.results, '[]'::json) as "results",
+	s.created_at as "createdAt",
+	s.updated_at as "updatedAt"
+`;
+
+function sampleSpatialWhereClauses(input: {
+	readonly organizationId: string;
+	readonly filters?: SampleListFilters;
+}): RawBuilder<boolean>[] {
+	const clauses: RawBuilder<boolean>[] = [
+		sql<boolean>`s.organization_id = ${input.organizationId}`,
+		sql<boolean>`s.deleted_at is null`,
+		sql<boolean>`i.deleted_at is null`,
+		sql<boolean>`i.geom is not null`,
+		sql<boolean>`i.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(i.geom, bounds.geom_4326)`,
+	];
+
+	const filters = input.filters;
+	if (filters === undefined) {
+		return clauses;
+	}
+
+	if (filters.dateFrom !== undefined) {
+		clauses.push(sql<boolean>`i.inspection_date >= ${filters.dateFrom}`);
+	}
+	if (filters.dateTo !== undefined) {
+		clauses.push(sql<boolean>`i.inspection_date <= ${filters.dateTo}`);
+	}
+	if (filters.nonMosquitoOnly === true) {
+		clauses.push(sql<boolean>`s.has_non_mosquito = true`);
+	}
+	if (filters.speciesIds !== undefined && filters.speciesIds.length > 0) {
+		clauses.push(
+			sql<boolean>`exists (
+				select 1 from sample_species ss
+				where ss.sample_id = s.id
+					and ss.deleted_at is null
+					and ss.species_id = any(${[...filters.speciesIds]}::uuid[])
+			)`,
+		);
+	}
+	if (filters.status !== undefined) {
+		clauses.push(sampleStatusClause(filters.status));
+	}
+
+	return clauses;
+}
+
+/** The independent predicate that defines each lifecycle status filter. */
+function sampleStatusClause(status: SampleStatus): RawBuilder<boolean> {
+	switch (status) {
+		case 'identified':
+			return sql<boolean>`exists (
+				select 1 from sample_species ss
+				where ss.sample_id = s.id and ss.deleted_at is null
+			)`;
+		case 'zero_larvae':
+			return sql<boolean>`s.is_zero_larvae = true`;
+		case 'unidentifiable':
+			return sql<boolean>`s.unidentifiable_reason is not null`;
+		case 'awaiting':
+			return sql<boolean>`(
+				s.is_zero_larvae = false
+				and s.unidentifiable_reason is null
+				and not exists (
+					select 1 from sample_species ss
+					where ss.sample_id = s.id and ss.deleted_at is null
+				)
+			)`;
+	}
+}

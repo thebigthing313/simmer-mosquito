@@ -13,7 +13,13 @@ export {
 	DEFAULT_MAP_CAMERA,
 	type MapCamera,
 } from './map-styles';
+export {
+	buildSampleTileUrl,
+	SAMPLE_STATUS_COLORS,
+	type SampleTileFilters,
+} from './sample-tiles';
 export { type GeolocationCoords, useGeolocation } from './use-geolocation';
 export type { HabitatTileLayerConfig } from './use-habitat-tile-layer';
 export type { InspectionTileLayerConfig } from './use-inspection-tile-layer';
 export type { RouteLayerConfig, RouteStopFeature } from './use-route-layer';
+export type { SampleTileLayerConfig } from './use-sample-tile-layer';

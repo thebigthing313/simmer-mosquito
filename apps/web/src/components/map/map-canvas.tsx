@@ -18,6 +18,7 @@ import {
 } from './use-inspection-tile-layer';
 import { useMapboxMap } from './use-mapbox-map';
 import { type RouteLayerConfig, useRouteLayer } from './use-route-layer';
+import { type SampleTileLayerConfig, useSampleTileLayer } from './use-sample-tile-layer';
 
 /**
  * Which on-map controls to render. Every control defaults to on; a consuming
@@ -45,6 +46,7 @@ export function MapCanvas({
 	controls,
 	habitatLayer,
 	inspectionLayer,
+	sampleLayer,
 	routeLayer,
 	geoJson,
 	onMapReady,
@@ -56,6 +58,8 @@ export function MapCanvas({
 	readonly habitatLayer?: HabitatTileLayerConfig;
 	/** Mount the inspection vector-tile layer with these filters + selection wiring. */
 	readonly inspectionLayer?: InspectionTileLayerConfig;
+	/** Mount the sample vector-tile layer with these filters + selection wiring. */
+	readonly sampleLayer?: SampleTileLayerConfig;
 	/** Draw an ordered route: numbered stop pins + connecting path + selection sync. */
 	readonly routeLayer?: RouteLayerConfig;
 	/** Draw a single GeoJSON overlay (e.g. one record's geometry on a detail map). */
@@ -84,6 +88,7 @@ export function MapCanvas({
 
 	useHabitatTileLayer(map, isLoaded, habitatLayer);
 	useInspectionTileLayer(map, isLoaded, inspectionLayer);
+	useSampleTileLayer(map, isLoaded, sampleLayer);
 	useRouteLayer(map, isLoaded, routeLayer);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null);
 

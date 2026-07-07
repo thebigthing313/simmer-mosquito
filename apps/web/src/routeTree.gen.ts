@@ -77,6 +77,7 @@ import { Route as OperationsAssignmentsCreateRouteImport } from './routes/operat
 import { Route as OperationsAssignmentsIdRouteImport } from './routes/operations/assignments/$id'
 import { Route as LayoutPreviewDesignPageRouteImport } from './routes/layout-preview.$design.$page'
 import { Route as LarvalSurveillanceSamplesStatsRouteImport } from './routes/larval-surveillance/samples/stats'
+import { Route as LarvalSurveillanceSamplesIdRouteImport } from './routes/larval-surveillance/samples/$id'
 import { Route as LarvalSurveillanceInspectionsStatsRouteImport } from './routes/larval-surveillance/inspections/stats'
 import { Route as LarvalSurveillanceInspectionsCreateRouteImport } from './routes/larval-surveillance/inspections/create'
 import { Route as LarvalSurveillanceInspectionsIdRouteImport } from './routes/larval-surveillance/inspections/$id'
@@ -470,6 +471,12 @@ const LarvalSurveillanceSamplesStatsRoute =
     path: '/larval-surveillance/samples/stats',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LarvalSurveillanceSamplesIdRoute =
+  LarvalSurveillanceSamplesIdRouteImport.update({
+    id: '/larval-surveillance/samples/$id',
+    path: '/larval-surveillance/samples/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LarvalSurveillanceInspectionsStatsRoute =
   LarvalSurveillanceInspectionsStatsRouteImport.update({
     id: '/larval-surveillance/inspections/stats',
@@ -700,6 +707,7 @@ export interface FileRoutesByFullPath {
   '/larval-surveillance/inspections/$id': typeof LarvalSurveillanceInspectionsIdRoute
   '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
+  '/larval-surveillance/samples/$id': typeof LarvalSurveillanceSamplesIdRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
   '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
@@ -795,6 +803,7 @@ export interface FileRoutesByTo {
   '/larval-surveillance/inspections/$id': typeof LarvalSurveillanceInspectionsIdRoute
   '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
+  '/larval-surveillance/samples/$id': typeof LarvalSurveillanceSamplesIdRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
   '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
@@ -895,6 +904,7 @@ export interface FileRoutesById {
   '/larval-surveillance/inspections/$id': typeof LarvalSurveillanceInspectionsIdRoute
   '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
+  '/larval-surveillance/samples/$id': typeof LarvalSurveillanceSamplesIdRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
   '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
@@ -996,6 +1006,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/$id'
     | '/larval-surveillance/inspections/create'
     | '/larval-surveillance/inspections/stats'
+    | '/larval-surveillance/samples/$id'
     | '/larval-surveillance/samples/stats'
     | '/layout-preview/$design/$page'
     | '/operations/assignments/$id'
@@ -1091,6 +1102,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/$id'
     | '/larval-surveillance/inspections/create'
     | '/larval-surveillance/inspections/stats'
+    | '/larval-surveillance/samples/$id'
     | '/larval-surveillance/samples/stats'
     | '/layout-preview/$design/$page'
     | '/operations/assignments/$id'
@@ -1190,6 +1202,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/$id'
     | '/larval-surveillance/inspections/create'
     | '/larval-surveillance/inspections/stats'
+    | '/larval-surveillance/samples/$id'
     | '/larval-surveillance/samples/stats'
     | '/layout-preview/$design/$page'
     | '/operations/assignments/$id'
@@ -1276,6 +1289,7 @@ export interface RootRouteChildren {
   LarvalSurveillanceInspectionsIdRoute: typeof LarvalSurveillanceInspectionsIdRoute
   LarvalSurveillanceInspectionsCreateRoute: typeof LarvalSurveillanceInspectionsCreateRoute
   LarvalSurveillanceInspectionsStatsRoute: typeof LarvalSurveillanceInspectionsStatsRoute
+  LarvalSurveillanceSamplesIdRoute: typeof LarvalSurveillanceSamplesIdRoute
   LarvalSurveillanceSamplesStatsRoute: typeof LarvalSurveillanceSamplesStatsRoute
   OperationsAssignmentsIdRoute: typeof OperationsAssignmentsIdRouteWithChildren
   OperationsAssignmentsCreateRoute: typeof OperationsAssignmentsCreateRoute
@@ -1783,6 +1797,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LarvalSurveillanceSamplesStatsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/larval-surveillance/samples/$id': {
+      id: '/larval-surveillance/samples/$id'
+      path: '/larval-surveillance/samples/$id'
+      fullPath: '/larval-surveillance/samples/$id'
+      preLoaderRoute: typeof LarvalSurveillanceSamplesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/larval-surveillance/inspections/stats': {
       id: '/larval-surveillance/inspections/stats'
       path: '/larval-surveillance/inspections/stats'
@@ -2249,6 +2270,7 @@ const rootRouteChildren: RootRouteChildren = {
     LarvalSurveillanceInspectionsCreateRoute,
   LarvalSurveillanceInspectionsStatsRoute:
     LarvalSurveillanceInspectionsStatsRoute,
+  LarvalSurveillanceSamplesIdRoute: LarvalSurveillanceSamplesIdRoute,
   LarvalSurveillanceSamplesStatsRoute: LarvalSurveillanceSamplesStatsRoute,
   OperationsAssignmentsIdRoute: OperationsAssignmentsIdRouteWithChildren,
   OperationsAssignmentsCreateRoute: OperationsAssignmentsCreateRoute,

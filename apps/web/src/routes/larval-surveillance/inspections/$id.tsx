@@ -527,7 +527,13 @@ function SampleItem({ sample }: { readonly sample: SampleEntry }) {
 	return (
 		<li className="grid gap-2 rounded-md border border-border/40 bg-background/60 px-3 py-2.5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<span className="font-medium text-foreground text-sm">{sampleName(sample)}</span>
+				<Link
+					className="rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+					params={{ id: sample.id }}
+					to="/larval-surveillance/samples/$id"
+				>
+					{sampleName(sample)}
+				</Link>
 				<Badge tone={result.tone} variant="outline">
 					{result.label}
 				</Badge>
