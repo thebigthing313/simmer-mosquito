@@ -9,6 +9,9 @@ export const inspectionsSyncDescriptor = createSyncDescriptor<InspectionRow>({
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'habitatId',
 		'habitatTypeId',
 		'addressId',

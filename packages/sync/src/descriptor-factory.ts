@@ -1,10 +1,13 @@
 import type { SyncDescriptor } from './index.js';
 
-const geometryProjectionColumns = new Set(['lat', 'lng', 'geojson', 'geomType']);
+// Centroid columns (lat, lng, geomType) are trigger-maintained real columns and
+// may sync. Raw/heavy geometry (geom binary, geojson) stays server-only and is
+// served by the /map/* endpoints — never streamed through an Electric shape.
+const serverOnlyGeometryColumns = new Set(['geom', 'geojson']);
 
-type GeometryProjectionColumn = 'lat' | 'lng' | 'geojson' | 'geomType';
+type ServerOnlyGeometryColumn = 'geom' | 'geojson';
 type NoGeometryColumns<TColumns extends readonly string[]> =
-	Extract<TColumns[number], GeometryProjectionColumn> extends never ? TColumns : never;
+	Extract<TColumns[number], ServerOnlyGeometryColumn> extends never ? TColumns : never;
 
 export function createSyncDescriptor<
 	TRow extends { readonly id: string },
@@ -22,9 +25,9 @@ export function createSyncDescriptor<
 	}
 
 	for (const column of input.columns) {
-		if (geometryProjectionColumns.has(column)) {
+		if (serverOnlyGeometryColumns.has(column)) {
 			throw new Error(
-				`Descriptor ${input.id} must not include projected geometry column ${column}.`,
+				`Descriptor ${input.id} must not include server-only geometry column ${column}.`,
 			);
 		}
 	}

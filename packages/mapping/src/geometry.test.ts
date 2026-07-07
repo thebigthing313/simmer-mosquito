@@ -5,6 +5,7 @@ import {
 	containsLngLat,
 	countGeoJsonVertices,
 	formatBoundingBox,
+	ownedCentroidFromGeoJson,
 	parseBoundingBox,
 } from './geometry.js';
 
@@ -46,6 +47,31 @@ describe('geometry helpers', () => {
 			north: 42,
 		});
 		expect(centroidFromGeoJson(geometry)).toEqual({ lng: -74.5, lat: 41 });
+	});
+
+	it('derives owned centroid columns with the PostGIS st_* geom type form', () => {
+		// geomType must match the database set_owned_centroid() trigger, which
+		// stores lower(st_geometrytype(geom)), e.g. st_point / st_polygon.
+		expect(ownedCentroidFromGeoJson({ type: 'Point', coordinates: [-122.3321, 47.6062] })).toEqual({
+			lng: -122.3321,
+			lat: 47.6062,
+			geomType: 'st_point',
+		});
+		expect(
+			ownedCentroidFromGeoJson({
+				type: 'Polygon',
+				coordinates: [
+					[
+						[0, 0],
+						[0, 2],
+						[2, 2],
+						[2, 0],
+						[0, 0],
+					],
+				],
+			})?.geomType,
+		).toBe('st_polygon');
+		expect(ownedCentroidFromGeoJson({ type: 'Polygon', coordinates: [] })).toBeNull();
 	});
 
 	it('counts GeoJSON vertices across nested geometry types', () => {

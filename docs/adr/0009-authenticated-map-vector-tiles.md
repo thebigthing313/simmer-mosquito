@@ -77,3 +77,23 @@ should default off unless the workflow proves otherwise.
 - Route and mission maps stay focused on their bounded operational dataset,
   while optional MVT overlays can provide nearby context without making the
   task dataset itself tiled.
+
+## Later refinement (2026-07-07): centroid columns may sync
+
+The original decision left all owned-geometry projection columns off the sync
+path. This is narrowed: the trigger-maintained centroid columns (`lat`, `lng`,
+`geom_type`) on the locatable tables **may** be streamed through Electric so
+pin/list/coordinate reads come straight off the synced row, collapsing the
+"synced row + separate coordinate fetch" dual path for those surfaces.
+
+Full geometry stays on the specialized read path unchanged: the raw `geom` and
+the generated `geojson` are **never** streamed (Postgres logical replication does
+not publish `GENERATED` columns, and geojson is unbounded). `packages/sync`
+enforces this — its descriptor factory forbids `geom` and `geojson` in any shape
+descriptor while allowing the centroid columns. Open-ended catalog maps still use
+MVT tiles (the row-count ceiling, not coordinate availability, is what forces
+tiling), and bounded polygon-detail maps still fetch geojson from `/map/*`.
+
+See the `202607070001_sync_owned_centroid_columns` migration, which converts the
+centroid columns from `GENERATED ALWAYS AS … STORED` to plain columns maintained
+by the shared `set_owned_centroid()` trigger across all 15 locatable tables.

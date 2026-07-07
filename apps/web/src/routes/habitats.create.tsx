@@ -1,3 +1,4 @@
+import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow, OrganizationRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -261,10 +262,18 @@ function createHabitatFromValues({
 		throw new Error('Geometry is required.');
 	}
 
+	const centroid = ownedCentroidFromGeoJson(values.geometry as unknown as GeoJsonGeometry);
+	if (centroid === null) {
+		throw new Error('Unable to determine the habitat location from the drawn geometry.');
+	}
+
 	const now = new Date().toISOString();
 	const row: HabitatRow = {
 		id: crypto.randomUUID(),
 		organizationId: organization.id,
+		lat: centroid.lat,
+		lng: centroid.lng,
+		geomType: centroid.geomType,
 		addressId: values.addressId,
 		habitatTypeId:
 			values.habitatTypeId === noHabitatTypeValue ? null : requiredText(values.habitatTypeId),

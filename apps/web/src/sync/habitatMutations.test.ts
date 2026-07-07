@@ -40,6 +40,9 @@ function habitatRow(): HabitatRow {
 	return {
 		id: 'habitat-1',
 		organizationId: 'organization-1',
+		lat: 47.6062,
+		lng: -122.3321,
+		geomType: 'st_point',
 		addressId: null,
 		habitatTypeId: 'habitat-type-1',
 		habitatName: 'Catch basin',
