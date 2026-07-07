@@ -9,6 +9,9 @@ export const habitatsSyncDescriptor = createSyncDescriptor<HabitatRow>({
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'addressId',
 		'habitatTypeId',
 		'habitatName',

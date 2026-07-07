@@ -179,13 +179,12 @@ describe('sync descriptors', () => {
 		expect(insecticideBatchesSyncDescriptor.columns).toContain('organizationId');
 	});
 
-	it('omits owned-geometry columns from Electric shapes', () => {
+	it('omits server-only geometry columns from Electric shapes', () => {
+		// Raw/heavy geometry stays server-only and is served by /map/* endpoints.
+		// Trigger-maintained centroid columns (lat, lng, geomType) may sync.
 		for (const descriptor of [...webCommandMutationDescriptors, ...webReadOnlyTracerDescriptors]) {
 			expect(descriptor.columns).not.toContain('geom');
-			expect(descriptor.columns).not.toContain('lat');
-			expect(descriptor.columns).not.toContain('lng');
 			expect(descriptor.columns).not.toContain('geojson');
-			expect(descriptor.columns).not.toContain('geomType');
 		}
 	});
 

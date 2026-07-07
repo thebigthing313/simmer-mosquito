@@ -23,6 +23,7 @@ export type {
 	GeoJsonPosition,
 	GeoJsonProperties,
 	LngLat,
+	OwnedCentroid,
 } from './geometry.js';
 export {
 	boundsFromCoordinates,
@@ -34,6 +35,7 @@ export {
 	formatBoundingBox,
 	isBoundingBox,
 	isLngLat,
+	ownedCentroidFromGeoJson,
 	parseBoundingBox,
 	toLngLat,
 } from './geometry.js';

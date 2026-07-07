@@ -169,6 +169,29 @@ export function centroidFromGeoJson(geometry: GeoJsonGeometry): LngLat | null {
 	};
 }
 
+export interface OwnedCentroid {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
+}
+
+/**
+ * Derive the trigger-maintained centroid columns (lat, lng, geomType) from a
+ * drawn GeoJSON geometry for an optimistic write. Mirrors the database
+ * `set_owned_centroid()` trigger: geomType uses the lowercased PostGIS `ST_*`
+ * form (e.g. `st_point`) so the optimistic row matches the synced row. Returns
+ * null for empty/degenerate geometry.
+ */
+export function ownedCentroidFromGeoJson(geometry: GeoJsonGeometry): OwnedCentroid | null {
+	const centroid = centroidFromGeoJson(geometry);
+	if (centroid === null) return null;
+	return {
+		lat: centroid.lat,
+		lng: centroid.lng,
+		geomType: `st_${geometry.type.toLowerCase()}`,
+	};
+}
+
 export function countGeoJsonVertices(geometry: GeoJsonGeometry): number {
 	switch (geometry.type) {
 		case 'Point':

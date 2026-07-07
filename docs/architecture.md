@@ -225,8 +225,12 @@ domain record such as a habitat, inspection, trap, collection, service request,
 requested control action, or mission item. The server stores explicit geometry
 directly on the target row or snapshots the source record's existing owned
 geometry inside the authorized transaction. Geometry coordinates are preserved
-as submitted by apps or source imports. Read/sync rows expose each table's owned
-geometry projection rather than a shared geometry record.
+as submitted by apps or source imports. Read/sync rows expose each table's
+trigger-maintained centroid columns (`lat`, `lng`, `geom_type`) so pins and
+coordinate reads ride the synced row directly. Full geometry (`geom`, `geojson`)
+stays server-only — it is read through the `/map/*` endpoints, never streamed
+through an Electric shape, because Postgres logical replication does not publish
+`GENERATED` columns and the geojson payload is unbounded.
 
 Open-ended map browsing uses authenticated MVT endpoints from `apps/server`.
 Those tile endpoints are viewport and zoom render projections over owned

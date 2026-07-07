@@ -54,7 +54,11 @@ implementation remain separate implementation work.
   store complex administrative boundary polygons.
 - `addresses` is on-demand because address books can be large.
 - Owned geometry lives on the locatable rows themselves. It is not a standalone
-  web collection.
+  web collection. Each locatable table carries trigger-maintained centroid
+  columns (`lat`, `lng`, `geom_type`) that Electric may stream, so pins and
+  coordinate reads come straight off the synced row. The raw `geom` and the
+  generated `geojson` stay server-only and are read through the `/map/*`
+  endpoints (`packages/sync` forbids `geom`/`geojson` in any shape descriptor).
 - Region intersection cache data is derived GIS data and is not part of normal
   app sync unless a specific reporting/GIS screen proves it needs direct client
   access.

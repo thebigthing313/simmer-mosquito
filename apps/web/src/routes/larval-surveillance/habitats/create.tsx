@@ -1,4 +1,4 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
@@ -45,10 +45,18 @@ function CreateHabitatRoute() {
 				throw new Error('Your profile is still loading.');
 			}
 
+			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
+			if (centroid === null) {
+				throw new Error('Unable to determine the habitat location from the drawn geometry.');
+			}
+
 			const now = new Date().toISOString();
 			const row: HabitatRow = {
 				id: crypto.randomUUID(),
 				organizationId: organization.id,
+				lat: centroid.lat,
+				lng: centroid.lng,
+				geomType: centroid.geomType,
 				addressId: values.addressId,
 				habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
 				habitatName: nullableText(values.habitatName),

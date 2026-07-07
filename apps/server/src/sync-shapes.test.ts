@@ -223,7 +223,7 @@ describe('registerSyncShapeRoutes', () => {
 		expect(upstream.searchParams.get('params[1]')).toBe('org-1');
 	});
 
-	it('does not request generated owned-geometry columns from Electric', async () => {
+	it('streams centroid columns but never raw geometry for the habitats shape', async () => {
 		const app = new Hono<{ Variables: AuthVariables }>();
 		const requests: string[] = [];
 
@@ -247,10 +247,13 @@ describe('registerSyncShapeRoutes', () => {
 		const columns = upstream.searchParams.get('columns')?.split(',') ?? [];
 
 		expect(response.status).toBe(200);
-		expect(columns).not.toContain('lat');
-		expect(columns).not.toContain('lng');
+		// Trigger-maintained centroid columns sync so pins ride the row.
+		expect(columns).toContain('lat');
+		expect(columns).toContain('lng');
+		expect(columns).toContain('geom_type');
+		// Raw/heavy geometry stays server-only (served by /map/*).
+		expect(columns).not.toContain('geom');
 		expect(columns).not.toContain('geojson');
-		expect(columns).not.toContain('geom_type');
 	});
 
 	it('does not request generated owned-geometry columns from new locatable shapes', async () => {

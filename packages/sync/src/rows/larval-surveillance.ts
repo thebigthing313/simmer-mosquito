@@ -1,20 +1,20 @@
 export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
 
+// Full geometry (geojson) is not synced through Electric; it is fetched from the
+// /map/* display endpoints. The synced row carries only the trigger-maintained
+// centroid columns (lat, lng, geomType), which always resolve because geom is
+// NOT NULL on the locatable tables.
 interface OwnedGeometryProjection {
-	readonly lat?: number;
-	readonly lng?: number;
 	readonly geojson?: unknown;
-	readonly geomType?: string;
 }
 
 export interface HabitatRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
 	readonly organizationId: string;
-	readonly lat?: number;
-	readonly lng?: number;
-	readonly geojson?: unknown;
-	readonly geomType?: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly addressId: string | null;
 	readonly habitatTypeId: string | null;
 	readonly habitatName: string | null;
@@ -34,6 +34,12 @@ export interface InspectionRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
 	readonly organizationId: string;
+	// Centroid columns are optional because an inspection's geometry is derived
+	// server-side (snapshotted from its habitat or an ad-hoc draw) at commit, so
+	// the optimistic row may not carry them yet. Synced rows always resolve them.
+	readonly lat?: number;
+	readonly lng?: number;
+	readonly geomType?: string;
 	readonly habitatId: string | null;
 	readonly habitatTypeId: string | null;
 	readonly addressId: string | null;

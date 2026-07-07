@@ -34,6 +34,50 @@ describeDbIntegration('owned geometry columns', () => {
 		});
 	});
 
+	it('recomputes centroid columns via trigger when geom changes', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({
+					workos_organization_id: 'workos_org_centroid_trigger',
+					name: 'Centroid Trigger District',
+				})
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const inserted = await db
+				.insertInto('habitats')
+				.values({
+					organization_id: organization.id,
+					geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+					habitat_name: null,
+					description: '',
+					metadata: null,
+				})
+				.returning(['id', 'lat', 'lng', 'geom_type'])
+				.executeTakeFirstOrThrow();
+
+			// Trigger populates centroid columns on insert.
+			expect(inserted.lat).toBeCloseTo(35.5);
+			expect(inserted.lng).toBeCloseTo(-90.5);
+			expect(inserted.geom_type).toBe('st_point');
+
+			// Trigger recomputes them when geom is updated (a polygon this time).
+			const updated = await db
+				.updateTable('habitats')
+				.set({
+					geom: sql`st_setsrid(st_geomfromtext('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326)`,
+				})
+				.where('id', '=', inserted.id)
+				.returning(['lat', 'lng', 'geom_type'])
+				.executeTakeFirstOrThrow();
+
+			expect(updated.lat).toBeCloseTo(1);
+			expect(updated.lng).toBeCloseTo(1);
+			expect(updated.geom_type).toBe('st_polygon');
+		});
+	});
+
 	it('lists habitat display rows with unnamed habitats ordered by uuid fallback', async () => {
 		await withTestDb(async ({ db }) => {
 			const organization = await db
