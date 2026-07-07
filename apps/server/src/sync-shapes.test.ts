@@ -110,6 +110,77 @@ describe('buildElectricShapeUrl', () => {
 		expect(url.searchParams.get('params[1]')).toBe('org-1');
 		expect(url.searchParams.get('subset__where')).toBeNull();
 	});
+
+	it('forwards a POST subset body while forcing the org-scoped shape', () => {
+		const request = buildElectricShapeRequest({
+			electricUrl: 'http://localhost:3001/v1/shape',
+			incomingUrl: 'http://localhost:3000/sync/shapes/route-items?offset=-1&handle=shape-1',
+			columns: ['id', 'organization_id', 'route_id'],
+			table: 'route_items',
+			where: 'organization_id = $1 and deleted_at is null',
+			params: ['org-1'],
+			subsetBody: {
+				where: 'route_id = $1',
+				params: { '1': 'route-9' },
+				limit: 50,
+			},
+		});
+		const url = new URL(request.url);
+
+		expect(request.init.method).toBe('POST');
+		expect(request.init.body).toBe(
+			JSON.stringify({ where: 'route_id = $1', params: { '1': 'route-9' }, limit: 50 }),
+		);
+		expect(url.searchParams.get('table')).toBe('route_items');
+		expect(url.searchParams.get('columns')).toBe('id,organization_id,route_id');
+		expect(url.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
+		expect(url.searchParams.get('params[1]')).toBe('org-1');
+		expect(url.searchParams.get('offset')).toBe('-1');
+		expect(url.searchParams.get('handle')).toBe('shape-1');
+	});
+
+	it('strips non-subset keys from a POST subset body', () => {
+		const request = buildElectricShapeRequest({
+			electricUrl: 'http://localhost:3001/v1/shape',
+			incomingUrl: 'http://localhost:3000/sync/shapes/habitats',
+			columns: ['id', 'organization_id', 'lat', 'lng'],
+			table: 'habitats',
+			where: 'organization_id = $1 and deleted_at is null',
+			params: ['org-1'],
+			subsetBody: {
+				where: 'habitat_type_id = $1',
+				params: { '1': 'type-3' },
+				// Caller attempts to escape tenant scope — all must be dropped.
+				table: 'organizations',
+				columns: 'secret',
+				org_id: 'other-org',
+			},
+		});
+		const url = new URL(request.url);
+
+		expect(request.init.method).toBe('POST');
+		expect(request.init.body).toBe(
+			JSON.stringify({ where: 'habitat_type_id = $1', params: { '1': 'type-3' } }),
+		);
+		expect(url.searchParams.get('table')).toBe('habitats');
+		expect(url.searchParams.get('columns')).toBe('id,organization_id,lat,lng');
+		expect(url.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
+	});
+
+	it('keeps POST method for an empty subset body', () => {
+		const request = buildElectricShapeRequest({
+			electricUrl: 'http://localhost:3001/v1/shape',
+			incomingUrl: 'http://localhost:3000/sync/shapes/habitats',
+			columns: ['id', 'organization_id'],
+			table: 'habitats',
+			where: 'organization_id = $1 and deleted_at is null',
+			params: ['org-1'],
+			subsetBody: {},
+		});
+
+		expect(request.init.method).toBe('POST');
+		expect(request.init.body).toBe('{}');
+	});
 });
 
 describe('registerSyncShapeRoutes', () => {
@@ -221,6 +292,66 @@ describe('registerSyncShapeRoutes', () => {
 		expect(upstream.searchParams.get('columns')).toContain('inspection_date');
 		expect(upstream.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
 		expect(upstream.searchParams.get('params[1]')).toBe('org-1');
+	});
+
+	it('proxies a POST subset request through the org-scoped shape', async () => {
+		const app = new Hono<{ Variables: AuthVariables }>();
+		const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+
+		registerSyncShapeRoutes(app, {
+			electricUrl: 'http://localhost:3001/v1/shape',
+			authContextMiddleware: createMiddleware(async (context, next) => {
+				context.set('authContext', {
+					organization: { id: 'org-1' },
+				} as never);
+				await next();
+			}),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+			fetch: ((url, init) => {
+				calls.push({ url: String(url), init: init as RequestInit | undefined });
+				return Promise.resolve(new Response('{"data":[]}'));
+			}) as typeof fetch,
+		});
+
+		const response = await app.request('/sync/shapes/route-items', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				where: 'route_id = $1',
+				params: { '1': 'route-9' },
+				// Injection attempt — must be stripped.
+				table: 'organizations',
+			}),
+		});
+		const upstream = new URL(calls[0]?.url ?? '');
+
+		expect(response.status).toBe(200);
+		expect(calls[0]?.init?.method).toBe('POST');
+		expect(calls[0]?.init?.body).toBe(
+			JSON.stringify({ where: 'route_id = $1', params: { '1': 'route-9' } }),
+		);
+		expect(upstream.searchParams.get('table')).toBe('route_items');
+		expect(upstream.searchParams.get('where')).toBe('organization_id = $1 and deleted_at is null');
+		expect(upstream.searchParams.get('params[1]')).toBe('org-1');
+	});
+
+	it('returns 503 for a POST subset request without an electric url', async () => {
+		const app = new Hono<{ Variables: AuthVariables }>();
+
+		registerSyncShapeRoutes(app, {
+			electricUrl: null,
+			authContextMiddleware: createMiddleware(async (_context, next) => next()),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+		});
+
+		const response = await app.request('/sync/shapes/route-items', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: '{}',
+		});
+
+		expect(response.status).toBe(503);
+		expect(await response.json()).toEqual({ error: 'electric_url_required' });
 	});
 
 	it('streams centroid columns but never raw geometry for the habitats shape', async () => {

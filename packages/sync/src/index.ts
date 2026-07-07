@@ -159,6 +159,10 @@ export function electricShapeCollectionOptions<TRow extends { readonly id: strin
 		...(input.onDelete === undefined ? {} : { onDelete: input.onDelete }),
 		shapeOptions: {
 			url: input.url,
+			// Subset snapshot requests ride in a POST body so large id/predicate sets
+			// never hit the URL-length ceiling (and align with Electric 2.0, which
+			// deprecates GET for subsets). The live shape-log stream stays on GET.
+			subsetMethod: 'POST',
 			fetchClient: (request, init) =>
 				fetch(request, {
 					...init,

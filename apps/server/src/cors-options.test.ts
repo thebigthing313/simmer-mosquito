@@ -27,3 +27,30 @@ describe('admin CORS options', () => {
 		expect(response.headers.get('access-control-allow-methods')).toContain('PATCH');
 	});
 });
+
+describe('sync CORS options', () => {
+	it('allows POST preflights for Electric subset snapshot shape routes', async () => {
+		const app = new Hono();
+		app.use(
+			'/sync/*',
+			cors({
+				origin: ['https://app.simmer-data.com'],
+				credentials: true,
+				allowMethods: ['GET', 'POST', 'OPTIONS'],
+			}),
+		);
+		app.post('/sync/shapes/route-items', (context) => context.json({ ok: true }));
+
+		const response = await app.request('/sync/shapes/route-items', {
+			method: 'OPTIONS',
+			headers: {
+				'access-control-request-method': 'POST',
+				'access-control-request-headers': 'content-type',
+				origin: 'https://app.simmer-data.com',
+			},
+		});
+
+		expect(response.headers.get('access-control-allow-methods')).toContain('POST');
+		expect(response.headers.get('access-control-allow-headers')).toContain('content-type');
+	});
+});

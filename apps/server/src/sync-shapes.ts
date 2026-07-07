@@ -527,6 +527,43 @@ function registerSelectedOrganizationShapeRoute(
 			}),
 		});
 	});
+
+	// POST carries subset snapshot params in the body (on-demand collections). The
+	// forced table/columns/where/params are identical to the GET path; the body is
+	// sanitized to subset-only keys so it can only narrow within the org shape.
+	app.post(shape.path, options.authContextMiddleware, async (context) => {
+		if (options.electricUrl === null) {
+			return context.json({ error: 'electric_url_required' }, 503);
+		}
+
+		const authContext = context.get('authContext');
+
+		return proxyElectricShape(context, {
+			fetch: options.fetch,
+			upstreamRequest: buildElectricShapeRequest({
+				electricUrl: options.electricUrl,
+				incomingUrl: context.req.url,
+				columns: shape.descriptor.columns.map(camelToSnake),
+				table: shape.descriptor.table,
+				where: shape.where ?? selectedOrganizationWhere,
+				params: [authContext.organization.id],
+				subsetBody: await readSubsetBody(context),
+			}),
+		});
+	});
+}
+
+async function readSubsetBody(
+	context: Context<{ Variables: AuthVariables }>,
+): Promise<Record<string, unknown>> {
+	try {
+		const body = await context.req.json();
+		return typeof body === 'object' && body !== null && !Array.isArray(body)
+			? (body as Record<string, unknown>)
+			: {};
+	} catch {
+		return {};
+	}
 }
 
 function proxyGlobalShape(
@@ -573,17 +610,28 @@ export function buildElectricShapeRequest(input: {
 	readonly table: string;
 	readonly where?: string;
 	readonly params?: readonly string[];
+	readonly subsetBody?: unknown;
 }): {
 	readonly url: string;
 	readonly init: RequestInit;
 } {
 	const upstreamUrl = new URL(input.electricUrl);
 	const incomingUrl = new URL(input.incomingUrl);
-	const subsetBody: Record<string, unknown> = {};
+
+	// When the client POSTs a subset snapshot, subset params arrive in the request
+	// body (GET-with-`subset__*`-query is the legacy path). The body can only ever
+	// narrow *within* the forced org-scoped shape — sanitize it so it can never
+	// inject table/columns/where/shape params.
+	const bodyFromRequest = input.subsetBody !== undefined;
+	const subsetBody: Record<string, unknown> = bodyFromRequest
+		? sanitizeSubsetBody(input.subsetBody)
+		: {};
 
 	for (const [key, value] of incomingUrl.searchParams) {
 		if (isSubsetShapeParam(key)) {
-			subsetBody[toPostSubsetParam(key)] = parseSubsetParam(key, value);
+			if (!bodyFromRequest) {
+				subsetBody[toPostSubsetParam(key)] = parseSubsetParam(key, value);
+			}
 		} else if (!isServerOwnedShapeParam(key)) {
 			upstreamUrl.searchParams.append(key, value);
 		}
@@ -600,11 +648,14 @@ export function buildElectricShapeRequest(input: {
 		}
 	}
 
-	const hasSubsetBody = Object.keys(subsetBody).length > 0;
+	// A POST from the client is a subset snapshot request even if the sanitized body
+	// is empty, so preserve the method; the legacy GET path only POSTs upstream when
+	// it actually carried `subset__*` params.
+	const usePost = bodyFromRequest || Object.keys(subsetBody).length > 0;
 
 	return {
 		url: upstreamUrl.toString(),
-		init: hasSubsetBody
+		init: usePost
 			? {
 					method: 'POST',
 					body: JSON.stringify(subsetBody),
@@ -670,6 +721,17 @@ const blockedProxyResponseHeaders = new Set([
 
 const serverOwnedShapeParams = new Set(['columns', 'table', 'where']);
 const subsetShapeParamPrefix = 'subset__';
+// Electric's POST subset body keys (unprefixed). These narrow *within* the forced
+// org shape — table/columns/shape-where/shape-params are never sourced from the body.
+const allowedSubsetBodyKeys = new Set([
+	'where',
+	'where_expr',
+	'params',
+	'limit',
+	'offset',
+	'order_by',
+	'order_by_expr',
+]);
 const selectedOrganizationOnlyWhere = 'organization_id = $1';
 const selectedOrganizationWhere = 'organization_id = $1 and deleted_at is null';
 const selectedOrganizationByIdWhere = 'id = $1 and deleted_at is null';
@@ -710,6 +772,21 @@ function isSubsetShapeParam(value: string): boolean {
 
 function toPostSubsetParam(value: string): string {
 	return value.slice(subsetShapeParamPrefix.length);
+}
+
+function sanitizeSubsetBody(body: unknown): Record<string, unknown> {
+	if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+		return {};
+	}
+
+	const sanitized: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(body)) {
+		if (allowedSubsetBodyKeys.has(key)) {
+			sanitized[key] = value;
+		}
+	}
+
+	return sanitized;
 }
 
 function parseSubsetParam(key: string, value: string): unknown {

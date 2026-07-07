@@ -115,7 +115,9 @@ app.use(
 	cors({
 		origin: allowedCorsOrigins(),
 		credentials: true,
-		allowMethods: ['GET', 'OPTIONS'],
+		// POST carries Electric subset snapshot params in the body (on-demand
+		// collections); the live shape-log stream still rides GET.
+		allowMethods: ['GET', 'POST', 'OPTIONS'],
 	}),
 );
 
