@@ -1,5 +1,5 @@
-import type { RouteItemRow, RouteRow } from '@simmer-mosquito/sync';
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import type { AddressRow, HabitatRow, RouteItemRow, RouteRow } from '@simmer-mosquito/sync';
+import { eq, inArray, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../../auth';
@@ -9,6 +9,10 @@ import { webCollections } from '../../../sync/webCollections';
 // `route_items` is an on-demand shape (docs/sync.md); keep a route's members warm
 // briefly after unmount so hopping index → detail → edit reuses the subset.
 const routeItemsGcTimeMs = 30_000;
+
+// A syntactically valid uuid that matches no row — keeps an `IN`/`eq` subset
+// predicate live (and empty) while a route/id set is still unresolved.
+const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 /** The slice of a habitat the route surfaces need — geometry, status, address. */
 export interface HabitatSite {
@@ -140,7 +144,7 @@ function useRouteItems(routeId: string | null): {
 				query
 					.from({ item: webCollections.routeItems })
 					// An unmatchable id keeps the hook order stable while no route is selected.
-					.where(({ item }) => eq(item.routeId, routeId ?? '00000000-0000-0000-0000-000000000000'))
+					.where(({ item }) => eq(item.routeId, routeId ?? UNMATCHABLE_ID))
 					.orderBy(({ item }) => item.position, 'asc'),
 		},
 		[routeId],
@@ -154,38 +158,99 @@ function useRouteItems(routeId: string | null): {
 	return { items, isLoading: routeId !== null && result.isLoading };
 }
 
-/** Query-key root for the route-stop habitat fetch, for cache invalidation. */
-export const ROUTE_HABITAT_SITES_KEY = ['route', 'habitat-sites'] as const;
-
+/**
+ * Resolve the habitats behind a set of route stops, each with its address label,
+ * as live on-demand subsets. `habitats` and `addresses` are on-demand collections
+ * (docs/sync.md): the `IN` predicates load exactly the referenced rows and keep
+ * streaming, so an edit to a stop's habitat (description/address) shows up without
+ * any manual invalidation. Centroid `lat`/`lng` ride the synced habitat row, so
+ * pins no longer need the `/map/habitats/by-ids` fetch.
+ */
 function useHabitatSites(ids: readonly string[]): {
 	readonly byId: ReadonlyMap<string, HabitatSite>;
 	readonly isLoading: boolean;
 } {
-	// A stable, order-independent key so panning selection doesn't refetch.
-	const sortedIds = useMemo(() => [...ids].sort(), [ids]);
-	const query = useQuery({
-		enabled: sortedIds.length > 0,
-		queryKey: [...ROUTE_HABITAT_SITES_KEY, sortedIds],
-		queryFn: ({ signal }) => fetchHabitatSites(sortedIds, signal),
-		placeholderData: (previous) => previous,
-		staleTime: 15_000,
-	});
+	// A stable, order-independent key so panning selection doesn't re-run the query.
+	const idsKey = useMemo(() => [...ids].sort().join(','), [ids]);
+	const habitatIds = ids.length > 0 ? [...ids] : [UNMATCHABLE_ID];
+
+	const habitatResult = useLiveQuery(
+		{
+			gcTime: routeItemsGcTimeMs,
+			query: (query) =>
+				query
+					.from({ habitat: webCollections.habitats })
+					.where(({ habitat }) => inArray(habitat.id, habitatIds)),
+		},
+		[idsKey],
+	);
+
+	const habitats = useMemo(
+		() => (habitatResult.data ?? []) as readonly HabitatRow[],
+		[habitatResult.data],
+	);
+
+	// The distinct address book records those habitats link to — a second bounded
+	// subset that supplies the cluster label (`address.displayName`).
+	const addressIds = useMemo(() => {
+		const set = new Set<string>();
+		for (const habitat of habitats) {
+			if (habitat.addressId !== null) {
+				set.add(habitat.addressId);
+			}
+		}
+		return [...set];
+	}, [habitats]);
+	const addressKey = addressIds.join(',');
+	const addressQueryIds = addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID];
+
+	const addressResult = useLiveQuery(
+		{
+			gcTime: routeItemsGcTimeMs,
+			query: (query) =>
+				query
+					.from({ address: webCollections.addresses })
+					.where(({ address }) => inArray(address.id, addressQueryIds)),
+		},
+		[addressKey],
+	);
+
+	const addressNameById = useMemo(() => {
+		const map = new Map<string, string>();
+		for (const address of (addressResult.data ?? []) as readonly AddressRow[]) {
+			map.set(address.id, address.displayName);
+		}
+		return map;
+	}, [addressResult.data]);
 
 	const byId = useMemo(() => {
 		const map = new Map<string, HabitatSite>();
-		for (const site of query.data ?? []) {
-			map.set(site.id, site);
+		for (const habitat of habitats) {
+			map.set(habitat.id, {
+				id: habitat.id,
+				habitatName: habitat.habitatName,
+				description: habitat.description,
+				lat: habitat.lat,
+				lng: habitat.lng,
+				addressId: habitat.addressId,
+				addressDisplayName:
+					habitat.addressId === null ? null : (addressNameById.get(habitat.addressId) ?? null),
+				habitatTypeId: habitat.habitatTypeId,
+				isActive: habitat.isActive,
+				isInaccessible: habitat.isInaccessible,
+			});
 		}
 		return map;
-	}, [query.data]);
+	}, [habitats, addressNameById]);
 
-	return { byId, isLoading: sortedIds.length > 0 && query.isLoading };
+	return { byId, isLoading: ids.length > 0 && habitatResult.isLoading };
 }
 
 /**
  * The composed itinerary for a route: ordered stops (item joined to habitat),
- * address clusters, and the point features the map layer draws. Route items sync
- * on-demand; habitat geometry/address resolve in a single `by-ids` round-trip.
+ * address clusters, and the point features the map layer draws. Route items,
+ * habitats, and addresses all sync on-demand — the stops resolve entirely from
+ * live collection subsets (no HTTP), so edits reflect without invalidation.
  */
 export function useRouteStops(routeId: string | null): {
 	readonly stops: readonly RouteStopView[];
@@ -301,23 +366,6 @@ export function boundsOfStops(
 			];
 }
 
-async function fetchHabitatSites(
-	ids: readonly string[],
-	signal: AbortSignal,
-): Promise<HabitatSite[]> {
-	if (ids.length === 0) {
-		return [];
-	}
-	const url = new URL('/map/habitats/by-ids', getServerUrl());
-	url.searchParams.set('ids', ids.join(','));
-	const response = await fetch(url, { credentials: 'include', signal });
-	if (!response.ok) {
-		throw new Error(`Route sites request failed (${response.status}).`);
-	}
-	const body = (await response.json()) as { readonly habitats?: HabitatSite[] };
-	return body.habitats ?? [];
-}
-
 // --- editing helpers --------------------------------------------------------
 
 export type RoutePlacement =
@@ -364,9 +412,8 @@ async function fetchHabitatSearch(query: string, signal: AbortSignal): Promise<H
 
 /**
  * Update a habitat's description in place (the stop's own record, not the route
- * item). Routes read habitat data over HTTP rather than the on-demand collection,
- * so this patches the command endpoint directly; callers invalidate
- * {@link ROUTE_HABITAT_SITES_KEY} afterward to refetch the shown text.
+ * item). Writes go through the command endpoint; the on-demand habitat subset the
+ * route reads then streams the change back, so no manual cache invalidation.
  */
 export async function updateHabitatDescription(
 	habitatId: string,
@@ -377,8 +424,8 @@ export async function updateHabitatDescription(
 
 /**
  * Link (or unlink, with `null`) the habitat behind a stop to an address book record.
- * Same PATCH endpoint as the description edit; callers invalidate
- * {@link ROUTE_HABITAT_SITES_KEY} afterward to refetch the shown address.
+ * Same PATCH endpoint as the description edit; the synced habitat/address subsets
+ * reflect the new label without invalidation.
  */
 export async function updateHabitatAddress(
 	habitatId: string,

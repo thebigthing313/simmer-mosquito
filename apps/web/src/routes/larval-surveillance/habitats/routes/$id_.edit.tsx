@@ -41,7 +41,6 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
@@ -53,7 +52,6 @@ import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
 	type HabitatSite,
 	moveRouteItems,
-	ROUTE_HABITAT_SITES_KEY,
 	type RoutePlacement,
 	type RouteStopView,
 	stopTone,
@@ -81,7 +79,6 @@ export const Route = createFileRoute('/larval-surveillance/habitats/routes/$id_/
 function RouteEditRoute() {
 	const { id } = Route.useParams();
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 	const auth = useAuthSnapshot();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 
@@ -235,17 +232,15 @@ function RouteEditRoute() {
 		}
 	}, []);
 
-	const saveDescription = useCallback(
-		async (habitatId: string, value: string) => {
-			try {
-				await updateHabitatDescription(habitatId, value.trim());
-				await queryClient.invalidateQueries({ queryKey: ROUTE_HABITAT_SITES_KEY });
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to save the description.');
-			}
-		},
-		[queryClient],
-	);
+	const saveDescription = useCallback(async (habitatId: string, value: string) => {
+		try {
+			// The route reads habitats from a live on-demand subset, so the edited
+			// description streams back on its own — no invalidation needed.
+			await updateHabitatDescription(habitatId, value.trim());
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to save the description.');
+		}
+	}, []);
 
 	const confirmRemove = useCallback(async () => {
 		const target = removeTarget;

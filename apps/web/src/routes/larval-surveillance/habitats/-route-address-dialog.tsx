@@ -9,10 +9,9 @@ import {
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { HomeIcon, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
-import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { AddressIdInput } from '../../-habitat-location-fields';
-import { ROUTE_HABITAT_SITES_KEY, updateHabitatAddress } from './-route-data';
+import { updateHabitatAddress } from './-route-data';
 
 interface RouteStopAddressDialogProps {
 	readonly open: boolean;
@@ -48,7 +47,6 @@ export function RouteStopAddressDialog({
 	currentAddressId,
 	currentAddressLabel,
 }: RouteStopAddressDialogProps) {
-	const queryClient = useQueryClient();
 	const [addressId, setAddressId] = useState<string | null>(currentAddressId);
 	const [isSaving, setIsSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -68,7 +66,6 @@ export function RouteStopAddressDialog({
 		setError(null);
 		try {
 			await updateHabitatAddress(habitatId, addressId);
-			await queryClient.invalidateQueries({ queryKey: ROUTE_HABITAT_SITES_KEY });
 			onOpenChange(false);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to update the linked address.');
