@@ -1,5 +1,5 @@
 import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
-import type { HabitatDisplayRow, HabitatTypeRow, TagRow } from '@simmer-mosquito/sync';
+import type { HabitatRow, HabitatTypeRow, TagRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -482,7 +482,7 @@ function HabitatResults({
 	typeNameById,
 	onSelect,
 }: {
-	readonly rows: readonly HabitatDisplayRow[];
+	readonly rows: readonly HabitatRow[];
 	readonly isLoading: boolean;
 	readonly selectedId: string | null;
 	readonly typeNameById: ReadonlyMap<string, string>;
@@ -531,7 +531,7 @@ function HabitatListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly habitat: HabitatDisplayRow;
+	readonly habitat: HabitatRow;
 	readonly typeName: string;
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
@@ -576,7 +576,7 @@ function HabitatDetailCard({
 	tagById,
 	onClose,
 }: {
-	readonly habitat: HabitatDisplayRow;
+	readonly habitat: HabitatRow;
 	readonly typeName: string;
 	readonly tagById: ReadonlyMap<string, TagRow>;
 	readonly onClose: () => void;
@@ -691,7 +691,7 @@ function DetailFact({ label, value }: { readonly label: string; readonly value: 
 	);
 }
 
-function StatusBadge({ habitat }: { readonly habitat: HabitatDisplayRow }) {
+function StatusBadge({ habitat }: { readonly habitat: HabitatRow }) {
 	if (habitat.isInaccessible) {
 		return (
 			<Badge tone="danger" variant="outline">
@@ -716,7 +716,7 @@ function StatusBadge({ habitat }: { readonly habitat: HabitatDisplayRow }) {
 	);
 }
 
-function StatusDot({ habitat }: { readonly habitat: HabitatDisplayRow }) {
+function StatusDot({ habitat }: { readonly habitat: HabitatRow }) {
 	const color = habitat.isInaccessible
 		? 'bg-[var(--danger)]'
 		: habitat.isActive
@@ -727,10 +727,16 @@ function StatusDot({ habitat }: { readonly habitat: HabitatDisplayRow }) {
 
 // --- data hooks -------------------------------------------------------------
 
+// `habitats` is on-demand; keep the selected-habitat subset warm briefly on unmount.
+const selectedHabitatGcTimeMs = 30_000;
+// A syntactically valid uuid that matches no row — keeps the single-id subset live
+// (and empty) when nothing needs the fallback fetch.
+const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
+
 function useVisibleHabitats(
 	bounds: BoundingBox | null,
 	filters: HabitatTileFilters,
-): { readonly rows: readonly HabitatDisplayRow[]; readonly isLoading: boolean } {
+): { readonly rows: readonly HabitatRow[]; readonly isLoading: boolean } {
 	const bbox = bounds === null ? null : formatBoundingBox(bounds);
 	const query = useQuery({
 		enabled: bbox !== null,
@@ -742,24 +748,40 @@ function useVisibleHabitats(
 	return { rows: query.data ?? [], isLoading: query.isLoading };
 }
 
+// Fallback for a selection outside the current bbox list: the habitat's non-geometry
+// fields (all this page shows) live on the synced `habitats` row, so resolve it from
+// a single-id on-demand subset instead of a `/map/habitats/{id}` fetch. Geometry
+// (geojson) isn't needed here — only the centroid lat/lng, which sync on the row.
 function useSelectedHabitat(
 	selectedId: string | null,
-	visibleById: ReadonlyMap<string, HabitatDisplayRow>,
-): HabitatDisplayRow | null {
+	visibleById: ReadonlyMap<string, HabitatRow>,
+): HabitatRow | null {
 	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
-	const query = useQuery({
-		enabled: needsFetch,
-		queryKey: ['habitats', 'detail', selectedId],
-		queryFn: ({ signal }) => fetchHabitatById(selectedId ?? '', signal),
-	});
-	return needsFetch ? (query.data ?? null) : null;
+	const result = useLiveQuery(
+		{
+			gcTime: selectedHabitatGcTimeMs,
+			// An unmatchable id keeps the subset live (and empty) when the selection is
+			// already in the visible list or nothing is selected.
+			query: (query) =>
+				query
+					.from({ habitat: webCollections.habitats })
+					.where(({ habitat }) => eq(habitat.id, needsFetch ? selectedId : UNMATCHABLE_ID)),
+		},
+		[needsFetch ? selectedId : null],
+	);
+
+	if (!needsFetch) {
+		return null;
+	}
+	const rows = (result.data ?? []) as readonly HabitatRow[];
+	return rows[0] ?? null;
 }
 
 async function fetchVisibleHabitats(
 	bounds: BoundingBox | null,
 	filters: HabitatTileFilters,
 	signal: AbortSignal,
-): Promise<HabitatDisplayRow[]> {
+): Promise<HabitatRow[]> {
 	if (bounds === null) {
 		return [];
 	}
@@ -786,26 +808,8 @@ async function fetchVisibleHabitats(
 	if (!response.ok) {
 		throw new Error(`Habitats request failed (${response.status}).`);
 	}
-	const body = (await response.json()) as { readonly habitats?: HabitatDisplayRow[] };
+	const body = (await response.json()) as { readonly habitats?: HabitatRow[] };
 	return body.habitats ?? [];
-}
-
-async function fetchHabitatById(
-	id: string,
-	signal: AbortSignal,
-): Promise<HabitatDisplayRow | null> {
-	if (id.length === 0) {
-		return null;
-	}
-	const response = await fetch(new URL(`/map/habitats/${id}`, getServerUrl()), {
-		credentials: 'include',
-		signal,
-	});
-	if (!response.ok) {
-		return null;
-	}
-	const body = (await response.json()) as { readonly habitat?: HabitatDisplayRow };
-	return body.habitat ?? null;
 }
 
 function useMapBounds(map: MapboxMap | null): BoundingBox | null {
@@ -871,25 +875,22 @@ function toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
 	return next;
 }
 
-function resolveTypeName(
-	habitat: HabitatDisplayRow,
-	typeNameById: ReadonlyMap<string, string>,
-): string {
+function resolveTypeName(habitat: HabitatRow, typeNameById: ReadonlyMap<string, string>): string {
 	if (habitat.habitatTypeId === null) {
 		return 'Unassigned type';
 	}
 	return typeNameById.get(habitat.habitatTypeId) ?? 'Unknown type';
 }
 
-function habitatName(habitat: HabitatDisplayRow): string {
+function habitatName(habitat: HabitatRow): string {
 	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
 }
 
-function habitatDescription(habitat: HabitatDisplayRow): string {
+function habitatDescription(habitat: HabitatRow): string {
 	return habitat.description.trim() || 'No description recorded.';
 }
 
-function coordinateLabel(habitat: HabitatDisplayRow): string {
+function coordinateLabel(habitat: HabitatRow): string {
 	if (habitat.lat == null || habitat.lng == null) {
 		return 'Unknown';
 	}
