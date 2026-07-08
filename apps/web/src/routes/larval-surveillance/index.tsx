@@ -607,9 +607,13 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 					{samples.map((sample) => (
 						<li className="flex items-center gap-3 px-4 py-2.5" key={sample.id}>
 							<div className="grid min-w-0 flex-1">
-								<span className="truncate font-medium text-foreground text-sm">
+								<Link
+									className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									params={{ id: sample.id }}
+									to="/larval-surveillance/samples/$id"
+								>
 									{sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`}
-								</span>
+								</Link>
 								<span className="truncate text-muted-foreground text-xs">
 									{sample.habitatName ??
 										(sample.habitatId === null ? 'Ad-hoc inspection' : 'Habitat')}
