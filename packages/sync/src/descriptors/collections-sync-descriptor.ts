@@ -9,6 +9,9 @@ export const collectionsSyncDescriptor = createSyncDescriptor<AdultCollectionRow
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'trapId',
 		'collectionMethodId',
 		'collectionLureId',

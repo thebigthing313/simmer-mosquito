@@ -1,9 +1,151 @@
-import { createFileRoute } from '@tanstack/react-router';
+import type {
+	AdultCollectionRow,
+	CollectionLureRow,
+	CollectionMethodRow,
+	ProfileRow,
+	TrapRow,
+	UnitRow,
+} from '@simmer-mosquito/sync';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { useCallback, useMemo } from 'react';
+import { z } from 'zod';
+import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { webCollections } from '../../../sync/webCollections';
+import { todayInTimeZone } from '../-overview-data';
+import {
+	CollectionFormPage,
+	type CollectionSaveInput,
+	defaultCollectionFormValues,
+	noLureValue,
+	noUnitValue,
+} from './-collection-form';
 
-export const Route = createFileRoute('/adult-surveillance/collections/create')({
-	component: RouteComponent,
+const createCollectionSearchSchema = z.object({
+	/** Optional trap to prefill the source, e.g. from a trap's "Record collection". */
+	trapId: z
+		.string()
+		.regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+		.optional()
+		.catch(undefined),
 });
 
-function RouteComponent() {
-	return <div>Hello "/adult-surveillance/collections/create"!</div>;
+export const Route = createFileRoute('/adult-surveillance/collections/create')({
+	component: CreateCollectionRoute,
+	validateSearch: (search) => createCollectionSearchSchema.parse(search),
+});
+
+function CreateCollectionRoute() {
+	const { auth } = Route.useRouteContext();
+	const { trapId } = Route.useSearch();
+	const navigate = useNavigate();
+	const { organization } = useOrganizationWorkspace(auth.snapshot);
+	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
+	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
+		webCollections.collectionMethods,
+	);
+	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
+	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
+
+	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const actorProfileId =
+		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
+	const canSubmit = organization !== null && actorProfileId !== null;
+
+	const onSave = useCallback(
+		async ({ values, trap, addressCoord }: CollectionSaveInput) => {
+			if (organization === null) {
+				throw new Error('Organization details are still loading.');
+			}
+			if (actorProfileId === null) {
+				throw new Error('Your profile is still loading.');
+			}
+
+			const isTrap = values.sourceMode === 'trap';
+			const exact = values.timingMode === 'exact_timestamps';
+			const now = new Date().toISOString();
+			const collectedAt = exact ? toIsoDate(values.collectedAt) : toIsoDate(values.collectionDate);
+
+			// Seed the optimistic centroid from the trap's own point (trap mode) or the
+			// selected address (ad-hoc); the server recomputes it from the location source.
+			const centroid = isTrap && trap !== null ? { lat: trap.lat, lng: trap.lng } : addressCoord;
+			if (centroid === null) {
+				throw new Error('Unable to determine the collection location.');
+			}
+
+			const row: AdultCollectionRow = {
+				id: crypto.randomUUID(),
+				organizationId: organization.id,
+				lat: centroid.lat,
+				lng: centroid.lng,
+				geomType: 'point',
+				trapId: isTrap ? values.trapId : null,
+				collectionMethodId: values.collectionMethodId,
+				collectionLureId: values.collectionLureId === noLureValue ? null : values.collectionLureId,
+				addressId: isTrap ? null : values.addressId,
+				collectedAt,
+				collectedByProfileId: values.collectedByProfileId,
+				startedAt: exact ? toIsoDate(values.startedAt) : null,
+				setByProfileId: values.setByProfileId,
+				collectionTimingMode: values.timingMode,
+				collectionDate: exact ? null : values.collectionDate,
+				durationAmount: exact ? null : values.durationAmount,
+				durationUnitId:
+					exact || values.durationUnitId === noUnitValue ? null : values.durationUnitId,
+				hasProblem: values.hasProblem,
+				isZeroResult: false,
+				hasBycatch: false,
+				metadata: null,
+				createdByProfileId: actorProfileId,
+				updatedByProfileId: actorProfileId,
+				createdAt: now,
+				updatedAt: now,
+			};
+
+			const locationSource =
+				isTrap && trap !== null
+					? ({ kind: 'trap', trapId: trap.id } as const)
+					: values.addressId !== null
+						? ({ kind: 'address', addressId: values.addressId } as const)
+						: undefined;
+
+			const transaction =
+				locationSource === undefined
+					? webCollections.collections.insert(row)
+					: webCollections.collections.insert(row, { metadata: { locationSource } });
+			await transaction.isPersisted.promise;
+			await navigate({ to: '/adult-surveillance/collections/$id', params: { id: row.id } });
+		},
+		[organization, actorProfileId, navigate],
+	);
+
+	return (
+		<CollectionFormPage
+			canSubmit={canSubmit}
+			collectionLures={lures}
+			collectionMethods={methods}
+			defaultValues={defaultCollectionFormValues(today, trapId ?? null)}
+			header={{
+				title: 'Record collection',
+				description: 'Log a collection from a trap or a one-off field location.',
+				backTo: '/adult-surveillance/collections',
+				backLabel: 'Collections',
+			}}
+			onSave={onSave}
+			organizationId={organization?.id ?? ''}
+			profiles={profiles}
+			submitLabel="Record collection"
+			traps={traps}
+			units={units}
+		/>
+	);
+}
+
+/** Convert a `YYYY-MM-DD` to an ISO timestamp at UTC noon (avoids day-shift). */
+function toIsoDate(date: string | null): string | null {
+	if (date === null || date.length < 10) {
+		return null;
+	}
+	return `${date.slice(0, 10)}T12:00:00.000Z`;
 }

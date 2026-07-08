@@ -127,19 +127,72 @@ export const shellDomains: readonly ShellDomain[] = [
 	},
 	{
 		id: 'adult',
-		label: 'Adult surveillance',
-		summary: 'Traps and collections',
+		label: 'Adult Surveillance',
+		summary: 'Monitor adult mosquito populations across traps and collections',
 		icon: iconRegistry.domains.adultSurveillance.icon,
 		groups: [
 			{
-				id: 'adult-main',
+				id: 'adult-overview',
 				items: [
-					{ id: 'traps', label: 'Traps', to: '/traps', icon: iconRegistry.entities.trap.icon },
 					{
-						id: 'collections',
-						label: 'Collections',
-						to: '/collections',
-						icon: iconRegistry.entities.collection.icon,
+						id: 'adult-overview-link',
+						label: 'Overview',
+						to: '/adult-surveillance',
+						icon: iconRegistry.generic.home.icon,
+					},
+				],
+			},
+			{
+				id: 'adult-traps',
+				label: 'Traps',
+				items: [
+					{
+						id: 'traps-explorer',
+						label: 'Explorer',
+						to: '/adult-surveillance/traps',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'traps-create',
+						label: 'Add trap',
+						to: '/adult-surveillance/traps/create',
+						icon: iconRegistry.actions.add.icon,
+					},
+					{
+						id: 'traps-routes',
+						label: 'Manage Routes',
+						to: '/adult-surveillance/traps/routes',
+						icon: iconRegistry.entities.route.icon,
+					},
+					{
+						id: 'traps-stats',
+						label: 'Statistics',
+						to: '/adult-surveillance/traps/stats',
+						icon: iconRegistry.generic.chart.icon,
+					},
+				],
+			},
+			{
+				id: 'adult-collections',
+				label: 'Collections',
+				items: [
+					{
+						id: 'collections-explorer',
+						label: 'Explorer',
+						to: '/adult-surveillance/collections',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'collections-create',
+						label: 'Record collection',
+						to: '/adult-surveillance/collections/create',
+						icon: iconRegistry.actions.add.icon,
+					},
+					{
+						id: 'collections-stats',
+						label: 'Statistics',
+						to: '/adult-surveillance/collections/stats',
+						icon: iconRegistry.generic.chart.icon,
 					},
 				],
 			},

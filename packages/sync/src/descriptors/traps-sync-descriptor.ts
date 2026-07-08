@@ -9,6 +9,9 @@ export const trapsSyncDescriptor = createSyncDescriptor<TrapRow>({
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'collectionMethodId',
 		'addressId',
 		'collectionLureId',

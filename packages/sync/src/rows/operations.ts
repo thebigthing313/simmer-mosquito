@@ -122,6 +122,9 @@ export interface RegionRow extends AuditedOrganizationRowBase {
 }
 
 export interface TrapRow extends AuditedOrganizationRowBase {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly collectionMethodId: string;
 	readonly addressId: string | null;
 	readonly collectionLureId: string | null;
@@ -132,6 +135,9 @@ export interface TrapRow extends AuditedOrganizationRowBase {
 }
 
 export interface AdultCollectionRow extends AuditedOrganizationRowBase {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly trapId: string | null;
 	readonly collectionMethodId: string;
 	readonly collectionLureId: string | null;
