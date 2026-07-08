@@ -11,6 +11,7 @@ describe('resolveMembershipProvisioning', () => {
 				role: 'manager',
 			},
 			existingMembershipCount: 0,
+			userHasDefaultMembership: false,
 		});
 
 		expect(result).toEqual({
@@ -35,6 +36,7 @@ describe('resolveMembershipProvisioning', () => {
 				role: 'owner',
 			},
 			existingMembershipCount: 2,
+			userHasDefaultMembership: true,
 		});
 
 		expect(result).toEqual({
@@ -52,6 +54,7 @@ describe('resolveMembershipProvisioning', () => {
 				existingMembership: null,
 				invitedMembership: null,
 				existingMembershipCount: 0,
+				userHasDefaultMembership: false,
 			}),
 		).toEqual({
 			source: 'new',
@@ -64,10 +67,28 @@ describe('resolveMembershipProvisioning', () => {
 				existingMembership: null,
 				invitedMembership: null,
 				existingMembershipCount: 1,
+				userHasDefaultMembership: false,
 			}),
 		).toEqual({
 			source: 'new',
 			role: 'viewer',
+			isDefault: true,
+		});
+	});
+
+	it('does not claim a second default when the user already has one', () => {
+		// A user who becomes the first member of a *second* organization owns it,
+		// but must NOT be marked default again (memberships_one_default_per_user).
+		expect(
+			resolveMembershipProvisioning({
+				existingMembership: null,
+				invitedMembership: null,
+				existingMembershipCount: 0,
+				userHasDefaultMembership: true,
+			}),
+		).toEqual({
+			source: 'new',
+			role: 'owner',
 			isDefault: false,
 		});
 	});

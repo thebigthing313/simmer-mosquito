@@ -100,6 +100,7 @@ export function resolveMembershipProvisioning(input: {
 	readonly existingMembership: MembershipProvisioningCandidate | null;
 	readonly invitedMembership: MembershipProvisioningCandidate | null;
 	readonly existingMembershipCount: number;
+	readonly userHasDefaultMembership: boolean;
 }):
 	| {
 			readonly source: 'existing' | 'invited';
@@ -133,11 +134,18 @@ export function resolveMembershipProvisioning(input: {
 		};
 	}
 
-	const isFirstMembership = input.existingMembershipCount === 0;
+	const isFirstMembershipInOrg = input.existingMembershipCount === 0;
 	return {
 		source: 'new',
-		role: isFirstMembership ? 'owner' : 'viewer',
-		isDefault: isFirstMembership,
+		// The first member of a brand-new organization owns it; anyone joining an
+		// organization that already has members lands as a viewer.
+		role: isFirstMembershipInOrg ? 'owner' : 'viewer',
+		// `is_default` marks the user's default organization and is unique per user
+		// (partial unique constraint `memberships_one_default_per_user`). Claim it
+		// only when the user has no default yet — otherwise a user who becomes the
+		// first member of a *second* organization would try to set a second default
+		// and violate the constraint (surfacing as a 500 during sign-in/org select).
+		isDefault: !input.userHasDefaultMembership,
 	};
 }
 

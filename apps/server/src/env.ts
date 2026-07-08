@@ -15,6 +15,8 @@ export interface ServerEnv {
 	readonly host: string;
 	readonly nodeEnv: 'development' | 'production' | 'test';
 	readonly port: number;
+	readonly resendApiKey: string | null;
+	readonly authEmailFrom: string;
 	readonly simmerOperatorEmails: readonly string[];
 	readonly workosApiKey: string;
 	readonly workosClientId: string;
@@ -49,6 +51,9 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		host: base.host,
 		nodeEnv: base.nodeEnv,
 		port: base.port,
+		resendApiKey: readOptionalString(source, 'RESEND_API_KEY') ?? null,
+		authEmailFrom:
+			readOptionalString(source, 'AUTH_EMAIL_FROM') ?? 'SIMMER <no-reply@simmer-data.com>',
 		simmerOperatorEmails: parseEmailAllowlist(readOptionalString(source, 'SIMMER_OPERATOR_EMAILS')),
 		workosApiKey: readRequiredString(source, 'WORKOS_API_KEY'),
 		workosClientId: readRequiredString(source, 'WORKOS_CLIENT_ID'),

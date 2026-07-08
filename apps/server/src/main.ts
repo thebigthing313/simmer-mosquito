@@ -1,5 +1,9 @@
 import { serve } from '@hono/node-server';
-import { createWorkOsAuth, WORKOS_SESSION_COOKIE_NAME } from '@simmer-mosquito/auth';
+import {
+	type AuthenticatedSession,
+	createWorkOsAuth,
+	WORKOS_SESSION_COOKIE_NAME,
+} from '@simmer-mosquito/auth';
 import {
 	createDb,
 	getOperatorOrganization,
@@ -24,11 +28,13 @@ import {
 	toAuthMeBody,
 	toPublicAuthContext,
 } from './auth-context.js';
+import { createAuthMailer } from './auth-email.js';
 import {
 	type AuthVariables,
 	createAuthContextMiddleware,
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
+import { registerAuthUserRoutes } from './auth-user-commands.js';
 import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
 import { registerControlMethodCommandRoutes } from './control-method-commands.js';
 import { registerControlOperationsCommandRoutes } from './control-operations-commands.js';
@@ -59,6 +65,11 @@ const auth = createWorkOsAuth({
 });
 const db = createDb({
 	databaseUrl: env.databaseUrl,
+});
+const authMailer = createAuthMailer({
+	apiKey: env.resendApiKey,
+	from: env.authEmailFrom,
+	nodeEnv: env.nodeEnv,
 });
 
 const app = new Hono<{ Variables: AuthVariables }>();
@@ -280,18 +291,10 @@ app.get('/auth/callback', async (context) => {
 		...(userAgent === undefined ? {} : { userAgent }),
 	});
 
-	const organization = await auth.getOrganization(session.workosOrganizationId);
-	const localIdentity = await upsertWorkOsIdentity(db, {
-		...session.user,
-		workosOrganizationId: session.workosOrganizationId,
-		workosOrganizationName: organization?.name ?? null,
-		workosRole: session.role,
-	});
-
-	setAuthCookie(context, session.sealedSession);
+	const { organizationRequired } = await finalizeWorkOsSession(context, session);
 
 	const redirectUrl = new URL(readAllowedReturnTo(context.req.query('state')) ?? env.appOrigin);
-	if (localIdentity.organizationId === null) {
+	if (organizationRequired) {
 		redirectUrl.searchParams.set('auth', 'organization_required');
 	}
 
@@ -381,6 +384,13 @@ app.get(
 		});
 	},
 );
+
+registerAuthUserRoutes(app, {
+	auth,
+	mailer: authMailer,
+	appOrigin: env.appOrigin,
+	finalizeSession: finalizeWorkOsSession,
+});
 
 registerAdminInvitationRoutes(app, {
 	db,
@@ -500,14 +510,18 @@ if (env.nodeEnv !== 'production') {
 	);
 }
 
-app.post('/auth/logout', async (context) => {
-	const logoutUrl = await auth.getLogoutUrl(getCookie(context, WORKOS_SESSION_COOKIE_NAME));
+// Accept GET so the app can log out via a top-level navigation, plus POST for
+// form/programmatic callers. Clears the sealed-session cookie (the actual SIMMER
+// logout), best-effort revokes the WorkOS session, then returns to the app —
+// staying on our own domain rather than bouncing through WorkOS-hosted logout.
+app.on(['GET', 'POST'], '/auth/logout', async (context) => {
+	await auth.revokeSession(getCookie(context, WORKOS_SESSION_COOKIE_NAME));
 
 	deleteCookie(context, WORKOS_SESSION_COOKIE_NAME, {
 		path: '/',
 	});
 
-	return context.redirect(logoutUrl ?? env.appOrigin);
+	return context.redirect(readAllowedReturnTo(context.req.query('returnTo')) ?? env.appOrigin);
 });
 
 const server = serve(
@@ -601,6 +615,23 @@ function closeOpenHttpConnectionsForShutdown(): void {
 	}
 
 	connectionCloser.closeAllConnections?.();
+}
+
+async function finalizeWorkOsSession(
+	context: Parameters<typeof setCookie>[0],
+	session: AuthenticatedSession,
+): Promise<{ readonly organizationRequired: boolean }> {
+	const organization = await auth.getOrganization(session.workosOrganizationId);
+	const localIdentity = await upsertWorkOsIdentity(db, {
+		...session.user,
+		workosOrganizationId: session.workosOrganizationId,
+		workosOrganizationName: organization?.name ?? null,
+		workosRole: session.role,
+	});
+
+	setAuthCookie(context, session.sealedSession);
+
+	return { organizationRequired: localIdentity.organizationId === null };
 }
 
 function setAuthCookie(

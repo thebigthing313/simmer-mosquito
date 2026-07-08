@@ -126,6 +126,16 @@ export async function upsertWorkOsIdentity(
 			.where('user_id', '=', user.id)
 			.executeTakeFirst();
 
+		// Whether the user already has a default organization anywhere. A new
+		// membership may only be marked default when they have none yet, so a user
+		// joining a second organization doesn't violate memberships_one_default_per_user.
+		const userDefaultMembership = await trx
+			.selectFrom('memberships')
+			.select('id')
+			.where('user_id', '=', user.id)
+			.where('is_default', '=', true)
+			.executeTakeFirst();
+
 		const normalizedEmail = normalizeEmail(input.email);
 		const invitedMembership = await trx
 			.selectFrom('memberships')
@@ -154,6 +164,7 @@ export async function upsertWorkOsIdentity(
 							role: invitedMembership.role,
 						},
 			existingMembershipCount: Number(existingMembershipCount.count),
+			userHasDefaultMembership: userDefaultMembership !== undefined,
 		});
 
 		if (provisioning.source === 'existing' || provisioning.source === 'invited') {

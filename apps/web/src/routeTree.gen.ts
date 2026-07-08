@@ -12,9 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TrapsRouteImport } from './routes/traps'
 import { Route as TodayRouteImport } from './routes/today'
 import { Route as SourceReductionsRouteImport } from './routes/source-reductions'
+import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ServiceRequestsRouteImport } from './routes/service-requests'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as RoutesRouteImport } from './routes/routes'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RequestsForControlRouteImport } from './routes/requests-for-control'
 import { Route as RegionsRouteImport } from './routes/regions'
 import { Route as PublicOutreachRouteImport } from './routes/public-outreach'
@@ -27,6 +30,7 @@ import { Route as InspectionsRouteImport } from './routes/inspections'
 import { Route as HabitatsRouteImport } from './routes/habitats'
 import { Route as GroupsRouteImport } from './routes/groups'
 import { Route as GroupSettingsRouteImport } from './routes/group-settings'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as CollectionsRouteImport } from './routes/collections'
 import { Route as ChemicalControlRouteImport } from './routes/chemical-control'
@@ -34,6 +38,7 @@ import { Route as BiocontrolRouteImport } from './routes/biocontrol'
 import { Route as AssignmentsRouteImport } from './routes/assignments'
 import { Route as AppShellPreviewRouteImport } from './routes/app-shell-preview'
 import { Route as AddressBookRouteImport } from './routes/address-book'
+import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ServiceRequestsIndexRouteImport } from './routes/service-requests.index'
 import { Route as MyOrganizationIndexRouteImport } from './routes/my-organization/index'
@@ -123,6 +128,16 @@ const SourceReductionsRoute = SourceReductionsRouteImport.update({
   path: '/source-reductions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignUpRoute = SignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ServiceRequestsRoute = ServiceRequestsRouteImport.update({
   id: '/service-requests',
   path: '/service-requests',
@@ -136,6 +151,11 @@ const SamplesRoute = SamplesRouteImport.update({
 const RoutesRoute = RoutesRouteImport.update({
   id: '/routes',
   path: '/routes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RequestsForControlRoute = RequestsForControlRouteImport.update({
@@ -198,6 +218,11 @@ const GroupSettingsRoute = GroupSettingsRouteImport.update({
   path: '/group-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactsRoute = ContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
@@ -231,6 +256,11 @@ const AppShellPreviewRoute = AppShellPreviewRouteImport.update({
 const AddressBookRoute = AddressBookRouteImport.update({
   id: '/address-book',
   path: '/address-book',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
+  id: '/accept-invitation',
+  path: '/accept-invitation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -648,6 +678,7 @@ const LarvalSurveillanceHabitatsRoutesIdEditRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
   '/address-book': typeof AddressBookRoute
   '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
@@ -655,6 +686,7 @@ export interface FileRoutesByFullPath {
   '/chemical-control': typeof ChemicalControlRoute
   '/collections': typeof CollectionsRoute
   '/contacts': typeof ContactsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
   '/habitats': typeof HabitatsRouteWithChildren
@@ -667,9 +699,12 @@ export interface FileRoutesByFullPath {
   '/public-outreach': typeof PublicOutreachRoute
   '/regions': typeof RegionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/routes': typeof RoutesRoute
   '/samples': typeof SamplesRoute
   '/service-requests': typeof ServiceRequestsRouteWithChildren
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/source-reductions': typeof SourceReductionsRoute
   '/today': typeof TodayRoute
   '/traps': typeof TrapsRoute
@@ -748,6 +783,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
   '/address-book': typeof AddressBookRoute
   '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
@@ -755,6 +791,7 @@ export interface FileRoutesByTo {
   '/chemical-control': typeof ChemicalControlRoute
   '/collections': typeof CollectionsRoute
   '/contacts': typeof ContactsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
   '/inspections': typeof InspectionsRoute
@@ -764,8 +801,11 @@ export interface FileRoutesByTo {
   '/public-outreach': typeof PublicOutreachRoute
   '/regions': typeof RegionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/routes': typeof RoutesRoute
   '/samples': typeof SamplesRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/source-reductions': typeof SourceReductionsRoute
   '/today': typeof TodayRoute
   '/traps': typeof TrapsRoute
@@ -845,6 +885,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
   '/address-book': typeof AddressBookRoute
   '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
@@ -852,6 +893,7 @@ export interface FileRoutesById {
   '/chemical-control': typeof ChemicalControlRoute
   '/collections': typeof CollectionsRoute
   '/contacts': typeof ContactsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
   '/habitats': typeof HabitatsRouteWithChildren
@@ -864,9 +906,12 @@ export interface FileRoutesById {
   '/public-outreach': typeof PublicOutreachRoute
   '/regions': typeof RegionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/routes': typeof RoutesRoute
   '/samples': typeof SamplesRoute
   '/service-requests': typeof ServiceRequestsRouteWithChildren
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/source-reductions': typeof SourceReductionsRoute
   '/today': typeof TodayRoute
   '/traps': typeof TrapsRoute
@@ -947,6 +992,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/accept-invitation'
     | '/address-book'
     | '/app-shell-preview'
     | '/assignments'
@@ -954,6 +1000,7 @@ export interface FileRouteTypes {
     | '/chemical-control'
     | '/collections'
     | '/contacts'
+    | '/forgot-password'
     | '/group-settings'
     | '/groups'
     | '/habitats'
@@ -966,9 +1013,12 @@ export interface FileRouteTypes {
     | '/public-outreach'
     | '/regions'
     | '/requests-for-control'
+    | '/reset-password'
     | '/routes'
     | '/samples'
     | '/service-requests'
+    | '/sign-in'
+    | '/sign-up'
     | '/source-reductions'
     | '/today'
     | '/traps'
@@ -1047,6 +1097,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/accept-invitation'
     | '/address-book'
     | '/app-shell-preview'
     | '/assignments'
@@ -1054,6 +1105,7 @@ export interface FileRouteTypes {
     | '/chemical-control'
     | '/collections'
     | '/contacts'
+    | '/forgot-password'
     | '/group-settings'
     | '/groups'
     | '/inspections'
@@ -1063,8 +1115,11 @@ export interface FileRouteTypes {
     | '/public-outreach'
     | '/regions'
     | '/requests-for-control'
+    | '/reset-password'
     | '/routes'
     | '/samples'
+    | '/sign-in'
+    | '/sign-up'
     | '/source-reductions'
     | '/today'
     | '/traps'
@@ -1143,6 +1198,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/accept-invitation'
     | '/address-book'
     | '/app-shell-preview'
     | '/assignments'
@@ -1150,6 +1206,7 @@ export interface FileRouteTypes {
     | '/chemical-control'
     | '/collections'
     | '/contacts'
+    | '/forgot-password'
     | '/group-settings'
     | '/groups'
     | '/habitats'
@@ -1162,9 +1219,12 @@ export interface FileRouteTypes {
     | '/public-outreach'
     | '/regions'
     | '/requests-for-control'
+    | '/reset-password'
     | '/routes'
     | '/samples'
     | '/service-requests'
+    | '/sign-in'
+    | '/sign-up'
     | '/source-reductions'
     | '/today'
     | '/traps'
@@ -1244,6 +1304,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AcceptInvitationRoute: typeof AcceptInvitationRoute
   AddressBookRoute: typeof AddressBookRoute
   AppShellPreviewRoute: typeof AppShellPreviewRoute
   AssignmentsRoute: typeof AssignmentsRoute
@@ -1251,6 +1312,7 @@ export interface RootRouteChildren {
   ChemicalControlRoute: typeof ChemicalControlRoute
   CollectionsRoute: typeof CollectionsRoute
   ContactsRoute: typeof ContactsRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   GroupSettingsRoute: typeof GroupSettingsRoute
   GroupsRoute: typeof GroupsRoute
   HabitatsRoute: typeof HabitatsRouteWithChildren
@@ -1263,9 +1325,12 @@ export interface RootRouteChildren {
   PublicOutreachRoute: typeof PublicOutreachRoute
   RegionsRoute: typeof RegionsRoute
   RequestsForControlRoute: typeof RequestsForControlRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   RoutesRoute: typeof RoutesRoute
   SamplesRoute: typeof SamplesRoute
   ServiceRequestsRoute: typeof ServiceRequestsRouteWithChildren
+  SignInRoute: typeof SignInRoute
+  SignUpRoute: typeof SignUpRoute
   SourceReductionsRoute: typeof SourceReductionsRoute
   TodayRoute: typeof TodayRoute
   TrapsRoute: typeof TrapsRoute
@@ -1342,6 +1407,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SourceReductionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/service-requests': {
       id: '/service-requests'
       path: '/service-requests'
@@ -1361,6 +1440,13 @@ declare module '@tanstack/react-router' {
       path: '/routes'
       fullPath: '/routes'
       preLoaderRoute: typeof RoutesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/requests-for-control': {
@@ -1447,6 +1533,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GroupSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contacts': {
       id: '/contacts'
       path: '/contacts'
@@ -1494,6 +1587,13 @@ declare module '@tanstack/react-router' {
       path: '/address-book'
       fullPath: '/address-book'
       preLoaderRoute: typeof AddressBookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accept-invitation': {
+      id: '/accept-invitation'
+      path: '/accept-invitation'
+      fullPath: '/accept-invitation'
+      preLoaderRoute: typeof AcceptInvitationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -2221,6 +2321,7 @@ const PublicEngagementServiceRequestsIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AcceptInvitationRoute: AcceptInvitationRoute,
   AddressBookRoute: AddressBookRoute,
   AppShellPreviewRoute: AppShellPreviewRoute,
   AssignmentsRoute: AssignmentsRoute,
@@ -2228,6 +2329,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChemicalControlRoute: ChemicalControlRoute,
   CollectionsRoute: CollectionsRoute,
   ContactsRoute: ContactsRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   GroupSettingsRoute: GroupSettingsRoute,
   GroupsRoute: GroupsRoute,
   HabitatsRoute: HabitatsRouteWithChildren,
@@ -2240,9 +2342,12 @@ const rootRouteChildren: RootRouteChildren = {
   PublicOutreachRoute: PublicOutreachRoute,
   RegionsRoute: RegionsRoute,
   RequestsForControlRoute: RequestsForControlRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   RoutesRoute: RoutesRoute,
   SamplesRoute: SamplesRoute,
   ServiceRequestsRoute: ServiceRequestsRouteWithChildren,
+  SignInRoute: SignInRoute,
+  SignUpRoute: SignUpRoute,
   SourceReductionsRoute: SourceReductionsRoute,
   TodayRoute: TodayRoute,
   TrapsRoute: TrapsRoute,

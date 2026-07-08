@@ -12,7 +12,15 @@ export interface RouterContext {
 	readonly auth: AppAuthController;
 }
 
-const publicPaths = new Set(['/landing', '/login']);
+const publicPaths = new Set([
+	'/landing',
+	'/login',
+	'/sign-in',
+	'/sign-up',
+	'/forgot-password',
+	'/reset-password',
+	'/accept-invitation',
+]);
 
 /** Dev-only layout design previews render standalone, without the product chrome or auth. */
 const isPreviewPath = (pathname: string) =>

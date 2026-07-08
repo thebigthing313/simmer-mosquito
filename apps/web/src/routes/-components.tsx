@@ -1,6 +1,6 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
-import { getServerUrl } from '../auth';
+import { Link } from '@tanstack/react-router';
 
 /**
  * Pre-shell surfaces: the unauthenticated landing/login pages and the chrome
@@ -23,7 +23,7 @@ export function LandingPage({
 	readonly authReason?: 'organization_required';
 	readonly redirectTo: string;
 }) {
-	const loginUrl = `${getServerUrl()}/auth/login?returnTo=${encodeURIComponent(redirectTo)}`;
+	const redirectPath = toRedirectPath(redirectTo);
 
 	return (
 		<div className="grid min-h-screen place-items-center bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_360px),var(--app-stage)] p-6">
@@ -47,7 +47,14 @@ export function LandingPage({
 				) : null}
 				<div className="flex flex-wrap gap-2.5">
 					<Button asChild>
-						<a href={loginUrl}>Sign in</a>
+						<Link to="/sign-in" search={{ redirect: redirectPath }}>
+							Sign in
+						</Link>
+					</Button>
+					<Button variant="outline" asChild>
+						<Link to="/sign-up" search={{ redirect: redirectPath }}>
+							Create account
+						</Link>
 					</Button>
 				</div>
 			</section>
@@ -56,9 +63,6 @@ export function LandingPage({
 }
 
 export function LoginPage() {
-	const returnTo = typeof window === 'undefined' ? '/' : window.location.origin;
-	const loginUrl = `${getServerUrl()}/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
-
 	return (
 		<div className="grid min-h-screen place-items-center bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_360px),var(--app-stage)] p-6">
 			<section className="grid w-[min(460px,100%)] gap-3.5 rounded-md border border-border/30 bg-card p-7">
@@ -66,15 +70,30 @@ export function LoginPage() {
 				<p className="eyebrow">SIMMER sign in</p>
 				<h1 className="m-0 text-[1.6rem] leading-tight">Continue to your operations workspace</h1>
 				<p className="m-0 leading-normal text-muted-foreground">
-					Authentication is handled by WorkOS. After sign in, SIMMER returns you to the app route
-					you were trying to open.
+					Sign in to return to the app route you were trying to open.
 				</p>
 				<Button asChild>
-					<a href={loginUrl}>Sign in</a>
+					<Link to="/sign-in" search={{ redirect: '/' }}>
+						Sign in
+					</Link>
 				</Button>
 			</section>
 		</div>
 	);
+}
+
+/** Normalizes a landing `redirect` (which may be an absolute URL) to a same-origin path. */
+function toRedirectPath(redirectTo: string): string {
+	if (redirectTo.startsWith('/')) {
+		return redirectTo;
+	}
+
+	try {
+		const url = new URL(redirectTo);
+		return `${url.pathname}${url.search}${url.hash}` || '/';
+	} catch {
+		return '/';
+	}
 }
 
 export function WorkspaceChromeFallback() {
