@@ -203,12 +203,17 @@ service>` so the server authenticates to the now-secured Electric. Production
 omits it (its Electric is insecure/private). The server keeps using the internal
 `ELECTRIC_URL` in both — the public Electric domain is only for local dev.
 
-Set this on the Railway web service:
+Set these on the Railway web service (all `VITE_*` are baked in at build time, so
+a change requires a rebuild/redeploy of the service):
 
 ```sh
 VITE_SERVER_URL=https://<server-domain>
+VITE_MAPBOX_ACCESS_TOKEN=pk.<mapbox-public-token>
 VITE_PREVIEW_ALLOWED_HOSTS=<web-domain>
 ```
+
+`VITE_MAPBOX_ACCESS_TOKEN` is required for map views to render. `RAILWAY_PUBLIC_DOMAIN`
+is injected by Railway and also feeds `preview.allowedHosts`.
 
 `VITE_SHAPE_SERVER_URL` is optional. Leave it unset unless a deployment has a
 separate browser-facing HTTPS/HTTP2 proxy for shape streams; when unset, the web
