@@ -53,6 +53,8 @@ $env:TEST_DATABASE_URL='postgres://postgres:postgres@localhost:55432/simmer_mosq
 pnpm --filter @simmer-mosquito/db test
 ```
 
+**Local dev backends:** `apps/server` + frontends run locally; Postgres + Electric come from either the Railway `staging` environment (recommended default — `.env`/`apps/server/.env` point `DATABASE_URL`/`ELECTRIC_URL`/`ELECTRIC_SECRET` at staging) or local Docker Compose. See `docs/deployment.md` → "Local development". Deploys are gated on `pnpm test` passing (`verify` job) — keep tests green or nothing deploys; pushing `main` is a production release.
+
 ## Architecture
 
 Authoritative docs (read before non-trivial work):

@@ -23,6 +23,22 @@ pnpm graph
 On Windows or from Codex automation, prefer `pnpm.cmd ...` as described in
 `AGENTS.md`.
 
+## Local development
+
+`apps/server` and the frontends always run locally. Postgres + Electric come from
+one of two backends — see `docs/deployment.md` → "Local development" for full
+setup:
+
+- **Railway-backed (recommended default):** point `DATABASE_URL` / `ELECTRIC_URL`
+  / `ELECTRIC_SECRET` in `.env` + `apps/server/.env` at the Railway `staging`
+  environment. No local Docker; frees resources and avoids flaky local Electric.
+  Seed realistic data with `scripts/clone-prod-to-staging.ps1`.
+- **Fully local Docker:** `docker compose up -d postgres electric`, then
+  `pnpm db:migrate` and the sync-baseline seed (`.env.example` values).
+
+Either way: `pnpm dev:server`, `pnpm dev:web`, `pnpm dev:caddy` (HTTPS/HTTP2 front
+at `https://localhost:5175`).
+
 ## Workspace
 
 - `apps/admin`: SIMMER operator control-plane SPA.
