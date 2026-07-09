@@ -136,6 +136,7 @@ function TrapsExplorerRoute() {
 					<MapCanvas
 						controls={{ layers: false }}
 						geoJson={featureCollection}
+						geoJsonInteraction={{ selectedId, onSelectFeature: setSelectedId }}
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (

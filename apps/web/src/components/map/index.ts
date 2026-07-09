@@ -18,6 +18,7 @@ export {
 	SAMPLE_STATUS_COLORS,
 	type SampleTileFilters,
 } from './sample-tiles';
+export type { GeoJsonLayerInteraction } from './use-geojson-layer';
 export { type GeolocationCoords, useGeolocation } from './use-geolocation';
 export type { HabitatTileLayerConfig } from './use-habitat-tile-layer';
 export type { InspectionTileLayerConfig } from './use-inspection-tile-layer';

@@ -10,7 +10,7 @@ import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
-import { useGeoJsonLayer } from './use-geojson-layer';
+import { type GeoJsonLayerInteraction, useGeoJsonLayer } from './use-geojson-layer';
 import { type HabitatTileLayerConfig, useHabitatTileLayer } from './use-habitat-tile-layer';
 import {
 	type InspectionTileLayerConfig,
@@ -49,6 +49,7 @@ export function MapCanvas({
 	sampleLayer,
 	routeLayer,
 	geoJson,
+	geoJsonInteraction,
 	onMapReady,
 }: {
 	readonly className?: string;
@@ -64,6 +65,8 @@ export function MapCanvas({
 	readonly routeLayer?: RouteLayerConfig;
 	/** Draw a single GeoJSON overlay (e.g. one record's geometry on a detail map). */
 	readonly geoJson?: GeoJSON.GeoJSON | null;
+	/** Opt into click-to-select + highlight on the GeoJSON overlay's features. */
+	readonly geoJsonInteraction?: GeoJsonLayerInteraction;
 	/** Called once with the GL instance after it loads, for camera/bounds reads. */
 	readonly onMapReady?: (map: MapboxMap) => void;
 }) {
@@ -90,7 +93,7 @@ export function MapCanvas({
 	useInspectionTileLayer(map, isLoaded, inspectionLayer);
 	useSampleTileLayer(map, isLoaded, sampleLayer);
 	useRouteLayer(map, isLoaded, routeLayer);
-	useGeoJsonLayer(map, isLoaded, geoJson ?? null);
+	useGeoJsonLayer(map, isLoaded, geoJson ?? null, geoJsonInteraction);
 
 	const onMapReadyRef = useRef(onMapReady);
 	onMapReadyRef.current = onMapReady;
