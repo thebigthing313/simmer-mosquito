@@ -387,7 +387,7 @@ describe('registerSyncShapeRoutes', () => {
 		expect(columns).not.toContain('geojson');
 	});
 
-	it('does not request generated owned-geometry columns from new locatable shapes', async () => {
+	it('does not request server-only geometry columns from locatable shapes', async () => {
 		const app = new Hono<{ Variables: AuthVariables }>();
 		const requests: string[] = [];
 
@@ -424,11 +424,12 @@ describe('registerSyncShapeRoutes', () => {
 			const columns = upstream.searchParams.get('columns')?.split(',') ?? [];
 
 			expect(response.status).toBe(200);
+			// Raw/heavy geometry (geom binary + derived geojson) stays server-only and
+			// must never sync. Centroid columns (lat, lng, geom_type) are trigger-
+			// maintained real columns that DO sync — see serverOnlyGeometryColumns in
+			// packages/sync descriptor-factory.
 			expect(columns).not.toContain('geom');
-			expect(columns).not.toContain('lat');
-			expect(columns).not.toContain('lng');
 			expect(columns).not.toContain('geojson');
-			expect(columns).not.toContain('geom_type');
 		}
 	});
 });
