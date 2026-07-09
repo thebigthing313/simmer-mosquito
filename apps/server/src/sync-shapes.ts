@@ -719,7 +719,10 @@ const blockedProxyResponseHeaders = new Set([
 	'upgrade',
 ]);
 
-const serverOwnedShapeParams = new Set(['columns', 'table', 'where']);
+// `secret` is server-owned: when ELECTRIC_SECRET is configured it is folded into
+// the base electricUrl (see readElectricUrl in env.ts), so an incoming request
+// must never be able to append/override it.
+const serverOwnedShapeParams = new Set(['columns', 'table', 'where', 'secret']);
 const subsetShapeParamPrefix = 'subset__';
 // Electric's POST subset body keys (unprefixed). These narrow *within* the forced
 // org shape — table/columns/shape-where/shape-params are never sourced from the body.

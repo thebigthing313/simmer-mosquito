@@ -46,7 +46,7 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		appOrigins: adminAppOrigin === null ? [appOrigin] : [appOrigin, adminAppOrigin],
 		databaseUrl: readRequiredString(source, 'DATABASE_URL'),
 		devImpersonate: readDevImpersonation(source, base.nodeEnv),
-		electricUrl: readOptionalUrl(source, 'ELECTRIC_URL'),
+		electricUrl: readElectricUrl(source),
 		geocodioApiKey: readOptionalString(source, 'GEOCODIO_API_KEY') ?? null,
 		host: base.host,
 		nodeEnv: base.nodeEnv,
@@ -103,6 +103,32 @@ function readOptionalOrigin(source: NodeJS.ProcessEnv, key: string): string | nu
 	}
 
 	return parseOrigin(key, value);
+}
+
+/**
+ * Effective Electric shape URL, with the `ELECTRIC_SECRET` folded in as a
+ * `secret` query param when set. Electric authenticates HTTP API requests via
+ * that query param (https://electric.ax/docs/guides/security), so embedding it
+ * in the base URL lets the shape proxy forward it on every upstream request
+ * without threading the secret through every route. The proxy treats `secret`
+ * as a server-owned shape param, so an incoming request can never override or
+ * duplicate it. Returns `null` when `ELECTRIC_URL` is unset (shape routes then
+ * respond 503 `electric_url_required`).
+ */
+function readElectricUrl(source: NodeJS.ProcessEnv): string | null {
+	const base = readOptionalUrl(source, 'ELECTRIC_URL');
+	if (base === null) {
+		return null;
+	}
+
+	const secret = readOptionalString(source, 'ELECTRIC_SECRET');
+	if (secret === undefined) {
+		return base;
+	}
+
+	const url = new URL(base);
+	url.searchParams.set('secret', secret);
+	return url.toString();
 }
 
 function readOptionalUrl(source: NodeJS.ProcessEnv, key: string): string | null {

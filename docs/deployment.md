@@ -54,6 +54,37 @@ pnpm dev:web
 Local `.env` should use the values in `.env.example`. Local development should
 not require Railway resources.
 
+## Local development against Railway (offload Postgres + Electric)
+
+To free up local resources (or avoid flaky local Electric), run `apps/server`
+and the frontends locally but point them at the `staging` environment's Postgres
+and Electric on Railway. Only two server env vars change; the browser still talks
+only to the local server's `/sync/shapes/*` proxy.
+
+Because a laptop-hosted server cannot reach `*.railway.internal`, staging Postgres
+must use its **public TCP proxy** URL and Electric must have a **public domain**
+(hardened with `ELECTRIC_SECRET`, per the Electric service notes below).
+
+In root `.env` and `apps/server/.env`, set:
+
+```sh
+DATABASE_URL=postgres://postgres:<pw>@<host>.proxy.rlwy.net:<port>/railway?sslmode=disable
+ELECTRIC_URL=https://<electric-staging-domain>/v1/shape
+ELECTRIC_SECRET=<same secret set on the staging Electric + server services>
+```
+
+Leave everything else local (`APP_ORIGIN`, `VITE_SERVER_URL`,
+`WORKOS_REDIRECT_URI`, `DEV_IMPERSONATE_*`). Then stop the local containers:
+
+```sh
+docker compose stop postgres electric
+```
+
+Seed the staging DB with realistic data by cloning production into it with
+`scripts/clone-prod-to-staging.ps1` (the reverse of `scripts/clone-prod-db.ps1`).
+After reloading the DB, reset Electric's stored shape log (clear its volume /
+redeploy) so it does not replay stale LSNs.
+
 ## GitHub Environments
 
 Create GitHub environments named `staging` and `production`.
@@ -157,6 +188,28 @@ Railway private DNS:
 ```sh
 http://electric.railway.internal:3000/v1/shape
 ```
+
+If an environment's Electric service is given a public domain (see "Local
+development against Railway", below), drop `ELECTRIC_INSECURE` and set
+`ELECTRIC_SECRET` instead so it is not world-readable:
+
+```sh
+DATABASE_URL=${{postgis.DATABASE_URL}}
+ELECTRIC_SECRET=<strong-random-secret>
+PORT=3000
+```
+
+`PORT=3000` is required for the **public** domain to route: Railway's HTTP edge
+targets the service's `PORT`, and Electric listens on 3000 (it reads
+`ELECTRIC_PORT`, not `PORT`, so setting `PORT` only steers Railway's edge and does
+not change Electric). Without it, a generated domain returns `502` with
+`x-railway-fallback: true`. Private `electric.railway.internal:3000` routing does
+not need this.
+
+Then set the same `ELECTRIC_SECRET` on that environment's **server** service. The
+server folds it into `ELECTRIC_URL` as a `secret` query param on every upstream
+shape request (`readElectricUrl` in `apps/server/src/env.ts`), so both the
+deployed server and any local server pointed at this Electric authenticate.
 
 The PostGIS service must have logical replication enabled for Electric. In
 DBeaver or another SQL client, run:
