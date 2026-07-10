@@ -30,7 +30,18 @@ param(
 	[string]$StagingUrl = $env:STAGING_DATABASE_URL,
 	[string]$PgBin,
 	# Skip the interactive "did you stop staging Electric?" pre-flight confirmation.
-	[switch]$Yes
+	[switch]$Yes,
+	# WorkOS identity relink (runs after the clone): the cloned data carries PROD
+	# WorkOS ids, but local dev authenticates against the WorkOS STAGING environment.
+	# These map the prod org/user the dump brings over to the staging org/user you
+	# actually log in as, so `pnpm dev` + a normal WorkOS staging login lands you in
+	# the cloned org. Defaults match the current Middlesex owner setup; override to
+	# relink a different identity, or pass -SkipRelink to leave prod ids in place.
+	[string]$ProdWorkosOrgId = 'org_01KRY8C6XHQ030P2NNDMY1PRSS',
+	[string]$StagingWorkosOrgId = 'org_01KRXZWNNE28Q00672CA1CKT70',
+	[string]$ProdWorkosUserId = 'user_01KRY8CW0K380JPC7FRW81WPB4',
+	[string]$StagingWorkosUserId = 'user_01KQYXX9N212YZH59DXMH3Y6VV',
+	[switch]$SkipRelink
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,6 +115,27 @@ try {
 	& $psql $StagingUrl -v ON_ERROR_STOP=1 `
 		-c "select 'organizations' as t, count(*) from organizations union all select 'memberships', count(*) from memberships;"
 	if ($LASTEXITCODE -ne 0) { throw "verification query failed (exit $LASTEXITCODE)" }
+
+	if (-not $SkipRelink) {
+		Write-Host '==> Relinking cloned prod identity -> WorkOS STAGING (so you can log in normally) ...' -ForegroundColor Cyan
+		# Rewrite the org + owner user WorkOS ids from prod to staging, then flag that
+		# membership as the user's default org. Bulk data hangs off the internal org
+		# UUID (preserved by the dump), so only these identity rows need touching.
+		& $psql $StagingUrl -v ON_ERROR_STOP=1 `
+			-v prod_org=$ProdWorkosOrgId -v staging_org=$StagingWorkosOrgId `
+			-v prod_user=$ProdWorkosUserId -v staging_user=$StagingWorkosUserId `
+			-c "update organizations set workos_organization_id = :'staging_org', updated_at = now() where workos_organization_id = :'prod_org';" `
+			-c "update users set workos_user_id = :'staging_user', updated_at = now() where workos_user_id = :'prod_user';" `
+			-c "update memberships set is_default = true, updated_at = now() where user_id = (select id from users where workos_user_id = :'staging_user') and organization_id = (select id from organizations where workos_organization_id = :'staging_org');" `
+			-c "select o.name, o.workos_organization_id, u.email, u.workos_user_id, m.role, m.status, m.is_default from memberships m join organizations o on o.id = m.organization_id join users u on u.id = m.user_id where u.workos_user_id = :'staging_user' and o.workos_organization_id = :'staging_org';"
+		if ($LASTEXITCODE -ne 0) { throw "WorkOS staging relink failed (exit $LASTEXITCODE)" }
+		if ($env:DEV_IMPERSONATE_WORKOS_USER_ID -or $env:DEV_IMPERSONATE_WORKOS_ORG_ID) {
+			Write-Host '    WARNING: DEV_IMPERSONATE_* is set in your shell env - it overrides real login. Comment it out in .env to use WorkOS staging auth.' -ForegroundColor Yellow
+		}
+	}
+	else {
+		Write-Host '==> -SkipRelink set; leaving cloned PROD WorkOS ids in place (real staging login will spawn a fresh empty org; use DEV_IMPERSONATE_* or relink manually).' -ForegroundColor DarkGray
+	}
 }
 finally {
 	if (Test-Path $dumpFile) { Remove-Item $dumpFile -Force -ErrorAction SilentlyContinue }
@@ -117,5 +149,7 @@ NEXT:
   1. Redeploy the staging Electric service once so it re-snapshots the reloaded
      data from a clean slate (its stored shape state predates the reset).
   2. Local .env / apps/server/.env DATABASE_URL + ELECTRIC_URL should already point
-     at staging. Start the local server + web and verify a synced route renders.
+     at staging, and WORKOS_* at the staging environment. Start the local server +
+     web and log in normally at https://localhost:5173 (the identity was relinked to
+     the WorkOS staging org/user above). Ensure DEV_IMPERSONATE_* stays commented out.
 '@ -ForegroundColor DarkGray
