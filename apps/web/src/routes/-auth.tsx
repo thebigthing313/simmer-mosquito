@@ -530,7 +530,7 @@ function OrgSelectStep({
 							key={organization.id}
 							type="button"
 							variant="outline"
-							className="justify-start"
+							className="h-auto min-h-9 justify-start whitespace-normal break-words py-2 text-left"
 							disabled={pendingId !== null}
 							onClick={() => void choose(organization.id)}
 						>
