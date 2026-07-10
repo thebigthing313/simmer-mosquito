@@ -131,15 +131,24 @@ export function useSampleTileLayer(
 		source?.setTiles?.([url]);
 	}, [map, isLoaded, url]);
 
-	// Re-scope the highlight layers to the selected feature.
+	// Re-scope the highlight layers to the selected feature. Guarded by `enabled`
+	// so maps without a sample config never touch layers that were never added.
 	useEffect(() => {
-		if (map === null || !isLoaded) {
+		if (map === null || !isLoaded || !enabled) {
 			return;
 		}
-		for (const layer of sampleTileLayers(selectedId)) {
-			if (selectedLayerIds.includes(layer.id) && map.getLayer(layer.id) !== undefined) {
-				map.setFilter(layer.id, layer.filter);
+		// A reconnect or basemap restyle can re-run this against a map whose style
+		// was already torn down, where getLayer throws on the missing style. Guard
+		// it the same way the setup effect guards its teardown; the setup effect
+		// re-applies the selection on the next `style.load`.
+		try {
+			for (const layer of sampleTileLayers(selectedId)) {
+				if (selectedLayerIds.includes(layer.id) && map.getLayer(layer.id) !== undefined) {
+					map.setFilter(layer.id, layer.filter);
+				}
 			}
+		} catch {
+			// Map style not available; nothing to re-scope.
 		}
-	}, [map, isLoaded, selectedId]);
+	}, [map, isLoaded, enabled, selectedId]);
 }

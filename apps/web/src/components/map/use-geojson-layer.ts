@@ -231,18 +231,32 @@ export function useGeoJsonLayer(
 
 	// Push data changes onto the existing source without re-adding layers.
 	useEffect(() => {
-		if (map === null || !isLoaded || data === null) {
+		if (map === null || !isLoaded || data === null || !enabled) {
 			return;
 		}
-		const source = map.getSource(GEOJSON_SOURCE_ID) as GeoJSONSource | undefined;
-		source?.setData(data);
-	}, [map, isLoaded, data]);
+		// A reconnect or restyle can re-run this against a torn-down style, where
+		// getSource throws; the setup effect re-seeds the source on `style.load`.
+		try {
+			const source = map.getSource(GEOJSON_SOURCE_ID) as GeoJSONSource | undefined;
+			source?.setData(data);
+		} catch {
+			// Map style not available; nothing to update.
+		}
+	}, [map, isLoaded, enabled, data]);
 
 	// Re-scope the highlight layer to the selected feature without re-adding it.
 	useEffect(() => {
-		if (map === null || !isLoaded || map.getLayer(POINT_SELECTED_LAYER_ID) === undefined) {
+		if (map === null || !isLoaded || !enabled) {
 			return;
 		}
-		map.setFilter(POINT_SELECTED_LAYER_ID, selectedPointFilter(selectedId));
-	}, [map, isLoaded, selectedId]);
+		// getLayer/setFilter throw if the style was torn down under a reconnect or
+		// restyle; the setup effect re-applies the selection on `style.load`.
+		try {
+			if (map.getLayer(POINT_SELECTED_LAYER_ID) !== undefined) {
+				map.setFilter(POINT_SELECTED_LAYER_ID, selectedPointFilter(selectedId));
+			}
+		} catch {
+			// Map style not available; nothing to re-scope.
+		}
+	}, [map, isLoaded, enabled, selectedId]);
 }
