@@ -634,7 +634,13 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 		[habitatId],
 	);
 
-	const inspections = (result.data ?? []) as unknown as readonly HistoryInspection[];
+	// Re-sort client-side: the query's orderBy is applied before the correlated
+	// `toArray` samples subquery, and TanStack DB emits the joined result in key
+	// order rather than the requested order — so establish most-recent-first here.
+	const inspections = useMemo(() => {
+		const rows = (result.data ?? []) as unknown as readonly HistoryInspection[];
+		return [...rows].sort((a, b) => (a.inspectionDate < b.inspectionDate ? 1 : -1));
+	}, [result.data]);
 	const samples = useMemo<readonly HistorySampleRow[]>(
 		() =>
 			inspections.flatMap((inspection) =>

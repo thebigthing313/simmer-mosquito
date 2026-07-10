@@ -30,6 +30,14 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/pagination';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@simmer-mosquito/ui-web/components/ui/table';
+import {
 	Tabs,
 	TabsContent,
 	TabsList,
@@ -219,7 +227,11 @@ interface TrapCollectionEntry {
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
-	readonly species: readonly { readonly speciesId: string; readonly count: number }[];
+	readonly species: readonly {
+		readonly speciesId: string;
+		readonly count: number;
+		readonly sex: string | null;
+	}[];
 }
 
 const collectionsPageSize = 10;
@@ -250,6 +262,7 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 								.select(({ collectionSpecies }) => ({
 									speciesId: collectionSpecies.speciesId,
 									count: collectionSpecies.count,
+									sex: collectionSpecies.sex,
 								})),
 						),
 					})),
@@ -257,7 +270,13 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 		[trapId],
 	);
 
-	const collections = (result.data ?? []) as unknown as readonly TrapCollectionEntry[];
+	// Re-sort client-side: the query's orderBy is applied before the correlated
+	// `toArray` species subquery, and TanStack DB emits the joined result in key
+	// order rather than the requested order — so establish most-recent-first here.
+	const collections = useMemo(() => {
+		const rows = (result.data ?? []) as unknown as readonly TrapCollectionEntry[];
+		return [...rows].sort(compareByCollectedDesc);
+	}, [result.data]);
 
 	return (
 		<Card variant="surface">
@@ -356,31 +375,46 @@ function TrapCollectionsList({
 	}
 	return (
 		<div className="grid gap-3">
-			<ul className="grid gap-2">
-				{visibleCollections.map((collection) => (
-					<li
-						className="flex items-center gap-3 rounded-md border border-border/40 bg-background/60 px-3 py-2.5"
-						key={collection.id}
-					>
-						<div className="grid min-w-0 flex-1 gap-0.5">
-							<Link
-								className="rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								params={{ id: collection.id }}
-								to="/adult-surveillance/collections/$id"
-							>
-								{collectionTitle(collection)}
-							</Link>
-							<CollectionFlagBadges
-								className="flex flex-wrap items-center gap-1.5"
-								collection={collection}
-							/>
-						</div>
-						<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-							{specimenCount(collection)} specimens
-						</span>
-					</li>
-				))}
-			</ul>
+			<p className="text-muted-foreground text-xs">Mosquito count only reflects females.</p>
+			<div className="overflow-hidden rounded-md border border-border/40">
+				<Table>
+					<TableHeader>
+						<TableRow className="hover:bg-transparent">
+							<TableHead>Date</TableHead>
+							<TableHead>Flags</TableHead>
+							<TableHead className="text-right">Species</TableHead>
+							<TableHead className="text-right">Mosquitoes</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{visibleCollections.map((collection) => (
+							<TableRow key={collection.id}>
+								<TableCell>
+									<Link
+										className="rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										params={{ id: collection.id }}
+										to="/adult-surveillance/collections/$id"
+									>
+										{collectionTitle(collection)}
+									</Link>
+								</TableCell>
+								<TableCell>
+									<CollectionFlagBadges
+										className="flex flex-wrap items-center gap-1.5"
+										collection={collection}
+									/>
+								</TableCell>
+								<TableCell className="text-right text-muted-foreground tabular-nums">
+									{speciesCount(collection)}
+								</TableCell>
+								<TableCell className="text-right tabular-nums">
+									{femaleCount(collection).toLocaleString()}
+								</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			</div>
 			{pageCount > 1 ? (
 				<CollectionsPagination
 					onPageChange={setPage}
@@ -692,6 +726,34 @@ function TrapUnavailable() {
 	);
 }
 
-function specimenCount(collection: TrapCollectionEntry): number {
-	return collection.species.reduce((sum, entry) => sum + (entry.count ?? 0), 0);
+/**
+ * Most-recent-first by effective date (collectedAt, falling back to the
+ * scheduled collectionDate for pending collections). Undated rows sort last.
+ */
+function compareByCollectedDesc(a: TrapCollectionEntry, b: TrapCollectionEntry): number {
+	const aDate = collectionEffectiveDate(a);
+	const bDate = collectionEffectiveDate(b);
+	if (aDate === bDate) {
+		return 0;
+	}
+	if (aDate === null) {
+		return 1;
+	}
+	if (bDate === null) {
+		return -1;
+	}
+	return aDate < bDate ? 1 : -1;
+}
+
+/** Total female mosquitoes tallied across the collection's species rows. */
+function femaleCount(collection: TrapCollectionEntry): number {
+	return collection.species.reduce(
+		(sum, entry) => sum + (entry.sex === 'female' ? (entry.count ?? 0) : 0),
+		0,
+	);
+}
+
+/** Distinct species with at least one specimen in the collection. */
+function speciesCount(collection: TrapCollectionEntry): number {
+	return collection.species.filter((entry) => (entry.count ?? 0) > 0).length;
 }
