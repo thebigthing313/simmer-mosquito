@@ -63,6 +63,8 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	CollectionFlagBadges,
+	collectionEffectiveDate,
+	collectionTitle,
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
 	SpeciesSexBadge,
@@ -593,6 +595,7 @@ function DetailsCard({
 	readonly lureName: string | null;
 	readonly profileNameById: ReadonlyMap<string, string>;
 }) {
+	const collectedDate = collectionEffectiveDate(collection);
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
@@ -619,10 +622,10 @@ function DetailsCard({
 						{lureName ?? <span className="text-muted-foreground">None</span>}
 					</DetailRow>
 					<DetailRow label="Collected">
-						{collection.collectedAt === null ? (
+						{collectedDate === null ? (
 							<span className="text-muted-foreground">Pending</span>
 						) : (
-							formatMonthDay(collection.collectedAt)
+							formatMonthDay(collectedDate)
 						)}
 					</DetailRow>
 					<DetailRow label="Set">
@@ -692,11 +695,4 @@ function CollectionUnavailable() {
 			</EmptyHeader>
 		</Empty>
 	);
-}
-
-function collectionTitle(collection: AdultCollectionRow): string {
-	if (collection.collectedAt === null) {
-		return 'Pending collection';
-	}
-	return `Collected ${formatMonthDay(collection.collectedAt)}`;
 }

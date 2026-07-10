@@ -16,6 +16,7 @@ export {
 	addDaysToDateString,
 	buildWeek,
 	dayOfMonth,
+	formatDate,
 	formatMonthDay,
 	startOfWeek,
 	todayInTimeZone,

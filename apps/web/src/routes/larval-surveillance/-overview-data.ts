@@ -331,6 +331,20 @@ export function formatMonthDay(date: string): string {
 	}).format(parsed);
 }
 
+/** Full numeric date, `M/D/YYYY` (e.g. `7/10/2026`). */
+export function formatDate(date: string): string {
+	const parsed = parseDateString(date);
+	if (Number.isNaN(parsed.getTime())) {
+		return '—';
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		year: 'numeric',
+		month: 'numeric',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(parsed);
+}
+
 // Tolerates a bare `YYYY-MM-DD` as well as a full ISO timestamp (e.g. a Postgres
 // date serialized through JSON) by reading only the leading date portion.
 function parseDateString(date: string): Date {
