@@ -20,7 +20,6 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	Pagination,
 	PaginationContent,
@@ -55,6 +54,12 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import {
+	activeDatePresetId,
+	type DatePreset,
+	DateRangeFilter,
+	datePresetRange,
+} from '../../../components/date-range-filter';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
@@ -66,7 +71,7 @@ import {
 	SpeciesDistributionBars,
 	trapDisplayName,
 } from '../-adult-display';
-import { useAddressNames } from '../-overview-data';
+import { todayInTimeZone, useAddressNames } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/traps/$id')({
 	component: RouteComponent,
@@ -441,10 +446,38 @@ function TrapSpeciesDistribution({
 		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
 		[species],
 	);
+	// The catalog carries a placeholder "Unidentified mosquito" species for specimens
+	// that were never keyed out; it isn't a real taxon, so keep it out of the
+	// species breakdown.
+	const unidentifiedSpeciesIds = useMemo(
+		() => new Set(species.filter((row) => row.epithet === 'unidentified').map((row) => row.id)),
+		[species],
+	);
 
+	const today = useMemo(() => todayInTimeZone(undefined), []);
 	const [from, setFrom] = useState('');
 	const [to, setTo] = useState('');
 	const hasRange = from !== '' || to !== '';
+
+	// Editing one bound past the other drags the other along, so the range never
+	// inverts into an empty window.
+	const handleFromChange = useCallback((next: string) => {
+		setFrom(next);
+		setTo((prev) => (next !== '' && prev !== '' && next > prev ? next : prev));
+	}, []);
+	const handleToChange = useCallback((next: string) => {
+		setTo(next);
+		setFrom((prev) => (next !== '' && prev !== '' && next < prev ? next : prev));
+	}, []);
+	const applyPreset = useCallback(
+		(preset: DatePreset) => {
+			const range = datePresetRange(preset, today);
+			setFrom(range.from);
+			setTo(range.to);
+		},
+		[today],
+	);
+	const activePresetId = useMemo(() => activeDatePresetId(from, to, today), [from, to, today]);
 
 	const { distribution, matchedCollections } = useMemo(() => {
 		const inRange = collections.filter((collection) => {
@@ -457,58 +490,30 @@ function TrapSpeciesDistribution({
 			}
 			return true;
 		});
-		return {
-			distribution: aggregateSpeciesDistribution(
-				inRange.flatMap((collection) => collection.species),
-				nameById,
+		// Statistics count female mosquitoes only (matching the collections table),
+		// and exclude the unidentified placeholder taxon.
+		const specimens = inRange.flatMap((collection) =>
+			collection.species.filter(
+				(entry) => entry.sex === 'female' && !unidentifiedSpeciesIds.has(entry.speciesId),
 			),
+		);
+		return {
+			distribution: aggregateSpeciesDistribution(specimens, nameById),
 			matchedCollections: inRange.length,
 		};
-	}, [collections, nameById, from, to]);
+	}, [collections, nameById, from, to, unidentifiedSpeciesIds]);
 
 	return (
 		<div className="grid gap-4">
-			<div className="flex flex-wrap items-end gap-3">
-				<div className="grid gap-1">
-					<label className="text-muted-foreground text-xs" htmlFor="trap-species-from">
-						From
-					</label>
-					<Input
-						className="h-8 w-[9.5rem]"
-						id="trap-species-from"
-						max={to || undefined}
-						onChange={(event) => setFrom(event.target.value)}
-						type="date"
-						value={from}
-					/>
-				</div>
-				<div className="grid gap-1">
-					<label className="text-muted-foreground text-xs" htmlFor="trap-species-to">
-						To
-					</label>
-					<Input
-						className="h-8 w-[9.5rem]"
-						id="trap-species-to"
-						min={from || undefined}
-						onChange={(event) => setTo(event.target.value)}
-						type="date"
-						value={to}
-					/>
-				</div>
-				{hasRange ? (
-					<Button
-						className="h-8"
-						onClick={() => {
-							setFrom('');
-							setTo('');
-						}}
-						size="sm"
-						variant="ghost"
-					>
-						Clear
-					</Button>
-				) : null}
-			</div>
+			<DateRangeFilter
+				activePresetId={activePresetId}
+				from={from}
+				onApplyPreset={applyPreset}
+				onFromChange={handleFromChange}
+				onToChange={handleToChange}
+				to={to}
+				today={today}
+			/>
 
 			{isError ? (
 				<CollectionsEmpty
@@ -536,7 +541,7 @@ function TrapSpeciesDistribution({
 						<span className="font-medium text-foreground tabular-nums">
 							{distribution.grandTotal.toLocaleString()}
 						</span>{' '}
-						specimens across{' '}
+						female specimens across{' '}
 						<span className="font-medium text-foreground tabular-nums">
 							{distribution.speciesCount}
 						</span>{' '}
