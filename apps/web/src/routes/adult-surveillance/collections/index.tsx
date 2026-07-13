@@ -23,7 +23,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { gte, useLiveQuery } from '@tanstack/react-db';
+import { gte, or, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -31,7 +31,7 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
-import { CollectionFlagBadges, trapDisplayName } from '../-adult-display';
+import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from '../-adult-display';
 import { toPointFeatureCollection } from '../-adult-map';
 import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../-overview-data';
 
@@ -46,6 +46,7 @@ interface CollectionListRow {
 	readonly lng: number;
 	readonly collectionMethodId: string;
 	readonly collectedAt: string | null;
+	readonly collectionDate: string | null;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
@@ -93,15 +94,19 @@ function CollectionsExplorerRoute() {
 	const { rows, isReady } = useCollectionsSince(since);
 
 	const filtered = useMemo(() => {
-		return rows.filter((row) => {
-			if (methodIds.size > 0 && !methodIds.has(row.collectionMethodId)) {
-				return false;
-			}
-			if (problemOnly && !row.hasProblem) {
-				return false;
-			}
-			return true;
-		});
+		return rows
+			.filter((row) => {
+				if (methodIds.size > 0 && !methodIds.has(row.collectionMethodId)) {
+					return false;
+				}
+				if (problemOnly && !row.hasProblem) {
+					return false;
+				}
+				return true;
+			})
+			// The query orders by `collectedAt`, which is null for every date+duration
+			// row, so re-sort by effective date to interleave both timing modes.
+			.sort(compareByEffectiveDateDesc);
 	}, [rows, methodIds, problemOnly]);
 
 	// Collections carry their own point geometry (lat/lng on the row).
@@ -257,7 +262,15 @@ function useCollectionsSince(sinceDate: string): {
 			query: (query) =>
 				query
 					.from({ collection: webCollections.collections })
-					.where(({ collection }) => gte(collection.collectedAt, sinceDate))
+					// The two timing modes store the date in different columns:
+					// `exact_timestamps` in `collectedAt`, `collection_date_duration`
+					// in `collectionDate` (with `collectedAt` always null). Only one is
+					// ever populated per row, so match on either to keep both modes in
+					// range — filtering `collectedAt` alone drops every date+duration
+					// collection.
+					.where(({ collection }) =>
+						or(gte(collection.collectedAt, sinceDate), gte(collection.collectionDate, sinceDate)),
+					)
 					.orderBy(({ collection }) => collection.collectedAt, 'desc')
 					.select(({ collection }) => ({
 						id: collection.id,
@@ -266,6 +279,7 @@ function useCollectionsSince(sinceDate: string): {
 						lng: collection.lng,
 						collectionMethodId: collection.collectionMethodId,
 						collectedAt: collection.collectedAt,
+						collectionDate: collection.collectionDate,
 						hasProblem: collection.hasProblem,
 						isZeroResult: collection.isZeroResult,
 						hasBycatch: collection.hasBycatch,
@@ -496,6 +510,7 @@ function CollectionListItem({
 	readonly onSelect: (id: string) => void;
 }) {
 	const label = trapName ?? 'Ad-hoc collection';
+	const effectiveDate = collectionEffectiveDate(row);
 	return (
 		<li className="relative">
 			<button
@@ -510,7 +525,7 @@ function CollectionListItem({
 			/>
 			<div className="pointer-events-none relative flex items-center gap-3 px-4 py-3">
 				<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
-					{row.collectedAt === null ? '—' : formatMonthDay(row.collectedAt)}
+					{effectiveDate === null ? '—' : formatMonthDay(effectiveDate)}
 				</span>
 				<span className="min-w-0 flex-1">
 					<Link
@@ -548,6 +563,7 @@ function CollectionDetailCard({
 	readonly methodName: string;
 	readonly onClose: () => void;
 }) {
+	const effectiveDate = collectionEffectiveDate(row);
 	return (
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
 			<article className="pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
@@ -564,7 +580,7 @@ function CollectionDetailCard({
 						</h2>
 						<p className="truncate text-muted-foreground text-sm">
 							{methodName}
-							{row.collectedAt === null ? '' : ` · ${formatMonthDay(row.collectedAt)}`}
+							{effectiveDate === null ? '' : ` · ${formatMonthDay(effectiveDate)}`}
 						</p>
 					</div>
 					<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
@@ -619,6 +635,22 @@ function DetailFact({
 }
 
 // --- helpers ----------------------------------------------------------------
+
+/** Most-recent-first by effective date; undated (genuinely pending) rows sort last. */
+function compareByEffectiveDateDesc(a: CollectionListRow, b: CollectionListRow): number {
+	const aDate = collectionEffectiveDate(a);
+	const bDate = collectionEffectiveDate(b);
+	if (aDate === bDate) {
+		return 0;
+	}
+	if (aDate === null) {
+		return 1;
+	}
+	if (bDate === null) {
+		return -1;
+	}
+	return aDate < bDate ? 1 : -1;
+}
 
 function trapNameFor(trapId: string, trapById: ReadonlyMap<string, TrapRow>): string | null {
 	const trap = trapById.get(trapId);
