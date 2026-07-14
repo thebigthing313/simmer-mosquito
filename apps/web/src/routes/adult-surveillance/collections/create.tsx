@@ -54,7 +54,7 @@ function CreateCollectionRoute() {
 	const canSubmit = organization !== null && actorProfileId !== null;
 
 	const onSave = useCallback(
-		async ({ values, trap, addressCoord }: CollectionSaveInput) => {
+		async ({ values, trap, geometry }: CollectionSaveInput) => {
 			if (organization === null) {
 				throw new Error('Organization details are still loading.');
 			}
@@ -67,9 +67,15 @@ function CreateCollectionRoute() {
 			const now = new Date().toISOString();
 			const collectedAt = exact ? toIsoDate(values.collectedAt) : toIsoDate(values.collectionDate);
 
-			// Seed the optimistic centroid from the trap's own point (trap mode) or the
-			// selected address (ad-hoc); the server recomputes it from the location source.
-			const centroid = isTrap && trap !== null ? { lat: trap.lat, lng: trap.lng } : addressCoord;
+			// Trap mode inherits the trap's location; ad-hoc carries its own point. The
+			// server recomputes geom from the location source; this centroid seeds the
+			// optimistic row so the map/coordinates show immediately.
+			const centroid =
+				isTrap && trap !== null
+					? { lat: trap.lat, lng: trap.lng }
+					: geometry !== null && geometry.type === 'Point'
+						? { lat: geometry.coordinates[1], lng: geometry.coordinates[0] }
+						: null;
 			if (centroid === null) {
 				throw new Error('Unable to determine the collection location.');
 			}
@@ -106,14 +112,16 @@ function CreateCollectionRoute() {
 			const locationSource =
 				isTrap && trap !== null
 					? ({ kind: 'trap', trapId: trap.id } as const)
-					: values.addressId !== null
-						? ({ kind: 'address', addressId: values.addressId } as const)
+					: geometry !== null
+						? ({ kind: 'geometry', geometry } as const)
 						: undefined;
+			if (locationSource === undefined) {
+				throw new Error('Unable to determine the collection location.');
+			}
 
-			const transaction =
-				locationSource === undefined
-					? webCollections.collections.insert(row)
-					: webCollections.collections.insert(row, { metadata: { locationSource } });
+			const transaction = webCollections.collections.insert(row, {
+				metadata: { locationSource },
+			});
 			await transaction.isPersisted.promise;
 			await navigate({ to: '/adult-surveillance/collections/$id', params: { id: row.id } });
 		},

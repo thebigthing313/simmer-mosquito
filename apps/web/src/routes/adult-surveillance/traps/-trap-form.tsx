@@ -3,7 +3,6 @@ import type { AddressRow, CollectionLureRow, CollectionMethodRow } from '@simmer
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
 	ArrowLeftIcon,
 	CheckIcon,
@@ -21,14 +20,15 @@ import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-d
 import { useAppForm } from '../../../forms';
 import { AddressPicker } from '../-adult-pickers';
 
-export type TrapLocationMode = 'address' | 'point';
-
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noLureValue = 'none';
 
 export interface TrapFormValues {
-	readonly locationMode: TrapLocationMode;
-	/** The target address when `locationMode === 'address'`. */
+	/**
+	 * Optional address the trap is at — reference data only. The trap's own point
+	 * (its geometry) is the authoritative location and can be refined off the
+	 * address (to a backyard, treeline, etc.).
+	 */
 	readonly addressId: string | null;
 	/** A collection method id, or '' when unset (placeholder shown). */
 	readonly collectionMethodId: string;
@@ -54,30 +54,28 @@ export interface TrapFormPageProps {
 	readonly collectionMethods: readonly CollectionMethodRow[];
 	readonly collectionLures: readonly CollectionLureRow[];
 	readonly defaultValues: TrapFormValues;
-	/** Ad-hoc point to pre-fill on edit; create starts with none. */
-	readonly initialAdhocGeometry?: DrawGeometry | null;
+	/** The trap's point to pre-fill on edit; create starts with none. */
+	readonly initialGeometry?: DrawGeometry | null;
 	/** Geometry to frame the map on immediately (edit pre-fill). */
 	readonly initialPreviewGeometry?: GeoJsonGeometry | null;
-	/** Edit locks the address/point choice — the two are distinct command paths. */
-	readonly lockLocationMode?: boolean;
 	/**
-	 * Whether a location must be set to submit. Create requires one; edit leaves it
-	 * optional so a trap keeps its existing location unless the user changes it.
+	 * Whether a point must be set to submit. Create requires one; edit leaves it
+	 * optional so a trap keeps its existing point unless the user refines it.
 	 */
 	readonly requireLocation?: boolean;
 	readonly header: TrapFormHeader;
 	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: TrapFormValues;
-		readonly adhocGeometry: DrawGeometry | null;
-		/** Centroid of the selected address (address mode), for the optimistic row. */
-		readonly addressCoord: { readonly lat: number; readonly lng: number } | null;
+		/** The trap's point. Always set on create; may be unchanged on edit. */
+		readonly geometry: DrawGeometry | null;
+		/** True when the user placed, moved, or cleared the point this session. */
+		readonly geometryChanged: boolean;
 	}) => Promise<void>;
 }
 
 export function defaultTrapFormValues(): TrapFormValues {
 	return {
-		locationMode: 'address',
 		addressId: null,
 		collectionMethodId: '',
 		collectionLureId: noLureValue,
@@ -94,16 +92,16 @@ export function TrapFormPage({
 	collectionMethods,
 	collectionLures,
 	defaultValues,
-	initialAdhocGeometry = null,
+	initialGeometry = null,
 	initialPreviewGeometry = null,
-	lockLocationMode = false,
 	requireLocation = true,
 	header,
 	submitLabel,
 	onSave,
 }: TrapFormPageProps) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [adhocGeometry, setAdhocGeometry] = useState<DrawGeometry | null>(initialAdhocGeometry);
+	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
+	const [geometryChanged, setGeometryChanged] = useState(false);
 	const [previewGeometry, setPreviewGeometry] = useState<GeoJsonGeometry | null>(
 		initialPreviewGeometry,
 	);
@@ -138,50 +136,67 @@ export function TrapFormPage({
 				setSaveError('Select the collection method for this trap.');
 				return;
 			}
-			if (requireLocation && value.locationMode === 'address' && value.addressId === null) {
-				setLocationError('Select the address this trap is placed at.');
-				return;
-			}
-			if (requireLocation && value.locationMode === 'point' && adhocGeometry === null) {
-				setLocationError('Drop a point on the map for this trap.');
+			if (requireLocation && geometry === null) {
+				setLocationError('Place the trap point on the map.');
 				return;
 			}
 			try {
-				await onSave({
-					values: value,
-					adhocGeometry: value.locationMode === 'point' ? adhocGeometry : null,
-					addressCoord: value.locationMode === 'address' ? addressCoord : null,
-				});
+				await onSave({ values: value, geometry, geometryChanged });
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save trap.');
 			}
 		},
 	});
 
-	const handleAddressSelected = useCallback((address: AddressRow | null) => {
-		setLocationError(null);
-		if (address === null || typeof address.lat !== 'number' || typeof address.lng !== 'number') {
-			setPreviewGeometry(null);
-			setAddressCoord(null);
-			return;
-		}
-		setAddressCoord({ lat: address.lat, lng: address.lng });
-		setPreviewGeometry({ type: 'Point', coordinates: [address.lng, address.lat] });
-	}, []);
+	// Selecting an address never overwrites a point the user already placed — the
+	// address is reference only. It just frames the map and, when no point exists
+	// yet, seeds one at the address so the required geometry starts somewhere sane.
+	const handleAddressSelected = useCallback(
+		(address: AddressRow | null) => {
+			setLocationError(null);
+			if (address === null || typeof address.lat !== 'number' || typeof address.lng !== 'number') {
+				setAddressCoord(null);
+				return;
+			}
+			const coord = { lat: address.lat, lng: address.lng };
+			setAddressCoord(coord);
+			if (geometry === null) {
+				setGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
+				setGeometryChanged(true);
+				setPreviewGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
+			}
+		},
+		[geometry],
+	);
 
-	const requestAdhocPoint = useCallback(async () => {
+	const requestTrapPoint = useCallback(async () => {
 		setLocationError(null);
 		try {
 			const point = await requestPoint('Click the map to place the trap point.');
-			setAdhocGeometry(point);
+			setGeometry(point);
+			setGeometryChanged(true);
 			setPreviewGeometry(point as unknown as GeoJsonGeometry);
 		} catch {
 			// Draw cancelled (Esc / mode switch); keep the prior point.
 		}
 	}, [requestPoint]);
 
-	const clearAdhoc = useCallback(() => {
-		setAdhocGeometry(null);
+	const moveToAddress = useCallback(() => {
+		if (addressCoord === null) {
+			return;
+		}
+		const point: DrawGeometry = {
+			type: 'Point',
+			coordinates: [addressCoord.lng, addressCoord.lat],
+		};
+		setGeometry(point);
+		setGeometryChanged(true);
+		setPreviewGeometry(point as unknown as GeoJsonGeometry);
+	}, [addressCoord]);
+
+	const clearPoint = useCallback(() => {
+		setGeometry(null);
+		setGeometryChanged(true);
 		setPreviewGeometry(null);
 	}, []);
 
@@ -253,61 +268,35 @@ export function TrapFormPage({
 										Location
 									</span>
 									<span className="text-muted-foreground text-xs">
-										Anchor the trap to an existing address, or drop an ad-hoc point.
+										The point is the trap’s exact location. An address is optional reference —
+										refine the point off it to the precise spot.
 									</span>
 								</div>
 
-								<form.AppField name="locationMode">
-									{(field) => (
-										<ToggleGroup
-											aria-label="Location mode"
-											className="w-full"
-											disabled={lockLocationMode}
-											onValueChange={(next) => {
-												if (next === 'address' || next === 'point') {
-													field.handleChange(next);
-												}
-											}}
-											size="sm"
-											type="single"
-											value={field.state.value}
-											variant="outline"
-										>
-											<ToggleGroupItem className="flex-1 text-xs" value="address">
-												Address
-											</ToggleGroupItem>
-											<ToggleGroupItem className="flex-1 text-xs" value="point">
-												Ad-hoc point
-											</ToggleGroupItem>
-										</ToggleGroup>
-									)}
-								</form.AppField>
-
-								<form.Subscribe selector={(state) => state.values.locationMode}>
-									{(locationMode) =>
-										locationMode === 'address' ? (
-											<form.AppField name="addressId">
-												{(field) => (
-													<AddressPicker
-														onSelect={(address) => {
-															field.handleChange(address?.id ?? null);
-															handleAddressSelected(address);
-														}}
-														organizationId={organizationId}
-														value={field.state.value}
-													/>
-												)}
-											</form.AppField>
-										) : (
-											<AdhocPointControl
-												geometry={adhocGeometry}
-												isDrawing={draw.isRequestingPoint}
-												onClear={clearAdhoc}
-												onRequestPoint={requestAdhocPoint}
+								<div className="grid gap-1.5">
+									<span className="font-medium text-foreground text-sm">Address (optional)</span>
+									<form.AppField name="addressId">
+										{(field) => (
+											<AddressPicker
+												onSelect={(address) => {
+													field.handleChange(address?.id ?? null);
+													handleAddressSelected(address);
+												}}
+												organizationId={organizationId}
+												value={field.state.value}
 											/>
-										)
-									}
-								</form.Subscribe>
+										)}
+									</form.AppField>
+								</div>
+
+								<PointControl
+									canMoveToAddress={addressCoord !== null}
+									geometry={geometry}
+									isDrawing={draw.isRequestingPoint}
+									onClear={clearPoint}
+									onMoveToAddress={moveToAddress}
+									onRequestPoint={requestTrapPoint}
+								/>
 
 								{locationError === null ? null : (
 									<p className="m-0 text-destructive text-sm">{locationError}</p>
@@ -392,15 +381,19 @@ export function TrapFormPage({
 
 // --- location controls ------------------------------------------------------
 
-function AdhocPointControl({
+export function PointControl({
 	geometry,
 	isDrawing,
+	canMoveToAddress,
 	onRequestPoint,
+	onMoveToAddress,
 	onClear,
 }: {
 	readonly geometry: DrawGeometry | null;
 	readonly isDrawing: boolean;
+	readonly canMoveToAddress: boolean;
 	readonly onRequestPoint: () => void;
+	readonly onMoveToAddress: () => void;
 	readonly onClear: () => void;
 }) {
 	return (
@@ -408,9 +401,12 @@ function AdhocPointControl({
 			<div className="flex items-start justify-between gap-3">
 				<div className="flex min-w-0 items-start gap-2">
 					<MapPinnedIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-					<p className="m-0 min-w-0 text-foreground text-sm">
-						{geometry === null ? 'No point placed yet.' : adhocPointSummary(geometry)}
-					</p>
+					<div className="grid min-w-0 gap-0.5">
+						<span className="font-medium text-foreground text-sm">Point (required)</span>
+						<p className="m-0 min-w-0 text-muted-foreground text-xs">
+							{geometry === null ? 'No point placed yet.' : pointSummary(geometry)}
+						</p>
+					</div>
 				</div>
 				{geometry === null ? (
 					<Badge tone="neutral" variant="outline">
@@ -436,8 +432,14 @@ function AdhocPointControl({
 					) : (
 						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
 					)}
-					{geometry === null ? 'Drop point' : 'Replace point'}
+					{geometry === null ? 'Drop point' : 'Refine point'}
 				</Button>
+				{canMoveToAddress ? (
+					<Button onClick={onMoveToAddress} size="sm" type="button" variant="ghost">
+						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
+						Move to address
+					</Button>
+				) : null}
 				{geometry === null ? null : (
 					<Button onClick={onClear} size="sm" type="button" variant="ghost">
 						<XIcon aria-hidden="true" data-icon="inline-start" />
@@ -485,7 +487,7 @@ function lureOptions(lures: readonly CollectionLureRow[]) {
 	];
 }
 
-function adhocPointSummary(geometry: DrawGeometry): string {
+function pointSummary(geometry: DrawGeometry): string {
 	if (geometry.type !== 'Point') {
 		return 'Point placed';
 	}

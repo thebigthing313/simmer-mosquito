@@ -33,12 +33,11 @@ function CreateTrapRoute() {
 	const onSave = useCallback(
 		async ({
 			values,
-			adhocGeometry,
-			addressCoord,
+			geometry,
 		}: {
 			readonly values: TrapFormValues;
-			readonly adhocGeometry: DrawGeometry | null;
-			readonly addressCoord: { readonly lat: number; readonly lng: number } | null;
+			readonly geometry: DrawGeometry | null;
+			readonly geometryChanged: boolean;
 		}) => {
 			if (organization === null) {
 				throw new Error('Organization details are still loading.');
@@ -46,14 +45,14 @@ function CreateTrapRoute() {
 			if (actorProfileId === null) {
 				throw new Error('Your profile is still loading.');
 			}
+			if (geometry === null) {
+				throw new Error('Place the trap point on the map.');
+			}
 
-			const isAddress = values.locationMode === 'address';
-			// The server recomputes geometry from the location source; these seed the
-			// optimistic row so the map/coordinates show immediately.
-			const centroid =
-				isAddress && addressCoord !== null
-					? { lat: addressCoord.lat, lng: addressCoord.lng, geomType: 'point' }
-					: ownedCentroidFromGeoJson(adhocGeometry as unknown as GeoJsonGeometry);
+			// The point is the trap's authoritative geometry; the address (if any) is
+			// reference only. The server recomputes geom from the location source; this
+			// centroid seeds the optimistic row so the map/coordinates show immediately.
+			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
 			if (centroid === null) {
 				throw new Error('Unable to determine the trap location.');
 			}
@@ -66,7 +65,7 @@ function CreateTrapRoute() {
 				lng: centroid.lng,
 				geomType: centroid.geomType,
 				collectionMethodId: values.collectionMethodId,
-				addressId: isAddress ? values.addressId : null,
+				addressId: values.addressId,
 				collectionLureId: values.collectionLureId === noLureValue ? null : values.collectionLureId,
 				trapName: nullableText(values.trapName),
 				trapCode: nullableText(values.trapCode),
@@ -78,13 +77,10 @@ function CreateTrapRoute() {
 				updatedAt: now,
 			};
 
-			const locationSource =
-				isAddress && values.addressId !== null
-					? ({ kind: 'address', addressId: values.addressId } as const)
-					: ({
-							kind: 'geometry',
-							geometry: adhocGeometry as unknown as GeoJsonGeometry,
-						} as const);
+			const locationSource = {
+				kind: 'geometry',
+				geometry: geometry as unknown as GeoJsonGeometry,
+			} as const;
 
 			const transaction = webCollections.traps.insert(row, { metadata: { locationSource } });
 			await transaction.isPersisted.promise;
@@ -102,7 +98,7 @@ function CreateTrapRoute() {
 			header={{
 				title: 'Add trap',
 				description:
-					'Register a trap at an address or an ad-hoc field point, with its method and lure.',
+					'Place the trap point, optionally reference an address, and set its method and lure.',
 				backTo: '/adult-surveillance/traps',
 				backLabel: 'Traps',
 			}}

@@ -10,14 +10,17 @@ import type {
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { ArrowLeftIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
+import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
+import { PointControl } from '../traps/-trap-form';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
 
@@ -55,8 +58,13 @@ export interface CollectionSaveInput {
 	readonly values: CollectionFormValues;
 	/** The trap chosen in trap mode (for deriving method/location), else null. */
 	readonly trap: TrapRow | null;
-	/** Centroid of the selected address (ad-hoc mode), for the optimistic row. */
-	readonly addressCoord: { readonly lat: number; readonly lng: number } | null;
+	/**
+	 * Ad-hoc collection's own point (its geometry). Set in ad-hoc mode; null in
+	 * trap mode, where the collection inherits the trap's location.
+	 */
+	readonly geometry: DrawGeometry | null;
+	/** True when the user placed, moved, or cleared the point this session. */
+	readonly geometryChanged: boolean;
 }
 
 export interface CollectionFormHeader {
@@ -78,6 +86,8 @@ export interface CollectionFormPageProps {
 	readonly defaultValues: CollectionFormValues;
 	/** Edit locks the trap/ad-hoc choice — the two are distinct command paths. */
 	readonly lockSourceMode?: boolean;
+	/** The ad-hoc collection's point to pre-fill on edit; create starts with none. */
+	readonly initialGeometry?: DrawGeometry | null;
 	readonly header: CollectionFormHeader;
 	readonly submitLabel: string;
 	readonly onSave: (input: CollectionSaveInput) => Promise<void>;
@@ -115,6 +125,7 @@ export function CollectionFormPage({
 	units,
 	defaultValues,
 	lockSourceMode = false,
+	initialGeometry = null,
 	header,
 	submitLabel,
 	onSave,
@@ -122,11 +133,14 @@ export function CollectionFormPage({
 	const [selectedTrap, setSelectedTrap] = useState<TrapRow | null>(
 		() => traps.find((trap) => trap.id === defaultValues.trapId) ?? null,
 	);
-	const [selectedAddressCoord, setSelectedAddressCoord] = useState<{
+	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
+	const [geometryChanged, setGeometryChanged] = useState(false);
+	const [addressCoord, setAddressCoord] = useState<{
 		readonly lat: number;
 		readonly lng: number;
 	} | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
+	const [locationError, setLocationError] = useState<string | null>(null);
 
 	const activeMethods = useMemo(
 		() => collectionMethods.filter((method) => method.isActive),
@@ -143,12 +157,19 @@ export function CollectionFormPage({
 		[collectionMethods],
 	);
 
-	// The trap carries its own point; in ad-hoc mode the picked address anchors it.
-	const previewCoord =
-		selectedTrap !== null ? { lat: selectedTrap.lat, lng: selectedTrap.lng } : selectedAddressCoord;
-
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
+	const draw = useMapDraw({ map, isLoaded: map !== null, value: null, onChange: () => undefined });
+	const { requestPoint } = draw;
+
+	// In trap mode the collection inherits the trap's point; in ad-hoc mode it
+	// carries its own drawn point (the address, if any, is reference only).
+	const previewCoord =
+		selectedTrap !== null
+			? { lat: selectedTrap.lat, lng: selectedTrap.lng }
+			: geometry !== null && geometry.type === 'Point'
+				? { lat: geometry.coordinates[1], lng: geometry.coordinates[0] }
+				: null;
 	useFlyTo(map, previewCoord);
 
 	const previewGeoJson =
@@ -160,20 +181,64 @@ export function CollectionFormPage({
 					geometry: { type: 'Point', coordinates: [previewCoord.lng, previewCoord.lat] },
 				} as GeoJSON.Feature);
 
+	// Selecting an address never overwrites a placed point — it just frames the map
+	// and, when no point exists yet, seeds one so the required geometry has a start.
+	const handleAddressSelected = useCallback(
+		(coord: { readonly lat: number; readonly lng: number } | null) => {
+			setLocationError(null);
+			setAddressCoord(coord);
+			if (coord !== null && geometry === null) {
+				setGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
+				setGeometryChanged(true);
+			}
+		},
+		[geometry],
+	);
+
+	const requestCollectionPoint = useCallback(async () => {
+		setLocationError(null);
+		try {
+			const point = await requestPoint('Click the map to place the collection point.');
+			setGeometry(point);
+			setGeometryChanged(true);
+		} catch {
+			// Draw cancelled (Esc / mode switch); keep the prior point.
+		}
+	}, [requestPoint]);
+
+	const moveToAddress = useCallback(() => {
+		if (addressCoord === null) {
+			return;
+		}
+		setGeometry({ type: 'Point', coordinates: [addressCoord.lng, addressCoord.lat] });
+		setGeometryChanged(true);
+	}, [addressCoord]);
+
+	const clearPoint = useCallback(() => {
+		setGeometry(null);
+		setGeometryChanged(true);
+	}, []);
+
 	const form = useAppForm({
 		defaultValues,
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
+			setLocationError(null);
 			const error = validate(value);
 			if (error !== null) {
 				setSaveError(error);
+				return;
+			}
+			if (value.sourceMode === 'adhoc' && geometry === null) {
+				setLocationError('Place the collection point on the map.');
 				return;
 			}
 			try {
 				await onSave({
 					values: value,
 					trap: value.sourceMode === 'trap' ? selectedTrap : null,
-					addressCoord: value.sourceMode === 'adhoc' ? selectedAddressCoord : null,
+					geometry: value.sourceMode === 'adhoc' ? geometry : null,
+					geometryChanged,
 				});
 			} catch (thrown) {
 				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save collection.');
@@ -184,11 +249,19 @@ export function CollectionFormPage({
 	return (
 		<MapSplitPage
 			map={
-				<MapCanvas
-					controls={{ layers: false }}
-					geoJson={previewGeoJson}
-					onMapReady={handleMapReady}
-				/>
+				<>
+					<MapCanvas
+						controls={{ layers: false }}
+						geoJson={previewGeoJson}
+						onMapReady={handleMapReady}
+					/>
+					{draw.isRequestingPoint ? (
+						<MapPrompt>
+							<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />
+							Click the map to place the collection point. Press Esc to cancel.
+						</MapPrompt>
+					) : null}
+				</>
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
@@ -291,18 +364,6 @@ export function CollectionFormPage({
 											</form.AppField>
 										) : (
 											<div className="grid gap-5">
-												<form.AppField name="addressId">
-													{(field) => (
-														<AddressPicker
-															onSelect={(address) => {
-																field.handleChange(address?.id ?? null);
-																setSelectedAddressCoord(coordOf(address));
-															}}
-															organizationId={organizationId}
-															value={field.state.value}
-														/>
-													)}
-												</form.AppField>
 												<form.AppField name="collectionMethodId">
 													{(field) => (
 														<field.SelectField
@@ -315,6 +376,46 @@ export function CollectionFormPage({
 														/>
 													)}
 												</form.AppField>
+												<section
+													aria-label="Collection location"
+													className={cn(
+														'grid gap-4 rounded-md border bg-muted/30 p-4',
+														locationError === null ? 'border-border/50' : 'border-destructive/60',
+													)}
+												>
+													<p className="m-0 text-muted-foreground text-xs">
+														The point is this collection’s exact location. An address is optional
+														reference — refine the point off it to the precise spot.
+													</p>
+													<div className="grid gap-1.5">
+														<span className="font-medium text-foreground text-sm">
+															Address (optional)
+														</span>
+														<form.AppField name="addressId">
+															{(field) => (
+																<AddressPicker
+																	onSelect={(address) => {
+																		field.handleChange(address?.id ?? null);
+																		handleAddressSelected(coordOf(address));
+																	}}
+																	organizationId={organizationId}
+																	value={field.state.value}
+																/>
+															)}
+														</form.AppField>
+													</div>
+													<PointControl
+														canMoveToAddress={addressCoord !== null}
+														geometry={geometry}
+														isDrawing={draw.isRequestingPoint}
+														onClear={clearPoint}
+														onMoveToAddress={moveToAddress}
+														onRequestPoint={requestCollectionPoint}
+													/>
+													{locationError === null ? null : (
+														<p className="m-0 text-destructive text-sm">{locationError}</p>
+													)}
+												</section>
 											</div>
 										)
 									}
@@ -522,14 +623,21 @@ function FormSection({
 	);
 }
 
+function MapPrompt({ children }: { readonly children: React.ReactNode }) {
+	return (
+		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in">
+			<p className="m-0 inline-flex items-center gap-2 rounded-md border border-border/60 bg-card/95 px-3 py-2 text-foreground text-sm shadow-lg backdrop-blur-sm">
+				{children}
+			</p>
+		</div>
+	);
+}
+
 // --- validation + helpers ---------------------------------------------------
 
 function validate(values: CollectionFormValues): string | null {
 	if (values.sourceMode === 'trap' && values.trapId === null) {
 		return 'Select the trap this collection came from.';
-	}
-	if (values.sourceMode === 'adhoc' && values.addressId === null) {
-		return 'Select the address this one-off collection was taken at.';
 	}
 	if (values.collectionMethodId === '') {
 		return 'A collection method is required.';

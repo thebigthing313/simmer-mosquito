@@ -83,46 +83,29 @@ function EditTrapLoader({
 	const onSave = useCallback(
 		async ({
 			values,
-			adhocGeometry,
-			addressCoord,
+			geometry,
+			geometryChanged,
 		}: {
 			readonly values: TrapFormValues;
-			readonly adhocGeometry: DrawGeometry | null;
-			readonly addressCoord: { readonly lat: number; readonly lng: number } | null;
+			readonly geometry: DrawGeometry | null;
+			readonly geometryChanged: boolean;
 		}) => {
 			const nextName = nullableText(values.trapName);
 			const nextCode = nullableText(values.trapCode);
 			const nextDescription = nullableText(values.description);
 			const nextMethodId = values.collectionMethodId;
 			const nextLureId = values.collectionLureId === noLureValue ? null : values.collectionLureId;
-			const changedAddress =
-				values.locationMode === 'address' &&
-				values.addressId !== null &&
-				values.addressId !== trap.addressId;
-			const drewPoint = values.locationMode === 'point' && adhocGeometry !== null;
-			const nextAddressId =
-				values.locationMode === 'address' && values.addressId !== null
-					? values.addressId
-					: drewPoint
-						? null
-						: trap.addressId;
 
-			// Only send a location source (and reseed the optimistic centroid) when the
-			// user actually re-anchored the trap; otherwise it keeps its stored geometry.
-			const locationSource = changedAddress
-				? ({ kind: 'address', addressId: values.addressId } as const)
-				: drewPoint
-					? ({
-							kind: 'geometry',
-							geometry: adhocGeometry as unknown as GeoJsonGeometry,
-						} as const)
-					: undefined;
-			const nextCentroid =
-				changedAddress && addressCoord !== null
-					? { lat: addressCoord.lat, lng: addressCoord.lng, geomType: 'point' }
-					: drewPoint
-						? ownedCentroidFromGeoJson(adhocGeometry as unknown as GeoJsonGeometry)
-						: null;
+			// The point (geometry) and the address are independent now: only send a
+			// location source (and reseed the optimistic centroid) when the user
+			// actually refined the point; the address is a plain field change.
+			const refinedPoint = geometryChanged && geometry !== null;
+			const locationSource = refinedPoint
+				? ({ kind: 'geometry', geometry: geometry as unknown as GeoJsonGeometry } as const)
+				: undefined;
+			const nextCentroid = refinedPoint
+				? ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry)
+				: null;
 
 			const now = new Date().toISOString();
 			// Inlined so TanStack DB infers the mutable draft type.
@@ -133,7 +116,7 @@ function EditTrapLoader({
 				writable.description = nextDescription;
 				writable.collectionMethodId = nextMethodId;
 				writable.collectionLureId = nextLureId;
-				writable.addressId = nextAddressId;
+				writable.addressId = values.addressId;
 				writable.isActive = values.isActive;
 				if (nextCentroid !== null) {
 					writable.lat = nextCentroid.lat;
@@ -169,6 +152,8 @@ function EditTrapLoader({
 				backParams: { id: trap.id },
 				backLabel: 'Back to trap',
 			}}
+			initialGeometry={pointFromTrap(trap)}
+			initialPreviewGeometry={pointFromTrap(trap) as unknown as GeoJsonGeometry}
 			onSave={onSave}
 			organizationId={trap.organizationId}
 			requireLocation={false}
@@ -177,9 +162,12 @@ function EditTrapLoader({
 	);
 }
 
+function pointFromTrap(trap: TrapRow): DrawGeometry {
+	return { type: 'Point', coordinates: [trap.lng, trap.lat] };
+}
+
 function defaultsFromTrap(trap: TrapRow): TrapFormValues {
 	return {
-		locationMode: trap.addressId === null ? 'point' : 'address',
 		addressId: trap.addressId,
 		collectionMethodId: trap.collectionMethodId,
 		collectionLureId: trap.collectionLureId ?? noLureValue,

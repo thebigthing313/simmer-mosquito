@@ -111,8 +111,15 @@ function EditCollectionLoader({
 	const navigate = useNavigate();
 
 	const onSave = useCallback(
-		async ({ values }: CollectionSaveInput) => {
+		async ({ values, geometry, geometryChanged }: CollectionSaveInput) => {
 			const exact = values.timingMode === 'exact_timestamps';
+			// Location edits only apply to ad-hoc collections; trap-based ones inherit
+			// their trap's location and address.
+			const isAdhoc = collection.trapId === null;
+			const refinedPoint =
+				isAdhoc && geometryChanged && geometry !== null && geometry.type === 'Point';
+			const locationSource = refinedPoint ? ({ kind: 'geometry', geometry } as const) : undefined;
+
 			const now = new Date().toISOString();
 			const applyEdits = (draft: AdultCollectionRow) => {
 				const writable = draft as {
@@ -133,19 +140,35 @@ function EditCollectionLoader({
 				writable.durationAmount = exact ? null : values.durationAmount;
 				writable.durationUnitId =
 					exact || values.durationUnitId === noUnitValue ? null : values.durationUnitId;
+				if (isAdhoc) {
+					writable.addressId = values.addressId;
+				}
+				if (refinedPoint && geometry.type === 'Point') {
+					writable.lat = geometry.coordinates[1];
+					writable.lng = geometry.coordinates[0];
+					writable.geomType = 'point';
+				}
 				if (actorProfileId !== null) {
 					writable.updatedByProfileId = actorProfileId;
 				}
 				writable.updatedAt = now;
 			};
 
-			await webCollections.collections.update(collection.id, applyEdits).isPersisted.promise;
+			const transaction =
+				locationSource === undefined
+					? webCollections.collections.update(collection.id, applyEdits)
+					: webCollections.collections.update(
+							collection.id,
+							{ metadata: { locationSource } },
+							applyEdits,
+						);
+			await transaction.isPersisted.promise;
 			await navigate({
 				to: '/adult-surveillance/collections/$id',
 				params: { id: collection.id },
 			});
 		},
-		[collection.id, actorProfileId, navigate],
+		[collection.id, collection.trapId, actorProfileId, navigate],
 	);
 
 	return (
@@ -156,11 +179,16 @@ function EditCollectionLoader({
 			defaultValues={defaultsFromCollection(collection)}
 			header={{
 				title: 'Edit collection',
-				description: 'Update this collection’s method, timing, personnel, or result.',
+				description: 'Update this collection’s method, timing, personnel, location, or result.',
 				backTo: '/adult-surveillance/collections/$id',
 				backParams: { id: collection.id },
 				backLabel: 'Back to collection',
 			}}
+			initialGeometry={
+				collection.trapId === null
+					? { type: 'Point', coordinates: [collection.lng, collection.lat] }
+					: null
+			}
 			lockSourceMode
 			onSave={onSave}
 			organizationId={collection.organizationId}
