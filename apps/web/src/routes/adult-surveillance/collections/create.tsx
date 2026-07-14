@@ -39,7 +39,7 @@ function CreateCollectionRoute() {
 	const { auth } = Route.useRouteContext();
 	const { trapId } = Route.useSearch();
 	const navigate = useNavigate();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
+	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
 	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
 		webCollections.collectionMethods,
@@ -133,7 +133,11 @@ function CreateCollectionRoute() {
 			canSubmit={canSubmit}
 			collectionLures={lures}
 			collectionMethods={methods}
-			defaultValues={defaultCollectionFormValues(today, trapId ?? null)}
+			defaultValues={defaultCollectionFormValues(
+				today,
+				trapId ?? null,
+				settings.adultSurveillance.collectionTimingMode,
+			)}
 			header={{
 				title: 'Record collection',
 				description: 'Log a collection from a trap or a one-off field location.',

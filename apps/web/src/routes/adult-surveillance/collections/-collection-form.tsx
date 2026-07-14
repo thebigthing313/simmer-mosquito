@@ -96,6 +96,8 @@ export interface CollectionFormPageProps {
 export function defaultCollectionFormValues(
 	today: string,
 	trapId: string | null,
+	/** The agency's default timing mode, from organization settings. */
+	timingMode: CollectionTimingMode,
 ): CollectionFormValues {
 	return {
 		sourceMode: 'trap',
@@ -103,10 +105,10 @@ export function defaultCollectionFormValues(
 		addressId: null,
 		collectionMethodId: '',
 		collectionLureId: noLureValue,
-		timingMode: 'exact_timestamps',
+		timingMode,
 		startedAt: null,
-		collectedAt: today,
-		collectionDate: null,
+		collectedAt: timingMode === 'exact_timestamps' ? today : null,
+		collectionDate: timingMode === 'collection_date_duration' ? today : null,
 		durationAmount: null,
 		durationUnitId: noUnitValue,
 		setByProfileId: null,
