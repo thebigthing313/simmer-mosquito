@@ -9,6 +9,16 @@ import type {
 	SpeciesStatus,
 	TrapRow,
 } from '@simmer-mosquito/sync';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -33,7 +43,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { NumberInput } from '@simmer-mosquito/ui-web/components/ui/number-input';
 import {
 	Popover,
 	PopoverContent,
@@ -49,6 +59,14 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@simmer-mosquito/ui-web/components/ui/table';
+import {
 	ArrowLeftIcon,
 	ChevronDownIcon,
 	iconRegistry,
@@ -56,9 +74,12 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useMemo, useState } from 'react';
+import type { Map as MapboxMap } from 'mapbox-gl';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { MapCanvas } from '../../../components/map';
+import { useAppForm } from '../../../forms';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -67,8 +88,6 @@ import {
 	collectionTitle,
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
-	SpeciesSexBadge,
-	SpeciesStatusBadge,
 	speciesSexLabel,
 	speciesStatusLabel,
 	trapDisplayName,
@@ -87,20 +106,28 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
 
 const collectionGcTimeMs = 30_000;
 
+// Roles that get a read-only view of a collection — no flag toggles, species
+// edits, or additions (mirrors the comments thread's read-only gate).
+const READ_ONLY_ROLES = new Set(['viewer']);
+
 function RouteComponent() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	return <CollectionDetail actorProfileId={actorProfileId} collectionId={id} />;
+	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
+	const actorProfileId = snapshot?.localIdentity.profileId ?? null;
+	const role = snapshot?.localIdentity.role ?? null;
+	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
+	return <CollectionDetail actorProfileId={actorProfileId} canEdit={canEdit} collectionId={id} />;
 }
 
 function CollectionDetail({
 	collectionId,
 	actorProfileId,
+	canEdit,
 }: {
 	readonly collectionId: string;
 	readonly actorProfileId: string | null;
+	readonly canEdit: boolean;
 }) {
 	const result = useLiveQuery(
 		{
@@ -130,7 +157,11 @@ function CollectionDetail({
 				) : collection === undefined ? (
 					<CollectionUnavailable />
 				) : (
-					<CollectionDetailContent actorProfileId={actorProfileId} collection={collection} />
+					<CollectionDetailContent
+						actorProfileId={actorProfileId}
+						canEdit={canEdit}
+						collection={collection}
+					/>
 				)}
 			</div>
 		</div>
@@ -140,9 +171,11 @@ function CollectionDetail({
 function CollectionDetailContent({
 	collection,
 	actorProfileId,
+	canEdit,
 }: {
 	readonly collection: AdultCollectionRow;
 	readonly actorProfileId: string | null;
+	readonly canEdit: boolean;
 }) {
 	const title = collectionTitle(collection);
 	useBreadcrumbLabel(collection.id, title);
@@ -185,19 +218,21 @@ function CollectionDetailContent({
 						className="flex flex-wrap items-center gap-1.5"
 						collection={collection}
 					/>
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: collection.id }} to="/adult-surveillance/collections/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
+					{canEdit ? (
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: collection.id }} to="/adult-surveillance/collections/$id/edit">
+								<EditIcon aria-hidden="true" />
+								Edit
+							</Link>
+						</Button>
+					) : null}
 				</div>
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<SpeciesCard actorProfileId={actorProfileId} collection={collection} />
-					<ResultFlagsCard collection={collection} />
+					<CollectionLocationCard collection={collection} />
+					<ResultsCard actorProfileId={actorProfileId} canEdit={canEdit} collection={collection} />
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<DetailsCard
@@ -217,7 +252,44 @@ function CollectionDetailContent({
 	);
 }
 
-// --- species -----------------------------------------------------------------
+// --- location ----------------------------------------------------------------
+
+function CollectionLocationCard({ collection }: { readonly collection: AdultCollectionRow }) {
+	const { lat, lng } = collection;
+	const handleMapReady = useCallback(
+		(map: MapboxMap) => {
+			map.setCenter([lng, lat]);
+			map.setZoom(15);
+		},
+		[lat, lng],
+	);
+
+	const geoJson = {
+		type: 'Feature',
+		properties: {},
+		geometry: { type: 'Point', coordinates: [lng, lat] },
+	} as GeoJSON.Feature;
+
+	return (
+		<Card className="overflow-hidden" variant="surface">
+			<CardHeader className="px-4 py-4">
+				<CardTitle>Location</CardTitle>
+				<CardDescription>{`${lat.toFixed(5)}, ${lng.toFixed(5)}`}</CardDescription>
+			</CardHeader>
+			<CardContent padding="compact">
+				<div className="h-[280px] overflow-hidden rounded-md border border-border/40">
+					<MapCanvas
+						controls={{ search: false, layers: false, geolocate: false }}
+						geoJson={geoJson}
+						onMapReady={handleMapReady}
+					/>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+// --- results (flags + species) -----------------------------------------------
 
 interface SpeciesEntry {
 	readonly id: string;
@@ -228,14 +300,21 @@ interface SpeciesEntry {
 	readonly identifiedByProfileId: string | null;
 }
 
-function SpeciesCard({
+function ResultsCard({
 	collection,
 	actorProfileId,
+	canEdit,
 }: {
 	readonly collection: AdultCollectionRow;
 	readonly actorProfileId: string | null;
+	readonly canEdit: boolean;
 }) {
-	const { rows: species } = useCollectionRows<SpeciesRow>(webCollections.species);
+	const { rows: speciesRows } = useCollectionRows<SpeciesRow>(webCollections.species);
+	// Sorted once here so every species picker/select on the page reads alphabetically.
+	const species = useMemo(
+		() => [...speciesRows].sort((a, b) => a.displayName.localeCompare(b.displayName)),
+		[speciesRows],
+	);
 	const speciesNameById = useMemo(
 		() => new Map(species.map((row) => [row.id, row.displayName])),
 		[species],
@@ -266,9 +345,49 @@ function SpeciesCard({
 		[entries],
 	);
 
+	const [confirmZeroResult, setConfirmZeroResult] = useState(false);
+
+	const setFlag = useCallback(
+		(key: 'isZeroResult' | 'hasBycatch' | 'hasProblem', value: boolean) => {
+			void webCollections.collections.update(collection.id, (draft) => {
+				(draft as { -readonly [K in keyof AdultCollectionRow]: AdultCollectionRow[K] })[key] =
+					value;
+			});
+		},
+		[collection.id],
+	);
+
+	// Marking a collection zero-result clears every recorded species server-side
+	// (see markCollectionZeroResult). Guard the destructive turn-on when specimens
+	// exist; turning it off — or on with an already-empty list — applies straight away.
+	const handleZeroResultChange = useCallback(
+		(value: boolean) => {
+			if (value && entries.length > 0) {
+				setConfirmZeroResult(true);
+				return;
+			}
+			setFlag('isZeroResult', value);
+		},
+		[entries.length, setFlag],
+	);
+
 	const removeSpecies = (entryId: string) => {
 		void webCollections.collectionSpecies.delete(entryId);
 	};
+
+	// Inline edits patch a single collection_species field; the mutation handler
+	// resends only the changed keys (COLLECTION_SPECIES_PATCH_KEYS).
+	const updateSpecies = useCallback(
+		(
+			entryId: string,
+			changes: Partial<Pick<CollectionSpeciesRow, 'speciesId' | 'sex' | 'status' | 'count'>>,
+		) => {
+			void webCollections.collectionSpecies.update(entryId, (draft) => {
+				Object.assign(draft, changes);
+			});
+		},
+		[],
+	);
 
 	return (
 		<Card variant="surface">
@@ -277,9 +396,11 @@ function SpeciesCard({
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
 							<SpeciesIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-							Species
+							Results
 						</CardTitle>
-						<CardDescription>Specimens identified in this collection.</CardDescription>
+						<CardDescription>
+							Collection flags and the specimens identified in this sample.
+						</CardDescription>
 					</div>
 					{entries.length > 0 ? (
 						<Badge tone="neutral" variant="outline">
@@ -288,59 +409,255 @@ function SpeciesCard({
 					) : null}
 				</div>
 			</CardHeader>
-			<CardContent className="grid gap-3" padding="compact">
-				{result.isError ? (
-					<SpeciesEmpty
-						description="Species records could not be loaded."
-						title="Species unavailable"
+			<CardContent className="grid gap-4" padding="compact">
+				<div className="grid gap-3 rounded-md border border-border/40 bg-muted/20 p-3">
+					<FlagRow
+						checked={collection.isZeroResult}
+						description="No specimens were collected."
+						disabled={!canEdit}
+						label="Zero result"
+						onChange={handleZeroResultChange}
 					/>
-				) : !result.isReady ? (
-					<div className="grid gap-2">
-						{[0, 1].map((index) => (
-							<Skeleton className="h-12 w-full" key={index} />
-						))}
-					</div>
-				) : entries.length === 0 ? (
-					<SpeciesEmpty
-						description="No species recorded yet. Add the specimens identified below."
-						title="No species recorded"
+					<FlagRow
+						checked={collection.hasBycatch}
+						description="Non-target specimens were present."
+						disabled={!canEdit}
+						label="Bycatch"
+						onChange={(value) => setFlag('hasBycatch', value)}
 					/>
-				) : (
-					<ul className="grid gap-2">
-						{entries.map((entry) => (
-							<li
-								className="flex items-center gap-3 rounded-md border border-border/40 bg-background/60 px-3 py-2.5"
-								key={entry.id}
-							>
-								<div className="grid min-w-0 flex-1 gap-1">
-									<span className="truncate font-medium text-foreground text-sm italic">
-										{speciesNameById.get(entry.speciesId) ?? 'Unknown species'}
-									</span>
-									<div className="flex flex-wrap items-center gap-1.5">
-										<SpeciesSexBadge sex={entry.sex} />
-										<SpeciesStatusBadge status={entry.status} />
-									</div>
-								</div>
-								<span className="shrink-0 font-semibold text-foreground text-sm tabular-nums">
-									{entry.count.toLocaleString()}
-								</span>
-								<Button
-									aria-label="Remove species"
-									onClick={() => removeSpecies(entry.id)}
-									size="icon"
-									type="button"
-									variant="ghost"
-								>
-									<DeleteIcon aria-hidden="true" className="size-4" />
-								</Button>
-							</li>
-						))}
-					</ul>
-				)}
+					<FlagRow
+						checked={collection.hasProblem}
+						description="Trap failure, tampering, or a compromised sample."
+						disabled={!canEdit}
+						label="Problem"
+						onChange={(value) => setFlag('hasProblem', value)}
+					/>
+				</div>
 
-				<AddSpeciesForm actorProfileId={actorProfileId} collection={collection} species={species} />
+				<div className="grid gap-3">
+					<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+						Species
+					</span>
+					{result.isError ? (
+						<SpeciesEmpty
+							description="Species records could not be loaded."
+							title="Species unavailable"
+						/>
+					) : !result.isReady ? (
+						<div className="grid gap-2">
+							{[0, 1].map((index) => (
+								<Skeleton className="h-12 w-full" key={index} />
+							))}
+						</div>
+					) : collection.isZeroResult ? (
+						<SpeciesEmpty
+							description="This collection is marked as a zero result. Turn off “Zero result” to record species."
+							title="Zero result"
+						/>
+					) : entries.length === 0 ? (
+						<SpeciesEmpty
+							description={
+								canEdit
+									? 'No species recorded yet. Add the specimens identified below.'
+									: 'No species have been recorded for this collection.'
+							}
+							title="No species recorded"
+						/>
+					) : (
+						<div className="overflow-hidden rounded-md border border-border/40">
+							<Table>
+								<TableHeader>
+									<TableRow className="hover:bg-transparent">
+										<TableHead className="min-w-[12rem]">Species</TableHead>
+										<TableHead className="w-[8.5rem]">Sex</TableHead>
+										<TableHead className="w-[9.5rem]">Status</TableHead>
+										<TableHead className="w-[9.5rem] text-right">Count</TableHead>
+										{canEdit ? <TableHead className="w-10" /> : null}
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{entries.map((entry) => (
+										<EditableSpeciesRow
+											canEdit={canEdit}
+											entry={entry}
+											key={entry.id}
+											onChange={updateSpecies}
+											onRemove={removeSpecies}
+											species={species}
+											speciesName={speciesNameById.get(entry.speciesId) ?? 'Unknown species'}
+										/>
+									))}
+								</TableBody>
+							</Table>
+						</div>
+					)}
+
+					{canEdit && !collection.isZeroResult ? (
+						<AddSpeciesForm
+							actorProfileId={actorProfileId}
+							collection={collection}
+							species={species}
+						/>
+					) : null}
+				</div>
 			</CardContent>
+
+			<AlertDialog onOpenChange={setConfirmZeroResult} open={confirmZeroResult}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Mark as zero result?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This clears the {entries.length} species {entries.length === 1 ? 'record' : 'records'}{' '}
+							already recorded for this collection, and can't be undone.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={() => setFlag('isZeroResult', true)}>
+							Mark zero result
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</Card>
+	);
+}
+
+function EditableSpeciesRow({
+	entry,
+	species,
+	speciesName,
+	canEdit,
+	onChange,
+	onRemove,
+}: {
+	readonly entry: SpeciesEntry;
+	readonly species: readonly SpeciesRow[];
+	readonly speciesName: string;
+	readonly canEdit: boolean;
+	readonly onChange: (
+		entryId: string,
+		changes: Partial<Pick<CollectionSpeciesRow, 'speciesId' | 'sex' | 'status' | 'count'>>,
+	) => void;
+	readonly onRemove: (entryId: string) => void;
+}) {
+	return (
+		<TableRow>
+			<TableCell>
+				<SpeciesPicker
+					disabled={!canEdit}
+					onSelect={(id) => onChange(entry.id, { speciesId: id })}
+					selectedLabel={speciesName}
+					species={species}
+					triggerClassName="w-full"
+					value={entry.speciesId}
+				/>
+			</TableCell>
+			<TableCell>
+				<Select
+					disabled={!canEdit}
+					onValueChange={(next) =>
+						onChange(entry.id, { sex: next === 'unset' ? null : (next as SpeciesSex) })
+					}
+					value={entry.sex ?? 'unset'}
+				>
+					<SelectTrigger aria-label="Sex" className="w-full">
+						<SelectValue placeholder="Unsexed" />
+					</SelectTrigger>
+					<SelectContent>
+						{SEX_FIELD_OPTIONS.map((option) => (
+							<SelectItem key={option.value} value={option.value}>
+								{option.label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</TableCell>
+			<TableCell>
+				<Select
+					disabled={!canEdit}
+					onValueChange={(next) =>
+						onChange(entry.id, { status: next === 'unset' ? null : (next as SpeciesStatus) })
+					}
+					value={entry.status ?? 'unset'}
+				>
+					<SelectTrigger aria-label="Status" className="w-full">
+						<SelectValue placeholder="Not recorded" />
+					</SelectTrigger>
+					<SelectContent>
+						{STATUS_FIELD_OPTIONS.map((option) => (
+							<SelectItem key={option.value} value={option.value}>
+								{option.label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</TableCell>
+			<TableCell>
+				<SpeciesCountCell
+					disabled={!canEdit}
+					onCommit={(next) => onChange(entry.id, { count: next })}
+					value={entry.count}
+				/>
+			</TableCell>
+			{canEdit ? (
+				<TableCell className="text-right">
+					<Button
+						aria-label="Remove species"
+						onClick={() => onRemove(entry.id)}
+						size="icon"
+						type="button"
+						variant="ghost"
+					>
+						<DeleteIcon aria-hidden="true" className="size-4" />
+					</Button>
+				</TableCell>
+			) : null}
+		</TableRow>
+	);
+}
+
+/**
+ * The count cell: the shared {@link NumberInput} over a local draft, so typing
+ * doesn't fire a write per keystroke. Commits a clamped integer (min 1) on blur /
+ * Enter / stepper; a non-positive or empty value reverts to the stored count.
+ */
+function SpeciesCountCell({
+	value,
+	disabled,
+	onCommit,
+}: {
+	readonly value: number;
+	readonly disabled: boolean;
+	readonly onCommit: (next: number) => void;
+}) {
+	const [draft, setDraft] = useState<number | null>(value);
+	// Re-sync the draft when the committed value changes elsewhere (optimistic
+	// update settles, stepper fires, another editor). React adjust-during-render.
+	const [syncedValue, setSyncedValue] = useState(value);
+	if (syncedValue !== value) {
+		setSyncedValue(value);
+		setDraft(value);
+	}
+
+	return (
+		<NumberInput
+			aria-label="Count"
+			className="w-full"
+			disabled={disabled}
+			min={1}
+			onCommit={(next) => {
+				// Revert empty / non-positive / non-numeric entries to the stored count.
+				const resolved =
+					next !== null && Number.isFinite(next) && next >= 1 ? Math.trunc(next) : value;
+				setDraft(resolved);
+				if (resolved !== value) {
+					onCommit(resolved);
+				}
+			}}
+			onValueChange={setDraft}
+			value={draft}
+		/>
 	);
 }
 
@@ -353,120 +670,136 @@ function AddSpeciesForm({
 	readonly species: readonly SpeciesRow[];
 	readonly actorProfileId: string | null;
 }) {
-	const [speciesId, setSpeciesId] = useState<string | null>(null);
-	const [count, setCount] = useState('');
-	const [sex, setSex] = useState<SpeciesSex | 'unset'>('unset');
-	const [status, setStatus] = useState<SpeciesStatus | 'unset'>('unset');
-	const [error, setError] = useState<string | null>(null);
+	const speciesOptions = useMemo(
+		() => species.map((row) => ({ value: row.id, label: row.displayName })),
+		[species],
+	);
 
-	const speciesName =
-		speciesId === null ? null : (species.find((row) => row.id === speciesId)?.displayName ?? null);
-	const countValue = Number.parseInt(count, 10);
-	const canAdd = speciesId !== null && Number.isFinite(countValue) && countValue > 0;
-
-	const add = () => {
-		if (!canAdd || speciesId === null) {
-			setError('Choose a species and a count of at least 1.');
-			return;
-		}
-		setError(null);
-		const now = new Date().toISOString();
-		const row: CollectionSpeciesRow = {
-			id: crypto.randomUUID(),
-			organizationId: collection.organizationId,
-			collectionId: collection.id,
-			speciesId,
-			count: countValue,
-			sex: sex === 'unset' ? null : sex,
-			status: status === 'unset' ? null : status,
-			identifiedByProfileId: actorProfileId,
-			identifiedDate: todayInTimeZone(undefined),
-			createdByProfileId: actorProfileId,
-			updatedByProfileId: actorProfileId,
-			createdAt: now,
-			updatedAt: now,
-		};
-		void webCollections.collectionSpecies.insert(row);
-		setSpeciesId(null);
-		setCount('');
-		setSex('unset');
-		setStatus('unset');
-	};
+	const form = useAppForm({
+		defaultValues: {
+			speciesId: null as string | null,
+			count: null as number | null,
+			sex: 'unset' as SpeciesSex | 'unset',
+			status: 'unset' as SpeciesStatus | 'unset',
+		},
+		onSubmit: ({ value }) => {
+			if (value.speciesId === null || value.count === null || value.count < 1) {
+				return;
+			}
+			const now = new Date().toISOString();
+			const row: CollectionSpeciesRow = {
+				id: crypto.randomUUID(),
+				organizationId: collection.organizationId,
+				collectionId: collection.id,
+				speciesId: value.speciesId,
+				count: Math.trunc(value.count),
+				sex: value.sex === 'unset' ? null : value.sex,
+				status: value.status === 'unset' ? null : value.status,
+				identifiedByProfileId: actorProfileId,
+				identifiedDate: todayInTimeZone(undefined),
+				createdByProfileId: actorProfileId,
+				updatedByProfileId: actorProfileId,
+				createdAt: now,
+				updatedAt: now,
+			};
+			void webCollections.collectionSpecies.insert(row);
+			form.reset();
+		},
+	});
 
 	return (
-		<div className="grid gap-3 rounded-md border border-border/50 border-dashed bg-muted/20 p-3">
-			<span className="font-medium text-foreground text-sm">Add species</span>
-			<div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-				<SpeciesPicker
-					onSelect={setSpeciesId}
-					selectedLabel={speciesName}
-					species={species}
-					value={speciesId}
-				/>
-				<Input
-					aria-label="Count"
-					inputMode="numeric"
-					min={1}
-					onChange={(event) => setCount(event.target.value)}
-					placeholder="Count"
-					type="number"
-					value={count}
-				/>
-			</div>
-			<div className="grid gap-3 sm:grid-cols-2">
-				<Select onValueChange={(next) => setSex(next as SpeciesSex | 'unset')} value={sex}>
-					<SelectTrigger aria-label="Sex">
-						<SelectValue placeholder="Sex" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="unset">Unsexed</SelectItem>
-						{SPECIES_SEX_VALUES.map((value) => (
-							<SelectItem key={value} value={value}>
-								{speciesSexLabel(value)}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Select onValueChange={(next) => setStatus(next as SpeciesStatus | 'unset')} value={status}>
-					<SelectTrigger aria-label="Status">
-						<SelectValue placeholder="Status" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="unset">Not recorded</SelectItem>
-						{SPECIES_STATUS_VALUES.map((value) => (
-							<SelectItem key={value} value={value}>
-								{speciesStatusLabel(value)}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			</div>
-			{error === null ? null : <p className="m-0 text-destructive text-xs">{error}</p>}
-			<div className="flex justify-end">
-				<Button disabled={!canAdd} onClick={add} size="sm" type="button">
-					Add species
-				</Button>
-			</div>
-		</div>
+		<form.AppForm>
+			<form
+				className="grid gap-3 rounded-md border border-border/50 border-dashed bg-muted/20 p-3"
+				onSubmit={(event) => {
+					event.preventDefault();
+					void form.handleSubmit();
+				}}
+			>
+				<span className="font-medium text-foreground text-sm">Add species</span>
+				<div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+					<form.AppField name="speciesId">
+						{(field) => (
+							<field.AutocompleteField
+								options={speciesOptions}
+								placeholder="Select species"
+								renderOption={(option) => <span className="italic">{option.label}</span>}
+								renderSelectedValue={(option) => <span className="italic">{option.label}</span>}
+							/>
+						)}
+					</form.AppField>
+					<form.AppField name="count">
+						{(field) => <field.NumberField min={1} placeholder="Count" />}
+					</form.AppField>
+				</div>
+				<div className="grid gap-3 sm:grid-cols-2">
+					<form.AppField name="sex">
+						{(field) => <field.SelectField options={SEX_FIELD_OPTIONS} placeholder="Unsexed" />}
+					</form.AppField>
+					<form.AppField name="status">
+						{(field) => (
+							<field.SelectField options={STATUS_FIELD_OPTIONS} placeholder="Not recorded" />
+						)}
+					</form.AppField>
+				</div>
+				<div className="flex justify-end">
+					<form.Subscribe selector={(state) => state.values}>
+						{(values) => (
+							<Button
+								disabled={values.speciesId === null || values.count === null || values.count < 1}
+								size="sm"
+								type="submit"
+							>
+								Add species
+							</Button>
+						)}
+					</form.Subscribe>
+				</div>
+			</form>
+		</form.AppForm>
 	);
 }
+
+// The "no selection" sentinel stays pinned first; the real values sort by label.
+const SEX_FIELD_OPTIONS = [
+	{ value: 'unset', label: 'Unsexed' },
+	...SPECIES_SEX_VALUES.map((value) => ({ value, label: speciesSexLabel(value) })).sort((a, b) =>
+		a.label.localeCompare(b.label),
+	),
+];
+
+const STATUS_FIELD_OPTIONS = [
+	{ value: 'unset', label: 'Not recorded' },
+	...SPECIES_STATUS_VALUES.map((value) => ({ value, label: speciesStatusLabel(value) })).sort(
+		(a, b) => a.label.localeCompare(b.label),
+	),
+];
 
 function SpeciesPicker({
 	species,
 	value,
 	selectedLabel,
 	onSelect,
+	disabled = false,
+	triggerClassName,
 }: {
 	readonly species: readonly SpeciesRow[];
 	readonly value: string | null;
 	readonly selectedLabel: string | null;
 	readonly onSelect: (id: string) => void;
+	readonly disabled?: boolean;
+	readonly triggerClassName?: string;
 }) {
 	const [open, setOpen] = useState(false);
 	return (
 		<Popover onOpenChange={setOpen} open={open}>
 			<PopoverTrigger asChild>
-				<Button className="justify-between font-normal" type="button" variant="outline">
+				<Button
+					className={cn('justify-between font-normal', triggerClassName)}
+					disabled={disabled}
+					type="button"
+					variant="outline"
+				>
 					<span className={cn('truncate', value === null && 'text-muted-foreground')}>
 						{selectedLabel ?? 'Select species'}
 					</span>
@@ -521,53 +854,18 @@ function SpeciesEmpty({
 
 // --- result flags ------------------------------------------------------------
 
-function ResultFlagsCard({ collection }: { readonly collection: AdultCollectionRow }) {
-	const setFlag = (key: 'isZeroResult' | 'hasBycatch' | 'hasProblem', value: boolean) => {
-		void webCollections.collections.update(collection.id, (draft) => {
-			(draft as { -readonly [K in keyof AdultCollectionRow]: AdultCollectionRow[K] })[key] = value;
-		});
-	};
-
-	return (
-		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Result</CardTitle>
-				<CardDescription>Flags recorded for this collection.</CardDescription>
-			</CardHeader>
-			<CardContent className="grid gap-3" padding="compact">
-				<FlagRow
-					checked={collection.isZeroResult}
-					description="No specimens were collected."
-					label="Zero result"
-					onChange={(value) => setFlag('isZeroResult', value)}
-				/>
-				<FlagRow
-					checked={collection.hasBycatch}
-					description="Non-target specimens were present."
-					label="Bycatch"
-					onChange={(value) => setFlag('hasBycatch', value)}
-				/>
-				<FlagRow
-					checked={collection.hasProblem}
-					description="Trap failure, tampering, or a compromised sample."
-					label="Problem"
-					onChange={(value) => setFlag('hasProblem', value)}
-				/>
-			</CardContent>
-		</Card>
-	);
-}
-
 function FlagRow({
 	label,
 	description,
 	checked,
 	onChange,
+	disabled,
 }: {
 	readonly label: string;
 	readonly description: string;
 	readonly checked: boolean;
 	readonly onChange: (value: boolean) => void;
+	readonly disabled?: boolean;
 }) {
 	return (
 		<div className="flex items-center justify-between gap-3">
@@ -575,7 +873,7 @@ function FlagRow({
 				<span className="font-medium text-foreground text-sm">{label}</span>
 				<span className="text-muted-foreground text-xs">{description}</span>
 			</div>
-			<Switch checked={checked} onCheckedChange={onChange} />
+			<Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
 		</div>
 	);
 }
@@ -675,8 +973,8 @@ function CollectionDetailSkeleton() {
 			</div>
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid content-start gap-5">
+					<Skeleton className="h-[360px]" />
 					<Skeleton className="h-64" />
-					<Skeleton className="h-40" />
 				</div>
 				<Skeleton className="h-72" />
 			</div>

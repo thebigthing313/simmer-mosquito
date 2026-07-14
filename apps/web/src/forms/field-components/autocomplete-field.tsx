@@ -72,6 +72,7 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 	const [isLoading, setIsLoading] = useState(false);
 	const [selected, setSelected] = useState<TOption | null>(selectedOption ?? null);
 	const requestId = useRef(0);
+	const anchorRef = useRef<HTMLDivElement>(null);
 	const optionSource = useMemo(() => options ?? [], [options]);
 
 	useEffect(() => {
@@ -130,25 +131,36 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 			renderControl={(controlProps) => (
 				<Popover open={open} onOpenChange={setOpen}>
 					<PopoverAnchor asChild>
-						<Input
-							{...props}
-							{...controlProps}
-							{...(disabled === undefined ? {} : { disabled })}
-							onFocus={(event) => {
-								setOpen(true);
-								onFocus?.(event);
-							}}
-							onChange={(event) => {
-								setQuery(event.target.value);
-								setOpen(true);
-							}}
-							placeholder={placeholder}
-							value={query}
-						/>
+						<div ref={anchorRef}>
+							<Input
+								{...props}
+								{...controlProps}
+								{...(disabled === undefined ? {} : { disabled })}
+								onFocus={(event) => {
+									setOpen(true);
+									onFocus?.(event);
+								}}
+								onChange={(event) => {
+									setQuery(event.target.value);
+									setOpen(true);
+								}}
+								placeholder={placeholder}
+								value={query}
+							/>
+						</div>
 					</PopoverAnchor>
 					<PopoverContent
 						align="start"
 						className="grid w-(--radix-popover-trigger-width) min-w-72 gap-2 p-2"
+						onInteractOutside={(event) => {
+							// Opening on focus, the same pointer-down lands on the anchor input —
+							// which is outside the content — and would immediately dismiss the
+							// popover (a focus→open→close flicker). Keep it open for anchor hits.
+							const target = event.detail.originalEvent.target as Node | null;
+							if (target !== null && anchorRef.current?.contains(target)) {
+								event.preventDefault();
+							}
+						}}
 						onOpenAutoFocus={(event) => event.preventDefault()}
 					>
 						<div className="max-h-64 overflow-y-auto">
