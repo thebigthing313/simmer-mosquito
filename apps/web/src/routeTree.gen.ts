@@ -55,6 +55,7 @@ import { Route as MissionsEditRouteImport } from './routes/missions.edit'
 import { Route as HabitatsIdRouteImport } from './routes/habitats_.$id'
 import { Route as HabitatsCreateRouteImport } from './routes/habitats.create'
 import { Route as GisDataDataExplorerRouteImport } from './routes/gis-data/data-explorer'
+import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes/adult-surveillance/collection-methods'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as PublicEngagementServiceRequestsIndexRouteImport } from './routes/public-engagement/service-requests/index'
 import { Route as PublicEngagementContactsIndexRouteImport } from './routes/public-engagement/contacts/index'
@@ -352,6 +353,12 @@ const GisDataDataExplorerRoute = GisDataDataExplorerRouteImport.update({
   path: '/gis-data/data-explorer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdultSurveillanceCollectionMethodsRoute =
+  AdultSurveillanceCollectionMethodsRouteImport.update({
+    id: '/adult-surveillance/collection-methods',
+    path: '/adult-surveillance/collection-methods',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
   id: '/admin/organizations',
   path: '/admin/organizations',
@@ -730,6 +737,7 @@ export interface FileRoutesByFullPath {
   '/source-reductions': typeof SourceReductionsRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/gis-data/data-explorer': typeof GisDataDataExplorerRoute
   '/habitats/create': typeof HabitatsCreateRoute
   '/habitats/$id': typeof HabitatsIdRoute
@@ -834,6 +842,7 @@ export interface FileRoutesByTo {
   '/source-reductions': typeof SourceReductionsRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/gis-data/data-explorer': typeof GisDataDataExplorerRoute
   '/habitats/create': typeof HabitatsCreateRoute
   '/habitats/$id': typeof HabitatsIdRoute
@@ -943,6 +952,7 @@ export interface FileRoutesById {
   '/source-reductions': typeof SourceReductionsRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/gis-data/data-explorer': typeof GisDataDataExplorerRoute
   '/habitats/create': typeof HabitatsCreateRoute
   '/habitats_/$id': typeof HabitatsIdRoute
@@ -1053,6 +1063,7 @@ export interface FileRouteTypes {
     | '/source-reductions'
     | '/today'
     | '/admin/organizations'
+    | '/adult-surveillance/collection-methods'
     | '/gis-data/data-explorer'
     | '/habitats/create'
     | '/habitats/$id'
@@ -1157,6 +1168,7 @@ export interface FileRouteTypes {
     | '/source-reductions'
     | '/today'
     | '/admin/organizations'
+    | '/adult-surveillance/collection-methods'
     | '/gis-data/data-explorer'
     | '/habitats/create'
     | '/habitats/$id'
@@ -1265,6 +1277,7 @@ export interface FileRouteTypes {
     | '/source-reductions'
     | '/today'
     | '/admin/organizations'
+    | '/adult-surveillance/collection-methods'
     | '/gis-data/data-explorer'
     | '/habitats/create'
     | '/habitats_/$id'
@@ -1374,6 +1387,7 @@ export interface RootRouteChildren {
   SourceReductionsRoute: typeof SourceReductionsRoute
   TodayRoute: typeof TodayRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
+  AdultSurveillanceCollectionMethodsRoute: typeof AdultSurveillanceCollectionMethodsRoute
   GisDataDataExplorerRoute: typeof GisDataDataExplorerRoute
   HabitatsIdRoute: typeof HabitatsIdRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
@@ -1752,6 +1766,13 @@ declare module '@tanstack/react-router' {
       path: '/gis-data/data-explorer'
       fullPath: '/gis-data/data-explorer'
       preLoaderRoute: typeof GisDataDataExplorerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/collection-methods': {
+      id: '/adult-surveillance/collection-methods'
+      path: '/adult-surveillance/collection-methods'
+      fullPath: '/adult-surveillance/collection-methods'
+      preLoaderRoute: typeof AdultSurveillanceCollectionMethodsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/organizations': {
@@ -2388,6 +2409,8 @@ const rootRouteChildren: RootRouteChildren = {
   SourceReductionsRoute: SourceReductionsRoute,
   TodayRoute: TodayRoute,
   AdminOrganizationsRoute: AdminOrganizationsRouteWithChildren,
+  AdultSurveillanceCollectionMethodsRoute:
+    AdultSurveillanceCollectionMethodsRoute,
   GisDataDataExplorerRoute: GisDataDataExplorerRoute,
   HabitatsIdRoute: HabitatsIdRoute,
   AdultSurveillanceIndexRoute: AdultSurveillanceIndexRoute,

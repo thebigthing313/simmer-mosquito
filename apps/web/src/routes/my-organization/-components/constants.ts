@@ -19,6 +19,7 @@ export const ORG_ROLE_OPTIONS: readonly OrgRole[] = [
 	'owner',
 ];
 export const AddIcon = iconRegistry.actions.add.icon;
+export const ArrowRightIcon = iconRegistry.arrows.arrowRight.icon;
 export const CloseIcon = iconRegistry.actions.close.icon;
 export const DeleteIcon = iconRegistry.actions.delete.icon;
 export const EditIcon = iconRegistry.actions.edit.icon;

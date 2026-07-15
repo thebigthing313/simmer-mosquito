@@ -140,6 +140,12 @@ export const shellDomains: readonly ShellDomain[] = [
 						to: '/adult-surveillance',
 						icon: iconRegistry.generic.home.icon,
 					},
+					{
+						id: 'adult-collection-methods',
+						label: 'Collection Methods',
+						to: '/adult-surveillance/collection-methods',
+						icon: iconRegistry.generic.component.icon,
+					},
 				],
 			},
 			{

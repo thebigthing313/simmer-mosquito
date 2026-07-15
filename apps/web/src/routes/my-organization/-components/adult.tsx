@@ -27,21 +27,18 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import type { Collection } from '@tanstack/react-db';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
-import { validateJsonSchemaValue } from '../../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
-import { AddIcon, CloseIcon, EditIcon } from './constants';
+import { AddIcon, ArrowRightIcon, CloseIcon, EditIcon } from './constants';
 import {
 	collectionLureFormValues,
-	collectionMethodFormValues,
 	collectionTimingModeFromFields,
 	createAdultCollectionLureFromValues,
-	createAdultCollectionMethodFromValues,
 	errorMessageForSave,
 	updateAdultCollectionLureFromValues,
-	updateAdultCollectionMethodFromValues,
 	watchPersistence,
 } from './helpers';
 import { LookupListFrame } from './layout/layout';
@@ -68,11 +65,7 @@ export function AdultSurveillanceSettings({
 			<div className="grid gap-2">
 				<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
 				<div className="grid gap-3">
-					<CollectionMethodLookupList
-						canManage={canManage}
-						organization={organization}
-						methods={collectionMethods}
-					/>
+					<CollectionMethodLookupPointer methods={collectionMethods} />
 					<CollectionLureLookupList
 						canManage={canManage}
 						organization={organization}
@@ -159,13 +152,13 @@ export function CollectionTimingExample({
 	);
 }
 
-export function CollectionMethodLookupList({
-	canManage,
-	organization,
+/**
+ * Methods are managed on the adult surveillance route, next to the traps that use them.
+ * This keeps their counts visible in settings and points at the one place that edits them.
+ */
+export function CollectionMethodLookupPointer({
 	methods,
 }: {
-	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
 	readonly methods: Collection<CollectionMethodRow, string | number>;
 }) {
 	const { activeRows: activeMethods, inactiveRows: inactiveMethods } =
@@ -178,245 +171,18 @@ export function CollectionMethodLookupList({
 			detail="Methods can define optional custom fields and action thresholds."
 			title="Collection methods"
 			action={
-				<CollectionMethodDrawer
-					canManage={canManage}
-					organization={organization}
-					trigger={
-						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
-							<AddIcon aria-hidden="true" />
-							Add method
-						</Button>
-					}
-				/>
+				<Button asChild size="sm" variant="outline">
+					<Link to="/adult-surveillance/collection-methods">
+						Manage methods
+						<ArrowRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
 			}
 		>
-			<CollectionMethodTable
-				canManage={canManage}
-				emptyLabel="No active collection methods."
-				methods={activeMethods}
-				organization={organization}
-				title="Active methods"
-			/>
-			<CollectionMethodTable
-				canManage={canManage}
-				emptyLabel="No inactive collection methods."
-				methods={inactiveMethods}
-				organization={organization}
-				title="Inactive methods"
-			/>
+			<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
+				Collection methods are managed in Adult Surveillance, alongside the traps that use them.
+			</p>
 		</LookupListFrame>
-	);
-}
-
-export function CollectionMethodTable({
-	canManage,
-	emptyLabel,
-	methods,
-	organization,
-	title,
-}: {
-	readonly canManage: boolean;
-	readonly emptyLabel: string;
-	readonly methods: readonly CollectionMethodRow[];
-	readonly organization: OrganizationRow | null;
-	readonly title: string;
-}) {
-	return (
-		<div className="grid gap-2">
-			<div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
-				<span className="text-[0.76rem] font-bold text-muted-foreground">{title}</span>
-				<span className="text-[0.76rem] font-bold text-muted-foreground">{methods.length}</span>
-			</div>
-			{methods.length === 0 ? (
-				<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
-					{emptyLabel}
-				</p>
-			) : (
-				<div className="overflow-hidden rounded-md border border-border/30 bg-background/70 [--method-actions-column:76px] [--method-name-column:26%] [--method-schema-column:112px] [--method-threshold-column:86px]">
-					<Table className="w-full table-fixed">
-						<TableHeader>
-							<TableRow>
-								<TableHead className="w-(--method-name-column)">Method</TableHead>
-								<TableHead>Description</TableHead>
-								<TableHead className="w-(--method-threshold-column)">Threshold</TableHead>
-								<TableHead className="w-(--method-schema-column)">Custom Fields</TableHead>
-								{canManage ? (
-									<TableHead className="w-(--method-actions-column) text-right">Actions</TableHead>
-								) : null}
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{methods.map((method) => (
-								<TableRow key={method.id}>
-									<TableCell className="w-(--method-name-column) font-bold">
-										<span className="wrap-anywhere">{method.name}</span>
-									</TableCell>
-									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
-										{method.description ?? 'No description'}
-									</TableCell>
-									<TableCell className="w-(--method-threshold-column)">
-										{method.actionThreshold === null ? (
-											<span className="text-muted-foreground">None</span>
-										) : (
-											method.actionThreshold
-										)}
-									</TableCell>
-									<TableCell className="w-(--method-schema-column)">
-										<Badge
-											tone={method.customSchema === null ? 'neutral' : 'info'}
-											variant="outline"
-										>
-											{method.customSchema === null ? 'None' : 'Configured'}
-										</Badge>
-									</TableCell>
-									{canManage ? (
-										<TableCell className="w-(--method-actions-column) text-right">
-											<CollectionMethodDrawer
-												canManage={canManage}
-												method={method}
-												organization={organization}
-												trigger={
-													<Button type="button" variant="outline" size="icon">
-														<EditIcon aria-hidden="true" />
-														<span className="sr-only">Edit {method.name}</span>
-													</Button>
-												}
-											/>
-										</TableCell>
-									) : null}
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
-			)}
-		</div>
-	);
-}
-
-export function CollectionMethodDrawer({
-	canManage,
-	method,
-	organization,
-	trigger,
-}: {
-	readonly canManage: boolean;
-	readonly method?: CollectionMethodRow | undefined;
-	readonly organization: OrganizationRow | null;
-	readonly trigger: React.ReactNode;
-}) {
-	const [open, setOpen] = useState(false);
-	const defaultValues = collectionMethodFormValues(method);
-	const form = useAppForm({
-		defaultValues,
-		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
-		},
-		onSubmit: ({ value }) => {
-			try {
-				const transaction =
-					method === undefined
-						? createAdultCollectionMethodFromValues(organization, value)
-						: updateAdultCollectionMethodFromValues(method, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
-					method === undefined
-						? 'Unable to create collection method.'
-						: `Unable to save ${method.name}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
-		},
-	});
-
-	function updateOpen(nextOpen: boolean) {
-		if (nextOpen) {
-			form.reset(defaultValues);
-		}
-		setOpen(nextOpen);
-	}
-
-	return (
-		<Drawer direction="right" open={open} onOpenChange={updateOpen}>
-			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
-				<DrawerHeader>
-					<DrawerTitle>
-						{method === undefined ? 'Add collection method' : `Edit ${method.name}`}
-					</DrawerTitle>
-					<DrawerDescription>
-						Manage the label, action threshold, lifecycle state, and optional custom fields.
-					</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<form.FormErrorAlert />
-						<form.AppField
-							name="name"
-							validators={{
-								onSubmit: ({ value }) =>
-									value.trim().length === 0 ? 'Method name is required.' : undefined,
-							}}
-						>
-							{(field) => (
-								<field.TextField
-									label="Method name"
-									disabled={!canManage}
-									placeholder="e.g. CDC light trap"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="description">
-							{(field) => (
-								<field.TextareaField
-									label="Description"
-									disabled={!canManage}
-									className="min-h-24"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="actionThreshold">
-							{(field) => (
-								<field.NumberField
-									label="Action threshold"
-									description="Mosquito count at or above this number should be treated as needing follow-up. Leave blank when the method has no count trigger."
-									disabled={!canManage}
-									emptyValue={null}
-									min={0}
-									step={1}
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="isActive">
-							{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-						</form.AppField>
-						<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-							{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canManage} />}
-						</form.AppField>
-						<DrawerFooter className="px-0">
-							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || organization === null} />
-								<DrawerClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
-										Cancel
-									</Button>
-								</DrawerClose>
-							</form.FormActions>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
 	);
 }
 
