@@ -9,6 +9,9 @@ export const sourceReductionsSyncDescriptor = createSyncDescriptor<SourceReducti
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'sourceReductionMethodId',
 		'technicianProfileId',
 		'sourceReductionDate',

@@ -9,6 +9,9 @@ export const applicationsSyncDescriptor = createSyncDescriptor<ApplicationRow>({
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'applicationMethodId',
 		'insecticideId',
 		'applicatorProfileId',

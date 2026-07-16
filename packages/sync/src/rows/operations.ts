@@ -234,6 +234,9 @@ export interface FormulationInsecticideRow extends AuditedOrganizationRowBase {
 }
 
 export interface ApplicationRow extends AuditedOrganizationRowBase {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly applicationMethodId: string | null;
 	readonly insecticideId: string;
 	readonly applicatorProfileId: string | null;
@@ -257,6 +260,9 @@ export interface ApplicationBatchRow extends AuditedOrganizationRowBase {
 }
 
 export interface SourceReductionRow extends AuditedOrganizationRowBase {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly sourceReductionMethodId: string;
 	readonly technicianProfileId: string | null;
 	readonly sourceReductionDate: string;
@@ -284,6 +290,9 @@ export interface OutreachActionRow extends AuditedOrganizationRowBase {
 }
 
 export interface BiocontrolActionRow extends AuditedOrganizationRowBase {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly biocontrolMethodId: string;
 	readonly technicianProfileId: string | null;
 	readonly biocontrolDate: string;

@@ -9,6 +9,9 @@ export const biocontrolActionsSyncDescriptor = createSyncDescriptor<BiocontrolAc
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'biocontrolMethodId',
 		'technicianProfileId',
 		'biocontrolDate',

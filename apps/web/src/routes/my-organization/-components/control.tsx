@@ -24,6 +24,7 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { type Collection, eq, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAppForm } from '../../../forms';
@@ -31,6 +32,7 @@ import { validateJsonSchemaValue, validateMetadataValue } from '../../../forms/f
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
 import {
 	AddIcon,
+	ArrowRightIcon,
 	CloseIcon,
 	controlAssetListConfigs,
 	controlMethodListConfigs,
@@ -78,23 +80,20 @@ export function ControlOperationsSettings({
 			<div className="grid gap-2">
 				<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
 				<div className="grid gap-3">
-					<ControlMethodLookupList
-						canManage={canManage}
+					<ControlMethodLookupPointer
 						collectionKey="applicationMethods"
 						methods={applicationMethods}
-						organization={organization}
+						to="/control-operations/chemical/methods"
 					/>
-					<ControlMethodLookupList
-						canManage={canManage}
+					<ControlMethodLookupPointer
 						collectionKey="sourceReductionMethods"
 						methods={sourceReductionMethods}
-						organization={organization}
+						to="/control-operations/source-reduction/methods"
 					/>
-					<ControlMethodLookupList
-						canManage={canManage}
+					<ControlMethodLookupPointer
 						collectionKey="biocontrolMethods"
 						methods={biocontrolMethods}
-						organization={organization}
+						to="/control-operations/biocontrol/methods"
 					/>
 					<ControlAssetLookupList
 						assets={vehicles}
@@ -111,6 +110,48 @@ export function ControlOperationsSettings({
 				</div>
 			</div>
 		</div>
+	);
+}
+
+/**
+ * Methods are managed on the control operations routes, next to the work that uses them.
+ * This keeps their counts visible in settings and points at the one place that edits them.
+ */
+export function ControlMethodLookupPointer({
+	collectionKey,
+	methods,
+	to,
+}: {
+	readonly collectionKey: Exclude<ControlMethodCollectionKey, 'outreachMethods'>;
+	readonly methods: Collection<ControlMethodRow, string | number>;
+	readonly to:
+		| '/control-operations/chemical/methods'
+		| '/control-operations/source-reduction/methods'
+		| '/control-operations/biocontrol/methods';
+}) {
+	const config = controlMethodListConfigs[collectionKey];
+	const { activeRows: activeMethods, inactiveRows: inactiveMethods } =
+		useActiveNamedCollectionRows(methods);
+
+	return (
+		<LookupListFrame
+			activeCount={activeMethods.length}
+			inactiveCount={inactiveMethods.length}
+			detail={config.detail}
+			title={config.title}
+			action={
+				<Button asChild size="sm" variant="outline">
+					<Link to={to}>
+						Manage methods
+						<ArrowRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
+			<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
+				{config.title} are managed in Control Operations, alongside the work that uses them.
+			</p>
+		</LookupListFrame>
 	);
 }
 

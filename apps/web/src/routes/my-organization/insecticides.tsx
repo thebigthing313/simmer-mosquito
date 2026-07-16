@@ -1,7 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { collections } from './-components/constants';
-import { InsecticideBatchTrackingDrawer, InsecticideSettings } from './-components/insecticides';
+import {
+	InsecticideBatchTrackingDrawer,
+	InsecticideLookupPointer,
+} from './-components/insecticides';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
 
@@ -31,14 +34,7 @@ function MyOrganizationInsecticidesRoute() {
 				setupItems={[]}
 				title="Insecticides"
 			>
-				<InsecticideSettings
-					batches={collections.insecticideBatches}
-					canManage={workspace.canManage}
-					insecticides={collections.insecticides}
-					organization={workspace.organization}
-					settings={workspace.settings}
-					units={collections.units}
-				/>
+				<InsecticideLookupPointer insecticides={collections.insecticides} />
 			</DomainSection>
 		</OrganizationWorkspaceShell>
 	);

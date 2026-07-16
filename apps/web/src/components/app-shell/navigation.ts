@@ -207,42 +207,113 @@ export const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'control',
 		label: 'Control operations',
-		summary: 'Field treatment and outreach',
+		summary: 'Treatment work across chemical, source reduction, and biocontrol',
 		icon: iconRegistry.domains.controlOperations.icon,
 		groups: [
 			{
-				id: 'control-treatment',
-				label: 'Treatment',
+				id: 'control-overview',
 				items: [
 					{
-						id: 'chemical',
-						label: 'Chemical control',
-						to: '/chemical-control',
-						icon: iconRegistry.entities.application.icon,
-					},
-					{
-						id: 'source-reduction',
-						label: 'Source reduction',
-						to: '/source-reductions',
-						icon: iconRegistry.entities.sourceReductionAction.icon,
-					},
-					{
-						id: 'biocontrol',
-						label: 'Biocontrol',
-						to: '/biocontrol',
-						icon: iconRegistry.entities.biocontrolAction.icon,
+						id: 'control-overview-link',
+						label: 'Overview',
+						to: '/control-operations',
+						icon: iconRegistry.generic.home.icon,
 					},
 				],
 			},
 			{
-				id: 'control-engagement',
-				label: 'Engagement',
+				id: 'control-chemical',
+				label: 'Chemical',
 				items: [
 					{
-						id: 'outreach',
-						label: 'Outreach',
-						to: '/public-outreach',
-						icon: iconRegistry.entities.outreachAction.icon,
+						id: 'chemical-explorer',
+						label: 'Explorer',
+						to: '/control-operations/chemical',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'chemical-create',
+						label: 'Record application',
+						to: '/control-operations/chemical/create',
+						icon: iconRegistry.actions.add.icon,
+					},
+					{
+						id: 'chemical-methods',
+						label: 'Application Methods',
+						to: '/control-operations/chemical/methods',
+						icon: iconRegistry.generic.component.icon,
+					},
+					{
+						id: 'chemical-insecticides',
+						label: 'Insecticides',
+						to: '/control-operations/chemical/insecticides',
+						icon: iconRegistry.entities.insecticide.icon,
+					},
+					{
+						id: 'chemical-stats',
+						label: 'Statistics',
+						to: '/control-operations/chemical/stats',
+						icon: iconRegistry.generic.chart.icon,
+					},
+				],
+			},
+			{
+				id: 'control-source-reduction',
+				label: 'Source Reduction',
+				items: [
+					{
+						id: 'source-reduction-explorer',
+						label: 'Explorer',
+						to: '/control-operations/source-reduction',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'source-reduction-create',
+						label: 'Record source reduction',
+						to: '/control-operations/source-reduction/create',
+						icon: iconRegistry.actions.add.icon,
+					},
+					{
+						id: 'source-reduction-methods',
+						label: 'Source Reduction Methods',
+						to: '/control-operations/source-reduction/methods',
+						icon: iconRegistry.generic.component.icon,
+					},
+					{
+						id: 'source-reduction-stats',
+						label: 'Statistics',
+						to: '/control-operations/source-reduction/stats',
+						icon: iconRegistry.generic.chart.icon,
+					},
+				],
+			},
+			{
+				id: 'control-biocontrol',
+				label: 'Biocontrol',
+				items: [
+					{
+						id: 'biocontrol-explorer',
+						label: 'Explorer',
+						to: '/control-operations/biocontrol',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'biocontrol-create',
+						label: 'Record release',
+						to: '/control-operations/biocontrol/create',
+						icon: iconRegistry.actions.add.icon,
+					},
+					{
+						id: 'biocontrol-methods',
+						label: 'Biocontrol Methods',
+						to: '/control-operations/biocontrol/methods',
+						icon: iconRegistry.generic.component.icon,
+					},
+					{
+						id: 'biocontrol-stats',
+						label: 'Statistics',
+						to: '/control-operations/biocontrol/stats',
+						icon: iconRegistry.generic.chart.icon,
 					},
 				],
 			},
