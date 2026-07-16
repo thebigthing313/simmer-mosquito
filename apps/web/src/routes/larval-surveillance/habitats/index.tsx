@@ -35,6 +35,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type HabitatTileFilters, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
@@ -46,6 +47,8 @@ export const Route = createFileRoute('/larval-surveillance/habitats/')({
 type StatusFilter = 'all' | 'active' | 'inactive';
 type AccessFilter = 'all' | 'accessible' | 'inaccessible';
 
+const PAGE_SIZE = 50;
+
 function HabitatsExplorerRoute() {
 	const [searchInput, setSearchInput] = useState('');
 	const search = useDebouncedValue(searchInput.trim(), 250);
@@ -55,6 +58,7 @@ function HabitatsExplorerRoute() {
 	const [tagIds, setTagIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [page, setPage] = useState(0);
 
 	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
 	const { rows: tags } = useCollectionRows<TagRow>(webCollections.tags);
@@ -77,7 +81,21 @@ function HabitatsExplorerRoute() {
 	);
 
 	const bounds = useMapBounds(map);
-	const { rows, isLoading } = useVisibleHabitats(bounds, filters);
+	const { rows, total, isLoading } = useVisibleHabitats(bounds, filters, page);
+	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+	// A new viewport or filter set always starts back at the first page.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the viewport + filters.
+	useEffect(() => {
+		setPage(0);
+	}, [bounds, filters]);
+
+	// Clamp if the row count shrinks under the current page.
+	useEffect(() => {
+		if (page > pageCount - 1) {
+			setPage(pageCount - 1);
+		}
+	}, [page, pageCount]);
 
 	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
 	const fallbackSelected = useSelectedHabitat(selectedId, visibleById);
@@ -136,7 +154,7 @@ function HabitatsExplorerRoute() {
 				<div className="sticky top-0 z-10 grid gap-3 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
 					<div className="flex items-baseline justify-between gap-3">
 						<h1 className="font-semibold text-foreground text-lg leading-none">Habitats</h1>
-						<ResultMeta count={rows.length} isLoading={isLoading} />
+						<ResultMeta isLoading={isLoading} total={total} />
 					</div>
 
 					<SearchField value={searchInput} onChange={setSearchInput} />
@@ -197,6 +215,16 @@ function HabitatsExplorerRoute() {
 					typeNameById={typeNameById}
 					onSelect={setSelectedId}
 				/>
+
+				<div className="border-border/50 border-t p-3">
+					<ExplorerPagination
+						noun="habitats"
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={total}
+					/>
+				</div>
 			</div>
 		</MapSplitPage>
 	);
@@ -216,13 +244,13 @@ const ACCESS_OPTIONS: readonly { readonly value: AccessFilter; readonly label: s
 
 const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
 
-function ResultMeta({ count, isLoading }: { readonly count: number; readonly isLoading: boolean }) {
-	if (isLoading && count === 0) {
+function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
+	if (isLoading && total === 0) {
 		return <span className="text-muted-foreground text-sm">Loading…</span>;
 	}
 	return (
 		<span className="text-muted-foreground text-sm">
-			{count === 0 ? 'None in view' : count >= 50 ? '50+ in view' : `${count} in view`}
+			{total === 0 ? 'None in view' : `${total} in view`}
 		</span>
 	);
 }
@@ -736,16 +764,21 @@ const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 function useVisibleHabitats(
 	bounds: BoundingBox | null,
 	filters: HabitatTileFilters,
-): { readonly rows: readonly HabitatRow[]; readonly isLoading: boolean } {
+	page: number,
+): { readonly rows: readonly HabitatRow[]; readonly total: number; readonly isLoading: boolean } {
 	const bbox = bounds === null ? null : formatBoundingBox(bounds);
 	const query = useQuery({
 		enabled: bbox !== null,
-		queryKey: ['habitats', 'visible', bbox, filters],
-		queryFn: ({ signal }) => fetchVisibleHabitats(bounds, filters, signal),
+		queryKey: ['habitats', 'visible', bbox, filters, page],
+		queryFn: ({ signal }) => fetchVisibleHabitats(bounds, filters, page, signal),
 		placeholderData: (previous) => previous,
 	});
 
-	return { rows: query.data ?? [], isLoading: query.isLoading };
+	return {
+		rows: query.data?.rows ?? [],
+		total: query.data?.total ?? 0,
+		isLoading: query.isLoading,
+	};
 }
 
 // Fallback for a selection outside the current bbox list: the habitat's non-geometry
@@ -780,14 +813,16 @@ function useSelectedHabitat(
 async function fetchVisibleHabitats(
 	bounds: BoundingBox | null,
 	filters: HabitatTileFilters,
+	page: number,
 	signal: AbortSignal,
-): Promise<HabitatRow[]> {
+): Promise<{ readonly rows: HabitatRow[]; readonly total: number }> {
 	if (bounds === null) {
-		return [];
+		return { rows: [], total: 0 };
 	}
 	const url = new URL('/map/habitats', getServerUrl());
 	url.searchParams.set('bbox', formatBoundingBox(normalizeBounds(bounds)));
-	url.searchParams.set('limit', '50');
+	url.searchParams.set('limit', String(PAGE_SIZE));
+	url.searchParams.set('offset', String(page * PAGE_SIZE));
 	if (filters.isActive !== undefined) {
 		url.searchParams.set('isActive', String(filters.isActive));
 	}
@@ -808,8 +843,11 @@ async function fetchVisibleHabitats(
 	if (!response.ok) {
 		throw new Error(`Habitats request failed (${response.status}).`);
 	}
-	const body = (await response.json()) as { readonly habitats?: HabitatRow[] };
-	return body.habitats ?? [];
+	const body = (await response.json()) as {
+		readonly habitats?: HabitatRow[];
+		readonly total?: number;
+	};
+	return { rows: body.habitats ?? [], total: body.total ?? 0 };
 }
 
 function useMapBounds(map: MapboxMap | null): BoundingBox | null {

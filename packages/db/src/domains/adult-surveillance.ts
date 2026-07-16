@@ -450,3 +450,373 @@ function toSafeCollection(row: {
 		updatedAt: row.updated_at,
 	};
 }
+
+// --- adult-surveillance map surfaces ----------------------------------------
+//
+// Mirrors the larval map trio (tile / paged list / by-id) for the traps and
+// collections explorers: unbounded MVT tiles for the map, a filtered offset-paged
+// list (no bbox) for the result rail. Both records carry their own owned point
+// geometry. Trap/lure/method names resolve client-side from the eager catalog.
+
+const mapMvtExtent = 4096;
+const mapMvtBuffer = 64;
+
+function mapTileEnvelopeCte(input: { readonly z: number; readonly x: number; readonly y: number }) {
+	return sql`
+		bounds as (
+			select
+				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
+				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
+		)
+	`;
+}
+
+// --- traps ------------------------------------------------------------------
+
+export interface TrapMapFilters {
+	readonly collectionMethodIds?: readonly string[];
+	/** Match traps by active state; omit for all. */
+	readonly isActive?: boolean;
+	/** Case-insensitive match on trap name, code, or description. */
+	readonly search?: string;
+}
+
+export interface TrapMvtTileInput {
+	readonly z: number;
+	readonly x: number;
+	readonly y: number;
+	readonly organizationId: string;
+	readonly filters?: TrapMapFilters;
+}
+
+export interface TrapPageInput {
+	readonly organizationId: string;
+	readonly filters?: TrapMapFilters;
+	readonly limit: number;
+	readonly offset: number;
+}
+
+export interface TrapByIdInput {
+	readonly organizationId: string;
+	readonly id: string;
+}
+
+export interface SafeTrapDisplayRow {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geomType: string;
+	readonly collectionMethodId: string;
+	readonly collectionLureId: string | null;
+	readonly addressId: string | null;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly description: string | null;
+	readonly isActive: boolean;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface TrapPageResult {
+	readonly total: number;
+	readonly rows: SafeTrapDisplayRow[];
+}
+
+function trapFilterWhere(filters: TrapMapFilters | undefined): RawBuilder<boolean>[] {
+	const clauses: RawBuilder<boolean>[] = [];
+	if (filters?.collectionMethodIds !== undefined && filters.collectionMethodIds.length > 0) {
+		clauses.push(
+			sql<boolean>`t.collection_method_id = any(${[...filters.collectionMethodIds]}::uuid[])`,
+		);
+	}
+	if (filters?.isActive !== undefined) {
+		clauses.push(sql<boolean>`t.is_active = ${filters.isActive}`);
+	}
+	const search = filters?.search?.trim();
+	if (search !== undefined && search.length > 0) {
+		const pattern = `%${search}%`;
+		clauses.push(
+			sql<boolean>`(
+				t.trap_name ilike ${pattern}
+				or t.trap_code ilike ${pattern}
+				or t.description ilike ${pattern}
+			)`,
+		);
+	}
+	return clauses;
+}
+
+export async function getTrapMvtTile(
+	db: Kysely<SimmerDatabase>,
+	input: TrapMvtTileInput,
+): Promise<Uint8Array> {
+	const whereClauses: RawBuilder<boolean>[] = [
+		sql<boolean>`t.organization_id = ${input.organizationId}`,
+		sql<boolean>`t.deleted_at is null`,
+		sql<boolean>`t.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(t.geom, bounds.geom_4326)`,
+		...trapFilterWhere(input.filters),
+	];
+
+	const result = await sql<{ readonly tile: Uint8Array | null }>`
+		with
+		${mapTileEnvelopeCte(input)},
+		tile_rows as (
+			select
+				t.id,
+				t.is_active as "isActive",
+				st_asmvtgeom(
+					st_transform(t.geom, 3857),
+					bounds.geom_3857,
+					extent => ${mapMvtExtent},
+					buffer => ${mapMvtBuffer}
+				) as geom
+			from traps t
+			cross join bounds
+			where ${sql.join(whereClauses, sql` and `)}
+		)
+		select coalesce(st_asmvt(tile_rows, 'traps', ${mapMvtExtent}, 'geom'), ''::bytea) as tile
+		from tile_rows
+	`.execute(db);
+
+	return result.rows[0]?.tile ?? new Uint8Array();
+}
+
+export async function listTrapDisplayRowsPage(
+	db: Kysely<SimmerDatabase>,
+	input: TrapPageInput,
+): Promise<TrapPageResult> {
+	const whereClauses: RawBuilder<boolean>[] = [
+		sql<boolean>`t.organization_id = ${input.organizationId}`,
+		sql<boolean>`t.deleted_at is null`,
+		...trapFilterWhere(input.filters),
+	];
+
+	const result = await sql<SafeTrapDisplayRow & { readonly total: number }>`
+		select
+			${trapDisplayColumns},
+			count(*) over()::int as "total"
+		from traps t
+		where ${sql.join(whereClauses, sql` and `)}
+		order by coalesce(t.trap_name, t.trap_code) asc nulls last, t.created_at desc, t.id
+		limit ${input.limit}
+		offset ${input.offset}
+	`.execute(db);
+
+	return {
+		total: result.rows[0]?.total ?? 0,
+		rows: result.rows,
+	};
+}
+
+export async function getTrapDisplayRowById(
+	db: Kysely<SimmerDatabase>,
+	input: TrapByIdInput,
+): Promise<SafeTrapDisplayRow | undefined> {
+	const result = await sql<SafeTrapDisplayRow>`
+		select ${trapDisplayColumns}
+		from traps t
+		where t.id = ${input.id}
+			and t.organization_id = ${input.organizationId}
+			and t.deleted_at is null
+		limit 1
+	`.execute(db);
+
+	return result.rows[0];
+}
+
+const trapDisplayColumns = sql`
+	t.id,
+	t.organization_id as "organizationId",
+	t.lat,
+	t.lng,
+	t.geojson,
+	t.geom_type as "geomType",
+	t.collection_method_id as "collectionMethodId",
+	t.collection_lure_id as "collectionLureId",
+	t.address_id as "addressId",
+	t.trap_name as "trapName",
+	t.trap_code as "trapCode",
+	t.description,
+	t.is_active as "isActive",
+	t.created_at as "createdAt",
+	t.updated_at as "updatedAt"
+`;
+
+// --- collections ------------------------------------------------------------
+
+export interface CollectionMapFilters {
+	readonly collectionMethodIds?: readonly string[];
+	/** Only collections flagged with a problem. */
+	readonly problemOnly?: boolean;
+	/** Inclusive lower bound on the collection's effective date (`YYYY-MM-DD`). */
+	readonly dateFrom?: string;
+	/** Inclusive upper bound on the collection's effective date (`YYYY-MM-DD`). */
+	readonly dateTo?: string;
+}
+
+export interface CollectionMvtTileInput {
+	readonly z: number;
+	readonly x: number;
+	readonly y: number;
+	readonly organizationId: string;
+	readonly filters?: CollectionMapFilters;
+}
+
+export interface CollectionPageInput {
+	readonly organizationId: string;
+	readonly filters?: CollectionMapFilters;
+	readonly limit: number;
+	readonly offset: number;
+}
+
+export interface CollectionByIdInput {
+	readonly organizationId: string;
+	readonly id: string;
+}
+
+export interface SafeCollectionDisplayRow {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly trapId: string | null;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geomType: string;
+	readonly collectionMethodId: string;
+	readonly collectedAt: string | null;
+	readonly collectionDate: string | null;
+	readonly hasProblem: boolean;
+	readonly isZeroResult: boolean;
+	readonly hasBycatch: boolean;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface CollectionPageResult {
+	readonly total: number;
+	readonly rows: SafeCollectionDisplayRow[];
+}
+
+// The two timing modes store the date in different columns — an exact timestamp
+// in `collected_at`, a plain date in `collection_date` (with `collected_at`
+// null). Coalesce to a single effective date for filtering and ordering.
+const collectionEffectiveDateExpr = sql`coalesce(c.collected_at::date, c.collection_date)`;
+
+function collectionFilterWhere(filters: CollectionMapFilters | undefined): RawBuilder<boolean>[] {
+	const clauses: RawBuilder<boolean>[] = [];
+	if (filters?.collectionMethodIds !== undefined && filters.collectionMethodIds.length > 0) {
+		clauses.push(
+			sql<boolean>`c.collection_method_id = any(${[...filters.collectionMethodIds]}::uuid[])`,
+		);
+	}
+	if (filters?.problemOnly === true) {
+		clauses.push(sql<boolean>`c.has_problem = true`);
+	}
+	if (filters?.dateFrom !== undefined) {
+		clauses.push(sql<boolean>`${collectionEffectiveDateExpr} >= ${filters.dateFrom}`);
+	}
+	if (filters?.dateTo !== undefined) {
+		clauses.push(sql<boolean>`${collectionEffectiveDateExpr} <= ${filters.dateTo}`);
+	}
+	return clauses;
+}
+
+export async function getCollectionMvtTile(
+	db: Kysely<SimmerDatabase>,
+	input: CollectionMvtTileInput,
+): Promise<Uint8Array> {
+	const whereClauses: RawBuilder<boolean>[] = [
+		sql<boolean>`c.organization_id = ${input.organizationId}`,
+		sql<boolean>`c.deleted_at is null`,
+		sql<boolean>`c.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(c.geom, bounds.geom_4326)`,
+		...collectionFilterWhere(input.filters),
+	];
+
+	const result = await sql<{ readonly tile: Uint8Array | null }>`
+		with
+		${mapTileEnvelopeCte(input)},
+		tile_rows as (
+			select
+				c.id,
+				c.has_problem as "hasProblem",
+				st_asmvtgeom(
+					st_transform(c.geom, 3857),
+					bounds.geom_3857,
+					extent => ${mapMvtExtent},
+					buffer => ${mapMvtBuffer}
+				) as geom
+			from collections c
+			cross join bounds
+			where ${sql.join(whereClauses, sql` and `)}
+		)
+		select coalesce(st_asmvt(tile_rows, 'collections', ${mapMvtExtent}, 'geom'), ''::bytea) as tile
+		from tile_rows
+	`.execute(db);
+
+	return result.rows[0]?.tile ?? new Uint8Array();
+}
+
+export async function listCollectionDisplayRowsPage(
+	db: Kysely<SimmerDatabase>,
+	input: CollectionPageInput,
+): Promise<CollectionPageResult> {
+	const whereClauses: RawBuilder<boolean>[] = [
+		sql<boolean>`c.organization_id = ${input.organizationId}`,
+		sql<boolean>`c.deleted_at is null`,
+		...collectionFilterWhere(input.filters),
+	];
+
+	const result = await sql<SafeCollectionDisplayRow & { readonly total: number }>`
+		select
+			${collectionDisplayColumns},
+			count(*) over()::int as "total"
+		from collections c
+		where ${sql.join(whereClauses, sql` and `)}
+		order by ${collectionEffectiveDateExpr} desc nulls last, c.created_at desc, c.id
+		limit ${input.limit}
+		offset ${input.offset}
+	`.execute(db);
+
+	return {
+		total: result.rows[0]?.total ?? 0,
+		rows: result.rows,
+	};
+}
+
+export async function getCollectionDisplayRowById(
+	db: Kysely<SimmerDatabase>,
+	input: CollectionByIdInput,
+): Promise<SafeCollectionDisplayRow | undefined> {
+	const result = await sql<SafeCollectionDisplayRow>`
+		select ${collectionDisplayColumns}
+		from collections c
+		where c.id = ${input.id}
+			and c.organization_id = ${input.organizationId}
+			and c.deleted_at is null
+		limit 1
+	`.execute(db);
+
+	return result.rows[0];
+}
+
+const collectionDisplayColumns = sql`
+	c.id,
+	c.organization_id as "organizationId",
+	c.trap_id as "trapId",
+	c.lat,
+	c.lng,
+	c.geojson,
+	c.geom_type as "geomType",
+	c.collection_method_id as "collectionMethodId",
+	c.collected_at::text as "collectedAt",
+	c.collection_date::text as "collectionDate",
+	c.has_problem as "hasProblem",
+	c.is_zero_result as "isZeroResult",
+	c.has_bycatch as "hasBycatch",
+	c.created_at as "createdAt",
+	c.updated_at as "updatedAt"
+`;

@@ -1,4 +1,4 @@
-import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
+import type { CollectionLureRow, CollectionMethodRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -28,32 +28,49 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import { MapCanvas } from '../../../components/map';
+import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { MapCanvas, type TrapTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { trapDisplayName } from '../-adult-display';
-import { toPointFeatureCollection } from '../-adult-map';
 import { useAddressNames } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/traps/')({
 	component: TrapsExplorerRoute,
 });
 
+interface TrapSite {
+	readonly id: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly collectionMethodId: string;
+	readonly collectionLureId: string | null;
+	readonly addressId: string | null;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly description: string | null;
+	readonly isActive: boolean;
+}
+
 type StatusFilter = 'all' | 'active' | 'inactive';
+
+const PAGE_SIZE = 50;
 
 function TrapsExplorerRoute() {
 	const [searchInput, setSearchInput] = useState('');
 	const search = useDebouncedValue(searchInput.trim().toLowerCase(), 200);
 	const [status, setStatus] = useState<StatusFilter>('active');
 	const [methodIds, setMethodIds] = useState<ReadonlySet<string>>(() => new Set());
+	const [page, setPage] = useState(0);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
 	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
 		webCollections.collectionMethods,
 	);
@@ -65,52 +82,48 @@ function TrapsExplorerRoute() {
 	);
 	const lureNameById = useMemo(() => new Map(lures.map((lure) => [lure.id, lure.name])), [lures]);
 
-	const filtered = useMemo(() => {
-		return traps.filter((trap) => {
-			if (status === 'active' && !trap.isActive) {
-				return false;
-			}
-			if (status === 'inactive' && trap.isActive) {
-				return false;
-			}
-			if (methodIds.size > 0 && !methodIds.has(trap.collectionMethodId)) {
-				return false;
-			}
-			if (search.length > 0) {
-				const haystack =
-					`${trap.trapName ?? ''} ${trap.trapCode ?? ''} ${trap.description ?? ''}`.toLowerCase();
-				if (!haystack.includes(search)) {
-					return false;
-				}
-			}
-			return true;
-		});
-	}, [traps, status, methodIds, search]);
+	// The server tiles + list read the same filter shape, so the map and the paged
+	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
+	const filters = useMemo<TrapTileFilters>(
+		() => ({
+			...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
+			...(status === 'all' ? {} : { isActive: status === 'active' }),
+			...(search.length > 0 ? { search } : {}),
+		}),
+		[methodIds, status, search],
+	);
+
+	// A new filter set always starts at the first page.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the filter set.
+	useEffect(() => {
+		setPage(0);
+	}, [filters]);
+
+	const { rows, total, isLoading } = useTrapsPage(filters, page);
+	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+	// Clamp if the row count shrinks under the current page (e.g. after a delete).
+	useEffect(() => {
+		if (page > pageCount - 1) {
+			setPage(pageCount - 1);
+		}
+	}, [page, pageCount]);
 
 	// Traps carry their own point geometry (lat/lng on the row). Address names are
 	// resolved separately, only for display in the detail card.
 	const addressIds = useMemo(
-		() => filtered.map((trap) => trap.addressId).filter((id): id is string => id !== null),
-		[filtered],
+		() => rows.map((trap) => trap.addressId).filter((id): id is string => id !== null),
+		[rows],
 	);
 	const addressNameById = useAddressNames(addressIds);
 
-	const featureCollection = useMemo(
-		() =>
-			toPointFeatureCollection(
-				filtered.map((trap) => ({ id: trap.id, lat: trap.lat, lng: trap.lng })),
-			),
-		[filtered],
-	);
+	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
+	const fallbackSelected = useSelectedTrap(selectedId, visibleById);
+	const selected =
+		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
 
-	const selected = useMemo(
-		() => filtered.find((trap) => trap.id === selectedId) ?? null,
-		[filtered, selectedId],
-	);
-
-	// Fly to the selected trap whenever the selection changes.
+	// Fly to the selected trap whenever the resolved selection changes.
 	useEffect(() => {
-		if (map === null || selected === null) {
+		if (map === null || selected == null) {
 			return;
 		}
 		map.flyTo({
@@ -121,6 +134,10 @@ function TrapsExplorerRoute() {
 	}, [map, selected]);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
+	const trapLayer = useMemo(
+		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+		[filters, selectedId],
+	);
 
 	const hasActiveFilters = status !== 'active' || methodIds.size > 0 || search.length > 0;
 	const clearAll = useCallback(() => {
@@ -135,9 +152,8 @@ function TrapsExplorerRoute() {
 				<>
 					<MapCanvas
 						controls={{ layers: false }}
-						geoJson={featureCollection}
-						geoJsonInteraction={{ selectedId, onSelectFeature: setSelectedId }}
 						onMapReady={handleMapReady}
+						trapLayer={trapLayer}
 					/>
 					{selected === null ? null : (
 						<TrapDetailCard
@@ -164,7 +180,7 @@ function TrapsExplorerRoute() {
 					<div className="flex items-center justify-between gap-3">
 						<h1 className="font-semibold text-foreground text-lg leading-none">Traps</h1>
 						<div className="flex items-center gap-2.5">
-							<ResultMeta count={filtered.length} />
+							<ResultMeta isLoading={isLoading} total={total} />
 							<Button asChild size="sm">
 								<Link to="/adult-surveillance/traps/create">
 									<PlusIcon aria-hidden="true" data-icon="inline-start" />
@@ -218,15 +234,106 @@ function TrapsExplorerRoute() {
 				</div>
 
 				<TrapResults
+					isLoading={isLoading}
 					methodNameById={methodNameById}
 					onSelect={setSelectedId}
-					rows={filtered}
+					rows={rows}
 					selectedId={selectedId}
 				/>
+
+				<div className="border-border/50 border-t p-3">
+					<ExplorerPagination
+						noun="traps"
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={total}
+					/>
+				</div>
 			</div>
 		</MapSplitPage>
 	);
 }
+
+// --- data hooks -------------------------------------------------------------
+
+function useTrapsPage(
+	filters: TrapTileFilters,
+	page: number,
+): { readonly rows: readonly TrapSite[]; readonly total: number; readonly isLoading: boolean } {
+	const query = useQuery({
+		queryKey: ['traps', 'page', filters, page],
+		queryFn: ({ signal }) => fetchTrapsPage(filters, page, signal),
+		placeholderData: (previous) => previous,
+	});
+
+	return {
+		rows: query.data?.rows ?? [],
+		total: query.data?.total ?? 0,
+		isLoading: query.isLoading,
+	};
+}
+
+function useSelectedTrap(
+	selectedId: string | null,
+	visibleById: ReadonlyMap<string, TrapSite>,
+): TrapSite | null {
+	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
+	const query = useQuery({
+		enabled: needsFetch,
+		queryKey: ['traps', 'detail', selectedId],
+		queryFn: ({ signal }) => fetchTrapById(selectedId ?? '', signal),
+	});
+	return needsFetch ? (query.data ?? null) : null;
+}
+
+async function fetchTrapsPage(
+	filters: TrapTileFilters,
+	page: number,
+	signal: AbortSignal,
+): Promise<{ readonly rows: TrapSite[]; readonly total: number }> {
+	const url = new URL('/map/traps', getServerUrl());
+	url.searchParams.set('limit', String(PAGE_SIZE));
+	url.searchParams.set('offset', String(page * PAGE_SIZE));
+	if (filters.collectionMethodIds !== undefined && filters.collectionMethodIds.length > 0) {
+		url.searchParams.set('collectionMethodId', filters.collectionMethodIds.join(','));
+	}
+	if (filters.isActive === true) {
+		url.searchParams.set('status', 'active');
+	} else if (filters.isActive === false) {
+		url.searchParams.set('status', 'inactive');
+	}
+	if (filters.search !== undefined) {
+		url.searchParams.set('search', filters.search);
+	}
+
+	const response = await fetch(url, { credentials: 'include', signal });
+	if (!response.ok) {
+		throw new Error(`Traps request failed (${response.status}).`);
+	}
+	const body = (await response.json()) as {
+		readonly traps?: TrapSite[];
+		readonly total?: number;
+	};
+	return { rows: body.traps ?? [], total: body.total ?? 0 };
+}
+
+async function fetchTrapById(id: string, signal: AbortSignal): Promise<TrapSite | null> {
+	if (id.length === 0) {
+		return null;
+	}
+	const response = await fetch(new URL(`/map/traps/${id}`, getServerUrl()), {
+		credentials: 'include',
+		signal,
+	});
+	if (!response.ok) {
+		return null;
+	}
+	const body = (await response.json()) as { readonly trap?: TrapSite };
+	return body.trap ?? null;
+}
+
+// --- filter controls --------------------------------------------------------
 
 const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
 	{ value: 'all', label: 'All' },
@@ -234,10 +341,13 @@ const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: s
 	{ value: 'inactive', label: 'Inactive' },
 ];
 
-function ResultMeta({ count }: { readonly count: number }) {
+function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
+	if (isLoading && total === 0) {
+		return <span className="text-muted-foreground text-sm">Loading…</span>;
+	}
 	return (
 		<span className="text-muted-foreground text-sm">
-			{count === 0 ? 'None' : count === 1 ? '1 trap' : `${count} traps`}
+			{total === 0 ? 'None' : total === 1 ? '1 trap' : `${total} traps`}
 		</span>
 	);
 }
@@ -413,17 +523,33 @@ function FilterChip({
 	);
 }
 
+// --- results ----------------------------------------------------------------
+
+const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
+
 function TrapResults({
 	rows,
+	isLoading,
 	selectedId,
 	methodNameById,
 	onSelect,
 }: {
-	readonly rows: readonly TrapRow[];
+	readonly rows: readonly TrapSite[];
+	readonly isLoading: boolean;
 	readonly selectedId: string | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly onSelect: (id: string) => void;
 }) {
+	if (isLoading && rows.length === 0) {
+		return (
+			<div className="grid gap-px overflow-y-auto p-2">
+				{SKELETON_KEYS.map((key) => (
+					<div className="h-[60px] animate-pulse rounded-md bg-muted/60" key={key} />
+				))}
+			</div>
+		);
+	}
+
 	if (rows.length === 0) {
 		return (
 			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
@@ -457,7 +583,7 @@ function TrapListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly trap: TrapRow;
+	readonly trap: TrapSite;
 	readonly methodName: string;
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
@@ -508,7 +634,7 @@ function TrapDetailCard({
 	addressName,
 	onClose,
 }: {
-	readonly trap: TrapRow;
+	readonly trap: TrapSite;
 	readonly methodName: string;
 	readonly lureName: string | null;
 	readonly addressName: string | null;

@@ -10,6 +10,15 @@ import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
+import {
+	type BiocontrolTileLayerConfig,
+	useBiocontrolTileLayer,
+} from './use-biocontrol-tile-layer';
+import { type ChemicalTileLayerConfig, useChemicalTileLayer } from './use-chemical-tile-layer';
+import {
+	type CollectionTileLayerConfig,
+	useCollectionTileLayer,
+} from './use-collection-tile-layer';
 import { type GeoJsonLayerInteraction, useGeoJsonLayer } from './use-geojson-layer';
 import { type HabitatTileLayerConfig, useHabitatTileLayer } from './use-habitat-tile-layer';
 import {
@@ -19,6 +28,11 @@ import {
 import { useMapboxMap } from './use-mapbox-map';
 import { type RouteLayerConfig, useRouteLayer } from './use-route-layer';
 import { type SampleTileLayerConfig, useSampleTileLayer } from './use-sample-tile-layer';
+import {
+	type SourceReductionTileLayerConfig,
+	useSourceReductionTileLayer,
+} from './use-source-reduction-tile-layer';
+import { type TrapTileLayerConfig, useTrapTileLayer } from './use-trap-tile-layer';
 
 /**
  * Which on-map controls to render. Every control defaults to on; a consuming
@@ -47,6 +61,11 @@ export function MapCanvas({
 	habitatLayer,
 	inspectionLayer,
 	sampleLayer,
+	chemicalLayer,
+	sourceReductionLayer,
+	biocontrolLayer,
+	trapLayer,
+	collectionLayer,
 	routeLayer,
 	geoJson,
 	geoJsonInteraction,
@@ -61,6 +80,16 @@ export function MapCanvas({
 	readonly inspectionLayer?: InspectionTileLayerConfig;
 	/** Mount the sample vector-tile layer with these filters + selection wiring. */
 	readonly sampleLayer?: SampleTileLayerConfig;
+	/** Mount the chemical-application vector-tile layer with filters + selection wiring. */
+	readonly chemicalLayer?: ChemicalTileLayerConfig;
+	/** Mount the source-reduction vector-tile layer with filters + selection wiring. */
+	readonly sourceReductionLayer?: SourceReductionTileLayerConfig;
+	/** Mount the biocontrol vector-tile layer with filters + selection wiring. */
+	readonly biocontrolLayer?: BiocontrolTileLayerConfig;
+	/** Mount the trap vector-tile layer with filters + selection wiring. */
+	readonly trapLayer?: TrapTileLayerConfig;
+	/** Mount the collection vector-tile layer with filters + selection wiring. */
+	readonly collectionLayer?: CollectionTileLayerConfig;
 	/** Draw an ordered route: numbered stop pins + connecting path + selection sync. */
 	readonly routeLayer?: RouteLayerConfig;
 	/** Draw a single GeoJSON overlay (e.g. one record's geometry on a detail map). */
@@ -92,6 +121,11 @@ export function MapCanvas({
 	useHabitatTileLayer(map, isLoaded, habitatLayer);
 	useInspectionTileLayer(map, isLoaded, inspectionLayer);
 	useSampleTileLayer(map, isLoaded, sampleLayer);
+	useChemicalTileLayer(map, isLoaded, chemicalLayer);
+	useSourceReductionTileLayer(map, isLoaded, sourceReductionLayer);
+	useBiocontrolTileLayer(map, isLoaded, biocontrolLayer);
+	useTrapTileLayer(map, isLoaded, trapLayer);
+	useCollectionTileLayer(map, isLoaded, collectionLayer);
 	useRouteLayer(map, isLoaded, routeLayer);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null, geoJsonInteraction);
 

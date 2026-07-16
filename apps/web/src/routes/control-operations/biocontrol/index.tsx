@@ -23,12 +23,20 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { gte, useLiveQuery } from '@tanstack/react-db';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import { MapCanvas } from '../../../components/map';
+import {
+	activeDatePresetId,
+	type DatePreset,
+	DateRangeFilter,
+	datePresetRange,
+} from '../../../components/date-range-filter';
+import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { type BiocontrolTileFilters, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -38,14 +46,13 @@ import {
 	nameById,
 	todayDateValue,
 } from '../-control-display';
-import { toPointFeatureCollection } from '../-control-map';
 import { addDaysToDateString, formatMonthDay, useHabitatNames } from '../-overview-data';
 
 export const Route = createFileRoute('/control-operations/biocontrol/')({
 	component: BiocontrolExplorerRoute,
 });
 
-interface BiocontrolListRow {
+interface BiocontrolSite {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -57,33 +64,44 @@ interface BiocontrolListRow {
 	readonly inspectionId: string | null;
 }
 
-interface DatePreset {
-	readonly id: string;
-	readonly label: string;
-	readonly days: number;
-}
-
-const DATE_PRESETS: readonly DatePreset[] = [
-	{ id: '30d', label: 'Last 30 days', days: 30 },
-	{ id: '90d', label: 'Last 90 days', days: 90 },
-	{ id: '365d', label: 'Last 12 months', days: 365 },
-];
-const DEFAULT_PRESET_ID = '90d';
-
-const biocontrolGcTimeMs = 30_000;
+const DEFAULT_WINDOW_DAYS = 90;
+const PAGE_SIZE = 50;
 
 function BiocontrolExplorerRoute() {
 	const today = useMemo(() => todayDateValue(), []);
-	const [presetId, setPresetId] = useState(DEFAULT_PRESET_ID);
+	const defaultFrom = useMemo(
+		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
+		[today],
+	);
+	const [dateFrom, setDateFrom] = useState(defaultFrom);
+	const [dateTo, setDateTo] = useState(today);
 	const [methodIds, setMethodIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [habitatOnly, setHabitatOnly] = useState(false);
+	const [page, setPage] = useState(0);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 
-	const since = useMemo(() => {
-		const days = DATE_PRESETS.find((entry) => entry.id === presetId)?.days ?? 90;
-		return addDaysToDateString(today, -(days - 1));
-	}, [presetId, today]);
+	// Editing one bound past the other drags the other along, so the range never inverts.
+	const handleFromChange = useCallback((next: string) => {
+		setDateFrom(next);
+		setDateTo((prev) => (next !== '' && prev !== '' && next > prev ? next : prev));
+	}, []);
+	const handleToChange = useCallback((next: string) => {
+		setDateTo(next);
+		setDateFrom((prev) => (next !== '' && prev !== '' && next < prev ? next : prev));
+	}, []);
+	const applyPreset = useCallback(
+		(preset: DatePreset) => {
+			const range = datePresetRange(preset, today);
+			setDateFrom(range.from);
+			setDateTo(range.to);
+		},
+		[today],
+	);
+	const activePresetId = useMemo(
+		() => activeDatePresetId(dateFrom, dateTo, today),
+		[dateFrom, dateTo, today],
+	);
 
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
@@ -91,7 +109,32 @@ function BiocontrolExplorerRoute() {
 	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
 	const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
 
-	const { rows, isReady } = useBiocontrolActionsSince(since);
+	// The server tiles + list read the same filter shape, so the map and the paged
+	// rail stay in lockstep. Omitted keys (empty range / no toggle) drop out.
+	const filters = useMemo<BiocontrolTileFilters>(
+		() => ({
+			...(methodIds.size > 0 ? { biocontrolMethodIds: [...methodIds] } : {}),
+			...(habitatOnly ? { habitatLinkedOnly: true } : {}),
+			...(dateFrom === '' ? {} : { dateFrom }),
+			...(dateTo === '' ? {} : { dateTo }),
+		}),
+		[methodIds, habitatOnly, dateFrom, dateTo],
+	);
+
+	// A new filter set always starts at the first page.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the filter set.
+	useEffect(() => {
+		setPage(0);
+	}, [filters]);
+
+	const { rows, total, isLoading } = useBiocontrolPage(filters, page);
+	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+	// Clamp if the row count shrinks under the current page (e.g. after a delete).
+	useEffect(() => {
+		if (page > pageCount - 1) {
+			setPage(pageCount - 1);
+		}
+	}, [page, pageCount]);
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
@@ -101,38 +144,14 @@ function BiocontrolExplorerRoute() {
 	);
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const filtered = useMemo(() => {
-		return (
-			rows
-				.filter((row) => {
-					if (methodIds.size > 0 && !methodIds.has(row.biocontrolMethodId)) {
-						return false;
-					}
-					if (habitatOnly && row.habitatId === null) {
-						return false;
-					}
-					return true;
-				})
-				// The query orders by `biocontrolDate` already; re-sort defensively so the
-				// rail stays most-recent-first regardless of subset emission order.
-				.sort(compareByDateDesc)
-		);
-	}, [rows, methodIds, habitatOnly]);
+	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
+	const fallbackSelected = useSelectedBiocontrol(selectedId, visibleById);
+	const selected =
+		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
 
-	// Biocontrol actions carry their own point geometry (lat/lng on the row).
-	const featureCollection = useMemo(
-		() =>
-			toPointFeatureCollection(filtered.map((row) => ({ id: row.id, lat: row.lat, lng: row.lng }))),
-		[filtered],
-	);
-
-	const selected = useMemo(
-		() => filtered.find((row) => row.id === selectedId) ?? null,
-		[filtered, selectedId],
-	);
-
+	// Fly to the selected release whenever the resolved selection changes.
 	useEffect(() => {
-		if (map === null || selected === null) {
+		if (map === null || selected == null) {
 			return;
 		}
 		map.flyTo({
@@ -143,22 +162,27 @@ function BiocontrolExplorerRoute() {
 	}, [map, selected]);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
+	const biocontrolLayer = useMemo(
+		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+		[filters, selectedId],
+	);
 
-	const hasActiveFilters = presetId !== DEFAULT_PRESET_ID || methodIds.size > 0 || habitatOnly;
+	const hasActiveFilters =
+		dateFrom !== defaultFrom || dateTo !== today || methodIds.size > 0 || habitatOnly;
 	const clearAll = useCallback(() => {
-		setPresetId(DEFAULT_PRESET_ID);
+		setDateFrom(defaultFrom);
+		setDateTo(today);
 		setMethodIds(new Set());
 		setHabitatOnly(false);
-	}, []);
+	}, [defaultFrom, today]);
 
 	return (
 		<MapSplitPage
 			map={
 				<>
 					<MapCanvas
+						biocontrolLayer={biocontrolLayer}
 						controls={{ layers: false }}
-						geoJson={featureCollection}
-						geoJsonInteraction={{ selectedId, onSelectFeature: setSelectedId }}
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (
@@ -177,7 +201,7 @@ function BiocontrolExplorerRoute() {
 					<div className="flex items-center justify-between gap-3">
 						<h1 className="font-semibold text-foreground text-lg leading-none">Biocontrol</h1>
 						<div className="flex items-center gap-2.5">
-							<ResultMeta count={filtered.length} isReady={isReady} />
+							<ResultMeta isLoading={isLoading} total={total} />
 							<Button asChild size="sm">
 								<Link to="/control-operations/biocontrol/create">
 									<PlusIcon aria-hidden="true" data-icon="inline-start" />
@@ -187,27 +211,15 @@ function BiocontrolExplorerRoute() {
 						</div>
 					</div>
 
-					<div className="flex flex-wrap gap-1.5">
-						{DATE_PRESETS.map((preset) => {
-							const isActive = preset.id === presetId;
-							return (
-								<button
-									aria-pressed={isActive}
-									className={cn(
-										'rounded-full border px-2.5 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-										isActive
-											? 'border-primary/50 bg-primary/10 text-foreground'
-											: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-									)}
-									key={preset.id}
-									onClick={() => setPresetId(preset.id)}
-									type="button"
-								>
-									{preset.label}
-								</button>
-							);
-						})}
-					</div>
+					<DateRangeFilter
+						activePresetId={activePresetId}
+						from={dateFrom}
+						onApplyPreset={applyPreset}
+						onFromChange={handleFromChange}
+						onToChange={handleToChange}
+						to={dateTo}
+						today={today}
+					/>
 
 					<div className="flex flex-wrap items-center gap-2">
 						<MultiSelectFilter
@@ -245,66 +257,125 @@ function BiocontrolExplorerRoute() {
 
 				<BiocontrolResults
 					habitatNameById={habitatNameById}
-					isReady={isReady}
+					isLoading={isLoading}
 					methodNameById={methodNameById}
 					onSelect={setSelectedId}
-					rows={filtered}
+					rows={rows}
 					selectedId={selectedId}
 					unitById={unitById}
 				/>
+
+				<div className="border-border/50 border-t p-3">
+					<ExplorerPagination
+						noun="releases"
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={total}
+					/>
+				</div>
 			</div>
 		</MapSplitPage>
 	);
 }
 
-// --- data hook --------------------------------------------------------------
+// --- data hooks -------------------------------------------------------------
 
-function useBiocontrolActionsSince(sinceDate: string): {
-	readonly rows: readonly BiocontrolListRow[];
-	readonly isReady: boolean;
+function useBiocontrolPage(
+	filters: BiocontrolTileFilters,
+	page: number,
+): {
+	readonly rows: readonly BiocontrolSite[];
+	readonly total: number;
+	readonly isLoading: boolean;
 } {
-	// biocontrolActions is on-demand: the date-bounded `where` is what defines the
-	// synced subset, so the window must always be closed. Status-gated useLiveQuery
-	// (not the suspense variant) avoids the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: biocontrolGcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: webCollections.biocontrolActions })
-					.where(({ action }) => gte(action.biocontrolDate, sinceDate))
-					.orderBy(({ action }) => action.biocontrolDate, 'desc')
-					.select(({ action }) => ({
-						id: action.id,
-						lat: action.lat,
-						lng: action.lng,
-						biocontrolMethodId: action.biocontrolMethodId,
-						biocontrolDate: action.biocontrolDate,
-						amountReleased: action.amountReleased,
-						releaseUnitId: action.releaseUnitId,
-						habitatId: action.habitatId,
-						inspectionId: action.inspectionId,
-					})),
-		},
-		[sinceDate],
-	);
+	const query = useQuery({
+		queryKey: ['biocontrol', 'page', filters, page],
+		queryFn: ({ signal }) => fetchBiocontrolPage(filters, page, signal),
+		placeholderData: (previous) => previous,
+	});
+
 	return {
-		rows: (result.data ?? []) as unknown as readonly BiocontrolListRow[],
-		isReady: result.isReady,
+		rows: query.data?.rows ?? [],
+		total: query.data?.total ?? 0,
+		isLoading: query.isLoading,
 	};
+}
+
+function useSelectedBiocontrol(
+	selectedId: string | null,
+	visibleById: ReadonlyMap<string, BiocontrolSite>,
+): BiocontrolSite | null {
+	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
+	const query = useQuery({
+		enabled: needsFetch,
+		queryKey: ['biocontrol', 'detail', selectedId],
+		queryFn: ({ signal }) => fetchBiocontrolById(selectedId ?? '', signal),
+	});
+	return needsFetch ? (query.data ?? null) : null;
+}
+
+async function fetchBiocontrolPage(
+	filters: BiocontrolTileFilters,
+	page: number,
+	signal: AbortSignal,
+): Promise<{ readonly rows: BiocontrolSite[]; readonly total: number }> {
+	const url = new URL('/map/biocontrol', getServerUrl());
+	url.searchParams.set('limit', String(PAGE_SIZE));
+	url.searchParams.set('offset', String(page * PAGE_SIZE));
+	if (filters.biocontrolMethodIds !== undefined && filters.biocontrolMethodIds.length > 0) {
+		url.searchParams.set('biocontrolMethodId', filters.biocontrolMethodIds.join(','));
+	}
+	if (filters.habitatLinkedOnly === true) {
+		url.searchParams.set('habitatLinked', 'true');
+	}
+	if (filters.dateFrom !== undefined) {
+		url.searchParams.set('dateFrom', filters.dateFrom);
+	}
+	if (filters.dateTo !== undefined) {
+		url.searchParams.set('dateTo', filters.dateTo);
+	}
+
+	const response = await fetch(url, { credentials: 'include', signal });
+	if (!response.ok) {
+		throw new Error(`Biocontrol request failed (${response.status}).`);
+	}
+	const body = (await response.json()) as {
+		readonly biocontrolActions?: BiocontrolSite[];
+		readonly total?: number;
+	};
+	return { rows: body.biocontrolActions ?? [], total: body.total ?? 0 };
+}
+
+async function fetchBiocontrolById(
+	id: string,
+	signal: AbortSignal,
+): Promise<BiocontrolSite | null> {
+	if (id.length === 0) {
+		return null;
+	}
+	const response = await fetch(new URL(`/map/biocontrol/${id}`, getServerUrl()), {
+		credentials: 'include',
+		signal,
+	});
+	if (!response.ok) {
+		return null;
+	}
+	const body = (await response.json()) as { readonly biocontrolAction?: BiocontrolSite };
+	return body.biocontrolAction ?? null;
 }
 
 // --- filter controls --------------------------------------------------------
 
 const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
 
-function ResultMeta({ count, isReady }: { readonly count: number; readonly isReady: boolean }) {
-	if (!isReady) {
+function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
+	if (isLoading && total === 0) {
 		return <span className="text-muted-foreground text-sm">Loading…</span>;
 	}
 	return (
 		<span className="text-muted-foreground text-sm">
-			{count === 0 ? 'None' : count === 1 ? '1 release' : `${count} releases`}
+			{total === 0 ? 'None' : total === 1 ? '1 release' : `${total} releases`}
 		</span>
 	);
 }
@@ -444,22 +515,22 @@ function FilterChip({
 
 function BiocontrolResults({
 	rows,
-	isReady,
+	isLoading,
 	selectedId,
 	methodNameById,
 	habitatNameById,
 	unitById,
 	onSelect,
 }: {
-	readonly rows: readonly BiocontrolListRow[];
-	readonly isReady: boolean;
+	readonly rows: readonly BiocontrolSite[];
+	readonly isLoading: boolean;
 	readonly selectedId: string | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly habitatNameById: ReadonlyMap<string, string>;
 	readonly unitById: ReadonlyMap<string, UnitRow>;
 	readonly onSelect: (id: string) => void;
 }) {
-	if (!isReady && rows.length === 0) {
+	if (isLoading && rows.length === 0) {
 		return (
 			<div className="grid gap-px overflow-y-auto p-2">
 				{SKELETON_KEYS.map((key) => (
@@ -510,7 +581,7 @@ function BiocontrolListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: BiocontrolListRow;
+	readonly row: BiocontrolSite;
 	readonly methodName: string;
 	readonly amount: string;
 	readonly habitatName: string | null;
@@ -567,7 +638,7 @@ function BiocontrolDetailCard({
 	amount,
 	onClose,
 }: {
-	readonly row: BiocontrolListRow;
+	readonly row: BiocontrolSite;
 	readonly methodName: string;
 	readonly amount: string;
 	readonly onClose: () => void;
@@ -641,14 +712,6 @@ function DetailFact({
 }
 
 // --- helpers ----------------------------------------------------------------
-
-/** Most-recent-first by release date. */
-function compareByDateDesc(a: BiocontrolListRow, b: BiocontrolListRow): number {
-	if (a.biocontrolDate === b.biocontrolDate) {
-		return 0;
-	}
-	return a.biocontrolDate < b.biocontrolDate ? 1 : -1;
-}
 
 function toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
 	const next = new Set(set);

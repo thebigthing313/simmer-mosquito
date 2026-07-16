@@ -105,6 +105,7 @@ describe('parseHabitatDisplayQuery', () => {
 					isInaccessible: false,
 				},
 				limit: 25,
+				offset: 0,
 			},
 		});
 	});
@@ -136,27 +137,30 @@ describe('registerMapTileRoutes', () => {
 			getHabitatTile: async () => new Uint8Array(),
 			listHabitatDisplayRows: async (_db, input) => {
 				calls.push(input);
-				return [
-					{
-						id: 'habitat-1',
-						organizationId,
-						lat: 35.5,
-						lng: -90.5,
-						geojson: { type: 'Point', coordinates: [-90.5, 35.5] },
-						geomType: 'st_point',
-						addressId: null,
-						habitatTypeId: null,
-						habitatName: 'Retention pond',
-						description: '',
-						isActive: true,
-						isInaccessible: false,
-						metadata: null,
-						createdByProfileId: null,
-						updatedByProfileId: null,
-						createdAt: new Date('2026-05-01T00:00:00.000Z'),
-						updatedAt: new Date('2026-05-02T00:00:00.000Z'),
-					},
-				];
+				return {
+					total: 1,
+					rows: [
+						{
+							id: 'habitat-1',
+							organizationId,
+							lat: 35.5,
+							lng: -90.5,
+							geojson: { type: 'Point', coordinates: [-90.5, 35.5] },
+							geomType: 'st_point',
+							addressId: null,
+							habitatTypeId: null,
+							habitatName: 'Retention pond',
+							description: '',
+							isActive: true,
+							isInaccessible: false,
+							metadata: null,
+							createdByProfileId: null,
+							updatedByProfileId: null,
+							createdAt: new Date('2026-05-01T00:00:00.000Z'),
+							updatedAt: new Date('2026-05-02T00:00:00.000Z'),
+						},
+					],
+				};
 			},
 		});
 
@@ -186,6 +190,7 @@ describe('registerMapTileRoutes', () => {
 					isActive: true,
 				},
 				limit: 10,
+				offset: 0,
 			},
 		]);
 	});
@@ -251,7 +256,7 @@ describe('registerMapTileRoutes', () => {
 		const getHabitatTile = vi.fn();
 		const app = createApp({ getHabitatTile });
 
-		const response = await app.request('/map/tiles/traps/0/0/0.mvt');
+		const response = await app.request('/map/tiles/nonexistent-tileset/0/0/0.mvt');
 
 		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_tileset' });
 		expect(response.status).toBe(400);
@@ -475,6 +480,7 @@ describe('parseInspectionDisplayQuery', () => {
 				bounds: { west: -91, south: 35, east: -90, north: 36 },
 				filters: { isWet: true, densities: ['medium'] },
 				limit: 25,
+				offset: 0,
 			},
 		});
 	});
@@ -496,7 +502,7 @@ describe('registerMapTileRoutes — inspections', () => {
 			getHabitatTile: async () => new Uint8Array(),
 			listInspectionDisplayRows: async (_db, input) => {
 				calls.push(input);
-				return [sampleInspectionRow];
+				return { total: 1, rows: [sampleInspectionRow] };
 			},
 		});
 
@@ -514,6 +520,7 @@ describe('registerMapTileRoutes — inspections', () => {
 				bounds: { west: -91, south: 35, east: -90, north: 36 },
 				filters: { isWet: true, densities: ['heavy'] },
 				limit: 10,
+				offset: 0,
 			},
 		]);
 	});

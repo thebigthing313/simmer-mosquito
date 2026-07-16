@@ -38,6 +38,7 @@ import {
 	DateRangeFilter,
 	datePresetRange,
 } from '../../../components/date-range-filter';
+import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
@@ -96,6 +97,8 @@ type WetFilter = 'all' | 'wet' | 'dry';
 /** The window the explorer opens with, and the reset target for "Clear all". */
 const DEFAULT_WINDOW_DAYS = 30;
 
+const PAGE_SIZE = 50;
+
 const WETNESS_OPTIONS: readonly { readonly value: WetFilter; readonly label: string }[] = [
 	{ value: 'all', label: 'All' },
 	{ value: 'wet', label: 'Wet' },
@@ -129,6 +132,7 @@ function InspectionsExplorerRoute() {
 	const [typeIds, setTypeIds] = useState<ReadonlySet<string>>(() => new Set(search.types));
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [page, setPage] = useState(0);
 
 	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
 	const typeNameById = useMemo(
@@ -174,7 +178,21 @@ function InspectionsExplorerRoute() {
 	);
 
 	const bounds = useMapBounds(map);
-	const { rows, isLoading } = useVisibleInspections(bounds, filters);
+	const { rows, total, isLoading } = useVisibleInspections(bounds, filters, page);
+	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+	// A new viewport or filter set always starts back at the first page.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the viewport + filters.
+	useEffect(() => {
+		setPage(0);
+	}, [bounds, filters]);
+
+	// Clamp if the row count shrinks under the current page.
+	useEffect(() => {
+		if (page > pageCount - 1) {
+			setPage(pageCount - 1);
+		}
+	}, [page, pageCount]);
 
 	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
 	const fallbackSelected = useSelectedInspection(selectedId, visibleById);
@@ -241,7 +259,7 @@ function InspectionsExplorerRoute() {
 					<div className="flex items-center justify-between gap-3">
 						<h1 className="font-semibold text-foreground text-lg leading-none">Inspections</h1>
 						<div className="flex items-center gap-2.5">
-							<ResultMeta count={rows.length} isLoading={isLoading} />
+							<ResultMeta isLoading={isLoading} total={total} />
 							<Button asChild size="sm">
 								<Link to="/larval-surveillance/inspections/create">
 									<PlusIcon aria-hidden="true" data-icon="inline-start" />
@@ -308,18 +326,28 @@ function InspectionsExplorerRoute() {
 					selectedId={selectedId}
 					typeNameById={typeNameById}
 				/>
+
+				<div className="border-border/50 border-t p-3">
+					<ExplorerPagination
+						noun="inspections"
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={total}
+					/>
+				</div>
 			</div>
 		</MapSplitPage>
 	);
 }
 
-function ResultMeta({ count, isLoading }: { readonly count: number; readonly isLoading: boolean }) {
-	if (isLoading && count === 0) {
+function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
+	if (isLoading && total === 0) {
 		return <span className="text-muted-foreground text-sm">Loading…</span>;
 	}
 	return (
 		<span className="text-muted-foreground text-sm">
-			{count === 0 ? 'None in view' : count >= 50 ? '50+ in view' : `${count} in view`}
+			{total === 0 ? 'None in view' : `${total} in view`}
 		</span>
 	);
 }
@@ -867,16 +895,25 @@ function DensityDot({ inspection }: { readonly inspection: InspectionSite }) {
 function useVisibleInspections(
 	bounds: BoundingBox | null,
 	filters: InspectionTileFilters,
-): { readonly rows: readonly InspectionSite[]; readonly isLoading: boolean } {
+	page: number,
+): {
+	readonly rows: readonly InspectionSite[];
+	readonly total: number;
+	readonly isLoading: boolean;
+} {
 	const bbox = bounds === null ? null : formatBoundingBox(bounds);
 	const query = useQuery({
 		enabled: bbox !== null,
-		queryKey: ['inspections', 'visible', bbox, filters],
-		queryFn: ({ signal }) => fetchVisibleInspections(bounds, filters, signal),
+		queryKey: ['inspections', 'visible', bbox, filters, page],
+		queryFn: ({ signal }) => fetchVisibleInspections(bounds, filters, page, signal),
 		placeholderData: (previous) => previous,
 	});
 
-	return { rows: query.data ?? [], isLoading: query.isLoading };
+	return {
+		rows: query.data?.rows ?? [],
+		total: query.data?.total ?? 0,
+		isLoading: query.isLoading,
+	};
 }
 
 function useSelectedInspection(
@@ -895,14 +932,16 @@ function useSelectedInspection(
 async function fetchVisibleInspections(
 	bounds: BoundingBox | null,
 	filters: InspectionTileFilters,
+	page: number,
 	signal: AbortSignal,
-): Promise<InspectionSite[]> {
+): Promise<{ readonly rows: InspectionSite[]; readonly total: number }> {
 	if (bounds === null) {
-		return [];
+		return { rows: [], total: 0 };
 	}
 	const url = new URL('/map/inspections', getServerUrl());
 	url.searchParams.set('bbox', formatBoundingBox(normalizeBounds(bounds)));
-	url.searchParams.set('limit', '50');
+	url.searchParams.set('limit', String(PAGE_SIZE));
+	url.searchParams.set('offset', String(page * PAGE_SIZE));
 	if (filters.isWet !== undefined) {
 		url.searchParams.set('isWet', String(filters.isWet));
 	}
@@ -926,8 +965,11 @@ async function fetchVisibleInspections(
 	if (!response.ok) {
 		throw new Error(`Inspections request failed (${response.status}).`);
 	}
-	const body = (await response.json()) as { readonly inspections?: InspectionSite[] };
-	return body.inspections ?? [];
+	const body = (await response.json()) as {
+		readonly inspections?: InspectionSite[];
+		readonly total?: number;
+	};
+	return { rows: body.inspections ?? [], total: body.total ?? 0 };
 }
 
 async function fetchInspectionById(

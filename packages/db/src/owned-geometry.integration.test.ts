@@ -100,7 +100,7 @@ describeDbIntegration('owned geometry columns', () => {
 				})
 				.execute();
 
-			const rows = await listHabitatDisplayRowsByBounds(db, {
+			const { rows } = await listHabitatDisplayRowsByBounds(db, {
 				organizationId: organization.id,
 				bounds: {
 					west: -91,
@@ -109,6 +109,7 @@ describeDbIntegration('owned geometry columns', () => {
 					north: 36,
 				},
 				limit: 50,
+				offset: 0,
 			});
 
 			expect(rows).toHaveLength(1);

@@ -1,5 +1,6 @@
 import mapboxgl, { type ErrorEvent, type Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
+import { getServerUrl } from '../../auth';
 import {
 	type BasemapId,
 	basemapStyle,
@@ -7,6 +8,20 @@ import {
 	getMapboxToken,
 	type MapCamera,
 } from './map-styles';
+
+// Our authenticated MVT tiles are served by the SIMMER control plane, which is a
+// different origin from the web app in every environment where they don't share a
+// host (e.g. local dev on :3002). Mapbox GL's tile worker fetches cross-origin
+// requests with `same-origin` credentials by default, so the session cookie is
+// dropped and every tile 401s. Opt credentials in — but only for our own server,
+// never for Mapbox's own style/sprite/glyph/basemap-tile requests.
+const serverOrigin = (() => {
+	try {
+		return new URL(getServerUrl()).origin;
+	} catch {
+		return null;
+	}
+})();
 
 export interface UseMapboxMapOptions {
 	/** The element the GL canvas mounts into. The map is created once it exists. */
@@ -73,6 +88,12 @@ export function useMapboxMap({
 			// caller wants it) in the bottom-right corner so it tucks in beneath the
 			// zoom + locate control stack.
 			attributionControl: false,
+			// Send the session cookie with tile requests to our own MVT server so the
+			// authorized vector tiles load; leave every other request untouched.
+			transformRequest: (url) =>
+				serverOrigin !== null && url.startsWith(serverOrigin)
+					? { url, credentials: 'include' }
+					: { url },
 		});
 		if (attributionRef.current !== false) {
 			instance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');

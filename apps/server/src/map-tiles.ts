@@ -1,12 +1,38 @@
 import {
+	type ApplicationByIdInput,
+	type ApplicationMapFilters,
+	type ApplicationMvtTileInput,
+	type ApplicationPageInput,
+	type ApplicationPageResult,
+	type BiocontrolByIdInput,
+	type BiocontrolMapFilters,
+	type BiocontrolMvtTileInput,
+	type BiocontrolPageInput,
+	type BiocontrolPageResult,
+	type CollectionByIdInput,
+	type CollectionMapFilters,
+	type CollectionMvtTileInput,
+	type CollectionPageInput,
+	type CollectionPageResult,
 	countActiveHabitatsByType,
+	getApplicationDisplayRowById,
+	getApplicationMvtTile,
+	getBiocontrolDisplayRowById,
+	getBiocontrolMvtTile,
+	getCollectionDisplayRowById,
+	getCollectionMvtTile,
 	getHabitatDisplayRowById,
 	getHabitatMvtTile,
 	getInspectionDisplayRowById,
 	getInspectionMvtTile,
 	getSampleDisplayRowById,
 	getSampleMvtTile,
+	getSourceReductionDisplayRowById,
+	getSourceReductionMvtTile,
+	getTrapDisplayRowById,
+	getTrapMvtTile,
 	type HabitatByIdInput,
+	type HabitatDisplayPageResult,
 	type HabitatMvtTileFilters,
 	type HabitatMvtTileInput,
 	type HabitatSearchInput,
@@ -15,24 +41,46 @@ import {
 	type HabitatTypeUsageRow,
 	type InspectionByIdInput,
 	type InspectionDensity,
+	type InspectionDisplayPageResult,
 	type InspectionMvtTileFilters,
 	type InspectionMvtTileInput,
 	inspectionDensityValues,
 	type Kysely,
+	listApplicationDisplayRowsPage,
+	listBiocontrolDisplayRowsPage,
+	listCollectionDisplayRowsPage,
 	listHabitatDisplayRowsByBounds,
 	listHabitatDisplayRowsByIds,
 	listInspectionDisplayRowsByBounds,
 	listSampleDisplayRowsByBounds,
+	listSourceReductionDisplayRowsPage,
+	listTrapDisplayRowsPage,
+	type SafeApplicationDisplayRow,
+	type SafeBiocontrolDisplayRow,
+	type SafeCollectionDisplayRow,
 	type SafeHabitatDisplayRow,
 	type SafeInspectionDisplayRow,
 	type SafeSampleDisplayRow,
+	type SafeSourceReductionDisplayRow,
+	type SafeTrapDisplayRow,
 	type SampleByIdInput,
+	type SampleDisplayPageResult,
 	type SampleListFilters,
 	type SampleMvtTileInput,
 	type SampleStatus,
 	type SimmerDatabase,
+	type SourceReductionByIdInput,
+	type SourceReductionMapFilters,
+	type SourceReductionMvtTileInput,
+	type SourceReductionPageInput,
+	type SourceReductionPageResult,
 	sampleStatusValues,
 	searchHabitatSites,
+	type TrapByIdInput,
+	type TrapMapFilters,
+	type TrapMvtTileInput,
+	type TrapPageInput,
+	type TrapPageResult,
 } from '@simmer-mosquito/db';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
@@ -47,7 +95,7 @@ type HabitatTileReader = (db: TileDb, input: HabitatMvtTileInput) => Promise<Uin
 type HabitatDisplayReader = (
 	db: TileDb,
 	input: HabitatDisplayInput,
-) => Promise<SafeHabitatDisplayRow[]>;
+) => Promise<HabitatDisplayPageResult>;
 type HabitatDisplayByIdReader = (
 	db: TileDb,
 	input: HabitatByIdInput,
@@ -68,7 +116,7 @@ type InspectionTileReader = (db: TileDb, input: InspectionMvtTileInput) => Promi
 type InspectionDisplayReader = (
 	db: TileDb,
 	input: InspectionDisplayInput,
-) => Promise<SafeInspectionDisplayRow[]>;
+) => Promise<InspectionDisplayPageResult>;
 type InspectionDisplayByIdReader = (
 	db: TileDb,
 	input: InspectionByIdInput,
@@ -77,11 +125,56 @@ type SampleTileReader = (db: TileDb, input: SampleMvtTileInput) => Promise<Uint8
 type SampleDisplayReader = (
 	db: TileDb,
 	input: SampleDisplayInput,
-) => Promise<SafeSampleDisplayRow[]>;
+) => Promise<SampleDisplayPageResult>;
 type SampleDisplayByIdReader = (
 	db: TileDb,
 	input: SampleByIdInput,
 ) => Promise<SafeSampleDisplayRow | undefined>;
+type ApplicationTileReader = (db: TileDb, input: ApplicationMvtTileInput) => Promise<Uint8Array>;
+type ApplicationPageReader = (
+	db: TileDb,
+	input: ApplicationPageInput,
+) => Promise<ApplicationPageResult>;
+type ApplicationDisplayByIdReader = (
+	db: TileDb,
+	input: ApplicationByIdInput,
+) => Promise<SafeApplicationDisplayRow | undefined>;
+type SourceReductionTileReader = (
+	db: TileDb,
+	input: SourceReductionMvtTileInput,
+) => Promise<Uint8Array>;
+type SourceReductionPageReader = (
+	db: TileDb,
+	input: SourceReductionPageInput,
+) => Promise<SourceReductionPageResult>;
+type SourceReductionDisplayByIdReader = (
+	db: TileDb,
+	input: SourceReductionByIdInput,
+) => Promise<SafeSourceReductionDisplayRow | undefined>;
+type BiocontrolTileReader = (db: TileDb, input: BiocontrolMvtTileInput) => Promise<Uint8Array>;
+type BiocontrolPageReader = (
+	db: TileDb,
+	input: BiocontrolPageInput,
+) => Promise<BiocontrolPageResult>;
+type BiocontrolDisplayByIdReader = (
+	db: TileDb,
+	input: BiocontrolByIdInput,
+) => Promise<SafeBiocontrolDisplayRow | undefined>;
+type TrapTileReader = (db: TileDb, input: TrapMvtTileInput) => Promise<Uint8Array>;
+type TrapPageReader = (db: TileDb, input: TrapPageInput) => Promise<TrapPageResult>;
+type TrapDisplayByIdReader = (
+	db: TileDb,
+	input: TrapByIdInput,
+) => Promise<SafeTrapDisplayRow | undefined>;
+type CollectionTileReader = (db: TileDb, input: CollectionMvtTileInput) => Promise<Uint8Array>;
+type CollectionPageReader = (
+	db: TileDb,
+	input: CollectionPageInput,
+) => Promise<CollectionPageResult>;
+type CollectionDisplayByIdReader = (
+	db: TileDb,
+	input: CollectionByIdInput,
+) => Promise<SafeCollectionDisplayRow | undefined>;
 
 type TileCoordinateResult =
 	| {
@@ -124,6 +217,7 @@ interface HabitatDisplayInput {
 	readonly bounds: MapBounds;
 	readonly filters?: HabitatMvtTileFilters;
 	readonly limit: number;
+	readonly offset: number;
 }
 
 interface MapBounds {
@@ -146,6 +240,7 @@ interface InspectionDisplayInput {
 	readonly bounds: MapBounds;
 	readonly filters?: InspectionMvtTileFilters;
 	readonly limit: number;
+	readonly offset: number;
 }
 
 type SampleFilterResult =
@@ -161,6 +256,7 @@ interface SampleDisplayInput {
 	readonly bounds: MapBounds;
 	readonly filters?: SampleListFilters;
 	readonly limit: number;
+	readonly offset: number;
 }
 
 // The tileset registry is type-erased at the Map boundary so it can hold tilesets
@@ -216,12 +312,32 @@ export function registerMapTileRoutes(
 		readonly getSampleTile?: SampleTileReader;
 		readonly listSampleDisplayRows?: SampleDisplayReader;
 		readonly getSampleDisplayRow?: SampleDisplayByIdReader;
+		readonly getApplicationTile?: ApplicationTileReader;
+		readonly listApplicationDisplayRows?: ApplicationPageReader;
+		readonly getApplicationDisplayRow?: ApplicationDisplayByIdReader;
+		readonly getSourceReductionTile?: SourceReductionTileReader;
+		readonly listSourceReductionDisplayRows?: SourceReductionPageReader;
+		readonly getSourceReductionDisplayRow?: SourceReductionDisplayByIdReader;
+		readonly getBiocontrolTile?: BiocontrolTileReader;
+		readonly listBiocontrolDisplayRows?: BiocontrolPageReader;
+		readonly getBiocontrolDisplayRow?: BiocontrolDisplayByIdReader;
+		readonly getTrapTile?: TrapTileReader;
+		readonly listTrapDisplayRows?: TrapPageReader;
+		readonly getTrapDisplayRow?: TrapDisplayByIdReader;
+		readonly getCollectionTile?: CollectionTileReader;
+		readonly listCollectionDisplayRows?: CollectionPageReader;
+		readonly getCollectionDisplayRow?: CollectionDisplayByIdReader;
 	},
 ): void {
 	const tileSets = createTileSetRegistry({
 		getHabitatTile: options.getHabitatTile ?? getHabitatMvtTile,
 		getInspectionTile: options.getInspectionTile ?? getInspectionMvtTile,
 		getSampleTile: options.getSampleTile ?? getSampleMvtTile,
+		getApplicationTile: options.getApplicationTile ?? getApplicationMvtTile,
+		getSourceReductionTile: options.getSourceReductionTile ?? getSourceReductionMvtTile,
+		getBiocontrolTile: options.getBiocontrolTile ?? getBiocontrolMvtTile,
+		getTrapTile: options.getTrapTile ?? getTrapMvtTile,
+		getCollectionTile: options.getCollectionTile ?? getCollectionMvtTile,
 	});
 	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
 	const getDisplayRow = options.getHabitatDisplayRow ?? getHabitatDisplayRowById;
@@ -232,6 +348,18 @@ export function registerMapTileRoutes(
 	const getInspectionRow = options.getInspectionDisplayRow ?? getInspectionDisplayRowById;
 	const listSampleRows = options.listSampleDisplayRows ?? listSampleDisplayRowsByBounds;
 	const getSampleRow = options.getSampleDisplayRow ?? getSampleDisplayRowById;
+	const listApplicationRows = options.listApplicationDisplayRows ?? listApplicationDisplayRowsPage;
+	const getApplicationRow = options.getApplicationDisplayRow ?? getApplicationDisplayRowById;
+	const listSourceReductionRows =
+		options.listSourceReductionDisplayRows ?? listSourceReductionDisplayRowsPage;
+	const getSourceReductionRow =
+		options.getSourceReductionDisplayRow ?? getSourceReductionDisplayRowById;
+	const listBiocontrolRows = options.listBiocontrolDisplayRows ?? listBiocontrolDisplayRowsPage;
+	const getBiocontrolRow = options.getBiocontrolDisplayRow ?? getBiocontrolDisplayRowById;
+	const listTrapRows = options.listTrapDisplayRows ?? listTrapDisplayRowsPage;
+	const getTrapRow = options.getTrapDisplayRow ?? getTrapDisplayRowById;
+	const listCollectionRows = options.listCollectionDisplayRows ?? listCollectionDisplayRowsPage;
+	const getCollectionRow = options.getCollectionDisplayRow ?? getCollectionDisplayRowById;
 
 	app.get('/map/habitats', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
@@ -244,9 +372,9 @@ export function registerMapTileRoutes(
 			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
 		}
 
-		const habitats = await listDisplayRows(options.db, queryResult.input);
+		const page = await listDisplayRows(options.db, queryResult.input);
 
-		return context.json({ habitats });
+		return context.json({ habitats: page.rows, total: page.total });
 	});
 
 	// Registered before `/:id` so the literal segment wins over the UUID param.
@@ -368,9 +496,9 @@ export function registerMapTileRoutes(
 			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
 		}
 
-		const inspections = await listInspectionRows(options.db, queryResult.input);
+		const page = await listInspectionRows(options.db, queryResult.input);
 
-		return context.json({ inspections });
+		return context.json({ inspections: page.rows, total: page.total });
 	});
 
 	app.get('/map/inspections/:id', options.authContextMiddleware, async (context) => {
@@ -403,9 +531,9 @@ export function registerMapTileRoutes(
 			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
 		}
 
-		const samples = await listSampleRows(options.db, queryResult.input);
+		const page = await listSampleRows(options.db, queryResult.input);
 
-		return context.json({ samples });
+		return context.json({ samples: page.rows, total: page.total });
 	});
 
 	app.get('/map/samples/:id', options.authContextMiddleware, async (context) => {
@@ -425,6 +553,184 @@ export function registerMapTileRoutes(
 		}
 
 		return context.json({ sample });
+	});
+
+	app.get('/map/chemical', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseApplicationPageQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const page = await listApplicationRows(options.db, queryResult.input);
+
+		return context.json({ applications: page.rows, total: page.total });
+	});
+
+	app.get('/map/chemical/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Application id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const application = await getApplicationRow(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (application === undefined) {
+			return context.json({ error: 'not_found', reason: 'Application not found.' }, 404);
+		}
+
+		return context.json({ application });
+	});
+
+	app.get('/map/source-reduction', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseSourceReductionPageQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const page = await listSourceReductionRows(options.db, queryResult.input);
+
+		return context.json({ sourceReductions: page.rows, total: page.total });
+	});
+
+	app.get('/map/source-reduction/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json(
+				{ error: 'invalid_id', reason: 'Source reduction id must be a UUID.' },
+				400,
+			);
+		}
+
+		const authContext = context.get('authContext');
+		const sourceReduction = await getSourceReductionRow(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (sourceReduction === undefined) {
+			return context.json({ error: 'not_found', reason: 'Source reduction not found.' }, 404);
+		}
+
+		return context.json({ sourceReduction });
+	});
+
+	app.get('/map/biocontrol', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseBiocontrolPageQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const page = await listBiocontrolRows(options.db, queryResult.input);
+
+		return context.json({ biocontrolActions: page.rows, total: page.total });
+	});
+
+	app.get('/map/biocontrol/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Biocontrol id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const biocontrolAction = await getBiocontrolRow(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (biocontrolAction === undefined) {
+			return context.json({ error: 'not_found', reason: 'Biocontrol action not found.' }, 404);
+		}
+
+		return context.json({ biocontrolAction });
+	});
+
+	app.get('/map/traps', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseTrapPageQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const page = await listTrapRows(options.db, queryResult.input);
+
+		return context.json({ traps: page.rows, total: page.total });
+	});
+
+	app.get('/map/traps/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Trap id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const trap = await getTrapRow(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (trap === undefined) {
+			return context.json({ error: 'not_found', reason: 'Trap not found.' }, 404);
+		}
+
+		return context.json({ trap });
+	});
+
+	app.get('/map/collections', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseCollectionPageQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const page = await listCollectionRows(options.db, queryResult.input);
+
+		return context.json({ collections: page.rows, total: page.total });
+	});
+
+	app.get('/map/collections/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Collection id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const collection = await getCollectionRow(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (collection === undefined) {
+			return context.json({ error: 'not_found', reason: 'Collection not found.' }, 404);
+		}
+
+		return context.json({ collection });
 	});
 
 	app.get(
@@ -475,6 +781,11 @@ function createTileSetRegistry(options: {
 	readonly getHabitatTile: HabitatTileReader;
 	readonly getInspectionTile: InspectionTileReader;
 	readonly getSampleTile: SampleTileReader;
+	readonly getApplicationTile: ApplicationTileReader;
+	readonly getSourceReductionTile: SourceReductionTileReader;
+	readonly getBiocontrolTile: BiocontrolTileReader;
+	readonly getTrapTile: TrapTileReader;
+	readonly getCollectionTile: CollectionTileReader;
 }): ReadonlyMap<string, TileSetDefinition> {
 	return new Map<string, TileSetDefinition>([
 		[
@@ -507,6 +818,66 @@ function createTileSetRegistry(options: {
 				parseFilters: parseSampleTileFilters,
 				getTile: (db, input) =>
 					options.getSampleTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+			}),
+		],
+		[
+			'chemical',
+			defineTileSet<ApplicationMapFilters>({
+				parseFilters: parseApplicationMapFilters,
+				getTile: (db, input) =>
+					options.getApplicationTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+			}),
+		],
+		[
+			'source-reduction',
+			defineTileSet<SourceReductionMapFilters>({
+				parseFilters: parseSourceReductionMapFilters,
+				getTile: (db, input) =>
+					options.getSourceReductionTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+			}),
+		],
+		[
+			'biocontrol',
+			defineTileSet<BiocontrolMapFilters>({
+				parseFilters: parseBiocontrolMapFilters,
+				getTile: (db, input) =>
+					options.getBiocontrolTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+			}),
+		],
+		[
+			'traps',
+			defineTileSet<TrapMapFilters>({
+				parseFilters: parseTrapMapFilters,
+				getTile: (db, input) =>
+					options.getTrapTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+			}),
+		],
+		[
+			'collections',
+			defineTileSet<CollectionMapFilters>({
+				parseFilters: parseCollectionMapFilters,
+				getTile: (db, input) =>
+					options.getCollectionTile(db, {
 						...input.coordinate,
 						organizationId: input.organizationId,
 						filters: input.filters,
@@ -613,9 +984,15 @@ export function parseHabitatDisplayQuery(
 		return limit;
 	}
 
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
 	const filterParams = new URLSearchParams(searchParams);
 	filterParams.delete('bbox');
 	filterParams.delete('limit');
+	filterParams.delete('offset');
 
 	const filterResult = parseHabitatTileFilters(filterParams);
 	if (!filterResult.ok) {
@@ -629,6 +1006,7 @@ export function parseHabitatDisplayQuery(
 			bounds: bbox.bounds,
 			filters: filterResult.filters,
 			limit: limit.value,
+			offset: offset.value,
 		},
 	};
 }
@@ -707,9 +1085,15 @@ export function parseInspectionDisplayQuery(
 		return limit;
 	}
 
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
 	const filterParams = new URLSearchParams(searchParams);
 	filterParams.delete('bbox');
 	filterParams.delete('limit');
+	filterParams.delete('offset');
 
 	const filterResult = parseInspectionTileFilters(filterParams);
 	if (!filterResult.ok) {
@@ -723,6 +1107,7 @@ export function parseInspectionDisplayQuery(
 			bounds: bbox.bounds,
 			filters: filterResult.filters,
 			limit: limit.value,
+			offset: offset.value,
 		},
 	};
 }
@@ -788,9 +1173,15 @@ export function parseSampleDisplayQuery(
 		return limit;
 	}
 
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
 	const filterParams = new URLSearchParams(searchParams);
 	filterParams.delete('bbox');
 	filterParams.delete('limit');
+	filterParams.delete('offset');
 
 	const filterResult = parseSampleTileFilters(filterParams);
 	if (!filterResult.ok) {
@@ -804,6 +1195,469 @@ export function parseSampleDisplayQuery(
 			bounds: bbox.bounds,
 			filters: filterResult.filters,
 			limit: limit.value,
+			offset: offset.value,
+		},
+	};
+}
+
+// --- control-operations map queries -----------------------------------------
+//
+// These domains render their maps from unbounded MVT tiles, and their list from
+// a filtered, offset-paged window (no bbox). Filters fold identically into the
+// tile URL and the list query so the map and the paged rail stay in lockstep.
+
+type ApplicationFilterResult =
+	| { readonly ok: true; readonly filters: ApplicationMapFilters }
+	| { readonly ok: false; readonly reason: string };
+
+type ApplicationPageQueryResult =
+	| { readonly ok: true; readonly input: ApplicationPageInput }
+	| { readonly ok: false; readonly reason: string };
+
+const applicationFilterParams = new Set([
+	'insecticideId',
+	'applicationMethodId',
+	'dateFrom',
+	'dateTo',
+]);
+
+export function parseApplicationMapFilters(searchParams: URLSearchParams): ApplicationFilterResult {
+	const unknownParams = [...searchParams.keys()].filter(
+		(param) => !applicationFilterParams.has(param),
+	);
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported chemical filter: ${unknownParams[0]}.` };
+	}
+
+	const insecticideIds = parseOptionalUuidListFilter(searchParams, 'insecticideId');
+	if (!insecticideIds.ok) {
+		return insecticideIds;
+	}
+
+	const applicationMethodIds = parseOptionalUuidListFilter(searchParams, 'applicationMethodId');
+	if (!applicationMethodIds.ok) {
+		return applicationMethodIds;
+	}
+
+	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
+	if (!dateFrom.ok) {
+		return dateFrom;
+	}
+
+	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
+	if (!dateTo.ok) {
+		return dateTo;
+	}
+
+	return {
+		ok: true,
+		filters: {
+			...(insecticideIds.value === undefined ? {} : { insecticideIds: insecticideIds.value }),
+			...(applicationMethodIds.value === undefined
+				? {}
+				: { applicationMethodIds: applicationMethodIds.value }),
+			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
+			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
+		},
+	};
+}
+
+export function parseApplicationPageQuery(
+	searchParams: URLSearchParams,
+	organizationId: string,
+): ApplicationPageQueryResult {
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('limit');
+	filterParams.delete('offset');
+
+	const filterResult = parseApplicationMapFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			filters: filterResult.filters,
+			limit: limit.value,
+			offset: offset.value,
+		},
+	};
+}
+
+type SourceReductionFilterResult =
+	| { readonly ok: true; readonly filters: SourceReductionMapFilters }
+	| { readonly ok: false; readonly reason: string };
+
+type SourceReductionPageQueryResult =
+	| { readonly ok: true; readonly input: SourceReductionPageInput }
+	| { readonly ok: false; readonly reason: string };
+
+const sourceReductionFilterParams = new Set(['sourceReductionMethodId', 'dateFrom', 'dateTo']);
+
+export function parseSourceReductionMapFilters(
+	searchParams: URLSearchParams,
+): SourceReductionFilterResult {
+	const unknownParams = [...searchParams.keys()].filter(
+		(param) => !sourceReductionFilterParams.has(param),
+	);
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported source-reduction filter: ${unknownParams[0]}.` };
+	}
+
+	const sourceReductionMethodIds = parseOptionalUuidListFilter(
+		searchParams,
+		'sourceReductionMethodId',
+	);
+	if (!sourceReductionMethodIds.ok) {
+		return sourceReductionMethodIds;
+	}
+
+	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
+	if (!dateFrom.ok) {
+		return dateFrom;
+	}
+
+	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
+	if (!dateTo.ok) {
+		return dateTo;
+	}
+
+	return {
+		ok: true,
+		filters: {
+			...(sourceReductionMethodIds.value === undefined
+				? {}
+				: { sourceReductionMethodIds: sourceReductionMethodIds.value }),
+			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
+			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
+		},
+	};
+}
+
+export function parseSourceReductionPageQuery(
+	searchParams: URLSearchParams,
+	organizationId: string,
+): SourceReductionPageQueryResult {
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('limit');
+	filterParams.delete('offset');
+
+	const filterResult = parseSourceReductionMapFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			filters: filterResult.filters,
+			limit: limit.value,
+			offset: offset.value,
+		},
+	};
+}
+
+type BiocontrolFilterResult =
+	| { readonly ok: true; readonly filters: BiocontrolMapFilters }
+	| { readonly ok: false; readonly reason: string };
+
+type BiocontrolPageQueryResult =
+	| { readonly ok: true; readonly input: BiocontrolPageInput }
+	| { readonly ok: false; readonly reason: string };
+
+const biocontrolFilterParams = new Set([
+	'biocontrolMethodId',
+	'habitatLinked',
+	'dateFrom',
+	'dateTo',
+]);
+
+export function parseBiocontrolMapFilters(searchParams: URLSearchParams): BiocontrolFilterResult {
+	const unknownParams = [...searchParams.keys()].filter(
+		(param) => !biocontrolFilterParams.has(param),
+	);
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported biocontrol filter: ${unknownParams[0]}.` };
+	}
+
+	const biocontrolMethodIds = parseOptionalUuidListFilter(searchParams, 'biocontrolMethodId');
+	if (!biocontrolMethodIds.ok) {
+		return biocontrolMethodIds;
+	}
+
+	const habitatLinked = parseOptionalBooleanFilter(searchParams, 'habitatLinked');
+	if (!habitatLinked.ok) {
+		return habitatLinked;
+	}
+
+	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
+	if (!dateFrom.ok) {
+		return dateFrom;
+	}
+
+	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
+	if (!dateTo.ok) {
+		return dateTo;
+	}
+
+	return {
+		ok: true,
+		filters: {
+			...(biocontrolMethodIds.value === undefined
+				? {}
+				: { biocontrolMethodIds: biocontrolMethodIds.value }),
+			// Only `true` narrows; `habitatLinked=false` is the same as omitting it.
+			...(habitatLinked.value === true ? { habitatLinkedOnly: true } : {}),
+			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
+			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
+		},
+	};
+}
+
+export function parseBiocontrolPageQuery(
+	searchParams: URLSearchParams,
+	organizationId: string,
+): BiocontrolPageQueryResult {
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('limit');
+	filterParams.delete('offset');
+
+	const filterResult = parseBiocontrolMapFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			filters: filterResult.filters,
+			limit: limit.value,
+			offset: offset.value,
+		},
+	};
+}
+
+type TrapFilterResult =
+	| { readonly ok: true; readonly filters: TrapMapFilters }
+	| { readonly ok: false; readonly reason: string };
+
+type TrapPageQueryResult =
+	| { readonly ok: true; readonly input: TrapPageInput }
+	| { readonly ok: false; readonly reason: string };
+
+const trapFilterParams = new Set(['collectionMethodId', 'status', 'search']);
+
+export function parseTrapMapFilters(searchParams: URLSearchParams): TrapFilterResult {
+	const unknownParams = [...searchParams.keys()].filter((param) => !trapFilterParams.has(param));
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported traps filter: ${unknownParams[0]}.` };
+	}
+
+	const collectionMethodIds = parseOptionalUuidListFilter(searchParams, 'collectionMethodId');
+	if (!collectionMethodIds.ok) {
+		return collectionMethodIds;
+	}
+
+	const isActive = parseOptionalTrapStatusFilter(searchParams, 'status');
+	if (!isActive.ok) {
+		return isActive;
+	}
+
+	const search = parseOptionalTextFilter(searchParams, 'search');
+	if (!search.ok) {
+		return search;
+	}
+
+	return {
+		ok: true,
+		filters: {
+			...(collectionMethodIds.value === undefined
+				? {}
+				: { collectionMethodIds: collectionMethodIds.value }),
+			...(isActive.value === undefined ? {} : { isActive: isActive.value }),
+			...(search.value === undefined ? {} : { search: search.value }),
+		},
+	};
+}
+
+export function parseTrapPageQuery(
+	searchParams: URLSearchParams,
+	organizationId: string,
+): TrapPageQueryResult {
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('limit');
+	filterParams.delete('offset');
+
+	const filterResult = parseTrapMapFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			filters: filterResult.filters,
+			limit: limit.value,
+			offset: offset.value,
+		},
+	};
+}
+
+function parseOptionalTrapStatusFilter(
+	searchParams: URLSearchParams,
+	param: string,
+):
+	| { readonly ok: true; readonly value: boolean | undefined }
+	| { readonly ok: false; readonly reason: string } {
+	const values = searchParams.getAll(param);
+	if (values.length === 0) {
+		return { ok: true, value: undefined };
+	}
+	if (values.length > 1) {
+		return { ok: false, reason: `${param} may only be provided once.` };
+	}
+
+	const trimmed = values[0]?.trim().toLowerCase() ?? '';
+	if (trimmed.length === 0) {
+		return { ok: true, value: undefined };
+	}
+	if (trimmed === 'active') {
+		return { ok: true, value: true };
+	}
+	if (trimmed === 'inactive') {
+		return { ok: true, value: false };
+	}
+
+	return { ok: false, reason: `${param} must be active or inactive.` };
+}
+
+type CollectionFilterResult =
+	| { readonly ok: true; readonly filters: CollectionMapFilters }
+	| { readonly ok: false; readonly reason: string };
+
+type CollectionPageQueryResult =
+	| { readonly ok: true; readonly input: CollectionPageInput }
+	| { readonly ok: false; readonly reason: string };
+
+const collectionFilterParams = new Set(['collectionMethodId', 'problem', 'dateFrom', 'dateTo']);
+
+export function parseCollectionMapFilters(searchParams: URLSearchParams): CollectionFilterResult {
+	const unknownParams = [...searchParams.keys()].filter(
+		(param) => !collectionFilterParams.has(param),
+	);
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported collections filter: ${unknownParams[0]}.` };
+	}
+
+	const collectionMethodIds = parseOptionalUuidListFilter(searchParams, 'collectionMethodId');
+	if (!collectionMethodIds.ok) {
+		return collectionMethodIds;
+	}
+
+	const problem = parseOptionalBooleanFilter(searchParams, 'problem');
+	if (!problem.ok) {
+		return problem;
+	}
+
+	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
+	if (!dateFrom.ok) {
+		return dateFrom;
+	}
+
+	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
+	if (!dateTo.ok) {
+		return dateTo;
+	}
+
+	return {
+		ok: true,
+		filters: {
+			...(collectionMethodIds.value === undefined
+				? {}
+				: { collectionMethodIds: collectionMethodIds.value }),
+			// Only `true` narrows; `problem=false` is the same as omitting it.
+			...(problem.value === true ? { problemOnly: true } : {}),
+			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
+			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
+		},
+	};
+}
+
+export function parseCollectionPageQuery(
+	searchParams: URLSearchParams,
+	organizationId: string,
+): CollectionPageQueryResult {
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('limit');
+	filterParams.delete('offset');
+
+	const filterResult = parseCollectionMapFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			filters: filterResult.filters,
+			limit: limit.value,
+			offset: offset.value,
 		},
 	};
 }
@@ -1077,6 +1931,23 @@ function parseLimitParam(
 	const parsed = parseInteger(value);
 	if (parsed === null || parsed < 1 || parsed > maxDisplayLimit) {
 		return { ok: false, reason: `limit must be between 1 and ${maxDisplayLimit}.` };
+	}
+
+	return { ok: true, value: parsed };
+}
+
+const maxDisplayOffset = 100_000;
+
+function parseOffsetParam(
+	value: string | null,
+): { readonly ok: true; readonly value: number } | { readonly ok: false; readonly reason: string } {
+	if (value === null || value.trim() === '') {
+		return { ok: true, value: 0 };
+	}
+
+	const parsed = parseInteger(value);
+	if (parsed === null || parsed > maxDisplayOffset) {
+		return { ok: false, reason: `offset must be between 0 and ${maxDisplayOffset}.` };
 	}
 
 	return { ok: true, value: parsed };

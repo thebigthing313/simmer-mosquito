@@ -135,6 +135,13 @@ export interface InspectionBoundingBoxInput {
 	readonly bounds: InspectionBounds;
 	readonly filters?: InspectionMvtTileFilters;
 	readonly limit: number;
+	readonly offset: number;
+}
+
+/** A page of inspection display rows plus the full count for the viewport + filters. */
+export interface InspectionDisplayPageResult {
+	readonly total: number;
+	readonly rows: SafeInspectionDisplayRow[];
 }
 
 export interface InspectionByIdInput {
@@ -220,10 +227,10 @@ export async function getInspectionMvtTile(
 export async function listInspectionDisplayRowsByBounds(
 	db: Kysely<SimmerDatabase>,
 	input: InspectionBoundingBoxInput,
-): Promise<SafeInspectionDisplayRow[]> {
+): Promise<InspectionDisplayPageResult> {
 	const whereClauses = inspectionSpatialWhereClauses(input);
 
-	const result = await sql<SafeInspectionDisplayRow>`
+	const result = await sql<SafeInspectionDisplayRow & { readonly total: number }>`
 		with bounds as (
 			select st_makeenvelope(
 				${input.bounds.west},
@@ -233,7 +240,9 @@ export async function listInspectionDisplayRowsByBounds(
 				4326
 			) as geom_4326
 		)
-		select ${inspectionDisplayColumns}
+		select
+			${inspectionDisplayColumns},
+			count(*) over()::int as "total"
 		from inspections i
 		left join habitats h on h.id = i.habitat_id
 		left join addresses a on a.id = i.address_id
@@ -242,9 +251,13 @@ export async function listInspectionDisplayRowsByBounds(
 		where ${sql.join(whereClauses, sql` and `)}
 		order by i.inspection_date desc, i.created_at desc, i.id
 		limit ${input.limit}
+		offset ${input.offset}
 	`.execute(db);
 
-	return result.rows;
+	return {
+		total: result.rows[0]?.total ?? 0,
+		rows: result.rows,
+	};
 }
 
 export async function getInspectionDisplayRowById(
@@ -445,6 +458,13 @@ export interface SampleBoundingBoxInput {
 	readonly bounds: SampleBounds;
 	readonly filters?: SampleListFilters;
 	readonly limit: number;
+	readonly offset: number;
+}
+
+/** A page of sample display rows plus the full count for the viewport + filters. */
+export interface SampleDisplayPageResult {
+	readonly total: number;
+	readonly rows: SafeSampleDisplayRow[];
 }
 
 export interface SampleByIdInput {
@@ -504,10 +524,10 @@ export async function getSampleMvtTile(
 export async function listSampleDisplayRowsByBounds(
 	db: Kysely<SimmerDatabase>,
 	input: SampleBoundingBoxInput,
-): Promise<SafeSampleDisplayRow[]> {
+): Promise<SampleDisplayPageResult> {
 	const whereClauses = sampleSpatialWhereClauses(input);
 
-	const result = await sql<SafeSampleDisplayRow>`
+	const result = await sql<SafeSampleDisplayRow & { readonly total: number }>`
 		with bounds as (
 			select st_makeenvelope(
 				${input.bounds.west},
@@ -517,7 +537,9 @@ export async function listSampleDisplayRowsByBounds(
 				4326
 			) as geom_4326
 		)
-		select ${sampleDisplayColumns}
+		select
+			${sampleDisplayColumns},
+			count(*) over()::int as "total"
 		from samples s
 		join inspections i on i.id = s.inspection_id
 		left join habitats h on h.id = i.habitat_id
@@ -526,9 +548,13 @@ export async function listSampleDisplayRowsByBounds(
 		where ${sql.join(whereClauses, sql` and `)}
 		order by i.inspection_date desc, s.created_at desc, s.id
 		limit ${input.limit}
+		offset ${input.offset}
 	`.execute(db);
 
-	return result.rows;
+	return {
+		total: result.rows[0]?.total ?? 0,
+		rows: result.rows,
+	};
 }
 
 export async function getSampleDisplayRowById(

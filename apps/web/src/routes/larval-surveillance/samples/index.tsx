@@ -32,6 +32,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas, SAMPLE_STATUS_COLORS, type SampleTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
@@ -125,6 +126,8 @@ const DEFAULT_WINDOW_DAYS = 30;
 /** How many species result chips a narrow list row shows before collapsing to "+N". */
 const RESULT_CHIP_LIMIT = 1;
 
+const PAGE_SIZE = 50;
+
 const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
 
 function SamplesExplorerRoute() {
@@ -143,6 +146,7 @@ function SamplesExplorerRoute() {
 	const [nonMosquito, setNonMosquito] = useState(() => search.nonMosquito ?? false);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [page, setPage] = useState(0);
 
 	const { nameById, options } = useSpeciesCatalog();
 
@@ -158,7 +162,21 @@ function SamplesExplorerRoute() {
 	);
 
 	const bounds = useMapBounds(map);
-	const { rows, isLoading } = useVisibleSamples(bounds, filters);
+	const { rows, total, isLoading } = useVisibleSamples(bounds, filters, page);
+	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+	// A new viewport or filter set always starts back at the first page.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the viewport + filters.
+	useEffect(() => {
+		setPage(0);
+	}, [bounds, filters]);
+
+	// Clamp if the row count shrinks under the current page.
+	useEffect(() => {
+		if (page > pageCount - 1) {
+			setPage(pageCount - 1);
+		}
+	}, [page, pageCount]);
 
 	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
 	const fallbackSelected = useSelectedSample(selectedId, visibleById);
@@ -263,7 +281,7 @@ function SamplesExplorerRoute() {
 							<SampleIcon aria-hidden="true" className="size-5 text-muted-foreground" />
 							<h1 className="font-semibold text-foreground text-lg leading-none">Samples</h1>
 						</div>
-						<ResultMeta count={rows.length} isLoading={isLoading} />
+						<ResultMeta isLoading={isLoading} total={total} />
 					</div>
 
 					<DateRangeFilter
@@ -308,6 +326,16 @@ function SamplesExplorerRoute() {
 					rows={rows}
 					selectedId={selectedId}
 				/>
+
+				<div className="border-border/50 border-t p-3">
+					<ExplorerPagination
+						noun="samples"
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={total}
+					/>
+				</div>
 			</div>
 		</MapSplitPage>
 	);
@@ -391,13 +419,13 @@ function DateRangeFilter({
 	);
 }
 
-function ResultMeta({ count, isLoading }: { readonly count: number; readonly isLoading: boolean }) {
-	if (isLoading && count === 0) {
+function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
+	if (isLoading && total === 0) {
 		return <span className="text-muted-foreground text-sm">Loading…</span>;
 	}
 	return (
 		<span className="text-muted-foreground text-sm">
-			{count === 0 ? 'None in view' : count >= 50 ? '50+ in view' : `${count} in view`}
+			{total === 0 ? 'None in view' : `${total} in view`}
 		</span>
 	);
 }
@@ -1013,16 +1041,25 @@ function useSpeciesCatalog(): {
 function useVisibleSamples(
 	bounds: BoundingBox | null,
 	filters: SampleTileFilters,
-): { readonly rows: readonly SampleFeature[]; readonly isLoading: boolean } {
+	page: number,
+): {
+	readonly rows: readonly SampleFeature[];
+	readonly total: number;
+	readonly isLoading: boolean;
+} {
 	const bbox = bounds === null ? null : formatBoundingBox(bounds);
 	const query = useQuery({
 		enabled: bbox !== null,
-		queryKey: ['samples', 'visible', bbox, filters],
-		queryFn: ({ signal }) => fetchVisibleSamples(bounds, filters, signal),
+		queryKey: ['samples', 'visible', bbox, filters, page],
+		queryFn: ({ signal }) => fetchVisibleSamples(bounds, filters, page, signal),
 		placeholderData: (previous) => previous,
 	});
 
-	return { rows: query.data ?? [], isLoading: query.isLoading };
+	return {
+		rows: query.data?.rows ?? [],
+		total: query.data?.total ?? 0,
+		isLoading: query.isLoading,
+	};
 }
 
 function useSelectedSample(
@@ -1041,14 +1078,16 @@ function useSelectedSample(
 async function fetchVisibleSamples(
 	bounds: BoundingBox | null,
 	filters: SampleTileFilters,
+	page: number,
 	signal: AbortSignal,
-): Promise<SampleFeature[]> {
+): Promise<{ readonly rows: SampleFeature[]; readonly total: number }> {
 	if (bounds === null) {
-		return [];
+		return { rows: [], total: 0 };
 	}
 	const url = new URL('/map/samples', getServerUrl());
 	url.searchParams.set('bbox', formatBoundingBox(normalizeBounds(bounds)));
-	url.searchParams.set('limit', '50');
+	url.searchParams.set('limit', String(PAGE_SIZE));
+	url.searchParams.set('offset', String(page * PAGE_SIZE));
 	if (filters.speciesIds !== undefined && filters.speciesIds.length > 0) {
 		url.searchParams.set('species', [...filters.speciesIds].join(','));
 	}
@@ -1069,8 +1108,11 @@ async function fetchVisibleSamples(
 	if (!response.ok) {
 		throw new Error(`Samples request failed (${response.status}).`);
 	}
-	const body = (await response.json()) as { readonly samples?: SampleFeature[] };
-	return body.samples ?? [];
+	const body = (await response.json()) as {
+		readonly samples?: SampleFeature[];
+		readonly total?: number;
+	};
+	return { rows: body.samples ?? [], total: body.total ?? 0 };
 }
 
 async function fetchSampleById(id: string, signal: AbortSignal): Promise<SampleFeature | null> {

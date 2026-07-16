@@ -8,6 +8,7 @@ const { Pool } = pg;
 export type { Kysely, Transaction } from 'kysely';
 export { sql } from 'kysely';
 export * from './domains/adult-surveillance.js';
+export * from './domains/control-operations-map.js';
 export * from './domains/foundation.js';
 export * from './domains/habitats.js';
 export * from './domains/identity.js';

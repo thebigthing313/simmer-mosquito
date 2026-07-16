@@ -32,6 +32,13 @@ export interface HabitatBoundingBoxInput {
 	readonly bounds: HabitatBounds;
 	readonly filters?: HabitatMvtTileFilters;
 	readonly limit: number;
+	readonly offset: number;
+}
+
+/** A page of habitat display rows plus the full count for the viewport + filters. */
+export interface HabitatDisplayPageResult {
+	readonly total: number;
+	readonly rows: SafeHabitatDisplayRow[];
 }
 
 export interface SafeHabitatDisplayRow {
@@ -95,10 +102,10 @@ export async function getHabitatMvtTile(
 export async function listHabitatDisplayRowsByBounds(
 	db: Kysely<SimmerDatabase>,
 	input: HabitatBoundingBoxInput,
-): Promise<SafeHabitatDisplayRow[]> {
+): Promise<HabitatDisplayPageResult> {
 	const whereClauses = habitatSpatialWhereClauses(input);
 
-	const result = await sql<SafeHabitatDisplayRow>`
+	const result = await sql<SafeHabitatDisplayRow & { readonly total: number }>`
 		with bounds as (
 			select st_makeenvelope(
 				${input.bounds.west},
@@ -125,15 +132,20 @@ export async function listHabitatDisplayRowsByBounds(
 			h.created_by_profile_id as "createdByProfileId",
 			h.updated_by_profile_id as "updatedByProfileId",
 			h.created_at as "createdAt",
-			h.updated_at as "updatedAt"
+			h.updated_at as "updatedAt",
+			count(*) over()::int as "total"
 		from habitats h
 		cross join bounds
 		where ${sql.join(whereClauses, sql` and `)}
 		order by coalesce(h.habitat_name, h.id::text), h.id
 		limit ${input.limit}
+		offset ${input.offset}
 	`.execute(db);
 
-	return result.rows;
+	return {
+		total: result.rows[0]?.total ?? 0,
+		rows: result.rows,
+	};
 }
 
 export interface HabitatTypeUsageRow {

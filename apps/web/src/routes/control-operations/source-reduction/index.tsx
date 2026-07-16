@@ -23,12 +23,20 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { gte, useLiveQuery } from '@tanstack/react-db';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import { MapCanvas } from '../../../components/map';
+import {
+	activeDatePresetId,
+	type DatePreset,
+	DateRangeFilter,
+	datePresetRange,
+} from '../../../components/date-range-filter';
+import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { MapCanvas, type SourceReductionTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -38,14 +46,13 @@ import {
 	nameById,
 	todayDateValue,
 } from '../-control-display';
-import { toPointFeatureCollection } from '../-control-map';
 import { addDaysToDateString, formatMonthDay, useHabitatNames } from '../-overview-data';
 
 export const Route = createFileRoute('/control-operations/source-reduction/')({
 	component: SourceReductionExplorerRoute,
 });
 
-interface SourceReductionListRow {
+interface SourceReductionSite {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -57,32 +64,43 @@ interface SourceReductionListRow {
 	readonly inspectionId: string | null;
 }
 
-interface DatePreset {
-	readonly id: string;
-	readonly label: string;
-	readonly days: number;
-}
-
-const DATE_PRESETS: readonly DatePreset[] = [
-	{ id: '30d', label: 'Last 30 days', days: 30 },
-	{ id: '90d', label: 'Last 90 days', days: 90 },
-	{ id: '365d', label: 'Last 12 months', days: 365 },
-];
-const DEFAULT_PRESET_ID = '90d';
-
-const sourceReductionsGcTimeMs = 30_000;
+const DEFAULT_WINDOW_DAYS = 90;
+const PAGE_SIZE = 50;
 
 function SourceReductionExplorerRoute() {
 	const today = useMemo(() => todayDateValue(), []);
-	const [presetId, setPresetId] = useState(DEFAULT_PRESET_ID);
+	const defaultFrom = useMemo(
+		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
+		[today],
+	);
+	const [dateFrom, setDateFrom] = useState(defaultFrom);
+	const [dateTo, setDateTo] = useState(today);
 	const [methodIds, setMethodIds] = useState<ReadonlySet<string>>(() => new Set());
+	const [page, setPage] = useState(0);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 
-	const since = useMemo(() => {
-		const days = DATE_PRESETS.find((entry) => entry.id === presetId)?.days ?? 90;
-		return addDaysToDateString(today, -(days - 1));
-	}, [presetId, today]);
+	// Editing one bound past the other drags the other along, so the range never inverts.
+	const handleFromChange = useCallback((next: string) => {
+		setDateFrom(next);
+		setDateTo((prev) => (next !== '' && prev !== '' && next > prev ? next : prev));
+	}, []);
+	const handleToChange = useCallback((next: string) => {
+		setDateTo(next);
+		setDateFrom((prev) => (next !== '' && prev !== '' && next < prev ? next : prev));
+	}, []);
+	const applyPreset = useCallback(
+		(preset: DatePreset) => {
+			const range = datePresetRange(preset, today);
+			setDateFrom(range.from);
+			setDateTo(range.to);
+		},
+		[today],
+	);
+	const activePresetId = useMemo(
+		() => activeDatePresetId(dateFrom, dateTo, today),
+		[dateFrom, dateTo, today],
+	);
 
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(
 		webCollections.sourceReductionMethods,
@@ -92,7 +110,31 @@ function SourceReductionExplorerRoute() {
 	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
 	const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
 
-	const { rows, isReady } = useSourceReductionsSince(since);
+	// The server tiles + list read the same filter shape, so the map and the paged
+	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
+	const filters = useMemo<SourceReductionTileFilters>(
+		() => ({
+			...(methodIds.size > 0 ? { sourceReductionMethodIds: [...methodIds] } : {}),
+			...(dateFrom === '' ? {} : { dateFrom }),
+			...(dateTo === '' ? {} : { dateTo }),
+		}),
+		[methodIds, dateFrom, dateTo],
+	);
+
+	// A new filter set always starts at the first page.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the filter set.
+	useEffect(() => {
+		setPage(0);
+	}, [filters]);
+
+	const { rows, total, isLoading } = useSourceReductionsPage(filters, page);
+	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+	// Clamp if the row count shrinks under the current page (e.g. after a delete).
+	useEffect(() => {
+		if (page > pageCount - 1) {
+			setPage(pageCount - 1);
+		}
+	}, [page, pageCount]);
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
@@ -102,27 +144,14 @@ function SourceReductionExplorerRoute() {
 	);
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const filtered = useMemo(() => {
-		return rows
-			.filter((row) => methodIds.size === 0 || methodIds.has(row.sourceReductionMethodId))
-			.slice()
-			.sort(compareByDateDesc);
-	}, [rows, methodIds]);
+	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
+	const fallbackSelected = useSelectedSourceReduction(selectedId, visibleById);
+	const selected =
+		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
 
-	// Source reduction actions carry their own point geometry (lat/lng on the row).
-	const featureCollection = useMemo(
-		() =>
-			toPointFeatureCollection(filtered.map((row) => ({ id: row.id, lat: row.lat, lng: row.lng }))),
-		[filtered],
-	);
-
-	const selected = useMemo(
-		() => filtered.find((row) => row.id === selectedId) ?? null,
-		[filtered, selectedId],
-	);
-
+	// Fly to the selected action whenever the resolved selection changes.
 	useEffect(() => {
-		if (map === null || selected === null) {
+		if (map === null || selected == null) {
 			return;
 		}
 		map.flyTo({
@@ -133,12 +162,17 @@ function SourceReductionExplorerRoute() {
 	}, [map, selected]);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
+	const sourceReductionLayer = useMemo(
+		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+		[filters, selectedId],
+	);
 
-	const hasActiveFilters = presetId !== DEFAULT_PRESET_ID || methodIds.size > 0;
+	const hasActiveFilters = dateFrom !== defaultFrom || dateTo !== today || methodIds.size > 0;
 	const clearAll = useCallback(() => {
-		setPresetId(DEFAULT_PRESET_ID);
+		setDateFrom(defaultFrom);
+		setDateTo(today);
 		setMethodIds(new Set());
-	}, []);
+	}, [defaultFrom, today]);
 
 	return (
 		<MapSplitPage
@@ -146,9 +180,8 @@ function SourceReductionExplorerRoute() {
 				<>
 					<MapCanvas
 						controls={{ layers: false }}
-						geoJson={featureCollection}
-						geoJsonInteraction={{ selectedId, onSelectFeature: setSelectedId }}
 						onMapReady={handleMapReady}
+						sourceReductionLayer={sourceReductionLayer}
 					/>
 					{selected === null ? null : (
 						<SourceReductionDetailCard
@@ -169,7 +202,7 @@ function SourceReductionExplorerRoute() {
 					<div className="flex items-center justify-between gap-3">
 						<h1 className="font-semibold text-foreground text-lg leading-none">Source reduction</h1>
 						<div className="flex items-center gap-2.5">
-							<ResultMeta count={filtered.length} isReady={isReady} />
+							<ResultMeta isLoading={isLoading} total={total} />
 							<Button asChild size="sm">
 								<Link to="/control-operations/source-reduction/create">
 									<PlusIcon aria-hidden="true" data-icon="inline-start" />
@@ -179,27 +212,15 @@ function SourceReductionExplorerRoute() {
 						</div>
 					</div>
 
-					<div className="flex flex-wrap gap-1.5">
-						{DATE_PRESETS.map((preset) => {
-							const isActive = preset.id === presetId;
-							return (
-								<button
-									aria-pressed={isActive}
-									className={cn(
-										'rounded-full border px-2.5 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-										isActive
-											? 'border-primary/50 bg-primary/10 text-foreground'
-											: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-									)}
-									key={preset.id}
-									onClick={() => setPresetId(preset.id)}
-									type="button"
-								>
-									{preset.label}
-								</button>
-							);
-						})}
-					</div>
+					<DateRangeFilter
+						activePresetId={activePresetId}
+						from={dateFrom}
+						onApplyPreset={applyPreset}
+						onFromChange={handleFromChange}
+						onToChange={handleToChange}
+						to={dateTo}
+						today={today}
+					/>
 
 					<div className="flex flex-wrap items-center gap-2">
 						<MultiSelectFilter
@@ -233,68 +254,125 @@ function SourceReductionExplorerRoute() {
 
 				<SourceReductionResults
 					habitatNameById={habitatNameById}
-					isReady={isReady}
+					isLoading={isLoading}
 					methodNameById={methodNameById}
 					onSelect={setSelectedId}
-					rows={filtered}
+					rows={rows}
 					selectedId={selectedId}
 					unitById={unitById}
 				/>
+
+				<div className="border-border/50 border-t p-3">
+					<ExplorerPagination
+						noun="source reductions"
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={total}
+					/>
+				</div>
 			</div>
 		</MapSplitPage>
 	);
 }
 
-// --- data hook --------------------------------------------------------------
+// --- data hooks -------------------------------------------------------------
 
-/**
- * `sourceReductions` syncs on demand, so this must stay a date-bounded subset —
- * an unbounded read would try to stream the org's whole history. Status-gated
- * `useLiveQuery` (not the suspense variant) avoids the post-unmount hang.
- */
-function useSourceReductionsSince(sinceDate: string): {
-	readonly rows: readonly SourceReductionListRow[];
-	readonly isReady: boolean;
+function useSourceReductionsPage(
+	filters: SourceReductionTileFilters,
+	page: number,
+): {
+	readonly rows: readonly SourceReductionSite[];
+	readonly total: number;
+	readonly isLoading: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: sourceReductionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sourceReduction: webCollections.sourceReductions })
-					.where(({ sourceReduction }) => gte(sourceReduction.sourceReductionDate, sinceDate))
-					.orderBy(({ sourceReduction }) => sourceReduction.sourceReductionDate, 'desc')
-					.select(({ sourceReduction }) => ({
-						id: sourceReduction.id,
-						lat: sourceReduction.lat,
-						lng: sourceReduction.lng,
-						sourceReductionMethodId: sourceReduction.sourceReductionMethodId,
-						sourceReductionDate: sourceReduction.sourceReductionDate,
-						sourcesEliminatedAmount: sourceReduction.sourcesEliminatedAmount,
-						sourcesEliminatedUnitId: sourceReduction.sourcesEliminatedUnitId,
-						habitatId: sourceReduction.habitatId,
-						inspectionId: sourceReduction.inspectionId,
-					})),
-		},
-		[sinceDate],
-	);
+	const query = useQuery({
+		queryKey: ['source-reduction', 'page', filters, page],
+		queryFn: ({ signal }) => fetchSourceReductionsPage(filters, page, signal),
+		placeholderData: (previous) => previous,
+	});
+
 	return {
-		rows: (result.data ?? []) as unknown as readonly SourceReductionListRow[],
-		isReady: result.isReady,
+		rows: query.data?.rows ?? [],
+		total: query.data?.total ?? 0,
+		isLoading: query.isLoading,
 	};
+}
+
+function useSelectedSourceReduction(
+	selectedId: string | null,
+	visibleById: ReadonlyMap<string, SourceReductionSite>,
+): SourceReductionSite | null {
+	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
+	const query = useQuery({
+		enabled: needsFetch,
+		queryKey: ['source-reduction', 'detail', selectedId],
+		queryFn: ({ signal }) => fetchSourceReductionById(selectedId ?? '', signal),
+	});
+	return needsFetch ? (query.data ?? null) : null;
+}
+
+async function fetchSourceReductionsPage(
+	filters: SourceReductionTileFilters,
+	page: number,
+	signal: AbortSignal,
+): Promise<{ readonly rows: SourceReductionSite[]; readonly total: number }> {
+	const url = new URL('/map/source-reduction', getServerUrl());
+	url.searchParams.set('limit', String(PAGE_SIZE));
+	url.searchParams.set('offset', String(page * PAGE_SIZE));
+	if (
+		filters.sourceReductionMethodIds !== undefined &&
+		filters.sourceReductionMethodIds.length > 0
+	) {
+		url.searchParams.set('sourceReductionMethodId', filters.sourceReductionMethodIds.join(','));
+	}
+	if (filters.dateFrom !== undefined) {
+		url.searchParams.set('dateFrom', filters.dateFrom);
+	}
+	if (filters.dateTo !== undefined) {
+		url.searchParams.set('dateTo', filters.dateTo);
+	}
+
+	const response = await fetch(url, { credentials: 'include', signal });
+	if (!response.ok) {
+		throw new Error(`Source reductions request failed (${response.status}).`);
+	}
+	const body = (await response.json()) as {
+		readonly sourceReductions?: SourceReductionSite[];
+		readonly total?: number;
+	};
+	return { rows: body.sourceReductions ?? [], total: body.total ?? 0 };
+}
+
+async function fetchSourceReductionById(
+	id: string,
+	signal: AbortSignal,
+): Promise<SourceReductionSite | null> {
+	if (id.length === 0) {
+		return null;
+	}
+	const response = await fetch(new URL(`/map/source-reduction/${id}`, getServerUrl()), {
+		credentials: 'include',
+		signal,
+	});
+	if (!response.ok) {
+		return null;
+	}
+	const body = (await response.json()) as { readonly sourceReduction?: SourceReductionSite };
+	return body.sourceReduction ?? null;
 }
 
 // --- filter controls --------------------------------------------------------
 
 const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
 
-function ResultMeta({ count, isReady }: { readonly count: number; readonly isReady: boolean }) {
-	if (!isReady) {
+function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
+	if (isLoading && total === 0) {
 		return <span className="text-muted-foreground text-sm">Loading…</span>;
 	}
 	return (
 		<span className="text-muted-foreground text-sm">
-			{count === 0 ? 'None' : count === 1 ? '1 action' : `${count} actions`}
+			{total === 0 ? 'None' : total === 1 ? '1 source reduction' : `${total} source reductions`}
 		</span>
 	);
 }
@@ -402,22 +480,22 @@ function FilterChip({
 
 function SourceReductionResults({
 	rows,
-	isReady,
+	isLoading,
 	selectedId,
 	methodNameById,
 	habitatNameById,
 	unitById,
 	onSelect,
 }: {
-	readonly rows: readonly SourceReductionListRow[];
-	readonly isReady: boolean;
+	readonly rows: readonly SourceReductionSite[];
+	readonly isLoading: boolean;
 	readonly selectedId: string | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly habitatNameById: ReadonlyMap<string, string>;
 	readonly unitById: ReadonlyMap<string, UnitRow>;
 	readonly onSelect: (id: string) => void;
 }) {
-	if (!isReady && rows.length === 0) {
+	if (isLoading && rows.length === 0) {
 		return (
 			<div className="grid gap-px overflow-y-auto p-2">
 				{SKELETON_KEYS.map((key) => (
@@ -467,7 +545,7 @@ function SourceReductionListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: SourceReductionListRow;
+	readonly row: SourceReductionSite;
 	readonly methodName: string;
 	readonly amountLabel: string;
 	readonly habitatName: string | null;
@@ -524,7 +602,7 @@ function SourceReductionDetailCard({
 	amountLabel,
 	onClose,
 }: {
-	readonly row: SourceReductionListRow;
+	readonly row: SourceReductionSite;
 	readonly methodName: string;
 	readonly amountLabel: string;
 	readonly onClose: () => void;
@@ -594,14 +672,6 @@ function DetailFact({
 }
 
 // --- helpers ----------------------------------------------------------------
-
-/** Most-recent-first. `sourceReductionDate` is always set, so no null branch. */
-function compareByDateDesc(a: SourceReductionListRow, b: SourceReductionListRow): number {
-	if (a.sourceReductionDate === b.sourceReductionDate) {
-		return 0;
-	}
-	return a.sourceReductionDate < b.sourceReductionDate ? 1 : -1;
-}
 
 function toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
 	const next = new Set(set);
