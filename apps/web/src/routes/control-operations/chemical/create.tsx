@@ -3,7 +3,6 @@ import type {
 	ApplicationRow,
 	ControlMethodRow,
 	EquipmentRow,
-	HabitatRow,
 	InsecticideRow,
 	ProfileRow,
 	UnitRow,
@@ -36,7 +35,6 @@ function CreateApplicationRoute() {
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
 	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
 	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -119,7 +117,6 @@ function CreateApplicationRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultApplicationFormValues()}
 			equipment={equipment}
-			habitats={habitats}
 			header={{
 				title: 'Record application',
 				description:

@@ -1,6 +1,5 @@
 import type {
 	ControlMethodRow,
-	HabitatRow,
 	ProfileRow,
 	SourceReductionRow,
 	UnitRow,
@@ -24,18 +23,14 @@ import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/regis
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
-import {
-	ContextBadge,
-	formatActionDate,
-	formatAmount,
-	habitatDisplayName,
-} from '../-control-display';
+import { ContextBadge, formatActionDate, formatAmount } from '../-control-display';
+import { useHabitatNames } from '../-overview-data';
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id')({
 	component: RouteComponent,
@@ -99,7 +94,12 @@ function SourceReductionDetailContent({
 	);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
+	// habitats is on-demand; resolve just the linked habitat's name as a subset.
+	const habitatIds = useMemo(
+		() => (sourceReduction.habitatId === null ? [] : [sourceReduction.habitatId]),
+		[sourceReduction.habitatId],
+	);
+	const habitatNameById = useHabitatNames(habitatIds);
 
 	const methodName =
 		methods.find((method) => method.id === sourceReduction.sourceReductionMethodId)?.name ??
@@ -111,10 +111,8 @@ function SourceReductionDetailContent({
 			? null
 			: (profiles.find((profile) => profile.id === sourceReduction.technicianProfileId)
 					?.displayName ?? 'Unknown technician');
-	const habitat =
-		sourceReduction.habitatId === null
-			? null
-			: (habitats.find((row) => row.id === sourceReduction.habitatId) ?? null);
+	const habitatId = sourceReduction.habitatId;
+	const habitatName = habitatId === null ? null : (habitatNameById.get(habitatId) ?? null);
 
 	useBreadcrumbLabel(sourceReduction.id, methodName);
 
@@ -159,7 +157,8 @@ function SourceReductionDetailContent({
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<SourceReductionDetailsCard
 						amountLabel={amountLabel}
-						habitat={habitat}
+						habitatId={habitatId}
+						habitatName={habitatName}
 						methodName={methodName}
 						sourceReduction={sourceReduction}
 						technicianName={technicianName}
@@ -217,13 +216,15 @@ function SourceReductionDetailsCard({
 	methodName,
 	amountLabel,
 	technicianName,
-	habitat,
+	habitatId,
+	habitatName,
 }: {
 	readonly sourceReduction: SourceReductionRow;
 	readonly methodName: string;
 	readonly amountLabel: string;
 	readonly technicianName: string | null;
-	readonly habitat: HabitatRow | null;
+	readonly habitatId: string | null;
+	readonly habitatName: string | null;
 }) {
 	return (
 		<Card variant="surface">
@@ -241,15 +242,15 @@ function SourceReductionDetailsCard({
 						{technicianName ?? <span className="text-muted-foreground">Unassigned</span>}
 					</DetailRow>
 					<DetailRow label="Habitat">
-						{habitat === null ? (
+						{habitatId === null ? (
 							<span className="text-muted-foreground">No habitat linked</span>
 						) : (
 							<Link
 								className="rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								params={{ id: habitat.id }}
+								params={{ id: habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
-								{habitatDisplayName(habitat)}
+								{habitatName ?? `Habitat ${habitatId.slice(0, 8)}`}
 							</Link>
 						)}
 					</DetailRow>

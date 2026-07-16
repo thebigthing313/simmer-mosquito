@@ -2,7 +2,6 @@ import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito
 import type {
 	BiocontrolActionRow,
 	ControlMethodRow,
-	HabitatRow,
 	ProfileRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
@@ -30,7 +29,6 @@ function CreateBiocontrolActionRoute() {
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -110,7 +108,6 @@ function CreateBiocontrolActionRoute() {
 			biocontrolMethods={methods}
 			canSubmit={canSubmit}
 			defaultValues={defaultBiocontrolFormValues()}
-			habitats={habitats}
 			header={{
 				title: 'Record biocontrol',
 				description:

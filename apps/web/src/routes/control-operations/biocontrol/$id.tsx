@@ -1,7 +1,6 @@
 import type {
 	BiocontrolActionRow,
 	ControlMethodRow,
-	HabitatRow,
 	ProfileRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
@@ -30,13 +29,8 @@ import { CommentsSection } from '../../../components/comments-section';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
-import {
-	ContextBadge,
-	formatActionDate,
-	formatAmount,
-	habitatDisplayName,
-	nameById,
-} from '../-control-display';
+import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
+import { useHabitatNames } from '../-overview-data';
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -96,7 +90,12 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
+	// habitats is on-demand; resolve just the linked habitat's name as a subset.
+	const habitatIds = useMemo(
+		() => (action.habitatId === null ? [] : [action.habitatId]),
+		[action.habitatId],
+	);
+	const habitatNameById = useHabitatNames(habitatIds);
 
 	const methodName =
 		methods.find((method) => method.id === action.biocontrolMethodId)?.name ?? 'Unknown method';
@@ -105,7 +104,6 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 		() => nameById(profiles, (profile) => profile.displayName),
 		[profiles],
 	);
-	const habitatNameById = useMemo(() => nameById(habitats, habitatDisplayName), [habitats]);
 
 	const technicianName =
 		action.technicianProfileId === null

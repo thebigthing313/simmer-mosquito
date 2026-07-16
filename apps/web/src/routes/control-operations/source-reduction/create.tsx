@@ -1,7 +1,6 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type {
 	ControlMethodRow,
-	HabitatRow,
 	ProfileRow,
 	SourceReductionRow,
 	UnitRow,
@@ -31,7 +30,6 @@ function CreateSourceReductionRoute() {
 	);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -104,7 +102,6 @@ function CreateSourceReductionRoute() {
 		<SourceReductionFormPage
 			canSubmit={canSubmit}
 			defaultValues={defaultSourceReductionFormValues()}
-			habitats={habitats}
 			header={{
 				title: 'Record source reduction',
 				description: 'Place the point, then record what the crew eliminated, how much, and when.',

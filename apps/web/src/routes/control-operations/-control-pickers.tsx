@@ -1,46 +1,35 @@
 import type { HabitatRow } from '@simmer-mosquito/sync';
-import { useMemo, useRef, useState } from 'react';
+import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
+import { useDeferredValue, useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../components/pickers/entity-picker';
+import { webCollections } from '../../sync/webCollections';
 import { habitatDisplayName } from './-control-display';
 
 // Control actions pick an address (shared, on-demand subset search) or a habitat
-// when the work was done against a known larval site. Habitats sync eagerly, so
-// this filters the local set rather than querying.
+// when the work was done against a known larval site. Habitats sync on demand
+// (docs/sync.md), so results come from a live `ilike` subset query rather than a
+// client-side filter over an eager set.
 
 export { AddressPicker } from '../../components/pickers/address-picker';
 
+const habitatSearchGcTimeMs = 30_000;
+
 export function HabitatPicker({
 	label = 'Habitat',
-	habitats,
+	organizationId,
 	value,
 	onSelect,
 }: {
 	readonly label?: string;
-	readonly habitats: readonly HabitatRow[];
+	readonly organizationId: string;
 	readonly value: string | null;
 	readonly onSelect: (habitat: HabitatRow | null) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
-	const [selectedLabel, setSelectedLabel] = useState(() => {
-		const current = habitats.find((habitat) => habitat.id === value);
-		return current === undefined ? '' : habitatDisplayName(current);
-	});
+	const [selectedLabel, setSelectedLabel] = useState('');
+	const deferredSearch = useDeferredValue(search);
 	const anchorRef = useRef<HTMLDivElement>(null);
-
-	const normalized = search.trim().toLowerCase();
-	const matches = useMemo(() => {
-		const active = habitats.filter((habitat) => habitat.isActive);
-		const filtered =
-			normalized.length === 0
-				? active
-				: active.filter((habitat) =>
-						`${habitat.habitatName ?? ''} ${habitat.description}`
-							.toLowerCase()
-							.includes(normalized),
-					);
-		return filtered.slice(0, 8);
-	}, [habitats, normalized]);
 
 	return (
 		<PickerFrame
@@ -63,26 +52,78 @@ export function HabitatPicker({
 			selectedLabel={selectedLabel}
 			value={value}
 		>
-			{matches.length === 0 ? (
-				<PickerFallback label={habitats.length === 0 ? 'No habitats yet' : 'No habitat matches'} />
-			) : (
-				<div className="grid gap-1">
-					{matches.map((habitat) => (
-						<OptionRow
-							key={habitat.id}
-							onSelect={() => {
-								setSelectedLabel(habitatDisplayName(habitat));
-								setSearch(habitatDisplayName(habitat));
-								onSelect(habitat);
-								setOpen(false);
-							}}
-							primary={habitatDisplayName(habitat)}
-							secondary={habitat.description}
-							selected={habitat.id === value}
-						/>
-					))}
-				</div>
-			)}
+			<HabitatResults
+				onSelect={(habitat) => {
+					setSelectedLabel(habitatDisplayName(habitat));
+					setSearch(habitatDisplayName(habitat));
+					onSelect(habitat);
+					setOpen(false);
+				}}
+				organizationId={organizationId}
+				search={deferredSearch}
+				selectedValue={value}
+			/>
 		</PickerFrame>
+	);
+}
+
+function HabitatResults({
+	organizationId,
+	search,
+	selectedValue,
+	onSelect,
+}: {
+	readonly organizationId: string;
+	readonly search: string;
+	readonly selectedValue: string | null;
+	readonly onSelect: (habitat: HabitatRow) => void;
+}) {
+	const normalized = search.trim();
+	const pattern = `%${normalized}%`;
+	const { data, isReady, isError } = useLiveQuery(
+		{
+			gcTime: habitatSearchGcTimeMs,
+			query: (query) => {
+				const habitats = query.from({ habitat: webCollections.habitats });
+				const scoped =
+					normalized.length === 0
+						? habitats.where(({ habitat }) =>
+								and(eq(habitat.organizationId, organizationId), eq(habitat.isActive, true)),
+							)
+						: habitats.where(({ habitat }) =>
+								and(
+									and(eq(habitat.organizationId, organizationId), eq(habitat.isActive, true)),
+									or(ilike(habitat.habitatName, pattern), ilike(habitat.description, pattern)),
+								),
+							);
+				return scoped.orderBy(({ habitat }) => habitat.habitatName, 'asc').limit(6);
+			},
+		},
+		[organizationId, pattern],
+	);
+
+	if (isError) {
+		return <PickerFallback label="Habitats unavailable" />;
+	}
+	if (!isReady && (data ?? []).length === 0) {
+		return <PickerFallback label="Searching habitats" />;
+	}
+	const habitats = (data ?? []) as readonly HabitatRow[];
+	if (habitats.length === 0) {
+		return <PickerFallback label="No habitat matches" />;
+	}
+
+	return (
+		<div className="grid gap-1">
+			{habitats.map((habitat) => (
+				<OptionRow
+					key={habitat.id}
+					onSelect={() => onSelect(habitat)}
+					primary={habitatDisplayName(habitat)}
+					secondary={habitat.description}
+					selected={habitat.id === selectedValue}
+				/>
+			))}
+		</div>
 	);
 }

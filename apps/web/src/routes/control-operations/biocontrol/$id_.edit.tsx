@@ -2,7 +2,6 @@ import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito
 import type {
 	BiocontrolActionRow,
 	ControlMethodRow,
-	HabitatRow,
 	ProfileRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
@@ -39,7 +38,6 @@ function EditBiocontrolActionRoute() {
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
 
 	// biocontrolActions is on-demand; status-gated useLiveQuery (not suspense)
 	// avoids the post-unmount hang.
@@ -77,7 +75,6 @@ function EditBiocontrolActionRoute() {
 			actorProfileId={actorProfileId}
 			biocontrolMethods={methods}
 			canSubmit={organization !== null && actorProfileId !== null}
-			habitats={habitats}
 			profiles={profiles}
 			units={units}
 		/>
@@ -89,7 +86,6 @@ function EditBiocontrolActionLoader({
 	biocontrolMethods,
 	units,
 	profiles,
-	habitats,
 	actorProfileId,
 	canSubmit,
 }: {
@@ -97,7 +93,6 @@ function EditBiocontrolActionLoader({
 	readonly biocontrolMethods: readonly ControlMethodRow[];
 	readonly units: readonly UnitRow[];
 	readonly profiles: readonly ProfileRow[];
-	readonly habitats: readonly HabitatRow[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 }) {
@@ -174,7 +169,6 @@ function EditBiocontrolActionLoader({
 			biocontrolMethods={biocontrolMethods}
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromAction(action)}
-			habitats={habitats}
 			header={{
 				title: 'Edit biocontrol',
 				description: 'Update this release’s method, amount, date, context, or location.',

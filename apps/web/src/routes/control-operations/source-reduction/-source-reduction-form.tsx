@@ -69,7 +69,6 @@ export interface SourceReductionFormPageProps {
 	readonly methods: readonly ControlMethodRow[];
 	readonly units: readonly UnitRow[];
 	readonly profiles: readonly ProfileRow[];
-	readonly habitats: readonly HabitatRow[];
 	readonly defaultValues: SourceReductionFormValues;
 	/** The action's point to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -103,7 +102,6 @@ export function SourceReductionFormPage({
 	methods,
 	units,
 	profiles,
-	habitats,
 	defaultValues,
 	initialGeometry = null,
 	initialPreviewGeometry = null,
@@ -390,8 +388,8 @@ export function SourceReductionFormPage({
 									<form.AppField name="habitatId">
 										{(field) => (
 											<HabitatPicker
-												habitats={habitats}
 												label="Habitat (optional)"
+												organizationId={organizationId}
 												onSelect={(habitat) => {
 													field.handleChange(habitat?.id ?? null);
 													handleHabitatSelected(habitat);

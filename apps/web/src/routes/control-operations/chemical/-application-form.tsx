@@ -3,7 +3,6 @@ import type {
 	AddressRow,
 	ControlMethodRow,
 	EquipmentRow,
-	HabitatRow,
 	InsecticideRow,
 	ProfileRow,
 	UnitRow,
@@ -85,7 +84,6 @@ export interface ApplicationFormPageProps {
 	readonly profiles: readonly ProfileRow[];
 	readonly vehicles: readonly VehicleRow[];
 	readonly equipment: readonly EquipmentRow[];
-	readonly habitats: readonly HabitatRow[];
 	readonly defaultValues: ApplicationFormValues;
 	/** The application's point to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -131,7 +129,6 @@ export function ApplicationFormPage({
 	profiles,
 	vehicles,
 	equipment,
-	habitats,
 	defaultValues,
 	initialGeometry = null,
 	initialPreviewGeometry = null,
@@ -480,8 +477,8 @@ export function ApplicationFormPage({
 									<form.AppField name="habitatId">
 										{(field) => (
 											<HabitatPicker
-												habitats={habitats}
 												label="Habitat (optional)"
+												organizationId={organizationId}
 												onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
 												value={field.state.value}
 											/>

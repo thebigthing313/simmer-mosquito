@@ -3,7 +3,6 @@ import type {
 	ApplicationRow,
 	ControlMethodRow,
 	EquipmentRow,
-	HabitatRow,
 	InsecticideRow,
 	ProfileRow,
 	UnitRow,
@@ -45,7 +44,6 @@ function EditApplicationRoute() {
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
 	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
 	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
 
 	// applications is on-demand: the id-scoped subset drives the shape, and the
 	// status-gated useLiveQuery (not the suspense variant) avoids the post-unmount
@@ -85,7 +83,6 @@ function EditApplicationRoute() {
 			applicationMethods={methods}
 			canSubmit={organization !== null && actorProfileId !== null}
 			equipment={equipment}
-			habitats={habitats}
 			insecticides={insecticides}
 			profiles={profiles}
 			units={units}
@@ -102,7 +99,6 @@ function EditApplicationLoader({
 	profiles,
 	vehicles,
 	equipment,
-	habitats,
 	actorProfileId,
 	canSubmit,
 }: {
@@ -113,7 +109,6 @@ function EditApplicationLoader({
 	readonly profiles: readonly ProfileRow[];
 	readonly vehicles: readonly VehicleRow[];
 	readonly equipment: readonly EquipmentRow[];
-	readonly habitats: readonly HabitatRow[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 }) {
@@ -190,7 +185,6 @@ function EditApplicationLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromApplication(application)}
 			equipment={equipment}
-			habitats={habitats}
 			header={{
 				title: 'Edit application',
 				description: 'Update this application’s product, amount, work details, or location.',

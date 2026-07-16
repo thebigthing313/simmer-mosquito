@@ -3,7 +3,6 @@ import type {
 	ApplicationRow,
 	ControlMethodRow,
 	EquipmentRow,
-	HabitatRow,
 	InsecticideBatchRow,
 	InsecticideRow,
 	ProfileRow,
@@ -52,13 +51,8 @@ import { CommentsSection } from '../../../components/comments-section';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
-import {
-	ContextBadge,
-	formatActionDate,
-	formatAmount,
-	habitatDisplayName,
-	nameById,
-} from '../-control-display';
+import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
+import { useHabitatNames } from '../-overview-data';
 import { insecticideLabel } from './-application-form';
 
 export const Route = createFileRoute('/control-operations/chemical/$id')({
@@ -151,7 +145,12 @@ function ApplicationDetailContent({
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
 	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
 	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
+	// habitats is on-demand; resolve just the linked habitat's name as a subset.
+	const habitatIds = useMemo(
+		() => (application.habitatId === null ? [] : [application.habitatId]),
+		[application.habitatId],
+	);
+	const habitatNameById = useHabitatNames(habitatIds);
 
 	const insecticide = insecticides.find((row) => row.id === application.insecticideId);
 	const productName = insecticide === undefined ? 'Unknown product' : insecticideLabel(insecticide);
@@ -180,10 +179,10 @@ function ApplicationDetailContent({
 			? null
 			: (equipment.find((row) => row.id === application.equipmentId)?.equipmentName ??
 				'Unknown equipment');
-	const habitat =
+	const habitatName =
 		application.habitatId === null
 			? null
-			: (habitats.find((row) => row.id === application.habitatId) ?? null);
+			: (habitatNameById.get(application.habitatId) ?? 'Unknown habitat');
 
 	return (
 		<>
@@ -233,7 +232,7 @@ function ApplicationDetailContent({
 						application={application}
 						applicatorName={applicatorName}
 						equipmentName={equipmentName}
-						habitatName={habitat === null ? null : habitatDisplayName(habitat)}
+						habitatName={habitatName}
 						methodName={methodName}
 						productName={productName}
 						vehicleName={vehicleName}

@@ -15,6 +15,7 @@ export {
 	formatDate,
 	formatMonthDay,
 	todayInTimeZone,
+	useHabitatNames,
 } from '../larval-surveillance/-overview-data';
 
 /** How far back the recent-activity panels reach. */

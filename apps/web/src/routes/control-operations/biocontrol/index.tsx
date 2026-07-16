@@ -1,4 +1,4 @@
-import type { ControlMethodRow, HabitatRow, UnitRow } from '@simmer-mosquito/sync';
+import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -35,12 +35,11 @@ import {
 	ContextBadge,
 	formatActionDate,
 	formatAmount,
-	habitatDisplayName,
 	nameById,
 	todayDateValue,
 } from '../-control-display';
 import { toPointFeatureCollection } from '../-control-map';
-import { addDaysToDateString, formatMonthDay } from '../-overview-data';
+import { addDaysToDateString, formatMonthDay, useHabitatNames } from '../-overview-data';
 
 export const Route = createFileRoute('/control-operations/biocontrol/')({
 	component: BiocontrolExplorerRoute,
@@ -88,13 +87,19 @@ function BiocontrolExplorerRoute() {
 
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
 
 	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
-	const habitatNameById = useMemo(() => nameById(habitats, habitatDisplayName), [habitats]);
 	const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
 
 	const { rows, isReady } = useBiocontrolActionsSince(since);
+
+	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
+	// live subset rather than reading the whole collection eagerly.
+	const habitatIds = useMemo(
+		() => rows.flatMap((row) => (row.habitatId === null ? [] : [row.habitatId])),
+		[rows],
+	);
+	const habitatNameById = useHabitatNames(habitatIds);
 
 	const filtered = useMemo(() => {
 		return (

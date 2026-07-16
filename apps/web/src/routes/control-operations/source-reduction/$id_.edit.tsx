@@ -1,7 +1,6 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type {
 	ControlMethodRow,
-	HabitatRow,
 	ProfileRow,
 	SourceReductionRow,
 	UnitRow,
@@ -42,7 +41,6 @@ function EditSourceReductionRoute() {
 	);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: habitats } = useCollectionRows<HabitatRow>(webCollections.habitats);
 
 	// sourceReductions is on-demand; status-gated useLiveQuery (not suspense) avoids
 	// the post-unmount hang.
@@ -78,7 +76,6 @@ function EditSourceReductionRoute() {
 		<EditSourceReductionLoader
 			actorProfileId={actorProfileId}
 			canSubmit={organization !== null && actorProfileId !== null}
-			habitats={habitats}
 			methods={methods}
 			profiles={profiles}
 			sourceReduction={sourceReduction}
@@ -92,7 +89,6 @@ function EditSourceReductionLoader({
 	methods,
 	units,
 	profiles,
-	habitats,
 	actorProfileId,
 	canSubmit,
 }: {
@@ -100,7 +96,6 @@ function EditSourceReductionLoader({
 	readonly methods: readonly ControlMethodRow[];
 	readonly units: readonly UnitRow[];
 	readonly profiles: readonly ProfileRow[];
-	readonly habitats: readonly HabitatRow[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 }) {
@@ -171,7 +166,6 @@ function EditSourceReductionLoader({
 		<SourceReductionFormPage
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromSourceReduction(sourceReduction)}
-			habitats={habitats}
 			header={{
 				title: 'Edit source reduction',
 				description: 'Update what was eliminated, who did it, when, or where.',
