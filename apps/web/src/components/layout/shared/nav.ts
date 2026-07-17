@@ -77,11 +77,11 @@ export const navigationGroups: readonly NavGroup[] = [
 		],
 	},
 	{
-		label: 'GIS Data',
+		label: 'GIS',
 		items: [
-			{ to: '/address-book', label: 'Address Book', icon: iconRegistry.actions.searchCheck.icon },
-			{ to: '/regions', label: 'Regions', icon: iconRegistry.entities.region.icon },
-			{ to: '/routes', label: 'Routes', icon: iconRegistry.entities.route.icon },
+			{ to: '/gis/data-explorer', label: 'Data Explorer', icon: iconRegistry.generic.compass.icon },
+			{ to: '/gis/regions', label: 'Regions', icon: iconRegistry.entities.region.icon },
+			{ to: '/gis/addresses', label: 'Address Book', icon: iconRegistry.actions.searchCheck.icon },
 		],
 	},
 	{

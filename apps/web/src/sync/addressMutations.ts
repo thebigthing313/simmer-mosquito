@@ -12,25 +12,74 @@ const mapAddressPayload = createRowPayloadMapper<AddressRow>([
 	'geocoderResponse',
 ] as const);
 
+/** Detail fields the server PATCH accepts (country is fixed on create). */
+const editableDetailKeys = [
+	'displayName',
+	'addressLine1',
+	'addressLine2',
+	'locality',
+	'region',
+	'postalCode',
+	'geocoderResponse',
+] as const satisfies readonly (keyof AddressRow)[];
+
 export function createAddressMutationHandlers(options: { readonly serverUrl: string }) {
+	const endpoint = `${options.serverUrl}/foundation/addresses`;
 	return {
-		onInsert: async ({ transaction }: CollectionMutationHandlerInput<AddressRow>) => {
+		onInsert: async ({ transaction }: InsertHandlerInput<AddressRow>) => {
 			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					await writeAddress(
-						`${options.serverUrl}/foundation/addresses`,
-						toAddressPayload(mutation.modified),
-					);
+					await writeAddress(endpoint, 'POST', toAddressPayload(mutation.modified));
 				}),
 			);
+		},
+		onUpdate: async ({ transaction }: UpdateHandlerInput<AddressRow>) => {
+			const txid = await Promise.all(
+				transaction.mutations.map(async (mutation) => {
+					const body = toAddressUpdatePayload(mutation.original, mutation.modified);
+					const result = await writeAddress(`${endpoint}/${mutation.modified.id}`, 'PATCH', body);
+					return result.txid;
+				}),
+			);
+			return { txid };
+		},
+		onDelete: async ({ transaction }: DeleteHandlerInput<AddressRow>) => {
+			const txid = await Promise.all(
+				transaction.mutations.map(async (mutation) => {
+					const id = mutation.original.id;
+					if (id === undefined) {
+						throw new Error('Unable to delete an address without an id.');
+					}
+					const result = await writeAddress(`${endpoint}/${id}`, 'DELETE', undefined);
+					return result.txid;
+				}),
+			);
+			return { txid };
 		},
 	};
 }
 
-interface CollectionMutationHandlerInput<TRow> {
+interface InsertHandlerInput<TRow> {
 	readonly transaction: {
 		readonly mutations: readonly {
 			readonly modified: TRow;
+		}[];
+	};
+}
+
+interface UpdateHandlerInput<TRow> {
+	readonly transaction: {
+		readonly mutations: readonly {
+			readonly original: Partial<TRow>;
+			readonly modified: TRow;
+		}[];
+	};
+}
+
+interface DeleteHandlerInput<TRow> {
+	readonly transaction: {
+		readonly mutations: readonly {
+			readonly original: Partial<TRow>;
 		}[];
 	};
 }
@@ -50,15 +99,44 @@ function toAddressPayload(row: AddressRow) {
 	};
 }
 
-async function writeAddress(url: string, body: unknown): Promise<AddressMutationResult> {
+function toAddressUpdatePayload(original: Partial<AddressRow>, modified: AddressRow) {
+	const body: Record<string, unknown> = {};
+	for (const key of editableDetailKeys) {
+		if (!valuesEqual(original[key], modified[key])) {
+			body[key] = modified[key] ?? null;
+		}
+	}
+	// Geometry is not part of the synced row, so a moved point shows up as a changed
+	// geojson on the optimistic draft; forward it only when it actually changed.
+	if (modified.geojson !== undefined && !valuesEqual(original.geojson, modified.geojson)) {
+		body.geojson = modified.geojson;
+	}
+	return body;
+}
+
+function valuesEqual(a: unknown, b: unknown): boolean {
+	if (a === b) {
+		return true;
+	}
+	if (typeof a === 'object' || typeof b === 'object') {
+		return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+	}
+	return false;
+}
+
+async function writeAddress(
+	url: string,
+	method: 'POST' | 'PATCH' | 'DELETE',
+	body: unknown,
+): Promise<AddressMutationResult> {
 	const response = await fetch(url, {
-		method: 'POST',
+		method,
 		credentials: 'include',
 		headers: {
 			accept: 'application/json',
-			'content-type': 'application/json',
+			...(body === undefined ? {} : { 'content-type': 'application/json' }),
 		},
-		body: JSON.stringify(body),
+		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
 	const result = (await response.json()) as
 		| AddressMutationResult

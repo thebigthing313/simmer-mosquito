@@ -15,6 +15,7 @@ import {
 	type CollectionPageInput,
 	type CollectionPageResult,
 	countActiveHabitatsByType,
+	getAddressById,
 	getApplicationDisplayRowById,
 	getApplicationMvtTile,
 	getBiocontrolDisplayRowById,
@@ -25,6 +26,8 @@ import {
 	getHabitatMvtTile,
 	getInspectionDisplayRowById,
 	getInspectionMvtTile,
+	getRegionById,
+	getRegionMvtTile,
 	getSampleDisplayRowById,
 	getSampleMvtTile,
 	getSourceReductionDisplayRowById,
@@ -55,6 +58,8 @@ import {
 	listSampleDisplayRowsByBounds,
 	listSourceReductionDisplayRowsPage,
 	listTrapDisplayRowsPage,
+	type RegionMvtTileFilters,
+	type RegionMvtTileInput,
 	type SafeApplicationDisplayRow,
 	type SafeBiocontrolDisplayRow,
 	type SafeCollectionDisplayRow,
@@ -92,6 +97,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 type TileDb = Kysely<SimmerDatabase>;
 type HabitatTileReader = (db: TileDb, input: HabitatMvtTileInput) => Promise<Uint8Array>;
+type RegionTileReader = (db: TileDb, input: RegionMvtTileInput) => Promise<Uint8Array>;
 type HabitatDisplayReader = (
 	db: TileDb,
 	input: HabitatDisplayInput,
@@ -301,6 +307,7 @@ export function registerMapTileRoutes(
 		readonly db: TileDb;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly getHabitatTile?: HabitatTileReader;
+		readonly getRegionTile?: RegionTileReader;
 		readonly listHabitatDisplayRows?: HabitatDisplayReader;
 		readonly getHabitatDisplayRow?: HabitatDisplayByIdReader;
 		readonly listHabitatDisplayRowsByIds?: HabitatDisplayByIdsReader;
@@ -331,6 +338,7 @@ export function registerMapTileRoutes(
 ): void {
 	const tileSets = createTileSetRegistry({
 		getHabitatTile: options.getHabitatTile ?? getHabitatMvtTile,
+		getRegionTile: options.getRegionTile ?? getRegionMvtTile,
 		getInspectionTile: options.getInspectionTile ?? getInspectionMvtTile,
 		getSampleTile: options.getSampleTile ?? getSampleMvtTile,
 		getApplicationTile: options.getApplicationTile ?? getApplicationMvtTile,
@@ -483,6 +491,47 @@ export function registerMapTileRoutes(
 		}
 
 		return context.json({ habitat });
+	});
+
+	// Region + address geometry is deliberately excluded from the Electric sync
+	// shapes (the on-demand rows carry no geometry), so detail views read the
+	// polygon/point over HTTP the same way habitats do.
+	app.get('/map/regions/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Region id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const region = await getRegionById(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (region === undefined) {
+			return context.json({ error: 'not_found', reason: 'Region not found.' }, 404);
+		}
+
+		return context.json({ region: { ...region.geometry } });
+	});
+
+	app.get('/map/addresses/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Address id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const address = await getAddressById(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (address === undefined) {
+			return context.json({ error: 'not_found', reason: 'Address not found.' }, 404);
+		}
+
+		return context.json({ address: { ...address.geometry } });
 	});
 
 	app.get('/map/inspections', options.authContextMiddleware, async (context) => {
@@ -779,6 +828,7 @@ export function registerMapTileRoutes(
 
 function createTileSetRegistry(options: {
 	readonly getHabitatTile: HabitatTileReader;
+	readonly getRegionTile: RegionTileReader;
 	readonly getInspectionTile: InspectionTileReader;
 	readonly getSampleTile: SampleTileReader;
 	readonly getApplicationTile: ApplicationTileReader;
@@ -794,6 +844,18 @@ function createTileSetRegistry(options: {
 				parseFilters: parseHabitatTileFilters,
 				getTile: (db, input) =>
 					options.getHabitatTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+			}),
+		],
+		[
+			'regions',
+			defineTileSet<RegionMvtTileFilters>({
+				parseFilters: parseRegionTileFilters,
+				getTile: (db, input) =>
+					options.getRegionTile(db, {
 						...input.coordinate,
 						organizationId: input.organizationId,
 						filters: input.filters,
@@ -965,6 +1027,37 @@ export function parseHabitatTileFilters(searchParams: URLSearchParams): HabitatF
 			...(isInaccessible.value === undefined ? {} : { isInaccessible: isInaccessible.value }),
 			...(habitatTypeIds.value === undefined ? {} : { habitatTypeIds: habitatTypeIds.value }),
 			...(tagIds.value === undefined ? {} : { tagIds: tagIds.value }),
+			...(search.value === undefined ? {} : { search: search.value }),
+		},
+	};
+}
+
+type RegionFilterResult =
+	| { readonly ok: true; readonly filters: RegionMvtTileFilters }
+	| { readonly ok: false; readonly reason: string };
+
+const regionFilterParams = new Set(['regionFolderId', 'search']);
+
+export function parseRegionTileFilters(searchParams: URLSearchParams): RegionFilterResult {
+	const unknownParams = [...searchParams.keys()].filter((param) => !regionFilterParams.has(param));
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported region tile filter: ${unknownParams[0]}.` };
+	}
+
+	const regionFolderId = parseOptionalTextFilter(searchParams, 'regionFolderId');
+	if (!regionFolderId.ok) {
+		return regionFolderId;
+	}
+
+	const search = parseOptionalTextFilter(searchParams, 'search');
+	if (!search.ok) {
+		return search;
+	}
+
+	return {
+		ok: true,
+		filters: {
+			...(regionFolderId.value === undefined ? {} : { regionFolderId: regionFolderId.value }),
 			...(search.value === undefined ? {} : { search: search.value }),
 		},
 	};

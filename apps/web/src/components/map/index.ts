@@ -16,6 +16,7 @@ export {
 	DEFAULT_MAP_CAMERA,
 	type MapCamera,
 } from './map-styles';
+export { buildRegionTileUrl, type RegionTileFilters } from './region-tiles';
 export {
 	buildSampleTileUrl,
 	SAMPLE_STATUS_COLORS,
@@ -33,6 +34,7 @@ export type { GeoJsonLayerInteraction } from './use-geojson-layer';
 export { type GeolocationCoords, useGeolocation } from './use-geolocation';
 export type { HabitatTileLayerConfig } from './use-habitat-tile-layer';
 export type { InspectionTileLayerConfig } from './use-inspection-tile-layer';
+export type { RegionTileLayerConfig } from './use-region-tile-layer';
 export type { RouteLayerConfig, RouteStopFeature } from './use-route-layer';
 export type { SampleTileLayerConfig } from './use-sample-tile-layer';
 export type { SourceReductionTileLayerConfig } from './use-source-reduction-tile-layer';

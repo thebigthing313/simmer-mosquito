@@ -2,6 +2,7 @@ import {
 	createAddress,
 	createOrgLookup,
 	createTag,
+	deleteAddress,
 	deleteCollectionLureLookup,
 	deleteCollectionMethodLookup,
 	deleteHabitatTypeLookup,
@@ -16,6 +17,8 @@ import {
 	setHabitatTypeLookupActive,
 	setTagActive,
 	sql,
+	updateAddressDetails,
+	updateAddressLocation,
 	updateCollectionLureLookup,
 	updateCollectionMethodLookup,
 	updateHabitatTypeLookup,
@@ -135,6 +138,38 @@ export function registerFoundationCommandRoutes(
 		});
 
 		return context.json({ address: toAddressResponse(result.row), txid: result.txid }, 201);
+	});
+
+	app.patch('/foundation/addresses/:addressId', options.authContextMiddleware, async (context) => {
+		const payloadResult = await readAddressUpdatePayload(context.req);
+		if (!payloadResult.ok) {
+			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const result = await writeAddressUpdateWithTxid(options.db, context.req.param('addressId'), {
+			...payloadResult.payload,
+			organizationId: authContext.organization.id,
+			updatedByProfileId: authContext.profile.id,
+		});
+		if (result.row === null) {
+			return context.json({ error: 'address_not_found' }, 404);
+		}
+
+		return context.json({ address: toAddressResponse(result.row), txid: result.txid });
+	});
+
+	app.delete('/foundation/addresses/:addressId', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const result = await writeAddressDeleteWithTxid(options.db, context.req.param('addressId'), {
+			organizationId: authContext.organization.id,
+			actorProfileId: authContext.profile.id,
+		});
+		if (result.row === null) {
+			return context.json({ error: 'address_not_found' }, 404);
+		}
+
+		return context.json({ address: toAddressResponse(result.row), txid: result.txid });
 	});
 
 	app.post('/foundation/collection-methods', options.authContextMiddleware, async (context) => {
@@ -497,6 +532,57 @@ async function writeAddressWithTxid(
 			throw new Error('Unable to read current transaction id.');
 		}
 
+		return { row, txid: Number.parseInt(txid, 10) };
+	});
+}
+
+async function writeAddressUpdateWithTxid(
+	db: FoundationCommandDb,
+	addressId: string,
+	input: AddressUpdateWriteInput,
+): Promise<MutationWriteResult<SafeAddress | null>> {
+	const { organizationId, updatedByProfileId, geojson, ...details } = input;
+	return db.transaction().execute(async (trx) => {
+		let row: SafeAddress | null = null;
+		if (Object.keys(details).length > 0) {
+			row = await updateAddressDetails(trx, addressId, {
+				organizationId,
+				updatedByProfileId,
+				...details,
+			});
+		}
+		if (geojson !== undefined) {
+			row = await updateAddressLocation(trx, addressId, {
+				organizationId,
+				geojson,
+				updatedByProfileId,
+			});
+		}
+		const result = await sql<{
+			txid: string;
+		}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
+		const txid = result.rows[0]?.txid;
+		if (txid === undefined) {
+			throw new Error('Unable to read current transaction id.');
+		}
+		return { row, txid: Number.parseInt(txid, 10) };
+	});
+}
+
+async function writeAddressDeleteWithTxid(
+	db: FoundationCommandDb,
+	addressId: string,
+	input: { readonly organizationId: string; readonly actorProfileId: string },
+): Promise<MutationWriteResult<SafeAddress | null>> {
+	return db.transaction().execute(async (trx) => {
+		const row = await deleteAddress(trx, addressId, input);
+		const result = await sql<{
+			txid: string;
+		}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
+		const txid = result.rows[0]?.txid;
+		if (txid === undefined) {
+			throw new Error('Unable to read current transaction id.');
+		}
 		return { row, txid: Number.parseInt(txid, 10) };
 	});
 }
@@ -990,6 +1076,22 @@ interface AddressWriteInput extends AddressCreatePayload {
 	readonly updatedByProfileId: string;
 }
 
+interface AddressUpdatePayload {
+	readonly displayName?: string;
+	readonly addressLine1?: string | null;
+	readonly addressLine2?: string | null;
+	readonly locality?: string | null;
+	readonly region?: string | null;
+	readonly postalCode?: string | null;
+	readonly geocoderResponse?: unknown | null;
+	readonly geojson?: GeoJsonGeometry;
+}
+
+interface AddressUpdateWriteInput extends AddressUpdatePayload {
+	readonly organizationId: string;
+	readonly updatedByProfileId: string;
+}
+
 interface CollectionMethodUpdatePayload {
 	readonly name?: string;
 	readonly description?: string | null;
@@ -1054,6 +1156,65 @@ async function readAddressCreatePayload(request: {
 			geojson,
 		},
 	};
+}
+
+async function readAddressUpdatePayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<PayloadResult<AddressUpdatePayload>> {
+	const rawResult = await readJsonObject(request);
+	if (!rawResult.ok) {
+		return rawResult;
+	}
+	const raw = rawResult.payload;
+	const payload: {
+		displayName?: string;
+		addressLine1?: string | null;
+		addressLine2?: string | null;
+		locality?: string | null;
+		region?: string | null;
+		postalCode?: string | null;
+		geocoderResponse?: unknown | null;
+		geojson?: GeoJsonGeometry;
+	} = {};
+
+	if (raw.displayName !== undefined) {
+		const displayName = readRequiredText(raw.displayName);
+		if (displayName === null) {
+			return invalid('displayName must be a non-empty string.');
+		}
+		payload.displayName = displayName;
+	}
+	if (raw.addressLine1 !== undefined) {
+		payload.addressLine1 = readOptionalText(raw.addressLine1);
+	}
+	if (raw.addressLine2 !== undefined) {
+		payload.addressLine2 = readOptionalText(raw.addressLine2);
+	}
+	if (raw.locality !== undefined) {
+		payload.locality = readOptionalText(raw.locality);
+	}
+	if (raw.region !== undefined) {
+		payload.region = readOptionalText(raw.region);
+	}
+	if (raw.postalCode !== undefined) {
+		payload.postalCode = readOptionalText(raw.postalCode);
+	}
+	if (raw.geocoderResponse !== undefined) {
+		payload.geocoderResponse = readOptionalJson(raw.geocoderResponse);
+	}
+	if (raw.geojson !== undefined) {
+		const geojson = readGeoJson(raw.geojson);
+		if (geojson === null) {
+			return invalid('geojson must be a GeoJSON geometry object.');
+		}
+		payload.geojson = geojson;
+	}
+
+	if (Object.keys(payload).length === 0) {
+		return invalid('At least one address field must change.');
+	}
+
+	return { ok: true, payload };
 }
 
 async function readCollectionMethodCreatePayload(request: {

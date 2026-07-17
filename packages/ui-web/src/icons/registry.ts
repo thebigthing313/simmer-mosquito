@@ -58,6 +58,7 @@ import {
 	Sun,
 	Trash2,
 	Truck,
+	Upload,
 	Users,
 	Worm,
 	Wrench,
@@ -142,6 +143,7 @@ export const iconRegistry = {
 		select: icon('select', 'Select', 'actions', CheckCircle2),
 		send: icon('send', 'Send', 'actions', Send),
 		unpin: icon('unpin', 'Unpin', 'actions', PinOff),
+		upload: icon('upload', 'Upload', 'actions', Upload),
 		warning: icon('warning', 'Warning', 'actions', AlertTriangle),
 	},
 	arrows: {

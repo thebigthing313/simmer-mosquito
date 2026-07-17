@@ -356,21 +356,44 @@ export const shellDomains: readonly ShellDomain[] = [
 					{
 						id: 'data-explorer',
 						label: 'Data Explorer',
-						to: '/gis-data/data-explorer',
+						to: '/gis/data-explorer',
 						icon: iconRegistry.generic.compass.icon,
 					},
 					{
-						id: 'regions',
-						label: 'Regions',
-						to: '/regions',
-						icon: iconRegistry.entities.region.icon,
-					},
-					{ id: 'routes', label: 'Routes', to: '/routes', icon: iconRegistry.entities.route.icon },
-					{
 						id: 'addresses',
 						label: 'Address book',
-						to: '/address-book',
+						to: '/gis/addresses',
 						icon: iconRegistry.actions.searchCheck.icon,
+					},
+					{
+						id: 'weather',
+						label: 'Weather',
+						to: '/gis/weather',
+						icon: iconRegistry.domains.weather.icon,
+					},
+				],
+			},
+			{
+				id: 'gis-regions',
+				label: 'Regions',
+				items: [
+					{
+						id: 'regions',
+						label: 'Regions',
+						to: '/gis/regions',
+						icon: iconRegistry.entities.region.icon,
+					},
+					{
+						id: 'regions-create',
+						label: 'Create region',
+						to: '/gis/regions/create',
+						icon: iconRegistry.actions.add.icon,
+					},
+					{
+						id: 'regions-import',
+						label: 'Import regions',
+						to: '/gis/regions/import',
+						icon: iconRegistry.actions.upload.icon,
 					},
 				],
 			},

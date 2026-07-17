@@ -26,6 +26,7 @@ import {
 	useInspectionTileLayer,
 } from './use-inspection-tile-layer';
 import { useMapboxMap } from './use-mapbox-map';
+import { type RegionTileLayerConfig, useRegionTileLayer } from './use-region-tile-layer';
 import { type RouteLayerConfig, useRouteLayer } from './use-route-layer';
 import { type SampleTileLayerConfig, useSampleTileLayer } from './use-sample-tile-layer';
 import {
@@ -59,6 +60,7 @@ export function MapCanvas({
 	camera,
 	controls,
 	habitatLayer,
+	regionLayer,
 	inspectionLayer,
 	sampleLayer,
 	chemicalLayer,
@@ -76,6 +78,8 @@ export function MapCanvas({
 	readonly controls?: MapControlsConfig;
 	/** Mount the habitat vector-tile layer with these filters + selection wiring. */
 	readonly habitatLayer?: HabitatTileLayerConfig;
+	/** Mount the region (polygon) vector-tile layer with these filters + selection wiring. */
+	readonly regionLayer?: RegionTileLayerConfig;
 	/** Mount the inspection vector-tile layer with these filters + selection wiring. */
 	readonly inspectionLayer?: InspectionTileLayerConfig;
 	/** Mount the sample vector-tile layer with these filters + selection wiring. */
@@ -119,6 +123,7 @@ export function MapCanvas({
 	});
 
 	useHabitatTileLayer(map, isLoaded, habitatLayer);
+	useRegionTileLayer(map, isLoaded, regionLayer);
 	useInspectionTileLayer(map, isLoaded, inspectionLayer);
 	useSampleTileLayer(map, isLoaded, sampleLayer);
 	useChemicalTileLayer(map, isLoaded, chemicalLayer);
