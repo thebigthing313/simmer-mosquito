@@ -56,12 +56,26 @@ export function buildRegionTileUrl(serverUrl: string, filters?: RegionTileFilter
 	return query.length === 0 ? base : `${base}?${query}`;
 }
 
-/** The GL layers for the region source. `selectedId` drives the highlight set. */
+/**
+ * A filter that renders only features whose id is in `visibleIds`. When the set
+ * is empty the expression matches nothing, so the map starts blank (all toggles
+ * off) and each checkbox reveals its region without refetching tiles.
+ */
+export function regionVisibilityFilter(visibleIds: readonly string[]): ExpressionSpecification {
+	return ['in', ['id'], ['literal', [...visibleIds]]];
+}
+
+/**
+ * The GL layers for the region source. `visibleIds` gates which regions draw;
+ * `selectedId` adds a highlight on top of the visible ones.
+ */
 export function regionTileLayers(
 	selectedId: string | null,
+	visibleIds: readonly string[],
 ): (FillLayerSpecification | LineLayerSpecification)[] {
+	const visible = regionVisibilityFilter(visibleIds);
 	// An id no feature can carry keeps the highlight layers empty when nothing is selected.
-	const matchesSelected: ExpressionSpecification = ['==', ['id'], selectedId ?? ' '];
+	const selected: ExpressionSpecification = ['all', visible, ['==', ['id'], selectedId ?? ' ']];
 
 	return [
 		{
@@ -69,6 +83,7 @@ export function regionTileLayers(
 			type: 'fill',
 			source: REGION_SOURCE_ID,
 			'source-layer': REGION_SOURCE_LAYER,
+			filter: visible,
 			paint: { 'fill-color': colors.fill, 'fill-opacity': 0.16 },
 		},
 		{
@@ -76,19 +91,20 @@ export function regionTileLayers(
 			type: 'line',
 			source: REGION_SOURCE_ID,
 			'source-layer': REGION_SOURCE_LAYER,
+			filter: visible,
 			paint: {
 				'line-color': colors.outline,
 				'line-opacity': 0.72,
 				'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 16, 2],
 			},
 		},
-		// --- selection highlight: drawn on top, scoped to the selected feature ---
+		// --- selection highlight: drawn on top, scoped to the selected + visible feature ---
 		{
 			id: `${REGION_SOURCE_ID}-selected-fill`,
 			type: 'fill',
 			source: REGION_SOURCE_ID,
 			'source-layer': REGION_SOURCE_LAYER,
-			filter: matchesSelected,
+			filter: selected,
 			paint: { 'fill-color': colors.selected, 'fill-opacity': 0.32 },
 		},
 		{
@@ -96,7 +112,7 @@ export function regionTileLayers(
 			type: 'line',
 			source: REGION_SOURCE_ID,
 			'source-layer': REGION_SOURCE_LAYER,
-			filter: matchesSelected,
+			filter: selected,
 			paint: { 'line-color': colors.selectedOutline, 'line-width': 3 },
 		},
 	];

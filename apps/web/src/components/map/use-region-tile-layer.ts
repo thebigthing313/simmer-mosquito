@@ -4,7 +4,6 @@ import {
 	buildRegionTileUrl,
 	REGION_INTERACTIVE_LAYER_IDS,
 	REGION_LAYER_IDS,
-	REGION_SELECTED_LAYER_IDS,
 	REGION_SOURCE_ID,
 	type RegionTileFilters,
 	regionTileLayers,
@@ -15,13 +14,15 @@ export interface RegionTileLayerConfig {
 	readonly serverUrl: string;
 	/** Server-side filters folded into the tile request. */
 	readonly filters?: RegionTileFilters;
+	/** Region ids to draw; anything not listed stays hidden. Defaults to none. */
+	readonly visibleIds?: readonly string[];
 	/** Currently selected region id; drives the on-map highlight. */
 	readonly selectedId?: string | null;
 	/** Fired with a region id on feature click, or null when clicking empty map. */
 	readonly onSelectFeature?: (id: string | null) => void;
 }
 
-const selectedLayerIds = REGION_SELECTED_LAYER_IDS as readonly string[];
+const EMPTY_IDS: readonly string[] = [];
 
 /**
  * Binds the region vector-tile source + layers to a live Mapbox map. Mirrors
@@ -38,11 +39,16 @@ export function useRegionTileLayer(
 	const enabled = config !== undefined;
 	const url = enabled ? buildRegionTileUrl(config.serverUrl, config.filters) : null;
 	const selectedId = config?.selectedId ?? null;
+	const visibleIds = config?.visibleIds ?? EMPTY_IDS;
+	// Stable key so the re-scope effect fires on membership changes, not identity.
+	const visibleKey = [...visibleIds].sort().join(',');
 
 	const urlRef = useRef(url);
 	urlRef.current = url;
 	const selectedRef = useRef(selectedId);
 	selectedRef.current = selectedId;
+	const visibleRef = useRef(visibleIds);
+	visibleRef.current = visibleIds;
 	const onSelectRef = useRef(config?.onSelectFeature);
 	onSelectRef.current = config?.onSelectFeature;
 
@@ -64,7 +70,7 @@ export function useRegionTileLayer(
 					promoteId: 'id',
 				});
 			}
-			for (const layer of regionTileLayers(selectedRef.current)) {
+			for (const layer of regionTileLayers(selectedRef.current, visibleRef.current)) {
 				if (activeMap.getLayer(layer.id) === undefined) {
 					activeMap.addLayer(layer);
 				}
@@ -126,19 +132,21 @@ export function useRegionTileLayer(
 		source?.setTiles?.([url]);
 	}, [map, isLoaded, url]);
 
-	// Re-scope the highlight layers to the selected feature.
+	// Re-apply every layer's filter when the visible set or selection changes, so
+	// toggling a checkbox reveals/hides its region without re-adding layers.
 	useEffect(() => {
 		if (map === null || !isLoaded || !enabled) {
 			return;
 		}
+		const ids = visibleKey.length === 0 ? [] : visibleKey.split(',');
 		try {
-			for (const layer of regionTileLayers(selectedId)) {
-				if (selectedLayerIds.includes(layer.id) && map.getLayer(layer.id) !== undefined) {
+			for (const layer of regionTileLayers(selectedId, ids)) {
+				if (map.getLayer(layer.id) !== undefined && layer.filter !== undefined) {
 					map.setFilter(layer.id, layer.filter);
 				}
 			}
 		} catch {
 			// Map style not available; nothing to re-scope.
 		}
-	}, [map, isLoaded, enabled, selectedId]);
+	}, [map, isLoaded, enabled, selectedId, visibleKey]);
 }

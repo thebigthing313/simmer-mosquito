@@ -1,11 +1,12 @@
 'use client';
 
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { CheckIcon } from '../../icons/registry';
+import { CheckIcon, MinusIcon } from '../../icons/registry';
 import { Checkbox as CheckboxPrimitive } from 'radix-ui';
 import type * as React from 'react';
 
 function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+	const isIndeterminate = props.checked === 'indeterminate';
 	return (
 		<CheckboxPrimitive.Root
 			data-slot="checkbox"
@@ -19,7 +20,7 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
 				data-slot="checkbox-indicator"
 				className="grid place-content-center text-current transition-none"
 			>
-				<CheckIcon className="size-3.5" />
+				{isIndeterminate ? <MinusIcon className="size-3.5" /> : <CheckIcon className="size-3.5" />}
 			</CheckboxPrimitive.Indicator>
 		</CheckboxPrimitive.Root>
 	);
