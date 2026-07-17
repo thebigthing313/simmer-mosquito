@@ -75,6 +75,10 @@ export interface SafeApplicationDisplayRow {
 	readonly amountApplied: number;
 	readonly applicationUnitId: string;
 	readonly habitatId: string | null;
+	readonly applicatorProfileId: string | null;
+	readonly applicatorName: string | null;
+	/** Batch names of the insecticide batches recorded against this application. */
+	readonly batchNames: string[];
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
@@ -154,6 +158,7 @@ export async function listApplicationDisplayRowsPage(
 			${applicationDisplayColumns},
 			count(*) over()::int as "total"
 		from applications a
+		${applicationDisplayJoins}
 		where ${sql.join(whereClauses, sql` and `)}
 		order by a.application_date desc, a.created_at desc, a.id
 		limit ${input.limit}
@@ -173,6 +178,7 @@ export async function getApplicationDisplayRowById(
 	const result = await sql<SafeApplicationDisplayRow>`
 		select ${applicationDisplayColumns}
 		from applications a
+		${applicationDisplayJoins}
 		where a.id = ${input.id}
 			and a.organization_id = ${input.organizationId}
 			and a.deleted_at is null
@@ -181,6 +187,20 @@ export async function getApplicationDisplayRowById(
 
 	return result.rows[0];
 }
+
+// Applicator name + batch-name roll-up, kept as one fragment so the paged list
+// and by-id readers can never drift in their joins.
+const applicationDisplayJoins = sql`
+	left join profiles ap on ap.id = a.applicator_profile_id
+	left join lateral (
+		select json_agg(ib.batch_name order by ib.batch_name) as batch_names
+		from application_batches abx
+		join insecticide_batches ib on ib.id = abx.insecticide_batch_id
+		where abx.application_id = a.id
+			and abx.deleted_at is null
+			and ib.deleted_at is null
+	) batches on true
+`;
 
 // Shared projection for the paged list + by-id readers. Kept as one fragment so
 // the two paths can never drift in shape.
@@ -197,6 +217,9 @@ const applicationDisplayColumns = sql`
 	a.amount_applied as "amountApplied",
 	a.application_unit_id as "applicationUnitId",
 	a.habitat_id as "habitatId",
+	a.applicator_profile_id as "applicatorProfileId",
+	ap.display_name as "applicatorName",
+	coalesce(batches.batch_names, '[]'::json) as "batchNames",
 	a.created_at as "createdAt",
 	a.updated_at as "updatedAt"
 `;

@@ -53,7 +53,6 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
 import { useHabitatNames } from '../-overview-data';
-import { insecticideLabel } from './-application-form';
 
 export const Route = createFileRoute('/control-operations/chemical/$id')({
 	component: RouteComponent,
@@ -153,7 +152,7 @@ function ApplicationDetailContent({
 	const habitatNameById = useHabitatNames(habitatIds);
 
 	const insecticide = insecticides.find((row) => row.id === application.insecticideId);
-	const productName = insecticide === undefined ? 'Unknown product' : insecticideLabel(insecticide);
+	const productName = insecticide === undefined ? 'Unknown product' : insecticide.tradeName;
 	const unit = units.find((row) => row.id === application.applicationUnitId);
 	const amount = formatAmount(application.amountApplied, unit);
 

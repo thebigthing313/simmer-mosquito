@@ -1,4 +1,4 @@
-import type { ControlMethodRow, InsecticideRow, UnitRow } from '@simmer-mosquito/sync';
+import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -23,6 +23,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -41,7 +42,6 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { formatActionDate, formatAmount, nameById } from '../-control-display';
 import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../-overview-data';
-import { insecticideLabel } from './-application-form';
 
 export const Route = createFileRoute('/control-operations/chemical/')({
 	component: ApplicationsExplorerRoute,
@@ -57,6 +57,9 @@ interface ApplicationSite {
 	readonly amountApplied: number;
 	readonly applicationUnitId: string;
 	readonly habitatId: string | null;
+	readonly applicatorProfileId: string | null;
+	readonly applicatorName: string | null;
+	readonly batchNames: string[];
 }
 
 const DEFAULT_WINDOW_DAYS = 90;
@@ -98,13 +101,23 @@ function ApplicationsExplorerRoute() {
 		[dateFrom, dateTo, today],
 	);
 
-	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 
+	// Order + project the product options straight from the collection so the
+	// alphabetized select and the id→name lookup share one live read, rather than
+	// copying the collection into a memoized array.
+	const { data: productOptions } = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ insecticide: webCollections.insecticides })
+				.orderBy(({ insecticide }) => insecticide.tradeName, 'asc')
+				.select(({ insecticide }) => ({ id: insecticide.id, label: insecticide.tradeName })),
+		[],
+	);
 	const insecticideNameById = useMemo(
-		() => nameById(insecticides, insecticideLabel),
-		[insecticides],
+		() => nameById(productOptions, (option) => option.label),
+		[productOptions],
 	);
 	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
 	const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
@@ -221,12 +234,12 @@ function ApplicationsExplorerRoute() {
 						today={today}
 					/>
 
-					<div className="flex flex-wrap items-center gap-2">
+					<div className="grid grid-cols-2 gap-2">
 						<MultiSelectFilter
 							empty="No insecticides"
 							label="Product"
 							onChange={setInsecticideIds}
-							options={insecticides.map((row) => ({ id: row.id, label: insecticideLabel(row) }))}
+							options={productOptions}
 							selected={insecticideIds}
 						/>
 						<MultiSelectFilter
@@ -354,7 +367,7 @@ async function fetchApplicationsPage(
 		readonly applications?: ApplicationSite[];
 		readonly total?: number;
 	};
-	return { rows: body.applications ?? [], total: body.total ?? 0 };
+	return { rows: (body.applications ?? []).map(normalizeApplication), total: body.total ?? 0 };
 }
 
 async function fetchApplicationById(
@@ -372,7 +385,17 @@ async function fetchApplicationById(
 		return null;
 	}
 	const body = (await response.json()) as { readonly application?: ApplicationSite };
-	return body.application ?? null;
+	return body.application === undefined ? null : normalizeApplication(body.application);
+}
+
+// The applicator + batch fields are newer than some deployed servers; default
+// them so a row that predates them can never crash the list/card render.
+function normalizeApplication(row: ApplicationSite): ApplicationSite {
+	return {
+		...row,
+		applicatorName: row.applicatorName ?? null,
+		batchNames: row.batchNames ?? [],
+	};
 }
 
 // --- filter controls --------------------------------------------------------
@@ -416,7 +439,7 @@ function MultiSelectFilter({
 			<PopoverTrigger asChild>
 				<Button
 					aria-label={`Filter by ${label}`}
-					className="h-8 justify-between font-normal"
+					className="h-8 w-full justify-between font-normal"
 					size="sm"
 					variant="outline"
 				>
@@ -594,6 +617,16 @@ function ApplicationListItem({
 						{amount}
 						{methodName === null ? '' : ` · ${methodName}`}
 					</span>
+					{row.applicatorName !== null || row.batchNames.length > 0 ? (
+						<span className="block truncate text-muted-foreground text-xs">
+							{[
+								row.applicatorName,
+								row.batchNames.length > 0 ? `Batch ${row.batchNames.join(', ')}` : null,
+							]
+								.filter(Boolean)
+								.join(' · ')}
+						</span>
+					) : null}
 				</span>
 				<Link
 					aria-label={`View details for ${productName}`}
@@ -647,7 +680,13 @@ function ApplicationDetailCard({
 
 				<dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
 					<DetailFact label="Method" value={methodName ?? 'No method'} />
-					<DetailFact label="Coordinates" value={coordinateLabel(row)} />
+					{row.applicatorName === null ? null : (
+						<DetailFact label="Applicator" value={row.applicatorName} />
+					)}
+					{row.batchNames.length === 0 ? null : (
+						<DetailFact label="Batches" value={row.batchNames.join(', ')} wide />
+					)}
+					<DetailFact label="Coordinates" value={coordinateLabel(row)} wide />
 				</dl>
 
 				<div className="mt-3 flex justify-end">
