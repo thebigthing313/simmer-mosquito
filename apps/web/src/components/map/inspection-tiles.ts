@@ -142,8 +142,11 @@ export function buildInspectionTileUrl(serverUrl: string, filters?: InspectionTi
 export function inspectionTileLayers(
 	selectedId: string | null,
 ): (FillLayerSpecification | LineLayerSpecification | CircleLayerSpecification)[] {
-	// An id no feature can carry keeps the highlight layers empty when nothing is selected.
-	const matchesSelected: ExpressionSpecification = ['==', ['id'], selectedId ?? ' '];
+	// Match the `id` property, not the feature id: tiles use the 4-arg ST_AsMVT (no
+	// native feature id) and promoteId doesn't reach render-time filters, so `['id']`
+	// evaluates to undefined here. An id no feature can carry keeps this empty when
+	// nothing is selected.
+	const matchesSelected: ExpressionSpecification = ['==', ['get', 'id'], selectedId ?? ' '];
 	const selectedPolygon: ExpressionSpecification = ['all', polygonOnly, matchesSelected];
 	const selectedLine: ExpressionSpecification = ['all', lineOnly, matchesSelected];
 	const selectedPoint: ExpressionSpecification = ['all', pointOnly, matchesSelected];

@@ -60,9 +60,15 @@ export function buildRegionTileUrl(serverUrl: string, filters?: RegionTileFilter
  * A filter that renders only features whose id is in `visibleIds`. When the set
  * is empty the expression matches nothing, so the map starts blank (all toggles
  * off) and each checkbox reveals its region without refetching tiles.
+ *
+ * Reads the `id` **property** (`['get', 'id']`), not the feature id (`['id']`):
+ * the tiles are built with the 4-arg `ST_AsMVT`, which emits no native feature
+ * id, and `promoteId` only backfills the id for feature-state / queried features
+ * — a render-time layer filter still sees `feature.id === undefined`. Filtering
+ * on `['id']` here would match nothing, so no region ever draws.
  */
 export function regionVisibilityFilter(visibleIds: readonly string[]): ExpressionSpecification {
-	return ['in', ['id'], ['literal', [...visibleIds]]];
+	return ['in', ['get', 'id'], ['literal', [...visibleIds]]];
 }
 
 /**
@@ -74,8 +80,13 @@ export function regionTileLayers(
 	visibleIds: readonly string[],
 ): (FillLayerSpecification | LineLayerSpecification)[] {
 	const visible = regionVisibilityFilter(visibleIds);
-	// An id no feature can carry keeps the highlight layers empty when nothing is selected.
-	const selected: ExpressionSpecification = ['all', visible, ['==', ['id'], selectedId ?? ' ']];
+	// Match the `id` property (see regionVisibilityFilter). An id no feature can
+	// carry keeps the highlight layers empty when nothing is selected.
+	const selected: ExpressionSpecification = [
+		'all',
+		visible,
+		['==', ['get', 'id'], selectedId ?? ' '],
+	];
 
 	return [
 		{
