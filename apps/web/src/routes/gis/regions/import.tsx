@@ -4,6 +4,7 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { Progress } from '@simmer-mosquito/ui-web/components/ui/progress';
 import {
 	Select,
 	SelectContent,
@@ -21,7 +22,7 @@ import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { webCollections } from '../../../sync/webCollections';
-import { type ImportPolygon, parseRegionsFromFile } from './-import-parse';
+import { type ImportPolygon, MAX_POLYGONS, parseRegionsFromFile } from './-import-parse';
 
 export const Route = createFileRoute('/gis/regions/import')({
 	component: ImportRegionsRoute,
@@ -30,6 +31,21 @@ export const Route = createFileRoute('/gis/regions/import')({
 const UploadIcon = iconRegistry.actions.upload.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const UNFILED = 'unfiled';
+
+/** How many region writes to keep in flight at once during an import. */
+const IMPORT_CONCURRENCY = 6;
+/**
+ * How long to wait for a single region to be confirmed via Electric sync before
+ * treating it as submitted-but-pending. The server write itself has already
+ * happened by the time this fires; this only bounds the sync round-trip so a
+ * stalled stream can't leave the whole import hanging forever.
+ */
+const PERSIST_TIMEOUT_MS = 15_000;
+
+interface ImportProgress {
+	readonly done: number;
+	readonly total: number;
+}
 
 interface ImportItem {
 	readonly id: string;
@@ -48,12 +64,15 @@ function ImportRegionsRoute() {
 
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);
+	const [truncated, setTruncated] = useState(false);
 	const [fileName, setFileName] = useState<string | null>(null);
 	const [parseError, setParseError] = useState<string | null>(null);
 	const [folderId, setFolderId] = useState<string>(UNFILED);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [isImporting, setIsImporting] = useState(false);
+	const [progress, setProgress] = useState<ImportProgress | null>(null);
+	const [pendingSync, setPendingSync] = useState(0);
 	const [importErrors, setImportErrors] = useState<readonly string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -63,12 +82,14 @@ function ImportRegionsRoute() {
 	const handleFile = useCallback(async (file: File) => {
 		setParseError(null);
 		setImportErrors([]);
+		setPendingSync(0);
 		setSelectedId(null);
 		try {
 			const text = await file.text();
 			const result = parseRegionsFromFile(text, file.name);
 			setFileName(file.name);
 			setSkipped(result.skipped);
+			setTruncated(result.truncated);
 			if (result.error !== undefined) {
 				setParseError(result.error);
 				setItems([]);
@@ -144,8 +165,15 @@ function ImportRegionsRoute() {
 		}
 		setIsImporting(true);
 		setImportErrors([]);
+		setPendingSync(0);
+		const total = items.length;
+		setProgress({ done: 0, total });
+
 		const errors: string[] = [];
-		for (const item of items) {
+		let pending = 0;
+		let done = 0;
+
+		await forEachWithConcurrency(items, IMPORT_CONCURRENCY, async (item) => {
 			try {
 				const now = new Date().toISOString();
 				const row: RegionRow = {
@@ -160,18 +188,44 @@ function ImportRegionsRoute() {
 					createdAt: now,
 					updatedAt: now,
 				};
-				await webCollections.regions.insert(row, { metadata: { geometry: item.geometry } })
-					.isPersisted.promise;
+				const transaction = webCollections.regions.insert(row, {
+					metadata: { geometry: item.geometry },
+				});
+				// Fold persistence into a promise that never rejects, so once the
+				// timeout wins the race the original rejection (if any) still has a
+				// handler and can't surface as an unhandled rejection.
+				const settled: Promise<'confirmed' | { readonly error: string }> =
+					transaction.isPersisted.promise.then(
+						() => 'confirmed' as const,
+						(error) => ({ error: error instanceof Error ? error.message : 'failed to import' }),
+					);
+				const outcome = await Promise.race([
+					settled,
+					delay(PERSIST_TIMEOUT_MS).then(() => 'pending' as const),
+				]);
+				if (outcome === 'pending') {
+					pending += 1;
+				} else if (outcome !== 'confirmed') {
+					errors.push(`${item.name}: ${outcome.error}`);
+				}
 			} catch (error) {
 				errors.push(`${item.name}: ${error instanceof Error ? error.message : 'failed to import'}`);
+			} finally {
+				done += 1;
+				setProgress({ done, total });
 			}
-		}
+		});
+
 		setIsImporting(false);
-		if (errors.length === 0) {
-			await navigate({ to: '/gis/regions' });
-			return;
-		}
+		setProgress(null);
 		setImportErrors(errors);
+		setPendingSync(pending);
+
+		// Only leave the page when everything is fully confirmed; otherwise stay so
+		// the summary (failures and/or pending-sync rows) is visible.
+		if (errors.length === 0 && pending === 0) {
+			await navigate({ to: '/gis/regions' });
+		}
 	}, [organization, actorProfileId, items, folderId, navigate]);
 
 	return (
@@ -243,6 +297,16 @@ function ImportRegionsRoute() {
 							</Alert>
 						)}
 
+						{truncated ? (
+							<Alert>
+								<AlertTitle>Only the first {MAX_POLYGONS} polygons were kept</AlertTitle>
+								<AlertDescription>
+									This file holds more than {MAX_POLYGONS} polygons. To import the rest, split the
+									file and upload the remaining polygons separately.
+								</AlertDescription>
+							</Alert>
+						) : null}
+
 						{items.length === 0 ? null : (
 							<>
 								<div className="grid gap-1.5">
@@ -301,6 +365,39 @@ function ImportRegionsRoute() {
 									</Alert>
 								)}
 
+								{pendingSync === 0 ? null : (
+									<Alert>
+										<AlertTitle>
+											{pendingSync} {pendingSync === 1 ? 'region was' : 'regions were'} saved,
+											awaiting sync
+										</AlertTitle>
+										<AlertDescription className="grid gap-2">
+											<span>
+												The server accepted {pendingSync === 1 ? 'it' : 'them'} but hasn't confirmed
+												the sync yet. {pendingSync === 1 ? 'It' : 'They'} should appear on the
+												regions list shortly.
+											</span>
+											<Button asChild className="w-fit" size="sm" type="button" variant="outline">
+												<Link to="/gis/regions">Go to regions</Link>
+											</Button>
+										</AlertDescription>
+									</Alert>
+								)}
+
+								{progress === null ? null : (
+									<div aria-live="polite" className="grid gap-1.5">
+										<div className="flex items-center justify-between text-muted-foreground text-xs">
+											<span>Importing regions…</span>
+											<span>
+												{progress.done} of {progress.total}
+											</span>
+										</div>
+										<Progress
+											value={progress.total === 0 ? 0 : (progress.done / progress.total) * 100}
+										/>
+									</div>
+								)}
+
 								<div className="flex justify-end gap-2 border-border/50 border-t pt-5">
 									<Button asChild type="button" variant="ghost">
 										<Link to="/gis/regions">Cancel</Link>
@@ -313,7 +410,9 @@ function ImportRegionsRoute() {
 												data-icon="inline-start"
 											/>
 										) : null}
-										Import {items.length} {items.length === 1 ? 'region' : 'regions'}
+										{isImporting && progress !== null
+											? `Importing ${progress.done} of ${progress.total}…`
+											: `Import ${items.length} ${items.length === 1 ? 'region' : 'regions'}`}
 									</Button>
 								</div>
 							</>
@@ -375,6 +474,33 @@ function ImportRow({
 			</Button>
 		</li>
 	);
+}
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => {
+		setTimeout(resolve, ms);
+	});
+}
+
+/**
+ * Run `worker` over `items` with at most `limit` in flight at once, resolving once
+ * every item has settled. Workers are expected to handle their own errors; a throw
+ * here would abort the whole run.
+ */
+async function forEachWithConcurrency<T>(
+	items: readonly T[],
+	limit: number,
+	worker: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+	let cursor = 0;
+	const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+		while (cursor < items.length) {
+			const index = cursor;
+			cursor += 1;
+			await worker(items[index] as T, index);
+		}
+	});
+	await Promise.all(runners);
 }
 
 function fitMapToItems(map: MapboxMap, items: readonly ImportItem[]): void {

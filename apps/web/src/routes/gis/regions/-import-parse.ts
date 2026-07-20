@@ -6,6 +6,8 @@
  *
  * The pure helpers (`flattenPolygons`, `parseKmlCoordinates`, `parseGeoJson`) carry
  * the parsing logic and are unit-tested; only the top-level KML path touches the DOM.
+ * KML is walked recursively — Placemarks and Polygons are found at any nesting depth,
+ * not just one level down — and the whole import is capped at `MAX_POLYGONS` polygons.
  */
 
 export type Position = [number, number];
@@ -24,9 +26,14 @@ export interface ParseResult {
 	readonly regions: ParsedRegion[];
 	/** Non-polygon geometries (points, lines, empties) that were ignored. */
 	readonly skipped: number;
+	/** True when the file held more than `MAX_POLYGONS` and only the first were kept. */
+	readonly truncated: boolean;
 	/** Set when the file could not be parsed at all. */
 	readonly error?: string;
 }
+
+/** Hard cap on how many polygons a single import may contribute. */
+export const MAX_POLYGONS = 1000;
 
 /** A source geometry paired with an optional name from its Feature/Placemark. */
 interface NamedGeometry {
@@ -44,6 +51,7 @@ export function parseRegionsFromFile(text: string, fileName: string): ParseResul
 		return {
 			regions: [],
 			skipped: 0,
+			truncated: false,
 			error: error instanceof Error ? error.message : 'Unable to parse the file.',
 		};
 	}
@@ -154,28 +162,96 @@ export function parseKml(text: string): ParseResult {
 	if (typeof DOMParser === 'undefined') {
 		throw new Error('KML parsing is only available in the browser.');
 	}
-	const doc = new DOMParser().parseFromString(text, 'application/xml');
-	if (doc.getElementsByTagName('parsererror').length > 0) {
-		throw new Error('The file is not valid KML/XML.');
+	const doc = parseKmlDocument(text);
+	const named: NamedGeometry[] = [];
+	collectKmlGeometries(doc.documentElement, named);
+	return finalize(named);
+}
+
+/**
+ * Parse KML into a DOM. Strict `application/xml` parsing is tried first; if it fails,
+ * we attempt one repair pass for the most common real-world defect — namespace
+ * prefixes (e.g. `xsi:`) used without a matching `xmlns:` declaration, which some
+ * exports (ArcGIS, older Google tools) emit and which is not namespace-well-formed.
+ */
+function parseKmlDocument(text: string): Document {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(text, 'application/xml');
+	if (doc.getElementsByTagName('parsererror').length === 0) {
+		return doc;
 	}
-
-	const placemarks = Array.from(doc.getElementsByTagName('Placemark'));
-	const named: NamedGeometry[] = placemarks.map((placemark) => {
-		const name = kmlPlacemarkName(placemark);
-		const polygons = kmlPolygonsFromElement(placemark);
-		return { name, polygons, nonPolygon: polygons.length === 0 };
-	});
-
-	// KML can also carry loose <Polygon> outside a Placemark; include any not already
-	// captured under a placemark by falling back to a document-wide scan when empty.
-	if (named.length === 0) {
-		const polygons = kmlPolygonsFromElement(doc.documentElement);
-		if (polygons.length > 0) {
-			named.push({ name: null, polygons, nonPolygon: false });
+	const repaired = declareMissingNamespaces(text);
+	if (repaired !== null) {
+		const retry = parser.parseFromString(repaired, 'application/xml');
+		if (retry.getElementsByTagName('parsererror').length === 0) {
+			return retry;
 		}
 	}
+	throw new Error('The file is not valid KML/XML.');
+}
 
-	return finalize(named);
+/**
+ * Find namespace prefixes that are used (`prefix:local` on an element or attribute)
+ * but never declared (`xmlns:prefix=...`), and declare each on the root element so a
+ * strict XML re-parse succeeds. Returns null when nothing is missing (no repair to try).
+ * Declarations are only added, never removed, so the result is always well-formed.
+ */
+export function declareMissingNamespaces(text: string): string | null {
+	const declared = new Set<string>();
+	for (const match of text.matchAll(/\sxmlns:([A-Za-z_][\w.-]*)\s*=/g)) {
+		declared.add(match[1] as string);
+	}
+	const missing = new Set<string>();
+	// A prefix used in markup is preceded by `<` (element) or whitespace (attribute).
+	// The leading `[<\s]` avoids matching URL schemes inside quoted values (`"http:...`).
+	for (const match of text.matchAll(/[<\s]([A-Za-z_][\w.-]*):[A-Za-z_]/g)) {
+		const prefix = match[1] as string;
+		if (prefix !== 'xml' && prefix !== 'xmlns' && !declared.has(prefix)) {
+			missing.add(prefix);
+		}
+	}
+	if (missing.size === 0) {
+		return null;
+	}
+	// Inject the declarations into the first element's open tag (the root); the
+	// alternation lets attribute values that contain `>` be skipped safely.
+	const rootOpen = /<[A-Za-z_][\w.-]*(?:[^>"']|"[^"]*"|'[^']*')*>/.exec(text);
+	if (rootOpen === null) {
+		return null;
+	}
+	const decls = [...missing]
+		.map((prefix) => ` xmlns:${prefix}="urn:x-simmer-import:${prefix}"`)
+		.join('');
+	const openTag = rootOpen[0];
+	const patchedTag = `${openTag.slice(0, -1)}${decls}>`;
+	return text.slice(0, rootOpen.index) + patchedTag + text.slice(rootOpen.index + openTag.length);
+}
+
+/**
+ * Walk the KML tree to whatever depth Placemarks and Polygons live at. KML nests
+ * geometry under arbitrary `<Document>`/`<Folder>` levels and inside
+ * `<MultiGeometry>`, so we never assume a fixed depth:
+ *  - A `<Placemark>` is one grouping unit: every `<Polygon>` beneath it (including
+ *    inside a MultiGeometry) becomes one named entry, and we stop descending.
+ *  - A loose `<Polygon>` outside any Placemark becomes its own unnamed entry.
+ *  - Any other element is descended into so deeper Placemarks/Polygons are found.
+ */
+function collectKmlGeometries(element: Element, out: NamedGeometry[]): void {
+	for (const child of Array.from(element.children)) {
+		if (child.tagName === 'Placemark') {
+			const polygons = kmlPolygonsWithin(child);
+			out.push({ name: kmlPlacemarkName(child), polygons, nonPolygon: polygons.length === 0 });
+		} else if (child.tagName === 'Polygon') {
+			const polygon = kmlPolygonFromNode(child);
+			out.push({
+				name: null,
+				polygons: polygon === null ? [] : [polygon],
+				nonPolygon: polygon === null,
+			});
+		} else {
+			collectKmlGeometries(child, out);
+		}
+	}
 }
 
 function kmlPlacemarkName(placemark: Element): string | null {
@@ -188,21 +264,29 @@ function kmlPlacemarkName(placemark: Element): string | null {
 	return null;
 }
 
-function kmlPolygonsFromElement(element: Element): ImportPolygon[] {
-	const polygonNodes = Array.from(element.getElementsByTagName('Polygon'));
+/** Collect every `<Polygon>` descendant of an element (e.g. a Placemark's geometry). */
+function kmlPolygonsWithin(element: Element): ImportPolygon[] {
 	const polygons: ImportPolygon[] = [];
-	for (const polygonNode of polygonNodes) {
-		const outer = firstRingCoordinates(polygonNode, 'outerBoundaryIs');
-		if (outer === null) {
-			continue;
+	for (const polygonNode of Array.from(element.getElementsByTagName('Polygon'))) {
+		const polygon = kmlPolygonFromNode(polygonNode);
+		if (polygon !== null) {
+			polygons.push(polygon);
 		}
-		const rings: Position[][] = [outer];
-		for (const inner of allRingCoordinates(polygonNode, 'innerBoundaryIs')) {
-			rings.push(inner);
-		}
-		polygons.push({ type: 'Polygon', coordinates: rings });
 	}
 	return polygons;
+}
+
+/** Turn a single `<Polygon>` element into an ImportPolygon, or null if it has no valid ring. */
+function kmlPolygonFromNode(polygonNode: Element): ImportPolygon | null {
+	const outer = firstRingCoordinates(polygonNode, 'outerBoundaryIs');
+	if (outer === null) {
+		return null;
+	}
+	const rings: Position[][] = [outer];
+	for (const inner of allRingCoordinates(polygonNode, 'innerBoundaryIs')) {
+		rings.push(inner);
+	}
+	return { type: 'Polygon', coordinates: rings };
 }
 
 function firstRingCoordinates(polygon: Element, boundaryTag: string): Position[] | null {
@@ -260,6 +344,7 @@ export function parseKmlCoordinates(text: string): Position[] {
 function finalize(named: readonly NamedGeometry[]): ParseResult {
 	const regions: ParsedRegion[] = [];
 	let skipped = 0;
+	let truncated = false;
 
 	for (const entry of named) {
 		if (entry.polygons.length === 0) {
@@ -268,14 +353,22 @@ function finalize(named: readonly NamedGeometry[]): ParseResult {
 			}
 			continue;
 		}
-		entry.polygons.forEach((geometry, index) => {
+		for (let index = 0; index < entry.polygons.length; index += 1) {
+			if (regions.length >= MAX_POLYGONS) {
+				// More polygons remain in the file; keep only the first MAX_POLYGONS.
+				truncated = true;
+				break;
+			}
 			const base = entry.name ?? `Region ${regions.length + 1}`;
 			const name = entry.polygons.length > 1 ? `${base} (${index + 1})` : base;
-			regions.push({ name, geometry });
-		});
+			regions.push({ name, geometry: entry.polygons[index] as ImportPolygon });
+		}
+		if (truncated) {
+			break;
+		}
 	}
 
-	return { regions, skipped };
+	return { regions, skipped, truncated };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

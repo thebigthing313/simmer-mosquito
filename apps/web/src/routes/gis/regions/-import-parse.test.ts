@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	declareMissingNamespaces,
 	flattenPolygons,
+	MAX_POLYGONS,
 	parseGeoJson,
 	parseKmlCoordinates,
 	parseRegionsFromFile,
@@ -51,6 +53,19 @@ describe('parseGeoJson', () => {
 		expect(result.regions[0]?.geometry.type).toBe('Polygon');
 		expect(result.regions[1]?.geometry.coordinates[0]).toEqual(square);
 		expect(result.regions[2]?.geometry.coordinates[0]).toEqual(square2);
+	});
+
+	it('caps the import at MAX_POLYGONS, keeping the first ones', () => {
+		const coordinates = Array.from({ length: MAX_POLYGONS + 50 }, () => [square]);
+		const result = parseGeoJson(JSON.stringify({ type: 'MultiPolygon', coordinates }));
+		expect(result.truncated).toBe(true);
+		expect(result.regions).toHaveLength(MAX_POLYGONS);
+	});
+
+	it('does not flag truncation when under the cap', () => {
+		const result = parseGeoJson(JSON.stringify({ type: 'Polygon', coordinates: [square] }));
+		expect(result.truncated).toBe(false);
+		expect(result.regions).toHaveLength(1);
 	});
 
 	it('falls back to positional names when features are unnamed', () => {
@@ -110,6 +125,34 @@ describe('parseKmlCoordinates', () => {
 			[1, 0],
 			[0, 0],
 		]);
+	});
+});
+
+describe('declareMissingNamespaces', () => {
+	it('declares a used-but-undeclared prefix on the root and leaves valid files alone', () => {
+		const broken =
+			'<?xml version="1.0"?>\n' +
+			'<kml xmlns:gx="urn:gx">\n' +
+			'<Document xsi:schemaLocation="a b"><name>x</name></Document></kml>';
+		const repaired = declareMissingNamespaces(broken);
+		expect(repaired).not.toBeNull();
+		expect(repaired).toContain('xmlns:xsi=');
+		// The prefix is declared on the root <kml> element, before <Document>.
+		expect((repaired ?? '').indexOf('xmlns:xsi=')).toBeLessThan(
+			(repaired ?? '').indexOf('<Document'),
+		);
+		// gx is already declared, so it must not be re-added.
+		expect((repaired ?? '').match(/xmlns:gx=/g)).toHaveLength(1);
+	});
+
+	it('returns null when every prefix is already declared', () => {
+		const ok = '<kml xmlns:gx="urn:gx"><gx:Tour /></kml>';
+		expect(declareMissingNamespaces(ok)).toBeNull();
+	});
+
+	it('does not treat URL schemes in attribute values as prefixes', () => {
+		const ok = '<kml xmlns="http://www.opengis.net/kml/2.2"><name>x</name></kml>';
+		expect(declareMissingNamespaces(ok)).toBeNull();
 	});
 });
 
