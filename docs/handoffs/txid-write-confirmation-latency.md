@@ -1,8 +1,79 @@
 # Handoff: why write-confirmation (txid) round-trips are slow / missing — and is it a prod risk?
 
-**Status:** investigation scaffolding for a dedicated session. Nothing here is a
-committed conclusion except where it cites code. Verify claims against current code
-(`git log` may have moved things).
+**Status: RESOLVED from code (2026-07-20).** Root cause identified and fixed at the
+source; the acute symptom is topology-independent and reproducible by reading the
+library. See [Resolution](#resolution-2026-07-20). The original investigation
+scaffolding is kept below for provenance; hypotheses are annotated with their verdicts.
+
+> Original status: investigation scaffolding for a dedicated session. Nothing here is a
+> committed conclusion except where it cites code. Verify claims against current code
+> (`git log` may have moved things).
+
+---
+
+## Resolution (2026-07-20)
+
+**Root cause (H3, precise mechanism — confirmed from library + app code, no browser
+needed):** the `regions` collection is **on-demand**, so its Electric shape stream opens
+with `offset:'now'` + `log:'changes_only'` (`@tanstack/electric-db-collection@0.3.12`
+`electric.js` ~L659–662). A write confirms only when its txid is later observed on that
+live stream (`awaitTxId` → `seenTxids`). The **only** place a `regions` live query is
+mounted is the regions **list** page, and it uses a **30s `gcTime`**
+(`apps/web/src/routes/gis/regions/index.tsx:54`, `regionsGcTimeMs = 30_000`). So:
+
+1. From the list, the `regions` stream is warm + up-to-date.
+2. Navigate to `/gis/regions/import`; the list unmounts → the collection begins a **30s**
+   GC countdown.
+3. Uploading a KML and reviewing/renaming polygons **routinely exceeds 30s** → the
+   collection is GC'd → its shape stream is torn down.
+4. Clicking **Import** calls `regions.insert(...)` on a **cold** collection. The
+   concurrent POSTs (`IMPORT_CONCURRENCY = 6`) commit in Postgres while the stream is
+   still (re)connecting from `'now'`. Any txid published to the shape log **before** the
+   stream subscribes is **never observed** → deterministic **5s `TimeoutWaitingForTxIdError`**
+   per racing row (surfaced as "failed" by the shipped client mitigation, per the caveat
+   in [Two failure modes](#two-distinct-failure-modes)).
+
+This also answers the standing open question **"why does single create work but bulk
+import not?"** — single create (`create.tsx`) is a quick hop from the warm list page, so
+it lands inside the 30s window; the import page's long dwell time falls outside it. It is
+**not** N× the 5s penalty and **not** a dev-only artifact: the race exists in prod too.
+Co-located prod merely shrinks the race window (faster stream connect) — it does **not**
+close it, because `offset:'now'` means any txid committed before the (re)subscribe is
+missed regardless of latency.
+
+**Fix shipped (`apps/web/src/routes/gis/regions/import.tsx`):**
+1. **Warm the stream** — the import route now mounts a `useLiveQuery` over `regions` for
+   its whole lifetime, so the on-demand stream is connected and up-to-date **before** the
+   first insert fires. This deterministically removes the cold-start race (the dominant,
+   prod-relevant cause). This is the library's own blessed pattern for warming an
+   on-demand collection ("create a live query and call it" — the `preload()`-on-on-demand
+   warning). Kills H1/H3 for this flow.
+2. **Graceful degradation for residual lag (H2 defense-in-depth)** — a
+   `TimeoutWaitingForTxIdError` is now classified as **pending** ("submitted, awaiting
+   sync"), not **failed**. By the time the library waits for the txid the server POST has
+   already committed the write, so a slow-confirm under a bulk WAL burst degrades to the
+   existing "N saved, awaiting sync" UX (which the list's live query then reconciles)
+   instead of a spurious "failed".
+
+**Prod-risk verdict:** **LOW after the fix.** The acute "stuck / failed importing" was the
+cold-stream race (fixed) compounded by the missing client timeout (already fixed in
+`ee16206`) and no progress UI. H2 (bulk replication lag > 5s) remains a *theoretical*
+tail risk for very large bursts on an under-provisioned Electric, now handled gracefully
+as "pending" rather than a hard failure. H4 (`::xid` 32-bit representation) is confirmed
+working today (single-create confirms at all) and stays a latent footgun to re-verify on
+any Electric upgrade — not an active bug.
+
+**Not done / deferred:** the larger **single batched command** lever (one endpoint that
+inserts N regions in one txn → one txid) remains the right move if imports ever need to
+scale to thousands or if H2 becomes real under load — it removes N round-trips and most
+Electric pressure. It's a bigger change (new server bulk endpoint + domain command +
+client rewrite) and unnecessary for correctness now. **Live browser reproduction remains
+blocked** by the known local-env issues (unauthenticated staging session / Electric
+`live=true` 503s per the related memories); the fix and root cause were established from
+the library source and app wiring, which is sufficient here because the mechanism is
+deterministic, not timing-probabilistic-in-the-large.
+
+---
 
 **The question to answer:** the region **import** page could hang in "Importing"
 because `regions.insert(...).isPersisted.promise` never (or slowly) resolved. We
@@ -114,7 +185,15 @@ under-provisioned instance can push confirmation past the 5s default even with p
 networking. Co-located prod is faster but **not immune under bursty bulk load.**
 → **Prod risk: MEDIUM** for bulk operations specifically; low for single writes.
 
-**H3 — txid not observed on an _on-demand subset_ shape.**
+**H3 — txid not observed on an _on-demand subset_ shape. → CONFIRMED (this was it), but
+the precise mechanism is a cold-stream `offset:'now'` race, not a non-matching-write
+issue.** The server forces the `regions` shape to `organization_id = $1 and deleted_at is
+null` (`sync-shapes.ts` `registerSelectedOrganizationShapeRoute` → `selectedOrganizationWhere`),
+so a newly-inserted region **does** match the shape and **would** carry a txid — *if the
+stream were subscribed and caught up*. It isn't, because the collection is GC'd (30s)
+during the import-page dwell. See [Resolution](#resolution-2026-07-20). Fixed by warming
+the stream.**
+
 `regions` is `on-demand`. `awaitTxId` only resolves when the txid shows up in
 **`seenTxids`**, fed from live-stream messages carrying `headers.txids`. Open question:
 does Electric stamp `txids` on a shape's control/`up-to-date` message for a write that
@@ -182,13 +261,20 @@ That would be a constant, obvious failure though (not intermittent), so it's lik
 ---
 
 ## Open questions to resolve
-- Does Electric include `headers.txids` on a shape's `up-to-date`/control message for
-  writes that **don't match** that shape? (Determines H3.)
-- Why does single-region create work but bulk import doesn't — different active shape,
-  or just N× the 5s penalty made it *look* different?
+- ~~Does Electric include `headers.txids` on a shape's `up-to-date`/control message for
+  writes that **don't match** that shape? (Determines H3.)~~ **Moot for regions — the
+  write *does* match the org-scoped shape; the issue was the stream being cold, not
+  non-matching writes.** (Still worth knowing for genuinely-non-matching writes, but not
+  the cause here.)
+- ~~Why does single-region create work but bulk import doesn't?~~ **Resolved:** single
+  create is a quick hop from the warm list page (inside the 30s `gcTime`); import's long
+  dwell falls outside it, so import races a cold `offset:'now'` stream. Not N× the 5s
+  penalty. See [Resolution](#resolution-2026-07-20).
 - Is the current staging hang purely operational (needs Electric restart / PORT/secret
-  config per the local-dev-on-staging memory) vs. a code issue?
+  config per the local-dev-on-staging memory) vs. a code issue? **Operational — separate
+  from the code root cause above.**
 - After any Electric version bump, does `::xid` still match Electric's reported txid?
+  **(Still open — latent footgun, H4.)**
 
 ## Related memory / prior art
 - `local-dev-on-railway-staging` — DB+Electric on Railway staging; `ELECTRIC_SECRET`

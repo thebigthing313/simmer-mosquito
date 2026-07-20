@@ -14,6 +14,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/select';
 import { ArrowLeftIcon, iconRegistry, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -57,10 +58,30 @@ function ImportRegionsRoute() {
 	const { auth } = Route.useRouteContext();
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
+	const organizationId = organization?.id ?? '';
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	const { rows: folders } = useCollectionRows<RegionFolderRow>(webCollections.regionFolders);
+
+	// Keep the on-demand `regions` shape stream warm for the whole time the user is
+	// on this page. A region write confirms only when its txid is observed on the
+	// live shape stream; that stream opens at `offset:'now'`, so if it is cold when
+	// the import fires (the collection is GC'd ~30s after the regions list unmounts —
+	// well within the time it takes to upload and review a file) the concurrent
+	// inserts race a fresh subscription and their txids can commit before it
+	// connects, forcing a deterministic per-row confirmation timeout. Subscribing
+	// here guarantees the stream is connected and up-to-date before the first insert.
+	// The rows themselves are unused; we only need the subscription.
+	useLiveQuery(
+		{
+			query: (query) =>
+				query
+					.from({ region: webCollections.regions })
+					.where(({ region }) => eq(region.organizationId, organizationId)),
+		},
+		[organizationId],
+	);
 
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);
@@ -193,11 +214,17 @@ function ImportRegionsRoute() {
 				});
 				// Fold persistence into a promise that never rejects, so once the
 				// timeout wins the race the original rejection (if any) still has a
-				// handler and can't surface as an unhandled rejection.
-				const settled: Promise<'confirmed' | { readonly error: string }> =
+				// handler and can't surface as an unhandled rejection. A txid
+				// confirmation timeout is not a failure — the server POST already
+				// committed the write by the time the library waits for sync — so it
+				// degrades to "pending" (awaiting sync) rather than "failed".
+				const settled: Promise<'confirmed' | 'pending' | { readonly error: string }> =
 					transaction.isPersisted.promise.then(
 						() => 'confirmed' as const,
-						(error) => ({ error: error instanceof Error ? error.message : 'failed to import' }),
+						(error) =>
+							isTxIdConfirmationTimeout(error)
+								? ('pending' as const)
+								: { error: error instanceof Error ? error.message : 'failed to import' },
 					);
 				const outcome = await Promise.race([
 					settled,
@@ -480,6 +507,17 @@ function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => {
 		setTimeout(resolve, ms);
 	});
+}
+
+/**
+ * True when a region write's optimistic transaction rejected only because its
+ * txid was not observed on the Electric shape stream in time
+ * (`TimeoutWaitingForTxIdError` from `@tanstack/electric-db-collection`). The
+ * server POST has already committed the write by the time the library waits for
+ * that confirmation, so this means "submitted, awaiting sync" — not a failure.
+ */
+function isTxIdConfirmationTimeout(error: unknown): boolean {
+	return error instanceof Error && error.name === 'TimeoutWaitingForTxIdError';
 }
 
 /**
