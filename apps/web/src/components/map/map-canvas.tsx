@@ -10,6 +10,7 @@ import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
+import { type AddressTileLayerConfig, useAddressTileLayer } from './use-address-tile-layer';
 import {
 	type BiocontrolTileLayerConfig,
 	useBiocontrolTileLayer,
@@ -61,6 +62,7 @@ export function MapCanvas({
 	controls,
 	habitatLayer,
 	regionLayer,
+	addressLayer,
 	inspectionLayer,
 	sampleLayer,
 	chemicalLayer,
@@ -80,6 +82,8 @@ export function MapCanvas({
 	readonly habitatLayer?: HabitatTileLayerConfig;
 	/** Mount the region (polygon) vector-tile layer with these filters + selection wiring. */
 	readonly regionLayer?: RegionTileLayerConfig;
+	/** Mount the address (point) vector-tile layer with these filters + selection wiring. */
+	readonly addressLayer?: AddressTileLayerConfig;
 	/** Mount the inspection vector-tile layer with these filters + selection wiring. */
 	readonly inspectionLayer?: InspectionTileLayerConfig;
 	/** Mount the sample vector-tile layer with these filters + selection wiring. */
@@ -124,6 +128,7 @@ export function MapCanvas({
 
 	useHabitatTileLayer(map, isLoaded, habitatLayer);
 	useRegionTileLayer(map, isLoaded, regionLayer);
+	useAddressTileLayer(map, isLoaded, addressLayer);
 	useInspectionTileLayer(map, isLoaded, inspectionLayer);
 	useSampleTileLayer(map, isLoaded, sampleLayer);
 	useChemicalTileLayer(map, isLoaded, chemicalLayer);

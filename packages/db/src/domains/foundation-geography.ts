@@ -291,6 +291,76 @@ export async function deleteAddress(
 	return row === undefined ? null : toSafeAddress(row);
 }
 
+export interface AddressMvtTileFilters {
+	/** Case-insensitive substring match on the address display name. */
+	readonly search?: string;
+}
+
+export interface AddressMvtTileInput {
+	readonly z: number;
+	readonly x: number;
+	readonly y: number;
+	readonly organizationId: string;
+	readonly filters?: AddressMvtTileFilters;
+}
+
+/**
+ * Address points as a Mapbox vector tile for the address-book explorer map.
+ * Mirrors {@link getRegionMvtTile} but point-only (addresses geocode to a single
+ * point). Each feature carries its `id` + `displayName` so the map can label and
+ * select points without a second round-trip.
+ */
+export async function getAddressMvtTile(
+	db: DbExecutor,
+	input: AddressMvtTileInput,
+): Promise<Uint8Array> {
+	const whereClauses = addressSpatialWhereClauses(input);
+
+	const result = await sql<{ readonly tile: Uint8Array | null }>`
+		with
+		bounds as (
+			select
+				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
+				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
+		),
+		tile_rows as (
+			select
+				a.id,
+				a.display_name as "displayName",
+				st_asmvtgeom(
+					st_transform(a.geom, 3857),
+					bounds.geom_3857,
+					extent => 4096,
+					buffer => 64
+				) as geom
+			from addresses a
+			cross join bounds
+			where ${sql.join(whereClauses, sql` and `)}
+		)
+		select coalesce(st_asmvt(tile_rows, 'addresses', 4096, 'geom'), ''::bytea) as tile
+		from tile_rows
+	`.execute(db);
+
+	return result.rows[0]?.tile ?? new Uint8Array();
+}
+
+function addressSpatialWhereClauses(input: AddressMvtTileInput): RawBuilder<boolean>[] {
+	const whereClauses: RawBuilder<boolean>[] = [
+		sql<boolean>`a.organization_id = ${input.organizationId}`,
+		sql<boolean>`a.deleted_at is null`,
+		sql<boolean>`a.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(a.geom, bounds.geom_4326)`,
+	];
+
+	const search = input.filters?.search?.trim();
+	if (search !== undefined && search.length > 0) {
+		// position()-based match keeps user input literal — no LIKE wildcard escaping.
+		whereClauses.push(sql<boolean>`position(lower(${search}) in lower(a.display_name)) > 0`);
+	}
+
+	return whereClauses;
+}
+
 export interface RegionMvtTileFilters {
 	/** Match a specific folder; the literal `'unfiled'` matches folderless regions. */
 	readonly regionFolderId?: string;

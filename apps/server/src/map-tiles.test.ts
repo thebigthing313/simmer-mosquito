@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
+	parseAddressTileFilters,
 	parseHabitatDisplayQuery,
 	parseHabitatTileFilters,
 	parseInspectionDisplayQuery,
@@ -74,6 +75,29 @@ describe('parseHabitatTileFilters', () => {
 		expect(parseHabitatTileFilters(new URLSearchParams({ where: 'true' }))).toMatchObject({
 			ok: false,
 			reason: 'Unsupported habitat tile filter: where.',
+		});
+	});
+});
+
+describe('parseAddressTileFilters', () => {
+	it('parses a search filter through the address whitelist', () => {
+		expect(parseAddressTileFilters(new URLSearchParams({ search: 'Main St' }))).toEqual({
+			ok: true,
+			filters: { search: 'Main St' },
+		});
+	});
+
+	it('parses to empty filters when no params are given', () => {
+		expect(parseAddressTileFilters(new URLSearchParams())).toEqual({
+			ok: true,
+			filters: {},
+		});
+	});
+
+	it('rejects unknown filter params', () => {
+		expect(parseAddressTileFilters(new URLSearchParams({ where: 'true' }))).toMatchObject({
+			ok: false,
+			reason: 'Unsupported address tile filter: where.',
 		});
 	});
 });
@@ -238,6 +262,44 @@ describe('registerMapTileRoutes', () => {
 				},
 			},
 		]);
+	});
+
+	it('returns authenticated address tiles scoped to the organization with the search filter', async () => {
+		const calls: unknown[] = [];
+		const tile = new Uint8Array([4, 5, 6]);
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getAddressTile: async (_db, input) => {
+				calls.push(input);
+				return tile;
+			},
+		});
+
+		const response = await app.request('/map/tiles/addresses/13/1310/3166.mvt?search=Main');
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get('content-type')).toBe('application/vnd.mapbox-vector-tile');
+		expect(new Uint8Array(await response.arrayBuffer())).toEqual(tile);
+		expect(calls).toEqual([
+			{
+				z: 13,
+				x: 1310,
+				y: 3166,
+				organizationId,
+				filters: { search: 'Main' },
+			},
+		]);
+	});
+
+	it('rejects unknown address tile filters before reading tiles', async () => {
+		const getAddressTile = vi.fn();
+		const app = createApp({ getHabitatTile: async () => new Uint8Array(), getAddressTile });
+
+		const response = await app.request('/map/tiles/addresses/0/0/0.mvt?where=1');
+
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_filter' });
+		expect(response.status).toBe(400);
+		expect(getAddressTile).not.toHaveBeenCalled();
 	});
 
 	it('returns empty tile bytes with the MVT content type', async () => {
@@ -637,6 +699,9 @@ function createApp(options: {
 	readonly getInspectionDisplayRow?: NonNullable<
 		Parameters<typeof registerMapTileRoutes>[1]['getInspectionDisplayRow']
 	>;
+	readonly getAddressTile?: NonNullable<
+		Parameters<typeof registerMapTileRoutes>[1]['getAddressTile']
+	>;
 }) {
 	const app = new Hono<{ Variables: AuthVariables }>();
 	registerMapTileRoutes(app, {
@@ -668,6 +733,7 @@ function createApp(options: {
 		...(options.getInspectionDisplayRow === undefined
 			? {}
 			: { getInspectionDisplayRow: options.getInspectionDisplayRow }),
+		...(options.getAddressTile === undefined ? {} : { getAddressTile: options.getAddressTile }),
 	});
 	return app;
 }

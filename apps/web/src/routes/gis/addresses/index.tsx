@@ -8,22 +8,25 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@simmer-mosquito/ui-web/components/ui/table';
-import { iconRegistry, PlusIcon, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
+	ChevronRightIcon,
+	iconRegistry,
+	PlusIcon,
+	SearchIcon,
+	XIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useMemo, useState } from 'react';
+import { getServerUrl } from '../../../auth';
+import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { MapCanvas } from '../../../components/map';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { webCollections } from '../../../sync/webCollections';
+import { useAddressGeometry } from './-address-data';
 
 export const Route = createFileRoute('/gis/addresses/')({
 	component: AddressesExplorerRoute,
@@ -55,6 +58,8 @@ function AddressesExplorerRoute() {
 
 	const [search, setSearch] = useState('');
 	const [page, setPage] = useState(0);
+	const [focusedId, setFocusedId] = useState<string | null>(null);
+	const [map, setMap] = useState<MapboxMap | null>(null);
 
 	const filtered = useMemo(() => {
 		const query = search.trim().toLowerCase();
@@ -84,102 +89,226 @@ function AddressesExplorerRoute() {
 	}, [page, pageCount]);
 	const visible = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
+	// The map's point layer narrows server-side by the same search, so the visible
+	// points and the list stay in lockstep as the query changes.
+	const serverUrl = getServerUrl();
+	const trimmedSearch = search.trim();
+	const addressLayer = useMemo(
+		() => ({
+			serverUrl,
+			selectedId: focusedId,
+			...(trimmedSearch.length > 0 ? { filters: { search: trimmedSearch } } : {}),
+			onSelectFeature: (id: string | null) => setFocusedId(id),
+		}),
+		[serverUrl, focusedId, trimmedSearch],
+	);
+	const focusedAddress =
+		focusedId === null ? null : (addresses.find((address) => address.id === focusedId) ?? null);
+
 	return (
-		<div className="mx-auto grid w-full max-w-[1100px] content-start gap-5 px-4 py-6 md:px-8">
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<div className="grid gap-1">
-					<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">Address book</h1>
-					<p className="m-0 text-muted-foreground text-sm">
-						Geocoded addresses shared across surveillance and control work.
-					</p>
-				</div>
-				<Button asChild size="sm">
-					<Link to="/gis/addresses/create">
-						<PlusIcon aria-hidden="true" data-icon="inline-start" />
-						Create address
-					</Link>
-				</Button>
-			</div>
-
-			<div className="relative">
-				<SearchIcon
-					aria-hidden="true"
-					className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-				/>
-				<Input
-					aria-label="Search addresses"
-					className="pl-9"
-					onChange={(event) => setSearch(event.target.value)}
-					placeholder="Search addresses…"
-					type="search"
-					value={search}
-				/>
-			</div>
-
-			{!result.isReady ? (
-				<AddressesSkeleton />
-			) : filtered.length === 0 ? (
-				<AddressesEmpty hasSearch={search.trim().length > 0} />
-			) : (
+		<MapSplitPage
+			map={
 				<>
-					<div className="overflow-hidden rounded-md border border-border/40">
-						<Table>
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead>Name</TableHead>
-									<TableHead>Address</TableHead>
-									<TableHead>City / State</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{visible.map((address) => (
-									<TableRow key={address.id}>
-										<TableCell>
-											<Link
-												className="rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-												params={{ id: address.id }}
-												to="/gis/addresses/$id"
-											>
-												{address.displayName}
-											</Link>
-										</TableCell>
-										<TableCell className="max-w-[32ch] truncate text-muted-foreground">
-											{address.addressLine1 ?? '—'}
-										</TableCell>
-										<TableCell className="text-muted-foreground">
-											{cityRegion(address) || '—'}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</div>
-					{pageCount > 1 ? (
-						<ExplorerPagination
-							noun="addresses"
-							onPageChange={setPage}
-							page={page}
-							pageCount={pageCount}
-							total={filtered.length}
+					<MapCanvas addressLayer={addressLayer} controls={{ layers: false }} onMapReady={setMap} />
+					{focusedAddress === null ? null : (
+						<AddressFocusCard
+							address={focusedAddress}
+							map={map}
+							onClose={() => setFocusedId(null)}
 						/>
-					) : null}
+					)}
 				</>
+			}
+		>
+			<div className="flex h-full min-h-0 flex-col">
+				<div className="sticky top-0 z-10 grid gap-3 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<div className="grid gap-1">
+							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
+								Address book
+							</h1>
+							<p className="m-0 text-muted-foreground text-sm">
+								Geocoded addresses shared across surveillance and control work.
+							</p>
+						</div>
+						<Button asChild size="sm">
+							<Link to="/gis/addresses/create">
+								<PlusIcon aria-hidden="true" data-icon="inline-start" />
+								Create
+							</Link>
+						</Button>
+					</div>
+					<div className="relative">
+						<SearchIcon
+							aria-hidden="true"
+							className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
+						/>
+						<Input
+							aria-label="Search addresses"
+							className="pl-9"
+							onChange={(event) => setSearch(event.target.value)}
+							placeholder="Search addresses…"
+							type="search"
+							value={search}
+						/>
+					</div>
+				</div>
+
+				{!result.isReady ? (
+					<AddressesSkeleton />
+				) : filtered.length === 0 ? (
+					<AddressesEmpty hasSearch={search.trim().length > 0} />
+				) : (
+					<div className="flex min-h-0 flex-1 flex-col">
+						<ul className="min-h-0 flex-1 overflow-y-auto p-2">
+							{visible.map((address) => (
+								<AddressRowItem
+									address={address}
+									isFocused={address.id === focusedId}
+									key={address.id}
+									onFocus={() => setFocusedId(address.id)}
+								/>
+							))}
+						</ul>
+						{pageCount > 1 ? (
+							<div className="border-border/50 border-t p-3">
+								<ExplorerPagination
+									noun="addresses"
+									onPageChange={setPage}
+									page={page}
+									pageCount={pageCount}
+									total={filtered.length}
+								/>
+							</div>
+						) : null}
+					</div>
+				)}
+			</div>
+		</MapSplitPage>
+	);
+}
+
+function AddressRowItem({
+	address,
+	isFocused,
+	onFocus,
+}: {
+	readonly address: AddressRow;
+	readonly isFocused: boolean;
+	readonly onFocus: () => void;
+}) {
+	return (
+		<li
+			className={cn(
+				'group flex items-center gap-1.5 rounded-md py-1.5 pr-1 pl-2',
+				isFocused ? 'bg-primary/8' : 'hover:bg-muted/50',
 			)}
+		>
+			<button
+				className="min-w-0 flex-1 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				onClick={onFocus}
+				title="Show on the map"
+				type="button"
+			>
+				<span className="block truncate font-medium text-foreground text-sm hover:text-primary">
+					{address.displayName}
+				</span>
+				<span className="block text-muted-foreground text-xs leading-snug">
+					{fullAddress(address) || '—'}
+				</span>
+			</button>
+			<Link
+				aria-label={`View details for ${address.displayName}`}
+				className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				params={{ id: address.id }}
+				title="View address details"
+				to="/gis/addresses/$id"
+			>
+				<ChevronRightIcon aria-hidden="true" className="size-4" />
+			</Link>
+		</li>
+	);
+}
+
+/** The complete postal address as a readable line: street, unit · city, state postal · country. */
+function fullAddress(address: AddressRow): string {
+	const street = joinParts([address.addressLine1, address.addressLine2], ', ');
+	const cityStateZip = joinParts(
+		[joinParts([address.locality, address.region], ', '), address.postalCode],
+		' ',
+	);
+	// US is the default and appears on nearly every row, so only surface a country
+	// when it adds information.
+	const country = address.country.trim() === 'US' ? null : address.country;
+	return joinParts([street, cityStateZip, country], ' · ');
+}
+
+function joinParts(parts: readonly (string | null | undefined)[], separator: string): string {
+	return parts
+		.map((part) => part?.trim() ?? '')
+		.filter((part) => part.length > 0)
+		.join(separator);
+}
+
+/**
+ * Floating detail card for the selected address. Fetches the point geometry (kept
+ * out of the sync shape) to fly the map to it, and offers a jump to the full
+ * detail route. Mirrors the regions explorer's focus card.
+ */
+function AddressFocusCard({
+	address,
+	map,
+	onClose,
+}: {
+	readonly address: AddressRow;
+	readonly map: MapboxMap | null;
+	readonly onClose: () => void;
+}) {
+	const geometryQuery = useAddressGeometry(address.id);
+	const lat = geometryQuery.data?.lat ?? null;
+	const lng = geometryQuery.data?.lng ?? null;
+
+	useEffect(() => {
+		if (map === null || lat === null || lng === null) {
+			return;
+		}
+		map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
+	}, [map, lat, lng]);
+
+	return (
+		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
+			<article className="pointer-events-auto w-full max-w-[420px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
+				<div className="flex items-start justify-between gap-3">
+					<div className="min-w-0 grid gap-0.5">
+						<h2 className="truncate font-semibold text-base text-foreground leading-tight">
+							{address.displayName}
+						</h2>
+						{fullAddress(address).length === 0 ? null : (
+							<p className="m-0 text-muted-foreground text-sm leading-snug">{fullAddress(address)}</p>
+						)}
+					</div>
+					<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
+						<XIcon aria-hidden="true" />
+					</Button>
+				</div>
+				<div className="mt-3 flex justify-end">
+					<Button asChild size="sm" variant="outline">
+						<Link params={{ id: address.id }} to="/gis/addresses/$id">
+							View details
+							<ChevronRightIcon aria-hidden="true" />
+						</Link>
+					</Button>
+				</div>
+			</article>
 		</div>
 	);
 }
 
-function cityRegion(address: AddressRow): string {
-	return [address.locality, address.region]
-		.filter((part) => part && part.trim().length > 0)
-		.join(', ');
-}
-
 function AddressesSkeleton() {
 	return (
-		<div className="grid gap-2">
+		<div className="grid gap-2 p-4">
 			{[0, 1, 2, 3, 4].map((index) => (
-				<Skeleton className="h-12 w-full" key={index} />
+				<div className="h-12 animate-pulse rounded-md bg-muted/60" key={index} />
 			))}
 		</div>
 	);
@@ -187,18 +316,20 @@ function AddressesSkeleton() {
 
 function AddressesEmpty({ hasSearch }: { readonly hasSearch: boolean }) {
 	return (
-		<Empty className="min-h-[220px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<AddressIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>{hasSearch ? 'No addresses match' : 'No addresses yet'}</EmptyTitle>
-				<EmptyDescription>
-					{hasSearch
-						? 'Try a different search term.'
-						: 'Create an address to build the shared address book.'}
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
+		<div className="flex flex-1 items-center justify-center p-6">
+			<Empty className="min-h-[200px] border border-border/40 bg-muted/30">
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<AddressIcon aria-hidden="true" />
+					</EmptyMedia>
+					<EmptyTitle>{hasSearch ? 'No addresses match' : 'No addresses yet'}</EmptyTitle>
+					<EmptyDescription>
+						{hasSearch
+							? 'Try a different search term.'
+							: 'Create an address to build the shared address book.'}
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
+		</div>
 	);
 }

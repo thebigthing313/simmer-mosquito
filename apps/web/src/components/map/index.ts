@@ -1,3 +1,4 @@
+export { type AddressTileFilters, buildAddressTileUrl } from './address-tiles';
 export { type BiocontrolTileFilters, buildBiocontrolTileUrl } from './biocontrol-tiles';
 export { buildChemicalTileUrl, type ChemicalTileFilters } from './chemical-tiles';
 export { buildCollectionTileUrl, type CollectionTileFilters } from './collection-tiles';
@@ -27,6 +28,7 @@ export {
 	type SourceReductionTileFilters,
 } from './source-reduction-tiles';
 export { buildTrapTileUrl, type TrapTileFilters } from './trap-tiles';
+export type { AddressTileLayerConfig } from './use-address-tile-layer';
 export type { BiocontrolTileLayerConfig } from './use-biocontrol-tile-layer';
 export type { ChemicalTileLayerConfig } from './use-chemical-tile-layer';
 export type { CollectionTileLayerConfig } from './use-collection-tile-layer';

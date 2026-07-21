@@ -1,4 +1,6 @@
 import {
+	type AddressMvtTileFilters,
+	type AddressMvtTileInput,
 	type ApplicationByIdInput,
 	type ApplicationMapFilters,
 	type ApplicationMvtTileInput,
@@ -16,6 +18,7 @@ import {
 	type CollectionPageResult,
 	countActiveHabitatsByType,
 	getAddressById,
+	getAddressMvtTile,
 	getApplicationDisplayRowById,
 	getApplicationMvtTile,
 	getBiocontrolDisplayRowById,
@@ -98,6 +101,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 type TileDb = Kysely<SimmerDatabase>;
 type HabitatTileReader = (db: TileDb, input: HabitatMvtTileInput) => Promise<Uint8Array>;
 type RegionTileReader = (db: TileDb, input: RegionMvtTileInput) => Promise<Uint8Array>;
+type AddressTileReader = (db: TileDb, input: AddressMvtTileInput) => Promise<Uint8Array>;
 type HabitatDisplayReader = (
 	db: TileDb,
 	input: HabitatDisplayInput,
@@ -308,6 +312,7 @@ export function registerMapTileRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly getHabitatTile?: HabitatTileReader;
 		readonly getRegionTile?: RegionTileReader;
+		readonly getAddressTile?: AddressTileReader;
 		readonly listHabitatDisplayRows?: HabitatDisplayReader;
 		readonly getHabitatDisplayRow?: HabitatDisplayByIdReader;
 		readonly listHabitatDisplayRowsByIds?: HabitatDisplayByIdsReader;
@@ -339,6 +344,7 @@ export function registerMapTileRoutes(
 	const tileSets = createTileSetRegistry({
 		getHabitatTile: options.getHabitatTile ?? getHabitatMvtTile,
 		getRegionTile: options.getRegionTile ?? getRegionMvtTile,
+		getAddressTile: options.getAddressTile ?? getAddressMvtTile,
 		getInspectionTile: options.getInspectionTile ?? getInspectionMvtTile,
 		getSampleTile: options.getSampleTile ?? getSampleMvtTile,
 		getApplicationTile: options.getApplicationTile ?? getApplicationMvtTile,
@@ -829,6 +835,7 @@ export function registerMapTileRoutes(
 function createTileSetRegistry(options: {
 	readonly getHabitatTile: HabitatTileReader;
 	readonly getRegionTile: RegionTileReader;
+	readonly getAddressTile: AddressTileReader;
 	readonly getInspectionTile: InspectionTileReader;
 	readonly getSampleTile: SampleTileReader;
 	readonly getApplicationTile: ApplicationTileReader;
@@ -856,6 +863,18 @@ function createTileSetRegistry(options: {
 				parseFilters: parseRegionTileFilters,
 				getTile: (db, input) =>
 					options.getRegionTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+			}),
+		],
+		[
+			'addresses',
+			defineTileSet<AddressMvtTileFilters>({
+				parseFilters: parseAddressTileFilters,
+				getTile: (db, input) =>
+					options.getAddressTile(db, {
 						...input.coordinate,
 						organizationId: input.organizationId,
 						filters: input.filters,
@@ -1027,6 +1046,31 @@ export function parseHabitatTileFilters(searchParams: URLSearchParams): HabitatF
 			...(isInaccessible.value === undefined ? {} : { isInaccessible: isInaccessible.value }),
 			...(habitatTypeIds.value === undefined ? {} : { habitatTypeIds: habitatTypeIds.value }),
 			...(tagIds.value === undefined ? {} : { tagIds: tagIds.value }),
+			...(search.value === undefined ? {} : { search: search.value }),
+		},
+	};
+}
+
+type AddressFilterResult =
+	| { readonly ok: true; readonly filters: AddressMvtTileFilters }
+	| { readonly ok: false; readonly reason: string };
+
+const addressFilterParams = new Set(['search']);
+
+export function parseAddressTileFilters(searchParams: URLSearchParams): AddressFilterResult {
+	const unknownParams = [...searchParams.keys()].filter((param) => !addressFilterParams.has(param));
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported address tile filter: ${unknownParams[0]}.` };
+	}
+
+	const search = parseOptionalTextFilter(searchParams, 'search');
+	if (!search.ok) {
+		return search;
+	}
+
+	return {
+		ok: true,
+		filters: {
 			...(search.value === undefined ? {} : { search: search.value }),
 		},
 	};
