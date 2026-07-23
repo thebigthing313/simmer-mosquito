@@ -54,6 +54,7 @@ import { registerOrganizationSettingsCommandRoutes } from './organization-settin
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
 import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands.js';
+import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 
 const env = readServerEnv();
@@ -480,6 +481,11 @@ registerPublicEngagementRecordRoutes(app, {
 });
 
 registerMapTileRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerServiceRequestNearbyRoutes(app, {
 	db,
 	authContextMiddleware,
 });

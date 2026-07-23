@@ -27,6 +27,7 @@ import {
 	useInspectionTileLayer,
 } from './use-inspection-tile-layer';
 import { useMapboxMap } from './use-mapbox-map';
+import { type NearbyLayerConfig, useNearbyLayer } from './use-nearby-layer';
 import { type RegionTileLayerConfig, useRegionTileLayer } from './use-region-tile-layer';
 import { type RouteLayerConfig, useRouteLayer } from './use-route-layer';
 import { type SampleTileLayerConfig, useSampleTileLayer } from './use-sample-tile-layer';
@@ -71,6 +72,7 @@ export function MapCanvas({
 	trapLayer,
 	collectionLayer,
 	routeLayer,
+	nearbyLayer,
 	geoJson,
 	geoJsonInteraction,
 	onMapReady,
@@ -100,6 +102,8 @@ export function MapCanvas({
 	readonly collectionLayer?: CollectionTileLayerConfig;
 	/** Draw an ordered route: numbered stop pins + connecting path + selection sync. */
 	readonly routeLayer?: RouteLayerConfig;
+	/** Draw a service-request proximity ring + center marker + family-colored nearby records. */
+	readonly nearbyLayer?: NearbyLayerConfig;
 	/** Draw a single GeoJSON overlay (e.g. one record's geometry on a detail map). */
 	readonly geoJson?: GeoJSON.GeoJSON | null;
 	/** Opt into click-to-select + highlight on the GeoJSON overlay's features. */
@@ -137,6 +141,7 @@ export function MapCanvas({
 	useTrapTileLayer(map, isLoaded, trapLayer);
 	useCollectionTileLayer(map, isLoaded, collectionLayer);
 	useRouteLayer(map, isLoaded, routeLayer);
+	useNearbyLayer(map, isLoaded, nearbyLayer);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null, geoJsonInteraction);
 
 	const onMapReadyRef = useRef(onMapReady);

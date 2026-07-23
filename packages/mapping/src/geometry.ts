@@ -268,3 +268,36 @@ function formatCoordinate(value: number, decimals: number): string {
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+const EARTH_RADIUS_METERS = 6_378_137;
+
+/**
+ * A closed geodesic circle polygon of `steps` segments centered on `center` with
+ * the given radius in meters — e.g. a proximity ring around a record. Uses a
+ * spherical destination-point formula, so it stays round at any latitude rather
+ * than the squashed ellipse a naive degrees offset produces.
+ */
+export function circlePolygon(center: LngLat, radiusMeters: number, steps = 64): GeoJsonPolygon {
+	const segments = Math.max(8, Math.floor(steps));
+	const latRad = (center.lat * Math.PI) / 180;
+	const lngRad = (center.lng * Math.PI) / 180;
+	const angular = radiusMeters / EARTH_RADIUS_METERS;
+	const ring: [number, number][] = [];
+
+	for (let index = 0; index <= segments; index += 1) {
+		const bearing = (index / segments) * 2 * Math.PI;
+		const lat2 = Math.asin(
+			Math.sin(latRad) * Math.cos(angular) +
+				Math.cos(latRad) * Math.sin(angular) * Math.cos(bearing),
+		);
+		const lng2 =
+			lngRad +
+			Math.atan2(
+				Math.sin(bearing) * Math.sin(angular) * Math.cos(latRad),
+				Math.cos(angular) - Math.sin(latRad) * Math.sin(lat2),
+			);
+		ring.push([(lng2 * 180) / Math.PI, (lat2 * 180) / Math.PI]);
+	}
+
+	return { type: 'Polygon', coordinates: [ring] };
+}

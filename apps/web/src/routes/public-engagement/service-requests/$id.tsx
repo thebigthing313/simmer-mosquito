@@ -1,3 +1,4 @@
+import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
 import type { AddressRow, ContactRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -11,21 +12,32 @@ import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
+	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	ArrowLeftIcon,
+	ChevronRightIcon,
+	iconRegistry,
+	MapPinnedIcon,
+	XIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CommentsSection } from '../../../components/comments-section';
 import { MapCanvas } from '../../../components/map';
+import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	contactDisplayName,
+	formatAddressLine,
 	formatRequestDate,
 	intakeTypeLabel,
 	isServiceRequestOpen,
@@ -33,6 +45,20 @@ import {
 } from '../-public-engagement-display';
 import { RequestStatusBadge } from '../-public-engagement-ui';
 import { settleWrite } from '../-public-engagement-writes';
+import {
+	buildNearbyMapData,
+	describeNearbyItem,
+	formatNearbyDistance,
+	formatRadiusLabel,
+	NEARBY_CATEGORY_LABEL,
+	NEARBY_FAMILIES,
+	NEARBY_FAMILY_OF,
+	type NearbyFamily,
+	type NearbyItem,
+	type NearbyResponse,
+	useNearbyNameById,
+	useServiceRequestNearby,
+} from './-service-request-nearby';
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id')({
 	component: ServiceRequestDetailRoute,
@@ -42,6 +68,7 @@ const RequestIcon = iconRegistry.domains.publicEngagement.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const detailGcTimeMs = 30_000;
+const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance', 'control'];
 
 function ServiceRequestDetailRoute() {
 	const { id } = Route.useParams();
@@ -62,25 +89,36 @@ function ServiceRequestDetailRoute() {
 	);
 	const request = result.data as ServiceRequestRow | undefined;
 
+	if (!result.isReady) {
+		return <ServiceRequestStatePage>{<ServiceRequestDetailSkeleton />}</ServiceRequestStatePage>;
+	}
+	if (request === undefined) {
+		return <ServiceRequestStatePage>{<ServiceRequestUnavailable />}</ServiceRequestStatePage>;
+	}
+	return <ServiceRequestDetailContent actorProfileId={actorProfileId} request={request} />;
+}
+
+/** Full-height, back-linked frame for the loading / unavailable states. */
+function ServiceRequestStatePage({ children }: { readonly children: ReactNode }) {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
-			<div className="mx-auto grid w-full max-w-[1200px] content-start gap-5 px-4 py-6 pb-10 md:px-8">
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/public-engagement/service-requests"
-				>
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to service requests
-				</Link>
-				{!result.isReady ? (
-					<ServiceRequestDetailSkeleton />
-				) : request === undefined ? (
-					<ServiceRequestUnavailable />
-				) : (
-					<ServiceRequestDetailContent actorProfileId={actorProfileId} request={request} />
-				)}
+			<div className="mx-auto grid w-full max-w-[900px] content-start gap-5 px-4 py-6 md:px-8">
+				<BackLink />
+				{children}
 			</div>
 		</div>
+	);
+}
+
+function BackLink() {
+	return (
+		<Link
+			className="inline-flex w-fit items-center gap-1.5 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			to="/public-engagement/service-requests"
+		>
+			<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
+			Service requests
+		</Link>
 	);
 }
 
@@ -95,105 +133,543 @@ function ServiceRequestDetailContent({
 	useBreadcrumbLabel(request.id, title);
 	const open = isServiceRequestOpen(request);
 
+	const nearby = useServiceRequestNearby(request.id);
+	const nameById = useNearbyNameById();
+	const [visibleFamilies, setVisibleFamilies] = useState<ReadonlySet<NearbyFamily>>(
+		() => new Set(ALL_FAMILIES),
+	);
+	const [selectedNearbyId, setSelectedNearbyId] = useState<string | null>(null);
+
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
 	const receivedByName =
 		profiles.find((profile) => profile.id === request.receivedByProfileId)?.displayName ?? null;
 
+	const toggleFamily = useCallback((family: NearbyFamily) => {
+		setVisibleFamilies((prev) => {
+			const next = new Set(prev);
+			if (next.has(family)) {
+				next.delete(family);
+			} else {
+				next.add(family);
+			}
+			return next;
+		});
+	}, []);
+
 	return (
-		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<RequestIcon aria-hidden="true" className="size-3.5" />
-						Service request
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">{title}</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{intakeTypeLabel(request.intakeType)} · {formatRequestDate(request.requestDate)}
-					</p>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<RequestStatusBadge open={open} />
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: request.id }} to="/public-engagement/service-requests/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
-					<CloseReopenButton actorProfileId={actorProfileId} open={open} requestId={request.id} />
-					<DeleteServiceRequestButton requestId={request.id} />
-				</div>
-			</div>
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<RequestLocationCard point={{ lat: request.lat, lng: request.lng }} />
-					<Card variant="surface">
-						<CardHeader className="px-4 py-4">
-							<CardTitle>Details</CardTitle>
-						</CardHeader>
-						<CardContent className="grid gap-4" padding="compact">
-							<p className="m-0 whitespace-pre-wrap text-foreground text-sm">{request.details}</p>
-							<dl className="grid gap-2.5 border-border/50 border-t pt-4">
-								<DetailRow label="Intake">{intakeTypeLabel(request.intakeType)}</DetailRow>
-								<DetailRow label="Date">{formatRequestDate(request.requestDate)}</DetailRow>
-								<DetailRow label="Received by">
-									{receivedByName ?? <span className="text-muted-foreground">Unknown</span>}
-								</DetailRow>
-							</dl>
-						</CardContent>
-					</Card>
+		<MapSplitPage
+			map={
+				<ContextMap
+					nameById={nameById}
+					onSelect={setSelectedNearbyId}
+					request={request}
+					response={nearby.data}
+					selectedId={selectedNearbyId}
+					visibleFamilies={visibleFamilies}
+				/>
+			}
+		>
+			<div className="flex h-full min-h-0 flex-col">
+				<div className="sticky top-0 z-10 grid gap-2.5 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
+					<BackLink />
+					<div className="flex items-start justify-between gap-2">
+						<div className="grid min-w-0 gap-1">
+							<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+								<RequestIcon aria-hidden="true" className="size-3.5" />
+								Service request
+							</span>
+							<h1 className="m-0 truncate font-semibold text-foreground text-xl leading-tight">
+								{title}
+							</h1>
+							<p className="m-0 text-muted-foreground text-sm">
+								{intakeTypeLabel(request.intakeType)} · {formatRequestDate(request.requestDate)}
+							</p>
+						</div>
+						<RequestStatusBadge open={open} />
+					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: request.id }} to="/public-engagement/service-requests/$id/edit">
+								<EditIcon aria-hidden="true" />
+								Edit
+							</Link>
+						</Button>
+						<CloseReopenButton actorProfileId={actorProfileId} open={open} requestId={request.id} />
+						<DeleteServiceRequestButton requestId={request.id} />
+					</div>
 				</div>
 
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
-					<RequestPartiesCard addressId={request.addressId} contactId={request.contactId} />
-					<CommentsSection
-						description="Follow-up, resolution notes, and field context for this request."
-						target={{ type: 'serviceRequest', id: request.id }}
-					/>
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<div className="grid content-start gap-5 p-4">
+						<RequestDetailsCard receivedByName={receivedByName} request={request} />
+						<RequestPartiesCard addressId={request.addressId} contactId={request.contactId} />
+						<NearbyPanel
+							isError={nearby.isError}
+							isLoading={nearby.isLoading}
+							nameById={nameById}
+							onSelect={setSelectedNearbyId}
+							onToggleFamily={toggleFamily}
+							response={nearby.data}
+							selectedId={selectedNearbyId}
+							visibleFamilies={visibleFamilies}
+						/>
+						<CommentsSection
+							description="Follow-up, resolution notes, and field context for this request."
+							target={{ type: 'serviceRequest', id: request.id }}
+						/>
+					</div>
 				</div>
 			</div>
-		</>
+		</MapSplitPage>
 	);
 }
 
-function RequestLocationCard({
-	point,
+function RequestDetailsCard({
+	request,
+	receivedByName,
 }: {
-	readonly point: { readonly lat: number; readonly lng: number };
+	readonly request: ServiceRequestRow;
+	readonly receivedByName: string | null;
 }) {
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			map.setCenter([point.lng, point.lat]);
-			map.setZoom(15);
-		},
-		[point],
-	);
-
-	const geoJson = {
-		type: 'Feature',
-		properties: {},
-		geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
-	} as GeoJSON.Feature;
-
 	return (
-		<Card className="overflow-hidden" variant="surface">
+		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
-				<CardTitle>Location</CardTitle>
-				<CardDescription>{`${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`}</CardDescription>
+				<CardTitle>Details</CardTitle>
 			</CardHeader>
-			<CardContent padding="compact">
-				<div className="h-[280px] overflow-hidden rounded-md border border-border/40">
-					<MapCanvas
-						controls={{ search: false, layers: false, geolocate: false }}
-						geoJson={geoJson}
-						onMapReady={handleMapReady}
-					/>
-				</div>
+			<CardContent className="grid gap-4" padding="compact">
+				<p className="m-0 whitespace-pre-wrap text-foreground text-sm">{request.details}</p>
+				<dl className="grid gap-2.5 border-border/50 border-t pt-4">
+					<DetailRow label="Intake">{intakeTypeLabel(request.intakeType)}</DetailRow>
+					<DetailRow label="Date">{formatRequestDate(request.requestDate)}</DetailRow>
+					<DetailRow label="Received by">
+						{receivedByName ?? <span className="text-muted-foreground">Unknown</span>}
+					</DetailRow>
+				</dl>
 			</CardContent>
 		</Card>
 	);
 }
+
+// --- Map context surface -----------------------------------------------------
+
+function ContextMap({
+	request,
+	response,
+	visibleFamilies,
+	selectedId,
+	onSelect,
+	nameById,
+}: {
+	readonly request: ServiceRequestRow;
+	readonly response: NearbyResponse | undefined;
+	readonly visibleFamilies: ReadonlySet<NearbyFamily>;
+	readonly selectedId: string | null;
+	readonly onSelect: (id: string | null) => void;
+	readonly nameById: ReadonlyMap<string, string>;
+}) {
+	const [map, setMap] = useState<MapboxMap | null>(null);
+
+	const mapData = useMemo(
+		() => buildNearbyMapData({ lat: request.lat, lng: request.lng }, response, visibleFamilies),
+		[request.lat, request.lng, response, visibleFamilies],
+	);
+
+	const handleReady = useCallback(
+		(instance: MapboxMap) => {
+			setMap(instance);
+			instance.setCenter([request.lng, request.lat]);
+			instance.setZoom(15);
+		},
+		[request.lng, request.lat],
+	);
+
+	// Frame the whole proximity ring once the radius is known (and if it changes).
+	const radiusMeters = response?.radius.meters ?? null;
+	useEffect(() => {
+		if (map === null || radiusMeters === null) {
+			return;
+		}
+		const ring = circlePolygon({ lng: request.lng, lat: request.lat }, radiusMeters);
+		const bounds = boundsFromGeoJson(ring);
+		if (bounds !== null) {
+			map.fitBounds(
+				[
+					[bounds.west, bounds.south],
+					[bounds.east, bounds.north],
+				],
+				{ padding: 56, duration: 400, maxZoom: 17 },
+			);
+		}
+	}, [map, radiusMeters, request.lng, request.lat]);
+
+	// Fly to the selected nearby record.
+	const selectedItem = response?.items.find((item) => item.id === selectedId) ?? null;
+	useEffect(() => {
+		if (map === null || selectedItem === null) {
+			return;
+		}
+		map.flyTo({
+			center: [selectedItem.lng, selectedItem.lat],
+			zoom: Math.max(map.getZoom(), 15),
+			duration: 500,
+		});
+	}, [map, selectedItem]);
+
+	return (
+		<>
+			<MapCanvas
+				controls={{ layers: false }}
+				nearbyLayer={{ data: mapData, selectedId, onSelectFeature: onSelect }}
+				onMapReady={handleReady}
+			/>
+			{response === undefined ? null : <MapContextCaption response={response} />}
+			{selectedItem === null ? null : (
+				<NearbyFocusCard
+					item={selectedItem}
+					nameById={nameById}
+					onClose={() => onSelect(null)}
+					unitCode={response?.radius.unitCode ?? 'mile'}
+				/>
+			)}
+		</>
+	);
+}
+
+function MapContextCaption({ response }: { readonly response: NearbyResponse }) {
+	return (
+		<div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg border border-border/60 bg-background/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+			<p className="m-0 font-medium text-foreground text-xs">
+				Within {formatRadiusLabel(response.radius.amount, response.radius.unitCode)}
+			</p>
+			<p className="m-0 text-[0.7rem] text-muted-foreground">
+				{formatRequestDate(response.dateFrom)} – {formatRequestDate(response.dateTo)}
+			</p>
+		</div>
+	);
+}
+
+function NearbyFocusCard({
+	item,
+	nameById,
+	onClose,
+	unitCode,
+}: {
+	readonly item: NearbyItem;
+	readonly nameById: ReadonlyMap<string, string>;
+	readonly onClose: () => void;
+	readonly unitCode: string;
+}) {
+	const { title, subtitle } = describeNearbyItem(item, nameById);
+	return (
+		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
+			<article className="pointer-events-auto flex w-full max-w-[380px] items-center gap-3 rounded-lg border border-border/60 bg-card/95 p-3 shadow-lg backdrop-blur-sm">
+				<FamilyDot family={NEARBY_FAMILY_OF[item.category]} />
+				<div className="grid min-w-0 flex-1 gap-0.5">
+					<span className="truncate font-semibold text-foreground text-sm">{title}</span>
+					<span className="truncate text-muted-foreground text-xs">
+						{NEARBY_CATEGORY_LABEL[item.category]}
+						{subtitle === null ? '' : ` · ${subtitle}`} ·{' '}
+						{formatNearbyDistance(item.distanceMeters, unitCode)}
+					</span>
+				</div>
+				<NearbyItemLink category={item.category} id={item.id}>
+					View
+					<ChevronRightIcon aria-hidden="true" />
+				</NearbyItemLink>
+				<Button aria-label="Close" onClick={onClose} size="icon-xs" variant="ghost">
+					<XIcon aria-hidden="true" />
+				</Button>
+			</article>
+		</div>
+	);
+}
+
+// --- Nearby panel (left column) ----------------------------------------------
+
+function NearbyPanel({
+	response,
+	isLoading,
+	isError,
+	visibleFamilies,
+	onToggleFamily,
+	selectedId,
+	onSelect,
+	nameById,
+}: {
+	readonly response: NearbyResponse | undefined;
+	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly visibleFamilies: ReadonlySet<NearbyFamily>;
+	readonly onToggleFamily: (family: NearbyFamily) => void;
+	readonly selectedId: string | null;
+	readonly onSelect: (id: string | null) => void;
+	readonly nameById: ReadonlyMap<string, string>;
+}) {
+	const countsByFamily = useMemo(() => {
+		const counts: Record<NearbyFamily, number> = {
+			infrastructure: 0,
+			surveillance: 0,
+			control: 0,
+		};
+		for (const item of response?.items ?? []) {
+			counts[NEARBY_FAMILY_OF[item.category]] += 1;
+		}
+		return counts;
+	}, [response]);
+
+	const visibleItems = useMemo(() => {
+		const items = (response?.items ?? []).filter((item) =>
+			visibleFamilies.has(NEARBY_FAMILY_OF[item.category]),
+		);
+		return [...items].sort((first, second) => first.distanceMeters - second.distanceMeters);
+	}, [response, visibleFamilies]);
+
+	const totalCount = response?.items.length ?? 0;
+	const unitCode = response?.radius.unitCode ?? 'mile';
+
+	return (
+		<Card variant="surface">
+			<CardHeader className="px-4 py-4">
+				<CardTitle className="flex items-center gap-2">
+					<MapPinnedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+					Nearby activity
+				</CardTitle>
+				<CardDescription>
+					{response === undefined
+						? 'Records around this request, from your public-engagement settings.'
+						: `${totalCount === 0 ? 'No' : totalCount} record${totalCount === 1 ? '' : 's'} within ${formatRadiusLabel(response.radius.amount, response.radius.unitCode)}, ${formatRequestDate(response.dateFrom)} – ${formatRequestDate(response.dateTo)}.`}
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="grid gap-4" padding="compact">
+				<div className="flex flex-wrap gap-2">
+					{NEARBY_FAMILIES.map((family) => (
+						<FamilyToggle
+							count={countsByFamily[family.key]}
+							family={family.key}
+							key={family.key}
+							label={family.label}
+							onToggle={onToggleFamily}
+							pressed={visibleFamilies.has(family.key)}
+						/>
+					))}
+				</div>
+
+				{isError ? (
+					<NearbyMessage>Nearby records couldn't be loaded. Try again shortly.</NearbyMessage>
+				) : isLoading || response === undefined ? (
+					<NearbyLoading />
+				) : totalCount === 0 ? (
+					<NearbyMessage>
+						No infrastructure, surveillance, or control activity fell within this radius and time
+						window.
+					</NearbyMessage>
+				) : visibleItems.length === 0 ? (
+					<NearbyMessage>All families are hidden. Toggle one above to see records.</NearbyMessage>
+				) : (
+					<ul className="grid gap-1">
+						{visibleItems.map((item) => (
+							<NearbyRow
+								isSelected={item.id === selectedId}
+								item={item}
+								key={item.id}
+								nameById={nameById}
+								onSelect={onSelect}
+								unitCode={unitCode}
+							/>
+						))}
+					</ul>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
+function FamilyToggle({
+	family,
+	label,
+	count,
+	pressed,
+	onToggle,
+}: {
+	readonly family: NearbyFamily;
+	readonly label: string;
+	readonly count: number;
+	readonly pressed: boolean;
+	readonly onToggle: (family: NearbyFamily) => void;
+}) {
+	return (
+		<button
+			aria-pressed={pressed}
+			className={cn(
+				'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+				pressed
+					? 'border-border bg-muted/60 text-foreground'
+					: 'border-border/60 text-muted-foreground hover:bg-muted/40',
+			)}
+			onClick={() => onToggle(family)}
+			type="button"
+		>
+			<FamilyDot dimmed={!pressed} family={family} />
+			{label}
+			<span className={cn('tabular-nums text-muted-foreground', !pressed && 'opacity-70')}>
+				{count}
+			</span>
+		</button>
+	);
+}
+
+function NearbyRow({
+	item,
+	isSelected,
+	onSelect,
+	nameById,
+	unitCode,
+}: {
+	readonly item: NearbyItem;
+	readonly isSelected: boolean;
+	readonly onSelect: (id: string | null) => void;
+	readonly nameById: ReadonlyMap<string, string>;
+	readonly unitCode: string;
+}) {
+	const { title, subtitle } = describeNearbyItem(item, nameById);
+	const meta = [
+		NEARBY_CATEGORY_LABEL[item.category],
+		subtitle,
+		item.date === null ? null : formatRequestDate(item.date),
+		formatNearbyDistance(item.distanceMeters, unitCode),
+	]
+		.filter((part): part is string => part !== null)
+		.join(' · ');
+
+	return (
+		<li
+			className={cn(
+				'group flex items-center gap-1.5 rounded-md pr-1 pl-2',
+				isSelected ? 'bg-primary/8' : 'hover:bg-muted/50',
+			)}
+		>
+			<button
+				className="flex min-w-0 flex-1 items-center gap-2.5 rounded-sm py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				onClick={() => onSelect(isSelected ? null : item.id)}
+				title="Show on the map"
+				type="button"
+			>
+				<FamilyDot family={NEARBY_FAMILY_OF[item.category]} />
+				<span className="grid min-w-0 flex-1 gap-0.5">
+					<span className="truncate font-medium text-foreground text-sm">{title}</span>
+					<span className="truncate text-muted-foreground text-xs">{meta}</span>
+				</span>
+			</button>
+			<NearbyItemLink category={item.category} id={item.id} iconOnly>
+				<ChevronRightIcon aria-hidden="true" className="size-4" />
+			</NearbyItemLink>
+		</li>
+	);
+}
+
+function FamilyDot({
+	family,
+	dimmed = false,
+}: {
+	readonly family: NearbyFamily;
+	readonly dimmed?: boolean;
+}) {
+	return (
+		<span
+			aria-hidden="true"
+			className={cn('size-2.5 shrink-0 rounded-full', dimmed && 'opacity-40')}
+			style={{ backgroundColor: NEARBY_FAMILY_COLORS[family] }}
+		/>
+	);
+}
+
+/** A typed link to a nearby record's detail page, chosen by its category. */
+function NearbyItemLink({
+	category,
+	id,
+	children,
+	iconOnly = false,
+}: {
+	readonly category: NearbyItem['category'];
+	readonly id: string;
+	readonly children: ReactNode;
+	readonly iconOnly?: boolean;
+}) {
+	const className = iconOnly
+		? 'flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+		: 'inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 px-2 py-1 font-medium text-foreground text-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+	const params = { id };
+	switch (category) {
+		case 'habitat':
+			return (
+				<Link className={className} params={params} to="/larval-surveillance/habitats/$id">
+					{children}
+				</Link>
+			);
+		case 'trap':
+			return (
+				<Link className={className} params={params} to="/adult-surveillance/traps/$id">
+					{children}
+				</Link>
+			);
+		case 'inspection':
+			return (
+				<Link className={className} params={params} to="/larval-surveillance/inspections/$id">
+					{children}
+				</Link>
+			);
+		case 'collection':
+			return (
+				<Link className={className} params={params} to="/adult-surveillance/collections/$id">
+					{children}
+				</Link>
+			);
+		case 'application':
+			return (
+				<Link className={className} params={params} to="/control-operations/chemical/$id">
+					{children}
+				</Link>
+			);
+		case 'sourceReduction':
+			return (
+				<Link className={className} params={params} to="/control-operations/source-reduction/$id">
+					{children}
+				</Link>
+			);
+		case 'biocontrol':
+			return (
+				<Link className={className} params={params} to="/control-operations/biocontrol/$id">
+					{children}
+				</Link>
+			);
+	}
+}
+
+function NearbyLoading() {
+	return (
+		<div className="grid gap-1.5" aria-hidden="true">
+			{['n-1', 'n-2', 'n-3', 'n-4'].map((key) => (
+				<div className="flex items-center gap-2.5 px-2 py-1.5" key={key}>
+					<Skeleton className="size-2.5 rounded-full" />
+					<div className="grid flex-1 gap-1">
+						<Skeleton className="h-3.5 w-2/5" />
+						<Skeleton className="h-3 w-3/5" />
+					</div>
+				</div>
+			))}
+		</div>
+	);
+}
+
+function NearbyMessage({ children }: { readonly children: ReactNode }) {
+	return (
+		<p className="rounded-md border border-border/40 border-dashed bg-muted/20 px-3 py-4 text-center text-muted-foreground text-sm">
+			{children}
+		</p>
+	);
+}
+
+// --- Contact & address (unchanged behaviour) ---------------------------------
 
 function RequestPartiesCard({
 	contactId,
@@ -231,7 +707,7 @@ function RequestPartiesCard({
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
-				<CardTitle>Contact & location</CardTitle>
+				<CardTitle>Contact &amp; location</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-5" padding="compact">
 				<div className="grid gap-2">
@@ -294,20 +770,10 @@ function RequestPartiesCard({
 							>
 								{address.displayName}
 							</Link>
+							<p className="m-0 text-muted-foreground text-sm">
+								{formatAddressLine(address) || address.displayName}
+							</p>
 							<dl className="grid gap-1.5">
-								<PartyRow
-									label="Street"
-									primary={address.displayName}
-									value={address.addressLine1}
-								/>
-								<PartyRow label="Unit" value={address.addressLine2} />
-								<PartyRow label="City" value={address.locality} />
-								<PartyRow label="State" value={address.region} />
-								<PartyRow label="ZIP" value={address.postalCode} />
-								<PartyRow
-									label="Country"
-									value={address.country === 'US' ? null : address.country}
-								/>
 								<PartyRow label="Coords" value={formatCoords(address.lat, address.lng)} />
 							</dl>
 						</>
@@ -328,7 +794,6 @@ function PartyRow({
 	readonly label: string;
 	readonly value: string | null;
 	readonly primary?: string;
-	/** When set, the value renders as a link (e.g. a mailto for an email). */
 	readonly href?: string | undefined;
 }) {
 	if (value === null || value.trim().length === 0 || value === primary) {
@@ -353,13 +818,11 @@ function PartyRow({
 	);
 }
 
-/** A `mailto:` href for a non-empty email, or undefined so callers can omit the link. */
 function mailtoHref(email: string | null): string | undefined {
 	const trimmed = email?.trim() ?? '';
 	return trimmed.length === 0 ? undefined : `mailto:${trimmed}`;
 }
 
-/** The contact's enabled notification channels, or null when none are set. */
 function contactPreferences(contact: ContactRow): string | null {
 	const channels = [
 		contact.wantsEmail ? 'Email' : null,
@@ -486,13 +949,8 @@ function ServiceRequestDetailSkeleton() {
 				<Skeleton className="h-4 w-28" />
 				<Skeleton className="h-8 w-56" />
 			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[360px]" />
-					<Skeleton className="h-40" />
-				</div>
-				<Skeleton className="h-72" />
-			</div>
+			<Skeleton className="h-40" />
+			<Skeleton className="h-56" />
 		</>
 	);
 }
@@ -501,6 +959,9 @@ function ServiceRequestUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
+				<EmptyMedia variant="icon">
+					<RequestIcon aria-hidden="true" />
+				</EmptyMedia>
 				<EmptyTitle>Service request unavailable</EmptyTitle>
 				<EmptyDescription>
 					This request could not be found, or you do not have access to it.

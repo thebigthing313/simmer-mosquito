@@ -29,6 +29,7 @@ export {
 	boundsFromCoordinates,
 	boundsFromGeoJson,
 	centroidFromGeoJson,
+	circlePolygon,
 	containsLngLat,
 	countGeoJsonVertices,
 	extendBounds,
