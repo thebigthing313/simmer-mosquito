@@ -56,9 +56,11 @@ import {
 	Settings,
 	SprayCan,
 	Sun,
+	Tag,
 	Trash2,
 	Truck,
 	Upload,
+	User,
 	Users,
 	Worm,
 	Wrench,
@@ -104,6 +106,7 @@ export const iconRegistry = {
 		application: icon('application', 'Application', 'entities', SprayCan),
 		biocontrolAction: icon('biocontrolAction', 'Biocontrol action', 'entities', Fish),
 		collection: icon('collection', 'Collection', 'entities', Layers),
+		contact: icon('contact', 'Contact', 'entities', User),
 		equipment: icon('equipment', 'Equipment', 'entities', Wrench),
 		insecticide: icon('insecticide', 'Insecticide', 'entities', SprayCan),
 		inspection: icon('inspection', 'Inspection', 'entities', ClipboardCheck),
@@ -118,6 +121,7 @@ export const iconRegistry = {
 			'entities',
 			Trash2,
 		),
+		tag: icon('tag', 'Tag', 'entities', Tag),
 		taxonomy: icon('taxonomy', 'Taxonomy', 'entities', Network),
 		trap: icon('trap', 'Trap', 'entities', Box),
 		unit: icon('unit', 'Unit', 'entities', Ruler),
@@ -209,6 +213,7 @@ export const CircleCheckIcon = iconRegistry.generic.success.icon;
 export const CircleIcon = iconRegistry.generic.circle.icon;
 export const CompassIcon = iconRegistry.generic.compass.icon;
 export const ComponentIcon = iconRegistry.generic.component.icon;
+export const ContactIcon = iconRegistry.entities.contact.icon;
 export const ContrastIcon = iconRegistry.generic.contrast.icon;
 export const DownloadIcon = iconRegistry.actions.download.icon;
 export const GripVerticalIcon = iconRegistry.generic.gripVertical.icon;
@@ -236,6 +241,7 @@ export const SearchIcon = iconRegistry.actions.search.icon;
 export const SendIcon = iconRegistry.actions.send.icon;
 export const SettingsIcon = iconRegistry.generic.settings.icon;
 export const SunIcon = iconRegistry.generic.sun.icon;
+export const TagIcon = iconRegistry.entities.tag.icon;
 export const TriangleAlertIcon = iconRegistry.actions.warning.icon;
 export const XIcon = iconRegistry.actions.close.icon;
 

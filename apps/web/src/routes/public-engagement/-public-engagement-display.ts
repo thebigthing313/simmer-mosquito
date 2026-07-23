@@ -40,6 +40,28 @@ export function contactSecondaryLine(contact: ContactRow): string | null {
 	return parts.length === 0 ? null : parts.join(' · ');
 }
 
+/**
+ * A one-line full postal address, e.g. "123 Main St, Apt 2, Springfield, IL 62704".
+ * Region + postal code are grouped without a comma; empty parts are dropped.
+ * Returns an empty string when nothing is set (callers fall back to displayName).
+ */
+export function formatAddressLine(address: {
+	readonly addressLine1: string | null;
+	readonly addressLine2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+}): string {
+	const regionZip = [address.region, address.postalCode]
+		.map((value) => value?.trim() ?? '')
+		.filter((value) => value.length > 0)
+		.join(' ');
+	return [address.addressLine1, address.addressLine2, address.locality, regionZip]
+		.map((value) => value?.trim() ?? '')
+		.filter((value) => value.length > 0)
+		.join(', ');
+}
+
 const INTAKE_TYPE_LABELS: Readonly<Record<string, string>> = {
 	online: 'Online',
 	phone: 'Phone',
