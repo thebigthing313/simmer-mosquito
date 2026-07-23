@@ -52,9 +52,14 @@ const INTERACTIVE_LAYER_IDS = [POINT_LAYER_ID, LINE_LAYER_ID, POLYGON_FILL_LAYER
 /** A sentinel no real feature id ever equals, so the highlight is hidden by default. */
 const NO_SELECTION = '__no-selection__';
 
-/** Match the currently-selected point by its feature id. */
+/**
+ * Match the currently-selected point by its `id` property. We compare the `id`
+ * property (not the native feature id via `['id']`) because callers key features
+ * with domain UUIDs, which Mapbox does not preserve as the native feature id for
+ * GeoJSON sources — same reason the MVT layers promote `id`.
+ */
 function selectedPointFilter(selectedId: string | null): ExpressionSpecification {
-	return ['all', pointOnly, ['==', ['id'], selectedId ?? NO_SELECTION]];
+	return ['all', pointOnly, ['==', ['get', 'id'], selectedId ?? NO_SELECTION]];
 }
 
 /**
@@ -186,7 +191,11 @@ export function useGeoJsonLayer(
 				return;
 			}
 			const feature = activeMap.queryRenderedFeatures(event.point, { layers })[0];
-			const id = feature === undefined || feature.id === undefined ? null : String(feature.id);
+			// Prefer the `id` property (domain UUID); Mapbox does not preserve string
+			// feature ids for GeoJSON sources, so `feature.id` may be undefined. Fall
+			// back to the native id for sources that key on a numeric feature id.
+			const rawId = feature?.properties?.id ?? feature?.id;
+			const id = rawId === undefined || rawId === null ? null : String(rawId);
 			onSelectRef.current?.(id);
 		}
 		function handleMove(event: MapMouseEvent) {
