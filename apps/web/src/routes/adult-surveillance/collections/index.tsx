@@ -40,6 +40,7 @@ import { type CollectionTileFilters, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from '../-adult-display';
+import { CollectionMapCard } from '../-collection-map-card';
 import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/collections/')({
@@ -178,16 +179,7 @@ function CollectionsExplorerRoute() {
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (
-						<CollectionDetailCard
-							methodName={methodNameById.get(selected.collectionMethodId) ?? 'Unknown method'}
-							onClose={() => setSelectedId(null)}
-							row={selected}
-							trapName={
-								selected.trapId === null
-									? null
-									: (trapNameFor(selected.trapId, trapById) ?? 'Unknown trap')
-							}
-						/>
+						<CollectionMapCard id={selected.id} onClose={() => setSelectedId(null)} />
 					)}
 				</>
 			}
@@ -619,88 +611,6 @@ function CollectionListItem({
 	);
 }
 
-function CollectionDetailCard({
-	row,
-	trapName,
-	methodName,
-	onClose,
-}: {
-	readonly row: CollectionSite;
-	readonly trapName: string | null;
-	readonly methodName: string;
-	readonly onClose: () => void;
-}) {
-	const effectiveDate = collectionEffectiveDate(row);
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
-				<div className="flex items-start justify-between gap-3">
-					<div className="min-w-0 grid gap-0.5">
-						<h2 className="font-semibold text-base text-foreground leading-tight">
-							<Link
-								className="block w-fit max-w-full truncate rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-								params={{ id: row.id }}
-								to="/adult-surveillance/collections/$id"
-							>
-								{trapName ?? 'Ad-hoc collection'}
-							</Link>
-						</h2>
-						<p className="truncate text-muted-foreground text-sm">
-							{methodName}
-							{effectiveDate === null ? '' : ` · ${formatMonthDay(effectiveDate)}`}
-						</p>
-					</div>
-					<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
-						<XIcon aria-hidden="true" />
-					</Button>
-				</div>
-
-				<CollectionFlagBadges
-					className="mt-3 flex flex-wrap items-center gap-1.5"
-					collection={row}
-				/>
-
-				<dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-					<DetailFact label="Coordinates" value={coordinateLabel(row)} wide />
-				</dl>
-
-				<div className="mt-3 flex justify-end">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: row.id }} to="/adult-surveillance/collections/$id">
-							View full details
-							<ChevronRightIcon aria-hidden="true" />
-						</Link>
-					</Button>
-				</div>
-			</article>
-		</div>
-	);
-}
-
-function DetailFact({
-	label,
-	value,
-	wide = false,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly wide?: boolean;
-}) {
-	return (
-		<div
-			className={cn(
-				'grid gap-0.5 rounded-md border border-border/40 bg-background/60 px-2.5 py-1.5',
-				wide && 'col-span-2',
-			)}
-		>
-			<dt className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-wide">
-				{label}
-			</dt>
-			<dd className="truncate font-medium text-foreground">{value}</dd>
-		</div>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
 
 function trapNameFor(trapId: string, trapById: ReadonlyMap<string, TrapRow>): string | null {
@@ -716,8 +626,4 @@ function toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
 		next.add(id);
 	}
 	return next;
-}
-
-function coordinateLabel(point: { readonly lat: number; readonly lng: number }): string {
-	return `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`;
 }

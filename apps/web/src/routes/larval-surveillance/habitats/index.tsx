@@ -28,7 +28,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { and, eq, useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -39,6 +39,7 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type HabitatTileFilters, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
+import { HabitatMapCard } from '../../-habitat-map-card';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/')({
 	component: HabitatsExplorerRoute,
@@ -140,10 +141,9 @@ function HabitatsExplorerRoute() {
 						onMapReady={handleMapReady}
 					/>
 					{selectedHabitat === null ? null : (
-						<HabitatDetailCard
-							habitat={selectedHabitat}
-							typeName={resolveTypeName(selectedHabitat, typeNameById)}
-							tagById={tagById}
+						<HabitatMapCard
+							detailTo="/larval-surveillance/habitats/$id"
+							id={selectedHabitat.id}
 							onClose={() => setSelectedId(null)}
 						/>
 					)}
@@ -598,127 +598,6 @@ function HabitatListItem({
 	);
 }
 
-function HabitatDetailCard({
-	habitat,
-	typeName,
-	tagById,
-	onClose,
-}: {
-	readonly habitat: HabitatRow;
-	readonly typeName: string;
-	readonly tagById: ReadonlyMap<string, TagRow>;
-	readonly onClose: () => void;
-}) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
-				<div className="flex items-start justify-between gap-3">
-					<div className="min-w-0 grid gap-0.5">
-						<h2 className="font-semibold text-base text-foreground leading-tight">
-							<Link
-								className="block w-fit max-w-full truncate rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-								params={{ id: habitat.id }}
-								to="/larval-surveillance/habitats/$id"
-							>
-								{habitatName(habitat)}
-							</Link>
-						</h2>
-						<p className="truncate text-muted-foreground text-sm">{typeName}</p>
-					</div>
-					<div className="flex items-center gap-1.5">
-						<StatusBadge habitat={habitat} />
-						<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
-							<XIcon aria-hidden="true" />
-						</Button>
-					</div>
-				</div>
-
-				<p className="mt-3 line-clamp-3 text-foreground/90 text-sm">
-					{habitatDescription(habitat)}
-				</p>
-
-				<HabitatTagRow habitatId={habitat.id} tagById={tagById} />
-
-				<dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-					<DetailFact label="Coordinates" value={coordinateLabel(habitat)} />
-					<DetailFact label="Geometry" value={geometryLabel(habitat.geomType ?? null)} />
-				</dl>
-			</article>
-		</div>
-	);
-}
-
-function HabitatTagRow({
-	habitatId,
-	tagById,
-}: {
-	readonly habitatId: string;
-	readonly tagById: ReadonlyMap<string, TagRow>;
-}) {
-	const assigned = useLiveQuery(
-		(query) =>
-			query
-				.from({ tagItem: webCollections.tagItems })
-				.where(({ tagItem }) =>
-					and(eq(tagItem.entityType, 'habitat'), eq(tagItem.entityId, habitatId)),
-				)
-				.select(({ tagItem }) => ({ id: tagItem.id, tagId: tagItem.tagId })),
-		[habitatId],
-	);
-
-	const resolved = useMemo(() => {
-		const seen = new Set<string>();
-		const list: TagRow[] = [];
-		for (const item of assigned.data ?? []) {
-			const tag = tagById.get(item.tagId);
-			if (tag !== undefined && !seen.has(tag.id)) {
-				seen.add(tag.id);
-				list.push(tag);
-			}
-		}
-		return list.sort((first, second) => first.tagName.localeCompare(second.tagName));
-	}, [assigned.data, tagById]);
-
-	if (resolved.length === 0) {
-		return null;
-	}
-
-	return (
-		<div className="mt-3 flex flex-wrap gap-1.5">
-			{resolved.map((tag) => (
-				<TagChip key={tag.id} tag={tag} />
-			))}
-		</div>
-	);
-}
-
-function TagChip({ tag }: { readonly tag: TagRow }) {
-	const style = tagColorStyle(tag.color);
-	return (
-		<span
-			className={cn(
-				'inline-flex items-center rounded-full border px-2 py-0.5 text-xs',
-				style === null ? 'border-border bg-muted text-muted-foreground' : undefined,
-			)}
-			style={style ?? undefined}
-			title={tag.description ?? undefined}
-		>
-			{tag.tagName}
-		</span>
-	);
-}
-
-function DetailFact({ label, value }: { readonly label: string; readonly value: string }) {
-	return (
-		<div className="grid gap-0.5 rounded-md border border-border/40 bg-background/60 px-2.5 py-1.5">
-			<dt className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-wide">
-				{label}
-			</dt>
-			<dd className="truncate font-medium text-foreground">{value}</dd>
-		</div>
-	);
-}
-
 function StatusBadge({ habitat }: { readonly habitat: HabitatRow }) {
 	if (habitat.isInaccessible) {
 		return (
@@ -922,40 +801,6 @@ function resolveTypeName(habitat: HabitatRow, typeNameById: ReadonlyMap<string, 
 
 function habitatName(habitat: HabitatRow): string {
 	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
-}
-
-function habitatDescription(habitat: HabitatRow): string {
-	return habitat.description.trim() || 'No description recorded.';
-}
-
-function coordinateLabel(habitat: HabitatRow): string {
-	if (habitat.lat == null || habitat.lng == null) {
-		return 'Unknown';
-	}
-	return `${habitat.lat.toFixed(4)}, ${habitat.lng.toFixed(4)}`;
-}
-
-function geometryLabel(value: string | null): string {
-	const normalized = (value ?? '')
-		.toLowerCase()
-		.replace(/^st_?/, '')
-		.replace(/[_\s]+/g, '');
-	switch (normalized) {
-		case 'point':
-			return 'Point';
-		case 'multipoint':
-			return 'Multi-point';
-		case 'linestring':
-			return 'Line';
-		case 'multilinestring':
-			return 'Multi-line';
-		case 'polygon':
-			return 'Polygon';
-		case 'multipolygon':
-			return 'Multi-polygon';
-		default:
-			return value === null || value.length === 0 ? 'Unknown' : value;
-	}
 }
 
 function tagColorStyle(color: string | null): CSSProperties | null {

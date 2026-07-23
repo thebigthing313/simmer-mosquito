@@ -13,7 +13,6 @@ import {
 	iconRegistry,
 	PlusIcon,
 	SearchIcon,
-	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -26,7 +25,7 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas } from '../../../components/map';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { webCollections } from '../../../sync/webCollections';
-import { useAddressGeometry } from './-address-data';
+import { AddressMapCard } from './-address-map-card';
 
 export const Route = createFileRoute('/gis/addresses/')({
 	component: AddressesExplorerRoute,
@@ -102,20 +101,13 @@ function AddressesExplorerRoute() {
 		}),
 		[serverUrl, focusedId, trimmedSearch],
 	);
-	const focusedAddress =
-		focusedId === null ? null : (addresses.find((address) => address.id === focusedId) ?? null);
-
 	return (
 		<MapSplitPage
 			map={
 				<>
 					<MapCanvas addressLayer={addressLayer} controls={{ layers: false }} onMapReady={setMap} />
-					{focusedAddress === null ? null : (
-						<AddressFocusCard
-							address={focusedAddress}
-							map={map}
-							onClose={() => setFocusedId(null)}
-						/>
+					{focusedId === null ? null : (
+						<AddressMapCard id={focusedId} map={map} onClose={() => setFocusedId(null)} />
 					)}
 				</>
 			}
@@ -248,60 +240,6 @@ function joinParts(parts: readonly (string | null | undefined)[], separator: str
 		.map((part) => part?.trim() ?? '')
 		.filter((part) => part.length > 0)
 		.join(separator);
-}
-
-/**
- * Floating detail card for the selected address. Fetches the point geometry (kept
- * out of the sync shape) to fly the map to it, and offers a jump to the full
- * detail route. Mirrors the regions explorer's focus card.
- */
-function AddressFocusCard({
-	address,
-	map,
-	onClose,
-}: {
-	readonly address: AddressRow;
-	readonly map: MapboxMap | null;
-	readonly onClose: () => void;
-}) {
-	const geometryQuery = useAddressGeometry(address.id);
-	const lat = geometryQuery.data?.lat ?? null;
-	const lng = geometryQuery.data?.lng ?? null;
-
-	useEffect(() => {
-		if (map === null || lat === null || lng === null) {
-			return;
-		}
-		map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
-	}, [map, lat, lng]);
-
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto w-full max-w-[420px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
-				<div className="flex items-start justify-between gap-3">
-					<div className="min-w-0 grid gap-0.5">
-						<h2 className="truncate font-semibold text-base text-foreground leading-tight">
-							{address.displayName}
-						</h2>
-						{fullAddress(address).length === 0 ? null : (
-							<p className="m-0 text-muted-foreground text-sm leading-snug">{fullAddress(address)}</p>
-						)}
-					</div>
-					<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
-						<XIcon aria-hidden="true" />
-					</Button>
-				</div>
-				<div className="mt-3 flex justify-end">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: address.id }} to="/gis/addresses/$id">
-							View details
-							<ChevronRightIcon aria-hidden="true" />
-						</Link>
-					</Button>
-				</div>
-			</article>
-		</div>
-	);
 }
 
 function AddressesSkeleton() {

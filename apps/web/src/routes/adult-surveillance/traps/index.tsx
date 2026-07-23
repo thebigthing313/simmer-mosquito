@@ -1,4 +1,4 @@
-import type { CollectionLureRow, CollectionMethodRow } from '@simmer-mosquito/sync';
+import type { CollectionMethodRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -39,7 +39,7 @@ import { MapCanvas, type TrapTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { trapDisplayName } from '../-adult-display';
-import { useAddressNames } from '../-overview-data';
+import { TrapMapCard } from '../-trap-map-card';
 
 export const Route = createFileRoute('/adult-surveillance/traps/')({
 	component: TrapsExplorerRoute,
@@ -74,13 +74,11 @@ function TrapsExplorerRoute() {
 	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
 		webCollections.collectionMethods,
 	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
 
 	const methodNameById = useMemo(
 		() => new Map(methods.map((method) => [method.id, method.name])),
 		[methods],
 	);
-	const lureNameById = useMemo(() => new Map(lures.map((lure) => [lure.id, lure.name])), [lures]);
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
@@ -107,14 +105,6 @@ function TrapsExplorerRoute() {
 			setPage(pageCount - 1);
 		}
 	}, [page, pageCount]);
-
-	// Traps carry their own point geometry (lat/lng on the row). Address names are
-	// resolved separately, only for display in the detail card.
-	const addressIds = useMemo(
-		() => rows.map((trap) => trap.addressId).filter((id): id is string => id !== null),
-		[rows],
-	);
-	const addressNameById = useAddressNames(addressIds);
 
 	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
 	const fallbackSelected = useSelectedTrap(selectedId, visibleById);
@@ -156,21 +146,7 @@ function TrapsExplorerRoute() {
 						trapLayer={trapLayer}
 					/>
 					{selected === null ? null : (
-						<TrapDetailCard
-							addressName={
-								selected.addressId === null
-									? null
-									: (addressNameById.get(selected.addressId) ?? null)
-							}
-							lureName={
-								selected.collectionLureId === null
-									? null
-									: (lureNameById.get(selected.collectionLureId) ?? 'Unknown lure')
-							}
-							methodName={methodNameById.get(selected.collectionMethodId) ?? 'Unknown method'}
-							onClose={() => setSelectedId(null)}
-							trap={selected}
-						/>
+						<TrapMapCard id={selected.id} onClose={() => setSelectedId(null)} />
 					)}
 				</>
 			}
@@ -627,86 +603,6 @@ function TrapListItem({
 	);
 }
 
-function TrapDetailCard({
-	trap,
-	methodName,
-	lureName,
-	addressName,
-	onClose,
-}: {
-	readonly trap: TrapSite;
-	readonly methodName: string;
-	readonly lureName: string | null;
-	readonly addressName: string | null;
-	readonly onClose: () => void;
-}) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
-				<div className="flex items-start justify-between gap-3">
-					<div className="min-w-0 grid gap-0.5">
-						<h2 className="font-semibold text-base text-foreground leading-tight">
-							<Link
-								className="block w-fit max-w-full truncate rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-								params={{ id: trap.id }}
-								to="/adult-surveillance/traps/$id"
-							>
-								{trapDisplayName(trap)}
-							</Link>
-						</h2>
-						<p className="truncate text-muted-foreground text-sm">{methodName}</p>
-					</div>
-					<div className="flex items-center gap-1.5">
-						<StatusBadge isActive={trap.isActive} />
-						<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
-							<XIcon aria-hidden="true" />
-						</Button>
-					</div>
-				</div>
-
-				<dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-					<DetailFact label="Lure" value={lureName ?? 'None'} />
-					<DetailFact label="Address" value={addressName ?? 'No linked address'} wide />
-					<DetailFact label="Coordinates" value={coordinateLabel(trap)} wide />
-				</dl>
-
-				<div className="mt-3 flex justify-end">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id">
-							View full details
-							<ChevronRightIcon aria-hidden="true" />
-						</Link>
-					</Button>
-				</div>
-			</article>
-		</div>
-	);
-}
-
-function DetailFact({
-	label,
-	value,
-	wide = false,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly wide?: boolean;
-}) {
-	return (
-		<div
-			className={cn(
-				'grid gap-0.5 rounded-md border border-border/40 bg-background/60 px-2.5 py-1.5',
-				wide && 'col-span-2',
-			)}
-		>
-			<dt className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-wide">
-				{label}
-			</dt>
-			<dd className="truncate font-medium text-foreground">{value}</dd>
-		</div>
-	);
-}
-
 function StatusBadge({ isActive }: { readonly isActive: boolean }) {
 	return isActive ? (
 		<Badge tone="success" variant="outline">
@@ -743,10 +639,6 @@ function toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
 		next.add(id);
 	}
 	return next;
-}
-
-function coordinateLabel(point: { readonly lat: number; readonly lng: number }): string {
-	return `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`;
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {

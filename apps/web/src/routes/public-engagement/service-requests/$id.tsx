@@ -21,7 +21,6 @@ import {
 	ChevronRightIcon,
 	iconRegistry,
 	MapPinnedIcon,
-	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -35,6 +34,13 @@ import { MapCanvas } from '../../../components/map';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
+import { HabitatMapCard } from '../../-habitat-map-card';
+import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
+import { TrapMapCard } from '../../adult-surveillance/-trap-map-card';
+import { ApplicationMapCard } from '../../control-operations/-application-map-card';
+import { BiocontrolMapCard } from '../../control-operations/-biocontrol-map-card';
+import { SourceReductionMapCard } from '../../control-operations/-source-reduction-map-card';
+import { InspectionMapCard } from '../../larval-surveillance/-inspection-map-card';
 import {
 	contactDisplayName,
 	formatAddressLine,
@@ -160,7 +166,6 @@ function ServiceRequestDetailContent({
 		<MapSplitPage
 			map={
 				<ContextMap
-					nameById={nameById}
 					onSelect={setSelectedNearbyId}
 					request={request}
 					response={nearby.data}
@@ -258,14 +263,12 @@ function ContextMap({
 	visibleFamilies,
 	selectedId,
 	onSelect,
-	nameById,
 }: {
 	readonly request: ServiceRequestRow;
 	readonly response: NearbyResponse | undefined;
 	readonly visibleFamilies: ReadonlySet<NearbyFamily>;
 	readonly selectedId: string | null;
 	readonly onSelect: (id: string | null) => void;
-	readonly nameById: ReadonlyMap<string, string>;
 }) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
@@ -324,12 +327,7 @@ function ContextMap({
 			/>
 			{response === undefined ? null : <MapContextCaption response={response} />}
 			{selectedItem === null ? null : (
-				<NearbyFocusCard
-					item={selectedItem}
-					nameById={nameById}
-					onClose={() => onSelect(null)}
-					unitCode={response?.radius.unitCode ?? 'mile'}
-				/>
+				<NearbyFocusCard item={selectedItem} onClose={() => onSelect(null)} />
 			)}
 		</>
 	);
@@ -348,40 +346,42 @@ function MapContextCaption({ response }: { readonly response: NearbyResponse }) 
 	);
 }
 
+/**
+ * Renders the same rich, self-fetching per-type card an explorer would for the
+ * selected nearby record — dispatching on its category so a habitat near a request
+ * shows the exact card the Habitats explorer shows, and so on for every family.
+ * Each card takes just the record id and resolves its own content; the SR-relative
+ * distance stays in the left-column nearby list.
+ */
 function NearbyFocusCard({
 	item,
-	nameById,
 	onClose,
-	unitCode,
 }: {
 	readonly item: NearbyItem;
-	readonly nameById: ReadonlyMap<string, string>;
 	readonly onClose: () => void;
-	readonly unitCode: string;
 }) {
-	const { title, subtitle } = describeNearbyItem(item, nameById);
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto flex w-full max-w-[380px] items-center gap-3 rounded-lg border border-border/60 bg-card/95 p-3 shadow-lg backdrop-blur-sm">
-				<FamilyDot family={NEARBY_FAMILY_OF[item.category]} />
-				<div className="grid min-w-0 flex-1 gap-0.5">
-					<span className="truncate font-semibold text-foreground text-sm">{title}</span>
-					<span className="truncate text-muted-foreground text-xs">
-						{NEARBY_CATEGORY_LABEL[item.category]}
-						{subtitle === null ? '' : ` · ${subtitle}`} ·{' '}
-						{formatNearbyDistance(item.distanceMeters, unitCode)}
-					</span>
-				</div>
-				<NearbyItemLink category={item.category} id={item.id}>
-					View
-					<ChevronRightIcon aria-hidden="true" />
-				</NearbyItemLink>
-				<Button aria-label="Close" onClick={onClose} size="icon-xs" variant="ghost">
-					<XIcon aria-hidden="true" />
-				</Button>
-			</article>
-		</div>
-	);
+	switch (item.category) {
+		case 'habitat':
+			return (
+				<HabitatMapCard
+					detailTo="/larval-surveillance/habitats/$id"
+					id={item.id}
+					onClose={onClose}
+				/>
+			);
+		case 'trap':
+			return <TrapMapCard id={item.id} onClose={onClose} />;
+		case 'inspection':
+			return <InspectionMapCard id={item.id} onClose={onClose} />;
+		case 'collection':
+			return <CollectionMapCard id={item.id} onClose={onClose} />;
+		case 'application':
+			return <ApplicationMapCard id={item.id} onClose={onClose} />;
+		case 'sourceReduction':
+			return <SourceReductionMapCard id={item.id} onClose={onClose} />;
+		case 'biocontrol':
+			return <BiocontrolMapCard id={item.id} onClose={onClose} />;
+	}
 }
 
 // --- Nearby panel (left column) ----------------------------------------------
@@ -560,7 +560,7 @@ function NearbyRow({
 					<span className="truncate text-muted-foreground text-xs">{meta}</span>
 				</span>
 			</button>
-			<NearbyItemLink category={item.category} id={item.id} iconOnly>
+			<NearbyItemLink category={item.category} className={NEARBY_ITEM_LINK_ICON_CLASS} id={item.id}>
 				<ChevronRightIcon aria-hidden="true" className="size-4" />
 			</NearbyItemLink>
 		</li>
@@ -583,21 +583,25 @@ function FamilyDot({
 	);
 }
 
-/** A typed link to a nearby record's detail page, chosen by its category. */
+const NEARBY_ITEM_LINK_ICON_CLASS =
+	'flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+/**
+ * A typed link to a nearby record's detail page, chosen by its category. Pass no
+ * `className` for a bare link (e.g. inside a `Button asChild` footer); pass one
+ * for the standalone list affordance.
+ */
 function NearbyItemLink({
 	category,
 	id,
 	children,
-	iconOnly = false,
+	className,
 }: {
 	readonly category: NearbyItem['category'];
 	readonly id: string;
 	readonly children: ReactNode;
-	readonly iconOnly?: boolean;
+	readonly className?: string;
 }) {
-	const className = iconOnly
-		? 'flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-		: 'inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 px-2 py-1 font-medium text-foreground text-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 	const params = { id };
 	switch (category) {
 		case 'habitat':

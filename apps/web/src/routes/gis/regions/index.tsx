@@ -1,4 +1,3 @@
-import { boundsFromGeoJson } from '@simmer-mosquito/mapping';
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -31,21 +30,20 @@ import {
 	GripVerticalIcon,
 	iconRegistry,
 	PlusIcon,
-	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { webCollections } from '../../../sync/webCollections';
-import { useRegionGeometry } from './-region-data';
+import { RegionMapCard } from './-region-map-card';
 
 export const Route = createFileRoute('/gis/regions/')({
 	component: RegionsExplorerRoute,
@@ -147,9 +145,6 @@ function RegionsExplorerRoute() {
 		}),
 		[serverUrl, visibleArray, focusedId],
 	);
-	const focusedRegion =
-		focusedId === null ? null : (regions.find((r) => r.id === focusedId) ?? null);
-
 	const toggleRegion = useCallback((id: string, on: boolean) => {
 		setVisibleIds((prev) => {
 			const next = new Set(prev);
@@ -278,8 +273,8 @@ function RegionsExplorerRoute() {
 			map={
 				<>
 					<MapCanvas controls={{ layers: false }} onMapReady={setMap} regionLayer={regionLayer} />
-					{focusedRegion === null ? null : (
-						<RegionFocusCard map={map} onClose={() => setFocusedId(null)} region={focusedRegion} />
+					{focusedId === null ? null : (
+						<RegionMapCard id={focusedId} map={map} onClose={() => setFocusedId(null)} />
 					)}
 				</>
 			}
@@ -716,64 +711,6 @@ function RegionRenameField({
 			}}
 			value={value}
 		/>
-	);
-}
-
-function RegionFocusCard({
-	region,
-	map,
-	onClose,
-}: {
-	readonly region: RegionRow;
-	readonly map: MapboxMap | null;
-	readonly onClose: () => void;
-}) {
-	const geometryQuery = useRegionGeometry(region.id);
-	const geojson = geometryQuery.data?.geojson ?? null;
-
-	useEffect(() => {
-		if (map === null || geojson === null) {
-			return;
-		}
-		const bounds = boundsFromGeoJson(geojson);
-		if (bounds === null) {
-			return;
-		}
-		map.fitBounds(
-			[
-				[bounds.west, bounds.south],
-				[bounds.east, bounds.north],
-			],
-			{ padding: 64, maxZoom: 15, duration: 600 },
-		);
-	}, [map, geojson]);
-
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto w-full max-w-[420px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
-				<div className="flex items-start justify-between gap-3">
-					<div className="min-w-0 grid gap-0.5">
-						<h2 className="truncate font-semibold text-base text-foreground leading-tight">
-							{region.name}
-						</h2>
-						{region.description === null ? null : (
-							<p className="truncate text-muted-foreground text-sm">{region.description}</p>
-						)}
-					</div>
-					<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
-						<XIcon aria-hidden="true" />
-					</Button>
-				</div>
-				<div className="mt-3 flex justify-end">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: region.id }} to="/gis/regions/$id">
-							View details
-							<ChevronRightIcon aria-hidden="true" />
-						</Link>
-					</Button>
-				</div>
-			</article>
-		</div>
 	);
 }
 

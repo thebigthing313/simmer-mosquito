@@ -17,7 +17,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
-	CalendarIcon,
 	CheckIcon,
 	ChevronDownIcon,
 	ChevronRightIcon,
@@ -47,6 +46,7 @@ import {
 } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
+import { InspectionMapCard } from '../-inspection-map-card';
 import { inspectionsSearchSchema } from '../-inspections-search';
 import {
 	DensityBadge,
@@ -245,11 +245,7 @@ function InspectionsExplorerRoute() {
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (
-						<InspectionDetailCard
-							inspection={selected}
-							typeName={resolveTypeName(selected, typeNameById)}
-							onClose={() => setSelectedId(null)}
-						/>
+						<InspectionMapCard id={selected.id} onClose={() => setSelectedId(null)} />
 					)}
 				</>
 			}
@@ -776,105 +772,6 @@ function SiteLink({ inspection }: { readonly inspection: InspectionSite }) {
 	);
 }
 
-function InspectionDetailCard({
-	inspection,
-	typeName,
-	onClose,
-}: {
-	readonly inspection: InspectionSite;
-	readonly typeName: string;
-	readonly onClose: () => void;
-}) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
-				<div className="flex items-start justify-between gap-3">
-					<div className="min-w-0 grid gap-0.5">
-						<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-							<CalendarIcon aria-hidden="true" className="size-3.5" />
-							<span className="tabular-nums">{formatFullDate(inspection.inspectionDate)}</span>
-						</div>
-						<h2 className="truncate font-semibold text-base text-foreground leading-tight">
-							{inspection.habitatId === null ? (
-								<span className="text-muted-foreground italic">Ad-hoc inspection</span>
-							) : (
-								<Link
-									className="block w-fit max-w-full truncate rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-									params={{ id: inspection.habitatId }}
-									to="/larval-surveillance/habitats/$id"
-								>
-									{siteLabel(inspection)}
-								</Link>
-							)}
-						</h2>
-						<p className="truncate text-muted-foreground text-sm">{typeName}</p>
-					</div>
-					<div className="flex items-center gap-1.5">
-						{inspection.isWet ? (
-							<DensityBadge density={inspection.density} />
-						) : (
-							<WetnessBadge isWet={false} />
-						)}
-						<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
-							<XIcon aria-hidden="true" />
-						</Button>
-					</div>
-				</div>
-
-				{inspection.isWet && hasAnyLifeStage(inspection) ? (
-					<div className="mt-3">
-						<LifeStageStrip stages={inspection} />
-					</div>
-				) : null}
-
-				<dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-					<DetailFact label="Inspector" value={inspection.inspectedByName ?? 'Unassigned'} />
-					<DetailFact label="Water" value={inspection.isWet ? 'Wet' : 'Dry — no larvae possible'} />
-					<DetailFact label="Dips" value={countLabel(inspection.dipCount)} />
-					<DetailFact label="Larvae counted" value={countLabel(inspection.larvaeCount)} />
-					{inspection.addressDisplayName === null ? null : (
-						<DetailFact label="Address" value={inspection.addressDisplayName} wide />
-					)}
-					<DetailFact label="Coordinates" value={coordinateLabel(inspection)} wide />
-				</dl>
-
-				<div className="mt-3 flex justify-end">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: inspection.id }} to="/larval-surveillance/inspections/$id">
-							View full details
-							<ChevronRightIcon aria-hidden="true" />
-						</Link>
-					</Button>
-				</div>
-			</article>
-		</div>
-	);
-}
-
-function DetailFact({
-	label,
-	value,
-	wide = false,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly wide?: boolean;
-}) {
-	return (
-		<div
-			className={cn(
-				'grid gap-0.5 rounded-md border border-border/40 bg-background/60 px-2.5 py-1.5',
-				wide && 'col-span-2',
-			)}
-		>
-			<dt className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-wide">
-				{label}
-			</dt>
-			<dd className="truncate font-medium text-foreground">{value}</dd>
-		</div>
-	);
-}
-
 function DensityDot({ inspection }: { readonly inspection: InspectionSite }) {
 	const color = !inspection.isWet
 		? INSPECTION_DRY_COLOR
@@ -1076,33 +973,6 @@ function siteLabel(inspection: InspectionSite): string {
 			? 'Ad-hoc inspection'
 			: `Habitat ${inspection.habitatId.slice(0, 8)}`)
 	);
-}
-
-function countLabel(value: number | null): string {
-	return value == null ? '—' : value.toLocaleString();
-}
-
-function coordinateLabel(inspection: InspectionSite): string {
-	if (inspection.lat == null || inspection.lng == null) {
-		return 'Unknown';
-	}
-	return `${inspection.lat.toFixed(4)}, ${inspection.lng.toFixed(4)}`;
-}
-
-function formatFullDate(date: string): string {
-	const parts = date.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 /** Clamp to valid lng/lat and collapse a world-spanning view to a single box. */

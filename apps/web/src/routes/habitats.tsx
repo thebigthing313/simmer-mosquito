@@ -1,9 +1,7 @@
 import type { BoundingBox } from '@simmer-mosquito/mapping';
 import { formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { HabitatDisplayRow, HabitatTypeRow } from '@simmer-mosquito/sync';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
-import { XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
@@ -21,7 +19,7 @@ import { useCollectionRows } from '../hooks/use-collection-rows';
 import { type MapFeatureClickEvent, MapView } from '../map';
 import { createHabitatTileSource, type HabitatTileFilters } from '../map/styles';
 import { webCollections } from '../sync/webCollections';
-import { HabitatCard } from './-habitat-card';
+import { HabitatMapCard } from './-habitat-map-card';
 
 export type HabitatStatusFilter = 'all' | 'active' | 'inactive';
 export type HabitatAccessFilter = 'all' | 'accessible' | 'inaccessible';
@@ -240,19 +238,10 @@ function HabitatsLayoutRoute() {
 						</div>
 					)}
 					{selectedHabitat === null ? null : (
-						<section className="absolute inset-x-4 bottom-4 z-10 max-w-[460px]">
-							<div className="mb-2 flex justify-end">
-								<Button
-									aria-label="Clear selected habitat"
-									size="icon"
-									variant="secondary"
-									onClick={() => setSelectedHabitatId(null)}
-								>
-									<XIcon aria-hidden="true" />
-								</Button>
-							</div>
-							<HabitatCard habitat={selectedHabitat} mode="normal" />
-						</section>
+						<HabitatMapCard
+							id={selectedHabitat.row.id}
+							onClose={() => setSelectedHabitatId(null)}
+						/>
 					)}
 				</div>
 				<Card

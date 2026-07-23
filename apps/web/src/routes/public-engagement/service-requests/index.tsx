@@ -59,6 +59,7 @@ import {
 	serviceRequestTitle,
 } from '../-public-engagement-display';
 import { RequestStatusBadge } from '../-public-engagement-ui';
+import { ServiceRequestMapCard } from '../-service-request-map-card';
 
 export const Route = createFileRoute('/public-engagement/service-requests/')({
 	component: ServiceRequestsExplorerRoute,
@@ -205,11 +206,7 @@ function ServiceRequestsExplorerRoute() {
 						onMapReady={setMap}
 					/>
 					{focused === null ? null : (
-						<RequestFocusCard
-							onClose={() => setFocusedId(null)}
-							request={focused}
-							tagById={tagById}
-						/>
+						<ServiceRequestMapCard id={focused.id} onClose={() => setFocusedId(null)} />
 					)}
 				</>
 			}
@@ -631,82 +628,6 @@ function RequestRowItem({
 				<ChevronRightIcon aria-hidden="true" className="size-4" />
 			</Link>
 		</li>
-	);
-}
-
-function RequestFocusCard({
-	request,
-	tagById,
-	onClose,
-}: {
-	readonly request: ServiceRequestRow;
-	readonly tagById: ReadonlyMap<string, TagRow>;
-	readonly onClose: () => void;
-}) {
-	// The focused request may be off the visible page, so this card resolves its
-	// own contact / address / tags by id straight off the on-demand collections.
-	const contacts = useContactMap([request.contactId]);
-	const addresses = useAddressMap([request.addressId]);
-	const tagsResult = useTagsByEntityId([request.id], tagById);
-	const contact = contacts.byId.get(request.contactId) ?? null;
-	const address = addresses.byId.get(request.addressId) ?? null;
-	const tags = tagsResult.byId.get(request.id) ?? EMPTY_TAGS;
-	const detailsLoading = !contacts.isReady || !addresses.isReady;
-
-	const contactLabel = contact === null ? null : contactDisplayName(contact);
-	const addressLabel =
-		address === null
-			? null
-			: formatAddressLine(address).trim() || address.displayName?.trim() || null;
-
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto w-full max-w-[440px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
-				<div className="flex items-start justify-between gap-3">
-					<div className="grid min-w-0 gap-2">
-						<div className="flex flex-wrap items-center gap-2">
-							<h2 className="min-w-0 truncate font-semibold text-base text-foreground leading-tight">
-								{serviceRequestTitle(request)}
-							</h2>
-							<RequestStatusBadge open={isServiceRequestOpen(request)} />
-							{tags.map((tag) => (
-								<TagBadge key={tag.id} tag={tag} />
-							))}
-						</div>
-						<div className="grid gap-1 text-sm">
-							<span className="flex items-start gap-1.5 text-muted-foreground">
-								<ContactIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-								<span className={cn('min-w-0', contactLabel === null && 'italic')}>
-									{contactLabel ?? (detailsLoading ? 'Loading…' : 'No contact')}
-								</span>
-							</span>
-							{addressLabel === null && !detailsLoading ? null : (
-								<span className="flex items-start gap-1.5 text-muted-foreground">
-									<MapPinnedIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-									<span className="min-w-0">
-										{addressLabel ?? <span className="italic">Loading…</span>}
-									</span>
-								</span>
-							)}
-						</div>
-						<p className="m-0 line-clamp-3 whitespace-pre-wrap border-border/50 border-t pt-2 text-foreground text-sm leading-snug">
-							{request.details}
-						</p>
-					</div>
-					<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
-						<XIcon aria-hidden="true" />
-					</Button>
-				</div>
-				<div className="mt-3 flex justify-end">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: request.id }} to="/public-engagement/service-requests/$id">
-							View details
-							<ChevronRightIcon aria-hidden="true" />
-						</Link>
-					</Button>
-				</div>
-			</article>
-		</div>
 	);
 }
 

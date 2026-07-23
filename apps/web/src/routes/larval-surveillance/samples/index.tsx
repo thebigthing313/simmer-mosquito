@@ -1,7 +1,6 @@
 import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { OrganizationSpeciesRow, SpeciesRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Command,
 	CommandEmpty,
@@ -17,7 +16,6 @@ import {
 	PopoverTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import {
-	CalendarIcon,
 	CheckIcon,
 	ChevronDownIcon,
 	ChevronRightIcon,
@@ -37,6 +35,7 @@ import { MapCanvas, SAMPLE_STATUS_COLORS, type SampleTileFilters } from '../../.
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../-overview-data';
+import { SampleMapCard } from '../-sample-map-card';
 import { samplesSearchSchema } from '../-samples-search';
 
 const SampleIcon = iconRegistry.entities.sample.icon;
@@ -265,11 +264,7 @@ function SamplesExplorerRoute() {
 						sampleLayer={sampleLayer}
 					/>
 					{selected === null ? null : (
-						<SampleDetailCard
-							nameById={nameById}
-							onClose={() => setSelectedId(null)}
-							sample={selected}
-						/>
+						<SampleMapCard id={selected.id} onClose={() => setSelectedId(null)} />
 					)}
 				</>
 			}
@@ -884,128 +879,6 @@ function StatusDot({ status }: { readonly status: SampleStatus }) {
 
 // --- selected sample detail card --------------------------------------------
 
-function SampleDetailCard({
-	sample,
-	nameById,
-	onClose,
-}: {
-	readonly sample: SampleFeature;
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly onClose: () => void;
-}) {
-	const meta = STATUS_META[sample.status];
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
-				<div className="flex items-start justify-between gap-3">
-					<div className="min-w-0 grid gap-0.5">
-						<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-							<CalendarIcon aria-hidden="true" className="size-3.5" />
-							<span className="tabular-nums">{formatFullDate(sample.inspectionDate)}</span>
-						</div>
-						<h2 className="truncate font-semibold text-base text-foreground leading-tight">
-							{sampleName(sample)}
-						</h2>
-						<p className="truncate text-muted-foreground text-sm">
-							{sample.habitatId === null ? (
-								<span className="italic">Ad-hoc inspection</span>
-							) : (
-								<Link
-									className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-									params={{ id: sample.habitatId }}
-									to="/larval-surveillance/habitats/$id"
-								>
-									{sample.habitatName?.trim() || `Habitat ${sample.habitatId.slice(0, 8)}`}
-								</Link>
-							)}
-						</p>
-					</div>
-					<div className="flex items-center gap-1.5">
-						<Badge tone={meta.tone} variant="outline">
-							{meta.label}
-						</Badge>
-						<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
-							<XIcon aria-hidden="true" />
-						</Button>
-					</div>
-				</div>
-
-				{sample.results.length > 0 ? (
-					<div className="mt-3 flex flex-wrap gap-1.5">
-						{sample.results.map((result) => (
-							<span
-								className="inline-flex items-center gap-1 rounded-full border border-[var(--success)]/25 bg-[var(--success-bg)] px-2 py-0.5 text-[var(--success)] text-xs"
-								key={result.speciesId}
-							>
-								<span className="italic">
-									{nameById.get(result.speciesId) ?? 'Unknown species'}
-								</span>
-								<span className="tabular-nums opacity-80">
-									{result.larvaeCount.toLocaleString()}
-								</span>
-							</span>
-						))}
-					</div>
-				) : null}
-
-				<dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-					<DetailFact label="Larvae counted" value={countLabel(sample.larvaeTotal)} />
-					<DetailFact
-						label="Identified"
-						value={sample.identifiedAt === null ? 'Not yet' : formatFullDate(sample.identifiedAt)}
-					/>
-					<DetailFact
-						label="Non-mosquito"
-						value={sample.hasNonMosquito ? 'Present' : 'None noted'}
-					/>
-					<DetailFact label="Coordinates" value={coordinateLabel(sample)} />
-					{sample.unidentifiableReason === null ? null : (
-						<DetailFact label="Unidentifiable" value={sample.unidentifiableReason} wide />
-					)}
-				</dl>
-
-				<div className="mt-3 flex justify-end gap-2">
-					<Button asChild size="sm" variant="ghost">
-						<Link params={{ id: sample.inspectionId }} to="/larval-surveillance/inspections/$id">
-							View inspection
-						</Link>
-					</Button>
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: sample.id }} to="/larval-surveillance/samples/$id">
-							View sample
-							<ChevronRightIcon aria-hidden="true" />
-						</Link>
-					</Button>
-				</div>
-			</article>
-		</div>
-	);
-}
-
-function DetailFact({
-	label,
-	value,
-	wide = false,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly wide?: boolean;
-}) {
-	return (
-		<div
-			className={cn(
-				'grid gap-0.5 rounded-md border border-border/40 bg-background/60 px-2.5 py-1.5',
-				wide && 'col-span-2',
-			)}
-		>
-			<dt className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-wide">
-				{label}
-			</dt>
-			<dd className="truncate font-medium text-foreground">{value}</dd>
-		</div>
-	);
-}
-
 // --- data hooks -------------------------------------------------------------
 
 /**
@@ -1221,33 +1094,6 @@ function dateRangeLabel(from: string, to: string): string {
 		return `From ${formatMonthDay(from)}`;
 	}
 	return `${formatMonthDay(from)} – ${formatMonthDay(to)}`;
-}
-
-function countLabel(value: number): string {
-	return value <= 0 ? '—' : value.toLocaleString();
-}
-
-function coordinateLabel(sample: SampleFeature): string {
-	if (sample.lat == null || sample.lng == null) {
-		return 'Unknown';
-	}
-	return `${sample.lat.toFixed(4)}, ${sample.lng.toFixed(4)}`;
-}
-
-function formatFullDate(date: string): string {
-	const parts = date.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 /** Clamp to valid lng/lat and collapse a world-spanning view to a single box. */

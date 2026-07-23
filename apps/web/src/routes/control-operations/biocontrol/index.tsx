@@ -39,13 +39,8 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type BiocontrolTileFilters, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
-import {
-	ContextBadge,
-	formatActionDate,
-	formatAmount,
-	nameById,
-	todayDateValue,
-} from '../-control-display';
+import { BiocontrolMapCard } from '../-biocontrol-map-card';
+import { ContextBadge, formatAmount, nameById, todayDateValue } from '../-control-display';
 import { addDaysToDateString, formatMonthDay, useHabitatNames } from '../-overview-data';
 
 export const Route = createFileRoute('/control-operations/biocontrol/')({
@@ -186,12 +181,7 @@ function BiocontrolExplorerRoute() {
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (
-						<BiocontrolDetailCard
-							amount={formatAmount(selected.amountReleased, unitById.get(selected.releaseUnitId))}
-							methodName={methodNameById.get(selected.biocontrolMethodId) ?? 'Unknown method'}
-							onClose={() => setSelectedId(null)}
-							row={selected}
-						/>
+						<BiocontrolMapCard id={selected.id} onClose={() => setSelectedId(null)} />
 					)}
 				</>
 			}
@@ -632,85 +622,6 @@ function BiocontrolListItem({
 	);
 }
 
-function BiocontrolDetailCard({
-	row,
-	methodName,
-	amount,
-	onClose,
-}: {
-	readonly row: BiocontrolSite;
-	readonly methodName: string;
-	readonly amount: string;
-	readonly onClose: () => void;
-}) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<article className="pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm">
-				<div className="flex items-start justify-between gap-3">
-					<div className="grid min-w-0 gap-0.5">
-						<h2 className="font-semibold text-base text-foreground leading-tight">
-							<Link
-								className="block w-fit max-w-full truncate rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-								params={{ id: row.id }}
-								to="/control-operations/biocontrol/$id"
-							>
-								{methodName}
-							</Link>
-						</h2>
-						<p className="truncate text-muted-foreground text-sm">
-							{amount} · {formatActionDate(row.biocontrolDate)}
-						</p>
-					</div>
-					<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
-						<XIcon aria-hidden="true" />
-					</Button>
-				</div>
-
-				<div className="mt-3 flex flex-wrap items-center gap-1.5">
-					<ContextBadge habitatId={row.habitatId} inspectionId={row.inspectionId} />
-				</div>
-
-				<dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-					<DetailFact label="Coordinates" value={coordinateLabel(row)} wide />
-				</dl>
-
-				<div className="mt-3 flex justify-end">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: row.id }} to="/control-operations/biocontrol/$id">
-							View full details
-							<ChevronRightIcon aria-hidden="true" />
-						</Link>
-					</Button>
-				</div>
-			</article>
-		</div>
-	);
-}
-
-function DetailFact({
-	label,
-	value,
-	wide = false,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly wide?: boolean;
-}) {
-	return (
-		<div
-			className={cn(
-				'grid gap-0.5 rounded-md border border-border/40 bg-background/60 px-2.5 py-1.5',
-				wide && 'col-span-2',
-			)}
-		>
-			<dt className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-wide">
-				{label}
-			</dt>
-			<dd className="truncate font-medium text-foreground">{value}</dd>
-		</div>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
 
 function toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
@@ -721,8 +632,4 @@ function toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
 		next.add(id);
 	}
 	return next;
-}
-
-function coordinateLabel(point: { readonly lat: number; readonly lng: number }): string {
-	return `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`;
 }
