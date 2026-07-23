@@ -326,19 +326,49 @@ export const shellDomains: readonly ShellDomain[] = [
 		icon: iconRegistry.domains.publicEngagement.icon,
 		groups: [
 			{
-				id: 'public-main',
+				id: 'public-overview',
 				items: [
 					{
-						id: 'service-requests',
-						label: 'Service requests',
-						to: '/service-requests',
-						icon: iconRegistry.domains.publicEngagement.icon,
+						id: 'public-overview-link',
+						label: 'Overview',
+						to: '/public-engagement',
+						icon: iconRegistry.generic.home.icon,
+					},
+				],
+			},
+			{
+				id: 'public-service-requests',
+				label: 'Service Requests',
+				items: [
+					{
+						id: 'service-requests-explorer',
+						label: 'Explorer',
+						to: '/public-engagement/service-requests',
+						icon: iconRegistry.generic.map.icon,
 					},
 					{
-						id: 'contacts',
-						label: 'Contacts',
-						to: '/contacts',
+						id: 'service-requests-create',
+						label: 'New request',
+						to: '/public-engagement/service-requests/create',
+						icon: iconRegistry.actions.add.icon,
+					},
+				],
+			},
+			{
+				id: 'public-contacts',
+				label: 'Contacts',
+				items: [
+					{
+						id: 'contacts-explorer',
+						label: 'Explorer',
+						to: '/public-engagement/contacts',
 						icon: iconRegistry.entities.organization.icon,
+					},
+					{
+						id: 'contacts-create',
+						label: 'New contact',
+						to: '/public-engagement/contacts/create',
+						icon: iconRegistry.actions.add.icon,
 					},
 				],
 			},

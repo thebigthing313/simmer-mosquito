@@ -26,6 +26,7 @@ export type {
 export {
 	MISSION_NOTIFICATION_STATUSES,
 	NOTIFICATION_CHANNELS,
+	REQUEST_INTAKE_TYPES,
 } from './core.js';
 export * from './mission-notifications.js';
 export * from './notification-types.js';

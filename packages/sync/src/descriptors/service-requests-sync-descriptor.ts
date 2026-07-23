@@ -9,6 +9,9 @@ export const serviceRequestsSyncDescriptor = createSyncDescriptor<ServiceRequest
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'displayName',
 		'intakeType',
 		'requestDate',

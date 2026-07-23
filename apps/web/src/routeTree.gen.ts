@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodayRouteImport } from './routes/today'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as ServiceRequestsRouteImport } from './routes/service-requests'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RequestsForControlRouteImport } from './routes/requests-for-control'
@@ -26,19 +25,17 @@ import { Route as HabitatsRouteImport } from './routes/habitats'
 import { Route as GroupsRouteImport } from './routes/groups'
 import { Route as GroupSettingsRouteImport } from './routes/group-settings'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as AssignmentsRouteImport } from './routes/assignments'
 import { Route as AppShellPreviewRouteImport } from './routes/app-shell-preview'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ServiceRequestsIndexRouteImport } from './routes/service-requests.index'
+import { Route as PublicEngagementIndexRouteImport } from './routes/public-engagement/index'
 import { Route as MyOrganizationIndexRouteImport } from './routes/my-organization/index'
 import { Route as LayoutPreviewIndexRouteImport } from './routes/layout-preview.index'
 import { Route as LarvalSurveillanceIndexRouteImport } from './routes/larval-surveillance/index'
 import { Route as HabitatsIndexRouteImport } from './routes/habitats.index'
 import { Route as ControlOperationsIndexRouteImport } from './routes/control-operations/index'
 import { Route as AdultSurveillanceIndexRouteImport } from './routes/adult-surveillance/index'
-import { Route as ServiceRequestsRequestIdRouteImport } from './routes/service-requests.$requestId'
 import { Route as MyOrganizationPublicEngagementRouteImport } from './routes/my-organization/public-engagement'
 import { Route as MyOrganizationPeopleRouteImport } from './routes/my-organization/people'
 import { Route as MyOrganizationLarvalSurveillanceRouteImport } from './routes/my-organization/larval-surveillance'
@@ -69,6 +66,7 @@ import { Route as AdultSurveillanceTrapsIndexRouteImport } from './routes/adult-
 import { Route as AdultSurveillanceCollectionsIndexRouteImport } from './routes/adult-surveillance/collections/index'
 import { Route as PublicEngagementServiceRequestsCreateRouteImport } from './routes/public-engagement/service-requests/create'
 import { Route as PublicEngagementServiceRequestsIdRouteImport } from './routes/public-engagement/service-requests/$id'
+import { Route as PublicEngagementContactsCreateRouteImport } from './routes/public-engagement/contacts/create'
 import { Route as PublicEngagementContactsIdRouteImport } from './routes/public-engagement/contacts/$id'
 import { Route as OperationsRequestsForControlCreateRouteImport } from './routes/operations/requests-for-control/create'
 import { Route as OperationsRequestsForControlIdRouteImport } from './routes/operations/requests-for-control/$id'
@@ -114,8 +112,8 @@ import { Route as AdultSurveillanceCollectionsIdRouteImport } from './routes/adu
 import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin.organizations.$organizationId'
 import { Route as LarvalSurveillanceHabitatsRoutesIndexRouteImport } from './routes/larval-surveillance/habitats/routes/index'
 import { Route as AdultSurveillanceTrapsRoutesIndexRouteImport } from './routes/adult-surveillance/traps/routes/index'
-import { Route as PublicEngagementServiceRequestsIdEditRouteImport } from './routes/public-engagement/service-requests/$id.edit'
-import { Route as PublicEngagementContactsIdEditRouteImport } from './routes/public-engagement/contacts/$id.edit'
+import { Route as PublicEngagementServiceRequestsIdEditRouteImport } from './routes/public-engagement/service-requests/$id_.edit'
+import { Route as PublicEngagementContactsIdEditRouteImport } from './routes/public-engagement/contacts/$id_.edit'
 import { Route as OperationsRequestsForControlIdEditRouteImport } from './routes/operations/requests-for-control/$id.edit'
 import { Route as OperationsMissionsIdEditRouteImport } from './routes/operations/missions/$id.edit'
 import { Route as OperationsAssignmentsIdEditRouteImport } from './routes/operations/assignments/$id.edit'
@@ -145,11 +143,6 @@ const SignUpRoute = SignUpRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ServiceRequestsRoute = ServiceRequestsRouteImport.update({
-  id: '/service-requests',
-  path: '/service-requests',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SamplesRoute = SamplesRouteImport.update({
@@ -217,11 +210,6 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ContactsRoute = ContactsRouteImport.update({
-  id: '/contacts',
-  path: '/contacts',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AssignmentsRoute = AssignmentsRouteImport.update({
   id: '/assignments',
   path: '/assignments',
@@ -242,10 +230,10 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ServiceRequestsIndexRoute = ServiceRequestsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ServiceRequestsRoute,
+const PublicEngagementIndexRoute = PublicEngagementIndexRouteImport.update({
+  id: '/public-engagement/',
+  path: '/public-engagement/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const MyOrganizationIndexRoute = MyOrganizationIndexRouteImport.update({
   id: '/',
@@ -277,12 +265,6 @@ const AdultSurveillanceIndexRoute = AdultSurveillanceIndexRouteImport.update({
   path: '/adult-surveillance/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ServiceRequestsRequestIdRoute =
-  ServiceRequestsRequestIdRouteImport.update({
-    id: '/$requestId',
-    path: '/$requestId',
-    getParentRoute: () => ServiceRequestsRoute,
-  } as any)
 const MyOrganizationPublicEngagementRoute =
   MyOrganizationPublicEngagementRouteImport.update({
     id: '/public-engagement',
@@ -451,6 +433,12 @@ const PublicEngagementServiceRequestsIdRoute =
   PublicEngagementServiceRequestsIdRouteImport.update({
     id: '/public-engagement/service-requests/$id',
     path: '/public-engagement/service-requests/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementContactsCreateRoute =
+  PublicEngagementContactsCreateRouteImport.update({
+    id: '/public-engagement/contacts/create',
+    path: '/public-engagement/contacts/create',
     getParentRoute: () => rootRouteImport,
   } as any)
 const PublicEngagementContactsIdRoute =
@@ -716,15 +704,15 @@ const AdultSurveillanceTrapsRoutesIndexRoute =
   } as any)
 const PublicEngagementServiceRequestsIdEditRoute =
   PublicEngagementServiceRequestsIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => PublicEngagementServiceRequestsIdRoute,
+    id: '/public-engagement/service-requests/$id_/edit',
+    path: '/public-engagement/service-requests/$id/edit',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const PublicEngagementContactsIdEditRoute =
   PublicEngagementContactsIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => PublicEngagementContactsIdRoute,
+    id: '/public-engagement/contacts/$id_/edit',
+    path: '/public-engagement/contacts/$id/edit',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const OperationsRequestsForControlIdEditRoute =
   OperationsRequestsForControlIdEditRouteImport.update({
@@ -820,7 +808,6 @@ export interface FileRoutesByFullPath {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
-  '/contacts': typeof ContactsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
@@ -834,7 +821,6 @@ export interface FileRoutesByFullPath {
   '/requests-for-control': typeof RequestsForControlRoute
   '/reset-password': typeof ResetPasswordRoute
   '/samples': typeof SamplesRoute
-  '/service-requests': typeof ServiceRequestsRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
@@ -850,14 +836,13 @@ export interface FileRoutesByFullPath {
   '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
-  '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
   '/adult-surveillance/': typeof AdultSurveillanceIndexRoute
   '/control-operations/': typeof ControlOperationsIndexRoute
   '/habitats/': typeof HabitatsIndexRoute
   '/larval-surveillance/': typeof LarvalSurveillanceIndexRoute
   '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
-  '/service-requests/': typeof ServiceRequestsIndexRoute
+  '/public-engagement/': typeof PublicEngagementIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
@@ -900,8 +885,9 @@ export interface FileRoutesByFullPath {
   '/operations/missions/create': typeof OperationsMissionsCreateRoute
   '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRouteWithChildren
   '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
-  '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRouteWithChildren
-  '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRouteWithChildren
+  '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
+  '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
+  '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/adult-surveillance/collections/': typeof AdultSurveillanceCollectionsIndexRoute
   '/adult-surveillance/traps/': typeof AdultSurveillanceTrapsIndexRoute
@@ -944,7 +930,6 @@ export interface FileRoutesByTo {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
-  '/contacts': typeof ContactsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
@@ -970,14 +955,13 @@ export interface FileRoutesByTo {
   '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
-  '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
   '/adult-surveillance': typeof AdultSurveillanceIndexRoute
   '/control-operations': typeof ControlOperationsIndexRoute
   '/habitats': typeof HabitatsIndexRoute
   '/larval-surveillance': typeof LarvalSurveillanceIndexRoute
   '/layout-preview': typeof LayoutPreviewIndexRoute
   '/my-organization': typeof MyOrganizationIndexRoute
-  '/service-requests': typeof ServiceRequestsIndexRoute
+  '/public-engagement': typeof PublicEngagementIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
@@ -1020,8 +1004,9 @@ export interface FileRoutesByTo {
   '/operations/missions/create': typeof OperationsMissionsCreateRoute
   '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRouteWithChildren
   '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
-  '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRouteWithChildren
-  '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRouteWithChildren
+  '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
+  '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
+  '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/adult-surveillance/collections': typeof AdultSurveillanceCollectionsIndexRoute
   '/adult-surveillance/traps': typeof AdultSurveillanceTrapsIndexRoute
@@ -1065,7 +1050,6 @@ export interface FileRoutesById {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
-  '/contacts': typeof ContactsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/group-settings': typeof GroupSettingsRoute
   '/groups': typeof GroupsRoute
@@ -1079,7 +1063,6 @@ export interface FileRoutesById {
   '/requests-for-control': typeof RequestsForControlRoute
   '/reset-password': typeof ResetPasswordRoute
   '/samples': typeof SamplesRoute
-  '/service-requests': typeof ServiceRequestsRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
@@ -1095,14 +1078,13 @@ export interface FileRoutesById {
   '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
-  '/service-requests/$requestId': typeof ServiceRequestsRequestIdRoute
   '/adult-surveillance/': typeof AdultSurveillanceIndexRoute
   '/control-operations/': typeof ControlOperationsIndexRoute
   '/habitats/': typeof HabitatsIndexRoute
   '/larval-surveillance/': typeof LarvalSurveillanceIndexRoute
   '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
-  '/service-requests/': typeof ServiceRequestsIndexRoute
+  '/public-engagement/': typeof PublicEngagementIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
@@ -1145,8 +1127,9 @@ export interface FileRoutesById {
   '/operations/missions/create': typeof OperationsMissionsCreateRoute
   '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRouteWithChildren
   '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
-  '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRouteWithChildren
-  '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRouteWithChildren
+  '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
+  '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
+  '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/adult-surveillance/collections/': typeof AdultSurveillanceCollectionsIndexRoute
   '/adult-surveillance/traps/': typeof AdultSurveillanceTrapsIndexRoute
@@ -1177,8 +1160,8 @@ export interface FileRoutesById {
   '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
   '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
   '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
-  '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
-  '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
+  '/public-engagement/contacts/$id_/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/service-requests/$id_/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes/': typeof AdultSurveillanceTrapsRoutesIndexRoute
   '/larval-surveillance/habitats/routes/': typeof LarvalSurveillanceHabitatsRoutesIndexRoute
   '/adult-surveillance/traps/routes/$id_/edit': typeof AdultSurveillanceTrapsRoutesIdEditRoute
@@ -1191,7 +1174,6 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/app-shell-preview'
     | '/assignments'
-    | '/contacts'
     | '/forgot-password'
     | '/group-settings'
     | '/groups'
@@ -1205,7 +1187,6 @@ export interface FileRouteTypes {
     | '/requests-for-control'
     | '/reset-password'
     | '/samples'
-    | '/service-requests'
     | '/sign-in'
     | '/sign-up'
     | '/today'
@@ -1221,14 +1202,13 @@ export interface FileRouteTypes {
     | '/my-organization/larval-surveillance'
     | '/my-organization/people'
     | '/my-organization/public-engagement'
-    | '/service-requests/$requestId'
     | '/adult-surveillance/'
     | '/control-operations/'
     | '/habitats/'
     | '/larval-surveillance/'
     | '/layout-preview/'
     | '/my-organization/'
-    | '/service-requests/'
+    | '/public-engagement/'
     | '/admin/organizations/$organizationId'
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
@@ -1272,6 +1252,7 @@ export interface FileRouteTypes {
     | '/operations/requests-for-control/$id'
     | '/operations/requests-for-control/create'
     | '/public-engagement/contacts/$id'
+    | '/public-engagement/contacts/create'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/adult-surveillance/collections/'
@@ -1315,7 +1296,6 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/app-shell-preview'
     | '/assignments'
-    | '/contacts'
     | '/forgot-password'
     | '/group-settings'
     | '/groups'
@@ -1341,14 +1321,13 @@ export interface FileRouteTypes {
     | '/my-organization/larval-surveillance'
     | '/my-organization/people'
     | '/my-organization/public-engagement'
-    | '/service-requests/$requestId'
     | '/adult-surveillance'
     | '/control-operations'
     | '/habitats'
     | '/larval-surveillance'
     | '/layout-preview'
     | '/my-organization'
-    | '/service-requests'
+    | '/public-engagement'
     | '/admin/organizations/$organizationId'
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
@@ -1392,6 +1371,7 @@ export interface FileRouteTypes {
     | '/operations/requests-for-control/$id'
     | '/operations/requests-for-control/create'
     | '/public-engagement/contacts/$id'
+    | '/public-engagement/contacts/create'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/adult-surveillance/collections'
@@ -1435,7 +1415,6 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/app-shell-preview'
     | '/assignments'
-    | '/contacts'
     | '/forgot-password'
     | '/group-settings'
     | '/groups'
@@ -1449,7 +1428,6 @@ export interface FileRouteTypes {
     | '/requests-for-control'
     | '/reset-password'
     | '/samples'
-    | '/service-requests'
     | '/sign-in'
     | '/sign-up'
     | '/today'
@@ -1465,14 +1443,13 @@ export interface FileRouteTypes {
     | '/my-organization/larval-surveillance'
     | '/my-organization/people'
     | '/my-organization/public-engagement'
-    | '/service-requests/$requestId'
     | '/adult-surveillance/'
     | '/control-operations/'
     | '/habitats/'
     | '/larval-surveillance/'
     | '/layout-preview/'
     | '/my-organization/'
-    | '/service-requests/'
+    | '/public-engagement/'
     | '/admin/organizations/$organizationId'
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
@@ -1516,6 +1493,7 @@ export interface FileRouteTypes {
     | '/operations/requests-for-control/$id'
     | '/operations/requests-for-control/create'
     | '/public-engagement/contacts/$id'
+    | '/public-engagement/contacts/create'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/adult-surveillance/collections/'
@@ -1547,8 +1525,8 @@ export interface FileRouteTypes {
     | '/operations/assignments/$id/edit'
     | '/operations/missions/$id/edit'
     | '/operations/requests-for-control/$id/edit'
-    | '/public-engagement/contacts/$id/edit'
-    | '/public-engagement/service-requests/$id/edit'
+    | '/public-engagement/contacts/$id_/edit'
+    | '/public-engagement/service-requests/$id_/edit'
     | '/adult-surveillance/traps/routes/'
     | '/larval-surveillance/habitats/routes/'
     | '/adult-surveillance/traps/routes/$id_/edit'
@@ -1560,7 +1538,6 @@ export interface RootRouteChildren {
   AcceptInvitationRoute: typeof AcceptInvitationRoute
   AppShellPreviewRoute: typeof AppShellPreviewRoute
   AssignmentsRoute: typeof AssignmentsRoute
-  ContactsRoute: typeof ContactsRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GroupSettingsRoute: typeof GroupSettingsRoute
   GroupsRoute: typeof GroupsRoute
@@ -1574,7 +1551,6 @@ export interface RootRouteChildren {
   RequestsForControlRoute: typeof RequestsForControlRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SamplesRoute: typeof SamplesRoute
-  ServiceRequestsRoute: typeof ServiceRequestsRouteWithChildren
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   TodayRoute: typeof TodayRoute
@@ -1585,6 +1561,7 @@ export interface RootRouteChildren {
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
   ControlOperationsIndexRoute: typeof ControlOperationsIndexRoute
   LarvalSurveillanceIndexRoute: typeof LarvalSurveillanceIndexRoute
+  PublicEngagementIndexRoute: typeof PublicEngagementIndexRoute
   AdultSurveillanceCollectionsIdRoute: typeof AdultSurveillanceCollectionsIdRoute
   AdultSurveillanceCollectionsCreateRoute: typeof AdultSurveillanceCollectionsCreateRoute
   AdultSurveillanceCollectionsStatsRoute: typeof AdultSurveillanceCollectionsStatsRoute
@@ -1625,8 +1602,9 @@ export interface RootRouteChildren {
   OperationsMissionsCreateRoute: typeof OperationsMissionsCreateRoute
   OperationsRequestsForControlIdRoute: typeof OperationsRequestsForControlIdRouteWithChildren
   OperationsRequestsForControlCreateRoute: typeof OperationsRequestsForControlCreateRoute
-  PublicEngagementContactsIdRoute: typeof PublicEngagementContactsIdRouteWithChildren
-  PublicEngagementServiceRequestsIdRoute: typeof PublicEngagementServiceRequestsIdRouteWithChildren
+  PublicEngagementContactsIdRoute: typeof PublicEngagementContactsIdRoute
+  PublicEngagementContactsCreateRoute: typeof PublicEngagementContactsCreateRoute
+  PublicEngagementServiceRequestsIdRoute: typeof PublicEngagementServiceRequestsIdRoute
   PublicEngagementServiceRequestsCreateRoute: typeof PublicEngagementServiceRequestsCreateRoute
   AdultSurveillanceCollectionsIndexRoute: typeof AdultSurveillanceCollectionsIndexRoute
   AdultSurveillanceTrapsIndexRoute: typeof AdultSurveillanceTrapsIndexRoute
@@ -1654,6 +1632,8 @@ export interface RootRouteChildren {
   GisRegionsIdEditRoute: typeof GisRegionsIdEditRoute
   LarvalSurveillanceHabitatsIdEditRoute: typeof LarvalSurveillanceHabitatsIdEditRoute
   LarvalSurveillanceHabitatsRoutesIdRoute: typeof LarvalSurveillanceHabitatsRoutesIdRoute
+  PublicEngagementContactsIdEditRoute: typeof PublicEngagementContactsIdEditRoute
+  PublicEngagementServiceRequestsIdEditRoute: typeof PublicEngagementServiceRequestsIdEditRoute
   AdultSurveillanceTrapsRoutesIndexRoute: typeof AdultSurveillanceTrapsRoutesIndexRoute
   LarvalSurveillanceHabitatsRoutesIndexRoute: typeof LarvalSurveillanceHabitatsRoutesIndexRoute
   AdultSurveillanceTrapsRoutesIdEditRoute: typeof AdultSurveillanceTrapsRoutesIdEditRoute
@@ -1681,13 +1661,6 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/service-requests': {
-      id: '/service-requests'
-      path: '/service-requests'
-      fullPath: '/service-requests'
-      preLoaderRoute: typeof ServiceRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/samples': {
@@ -1781,13 +1754,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/contacts': {
-      id: '/contacts'
-      path: '/contacts'
-      fullPath: '/contacts'
-      preLoaderRoute: typeof ContactsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/assignments': {
       id: '/assignments'
       path: '/assignments'
@@ -1816,12 +1782,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/service-requests/': {
-      id: '/service-requests/'
-      path: '/'
-      fullPath: '/service-requests/'
-      preLoaderRoute: typeof ServiceRequestsIndexRouteImport
-      parentRoute: typeof ServiceRequestsRoute
+    '/public-engagement/': {
+      id: '/public-engagement/'
+      path: '/public-engagement'
+      fullPath: '/public-engagement/'
+      preLoaderRoute: typeof PublicEngagementIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/my-organization/': {
       id: '/my-organization/'
@@ -1864,13 +1830,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/adult-surveillance/'
       preLoaderRoute: typeof AdultSurveillanceIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/service-requests/$requestId': {
-      id: '/service-requests/$requestId'
-      path: '/$requestId'
-      fullPath: '/service-requests/$requestId'
-      preLoaderRoute: typeof ServiceRequestsRequestIdRouteImport
-      parentRoute: typeof ServiceRequestsRoute
     }
     '/my-organization/public-engagement': {
       id: '/my-organization/public-engagement'
@@ -2080,6 +2039,13 @@ declare module '@tanstack/react-router' {
       path: '/public-engagement/service-requests/$id'
       fullPath: '/public-engagement/service-requests/$id'
       preLoaderRoute: typeof PublicEngagementServiceRequestsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/contacts/create': {
+      id: '/public-engagement/contacts/create'
+      path: '/public-engagement/contacts/create'
+      fullPath: '/public-engagement/contacts/create'
+      preLoaderRoute: typeof PublicEngagementContactsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/public-engagement/contacts/$id': {
@@ -2397,19 +2363,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdultSurveillanceTrapsRoutesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/public-engagement/service-requests/$id/edit': {
-      id: '/public-engagement/service-requests/$id/edit'
-      path: '/edit'
+    '/public-engagement/service-requests/$id_/edit': {
+      id: '/public-engagement/service-requests/$id_/edit'
+      path: '/public-engagement/service-requests/$id/edit'
       fullPath: '/public-engagement/service-requests/$id/edit'
       preLoaderRoute: typeof PublicEngagementServiceRequestsIdEditRouteImport
-      parentRoute: typeof PublicEngagementServiceRequestsIdRoute
+      parentRoute: typeof rootRouteImport
     }
-    '/public-engagement/contacts/$id/edit': {
-      id: '/public-engagement/contacts/$id/edit'
-      path: '/edit'
+    '/public-engagement/contacts/$id_/edit': {
+      id: '/public-engagement/contacts/$id_/edit'
+      path: '/public-engagement/contacts/$id/edit'
       fullPath: '/public-engagement/contacts/$id/edit'
       preLoaderRoute: typeof PublicEngagementContactsIdEditRouteImport
-      parentRoute: typeof PublicEngagementContactsIdRoute
+      parentRoute: typeof rootRouteImport
     }
     '/operations/requests-for-control/$id/edit': {
       id: '/operations/requests-for-control/$id/edit'
@@ -2583,20 +2549,6 @@ const MyOrganizationRouteWithChildren = MyOrganizationRoute._addFileChildren(
   MyOrganizationRouteChildren,
 )
 
-interface ServiceRequestsRouteChildren {
-  ServiceRequestsRequestIdRoute: typeof ServiceRequestsRequestIdRoute
-  ServiceRequestsIndexRoute: typeof ServiceRequestsIndexRoute
-}
-
-const ServiceRequestsRouteChildren: ServiceRequestsRouteChildren = {
-  ServiceRequestsRequestIdRoute: ServiceRequestsRequestIdRoute,
-  ServiceRequestsIndexRoute: ServiceRequestsIndexRoute,
-}
-
-const ServiceRequestsRouteWithChildren = ServiceRequestsRoute._addFileChildren(
-  ServiceRequestsRouteChildren,
-)
-
 interface AdminOrganizationsRouteChildren {
   AdminOrganizationsOrganizationIdRoute: typeof AdminOrganizationsOrganizationIdRoute
 }
@@ -2648,41 +2600,11 @@ const OperationsRequestsForControlIdRouteWithChildren =
     OperationsRequestsForControlIdRouteChildren,
   )
 
-interface PublicEngagementContactsIdRouteChildren {
-  PublicEngagementContactsIdEditRoute: typeof PublicEngagementContactsIdEditRoute
-}
-
-const PublicEngagementContactsIdRouteChildren: PublicEngagementContactsIdRouteChildren =
-  {
-    PublicEngagementContactsIdEditRoute: PublicEngagementContactsIdEditRoute,
-  }
-
-const PublicEngagementContactsIdRouteWithChildren =
-  PublicEngagementContactsIdRoute._addFileChildren(
-    PublicEngagementContactsIdRouteChildren,
-  )
-
-interface PublicEngagementServiceRequestsIdRouteChildren {
-  PublicEngagementServiceRequestsIdEditRoute: typeof PublicEngagementServiceRequestsIdEditRoute
-}
-
-const PublicEngagementServiceRequestsIdRouteChildren: PublicEngagementServiceRequestsIdRouteChildren =
-  {
-    PublicEngagementServiceRequestsIdEditRoute:
-      PublicEngagementServiceRequestsIdEditRoute,
-  }
-
-const PublicEngagementServiceRequestsIdRouteWithChildren =
-  PublicEngagementServiceRequestsIdRoute._addFileChildren(
-    PublicEngagementServiceRequestsIdRouteChildren,
-  )
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
   AppShellPreviewRoute: AppShellPreviewRoute,
   AssignmentsRoute: AssignmentsRoute,
-  ContactsRoute: ContactsRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   GroupSettingsRoute: GroupSettingsRoute,
   GroupsRoute: GroupsRoute,
@@ -2696,7 +2618,6 @@ const rootRouteChildren: RootRouteChildren = {
   RequestsForControlRoute: RequestsForControlRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SamplesRoute: SamplesRoute,
-  ServiceRequestsRoute: ServiceRequestsRouteWithChildren,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   TodayRoute: TodayRoute,
@@ -2708,6 +2629,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdultSurveillanceIndexRoute: AdultSurveillanceIndexRoute,
   ControlOperationsIndexRoute: ControlOperationsIndexRoute,
   LarvalSurveillanceIndexRoute: LarvalSurveillanceIndexRoute,
+  PublicEngagementIndexRoute: PublicEngagementIndexRoute,
   AdultSurveillanceCollectionsIdRoute: AdultSurveillanceCollectionsIdRoute,
   AdultSurveillanceCollectionsCreateRoute:
     AdultSurveillanceCollectionsCreateRoute,
@@ -2761,9 +2683,10 @@ const rootRouteChildren: RootRouteChildren = {
     OperationsRequestsForControlIdRouteWithChildren,
   OperationsRequestsForControlCreateRoute:
     OperationsRequestsForControlCreateRoute,
-  PublicEngagementContactsIdRoute: PublicEngagementContactsIdRouteWithChildren,
+  PublicEngagementContactsIdRoute: PublicEngagementContactsIdRoute,
+  PublicEngagementContactsCreateRoute: PublicEngagementContactsCreateRoute,
   PublicEngagementServiceRequestsIdRoute:
-    PublicEngagementServiceRequestsIdRouteWithChildren,
+    PublicEngagementServiceRequestsIdRoute,
   PublicEngagementServiceRequestsCreateRoute:
     PublicEngagementServiceRequestsCreateRoute,
   AdultSurveillanceCollectionsIndexRoute:
@@ -2801,6 +2724,9 @@ const rootRouteChildren: RootRouteChildren = {
   LarvalSurveillanceHabitatsIdEditRoute: LarvalSurveillanceHabitatsIdEditRoute,
   LarvalSurveillanceHabitatsRoutesIdRoute:
     LarvalSurveillanceHabitatsRoutesIdRoute,
+  PublicEngagementContactsIdEditRoute: PublicEngagementContactsIdEditRoute,
+  PublicEngagementServiceRequestsIdEditRoute:
+    PublicEngagementServiceRequestsIdEditRoute,
   AdultSurveillanceTrapsRoutesIndexRoute:
     AdultSurveillanceTrapsRoutesIndexRoute,
   LarvalSurveillanceHabitatsRoutesIndexRoute:

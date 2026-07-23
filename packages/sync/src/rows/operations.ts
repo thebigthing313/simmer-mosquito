@@ -321,6 +321,9 @@ export interface ContactRow extends AuditedOrganizationRowBase {
 }
 
 export interface ServiceRequestRow extends AuditedOrganizationRowBase {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly displayName: number | null;
 	readonly intakeType: RequestIntakeType;
 	readonly requestDate: string;
