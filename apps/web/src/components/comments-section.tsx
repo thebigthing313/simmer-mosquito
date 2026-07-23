@@ -1,4 +1,4 @@
-import type { CommentTargetType } from '@simmer-mosquito/domain';
+import { type CommentTargetType, toDbEntityType } from '@simmer-mosquito/domain';
 import type { CommentRow, ProfileRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Avatar, AvatarFallback } from '@simmer-mosquito/ui-web/components/ui/avatar';
@@ -23,7 +23,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { and, eq, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, or, useLiveQuery } from '@tanstack/react-db';
 import { type KeyboardEvent, useCallback, useMemo, useState } from 'react';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
 import { webCollections } from '../sync/webCollections';
@@ -90,8 +90,17 @@ export function CommentsSection({
 			query: (query) =>
 				query
 					.from({ comment: webCollections.comments })
+					// The DB stores entity_type in snake_case; match that (persisted rows) and
+					// the camelCase target (the transient optimistic row) so a just-added
+					// comment still shows instantly. See toDbEntityType.
 					.where(({ comment }) =>
-						and(eq(comment.entityType, target.type), eq(comment.entityId, target.id)),
+						and(
+							or(
+								eq(comment.entityType, target.type),
+								eq(comment.entityType, toDbEntityType(target.type)),
+							),
+							eq(comment.entityId, target.id),
+						),
 					)
 					.orderBy(({ comment }) => comment.commentedAt, 'desc'),
 		},

@@ -170,6 +170,17 @@ export const ROUTE_ITEM_TARGET_TYPES = ['trap', 'habitat'] as const;
 export const ASSIGNMENT_ITEM_TARGET_TYPES = ['trap', 'habitat', 'serviceRequest'] as const;
 export const ROUTE_TYPES = ['trap', 'habitat'] as const;
 
+/**
+ * Polymorphic tables (`comments`, `tag_items`, `assignment_items`, …) store the
+ * `entity_type` discriminator in snake_case, while the domain target-type
+ * vocabulary is camelCase (`serviceRequest`, `sourceReduction`, …). Convert a
+ * camelCase target type to its snake_case column value; single-word types
+ * (`trap`, `habitat`, `contact`) pass through unchanged.
+ */
+export function toDbEntityType(targetType: string): string {
+	return targetType.replace(/[A-Z]/g, (char) => `_${char.toLowerCase()}`);
+}
+
 export function validateBase(input: FieldWorkCommandInput, issues: DomainValidationIssue[]): void {
 	validateAgencyCommandContext(input, issues);
 }

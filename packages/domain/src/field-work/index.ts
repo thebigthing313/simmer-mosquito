@@ -21,6 +21,7 @@ export type {
 	TagTarget,
 	TagTargetType,
 } from './shared.js';
+export { toDbEntityType } from './shared.js';
 export * from './tags.js';
 
 import type {
