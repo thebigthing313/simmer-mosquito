@@ -3,7 +3,7 @@ import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Link } from '@tanstack/react-router';
 
 /**
- * Pre-shell surfaces: the unauthenticated landing/login pages and the chrome
+ * Pre-shell surfaces: the unauthenticated landing page and the chrome
  * loading/error fallbacks used by the root route. The authenticated shell lives
  * in `components/app-shell`.
  */
@@ -57,26 +57,6 @@ export function LandingPage({
 						</Link>
 					</Button>
 				</div>
-			</section>
-		</div>
-	);
-}
-
-export function LoginPage() {
-	return (
-		<div className="grid min-h-screen place-items-center bg-[linear-gradient(90deg,color-mix(in_oklch,var(--app-shell)_58%,transparent),transparent_360px),var(--app-stage)] p-6">
-			<section className="grid w-[min(460px,100%)] gap-3.5 rounded-md border border-border/30 bg-card p-7">
-				<BrandMark />
-				<p className="eyebrow">SIMMER sign in</p>
-				<h1 className="m-0 text-[1.6rem] leading-tight">Continue to your operations workspace</h1>
-				<p className="m-0 leading-normal text-muted-foreground">
-					Sign in to return to the app route you were trying to open.
-				</p>
-				<Button asChild>
-					<Link to="/sign-in" search={{ redirect: '/' }}>
-						Sign in
-					</Link>
-				</Button>
 			</section>
 		</div>
 	);

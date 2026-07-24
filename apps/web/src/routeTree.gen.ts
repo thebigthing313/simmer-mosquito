@@ -12,29 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodayRouteImport } from './routes/today'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RequestsForControlRouteImport } from './routes/requests-for-control'
 import { Route as MyOrganizationRouteImport } from './routes/my-organization'
 import { Route as MissionsRouteImport } from './routes/missions'
-import { Route as MapCardPreviewRouteImport } from './routes/map-card-preview'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as LayoutPreviewRouteImport } from './routes/layout-preview'
 import { Route as LandingRouteImport } from './routes/landing'
-import { Route as InspectionsRouteImport } from './routes/inspections'
-import { Route as HabitatsRouteImport } from './routes/habitats'
-import { Route as GroupsRouteImport } from './routes/groups'
-import { Route as GroupSettingsRouteImport } from './routes/group-settings'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AssignmentsRouteImport } from './routes/assignments'
-import { Route as AppShellPreviewRouteImport } from './routes/app-shell-preview'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicEngagementIndexRouteImport } from './routes/public-engagement/index'
 import { Route as MyOrganizationIndexRouteImport } from './routes/my-organization/index'
-import { Route as LayoutPreviewIndexRouteImport } from './routes/layout-preview.index'
 import { Route as LarvalSurveillanceIndexRouteImport } from './routes/larval-surveillance/index'
-import { Route as HabitatsIndexRouteImport } from './routes/habitats.index'
 import { Route as ControlOperationsIndexRouteImport } from './routes/control-operations/index'
 import { Route as AdultSurveillanceIndexRouteImport } from './routes/adult-surveillance/index'
 import { Route as MyOrganizationPublicEngagementRouteImport } from './routes/my-organization/public-engagement'
@@ -43,17 +32,11 @@ import { Route as MyOrganizationLarvalSurveillanceRouteImport } from './routes/m
 import { Route as MyOrganizationInsecticidesRouteImport } from './routes/my-organization/insecticides'
 import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
-import { Route as MissionsEditRouteImport } from './routes/missions.edit'
-import { Route as HabitatsIdRouteImport } from './routes/habitats_.$id'
-import { Route as HabitatsCreateRouteImport } from './routes/habitats.create'
 import { Route as GisDataExplorerRouteImport } from './routes/gis/data-explorer'
 import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes/adult-surveillance/collection-methods'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as PublicEngagementServiceRequestsIndexRouteImport } from './routes/public-engagement/service-requests/index'
 import { Route as PublicEngagementContactsIndexRouteImport } from './routes/public-engagement/contacts/index'
-import { Route as OperationsRequestsForControlIndexRouteImport } from './routes/operations/requests-for-control/index'
-import { Route as OperationsMissionsIndexRouteImport } from './routes/operations/missions/index'
-import { Route as OperationsAssignmentsIndexRouteImport } from './routes/operations/assignments/index'
 import { Route as LarvalSurveillanceSamplesIndexRouteImport } from './routes/larval-surveillance/samples/index'
 import { Route as LarvalSurveillanceInspectionsIndexRouteImport } from './routes/larval-surveillance/inspections/index'
 import { Route as LarvalSurveillanceHabitatsIndexRouteImport } from './routes/larval-surveillance/habitats/index'
@@ -69,13 +52,6 @@ import { Route as PublicEngagementServiceRequestsCreateRouteImport } from './rou
 import { Route as PublicEngagementServiceRequestsIdRouteImport } from './routes/public-engagement/service-requests/$id'
 import { Route as PublicEngagementContactsCreateRouteImport } from './routes/public-engagement/contacts/create'
 import { Route as PublicEngagementContactsIdRouteImport } from './routes/public-engagement/contacts/$id'
-import { Route as OperationsRequestsForControlCreateRouteImport } from './routes/operations/requests-for-control/create'
-import { Route as OperationsRequestsForControlIdRouteImport } from './routes/operations/requests-for-control/$id'
-import { Route as OperationsMissionsCreateRouteImport } from './routes/operations/missions/create'
-import { Route as OperationsMissionsIdRouteImport } from './routes/operations/missions/$id'
-import { Route as OperationsAssignmentsCreateRouteImport } from './routes/operations/assignments/create'
-import { Route as OperationsAssignmentsIdRouteImport } from './routes/operations/assignments/$id'
-import { Route as LayoutPreviewDesignPageRouteImport } from './routes/layout-preview.$design.$page'
 import { Route as LarvalSurveillanceSamplesStatsRouteImport } from './routes/larval-surveillance/samples/stats'
 import { Route as LarvalSurveillanceSamplesIdRouteImport } from './routes/larval-surveillance/samples/$id'
 import { Route as LarvalSurveillanceInspectionsStatsRouteImport } from './routes/larval-surveillance/inspections/stats'
@@ -115,9 +91,6 @@ import { Route as LarvalSurveillanceHabitatsRoutesIndexRouteImport } from './rou
 import { Route as AdultSurveillanceTrapsRoutesIndexRouteImport } from './routes/adult-surveillance/traps/routes/index'
 import { Route as PublicEngagementServiceRequestsIdEditRouteImport } from './routes/public-engagement/service-requests/$id_.edit'
 import { Route as PublicEngagementContactsIdEditRouteImport } from './routes/public-engagement/contacts/$id_.edit'
-import { Route as OperationsRequestsForControlIdEditRouteImport } from './routes/operations/requests-for-control/$id.edit'
-import { Route as OperationsMissionsIdEditRouteImport } from './routes/operations/missions/$id.edit'
-import { Route as OperationsAssignmentsIdEditRouteImport } from './routes/operations/assignments/$id.edit'
 import { Route as LarvalSurveillanceHabitatsRoutesIdRouteImport } from './routes/larval-surveillance/habitats/routes/$id'
 import { Route as LarvalSurveillanceHabitatsIdEditRouteImport } from './routes/larval-surveillance/habitats/$id_.edit'
 import { Route as GisRegionsIdEditRouteImport } from './routes/gis/regions/$id_.edit'
@@ -146,11 +119,6 @@ const SignInRoute = SignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SamplesRoute = SamplesRouteImport.update({
-  id: '/samples',
-  path: '/samples',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -171,44 +139,9 @@ const MissionsRoute = MissionsRouteImport.update({
   path: '/missions',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MapCardPreviewRoute = MapCardPreviewRouteImport.update({
-  id: '/map-card-preview',
-  path: '/map-card-preview',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LayoutPreviewRoute = LayoutPreviewRouteImport.update({
-  id: '/layout-preview',
-  path: '/layout-preview',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LandingRoute = LandingRouteImport.update({
   id: '/landing',
   path: '/landing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InspectionsRoute = InspectionsRouteImport.update({
-  id: '/inspections',
-  path: '/inspections',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HabitatsRoute = HabitatsRouteImport.update({
-  id: '/habitats',
-  path: '/habitats',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GroupsRoute = GroupsRouteImport.update({
-  id: '/groups',
-  path: '/groups',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GroupSettingsRoute = GroupSettingsRouteImport.update({
-  id: '/group-settings',
-  path: '/group-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -219,11 +152,6 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const AssignmentsRoute = AssignmentsRouteImport.update({
   id: '/assignments',
   path: '/assignments',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppShellPreviewRoute = AppShellPreviewRouteImport.update({
-  id: '/app-shell-preview',
-  path: '/app-shell-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
@@ -246,20 +174,10 @@ const MyOrganizationIndexRoute = MyOrganizationIndexRouteImport.update({
   path: '/',
   getParentRoute: () => MyOrganizationRoute,
 } as any)
-const LayoutPreviewIndexRoute = LayoutPreviewIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => LayoutPreviewRoute,
-} as any)
 const LarvalSurveillanceIndexRoute = LarvalSurveillanceIndexRouteImport.update({
   id: '/larval-surveillance/',
   path: '/larval-surveillance/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const HabitatsIndexRoute = HabitatsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => HabitatsRoute,
 } as any)
 const ControlOperationsIndexRoute = ControlOperationsIndexRouteImport.update({
   id: '/control-operations/',
@@ -306,21 +224,6 @@ const MyOrganizationAdultSurveillanceRoute =
     path: '/adult-surveillance',
     getParentRoute: () => MyOrganizationRoute,
   } as any)
-const MissionsEditRoute = MissionsEditRouteImport.update({
-  id: '/edit',
-  path: '/edit',
-  getParentRoute: () => MissionsRoute,
-} as any)
-const HabitatsIdRoute = HabitatsIdRouteImport.update({
-  id: '/habitats_/$id',
-  path: '/habitats/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HabitatsCreateRoute = HabitatsCreateRouteImport.update({
-  id: '/create',
-  path: '/create',
-  getParentRoute: () => HabitatsRoute,
-} as any)
 const GisDataExplorerRoute = GisDataExplorerRouteImport.update({
   id: '/gis/data-explorer',
   path: '/gis/data-explorer',
@@ -347,23 +250,6 @@ const PublicEngagementContactsIndexRoute =
   PublicEngagementContactsIndexRouteImport.update({
     id: '/public-engagement/contacts/',
     path: '/public-engagement/contacts/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const OperationsRequestsForControlIndexRoute =
-  OperationsRequestsForControlIndexRouteImport.update({
-    id: '/operations/requests-for-control/',
-    path: '/operations/requests-for-control/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const OperationsMissionsIndexRoute = OperationsMissionsIndexRouteImport.update({
-  id: '/operations/missions/',
-  path: '/operations/missions/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperationsAssignmentsIndexRoute =
-  OperationsAssignmentsIndexRouteImport.update({
-    id: '/operations/assignments/',
-    path: '/operations/assignments/',
     getParentRoute: () => rootRouteImport,
   } as any)
 const LarvalSurveillanceSamplesIndexRoute =
@@ -453,45 +339,6 @@ const PublicEngagementContactsIdRoute =
     path: '/public-engagement/contacts/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
-const OperationsRequestsForControlCreateRoute =
-  OperationsRequestsForControlCreateRouteImport.update({
-    id: '/operations/requests-for-control/create',
-    path: '/operations/requests-for-control/create',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const OperationsRequestsForControlIdRoute =
-  OperationsRequestsForControlIdRouteImport.update({
-    id: '/operations/requests-for-control/$id',
-    path: '/operations/requests-for-control/$id',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const OperationsMissionsCreateRoute =
-  OperationsMissionsCreateRouteImport.update({
-    id: '/operations/missions/create',
-    path: '/operations/missions/create',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const OperationsMissionsIdRoute = OperationsMissionsIdRouteImport.update({
-  id: '/operations/missions/$id',
-  path: '/operations/missions/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperationsAssignmentsCreateRoute =
-  OperationsAssignmentsCreateRouteImport.update({
-    id: '/operations/assignments/create',
-    path: '/operations/assignments/create',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const OperationsAssignmentsIdRoute = OperationsAssignmentsIdRouteImport.update({
-  id: '/operations/assignments/$id',
-  path: '/operations/assignments/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LayoutPreviewDesignPageRoute = LayoutPreviewDesignPageRouteImport.update({
-  id: '/$design/$page',
-  path: '/$design/$page',
-  getParentRoute: () => LayoutPreviewRoute,
-} as any)
 const LarvalSurveillanceSamplesStatsRoute =
   LarvalSurveillanceSamplesStatsRouteImport.update({
     id: '/larval-surveillance/samples/stats',
@@ -720,24 +567,6 @@ const PublicEngagementContactsIdEditRoute =
     path: '/public-engagement/contacts/$id/edit',
     getParentRoute: () => rootRouteImport,
   } as any)
-const OperationsRequestsForControlIdEditRoute =
-  OperationsRequestsForControlIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => OperationsRequestsForControlIdRoute,
-  } as any)
-const OperationsMissionsIdEditRoute =
-  OperationsMissionsIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => OperationsMissionsIdRoute,
-  } as any)
-const OperationsAssignmentsIdEditRoute =
-  OperationsAssignmentsIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => OperationsAssignmentsIdRoute,
-  } as any)
 const LarvalSurveillanceHabitatsRoutesIdRoute =
   LarvalSurveillanceHabitatsRoutesIdRouteImport.update({
     id: '/larval-surveillance/habitats/routes/$id',
@@ -812,31 +641,19 @@ const AdultSurveillanceTrapsRoutesIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
-  '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/group-settings': typeof GroupSettingsRoute
-  '/groups': typeof GroupsRoute
-  '/habitats': typeof HabitatsRouteWithChildren
-  '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
-  '/layout-preview': typeof LayoutPreviewRouteWithChildren
-  '/login': typeof LoginRoute
-  '/map-card-preview': typeof MapCardPreviewRoute
-  '/missions': typeof MissionsRouteWithChildren
+  '/missions': typeof MissionsRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/requests-for-control': typeof RequestsForControlRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/samples': typeof SamplesRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
-  '/habitats/create': typeof HabitatsCreateRoute
-  '/habitats/$id': typeof HabitatsIdRoute
-  '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
   '/my-organization/insecticides': typeof MyOrganizationInsecticidesRoute
@@ -845,9 +662,7 @@ export interface FileRoutesByFullPath {
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/adult-surveillance/': typeof AdultSurveillanceIndexRoute
   '/control-operations/': typeof ControlOperationsIndexRoute
-  '/habitats/': typeof HabitatsIndexRoute
   '/larval-surveillance/': typeof LarvalSurveillanceIndexRoute
-  '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/public-engagement/': typeof PublicEngagementIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
@@ -885,13 +700,6 @@ export interface FileRoutesByFullPath {
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
   '/larval-surveillance/samples/$id': typeof LarvalSurveillanceSamplesIdRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
-  '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
-  '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
-  '/operations/assignments/create': typeof OperationsAssignmentsCreateRoute
-  '/operations/missions/$id': typeof OperationsMissionsIdRouteWithChildren
-  '/operations/missions/create': typeof OperationsMissionsCreateRoute
-  '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRouteWithChildren
-  '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
   '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
   '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
@@ -907,9 +715,6 @@ export interface FileRoutesByFullPath {
   '/larval-surveillance/habitats/': typeof LarvalSurveillanceHabitatsIndexRoute
   '/larval-surveillance/inspections/': typeof LarvalSurveillanceInspectionsIndexRoute
   '/larval-surveillance/samples/': typeof LarvalSurveillanceSamplesIndexRoute
-  '/operations/assignments/': typeof OperationsAssignmentsIndexRoute
-  '/operations/missions/': typeof OperationsMissionsIndexRoute
-  '/operations/requests-for-control/': typeof OperationsRequestsForControlIndexRoute
   '/public-engagement/contacts/': typeof PublicEngagementContactsIndexRoute
   '/public-engagement/service-requests/': typeof PublicEngagementServiceRequestsIndexRoute
   '/adult-surveillance/collections/$id/edit': typeof AdultSurveillanceCollectionsIdEditRoute
@@ -922,9 +727,6 @@ export interface FileRoutesByFullPath {
   '/gis/regions/$id/edit': typeof GisRegionsIdEditRoute
   '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
-  '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
-  '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
-  '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
   '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
   '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes/': typeof AdultSurveillanceTrapsRoutesIndexRoute
@@ -935,28 +737,18 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
-  '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/group-settings': typeof GroupSettingsRoute
-  '/groups': typeof GroupsRoute
-  '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
-  '/login': typeof LoginRoute
-  '/map-card-preview': typeof MapCardPreviewRoute
-  '/missions': typeof MissionsRouteWithChildren
+  '/missions': typeof MissionsRoute
   '/requests-for-control': typeof RequestsForControlRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/samples': typeof SamplesRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
-  '/habitats/create': typeof HabitatsCreateRoute
-  '/habitats/$id': typeof HabitatsIdRoute
-  '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
   '/my-organization/insecticides': typeof MyOrganizationInsecticidesRoute
@@ -965,9 +757,7 @@ export interface FileRoutesByTo {
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/adult-surveillance': typeof AdultSurveillanceIndexRoute
   '/control-operations': typeof ControlOperationsIndexRoute
-  '/habitats': typeof HabitatsIndexRoute
   '/larval-surveillance': typeof LarvalSurveillanceIndexRoute
-  '/layout-preview': typeof LayoutPreviewIndexRoute
   '/my-organization': typeof MyOrganizationIndexRoute
   '/public-engagement': typeof PublicEngagementIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
@@ -1005,13 +795,6 @@ export interface FileRoutesByTo {
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
   '/larval-surveillance/samples/$id': typeof LarvalSurveillanceSamplesIdRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
-  '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
-  '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
-  '/operations/assignments/create': typeof OperationsAssignmentsCreateRoute
-  '/operations/missions/$id': typeof OperationsMissionsIdRouteWithChildren
-  '/operations/missions/create': typeof OperationsMissionsCreateRoute
-  '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRouteWithChildren
-  '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
   '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
   '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
@@ -1027,9 +810,6 @@ export interface FileRoutesByTo {
   '/larval-surveillance/habitats': typeof LarvalSurveillanceHabitatsIndexRoute
   '/larval-surveillance/inspections': typeof LarvalSurveillanceInspectionsIndexRoute
   '/larval-surveillance/samples': typeof LarvalSurveillanceSamplesIndexRoute
-  '/operations/assignments': typeof OperationsAssignmentsIndexRoute
-  '/operations/missions': typeof OperationsMissionsIndexRoute
-  '/operations/requests-for-control': typeof OperationsRequestsForControlIndexRoute
   '/public-engagement/contacts': typeof PublicEngagementContactsIndexRoute
   '/public-engagement/service-requests': typeof PublicEngagementServiceRequestsIndexRoute
   '/adult-surveillance/collections/$id/edit': typeof AdultSurveillanceCollectionsIdEditRoute
@@ -1042,9 +822,6 @@ export interface FileRoutesByTo {
   '/gis/regions/$id/edit': typeof GisRegionsIdEditRoute
   '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
-  '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
-  '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
-  '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
   '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
   '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes': typeof AdultSurveillanceTrapsRoutesIndexRoute
@@ -1056,31 +833,19 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
-  '/app-shell-preview': typeof AppShellPreviewRoute
   '/assignments': typeof AssignmentsRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/group-settings': typeof GroupSettingsRoute
-  '/groups': typeof GroupsRoute
-  '/habitats': typeof HabitatsRouteWithChildren
-  '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
-  '/layout-preview': typeof LayoutPreviewRouteWithChildren
-  '/login': typeof LoginRoute
-  '/map-card-preview': typeof MapCardPreviewRoute
-  '/missions': typeof MissionsRouteWithChildren
+  '/missions': typeof MissionsRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/requests-for-control': typeof RequestsForControlRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/samples': typeof SamplesRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
-  '/habitats/create': typeof HabitatsCreateRoute
-  '/habitats_/$id': typeof HabitatsIdRoute
-  '/missions/edit': typeof MissionsEditRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
   '/my-organization/insecticides': typeof MyOrganizationInsecticidesRoute
@@ -1089,9 +854,7 @@ export interface FileRoutesById {
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
   '/adult-surveillance/': typeof AdultSurveillanceIndexRoute
   '/control-operations/': typeof ControlOperationsIndexRoute
-  '/habitats/': typeof HabitatsIndexRoute
   '/larval-surveillance/': typeof LarvalSurveillanceIndexRoute
-  '/layout-preview/': typeof LayoutPreviewIndexRoute
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/public-engagement/': typeof PublicEngagementIndexRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
@@ -1129,13 +892,6 @@ export interface FileRoutesById {
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
   '/larval-surveillance/samples/$id': typeof LarvalSurveillanceSamplesIdRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
-  '/layout-preview/$design/$page': typeof LayoutPreviewDesignPageRoute
-  '/operations/assignments/$id': typeof OperationsAssignmentsIdRouteWithChildren
-  '/operations/assignments/create': typeof OperationsAssignmentsCreateRoute
-  '/operations/missions/$id': typeof OperationsMissionsIdRouteWithChildren
-  '/operations/missions/create': typeof OperationsMissionsCreateRoute
-  '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRouteWithChildren
-  '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
   '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
   '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
@@ -1151,9 +907,6 @@ export interface FileRoutesById {
   '/larval-surveillance/habitats/': typeof LarvalSurveillanceHabitatsIndexRoute
   '/larval-surveillance/inspections/': typeof LarvalSurveillanceInspectionsIndexRoute
   '/larval-surveillance/samples/': typeof LarvalSurveillanceSamplesIndexRoute
-  '/operations/assignments/': typeof OperationsAssignmentsIndexRoute
-  '/operations/missions/': typeof OperationsMissionsIndexRoute
-  '/operations/requests-for-control/': typeof OperationsRequestsForControlIndexRoute
   '/public-engagement/contacts/': typeof PublicEngagementContactsIndexRoute
   '/public-engagement/service-requests/': typeof PublicEngagementServiceRequestsIndexRoute
   '/adult-surveillance/collections/$id_/edit': typeof AdultSurveillanceCollectionsIdEditRoute
@@ -1166,9 +919,6 @@ export interface FileRoutesById {
   '/gis/regions/$id_/edit': typeof GisRegionsIdEditRoute
   '/larval-surveillance/habitats/$id_/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
-  '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
-  '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
-  '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
   '/public-engagement/contacts/$id_/edit': typeof PublicEngagementContactsIdEditRoute
   '/public-engagement/service-requests/$id_/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes/': typeof AdultSurveillanceTrapsRoutesIndexRoute
@@ -1181,31 +931,19 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accept-invitation'
-    | '/app-shell-preview'
     | '/assignments'
     | '/forgot-password'
-    | '/group-settings'
-    | '/groups'
-    | '/habitats'
-    | '/inspections'
     | '/landing'
-    | '/layout-preview'
-    | '/login'
-    | '/map-card-preview'
     | '/missions'
     | '/my-organization'
     | '/requests-for-control'
     | '/reset-password'
-    | '/samples'
     | '/sign-in'
     | '/sign-up'
     | '/today'
     | '/admin/organizations'
     | '/adult-surveillance/collection-methods'
     | '/gis/data-explorer'
-    | '/habitats/create'
-    | '/habitats/$id'
-    | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
     | '/my-organization/insecticides'
@@ -1214,9 +952,7 @@ export interface FileRouteTypes {
     | '/my-organization/public-engagement'
     | '/adult-surveillance/'
     | '/control-operations/'
-    | '/habitats/'
     | '/larval-surveillance/'
-    | '/layout-preview/'
     | '/my-organization/'
     | '/public-engagement/'
     | '/admin/organizations/$organizationId'
@@ -1254,13 +990,6 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/stats'
     | '/larval-surveillance/samples/$id'
     | '/larval-surveillance/samples/stats'
-    | '/layout-preview/$design/$page'
-    | '/operations/assignments/$id'
-    | '/operations/assignments/create'
-    | '/operations/missions/$id'
-    | '/operations/missions/create'
-    | '/operations/requests-for-control/$id'
-    | '/operations/requests-for-control/create'
     | '/public-engagement/contacts/$id'
     | '/public-engagement/contacts/create'
     | '/public-engagement/service-requests/$id'
@@ -1276,9 +1005,6 @@ export interface FileRouteTypes {
     | '/larval-surveillance/habitats/'
     | '/larval-surveillance/inspections/'
     | '/larval-surveillance/samples/'
-    | '/operations/assignments/'
-    | '/operations/missions/'
-    | '/operations/requests-for-control/'
     | '/public-engagement/contacts/'
     | '/public-engagement/service-requests/'
     | '/adult-surveillance/collections/$id/edit'
@@ -1291,9 +1017,6 @@ export interface FileRouteTypes {
     | '/gis/regions/$id/edit'
     | '/larval-surveillance/habitats/$id/edit'
     | '/larval-surveillance/habitats/routes/$id'
-    | '/operations/assignments/$id/edit'
-    | '/operations/missions/$id/edit'
-    | '/operations/requests-for-control/$id/edit'
     | '/public-engagement/contacts/$id/edit'
     | '/public-engagement/service-requests/$id/edit'
     | '/adult-surveillance/traps/routes/'
@@ -1304,28 +1027,18 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accept-invitation'
-    | '/app-shell-preview'
     | '/assignments'
     | '/forgot-password'
-    | '/group-settings'
-    | '/groups'
-    | '/inspections'
     | '/landing'
-    | '/login'
-    | '/map-card-preview'
     | '/missions'
     | '/requests-for-control'
     | '/reset-password'
-    | '/samples'
     | '/sign-in'
     | '/sign-up'
     | '/today'
     | '/admin/organizations'
     | '/adult-surveillance/collection-methods'
     | '/gis/data-explorer'
-    | '/habitats/create'
-    | '/habitats/$id'
-    | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
     | '/my-organization/insecticides'
@@ -1334,9 +1047,7 @@ export interface FileRouteTypes {
     | '/my-organization/public-engagement'
     | '/adult-surveillance'
     | '/control-operations'
-    | '/habitats'
     | '/larval-surveillance'
-    | '/layout-preview'
     | '/my-organization'
     | '/public-engagement'
     | '/admin/organizations/$organizationId'
@@ -1374,13 +1085,6 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/stats'
     | '/larval-surveillance/samples/$id'
     | '/larval-surveillance/samples/stats'
-    | '/layout-preview/$design/$page'
-    | '/operations/assignments/$id'
-    | '/operations/assignments/create'
-    | '/operations/missions/$id'
-    | '/operations/missions/create'
-    | '/operations/requests-for-control/$id'
-    | '/operations/requests-for-control/create'
     | '/public-engagement/contacts/$id'
     | '/public-engagement/contacts/create'
     | '/public-engagement/service-requests/$id'
@@ -1396,9 +1100,6 @@ export interface FileRouteTypes {
     | '/larval-surveillance/habitats'
     | '/larval-surveillance/inspections'
     | '/larval-surveillance/samples'
-    | '/operations/assignments'
-    | '/operations/missions'
-    | '/operations/requests-for-control'
     | '/public-engagement/contacts'
     | '/public-engagement/service-requests'
     | '/adult-surveillance/collections/$id/edit'
@@ -1411,9 +1112,6 @@ export interface FileRouteTypes {
     | '/gis/regions/$id/edit'
     | '/larval-surveillance/habitats/$id/edit'
     | '/larval-surveillance/habitats/routes/$id'
-    | '/operations/assignments/$id/edit'
-    | '/operations/missions/$id/edit'
-    | '/operations/requests-for-control/$id/edit'
     | '/public-engagement/contacts/$id/edit'
     | '/public-engagement/service-requests/$id/edit'
     | '/adult-surveillance/traps/routes'
@@ -1424,31 +1122,19 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accept-invitation'
-    | '/app-shell-preview'
     | '/assignments'
     | '/forgot-password'
-    | '/group-settings'
-    | '/groups'
-    | '/habitats'
-    | '/inspections'
     | '/landing'
-    | '/layout-preview'
-    | '/login'
-    | '/map-card-preview'
     | '/missions'
     | '/my-organization'
     | '/requests-for-control'
     | '/reset-password'
-    | '/samples'
     | '/sign-in'
     | '/sign-up'
     | '/today'
     | '/admin/organizations'
     | '/adult-surveillance/collection-methods'
     | '/gis/data-explorer'
-    | '/habitats/create'
-    | '/habitats_/$id'
-    | '/missions/edit'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
     | '/my-organization/insecticides'
@@ -1457,9 +1143,7 @@ export interface FileRouteTypes {
     | '/my-organization/public-engagement'
     | '/adult-surveillance/'
     | '/control-operations/'
-    | '/habitats/'
     | '/larval-surveillance/'
-    | '/layout-preview/'
     | '/my-organization/'
     | '/public-engagement/'
     | '/admin/organizations/$organizationId'
@@ -1497,13 +1181,6 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/stats'
     | '/larval-surveillance/samples/$id'
     | '/larval-surveillance/samples/stats'
-    | '/layout-preview/$design/$page'
-    | '/operations/assignments/$id'
-    | '/operations/assignments/create'
-    | '/operations/missions/$id'
-    | '/operations/missions/create'
-    | '/operations/requests-for-control/$id'
-    | '/operations/requests-for-control/create'
     | '/public-engagement/contacts/$id'
     | '/public-engagement/contacts/create'
     | '/public-engagement/service-requests/$id'
@@ -1519,9 +1196,6 @@ export interface FileRouteTypes {
     | '/larval-surveillance/habitats/'
     | '/larval-surveillance/inspections/'
     | '/larval-surveillance/samples/'
-    | '/operations/assignments/'
-    | '/operations/missions/'
-    | '/operations/requests-for-control/'
     | '/public-engagement/contacts/'
     | '/public-engagement/service-requests/'
     | '/adult-surveillance/collections/$id_/edit'
@@ -1534,9 +1208,6 @@ export interface FileRouteTypes {
     | '/gis/regions/$id_/edit'
     | '/larval-surveillance/habitats/$id_/edit'
     | '/larval-surveillance/habitats/routes/$id'
-    | '/operations/assignments/$id/edit'
-    | '/operations/missions/$id/edit'
-    | '/operations/requests-for-control/$id/edit'
     | '/public-engagement/contacts/$id_/edit'
     | '/public-engagement/service-requests/$id_/edit'
     | '/adult-surveillance/traps/routes/'
@@ -1548,29 +1219,19 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcceptInvitationRoute: typeof AcceptInvitationRoute
-  AppShellPreviewRoute: typeof AppShellPreviewRoute
   AssignmentsRoute: typeof AssignmentsRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
-  GroupSettingsRoute: typeof GroupSettingsRoute
-  GroupsRoute: typeof GroupsRoute
-  HabitatsRoute: typeof HabitatsRouteWithChildren
-  InspectionsRoute: typeof InspectionsRoute
   LandingRoute: typeof LandingRoute
-  LayoutPreviewRoute: typeof LayoutPreviewRouteWithChildren
-  LoginRoute: typeof LoginRoute
-  MapCardPreviewRoute: typeof MapCardPreviewRoute
-  MissionsRoute: typeof MissionsRouteWithChildren
+  MissionsRoute: typeof MissionsRoute
   MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
   RequestsForControlRoute: typeof RequestsForControlRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  SamplesRoute: typeof SamplesRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   TodayRoute: typeof TodayRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
   AdultSurveillanceCollectionMethodsRoute: typeof AdultSurveillanceCollectionMethodsRoute
   GisDataExplorerRoute: typeof GisDataExplorerRoute
-  HabitatsIdRoute: typeof HabitatsIdRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
   ControlOperationsIndexRoute: typeof ControlOperationsIndexRoute
   LarvalSurveillanceIndexRoute: typeof LarvalSurveillanceIndexRoute
@@ -1609,12 +1270,6 @@ export interface RootRouteChildren {
   LarvalSurveillanceInspectionsStatsRoute: typeof LarvalSurveillanceInspectionsStatsRoute
   LarvalSurveillanceSamplesIdRoute: typeof LarvalSurveillanceSamplesIdRoute
   LarvalSurveillanceSamplesStatsRoute: typeof LarvalSurveillanceSamplesStatsRoute
-  OperationsAssignmentsIdRoute: typeof OperationsAssignmentsIdRouteWithChildren
-  OperationsAssignmentsCreateRoute: typeof OperationsAssignmentsCreateRoute
-  OperationsMissionsIdRoute: typeof OperationsMissionsIdRouteWithChildren
-  OperationsMissionsCreateRoute: typeof OperationsMissionsCreateRoute
-  OperationsRequestsForControlIdRoute: typeof OperationsRequestsForControlIdRouteWithChildren
-  OperationsRequestsForControlCreateRoute: typeof OperationsRequestsForControlCreateRoute
   PublicEngagementContactsIdRoute: typeof PublicEngagementContactsIdRoute
   PublicEngagementContactsCreateRoute: typeof PublicEngagementContactsCreateRoute
   PublicEngagementServiceRequestsIdRoute: typeof PublicEngagementServiceRequestsIdRoute
@@ -1630,9 +1285,6 @@ export interface RootRouteChildren {
   LarvalSurveillanceHabitatsIndexRoute: typeof LarvalSurveillanceHabitatsIndexRoute
   LarvalSurveillanceInspectionsIndexRoute: typeof LarvalSurveillanceInspectionsIndexRoute
   LarvalSurveillanceSamplesIndexRoute: typeof LarvalSurveillanceSamplesIndexRoute
-  OperationsAssignmentsIndexRoute: typeof OperationsAssignmentsIndexRoute
-  OperationsMissionsIndexRoute: typeof OperationsMissionsIndexRoute
-  OperationsRequestsForControlIndexRoute: typeof OperationsRequestsForControlIndexRoute
   PublicEngagementContactsIndexRoute: typeof PublicEngagementContactsIndexRoute
   PublicEngagementServiceRequestsIndexRoute: typeof PublicEngagementServiceRequestsIndexRoute
   AdultSurveillanceCollectionsIdEditRoute: typeof AdultSurveillanceCollectionsIdEditRoute
@@ -1676,13 +1328,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/samples': {
-      id: '/samples'
-      path: '/samples'
-      fullPath: '/samples'
-      preLoaderRoute: typeof SamplesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -1711,60 +1356,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MissionsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/map-card-preview': {
-      id: '/map-card-preview'
-      path: '/map-card-preview'
-      fullPath: '/map-card-preview'
-      preLoaderRoute: typeof MapCardPreviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/layout-preview': {
-      id: '/layout-preview'
-      path: '/layout-preview'
-      fullPath: '/layout-preview'
-      preLoaderRoute: typeof LayoutPreviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/landing': {
       id: '/landing'
       path: '/landing'
       fullPath: '/landing'
       preLoaderRoute: typeof LandingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/inspections': {
-      id: '/inspections'
-      path: '/inspections'
-      fullPath: '/inspections'
-      preLoaderRoute: typeof InspectionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/habitats': {
-      id: '/habitats'
-      path: '/habitats'
-      fullPath: '/habitats'
-      preLoaderRoute: typeof HabitatsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/groups': {
-      id: '/groups'
-      path: '/groups'
-      fullPath: '/groups'
-      preLoaderRoute: typeof GroupsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/group-settings': {
-      id: '/group-settings'
-      path: '/group-settings'
-      fullPath: '/group-settings'
-      preLoaderRoute: typeof GroupSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -1779,13 +1375,6 @@ declare module '@tanstack/react-router' {
       path: '/assignments'
       fullPath: '/assignments'
       preLoaderRoute: typeof AssignmentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app-shell-preview': {
-      id: '/app-shell-preview'
-      path: '/app-shell-preview'
-      fullPath: '/app-shell-preview'
-      preLoaderRoute: typeof AppShellPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accept-invitation': {
@@ -1816,26 +1405,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyOrganizationIndexRouteImport
       parentRoute: typeof MyOrganizationRoute
     }
-    '/layout-preview/': {
-      id: '/layout-preview/'
-      path: '/'
-      fullPath: '/layout-preview/'
-      preLoaderRoute: typeof LayoutPreviewIndexRouteImport
-      parentRoute: typeof LayoutPreviewRoute
-    }
     '/larval-surveillance/': {
       id: '/larval-surveillance/'
       path: '/larval-surveillance'
       fullPath: '/larval-surveillance/'
       preLoaderRoute: typeof LarvalSurveillanceIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/habitats/': {
-      id: '/habitats/'
-      path: '/'
-      fullPath: '/habitats/'
-      preLoaderRoute: typeof HabitatsIndexRouteImport
-      parentRoute: typeof HabitatsRoute
     }
     '/control-operations/': {
       id: '/control-operations/'
@@ -1893,27 +1468,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyOrganizationAdultSurveillanceRouteImport
       parentRoute: typeof MyOrganizationRoute
     }
-    '/missions/edit': {
-      id: '/missions/edit'
-      path: '/edit'
-      fullPath: '/missions/edit'
-      preLoaderRoute: typeof MissionsEditRouteImport
-      parentRoute: typeof MissionsRoute
-    }
-    '/habitats_/$id': {
-      id: '/habitats_/$id'
-      path: '/habitats/$id'
-      fullPath: '/habitats/$id'
-      preLoaderRoute: typeof HabitatsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/habitats/create': {
-      id: '/habitats/create'
-      path: '/create'
-      fullPath: '/habitats/create'
-      preLoaderRoute: typeof HabitatsCreateRouteImport
-      parentRoute: typeof HabitatsRoute
-    }
     '/gis/data-explorer': {
       id: '/gis/data-explorer'
       path: '/gis/data-explorer'
@@ -1947,27 +1501,6 @@ declare module '@tanstack/react-router' {
       path: '/public-engagement/contacts'
       fullPath: '/public-engagement/contacts/'
       preLoaderRoute: typeof PublicEngagementContactsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operations/requests-for-control/': {
-      id: '/operations/requests-for-control/'
-      path: '/operations/requests-for-control'
-      fullPath: '/operations/requests-for-control/'
-      preLoaderRoute: typeof OperationsRequestsForControlIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operations/missions/': {
-      id: '/operations/missions/'
-      path: '/operations/missions'
-      fullPath: '/operations/missions/'
-      preLoaderRoute: typeof OperationsMissionsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operations/assignments/': {
-      id: '/operations/assignments/'
-      path: '/operations/assignments'
-      fullPath: '/operations/assignments/'
-      preLoaderRoute: typeof OperationsAssignmentsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/larval-surveillance/samples/': {
@@ -2074,55 +1607,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/public-engagement/contacts/$id'
       preLoaderRoute: typeof PublicEngagementContactsIdRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/operations/requests-for-control/create': {
-      id: '/operations/requests-for-control/create'
-      path: '/operations/requests-for-control/create'
-      fullPath: '/operations/requests-for-control/create'
-      preLoaderRoute: typeof OperationsRequestsForControlCreateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operations/requests-for-control/$id': {
-      id: '/operations/requests-for-control/$id'
-      path: '/operations/requests-for-control/$id'
-      fullPath: '/operations/requests-for-control/$id'
-      preLoaderRoute: typeof OperationsRequestsForControlIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operations/missions/create': {
-      id: '/operations/missions/create'
-      path: '/operations/missions/create'
-      fullPath: '/operations/missions/create'
-      preLoaderRoute: typeof OperationsMissionsCreateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operations/missions/$id': {
-      id: '/operations/missions/$id'
-      path: '/operations/missions/$id'
-      fullPath: '/operations/missions/$id'
-      preLoaderRoute: typeof OperationsMissionsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operations/assignments/create': {
-      id: '/operations/assignments/create'
-      path: '/operations/assignments/create'
-      fullPath: '/operations/assignments/create'
-      preLoaderRoute: typeof OperationsAssignmentsCreateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operations/assignments/$id': {
-      id: '/operations/assignments/$id'
-      path: '/operations/assignments/$id'
-      fullPath: '/operations/assignments/$id'
-      preLoaderRoute: typeof OperationsAssignmentsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/layout-preview/$design/$page': {
-      id: '/layout-preview/$design/$page'
-      path: '/$design/$page'
-      fullPath: '/layout-preview/$design/$page'
-      preLoaderRoute: typeof LayoutPreviewDesignPageRouteImport
-      parentRoute: typeof LayoutPreviewRoute
     }
     '/larval-surveillance/samples/stats': {
       id: '/larval-surveillance/samples/stats'
@@ -2397,27 +1881,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEngagementContactsIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/operations/requests-for-control/$id/edit': {
-      id: '/operations/requests-for-control/$id/edit'
-      path: '/edit'
-      fullPath: '/operations/requests-for-control/$id/edit'
-      preLoaderRoute: typeof OperationsRequestsForControlIdEditRouteImport
-      parentRoute: typeof OperationsRequestsForControlIdRoute
-    }
-    '/operations/missions/$id/edit': {
-      id: '/operations/missions/$id/edit'
-      path: '/edit'
-      fullPath: '/operations/missions/$id/edit'
-      preLoaderRoute: typeof OperationsMissionsIdEditRouteImport
-      parentRoute: typeof OperationsMissionsIdRoute
-    }
-    '/operations/assignments/$id/edit': {
-      id: '/operations/assignments/$id/edit'
-      path: '/edit'
-      fullPath: '/operations/assignments/$id/edit'
-      preLoaderRoute: typeof OperationsAssignmentsIdEditRouteImport
-      parentRoute: typeof OperationsAssignmentsIdRoute
-    }
     '/larval-surveillance/habitats/routes/$id': {
       id: '/larval-surveillance/habitats/routes/$id'
       path: '/larval-surveillance/habitats/routes/$id'
@@ -2505,46 +1968,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface HabitatsRouteChildren {
-  HabitatsCreateRoute: typeof HabitatsCreateRoute
-  HabitatsIndexRoute: typeof HabitatsIndexRoute
-}
-
-const HabitatsRouteChildren: HabitatsRouteChildren = {
-  HabitatsCreateRoute: HabitatsCreateRoute,
-  HabitatsIndexRoute: HabitatsIndexRoute,
-}
-
-const HabitatsRouteWithChildren = HabitatsRoute._addFileChildren(
-  HabitatsRouteChildren,
-)
-
-interface LayoutPreviewRouteChildren {
-  LayoutPreviewIndexRoute: typeof LayoutPreviewIndexRoute
-  LayoutPreviewDesignPageRoute: typeof LayoutPreviewDesignPageRoute
-}
-
-const LayoutPreviewRouteChildren: LayoutPreviewRouteChildren = {
-  LayoutPreviewIndexRoute: LayoutPreviewIndexRoute,
-  LayoutPreviewDesignPageRoute: LayoutPreviewDesignPageRoute,
-}
-
-const LayoutPreviewRouteWithChildren = LayoutPreviewRoute._addFileChildren(
-  LayoutPreviewRouteChildren,
-)
-
-interface MissionsRouteChildren {
-  MissionsEditRoute: typeof MissionsEditRoute
-}
-
-const MissionsRouteChildren: MissionsRouteChildren = {
-  MissionsEditRoute: MissionsEditRoute,
-}
-
-const MissionsRouteWithChildren = MissionsRoute._addFileChildren(
-  MissionsRouteChildren,
-)
-
 interface MyOrganizationRouteChildren {
   MyOrganizationAdultSurveillanceRoute: typeof MyOrganizationAdultSurveillanceRoute
   MyOrganizationControlMethodsRoute: typeof MyOrganizationControlMethodsRoute
@@ -2580,65 +2003,16 @@ const AdminOrganizationsRouteChildren: AdminOrganizationsRouteChildren = {
 const AdminOrganizationsRouteWithChildren =
   AdminOrganizationsRoute._addFileChildren(AdminOrganizationsRouteChildren)
 
-interface OperationsAssignmentsIdRouteChildren {
-  OperationsAssignmentsIdEditRoute: typeof OperationsAssignmentsIdEditRoute
-}
-
-const OperationsAssignmentsIdRouteChildren: OperationsAssignmentsIdRouteChildren =
-  {
-    OperationsAssignmentsIdEditRoute: OperationsAssignmentsIdEditRoute,
-  }
-
-const OperationsAssignmentsIdRouteWithChildren =
-  OperationsAssignmentsIdRoute._addFileChildren(
-    OperationsAssignmentsIdRouteChildren,
-  )
-
-interface OperationsMissionsIdRouteChildren {
-  OperationsMissionsIdEditRoute: typeof OperationsMissionsIdEditRoute
-}
-
-const OperationsMissionsIdRouteChildren: OperationsMissionsIdRouteChildren = {
-  OperationsMissionsIdEditRoute: OperationsMissionsIdEditRoute,
-}
-
-const OperationsMissionsIdRouteWithChildren =
-  OperationsMissionsIdRoute._addFileChildren(OperationsMissionsIdRouteChildren)
-
-interface OperationsRequestsForControlIdRouteChildren {
-  OperationsRequestsForControlIdEditRoute: typeof OperationsRequestsForControlIdEditRoute
-}
-
-const OperationsRequestsForControlIdRouteChildren: OperationsRequestsForControlIdRouteChildren =
-  {
-    OperationsRequestsForControlIdEditRoute:
-      OperationsRequestsForControlIdEditRoute,
-  }
-
-const OperationsRequestsForControlIdRouteWithChildren =
-  OperationsRequestsForControlIdRoute._addFileChildren(
-    OperationsRequestsForControlIdRouteChildren,
-  )
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
-  AppShellPreviewRoute: AppShellPreviewRoute,
   AssignmentsRoute: AssignmentsRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
-  GroupSettingsRoute: GroupSettingsRoute,
-  GroupsRoute: GroupsRoute,
-  HabitatsRoute: HabitatsRouteWithChildren,
-  InspectionsRoute: InspectionsRoute,
   LandingRoute: LandingRoute,
-  LayoutPreviewRoute: LayoutPreviewRouteWithChildren,
-  LoginRoute: LoginRoute,
-  MapCardPreviewRoute: MapCardPreviewRoute,
-  MissionsRoute: MissionsRouteWithChildren,
+  MissionsRoute: MissionsRoute,
   MyOrganizationRoute: MyOrganizationRouteWithChildren,
   RequestsForControlRoute: RequestsForControlRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  SamplesRoute: SamplesRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   TodayRoute: TodayRoute,
@@ -2646,7 +2020,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdultSurveillanceCollectionMethodsRoute:
     AdultSurveillanceCollectionMethodsRoute,
   GisDataExplorerRoute: GisDataExplorerRoute,
-  HabitatsIdRoute: HabitatsIdRoute,
   AdultSurveillanceIndexRoute: AdultSurveillanceIndexRoute,
   ControlOperationsIndexRoute: ControlOperationsIndexRoute,
   LarvalSurveillanceIndexRoute: LarvalSurveillanceIndexRoute,
@@ -2696,14 +2069,6 @@ const rootRouteChildren: RootRouteChildren = {
     LarvalSurveillanceInspectionsStatsRoute,
   LarvalSurveillanceSamplesIdRoute: LarvalSurveillanceSamplesIdRoute,
   LarvalSurveillanceSamplesStatsRoute: LarvalSurveillanceSamplesStatsRoute,
-  OperationsAssignmentsIdRoute: OperationsAssignmentsIdRouteWithChildren,
-  OperationsAssignmentsCreateRoute: OperationsAssignmentsCreateRoute,
-  OperationsMissionsIdRoute: OperationsMissionsIdRouteWithChildren,
-  OperationsMissionsCreateRoute: OperationsMissionsCreateRoute,
-  OperationsRequestsForControlIdRoute:
-    OperationsRequestsForControlIdRouteWithChildren,
-  OperationsRequestsForControlCreateRoute:
-    OperationsRequestsForControlCreateRoute,
   PublicEngagementContactsIdRoute: PublicEngagementContactsIdRoute,
   PublicEngagementContactsCreateRoute: PublicEngagementContactsCreateRoute,
   PublicEngagementServiceRequestsIdRoute:
@@ -2724,10 +2089,6 @@ const rootRouteChildren: RootRouteChildren = {
   LarvalSurveillanceInspectionsIndexRoute:
     LarvalSurveillanceInspectionsIndexRoute,
   LarvalSurveillanceSamplesIndexRoute: LarvalSurveillanceSamplesIndexRoute,
-  OperationsAssignmentsIndexRoute: OperationsAssignmentsIndexRoute,
-  OperationsMissionsIndexRoute: OperationsMissionsIndexRoute,
-  OperationsRequestsForControlIndexRoute:
-    OperationsRequestsForControlIndexRoute,
   PublicEngagementContactsIndexRoute: PublicEngagementContactsIndexRoute,
   PublicEngagementServiceRequestsIndexRoute:
     PublicEngagementServiceRequestsIndexRoute,

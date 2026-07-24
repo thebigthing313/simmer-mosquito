@@ -29,18 +29,18 @@ const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
  * The map focus card for a habitat. Resolves the habitat off the on-demand
  * collection, its type off the eager lookup, its address off the on-demand
  * collection, and its tags off the eager catalog, then renders the shared
- * {@link MapCard}. `detailTo` selects the detail route tree the "View details"
- * link targets — the two habitat explorers live under different route trees, so
- * each passes the one its own list rows link to (defaults to `/habitats/$id`).
+ * {@link MapCard}. `detailTo` selects the detail route the "View details" link
+ * targets; the habitats explorer under larval-surveillance passes the route its
+ * own list rows link to.
  */
 export function HabitatMapCard({
 	id,
 	onClose,
-	detailTo = '/habitats/$id',
+	detailTo = '/larval-surveillance/habitats/$id',
 }: {
 	readonly id: string;
 	readonly onClose: () => void;
-	readonly detailTo?: '/habitats/$id' | '/larval-surveillance/habitats/$id';
+	readonly detailTo?: '/larval-surveillance/habitats/$id';
 }) {
 	const habitatResult = useLiveQuery(
 		{

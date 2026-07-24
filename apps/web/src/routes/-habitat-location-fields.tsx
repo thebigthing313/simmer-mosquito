@@ -34,7 +34,15 @@ import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useId, useRef, useState } from 'react';
 import { getServerUrl } from '../auth';
 import { webCollections } from '../sync/webCollections';
-import type { GeoJsonPointGeometry, MapPointDrawOptions } from './habitats';
+
+export interface GeoJsonPointGeometry {
+	readonly type: 'Point';
+	readonly coordinates: readonly [number, number];
+}
+
+export interface MapPointDrawOptions {
+	readonly prompt?: string;
+}
 
 export type HabitatGeometryValue =
 	| GeoJsonPointGeometry

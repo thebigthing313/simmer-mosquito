@@ -142,17 +142,19 @@ interface HistoryApplication {
 	readonly applicationUnitId: string;
 }
 
-// The detail view is reachable from more than one habitats index (the legacy
-// top-level list and the larval-surveillance explorer), so the caller decides
-// where "Back to habitats" returns to.
-type HabitatDetailBackTo = '/habitats' | '/larval-surveillance/habitats';
+// The larval-surveillance explorer is the only habitats index, so "Back to
+// habitats" always returns there.
+type HabitatDetailBackTo = '/larval-surveillance/habitats';
 
 interface HabitatDetailProps {
 	readonly habitatId: string;
 	readonly backTo?: HabitatDetailBackTo;
 }
 
-export function HabitatDetail({ habitatId, backTo = '/habitats' }: HabitatDetailProps) {
+export function HabitatDetail({
+	habitatId,
+	backTo = '/larval-surveillance/habitats',
+}: HabitatDetailProps) {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className="mx-auto grid w-full max-w-[1200px] content-start gap-5 pb-10">
