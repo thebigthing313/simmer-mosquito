@@ -24,7 +24,7 @@ function ApplicationMethodsRoute() {
 			namePlaceholder="e.g. ULV truck spray"
 			organization={organization}
 			singularLabel="application method"
-			title="Application methods"
+			title="Application Methods"
 		/>
 	);
 }

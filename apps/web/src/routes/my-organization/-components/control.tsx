@@ -78,7 +78,7 @@ export function ControlOperationsSettings({
 	return (
 		<div className="grid gap-3">
 			<div className="grid gap-2">
-				<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
+				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
 				<div className="grid gap-3">
 					<ControlMethodLookupPointer
 						collectionKey="applicationMethods"
@@ -142,7 +142,7 @@ export function ControlMethodLookupPointer({
 			action={
 				<Button asChild size="sm" variant="outline">
 					<Link to={to}>
-						Manage methods
+						Manage Methods
 						<ArrowRightIcon aria-hidden="true" />
 					</Link>
 				</Button>
@@ -227,7 +227,7 @@ export function ControlMethodTable({
 					<TableRow>
 						<TableHead>{config.fieldLabel}</TableHead>
 						<TableHead className="w-28">Status</TableHead>
-						<TableHead className="w-32">Custom fields</TableHead>
+						<TableHead className="w-32">Custom Fields</TableHead>
 						{canManage ? <TableHead className="w-16 text-right">Edit</TableHead> : null}
 					</TableRow>
 				</TableHeader>
@@ -561,7 +561,7 @@ export function ControlAssetTable({
 				<TableHeader>
 					<TableRow>
 						<TableHead>{config.fieldLabel}</TableHead>
-						{collectionKey === 'equipment' ? <TableHead>Serial number</TableHead> : null}
+						{collectionKey === 'equipment' ? <TableHead>Serial Number</TableHead> : null}
 						<TableHead className="w-28">Status</TableHead>
 						<TableHead className="w-28">Metadata</TableHead>
 						{canManage ? <TableHead className="w-16 text-right">Edit</TableHead> : null}

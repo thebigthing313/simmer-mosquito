@@ -50,7 +50,7 @@ function WeatherSourcesRoute() {
 						<EmptyMedia variant="icon">
 							<WeatherIcon aria-hidden="true" />
 						</EmptyMedia>
-						<EmptyTitle>No weather sources</EmptyTitle>
+						<EmptyTitle>No Weather Sources</EmptyTitle>
 						<EmptyDescription>
 							Weather sources appear here once they're connected for your agency.
 						</EmptyDescription>

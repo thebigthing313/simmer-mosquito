@@ -160,7 +160,7 @@ function TrapsExplorerRoute() {
 							<Button asChild size="sm">
 								<Link to="/adult-surveillance/traps/create">
 									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									Add trap
+									Add Trap
 								</Link>
 							</Button>
 						</div>
@@ -593,7 +593,7 @@ function TrapListItem({
 					aria-label={`View details for ${trapDisplayName(trap)}`}
 					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					params={{ id: trap.id }}
-					title="View trap details"
+					title="View Trap Details"
 					to="/adult-surveillance/traps/$id"
 				>
 					<ChevronRightIcon aria-hidden="true" className="size-4" />

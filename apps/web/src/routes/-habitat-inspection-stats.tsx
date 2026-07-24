@@ -154,7 +154,7 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 			<CardHeader className="px-4 py-4">
 				<CardTitle className="flex items-center gap-2">
 					<InspectionIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-					Inspection summary
+					Inspection Summary
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">

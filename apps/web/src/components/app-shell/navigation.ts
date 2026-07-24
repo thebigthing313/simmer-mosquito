@@ -57,7 +57,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'habitats-create',
-						label: 'Create habitat',
+						label: 'Create Habitat',
 						to: '/larval-surveillance/habitats/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -93,7 +93,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'inspections-create',
-						label: 'Create inspection',
+						label: 'Create Inspection',
 						to: '/larval-surveillance/inspections/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -160,7 +160,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'traps-create',
-						label: 'Add trap',
+						label: 'Add Trap',
 						to: '/adult-surveillance/traps/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -190,7 +190,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'collections-create',
-						label: 'Record collection',
+						label: 'Record Collection',
 						to: '/adult-surveillance/collections/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -206,7 +206,7 @@ export const shellDomains: readonly ShellDomain[] = [
 	},
 	{
 		id: 'control',
-		label: 'Control operations',
+		label: 'Control Operations',
 		summary: 'Treatment work across chemical, source reduction, and biocontrol',
 		icon: iconRegistry.domains.controlOperations.icon,
 		groups: [
@@ -233,7 +233,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'chemical-create',
-						label: 'Record application',
+						label: 'Record Application',
 						to: '/control-operations/chemical/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -269,7 +269,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'source-reduction-create',
-						label: 'Record source reduction',
+						label: 'Record Source Reduction',
 						to: '/control-operations/source-reduction/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -299,7 +299,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'biocontrol-create',
-						label: 'Record release',
+						label: 'Record Release',
 						to: '/control-operations/biocontrol/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -321,7 +321,7 @@ export const shellDomains: readonly ShellDomain[] = [
 	},
 	{
 		id: 'public',
-		label: 'Public engagement',
+		label: 'Public Engagement',
 		summary: 'Requests from the public',
 		icon: iconRegistry.domains.publicEngagement.icon,
 		groups: [
@@ -348,7 +348,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'service-requests-create',
-						label: 'New request',
+						label: 'New Request',
 						to: '/public-engagement/service-requests/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -366,7 +366,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'contacts-create',
-						label: 'New contact',
+						label: 'New Contact',
 						to: '/public-engagement/contacts/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -391,7 +391,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'addresses',
-						label: 'Address book',
+						label: 'Address Book',
 						to: '/gis/addresses',
 						icon: iconRegistry.actions.searchCheck.icon,
 					},
@@ -415,13 +415,13 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'regions-create',
-						label: 'Create region',
+						label: 'Create Region',
 						to: '/gis/regions/create',
 						icon: iconRegistry.actions.add.icon,
 					},
 					{
 						id: 'regions-import',
-						label: 'Import regions',
+						label: 'Import Regions',
 						to: '/gis/regions/import',
 						icon: iconRegistry.actions.upload.icon,
 					},
@@ -452,7 +452,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'requests-for-control',
-						label: 'Requests for control',
+						label: 'Requests for Control',
 						to: '/requests-for-control',
 						icon: iconRegistry.domains.controlOperations.icon,
 					},
@@ -489,13 +489,13 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'org-adult',
-						label: 'Adult surveillance',
+						label: 'Adult Surveillance',
 						to: '/my-organization/adult-surveillance',
 						icon: iconRegistry.domains.adultSurveillance.icon,
 					},
 					{
 						id: 'org-larval',
-						label: 'Larval surveillance',
+						label: 'Larval Surveillance',
 						to: '/my-organization/larval-surveillance',
 						icon: iconRegistry.domains.larvalSurveillance.icon,
 					},
@@ -507,7 +507,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'org-control-methods',
-						label: 'Control methods',
+						label: 'Control Methods',
 						to: '/my-organization/control-methods',
 						icon: iconRegistry.domains.controlOperations.icon,
 					},
@@ -519,7 +519,7 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'org-public',
-						label: 'Public engagement',
+						label: 'Public Engagement',
 						to: '/my-organization/public-engagement',
 						icon: iconRegistry.domains.publicEngagement.icon,
 					},

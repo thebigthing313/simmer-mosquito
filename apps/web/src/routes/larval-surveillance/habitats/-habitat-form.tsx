@@ -208,10 +208,10 @@ export function HabitatFormPage({
 								void form.handleSubmit();
 							}}
 						>
-							<form.FormErrorAlert title="Unable to save habitat" />
+							<form.FormErrorAlert title="Unable to Save Habitat" />
 							{saveError === null ? null : (
 								<Alert variant="destructive">
-									<AlertTitle>Unable to save habitat</AlertTitle>
+									<AlertTitle>Unable to Save Habitat</AlertTitle>
 									<AlertDescription>{saveError}</AlertDescription>
 								</Alert>
 							)}

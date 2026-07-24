@@ -75,7 +75,7 @@ function RegionDetail({ regionId }: { readonly regionId: string }) {
 					to="/gis/regions"
 				>
 					<ArrowLeftIcon aria-hidden="true" />
-					Back to regions
+					Back to Regions
 				</Link>
 				{!result.isReady ? (
 					<RegionDetailSkeleton />
@@ -159,14 +159,14 @@ function RegionDetailContent({ region }: { readonly region: RegionRow }) {
 			<AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete this region?</AlertDialogTitle>
+						<AlertDialogTitle>Delete This Region?</AlertDialogTitle>
 						<AlertDialogDescription>
 							{region.name} will be removed. This can't be undone.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDelete}>Delete region</AlertDialogAction>
+						<AlertDialogAction onClick={confirmDelete}>Delete Region</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
@@ -287,7 +287,7 @@ function RegionUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Region unavailable</EmptyTitle>
+				<EmptyTitle>Region Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This region could not be found, or you do not have access to it.
 				</EmptyDescription>

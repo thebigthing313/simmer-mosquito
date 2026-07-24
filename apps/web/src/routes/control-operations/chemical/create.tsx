@@ -118,7 +118,7 @@ function CreateApplicationRoute() {
 			defaultValues={defaultApplicationFormValues()}
 			equipment={equipment}
 			header={{
-				title: 'Record application',
+				title: 'Record Application',
 				description:
 					'Place the treated point, pick the product and amount, and note who applied it.',
 				backTo: '/control-operations/chemical',
@@ -128,7 +128,7 @@ function CreateApplicationRoute() {
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
 			profiles={profiles}
-			submitLabel="Record application"
+			submitLabel="Record Application"
 			units={units}
 			vehicles={vehicles}
 		/>

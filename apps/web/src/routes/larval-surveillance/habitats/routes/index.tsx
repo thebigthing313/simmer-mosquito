@@ -117,7 +117,7 @@ function RoutesIndexRoute() {
 							</div>
 							<Button onClick={() => setCreateOpen(true)} size="sm">
 								<PlusIcon aria-hidden="true" />
-								New route
+								New Route
 							</Button>
 						</div>
 
@@ -185,7 +185,7 @@ function RouteResults({
 						<EmptyMedia variant="icon">
 							<RouteIcon aria-hidden="true" />
 						</EmptyMedia>
-						<EmptyTitle>No routes yet</EmptyTitle>
+						<EmptyTitle>No Routes Yet</EmptyTitle>
 						<EmptyDescription>
 							Routes group habitats into an ordered run field crews can follow. Create your first to
 							start adding stops.
@@ -194,7 +194,7 @@ function RouteResults({
 					<EmptyContent>
 						<Button onClick={onCreate}>
 							<PlusIcon aria-hidden="true" />
-							New route
+							New Route
 						</Button>
 					</EmptyContent>
 				</Empty>

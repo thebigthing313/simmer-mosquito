@@ -29,7 +29,7 @@ function MyOrganizationLarvalSurveillanceRoute() {
 				id="larval"
 				meta="Inspection entry policy and habitat classification"
 				setupItems={[]}
-				title="Larval surveillance"
+				title="Larval Surveillance"
 			>
 				<LarvalSurveillanceSettings
 					canManage={workspace.canManage}

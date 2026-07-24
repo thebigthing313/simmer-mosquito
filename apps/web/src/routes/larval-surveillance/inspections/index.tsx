@@ -744,7 +744,7 @@ function InspectionListItem({
 					aria-label={`View details for the ${formatMonthDay(inspection.inspectionDate)} inspection of ${siteLabel(inspection)}`}
 					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					params={{ id: inspection.id }}
-					title="View inspection details"
+					title="View Inspection Details"
 					to="/larval-surveillance/inspections/$id"
 				>
 					<ChevronRightIcon aria-hidden="true" className="size-4" />

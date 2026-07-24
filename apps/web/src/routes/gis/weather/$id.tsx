@@ -66,7 +66,7 @@ function WeatherSourceDetail({ sourceId }: { readonly sourceId: string }) {
 					to="/gis/weather"
 				>
 					<ArrowLeftIcon aria-hidden="true" />
-					Back to weather
+					Back to Weather
 				</Link>
 				{!result.isReady ? (
 					<DetailSkeleton />
@@ -147,13 +147,13 @@ function WeatherSummariesCard({ sourceId }: { readonly sourceId: string }) {
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
-				<CardTitle>Recent summaries</CardTitle>
+				<CardTitle>Recent Summaries</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">
 				{result.isError ? (
 					<SummariesEmpty
 						description="Weather summaries could not be loaded. Try again shortly."
-						title="Summaries unavailable"
+						title="Summaries Unavailable"
 					/>
 				) : !result.isReady ? (
 					<div className="grid gap-2">
@@ -164,7 +164,7 @@ function WeatherSummariesCard({ sourceId }: { readonly sourceId: string }) {
 				) : summaries.length === 0 ? (
 					<SummariesEmpty
 						description="No weather summaries have been recorded for this source yet."
-						title="No summaries"
+						title="No Summaries"
 					/>
 				) : (
 					<div className="overflow-x-auto rounded-md border border-border/40">
@@ -252,7 +252,7 @@ function SourceUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Weather source unavailable</EmptyTitle>
+				<EmptyTitle>Weather Source Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This weather source could not be found, or you do not have access to it.
 				</EmptyDescription>

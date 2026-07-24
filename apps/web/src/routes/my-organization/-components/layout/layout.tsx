@@ -152,7 +152,7 @@ export function EditSettingsSheet({
 					)}
 					<SheetFooter>
 						<Button type="submit" disabled={onSave === undefined}>
-							Save changes
+							Save Changes
 						</Button>
 						<SheetClose asChild>
 							<Button type="button" variant="outline">
@@ -266,7 +266,7 @@ export function SetupList({ items }: { readonly items: readonly SetupCatalog[] }
 
 	return (
 		<div className="grid gap-1.5">
-			<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
+			<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
 			<div className="grid gap-2">
 				{items.map((catalog) => (
 					<article

@@ -216,7 +216,7 @@ function ServiceRequestsExplorerRoute() {
 					<div className="flex flex-wrap items-center justify-between gap-2">
 						<div className="grid gap-1">
 							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
-								Service requests
+								Service Requests
 							</h1>
 							<p className="m-0 text-muted-foreground text-sm">
 								Requests from the public, mapped to their reported location.
@@ -225,7 +225,7 @@ function ServiceRequestsExplorerRoute() {
 						<Button asChild size="sm">
 							<Link to="/public-engagement/service-requests/create">
 								<PlusIcon aria-hidden="true" data-icon="inline-start" />
-								New request
+								New Request
 							</Link>
 						</Button>
 					</div>
@@ -591,7 +591,7 @@ function RequestRowItem({
 			<button
 				className="min-w-0 flex-1 space-y-1.5 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={onFocus}
-				title="Show on the map"
+				title="Show on the Map"
 				type="button"
 			>
 				<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -622,7 +622,7 @@ function RequestRowItem({
 				aria-label={`View ${serviceRequestTitle(request)}`}
 				className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				params={{ id: request.id }}
-				title="View request details"
+				title="View Request Details"
 				to="/public-engagement/service-requests/$id"
 			>
 				<ChevronRightIcon aria-hidden="true" className="size-4" />
@@ -649,7 +649,7 @@ function RequestsEmpty({ hasFilter }: { readonly hasFilter: boolean }) {
 					<EmptyMedia variant="icon">
 						<RequestIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>{hasFilter ? 'No requests match' : 'No service requests yet'}</EmptyTitle>
+					<EmptyTitle>{hasFilter ? 'No Requests Match' : 'No Service Requests Yet'}</EmptyTitle>
 					<EmptyDescription>
 						{hasFilter
 							? 'Try a different filter or search term.'

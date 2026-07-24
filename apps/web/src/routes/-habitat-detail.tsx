@@ -169,7 +169,7 @@ export function HabitatDetail({
 					{backTo === '/larval-surveillance/habitats' ? (
 						<Button asChild size="sm" variant="outline">
 							<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
-								Edit habitat
+								Edit Habitat
 							</Link>
 						</Button>
 					) : null}
@@ -354,7 +354,7 @@ function HabitatLocationCard({
 				) : geojson === null ? (
 					<Empty className="min-h-[320px] border border-border/40 bg-muted/30">
 						<EmptyHeader>
-							<EmptyTitle>No geometry recorded</EmptyTitle>
+							<EmptyTitle>No Geometry Recorded</EmptyTitle>
 							<EmptyDescription>This habitat has no location to display.</EmptyDescription>
 						</EmptyHeader>
 					</Empty>
@@ -697,7 +697,7 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 			<CardContent padding="compact">
 				{isError ? (
 					<HistoryEmpty
-						title="History unavailable"
+						title="History Unavailable"
 						description="Inspection and sample history could not be loaded."
 					/>
 				) : isReady ? (
@@ -716,7 +716,7 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 						<TabsContent value="applications" className="pt-4">
 							{applicationsResult.isError ? (
 								<HistoryEmpty
-									title="Applications unavailable"
+									title="Applications Unavailable"
 									description="Application history could not be loaded."
 								/>
 							) : (
@@ -746,7 +746,7 @@ function InspectionHistory({
 	if (inspections.length === 0) {
 		return (
 			<HistoryEmpty
-				title="No inspections yet"
+				title="No Inspections Yet"
 				description="Larval inspections recorded for this habitat will show here."
 			/>
 		);
@@ -827,7 +827,7 @@ function SampleHistory({ samples }: { readonly samples: readonly HistorySampleRo
 	if (samples.length === 0) {
 		return (
 			<HistoryEmpty
-				title="No samples yet"
+				title="No Samples Yet"
 				description="Samples appear once an inspection on this habitat records them."
 			/>
 		);
@@ -840,7 +840,7 @@ function SampleHistory({ samples }: { readonly samples: readonly HistorySampleRo
 					<TableHeader>
 						<TableRow>
 							<TableHead>Sample</TableHead>
-							<TableHead>Inspection date</TableHead>
+							<TableHead>Inspection Date</TableHead>
 							<TableHead>Result</TableHead>
 							<TableHead>Species</TableHead>
 						</TableRow>
@@ -882,7 +882,7 @@ function ApplicationHistory({
 	if (applications.length === 0) {
 		return (
 			<HistoryEmpty
-				title="No applications yet"
+				title="No Applications Yet"
 				description="Control applications recorded on this habitat will show here."
 			/>
 		);
@@ -1368,7 +1368,7 @@ function HabitatDetailUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Habitat unavailable</EmptyTitle>
+				<EmptyTitle>Habitat Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This habitat could not be found, or you do not have access to it.
 				</EmptyDescription>

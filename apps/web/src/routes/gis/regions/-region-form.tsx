@@ -172,10 +172,10 @@ export function RegionFormPage({
 								void form.handleSubmit();
 							}}
 						>
-							<form.FormErrorAlert title="Unable to save region" />
+							<form.FormErrorAlert title="Unable to Save Region" />
 							{saveError === null ? null : (
 								<Alert variant="destructive">
-									<AlertTitle>Unable to save region</AlertTitle>
+									<AlertTitle>Unable to Save Region</AlertTitle>
 									<AlertDescription>{saveError}</AlertDescription>
 								</Alert>
 							)}
@@ -312,10 +312,10 @@ function GeometrySection({
 						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
 					)}
 					{controller.isDrawing
-						? 'Drawing on the map…'
+						? 'Drawing on the Map…'
 						: hasGeometry
-							? 'Redraw boundary'
-							: 'Draw boundary'}
+							? 'Redraw Boundary'
+							: 'Draw Boundary'}
 				</Button>
 				{hasGeometry && !controller.isDrawing ? (
 					<Button onClick={onClear} size="sm" type="button" variant="ghost">

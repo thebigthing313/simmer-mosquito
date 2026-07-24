@@ -406,7 +406,7 @@ function ApplicationBatchesCard({
 				{isError ? (
 					<BatchesEmpty
 						description="Batch records could not be loaded. Try again shortly."
-						title="Batches unavailable"
+						title="Batches Unavailable"
 					/>
 				) : !isReady ? (
 					<div className="grid gap-2">
@@ -421,7 +421,7 @@ function ApplicationBatchesCard({
 								? 'No batches linked yet. Add the lot this treatment came from below.'
 								: 'No batches have been linked to this application.'
 						}
-						title="No batches linked"
+						title="No Batches Linked"
 					/>
 				) : (
 					<div className="overflow-hidden rounded-md border border-border/40">
@@ -512,7 +512,7 @@ function AddBatchControl({
 					size="sm"
 					type="button"
 				>
-					Add batch
+					Add Batch
 				</Button>
 			</div>
 		</div>
@@ -630,7 +630,7 @@ function ApplicationUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Application unavailable</EmptyTitle>
+				<EmptyTitle>Application Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This application could not be found, or you do not have access to it.
 				</EmptyDescription>

@@ -288,10 +288,10 @@ export function BiocontrolFormPage({
 								void form.handleSubmit();
 							}}
 						>
-							<form.FormErrorAlert title="Unable to save biocontrol action" />
+							<form.FormErrorAlert title="Unable to Save Biocontrol Action" />
 							{saveError === null ? null : (
 								<Alert variant="destructive">
-									<AlertTitle>Unable to save biocontrol action</AlertTitle>
+									<AlertTitle>Unable to Save Biocontrol Action</AlertTitle>
 									<AlertDescription>{saveError}</AlertDescription>
 								</Alert>
 							)}

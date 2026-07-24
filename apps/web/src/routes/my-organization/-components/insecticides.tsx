@@ -69,7 +69,7 @@ export function InsecticideBatchTrackingDrawer({
 					trackInsecticideBatches: formData.get('Track insecticide batches') === 'true',
 				})
 			}
-			title="Edit batch tracking"
+			title="Edit Batch Tracking"
 		/>
 	);
 }

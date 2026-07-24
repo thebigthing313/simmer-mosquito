@@ -114,14 +114,14 @@ function EditContactLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromContact(contact)}
 			header={{
-				title: 'Edit contact',
+				title: 'Edit Contact',
 				description: 'Update this contact’s identity, communication, or preferences.',
 				backTo: '/public-engagement/contacts/$id',
 				backParams: { id: contact.id },
-				backLabel: 'Back to contact',
+				backLabel: 'Back to Contact',
 			}}
 			onSave={onSave}
-			submitLabel="Save changes"
+			submitLabel="Save Changes"
 		/>
 	);
 }
@@ -148,7 +148,7 @@ function EditUnavailable({ description }: { readonly description: string }) {
 		<OutletSimpleLayout>
 			<Empty className="max-w-md border border-border/40 bg-muted/30">
 				<EmptyHeader>
-					<EmptyTitle>Contact unavailable</EmptyTitle>
+					<EmptyTitle>Contact Unavailable</EmptyTitle>
 					<EmptyDescription>{description}</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

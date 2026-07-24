@@ -118,7 +118,7 @@ function CollectionMethodsRoute() {
 					</span>
 					<div className="grid min-w-0 gap-1">
 						<h1 className="text-pretty font-semibold text-foreground text-xl leading-tight">
-							Collection methods
+							Collection Methods
 						</h1>
 						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
 							Collection methods describe how your crews catch adult mosquitoes — light traps,
@@ -135,7 +135,7 @@ function CollectionMethodsRoute() {
 							trigger={
 								<Button type="button">
 									<AddIcon aria-hidden="true" />
-									Add method
+									Add Method
 								</Button>
 							}
 						/>
@@ -297,8 +297,8 @@ function CollectionMethodSection({
 								<TableHead className="w-[26%]">Method</TableHead>
 								<TableHead>Description</TableHead>
 								<TableHead className="w-[96px] text-right">Threshold</TableHead>
-								<TableHead className="w-[116px]">Custom fields</TableHead>
-								<TableHead className="w-[104px] text-right">Active traps</TableHead>
+								<TableHead className="w-[116px]">Custom Fields</TableHead>
+								<TableHead className="w-[104px] text-right">Active Traps</TableHead>
 								{canManage ? (
 									<TableHead className="w-[60px] text-right">
 										<span className="sr-only">Actions</span>
@@ -478,7 +478,7 @@ function CollectionMethodsEmpty({
 				<EmptyMedia variant="icon">
 					<MethodIcon aria-hidden="true" />
 				</EmptyMedia>
-				<EmptyTitle>No collection methods yet</EmptyTitle>
+				<EmptyTitle>No Collection Methods Yet</EmptyTitle>
 				<EmptyDescription>
 					Every trap records the method that caught its mosquitoes, so your agency needs at least
 					one before crews can add traps.
@@ -494,7 +494,7 @@ function CollectionMethodsEmpty({
 						trigger={
 							<Button type="button">
 								<AddIcon aria-hidden="true" />
-								Add method
+								Add Method
 							</Button>
 						}
 					/>

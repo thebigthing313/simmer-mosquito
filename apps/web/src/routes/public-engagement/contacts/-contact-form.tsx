@@ -155,10 +155,10 @@ export function ContactFormPage({
 							void form.handleSubmit();
 						}}
 					>
-						<form.FormErrorAlert title="Unable to save contact" />
+						<form.FormErrorAlert title="Unable to Save Contact" />
 						{saveError === null ? null : (
 							<Alert variant="destructive">
-								<AlertTitle>Unable to save contact</AlertTitle>
+								<AlertTitle>Unable to Save Contact</AlertTitle>
 								<AlertDescription>{saveError}</AlertDescription>
 							</Alert>
 						)}
@@ -219,7 +219,7 @@ export function ContactFormPage({
 
 						<FormSection
 							description="How this contact prefers to be reached for notifications and follow-up."
-							title="Notification preferences"
+							title="Notification Preferences"
 						>
 							<form.AppField name="wantsEmail">
 								{(field) => (

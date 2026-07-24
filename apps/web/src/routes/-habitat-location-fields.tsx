@@ -164,7 +164,7 @@ export function AddressIdInput({
 							}}
 						>
 							<PlusIcon data-icon="inline-start" aria-hidden="true" />
-							Create address
+							Create Address
 						</Button>
 					</PopoverContent>
 				</Popover>
@@ -555,7 +555,7 @@ function NewAddressSubform({
 					{isSaving ? (
 						<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden="true" />
 					) : null}
-					Create address
+					Create Address
 				</Button>
 			</div>
 			<GeocoderDialog
@@ -620,7 +620,7 @@ function GeocoderDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Choose geocoder result</DialogTitle>
+					<DialogTitle>Choose Geocoder Result</DialogTitle>
 					<DialogDescription>
 						Select the best match or place the address point manually on the map.
 					</DialogDescription>
@@ -649,7 +649,7 @@ function GeocoderDialog({
 				<DialogFooter>
 					<Button type="button" variant="outline" onClick={onUseManualCoordinates}>
 						<MapPinnedIcon data-icon="inline-start" aria-hidden="true" />
-						Use manual coordinates
+						Use Manual Coordinates
 					</Button>
 				</DialogFooter>
 			</DialogContent>

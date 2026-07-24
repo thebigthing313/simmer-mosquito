@@ -441,7 +441,7 @@ function ResultsCard({
 					{result.isError ? (
 						<SpeciesEmpty
 							description="Species records could not be loaded."
-							title="Species unavailable"
+							title="Species Unavailable"
 						/>
 					) : !result.isReady ? (
 						<div className="grid gap-2">
@@ -452,7 +452,7 @@ function ResultsCard({
 					) : collection.isZeroResult ? (
 						<SpeciesEmpty
 							description="This collection is marked as a zero result. Turn off “Zero result” to record species."
-							title="Zero result"
+							title="Zero Result"
 						/>
 					) : entries.length === 0 ? (
 						<SpeciesEmpty
@@ -461,7 +461,7 @@ function ResultsCard({
 									? 'No species recorded yet. Add the specimens identified below.'
 									: 'No species have been recorded for this collection.'
 							}
-							title="No species recorded"
+							title="No Species Recorded"
 						/>
 					) : (
 						<div className="overflow-hidden rounded-md border border-border/40">
@@ -505,7 +505,7 @@ function ResultsCard({
 			<AlertDialog onOpenChange={setConfirmZeroResult} open={confirmZeroResult}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Mark as zero result?</AlertDialogTitle>
+						<AlertDialogTitle>Mark as Zero Result?</AlertDialogTitle>
 						<AlertDialogDescription>
 							This clears the {entries.length} species {entries.length === 1 ? 'record' : 'records'}{' '}
 							already recorded for this collection, and can't be undone.
@@ -514,7 +514,7 @@ function ResultsCard({
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction onClick={() => setFlag('isZeroResult', true)}>
-							Mark zero result
+							Mark Zero Result
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -750,7 +750,7 @@ function AddSpeciesForm({
 								size="sm"
 								type="submit"
 							>
-								Add species
+								Add Species
 							</Button>
 						)}
 					</form.Subscribe>
@@ -986,7 +986,7 @@ function CollectionUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Collection unavailable</EmptyTitle>
+				<EmptyTitle>Collection Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This collection could not be found, or you do not have access to it.
 				</EmptyDescription>

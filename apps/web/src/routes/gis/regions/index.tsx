@@ -631,7 +631,7 @@ function RegionTreeRow({
 					<button
 						className="min-w-0 flex-1 truncate rounded-sm text-left text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						onClick={onFocus}
-						title="Show on the map"
+						title="Show on the Map"
 						type="button"
 					>
 						{region.name}
@@ -640,7 +640,7 @@ function RegionTreeRow({
 						aria-label={`Rename ${region.name}`}
 						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
 						onClick={() => rename.start(region.id)}
-						title="Rename region"
+						title="Rename Region"
 						type="button"
 					>
 						<EditIcon aria-hidden="true" className="size-4" />
@@ -649,7 +649,7 @@ function RegionTreeRow({
 						aria-label={`View details for ${region.name}`}
 						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						params={{ id: region.id }}
-						title="View region details"
+						title="View Region Details"
 						to="/gis/regions/$id"
 					>
 						<ChevronRightIcon aria-hidden="true" className="size-4" />
@@ -761,11 +761,11 @@ function NewFolderButton({
 	return (
 		<Dialog onOpenChange={setOpen} open={open}>
 			<Button onClick={() => setOpen(true)} size="sm" variant="outline">
-				New folder
+				New Folder
 			</Button>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>New region folder</DialogTitle>
+					<DialogTitle>New Region Folder</DialogTitle>
 					<DialogDescription>Group related regions under a named folder.</DialogDescription>
 				</DialogHeader>
 				<div className="grid gap-4">
@@ -794,7 +794,7 @@ function NewFolderButton({
 						Cancel
 					</Button>
 					<Button disabled={!canCreate || isSaving} onClick={onCreate} type="button">
-						Create folder
+						Create Folder
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -820,7 +820,7 @@ function RegionsEmpty() {
 					<EmptyMedia variant="icon">
 						<RegionIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>No regions yet</EmptyTitle>
+					<EmptyTitle>No Regions Yet</EmptyTitle>
 					<EmptyDescription>
 						Create a region or import boundaries from a KML or GeoJSON file.
 					</EmptyDescription>

@@ -54,7 +54,7 @@ export function PublicEngagementSettings({
 		<div className="grid gap-3">
 			<ServiceRequestContextGuide settings={settings} />
 			<div className="grid gap-2">
-				<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
+				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
 				<div className="grid gap-3">
 					<ControlMethodLookupList
 						canManage={canManage}
@@ -176,7 +176,7 @@ export function PublicSettingsDrawer({
 					daysAfter: Number(formData.get('Days after')),
 				})
 			}
-			title="Edit Public engagement"
+			title="Edit Public Engagement"
 		/>
 	);
 }
@@ -198,7 +198,7 @@ export function NotificationTypeLookupList({
 			activeCount={activeTypes.length}
 			inactiveCount={inactiveTypes.length}
 			detail="Notification types classify resident communication such as phone calls, emails, letters, and door notices."
-			title="Notification types"
+			title="Notification Types"
 			action={
 				<NotificationTypeDrawer
 					canManage={canManage}
@@ -206,7 +206,7 @@ export function NotificationTypeLookupList({
 					trigger={
 						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
 							<AddIcon aria-hidden="true" />
-							Add type
+							Add Type
 						</Button>
 					}
 				/>
@@ -242,7 +242,7 @@ export function NotificationTypeTable({
 			<Table>
 				<TableHeader>
 					<TableRow>
-						<TableHead>Notification type</TableHead>
+						<TableHead>Notification Type</TableHead>
 						<TableHead>Description</TableHead>
 						<TableHead className="w-28">Status</TableHead>
 						{canManage ? <TableHead className="w-16 text-right">Edit</TableHead> : null}
@@ -329,7 +329,7 @@ export function NotificationTypeDrawer({
 				<DrawerHeader>
 					<DrawerTitle>
 						{notificationType === undefined
-							? 'Add notification type'
+							? 'Add Notification Type'
 							: `Edit ${notificationType.name}`}
 					</DrawerTitle>
 					<DrawerDescription>

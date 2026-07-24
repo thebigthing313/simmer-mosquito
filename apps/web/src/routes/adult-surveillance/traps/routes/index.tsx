@@ -87,7 +87,7 @@ function TrapRoutesIndexRoute() {
 												params={{ id: selectedRoute.id }}
 												to="/adult-surveillance/traps/routes/$id"
 											>
-												Open route
+												Open Route
 											</Link>
 										</Button>
 										<Button asChild className="flex-1" size="sm" variant="outline">
@@ -109,14 +109,14 @@ function TrapRoutesIndexRoute() {
 					<div className="sticky top-0 z-10 grid gap-3 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
 						<div className="flex items-center justify-between gap-3">
 							<div className="flex items-baseline gap-2">
-								<h1 className="font-semibold text-foreground text-lg leading-none">Trap routes</h1>
+								<h1 className="font-semibold text-foreground text-lg leading-none">Trap Routes</h1>
 								<span className="text-muted-foreground text-sm">
 									{routeCountLabel(routes.length)}
 								</span>
 							</div>
 							<Button onClick={() => setCreateOpen(true)} size="sm">
 								<PlusIcon aria-hidden="true" />
-								New route
+								New Route
 							</Button>
 						</div>
 
@@ -184,7 +184,7 @@ function RouteResults({
 						<EmptyMedia variant="icon">
 							<RouteIcon aria-hidden="true" />
 						</EmptyMedia>
-						<EmptyTitle>No trap routes yet</EmptyTitle>
+						<EmptyTitle>No Trap Routes Yet</EmptyTitle>
 						<EmptyDescription>
 							Routes group traps into an ordered run field crews can follow. Create your first to
 							start adding stops.
@@ -193,7 +193,7 @@ function RouteResults({
 					<EmptyContent>
 						<Button onClick={onCreate}>
 							<PlusIcon aria-hidden="true" />
-							New route
+							New Route
 						</Button>
 					</EmptyContent>
 				</Empty>

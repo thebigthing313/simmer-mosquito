@@ -120,7 +120,7 @@ export function GeneralOrganizationSection({
 						description="Set default units used across collection forms, summaries, and operational reports."
 						organization={organization}
 						settings={settings}
-						title="Edit Unit defaults"
+						title="Edit Unit Defaults"
 						units={units}
 					/>
 				}
@@ -128,7 +128,7 @@ export function GeneralOrganizationSection({
 				id="units"
 				meta="Measurement choices used across forms and summaries"
 				setupItems={[]}
-				title="Unit defaults"
+				title="Unit Defaults"
 			/>
 
 			<DomainSection
@@ -143,7 +143,7 @@ export function GeneralOrganizationSection({
 						onClick={() => setIsCreatingTag(true)}
 					>
 						<AddIcon aria-hidden="true" />
-						Add tag
+						Add Tag
 					</Button>
 				}
 				fields={[]}
@@ -237,7 +237,7 @@ export function TagTableSection({
 					<Table className="min-w-[calc(var(--tag-preview-column)+var(--tag-description-column)+var(--tag-color-column)+var(--tag-actions-column))] table-fixed">
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-(--tag-preview-column)">Tag preview</TableHead>
+								<TableHead className="w-(--tag-preview-column)">Tag Preview</TableHead>
 								<TableHead className="w-(--tag-description-column)">Description</TableHead>
 								<TableHead className="w-(--tag-color-column)">Color</TableHead>
 								{canManage ? (

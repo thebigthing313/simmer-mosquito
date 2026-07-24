@@ -245,10 +245,10 @@ export function TrapFormPage({
 								void form.handleSubmit();
 							}}
 						>
-							<form.FormErrorAlert title="Unable to save trap" />
+							<form.FormErrorAlert title="Unable to Save Trap" />
 							{saveError === null ? null : (
 								<Alert variant="destructive">
-									<AlertTitle>Unable to save trap</AlertTitle>
+									<AlertTitle>Unable to Save Trap</AlertTitle>
 									<AlertDescription>{saveError}</AlertDescription>
 								</Alert>
 							)}
@@ -437,7 +437,7 @@ export function PointControl({
 				{canMoveToAddress ? (
 					<Button onClick={onMoveToAddress} size="sm" type="button" variant="ghost">
 						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-						Move to address
+						Move to Address
 					</Button>
 				) : null}
 				{geometry === null ? null : (

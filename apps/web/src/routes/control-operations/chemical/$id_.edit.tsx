@@ -186,7 +186,7 @@ function EditApplicationLoader({
 			defaultValues={defaultsFromApplication(application)}
 			equipment={equipment}
 			header={{
-				title: 'Edit application',
+				title: 'Edit Application',
 				description: 'Update this application’s product, amount, work details, or location.',
 				backTo: '/control-operations/chemical/$id',
 				backParams: { id: application.id },
@@ -199,7 +199,7 @@ function EditApplicationLoader({
 			organizationId={application.organizationId}
 			profiles={profiles}
 			requireLocation={false}
-			submitLabel="Save changes"
+			submitLabel="Save Changes"
 			units={units}
 			vehicles={vehicles}
 		/>
@@ -251,7 +251,7 @@ function EditUnavailable({ description }: { readonly description: string }) {
 		<div className="flex h-full min-h-0 items-center justify-center p-8">
 			<Empty className="max-w-md border border-border/40 bg-muted/30">
 				<EmptyHeader>
-					<EmptyTitle>Application unavailable</EmptyTitle>
+					<EmptyTitle>Application Unavailable</EmptyTitle>
 					<EmptyDescription>{description}</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

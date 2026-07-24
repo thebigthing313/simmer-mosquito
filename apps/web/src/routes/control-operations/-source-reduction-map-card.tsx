@@ -71,7 +71,7 @@ export function SourceReductionMapCard({
 
 	if (action === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Source reduction">
+			<MapCard onClose={onClose} title="Source Reduction">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />

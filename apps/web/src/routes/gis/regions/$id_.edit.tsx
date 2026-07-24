@@ -144,17 +144,17 @@ function EditRegionLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromRegion(region)}
 			header={{
-				title: 'Edit region',
+				title: 'Edit Region',
 				description: "Update this region's name, folder, boundary, or details.",
 				backTo: '/gis/regions/$id',
 				backParams: { id: region.id },
-				backLabel: 'Back to region',
+				backLabel: 'Back to Region',
 			}}
 			initialGeometry={initialGeometry}
 			mode="edit"
 			onSave={onSave}
 			regionFolders={regionFolders}
-			submitLabel="Save changes"
+			submitLabel="Save Changes"
 		/>
 	);
 }
@@ -195,7 +195,7 @@ function EditUnavailable({ description }: { readonly description: string }) {
 		<div className="flex h-full min-h-0 items-center justify-center p-8">
 			<Empty className="max-w-md border border-border/40 bg-muted/30">
 				<EmptyHeader>
-					<EmptyTitle>Region unavailable</EmptyTitle>
+					<EmptyTitle>Region Unavailable</EmptyTitle>
 					<EmptyDescription>{description}</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

@@ -146,7 +146,7 @@ function EditTrapLoader({
 			collectionMethods={collectionMethods}
 			defaultValues={defaultsFromTrap(trap)}
 			header={{
-				title: 'Edit trap',
+				title: 'Edit Trap',
 				description: 'Update this trap’s details, method, lure, or location.',
 				backTo: '/adult-surveillance/traps/$id',
 				backParams: { id: trap.id },
@@ -157,7 +157,7 @@ function EditTrapLoader({
 			onSave={onSave}
 			organizationId={trap.organizationId}
 			requireLocation={false}
-			submitLabel="Save changes"
+			submitLabel="Save Changes"
 		/>
 	);
 }
@@ -205,7 +205,7 @@ function EditUnavailable({ description }: { readonly description: string }) {
 		<div className="flex h-full min-h-0 items-center justify-center p-8">
 			<Empty className="max-w-md border border-border/40 bg-muted/30">
 				<EmptyHeader>
-					<EmptyTitle>Trap unavailable</EmptyTitle>
+					<EmptyTitle>Trap Unavailable</EmptyTitle>
 					<EmptyDescription>{description}</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

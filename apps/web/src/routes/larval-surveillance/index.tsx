@@ -75,7 +75,7 @@ function LarvalSurveillanceOverviewRoute() {
 					<span className="font-medium text-xs uppercase tracking-wide">Larval surveillance</span>
 				</div>
 				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Surveillance overview
+					Surveillance Overview
 				</h1>
 				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
 					Recent inspection activity, species identified in samples, and the finds that need
@@ -327,7 +327,7 @@ function DailyInspectionsPanel({
 			}
 			count={isReady ? inspections.length : undefined}
 			icon={<InspectionIcon className="size-4" />}
-			title="Daily inspections"
+			title="Daily Inspections"
 		>
 			<div className="flex items-stretch gap-1 border-border/60 border-b p-3">
 				<Button
@@ -506,7 +506,7 @@ function SpeciesCompositionPanel({ today }: { readonly today: string }) {
 				</ToggleGroup>
 			}
 			icon={<SpeciesIcon className="size-4" />}
-			title="Species composition"
+			title="Species Composition"
 		>
 			{isError ? (
 				<PanelMessage>Species data is unavailable right now.</PanelMessage>
@@ -594,7 +594,7 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 				) : undefined
 			}
 			icon={<SampleIcon className="size-4" />}
-			title="Awaiting identification"
+			title="Awaiting Identification"
 		>
 			{isError ? (
 				<PanelMessage>Sample data is unavailable right now.</PanelMessage>

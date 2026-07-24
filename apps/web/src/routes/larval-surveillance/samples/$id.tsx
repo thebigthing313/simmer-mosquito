@@ -364,7 +364,7 @@ function SampleLocationCard({
 				{geometry === null ? (
 					<Empty className="min-h-[240px] border border-border/40 bg-muted/30">
 						<EmptyHeader>
-							<EmptyTitle>No geometry recorded</EmptyTitle>
+							<EmptyTitle>No Geometry Recorded</EmptyTitle>
 							<EmptyDescription>The parent inspection has no location to display.</EmptyDescription>
 						</EmptyHeader>
 					</Empty>
@@ -740,7 +740,7 @@ function SpeciesResultRow({
 						disabled={busy}
 						onClick={() => void remove()}
 						size="icon-xs"
-						title="Remove species"
+						title="Remove Species"
 						variant="ghost"
 					>
 						<XIcon aria-hidden="true" />
@@ -1211,7 +1211,7 @@ function ResultsUnavailable() {
 				<EmptyMedia variant="icon">
 					<SpeciesIcon aria-hidden="true" />
 				</EmptyMedia>
-				<EmptyTitle>Results unavailable</EmptyTitle>
+				<EmptyTitle>Results Unavailable</EmptyTitle>
 				<EmptyDescription>
 					The sample’s identification could not be loaded. Try again shortly.
 				</EmptyDescription>
@@ -1243,7 +1243,7 @@ function SampleUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Sample unavailable</EmptyTitle>
+				<EmptyTitle>Sample Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This sample could not be found, or you do not have access to it.
 				</EmptyDescription>

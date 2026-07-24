@@ -173,16 +173,16 @@ function CreateServiceRequestRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultServiceRequestFormValues(today, actorProfileId ?? '')}
 			header={{
-				title: 'New service request',
+				title: 'New Service Request',
 				description:
 					'Log a request from the public — link or create a contact and address, and place its location.',
 				backTo: '/public-engagement/service-requests',
-				backLabel: 'Service requests',
+				backLabel: 'Service Requests',
 			}}
 			onSave={onSave}
 			organizationId={organizationId}
 			profiles={profiles}
-			submitLabel="Create request"
+			submitLabel="Create Request"
 		/>
 	);
 }

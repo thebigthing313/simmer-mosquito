@@ -178,7 +178,7 @@ export function MetadataField({
 							variant="outline"
 						>
 							<AddIcon aria-hidden="true" />
-							Add field
+							Add Field
 						</Button>
 					) : null}
 				</div>

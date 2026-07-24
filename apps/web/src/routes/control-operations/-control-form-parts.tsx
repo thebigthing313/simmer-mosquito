@@ -94,12 +94,12 @@ export function PointControl({
 					) : (
 						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
 					)}
-					{geometry === null ? 'Drop point' : 'Refine point'}
+					{geometry === null ? 'Drop Point' : 'Refine Point'}
 				</Button>
 				{canMoveToAddress ? (
 					<Button onClick={onMoveToAddress} size="sm" type="button" variant="ghost">
 						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-						Move to address
+						Move to Address
 					</Button>
 				) : null}
 				{geometry === null ? null : (

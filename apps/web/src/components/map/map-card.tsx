@@ -76,7 +76,7 @@ export function MapCard({
 						<Button asChild size="sm" variant="outline">
 							{viewDetailLink(
 								<>
-									View details
+									View Details
 									<ChevronRightIcon aria-hidden="true" />
 								</>,
 							)}

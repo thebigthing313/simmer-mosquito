@@ -125,7 +125,7 @@ function LandingEntry({
 			<div className="flex w-full max-w-[420px] flex-col gap-7">
 				<div className="grid gap-2">
 					<h2 className="m-0 text-[1.5rem] font-bold leading-tight text-foreground">
-						Welcome back
+						Welcome Back
 					</h2>
 					<p className="m-0 leading-normal text-muted-foreground">
 						Sign in to your agency workspace, or create an account to get started.
@@ -135,7 +135,7 @@ function LandingEntry({
 				{authReason === 'organization_required' ? (
 					<Alert className="border-warning/30 bg-[color-mix(in_oklch,var(--warning-bg)_60%,var(--card))] text-foreground">
 						<WarningIcon className="text-warning" />
-						<AlertTitle>Organization access needed</AlertTitle>
+						<AlertTitle>Organization Access Needed</AlertTitle>
 						<AlertDescription className="text-muted-foreground">
 							You&rsquo;re signed in, but no active SIMMER organization is selected for your
 							account. Choose or request an organization to continue.
@@ -146,12 +146,12 @@ function LandingEntry({
 				<div className="grid gap-2.5">
 					<Button asChild size="lg" className="w-full">
 						<Link to="/sign-in" search={{ redirect: redirectPath }}>
-							Sign in
+							Sign In
 						</Link>
 					</Button>
 					<Button asChild size="lg" variant="outline" className="w-full">
 						<Link to="/sign-up" search={{ redirect: redirectPath }}>
-							Create an account
+							Create an Account
 						</Link>
 					</Button>
 				</div>

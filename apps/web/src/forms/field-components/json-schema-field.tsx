@@ -220,7 +220,7 @@ export function JsonSchemaField({ label, description, disabled, className }: Jso
 						variant="outline"
 					>
 						<AddIcon aria-hidden="true" />
-						Add field
+						Add Field
 					</Button>
 				</div>
 			)}

@@ -63,7 +63,7 @@ function ContactDetailRoute() {
 					to="/public-engagement/contacts"
 				>
 					<ArrowLeftIcon aria-hidden="true" />
-					Back to contacts
+					Back to Contacts
 				</Link>
 				{!result.isReady ? (
 					<ContactDetailSkeleton />
@@ -173,7 +173,7 @@ function ContactServiceRequestsCard({ contactId }: { readonly contactId: string 
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
-				<CardTitle>Service requests</CardTitle>
+				<CardTitle>Service Requests</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">
 				{result.isError ? (
@@ -328,7 +328,7 @@ function ContactUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Contact unavailable</EmptyTitle>
+				<EmptyTitle>Contact Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This contact could not be found, or you do not have access to it.
 				</EmptyDescription>

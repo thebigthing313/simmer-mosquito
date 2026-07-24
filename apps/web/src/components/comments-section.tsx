@@ -233,7 +233,7 @@ export function CommentsSection({
 				{commentsResult.isError ? (
 					<CommentsEmpty
 						description="Comments could not be loaded. Try again shortly."
-						title="Comments unavailable"
+						title="Comments Unavailable"
 					/>
 				) : isLoading ? (
 					<CommentsLoading />
@@ -250,7 +250,7 @@ export function CommentsSection({
 								? 'Start the thread — leave access notes, field context, or a status update.'
 								: 'No one has commented on this record yet.'
 						}
-						title="No comments yet"
+						title="No Comments Yet"
 					/>
 				)}
 			</CardContent>
@@ -509,7 +509,7 @@ function CommentItem({
 								aria-label="Edit comment"
 								onClick={startEdit}
 								size="icon-xs"
-								title="Edit comment"
+								title="Edit Comment"
 								variant="ghost"
 							>
 								<EditIcon aria-hidden="true" />
@@ -519,7 +519,7 @@ function CommentItem({
 								className="text-muted-foreground hover:text-destructive"
 								onClick={() => setMode('confirm-delete')}
 								size="icon-xs"
-								title="Delete comment"
+								title="Delete Comment"
 								variant="ghost"
 							>
 								<DeleteIcon aria-hidden="true" />

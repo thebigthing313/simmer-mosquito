@@ -73,7 +73,7 @@ function RouteDetailRoute() {
 						<Button asChild size="sm" variant="outline">
 							<Link params={{ id }} to="/larval-surveillance/habitats/routes/$id/edit">
 								<EditIcon aria-hidden="true" />
-								Edit route
+								Edit Route
 							</Link>
 						</Button>
 					</div>
@@ -128,7 +128,7 @@ function RouteBody({
 						<EmptyMedia variant="icon">
 							<MapPinnedIcon aria-hidden="true" />
 						</EmptyMedia>
-						<EmptyTitle>No stops on this route</EmptyTitle>
+						<EmptyTitle>No Stops on This Route</EmptyTitle>
 						<EmptyDescription>
 							Add habitats to build the run crews will follow, in the order they should visit them.
 						</EmptyDescription>
@@ -137,7 +137,7 @@ function RouteBody({
 						<Button asChild>
 							<Link params={{ id: routeId }} to="/larval-surveillance/habitats/routes/$id/edit">
 								<EditIcon aria-hidden="true" />
-								Add stops
+								Add Stops
 							</Link>
 						</Button>
 					</EmptyContent>
@@ -166,7 +166,7 @@ function RouteNotFound() {
 					<EmptyMedia variant="icon">
 						<RouteIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>Route not found</EmptyTitle>
+					<EmptyTitle>Route Not Found</EmptyTitle>
 					<EmptyDescription>
 						This route may have been deleted, or the link is out of date.
 					</EmptyDescription>

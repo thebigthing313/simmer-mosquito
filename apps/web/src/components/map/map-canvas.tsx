@@ -173,11 +173,11 @@ export function MapCanvas({
 			{!hasToken ? (
 				<MapFallback
 					description="Set VITE_MAPBOX_ACCESS_TOKEN in the web app environment to load the basemap."
-					title="Map unavailable"
+					title="Map Unavailable"
 					variant="empty"
 				/>
 			) : showFatalError ? (
-				<MapFallback description={error} title="The map didn't load" variant="error" />
+				<MapFallback description={error} title="The Map Didn't Load" variant="error" />
 			) : (
 				<>
 					{showLoading ? (

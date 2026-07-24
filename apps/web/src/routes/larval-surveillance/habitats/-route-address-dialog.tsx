@@ -78,7 +78,7 @@ export function RouteStopAddressDialog({
 		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent className="sm:max-w-2xl">
 				<DialogHeader>
-					<DialogTitle>Linked address</DialogTitle>
+					<DialogTitle>Linked Address</DialogTitle>
 					<DialogDescription>
 						Link {habitatName} to an address book record, or add a new one. Changes apply to the
 						habitat everywhere it appears.
@@ -119,7 +119,7 @@ export function RouteStopAddressDialog({
 						{isSaving ? (
 							<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
 						) : null}
-						Save link
+						Save Link
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -304,10 +304,10 @@ export function ApplicationFormPage({
 								void form.handleSubmit();
 							}}
 						>
-							<form.FormErrorAlert title="Unable to save application" />
+							<form.FormErrorAlert title="Unable to Save Application" />
 							{saveError === null ? null : (
 								<Alert variant="destructive">
-									<AlertTitle>Unable to save application</AlertTitle>
+									<AlertTitle>Unable to Save Application</AlertTitle>
 									<AlertDescription>{saveError}</AlertDescription>
 								</Alert>
 							)}

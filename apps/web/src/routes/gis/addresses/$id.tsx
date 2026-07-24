@@ -74,7 +74,7 @@ function AddressDetail({ addressId }: { readonly addressId: string }) {
 					to="/gis/addresses"
 				>
 					<ArrowLeftIcon aria-hidden="true" />
-					Back to address book
+					Back to Address Book
 				</Link>
 				{!result.isReady ? (
 					<AddressDetailSkeleton />
@@ -155,14 +155,14 @@ function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 			<AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete this address?</AlertDialogTitle>
+						<AlertDialogTitle>Delete This Address?</AlertDialogTitle>
 						<AlertDialogDescription>
 							{address.displayName} will be removed from the address book. This can't be undone.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDelete}>Delete address</AlertDialogAction>
+						<AlertDialogAction onClick={confirmDelete}>Delete Address</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
@@ -288,7 +288,7 @@ function AddressUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Address unavailable</EmptyTitle>
+				<EmptyTitle>Address Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This address could not be found, or you do not have access to it.
 				</EmptyDescription>

@@ -141,7 +141,7 @@ export function ControlMethodsPage({
 							trigger={
 								<Button type="button">
 									<AddIcon aria-hidden="true" />
-									Add method
+									Add Method
 								</Button>
 							}
 						/>
@@ -170,7 +170,7 @@ export function ControlMethodsPage({
 								trigger={
 									<Button type="button">
 										<AddIcon aria-hidden="true" />
-										Add method
+										Add Method
 									</Button>
 								}
 							/>
@@ -308,7 +308,7 @@ function ControlMethodSection({
 						<TableHeader>
 							<TableRow className="bg-muted/40 hover:bg-muted/40">
 								<TableHead>Method</TableHead>
-								<TableHead className="w-[140px]">Custom fields</TableHead>
+								<TableHead className="w-[140px]">Custom Fields</TableHead>
 								{canManage ? (
 									<TableHead className="w-[60px] text-right">
 										<span className="sr-only">Actions</span>

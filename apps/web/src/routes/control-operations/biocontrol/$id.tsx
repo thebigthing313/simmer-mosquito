@@ -276,7 +276,7 @@ function BiocontrolUnavailable({ description }: { readonly description: string }
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Biocontrol action unavailable</EmptyTitle>
+				<EmptyTitle>Biocontrol Action Unavailable</EmptyTitle>
 				<EmptyDescription>{description}</EmptyDescription>
 			</EmptyHeader>
 		</Empty>

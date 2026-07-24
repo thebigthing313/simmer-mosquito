@@ -306,7 +306,7 @@ function RouteEditRoute() {
 								variant="ghost"
 							>
 								<DeleteIcon aria-hidden="true" />
-								Delete route
+								Delete Route
 							</Button>
 						</div>
 
@@ -367,14 +367,14 @@ function RouteEditRoute() {
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Remove this stop?</AlertDialogTitle>
+						<AlertDialogTitle>Remove This Stop?</AlertDialogTitle>
 						<AlertDialogDescription>
 							{removeTarget?.name} will be taken off this route. The habitat itself isn't deleted.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Keep stop</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmRemove}>Remove stop</AlertDialogAction>
+						<AlertDialogCancel>Keep Stop</AlertDialogCancel>
+						<AlertDialogAction onClick={confirmRemove}>Remove Stop</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
@@ -382,7 +382,7 @@ function RouteEditRoute() {
 			<AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete this route?</AlertDialogTitle>
+						<AlertDialogTitle>Delete This Route?</AlertDialogTitle>
 						<AlertDialogDescription>
 							{route?.routeName} and its {itemCount === 1 ? 'stop' : 'stops'} will be removed. The
 							habitats themselves aren't deleted. This can't be undone.
@@ -390,7 +390,7 @@ function RouteEditRoute() {
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDeleteRoute}>Delete route</AlertDialogAction>
+						<AlertDialogAction onClick={confirmDeleteRoute}>Delete Route</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
@@ -547,7 +547,7 @@ function EditStopList({
 						<EmptyMedia variant="icon">
 							<MapPinnedIcon aria-hidden="true" />
 						</EmptyMedia>
-						<EmptyTitle>No stops yet</EmptyTitle>
+						<EmptyTitle>No Stops Yet</EmptyTitle>
 						<EmptyDescription>
 							Search habitats above and add them in the order crews should visit.
 						</EmptyDescription>
@@ -871,7 +871,7 @@ function RouteEditNotFound() {
 					<EmptyMedia variant="icon">
 						<RouteIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>Route not found</EmptyTitle>
+					<EmptyTitle>Route Not Found</EmptyTitle>
 					<EmptyDescription>This route may have been deleted.</EmptyDescription>
 				</EmptyHeader>
 				<Link

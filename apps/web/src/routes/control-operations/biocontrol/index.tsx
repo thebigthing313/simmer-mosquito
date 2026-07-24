@@ -612,7 +612,7 @@ function BiocontrolListItem({
 					aria-label={`View details for ${methodName}`}
 					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					params={{ id: row.id }}
-					title="View biocontrol details"
+					title="View Biocontrol Details"
 					to="/control-operations/biocontrol/$id"
 				>
 					<ChevronRightIcon aria-hidden="true" className="size-4" />

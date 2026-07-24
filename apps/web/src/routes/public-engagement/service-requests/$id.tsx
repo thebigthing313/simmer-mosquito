@@ -123,7 +123,7 @@ function BackLink() {
 			to="/public-engagement/service-requests"
 		>
 			<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-			Service requests
+			Service Requests
 		</Link>
 	);
 }
@@ -432,7 +432,7 @@ function NearbyPanel({
 			<CardHeader className="px-4 py-4">
 				<CardTitle className="flex items-center gap-2">
 					<MapPinnedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-					Nearby activity
+					Nearby Activity
 				</CardTitle>
 				<CardDescription>
 					{response === undefined
@@ -551,7 +551,7 @@ function NearbyRow({
 			<button
 				className="flex min-w-0 flex-1 items-center gap-2.5 rounded-sm py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={() => onSelect(isSelected ? null : item.id)}
-				title="Show on the map"
+				title="Show on the Map"
 				type="button"
 			>
 				<FamilyDot family={NEARBY_FAMILY_OF[item.category]} />
@@ -711,7 +711,7 @@ function RequestPartiesCard({
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
-				<CardTitle>Contact &amp; location</CardTitle>
+				<CardTitle>Contact &amp; Location</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-5" padding="compact">
 				<div className="grid gap-2">
@@ -886,7 +886,7 @@ function CloseReopenButton({
 	return (
 		<div className="grid justify-items-end gap-1">
 			<Button disabled={busy} onClick={handleToggle} size="sm" variant="outline">
-				{open ? 'Close request' : 'Reopen request'}
+				{open ? 'Close Request' : 'Reopen Request'}
 			</Button>
 			{error === null ? null : <span className="text-destructive text-xs">{error}</span>}
 		</div>
@@ -966,7 +966,7 @@ function ServiceRequestUnavailable() {
 				<EmptyMedia variant="icon">
 					<RequestIcon aria-hidden="true" />
 				</EmptyMedia>
-				<EmptyTitle>Service request unavailable</EmptyTitle>
+				<EmptyTitle>Service Request Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This request could not be found, or you do not have access to it.
 				</EmptyDescription>

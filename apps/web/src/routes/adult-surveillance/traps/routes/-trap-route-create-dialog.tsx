@@ -87,7 +87,7 @@ export function TrapRouteCreateDialog({
 			<DialogContent className="sm:max-w-md">
 				<form onSubmit={handleSubmit}>
 					<DialogHeader>
-						<DialogTitle>New trap route</DialogTitle>
+						<DialogTitle>New Trap Route</DialogTitle>
 						<DialogDescription>
 							Name the route now; you'll add and order its trap stops next.
 						</DialogDescription>
@@ -120,7 +120,7 @@ export function TrapRouteCreateDialog({
 						</Button>
 						<Button disabled={!canSubmit} type="submit">
 							{pending ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : null}
-							Create route
+							Create Route
 						</Button>
 					</DialogFooter>
 				</form>

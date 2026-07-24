@@ -223,7 +223,7 @@ export function AddressFormPage({
 					>
 						{saveError === null ? null : (
 							<Alert variant="destructive">
-								<AlertTitle>Unable to save address</AlertTitle>
+								<AlertTitle>Unable to Save Address</AlertTitle>
 								<AlertDescription>{saveError}</AlertDescription>
 							</Alert>
 						)}
@@ -327,7 +327,7 @@ export function AddressFormPage({
 									variant={geometry === null ? 'default' : 'ghost'}
 								>
 									<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-									{geometry === null ? 'Place on map' : 'Move point'}
+									{geometry === null ? 'Place on Map' : 'Move Point'}
 								</Button>
 								{geometry === null ? null : (
 									<Button onClick={clearPoint} size="sm" type="button" variant="ghost">
@@ -401,7 +401,7 @@ function GeocoderDialog({
 		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Choose geocoder result</DialogTitle>
+					<DialogTitle>Choose Geocoder Result</DialogTitle>
 					<DialogDescription>
 						Select the best match or place the address point manually on the map.
 					</DialogDescription>
@@ -430,7 +430,7 @@ function GeocoderDialog({
 				<DialogFooter>
 					<Button onClick={onUseManualCoordinates} type="button" variant="outline">
 						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-						Use manual coordinates
+						Use Manual Coordinates
 					</Button>
 				</DialogFooter>
 			</DialogContent>

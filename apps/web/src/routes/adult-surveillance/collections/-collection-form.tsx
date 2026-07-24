@@ -293,10 +293,10 @@ export function CollectionFormPage({
 								void form.handleSubmit();
 							}}
 						>
-							<form.FormErrorAlert title="Unable to save collection" />
+							<form.FormErrorAlert title="Unable to Save Collection" />
 							{saveError === null ? null : (
 								<Alert variant="destructive">
-									<AlertTitle>Unable to save collection</AlertTitle>
+									<AlertTitle>Unable to Save Collection</AlertTitle>
 									<AlertDescription>{saveError}</AlertDescription>
 								</Alert>
 							)}

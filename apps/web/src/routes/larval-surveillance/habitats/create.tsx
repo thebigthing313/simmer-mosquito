@@ -92,12 +92,12 @@ function CreateHabitatRoute() {
 			defaultValues={defaultHabitatFormValues()}
 			initialGeometry={null}
 			header={{
-				title: 'Create habitat',
+				title: 'Create Habitat',
 				description: 'Add a mapped larval habitat with the core field details crews need.',
 				backTo: '/larval-surveillance/habitats',
 				backLabel: 'Habitats',
 			}}
-			submitLabel="Create habitat"
+			submitLabel="Create Habitat"
 			onSave={onSave}
 		/>
 	);

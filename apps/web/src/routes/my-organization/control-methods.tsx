@@ -22,7 +22,7 @@ function MyOrganizationControlMethodsRoute() {
 				id="control"
 				meta="Chemical, source reduction, biological control, and resources"
 				setupItems={[]}
-				title="Control operations"
+				title="Control Operations"
 			>
 				<ControlOperationsSettings
 					applicationMethods={collections.applicationMethods}

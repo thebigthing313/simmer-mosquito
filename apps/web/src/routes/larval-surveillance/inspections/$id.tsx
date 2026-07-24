@@ -310,7 +310,7 @@ function InspectionLocationCard({
 				{geometry === null ? (
 					<Empty className="min-h-[320px] border border-border/40 bg-muted/30">
 						<EmptyHeader>
-							<EmptyTitle>No geometry recorded</EmptyTitle>
+							<EmptyTitle>No Geometry Recorded</EmptyTitle>
 							<EmptyDescription>This inspection has no location to display.</EmptyDescription>
 						</EmptyHeader>
 					</Empty>
@@ -493,7 +493,7 @@ function InspectionSamplesCard({
 				{result.isError ? (
 					<SamplesEmpty
 						description="Sample records could not be loaded. Try again shortly."
-						title="Samples unavailable"
+						title="Samples Unavailable"
 					/>
 				) : !isReady ? (
 					<div className="grid gap-2">
@@ -508,7 +508,7 @@ function InspectionSamplesCard({
 								? 'No specimens were collected during this inspection.'
 								: 'Dry inspections collect no samples.'
 						}
-						title="No samples recorded"
+						title="No Samples Recorded"
 					/>
 				) : (
 					<ul className="grid gap-2">
@@ -651,7 +651,7 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 				{isError ? (
 					<LinkedActionsEmpty
 						description="Linked control actions could not be loaded. Try again shortly."
-						title="Control actions unavailable"
+						title="Control Actions Unavailable"
 					/>
 				) : !isReady ? (
 					<div className="grid gap-2">
@@ -662,7 +662,7 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 				) : actions.length === 0 ? (
 					<LinkedActionsEmpty
 						description="No applications, source reductions, or other control actions reference this inspection yet."
-						title="No control actions"
+						title="No Control Actions"
 					/>
 				) : (
 					<ul className="grid gap-2">
@@ -1096,7 +1096,7 @@ function InspectionUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Inspection unavailable</EmptyTitle>
+				<EmptyTitle>Inspection Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This inspection could not be found, or you do not have access to it.
 				</EmptyDescription>

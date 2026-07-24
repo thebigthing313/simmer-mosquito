@@ -52,7 +52,7 @@ function PublicEngagementOverviewRoute() {
 						<span className="font-medium text-xs uppercase tracking-wide">Public engagement</span>
 					</div>
 					<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-						Requests from the public
+						Requests From the Public
 					</h1>
 					<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
 						Log and track service requests reported by the public, and keep the contacts behind them
@@ -62,20 +62,20 @@ function PublicEngagementOverviewRoute() {
 
 				<div className="grid gap-5 md:grid-cols-2">
 					<OverviewCard
-						actionLabel="New request"
+						actionLabel="New Request"
 						actionTo="/public-engagement/service-requests/create"
 						description="Public reports mapped to their location, with open and closed tracking."
-						exploreLabel="Open explorer"
+						exploreLabel="Open Explorer"
 						exploreTo="/public-engagement/service-requests"
 						icon={<PublicIcon aria-hidden="true" className="size-5 text-primary" />}
 						stat={openCount === null ? null : { label: 'open', value: openCount }}
-						title="Service requests"
+						title="Service Requests"
 					/>
 					<OverviewCard
-						actionLabel="New contact"
+						actionLabel="New Contact"
 						actionTo="/public-engagement/contacts/create"
 						description="People and organizations the agency engages with across requests and notifications."
-						exploreLabel="Open explorer"
+						exploreLabel="Open Explorer"
 						exploreTo="/public-engagement/contacts"
 						icon={<ContactIcon aria-hidden="true" className="size-5 text-primary" />}
 						stat={null}

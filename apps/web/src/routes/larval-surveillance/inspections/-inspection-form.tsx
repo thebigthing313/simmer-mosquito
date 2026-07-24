@@ -291,10 +291,10 @@ export function InspectionFormPage({
 								void form.handleSubmit();
 							}}
 						>
-							<form.FormErrorAlert title="Unable to save inspection" />
+							<form.FormErrorAlert title="Unable to Save Inspection" />
 							{saveError === null ? null : (
 								<Alert variant="destructive">
-									<AlertTitle>Unable to save inspection</AlertTitle>
+									<AlertTitle>Unable to Save Inspection</AlertTitle>
 									<AlertDescription>{saveError}</AlertDescription>
 								</Alert>
 							)}

@@ -300,7 +300,7 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 						</TabsList>
 						<Button asChild size="sm" variant="outline">
 							<Link search={{ trapId }} to="/adult-surveillance/collections/create">
-								Record collection
+								Record Collection
 							</Link>
 						</Button>
 					</div>
@@ -357,7 +357,7 @@ function TrapCollectionsList({
 		return (
 			<CollectionsEmpty
 				description="Collection records could not be loaded. Try again shortly."
-				title="Collections unavailable"
+				title="Collections Unavailable"
 			/>
 		);
 	}
@@ -374,7 +374,7 @@ function TrapCollectionsList({
 		return (
 			<CollectionsEmpty
 				description="No collections have been recorded for this trap yet."
-				title="No collections"
+				title="No Collections"
 			/>
 		);
 	}
@@ -518,7 +518,7 @@ function TrapSpeciesDistribution({
 			{isError ? (
 				<CollectionsEmpty
 					description="Collection records could not be loaded. Try again shortly."
-					title="Species data unavailable"
+					title="Species Data Unavailable"
 				/>
 			) : !isReady ? (
 				<div className="grid gap-2.5">
@@ -533,7 +533,7 @@ function TrapSpeciesDistribution({
 							? 'No specimens were identified in the selected date range.'
 							: 'No specimens have been identified for this trap yet.'
 					}
-					title="No specimens"
+					title="No Specimens"
 				/>
 			) : (
 				<>
@@ -722,7 +722,7 @@ function TrapUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Trap unavailable</EmptyTitle>
+				<EmptyTitle>Trap Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This trap could not be found, or you do not have access to it.
 				</EmptyDescription>

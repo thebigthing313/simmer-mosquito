@@ -98,7 +98,7 @@ export function LarvalSurveillanceSettings({
 		<div className="grid gap-3">
 			<LarvalEntryPolicyGuide policy={policy} />
 			<div className="grid gap-2">
-				<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
+				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
 				<HabitatTypeLookupList
 					canManage={canManage}
 					habitatTypes={habitatTypes}
@@ -128,7 +128,7 @@ export function LarvalEntryPolicyGuide({
 				<LarvalEntryModeExample
 					active={policy.mode === 'density_only'}
 					description="Crews choose a density category without entering larvae counts."
-					title="Density only"
+					title="Density Only"
 				>
 					<Field className="gap-1">
 						<FieldLabel>Density</FieldLabel>
@@ -138,7 +138,7 @@ export function LarvalEntryPolicyGuide({
 				<LarvalEntryModeExample
 					active={policy.mode === 'count_and_dips_required'}
 					description="Crews enter larvae counts and dip counts; density can be inferred."
-					title="Count and dips required"
+					title="Count and Dips Required"
 				>
 					<div className="grid grid-cols-2 gap-2">
 						<Field className="gap-1">
@@ -294,7 +294,7 @@ export function LarvalSettingsDrawer({
 			</SheetTrigger>
 			<SheetContent className="w-[min(680px,100%)] sm:max-w-[680px]">
 				<SheetHeader>
-					<SheetTitle>Edit larval surveillance</SheetTitle>
+					<SheetTitle>Edit Larval Surveillance</SheetTitle>
 					<SheetDescription>
 						Adjust inspection entry rules and optional density inference ranges.
 					</SheetDescription>
@@ -357,7 +357,7 @@ export function LarvalSettingsDrawer({
 					<SheetFooter className="px-0">
 						<Button type="submit" disabled={!canManage || organization === null}>
 							<SaveIcon aria-hidden="true" />
-							Save changes
+							Save Changes
 						</Button>
 						<SheetClose asChild>
 							<Button type="button" variant="outline">
@@ -430,7 +430,7 @@ export function HabitatTypeLookupList({
 			activeCount={activeHabitatTypes.length}
 			inactiveCount={inactiveHabitatTypes.length}
 			detail="Habitat types define larval habitat labels and optional custom fields."
-			title="Habitat types"
+			title="Habitat Types"
 			action={
 				<HabitatTypeDrawer
 					canManage={canManage}
@@ -438,7 +438,7 @@ export function HabitatTypeLookupList({
 					trigger={
 						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
 							<AddIcon aria-hidden="true" />
-							Add habitat type
+							Add Habitat Type
 						</Button>
 					}
 				/>
@@ -449,14 +449,14 @@ export function HabitatTypeLookupList({
 				emptyLabel="No active habitat types."
 				habitatTypes={activeHabitatTypes}
 				organization={organization}
-				title="Active habitat types"
+				title="Active Habitat Types"
 			/>
 			<HabitatTypeTable
 				canManage={canManage}
 				emptyLabel="No inactive habitat types."
 				habitatTypes={inactiveHabitatTypes}
 				organization={organization}
-				title="Inactive habitat types"
+				title="Inactive Habitat Types"
 			/>
 		</LookupListFrame>
 	);
@@ -492,7 +492,7 @@ export function HabitatTypeTable({
 					<Table className="w-full table-fixed">
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-(--habitat-name-column)">Habitat type</TableHead>
+								<TableHead className="w-(--habitat-name-column)">Habitat Type</TableHead>
 								<TableHead>Description</TableHead>
 								<TableHead className="w-(--habitat-fields-column)">Custom Fields</TableHead>
 								{canManage ? (

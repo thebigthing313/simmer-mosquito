@@ -272,10 +272,10 @@ export function SourceReductionFormPage({
 								void form.handleSubmit();
 							}}
 						>
-							<form.FormErrorAlert title="Unable to save source reduction" />
+							<form.FormErrorAlert title="Unable to Save Source Reduction" />
 							{saveError === null ? null : (
 								<Alert variant="destructive">
-									<AlertTitle>Unable to save source reduction</AlertTitle>
+									<AlertTitle>Unable to Save Source Reduction</AlertTitle>
 									<AlertDescription>{saveError}</AlertDescription>
 								</Alert>
 							)}
@@ -328,7 +328,7 @@ export function SourceReductionFormPage({
 								)}
 							</section>
 
-							<FormSection title="Work performed">
+							<FormSection title="Work Performed">
 								<form.AppField name="sourceReductionMethodId">
 									{(field) => (
 										<field.SelectField

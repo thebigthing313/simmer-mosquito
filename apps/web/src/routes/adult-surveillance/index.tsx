@@ -62,7 +62,7 @@ function AdultSurveillanceOverviewRoute() {
 					<span className="font-medium text-xs uppercase tracking-wide">Adult surveillance</span>
 				</div>
 				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Surveillance overview
+					Surveillance Overview
 				</h1>
 				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
 					Recent collection activity, species identified across your traps, and the collections
@@ -328,7 +328,7 @@ function SpeciesCompositionPanel({ today }: { readonly today: string }) {
 				</ToggleGroup>
 			}
 			icon={<SpeciesIcon className="size-4" />}
-			title="Species composition"
+			title="Species Composition"
 		>
 			{isError ? (
 				<PanelMessage>Species data is unavailable right now.</PanelMessage>
@@ -420,7 +420,7 @@ function AwaitingIdentificationPanel({
 				) : undefined
 			}
 			icon={<SpeciesIcon className="size-4" />}
-			title="Awaiting identification"
+			title="Awaiting Identification"
 		>
 			{isError ? (
 				<PanelMessage>Collection data is unavailable right now.</PanelMessage>

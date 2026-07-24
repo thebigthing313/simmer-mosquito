@@ -185,7 +185,7 @@ function ContactsEmpty({ hasSearch }: { readonly hasSearch: boolean }) {
 				<EmptyMedia variant="icon">
 					<ContactIcon aria-hidden="true" />
 				</EmptyMedia>
-				<EmptyTitle>{hasSearch ? 'No contacts match' : 'No contacts yet'}</EmptyTitle>
+				<EmptyTitle>{hasSearch ? 'No Contacts Match' : 'No Contacts Yet'}</EmptyTitle>
 				<EmptyDescription>
 					{hasSearch
 						? 'Try a different search term.'

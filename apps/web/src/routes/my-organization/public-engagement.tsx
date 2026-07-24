@@ -29,7 +29,7 @@ function MyOrganizationPublicEngagementRoute() {
 				id="public"
 				meta="Service request context, outreach, and resident notifications"
 				setupItems={[]}
-				title="Public engagement"
+				title="Public Engagement"
 			>
 				<PublicEngagementSettings
 					canManage={workspace.canManage}

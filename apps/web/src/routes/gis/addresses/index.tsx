@@ -117,7 +117,7 @@ function AddressesExplorerRoute() {
 					<div className="flex flex-wrap items-center justify-between gap-2">
 						<div className="grid gap-1">
 							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
-								Address book
+								Address Book
 							</h1>
 							<p className="m-0 text-muted-foreground text-sm">
 								Geocoded addresses shared across surveillance and control work.
@@ -199,7 +199,7 @@ function AddressRowItem({
 			<button
 				className="min-w-0 flex-1 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={onFocus}
-				title="Show on the map"
+				title="Show on the Map"
 				type="button"
 			>
 				<span className="block truncate font-medium text-foreground text-sm hover:text-primary">
@@ -213,7 +213,7 @@ function AddressRowItem({
 				aria-label={`View details for ${address.displayName}`}
 				className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				params={{ id: address.id }}
-				title="View address details"
+				title="View Address Details"
 				to="/gis/addresses/$id"
 			>
 				<ChevronRightIcon aria-hidden="true" className="size-4" />
@@ -260,7 +260,7 @@ function AddressesEmpty({ hasSearch }: { readonly hasSearch: boolean }) {
 					<EmptyMedia variant="icon">
 						<AddressIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>{hasSearch ? 'No addresses match' : 'No addresses yet'}</EmptyTitle>
+					<EmptyTitle>{hasSearch ? 'No Addresses Match' : 'No Addresses Yet'}</EmptyTitle>
 					<EmptyDescription>
 						{hasSearch
 							? 'Try a different search term.'

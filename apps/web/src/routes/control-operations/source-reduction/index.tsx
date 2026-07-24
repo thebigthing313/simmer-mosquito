@@ -187,7 +187,7 @@ function SourceReductionExplorerRoute() {
 			<div className="flex h-full min-h-0 flex-col">
 				<div className="sticky top-0 z-10 grid gap-3 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
 					<div className="flex items-center justify-between gap-3">
-						<h1 className="font-semibold text-foreground text-lg leading-none">Source reduction</h1>
+						<h1 className="font-semibold text-foreground text-lg leading-none">Source Reduction</h1>
 						<div className="flex items-center gap-2.5">
 							<ResultMeta isLoading={isLoading} total={total} />
 							<Button asChild size="sm">
@@ -573,7 +573,7 @@ function SourceReductionListItem({
 					aria-label={`View details for ${methodName}`}
 					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					params={{ id: row.id }}
-					title="View source reduction details"
+					title="View Source Reduction Details"
 					to="/control-operations/source-reduction/$id"
 				>
 					<ChevronRightIcon aria-hidden="true" className="size-4" />

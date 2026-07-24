@@ -77,7 +77,7 @@ function ControlOperationsOverviewRoute() {
 					<span className="font-medium text-xs uppercase tracking-wide">Control operations</span>
 				</div>
 				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Control overview
+					Control Overview
 				</h1>
 				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
 					The chemical applications, source reductions, and biocontrol releases your crews have
@@ -303,7 +303,7 @@ function RecentSourceReductionsPanel({
 				</Link>
 			}
 			icon={<SourceReductionIcon className="size-4" />}
-			title="Source reductions"
+			title="Source Reductions"
 		>
 			{isError ? (
 				<PanelMessage>Source reduction activity is unavailable right now.</PanelMessage>
@@ -362,7 +362,7 @@ function RecentBiocontrolPanel({
 				</Link>
 			}
 			icon={<BiocontrolIcon className="size-4" />}
-			title="Biocontrol releases"
+			title="Biocontrol Releases"
 		>
 			{isError ? (
 				<PanelMessage>Biocontrol activity is unavailable right now.</PanelMessage>

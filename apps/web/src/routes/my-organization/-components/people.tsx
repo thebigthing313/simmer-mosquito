@@ -88,7 +88,7 @@ export function PeopleSection({
 									onClick={() => setIsAddingHistorical(true)}
 								>
 									<AddIcon aria-hidden="true" />
-									Historical profile
+									Historical Profile
 								</Button>
 								<Button
 									type="button"
@@ -124,19 +124,19 @@ export function PeopleSection({
 						canManage={canManage}
 						emptyLabel="No active linked profiles"
 						rows={activeLinkedRows}
-						title="Active linked profiles"
+						title="Active Linked Profiles"
 					/>
 					<ProfileGroup
 						canManage={canManage}
 						emptyLabel="No inactive linked profiles"
 						rows={inactiveLinkedRows}
-						title="Inactive linked profiles"
+						title="Inactive Linked Profiles"
 					/>
 					<ProfileGroup
 						canManage={canManage}
 						emptyLabel="No historical profiles"
 						rows={historicalRows}
-						title="Historical profiles"
+						title="Historical Profiles"
 					/>
 				</div>
 				{canManage ? (
@@ -326,7 +326,7 @@ export function HistoricalProfileSheet({
 		<Sheet open={open} onOpenChange={updateOpen}>
 			<SheetContent className="w-[min(420px,100%)]">
 				<SheetHeader>
-					<SheetTitle>Add historical profile</SheetTitle>
+					<SheetTitle>Add Historical Profile</SheetTitle>
 					<SheetDescription>
 						Create a person record for field history without inviting them to SIMMER.
 					</SheetDescription>
@@ -352,7 +352,7 @@ export function HistoricalProfileSheet({
 					<SheetFooter>
 						<Button type="submit" disabled={organization === null}>
 							<SaveIcon aria-hidden="true" />
-							Save profile
+							Save Profile
 						</Button>
 						<SheetClose asChild>
 							<Button type="button" variant="outline">
@@ -418,7 +418,7 @@ export function InviteProfileSheet({
 		<Sheet open={open} onOpenChange={updateOpen}>
 			<SheetContent className="w-[min(440px,100%)]">
 				<SheetHeader>
-					<SheetTitle>Invite linked profile</SheetTitle>
+					<SheetTitle>Invite Linked Profile</SheetTitle>
 					<SheetDescription>
 						Send an invitation and create or attach the access profile for this organization.
 					</SheetDescription>
@@ -480,7 +480,7 @@ export function InviteProfileSheet({
 					<SheetFooter>
 						<Button type="submit" disabled={isSaving}>
 							<SaveIcon aria-hidden="true" />
-							Send invite
+							Send Invite
 						</Button>
 						<SheetClose asChild>
 							<Button type="button" variant="outline">
@@ -596,7 +596,7 @@ export function EditProfileSheet({
 					<SheetFooter>
 						<Button type="submit" disabled={isSaving}>
 							<SaveIcon aria-hidden="true" />
-							Save changes
+							Save Changes
 						</Button>
 						<SheetClose asChild>
 							<Button type="button" variant="outline">

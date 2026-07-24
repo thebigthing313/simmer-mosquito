@@ -79,14 +79,14 @@ function CreateAddressRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultAddressFormValues()}
 			header={{
-				title: 'Create address',
+				title: 'Create Address',
 				description: 'Add a geocoded address to the agency address book.',
 				backTo: '/gis/addresses',
-				backLabel: 'Address book',
+				backLabel: 'Address Book',
 			}}
 			initialGeometry={null}
 			onSave={onSave}
-			submitLabel="Create address"
+			submitLabel="Create Address"
 		/>
 	);
 }

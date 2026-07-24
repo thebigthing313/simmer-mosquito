@@ -280,7 +280,7 @@ function ImportRegionsRoute() {
 					</Link>
 					<div className="grid gap-1">
 						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							Import regions
+							Import Regions
 						</h1>
 						<p className="m-0 text-muted-foreground text-sm">
 							Upload a KML or GeoJSON file. Polygons are flattened into individual regions you can
@@ -307,7 +307,7 @@ function ImportRegionsRoute() {
 							/>
 							<Button onClick={() => fileInputRef.current?.click()} type="button" variant="outline">
 								<UploadIcon aria-hidden="true" data-icon="inline-start" />
-								{fileName === null ? 'Choose KML or GeoJSON file' : 'Choose a different file'}
+								{fileName === null ? 'Choose KML or GeoJSON File' : 'Choose a Different File'}
 							</Button>
 							{fileName === null ? null : (
 								<p className="m-0 text-muted-foreground text-xs">
@@ -319,7 +319,7 @@ function ImportRegionsRoute() {
 
 						{parseError === null ? null : (
 							<Alert variant="destructive">
-								<AlertTitle>Couldn't read that file</AlertTitle>
+								<AlertTitle>Couldn't Read That File</AlertTitle>
 								<AlertDescription>{parseError}</AlertDescription>
 							</Alert>
 						)}
@@ -405,7 +405,7 @@ function ImportRegionsRoute() {
 												regions list shortly.
 											</span>
 											<Button asChild className="w-fit" size="sm" type="button" variant="outline">
-												<Link to="/gis/regions">Go to regions</Link>
+												<Link to="/gis/regions">Go to Regions</Link>
 											</Button>
 										</AlertDescription>
 									</Alert>

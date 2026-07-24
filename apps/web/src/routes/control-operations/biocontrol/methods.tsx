@@ -26,7 +26,7 @@ function BiocontrolMethodsRoute() {
 			namePlaceholder="e.g. Mosquitofish stocking"
 			organization={organization}
 			singularLabel="biocontrol method"
-			title="Biocontrol methods"
+			title="Biocontrol Methods"
 		/>
 	);
 }

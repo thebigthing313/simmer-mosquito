@@ -290,7 +290,7 @@ function SourceReductionUnavailable() {
 	return (
 		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
-				<EmptyTitle>Source reduction unavailable</EmptyTitle>
+				<EmptyTitle>Source Reduction Unavailable</EmptyTitle>
 				<EmptyDescription>
 					This source reduction action could not be found, or you do not have access to it.
 				</EmptyDescription>

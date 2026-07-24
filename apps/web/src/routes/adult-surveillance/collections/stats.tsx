@@ -19,7 +19,7 @@ function CollectionStatsRoute() {
 		<div className="mx-auto grid w-full max-w-[1200px] content-start gap-6 px-4 py-6 md:px-8 md:py-8">
 			<header className="grid gap-1.5">
 				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Collection statistics
+					Collection Statistics
 				</h1>
 				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
 					Species abundance and collection-effort trends over time.
@@ -31,7 +31,7 @@ function CollectionStatsRoute() {
 					<EmptyMedia variant="icon">
 						<ChartIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>Statistics coming soon</EmptyTitle>
+					<EmptyTitle>Statistics Coming Soon</EmptyTitle>
 					<EmptyDescription>
 						Species composition and abundance charts for collections will live here.
 					</EmptyDescription>

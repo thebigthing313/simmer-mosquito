@@ -225,7 +225,7 @@ function EditTrapRouteRoute() {
 									variant="ghost"
 								>
 									<DeleteIcon aria-hidden="true" />
-									Delete route
+									Delete Route
 								</Button>
 							</div>
 						</div>
@@ -236,7 +236,7 @@ function EditTrapRouteRoute() {
 			<AlertDialog onOpenChange={setConfirmDelete} open={confirmDelete}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete this route?</AlertDialogTitle>
+						<AlertDialogTitle>Delete This Route?</AlertDialogTitle>
 						<AlertDialogDescription>
 							{route?.routeName} and its {itemCount === 1 ? 'stop' : 'stops'} will be removed. The
 							traps themselves aren't deleted.
@@ -244,7 +244,7 @@ function EditTrapRouteRoute() {
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => void deleteRoute()}>Delete route</AlertDialogAction>
+						<AlertDialogAction onClick={() => void deleteRoute()}>Delete Route</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
@@ -279,7 +279,7 @@ function StopEditor({
 		return (
 			<Empty className="min-h-[160px] border border-border/40 bg-muted/30">
 				<EmptyHeader>
-					<EmptyTitle>No stops yet</EmptyTitle>
+					<EmptyTitle>No Stops Yet</EmptyTitle>
 					<EmptyDescription>Add traps above to build this route.</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
@@ -361,7 +361,7 @@ function RouteNotFound() {
 		<div className="flex h-full items-center justify-center p-6">
 			<Empty>
 				<EmptyHeader>
-					<EmptyTitle>Route not found</EmptyTitle>
+					<EmptyTitle>Route Not Found</EmptyTitle>
 					<EmptyDescription>
 						This route may have been deleted, or the link is out of date.
 					</EmptyDescription>

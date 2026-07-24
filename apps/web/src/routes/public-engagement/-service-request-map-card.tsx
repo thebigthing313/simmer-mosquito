@@ -76,7 +76,7 @@ export function ServiceRequestMapCard({
 
 	if (request === undefined) {
 		return (
-			<MapCard className="max-w-[440px]" onClose={onClose} title="Service request">
+			<MapCard className="max-w-[440px]" onClose={onClose} title="Service Request">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />

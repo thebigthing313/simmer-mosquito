@@ -26,7 +26,7 @@ function SourceReductionMethodsRoute() {
 			namePlaceholder="e.g. Container dumping"
 			organization={organization}
 			singularLabel="source reduction method"
-			title="Source reduction methods"
+			title="Source Reduction Methods"
 		/>
 	);
 }

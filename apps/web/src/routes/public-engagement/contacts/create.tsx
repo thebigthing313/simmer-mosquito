@@ -75,13 +75,13 @@ function CreateContactRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultContactFormValues()}
 			header={{
-				title: 'Create contact',
+				title: 'Create Contact',
 				description: 'Add a public person or organization to the agency contact list.',
 				backTo: '/public-engagement/contacts',
 				backLabel: 'Contacts',
 			}}
 			onSave={onSave}
-			submitLabel="Create contact"
+			submitLabel="Create Contact"
 		/>
 	);
 }

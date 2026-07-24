@@ -269,7 +269,7 @@ export function SignInPage({ redirectTo }: { readonly redirectTo: string }) {
 
 	return (
 		<AuthShell
-			title="Sign in to your workspace"
+			title="Sign In to Your Workspace"
 			description="Welcome back. Enter your details to reach your agency."
 			footer={
 				<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
@@ -313,7 +313,7 @@ export function SignInPage({ redirectTo }: { readonly redirectTo: string }) {
 						onChange={setPassword}
 					/>
 					<SubmitButton pending={pending} pendingLabel="Signing in…">
-						Sign in
+						Sign In
 					</SubmitButton>
 				</FieldGroup>
 			</form>
@@ -382,7 +382,7 @@ export function SignUpPage({ redirectTo }: { readonly redirectTo: string }) {
 
 	return (
 		<AuthShell
-			title="Create your account"
+			title="Create Your Account"
 			description="You'll confirm your email with a short code after this step."
 			footer={
 				<span>
@@ -440,7 +440,7 @@ export function SignUpPage({ redirectTo }: { readonly redirectTo: string }) {
 						onChange={setPassword}
 					/>
 					<SubmitButton pending={pending} pendingLabel="Creating account…">
-						Create account
+						Create Account
 					</SubmitButton>
 				</FieldGroup>
 			</form>
@@ -569,7 +569,7 @@ function VerifyEmailStep({
 
 	return (
 		<AuthShell
-			title="Enter your verification code"
+			title="Enter Your Verification Code"
 			description={
 				<>
 					We sent a code to <span className="font-medium text-foreground">{email}</span>.
@@ -592,7 +592,7 @@ function VerifyEmailStep({
 						/>
 					</Field>
 					<SubmitButton pending={pending} pendingLabel="Verifying…">
-						Verify and continue
+						Verify and Continue
 					</SubmitButton>
 				</FieldGroup>
 			</form>
@@ -635,7 +635,7 @@ function OrgSelectStep({
 
 	return (
 		<AuthShell
-			title="Select your organization"
+			title="Select Your Organization"
 			description="Your account has access to more than one organization. Pick one to continue."
 		>
 			<FieldGroup>
@@ -678,7 +678,7 @@ export function ForgotPasswordPage() {
 	if (submitted) {
 		return (
 			<AuthShell
-				title="Check your email"
+				title="Check Your Email"
 				description={
 					<>
 						If an account exists for <span className="font-medium text-foreground">{email}</span>,
@@ -699,7 +699,7 @@ export function ForgotPasswordPage() {
 
 	return (
 		<AuthShell
-			title="Forgot your password?"
+			title="Forgot Your Password?"
 			description="Enter your email and we'll send a reset link."
 			footer={
 				<Link to="/sign-in" className="font-medium text-primary underline-offset-4 hover:underline">
@@ -721,7 +721,7 @@ export function ForgotPasswordPage() {
 						/>
 					</Field>
 					<SubmitButton pending={pending} pendingLabel="Sending…">
-						Send reset link
+						Send Reset Link
 					</SubmitButton>
 				</FieldGroup>
 			</form>
@@ -773,7 +773,7 @@ export function ResetPasswordPage({ token }: { readonly token: string }) {
 	if (token.trim() === '') {
 		return (
 			<AuthShell
-				title="Invalid reset link"
+				title="Invalid Reset Link"
 				description="This link is missing its reset token. Request a new password reset."
 				footer={
 					<Link
@@ -790,11 +790,11 @@ export function ResetPasswordPage({ token }: { readonly token: string }) {
 	if (done) {
 		return (
 			<AuthShell
-				title="Your password was changed"
+				title="Your Password Was Changed"
 				description="You can now sign in with your new password."
 			>
 				<Button size="lg" className="w-full" onClick={() => void navigate({ to: '/sign-in' })}>
-					Continue to sign in
+					Continue to Sign In
 				</Button>
 			</AuthShell>
 		);
@@ -802,7 +802,7 @@ export function ResetPasswordPage({ token }: { readonly token: string }) {
 
 	return (
 		<AuthShell
-			title="Choose a new password"
+			title="Choose a New Password"
 			description="Set a new password for your account below."
 		>
 			<form onSubmit={handleSubmit}>
@@ -825,7 +825,7 @@ export function ResetPasswordPage({ token }: { readonly token: string }) {
 						onChange={setConfirm}
 					/>
 					<SubmitButton pending={pending} pendingLabel="Updating…">
-						Update password
+						Update Password
 					</SubmitButton>
 				</FieldGroup>
 			</form>
@@ -876,7 +876,7 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 
 	if (invitation.status === 'loading') {
 		return (
-			<AuthShell title="Loading your invitation…">
+			<AuthShell title="Loading Your Invitation…">
 				<p className="flex items-center gap-2 text-sm text-muted-foreground">
 					<SpinnerIcon className="size-4 animate-spin" aria-hidden="true" />
 					Checking your invitation
@@ -888,7 +888,7 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 	if (invitation.status === 'invalid') {
 		return (
 			<AuthShell
-				title="This invitation isn't valid"
+				title="This Invitation Isn't Valid"
 				description="It may have expired, been revoked, or already been accepted."
 				footer={
 					<Link
@@ -940,7 +940,7 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 
 	return (
 		<AuthShell
-			title="Set up your account"
+			title="Set Up Your Account"
 			description={
 				<>
 					You were invited as{' '}
@@ -992,7 +992,7 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 						onChange={setPassword}
 					/>
 					<SubmitButton pending={pending} pendingLabel="Setting up…">
-						Accept invitation
+						Accept Invitation
 					</SubmitButton>
 				</FieldGroup>
 			</form>

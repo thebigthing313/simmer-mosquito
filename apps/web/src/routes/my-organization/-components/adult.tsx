@@ -63,7 +63,7 @@ export function AdultSurveillanceSettings({
 		<div className="grid gap-3">
 			<CollectionTimingGuide mode={timingMode} />
 			<div className="grid gap-2">
-				<h3 className="eyebrow mt-0.5 mb-0">Setup lists</h3>
+				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
 				<div className="grid gap-3">
 					<CollectionMethodLookupPointer methods={collectionMethods} />
 					<CollectionLureLookupList
@@ -90,7 +90,7 @@ export function CollectionTimingGuide({ mode }: { readonly mode: AdultCollection
 				<CollectionTimingExample
 					active={mode === 'exact_timestamps'}
 					description="Use when crews record the exact set and pickup times."
-					title="Exact timestamps"
+					title="Exact Timestamps"
 				>
 					<Field className="gap-1">
 						<FieldLabel>Set time</FieldLabel>
@@ -104,7 +104,7 @@ export function CollectionTimingGuide({ mode }: { readonly mode: AdultCollection
 				<CollectionTimingExample
 					active={mode === 'collection_date_duration'}
 					description="Use when crews record the collection date and duration."
-					title="Collection date and duration"
+					title="Collection Date and Duration"
 				>
 					<Field className="gap-1">
 						<FieldLabel>Collection date</FieldLabel>
@@ -169,11 +169,11 @@ export function CollectionMethodLookupPointer({
 			activeCount={activeMethods.length}
 			inactiveCount={inactiveMethods.length}
 			detail="Methods can define optional custom fields and action thresholds."
-			title="Collection methods"
+			title="Collection Methods"
 			action={
 				<Button asChild size="sm" variant="outline">
 					<Link to="/adult-surveillance/collection-methods">
-						Manage methods
+						Manage Methods
 						<ArrowRightIcon aria-hidden="true" />
 					</Link>
 				</Button>
@@ -203,7 +203,7 @@ export function CollectionLureLookupList({
 			activeCount={activeLures.length}
 			inactiveCount={inactiveLures.length}
 			detail="Lures stay as lightweight labels with lifecycle state."
-			title="Collection lures"
+			title="Collection Lures"
 			action={
 				<CollectionLureDrawer
 					canManage={canManage}
@@ -211,7 +211,7 @@ export function CollectionLureLookupList({
 					trigger={
 						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
 							<AddIcon aria-hidden="true" />
-							Add lure
+							Add Lure
 						</Button>
 					}
 				/>
@@ -222,14 +222,14 @@ export function CollectionLureLookupList({
 				emptyLabel="No active collection lures."
 				lures={activeLures}
 				organization={organization}
-				title="Active lures"
+				title="Active Lures"
 			/>
 			<CollectionLureTable
 				canManage={canManage}
 				emptyLabel="No inactive collection lures."
 				lures={inactiveLures}
 				organization={organization}
-				title="Inactive lures"
+				title="Inactive Lures"
 			/>
 		</LookupListFrame>
 	);
@@ -353,7 +353,7 @@ export function CollectionLureDrawer({
 			<DrawerContent className="w-[min(520px,100%)] sm:max-w-[520px]">
 				<DrawerHeader>
 					<DrawerTitle>
-						{lure === undefined ? 'Add collection lure' : `Edit ${lure.name}`}
+						{lure === undefined ? 'Add Collection Lure' : `Edit ${lure.name}`}
 					</DrawerTitle>
 					<DrawerDescription>Manage the label, description, and lifecycle state.</DrawerDescription>
 				</DrawerHeader>

@@ -254,7 +254,7 @@ function EditUnavailable({ description }: { readonly description: string }) {
 		<div className="flex h-full min-h-0 items-center justify-center p-8">
 			<Empty className="max-w-md border border-border/40 bg-muted/30">
 				<EmptyHeader>
-					<EmptyTitle>Collection unavailable</EmptyTitle>
+					<EmptyTitle>Collection Unavailable</EmptyTitle>
 					<EmptyDescription>{description}</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

@@ -795,7 +795,7 @@ function SampleListItem({
 					aria-label={`View the inspection for ${sampleName(sample)}`}
 					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					params={{ id: sample.inspectionId }}
-					title="View inspection"
+					title="View Inspection"
 					to="/larval-surveillance/inspections/$id"
 				>
 					<ChevronRightIcon aria-hidden="true" className="size-4" />

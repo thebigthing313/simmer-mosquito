@@ -96,7 +96,7 @@ function CreateTrapRoute() {
 			collectionMethods={methods}
 			defaultValues={defaultTrapFormValues()}
 			header={{
-				title: 'Add trap',
+				title: 'Add Trap',
 				description:
 					'Place the trap point, optionally reference an address, and set its method and lure.',
 				backTo: '/adult-surveillance/traps',
@@ -104,7 +104,7 @@ function CreateTrapRoute() {
 			}}
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
-			submitLabel="Add trap"
+			submitLabel="Add Trap"
 		/>
 	);
 }

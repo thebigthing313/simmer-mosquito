@@ -19,7 +19,7 @@ function SourceReductionStatsRoute() {
 		<div className="mx-auto grid w-full max-w-[1200px] content-start gap-6 px-4 py-6 md:px-8 md:py-8">
 			<header className="grid gap-1.5">
 				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Source reduction statistics
+					Source Reduction Statistics
 				</h1>
 				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
 					Sources eliminated and crew effort summaries across your source reduction work.
@@ -31,7 +31,7 @@ function SourceReductionStatsRoute() {
 					<EmptyMedia variant="icon">
 						<ChartIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>Statistics coming soon</EmptyTitle>
+					<EmptyTitle>Statistics Coming Soon</EmptyTitle>
 					<EmptyDescription>
 						Weekly, monthly, and annual source reduction charts will live here.
 					</EmptyDescription>

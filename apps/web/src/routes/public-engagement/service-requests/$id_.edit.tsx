@@ -122,19 +122,19 @@ function EditServiceRequestLoader({
 			defaultValues={defaultsFromServiceRequest(request)}
 			disableNewContact
 			header={{
-				title: 'Edit service request',
+				title: 'Edit Service Request',
 				description:
 					'Update the request details or its contact. Location and address stay as recorded.',
 				backTo: '/public-engagement/service-requests/$id',
 				backParams: { id: request.id },
-				backLabel: 'Back to request',
+				backLabel: 'Back to Request',
 			}}
 			hideLocation
 			onSave={onSave}
 			organizationId={request.organizationId}
 			profiles={profiles}
 			requireLocation={false}
-			submitLabel="Save changes"
+			submitLabel="Save Changes"
 		/>
 	);
 }
@@ -173,7 +173,7 @@ function EditUnavailable({ description }: { readonly description: string }) {
 		<div className="flex h-full min-h-0 items-center justify-center p-8">
 			<Empty className="max-w-md border border-border/40 bg-muted/30">
 				<EmptyHeader>
-					<EmptyTitle>Service request unavailable</EmptyTitle>
+					<EmptyTitle>Service Request Unavailable</EmptyTitle>
 					<EmptyDescription>{description}</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

@@ -75,7 +75,7 @@ function CreateRegionRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultRegionFormValues()}
 			header={{
-				title: 'Create region',
+				title: 'Create Region',
 				description: 'Draw a region boundary and name it for use across the agency.',
 				backTo: '/gis/regions',
 				backLabel: 'Regions',
@@ -84,7 +84,7 @@ function CreateRegionRoute() {
 			mode="create"
 			onSave={onSave}
 			regionFolders={regionFolders}
-			submitLabel="Create region"
+			submitLabel="Create Region"
 		/>
 	);
 }

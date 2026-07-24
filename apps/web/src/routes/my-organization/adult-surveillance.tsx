@@ -33,7 +33,7 @@ function MyOrganizationAdultSurveillanceRoute() {
 					saveAdultSettings(workspace.organization, workspace.settings, formData)
 				}
 				setupItems={[]}
-				title="Adult surveillance"
+				title="Adult Surveillance"
 			>
 				<AdultSurveillanceSettings
 					canManage={workspace.canManage}

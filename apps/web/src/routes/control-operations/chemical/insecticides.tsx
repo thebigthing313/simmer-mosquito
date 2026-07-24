@@ -160,7 +160,7 @@ function InsecticidesRoute() {
 							trigger={
 								<Button type="button">
 									<AddIcon aria-hidden="true" />
-									Add insecticide
+									Add Insecticide
 								</Button>
 							}
 							units={units}
@@ -175,7 +175,7 @@ function InsecticidesRoute() {
 						<EmptyMedia variant="icon">
 							<InsecticideIcon aria-hidden="true" />
 						</EmptyMedia>
-						<EmptyTitle>No insecticides yet</EmptyTitle>
+						<EmptyTitle>No Insecticides Yet</EmptyTitle>
 						<EmptyDescription>
 							Insecticides are the products behind every chemical application record.
 							{canManage
@@ -191,7 +191,7 @@ function InsecticidesRoute() {
 								trigger={
 									<Button type="button">
 										<AddIcon aria-hidden="true" />
-										Add insecticide
+										Add Insecticide
 									</Button>
 								}
 								units={units}
@@ -297,10 +297,10 @@ function InsecticideTable({
 						<TableHead className="w-10">
 							<span className="sr-only">Expand batches</span>
 						</TableHead>
-						<TableHead>Trade name</TableHead>
-						<TableHead>Active ingredient</TableHead>
+						<TableHead>Trade Name</TableHead>
+						<TableHead>Active Ingredient</TableHead>
 						<TableHead className="w-28">Type</TableHead>
-						<TableHead className="w-36">Default usage unit</TableHead>
+						<TableHead className="w-36">Default Usage Unit</TableHead>
 						<TableHead className="w-28">Status</TableHead>
 						<TableHead className="w-28">Metadata</TableHead>
 						{canManage ? (
@@ -588,7 +588,7 @@ function InsecticideDrawer({
 			<DrawerContent className="w-[min(720px,100%)] overflow-hidden sm:max-w-[720px]">
 				<DrawerHeader className="sticky top-0 z-10 border-border/40 border-b bg-background/95 backdrop-blur">
 					<DrawerTitle>
-						{insecticide === undefined ? 'Add insecticide' : `Edit ${insecticide.tradeName}`}
+						{insecticide === undefined ? 'Add Insecticide' : `Edit ${insecticide.tradeName}`}
 					</DrawerTitle>
 					<DrawerDescription>
 						Manage product identity, label references, lifecycle state, and optional metadata.
@@ -762,12 +762,12 @@ function DeleteInsecticideDialog({
 			<AlertDialogTrigger asChild>
 				<Button className={className} type="button" variant="destructive">
 					<DeleteIcon aria-hidden="true" data-icon="inline-start" />
-					Delete insecticide
+					Delete Insecticide
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent size="sm">
 				<AlertDialogHeader>
-					<AlertDialogTitle>Delete insecticide?</AlertDialogTitle>
+					<AlertDialogTitle>Delete Insecticide?</AlertDialogTitle>
 					<AlertDialogDescription>
 						This removes {insecticide.tradeName} from the product list. If a server rule blocks the
 						delete — an application already used it — the record will stay in place.
@@ -827,7 +827,7 @@ function InsecticideBatchPanel({
 					trigger={
 						<Button disabled={!canManageBatches} size="sm" type="button" variant="outline">
 							<AddIcon aria-hidden="true" />
-							Add batch
+							Add Batch
 						</Button>
 					}
 				/>
@@ -1068,7 +1068,7 @@ function InsecticideBatchDrawer({
 			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
 			<DrawerContent className="w-[min(560px,100%)] overflow-hidden sm:max-w-[560px]">
 				<DrawerHeader className="sticky top-0 z-10 border-border/40 border-b bg-background/95 backdrop-blur">
-					<DrawerTitle>{batch === undefined ? 'Add batch' : `Edit ${batch.batchName}`}</DrawerTitle>
+					<DrawerTitle>{batch === undefined ? 'Add Batch' : `Edit ${batch.batchName}`}</DrawerTitle>
 					<DrawerDescription>
 						Manage lot or batch labels for an active insecticide product.
 					</DrawerDescription>
@@ -1162,7 +1162,7 @@ function DeleteInsecticideBatchDialog({ batch }: { readonly batch: InsecticideBa
 			</AlertDialogTrigger>
 			<AlertDialogContent size="sm">
 				<AlertDialogHeader>
-					<AlertDialogTitle>Delete batch?</AlertDialogTitle>
+					<AlertDialogTitle>Delete Batch?</AlertDialogTitle>
 					<AlertDialogDescription>
 						This removes {batch.batchName} from batch choices. If a server rule blocks the delete,
 						the record will stay in place.

@@ -126,7 +126,7 @@ function HabitatTypesRoute() {
 					</span>
 					<div className="min-w-0 grid gap-1">
 						<h1 className="text-pretty font-semibold text-foreground text-xl leading-tight">
-							Habitat types
+							Habitat Types
 						</h1>
 						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
 							Habitat types classify the larval sites your crews inspect — catch basins, ponds,
@@ -143,7 +143,7 @@ function HabitatTypesRoute() {
 							trigger={
 								<Button type="button">
 									<AddIcon aria-hidden="true" />
-									Add habitat type
+									Add Habitat Type
 								</Button>
 							}
 						/>
@@ -287,10 +287,10 @@ function HabitatTypeSection({
 					<Table className="table-fixed">
 						<TableHeader>
 							<TableRow className="bg-muted/40 hover:bg-muted/40">
-								<TableHead className="w-[28%]">Habitat type</TableHead>
+								<TableHead className="w-[28%]">Habitat Type</TableHead>
 								<TableHead>Description</TableHead>
-								<TableHead className="w-[112px]">Custom fields</TableHead>
-								<TableHead className="w-[104px] text-right">Active sites</TableHead>
+								<TableHead className="w-[112px]">Custom Fields</TableHead>
+								<TableHead className="w-[104px] text-right">Active Sites</TableHead>
 								{canManage ? (
 									<TableHead className="w-[60px] text-right">
 										<span className="sr-only">Actions</span>
@@ -444,7 +444,7 @@ function HabitatTypesEmpty({
 				<EmptyMedia variant="icon">
 					<TaxonomyIcon aria-hidden="true" />
 				</EmptyMedia>
-				<EmptyTitle>No habitat types yet</EmptyTitle>
+				<EmptyTitle>No Habitat Types Yet</EmptyTitle>
 				<EmptyDescription>
 					Habitat types are the classification labels crews pick when recording a larval habitat.
 					{canManage
@@ -459,7 +459,7 @@ function HabitatTypesEmpty({
 						trigger={
 							<Button type="button">
 								<AddIcon aria-hidden="true" />
-								Add habitat type
+								Add Habitat Type
 							</Button>
 						}
 					/>
@@ -533,7 +533,7 @@ function HabitatTypeDialog({
 			{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
 			<DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
 				<DialogHeader className="border-border/60 border-b px-6 py-4 pr-10 text-left">
-					<DialogTitle>{isEditing ? `Edit ${habitatType.name}` : 'Add habitat type'}</DialogTitle>
+					<DialogTitle>{isEditing ? `Edit ${habitatType.name}` : 'Add Habitat Type'}</DialogTitle>
 					<DialogDescription>
 						Manage the label, lifecycle state, and optional custom fields.
 					</DialogDescription>
