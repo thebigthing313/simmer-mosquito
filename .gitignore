@@ -15,4 +15,4 @@ coverage/
 
 # Vendored design tooling (installed locally, not version-controlled)
 .agents/skills/impeccable/
-.codex/hooks.json
+.codex/
