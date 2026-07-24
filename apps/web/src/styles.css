@@ -34,6 +34,72 @@ select {
 }
 
 /*
+ * Unauthenticated landing stage: a committed deep-green "map room" surface. A
+ * soft top-left light source and a faint map graticule give it depth without
+ * decorative nature motifs. The real SIMMER badge is a self-contained cream
+ * emblem, so it reads in full colour on the dark field — a soft shadow lifts it.
+ */
+.landing-stage {
+	--landing-grid: color-mix(in oklch, white 5.5%, transparent);
+	background-color: var(--simmer-green-800);
+	background-image:
+		radial-gradient(
+			118% 96% at 6% -4%,
+			color-mix(in oklch, var(--simmer-green-600) 42%, transparent),
+			transparent 56%
+		),
+		radial-gradient(
+			96% 88% at 104% 108%,
+			color-mix(in oklch, var(--simmer-green-900) 72%, transparent),
+			transparent 58%
+		),
+		repeating-linear-gradient(0deg, var(--landing-grid) 0 1px, transparent 1px 66px),
+		repeating-linear-gradient(90deg, var(--landing-grid) 0 1px, transparent 1px 66px);
+}
+
+.landing-logo {
+	height: auto;
+	filter: drop-shadow(0 10px 26px rgb(0 0 0 / 0.32));
+}
+
+@keyframes landing-rise {
+	from {
+		opacity: 0;
+		transform: translateY(14px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes landing-fade {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.landing-rise {
+	animation: landing-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.landing-fade {
+	animation: landing-fade 520ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.landing-rise,
+	.landing-fade {
+		animation: none;
+	}
+}
+
+/*
  * Mapbox compact attribution, restyled to match our floating map controls. The
  * descendant `.mapboxgl-map` selectors raise specificity so they win regardless
  * of whether mapbox-gl.css loads before or after this sheet. When closed the
