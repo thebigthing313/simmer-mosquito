@@ -49,6 +49,11 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
@@ -83,6 +88,7 @@ export const Route = createFileRoute('/control-operations/chemical/insecticides'
 
 const InsecticideIcon = iconRegistry.entities.insecticide.icon;
 const AddIcon = iconRegistry.actions.add.icon;
+const CheckIcon = iconRegistry.actions.check.icon;
 const CloseIcon = iconRegistry.actions.close.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -214,13 +220,30 @@ function InsecticidesRoute() {
 						</div>
 					</div>
 					{batchTrackingEnabled ? null : <BatchTrackingDisabledNotice />}
-					<InsecticideTable
-						batchTrackingEnabled={batchTrackingEnabled}
-						canManage={canManage}
-						insecticides={insecticides}
-						organization={organization}
-						units={units}
-					/>
+					{activeInsecticides.length === 0 ? (
+						<p className="m-0 rounded-md border border-border/50 border-dashed px-3 py-3 text-muted-foreground text-sm">
+							No active insecticides.
+						</p>
+					) : (
+						<InsecticideTable
+							allInsecticides={insecticides}
+							batchTrackingEnabled={batchTrackingEnabled}
+							canManage={canManage}
+							insecticides={activeInsecticides}
+							organization={organization}
+							units={units}
+						/>
+					)}
+					{inactiveInsecticides.length > 0 ? (
+						<InactiveInsecticidesCollapsible
+							allInsecticides={insecticides}
+							batchTrackingEnabled={batchTrackingEnabled}
+							canManage={canManage}
+							insecticides={inactiveInsecticides}
+							organization={organization}
+							units={units}
+						/>
+					) : null}
 				</section>
 			)}
 		</OutletSimpleLayout>
@@ -247,14 +270,18 @@ function BatchTrackingDisabledNotice() {
 // --- products ----------------------------------------------------------------
 
 function InsecticideTable({
+	allInsecticides,
 	batchTrackingEnabled,
 	canManage,
 	insecticides,
 	organization,
 	units,
 }: {
+	/** Full product list — feeds the batch drawer's insecticide selector. */
+	readonly allInsecticides: readonly InsecticideRow[];
 	readonly batchTrackingEnabled: boolean;
 	readonly canManage: boolean;
+	/** The subset of products this table renders as rows. */
 	readonly insecticides: readonly InsecticideRow[];
 	readonly organization: OrganizationRow | null;
 	readonly units: readonly UnitRow[];
@@ -290,7 +317,7 @@ function InsecticideTable({
 							canManage={canManage}
 							columnCount={columnCount}
 							insecticide={insecticide}
-							insecticides={insecticides}
+							insecticides={allInsecticides}
 							key={insecticide.id}
 							organization={organization}
 							units={units}
@@ -299,6 +326,54 @@ function InsecticideTable({
 				</TableBody>
 			</Table>
 		</div>
+	);
+}
+
+/**
+ * Inactive products, tucked behind a collapsed disclosure so the active list
+ * stays the focus. Mirrors {@link InactiveBatchesCollapsible} for batches.
+ */
+function InactiveInsecticidesCollapsible({
+	allInsecticides,
+	batchTrackingEnabled,
+	canManage,
+	insecticides,
+	organization,
+	units,
+}: {
+	readonly allInsecticides: readonly InsecticideRow[];
+	readonly batchTrackingEnabled: boolean;
+	readonly canManage: boolean;
+	readonly insecticides: readonly InsecticideRow[];
+	readonly organization: OrganizationRow | null;
+	readonly units: readonly UnitRow[];
+}) {
+	const [open, setOpen] = useState(false);
+
+	return (
+		<Collapsible onOpenChange={setOpen} open={open}>
+			<CollapsibleTrigger asChild>
+				<Button className="w-fit" size="sm" type="button" variant="ghost">
+					<ChevronIcon
+						aria-hidden="true"
+						className="transition-transform data-[open=true]:rotate-90"
+						data-icon="inline-start"
+						data-open={open}
+					/>
+					{open ? 'Hide' : 'Show'} {insecticides.length} inactive
+				</Button>
+			</CollapsibleTrigger>
+			<CollapsibleContent className="pt-2">
+				<InsecticideTable
+					allInsecticides={allInsecticides}
+					batchTrackingEnabled={batchTrackingEnabled}
+					canManage={canManage}
+					insecticides={insecticides}
+					organization={organization}
+					units={units}
+				/>
+			</CollapsibleContent>
+		</Collapsible>
 	);
 }
 
@@ -364,6 +439,7 @@ function InsecticideTableRow({
 								canManage={canManage}
 								insecticide={insecticide}
 								organization={organization}
+								tooltip="Edit"
 								trigger={
 									<Button size="icon" type="button" variant="outline">
 										<EditIcon aria-hidden="true" />
@@ -372,7 +448,7 @@ function InsecticideTableRow({
 								}
 								units={units}
 							/>
-							<DeleteInsecticideDialog insecticide={insecticide} />
+							<ToggleInsecticideActiveButton insecticide={insecticide} />
 						</div>
 					</TableCell>
 				) : null}
@@ -394,16 +470,71 @@ function InsecticideTableRow({
 	);
 }
 
+/**
+ * Reversible lifecycle toggle — the common per-row action. No confirm step; the
+ * server rejects a deactivation it disallows and surfaces that error.
+ */
+function ToggleInsecticideActiveButton({ insecticide }: { readonly insecticide: InsecticideRow }) {
+	const label = insecticide.isActive ? 'Deactivate' : 'Reactivate';
+	const ToggleIcon = insecticide.isActive ? CloseIcon : CheckIcon;
+
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button
+					onClick={(event) => {
+						// Drop focus before the row re-sorts into the inactive group: a focused
+						// button that travels with the row would scroll the viewport away from
+						// where the user was working.
+						event.currentTarget.blur();
+						toggleInsecticideActive(insecticide);
+					}}
+					size="icon"
+					type="button"
+					variant="outline"
+				>
+					<ToggleIcon aria-hidden="true" />
+					<span className="sr-only">
+						{label} {insecticide.tradeName}
+					</span>
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent>{label}</TooltipContent>
+		</Tooltip>
+	);
+}
+
+function toggleInsecticideActive(insecticide: InsecticideRow): void {
+	const nextActive = !insecticide.isActive;
+	try {
+		const transaction = updateInsecticideFromValues(insecticide, {
+			...insecticideFormValues(insecticide, insecticide.defaultUnitId),
+			isActive: nextActive,
+		});
+		watchPersistence(
+			transaction,
+			nextActive
+				? `Unable to reactivate ${insecticide.tradeName}.`
+				: `Unable to deactivate ${insecticide.tradeName}.`,
+		);
+	} catch (saveError) {
+		toast.error(errorMessageForSave(saveError));
+	}
+}
+
 function InsecticideDrawer({
 	canManage,
 	insecticide,
 	organization,
+	tooltip,
 	trigger,
 	units,
 }: {
 	readonly canManage: boolean;
 	readonly insecticide?: InsecticideRow | undefined;
 	readonly organization: OrganizationRow | null;
+	/** When set, the trigger gets a hover/focus tooltip with this label. */
+	readonly tooltip?: string | undefined;
 	readonly trigger: React.ReactNode;
 	readonly units: readonly UnitRow[];
 }) {
@@ -444,7 +575,16 @@ function InsecticideDrawer({
 
 	return (
 		<Drawer direction="right" onOpenChange={updateOpen} open={open}>
-			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
+			{tooltip === undefined ? (
+				<DrawerTrigger asChild>{trigger}</DrawerTrigger>
+			) : (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<DrawerTrigger asChild>{trigger}</DrawerTrigger>
+					</TooltipTrigger>
+					<TooltipContent>{tooltip}</TooltipContent>
+				</Tooltip>
+			)}
 			<DrawerContent className="w-[min(720px,100%)] overflow-hidden sm:max-w-[720px]">
 				<DrawerHeader className="sticky top-0 z-10 border-border/40 border-b bg-background/95 backdrop-blur">
 					<DrawerTitle>
@@ -572,17 +712,22 @@ function InsecticideDrawer({
 							</form.AppField>
 						</div>
 						<DrawerFooter>
-							<form.FormActions>
-								<form.SubmitButton
-									disabled={!canManage || organization === null || unitChoices.length === 0}
-								/>
-								<DrawerClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon aria-hidden="true" data-icon="inline-start" />
-										Cancel
-									</Button>
-								</DrawerClose>
-							</form.FormActions>
+							<div className="flex flex-wrap items-center justify-end gap-2">
+								{insecticide === undefined ? null : (
+									<DeleteInsecticideDialog className="mr-auto" insecticide={insecticide} />
+								)}
+								<form.FormActions>
+									<form.SubmitButton
+										disabled={!canManage || organization === null || unitChoices.length === 0}
+									/>
+									<DrawerClose asChild>
+										<Button type="button" variant="outline">
+											<CloseIcon aria-hidden="true" data-icon="inline-start" />
+											Cancel
+										</Button>
+									</DrawerClose>
+								</form.FormActions>
+							</div>
 						</DrawerFooter>
 					</form>
 				</form.AppForm>
@@ -591,7 +736,18 @@ function InsecticideDrawer({
 	);
 }
 
-function DeleteInsecticideDialog({ insecticide }: { readonly insecticide: InsecticideRow }) {
+/**
+ * Deletion is a rare, destructive action, so it lives inside the edit drawer
+ * rather than as a per-row control. Reversible lifecycle changes belong to
+ * {@link ToggleInsecticideActiveButton} instead.
+ */
+function DeleteInsecticideDialog({
+	className,
+	insecticide,
+}: {
+	readonly className?: string | undefined;
+	readonly insecticide: InsecticideRow;
+}) {
 	function removeInsecticide() {
 		try {
 			const transaction = deleteInsecticide(insecticide);
@@ -604,9 +760,9 @@ function DeleteInsecticideDialog({ insecticide }: { readonly insecticide: Insect
 	return (
 		<AlertDialog>
 			<AlertDialogTrigger asChild>
-				<Button size="icon" type="button" variant="destructive">
-					<DeleteIcon aria-hidden="true" />
-					<span className="sr-only">Delete {insecticide.tradeName}</span>
+				<Button className={className} type="button" variant="destructive">
+					<DeleteIcon aria-hidden="true" data-icon="inline-start" />
+					Delete insecticide
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent size="sm">
