@@ -17,6 +17,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RequestsForControlRouteImport } from './routes/requests-for-control'
 import { Route as MyOrganizationRouteImport } from './routes/my-organization'
 import { Route as MissionsRouteImport } from './routes/missions'
+import { Route as MapCardPreviewRouteImport } from './routes/map-card-preview'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutPreviewRouteImport } from './routes/layout-preview'
 import { Route as LandingRouteImport } from './routes/landing'
@@ -168,6 +169,11 @@ const MyOrganizationRoute = MyOrganizationRouteImport.update({
 const MissionsRoute = MissionsRouteImport.update({
   id: '/missions',
   path: '/missions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MapCardPreviewRoute = MapCardPreviewRouteImport.update({
+  id: '/map-card-preview',
+  path: '/map-card-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -816,6 +822,7 @@ export interface FileRoutesByFullPath {
   '/landing': typeof LandingRoute
   '/layout-preview': typeof LayoutPreviewRouteWithChildren
   '/login': typeof LoginRoute
+  '/map-card-preview': typeof MapCardPreviewRoute
   '/missions': typeof MissionsRouteWithChildren
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/requests-for-control': typeof RequestsForControlRoute
@@ -936,6 +943,7 @@ export interface FileRoutesByTo {
   '/inspections': typeof InspectionsRoute
   '/landing': typeof LandingRoute
   '/login': typeof LoginRoute
+  '/map-card-preview': typeof MapCardPreviewRoute
   '/missions': typeof MissionsRouteWithChildren
   '/requests-for-control': typeof RequestsForControlRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -1058,6 +1066,7 @@ export interface FileRoutesById {
   '/landing': typeof LandingRoute
   '/layout-preview': typeof LayoutPreviewRouteWithChildren
   '/login': typeof LoginRoute
+  '/map-card-preview': typeof MapCardPreviewRoute
   '/missions': typeof MissionsRouteWithChildren
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/requests-for-control': typeof RequestsForControlRoute
@@ -1182,6 +1191,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/layout-preview'
     | '/login'
+    | '/map-card-preview'
     | '/missions'
     | '/my-organization'
     | '/requests-for-control'
@@ -1302,6 +1312,7 @@ export interface FileRouteTypes {
     | '/inspections'
     | '/landing'
     | '/login'
+    | '/map-card-preview'
     | '/missions'
     | '/requests-for-control'
     | '/reset-password'
@@ -1423,6 +1434,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/layout-preview'
     | '/login'
+    | '/map-card-preview'
     | '/missions'
     | '/my-organization'
     | '/requests-for-control'
@@ -1546,6 +1558,7 @@ export interface RootRouteChildren {
   LandingRoute: typeof LandingRoute
   LayoutPreviewRoute: typeof LayoutPreviewRouteWithChildren
   LoginRoute: typeof LoginRoute
+  MapCardPreviewRoute: typeof MapCardPreviewRoute
   MissionsRoute: typeof MissionsRouteWithChildren
   MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
   RequestsForControlRoute: typeof RequestsForControlRoute
@@ -1696,6 +1709,13 @@ declare module '@tanstack/react-router' {
       path: '/missions'
       fullPath: '/missions'
       preLoaderRoute: typeof MissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/map-card-preview': {
+      id: '/map-card-preview'
+      path: '/map-card-preview'
+      fullPath: '/map-card-preview'
+      preLoaderRoute: typeof MapCardPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -2613,6 +2633,7 @@ const rootRouteChildren: RootRouteChildren = {
   LandingRoute: LandingRoute,
   LayoutPreviewRoute: LayoutPreviewRouteWithChildren,
   LoginRoute: LoginRoute,
+  MapCardPreviewRoute: MapCardPreviewRoute,
   MissionsRoute: MissionsRouteWithChildren,
   MyOrganizationRoute: MyOrganizationRouteWithChildren,
   RequestsForControlRoute: RequestsForControlRoute,

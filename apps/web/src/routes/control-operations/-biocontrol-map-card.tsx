@@ -1,13 +1,20 @@
 import type { BiocontrolActionRow, ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { coordinateLabel, MapCard, MapCardFact } from '../../components/map/map-card';
+import {
+	coordinateLabel,
+	MapCard,
+	MapCardDetail,
+	MapCardEyebrow,
+} from '../../components/map/map-card';
 import { webCollections } from '../../sync/webCollections';
-import { ContextBadge, formatActionDate, formatAmount } from './-control-display';
+import { ContextBadge, formatAmount } from './-control-display';
 
 const gcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
+const UnitIcon = iconRegistry.entities.unit.icon;
 
 /**
  * The map focus card for a biocontrol release. Resolves the action off the
@@ -79,8 +86,8 @@ export function BiocontrolMapCard({
 	return (
 		<MapCard
 			badges={<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />}
+			eyebrow={<MapCardEyebrow date={action.biocontrolDate} type="Biocontrol" />}
 			onClose={onClose}
-			subtitle={`${amount} · ${formatActionDate(action.biocontrolDate)}`}
 			title={methodName}
 			viewDetailLink={(content) => (
 				<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id">
@@ -88,9 +95,12 @@ export function BiocontrolMapCard({
 				</Link>
 			)}
 		>
-			<dl className="grid grid-cols-2 gap-2 text-xs">
-				<MapCardFact label="Coordinates" value={coordinateLabel(action)} wide />
-			</dl>
+			<div className="grid gap-1.5">
+				<MapCardDetail icon={UnitIcon}>{amount}</MapCardDetail>
+				<MapCardDetail icon={LocateFixedIcon} mono>
+					{coordinateLabel(action)}
+				</MapCardDetail>
+			</div>
 		</MapCard>
 	);
 }

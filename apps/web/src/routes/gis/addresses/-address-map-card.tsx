@@ -1,19 +1,29 @@
 import type { AddressRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { LocateFixedIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
-import { MapCard } from '../../../components/map/map-card';
+import {
+	coordinateLabel,
+	MapCard,
+	MapCardDetail,
+	MapCardEyebrow,
+} from '../../../components/map/map-card';
+import { TagBadge } from '../../../components/tag-badge';
+import { useMapCardTags } from '../../../hooks/use-map-card-tags';
 import { webCollections } from '../../../sync/webCollections';
+import { formatAddressLine } from '../../-address-format';
 import { useAddressGeometry } from './-address-data';
 
 const gcTimeMs = 30_000;
 
 /**
  * The map focus card for an address. Self-fetches the address off the on-demand
- * collection and its point geometry (kept out of the sync shape) over HTTP to fly
- * the map to it, then renders the shared {@link MapCard}.
+ * collection, its tags off the eager catalog, and its point geometry (kept out of
+ * the sync shape) over HTTP — to fly the map to it and to show its coordinates —
+ * then renders the shared {@link MapCard}.
  */
 export function AddressMapCard({
 	id,
@@ -41,6 +51,8 @@ export function AddressMapCard({
 	const lat = geometryQuery.data?.lat ?? null;
 	const lng = geometryQuery.data?.lng ?? null;
 
+	const tags = useMapCardTags(id);
+
 	useEffect(() => {
 		if (map === null || lat === null || lng === null) {
 			return;
@@ -59,37 +71,31 @@ export function AddressMapCard({
 		);
 	}
 
-	const line = fullAddress(address);
+	const line = formatAddressLine(address);
 
 	return (
 		<MapCard
+			badges={
+				tags.length === 0 ? undefined : tags.map((tag) => <TagBadge key={tag.id} tag={tag} />)
+			}
 			className="max-w-[420px]"
+			eyebrow={<MapCardEyebrow type="Address" />}
 			onClose={onClose}
-			subtitle={line.length === 0 ? undefined : line}
 			title={address.displayName}
 			viewDetailLink={(content) => (
 				<Link params={{ id: address.id }} to="/gis/addresses/$id">
 					{content}
 				</Link>
 			)}
-		/>
+		>
+			<div className="grid gap-1.5">
+				{line.length === 0 ? null : <MapCardDetail icon={MapPinnedIcon}>{line}</MapCardDetail>}
+				{lat === null || lng === null ? null : (
+					<MapCardDetail icon={LocateFixedIcon} mono>
+						{coordinateLabel({ lat, lng })}
+					</MapCardDetail>
+				)}
+			</div>
+		</MapCard>
 	);
-}
-
-/** The complete postal address as a readable line: street, unit · city, state postal · country. */
-function fullAddress(address: AddressRow): string {
-	const street = joinParts([address.addressLine1, address.addressLine2], ', ');
-	const cityStateZip = joinParts(
-		[joinParts([address.locality, address.region], ', '), address.postalCode],
-		' ',
-	);
-	const country = address.country.trim() === 'US' ? null : address.country;
-	return joinParts([street, cityStateZip, country], ' · ');
-}
-
-function joinParts(parts: readonly (string | null | undefined)[], separator: string): string {
-	return parts
-		.map((part) => part?.trim() ?? '')
-		.filter((part) => part.length > 0)
-		.join(separator);
 }

@@ -5,7 +5,9 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
-import { MapCard } from '../../../components/map/map-card';
+import { MapCard, MapCardEyebrow, MapCardText } from '../../../components/map/map-card';
+import { TagBadge } from '../../../components/tag-badge';
+import { useMapCardTags } from '../../../hooks/use-map-card-tags';
 import { webCollections } from '../../../sync/webCollections';
 import { useRegionGeometry } from './-region-data';
 
@@ -13,8 +15,9 @@ const gcTimeMs = 30_000;
 
 /**
  * The map focus card for a region. Self-fetches the region off the on-demand
- * collection and its polygon (kept out of the sync shape) over HTTP to fit the map
- * to its bounds, then renders the shared {@link MapCard}.
+ * collection, its tags off the eager catalog, and its polygon (kept out of the
+ * sync shape) over HTTP to fit the map to its bounds, then renders the shared
+ * {@link MapCard}.
  */
 export function RegionMapCard({
 	id,
@@ -40,6 +43,8 @@ export function RegionMapCard({
 
 	const geometryQuery = useRegionGeometry(id);
 	const geojson = geometryQuery.data?.geojson ?? null;
+
+	const tags = useMapCardTags(id);
 
 	useEffect(() => {
 		if (map === null || geojson === null) {
@@ -69,17 +74,24 @@ export function RegionMapCard({
 		);
 	}
 
+	const description = region.description?.trim() ?? '';
+
 	return (
 		<MapCard
+			badges={
+				tags.length === 0 ? undefined : tags.map((tag) => <TagBadge key={tag.id} tag={tag} />)
+			}
 			className="max-w-[420px]"
+			eyebrow={<MapCardEyebrow type="Region" />}
 			onClose={onClose}
-			subtitle={region.description ?? undefined}
 			title={region.name}
 			viewDetailLink={(content) => (
 				<Link params={{ id: region.id }} to="/gis/regions/$id">
 					{content}
 				</Link>
 			)}
-		/>
+		>
+			{description.length === 0 ? null : <MapCardText divided={false}>{description}</MapCardText>}
+		</MapCard>
 	);
 }

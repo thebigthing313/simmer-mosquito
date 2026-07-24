@@ -7,11 +7,24 @@ import type {
 } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { CalendarIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	AlertTriangleIcon,
+	CircleCheckIcon,
+	InfoIcon,
+	LocateFixedIcon,
+	MapPinnedIcon,
+	MosquitoIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { coordinateLabel, MapCard, MapCardFact } from '../../components/map/map-card';
+import {
+	coordinateLabel,
+	formatMapCardDate,
+	MapCard,
+	MapCardDetail,
+	MapCardEyebrow,
+} from '../../components/map/map-card';
 import { webCollections } from '../../sync/webCollections';
 
 const gcTimeMs = 30_000;
@@ -124,7 +137,6 @@ export function SampleMapCard({
 		unidentifiableReason: sample.unidentifiableReason,
 	});
 	const meta = STATUS_META[status];
-	const larvaeTotal = speciesRows.reduce((sum, row) => sum + row.larvaeCount, 0);
 	const identifiedAt = speciesRows.reduce<string | null>(
 		(latest, row) => (latest === null || row.identifiedAt > latest ? row.identifiedAt : latest),
 		null,
@@ -140,28 +152,8 @@ export function SampleMapCard({
 					{meta.label}
 				</Badge>
 			}
-			eyebrow={
-				inspectionDate === null ? undefined : (
-					<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-						<CalendarIcon aria-hidden="true" className="size-3.5" />
-						<span className="tabular-nums">{formatFullDate(inspectionDate)}</span>
-					</div>
-				)
-			}
+			eyebrow={<MapCardEyebrow date={inspectionDate ?? undefined} type="Sample" />}
 			onClose={onClose}
-			subtitle={
-				inspection?.habitatId == null ? (
-					<span className="italic">Ad-hoc inspection</span>
-				) : (
-					<Link
-						className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						params={{ id: inspection.habitatId }}
-						to="/larval-surveillance/habitats/$id"
-					>
-						{habitatName ?? `Habitat ${inspection.habitatId.slice(0, 8)}`}
-					</Link>
-				)
-			}
 			title={title}
 			viewDetailLink={(content) => (
 				<Link params={{ id: sample.id }} to="/larval-surveillance/samples/$id">
@@ -169,35 +161,40 @@ export function SampleMapCard({
 				</Link>
 			)}
 		>
-			<div className="grid gap-3">
-				{speciesRows.length > 0 ? (
-					<div className="flex flex-wrap gap-1.5">
-						{speciesRows.map((row) => (
-							<span
-								className="inline-flex items-center gap-1 rounded-full border border-[var(--success)]/25 bg-[var(--success-bg)] px-2 py-0.5 text-[var(--success)] text-xs"
-								key={row.speciesId}
-							>
-								<span className="italic">{nameById.get(row.speciesId) ?? 'Unknown species'}</span>
-								<span className="tabular-nums opacity-80">{row.larvaeCount.toLocaleString()}</span>
-							</span>
-						))}
-					</div>
-				) : null}
-				<dl className="grid grid-cols-2 gap-2 text-xs">
-					<MapCardFact label="Larvae counted" value={countLabel(larvaeTotal)} />
-					<MapCardFact
-						label="Identified"
-						value={identifiedAt === null ? 'Not yet' : formatFullDate(identifiedAt)}
-					/>
-					<MapCardFact
-						label="Non-mosquito"
-						value={sample.hasNonMosquito ? 'Present' : 'None noted'}
-					/>
-					<MapCardFact label="Coordinates" value={coordinateLabelOf(inspection)} />
-					{sample.unidentifiableReason === null ? null : (
-						<MapCardFact label="Unidentifiable" value={sample.unidentifiableReason} wide />
+			<div className="grid gap-1.5">
+				<MapCardDetail icon={MapPinnedIcon}>
+					{inspection?.habitatId == null ? (
+						<span className="italic">Ad-hoc inspection</span>
+					) : (
+						<Link
+							className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							params={{ id: inspection.habitatId }}
+							to="/larval-surveillance/habitats/$id"
+						>
+							{habitatName ?? `Habitat ${inspection.habitatId.slice(0, 8)}`}
+						</Link>
 					)}
-				</dl>
+				</MapCardDetail>
+				{speciesRows.map((row) => (
+					<MapCardDetail icon={MosquitoIcon} key={row.speciesId}>
+						<span className="italic">{nameById.get(row.speciesId) ?? 'Unknown species'}</span> ·{' '}
+						{row.larvaeCount.toLocaleString()}
+					</MapCardDetail>
+				))}
+				{sample.hasNonMosquito ? (
+					<MapCardDetail icon={InfoIcon}>Non-mosquito present</MapCardDetail>
+				) : null}
+				{identifiedAt === null ? null : (
+					<MapCardDetail icon={CircleCheckIcon}>
+						Identified {formatMapCardDate(identifiedAt)}
+					</MapCardDetail>
+				)}
+				<MapCardDetail icon={LocateFixedIcon} mono>
+					{coordinateLabelOf(inspection)}
+				</MapCardDetail>
+				{sample.unidentifiableReason === null ? null : (
+					<MapCardDetail icon={AlertTriangleIcon}>{sample.unidentifiableReason}</MapCardDetail>
+				)}
 			</div>
 		</MapCard>
 	);
@@ -220,29 +217,9 @@ function resolveStatus(input: {
 	return 'awaiting';
 }
 
-function countLabel(value: number): string {
-	return value <= 0 ? '—' : value.toLocaleString();
-}
-
 function coordinateLabelOf(inspection: InspectionRow | undefined): string {
 	if (inspection?.lat == null || inspection.lng == null) {
 		return 'Unknown';
 	}
 	return coordinateLabel({ lat: inspection.lat, lng: inspection.lng });
-}
-
-function formatFullDate(date: string): string {
-	const parts = date.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(year, month - 1, day)));
 }

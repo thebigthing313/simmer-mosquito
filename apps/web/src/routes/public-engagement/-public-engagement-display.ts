@@ -4,17 +4,15 @@ import type { ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 // so TanStack Router ignores this file as a route.
 
 /**
- * A stable, human-readable title for a service request. The server assigns
- * `displayName` (a sequential request number) after the write commits, so an
+ * A stable, human-readable title for a service request: its sequential number as
+ * `#123`. The server assigns `displayName` after the write commits, so an
  * optimistic row that hasn't synced yet falls back to a short id.
  */
 export function serviceRequestTitle(request: {
 	readonly displayName: number | null;
 	readonly id: string;
 }): string {
-	return request.displayName === null
-		? `Request ${request.id.slice(0, 8)}`
-		: `Request #${request.displayName}`;
+	return request.displayName === null ? request.id.slice(0, 8) : `#${request.displayName}`;
 }
 
 /** A contact's best available display label, in identity-strength order. */
@@ -40,27 +38,9 @@ export function contactSecondaryLine(contact: ContactRow): string | null {
 	return parts.length === 0 ? null : parts.join(' · ');
 }
 
-/**
- * A one-line full postal address, e.g. "123 Main St, Apt 2, Springfield, IL 62704".
- * Region + postal code are grouped without a comma; empty parts are dropped.
- * Returns an empty string when nothing is set (callers fall back to displayName).
- */
-export function formatAddressLine(address: {
-	readonly addressLine1: string | null;
-	readonly addressLine2: string | null;
-	readonly locality: string | null;
-	readonly region: string | null;
-	readonly postalCode: string | null;
-}): string {
-	const regionZip = [address.region, address.postalCode]
-		.map((value) => value?.trim() ?? '')
-		.filter((value) => value.length > 0)
-		.join(' ');
-	return [address.addressLine1, address.addressLine2, address.locality, regionZip]
-		.map((value) => value?.trim() ?? '')
-		.filter((value) => value.length > 0)
-		.join(', ');
-}
+// The one-line full postal address shared by every card (moved to a neutral home
+// so surveillance/control cards can render addresses the SR-card way).
+export { formatAddressLine } from '../-address-format';
 
 const INTAKE_TYPE_LABELS: Readonly<Record<string, string>> = {
 	online: 'Online',

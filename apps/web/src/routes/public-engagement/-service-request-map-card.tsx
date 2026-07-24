@@ -1,18 +1,11 @@
-import type {
-	AddressRow,
-	ContactRow,
-	ServiceRequestRow,
-	TagItemRow,
-	TagRow,
-} from '@simmer-mosquito/sync';
+import type { AddressRow, ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ContactIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
-import { MapCard } from '../../components/map/map-card';
+import { MapCard, MapCardDetail, MapCardEyebrow, MapCardText } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
+import { useMapCardTags } from '../../hooks/use-map-card-tags';
 import { webCollections } from '../../sync/webCollections';
 import {
 	contactDisplayName,
@@ -79,7 +72,7 @@ export function ServiceRequestMapCard({
 	);
 	const address = addressResult.data as AddressRow | undefined;
 
-	const tags = useServiceRequestTags(id);
+	const tags = useMapCardTags(id);
 
 	if (request === undefined) {
 		return (
@@ -110,6 +103,7 @@ export function ServiceRequestMapCard({
 				</>
 			}
 			className="max-w-[440px]"
+			eyebrow={<MapCardEyebrow date={request.requestDate} type="Service request" />}
 			onClose={onClose}
 			title={serviceRequestTitle(request)}
 			viewDetailLink={(content) => (
@@ -118,48 +112,21 @@ export function ServiceRequestMapCard({
 				</Link>
 			)}
 		>
-			<div className="grid gap-1 text-sm">
-				<span className="flex items-start gap-1.5 text-muted-foreground">
-					<ContactIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-					<span className={cn('min-w-0', contactLabel === null && 'italic')}>
-						{contactLabel ?? (detailsLoading ? 'Loading…' : 'No contact')}
-					</span>
-				</span>
-				{addressLabel === null && !detailsLoading ? null : (
-					<span className="flex items-start gap-1.5 text-muted-foreground">
-						<MapPinnedIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-						<span className="min-w-0">
+			<div className="grid gap-3">
+				<div className="grid gap-1.5">
+					<MapCardDetail icon={ContactIcon}>
+						{contactLabel ?? (
+							<span className="italic">{detailsLoading ? 'Loading…' : 'No contact'}</span>
+						)}
+					</MapCardDetail>
+					{addressLabel === null && !detailsLoading ? null : (
+						<MapCardDetail icon={MapPinnedIcon}>
 							{addressLabel ?? <span className="italic">Loading…</span>}
-						</span>
-					</span>
-				)}
+						</MapCardDetail>
+					)}
+				</div>
+				<MapCardText>{request.details}</MapCardText>
 			</div>
-			<p className="m-0 mt-3 line-clamp-3 whitespace-pre-wrap border-border/50 border-t pt-2 text-foreground text-sm leading-snug">
-				{request.details}
-			</p>
 		</MapCard>
 	);
-}
-
-/** The tags assigned to a service request, resolved off the eager catalog. */
-function useServiceRequestTags(id: string): readonly TagRow[] {
-	const itemsResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query.from({ item: webCollections.tagItems }).where(({ item }) => eq(item.entityId, id)),
-		},
-		[id],
-	);
-	const catalogResult = useLiveQuery((query) => query.from({ tag: webCollections.tags }), []);
-
-	return useMemo(() => {
-		const tagById = new Map((catalogResult.data ?? []).map((tag) => [tag.id, tag as TagRow]));
-		return ((itemsResult.data ?? []) as readonly TagItemRow[])
-			.flatMap((item) => {
-				const tag = tagById.get(item.tagId);
-				return tag === undefined ? [] : [tag];
-			})
-			.sort((first, second) => first.tagName.localeCompare(second.tagName));
-	}, [itemsResult.data, catalogResult.data]);
 }

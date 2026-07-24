@@ -6,20 +6,36 @@ import type {
 } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { CheckCircle2Icon, CircleIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	CheckCircle2Icon,
+	CircleIcon,
+	iconRegistry,
+	LocateFixedIcon,
+	MapPinnedIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { coordinateLabel, MapCard, MapCardFact } from '../../components/map/map-card';
+import {
+	coordinateLabel,
+	MapCard,
+	MapCardDetail,
+	MapCardEyebrow,
+} from '../../components/map/map-card';
+import { TagBadge } from '../../components/tag-badge';
+import { useMapCardTags } from '../../hooks/use-map-card-tags';
 import { webCollections } from '../../sync/webCollections';
-import { trapDisplayName } from './-adult-display';
+import { addressCardLabel } from '../-address-format';
+import { trapCardTitle } from './-adult-display';
 
 const gcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
+const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
 /**
  * The map focus card for a trap. Given the trap id it resolves the trap off the
- * eager baseline collection, its method + lure off the eager lookups, and its
- * address off the on-demand collection, then renders the shared {@link MapCard}.
+ * eager baseline collection, its method + lure off the eager lookups, its address
+ * off the on-demand collection, and its tags off the eager catalog, then renders
+ * the shared {@link MapCard}.
  */
 export function TrapMapCard({
 	id,
@@ -83,6 +99,8 @@ export function TrapMapCard({
 	);
 	const address = addressResult.data as AddressRow | undefined;
 
+	const tags = useMapCardTags(id);
+
 	if (trap === undefined) {
 		return (
 			<MapCard onClose={onClose} title="Trap">
@@ -96,25 +114,39 @@ export function TrapMapCard({
 
 	const methodName = method?.name ?? 'Unknown method';
 	const lureName = trap.collectionLureId === null ? null : (lure?.name ?? 'Unknown lure');
-	const addressName = trap.addressId === null ? null : (address?.displayName ?? null);
+	const addressName = addressCardLabel(address);
 
 	return (
 		<MapCard
-			badges={<TrapStatusBadge isActive={trap.isActive} />}
+			badges={
+				<>
+					<TrapStatusBadge isActive={trap.isActive} />
+					{tags.map((tag) => (
+						<TagBadge key={tag.id} tag={tag} />
+					))}
+				</>
+			}
+			eyebrow={<MapCardEyebrow type="Trap" />}
 			onClose={onClose}
-			subtitle={methodName}
-			title={trapDisplayName(trap)}
+			title={trapCardTitle(trap)}
 			viewDetailLink={(content) => (
 				<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id">
 					{content}
 				</Link>
 			)}
 		>
-			<dl className="grid grid-cols-2 gap-2 text-xs">
-				<MapCardFact label="Lure" value={lureName ?? 'None'} />
-				<MapCardFact label="Address" value={addressName ?? 'No linked address'} wide />
-				<MapCardFact label="Coordinates" value={coordinateLabel(trap)} wide />
-			</dl>
+			<div className="grid gap-1.5">
+				<MapCardDetail icon={TrapEntityIcon}>
+					{methodName}
+					{lureName === null ? '' : ` · ${lureName} lure`}
+				</MapCardDetail>
+				<MapCardDetail icon={MapPinnedIcon}>
+					{addressName ?? <span className="italic">No linked address</span>}
+				</MapCardDetail>
+				<MapCardDetail icon={LocateFixedIcon} mono>
+					{coordinateLabel(trap)}
+				</MapCardDetail>
+			</div>
 		</MapCard>
 	);
 }

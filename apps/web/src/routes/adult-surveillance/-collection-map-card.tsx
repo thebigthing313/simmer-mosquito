@@ -1,14 +1,20 @@
 import type { AdultCollectionRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { coordinateLabel, MapCard, MapCardFact } from '../../components/map/map-card';
+import {
+	coordinateLabel,
+	MapCard,
+	MapCardDetail,
+	MapCardEyebrow,
+} from '../../components/map/map-card';
 import { webCollections } from '../../sync/webCollections';
-import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from './-adult-display';
-import { formatMonthDay } from './-overview-data';
+import { CollectionFlagBadges, collectionEffectiveDate, trapCardTitle } from './-adult-display';
 
 const gcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
+const CollectionEntityIcon = iconRegistry.entities.collection.icon;
 
 /**
  * The map focus card for an adult collection. Given the collection id it resolves
@@ -81,16 +87,14 @@ export function CollectionMapCard({
 			? 'Ad-hoc collection'
 			: trap === undefined
 				? 'Collection'
-				: trapDisplayName(trap);
+				: trapCardTitle(trap);
 	const methodName = method?.name ?? 'Unknown method';
 	const effectiveDate = collectionEffectiveDate(collection);
-	const subtitle =
-		effectiveDate === null ? methodName : `${methodName} · ${formatMonthDay(effectiveDate)}`;
 
 	return (
 		<MapCard
+			eyebrow={<MapCardEyebrow date={effectiveDate ?? undefined} type="Collection" />}
 			onClose={onClose}
-			subtitle={subtitle}
 			title={title}
 			viewDetailLink={(content) => (
 				<Link params={{ id: collection.id }} to="/adult-surveillance/collections/$id">
@@ -103,9 +107,12 @@ export function CollectionMapCard({
 					className="flex flex-wrap items-center gap-1.5"
 					collection={collection}
 				/>
-				<dl className="grid grid-cols-2 gap-2 text-xs">
-					<MapCardFact label="Coordinates" value={coordinateLabel(collection)} wide />
-				</dl>
+				<div className="grid gap-1.5">
+					<MapCardDetail icon={CollectionEntityIcon}>{methodName}</MapCardDetail>
+					<MapCardDetail icon={LocateFixedIcon} mono>
+						{coordinateLabel(collection)}
+					</MapCardDetail>
+				</div>
 			</div>
 		</MapCard>
 	);

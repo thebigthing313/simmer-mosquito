@@ -17,6 +17,7 @@ import {
 	Component,
 	Contrast,
 	Download,
+	Droplet,
 	Edit,
 	Fish,
 	FlaskConical,
@@ -167,6 +168,7 @@ export const iconRegistry = {
 		compass: icon('compass', 'Compass', 'generic', Compass),
 		component: icon('component', 'Component', 'generic', Component),
 		contrast: icon('contrast', 'Contrast', 'generic', Contrast),
+		droplet: icon('droplet', 'Droplet', 'generic', Droplet),
 		error: icon('error', 'Error', 'generic', OctagonX),
 		gripVertical: icon('gripVertical', 'Vertical grip', 'generic', GripVertical),
 		home: icon('home', 'Home', 'generic', Home),
@@ -216,6 +218,7 @@ export const ComponentIcon = iconRegistry.generic.component.icon;
 export const ContactIcon = iconRegistry.entities.contact.icon;
 export const ContrastIcon = iconRegistry.generic.contrast.icon;
 export const DownloadIcon = iconRegistry.actions.download.icon;
+export const DropletIcon = iconRegistry.generic.droplet.icon;
 export const GripVerticalIcon = iconRegistry.generic.gripVertical.icon;
 export const HomeIcon = iconRegistry.generic.home.icon;
 export const InfoIcon = iconRegistry.actions.info.icon;

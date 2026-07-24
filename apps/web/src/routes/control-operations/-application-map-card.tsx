@@ -8,15 +8,28 @@ import type {
 	UnitRow,
 } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import {
+	ContactIcon,
+	InfoIcon,
+	iconRegistry,
+	LocateFixedIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { coordinateLabel, MapCard, MapCardFact } from '../../components/map/map-card';
+import {
+	coordinateLabel,
+	MapCard,
+	MapCardDetail,
+	MapCardEyebrow,
+} from '../../components/map/map-card';
 import { webCollections } from '../../sync/webCollections';
-import { formatActionDate, formatAmount } from './-control-display';
+import { formatAmount } from './-control-display';
 
 const gcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
+const UnitIcon = iconRegistry.entities.unit.icon;
+const MethodIcon = iconRegistry.entities.application.icon;
 
 /**
  * The map focus card for a chemical application. Resolves the application off the
@@ -160,8 +173,8 @@ export function ApplicationMapCard({
 
 	return (
 		<MapCard
+			eyebrow={<MapCardEyebrow date={application.applicationDate} type="Application" />}
 			onClose={onClose}
-			subtitle={`${amount} · ${formatActionDate(application.applicationDate)}`}
 			title={productName}
 			viewDetailLink={(content) => (
 				<Link params={{ id: application.id }} to="/control-operations/chemical/$id">
@@ -169,14 +182,19 @@ export function ApplicationMapCard({
 				</Link>
 			)}
 		>
-			<dl className="grid grid-cols-2 gap-2 text-xs">
-				<MapCardFact label="Method" value={methodName ?? 'No method'} />
-				{applicatorName === null ? null : <MapCardFact label="Applicator" value={applicatorName} />}
-				{batchNames.length === 0 ? null : (
-					<MapCardFact label="Batches" value={batchNames.join(', ')} wide />
+			<div className="grid gap-1.5">
+				<MapCardDetail icon={UnitIcon}>{amount}</MapCardDetail>
+				{methodName === null ? null : <MapCardDetail icon={MethodIcon}>{methodName}</MapCardDetail>}
+				{applicatorName === null ? null : (
+					<MapCardDetail icon={ContactIcon}>{applicatorName}</MapCardDetail>
 				)}
-				<MapCardFact label="Coordinates" value={coordinateLabel(application)} wide />
-			</dl>
+				{batchNames.length === 0 ? null : (
+					<MapCardDetail icon={InfoIcon}>Batch {batchNames.join(', ')}</MapCardDetail>
+				)}
+				<MapCardDetail icon={LocateFixedIcon} mono>
+					{coordinateLabel(application)}
+				</MapCardDetail>
+			</div>
 		</MapCard>
 	);
 }

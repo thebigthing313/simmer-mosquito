@@ -1,19 +1,26 @@
-import type {
-	AddressRow,
-	HabitatRow,
-	HabitatTypeRow,
-	TagItemRow,
-	TagRow,
-} from '@simmer-mosquito/sync';
+import type { AddressRow, HabitatRow, HabitatTypeRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { AlertTriangleIcon, CheckCircle2Icon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	AlertTriangleIcon,
+	CheckCircle2Icon,
+	ComponentIcon,
+	LocateFixedIcon,
+	MapPinnedIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
-import { coordinateLabel, MapCard, MapCardFact } from '../components/map/map-card';
+import {
+	coordinateLabel,
+	MapCard,
+	MapCardDetail,
+	MapCardEyebrow,
+	MapCardText,
+} from '../components/map/map-card';
 import { TagBadge } from '../components/tag-badge';
+import { useMapCardTags } from '../hooks/use-map-card-tags';
 import { webCollections } from '../sync/webCollections';
+import { addressCardLabel } from './-address-format';
 
 const gcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
@@ -76,7 +83,7 @@ export function HabitatMapCard({
 	);
 	const address = addressResult.data as AddressRow | undefined;
 
-	const tags = useHabitatTags(id);
+	const tags = useMapCardTags(id);
 
 	if (habitat === undefined) {
 		return (
@@ -93,13 +100,20 @@ export function HabitatMapCard({
 	const typeName =
 		habitat.habitatTypeId === null ? 'Unassigned type' : (habitatType?.name ?? 'Unknown type');
 	const description = habitat.description.trim();
-	const addressLabel = habitat.addressId === null ? null : (address?.displayName ?? null);
+	const addressLabel = addressCardLabel(address);
 
 	return (
 		<MapCard
-			badges={<HabitatStateBadge habitat={habitat} />}
+			badges={
+				<>
+					<HabitatStateBadge habitat={habitat} />
+					{tags.map((tag) => (
+						<TagBadge key={tag.id} tag={tag} />
+					))}
+				</>
+			}
+			eyebrow={<MapCardEyebrow type="Habitat" />}
 			onClose={onClose}
-			subtitle={typeName}
 			title={title}
 			viewDetailLink={(content) => (
 				<Link params={{ id: habitat.id }} to={detailTo}>
@@ -108,49 +122,19 @@ export function HabitatMapCard({
 			)}
 		>
 			<div className="grid gap-3">
-				{description.length === 0 ? null : (
-					<p className="m-0 line-clamp-3 whitespace-pre-wrap text-muted-foreground text-sm leading-snug">
-						{description}
-					</p>
-				)}
-				{tags.length === 0 ? null : (
-					<div className="flex flex-wrap gap-1.5">
-						{tags.map((tag) => (
-							<TagBadge key={tag.id} tag={tag} />
-						))}
-					</div>
-				)}
-				<dl className="grid grid-cols-2 gap-2 text-xs">
-					<MapCardFact label="Geometry" value={formatGeometryTypeLabel(habitat.geomType)} />
-					<MapCardFact label="Coordinates" value={coordinateLabel(habitat)} />
-					<MapCardFact label="Address" value={addressLabel ?? 'No linked address'} wide />
-				</dl>
+				<div className="grid gap-1.5">
+					<MapCardDetail icon={ComponentIcon}>{typeName}</MapCardDetail>
+					<MapCardDetail icon={MapPinnedIcon}>
+						{addressLabel ?? <span className="italic">No linked address</span>}
+					</MapCardDetail>
+					<MapCardDetail icon={LocateFixedIcon} mono>
+						{coordinateLabel(habitat)}
+					</MapCardDetail>
+				</div>
+				{description.length === 0 ? null : <MapCardText>{description}</MapCardText>}
 			</div>
 		</MapCard>
 	);
-}
-
-/** The tags assigned to a habitat, resolved off the eager catalog. */
-function useHabitatTags(id: string): readonly TagRow[] {
-	const itemsResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query.from({ item: webCollections.tagItems }).where(({ item }) => eq(item.entityId, id)),
-		},
-		[id],
-	);
-	const catalogResult = useLiveQuery((query) => query.from({ tag: webCollections.tags }), []);
-
-	return useMemo(() => {
-		const tagById = new Map((catalogResult.data ?? []).map((tag) => [tag.id, tag as TagRow]));
-		return ((itemsResult.data ?? []) as readonly TagItemRow[])
-			.flatMap((item) => {
-				const tag = tagById.get(item.tagId);
-				return tag === undefined ? [] : [tag];
-			})
-			.sort((first, second) => first.tagName.localeCompare(second.tagName));
-	}, [itemsResult.data, catalogResult.data]);
 }
 
 function HabitatStateBadge({ habitat }: { readonly habitat: HabitatRow }) {
@@ -175,30 +159,4 @@ function HabitatStateBadge({ habitat }: { readonly habitat: HabitatRow }) {
 			Inactive
 		</Badge>
 	);
-}
-
-function formatGeometryTypeLabel(value: string): string {
-	const normalized = value
-		.trim()
-		.toLowerCase()
-		.replace(/^st_?/, '')
-		.replace(/[_\s]+/g, '');
-	switch (normalized) {
-		case 'point':
-			return 'Point';
-		case 'multipoint':
-			return 'Multi-point';
-		case 'linestring':
-			return 'Line';
-		case 'multilinestring':
-			return 'Multi-line';
-		case 'polygon':
-			return 'Polygon';
-		case 'multipolygon':
-			return 'Multi-polygon';
-		case 'geometrycollection':
-			return 'Geometry collection';
-		default:
-			return value.trim() === '' ? 'Unknown' : value;
-	}
 }

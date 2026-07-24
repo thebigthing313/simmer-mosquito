@@ -19,6 +19,24 @@ export function trapDisplayName(trap: {
 }
 
 /**
+ * Map-card title for a trap: `code - name`, coalesced so it still reads when only
+ * one of the two is set (and a short id when neither is). Distinct from
+ * {@link trapDisplayName} (`name (code)`), which the lists/detail views use.
+ */
+export function trapCardTitle(trap: {
+	readonly id: string;
+	readonly trapName: TrapRow['trapName'];
+	readonly trapCode: TrapRow['trapCode'];
+}): string {
+	const name = trap.trapName?.trim();
+	const code = trap.trapCode?.trim();
+	if (name && code) {
+		return `${code} - ${name}`;
+	}
+	return code || name || `Trap ${trap.id.slice(0, 8)}`;
+}
+
+/**
  * The date a collection is anchored to, or null when genuinely pending.
  *
  * The two timing modes store the date in different columns: `exact_timestamps`

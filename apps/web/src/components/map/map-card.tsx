@@ -1,5 +1,10 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { ChevronRightIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	CalendarIcon,
+	ChevronRightIcon,
+	type RegistryIcon,
+	XIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 
@@ -8,8 +13,6 @@ export interface MapCardProps {
 	readonly eyebrow?: ReactNode;
 	/** The record's name / heading, top-left. */
 	readonly title: ReactNode;
-	/** A secondary line under the title (type, date, method…). */
-	readonly subtitle?: ReactNode;
 	/** Optional status/flag badges, shown as a wrapping row under the header. */
 	readonly badges?: ReactNode;
 	/** The type-specific body (definition rows, facts, tags…). */
@@ -36,7 +39,6 @@ export interface MapCardProps {
 export function MapCard({
 	eyebrow,
 	title,
-	subtitle,
 	badges,
 	children,
 	onClose,
@@ -57,9 +59,6 @@ export function MapCard({
 						<h2 className="truncate font-semibold text-base text-foreground leading-tight">
 							{title}
 						</h2>
-						{subtitle == null ? null : (
-							<p className="m-0 truncate text-muted-foreground text-sm">{subtitle}</p>
-						)}
 					</div>
 					<Button aria-label="Close" onClick={onClose} size="icon" variant="ghost">
 						<XIcon aria-hidden="true" />
@@ -90,35 +89,110 @@ export function MapCard({
 }
 
 /**
- * A bordered `<dl>` fact tile for a map card body — the shared replacement for
- * the `DetailFact` that was copy-pasted across the explorer cards. Sits in a
- * `grid grid-cols-2 gap-2 text-xs` facts grid; `wide` spans both columns.
+ * One stacked detail row in a map card body: a leading icon and its value, in the
+ * muted "[icon] value" form the service-request card uses. Group several inside a
+ * `grid gap-1.5`. Pass `mono` for coordinates/codes/IDs (per the design system,
+ * the only place the mono stack is used).
  */
-export function MapCardFact({
-	label,
-	value,
-	wide = false,
+export function MapCardDetail({
+	icon: Icon,
+	mono = false,
+	children,
 }: {
-	readonly label: string;
-	readonly value: ReactNode;
-	readonly wide?: boolean;
+	readonly icon: RegistryIcon;
+	readonly mono?: boolean;
+	readonly children: ReactNode;
 }) {
 	return (
-		<div
+		<div className="flex items-start gap-1.5 text-muted-foreground text-sm">
+			<Icon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+			<span className={cn('min-w-0 leading-snug', mono && 'font-mono text-[0.8rem]')}>
+				{children}
+			</span>
+		</div>
+	);
+}
+
+/**
+ * The long free-text block at the bottom of a map card (a request's details, a
+ * habitat/region description). Sits under the stacked details, foreground-weighted
+ * for emphasis; `divided` (default) draws the separator rule above it — turn it off
+ * when the text is the card's only body content.
+ */
+export function MapCardText({
+	children,
+	divided = true,
+}: {
+	readonly children: ReactNode;
+	readonly divided?: boolean;
+}) {
+	return (
+		<p
 			className={cn(
-				'grid gap-0.5 rounded-md border border-border/40 bg-background/60 px-2.5 py-1.5',
-				wide && 'col-span-2',
+				'm-0 line-clamp-3 whitespace-pre-wrap text-foreground text-sm leading-snug',
+				divided && 'border-border/50 border-t pt-2.5',
 			)}
 		>
-			<dt className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-wide">
-				{label}
-			</dt>
-			<dd className="m-0 min-w-0 truncate font-medium text-foreground">{value}</dd>
-		</div>
+			{children}
+		</p>
 	);
 }
 
 /** The shared "lat, lng" label (4dp) used by the map cards. */
 export function coordinateLabel(point: { readonly lat: number; readonly lng: number }): string {
 	return `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`;
+}
+
+/**
+ * The eyebrow row at the top of a {@link MapCard}: the record's `type` (e.g.
+ * "Inspection"), plus its `date` for dated records. Every card passes its type so
+ * the kind of feature you clicked always reads at a glance; inspections, samples,
+ * collections, applications, source-reduction, biocontrol, and service requests
+ * additionally pass `date`, which appears with a calendar icon after the type.
+ */
+export function MapCardEyebrow({
+	type,
+	date,
+}: {
+	readonly type: string;
+	readonly date?: string | undefined;
+}) {
+	return (
+		<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+			<span className="font-semibold text-[0.68rem] text-foreground/75 uppercase tracking-wide">
+				{type}
+			</span>
+			{date === undefined ? null : (
+				<>
+					<span aria-hidden="true" className="text-muted-foreground/40">
+						·
+					</span>
+					<span className="flex items-center gap-1 tabular-nums">
+						<CalendarIcon aria-hidden="true" className="size-3.5" />
+						{formatMapCardDate(date)}
+					</span>
+				</>
+			)}
+		</div>
+	);
+}
+
+/**
+ * `July 24, 2026` — the canonical map-card date label. Date-only columns arrive as
+ * `YYYY-MM-DD`; format in UTC so the calendar day never shifts across timezones.
+ */
+export function formatMapCardDate(date: string): string {
+	const parts = date.slice(0, 10).split('-');
+	const year = Number(parts[0]);
+	const month = Number(parts[1]);
+	const day = Number(parts[2]);
+	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
+		return date;
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(new Date(Date.UTC(year, month - 1, day)));
 }
