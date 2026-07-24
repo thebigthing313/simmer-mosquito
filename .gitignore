@@ -12,3 +12,7 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Vendored design tooling (installed locally, not version-controlled)
+.agents/skills/impeccable/
+.codex/hooks.json
