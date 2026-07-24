@@ -6,13 +6,7 @@
  *
  * Leave `null` for real behaviour (the actual current date).
  */
-// Pinned to 2026-05-27 — the latest dense day in the current dev/prod-clone
-// snapshot (221 inspections, samples + species identifications in the trailing
-// 7d/30d windows), so the larval-surveillance dashboards populate on load.
-// Note the local-noon time: getToday() returns a Date that gets formatted in
-// the org timezone, and a bare `'2026-05-27'` (UTC midnight) would roll back a
-// day in US timezones — noon keeps it on the intended calendar date.
-const TODAY_OVERRIDE: string | null = '2026-05-27T12:00:00';
+const TODAY_OVERRIDE: string | null = null;
 
 /**
  * The app's single source of truth for "today's date".
