@@ -68,6 +68,8 @@ import {
 	X,
 } from 'lucide-react';
 import { type ComponentType, createElement, type SVGProps } from 'react';
+import brandMarkUrl from './assets/brand-mark.svg?url';
+import mosquitoUrl from './assets/mosquito.svg?url';
 
 export type RegistryIcon = ComponentType<SVGProps<SVGSVGElement>>;
 export type IconSource = 'lucide' | 'simmer';
@@ -81,8 +83,8 @@ export interface IconRegistryEntry {
 	readonly icon: RegistryIcon;
 }
 
-const BrandMarkSvgIcon = assetIcon('brandMarkSvg', './assets/brand-mark.svg');
-const MosquitoSvgIcon = assetIcon('mosquitoSvg', './assets/mosquito.svg');
+const BrandMarkSvgIcon = assetIcon('brandMarkSvg', brandMarkUrl);
+const MosquitoSvgIcon = assetIcon('mosquitoSvg', mosquitoUrl);
 
 export const iconRegistry = {
 	simmer: {
@@ -282,9 +284,7 @@ function iconEntry(
 	};
 }
 
-function assetIcon(displayName: string, assetPath: string): RegistryIcon {
-	const assetUrl = new URL(assetPath, import.meta.url).href;
-
+function assetIcon(displayName: string, assetUrl: string): RegistryIcon {
 	function AssetIcon({ children: _children, ...props }: SVGProps<SVGSVGElement>) {
 		return createElement(
 			'svg',
