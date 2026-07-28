@@ -8,6 +8,7 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	ChevronRightIcon,
 	iconRegistry,
@@ -172,7 +173,7 @@ function ContactsSkeleton() {
 	return (
 		<div className="grid gap-2 rounded-md border border-border/40 p-2">
 			{[0, 1, 2, 3, 4].map((index) => (
-				<div className="h-11 animate-pulse rounded-md bg-muted/60" key={index} />
+				<Skeleton className="h-11" key={index} />
 			))}
 		</div>
 	);

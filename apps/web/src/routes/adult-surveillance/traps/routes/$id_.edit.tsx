@@ -18,6 +18,7 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	ArrowLeftIcon,
 	ChevronDownIcon,
@@ -269,7 +270,7 @@ function StopEditor({
 		return (
 			<div className="grid gap-2">
 				{['sk-1', 'sk-2', 'sk-3'].map((key) => (
-					<div className="h-16 animate-pulse rounded-lg bg-muted/60" key={key} />
+					<Skeleton className="h-16 rounded-lg" key={key} />
 				))}
 			</div>
 		);

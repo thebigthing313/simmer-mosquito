@@ -1,10 +1,12 @@
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
+import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
+import { Suspense } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
 import { BreadcrumbLabelProvider } from './breadcrumb-labels';
 import { shellDomains } from './navigation';
+import { OutletContentFallback } from './outlet/outlet-content-fallback';
 import { OutletShell } from './outlet/outlet-shell';
 import { ShellProvider } from './shell-context';
 import type { ShellOrganization, ShellUser } from './types';
@@ -31,19 +33,30 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
 
-	const { rows: organizations, status: organizationStatus } = useCollectionRows(
-		webCollections.currentOrganization,
+	// The chrome renders from the auth snapshot first and refines as sync lands:
+	// non-suspense `useLiveQuery` gated on `isReady`, NOT `useLiveSuspenseQuery`,
+	// so a cold organization/profile shape never holds the entire workspace
+	// behind a full-screen fallback. Route content suspends into the boundary
+	// around `Outlet` below instead.
+	const organizationResult = useLiveQuery(
+		(query) => query.from({ row: webCollections.currentOrganization }),
+		[],
 	);
-	const { rows: profiles } = useCollectionRows(webCollections.profiles);
-	const organization = organizations.find((row) => row.id === localIdentity?.organizationId);
-	if (organizationStatus === 'ready' && localIdentity !== null && organization === undefined) {
+	const profileResult = useLiveQuery((query) => query.from({ row: webCollections.profiles }), []);
+
+	const organization = (organizationResult.data ?? []).find(
+		(row) => row.id === localIdentity?.organizationId,
+	);
+	if (organizationResult.isReady && localIdentity !== null && organization === undefined) {
 		throw new Error('Unable to resolve active organization for this workspace.');
 	}
-	const profile = profiles.find((row) => row.id === localIdentity?.profileId);
+	const profile = (profileResult.data ?? []).find((row) => row.id === localIdentity?.profileId);
 
 	const currentOrganization: ShellOrganization = {
 		id: organization?.id ?? localIdentity?.organizationId ?? 'organization',
-		name: organization?.name ?? 'Organization',
+		// `organizationName` rides on the auth snapshot, so the real name is on
+		// screen before the organization shape syncs — no placeholder flash.
+		name: organization?.name ?? localIdentity?.organizationName ?? 'Organization',
 	};
 	const shellUser: ShellUser = {
 		name: profile?.displayName ?? user?.displayName ?? 'SIMMER User',
@@ -71,7 +84,13 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 			>
 				<BreadcrumbLabelProvider>
 					<OutletShell>
-						<Outlet />
+						{/* Backstop only. Route pages suspend into the per-match boundary the
+						    router builds from `defaultPendingComponent` (see main.tsx); this
+						    one catches anything that suspends outside a match. Deliberately
+						    unkeyed — keying it would remount every page on navigation. */}
+						<Suspense fallback={<OutletContentFallback />}>
+							<Outlet />
+						</Suspense>
 					</OutletShell>
 				</BreadcrumbLabelProvider>
 			</ShellProvider>

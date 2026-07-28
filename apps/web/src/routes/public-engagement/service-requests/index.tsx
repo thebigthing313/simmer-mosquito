@@ -28,6 +28,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
 	CheckIcon,
@@ -635,7 +636,7 @@ function RequestsSkeleton() {
 	return (
 		<div className="grid gap-2 p-4">
 			{[0, 1, 2, 3, 4].map((index) => (
-				<div className="h-16 animate-pulse rounded-md bg-muted/60" key={index} />
+				<Skeleton className="h-16" key={index} />
 			))}
 		</div>
 	);

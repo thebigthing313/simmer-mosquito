@@ -26,6 +26,7 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import {
 	ArrowLeftIcon,
@@ -533,7 +534,7 @@ function EditStopList({
 		return (
 			<div className="grid gap-2 p-3">
 				{['sk-1', 'sk-2', 'sk-3', 'sk-4'].map((key) => (
-					<div className="h-[72px] animate-pulse rounded-lg bg-muted/60" key={key} />
+					<Skeleton className="h-[72px] rounded-lg" key={key} />
 				))}
 			</div>
 		);

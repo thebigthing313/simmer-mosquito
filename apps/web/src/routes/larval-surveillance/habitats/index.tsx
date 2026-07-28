@@ -16,6 +16,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
 	AlertTriangleIcon,
@@ -520,7 +521,7 @@ function HabitatResults({
 		return (
 			<div className="grid gap-px overflow-y-auto p-2">
 				{SKELETON_KEYS.map((key) => (
-					<div className="h-[58px] animate-pulse rounded-md bg-muted/60" key={key} />
+					<Skeleton className="h-[58px]" key={key} />
 				))}
 			</div>
 		);

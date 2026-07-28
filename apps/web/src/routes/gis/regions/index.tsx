@@ -24,6 +24,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	ChevronDownIcon,
 	ChevronRightIcon,
@@ -806,7 +807,7 @@ function RegionsSkeleton() {
 	return (
 		<div className="grid gap-2 p-4">
 			{[0, 1, 2, 3, 4].map((index) => (
-				<div className="h-9 animate-pulse rounded-md bg-muted/60" key={index} />
+				<Skeleton className="h-9" key={index} />
 			))}
 		</div>
 	);

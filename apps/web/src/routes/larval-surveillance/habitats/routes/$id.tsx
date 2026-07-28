@@ -7,6 +7,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -114,7 +115,7 @@ function RouteBody({
 		return (
 			<div className="grid gap-2 p-3">
 				{['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5'].map((key) => (
-					<div className="h-[64px] animate-pulse rounded-lg bg-muted/60" key={key} />
+					<Skeleton className="h-[64px] rounded-lg" key={key} />
 				))}
 			</div>
 		);

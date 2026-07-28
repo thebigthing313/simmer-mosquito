@@ -27,6 +27,7 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	Table,
 	TableBody,
@@ -348,7 +349,7 @@ function HabitatTypeSection({
 
 function SitesCount({ count, isLoading }: { readonly count: number; readonly isLoading: boolean }) {
 	if (isLoading) {
-		return <span className="inline-block h-4 w-7 animate-pulse rounded bg-muted align-middle" />;
+		return <Skeleton className="inline-block h-4 w-7 rounded align-middle" />;
 	}
 	return (
 		<span
