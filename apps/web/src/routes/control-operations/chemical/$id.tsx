@@ -44,14 +44,14 @@ import {
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { MapCanvas } from '../../../components/map';
+import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
 import { useHabitatNames } from '../-overview-data';
@@ -219,7 +219,7 @@ function ApplicationDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<ApplicationLocationCard point={{ lat: application.lat, lng: application.lng }} />
+					<ApplicationLocationCard application={application} />
 					<ApplicationBatchesCard
 						actorProfileId={actorProfileId}
 						application={application}
@@ -254,41 +254,26 @@ function ApplicationDetailContent({
 
 // --- location ----------------------------------------------------------------
 
-function ApplicationLocationCard({
-	point,
-}: {
-	readonly point: { readonly lat: number; readonly lng: number };
-}) {
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			map.setCenter([point.lng, point.lat]);
-			map.setZoom(15);
-		},
-		[point],
+/**
+ * An application owns Point/LineString/Polygon geometry, so the detail page renders
+ * the treated swath as drawn rather than collapsing it to a centroid. Electric
+ * streams only the centroid (ADR 0009), so the full geometry is fetched here.
+ */
+function ApplicationLocationCard({ application }: { readonly application: ApplicationRow }) {
+	const geometry = useOwnedGeometry(
+		CHEMICAL_GEOMETRY_SOURCE,
+		application.id,
+		application.updatedAt,
 	);
 
-	const geoJson = {
-		type: 'Feature',
-		properties: {},
-		geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
-	} as GeoJSON.Feature;
-
 	return (
-		<Card className="overflow-hidden" variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Location</CardTitle>
-				<CardDescription>{`${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`}</CardDescription>
-			</CardHeader>
-			<CardContent padding="compact">
-				<div className="h-[280px] overflow-hidden rounded-md border border-border/40">
-					<MapCanvas
-						controls={{ search: false, layers: false, geolocate: false }}
-						geoJson={geoJson}
-						onMapReady={handleMapReady}
-					/>
-				</div>
-			</CardContent>
-		</Card>
+		<RecordLocationCard
+			emptyDescription="This application has no location to display."
+			geojson={geometry.geojson}
+			geomType={geometry.geomType ?? application.geomType}
+			isError={geometry.isError}
+			isPending={geometry.isPending}
+		/>
 	);
 }
 

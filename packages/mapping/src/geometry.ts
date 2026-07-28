@@ -192,6 +192,50 @@ export function ownedCentroidFromGeoJson(geometry: GeoJsonGeometry): OwnedCentro
 	};
 }
 
+/**
+ * Normalize a stored geometry type to its bare GeoJSON-ish form. Owned-geometry
+ * columns hold the lowercased PostGIS `ST_*` name (`st_polygon`), while GeoJSON
+ * objects carry `Polygon` — both normalize to `polygon`.
+ */
+export function normalizeGeomType(value: string): string {
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/^st_?/, '')
+		.replace(/[_\s]+/g, '');
+}
+
+/** True when the stored geometry is a single point (the centroid *is* the shape). */
+export function isPointGeomType(value: string | null | undefined): boolean {
+	return value != null && normalizeGeomType(value) === 'point';
+}
+
+/**
+ * Human label for a stored geometry type — `st_linestring` reads as "Line".
+ * Unrecognized values pass through so an unexpected type is visible rather than
+ * silently relabelled.
+ */
+export function formatGeometryTypeLabel(value: string): string {
+	switch (normalizeGeomType(value)) {
+		case 'point':
+			return 'Point';
+		case 'multipoint':
+			return 'Multi-point';
+		case 'linestring':
+			return 'Line';
+		case 'multilinestring':
+			return 'Multi-line';
+		case 'polygon':
+			return 'Polygon';
+		case 'multipolygon':
+			return 'Multi-polygon';
+		case 'geometrycollection':
+			return 'Geometry collection';
+		default:
+			return value.trim() === '' ? 'Unknown geometry' : value;
+	}
+}
+
 export function countGeoJsonVertices(geometry: GeoJsonGeometry): number {
 	switch (geometry.type) {
 		case 'Point':

@@ -1,7 +1,6 @@
 import {
 	boundsFromGeoJson,
 	centroidFromGeoJson,
-	countGeoJsonVertices,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/sync';
@@ -32,6 +31,7 @@ import { getServerUrl } from '../../../auth';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { type MapCamera, MapCanvas } from '../../../components/map';
+import { geometrySummary } from '../../../components/map/record-location-card';
 import { webCollections } from '../../../sync/webCollections';
 import { DensityBadge, hasAnyLifeStage, LifeStageStrip, WetnessBadge } from '../-larval-display';
 
@@ -304,7 +304,7 @@ function InspectionLocationCard({
 		<Card className="overflow-hidden" variant="surface">
 			<CardHeader className="px-4 py-4">
 				<CardTitle>Location</CardTitle>
-				<CardDescription>{locationSummary(geometry, geomType)}</CardDescription>
+				<CardDescription>{geometrySummary(geometry, geomType)}</CardDescription>
 			</CardHeader>
 			<CardContent padding="compact">
 				{geometry === null ? (
@@ -1183,13 +1183,6 @@ function coordinateLabel(inspection: InspectionDetailRow): string {
 	return `${inspection.lat.toFixed(5)}, ${inspection.lng.toFixed(5)}`;
 }
 
-function locationSummary(geometry: GeoJsonGeometry | null, geomType: string | null): string {
-	if (geometry === null) {
-		return 'No geometry recorded';
-	}
-	return `${formatGeometryTypeLabel(geomType ?? geometry.type)} · ${countGeoJsonVertices(geometry)} vertices`;
-}
-
 /** Long-form date from a `YYYY-MM-DD` inspection date (parsed as its own UTC day). */
 function formatFullDate(date: string): string {
 	const parsed = parseDateOnly(date);
@@ -1240,30 +1233,4 @@ function formatDateTime(value: string): string {
 		hour: 'numeric',
 		minute: '2-digit',
 	}).format(date);
-}
-
-function formatGeometryTypeLabel(value: string): string {
-	const normalized = value
-		.trim()
-		.toLowerCase()
-		.replace(/^st_?/, '')
-		.replace(/[_\s]+/g, '');
-	switch (normalized) {
-		case 'point':
-			return 'Point';
-		case 'multipoint':
-			return 'Multi-point';
-		case 'linestring':
-			return 'Line';
-		case 'multilinestring':
-			return 'Multi-line';
-		case 'polygon':
-			return 'Polygon';
-		case 'multipolygon':
-			return 'Multi-polygon';
-		case 'geometrycollection':
-			return 'Geometry collection';
-		default:
-			return value.trim() === '' ? 'Unknown geometry' : value;
-	}
 }

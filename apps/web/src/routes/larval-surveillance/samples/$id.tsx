@@ -1,7 +1,6 @@
 import {
 	boundsFromGeoJson,
 	centroidFromGeoJson,
-	countGeoJsonVertices,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
 import type {
@@ -63,6 +62,7 @@ import { getServerUrl } from '../../../auth';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { type MapCamera, MapCanvas } from '../../../components/map';
+import { geometrySummary } from '../../../components/map/record-location-card';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
@@ -359,7 +359,7 @@ function SampleLocationCard({
 		<Card className="overflow-hidden" variant="surface">
 			<CardHeader className="px-4 py-4">
 				<CardTitle>Location</CardTitle>
-				<CardDescription>{locationSummary(geometry, geomType)}</CardDescription>
+				<CardDescription>{geometrySummary(geometry, geomType)}</CardDescription>
 			</CardHeader>
 			<CardContent padding="compact">
 				{geometry === null ? (
@@ -1297,13 +1297,6 @@ function coordinateLabel(geo: SampleGeoRow): string {
 	return `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`;
 }
 
-function locationSummary(geometry: GeoJsonGeometry | null, geomType: string | null): string {
-	if (geometry === null) {
-		return 'No geometry recorded';
-	}
-	return `${formatGeometryTypeLabel(geomType ?? geometry.type)} · ${countGeoJsonVertices(geometry)} vertices`;
-}
-
 function messageOf(cause: unknown, fallback: string): string {
 	return cause instanceof Error && cause.message.length > 0 ? cause.message : fallback;
 }
@@ -1358,30 +1351,4 @@ function formatDateTime(value: string): string {
 		hour: 'numeric',
 		minute: '2-digit',
 	}).format(date);
-}
-
-function formatGeometryTypeLabel(value: string): string {
-	const normalized = value
-		.trim()
-		.toLowerCase()
-		.replace(/^st_?/, '')
-		.replace(/[_\s]+/g, '');
-	switch (normalized) {
-		case 'point':
-			return 'Point';
-		case 'multipoint':
-			return 'Multi-point';
-		case 'linestring':
-			return 'Line';
-		case 'multilinestring':
-			return 'Multi-line';
-		case 'polygon':
-			return 'Polygon';
-		case 'multipolygon':
-			return 'Multi-polygon';
-		case 'geometrycollection':
-			return 'Geometry collection';
-		default:
-			return value.trim() === '' ? 'Unknown geometry' : value;
-	}
 }

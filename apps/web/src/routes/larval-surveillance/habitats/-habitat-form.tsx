@@ -1,31 +1,22 @@
-import {
-	boundsFromGeoJson,
-	centroidFromGeoJson,
-	type GeoJsonGeometry,
-} from '@simmer-mosquito/mapping';
+import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { HabitatTypeRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import {
-	ArrowLeftIcon,
-	CheckIcon,
-	Loader2Icon,
-	MapPinnedIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
+	DrawToolbar,
+	GeometryControl,
+	useFitToGeometry,
+} from '../../../components/map/geometry-control';
+import {
 	type DrawGeometry,
 	type DrawGeometryType,
-	type MapDrawController,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
@@ -119,7 +110,7 @@ export function HabitatFormPage({
 
 	// One frame the geometry lands, ease the map to frame it (edit pre-fill, or a
 	// freshly finished draw) so the result is centered without a manual pan.
-	useFitToGeometry(map, geometry, draw.isDrawing);
+	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
 	// Reuse the address subform's manual "place on map" affordance against the same
 	// draw controller; it captures one click and resolves a point.
@@ -181,7 +172,11 @@ export function HabitatFormPage({
 						onMapReady={handleMapReady}
 						{...(editCamera === undefined ? {} : { camera: editCamera })}
 					/>
-					<DrawToolbar controller={draw} geometryType={geometryType} />
+					<DrawToolbar
+						controller={draw}
+						geometryType={geometryType}
+						pointPrompt="Click the map to place the address point."
+					/>
 					<MapLegend mode={mode} />
 				</>
 			}
@@ -241,15 +236,39 @@ export function HabitatFormPage({
 								</form.AppField>
 							</div>
 
-							<GeometrySection
-								controller={draw}
-								geometry={geometry}
-								geometryType={geometryType}
-								error={geometryError}
-								onTypeChange={handleTypeChange}
-								onDraw={startDraw}
-								onClear={() => setGeometry(null)}
-							/>
+							<section
+								aria-labelledby="habitat-geometry-label"
+								className={cn(
+									'grid gap-3 rounded-md border bg-muted/30 p-4',
+									geometryError === null ? 'border-border/50' : 'border-destructive/60',
+								)}
+							>
+								<div className="grid gap-0.5">
+									<span
+										className="font-semibold text-foreground text-sm leading-none"
+										id="habitat-geometry-label"
+									>
+										Location geometry
+									</span>
+									<span className="text-muted-foreground text-xs">
+										Draw on the map; existing habitats stay visible for reference.
+									</span>
+								</div>
+
+								<GeometryControl
+									controller={draw}
+									geometry={geometry}
+									geometryType={geometryType}
+									label="Geometry (required)"
+									onClear={() => setGeometry(null)}
+									onDraw={startDraw}
+									onTypeChange={handleTypeChange}
+								/>
+
+								{geometryError === null ? null : (
+									<p className="m-0 text-destructive text-sm">{geometryError}</p>
+								)}
+							</section>
 
 							<form.AppField name="addressId">
 								{(field) => (
@@ -321,191 +340,7 @@ export function HabitatFormPage({
 	);
 }
 
-// --- geometry form section --------------------------------------------------
-
-const GEOMETRY_TYPE_OPTIONS: readonly {
-	readonly value: DrawGeometryType;
-	readonly label: string;
-}[] = [
-	{ value: 'Point', label: 'Point' },
-	{ value: 'LineString', label: 'Line' },
-	{ value: 'Polygon', label: 'Polygon' },
-];
-
-function GeometrySection({
-	controller,
-	geometry,
-	geometryType,
-	error,
-	onTypeChange,
-	onDraw,
-	onClear,
-}: {
-	readonly controller: MapDrawController;
-	readonly geometry: DrawGeometry | null;
-	readonly geometryType: DrawGeometryType;
-	readonly error: string | null;
-	readonly onTypeChange: (type: DrawGeometryType) => void;
-	readonly onDraw: () => void;
-	readonly onClear: () => void;
-}) {
-	const hasGeometry = geometry !== null;
-
-	return (
-		<section
-			aria-labelledby="habitat-geometry-label"
-			className={cn(
-				'grid gap-3 rounded-md border bg-muted/30 p-4',
-				error === null ? 'border-border/50' : 'border-destructive/60',
-			)}
-		>
-			<div className="flex items-start justify-between gap-3">
-				<div className="grid gap-0.5">
-					<span
-						className="font-semibold text-foreground text-sm leading-none"
-						id="habitat-geometry-label"
-					>
-						Location geometry
-					</span>
-					<span className="text-muted-foreground text-xs">
-						Draw on the map; existing habitats stay visible for reference.
-					</span>
-				</div>
-				{hasGeometry ? (
-					<Badge tone="success" variant="outline">
-						<CheckIcon aria-hidden="true" />
-						Captured
-					</Badge>
-				) : (
-					<Badge tone="neutral" variant="outline">
-						Not set
-					</Badge>
-				)}
-			</div>
-
-			<ToggleGroup
-				aria-label="Geometry type"
-				className="w-full"
-				disabled={controller.isDrawing}
-				onValueChange={(next) => {
-					if (next === 'Point' || next === 'LineString' || next === 'Polygon') {
-						onTypeChange(next);
-					}
-				}}
-				size="sm"
-				type="single"
-				value={geometryType}
-				variant="outline"
-			>
-				{GEOMETRY_TYPE_OPTIONS.map((option) => (
-					<ToggleGroupItem className="flex-1 text-xs" key={option.value} value={option.value}>
-						{option.label}
-					</ToggleGroupItem>
-				))}
-			</ToggleGroup>
-
-			<div className="flex items-center gap-2 rounded-md border border-border/40 bg-background/70 px-3 py-2">
-				<MapPinnedIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-				<p className="m-0 min-w-0 flex-1 truncate text-foreground text-sm">
-					{geometrySummary(geometry)}
-				</p>
-			</div>
-
-			<div className="flex flex-wrap gap-2">
-				<Button
-					disabled={controller.isDrawing}
-					onClick={onDraw}
-					size="sm"
-					type="button"
-					variant={hasGeometry ? 'outline' : 'default'}
-				>
-					{controller.isDrawing ? (
-						<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
-					) : (
-						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-					)}
-					{controller.isDrawing
-						? 'Drawing on the map…'
-						: hasGeometry
-							? 'Redraw geometry'
-							: 'Draw geometry'}
-				</Button>
-				{hasGeometry && !controller.isDrawing ? (
-					<Button onClick={onClear} size="sm" type="button" variant="ghost">
-						<XIcon aria-hidden="true" data-icon="inline-start" />
-						Clear
-					</Button>
-				) : null}
-			</div>
-
-			{error === null ? null : <p className="m-0 text-destructive text-sm">{error}</p>}
-		</section>
-	);
-}
-
 // --- on-map chrome ----------------------------------------------------------
-
-function DrawToolbar({
-	controller,
-	geometryType,
-}: {
-	readonly controller: MapDrawController;
-	readonly geometryType: DrawGeometryType;
-}) {
-	if (controller.isRequestingPoint) {
-		return (
-			<MapPrompt>
-				<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />
-				Click the map to place the address point. Press Esc to cancel.
-			</MapPrompt>
-		);
-	}
-
-	if (!controller.isDrawing) {
-		return null;
-	}
-
-	const isPoint = geometryType === 'Point';
-
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-			<div className="pointer-events-auto flex max-w-full flex-col gap-2 rounded-lg border border-border/60 bg-card/95 p-2 shadow-lg backdrop-blur-sm">
-				<p className="m-0 px-1 text-muted-foreground text-xs">
-					{drawInstruction(geometryType, controller.vertexCount)}
-				</p>
-				<div className="flex items-center gap-1.5">
-					{isPoint ? null : (
-						<Button
-							disabled={controller.vertexCount === 0}
-							onClick={controller.undo}
-							size="sm"
-							type="button"
-							variant="ghost"
-						>
-							<ArrowLeftIcon aria-hidden="true" data-icon="inline-start" />
-							Undo
-						</Button>
-					)}
-					<Button onClick={controller.cancel} size="sm" type="button" variant="ghost">
-						<XIcon aria-hidden="true" data-icon="inline-start" />
-						Cancel
-					</Button>
-					{isPoint ? null : (
-						<Button
-							disabled={!controller.canFinish}
-							onClick={controller.finish}
-							size="sm"
-							type="button"
-						>
-							<CheckIcon aria-hidden="true" data-icon="inline-start" />
-							Finish
-						</Button>
-					)}
-				</div>
-			</div>
-		</div>
-	);
-}
 
 function MapLegend({ mode }: { readonly mode: 'create' | 'edit' }) {
 	return (
@@ -522,54 +357,7 @@ function MapLegend({ mode }: { readonly mode: 'create' | 'edit' }) {
 	);
 }
 
-function MapPrompt({ children }: { readonly children: React.ReactNode }) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in">
-			<p className="m-0 inline-flex items-center gap-2 rounded-md border border-border/60 bg-card/95 px-3 py-2 text-foreground text-sm shadow-lg backdrop-blur-sm">
-				{children}
-			</p>
-		</div>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
-
-function useFitToGeometry(
-	map: MapboxMap | null,
-	geometry: DrawGeometry | null,
-	isDrawing: boolean,
-): void {
-	const lastFitRef = useRef<string | null>(null);
-	useEffect(() => {
-		if (map === null || geometry === null || isDrawing) {
-			return;
-		}
-		// Only refit when the geometry itself changes, not on every render, so the
-		// user's manual pans during editing aren't yanked back.
-		const signature = JSON.stringify(geometry);
-		if (lastFitRef.current === signature) {
-			return;
-		}
-		lastFitRef.current = signature;
-
-		const bounds = boundsFromGeoJson(geometry as unknown as GeoJsonGeometry);
-		if (bounds === null) {
-			return;
-		}
-		const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
-		if (hasArea) {
-			map.fitBounds(
-				[
-					[bounds.west, bounds.south],
-					[bounds.east, bounds.north],
-				],
-				{ padding: 80, maxZoom: 17, duration: 600 },
-			);
-		} else {
-			map.easeTo({ center: [bounds.west, bounds.south], zoom: Math.max(map.getZoom(), 15) });
-		}
-	}, [map, geometry, isDrawing]);
-}
 
 function cameraForGeometry(geometry: DrawGeometry | null) {
 	if (geometry === null) {
@@ -589,7 +377,7 @@ function habitatTypeOptions(habitatTypes: readonly HabitatTypeRow[]) {
 	];
 }
 
-function drawInstruction(type: DrawGeometryType, vertexCount: number): string {
+function _drawInstruction(type: DrawGeometryType, vertexCount: number): string {
 	if (type === 'Point') {
 		return 'Click the map to place the point.';
 	}
@@ -606,7 +394,7 @@ function drawInstruction(type: DrawGeometryType, vertexCount: number): string {
 	return `${count} · double-click or Finish to complete.`;
 }
 
-function geometrySummary(geometry: DrawGeometry | null): string {
+function _geometrySummary(geometry: DrawGeometry | null): string {
 	if (geometry === null) {
 		return 'No geometry drawn yet.';
 	}

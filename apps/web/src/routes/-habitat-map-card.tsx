@@ -5,16 +5,15 @@ import {
 	AlertTriangleIcon,
 	CheckCircle2Icon,
 	ComponentIcon,
-	LocateFixedIcon,
 	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	MapCardLocation,
 	MapCardText,
 } from '../components/map/map-card';
 import { TagBadge } from '../components/tag-badge';
@@ -127,9 +126,7 @@ export function HabitatMapCard({
 					<MapCardDetail icon={MapPinnedIcon}>
 						{addressLabel ?? <span className="italic">No linked address</span>}
 					</MapCardDetail>
-					<MapCardDetail icon={LocateFixedIcon} mono>
-						{coordinateLabel(habitat)}
-					</MapCardDetail>
+					<MapCardLocation geomType={habitat.geomType} lat={habitat.lat} lng={habitat.lng} />
 				</div>
 				{description.length === 0 ? null : <MapCardText>{description}</MapCardText>}
 			</div>

@@ -1,8 +1,7 @@
 import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
-import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
@@ -15,8 +14,6 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import {
 	ArrowLeftIcon,
 	CheckIcon,
-	Loader2Icon,
-	MapPinnedIcon,
 	SearchIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
@@ -24,11 +21,20 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import {
+	DrawToolbar,
+	GeometryControl,
+	useFitToGeometry,
+} from '../../../components/map/geometry-control';
+import {
+	type DrawGeometry,
+	type DrawGeometryType,
+	useMapDraw,
+} from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
 import { webCollections } from '../../../sync/webCollections';
 import { densityLabel, type LifeStageFlags } from '../-larval-display';
@@ -169,6 +175,11 @@ export function InspectionFormPage({
 
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [adhocGeometry, setAdhocGeometry] = useState<DrawGeometry | null>(initialAdhocGeometry);
+	const [adhocGeometryType, setAdhocGeometryType] = useState<DrawGeometryType>(
+		initialAdhocGeometry?.type ?? 'Point',
+	);
+	// The selected habitat's shape, shown for reference in habitat mode. Ad-hoc
+	// geometry is rendered by the draw layer instead.
 	const [previewGeometry, setPreviewGeometry] = useState<GeoJsonGeometry | null>(
 		initialPreviewGeometry,
 	);
@@ -176,17 +187,24 @@ export function InspectionFormPage({
 	const [saveError, setSaveError] = useState<string | null>(null);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
+	const handleAdhocGeometryChange = useCallback((next: DrawGeometry | null) => {
+		setAdhocGeometry(next);
+		if (next !== null) {
+			setLocationError(null);
+		}
+	}, []);
 	const draw = useMapDraw({
 		map,
 		isLoaded: map !== null,
-		value: null,
-		onChange: () => undefined,
+		value: adhocGeometry,
+		onChange: handleAdhocGeometryChange,
 	});
-	const { requestPoint } = draw;
+	const { start } = draw;
 
 	// Ease the map to frame whatever location is currently chosen (a selected
-	// habitat's geometry or a freshly dropped ad-hoc point) without a manual pan.
-	useFitToGeometry(map, previewGeometry);
+	// habitat's geometry or freshly drawn ad-hoc geometry) without a manual pan.
+	useFitToGeometry(map, previewGeometry, draw.isDrawing);
+	useFitToGeometry(map, adhocGeometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
 	const activeHabitatTypes = useMemo(
 		() => habitatTypes.filter((type) => type.isActive),
@@ -204,7 +222,7 @@ export function InspectionFormPage({
 				return;
 			}
 			if (value.locationMode === 'adhoc' && adhocGeometry === null) {
-				setLocationError('Drop a point on the map for this ad-hoc inspection.');
+				setLocationError('Map the area this ad-hoc inspection covers.');
 				return;
 			}
 			try {
@@ -229,20 +247,29 @@ export function InspectionFormPage({
 		void fetchHabitatGeometry(habitat.id).then((geometry) => setPreviewGeometry(geometry));
 	}, []);
 
-	const requestAdhocPoint = useCallback(async () => {
+	// Switching tools replaces the shape, so the old one is cleared rather than
+	// silently saved under the wrong type.
+	const handleAdhocTypeChange = useCallback(
+		(next: DrawGeometryType) => {
+			setAdhocGeometryType(next);
+			setAdhocGeometry(null);
+			if (draw.isDrawing) {
+				start(next);
+			}
+		},
+		[draw.isDrawing, start],
+	);
+
+	const startAdhocDraw = useCallback(() => {
 		setLocationError(null);
-		try {
-			const point = await requestPoint('Click the map to place the inspection point.');
-			setAdhocGeometry(point);
-			setPreviewGeometry(point as unknown as GeoJsonGeometry);
-		} catch {
-			// The draw was cancelled (Esc / mode switch); leave the prior point intact.
-		}
-	}, [requestPoint]);
+		// Ad-hoc geometry is the inspection's own; drop any habitat reference shape
+		// still framing the map from a previous mode.
+		setPreviewGeometry(null);
+		start(adhocGeometryType);
+	}, [adhocGeometryType, start]);
 
 	const clearAdhoc = useCallback(() => {
 		setAdhocGeometry(null);
-		setPreviewGeometry(null);
 	}, []);
 
 	return (
@@ -255,12 +282,7 @@ export function InspectionFormPage({
 						habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
 						onMapReady={handleMapReady}
 					/>
-					{draw.isRequestingPoint ? (
-						<MapPrompt>
-							<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />
-							Click the map to place the inspection point. Press Esc to cancel.
-						</MapPrompt>
-					) : null}
+					<DrawToolbar controller={draw} geometryType={adhocGeometryType} />
 				</>
 			}
 		>
@@ -314,7 +336,7 @@ export function InspectionFormPage({
 										Location
 									</span>
 									<span className="text-muted-foreground text-xs">
-										Tie the inspection to a mapped habitat, or drop an ad-hoc point.
+										Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers.
 									</span>
 								</div>
 
@@ -338,7 +360,7 @@ export function InspectionFormPage({
 												Existing habitat
 											</ToggleGroupItem>
 											<ToggleGroupItem className="flex-1 text-xs" value="adhoc">
-												Ad-hoc point
+												Ad-hoc location
 											</ToggleGroupItem>
 										</ToggleGroup>
 									)}
@@ -361,11 +383,14 @@ export function InspectionFormPage({
 											</form.AppField>
 										) : (
 											<div className="grid gap-4">
-												<AdhocPointControl
+												<GeometryControl
+													controller={draw}
 													geometry={adhocGeometry}
-													isDrawing={draw.isRequestingPoint}
+													geometryType={adhocGeometryType}
+													label="Inspected location"
 													onClear={clearAdhoc}
-													onRequestPoint={requestAdhocPoint}
+													onDraw={startAdhocDraw}
+													onTypeChange={handleAdhocTypeChange}
 												/>
 												<form.AppField name="habitatTypeId">
 													{(field) => (
@@ -521,65 +546,6 @@ export function InspectionFormPage({
 				</div>
 			</div>
 		</MapSplitPage>
-	);
-}
-
-// --- location controls ------------------------------------------------------
-
-function AdhocPointControl({
-	geometry,
-	isDrawing,
-	onRequestPoint,
-	onClear,
-}: {
-	readonly geometry: DrawGeometry | null;
-	readonly isDrawing: boolean;
-	readonly onRequestPoint: () => void;
-	readonly onClear: () => void;
-}) {
-	return (
-		<div className="grid gap-2 rounded-md border border-border/40 bg-background/70 p-3">
-			<div className="flex items-start justify-between gap-3">
-				<div className="flex min-w-0 items-start gap-2">
-					<MapPinnedIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-					<p className="m-0 min-w-0 text-foreground text-sm">
-						{geometry === null ? 'No point placed yet.' : adhocPointSummary(geometry)}
-					</p>
-				</div>
-				{geometry === null ? (
-					<Badge tone="neutral" variant="outline">
-						Not set
-					</Badge>
-				) : (
-					<Badge tone="success" variant="outline">
-						<CheckIcon aria-hidden="true" />
-						Placed
-					</Badge>
-				)}
-			</div>
-			<div className="flex flex-wrap gap-2">
-				<Button
-					disabled={isDrawing}
-					onClick={onRequestPoint}
-					size="sm"
-					type="button"
-					variant={geometry === null ? 'default' : 'outline'}
-				>
-					{isDrawing ? (
-						<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
-					) : (
-						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-					)}
-					{geometry === null ? 'Drop point' : 'Replace point'}
-				</Button>
-				{geometry === null ? null : (
-					<Button onClick={onClear} size="sm" type="button" variant="ghost">
-						<XIcon aria-hidden="true" data-icon="inline-start" />
-						Clear
-					</Button>
-				)}
-			</div>
-		</div>
 	);
 }
 
@@ -849,16 +815,6 @@ function LifeStageSelector({
 	);
 }
 
-function MapPrompt({ children }: { readonly children: React.ReactNode }) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in">
-			<p className="m-0 inline-flex items-center gap-2 rounded-md border border-border/60 bg-card/95 px-3 py-2 text-foreground text-sm shadow-lg backdrop-blur-sm">
-				{children}
-			</p>
-		</div>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
 
 function emptyLifeStages(): LifeStageFlags {
@@ -894,17 +850,6 @@ function habitatLabel(habitat: HabitatRow): string {
 	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
 }
 
-function adhocPointSummary(geometry: DrawGeometry): string {
-	if (geometry.type !== 'Point') {
-		return 'Point placed';
-	}
-	const coordinates = geometry.coordinates;
-	if (!Array.isArray(coordinates) || coordinates.length < 2) {
-		return 'Point placed';
-	}
-	return `Point · ${coordinates[1].toFixed(5)}, ${coordinates[0].toFixed(5)}`;
-}
-
 /** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */
 function parseLocalDate(value: string): Date | undefined {
 	if (value === '') {
@@ -924,37 +869,6 @@ function formatLocalDate(date: Date): string {
 	const month = `${date.getMonth() + 1}`.padStart(2, '0');
 	const day = `${date.getDate()}`.padStart(2, '0');
 	return `${year}-${month}-${day}`;
-}
-
-function useFitToGeometry(map: MapboxMap | null, geometry: GeoJsonGeometry | null): void {
-	const lastFitRef = useRef<string | null>(null);
-	useEffect(() => {
-		if (map === null || geometry === null) {
-			return;
-		}
-		const signature = JSON.stringify(geometry);
-		if (lastFitRef.current === signature) {
-			return;
-		}
-		lastFitRef.current = signature;
-
-		const bounds = boundsFromGeoJson(geometry);
-		if (bounds === null) {
-			return;
-		}
-		const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
-		if (hasArea) {
-			map.fitBounds(
-				[
-					[bounds.west, bounds.south],
-					[bounds.east, bounds.north],
-				],
-				{ padding: 80, maxZoom: 17, duration: 600 },
-			);
-		} else {
-			map.easeTo({ center: [bounds.west, bounds.south], zoom: Math.max(map.getZoom(), 15) });
-		}
-	}, [map, geometry]);
 }
 
 async function fetchHabitatGeometry(habitatId: string): Promise<GeoJsonGeometry | null> {

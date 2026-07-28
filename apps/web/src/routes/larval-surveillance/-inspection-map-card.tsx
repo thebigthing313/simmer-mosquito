@@ -11,17 +11,16 @@ import {
 	ContactIcon,
 	DropletIcon,
 	iconRegistry,
-	LocateFixedIcon,
 	MapPinnedIcon,
 	MosquitoIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	MapCardLocation,
 } from '../../components/map/map-card';
 import { webCollections } from '../../sync/webCollections';
 import { addressCardLabel } from '../-address-format';
@@ -184,17 +183,8 @@ export function InspectionMapCard({
 				{addressLabel === null ? null : (
 					<MapCardDetail icon={MapPinnedIcon}>{addressLabel}</MapCardDetail>
 				)}
-				<MapCardDetail icon={LocateFixedIcon} mono>
-					{coordinateLabelOf(inspection)}
-				</MapCardDetail>
+				<MapCardLocation geomType={inspection.geomType} lat={inspection.lat} lng={inspection.lng} />
 			</div>
 		</MapCard>
 	);
-}
-
-function coordinateLabelOf(inspection: InspectionRow): string {
-	if (inspection.lat == null || inspection.lng == null) {
-		return 'Unknown';
-	}
-	return coordinateLabel({ lat: inspection.lat, lng: inspection.lng });
 }

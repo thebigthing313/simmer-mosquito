@@ -8,7 +8,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -22,14 +21,17 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { MapCanvas } from '../../../components/map';
+import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import {
+	SOURCE_REDUCTION_GEOMETRY_SOURCE,
+	useOwnedGeometry,
+} from '../../../hooks/use-owned-geometry';
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount } from '../-control-display';
 import { useHabitatNames } from '../-overview-data';
@@ -152,9 +154,7 @@ function SourceReductionDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<SourceReductionLocationCard
-						point={{ lat: sourceReduction.lat, lng: sourceReduction.lng }}
-					/>
+					<SourceReductionLocationCard sourceReduction={sourceReduction} />
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<SourceReductionDetailsCard
@@ -179,41 +179,31 @@ function SourceReductionDetailContent({
 	);
 }
 
+/**
+ * A source reduction owns Point/LineString/Polygon geometry, so the detail page
+ * renders the shape that was actually recorded rather than its centroid — the
+ * treated stretch or area is the point of the record. Electric streams only the
+ * centroid (ADR 0009), so the full geometry is fetched here.
+ */
 function SourceReductionLocationCard({
-	point,
+	sourceReduction,
 }: {
-	readonly point: { readonly lat: number; readonly lng: number };
+	readonly sourceReduction: SourceReductionRow;
 }) {
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			map.setCenter([point.lng, point.lat]);
-			map.setZoom(15);
-		},
-		[point],
+	const geometry = useOwnedGeometry(
+		SOURCE_REDUCTION_GEOMETRY_SOURCE,
+		sourceReduction.id,
+		sourceReduction.updatedAt,
 	);
 
-	const geoJson = {
-		type: 'Feature',
-		properties: {},
-		geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
-	} as GeoJSON.Feature;
-
 	return (
-		<Card className="overflow-hidden" variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Location</CardTitle>
-				<CardDescription>{`${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`}</CardDescription>
-			</CardHeader>
-			<CardContent padding="compact">
-				<div className="h-[280px] overflow-hidden rounded-md border border-border/40">
-					<MapCanvas
-						controls={{ search: false, layers: false, geolocate: false }}
-						geoJson={geoJson}
-						onMapReady={handleMapReady}
-					/>
-				</div>
-			</CardContent>
-		</Card>
+		<RecordLocationCard
+			emptyDescription="This source reduction action has no location to display."
+			geojson={geometry.geojson}
+			geomType={geometry.geomType ?? sourceReduction.geomType}
+			isError={geometry.isError}
+			isPending={geometry.isPending}
+		/>
 	);
 }
 

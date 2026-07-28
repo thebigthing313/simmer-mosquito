@@ -8,20 +8,15 @@ import type {
 	UnitRow,
 } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	ContactIcon,
-	InfoIcon,
-	iconRegistry,
-	LocateFixedIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { ContactIcon, InfoIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	MapCardLocation,
 } from '../../components/map/map-card';
 import { webCollections } from '../../sync/webCollections';
 import { formatAmount } from './-control-display';
@@ -191,9 +186,11 @@ export function ApplicationMapCard({
 				{batchNames.length === 0 ? null : (
 					<MapCardDetail icon={InfoIcon}>Batch {batchNames.join(', ')}</MapCardDetail>
 				)}
-				<MapCardDetail icon={LocateFixedIcon} mono>
-					{coordinateLabel(application)}
-				</MapCardDetail>
+				<MapCardLocation
+					geomType={application.geomType}
+					lat={application.lat}
+					lng={application.lng}
+				/>
 			</div>
 		</MapCard>
 	);

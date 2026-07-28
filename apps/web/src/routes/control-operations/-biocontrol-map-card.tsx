@@ -1,13 +1,13 @@
 import type { BiocontrolActionRow, ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	MapCardLocation,
 } from '../../components/map/map-card';
 import { webCollections } from '../../sync/webCollections';
 import { ContextBadge, formatAmount } from './-control-display';
@@ -97,9 +97,7 @@ export function BiocontrolMapCard({
 		>
 			<div className="grid gap-1.5">
 				<MapCardDetail icon={UnitIcon}>{amount}</MapCardDetail>
-				<MapCardDetail icon={LocateFixedIcon} mono>
-					{coordinateLabel(action)}
-				</MapCardDetail>
+				<MapCardLocation geomType={action.geomType} lat={action.lat} lng={action.lng} />
 			</div>
 		</MapCard>
 	);

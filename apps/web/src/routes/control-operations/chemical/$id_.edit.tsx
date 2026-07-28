@@ -21,6 +21,7 @@ import { useCallback } from 'react';
 import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -116,6 +117,14 @@ function EditApplicationLoader({
 }) {
 	const navigate = useNavigate();
 
+	// The synced row carries only the centroid, so the full shape (which may be a
+	// line or polygon) is read from the display endpoint before the form opens.
+	const geometryQuery = useOwnedGeometry(
+		CHEMICAL_GEOMETRY_SOURCE,
+		application.id,
+		application.updatedAt,
+	);
+
 	const onSave = useCallback(
 		async ({
 			values,
@@ -182,6 +191,13 @@ function EditApplicationLoader({
 		[application, actorProfileId, navigate],
 	);
 
+	if (geometryQuery.isError) {
+		return <EditUnavailable description="This application's geometry could not be loaded." />;
+	}
+	if (geometryQuery.isPending) {
+		return <EditFormSkeleton />;
+	}
+
 	return (
 		<ApplicationFormPage
 			applicationMethods={applicationMethods}
@@ -195,8 +211,7 @@ function EditApplicationLoader({
 				backParams: { id: application.id },
 				backLabel: 'Back to application',
 			}}
-			initialGeometry={pointFromApplication(application)}
-			initialPreviewGeometry={pointFromApplication(application) as unknown as GeoJsonGeometry}
+			initialGeometry={geometryQuery.geometry}
 			insecticides={insecticides}
 			onSave={onSave}
 			organizationId={application.organizationId}
@@ -207,10 +222,6 @@ function EditApplicationLoader({
 			vehicles={vehicles}
 		/>
 	);
-}
-
-function pointFromApplication(application: ApplicationRow): DrawGeometry {
-	return { type: 'Point', coordinates: [application.lng, application.lat] };
 }
 
 function defaultsFromApplication(application: ApplicationRow): ApplicationFormValues {

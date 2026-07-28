@@ -18,10 +18,13 @@ import { useCallback } from 'react';
 import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import {
+	SOURCE_REDUCTION_GEOMETRY_SOURCE,
+	useOwnedGeometry,
+} from '../../../hooks/use-owned-geometry';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
-	type DrawGeometry,
 	noTechnicianValue,
 	SourceReductionFormPage,
 	type SourceReductionFormValues,
@@ -103,6 +106,14 @@ function EditSourceReductionLoader({
 }) {
 	const navigate = useNavigate();
 
+	// The synced row carries only the centroid, so the full shape (which may be a
+	// line or polygon) is read from the display endpoint before the form opens.
+	const geometryQuery = useOwnedGeometry(
+		SOURCE_REDUCTION_GEOMETRY_SOURCE,
+		sourceReduction.id,
+		sourceReduction.updatedAt,
+	);
+
 	const onSave = useCallback(
 		async ({ values, geometry, geometryChanged }: SourceReductionSaveInput) => {
 			if (values.sourcesEliminatedAmount === null) {
@@ -165,6 +176,13 @@ function EditSourceReductionLoader({
 		[sourceReduction, actorProfileId, navigate],
 	);
 
+	if (geometryQuery.isError) {
+		return <EditUnavailable description="This source reduction's geometry could not be loaded." />;
+	}
+	if (geometryQuery.isPending) {
+		return <EditFormSkeleton />;
+	}
+
 	return (
 		<SourceReductionFormPage
 			canSubmit={canSubmit}
@@ -176,10 +194,7 @@ function EditSourceReductionLoader({
 				backParams: { id: sourceReduction.id },
 				backLabel: 'Back to source reduction',
 			}}
-			initialGeometry={pointFromSourceReduction(sourceReduction)}
-			initialPreviewGeometry={
-				pointFromSourceReduction(sourceReduction) as unknown as GeoJsonGeometry
-			}
+			initialGeometry={geometryQuery.geometry}
 			methods={methods}
 			onSave={onSave}
 			organizationId={sourceReduction.organizationId}
@@ -189,10 +204,6 @@ function EditSourceReductionLoader({
 			units={units}
 		/>
 	);
-}
-
-function pointFromSourceReduction(sourceReduction: SourceReductionRow): DrawGeometry {
-	return { type: 'Point', coordinates: [sourceReduction.lng, sourceReduction.lat] };
 }
 
 function defaultsFromSourceReduction(

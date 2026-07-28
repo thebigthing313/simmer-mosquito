@@ -18,6 +18,7 @@ import { useCallback } from 'react';
 import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -100,6 +101,10 @@ function EditBiocontrolActionLoader({
 }) {
 	const navigate = useNavigate();
 
+	// The synced row carries only the centroid, so the full shape (which may be a
+	// line or polygon) is read from the display endpoint before the form opens.
+	const geometryQuery = useOwnedGeometry(BIOCONTROL_GEOMETRY_SOURCE, action.id, action.updatedAt);
+
 	const onSave = useCallback(
 		async ({
 			values,
@@ -167,6 +172,13 @@ function EditBiocontrolActionLoader({
 		[action, actorProfileId, navigate],
 	);
 
+	if (geometryQuery.isError) {
+		return <EditUnavailable description="This biocontrol action's geometry could not be loaded." />;
+	}
+	if (geometryQuery.isPending) {
+		return <EditFormSkeleton />;
+	}
+
 	return (
 		<BiocontrolFormPage
 			biocontrolMethods={biocontrolMethods}
@@ -179,8 +191,7 @@ function EditBiocontrolActionLoader({
 				backParams: { id: action.id },
 				backLabel: 'Back to biocontrol action',
 			}}
-			initialGeometry={pointFromAction(action)}
-			initialPreviewGeometry={pointFromAction(action) as unknown as GeoJsonGeometry}
+			initialGeometry={geometryQuery.geometry}
 			onSave={onSave}
 			organizationId={action.organizationId}
 			profiles={profiles}
@@ -189,10 +200,6 @@ function EditBiocontrolActionLoader({
 			units={units}
 		/>
 	);
-}
-
-function pointFromAction(action: BiocontrolActionRow): DrawGeometry {
-	return { type: 'Point', coordinates: [action.lng, action.lat] };
 }
 
 function defaultsFromAction(action: BiocontrolActionRow): BiocontrolFormValues {

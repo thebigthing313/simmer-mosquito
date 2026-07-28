@@ -9,14 +9,23 @@ import type {
 } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
-import { ArrowLeftIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import {
+	DrawToolbar,
+	GeometryControl,
+	useFitToGeometry,
+} from '../../../components/map/geometry-control';
+import {
+	type DrawGeometry,
+	type DrawGeometryType,
+	useMapDraw,
+} from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
 import {
 	customFieldCount,
@@ -25,7 +34,7 @@ import {
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
 import { todayDateValue, unitOptions } from '../-control-display';
-import { FormSection, MapPrompt, PointControl, useFitToGeometry } from '../-control-form-parts';
+import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
@@ -65,9 +74,9 @@ export interface SourceReductionFormHeader {
 
 export interface SourceReductionSaveInput {
 	readonly values: SourceReductionFormValues;
-	/** The action's point. Always set on create; may be unchanged on edit. */
+	/** The action's geometry. Always set on create; may be unchanged on edit. */
 	readonly geometry: DrawGeometry | null;
-	/** True when the user placed, moved, or cleared the point this session. */
+	/** True when the user drew, moved, or cleared the geometry this session. */
 	readonly geometryChanged: boolean;
 }
 
@@ -78,13 +87,11 @@ export interface SourceReductionFormPageProps {
 	readonly units: readonly UnitRow[];
 	readonly profiles: readonly ProfileRow[];
 	readonly defaultValues: SourceReductionFormValues;
-	/** The action's point to pre-fill on edit; create starts with none. */
+	/** The action's geometry to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
-	/** Geometry to frame the map on immediately (edit pre-fill). */
-	readonly initialPreviewGeometry?: GeoJsonGeometry | null;
 	/**
-	 * Whether a point must be set to submit. Create requires one; edit leaves it
-	 * optional so an action keeps its existing point unless the user refines it.
+	 * Whether geometry must be set to submit. Create requires it; edit leaves it
+	 * optional so an action keeps its existing shape unless the user redraws.
 	 */
 	readonly requireLocation?: boolean;
 	readonly header: SourceReductionFormHeader;
@@ -113,7 +120,6 @@ export function SourceReductionFormPage({
 	profiles,
 	defaultValues,
 	initialGeometry = null,
-	initialPreviewGeometry = null,
 	requireLocation = true,
 	header,
 	submitLabel,
@@ -121,10 +127,13 @@ export function SourceReductionFormPage({
 }: SourceReductionFormPageProps) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [previewGeometry, setPreviewGeometry] = useState<GeoJsonGeometry | null>(
-		initialPreviewGeometry,
+	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
+		initialGeometry?.type ?? 'Point',
 	);
+	const [geometryChanged, setGeometryChanged] = useState(false);
+	// A habitat's shape, shown alongside the action's own geometry for context —
+	// never the action's geometry itself, which the draw layer renders.
+	const [referenceGeometry, setReferenceGeometry] = useState<GeoJsonGeometry | null>(null);
 	const [addressCoord, setAddressCoord] = useState<{
 		readonly lat: number;
 		readonly lng: number;
@@ -133,10 +142,25 @@ export function SourceReductionFormPage({
 	const [saveError, setSaveError] = useState<string | null>(null);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const draw = useMapDraw({ map, isLoaded: map !== null, value: null, onChange: () => undefined });
-	const { requestPoint } = draw;
+	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
+		setGeometry(next);
+		setGeometryChanged(true);
+		if (next !== null) {
+			setLocationError(null);
+		}
+	}, []);
+	const draw = useMapDraw({
+		map,
+		isLoaded: map !== null,
+		value: geometry,
+		onChange: handleGeometryChange,
+	});
+	const { start } = draw;
 
-	useFitToGeometry(map, previewGeometry);
+	// The action's own geometry is framed last so it wins when a habitat pick and
+	// a geometry change land on the same render.
+	useFitToGeometry(map, referenceGeometry, draw.isDrawing);
+	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
 	const activeMethods = useMemo(() => methods.filter((method) => method.isActive), [methods]);
 	const activeProfiles = useMemo(() => profiles.filter((profile) => profile.isActive), [profiles]);
@@ -154,7 +178,7 @@ export function SourceReductionFormPage({
 				return;
 			}
 			if (requireLocation && geometry === null) {
-				setLocationError('Place the point where the sources were eliminated.');
+				setLocationError('Map where the sources were eliminated.');
 				return;
 			}
 			try {
@@ -167,9 +191,10 @@ export function SourceReductionFormPage({
 		},
 	});
 
-	// Selecting an address never overwrites a point the user already placed — the
-	// address is reference only. It just frames the map and, when no point exists
-	// yet, seeds one at the address so the required geometry starts somewhere sane.
+	// Selecting an address never overwrites geometry the user already drew — the
+	// address is reference only. It just frames the map and, when nothing is drawn
+	// yet, seeds a point at the address so the required geometry starts somewhere
+	// sane.
 	const handleAddressSelected = useCallback(
 		(address: AddressRow | null) => {
 			setLocationError(null);
@@ -181,59 +206,66 @@ export function SourceReductionFormPage({
 			setAddressCoord(coord);
 			if (geometry === null) {
 				setGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
+				setGeometryType('Point');
 				setGeometryChanged(true);
-				setPreviewGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
 			}
 		},
 		[geometry],
 	);
 
 	// The habitat is larval context, not the action's location — but framing the map
-	// on it (and seeding an unplaced point) saves the crew a pan across the county.
+	// on it (and seeding unplaced geometry) saves the crew a pan across the county.
 	const handleHabitatSelected = useCallback(
 		(habitat: HabitatRow | null) => {
 			if (habitat === null || typeof habitat.lat !== 'number' || typeof habitat.lng !== 'number') {
+				setReferenceGeometry(null);
 				return;
 			}
 			const point: DrawGeometry = { type: 'Point', coordinates: [habitat.lng, habitat.lat] };
 			if (geometry === null) {
+				// Seeded as the action's own geometry, so it needs no reference copy.
 				setGeometry(point);
+				setGeometryType('Point');
 				setGeometryChanged(true);
+				setReferenceGeometry(null);
+				return;
 			}
-			setPreviewGeometry(point as unknown as GeoJsonGeometry);
+			setReferenceGeometry(point as unknown as GeoJsonGeometry);
 		},
 		[geometry],
 	);
 
-	const requestActionPoint = useCallback(async () => {
-		setLocationError(null);
-		try {
-			const point = await requestPoint('Click the map to place the source reduction point.');
-			setGeometry(point);
+	// Switching tools replaces the shape, so the old one is cleared rather than
+	// silently saved under the wrong type.
+	const handleTypeChange = useCallback(
+		(next: DrawGeometryType) => {
+			setGeometryType(next);
+			setGeometry(null);
 			setGeometryChanged(true);
-			setPreviewGeometry(point as unknown as GeoJsonGeometry);
-		} catch {
-			// Draw cancelled (Esc / mode switch); keep the prior point.
-		}
-	}, [requestPoint]);
+			if (draw.isDrawing) {
+				start(next);
+			}
+		},
+		[draw.isDrawing, start],
+	);
+
+	const startDraw = useCallback(() => {
+		setLocationError(null);
+		start(geometryType);
+	}, [geometryType, start]);
 
 	const moveToAddress = useCallback(() => {
 		if (addressCoord === null) {
 			return;
 		}
-		const point: DrawGeometry = {
-			type: 'Point',
-			coordinates: [addressCoord.lng, addressCoord.lat],
-		};
-		setGeometry(point);
+		setGeometry({ type: 'Point', coordinates: [addressCoord.lng, addressCoord.lat] });
+		setGeometryType('Point');
 		setGeometryChanged(true);
-		setPreviewGeometry(point as unknown as GeoJsonGeometry);
 	}, [addressCoord]);
 
-	const clearPoint = useCallback(() => {
+	const clearGeometry = useCallback(() => {
 		setGeometry(null);
 		setGeometryChanged(true);
-		setPreviewGeometry(null);
 	}, []);
 
 	return (
@@ -242,15 +274,10 @@ export function SourceReductionFormPage({
 				<>
 					<MapCanvas
 						controls={{ layers: false }}
-						geoJson={previewGeometry as unknown as GeoJSON.GeoJSON | null}
+						geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
 						onMapReady={handleMapReady}
 					/>
-					{draw.isRequestingPoint ? (
-						<MapPrompt>
-							<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />
-							Click the map to place the source reduction point. Press Esc to cancel.
-						</MapPrompt>
-					) : null}
+					<DrawToolbar controller={draw} geometryType={geometryType} />
 				</>
 			}
 		>
@@ -304,8 +331,8 @@ export function SourceReductionFormPage({
 										Location
 									</span>
 									<span className="text-muted-foreground text-xs">
-										The point is where the sources were eliminated. An address is optional reference
-										— refine the point off it to the precise spot.
+										The geometry is where the sources were eliminated — a point for a single site, a
+										line or area for a treated stretch. An address is optional reference.
 									</span>
 								</div>
 
@@ -323,13 +350,15 @@ export function SourceReductionFormPage({
 									)}
 								</form.AppField>
 
-								<PointControl
-									canMoveToAddress={addressCoord !== null}
+								<GeometryControl
+									controller={draw}
 									geometry={geometry}
-									isDrawing={draw.isRequestingPoint}
-									onClear={clearPoint}
-									onMoveToAddress={moveToAddress}
-									onRequestPoint={requestActionPoint}
+									geometryType={geometryType}
+									label={requireLocation ? 'Geometry (required)' : 'Geometry'}
+									onClear={clearGeometry}
+									onDraw={startDraw}
+									onTypeChange={handleTypeChange}
+									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 								/>
 
 								{locationError === null ? null : (

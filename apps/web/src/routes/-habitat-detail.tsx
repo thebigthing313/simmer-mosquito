@@ -6,6 +6,7 @@ import {
 	boundsFromGeoJson,
 	centroidFromGeoJson,
 	countGeoJsonVertices,
+	formatGeometryTypeLabel,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
 import type { HabitatRow, LarvalDensity, TagRow } from '@simmer-mosquito/sync';
@@ -1548,33 +1549,6 @@ function DensityBadge({ density }: { readonly density: LarvalDensity | null }) {
 			{label}
 		</Badge>
 	);
-}
-
-function formatGeometryTypeLabel(value: string): string {
-	const normalized = value
-		.trim()
-		.toLowerCase()
-		.replace(/^st_?/, '')
-		.replace(/[_\s]+/g, '');
-
-	switch (normalized) {
-		case 'point':
-			return 'Point';
-		case 'multipoint':
-			return 'Multi-point';
-		case 'linestring':
-			return 'Line';
-		case 'multilinestring':
-			return 'Multi-line';
-		case 'polygon':
-			return 'Polygon';
-		case 'multipolygon':
-			return 'Multi-polygon';
-		case 'geometrycollection':
-			return 'Geometry collection';
-		default:
-			return value.trim() === '' ? 'Unknown geometry' : value;
-	}
 }
 
 function validHexColor(value: string | null): string | null {

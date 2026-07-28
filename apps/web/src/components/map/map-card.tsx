@@ -1,7 +1,9 @@
+import { formatGeometryTypeLabel, isPointGeomType } from '@simmer-mosquito/mapping';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	CalendarIcon,
 	ChevronRightIcon,
+	LocateFixedIcon,
 	type RegistryIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
@@ -141,6 +143,51 @@ export function MapCardText({
 /** The shared "lat, lng" label (4dp) used by the map cards. */
 export function coordinateLabel(point: { readonly lat: number; readonly lng: number }): string {
 	return `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`;
+}
+
+/**
+ * The location row of a map card: the centroid, plus the record's stored geometry
+ * type when it is not a point.
+ *
+ * Map cards deliberately stay centroid-based — a card is a compact readout, and a
+ * coordinate is what a crew acts on. But a record that stores a line or polygon
+ * must not *read* as a point, so the shape is named alongside the coordinate and
+ * the coordinate is marked as its center. Points show the coordinate alone, since
+ * there the centroid is the geometry.
+ *
+ * The stored type comes straight off the synced row's `geomType` (Electric carries
+ * it), so this costs no extra fetch. See {@link RecordLocationCard} for the detail
+ * pages, which render the real shape.
+ */
+export function MapCardLocation({
+	lat,
+	lng,
+	geomType,
+}: {
+	readonly lat: number | null | undefined;
+	readonly lng: number | null | undefined;
+	readonly geomType: string | null | undefined;
+}) {
+	if (typeof lat !== 'number' || typeof lng !== 'number') {
+		return <MapCardDetail icon={LocateFixedIcon}>Unknown coordinates</MapCardDetail>;
+	}
+
+	const coordinates = coordinateLabel({ lat, lng });
+	if (isPointGeomType(geomType)) {
+		return (
+			<MapCardDetail icon={LocateFixedIcon} mono>
+				{coordinates}
+			</MapCardDetail>
+		);
+	}
+
+	return (
+		<MapCardDetail icon={LocateFixedIcon}>
+			<span className="font-medium text-foreground">{formatGeometryTypeLabel(geomType ?? '')}</span>{' '}
+			<span className="font-mono text-[0.8rem]">{coordinates}</span>{' '}
+			<span className="text-muted-foreground/80">center</span>
+		</MapCardDetail>
+	);
 }
 
 /**
