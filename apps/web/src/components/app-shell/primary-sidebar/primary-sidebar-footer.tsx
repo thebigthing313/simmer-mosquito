@@ -37,7 +37,7 @@ export function PrimarySidebarFooter() {
 				<DropdownMenuTrigger
 					className={cn(
 						'rounded-full outline-none',
-						'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-simmer-green-900',
+						'focus-visible:ring-2 focus-visible:ring-ring-inverse focus-visible:ring-offset-2 focus-visible:ring-offset-simmer-green-900',
 						'data-[state=open]:ring-2 data-[state=open]:ring-ring/60',
 					)}
 					aria-label="Account and settings"

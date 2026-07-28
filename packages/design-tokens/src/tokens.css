@@ -57,9 +57,15 @@
 		oklch(90% 0.016 165)
 	);
 	--simmer-field-border: color-mix(in oklch, var(--simmer-green-700) 16%, oklch(86% 0.018 205));
+	/*
+	 * The stroke that draws form controls, so it is a UI-component boundary
+	 * under WCAG 1.4.11 and owes 3:1 against the surface behind it — not the
+	 * decorative-divider job `--simmer-field-border` does. At 28% green it sat
+	 * at 2.84:1 and quietly missed. 40% clears it at 3.36:1.
+	 */
 	--simmer-field-border-strong: color-mix(
 		in oklch,
-		var(--simmer-green-700) 28%,
+		var(--simmer-green-700) 40%,
 		oklch(77% 0.03 205)
 	);
 	--simmer-workshop-panel-tint: color-mix(

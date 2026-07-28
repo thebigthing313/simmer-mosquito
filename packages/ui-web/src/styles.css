@@ -2,6 +2,21 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/*
+ * SIMMER ships light-only. This line looks like dead configuration for a
+ * feature we don't have — it is the opposite, so do not delete it.
+ *
+ * The vendored shadcn primitives carry ~50 `dark:` utilities. Tailwind's stock
+ * `dark` variant is `@media (prefers-color-scheme: dark)`, so with this line
+ * removed those utilities would switch themselves on for any operator whose OS
+ * is in dark mode — against a token set that has no dark values to pair with.
+ * Rebinding the variant to a `.dark` ancestor that nothing ever sets is what
+ * keeps them inert. Verified in the build output: 42 `.dark` selectors, zero
+ * `prefers-color-scheme` blocks.
+ *
+ * If SIMMER ever wants dark mode, the work is to define a `.dark` token block
+ * here and add something that sets the class — not to touch this line.
+ */
 @custom-variant dark (&:is(.dark *));
 
 @source "./**/*.{ts,tsx}";
@@ -22,11 +37,35 @@
 	--muted-foreground: oklch(48% 0.028 205);
 	--accent: var(--simmer-yellow);
 	--accent-foreground: var(--simmer-darker-green);
-	--destructive: oklch(61.56% 0.2307 16.37);
+	/*
+	 * Semantic destructive, deliberately a shade below brand Alert Red
+	 * (`--simmer-red`, which is unchanged and still the brand constant). This
+	 * token has to work as *text* — `text-destructive` carries ~50 error strings
+	 * plus every `FieldError` — and brand Alert Red only reaches 4.07:1 on card
+	 * at 14px, under the 4.5:1 AA needs. It also has to carry white as a button
+	 * fill, which brand Alert Red failed at 4.17:1. This value clears both:
+	 * 5.49:1 as text on card, 5.63:1 with white on the fill.
+	 */
+	--destructive: oklch(54% 0.2 17);
 	--destructive-foreground: oklch(98% 0.006 165);
 	--border: var(--simmer-field-border);
 	--input: var(--simmer-field-border-strong);
-	--ring: oklch(84% 0.14 92);
+	/*
+	 * Focus ring. Deliberately a deeper pollen tone than `--accent`: the bright
+	 * yellow only clears 1.6:1 against our pale field-paper surfaces, so a focus
+	 * ring drawn in it is invisible on every light control. This value clears
+	 * WCAG 1.4.11 (>=3:1) against every surface the ring can land on —
+	 * background 4.06:1, card 4.19:1, muted 3.62:1. Use `--ring-inverse` on the
+	 * dark rail instead; see the note there.
+	 */
+	--ring: var(--simmer-yellow-600);
+	/*
+	 * Focus ring for dark surfaces (the primary rail, green-filled chrome).
+	 * `--ring` is tuned for light surfaces and only reaches 3.70:1 on the rail;
+	 * this keeps dark-surface focus at 9.73:1 instead of settling for the
+	 * single-token compromise.
+	 */
+	--ring-inverse: var(--simmer-yellow-300);
 	--chart-1: var(--simmer-green);
 	--chart-2: oklch(44.83% 0.1791 268.37);
 	--chart-3: oklch(49.37% 0.1424 325.97);
@@ -39,17 +78,34 @@
 	--sidebar-accent: var(--simmer-field-paper-strong);
 	--sidebar-accent-foreground: var(--simmer-darker-green);
 	--sidebar-border: var(--simmer-field-border);
-	--sidebar-ring: oklch(84% 0.14 92);
+	--sidebar-ring: var(--simmer-yellow-600);
 	--radius: 0.5rem;
 	--surface: var(--card);
 	--surface-muted: var(--muted);
 	--surface-strong: var(--simmer-field-paper-strong);
 	--border-strong: var(--simmer-field-border-strong);
 	--text: var(--foreground);
-	--quiet: oklch(60% 0.024 205);
+	/*
+	 * The third text tier, below `--muted-foreground`. Admin uses it for 12px
+	 * caption metadata, which is normal-size text and therefore owes 4.5:1 — at
+	 * the old 60% lightness it sat at 3.27:1 on muted surfaces and failed
+	 * everywhere it was used.
+	 *
+	 * Worth knowing before reaching for it: at AA there is very little room left
+	 * between this and `--muted-foreground` (48%). A third *lighter* tier mostly
+	 * cannot exist on surfaces this pale. Separate quiet metadata from
+	 * supporting copy by size, weight, or position instead of by going lighter.
+	 */
+	--quiet: oklch(51% 0.024 205);
 	--brand: var(--primary);
 	--brand-hover: var(--simmer-green-800);
-	--attention: var(--ring);
+	/*
+	 * Attention tint, NOT the focus ring. These were aliased until the ring had
+	 * to darken for contrast; they are different jobs — this one fills a surface
+	 * (see the admin warning tile), the ring strokes a control — so it keeps the
+	 * bright pollen value the tint was designed around.
+	 */
+	--attention: var(--simmer-yellow-300);
 	--warning: oklch(45% 0.09 55);
 	--success: var(--simmer-green-700);
 	--success-bg: var(--simmer-green-100);
@@ -90,6 +146,7 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+	--color-ring-inverse: var(--ring-inverse);
 	--color-chart-1: var(--chart-1);
 	--color-chart-2: var(--chart-2);
 	--color-chart-3: var(--chart-3);
@@ -110,8 +167,23 @@
 }
 
 @layer base {
+	/*
+	 * Solid, not `outline-ring/50`. At 50% alpha the ring composited to 1.24:1
+	 * against our surfaces — below the 3:1 WCAG 1.4.11 needs for a focus
+	 * indicator, which made keyboard focus effectively invisible app-wide.
+	 */
 	* {
-		@apply border-border outline-ring/50;
+		@apply border-border outline-ring;
+	}
+
+	/*
+	 * Declare the scheme so the browser stops second-guessing us. Without this,
+	 * an operator on an OS-level dark theme gets user-agent dark rendering for
+	 * the things our tokens don't reach — native scrollbars, date and colour
+	 * pickers, autofill backgrounds — dropped into an otherwise light UI.
+	 */
+	:root {
+		color-scheme: light;
 	}
 
 	body {

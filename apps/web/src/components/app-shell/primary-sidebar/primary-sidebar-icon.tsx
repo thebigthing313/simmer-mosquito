@@ -40,7 +40,7 @@ export function AppShellPrimarySidebarIcon({
 					className={cn(
 						'grid size-11 shrink-0 place-items-center rounded-md text-simmer-green-100/70 outline-none transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
 						'hover:bg-white/10 hover:text-white',
-						'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-simmer-green-900',
+						'focus-visible:ring-2 focus-visible:ring-ring-inverse focus-visible:ring-offset-2 focus-visible:ring-offset-simmer-green-900',
 						'data-[active=true]:bg-white/12 data-[active=true]:text-white',
 						'[&_svg]:size-[1.15rem]',
 						// Asset icons (e.g. the mosquito) render via <image> and can't inherit
