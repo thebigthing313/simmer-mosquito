@@ -1,3 +1,4 @@
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 
 /**
@@ -13,7 +14,7 @@ export function OutletContentFallback() {
 		<div
 			role="status"
 			aria-label="Loading page"
-			className="mx-auto grid w-full max-w-[1200px] gap-4 px-4 py-6 md:px-8 md:py-8"
+			className={pageContainer({ gap: 'snug', padding: 'page' })}
 		>
 			<Skeleton className="h-8 w-[min(280px,60%)]" />
 			<Skeleton className="h-4 w-[min(420px,80%)]" />

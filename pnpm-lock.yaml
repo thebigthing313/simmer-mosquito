@@ -152,6 +152,9 @@ importers:
       '@fontsource/poppins':
         specifier: ^5.2.7
         version: 5.2.7
+      '@simmer-mosquito/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
       '@simmer-mosquito/domain':
         specifier: workspace:*
         version: link:../../packages/domain

@@ -1,5 +1,6 @@
 import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { OrganizationSpeciesRow, SpeciesRow } from '@simmer-mosquito/sync';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Command,
@@ -271,7 +272,7 @@ function SamplesExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className="sticky top-0 z-10 grid gap-3 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
+				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 					<div className="flex items-center justify-between gap-3">
 						<div className="flex items-center gap-2">
 							<SampleIcon aria-hidden="true" className="size-5 text-muted-foreground" />

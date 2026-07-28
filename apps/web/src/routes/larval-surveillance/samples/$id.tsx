@@ -9,6 +9,7 @@ import type {
 	SampleSpeciesRow,
 	SpeciesRow,
 } from '@simmer-mosquito/sync';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -156,7 +157,7 @@ export function SampleDetail({ sampleId }: { readonly sampleId: string }) {
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
-			<div className="mx-auto grid w-full max-w-[1200px] content-start gap-5 pb-10">
+			<div className={pageContainer({ gap: 'detail', padding: 'trailing' })}>
 				<SampleTopBar
 					habitatId={query.data?.habitatId ?? null}
 					inspectionId={query.data?.inspectionId ?? null}

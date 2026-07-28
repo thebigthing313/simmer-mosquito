@@ -1,3 +1,4 @@
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -196,7 +197,7 @@ export function AddressFormPage({
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header className="sticky top-0 z-10 grid gap-2 border-border/50 border-b bg-background/95 px-5 py-4 backdrop-blur-sm">
+				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
 					<Link
 						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
 						params={header.backParams ?? {}}

@@ -1,3 +1,4 @@
+import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type { CircleLayerSpecification, ExpressionSpecification } from 'mapbox-gl';
 
 /**
@@ -12,12 +13,12 @@ export interface AddressTileFilters {
 export const ADDRESS_SOURCE_ID = 'addresses';
 const ADDRESS_SOURCE_LAYER = 'addresses';
 
-/** Map paint colors. Kept as literals — GL paint can't read CSS custom props. */
+/** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
 const colors = {
-	point: '#2d46b6',
-	pointStroke: '#f8fafc',
-	selected: '#f59e0b',
-	selectedStroke: '#b45309',
+	point: mapDomain.address,
+	pointStroke: mapInteraction.pointStroke,
+	selected: mapInteraction.selected,
+	selectedStroke: mapInteraction.selectedStroke,
 } as const;
 
 /** Layers the user can click to select an address. */

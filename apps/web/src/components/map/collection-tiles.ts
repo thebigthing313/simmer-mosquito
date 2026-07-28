@@ -1,3 +1,4 @@
+import { mapDomain, mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -31,10 +32,10 @@ const COLLECTION_SOURCE_LAYER = 'collections';
  * props.
  */
 const colors = {
-	base: '#2f9e8f',
-	problem: '#d6503f',
-	pointStroke: '#f9fdfb',
-	selected: '#16b364',
+	base: mapDomain.collection,
+	problem: mapStatus.problem,
+	pointStroke: mapInteraction.pointStroke,
+	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a collection. Order = hit priority. */

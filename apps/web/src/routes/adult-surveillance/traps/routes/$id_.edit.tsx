@@ -1,4 +1,5 @@
 import type { RouteItemRow, TrapRow } from '@simmer-mosquito/sync';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -172,7 +173,7 @@ function EditTrapRouteRoute() {
 				}
 			>
 				<div className="flex h-full min-h-0 flex-col">
-					<div className="sticky top-0 z-10 grid gap-3 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
+					<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 						<button
 							className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							onClick={() =>

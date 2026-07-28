@@ -1,3 +1,4 @@
+import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -60,13 +61,17 @@ const LAYER_IDS = [
 // Amber draft styling, deliberately distinct from the green reference habitats
 // (vector tiles) and the blue detail overlay, so "the new/edited site" reads as
 // its own active layer at a glance.
+//
+// These are the shared selection colours, not a private amber: the thing being
+// drawn *is* the selected spatial context, and it has to match the selection
+// halo the tile layers paint so the two never disagree on screen.
 const draft = {
-	fill: '#f59e0b',
-	outline: '#b45309',
-	line: '#f59e0b',
-	vertex: '#f59e0b',
+	fill: mapInteraction.selected,
+	outline: mapInteraction.selectedStroke,
+	line: mapInteraction.selected,
+	vertex: mapInteraction.selected,
 	vertexStroke: '#ffffff',
-	point: '#f59e0b',
+	point: mapInteraction.selected,
 	pointStroke: '#ffffff',
 } as const;
 

@@ -1,3 +1,4 @@
+import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -24,12 +25,12 @@ export interface BiocontrolTileFilters {
 export const BIOCONTROL_SOURCE_ID = 'biocontrol';
 const BIOCONTROL_SOURCE_LAYER = 'biocontrol';
 
-/** Map paint colors. Kept as literals — GL paint can't read CSS custom props. */
+/** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
 const colors = {
-	base: '#5a9e2f',
-	line: '#4a8526',
-	pointStroke: '#f9fdfb',
-	selected: '#16b364',
+	base: mapDomain.biocontrol,
+	line: mapDomain.biocontrolLine,
+	pointStroke: mapInteraction.pointStroke,
+	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select an activity. Order = hit priority. */

@@ -1,3 +1,4 @@
+import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -22,12 +23,12 @@ export interface SourceReductionTileFilters {
 export const SOURCE_REDUCTION_SOURCE_ID = 'source-reduction';
 const SOURCE_REDUCTION_SOURCE_LAYER = 'source-reduction';
 
-/** Map paint colors. Kept as literals — GL paint can't read CSS custom props. */
+/** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
 const colors = {
-	base: '#2f9e8f',
-	line: '#27897c',
-	pointStroke: '#f9fdfb',
-	selected: '#16b364',
+	base: mapDomain.sourceReduction,
+	line: mapDomain.sourceReductionLine,
+	pointStroke: mapInteraction.pointStroke,
+	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select an activity. Order = hit priority. */

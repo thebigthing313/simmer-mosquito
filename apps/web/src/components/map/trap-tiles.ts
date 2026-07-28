@@ -1,3 +1,4 @@
+import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -25,10 +26,10 @@ const TRAP_SOURCE_LAYER = 'traps';
  * literals: GL paint can't read CSS custom props.
  */
 const colors = {
-	active: '#0c5331',
-	inactive: '#708587',
-	pointStroke: '#f9fdfb',
-	selected: '#16b364',
+	active: mapLifecycle.active,
+	inactive: mapLifecycle.inactive,
+	pointStroke: mapInteraction.pointStroke,
+	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a trap. Order = hit priority. */

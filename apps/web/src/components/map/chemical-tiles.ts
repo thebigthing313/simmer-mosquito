@@ -1,3 +1,4 @@
+import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -23,12 +24,12 @@ export interface ChemicalTileFilters {
 export const CHEMICAL_SOURCE_ID = 'chemical';
 const CHEMICAL_SOURCE_LAYER = 'chemical';
 
-/** Map paint colors. Kept as literals — GL paint can't read CSS custom props. */
+/** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
 const colors = {
-	base: '#7c5cbf',
-	line: '#6841b8',
-	pointStroke: '#f9fdfb',
-	selected: '#16b364',
+	base: mapDomain.chemical,
+	line: mapDomain.chemicalLine,
+	pointStroke: mapInteraction.pointStroke,
+	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select an application. Order = hit priority. */

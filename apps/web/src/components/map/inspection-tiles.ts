@@ -1,3 +1,4 @@
+import { mapDensity, mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -35,15 +36,15 @@ const INSPECTION_SOURCE_LAYER = 'inspections';
  * meaning in words, so color is never the only channel.
  */
 const colors = {
-	dry: '#8b9a9c',
-	none: '#3f93bf',
-	light: '#e0b13a',
-	medium: '#ea8a3c',
-	heavy: '#e0533a',
-	veryHeavy: '#b01f2e',
-	pointStroke: '#f9fdfb',
-	line: '#2d46b6',
-	selected: '#16b364',
+	dry: mapDensity.dry,
+	none: mapDensity.none,
+	light: mapDensity.light,
+	medium: mapDensity.medium,
+	heavy: mapDensity.heavy,
+	veryHeavy: mapDensity.veryHeavy,
+	pointStroke: mapInteraction.pointStroke,
+	line: mapDomain.connector,
+	selected: mapInteraction.selected,
 } as const;
 
 /**

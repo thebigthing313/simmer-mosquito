@@ -4,6 +4,7 @@ import type {
 	OrganizationRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -586,7 +587,7 @@ function InsecticideDrawer({
 				</Tooltip>
 			)}
 			<DrawerContent className="w-[min(720px,100%)] overflow-hidden sm:max-w-[720px]">
-				<DrawerHeader className="sticky top-0 z-10 border-border/40 border-b bg-background/95 backdrop-blur">
+				<DrawerHeader className={stickyHeader({ padding: 'none' })}>
 					<DrawerTitle>
 						{insecticide === undefined ? 'Add Insecticide' : `Edit ${insecticide.tradeName}`}
 					</DrawerTitle>
@@ -1067,7 +1068,7 @@ function InsecticideBatchDrawer({
 		<Drawer direction="right" onOpenChange={updateOpen} open={open}>
 			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
 			<DrawerContent className="w-[min(560px,100%)] overflow-hidden sm:max-w-[560px]">
-				<DrawerHeader className="sticky top-0 z-10 border-border/40 border-b bg-background/95 backdrop-blur">
+				<DrawerHeader className={stickyHeader({ padding: 'none' })}>
 					<DrawerTitle>{batch === undefined ? 'Add Batch' : `Edit ${batch.batchName}`}</DrawerTitle>
 					<DrawerDescription>
 						Manage lot or batch labels for an active insecticide product.

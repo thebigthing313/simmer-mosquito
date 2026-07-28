@@ -1,4 +1,5 @@
 import type { ControlMethodRow, InsecticideRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -70,7 +71,7 @@ function ControlOperationsOverviewRoute() {
 	);
 
 	return (
-		<div className="mx-auto grid w-full max-w-[1200px] content-start gap-6 px-4 py-6 md:px-8 md:py-8">
+		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
 			<header className="grid gap-1.5">
 				<div className="flex items-center gap-2 text-muted-foreground">
 					<ControlIcon aria-hidden="true" className="size-4" />

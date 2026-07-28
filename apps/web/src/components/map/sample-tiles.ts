@@ -1,3 +1,4 @@
+import { mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -34,12 +35,12 @@ const SAMPLE_SOURCE_LAYER = 'samples';
  * in words, so color is never the only channel.
  */
 const colors = {
-	identified: '#2f9e8f',
-	awaiting: '#e0a12e',
-	zeroLarvae: '#8b9a9c',
-	unidentifiable: '#d6503f',
-	pointStroke: '#f9fdfb',
-	selected: '#16b364',
+	identified: mapStatus.resolved,
+	awaiting: mapStatus.pending,
+	zeroLarvae: mapStatus.neutral,
+	unidentifiable: mapStatus.problem,
+	pointStroke: mapInteraction.pointStroke,
+	selected: mapInteraction.selected,
 } as const;
 
 /**

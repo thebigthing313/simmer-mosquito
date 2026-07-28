@@ -1,4 +1,5 @@
 import type { AddressRow } from '@simmer-mosquito/sync';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
@@ -114,7 +115,7 @@ function AddressesExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className="sticky top-0 z-10 grid gap-3 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
+				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 					<div className="flex flex-wrap items-center justify-between gap-2">
 						<div className="grid gap-1">
 							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">

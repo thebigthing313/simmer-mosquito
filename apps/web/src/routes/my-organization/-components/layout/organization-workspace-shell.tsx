@@ -1,3 +1,4 @@
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import type React from 'react';
 import type { OrgRole } from '../types';
 import { PermissionPill } from './layout';
@@ -17,7 +18,7 @@ export function OrganizationWorkspaceShell({
 	readonly role: OrgRole;
 }) {
 	return (
-		<div className="mx-auto grid w-full max-w-[1200px] content-start gap-3">
+		<div className={pageContainer({ gap: 'compact', padding: 'none' })}>
 			<div className="flex justify-end">
 				<PermissionPill canManage={canManage} role={role} />
 			</div>

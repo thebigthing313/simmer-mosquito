@@ -4,6 +4,7 @@ import type {
 	ProfileRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -65,7 +66,7 @@ function BiocontrolDetail({ actionId }: { readonly actionId: string }) {
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
-			<div className="mx-auto grid w-full max-w-[1200px] content-start gap-5 px-4 py-6 pb-10 md:px-8">
+			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
 				<Link
 					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
 					to="/control-operations/biocontrol"

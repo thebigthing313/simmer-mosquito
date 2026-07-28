@@ -1,5 +1,7 @@
+import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { RegionFolderRow } from '@simmer-mosquito/sync';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -146,7 +148,7 @@ export function RegionFormPage({
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<header className="sticky top-0 z-10 grid gap-2 border-border/50 border-b bg-background/95 px-5 py-4 backdrop-blur-sm">
+				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
 					<Link
 						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
 						params={header.backParams ?? {}}
@@ -377,7 +379,12 @@ function MapLegend({ mode }: { readonly mode: 'create' | 'edit' }) {
 	return (
 		<div className="pointer-events-none absolute bottom-10 left-4 z-10 flex flex-col gap-1.5 rounded-md border border-border/50 bg-card/90 px-3 py-2 text-xs shadow-sm backdrop-blur-sm">
 			<span className="flex items-center gap-2 text-foreground">
-				<span aria-hidden="true" className="size-2.5 rounded-full bg-[#f59e0b]" />
+				{/* Same constant the draw layer paints with, so they cannot drift. */}
+				<span
+					aria-hidden="true"
+					className="size-2.5 rounded-full"
+					style={{ backgroundColor: mapInteraction.selected }}
+				/>
 				{mode === 'edit' ? 'This region' : 'New region'}
 			</span>
 		</div>

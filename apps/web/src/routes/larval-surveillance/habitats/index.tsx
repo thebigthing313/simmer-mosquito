@@ -1,5 +1,6 @@
 import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow, TagRow } from '@simmer-mosquito/sync';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -152,7 +153,7 @@ function HabitatsExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className="sticky top-0 z-10 grid gap-3 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
+				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 					<div className="flex items-baseline justify-between gap-3">
 						<h1 className="font-semibold text-foreground text-lg leading-none">Habitats</h1>
 						<ResultMeta isLoading={isLoading} total={total} />

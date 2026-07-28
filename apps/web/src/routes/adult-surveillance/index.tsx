@@ -1,4 +1,6 @@
 import type { CollectionMethodRow, ProfileRow, TrapRow } from '@simmer-mosquito/sync';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
@@ -55,7 +57,7 @@ function AdultSurveillanceOverviewRoute() {
 	);
 
 	return (
-		<div className="mx-auto grid w-full max-w-[1200px] content-start gap-6 px-4 py-6 md:px-8 md:py-8">
+		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
 			<header className="grid gap-1.5">
 				<div className="flex items-center gap-2 text-muted-foreground">
 					<AdultIcon aria-hidden="true" className="size-4" />
@@ -246,7 +248,12 @@ function RecentCollectionsPanel({
 function DayGroupBlock({ group, labels }: { readonly group: DayGroup; readonly labels: Labels }) {
 	return (
 		<section className="p-3">
-			<div className="sticky top-0 z-10 mb-1 flex items-center gap-2 bg-card/95 px-1 py-1 backdrop-blur-sm">
+			<div
+				className={cn(
+					stickyHeader({ surface: 'card', layout: 'inline', gap: 'tight', padding: 'tight' }),
+					'mb-1',
+				)}
+			>
 				<span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					{formatMonthDay(group.day)}
 				</span>

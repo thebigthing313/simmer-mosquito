@@ -1,5 +1,6 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
 import type { AddressRow, ContactRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -175,7 +176,7 @@ function ServiceRequestDetailContent({
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className="sticky top-0 z-10 grid gap-2.5 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
+				<div className={stickyHeader({ gap: 'snug', padding: 'default' })}>
 					<BackLink />
 					<div className="flex items-start justify-between gap-2">
 						<div className="grid min-w-0 gap-1">

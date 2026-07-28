@@ -1,4 +1,5 @@
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
@@ -286,7 +287,7 @@ function RegionsExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-border/50 border-b bg-background/95 p-4 backdrop-blur-sm">
+				<div className={stickyHeader({ layout: 'row', gap: 'tight', padding: 'default' })}>
 					<h1 className="m-0 font-semibold text-foreground text-lg leading-none">Regions</h1>
 					<div className="flex items-center gap-2">
 						<NewFolderButton actorProfileId={actorProfileId} organizationId={organizationId} />

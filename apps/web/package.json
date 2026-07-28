@@ -18,6 +18,7 @@
 	},
 	"dependencies": {
 		"@fontsource/poppins": "^5.2.7",
+		"@simmer-mosquito/design-tokens": "workspace:*",
 		"@simmer-mosquito/domain": "workspace:*",
 		"@simmer-mosquito/mapping": "workspace:*",
 		"@simmer-mosquito/sync": "workspace:*",

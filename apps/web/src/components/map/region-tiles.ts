@@ -1,3 +1,4 @@
+import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type {
 	ExpressionSpecification,
 	FillLayerSpecification,
@@ -17,12 +18,12 @@ export interface RegionTileFilters {
 export const REGION_SOURCE_ID = 'regions';
 const REGION_SOURCE_LAYER = 'regions';
 
-/** Map paint colors. Kept as literals — GL paint can't read CSS custom props. */
+/** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
 const colors = {
-	fill: '#2d46b6',
-	outline: '#2d46b6',
-	selected: '#f59e0b',
-	selectedOutline: '#b45309',
+	fill: mapDomain.region,
+	outline: mapDomain.region,
+	selected: mapInteraction.selected,
+	selectedOutline: mapInteraction.selectedStroke,
 } as const;
 
 /** Layers the user can click to select a region. */
