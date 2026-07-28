@@ -1,19 +1,36 @@
 @import "@simmer-mosquito/ui-web/styles.css";
 
 :root {
-	--app-shell: oklch(94.8% 0.007 198);
-	--app-line: oklch(76% 0.018 205 / 42%);
-	--app-chrome: oklch(95.2% 0.006 198);
-	--app-chrome-strong: oklch(91.6% 0.01 204);
+	/*
+	 * The scrolling content surface behind route pages — a shade off the shell so
+	 * panels and cards read as sitting on something.
+	 *
+	 * This block used to hold nine more app-level tokens (`--app-shell`,
+	 * `--app-chrome`, `--app-chrome-strong`, `--app-selection`, `--app-line`, and
+	 * a `--map-road`/`--map-route`/`--map-alert` trio). None had a single
+	 * consumer anywhere in the workspace. The map ones were the actively
+	 * misleading part: map paint cannot read CSS custom properties at all, so
+	 * they could never have worked — and there is now a real map palette in
+	 * `@simmer-mosquito/design-tokens` that a reader should find instead.
+	 */
 	--app-stage: oklch(96.4% 0.006 185);
-	--app-selection: oklch(92.8% 0.018 155);
-	--map-road: color-mix(in oklch, var(--simmer-blue) 42%, var(--simmer-field-border));
-	--map-route: var(--simmer-dark-green);
-	--map-alert: color-mix(in oklch, var(--simmer-yellow-300) 68%, var(--simmer-red));
 }
 
+/*
+ * SIMMER web is a desktop application by decision, not by omission. The shell
+ * spends 304px on fixed chrome before any content (64px rail + 240px nav), so a
+ * 320px floor was a promise the layout could never keep — it left 16px for the
+ * page. This floor is the width below which we would rather hand the operator a
+ * horizontal scrollbar than a crushed table: the layout stays intact and
+ * predictable instead of collapsing.
+ *
+ * Field work on phones is served by a separate surface, not by squeezing this
+ * one. If that ever changes, the fix is not lowering this number — it is giving
+ * the rails a collapse behaviour first (`ui-web`'s `sidebar.tsx` already has
+ * one, currently unused).
+ */
 body {
-	min-width: 320px;
+	min-width: 1024px;
 }
 
 button,
