@@ -5,6 +5,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedRegionGeometryCache } from './-region-data';
 import {
@@ -61,7 +62,7 @@ function CreateRegionRoute() {
 			};
 
 			const transaction = webCollections.regions.insert(row, { metadata: { geometry } });
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			// Prime the detail's geometry cache so it renders the new boundary on arrival
 			// instead of fetching (and briefly showing an empty state) from scratch.
 			seedRegionGeometryCache(queryClient, row.id, geometry as unknown as GeoJsonGeometry);

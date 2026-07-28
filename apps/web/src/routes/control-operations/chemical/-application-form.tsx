@@ -26,6 +26,12 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { MapCanvas } from '../../../components/map';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
+import {
+	customFieldCount,
+	customSchemaFor,
+	type MetadataValue,
+	validateSchemaMetadata,
+} from '../../../forms/field-components';
 import { todayDateValue, unitOptions } from '../-control-display';
 import { FormSection, MapPrompt, PointControl, useFitToGeometry } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
@@ -65,6 +71,8 @@ export interface ApplicationFormValues {
 	readonly addressId: string | null;
 	/** Optional larval context: the habitat this treatment was performed against. */
 	readonly habitatId: string | null;
+	/** Values for the custom fields the chosen application method declares. */
+	readonly metadata: MetadataValue;
 }
 
 export interface ApplicationFormHeader {
@@ -117,6 +125,7 @@ export function defaultApplicationFormValues(): ApplicationFormValues {
 		equipmentId: noSelectionValue,
 		addressId: null,
 		habitatId: null,
+		metadata: null,
 	};
 }
 
@@ -471,6 +480,33 @@ export function ApplicationFormPage({
 									</form.AppField>
 								</div>
 							</FormSection>
+
+							{/* Agencies attach their own fields to an application method; render
+							    whichever the selected one declares, and nothing when it declares
+							    none (including when no method is chosen). */}
+							<form.Subscribe selector={(state) => state.values.applicationMethodId}>
+								{(methodId) => {
+									const schema = customSchemaFor(applicationMethods, methodId);
+									if (customFieldCount(schema) === 0) {
+										return null;
+									}
+									return (
+										<FormSection title="Custom Fields">
+											<form.AppField
+												name="metadata"
+												validators={{ onSubmit: validateSchemaMetadata(schema) }}
+											>
+												{(field) => (
+													<field.MetadataField
+														description="Extra details your agency collects for this method."
+														mode={{ kind: 'schema', schema }}
+													/>
+												)}
+											</form.AppField>
+										</FormSection>
+									);
+								}}
+							</form.Subscribe>
 
 							<FormSection title="Context">
 								<div className="grid gap-1.5">

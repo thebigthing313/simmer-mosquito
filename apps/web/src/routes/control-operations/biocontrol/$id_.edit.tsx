@@ -15,8 +15,10 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	BiocontrolFormPage,
@@ -139,6 +141,7 @@ function EditBiocontrolActionLoader({
 				writable.releaseUnitId = values.releaseUnitId;
 				writable.addressId = values.addressId;
 				writable.habitatId = values.habitatId;
+				writable.metadata = values.metadata;
 				if (nextCentroid !== null) {
 					writable.lat = nextCentroid.lat;
 					writable.lng = nextCentroid.lng;
@@ -158,7 +161,7 @@ function EditBiocontrolActionLoader({
 							{ metadata: { locationSource } },
 							applyEdits,
 						);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({ to: '/control-operations/biocontrol/$id', params: { id: action.id } });
 		},
 		[action, actorProfileId, navigate],
@@ -201,6 +204,7 @@ function defaultsFromAction(action: BiocontrolActionRow): BiocontrolFormValues {
 		biocontrolDate: action.biocontrolDate.slice(0, 10),
 		amountReleased: action.amountReleased,
 		releaseUnitId: action.releaseUnitId,
+		metadata: asMetadataValue(action.metadata),
 	};
 }
 

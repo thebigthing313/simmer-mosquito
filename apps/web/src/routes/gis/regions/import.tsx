@@ -22,6 +22,7 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { isTxIdConfirmationTimeout } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { type ImportPolygon, MAX_POLYGONS, parseRegionsFromFile } from './-import-parse';
 
@@ -507,17 +508,6 @@ function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => {
 		setTimeout(resolve, ms);
 	});
-}
-
-/**
- * True when a region write's optimistic transaction rejected only because its
- * txid was not observed on the Electric shape stream in time
- * (`TimeoutWaitingForTxIdError` from `@tanstack/electric-db-collection`). The
- * server POST has already committed the write by the time the library waits for
- * that confirmation, so this means "submitted, awaiting sync" — not a failure.
- */
-function isTxIdConfirmationTimeout(error: unknown): boolean {
-	return error instanceof Error && error.name === 'TimeoutWaitingForTxIdError';
 }
 
 /**

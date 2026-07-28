@@ -22,7 +22,7 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
-import type { MetadataValue } from '../../../forms/field-components/metadata-field';
+import type { MetadataValue } from '../../../forms/field-components';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noRegionFolderValue = 'none';

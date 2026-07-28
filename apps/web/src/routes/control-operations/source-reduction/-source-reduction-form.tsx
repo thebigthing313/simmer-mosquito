@@ -18,6 +18,12 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { MapCanvas } from '../../../components/map';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
+import {
+	customFieldCount,
+	customSchemaFor,
+	type MetadataValue,
+	validateSchemaMetadata,
+} from '../../../forms/field-components';
 import { todayDateValue, unitOptions } from '../-control-display';
 import { FormSection, MapPrompt, PointControl, useFitToGeometry } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
@@ -43,6 +49,8 @@ export interface SourceReductionFormValues {
 	readonly addressId: string | null;
 	/** Optional larval context: the habitat whose breeding sources were eliminated. */
 	readonly habitatId: string | null;
+	/** Values for the custom fields the chosen method declares. */
+	readonly metadata: MetadataValue;
 }
 
 export interface SourceReductionFormHeader {
@@ -93,6 +101,7 @@ export function defaultSourceReductionFormValues(): SourceReductionFormValues {
 		technicianProfileId: noTechnicianValue,
 		addressId: null,
 		habitatId: null,
+		metadata: null,
 	};
 }
 
@@ -359,6 +368,32 @@ export function SourceReductionFormPage({
 									</form.AppField>
 								</div>
 							</FormSection>
+
+							{/* Agencies attach their own fields to a method; render whichever the
+							    selected one declares, and nothing when it declares none. */}
+							<form.Subscribe selector={(state) => state.values.sourceReductionMethodId}>
+								{(methodId) => {
+									const schema = customSchemaFor(methods, methodId);
+									if (customFieldCount(schema) === 0) {
+										return null;
+									}
+									return (
+										<FormSection title="Custom Fields">
+											<form.AppField
+												name="metadata"
+												validators={{ onSubmit: validateSchemaMetadata(schema) }}
+											>
+												{(field) => (
+													<field.MetadataField
+														description="Extra details your agency collects for this method."
+														mode={{ kind: 'schema', schema }}
+													/>
+												)}
+											</form.AppField>
+										</FormSection>
+									);
+								}}
+							</form.Subscribe>
 
 							<FormSection title="Attribution">
 								<div className="grid gap-5 sm:grid-cols-2">

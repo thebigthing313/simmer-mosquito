@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
 import {
@@ -123,7 +124,7 @@ function EditAddressLoader({
 			};
 
 			const transaction = webCollections.addresses.update(address.id, applyEdits);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			if (refinedPoint && geometry !== null) {
 				seedAddressGeometryCache(queryClient, address.id, geometry as unknown as GeoJsonGeometry);
 			}

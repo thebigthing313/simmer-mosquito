@@ -33,6 +33,7 @@ import { type ReactNode, useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { useRegionGeometry } from './-region-data';
 
@@ -107,7 +108,7 @@ function RegionDetailContent({ region }: { readonly region: RegionRow }) {
 		setDeleteOpen(false);
 		setDeleteError(null);
 		try {
-			await webCollections.regions.delete(region.id).isPersisted.promise;
+			await settleWrite(webCollections.regions.delete(region.id));
 			await navigate({ to: '/gis/regions' });
 		} catch (cause) {
 			setDeleteError(cause instanceof Error ? cause.message : 'Unable to delete the region.');

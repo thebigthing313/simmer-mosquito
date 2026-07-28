@@ -11,6 +11,7 @@ import { useCallback, useMemo } from 'react';
 import { z } from 'zod';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
 import {
@@ -102,7 +103,7 @@ function CreateCollectionRoute() {
 				hasProblem: values.hasProblem,
 				isZeroResult: false,
 				hasBycatch: false,
-				metadata: null,
+				metadata: values.metadata,
 				createdByProfileId: actorProfileId,
 				updatedByProfileId: actorProfileId,
 				createdAt: now,
@@ -122,7 +123,7 @@ function CreateCollectionRoute() {
 			const transaction = webCollections.collections.insert(row, {
 				metadata: { locationSource },
 			});
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({ to: '/adult-surveillance/collections/$id', params: { id: row.id } });
 		},
 		[organization, actorProfileId, navigate],

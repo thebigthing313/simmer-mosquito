@@ -9,6 +9,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	defaultSourceReductionFormValues,
@@ -77,7 +78,7 @@ function CreateSourceReductionRoute() {
 				inspectionId: null,
 				requestedControlActionId: null,
 				missionItemId: null,
-				metadata: null,
+				metadata: values.metadata,
 				createdByProfileId: actorProfileId,
 				updatedByProfileId: actorProfileId,
 				createdAt: now,
@@ -92,7 +93,7 @@ function CreateSourceReductionRoute() {
 			const transaction = webCollections.sourceReductions.insert(row, {
 				metadata: { locationSource },
 			});
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({ to: '/control-operations/source-reduction/$id', params: { id: row.id } });
 		},
 		[organization, actorProfileId, navigate],

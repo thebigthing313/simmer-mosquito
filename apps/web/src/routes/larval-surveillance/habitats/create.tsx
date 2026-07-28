@@ -5,6 +5,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedHabitatGeometryCache } from '../../-habitat-detail';
 import {
@@ -73,7 +74,7 @@ function CreateHabitatRoute() {
 			const transaction = webCollections.habitats.insert(row, {
 				metadata: { locationSource: { kind: 'geometry', geometry } },
 			});
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			// Prime the detail's geometry cache so it renders the new shape on arrival
 			// instead of fetching (and briefly showing an empty state) from scratch.
 			seedHabitatGeometryCache(queryClient, row.id, geometry as unknown as GeoJsonGeometry);

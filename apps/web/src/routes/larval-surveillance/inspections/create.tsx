@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
 import {
@@ -61,7 +62,7 @@ function CreateInspectionRoute() {
 							metadata: { locationSource: { kind: 'geometry', geometry: adhocGeometry } },
 						})
 					: webCollections.inspections.insert(row);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 
 			// Attach the optional note as the inspection's first comment. The
 			// inspection must be committed first (the comment references it), so this
@@ -168,7 +169,7 @@ async function addInspectionComment(
 		updatedAt: context.now,
 	};
 	try {
-		await webCollections.comments.insert(comment).isPersisted.promise;
+		await settleWrite(webCollections.comments.insert(comment));
 	} catch {
 		// Best-effort: the inspection is already saved, and the comment can be added
 		// from its detail page. Don't block navigation on a comment failure.

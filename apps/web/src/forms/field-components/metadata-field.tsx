@@ -6,26 +6,50 @@ import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useEffect, useRef, useState } from 'react';
 import { useFieldContext } from '../form-contexts';
+import {
+	customFieldDescriptors,
+	hasCustomFieldValue,
+	isPlainJsonObject,
+	type MetadataValue,
+	type MetadataValueType,
+} from './custom-schema';
 import { FormFieldFrame } from './field-frame';
 import type { JsonSchemaValue } from './json-schema-field';
 import type { BaseFieldProps } from './text-field';
 
-export type MetadataValue = Record<string, unknown> | null;
+/**
+ * Editor for a record's `metadata` JSON column.
+ *
+ * Two modes. `manual` is a free-form key/value editor. `schema` renders the
+ * typed fields an agency declared on the record's method or type (a lookup
+ * row's `customSchema`) — collection methods, habitat types, source reduction
+ * methods, and so on. Schema fields keep their declared key verbatim; any value
+ * whose key the schema does not declare still renders (as an ad-hoc row) so a
+ * method change surfaces its orphans instead of silently keeping or dropping
+ * them.
+ */
 
 type MetadataMode =
 	| { readonly kind: 'manual' }
-	| { readonly kind: 'schema'; readonly schema: JsonSchemaValue };
+	| {
+			readonly kind: 'schema';
+			/** The selected method's / type's `customSchema`. */
+			readonly schema: JsonSchemaValue;
+			/** Allow ad-hoc keys alongside the declared fields. */
+			readonly allowExtra?: boolean | undefined;
+	  };
 
 interface MetadataRow {
 	readonly id: string;
+	/** The key this row is stored under. Ad-hoc rows re-derive it from the label. */
 	readonly key: string;
 	readonly label: string;
 	readonly required: boolean;
 	readonly value: string;
 	readonly valueType: MetadataValueType;
+	/** `schema` rows are declared by the custom schema; `extra` rows are ad hoc. */
+	readonly source: 'schema' | 'extra';
 }
-
-type MetadataValueType = 'text' | 'number' | 'integer' | 'boolean' | 'date';
 
 export interface MetadataFieldProps extends BaseFieldProps {
 	readonly className?: string | undefined;
@@ -46,22 +70,36 @@ export function MetadataField({
 	const [rows, setRows] = useState<readonly MetadataRow[]>(() =>
 		metadataRowsFromValue(field.state.value, mode),
 	);
-	const committedValue = useRef(metadataKey(field.state.value, mode));
+
+	// Rows are re-derived when the value changes underneath us (form reset) or the
+	// schema changes (the user picked a different method). Own edits commit both
+	// at once, so they never round-trip through this effect.
+	const modeKey = mode.kind === 'schema' ? `schema:${jsonKey(mode.schema)}` : 'manual';
+	const modeRef = useRef(mode);
+	modeRef.current = mode;
+	const committedKey = useRef(`${modeKey}:${jsonKey(field.state.value)}`);
 
 	useEffect(() => {
-		const nextValue = metadataKey(field.state.value, mode);
-		if (nextValue !== committedValue.current) {
-			committedValue.current = nextValue;
-			setRows(metadataRowsFromValue(field.state.value, mode));
+		const nextKey = `${modeKey}:${jsonKey(field.state.value)}`;
+		if (nextKey !== committedKey.current) {
+			committedKey.current = nextKey;
+			setRows(metadataRowsFromValue(field.state.value, modeRef.current));
 		}
-	}, [field.state.value, mode]);
+	}, [field.state.value, modeKey]);
 
 	function commitRows(nextRows: readonly MetadataRow[]) {
-		const nextValue = metadataValueFromRows(nextRows, mode);
-		committedValue.current = metadataKey(nextValue, mode);
+		const nextValue = metadataValueFromRows(nextRows);
+		committedKey.current = `${modeKey}:${jsonKey(nextValue)}`;
 		setRows(nextRows);
 		field.handleChange(nextValue);
 	}
+
+	function updateRow(id: string, changes: Partial<MetadataRow>) {
+		commitRows(rows.map((current) => (current.id === id ? { ...current, ...changes } : current)));
+	}
+
+	const canAddRow = mode.kind === 'manual' || mode.allowExtra === true;
+	const emptyLabel = mode.kind === 'schema' ? 'No custom fields.' : 'No metadata fields.';
 
 	return (
 		<FormFieldFrame
@@ -77,7 +115,7 @@ export function MetadataField({
 				>
 					{rows.length === 0 ? (
 						<p className="m-0 rounded-md bg-background/70 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
-							No metadata fields.
+							{emptyLabel}
 						</p>
 					) : (
 						rows.map((row) => (
@@ -85,7 +123,14 @@ export function MetadataField({
 								className="grid gap-2 rounded-md border border-border/30 bg-background p-2.5"
 								key={row.id}
 							>
-								{mode.kind === 'manual' ? (
+								{row.source === 'schema' ? (
+									<SchemaMetadataControl
+										disabled={disabled}
+										onBlur={field.handleBlur}
+										onChange={(value) => updateRow(row.id, { value })}
+										row={row}
+									/>
+								) : (
 									<div className="grid gap-2 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)_auto]">
 										<div className="grid min-w-0 gap-1">
 											<span className="text-[0.74rem] font-bold text-muted-foreground">
@@ -96,13 +141,10 @@ export function MetadataField({
 												disabled={disabled}
 												onBlur={field.handleBlur}
 												onChange={(event) =>
-													commitRows(
-														rows.map((current) =>
-															current.id === row.id
-																? { ...current, label: event.target.value, key: event.target.value }
-																: current,
-														),
-													)
+													updateRow(row.id, {
+														label: event.target.value,
+														key: fieldKeyFromLabel(event.target.value),
+													})
 												}
 												placeholder="e.g. License plate"
 												value={row.label}
@@ -114,15 +156,7 @@ export function MetadataField({
 												aria-label={`${row.label.trim().length === 0 ? 'Metadata' : row.label} value`}
 												disabled={disabled}
 												onBlur={field.handleBlur}
-												onChange={(event) =>
-													commitRows(
-														rows.map((current) =>
-															current.id === row.id
-																? { ...current, value: event.target.value }
-																: current,
-														),
-													)
-												}
+												onChange={(event) => updateRow(row.id, { value: event.target.value })}
 												placeholder="e.g. ABC123"
 												value={row.value}
 											/>
@@ -139,24 +173,11 @@ export function MetadataField({
 											<DeleteIcon aria-hidden="true" />
 										</Button>
 									</div>
-								) : (
-									<SchemaMetadataControl
-										disabled={disabled}
-										onBlur={field.handleBlur}
-										onChange={(value) =>
-											commitRows(
-												rows.map((current) =>
-													current.id === row.id ? { ...current, value } : current,
-												),
-											)
-										}
-										row={row}
-									/>
 								)}
 							</section>
 						))
 					)}
-					{mode.kind === 'manual' ? (
+					{canAddRow ? (
 						<Button
 							className="w-fit"
 							disabled={disabled}
@@ -168,6 +189,7 @@ export function MetadataField({
 										key: '',
 										label: '',
 										required: false,
+										source: 'extra',
 										value: '',
 										valueType: 'text',
 									},
@@ -265,82 +287,79 @@ export function validateMetadataValue({
 		: 'Metadata must be a JSON object or blank.';
 }
 
-function metadataRowsFromValue(value: MetadataValue, mode: MetadataMode): readonly MetadataRow[] {
-	const objectValue = isPlainJsonObject(value) ? value : {};
-	if (mode.kind === 'schema') {
-		return schemaRows(mode.schema, objectValue);
-	}
-
-	return Object.entries(objectValue).map(([key, rawValue]) => ({
-		id: crypto.randomUUID(),
-		key,
-		label: key,
-		required: false,
-		value: rawValue === null || rawValue === undefined ? '' : String(rawValue),
-		valueType: 'text',
-	}));
+/**
+ * Validator for metadata guided by a custom schema: the value must be an object,
+ * and every field the schema marks required must be filled in. Yes/no fields are
+ * exempt — an untouched switch reads as "no", so requiring one is unanswerable.
+ */
+export function validateSchemaMetadata(schema: unknown) {
+	const descriptors = customFieldDescriptors(schema);
+	return ({ value }: { readonly value: MetadataValue }): string | undefined => {
+		const invalid = validateMetadataValue({ value });
+		if (invalid !== undefined) {
+			return invalid;
+		}
+		const object = isPlainJsonObject(value) ? value : {};
+		const missing = descriptors.find(
+			(descriptor) =>
+				descriptor.required &&
+				descriptor.valueType !== 'boolean' &&
+				!hasCustomFieldValue(object[descriptor.key]),
+		);
+		return missing === undefined ? undefined : `${missing.label} is required.`;
+	};
 }
 
-function metadataValueFromRows(rows: readonly MetadataRow[], mode: MetadataMode): MetadataValue {
+function metadataRowsFromValue(value: MetadataValue, mode: MetadataMode): readonly MetadataRow[] {
+	const objectValue = isPlainJsonObject(value) ? value : {};
+	const descriptors = mode.kind === 'schema' ? customFieldDescriptors(mode.schema) : [];
+	const declaredKeys = new Set(descriptors.map((descriptor) => descriptor.key));
+
+	return [
+		...descriptors.map((descriptor) => ({
+			id: crypto.randomUUID(),
+			key: descriptor.key,
+			label: descriptor.label,
+			required: descriptor.required,
+			source: 'schema' as const,
+			value: displayValue(objectValue[descriptor.key]),
+			valueType: descriptor.valueType,
+		})),
+		...Object.entries(objectValue)
+			.filter(([key]) => !declaredKeys.has(key))
+			.map(([key, rawValue]) => ({
+				id: crypto.randomUUID(),
+				key,
+				label: key,
+				required: false,
+				source: 'extra' as const,
+				value: displayValue(rawValue),
+				valueType: 'text' as const,
+			})),
+	];
+}
+
+function metadataValueFromRows(rows: readonly MetadataRow[]): MetadataValue {
 	const entries: Array<readonly [string, unknown]> = [];
 	const usedKeys = new Set<string>();
-	for (const row of rows) {
-		const keySource = mode.kind === 'manual' ? row.label : row.key;
-		const key = uniqueFieldKey(fieldKeyFromLabel(keySource), usedKeys);
-		if (key.length === 0 || row.value.trim().length === 0) {
+	// Declared fields claim their keys first so an ad-hoc row can never shadow one.
+	const ordered = [
+		...rows.filter((row) => row.source === 'schema'),
+		...rows.filter((row) => row.source === 'extra'),
+	];
+
+	for (const row of ordered) {
+		if (row.key.length === 0 || row.value.trim().length === 0) {
 			continue;
 		}
-		entries.push([key, valueFromRow(row)]);
+		entries.push([uniqueFieldKey(row.key, usedKeys), valueFromRow(row)]);
 	}
 
 	return entries.length === 0 ? null : Object.fromEntries(entries);
 }
 
-function schemaRows(
-	schema: JsonSchemaValue,
-	value: Record<string, unknown>,
-): readonly MetadataRow[] {
-	if (!isPlainJsonObject(schema)) {
-		return [];
-	}
-
-	if (isPlainJsonObject(schema.properties)) {
-		return rowsFromJsonSchema(schema, value);
-	}
-
-	return Object.entries(schema)
-		.map(([key, config]) => {
-			const configObject = isPlainJsonObject(config) ? config : {};
-			return {
-				id: crypto.randomUUID(),
-				key,
-				label: typeof configObject.label === 'string' ? configObject.label : labelFromFieldKey(key),
-				order: numericOrder(configObject.order),
-				required: configObject.required === true,
-				value: value[key] === null || value[key] === undefined ? '' : String(value[key]),
-				valueType: metadataValueTypeFromValue(configObject.type),
-			};
-		})
-		.sort((first, second) => first.order - second.order);
-}
-
-function rowsFromJsonSchema(
-	schema: Record<string, unknown>,
-	value: Record<string, unknown>,
-): readonly MetadataRow[] {
-	const properties = isPlainJsonObject(schema.properties) ? schema.properties : {};
-	const required = Array.isArray(schema.required)
-		? new Set(schema.required.filter((item): item is string => typeof item === 'string'))
-		: new Set<string>();
-
-	return Object.entries(properties).map(([key, property]) => ({
-		id: crypto.randomUUID(),
-		key,
-		label: labelFromFieldKey(key),
-		required: required.has(key),
-		value: value[key] === null || value[key] === undefined ? '' : String(value[key]),
-		valueType: metadataValueTypeFromProperty(property),
-	}));
+function displayValue(value: unknown): string {
+	return value === null || value === undefined ? '' : String(value);
 }
 
 function valueFromRow(row: MetadataRow): unknown {
@@ -358,26 +377,6 @@ function valueFromRow(row: MetadataRow): unknown {
 	return row.value;
 }
 
-function metadataValueTypeFromProperty(schema: unknown): MetadataValueType {
-	if (!isPlainJsonObject(schema)) {
-		return 'text';
-	}
-	if (schema.type === 'string' && schema.format === 'date') {
-		return 'date';
-	}
-	return metadataValueTypeFromValue(schema.type);
-}
-
-function metadataValueTypeFromValue(value: unknown): MetadataValueType {
-	if (value === 'string' || value === 'text') {
-		return 'text';
-	}
-
-	return value === 'number' || value === 'integer' || value === 'boolean' || value === 'date'
-		? value
-		: 'text';
-}
-
 function fieldKeyFromLabel(label: string): string {
 	const parts = label
 		.trim()
@@ -389,32 +388,14 @@ function fieldKeyFromLabel(label: string): string {
 function uniqueFieldKey(baseKey: string, usedKeys: Set<string>): string {
 	let key = baseKey;
 	let suffix = 2;
-	while (key.length > 0 && usedKeys.has(key)) {
+	while (usedKeys.has(key)) {
 		key = `${baseKey} ${suffix}`;
 		suffix += 1;
 	}
-	if (key.length > 0) {
-		usedKeys.add(key);
-	}
+	usedKeys.add(key);
 	return key;
 }
 
-function labelFromFieldKey(key: string): string {
-	const spaced = key
-		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-		.replace(/[_-]+/g, ' ')
-		.trim();
-	return spaced.length === 0 ? '' : spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
-function numericOrder(value: unknown): number {
-	return typeof value === 'number' && Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
-}
-
-function metadataKey(value: MetadataValue, mode: MetadataMode): string {
-	return `${mode.kind}:${mode.kind === 'schema' ? JSON.stringify(mode.schema) : ''}:${value === null ? 'null' : JSON.stringify(value)}`;
-}
-
-function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
+function jsonKey(value: unknown): string {
+	return value === null || value === undefined ? 'null' : JSON.stringify(value);
 }

@@ -12,9 +12,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
-import type { MetadataValue } from '../../../forms/field-components/metadata-field';
+import type { MetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedHabitatGeometryCache } from '../../-habitat-detail';
 import {
@@ -154,7 +155,7 @@ function EditHabitatLoader({
 						applyEdits,
 					)
 				: webCollections.habitats.update(habitat.id, applyEdits);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			seedGeometry();
 			await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } });
 		},

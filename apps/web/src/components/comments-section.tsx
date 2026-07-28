@@ -26,6 +26,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, or, useLiveQuery } from '@tanstack/react-db';
 import { type KeyboardEvent, useCallback, useMemo, useState } from 'react';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
+import { settleWrite } from '../sync/settle-write';
 import { webCollections } from '../sync/webCollections';
 
 const CommentIcon = iconRegistry.actions.comment.icon;
@@ -148,24 +149,28 @@ export function CommentsSection({
 				updatedAt: now,
 			};
 			setEnteredId(row.id);
-			await webCollections.comments.insert(row).isPersisted.promise;
+			await settleWrite(webCollections.comments.insert(row));
 		},
 		[currentProfileId, organizationId, target.type, target.id],
 	);
 
 	const handleEdit = useCallback(async (commentId: string, text: string) => {
 		setError(null);
-		await webCollections.comments.update(commentId, (draft) => {
-			(draft as MutableCommentRow).commentText = text;
-		}).isPersisted.promise;
+		await settleWrite(
+			webCollections.comments.update(commentId, (draft) => {
+				(draft as MutableCommentRow).commentText = text;
+			}),
+		);
 	}, []);
 
 	const handleTogglePin = useCallback(async (comment: CommentRow) => {
 		setError(null);
 		try {
-			await webCollections.comments.update(comment.id, (draft) => {
-				(draft as MutableCommentRow).isPinned = !comment.isPinned;
-			}).isPersisted.promise;
+			await settleWrite(
+				webCollections.comments.update(comment.id, (draft) => {
+					(draft as MutableCommentRow).isPinned = !comment.isPinned;
+				}),
+			);
 		} catch (cause) {
 			setError(
 				messageOf(cause, comment.isPinned ? 'Unable to unpin comment.' : 'Unable to pin comment.'),
@@ -175,7 +180,7 @@ export function CommentsSection({
 
 	const handleDelete = useCallback(async (commentId: string) => {
 		setError(null);
-		await webCollections.comments.delete(commentId).isPersisted.promise;
+		await settleWrite(webCollections.comments.delete(commentId));
 	}, []);
 
 	const renderComment = (comment: CommentRow) => (

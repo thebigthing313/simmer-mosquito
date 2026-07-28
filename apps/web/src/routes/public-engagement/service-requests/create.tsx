@@ -131,7 +131,7 @@ function CreateServiceRequestRoute() {
 					...audit,
 				};
 				// addresses' insert handler returns no txid, so this resolves on POST.
-				await webCollections.addresses.insert(addressRow).isPersisted.promise;
+				await settleWrite(webCollections.addresses.insert(addressRow));
 				addressId = addressRow.id;
 			}
 			if (addressId === null) {

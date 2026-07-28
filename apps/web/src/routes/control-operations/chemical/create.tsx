@@ -12,6 +12,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	ApplicationFormPage,
@@ -92,7 +93,7 @@ function CreateApplicationRoute() {
 				inspectionId: null,
 				requestedControlActionId: null,
 				missionItemId: null,
-				metadata: null,
+				metadata: values.metadata,
 				createdByProfileId: actorProfileId,
 				updatedByProfileId: actorProfileId,
 				createdAt: now,
@@ -105,7 +106,7 @@ function CreateApplicationRoute() {
 			} as const;
 
 			const transaction = webCollections.applications.insert(row, { metadata: { locationSource } });
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({ to: '/control-operations/chemical/$id', params: { id: row.id } });
 		},
 		[organization, actorProfileId, navigate],

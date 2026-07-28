@@ -41,7 +41,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { OutletSimpleLayout } from '../../components/app-shell/outlet/simple-layout';
 import { useAppForm } from '../../forms';
-import { validateJsonSchemaValue } from '../../forms/field-components';
+import { customFieldCount, validateJsonSchemaValue } from '../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../hooks/use-active-named-collection-rows';
 import {
 	controlMethodFormValues,
@@ -250,22 +250,6 @@ function filterMethods(
 		return rows;
 	}
 	return rows.filter((row) => row.name.toLowerCase().includes(query));
-}
-
-/**
- * Count the fields a method's custom schema declares. Handles both the current
- * `{ key: { label, type, … } }` shape and legacy JSON-Schema `{ properties }` blobs.
- */
-function customFieldCount(customSchema: unknown): number {
-	if (typeof customSchema !== 'object' || customSchema === null || Array.isArray(customSchema)) {
-		return 0;
-	}
-	const schema = customSchema as Record<string, unknown>;
-	const properties = schema.properties;
-	if (typeof properties === 'object' && properties !== null && !Array.isArray(properties)) {
-		return Object.keys(properties).length;
-	}
-	return Object.keys(schema).length;
 }
 
 interface MethodDialogContext {

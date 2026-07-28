@@ -23,6 +23,7 @@ import type {
 import type { Collection } from '@tanstack/react-db';
 import { toast } from 'sonner';
 import type { AuthMe } from '../../../auth';
+import { settleWrite } from '../../../sync/settle-write';
 import { collections, defaultDensityRangeValues } from './constants';
 import type {
 	AdultCollectionLureFormValues,
@@ -376,10 +377,7 @@ export function updateCurrentOrganization(
 	organization: OrganizationRow | null,
 	applyChanges: (draft: MutableOrganizationRow) => void,
 ): Promise<void> {
-	return updateCurrentOrganizationOptimistically(
-		organization,
-		applyChanges,
-	).isPersisted.promise.then(() => undefined);
+	return settleWrite(updateCurrentOrganizationOptimistically(organization, applyChanges));
 }
 
 export function updateCurrentOrganizationOptimistically(
@@ -396,7 +394,9 @@ export function updateCurrentOrganizationOptimistically(
 }
 
 export function watchPersistence(transaction: PersistenceTransaction, fallback: string): void {
-	void transaction.isPersisted.promise.catch((error) => {
+	// settleWrite absorbs a txid-confirmation timeout, so a committed write that is
+	// only waiting on sync never raises a toast.
+	void settleWrite(transaction).catch((error) => {
 		const message = errorMessageForSave(error);
 		toast.error(message === 'Unable to save changes.' ? fallback : message);
 	});

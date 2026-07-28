@@ -64,6 +64,7 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { type MapCamera, MapCanvas } from '../../../components/map';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 
 export const Route = createFileRoute('/larval-surveillance/samples/$id')({
@@ -491,7 +492,7 @@ function IdentificationCard({
 				updatedAt: now,
 			};
 			try {
-				await webCollections.sampleSpecies.insert(row).isPersisted.promise;
+				await settleWrite(webCollections.sampleSpecies.insert(row));
 			} catch (cause) {
 				setError(messageOf(cause, 'Unable to add species.'));
 			}
@@ -506,9 +507,11 @@ function IdentificationCard({
 			}
 			setError(null);
 			try {
-				await webCollections.sampleSpecies.update(rowId, (draft) => {
-					(draft as MutableSampleSpeciesRow).larvaeCount = larvaeCount;
-				}).isPersisted.promise;
+				await settleWrite(
+					webCollections.sampleSpecies.update(rowId, (draft) => {
+						(draft as MutableSampleSpeciesRow).larvaeCount = larvaeCount;
+					}),
+				);
 			} catch (cause) {
 				setError(messageOf(cause, 'Unable to update count.'));
 			}
@@ -523,7 +526,7 @@ function IdentificationCard({
 			}
 			setError(null);
 			try {
-				await webCollections.sampleSpecies.delete(rowId).isPersisted.promise;
+				await settleWrite(webCollections.sampleSpecies.delete(rowId));
 			} catch (cause) {
 				setError(messageOf(cause, 'Unable to remove species.'));
 			}
@@ -538,8 +541,9 @@ function IdentificationCard({
 			}
 			setError(null);
 			try {
-				await webCollections.samples.update(sampleId, (draft) => mutate(draft as MutableSampleRow))
-					.isPersisted.promise;
+				await settleWrite(
+					webCollections.samples.update(sampleId, (draft) => mutate(draft as MutableSampleRow)),
+				);
 			} catch (cause) {
 				setError(messageOf(cause, fallback));
 			}

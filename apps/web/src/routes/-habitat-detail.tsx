@@ -74,6 +74,11 @@ import { getServerUrl } from '../auth';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { type MapCamera, MapCanvas } from '../components/map';
+import {
+	customFieldEntries,
+	customSchemaFor,
+	formatCustomFieldValue,
+} from '../forms/field-components';
 import { webCollections } from '../sync/webCollections';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
 
@@ -419,14 +424,28 @@ function HabitatDetailsCard({
 						<AuditValue at={habitat.updatedAt} profileId={habitat.updatedByProfileId} />
 					</DetailRow>
 				</dl>
-				<HabitatMetadata metadata={habitat.metadata} />
+				<Suspense fallback={null}>
+					<HabitatMetadata habitatTypeId={habitat.habitatTypeId} metadata={habitat.metadata} />
+				</Suspense>
 			</CardContent>
 		</Card>
 	);
 }
 
-function HabitatMetadata({ metadata }: { readonly metadata: unknown }) {
-	const entries = useMemo(() => toMetadataEntries(metadata), [metadata]);
+/**
+ * The habitat's metadata, read through its type's custom schema so declared fields
+ * get their configured label and order (and yes/no fields read as words). Values
+ * the schema no longer declares still render, so history is never hidden.
+ */
+function HabitatMetadata({
+	habitatTypeId,
+	metadata,
+}: {
+	readonly habitatTypeId: string | null;
+	readonly metadata: unknown;
+}) {
+	const schema = useHabitatTypeSchema(habitatTypeId);
+	const entries = useMemo(() => customFieldEntries(schema, metadata), [schema, metadata]);
 	if (entries.length === 0) {
 		return null;
 	}
@@ -435,9 +454,11 @@ function HabitatMetadata({ metadata }: { readonly metadata: unknown }) {
 		<div className="grid gap-1.5">
 			<span className="text-xs font-semibold text-muted-foreground uppercase">Metadata</span>
 			<dl className="grid gap-1.5">
-				{entries.map(([key, value]) => (
-					<DetailRow key={key} label={key}>
-						{value}
+				{entries.map((entry) => (
+					<DetailRow key={entry.key} label={entry.label}>
+						{formatCustomFieldValue(entry) ?? (
+							<span className="text-muted-foreground">Not recorded</span>
+						)}
 					</DetailRow>
 				))}
 			</dl>
@@ -1047,6 +1068,14 @@ function ApplicationAmount({
 	);
 }
 
+function useHabitatTypeSchema(habitatTypeId: string | null): unknown {
+	const result = useLiveSuspenseQuery(
+		(query) => query.from({ habitatType: webCollections.habitatTypes }),
+		[],
+	);
+	return customSchemaFor(result.data, habitatTypeId);
+}
+
 function useHabitatTypeName(habitatTypeId: string | null): string {
 	const result = useLiveSuspenseQuery(
 		(query) => query.from({ habitatType: webCollections.habitatTypes }),
@@ -1546,23 +1575,6 @@ function formatGeometryTypeLabel(value: string): string {
 		default:
 			return value.trim() === '' ? 'Unknown geometry' : value;
 	}
-}
-
-function toMetadataEntries(metadata: unknown): readonly (readonly [string, string])[] {
-	if (metadata === null || typeof metadata !== 'object' || Array.isArray(metadata)) {
-		return [];
-	}
-
-	return Object.entries(metadata as Record<string, unknown>)
-		.filter(([, value]) => value !== null && value !== undefined)
-		.map(([key, value]) => [key, formatMetadataValue(value)] as const);
-}
-
-function formatMetadataValue(value: unknown): string {
-	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-		return String(value);
-	}
-	return JSON.stringify(value);
 }
 
 function validHexColor(value: string | null): string | null {

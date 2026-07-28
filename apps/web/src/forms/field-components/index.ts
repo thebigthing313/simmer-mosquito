@@ -1,12 +1,27 @@
 export type { AutocompleteFieldProps, AutocompleteOption } from './autocomplete-field';
 export { AutocompleteField } from './autocomplete-field';
+export type {
+	CustomFieldDescriptor,
+	CustomFieldEntry,
+	MetadataValue,
+	MetadataValueType,
+} from './custom-schema';
+export {
+	asMetadataValue,
+	customFieldCount,
+	customFieldDescriptors,
+	customFieldEntries,
+	customSchemaFor,
+	formatCustomFieldValue,
+	hasCustomFieldValue,
+} from './custom-schema';
 export type { FormFieldFrameProps } from './field-frame';
 export { FormFieldFrame } from './field-frame';
 export { HiddenField } from './hidden-field';
 export type { JsonSchemaFieldProps, JsonSchemaValue } from './json-schema-field';
 export { JsonSchemaField, validateJsonSchemaValue } from './json-schema-field';
-export type { MetadataFieldProps, MetadataValue } from './metadata-field';
-export { MetadataField, validateMetadataValue } from './metadata-field';
+export type { MetadataFieldProps } from './metadata-field';
+export { MetadataField, validateMetadataValue, validateSchemaMetadata } from './metadata-field';
 export type { NumberFieldProps } from './number-field';
 export { NumberField } from './number-field';
 export type { FieldOption, SelectFieldProps } from './select-field';

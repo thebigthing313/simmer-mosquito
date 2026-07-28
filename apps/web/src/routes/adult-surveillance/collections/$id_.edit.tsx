@@ -16,8 +16,10 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	CollectionFormPage,
@@ -131,6 +133,7 @@ function EditCollectionLoader({
 				writable.setByProfileId = values.setByProfileId;
 				writable.collectedByProfileId = values.collectedByProfileId;
 				writable.hasProblem = values.hasProblem;
+				writable.metadata = values.metadata;
 				writable.collectionTimingMode = values.timingMode;
 				writable.startedAt = exact ? toIsoDate(values.startedAt) : null;
 				writable.collectedAt = exact
@@ -162,7 +165,7 @@ function EditCollectionLoader({
 							{ metadata: { locationSource } },
 							applyEdits,
 						);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({
 				to: '/adult-surveillance/collections/$id',
 				params: { id: collection.id },
@@ -216,6 +219,7 @@ function defaultsFromCollection(collection: AdultCollectionRow): CollectionFormV
 		setByProfileId: collection.setByProfileId,
 		collectedByProfileId: collection.collectedByProfileId,
 		hasProblem: collection.hasProblem,
+		metadata: asMetadataValue(collection.metadata),
 	};
 }
 

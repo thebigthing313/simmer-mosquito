@@ -9,6 +9,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	BiocontrolFormPage,
@@ -82,7 +83,7 @@ function CreateBiocontrolActionRoute() {
 				releaseUnitId: values.releaseUnitId,
 				requestedControlActionId: null,
 				missionItemId: null,
-				metadata: null,
+				metadata: values.metadata,
 				createdByProfileId: actorProfileId,
 				updatedByProfileId: actorProfileId,
 				createdAt: now,
@@ -97,7 +98,7 @@ function CreateBiocontrolActionRoute() {
 			const transaction = webCollections.biocontrolActions.insert(row, {
 				metadata: { locationSource },
 			});
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({ to: '/control-operations/biocontrol/$id', params: { id: row.id } });
 		},
 		[organization, actorProfileId, navigate],

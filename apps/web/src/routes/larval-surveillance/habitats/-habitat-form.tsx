@@ -29,7 +29,12 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
-import type { MetadataValue } from '../../../forms/field-components/metadata-field';
+import {
+	customFieldCount,
+	customSchemaFor,
+	type MetadataValue,
+	validateSchemaMetadata,
+} from '../../../forms/field-components';
 import { AddressIdInput } from '../../-habitat-location-fields';
 
 export const noHabitatTypeValue = 'none';
@@ -274,15 +279,33 @@ export function HabitatFormPage({
 								)}
 							</form.AppField>
 
-							<form.AppField name="metadata">
-								{(field) => (
-									<field.MetadataField
-										label="Metadata"
-										description="Optional structured notes for agency-specific habitat details."
-										mode={{ kind: 'manual' }}
-									/>
-								)}
-							</form.AppField>
+							{/* Habitat metadata is guided by the type's custom schema (see
+							    docs/larval-surveillance-domain.md), but stays open to ad-hoc keys
+							    so a habitat can carry notes its type never declared. */}
+							<form.Subscribe selector={(state) => state.values.habitatTypeId}>
+								{(habitatTypeId) => {
+									const schema = customSchemaFor(habitatTypes, habitatTypeId);
+									const hasTypeFields = customFieldCount(schema) > 0;
+									return (
+										<form.AppField
+											name="metadata"
+											validators={{ onSubmit: validateSchemaMetadata(schema) }}
+										>
+											{(field) => (
+												<field.MetadataField
+													label="Metadata"
+													description={
+														hasTypeFields
+															? 'Fields this habitat type collects, plus any agency-specific notes.'
+															: 'Optional structured notes for agency-specific habitat details.'
+													}
+													mode={{ kind: 'schema', schema, allowExtra: true }}
+												/>
+											)}
+										</form.AppField>
+									);
+								}}
+							</form.Subscribe>
 
 							<div className="border-border/50 border-t pt-5">
 								<form.FormActions>

@@ -26,7 +26,9 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { MapCanvas } from '../../../components/map';
+import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
@@ -152,6 +154,10 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 						methodName={methodName}
 						releaseUnit={releaseUnit}
 						technicianName={technicianName}
+					/>
+					<CustomFieldsCard
+						metadata={action.metadata}
+						schema={customSchemaFor(methods, action.biocontrolMethodId)}
 					/>
 					<CommentsSection
 						description="Follow-up, agent survival, and restocking notes for this release."

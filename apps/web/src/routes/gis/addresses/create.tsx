@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedAddressGeometryCache } from './-address-data';
 import {
@@ -67,7 +68,7 @@ function CreateAddressRoute() {
 			};
 
 			const transaction = webCollections.addresses.insert(row);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			seedAddressGeometryCache(queryClient, row.id, geometry as unknown as GeoJsonGeometry);
 			await navigate({ to: '/gis/addresses/$id', params: { id: row.id } });
 		},

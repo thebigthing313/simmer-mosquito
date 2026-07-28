@@ -18,6 +18,12 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { MapCanvas } from '../../../components/map';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
+import {
+	customFieldCount,
+	customSchemaFor,
+	type MetadataValue,
+	validateSchemaMetadata,
+} from '../../../forms/field-components';
 import { todayDateValue, unitOptions } from '../-control-display';
 import { FormSection, MapPrompt, PointControl, useFitToGeometry } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
@@ -42,6 +48,8 @@ export interface BiocontrolFormValues {
 	readonly amountReleased: number | null;
 	/** A unit id, or '' when unset (placeholder shown). */
 	readonly releaseUnitId: string;
+	/** Values for the custom fields the chosen method declares. */
+	readonly metadata: MetadataValue;
 }
 
 export interface BiocontrolFormHeader {
@@ -88,6 +96,7 @@ export function defaultBiocontrolFormValues(): BiocontrolFormValues {
 		biocontrolDate: todayDateValue(),
 		amountReleased: null,
 		releaseUnitId: '',
+		metadata: null,
 	};
 }
 
@@ -374,6 +383,32 @@ export function BiocontrolFormPage({
 									</form.AppField>
 								</div>
 							</FormSection>
+
+							{/* Agencies attach their own fields to a method; render whichever the
+							    selected one declares, and nothing when it declares none. */}
+							<form.Subscribe selector={(state) => state.values.biocontrolMethodId}>
+								{(methodId) => {
+									const schema = customSchemaFor(biocontrolMethods, methodId);
+									if (customFieldCount(schema) === 0) {
+										return null;
+									}
+									return (
+										<FormSection title="Custom Fields">
+											<form.AppField
+												name="metadata"
+												validators={{ onSubmit: validateSchemaMetadata(schema) }}
+											>
+												{(field) => (
+													<field.MetadataField
+														description="Extra details your agency collects for this method."
+														mode={{ kind: 'schema', schema }}
+													/>
+												)}
+											</form.AppField>
+										</FormSection>
+									);
+								}}
+							</form.Subscribe>
 
 							<FormSection title="Work">
 								<div className="grid gap-5 sm:grid-cols-2">

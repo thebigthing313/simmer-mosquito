@@ -48,6 +48,7 @@ import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
+import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
@@ -160,7 +161,7 @@ function RouteEditRoute() {
 				mutable.routeName = trimmed;
 				mutable.updatedAt = new Date().toISOString();
 			});
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to rename the route.');
 		} finally {
@@ -192,7 +193,7 @@ function RouteEditRoute() {
 					updatedAt: now,
 				};
 				const transaction = webCollections.routeItems.insert(row);
-				await transaction.isPersisted.promise;
+				await settleWrite(transaction);
 			} catch (cause) {
 				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
 			}
@@ -227,7 +228,7 @@ function RouteEditRoute() {
 				mutable.directionsToNextItem = next;
 				mutable.updatedAt = new Date().toISOString();
 			});
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
 		}
@@ -252,7 +253,7 @@ function RouteEditRoute() {
 		setError(null);
 		try {
 			const transaction = webCollections.routeItems.delete(target.routeItemId);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
 		}
@@ -263,7 +264,7 @@ function RouteEditRoute() {
 		setError(null);
 		try {
 			const transaction = webCollections.routes.delete(id);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({ to: '/larval-surveillance/habitats/routes' });
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');

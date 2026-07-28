@@ -43,6 +43,7 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { RegionMapCard } from './-region-map-card';
 
@@ -202,14 +203,16 @@ function RegionsExplorerRoute() {
 			}
 			const now = new Date().toISOString();
 			try {
-				await webCollections.regions.update(id, (draft) => {
-					const writable = draft as { -readonly [K in keyof RegionRow]: RegionRow[K] };
-					writable.name = name;
-					if (actorProfileId !== null) {
-						writable.updatedByProfileId = actorProfileId;
-					}
-					writable.updatedAt = now;
-				}).isPersisted.promise;
+				await settleWrite(
+					webCollections.regions.update(id, (draft) => {
+						const writable = draft as { -readonly [K in keyof RegionRow]: RegionRow[K] };
+						writable.name = name;
+						if (actorProfileId !== null) {
+							writable.updatedByProfileId = actorProfileId;
+						}
+						writable.updatedAt = now;
+					}),
+				);
 			} catch {
 				// Optimistic mutation rolled back; the tree already shows the synced name.
 			}
@@ -226,14 +229,16 @@ function RegionsExplorerRoute() {
 			}
 			const now = new Date().toISOString();
 			try {
-				await webCollections.regions.update(id, (draft) => {
-					const writable = draft as { -readonly [K in keyof RegionRow]: RegionRow[K] };
-					writable.regionFolderId = folderId;
-					if (actorProfileId !== null) {
-						writable.updatedByProfileId = actorProfileId;
-					}
-					writable.updatedAt = now;
-				}).isPersisted.promise;
+				await settleWrite(
+					webCollections.regions.update(id, (draft) => {
+						const writable = draft as { -readonly [K in keyof RegionRow]: RegionRow[K] };
+						writable.regionFolderId = folderId;
+						if (actorProfileId !== null) {
+							writable.updatedByProfileId = actorProfileId;
+						}
+						writable.updatedAt = now;
+					}),
+				);
 			} catch {
 				// Optimistic mutation rolled back; the tree already shows the prior folder.
 			}
@@ -748,7 +753,7 @@ function NewFolderButton({
 				createdAt: now,
 				updatedAt: now,
 			};
-			await webCollections.regionFolders.insert(row).isPersisted.promise;
+			await settleWrite(webCollections.regionFolders.insert(row));
 			setName('');
 			setDescription('');
 			setOpen(false);

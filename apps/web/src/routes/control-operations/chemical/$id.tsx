@@ -48,7 +48,9 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { MapCanvas } from '../../../components/map';
+import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
@@ -235,6 +237,10 @@ function ApplicationDetailContent({
 						methodName={methodName}
 						productName={productName}
 						vehicleName={vehicleName}
+					/>
+					<CustomFieldsCard
+						metadata={application.metadata}
+						schema={customSchemaFor(methods, application.applicationMethodId)}
 					/>
 					<CommentsSection
 						description="Field notes, product observations, and follow-up for this application."

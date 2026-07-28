@@ -33,6 +33,7 @@ import {
 import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useId, useRef, useState } from 'react';
 import { getServerUrl } from '../auth';
+import { settleWrite } from '../sync/settle-write';
 import { webCollections } from '../sync/webCollections';
 
 export interface GeoJsonPointGeometry {
@@ -513,7 +514,7 @@ function NewAddressSubform({
 				updatedAt: now,
 			};
 			const transaction = webCollections.addresses.insert(address);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			onCreated(address);
 		} catch (error) {
 			setSaveError(error instanceof Error ? error.message : 'Unable to create address.');

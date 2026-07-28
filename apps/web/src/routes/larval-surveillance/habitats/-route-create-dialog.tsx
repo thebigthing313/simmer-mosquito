@@ -15,6 +15,7 @@ import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 
 /**
@@ -62,7 +63,7 @@ export function RouteCreateDialog({
 				updatedAt: now,
 			};
 			const transaction = webCollections.routes.insert(row);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			setName('');
 			onOpenChange(false);
 			await navigate({

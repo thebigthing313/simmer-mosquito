@@ -4,6 +4,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,
@@ -83,7 +84,7 @@ function CreateTrapRoute() {
 			} as const;
 
 			const transaction = webCollections.traps.insert(row, { metadata: { locationSource } });
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({ to: '/adult-surveillance/traps/$id', params: { id: row.id } });
 		},
 		[organization, actorProfileId, navigate],

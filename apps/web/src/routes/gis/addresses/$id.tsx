@@ -32,6 +32,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapCanvas } from '../../../components/map';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
 
@@ -99,7 +100,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 		setDeleteOpen(false);
 		setDeleteError(null);
 		try {
-			await webCollections.addresses.delete(address.id).isPersisted.promise;
+			await settleWrite(webCollections.addresses.delete(address.id));
 			await navigate({ to: '/gis/addresses' });
 		} catch (cause) {
 			setDeleteError(cause instanceof Error ? cause.message : 'Unable to delete the address.');

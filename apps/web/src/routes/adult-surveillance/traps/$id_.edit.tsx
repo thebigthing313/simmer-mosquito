@@ -12,6 +12,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { type DrawGeometry, noLureValue, TrapFormPage, type TrapFormValues } from './-trap-form';
 
@@ -133,7 +134,7 @@ function EditTrapLoader({
 				locationSource === undefined
 					? webCollections.traps.update(trap.id, applyEdits)
 					: webCollections.traps.update(trap.id, { metadata: { locationSource } }, applyEdits);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trap.id } });
 		},
 		[trap, actorProfileId, navigate],

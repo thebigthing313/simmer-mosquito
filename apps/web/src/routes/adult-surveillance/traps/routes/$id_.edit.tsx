@@ -30,6 +30,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import { useCollectionRows } from '../../../../hooks/use-collection-rows';
+import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
 import { TrapPicker } from '../../-adult-pickers';
 import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';
@@ -146,7 +147,7 @@ function EditTrapRouteRoute() {
 	const deleteRoute = useCallback(async () => {
 		setConfirmDelete(false);
 		try {
-			await webCollections.routes.delete(id).isPersisted.promise;
+			await settleWrite(webCollections.routes.delete(id));
 			await navigate({ to: '/adult-surveillance/traps/routes' });
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');

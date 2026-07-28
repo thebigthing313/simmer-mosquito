@@ -26,7 +26,9 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { MapCanvas } from '../../../components/map';
+import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount } from '../-control-display';
@@ -162,6 +164,10 @@ function SourceReductionDetailContent({
 						methodName={methodName}
 						sourceReduction={sourceReduction}
 						technicianName={technicianName}
+					/>
+					<CustomFieldsCard
+						metadata={sourceReduction.metadata}
+						schema={customSchemaFor(methods, sourceReduction.sourceReductionMethodId)}
 					/>
 					<CommentsSection
 						description="Follow-up, access notes, and anything crews should know about this work."

@@ -15,8 +15,10 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,
@@ -134,6 +136,7 @@ function EditSourceReductionLoader({
 				writable.sourcesEliminatedUnitId = values.sourcesEliminatedUnitId;
 				writable.addressId = values.addressId;
 				writable.habitatId = values.habitatId;
+				writable.metadata = values.metadata;
 				if (nextCentroid !== null) {
 					writable.lat = nextCentroid.lat;
 					writable.lng = nextCentroid.lng;
@@ -153,7 +156,7 @@ function EditSourceReductionLoader({
 							{ metadata: { locationSource } },
 							applyEdits,
 						);
-			await transaction.isPersisted.promise;
+			await settleWrite(transaction);
 			await navigate({
 				to: '/control-operations/source-reduction/$id',
 				params: { id: sourceReduction.id },
@@ -203,6 +206,7 @@ function defaultsFromSourceReduction(
 		technicianProfileId: sourceReduction.technicianProfileId ?? noTechnicianValue,
 		addressId: sourceReduction.addressId,
 		habitatId: sourceReduction.habitatId,
+		metadata: asMetadataValue(sourceReduction.metadata),
 	};
 }
 
