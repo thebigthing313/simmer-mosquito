@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { RouteStub } from '../components/app-shell/route-stub';
+import { UpcomingPage } from '../components/app-shell/upcoming-page';
 
 export const Route = createFileRoute('/admin/organizations')({
-	component: () => <RouteStub title="Organizations" />,
+	component: () => <UpcomingPage title="Organizations" />,
 });
