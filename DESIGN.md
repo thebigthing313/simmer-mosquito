@@ -6,19 +6,23 @@ colors:
   deep-field-green: "oklch(39.15% 0.0882 156.38)"
   root-green: "oklch(31.82% 0.0732 156.0959)"
   pollen-yellow: "oklch(96.23% 0.052 108.52)"
+  deep-pollen: "oklch(57.8% 0.113 94)"
+  bright-pollen: "oklch(85.8% 0.119 104)"
   survey-purple: "oklch(49.37% 0.1424 325.97)"
   alert-red: "oklch(61.56% 0.2307 16.37)"
+  destructive: "oklch(54% 0.2 17)"
   operations-blue: "oklch(44.83% 0.1791 268.37)"
-  app-bg: "oklch(96% 0.008 165)"
+  app-bg: "oklch(97.8% 0.0153 157.1)"
+  app-stage: "oklch(96.4% 0.006 185)"
   surface: "oklch(99% 0.004 165)"
-  surface-muted: "oklch(94.5% 0.009 165)"
-  surface-strong: "oklch(90% 0.016 165)"
-  border: "oklch(86% 0.018 205)"
-  border-strong: "oklch(77% 0.03 205)"
+  surface-muted: "oklch(93.8% 0.0253 157.8)"
+  surface-strong: "oklch(88.2% 0.0349 158.7)"
+  border: "oklch(78.5% 0.0266 181.6)"
+  border-strong: "oklch(61.9% 0.0491 172.4)"
   text: "oklch(24% 0.025 205)"
   muted: "oklch(48% 0.028 205)"
-  quiet: "oklch(60% 0.024 205)"
-  attention: "oklch(84% 0.14 92)"
+  quiet: "oklch(51% 0.024 205)"
+  attention: "oklch(85.8% 0.119 104)"
   warning: "oklch(45% 0.09 55)"
 typography:
   display:
@@ -84,6 +88,23 @@ components:
     rounded: "{rounded.md}"
     padding: "9px 11px"
     height: "40px"
+  button-destructive:
+    backgroundColor: "{colors.destructive}"
+    textColor: "#ffffff"
+    rounded: "{rounded.md}"
+    padding: "0 16px"
+    height: "40px"
+  field-error:
+    textColor: "{colors.destructive}"
+    typography: "{typography.label}"
+  page-container:
+    backgroundColor: "{colors.app-stage}"
+    padding: "24px 16px"
+    width: "1200px"
+  sticky-header:
+    backgroundColor: "{colors.app-bg}"
+    textColor: "{colors.text}"
+    padding: "16px"
 ---
 
 # Design System: SIMMER
@@ -132,15 +153,25 @@ to maps and field records without becoming decorative.
 
 ### Secondary
 - **Pollen Yellow**: Gentle attention color. Use for selected spatial context,
-  warning-adjacent surfaces that are not errors, focus affordances, and
-  lightweight emphasis.
+  warning-adjacent surfaces that are not errors and lightweight emphasis. It
+  fills surfaces; it does not stroke focus rings — see Deep Pollen.
+- **Deep Pollen**: The focus-ring yellow. Bright Pollen Yellow only reaches
+  1.6:1 against our pale surfaces, so focus drawn in it is invisible on light
+  controls. Deep Pollen is the same hue family carried far enough down the ramp
+  to clear 3:1 on every surface a ring can land on. On dark chrome (the primary
+  rail) invert to the bright end instead, where the contrast runs the other way.
 
 ### Tertiary
 - **Operations Blue**: Reserved for informational or sync-oriented product
   states when green would imply success.
 - **Survey Purple**: Reserved for taxonomy, analysis, or categorical accents
   when a distinct non-status color is required.
-- **Alert Red**: Error and destructive-state color only.
+- **Alert Red**: Error and destructive-state color only. Note the brand constant
+  and the semantic `destructive` token are no longer the same value. Brand Alert
+  Red is tuned for fills and map marks; as 14px error copy it only reaches
+  4.07:1, so `destructive` sits a shade darker to clear AA both as text and
+  under white on a filled button. Reach for the semantic token in UI; reserve
+  the brand constant for brand contexts.
 
 ### Neutral
 - **App Background**: The page field behind product surfaces.
@@ -148,9 +179,16 @@ to maps and field records without becoming decorative.
 - **Surface Muted**: Sidebar, fact tiles, compact rows, and quiet grouped
   containers.
 - **Surface Strong**: Denser tonal separation when muted is not enough.
-- **Border / Border Strong**: Structural dividers and field strokes.
+- **Border / Border Strong**: Two different jobs, not two weights of one job.
+  Border is a decorative divider. Border Strong draws the boundary of a form
+  control, which makes it a UI component under WCAG and puts it on a 3:1 floor.
 - **Text / Muted / Quiet**: Primary copy, supporting copy, and metadata labels.
-- **Attention / Warning**: Focus rings and warning text treatment.
+  Be aware there is almost no room left between Muted and Quiet at AA: a third
+  *lighter* tier cannot really exist on surfaces this pale. Separate quiet
+  metadata by size, weight, or position instead of by going lighter.
+- **Attention / Warning**: Attention surface tint and warning text treatment.
+  Attention is a fill, not the focus ring; the two were aliased until the ring
+  had to darken for contrast.
 
 ### Named Rules
 
@@ -162,6 +200,19 @@ Never use pure black or pure white.
 
 **The No Decoration Rule.** Product screens use color to clarify work, not to
 fill empty space.
+
+**The State Colour Rule.** A colour that only appears under a *condition* —
+focus, error, invalid, inactive, selected — is the one that will ship broken.
+Base colours get looked at constantly; state colours have to be triggered to be
+seen at all, so visual review never catches them. Every one of SIMMER's contrast
+failures lived here while body copy sat comfortably at 15:1. Prove state colours
+with a number, not an eye: `packages/ui-web/src/styles.contrast.test.ts` reads
+the real stylesheets and fails the build on a regression.
+
+**The Solid Indicator Rule.** A focus ring is never drawn at partial alpha. An
+alpha ring composites toward the surface it is supposed to contrast against, so
+it gets *less* visible exactly where it needs to be more. SIMMER's ring sat at
+1.24:1 for months for this reason. Ring colours are opaque, always.
 
 ## 3. Typography
 
@@ -205,6 +256,24 @@ floats above the current task, such as a drawer, popover, menu, or map control.
 - **Backdrop Scrim** (`oklch(24% 0.025 205 / 35%)`): Modal drawer backdrop for
   committed interruption.
 
+### Stacking Order
+
+Depth is a three-rung ladder, not a set of arbitrary numbers. Everything in the
+app already sits on one of these; keep it that way rather than inventing a new
+value to win a specific fight.
+
+- **Base (no z-index).** Ordinary page content.
+- **`z-10` — pinned within a scroll container.** Sticky panel headers, map
+  overlays and legends, floating map controls. These outrank the content they
+  scroll over and nothing else.
+- **`z-50` — overlay tier.** Dialogs, drawers, popovers, dropdowns, tooltips,
+  toasts, and the skip link. Owned by the `ui-web` primitives; app code should
+  rarely write it directly.
+
+A pinned header must never paint over an open menu, which is the whole reason
+the pinned rung sits below the overlay rung. If something needs to escape a
+clipping ancestor, the fix is a portal, not a higher number.
+
 ### Named Rules
 
 **The Flat Until Floating Rule.** Resting surfaces are flat. Floating surfaces
@@ -242,8 +311,9 @@ reused. If a custom pattern appears more than once, promote it into
 - **Shape:** Gently curved rectangles (8px radius).
 - **Primary:** Deep Field Green background, light surface text, 40px height, and
   16px horizontal padding. Use once per local workflow when possible.
-- **Hover / Focus:** Hover deepens the green. Focus uses a visible Pollen Yellow
-  outline with offset.
+- **Hover / Focus:** Hover deepens the green. Focus uses a solid Deep Pollen ring
+  — never a translucent one. A ring at partial alpha composites toward whatever
+  is behind it, which is exactly the surface it needs to contrast against.
 - **Secondary / Subtle:** White or muted surface background with green or muted
   text. Use for navigation, row actions, and cancellation-like commands.
   Implement these as `Button` variants in `packages/ui-web`, not repeated button
@@ -266,10 +336,36 @@ reused. If a custom pattern appears more than once, promote it into
 - **Internal Padding:** 16px for compact groups; clamp(20px, 4vw, 30px) for
   panels.
 
+### Page Container
+
+Every non-map route page sits in one measure: a centred 1200px column on the
+App Stage surface. This is a `cva` in `packages/ui-web/components/page-container`
+with two axes — `gap` (how far apart stacked sections sit) and `padding` (framed
+page, record detail with bottom room, or trailing-only when a parent already
+pads). A `flow` axis switches between the section grid and a plain block column.
+
+The variants are not invented; they are the shapes ~20 route files had already
+converged on as literal class strings. The measure is decided there and nowhere
+else — a route that re-states `max-w-[1200px]` has taken a decision that isn't
+its to make.
+
+### Sticky Panel Header
+
+The pinned bar at the top of a scrolling panel — explorer rails, form sheets,
+result lists. Opaque surface, one-pixel bottom border, `z-10`.
+
+**The Opaque Pin Rule.** A sticky header is fully opaque. It was
+`bg-background/95` behind a `backdrop-blur` in ~32 places: a blur behind a
+95%-opaque surface has nothing to resolve, so it bought a compositing layer on
+every scroll for an effect nobody could see. Blur is earned only where something
+genuinely moves behind glass — the floating map controls over live basemap
+tiles — and nowhere else.
+
 ### Inputs / Fields
 - **Style:** Surface background, Border Strong stroke, 8px radius, 40px minimum
-  height, 9px by 11px padding.
-- **Focus:** Pollen Yellow focus outline with clear offset.
+  height, 9px by 11px padding. The stroke owes 3:1 against its surface; it is a
+  control boundary, not a divider.
+- **Focus:** Solid Deep Pollen ring with clear offset.
 - **Error / Disabled:** Include text, icon, or state copy. Do not rely on color
   alone for operational meaning.
 - **Composition:** Use shadcn `Field`, `FieldGroup`, `Input`, `Textarea`,
@@ -280,8 +376,18 @@ reused. If a custom pattern appears more than once, promote it into
 
 The admin control plane uses a left sidebar with muted surface, compact links,
 and active state through tonal contrast. Topbars stay low and structural:
-brand, section navigation, and auth entry points only. On mobile, sidebars
-collapse into a wrapped grid instead of becoming a modal first.
+brand, section navigation, and auth entry points only.
+
+**The Desktop Floor Rule.** SIMMER web is a desktop application. The two-rail
+shell spends 304px on fixed chrome, and both rails stay visible at every width —
+they do not collapse, and there is no mobile shell. Below the floor set in
+`apps/web/src/styles.css` the page takes a horizontal scrollbar rather than
+reflowing, because a crushed operational table is worse than a scrolled one.
+
+Routes may still use breakpoints for internal density (column counts, padding
+steps, breadcrumb truncation) — the header already does. What they must not do
+is assume a phone-width viewport is a supported layout target, or add a
+narrow-width branch that only pays off in a shell we do not ship.
 
 ### Drawers
 
@@ -295,6 +401,35 @@ a scrim only when the drawer blocks the main workflow.
 Record lists should beat tables when the task is inspection plus action. Use
 one primary label, one supporting metadata line, and compact fact groups for
 role, status, sync state, or related identifiers.
+
+### Map Layers (signature)
+
+Map paint is the one place the token system cannot reach: Mapbox GL paint
+properties are evaluated by the GL renderer, not the CSS cascade, so they cannot
+read custom properties and must be literals. That constraint is real; scattering
+the literals is not. Every colour a layer paints with is named once in
+`@simmer-mosquito/design-tokens/map-palette`, in four groups:
+
+- **Interaction** — `selected`, `selectedStroke`, `pointStroke`. Roles that mean
+  the same thing on every layer.
+- **Lifecycle** — `active`, `inactive`, `inaccessible`. Shared by every locatable
+  record type; composed from the brand scale so a brand change reaches the map.
+- **Domain** — the per-type hue that lets an operator tell a trap from a
+  chemical application at a glance. These *should* differ.
+- **Status / Density** — shared status tones, plus the ordered larval density
+  ramp, which is a sequential magnitude scale and deliberately not built from the
+  domain hues.
+
+**The One Selection Rule.** Selection is amber everywhere, on every layer, and
+matches what the draw tool paints. It drifted once — amber on addresses and
+regions, green on seven other layers — which meant selection said something
+different depending on which record you clicked. Green is also already spoken
+for as a *domain* mark, so a green halo on an active trap says nothing.
+
+**The Legend Truth Rule.** A map legend reads its swatches from the same
+constants the layers paint with. Never a literal. A hand-typed legend swatch
+drifted into describing a colour that was not on the map, and stayed wrong
+because a legend looks correct as long as it looks plausible.
 
 ## 6. Do's and Don'ts
 
@@ -316,6 +451,12 @@ role, status, sync state, or related identifiers.
   compose classes with `cn`.
 - **Do** treat SIMMER Operator screens as product-quality surfaces, not
   temporary scaffolding.
+- **Do** prove state colours (focus, error, invalid, inactive, selected) with a
+  measured contrast ratio, not an eye. They are the ones that ship broken.
+- **Do** draw focus rings solid, and use the inverse ring on dark chrome.
+- **Do** read map legend swatches from `map-palette` constants, never literals.
+- **Do** delete a superseded module when its last caller goes. A plausible-looking
+  module nothing imports is a trap, not a spare.
 
 ### Don't:
 - **Don't** make generic government portal design: boxy forms, weak hierarchy,
@@ -337,3 +478,12 @@ role, status, sync state, or related identifiers.
   variant can own the decision.
 - **Don't** use colored side-stripe borders, gradient text, decorative
   glassmorphism, identical card grids, or modals as the first design answer.
+- **Don't** draw a focus ring, or any indicator that must clear a contrast
+  threshold, at partial alpha. It composites toward the very surface it needs to
+  stand against.
+- **Don't** put a `backdrop-blur` behind a surface that is already opaque. If
+  nothing moves behind the glass, it is decoration with a compositing cost.
+- **Don't** let a small utility that eager code imports share a module with a
+  heavy component. Module imports are all-or-nothing, and that coupling is how
+  a charting library ends up in the boot payload.
+- **Don't** assume a phone-width viewport is a supported layout target.

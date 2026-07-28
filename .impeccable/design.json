@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-05-17T00:00:00-04:00",
+  "generatedAt": "2026-07-28T00:00:00-04:00",
   "title": "Design System: SIMMER",
   "extensions": {
     "colorMeta": {
@@ -9,14 +9,50 @@
         "displayName": "Field Green",
         "canonical": "oklch(52.71% 0.1114 159.1429)",
         "tonalRamp": [
-          "oklch(15% 0.035 159.1429)",
-          "oklch(25% 0.06 159.1429)",
-          "oklch(35% 0.085 159.1429)",
-          "oklch(45% 0.105 159.1429)",
-          "oklch(55% 0.1114 159.1429)",
-          "oklch(70% 0.075 159.1429)",
-          "oklch(84% 0.04 159.1429)",
-          "oklch(95% 0.015 159.1429)"
+          "#032815",
+          "#053d22",
+          "#0c5331",
+          "#1b7e53",
+          "#2b8c5d",
+          "#4ba272",
+          "#7bc296",
+          "#a7dbb9",
+          "#cff1da",
+          "#e7faed"
+        ]
+      },
+      "deep-field-green": {
+        "role": "primary",
+        "displayName": "Deep Field Green",
+        "canonical": "oklch(39.15% 0.0882 156.38)",
+        "tonalRamp": [
+          "#032815",
+          "#053d22",
+          "#0c5331",
+          "#1b7e53",
+          "#2b8c5d",
+          "#4ba272",
+          "#7bc296",
+          "#a7dbb9",
+          "#cff1da",
+          "#e7faed"
+        ]
+      },
+      "root-green": {
+        "role": "primary",
+        "displayName": "Root Green",
+        "canonical": "oklch(31.82% 0.0732 156.0959)",
+        "tonalRamp": [
+          "#032815",
+          "#053d22",
+          "#0c5331",
+          "#1b7e53",
+          "#2b8c5d",
+          "#4ba272",
+          "#7bc296",
+          "#a7dbb9",
+          "#cff1da",
+          "#e7faed"
         ]
       },
       "pollen-yellow": {
@@ -24,36 +60,329 @@
         "displayName": "Pollen Yellow",
         "canonical": "oklch(96.23% 0.052 108.52)",
         "tonalRamp": [
-          "oklch(18% 0.03 108.52)",
-          "oklch(30% 0.045 108.52)",
-          "oklch(45% 0.06 108.52)",
-          "oklch(60% 0.07 108.52)",
-          "oklch(74% 0.065 108.52)",
-          "oklch(84% 0.058 108.52)",
-          "oklch(91% 0.052 108.52)",
-          "oklch(96% 0.035 108.52)"
+          "#2d2109",
+          "#48370e",
+          "#6a5411",
+          "#907813",
+          "#b09a27",
+          "#cdbc43",
+          "#ddd474",
+          "#eae7a6",
+          "#f5f6ce",
+          "#fcfcea"
+        ]
+      },
+      "deep-pollen": {
+        "role": "secondary",
+        "displayName": "Deep Pollen",
+        "canonical": "oklch(57.8% 0.113 94)",
+        "tonalRamp": [
+          "#2d2109",
+          "#48370e",
+          "#6a5411",
+          "#907813",
+          "#b09a27",
+          "#cdbc43",
+          "#ddd474",
+          "#eae7a6",
+          "#f5f6ce",
+          "#fcfcea"
+        ]
+      },
+      "bright-pollen": {
+        "role": "secondary",
+        "displayName": "Bright Pollen",
+        "canonical": "oklch(85.8% 0.119 104)",
+        "tonalRamp": [
+          "#2d2109",
+          "#48370e",
+          "#6a5411",
+          "#907813",
+          "#b09a27",
+          "#cdbc43",
+          "#ddd474",
+          "#eae7a6",
+          "#f5f6ce",
+          "#fcfcea"
+        ]
+      },
+      "operations-blue": {
+        "role": "tertiary",
+        "displayName": "Operations Blue",
+        "canonical": "oklch(44.83% 0.1791 268.37)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "survey-purple": {
+        "role": "tertiary",
+        "displayName": "Survey Purple",
+        "canonical": "oklch(49.37% 0.1424 325.97)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "alert-red": {
+        "role": "tertiary",
+        "displayName": "Alert Red (brand constant)",
+        "canonical": "oklch(61.56% 0.2307 16.37)",
+        "tonalRamp": [
+          "#3d0512",
+          "#5c0b1e",
+          "#7d132c",
+          "#9e1937",
+          "#c81f42",
+          "#e04766",
+          "#ec7f95",
+          "#f4b0bd",
+          "#f9d7de",
+          "#fdeef1"
+        ]
+      },
+      "destructive": {
+        "role": "tertiary",
+        "displayName": "Destructive (semantic, AA-safe as text)",
+        "canonical": "oklch(54% 0.2 17)",
+        "tonalRamp": [
+          "#3d0512",
+          "#5c0b1e",
+          "#7d132c",
+          "#9e1937",
+          "#c81f42",
+          "#e04766",
+          "#ec7f95",
+          "#f4b0bd",
+          "#f9d7de",
+          "#fdeef1"
         ]
       },
       "app-bg": {
         "role": "neutral",
-        "displayName": "App Background",
-        "canonical": "oklch(96% 0.008 165)",
+        "displayName": "Field Paper",
+        "canonical": "oklch(97.8% 0.0153 157.1)",
         "tonalRamp": [
-          "oklch(15% 0.008 165)",
-          "oklch(25% 0.008 165)",
-          "oklch(38% 0.008 165)",
-          "oklch(52% 0.008 165)",
-          "oklch(66% 0.008 165)",
-          "oklch(80% 0.008 165)",
-          "oklch(90% 0.008 165)",
-          "oklch(96% 0.008 165)"
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "app-stage": {
+        "role": "neutral",
+        "displayName": "App Stage",
+        "canonical": "oklch(96.4% 0.006 185)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "oklch(99% 0.004 165)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "surface-muted": {
+        "role": "neutral",
+        "displayName": "Surface Muted",
+        "canonical": "oklch(93.8% 0.0253 157.8)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "surface-strong": {
+        "role": "neutral",
+        "displayName": "Surface Strong",
+        "canonical": "oklch(88.2% 0.0349 158.7)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Field Border",
+        "canonical": "oklch(78.5% 0.0266 181.6)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Field Border Strong (control boundary, 3:1)",
+        "canonical": "oklch(61.9% 0.0491 172.4)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Text",
+        "canonical": "oklch(24% 0.025 205)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "oklch(48% 0.028 205)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "quiet": {
+        "role": "neutral",
+        "displayName": "Quiet",
+        "canonical": "oklch(51% 0.024 205)",
+        "tonalRamp": [
+          "#102325",
+          "#243b3d",
+          "#3a5457",
+          "#4b6265",
+          "#566a6d",
+          "#708587",
+          "#a7bfba",
+          "#c6e0d0",
+          "#ddf0e4",
+          "#f9fdfb"
+        ]
+      },
+      "attention": {
+        "role": "neutral",
+        "displayName": "Attention Tint",
+        "canonical": "oklch(85.8% 0.119 104)",
+        "tonalRamp": [
+          "#2d2109",
+          "#48370e",
+          "#6a5411",
+          "#907813",
+          "#b09a27",
+          "#cdbc43",
+          "#ddd474",
+          "#eae7a6",
+          "#f5f6ce",
+          "#fcfcea"
+        ]
+      },
+      "warning": {
+        "role": "neutral",
+        "displayName": "Warning",
+        "canonical": "oklch(45% 0.09 55)",
+        "tonalRamp": [
+          "#2d2109",
+          "#48370e",
+          "#6a5411",
+          "#907813",
+          "#b09a27",
+          "#cdbc43",
+          "#ddd474",
+          "#eae7a6",
+          "#f5f6ce",
+          "#fcfcea"
         ]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Rare onboarding, empty-state, or route-level moments."
+        "purpose": "Rare onboarding, empty-state, or route-level moments. Never in dense UI."
       },
       "headline": {
         "displayName": "Headline",
@@ -65,36 +394,84 @@
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Explanatory copy, record summaries, and readable prose."
+        "purpose": "Explanatory copy and record summaries. Cap prose at 65-75ch."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Eyebrows, metadata labels, sidebar headings, table headers, and sync labels."
+        "purpose": "Eyebrows, metadata labels, sidebar headings, table headers, sync labels."
       }
     },
     "shadows": [
       {
         "name": "legacy-ambient-panel",
         "value": "0 10px 30px rgb(24 38 50 / 8%)",
-        "purpose": "Existing web shell panel shadow. Do not expand this as a default pattern."
+        "purpose": "Existing web shell panel shadow. Do not expand as a default pattern."
       },
       {
-        "name": "drawer-backdrop",
+        "name": "floating-map-control",
+        "value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.03)",
+        "purpose": "Controls genuinely floating over live basemap tiles. The one place backdrop-blur is also earned."
+      },
+      {
+        "name": "backdrop-scrim",
         "value": "oklch(24% 0.025 205 / 35%)",
         "purpose": "Modal drawer backdrop for committed interruption."
       }
     ],
     "motion": [
       {
-        "name": "state-hover",
-        "value": "background-color 160ms ease-out",
-        "purpose": "Short state feedback for controls."
+        "name": "motion-quick",
+        "value": "120ms",
+        "purpose": "Hover and small state feedback."
+      },
+      {
+        "name": "motion-standard",
+        "value": "180ms",
+        "purpose": "Default state transition. Product register caps most transitions at 150-250ms."
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "Default easing. Exponential ease-out; no bounce, no elastic."
       }
     ],
     "breakpoints": [
       {
-        "name": "mobile",
+        "name": "desktop-floor",
+        "value": "1024px"
+      },
+      {
+        "name": "sm",
         "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ],
+    "stacking": [
+      {
+        "name": "base",
+        "value": "auto",
+        "purpose": "Ordinary page content."
+      },
+      {
+        "name": "pinned",
+        "value": "10",
+        "purpose": "Sticky panel headers, map overlays, floating map controls."
+      },
+      {
+        "name": "overlay",
+        "value": "50",
+        "purpose": "Dialogs, drawers, popovers, tooltips, toasts, skip link."
       }
     ]
   },
@@ -103,49 +480,65 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Committed action for a local workflow.",
-      "html": "<button class=\"ds-button-primary\">Create organization</button>",
-      "css": ".ds-button-primary { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; padding: 0 16px; border: 1px solid oklch(39% 0.075 175); border-radius: 8px; background: oklch(39% 0.075 175); color: oklch(98% 0.006 165); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; font-weight: 750; text-decoration: none; cursor: pointer; transition: background-color 160ms ease-out; } .ds-button-primary:hover { background: oklch(34% 0.08 175); } .ds-button-primary:focus-visible { outline: 3px solid color-mix(in oklch, oklch(84% 0.14 92), transparent 35%); outline-offset: 2px; }"
+      "description": "The committed action. Once per local workflow where possible.",
+      "html": "<button class=\"ds-btn-primary\">Create Habitat</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:36px; padding:0 16px; border:none; border-radius:var(--radius,8px); background:var(--primary,#0c5331); color:var(--primary-foreground,#f5faf7); font:500 14px/1 Poppins,ui-sans-serif,system-ui,sans-serif; cursor:pointer; transition:background 180ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-primary:hover { background:color-mix(in oklch, var(--primary,#0c5331) 90%, transparent); } .ds-btn-primary:focus-visible { outline:none; box-shadow:0 0 0 3px var(--ring,#907813); } .ds-btn-primary:disabled { opacity:.5; pointer-events:none; }"
     },
     {
-      "name": "Secondary Button",
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Irreversible actions. Uses the semantic destructive token, which is a shade below brand Alert Red so white text clears AA (5.63:1).",
+      "html": "<button class=\"ds-btn-destructive\">Delete Region</button>",
+      "css": ".ds-btn-destructive { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:36px; padding:0 16px; border:none; border-radius:var(--radius,8px); background:var(--destructive,#c81f42); color:#fff; font:500 14px/1 Poppins,ui-sans-serif,system-ui,sans-serif; cursor:pointer; transition:background 180ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-destructive:hover { background:color-mix(in oklch, var(--destructive,#c81f42) 90%, transparent); } .ds-btn-destructive:focus-visible { outline:none; box-shadow:0 0 0 3px var(--destructive,#c81f42); }"
+    },
+    {
+      "name": "Outline Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Secondary row action or lower-emphasis command.",
-      "html": "<button class=\"ds-button-secondary\">Users</button>",
-      "css": ".ds-button-secondary { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; padding: 0 16px; border: 1px solid oklch(39% 0.075 175); border-radius: 8px; background: oklch(99% 0.004 165); color: oklch(39% 0.075 175); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; font-weight: 750; cursor: pointer; transition: background-color 160ms ease-out; } .ds-button-secondary:hover { background: oklch(94.5% 0.009 165); } .ds-button-secondary:focus-visible { outline: 3px solid color-mix(in oklch, oklch(84% 0.14 92), transparent 35%); outline-offset: 2px; }"
+      "description": "Navigation, row actions, and cancellation-like commands.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:36px; padding:0 16px; border:1px solid var(--border,#a7bfba); border-radius:var(--radius,8px); background:var(--background,#f0fbf4); color:var(--foreground,#102325); font:500 14px/1 Poppins,ui-sans-serif,system-ui,sans-serif; cursor:pointer; transition:background 180ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-outline:hover { background:var(--accent,#f5f6ce); color:var(--accent-foreground,#053d22); } .ds-btn-outline:focus-visible { outline:none; border-color:var(--ring,#907813); box-shadow:0 0 0 3px var(--ring,#907813); }"
     },
     {
-      "name": "Text Field",
+      "name": "Text Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "Default form field for operational data entry.",
-      "html": "<label class=\"ds-field\">Agency name<input value=\"Delta County Mosquito Control\" /></label>",
-      "css": ".ds-field { display: grid; gap: 6px; color: oklch(48% 0.028 205); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; font-size: 0.86rem; font-weight: 750; } .ds-field input { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid oklch(77% 0.03 205); border-radius: 8px; background: oklch(99% 0.004 165); color: oklch(24% 0.025 205); font: inherit; } .ds-field input:focus-visible { outline: 3px solid color-mix(in oklch, oklch(84% 0.14 92), transparent 35%); outline-offset: 2px; }"
+      "description": "Surface background, Border Strong stroke. The stroke is a control boundary and clears 3:1; focus draws a solid Deep Pollen ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search name or description…\" />",
+      "css": ".ds-input { width:100%; height:36px; padding:4px 12px; border:1px solid var(--input,#679082); border-radius:var(--radius,8px); background:var(--card,#f9fdfb); color:var(--foreground,#102325); font:400 14px/1.4 Poppins,ui-sans-serif,system-ui,sans-serif; outline:none; transition:box-shadow 180ms cubic-bezier(0.25,1,0.5,1); } .ds-input::placeholder { color:var(--muted-foreground,#4b6265); } .ds-input:focus-visible { border-color:var(--ring,#907813); box-shadow:0 0 0 3px var(--ring,#907813); } .ds-input[aria-invalid=\"true\"] { border-color:var(--destructive,#c81f42); }"
     },
     {
-      "name": "Panel",
-      "kind": "card",
-      "refersTo": "panel",
-      "description": "Primary surface for a focused product workflow.",
-      "html": "<article class=\"ds-panel\"><h2>Customer organizations</h2><p>Open an organization to invite users and review membership setup.</p></article>",
-      "css": ".ds-panel { padding: 24px; border: 1px solid oklch(86% 0.018 205); border-radius: 8px; background: oklch(99% 0.004 165); color: oklch(24% 0.025 205); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; } .ds-panel h2 { margin: 0 0 12px; font-size: 1.1rem; line-height: 1.25; } .ds-panel p { margin: 0; max-width: 64ch; color: oklch(48% 0.028 205); line-height: 1.55; }"
-    },
-    {
-      "name": "Sidebar Navigation",
-      "kind": "nav",
-      "refersTo": "admin-sidebar",
-      "description": "Control plane section navigation.",
-      "html": "<nav class=\"ds-sidebar\" aria-label=\"Admin sections\"><span>Control plane</span><a class=\"active\">Organizations</a><a>Mosquito taxonomy</a><a>Units</a></nav>",
-      "css": ".ds-sidebar { display: grid; gap: 4px; padding: 10px; border: 1px solid oklch(86% 0.018 205); border-radius: 8px; background: oklch(94.5% 0.009 165); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; } .ds-sidebar span { padding: 4px 12px 8px; color: oklch(60% 0.024 205); font-size: 0.74rem; font-weight: 800; text-transform: uppercase; } .ds-sidebar a { padding: 11px 12px; border-radius: 6px; color: oklch(48% 0.028 205); font-weight: 750; text-decoration: none; } .ds-sidebar a.active { background: oklch(99% 0.004 165); color: oklch(24% 0.025 205); } .ds-sidebar a:focus-visible { outline: 3px solid color-mix(in oklch, oklch(84% 0.14 92), transparent 35%); outline-offset: 2px; }"
-    },
-    {
-      "name": "Record Row",
+      "name": "Field Error",
       "kind": "custom",
-      "refersTo": "record-row",
-      "description": "Inspection plus action pattern for records that are not table-first.",
-      "html": "<article class=\"ds-record-row\"><div><h3>Delta County Mosquito Control</h3><p>No WorkOS organization linked</p></div><strong>trial</strong></article>",
-      "css": ".ds-record-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px 0; border-top: 1px solid oklch(86% 0.018 205); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; } .ds-record-row h3 { margin: 0; color: oklch(24% 0.025 205); font-size: 1rem; } .ds-record-row p { margin: 5px 0 0; overflow-wrap: anywhere; color: oklch(48% 0.028 205); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.84rem; } .ds-record-row strong { color: oklch(24% 0.025 205); font-size: 0.9rem; }"
+      "refersTo": "field-error",
+      "description": "Validation message under a control. role=\"alert\", wired via aria-describedby by the shared FormFieldFrame. 5.49:1 on card at 14px.",
+      "html": "<div class=\"ds-field-error\" role=\"alert\">Description is required.</div>",
+      "css": ".ds-field-error { color:var(--destructive,#c81f42); font:400 14px/1.4 Poppins,ui-sans-serif,system-ui,sans-serif; }"
+    },
+    {
+      "name": "Sticky Panel Header",
+      "kind": "custom",
+      "refersTo": "sticky-header",
+      "description": "Pinned bar atop a scrolling panel. Opaque by rule — no backdrop-blur, because nothing moves behind it.",
+      "html": "<div class=\"ds-sticky-header\"><span class=\"ds-sticky-title\">Collections</span><span class=\"ds-sticky-meta\">146 collections</span></div>",
+      "css": ".ds-sticky-header { position:sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px; background:var(--background,#f0fbf4); border-bottom:1px solid color-mix(in oklch, var(--border,#a7bfba) 50%, transparent); } .ds-sticky-title { font:700 18px/1.25 Poppins,ui-sans-serif,system-ui,sans-serif; color:var(--foreground,#102325); } .ds-sticky-meta { font:400 12px/1.2 Poppins,ui-sans-serif,system-ui,sans-serif; color:var(--muted-foreground,#4b6265); }"
+    },
+    {
+      "name": "Rail Icon (dark chrome)",
+      "kind": "nav",
+      "refersTo": "button-secondary",
+      "description": "Primary rail item on the deep-green chrome. Demonstrates the inverse focus ring: Deep Pollen would only reach 3.7:1 here, Bright Pollen reaches 10.4:1.",
+      "html": "<div class=\"ds-rail\"><button class=\"ds-rail-item\" aria-label=\"Larval Surveillance\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M3 12h4l3-9 4 18 3-9h4\"/></svg></button></div>",
+      "css": ".ds-rail { display:flex; padding:12px; background:var(--simmer-green-900,#032815); } .ds-rail-item { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border:none; border-radius:var(--radius,8px); background:rgba(255,255,255,0.06); color:#e7faed; cursor:pointer; transition:background 120ms cubic-bezier(0.25,1,0.5,1); } .ds-rail-item:hover { background:rgba(255,255,255,0.14); } .ds-rail-item:focus-visible { outline:none; box-shadow:0 0 0 2px var(--simmer-green-900,#032815), 0 0 0 4px var(--ring-inverse,#ddd474); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "button-secondary",
+      "description": "Record status on list rows. Status is carried by icon plus text, never colour alone.",
+      "html": "<span class=\"ds-badge\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\"><path d=\"M20 6L9 17l-5-5\"/></svg>Active</span>",
+      "css": ".ds-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border:1px solid color-mix(in oklch, var(--success,#0c5331) 25%, transparent); border-radius:999px; background:var(--success-bg,#cff1da); color:var(--success,#0c5331); font:500 12px/1.4 Poppins,ui-sans-serif,system-ui,sans-serif; }"
     }
   ],
   "narrative": {
@@ -156,7 +549,8 @@
       "Restrained product surfaces with warm field cues.",
       "Compact hierarchy for repeated work.",
       "Visual representations before tables when location, time, status, or relationships explain the work better.",
-      "Durable tokens in packages/design-tokens, shadcn source components in packages/ui-web, cva variants for repeated styles, then route-level styling only as a last resort."
+      "Durable tokens in packages/design-tokens, shadcn source components in packages/ui-web, cva variants for repeated styles, then route-level styling only as a last resort.",
+      "Desktop-only by decision, with an explicit width floor rather than an implied mobile promise."
     ],
     "rules": [
       {
@@ -175,6 +569,16 @@
         "section": "colors"
       },
       {
+        "name": "The State Colour Rule",
+        "body": "A colour that only appears under a condition — focus, error, invalid, inactive, selected — is the one that will ship broken. Prove state colours with a measured ratio, not an eye.",
+        "section": "colors"
+      },
+      {
+        "name": "The Solid Indicator Rule",
+        "body": "A focus ring is never drawn at partial alpha. An alpha ring composites toward the surface it is supposed to contrast against.",
+        "section": "colors"
+      },
+      {
         "name": "The Poppins Rule",
         "body": "Poppins is the intended SIMMER sans serif. Replace current Inter/system stacks as product surfaces are touched.",
         "section": "typography"
@@ -185,36 +589,59 @@
         "section": "typography"
       },
       {
-        "name": "The Web Component Contract",
-        "body": "Web product UI must start from the shadcn source components in packages/ui-web/src/components/ui wherever a fitting primitive exists. Tailwind is the styling language for web UI, reusable styling choices belong in class-variance-authority (cva) variants inside the shared component, and route-level classes should mostly express layout, spacing, width, responsive behavior, and local placement.",
-        "section": "components"
-      },
-      {
         "name": "The Flat Until Floating Rule",
         "body": "Resting surfaces are flat. Floating surfaces must earn depth by interrupting, overlaying, or anchoring to a map/task context.",
         "section": "elevation"
+      },
+      {
+        "name": "The Opaque Pin Rule",
+        "body": "A sticky header is fully opaque. A blur behind an opaque surface is decoration with a compositing cost.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Desktop Floor Rule",
+        "body": "SIMMER web is a desktop application. Both rails stay visible at every width; below the floor the page takes a horizontal scrollbar rather than reflowing.",
+        "section": "components"
+      },
+      {
+        "name": "The One Selection Rule",
+        "body": "Selection is amber everywhere, on every layer, and matches what the draw tool paints.",
+        "section": "components"
+      },
+      {
+        "name": "The Legend Truth Rule",
+        "body": "A map legend reads its swatches from the same constants the layers paint with. Never a literal.",
+        "section": "components"
       }
     ],
     "dos": [
       "Do keep SIMMER Green and SIMMER Yellow stable across every platform.",
       "Do use Poppins as the SIMMER sans serif when touching product surfaces.",
       "Do use OKLCH for CSS tokens and keep neutrals tinted, never pure black or pure white.",
-      "Do preserve the map as operational context wherever spatial work is the user's job.",
+      "Do preserve the map as operational context wherever spatial work is the user’s job.",
       "Do use visual representations before tables when maps, timelines, status grouping, spatial overlays, compact summaries, or record relationships clarify the work.",
       "Do centralize durable choices in packages/design-tokens and component variants.",
       "Do use shadcn source components from packages/ui-web wherever possible, styled with Tailwind semantic tokens.",
       "Do add repeated states, sizes, and visual treatments as cva variants and compose classes with cn.",
-      "Do treat SIMMER Operator screens as product-quality surfaces, not temporary scaffolding."
+      "Do treat SIMMER Operator screens as product-quality surfaces, not temporary scaffolding.",
+      "Do prove state colours (focus, error, invalid, inactive, selected) with a measured contrast ratio, not an eye.",
+      "Do draw focus rings solid, and use the inverse ring on dark chrome.",
+      "Do read map legend swatches from map-palette constants, never literals.",
+      "Do delete a superseded module when its last caller goes."
     ],
     "donts": [
-      "Don't make generic government portal design: boxy forms, weak hierarchy, dated chrome, or administrative leftovers.",
-      "Don't become an enterprise GIS clone: dense toolbars, overwhelming layer panels, crowded controls, or \"ArcGIS but worse\" interactions.",
-      "Don't use dashboard theater: excessive metric cards, generic chart blocks, gradient SaaS decoration, or analytics surfaces that exist because dashboards are expected.",
-      "Don't mimic consumer maps so closely that SIMMER becomes too casual, too search-first, or too shallow for operational record keeping.",
-      "Don't default to table-first data representation when spatial, temporal, status, or relationship views explain the work more directly.",
-      "Don't build CSS-only replicas of shadcn primitives such as buttons, fields, cards, dialogs, sheets, drawers, tabs, tables, badges, alerts, empty states, separators, skeletons, or sidebars.",
-      "Don't scatter repeated color, typography, border, radius, shadow, focus, or animation classes through app routes when a token or cva component variant can own the decision.",
-      "Don't use colored side-stripe borders, gradient text, decorative glassmorphism, identical card grids, or modals as the first design answer."
+      "Don’t make generic government portal design: boxy forms, weak hierarchy, dated chrome, or administrative leftovers.",
+      "Don’t become an enterprise GIS clone: dense toolbars, overwhelming layer panels, crowded controls, or \"ArcGIS but worse\" interactions.",
+      "Don’t use dashboard theater: excessive metric cards, generic chart blocks, gradient SaaS decoration, or analytics surfaces that exist because dashboards are expected.",
+      "Don’t mimic consumer maps so closely that SIMMER becomes too casual, too search-first, or too shallow for operational record keeping.",
+      "Don’t default to table-first data representation when spatial, temporal, status, or relationship views explain the work more directly.",
+      "Don’t build CSS-only replicas of shadcn primitives.",
+      "Don’t scatter repeated color, typography, border, radius, shadow, focus, or animation classes through app routes when a token or cva component variant can own the decision.",
+      "Don’t use colored side-stripe borders, gradient text, decorative glassmorphism, identical card grids, or modals as the first design answer.",
+      "Don’t draw a focus ring, or any indicator that must clear a contrast threshold, at partial alpha.",
+      "Don’t put a backdrop-blur behind a surface that is already opaque.",
+      "Don’t let a small utility that eager code imports share a module with a heavy component.",
+      "Don’t assume a phone-width viewport is a supported layout target."
     ]
   }
 }
