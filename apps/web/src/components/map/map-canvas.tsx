@@ -1,4 +1,3 @@
-import 'mapbox-gl/dist/mapbox-gl.css';
 import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';

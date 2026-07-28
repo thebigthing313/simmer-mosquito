@@ -1,7 +1,8 @@
 import { Loader2Icon, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import mapboxgl, { type Map as MapboxMap } from 'mapbox-gl';
+import type { Map as MapboxMap, Marker } from 'mapbox-gl';
 import { useCallback, useEffect, useRef } from 'react';
 import { MapControlButton, MapControlGroup } from './map-control';
+import { loadMapboxGl } from './mapbox-gl-loader';
 import { type GeolocationCoords, useGeolocation } from './use-geolocation';
 
 /**
@@ -10,10 +11,10 @@ import { type GeolocationCoords, useGeolocation } from './use-geolocation';
  * the located point stays legible after the fly-to settles.
  */
 export function GeolocateControl({ map }: { readonly map: MapboxMap | null }) {
-	const markerRef = useRef<mapboxgl.Marker | null>(null);
+	const markerRef = useRef<Marker | null>(null);
 
 	const flyToCoords = useCallback(
-		(coords: GeolocationCoords) => {
+		async (coords: GeolocationCoords) => {
 			if (map === null) {
 				return;
 			}
@@ -24,6 +25,9 @@ export function GeolocateControl({ map }: { readonly map: MapboxMap | null }) {
 				essential: true,
 			});
 
+			// This control only renders alongside a live map, so the runtime is
+			// already resolved and this awaits a settled promise rather than a fetch.
+			const mapboxgl = await loadMapboxGl();
 			const marker = markerRef.current ?? new mapboxgl.Marker({ element: createLocationDot() });
 			markerRef.current = marker;
 			marker.setLngLat([coords.longitude, coords.latitude]).addTo(map);

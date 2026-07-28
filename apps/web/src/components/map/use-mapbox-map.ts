@@ -1,4 +1,4 @@
-import mapboxgl, { type ErrorEvent, type Map as MapboxMap } from 'mapbox-gl';
+import type { ErrorEvent, Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
 import { getServerUrl } from '../../auth';
 import {
@@ -8,6 +8,7 @@ import {
 	getMapboxToken,
 	type MapCamera,
 } from './map-styles';
+import { loadMapboxGl } from './mapbox-gl-loader';
 
 // Our authenticated MVT tiles are served by the SIMMER control plane, which is a
 // different origin from the web app in every environment where they don't share a
@@ -75,59 +76,78 @@ export function useMapboxMap({
 			return;
 		}
 
-		const initialCamera = cameraRef.current ?? DEFAULT_MAP_CAMERA;
-		mapboxgl.accessToken = token;
-		const instance = new mapboxgl.Map({
-			container,
-			style: basemapStyle(basemapRef.current).styleUrl,
-			center: initialCamera.center,
-			zoom: initialCamera.zoom,
-			bearing: initialCamera.bearing ?? 0,
-			pitch: initialCamera.pitch ?? 0,
-			// Start with no attribution; we add a compact one ourselves (when the
-			// caller wants it) in the bottom-right corner so it tucks in beneath the
-			// zoom + locate control stack.
-			attributionControl: false,
-			// Send the session cookie with tile requests to our own MVT server so the
-			// authorized vector tiles load; leave every other request untouched.
-			transformRequest: (url) =>
-				serverOrigin !== null && url.startsWith(serverOrigin)
-					? { url, credentials: 'include' }
-					: { url },
-		});
-		if (attributionRef.current !== false) {
-			instance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
-		}
-		appliedBasemap.current = basemapRef.current;
+		// The GL runtime is fetched on demand (see `loadMapboxGl`), so creation is
+		// async and the effect may be torn down mid-flight — React StrictMode does
+		// exactly that on every mount. `disposed` covers the window before the
+		// instance exists; `teardown` takes over once it does, so neither path can
+		// leak a live map.
+		let disposed = false;
+		let teardown: (() => void) | null = null;
 
-		let loaded = false;
-		function handleLoad() {
-			loaded = true;
-			// Size to the now-final container before the first paint of tiles.
-			instance.resize();
-			setIsLoaded(true);
-			setError(null);
-		}
-		function handleError(event: ErrorEvent) {
-			// Transient tile/source errors are common once interactive; only a
-			// failure before first load is worth surfacing as a hard error.
-			if (loaded) {
+		void loadMapboxGl().then((mapboxgl) => {
+			if (disposed) {
 				return;
 			}
-			setError(event.error?.message ?? 'The map failed to load.');
-		}
 
-		instance.on('load', handleLoad);
-		instance.on('error', handleError);
-		setMap(instance);
+			const initialCamera = cameraRef.current ?? DEFAULT_MAP_CAMERA;
+			mapboxgl.accessToken = token;
+			const instance = new mapboxgl.Map({
+				container,
+				style: basemapStyle(basemapRef.current).styleUrl,
+				center: initialCamera.center,
+				zoom: initialCamera.zoom,
+				bearing: initialCamera.bearing ?? 0,
+				pitch: initialCamera.pitch ?? 0,
+				// Start with no attribution; we add a compact one ourselves (when the
+				// caller wants it) in the bottom-right corner so it tucks in beneath the
+				// zoom + locate control stack.
+				attributionControl: false,
+				// Send the session cookie with tile requests to our own MVT server so the
+				// authorized vector tiles load; leave every other request untouched.
+				transformRequest: (url) =>
+					serverOrigin !== null && url.startsWith(serverOrigin)
+						? { url, credentials: 'include' }
+						: { url },
+			});
+			if (attributionRef.current !== false) {
+				instance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
+			}
+			appliedBasemap.current = basemapRef.current;
+
+			let loaded = false;
+			function handleLoad() {
+				loaded = true;
+				// Size to the now-final container before the first paint of tiles.
+				instance.resize();
+				setIsLoaded(true);
+				setError(null);
+			}
+			function handleError(event: ErrorEvent) {
+				// Transient tile/source errors are common once interactive; only a
+				// failure before first load is worth surfacing as a hard error.
+				if (loaded) {
+					return;
+				}
+				setError(event.error?.message ?? 'The map failed to load.');
+			}
+
+			instance.on('load', handleLoad);
+			instance.on('error', handleError);
+			setMap(instance);
+
+			teardown = () => {
+				instance.off('load', handleLoad);
+				instance.off('error', handleError);
+				instance.remove();
+				setMap(null);
+				setIsLoaded(false);
+				setError(null);
+			};
+		});
 
 		return () => {
-			instance.off('load', handleLoad);
-			instance.off('error', handleError);
-			instance.remove();
-			setMap(null);
-			setIsLoaded(false);
-			setError(null);
+			disposed = true;
+			teardown?.();
 		};
 	}, [container, hasToken, token]);
 

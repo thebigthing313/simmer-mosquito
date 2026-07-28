@@ -2,11 +2,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource/poppins/400.css';
-import '@fontsource/poppins/500.css';
-import '@fontsource/poppins/600.css';
-import '@fontsource/poppins/700.css';
-import '@fontsource/poppins/800.css';
+// Latin subsets only. The unqualified `@fontsource/poppins/400.css` entries pull
+// latin, latin-ext, and devanagari — 15 files and ~263 KB of build output, of
+// which devanagari is ~196 KB we will never render. `unicode-range` means a
+// browser skips downloading it, so this is build and CDN weight rather than
+// user-facing latency, but it is weight for nothing. latin-ext stays: operator
+// and contact names carry European diacritics and it is only ~5 KB per weight.
+import '@fontsource/poppins/latin-400.css';
+import '@fontsource/poppins/latin-ext-400.css';
+import '@fontsource/poppins/latin-500.css';
+import '@fontsource/poppins/latin-ext-500.css';
+import '@fontsource/poppins/latin-600.css';
+import '@fontsource/poppins/latin-ext-600.css';
+import '@fontsource/poppins/latin-700.css';
+import '@fontsource/poppins/latin-ext-700.css';
+import '@fontsource/poppins/latin-800.css';
+import '@fontsource/poppins/latin-ext-800.css';
 import { appAuthController } from './app-auth';
 import { OutletContentFallback } from './components/app-shell/outlet/outlet-content-fallback';
 import { routeTree } from './routeTree.gen';

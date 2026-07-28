@@ -17,7 +17,7 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
-import { seedHabitatGeometryCache } from '../../-habitat-detail';
+import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
 import {
 	type DrawGeometry,
 	HabitatFormPage,
