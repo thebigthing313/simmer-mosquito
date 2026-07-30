@@ -1,5 +1,6 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type { CircleLayerSpecification, ExpressionSpecification } from 'mapbox-gl';
+import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
 
 /**
  * Server-side filters for the address vector tiles. Mirrors the query params the
@@ -33,7 +34,15 @@ export const ADDRESS_LAYER_IDS = [
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildAddressTileUrl(serverUrl: string, filters?: AddressTileFilters): string {
-	const base = `${serverUrl.replace(/\/+$/, '')}/map/tiles/${ADDRESS_SOURCE_ID}/{z}/{x}/{y}.mvt`;
+	return tileTemplateUrl(serverUrl, ADDRESS_SOURCE_ID, addressTileParams(filters));
+}
+
+/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
+export function buildAddressExtentUrl(serverUrl: string, filters?: AddressTileFilters): string {
+	return tileExtentUrl(serverUrl, ADDRESS_SOURCE_ID, addressTileParams(filters));
+}
+
+function addressTileParams(filters?: AddressTileFilters): URLSearchParams {
 	const params = new URLSearchParams();
 
 	const search = filters?.search?.trim();
@@ -41,8 +50,7 @@ export function buildAddressTileUrl(serverUrl: string, filters?: AddressTileFilt
 		params.set('search', search);
 	}
 
-	const query = params.toString();
-	return query.length === 0 ? base : `${base}?${query}`;
+	return params;
 }
 
 /** The GL layers for the address source. `selectedId` drives the highlight. */

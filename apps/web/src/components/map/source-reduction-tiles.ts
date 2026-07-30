@@ -5,6 +5,7 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
+import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
 
 /**
  * Server-side filters for the source-reduction vector tiles. Mirrors the
@@ -62,7 +63,18 @@ export function buildSourceReductionTileUrl(
 	serverUrl: string,
 	filters?: SourceReductionTileFilters,
 ): string {
-	const base = `${serverUrl.replace(/\/+$/, '')}/map/tiles/${SOURCE_REDUCTION_SOURCE_ID}/{z}/{x}/{y}.mvt`;
+	return tileTemplateUrl(serverUrl, SOURCE_REDUCTION_SOURCE_ID, sourceReductionTileParams(filters));
+}
+
+/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
+export function buildSourceReductionExtentUrl(
+	serverUrl: string,
+	filters?: SourceReductionTileFilters,
+): string {
+	return tileExtentUrl(serverUrl, SOURCE_REDUCTION_SOURCE_ID, sourceReductionTileParams(filters));
+}
+
+function sourceReductionTileParams(filters?: SourceReductionTileFilters): URLSearchParams {
 	const params = new URLSearchParams();
 
 	if (
@@ -78,8 +90,7 @@ export function buildSourceReductionTileUrl(
 		params.set('dateTo', filters.dateTo);
 	}
 
-	const query = params.toString();
-	return query.length === 0 ? base : `${base}?${query}`;
+	return params;
 }
 
 /** The GL layers for the source-reduction source. `selectedId` drives the highlight set. */

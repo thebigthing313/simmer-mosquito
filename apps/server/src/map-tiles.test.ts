@@ -361,6 +361,82 @@ describe('registerMapTileRoutes', () => {
 		expect(getHabitatTile).not.toHaveBeenCalled();
 	});
 
+	it('returns the filtered habitat extent scoped to the selected organization', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getHabitatExtent: async (_db, input) => {
+				calls.push(input);
+				return { west: -90.6, south: 35.4, east: -90.4, north: 35.6 };
+			},
+		});
+
+		const response = await app.request('/map/tiles/habitats/extent?isActive=true&search=pond');
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({
+			extent: { west: -90.6, south: 35.4, east: -90.4, north: 35.6 },
+		});
+		expect(calls).toEqual([{ organizationId, filters: { isActive: true, search: 'pond' } }]);
+	});
+
+	it('returns a null extent when no record matches the filters', async () => {
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getHabitatExtent: async () => null,
+		});
+
+		const response = await app.request('/map/tiles/habitats/extent');
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ extent: null });
+	});
+
+	it('resolves the region extent to an explicit id set', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getHabitatTile: async () => new Uint8Array(),
+			getRegionExtent: async (_db, input) => {
+				calls.push(input);
+				return null;
+			},
+		});
+
+		const response = await app.request(`/map/tiles/regions/extent?id=${regionId}`);
+
+		expect(response.status).toBe(200);
+		expect(calls).toEqual([{ organizationId, filters: { ids: [regionId] } }]);
+	});
+
+	it('rejects unknown tilesets and invalid filters before reading an extent', async () => {
+		const getHabitatExtent = vi.fn();
+		const app = createApp({ getHabitatTile: async () => new Uint8Array(), getHabitatExtent });
+
+		const unknownTileset = await app.request('/map/tiles/nonexistent-tileset/extent');
+		const invalidFilter = await app.request('/map/tiles/habitats/extent?isActive=maybe');
+
+		await expect(unknownTileset.json()).resolves.toMatchObject({ error: 'invalid_tileset' });
+		expect(unknownTileset.status).toBe(400);
+		await expect(invalidFilter.json()).resolves.toMatchObject({ error: 'invalid_filter' });
+		expect(invalidFilter.status).toBe(400);
+		expect(getHabitatExtent).not.toHaveBeenCalled();
+	});
+
+	it('requires auth before reading an extent', async () => {
+		const getHabitatExtent = vi.fn();
+		const app = createApp({
+			authenticated: false,
+			getHabitatTile: async () => new Uint8Array(),
+			getHabitatExtent,
+		});
+
+		const response = await app.request('/map/tiles/habitats/extent');
+
+		await expect(response.json()).resolves.toEqual({ error: 'unauthenticated' });
+		expect(response.status).toBe(401);
+		expect(getHabitatExtent).not.toHaveBeenCalled();
+	});
+
 	it('returns a single habitat display row scoped to the selected organization', async () => {
 		const calls: unknown[] = [];
 		const app = createApp({
@@ -702,6 +778,12 @@ function createApp(options: {
 	readonly getAddressTile?: NonNullable<
 		Parameters<typeof registerMapTileRoutes>[1]['getAddressTile']
 	>;
+	readonly getHabitatExtent?: NonNullable<
+		Parameters<typeof registerMapTileRoutes>[1]['getHabitatExtent']
+	>;
+	readonly getRegionExtent?: NonNullable<
+		Parameters<typeof registerMapTileRoutes>[1]['getRegionExtent']
+	>;
 }) {
 	const app = new Hono<{ Variables: AuthVariables }>();
 	registerMapTileRoutes(app, {
@@ -734,11 +816,16 @@ function createApp(options: {
 			? {}
 			: { getInspectionDisplayRow: options.getInspectionDisplayRow }),
 		...(options.getAddressTile === undefined ? {} : { getAddressTile: options.getAddressTile }),
+		...(options.getHabitatExtent === undefined
+			? {}
+			: { getHabitatExtent: options.getHabitatExtent }),
+		...(options.getRegionExtent === undefined ? {} : { getRegionExtent: options.getRegionExtent }),
 	});
 	return app;
 }
 
 const organizationId = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';
+const regionId = 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f';
 const habitatId = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const habitatTypeId = '4fe25a2d-925c-4d37-9d4e-07185ad19858';
 const inspectionId = 'b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e';

@@ -177,6 +177,7 @@ function SourceReductionExplorerRoute() {
 				<>
 					<MapCanvas
 						controls={{ layers: false }}
+						fitToData
 						onMapReady={handleMapReady}
 						sourceReductionLayer={sourceReductionLayer}
 					/>

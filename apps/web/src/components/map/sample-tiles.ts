@@ -5,6 +5,7 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
+import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
 
 /**
  * Server-side filters for the sample vector tiles. Mirrors the query params the
@@ -99,7 +100,15 @@ const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildSampleTileUrl(serverUrl: string, filters?: SampleTileFilters): string {
-	const base = `${serverUrl.replace(/\/+$/, '')}/map/tiles/${SAMPLE_SOURCE_ID}/{z}/{x}/{y}.mvt`;
+	return tileTemplateUrl(serverUrl, SAMPLE_SOURCE_ID, sampleTileParams(filters));
+}
+
+/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
+export function buildSampleExtentUrl(serverUrl: string, filters?: SampleTileFilters): string {
+	return tileExtentUrl(serverUrl, SAMPLE_SOURCE_ID, sampleTileParams(filters));
+}
+
+function sampleTileParams(filters?: SampleTileFilters): URLSearchParams {
 	const params = new URLSearchParams();
 
 	if (filters?.speciesIds !== undefined && filters.speciesIds.length > 0) {
@@ -118,8 +127,7 @@ export function buildSampleTileUrl(serverUrl: string, filters?: SampleTileFilter
 		params.set('dateTo', filters.dateTo);
 	}
 
-	const query = params.toString();
-	return query.length === 0 ? base : `${base}?${query}`;
+	return params;
 }
 
 /** The GL layers for the sample source. `selectedId` drives the highlight set. */

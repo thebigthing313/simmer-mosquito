@@ -5,6 +5,7 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
+import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
 
 /**
  * Server-side filters for the trap vector tiles. Mirrors the query params the
@@ -68,7 +69,15 @@ const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildTrapTileUrl(serverUrl: string, filters?: TrapTileFilters): string {
-	const base = `${serverUrl.replace(/\/+$/, '')}/map/tiles/${TRAP_SOURCE_ID}/{z}/{x}/{y}.mvt`;
+	return tileTemplateUrl(serverUrl, TRAP_SOURCE_ID, trapTileParams(filters));
+}
+
+/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
+export function buildTrapExtentUrl(serverUrl: string, filters?: TrapTileFilters): string {
+	return tileExtentUrl(serverUrl, TRAP_SOURCE_ID, trapTileParams(filters));
+}
+
+function trapTileParams(filters?: TrapTileFilters): URLSearchParams {
 	const params = new URLSearchParams();
 
 	if (filters?.collectionMethodIds !== undefined && filters.collectionMethodIds.length > 0) {
@@ -84,8 +93,7 @@ export function buildTrapTileUrl(serverUrl: string, filters?: TrapTileFilters): 
 		params.set('search', search);
 	}
 
-	const query = params.toString();
-	return query.length === 0 ? base : `${base}?${query}`;
+	return params;
 }
 
 /** The GL layers for the trap source. `selectedId` drives the highlight set. */

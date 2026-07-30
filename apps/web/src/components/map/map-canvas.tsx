@@ -1,14 +1,25 @@
+import type { BoundingBox } from '@simmer-mosquito/mapping';
 import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
+import { buildAddressExtentUrl } from './address-tiles';
 import { BasemapSwitcher } from './basemap-switcher';
+import { buildBiocontrolExtentUrl } from './biocontrol-tiles';
+import { buildChemicalExtentUrl } from './chemical-tiles';
+import { buildCollectionExtentUrl } from './collection-tiles';
 import { GeolocateControl } from './geolocate-control';
+import { buildHabitatExtentUrl } from './habitat-tiles';
+import { buildInspectionExtentUrl } from './inspection-tiles';
 import { MapFallback } from './map-fallback';
 import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
+import { buildRegionExtentUrl } from './region-tiles';
+import { buildSampleExtentUrl } from './sample-tiles';
+import { buildSourceReductionExtentUrl } from './source-reduction-tiles';
+import { buildTrapExtentUrl } from './trap-tiles';
 import { type AddressTileLayerConfig, useAddressTileLayer } from './use-address-tile-layer';
 import {
 	type BiocontrolTileLayerConfig,
@@ -25,6 +36,7 @@ import {
 	type InspectionTileLayerConfig,
 	useInspectionTileLayer,
 } from './use-inspection-tile-layer';
+import { type MapExtentFitSource, useMapExtentFit } from './use-map-extent-fit';
 import { useMapboxMap } from './use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from './use-nearby-layer';
 import { type RegionTileLayerConfig, useRegionTileLayer } from './use-region-tile-layer';
@@ -74,6 +86,7 @@ export function MapCanvas({
 	nearbyLayer,
 	geoJson,
 	geoJsonInteraction,
+	fitToData,
 	onMapReady,
 }: {
 	readonly className?: string;
@@ -107,6 +120,13 @@ export function MapCanvas({
 	readonly geoJson?: GeoJSON.GeoJSON | null;
 	/** Opt into click-to-select + highlight on the GeoJSON overlay's features. */
 	readonly geoJsonInteraction?: GeoJsonLayerInteraction;
+	/**
+	 * Frame the data this canvas draws, on load and on every filter change. Pass
+	 * `true` to fit the mounted tile layer's filtered extent (one request per
+	 * filter set), or a {@link BoundingBox} for canvases whose features come from
+	 * local rows. Panning and zooming afterwards are the user's to keep.
+	 */
+	readonly fitToData?: boolean | BoundingBox | null;
 	/** Called once with the GL instance after it loads, for camera/bounds reads. */
 	readonly onMapReady?: (map: MapboxMap) => void;
 }) {
@@ -142,6 +162,22 @@ export function MapCanvas({
 	useRouteLayer(map, isLoaded, routeLayer);
 	useNearbyLayer(map, isLoaded, nearbyLayer);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null, geoJsonInteraction);
+	useMapExtentFit(
+		map,
+		isLoaded,
+		resolveExtentFitSource(fitToData, {
+			habitatLayer,
+			regionLayer,
+			addressLayer,
+			inspectionLayer,
+			sampleLayer,
+			chemicalLayer,
+			sourceReductionLayer,
+			biocontrolLayer,
+			trapLayer,
+			collectionLayer,
+		}),
+	);
 
 	const onMapReadyRef = useRef(onMapReady);
 	onMapReadyRef.current = onMapReady;
@@ -219,4 +255,93 @@ export function MapCanvas({
 			)}
 		</div>
 	);
+}
+
+/** The tile layers a canvas can frame, in the order a shared canvas resolves them. */
+interface ExtentFitLayers {
+	readonly habitatLayer: HabitatTileLayerConfig | undefined;
+	readonly regionLayer: RegionTileLayerConfig | undefined;
+	readonly addressLayer: AddressTileLayerConfig | undefined;
+	readonly inspectionLayer: InspectionTileLayerConfig | undefined;
+	readonly sampleLayer: SampleTileLayerConfig | undefined;
+	readonly chemicalLayer: ChemicalTileLayerConfig | undefined;
+	readonly sourceReductionLayer: SourceReductionTileLayerConfig | undefined;
+	readonly biocontrolLayer: BiocontrolTileLayerConfig | undefined;
+	readonly trapLayer: TrapTileLayerConfig | undefined;
+	readonly collectionLayer: CollectionTileLayerConfig | undefined;
+}
+
+/**
+ * Turn the `fitToData` prop into a frame source. An explicit box wins; `true`
+ * derives the extent endpoint from whichever tile layer is mounted, so the
+ * camera always frames the same filters the tiles draw.
+ */
+function resolveExtentFitSource(
+	fitToData: boolean | BoundingBox | null | undefined,
+	layers: ExtentFitLayers,
+): MapExtentFitSource | null {
+	if (fitToData === undefined || fitToData === false) {
+		return null;
+	}
+	if (fitToData !== true) {
+		return { bounds: fitToData };
+	}
+
+	const url = resolveExtentUrl(layers);
+	return url === null ? null : { url };
+}
+
+function resolveExtentUrl(layers: ExtentFitLayers): string | null {
+	const {
+		habitatLayer,
+		regionLayer,
+		addressLayer,
+		inspectionLayer,
+		sampleLayer,
+		chemicalLayer,
+		sourceReductionLayer,
+		biocontrolLayer,
+		trapLayer,
+		collectionLayer,
+	} = layers;
+
+	if (habitatLayer !== undefined) {
+		return buildHabitatExtentUrl(habitatLayer.serverUrl, habitatLayer.filters);
+	}
+	if (regionLayer !== undefined) {
+		// Regions stream whole and hide client-side, so only the ticked ones are
+		// on screen — an empty set draws nothing and leaves the camera alone.
+		const ids = regionLayer.visibleIds ?? [];
+		return ids.length === 0
+			? null
+			: buildRegionExtentUrl(regionLayer.serverUrl, { ...regionLayer.filters, ids });
+	}
+	if (addressLayer !== undefined) {
+		return buildAddressExtentUrl(addressLayer.serverUrl, addressLayer.filters);
+	}
+	if (inspectionLayer !== undefined) {
+		return buildInspectionExtentUrl(inspectionLayer.serverUrl, inspectionLayer.filters);
+	}
+	if (sampleLayer !== undefined) {
+		return buildSampleExtentUrl(sampleLayer.serverUrl, sampleLayer.filters);
+	}
+	if (chemicalLayer !== undefined) {
+		return buildChemicalExtentUrl(chemicalLayer.serverUrl, chemicalLayer.filters);
+	}
+	if (sourceReductionLayer !== undefined) {
+		return buildSourceReductionExtentUrl(
+			sourceReductionLayer.serverUrl,
+			sourceReductionLayer.filters,
+		);
+	}
+	if (biocontrolLayer !== undefined) {
+		return buildBiocontrolExtentUrl(biocontrolLayer.serverUrl, biocontrolLayer.filters);
+	}
+	if (trapLayer !== undefined) {
+		return buildTrapExtentUrl(trapLayer.serverUrl, trapLayer.filters);
+	}
+	if (collectionLayer !== undefined) {
+		return buildCollectionExtentUrl(collectionLayer.serverUrl, collectionLayer.filters);
+	}
+	return null;
 }

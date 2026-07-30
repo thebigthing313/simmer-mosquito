@@ -191,6 +191,7 @@ function ApplicationsExplorerRoute() {
 					<MapCanvas
 						chemicalLayer={chemicalLayer}
 						controls={{ layers: false }}
+						fitToData
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (

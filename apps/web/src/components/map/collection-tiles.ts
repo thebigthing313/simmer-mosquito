@@ -5,6 +5,7 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
+import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
 
 /**
  * Server-side filters for the collection vector tiles. Mirrors the query params
@@ -74,7 +75,18 @@ const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildCollectionTileUrl(serverUrl: string, filters?: CollectionTileFilters): string {
-	const base = `${serverUrl.replace(/\/+$/, '')}/map/tiles/${COLLECTION_SOURCE_ID}/{z}/{x}/{y}.mvt`;
+	return tileTemplateUrl(serverUrl, COLLECTION_SOURCE_ID, collectionTileParams(filters));
+}
+
+/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
+export function buildCollectionExtentUrl(
+	serverUrl: string,
+	filters?: CollectionTileFilters,
+): string {
+	return tileExtentUrl(serverUrl, COLLECTION_SOURCE_ID, collectionTileParams(filters));
+}
+
+function collectionTileParams(filters?: CollectionTileFilters): URLSearchParams {
 	const params = new URLSearchParams();
 
 	if (filters?.collectionMethodIds !== undefined && filters.collectionMethodIds.length > 0) {
@@ -90,8 +102,7 @@ export function buildCollectionTileUrl(serverUrl: string, filters?: CollectionTi
 		params.set('dateTo', filters.dateTo);
 	}
 
-	const query = params.toString();
-	return query.length === 0 ? base : `${base}?${query}`;
+	return params;
 }
 
 /** The GL layers for the collection source. `selectedId` drives the highlight set. */

@@ -1,6 +1,7 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
+import { type MapExtent, readMapExtent } from './map-extent.js';
 
 // --- control-operations map surfaces ----------------------------------------
 //
@@ -186,6 +187,25 @@ export async function getApplicationDisplayRowById(
 	`.execute(db);
 
 	return result.rows[0];
+}
+
+/**
+ * Extent of every application matching the map filters, ignoring the viewport —
+ * what the explorer map frames on load and after a filter change.
+ */
+export async function getApplicationMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string; readonly filters?: ApplicationMapFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`a.geom`,
+		from: sql`applications a`,
+		where: [
+			sql<boolean>`a.organization_id = ${input.organizationId}`,
+			sql<boolean>`a.deleted_at is null`,
+			...applicationFilterWhere(input.filters),
+		],
+	});
 }
 
 // Applicator name + batch-name roll-up, kept as one fragment so the paged list
@@ -375,6 +395,25 @@ export async function getSourceReductionDisplayRowById(
 	return result.rows[0];
 }
 
+/**
+ * Extent of every source reduction matching the map filters, ignoring the
+ * viewport — what the explorer map frames on load and after a filter change.
+ */
+export async function getSourceReductionMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string; readonly filters?: SourceReductionMapFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`sr.geom`,
+		from: sql`source_reductions sr`,
+		where: [
+			sql<boolean>`sr.organization_id = ${input.organizationId}`,
+			sql<boolean>`sr.deleted_at is null`,
+			...sourceReductionFilterWhere(input.filters),
+		],
+	});
+}
+
 const sourceReductionDisplayColumns = sql`
 	sr.id,
 	sr.organization_id as "organizationId",
@@ -541,6 +580,25 @@ export async function getBiocontrolDisplayRowById(
 	`.execute(db);
 
 	return result.rows[0];
+}
+
+/**
+ * Extent of every biocontrol action matching the map filters, ignoring the
+ * viewport — what the explorer map frames on load and after a filter change.
+ */
+export async function getBiocontrolMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string; readonly filters?: BiocontrolMapFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`ba.geom`,
+		from: sql`biocontrol_actions ba`,
+		where: [
+			sql<boolean>`ba.organization_id = ${input.organizationId}`,
+			sql<boolean>`ba.deleted_at is null`,
+			...biocontrolFilterWhere(input.filters),
+		],
+	});
 }
 
 const biocontrolDisplayColumns = sql`

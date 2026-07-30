@@ -1,6 +1,7 @@
 import { type Kysely, type RawBuilder, sql, type Transaction } from 'kysely';
 
 import type { GeoJsonGeometry, OwnedGeometryInfo, SimmerDatabase } from '../index.js';
+import { type MapExtent, readMapExtent } from './map-extent.js';
 
 export interface CreateAddressInput {
 	readonly id?: string;
@@ -344,12 +345,38 @@ export async function getAddressMvtTile(
 	return result.rows[0]?.tile ?? new Uint8Array();
 }
 
+/**
+ * Extent of every address matching the tile filters, ignoring the viewport —
+ * what the address-book map frames on load and after a search change.
+ */
+export async function getAddressMapExtent(
+	db: DbExecutor,
+	input: { readonly organizationId: string; readonly filters?: AddressMvtTileFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`a.geom`,
+		from: sql`addresses a`,
+		where: addressFilterWhereClauses(input),
+	});
+}
+
+/** Filter predicates narrowed to a `bounds` CTE — the tile read. */
 function addressSpatialWhereClauses(input: AddressMvtTileInput): RawBuilder<boolean>[] {
+	return [
+		...addressFilterWhereClauses(input),
+		sql<boolean>`a.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(a.geom, bounds.geom_4326)`,
+	];
+}
+
+/** Tenancy + filter predicates, shared by the tile and extent reads. */
+function addressFilterWhereClauses(input: {
+	readonly organizationId: string;
+	readonly filters?: AddressMvtTileFilters;
+}): RawBuilder<boolean>[] {
 	const whereClauses: RawBuilder<boolean>[] = [
 		sql<boolean>`a.organization_id = ${input.organizationId}`,
 		sql<boolean>`a.deleted_at is null`,
-		sql<boolean>`a.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(a.geom, bounds.geom_4326)`,
 	];
 
 	const search = input.filters?.search?.trim();
@@ -366,6 +393,12 @@ export interface RegionMvtTileFilters {
 	readonly regionFolderId?: string;
 	/** Case-insensitive substring match on region name. */
 	readonly search?: string;
+	/**
+	 * Match an explicit region id set. The regions explorer draws only the boxes
+	 * the user has ticked, so its camera fits that set rather than every region
+	 * the other filters allow.
+	 */
+	readonly ids?: readonly string[];
 }
 
 export interface RegionMvtTileInput {
@@ -415,13 +448,44 @@ export async function getRegionMvtTile(
 	return result.rows[0]?.tile ?? new Uint8Array();
 }
 
+/**
+ * Extent of every region matching the tile filters, ignoring the viewport —
+ * what the regions map frames as the visible set changes.
+ */
+export async function getRegionMapExtent(
+	db: DbExecutor,
+	input: { readonly organizationId: string; readonly filters?: RegionMvtTileFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`r.geom`,
+		from: sql`regions r`,
+		where: regionFilterWhereClauses(input),
+	});
+}
+
+/** Filter predicates narrowed to a `bounds` CTE — the tile read. */
 function regionSpatialWhereClauses(input: RegionMvtTileInput): RawBuilder<boolean>[] {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`r.organization_id = ${input.organizationId}`,
-		sql<boolean>`r.deleted_at is null`,
+	return [
+		...regionFilterWhereClauses(input),
 		sql<boolean>`r.geom && bounds.geom_4326`,
 		sql<boolean>`st_intersects(r.geom, bounds.geom_4326)`,
 	];
+}
+
+/** Tenancy + filter predicates, shared by the tile and extent reads. */
+function regionFilterWhereClauses(input: {
+	readonly organizationId: string;
+	readonly filters?: RegionMvtTileFilters;
+}): RawBuilder<boolean>[] {
+	const whereClauses: RawBuilder<boolean>[] = [
+		sql<boolean>`r.organization_id = ${input.organizationId}`,
+		sql<boolean>`r.deleted_at is null`,
+	];
+
+	const ids = input.filters?.ids;
+	if (ids !== undefined && ids.length > 0) {
+		whereClauses.push(sql<boolean>`r.id = any(${[...ids]}::uuid[])`);
+	}
 
 	const folderId = input.filters?.regionFolderId;
 	if (folderId === 'unfiled') {

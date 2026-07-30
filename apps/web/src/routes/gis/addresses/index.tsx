@@ -107,7 +107,12 @@ function AddressesExplorerRoute() {
 		<MapSplitPage
 			map={
 				<>
-					<MapCanvas addressLayer={addressLayer} controls={{ layers: false }} onMapReady={setMap} />
+					<MapCanvas
+						addressLayer={addressLayer}
+						controls={{ layers: false }}
+						fitToData
+						onMapReady={setMap}
+					/>
 					{focusedId === null ? null : (
 						<AddressMapCard id={focusedId} map={map} onClose={() => setFocusedId(null)} />
 					)}

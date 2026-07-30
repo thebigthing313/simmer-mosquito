@@ -6,6 +6,7 @@ import type {
 	OwnedGeometryInfo,
 	SimmerDatabase,
 } from '../index.js';
+import { type MapExtent, readMapExtent } from './map-extent.js';
 
 export interface CreateTrapInput {
 	readonly organizationId: string;
@@ -628,6 +629,25 @@ export async function getTrapDisplayRowById(
 	return result.rows[0];
 }
 
+/**
+ * Extent of every trap matching the map filters, ignoring the viewport — what
+ * the explorer map frames on load and after a filter change.
+ */
+export async function getTrapMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string; readonly filters?: TrapMapFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`t.geom`,
+		from: sql`traps t`,
+		where: [
+			sql<boolean>`t.organization_id = ${input.organizationId}`,
+			sql<boolean>`t.deleted_at is null`,
+			...trapFilterWhere(input.filters),
+		],
+	});
+}
+
 const trapDisplayColumns = sql`
 	t.id,
 	t.organization_id as "organizationId",
@@ -802,6 +822,25 @@ export async function getCollectionDisplayRowById(
 	`.execute(db);
 
 	return result.rows[0];
+}
+
+/**
+ * Extent of every collection matching the map filters, ignoring the viewport —
+ * what the explorer map frames on load and after a filter change.
+ */
+export async function getCollectionMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string; readonly filters?: CollectionMapFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`c.geom`,
+		from: sql`collections c`,
+		where: [
+			sql<boolean>`c.organization_id = ${input.organizationId}`,
+			sql<boolean>`c.deleted_at is null`,
+			...collectionFilterWhere(input.filters),
+		],
+	});
 }
 
 const collectionDisplayColumns = sql`

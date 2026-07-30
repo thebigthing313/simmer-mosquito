@@ -18,24 +18,34 @@ import {
 	type CollectionPageResult,
 	countActiveHabitatsByType,
 	getAddressById,
+	getAddressMapExtent,
 	getAddressMvtTile,
 	getApplicationDisplayRowById,
+	getApplicationMapExtent,
 	getApplicationMvtTile,
 	getBiocontrolDisplayRowById,
+	getBiocontrolMapExtent,
 	getBiocontrolMvtTile,
 	getCollectionDisplayRowById,
+	getCollectionMapExtent,
 	getCollectionMvtTile,
 	getHabitatDisplayRowById,
+	getHabitatMapExtent,
 	getHabitatMvtTile,
 	getInspectionDisplayRowById,
+	getInspectionMapExtent,
 	getInspectionMvtTile,
 	getRegionById,
+	getRegionMapExtent,
 	getRegionMvtTile,
 	getSampleDisplayRowById,
+	getSampleMapExtent,
 	getSampleMvtTile,
 	getSourceReductionDisplayRowById,
+	getSourceReductionMapExtent,
 	getSourceReductionMvtTile,
 	getTrapDisplayRowById,
+	getTrapMapExtent,
 	getTrapMvtTile,
 	type HabitatByIdInput,
 	type HabitatDisplayPageResult,
@@ -61,6 +71,7 @@ import {
 	listSampleDisplayRowsByBounds,
 	listSourceReductionDisplayRowsPage,
 	listTrapDisplayRowsPage,
+	type MapExtent,
 	type RegionMvtTileFilters,
 	type RegionMvtTileInput,
 	type SafeApplicationDisplayRow,
@@ -186,6 +197,16 @@ type CollectionDisplayByIdReader = (
 	input: CollectionByIdInput,
 ) => Promise<SafeCollectionDisplayRow | undefined>;
 
+/**
+ * Reads the extent of one tileset's filtered rows, viewport-free. Paired with a
+ * tile reader in the registry below so a tileset can never frame one filter set
+ * while drawing another.
+ */
+type MapExtentReader<F> = (
+	db: TileDb,
+	input: { readonly organizationId: string; readonly filters?: F },
+) => Promise<MapExtent | null>;
+
 type TileCoordinateResult =
 	| {
 			readonly ok: true;
@@ -287,6 +308,13 @@ interface TileSetDefinition {
 			readonly filters: unknown;
 		},
 	) => Promise<Uint8Array>;
+	readonly getExtent: (
+		db: TileDb,
+		input: {
+			readonly organizationId: string;
+			readonly filters: unknown;
+		},
+	) => Promise<MapExtent | null>;
 }
 
 function defineTileSet<F>(def: {
@@ -301,6 +329,13 @@ function defineTileSet<F>(def: {
 			readonly filters: F;
 		},
 	) => Promise<Uint8Array>;
+	readonly getExtent: (
+		db: TileDb,
+		input: {
+			readonly organizationId: string;
+			readonly filters: F;
+		},
+	) => Promise<MapExtent | null>;
 }): TileSetDefinition {
 	return def as unknown as TileSetDefinition;
 }
@@ -339,6 +374,16 @@ export function registerMapTileRoutes(
 		readonly getCollectionTile?: CollectionTileReader;
 		readonly listCollectionDisplayRows?: CollectionPageReader;
 		readonly getCollectionDisplayRow?: CollectionDisplayByIdReader;
+		readonly getHabitatExtent?: MapExtentReader<HabitatMvtTileFilters>;
+		readonly getRegionExtent?: MapExtentReader<RegionMvtTileFilters>;
+		readonly getAddressExtent?: MapExtentReader<AddressMvtTileFilters>;
+		readonly getInspectionExtent?: MapExtentReader<InspectionMvtTileFilters>;
+		readonly getSampleExtent?: MapExtentReader<SampleListFilters>;
+		readonly getApplicationExtent?: MapExtentReader<ApplicationMapFilters>;
+		readonly getSourceReductionExtent?: MapExtentReader<SourceReductionMapFilters>;
+		readonly getBiocontrolExtent?: MapExtentReader<BiocontrolMapFilters>;
+		readonly getTrapExtent?: MapExtentReader<TrapMapFilters>;
+		readonly getCollectionExtent?: MapExtentReader<CollectionMapFilters>;
 	},
 ): void {
 	const tileSets = createTileSetRegistry({
@@ -352,6 +397,16 @@ export function registerMapTileRoutes(
 		getBiocontrolTile: options.getBiocontrolTile ?? getBiocontrolMvtTile,
 		getTrapTile: options.getTrapTile ?? getTrapMvtTile,
 		getCollectionTile: options.getCollectionTile ?? getCollectionMvtTile,
+		getHabitatExtent: options.getHabitatExtent ?? getHabitatMapExtent,
+		getRegionExtent: options.getRegionExtent ?? getRegionMapExtent,
+		getAddressExtent: options.getAddressExtent ?? getAddressMapExtent,
+		getInspectionExtent: options.getInspectionExtent ?? getInspectionMapExtent,
+		getSampleExtent: options.getSampleExtent ?? getSampleMapExtent,
+		getApplicationExtent: options.getApplicationExtent ?? getApplicationMapExtent,
+		getSourceReductionExtent: options.getSourceReductionExtent ?? getSourceReductionMapExtent,
+		getBiocontrolExtent: options.getBiocontrolExtent ?? getBiocontrolMapExtent,
+		getTrapExtent: options.getTrapExtent ?? getTrapMapExtent,
+		getCollectionExtent: options.getCollectionExtent ?? getCollectionMapExtent,
 	});
 	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
 	const getDisplayRow = options.getHabitatDisplayRow ?? getHabitatDisplayRowById;
@@ -788,6 +843,33 @@ export function registerMapTileRoutes(
 		return context.json({ collection });
 	});
 
+	// The bounding box of everything the same filters would draw, viewport-free.
+	// An explorer map frames this on load and whenever its filters change, since
+	// vector tiles alone can never tell the client where the filtered records are.
+	// Registered before the tile route; the literal `extent` segment can't collide
+	// with the tile route's longer `z/x/y` path.
+	app.get('/map/tiles/:tileset/extent', options.authContextMiddleware, async (context) => {
+		const tileset = context.req.param('tileset');
+		const tileSet = tileSets.get(tileset);
+		if (tileSet === undefined) {
+			return context.json({ error: 'invalid_tileset', reason: 'Unknown map tileset.' }, 400);
+		}
+
+		const filterResult = tileSet.parseFilters(new URL(context.req.url).searchParams);
+		if (!filterResult.ok) {
+			return context.json({ error: 'invalid_filter', reason: filterResult.reason }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const extent = await tileSet.getExtent(options.db, {
+			organizationId: authContext.organization.id,
+			filters: filterResult.filters,
+		});
+
+		// A null extent means nothing matched; the client leaves its camera alone.
+		return context.json({ extent });
+	});
+
 	app.get(
 		'/map/tiles/:tileset/:z/:x/:yWithExtension',
 		options.authContextMiddleware,
@@ -843,6 +925,16 @@ function createTileSetRegistry(options: {
 	readonly getBiocontrolTile: BiocontrolTileReader;
 	readonly getTrapTile: TrapTileReader;
 	readonly getCollectionTile: CollectionTileReader;
+	readonly getHabitatExtent: MapExtentReader<HabitatMvtTileFilters>;
+	readonly getRegionExtent: MapExtentReader<RegionMvtTileFilters>;
+	readonly getAddressExtent: MapExtentReader<AddressMvtTileFilters>;
+	readonly getInspectionExtent: MapExtentReader<InspectionMvtTileFilters>;
+	readonly getSampleExtent: MapExtentReader<SampleListFilters>;
+	readonly getApplicationExtent: MapExtentReader<ApplicationMapFilters>;
+	readonly getSourceReductionExtent: MapExtentReader<SourceReductionMapFilters>;
+	readonly getBiocontrolExtent: MapExtentReader<BiocontrolMapFilters>;
+	readonly getTrapExtent: MapExtentReader<TrapMapFilters>;
+	readonly getCollectionExtent: MapExtentReader<CollectionMapFilters>;
 }): ReadonlyMap<string, TileSetDefinition> {
 	return new Map<string, TileSetDefinition>([
 		[
@@ -855,6 +947,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getHabitatExtent(db, input),
 			}),
 		],
 		[
@@ -867,6 +960,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getRegionExtent(db, input),
 			}),
 		],
 		[
@@ -879,6 +973,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getAddressExtent(db, input),
 			}),
 		],
 		[
@@ -891,6 +986,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getInspectionExtent(db, input),
 			}),
 		],
 		[
@@ -903,6 +999,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getSampleExtent(db, input),
 			}),
 		],
 		[
@@ -915,6 +1012,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getApplicationExtent(db, input),
 			}),
 		],
 		[
@@ -927,6 +1025,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getSourceReductionExtent(db, input),
 			}),
 		],
 		[
@@ -939,6 +1038,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getBiocontrolExtent(db, input),
 			}),
 		],
 		[
@@ -951,6 +1051,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getTrapExtent(db, input),
 			}),
 		],
 		[
@@ -963,6 +1064,7 @@ function createTileSetRegistry(options: {
 						organizationId: input.organizationId,
 						filters: input.filters,
 					}),
+				getExtent: (db, input) => options.getCollectionExtent(db, input),
 			}),
 		],
 	]);
@@ -1080,7 +1182,7 @@ type RegionFilterResult =
 	| { readonly ok: true; readonly filters: RegionMvtTileFilters }
 	| { readonly ok: false; readonly reason: string };
 
-const regionFilterParams = new Set(['regionFolderId', 'search']);
+const regionFilterParams = new Set(['regionFolderId', 'search', 'id']);
 
 export function parseRegionTileFilters(searchParams: URLSearchParams): RegionFilterResult {
 	const unknownParams = [...searchParams.keys()].filter((param) => !regionFilterParams.has(param));
@@ -1098,11 +1200,19 @@ export function parseRegionTileFilters(searchParams: URLSearchParams): RegionFil
 		return search;
 	}
 
+	// The regions explorer draws one checkbox-picked set rather than every region
+	// its other filters allow, so its extent request names the ids outright.
+	const ids = parseOptionalUuidListFilter(searchParams, 'id');
+	if (!ids.ok) {
+		return ids;
+	}
+
 	return {
 		ok: true,
 		filters: {
 			...(regionFolderId.value === undefined ? {} : { regionFolderId: regionFolderId.value }),
 			...(search.value === undefined ? {} : { search: search.value }),
+			...(ids.value === undefined ? {} : { ids: ids.value }),
 		},
 	};
 }

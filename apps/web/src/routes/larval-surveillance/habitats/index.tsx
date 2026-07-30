@@ -139,6 +139,7 @@ function HabitatsExplorerRoute() {
 				<>
 					<MapCanvas
 						controls={{ layers: false }}
+						fitToData
 						habitatLayer={habitatLayer}
 						onMapReady={handleMapReady}
 					/>

@@ -5,6 +5,7 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
+import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
 
 /**
  * Server-side filters for the chemical-application vector tiles. Mirrors the
@@ -60,7 +61,15 @@ const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildChemicalTileUrl(serverUrl: string, filters?: ChemicalTileFilters): string {
-	const base = `${serverUrl.replace(/\/+$/, '')}/map/tiles/${CHEMICAL_SOURCE_ID}/{z}/{x}/{y}.mvt`;
+	return tileTemplateUrl(serverUrl, CHEMICAL_SOURCE_ID, chemicalTileParams(filters));
+}
+
+/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
+export function buildChemicalExtentUrl(serverUrl: string, filters?: ChemicalTileFilters): string {
+	return tileExtentUrl(serverUrl, CHEMICAL_SOURCE_ID, chemicalTileParams(filters));
+}
+
+function chemicalTileParams(filters?: ChemicalTileFilters): URLSearchParams {
 	const params = new URLSearchParams();
 
 	if (filters?.insecticideIds !== undefined && filters.insecticideIds.length > 0) {
@@ -76,8 +85,7 @@ export function buildChemicalTileUrl(serverUrl: string, filters?: ChemicalTileFi
 		params.set('dateTo', filters.dateTo);
 	}
 
-	const query = params.toString();
-	return query.length === 0 ? base : `${base}?${query}`;
+	return params;
 }
 
 /** The GL layers for the chemical source. `selectedId` drives the highlight set. */

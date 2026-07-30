@@ -1,3 +1,4 @@
+import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
 import type {
 	AddressRow,
 	ContactRow,
@@ -181,6 +182,18 @@ function ServiceRequestsExplorerRoute() {
 		return features.length === 0 ? null : { type: 'FeatureCollection', features };
 	}, [filtered]);
 
+	// These points come from local rows, so the camera frames the filtered set
+	// straight from the list rather than asking the server for an extent.
+	const mappedBounds = useMemo(
+		() =>
+			boundsFromCoordinates(
+				filtered
+					.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng))
+					.map((request) => ({ lng: request.lng, lat: request.lat })),
+			),
+		[filtered],
+	);
+
 	// Fly to a request when it becomes focused (list click or map click).
 	const focused = focusedId === null ? null : (requests.find((r) => r.id === focusedId) ?? null);
 	useEffect(() => {
@@ -203,6 +216,7 @@ function ServiceRequestsExplorerRoute() {
 				<>
 					<MapCanvas
 						controls={{ layers: false }}
+						fitToData={mappedBounds}
 						geoJson={geoJson}
 						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}
 						onMapReady={setMap}

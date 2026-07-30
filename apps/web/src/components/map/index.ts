@@ -1,9 +1,30 @@
-export { type AddressTileFilters, buildAddressTileUrl } from './address-tiles';
-export { type BiocontrolTileFilters, buildBiocontrolTileUrl } from './biocontrol-tiles';
-export { buildChemicalTileUrl, type ChemicalTileFilters } from './chemical-tiles';
-export { buildCollectionTileUrl, type CollectionTileFilters } from './collection-tiles';
-export { buildHabitatTileUrl, type HabitatTileFilters } from './habitat-tiles';
 export {
+	type AddressTileFilters,
+	buildAddressExtentUrl,
+	buildAddressTileUrl,
+} from './address-tiles';
+export {
+	type BiocontrolTileFilters,
+	buildBiocontrolExtentUrl,
+	buildBiocontrolTileUrl,
+} from './biocontrol-tiles';
+export {
+	buildChemicalExtentUrl,
+	buildChemicalTileUrl,
+	type ChemicalTileFilters,
+} from './chemical-tiles';
+export {
+	buildCollectionExtentUrl,
+	buildCollectionTileUrl,
+	type CollectionTileFilters,
+} from './collection-tiles';
+export {
+	buildHabitatExtentUrl,
+	buildHabitatTileUrl,
+	type HabitatTileFilters,
+} from './habitat-tiles';
+export {
+	buildInspectionExtentUrl,
 	buildInspectionTileUrl,
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
@@ -17,17 +38,19 @@ export {
 	DEFAULT_MAP_CAMERA,
 	type MapCamera,
 } from './map-styles';
-export { buildRegionTileUrl, type RegionTileFilters } from './region-tiles';
+export { buildRegionExtentUrl, buildRegionTileUrl, type RegionTileFilters } from './region-tiles';
 export {
+	buildSampleExtentUrl,
 	buildSampleTileUrl,
 	SAMPLE_STATUS_COLORS,
 	type SampleTileFilters,
 } from './sample-tiles';
 export {
+	buildSourceReductionExtentUrl,
 	buildSourceReductionTileUrl,
 	type SourceReductionTileFilters,
 } from './source-reduction-tiles';
-export { buildTrapTileUrl, type TrapTileFilters } from './trap-tiles';
+export { buildTrapExtentUrl, buildTrapTileUrl, type TrapTileFilters } from './trap-tiles';
 export type { AddressTileLayerConfig } from './use-address-tile-layer';
 export type { BiocontrolTileLayerConfig } from './use-biocontrol-tile-layer';
 export type { ChemicalTileLayerConfig } from './use-chemical-tile-layer';
@@ -36,6 +59,7 @@ export type { GeoJsonLayerInteraction } from './use-geojson-layer';
 export { type GeolocationCoords, useGeolocation } from './use-geolocation';
 export type { HabitatTileLayerConfig } from './use-habitat-tile-layer';
 export type { InspectionTileLayerConfig } from './use-inspection-tile-layer';
+export { type MapExtentFitSource, useMapExtentFit } from './use-map-extent-fit';
 export type { RegionTileLayerConfig } from './use-region-tile-layer';
 export type { RouteLayerConfig, RouteStopFeature } from './use-route-layer';
 export type { SampleTileLayerConfig } from './use-sample-tile-layer';

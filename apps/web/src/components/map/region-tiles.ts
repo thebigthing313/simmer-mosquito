@@ -4,6 +4,7 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
+import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
 
 /**
  * Server-side filters for the region vector tiles. Mirrors the query params the
@@ -13,6 +14,12 @@ export interface RegionTileFilters {
 	/** A folder id, or the literal `'unfiled'` for folderless regions. */
 	readonly regionFolderId?: string;
 	readonly search?: string;
+	/**
+	 * An explicit region id set. The tiles stream every region and hide the rest
+	 * through {@link regionVisibilityFilter}, so this narrows the extent request
+	 * only — it is what lets the camera frame the ticked regions alone.
+	 */
+	readonly ids?: readonly string[];
 }
 
 export const REGION_SOURCE_ID = 'regions';
@@ -42,7 +49,15 @@ export const REGION_LAYER_IDS = [
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildRegionTileUrl(serverUrl: string, filters?: RegionTileFilters): string {
-	const base = `${serverUrl.replace(/\/+$/, '')}/map/tiles/${REGION_SOURCE_ID}/{z}/{x}/{y}.mvt`;
+	return tileTemplateUrl(serverUrl, REGION_SOURCE_ID, regionTileParams(filters));
+}
+
+/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
+export function buildRegionExtentUrl(serverUrl: string, filters?: RegionTileFilters): string {
+	return tileExtentUrl(serverUrl, REGION_SOURCE_ID, regionTileParams(filters));
+}
+
+function regionTileParams(filters?: RegionTileFilters): URLSearchParams {
 	const params = new URLSearchParams();
 
 	if (filters?.regionFolderId !== undefined && filters.regionFolderId.length > 0) {
@@ -52,9 +67,11 @@ export function buildRegionTileUrl(serverUrl: string, filters?: RegionTileFilter
 	if (search !== undefined && search.length > 0) {
 		params.set('search', search);
 	}
+	if (filters?.ids !== undefined && filters.ids.length > 0) {
+		params.set('id', [...filters.ids].sort().join(','));
+	}
 
-	const query = params.toString();
-	return query.length === 0 ? base : `${base}?${query}`;
+	return params;
 }
 
 /**

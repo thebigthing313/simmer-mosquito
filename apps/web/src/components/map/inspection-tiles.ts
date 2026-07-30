@@ -5,6 +5,7 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
+import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
 
 /**
  * Server-side filters for the inspection vector tiles. Mirrors the query params
@@ -113,7 +114,18 @@ const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildInspectionTileUrl(serverUrl: string, filters?: InspectionTileFilters): string {
-	const base = `${serverUrl.replace(/\/+$/, '')}/map/tiles/${INSPECTION_SOURCE_ID}/{z}/{x}/{y}.mvt`;
+	return tileTemplateUrl(serverUrl, INSPECTION_SOURCE_ID, inspectionTileParams(filters));
+}
+
+/** Build the extent URL for the same filters — the whole filtered set, no viewport. */
+export function buildInspectionExtentUrl(
+	serverUrl: string,
+	filters?: InspectionTileFilters,
+): string {
+	return tileExtentUrl(serverUrl, INSPECTION_SOURCE_ID, inspectionTileParams(filters));
+}
+
+function inspectionTileParams(filters?: InspectionTileFilters): URLSearchParams {
 	const params = new URLSearchParams();
 
 	if (filters?.isWet !== undefined) {
@@ -135,8 +147,7 @@ export function buildInspectionTileUrl(serverUrl: string, filters?: InspectionTi
 		params.set('dateTo', filters.dateTo);
 	}
 
-	const query = params.toString();
-	return query.length === 0 ? base : `${base}?${query}`;
+	return params;
 }
 
 /** The GL layers for the inspection source. `selectedId` drives the highlight set. */

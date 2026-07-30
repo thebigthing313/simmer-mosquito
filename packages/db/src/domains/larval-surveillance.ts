@@ -1,6 +1,7 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
+import { type MapExtent, readMapExtent } from './map-extent.js';
 
 /** One sample still awaiting species identification, with its inspection context. */
 export interface AwaitingSampleRow {
@@ -310,15 +311,41 @@ const inspectionDisplayColumns = sql`
 	i.updated_at as "updatedAt"
 `;
 
+/**
+ * Extent of every inspection matching the tile filters, ignoring the viewport —
+ * what the explorer map frames on load and after a filter change.
+ */
+export async function getInspectionMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string; readonly filters?: InspectionMvtTileFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`i.geom`,
+		from: sql`inspections i`,
+		where: inspectionFilterWhereClauses(input),
+	});
+}
+
+/** Filter predicates narrowed to a `bounds` CTE — the tile + bbox reads. */
 function inspectionSpatialWhereClauses(input: {
+	readonly organizationId: string;
+	readonly filters?: InspectionMvtTileFilters;
+}): RawBuilder<boolean>[] {
+	return [
+		...inspectionFilterWhereClauses(input),
+		sql<boolean>`i.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(i.geom, bounds.geom_4326)`,
+	];
+}
+
+/** Tenancy + filter predicates, shared by the tile, bbox, and extent reads. */
+function inspectionFilterWhereClauses(input: {
 	readonly organizationId: string;
 	readonly filters?: InspectionMvtTileFilters;
 }): RawBuilder<boolean>[] {
 	const whereClauses: RawBuilder<boolean>[] = [
 		sql<boolean>`i.organization_id = ${input.organizationId}`,
 		sql<boolean>`i.deleted_at is null`,
-		sql<boolean>`i.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(i.geom, bounds.geom_4326)`,
 	];
 
 	if (input.filters?.isWet !== undefined) {
@@ -620,7 +647,36 @@ const sampleDisplayColumns = sql`
 	s.updated_at as "updatedAt"
 `;
 
+/**
+ * Extent of every sample matching the tile filters, ignoring the viewport. A
+ * sample inherits its parent inspection's geometry, so the join mirrors the tile
+ * read exactly.
+ */
+export async function getSampleMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string; readonly filters?: SampleListFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`i.geom`,
+		from: sql`samples s join inspections i on i.id = s.inspection_id`,
+		where: sampleFilterWhereClauses(input),
+	});
+}
+
+/** Filter predicates narrowed to a `bounds` CTE — the tile + bbox reads. */
 function sampleSpatialWhereClauses(input: {
+	readonly organizationId: string;
+	readonly filters?: SampleListFilters;
+}): RawBuilder<boolean>[] {
+	return [
+		...sampleFilterWhereClauses(input),
+		sql<boolean>`i.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(i.geom, bounds.geom_4326)`,
+	];
+}
+
+/** Tenancy + filter predicates, shared by the tile, bbox, and extent reads. */
+function sampleFilterWhereClauses(input: {
 	readonly organizationId: string;
 	readonly filters?: SampleListFilters;
 }): RawBuilder<boolean>[] {
@@ -629,8 +685,6 @@ function sampleSpatialWhereClauses(input: {
 		sql<boolean>`s.deleted_at is null`,
 		sql<boolean>`i.deleted_at is null`,
 		sql<boolean>`i.geom is not null`,
-		sql<boolean>`i.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(i.geom, bounds.geom_4326)`,
 	];
 
 	const filters = input.filters;

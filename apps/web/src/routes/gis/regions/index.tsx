@@ -279,7 +279,17 @@ function RegionsExplorerRoute() {
 		<MapSplitPage
 			map={
 				<>
-					<MapCanvas controls={{ layers: false }} onMapReady={setMap} regionLayer={regionLayer} />
+					{/*
+					 * Frame the ticked regions as the visible set changes — except while
+					 * one is focused, since focusing also ticks it and the region card
+					 * already frames that single boundary.
+					 */}
+					<MapCanvas
+						controls={{ layers: false }}
+						fitToData={focusedId === null}
+						onMapReady={setMap}
+						regionLayer={regionLayer}
+					/>
 					{focusedId === null ? null : (
 						<RegionMapCard id={focusedId} map={map} onClose={() => setFocusedId(null)} />
 					)}

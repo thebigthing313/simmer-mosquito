@@ -1,6 +1,7 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
+import { type MapExtent, readMapExtent } from './map-extent.js';
 
 export interface HabitatMvtTileFilters {
 	readonly isActive?: boolean;
@@ -339,15 +340,41 @@ export async function searchHabitatSites(
 	return result.rows;
 }
 
+/**
+ * Extent of every habitat matching the tile filters, ignoring the viewport —
+ * what the explorer map frames on load and after a filter change.
+ */
+export async function getHabitatMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string; readonly filters?: HabitatMvtTileFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`h.geom`,
+		from: sql`habitats h`,
+		where: habitatFilterWhereClauses(input),
+	});
+}
+
+/** Filter predicates narrowed to a `bounds` CTE — the tile + bbox reads. */
 function habitatSpatialWhereClauses(input: {
+	readonly organizationId: string;
+	readonly filters?: HabitatMvtTileFilters;
+}): RawBuilder<boolean>[] {
+	return [
+		...habitatFilterWhereClauses(input),
+		sql<boolean>`h.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(h.geom, bounds.geom_4326)`,
+	];
+}
+
+/** Tenancy + filter predicates, shared by the tile, bbox, and extent reads. */
+function habitatFilterWhereClauses(input: {
 	readonly organizationId: string;
 	readonly filters?: HabitatMvtTileFilters;
 }): RawBuilder<boolean>[] {
 	const whereClauses: RawBuilder<boolean>[] = [
 		sql<boolean>`h.organization_id = ${input.organizationId}`,
 		sql<boolean>`h.deleted_at is null`,
-		sql<boolean>`h.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(h.geom, bounds.geom_4326)`,
 	];
 
 	if (input.filters?.isActive !== undefined) {

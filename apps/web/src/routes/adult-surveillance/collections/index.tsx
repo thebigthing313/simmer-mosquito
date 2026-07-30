@@ -178,6 +178,7 @@ function CollectionsExplorerRoute() {
 					<MapCanvas
 						collectionLayer={collectionLayer}
 						controls={{ layers: false }}
+						fitToData
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (

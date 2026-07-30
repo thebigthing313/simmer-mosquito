@@ -180,6 +180,7 @@ function BiocontrolExplorerRoute() {
 					<MapCanvas
 						biocontrolLayer={biocontrolLayer}
 						controls={{ layers: false }}
+						fitToData
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (

@@ -262,6 +262,7 @@ function SamplesExplorerRoute() {
 				<>
 					<MapCanvas
 						controls={{ layers: false }}
+						fitToData
 						onMapReady={handleMapReady}
 						sampleLayer={sampleLayer}
 					/>
