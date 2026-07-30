@@ -1,4 +1,4 @@
-import type { HabitatRow, UnitRow } from '@simmer-mosquito/sync';
+import type { HabitatRow, InsecticideRow, UnitRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 
 // Shared labelling for the control-operations routes. Control actions reference
@@ -12,6 +12,14 @@ export function habitatDisplayName(habitat: HabitatRow): string {
 		return name;
 	}
 	return `Habitat ${habitat.id.slice(0, 8)}`;
+}
+
+/**
+ * Insecticides display by trade name everywhere. `shorthand` is an agency's
+ * internal abbreviation for data entry, not a name operators should have to read.
+ */
+export function insecticideDisplayName(insecticide: InsecticideRow): string {
+	return insecticide.tradeName;
 }
 
 /** `12 gal` — the compact amount+unit pairing used across tables and cards. */

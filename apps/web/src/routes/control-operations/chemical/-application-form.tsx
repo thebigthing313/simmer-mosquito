@@ -10,13 +10,6 @@ import type {
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@simmer-mosquito/ui-web/components/ui/select';
 import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
@@ -39,10 +32,11 @@ import { useAppForm } from '../../../forms';
 import {
 	customFieldCount,
 	customSchemaFor,
+	type FieldOption,
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
-import { todayDateValue, unitOptions } from '../-control-display';
+import { insecticideDisplayName, todayDateValue, unitOptions } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 
@@ -182,29 +176,54 @@ export function ApplicationFormPage({
 
 	// Inactive catalog rows stay selectable when they are already on the record, so
 	// editing an old application never silently drops its product or method.
-	const insecticideChoices = useMemo(
-		() => keepActiveAndSelected(insecticides, defaultValues.insecticideId, (row) => row.isActive),
+	const insecticideOptions = useMemo(
+		() =>
+			selectableOptions(
+				insecticides,
+				defaultValues.insecticideId,
+				(row) => row.isActive,
+				insecticideDisplayName,
+			),
 		[insecticides, defaultValues.insecticideId],
 	);
-	const methodChoices = useMemo(
+	const methodOptions = useMemo(
 		() =>
-			keepActiveAndSelected(
+			selectableOptions(
 				applicationMethods,
 				defaultValues.applicationMethodId,
 				(row) => row.isActive,
+				(row) => row.name,
 			),
 		[applicationMethods, defaultValues.applicationMethodId],
 	);
-	const profileChoices = useMemo(
-		() => keepActiveAndSelected(profiles, defaultValues.applicatorProfileId, (row) => row.isActive),
+	const profileOptions = useMemo(
+		() =>
+			selectableOptions(
+				profiles,
+				defaultValues.applicatorProfileId,
+				(row) => row.isActive,
+				(row) => row.displayName,
+			),
 		[profiles, defaultValues.applicatorProfileId],
 	);
-	const vehicleChoices = useMemo(
-		() => keepActiveAndSelected(vehicles, defaultValues.vehicleId, (row) => row.isActive),
+	const vehicleOptions = useMemo(
+		() =>
+			selectableOptions(
+				vehicles,
+				defaultValues.vehicleId,
+				(row) => row.isActive,
+				(row) => row.vehicleName,
+			),
 		[vehicles, defaultValues.vehicleId],
 	);
-	const equipmentChoices = useMemo(
-		() => keepActiveAndSelected(equipment, defaultValues.equipmentId, (row) => row.isActive),
+	const equipmentOptions = useMemo(
+		() =>
+			selectableOptions(
+				equipment,
+				defaultValues.equipmentId,
+				(row) => row.isActive,
+				(row) => row.equipmentName,
+			),
 		[equipment, defaultValues.equipmentId],
 	);
 	const applicationUnitOptions = useMemo(() => unitOptions(units, isApplicationUnitType), [units]);
@@ -365,27 +384,23 @@ export function ApplicationFormPage({
 							<FormSection title="Product">
 								<form.AppField name="insecticideId">
 									{(field) => (
-										<SelectControl
+										<field.AutocompleteField
+											emptyValue=""
 											label="Insecticide"
-											onChange={(next) => {
+											onValueChange={(next, previousValue) => {
 												// The unit follows the product's default usage unit unless the
 												// user has explicitly chosen a different one.
-												const previous = insecticides.find((row) => row.id === field.state.value);
+												const previous = insecticides.find((row) => row.id === previousValue);
 												const currentUnit = form.state.values.applicationUnitId;
 												const unitIsDerived =
 													currentUnit === '' || currentUnit === previous?.defaultUnitId;
-												field.handleChange(next);
 												if (unitIsDerived) {
 													const chosen = insecticides.find((row) => row.id === next);
 													form.setFieldValue('applicationUnitId', chosen?.defaultUnitId ?? '');
 												}
 											}}
-											options={insecticideChoices.map((row) => ({
-												label: insecticideLabel(row),
-												value: row.id,
-											}))}
-											placeholder="Select insecticide"
-											value={field.state.value}
+											options={insecticideOptions}
+											placeholder="Search insecticides"
 										/>
 									)}
 								</form.AppField>
@@ -422,23 +437,18 @@ export function ApplicationFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Application method (optional)"
-												options={optionalOptions(
-													methodChoices.map((row) => ({ label: row.name, value: row.id })),
-													'No method',
-												)}
+												options={optionalOptions(methodOptions, 'No method')}
 												placeholder="No method"
 											/>
 										)}
 									</form.AppField>
 									<form.AppField name="applicatorProfileId">
 										{(field) => (
-											<field.SelectField
+											<field.AutocompleteField
+												emptyValue={noSelectionValue}
 												label="Applicator (optional)"
-												options={optionalOptions(
-													profileChoices.map((row) => ({ label: row.displayName, value: row.id })),
-													'Unassigned',
-												)}
-												placeholder="Unassigned"
+												options={profileOptions}
+												placeholder="Unassigned — search profiles"
 											/>
 										)}
 									</form.AppField>
@@ -446,10 +456,7 @@ export function ApplicationFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Vehicle (optional)"
-												options={optionalOptions(
-													vehicleChoices.map((row) => ({ label: row.vehicleName, value: row.id })),
-													'No vehicle',
-												)}
+												options={optionalOptions(vehicleOptions, 'No vehicle')}
 												placeholder="No vehicle"
 											/>
 										)}
@@ -458,13 +465,7 @@ export function ApplicationFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Equipment (optional)"
-												options={optionalOptions(
-													equipmentChoices.map((row) => ({
-														label: row.equipmentName,
-														value: row.id,
-													})),
-													'No equipment',
-												)}
+												options={optionalOptions(equipmentOptions, 'No equipment')}
 												placeholder="No equipment"
 											/>
 										)}
@@ -556,66 +557,31 @@ function DateControl({
 	);
 }
 
-/**
- * A select whose change handler can touch sibling fields (the insecticide drives
- * the unit), which the shared `SelectField` does not expose.
- */
-function SelectControl({
-	label,
-	options,
-	placeholder,
-	value,
-	onChange,
-}: {
-	readonly label: string;
-	readonly options: readonly { readonly label: string; readonly value: string }[];
-	readonly placeholder: string;
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
-			<Select onValueChange={onChange} value={value}>
-				<SelectTrigger aria-label={label} className="w-full">
-					<SelectValue placeholder={placeholder} />
-				</SelectTrigger>
-				<SelectContent>
-					{options.map((option) => (
-						<SelectItem key={option.value} value={option.value}>
-							{option.label}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-		</div>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
-
-export function insecticideLabel(insecticide: InsecticideRow): string {
-	return insecticide.shorthand ?? insecticide.tradeName;
-}
 
 /** Prepend the "not set" sentinel every optional select needs. */
 function optionalOptions(
-	options: readonly { readonly label: string; readonly value: string }[],
+	options: readonly FieldOption[],
 	emptyLabel: string,
-): readonly { readonly label: string; readonly value: string }[] {
+): readonly FieldOption[] {
 	return [{ label: emptyLabel, value: noSelectionValue }, ...options];
 }
 
 /**
- * Active rows, plus whatever the record already references — a deactivated
- * product or vehicle must stay visible on the row that used it.
+ * Options for a catalog select: active rows, plus whatever the record already
+ * references — a deactivated product or vehicle must stay visible on the row that
+ * used it — sorted by label so long catalogs stay scannable.
  */
-function keepActiveAndSelected<TRow extends { readonly id: string }>(
+function selectableOptions<TRow extends { readonly id: string }>(
 	rows: readonly TRow[],
 	selectedId: string,
 	isActive: (row: TRow) => boolean,
-): readonly TRow[] {
-	return rows.filter((row) => isActive(row) || row.id === selectedId);
+	toLabel: (row: TRow) => string,
+): readonly FieldOption[] {
+	return rows
+		.filter((row) => isActive(row) || row.id === selectedId)
+		.map((row) => ({ label: toLabel(row), value: row.id }))
+		.sort((first, second) => first.label.localeCompare(second.label));
 }
 
 function validate(values: ApplicationFormValues): string | null {

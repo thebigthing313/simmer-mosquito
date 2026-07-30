@@ -82,6 +82,7 @@ import {
 	updateInsecticideFromValues,
 	watchPersistence,
 } from '../../my-organization/-components/helpers';
+import { insecticideDisplayName } from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/chemical/insecticides')({
 	component: InsecticidesRoute,
@@ -1192,7 +1193,7 @@ function unitOption(unit: UnitRow) {
 
 function insecticideOption(insecticide: InsecticideRow) {
 	return {
-		label: insecticide.shorthand ?? insecticide.tradeName,
+		label: insecticideDisplayName(insecticide),
 		value: insecticide.id,
 	};
 }

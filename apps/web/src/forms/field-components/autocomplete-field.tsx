@@ -35,8 +35,20 @@ export interface AutocompleteFieldProps<TOption extends AutocompleteOption = Aut
 	readonly getOptions?:
 		| ((query: string) => readonly TOption[] | Promise<readonly TOption[]>)
 		| undefined;
+	/**
+	 * The row behind the current value, when the caller already has it. Omit for a
+	 * static `options` list — the field resolves the selection from it by value.
+	 */
 	readonly selectedOption?: TOption | null | undefined;
-	readonly emptyValue?: null | undefined;
+	/** What clearing writes back. Use `''` for fields typed as a plain string. */
+	readonly emptyValue?: string | null | undefined;
+	/**
+	 * Runs after the field value changes, with the outgoing value — for selections
+	 * that drive a sibling field (a product's default unit, say).
+	 */
+	readonly onValueChange?:
+		| ((value: string | null | undefined, previousValue: string | null | undefined) => void)
+		| undefined;
 	readonly debounceMs?: number | undefined;
 	readonly minQueryLength?: number | undefined;
 	readonly getOptionLabel?: ((option: TOption) => string) | undefined;
@@ -54,6 +66,7 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 	getOptions,
 	selectedOption,
 	emptyValue = null,
+	onValueChange,
 	debounceMs = 150,
 	minQueryLength = 0,
 	getOptionLabel = defaultOptionLabel,
@@ -65,30 +78,68 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 }: AutocompleteFieldProps<TOption>) {
 	const field = useFieldContext<string | null | undefined>();
 	const [open, setOpen] = useState(false);
-	const [query, setQuery] = useState(() =>
-		selectedOptionLabel(selectedOption, getOptionLabel, field.state.value),
-	);
-	const [results, setResults] = useState<readonly TOption[]>([]);
+	const optionSource = useMemo(() => options ?? [], [options]);
+	// With a static list the caller need not track the selected row: a prefilled
+	// value (editing an existing record) resolves to its label here, so the input
+	// never shows a raw id.
+	const currentOption = useMemo(() => {
+		if (selectedOption !== undefined) {
+			return selectedOption;
+		}
+		const value = field.state.value;
+		if (value === null || value === undefined || value === '') {
+			return null;
+		}
+		return optionSource.find((option) => getOptionValue(option) === value) ?? null;
+	}, [field.state.value, getOptionValue, optionSource, selectedOption]);
+	// An async source cannot resolve a preset value locally, so the raw value stands
+	// in. A static list either resolved above or holds a sentinel ("no selection"),
+	// and either way the placeholder beats printing an id.
+	const displayLabel =
+		currentOption === null
+			? options === undefined
+				? (field.state.value ?? '')
+				: ''
+			: getOptionLabel(currentOption);
+	const [query, setQuery] = useState(displayLabel);
+	const [asyncResults, setAsyncResults] = useState<readonly TOption[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
-	const [selected, setSelected] = useState<TOption | null>(selectedOption ?? null);
+	const [selected, setSelected] = useState<TOption | null>(currentOption);
 	const requestId = useRef(0);
 	const anchorRef = useRef<HTMLDivElement>(null);
-	const optionSource = useMemo(() => options ?? [], [options]);
 
-	useEffect(() => {
-		setSelected(selectedOption ?? null);
-		if (!open) {
-			setQuery(selectedOptionLabel(selectedOption, getOptionLabel, field.state.value));
+	// Reopening a chosen field: the input holds the selection's own label, and
+	// filtering by it would collapse the list to the one row already picked. Only
+	// what the user actually typed narrows the list.
+	const activeQuery = query === displayLabel ? '' : query;
+
+	// A static list filters in place. Debouncing it would open the popover at the
+	// previous query's size and resize it a beat later, moving it under the pointer.
+	const results = useMemo(() => {
+		if (getOptions !== undefined) {
+			return asyncResults;
 		}
-	}, [field.state.value, getOptionLabel, open, selectedOption]);
+		if (activeQuery.length < minQueryLength) {
+			return [];
+		}
+		return filterOptions(optionSource, activeQuery, getOptionLabel);
+	}, [activeQuery, asyncResults, getOptionLabel, getOptions, minQueryLength, optionSource]);
 
 	useEffect(() => {
+		setSelected(currentOption);
 		if (!open) {
+			setQuery(displayLabel);
+		}
+	}, [currentOption, displayLabel, open]);
+
+	// Only a remote source needs debouncing — and only while the popover is open.
+	useEffect(() => {
+		if (!open || getOptions === undefined) {
 			return;
 		}
 
-		if (query.length < minQueryLength) {
-			setResults([]);
+		if (activeQuery.length < minQueryLength) {
+			setAsyncResults([]);
 			setIsLoading(false);
 			return;
 		}
@@ -96,16 +147,14 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 		const currentRequestId = requestId.current + 1;
 		requestId.current = currentRequestId;
 		const timeoutId = window.setTimeout(() => {
-			const source =
-				getOptions ?? ((search: string) => filterOptions(optionSource, search, getOptionLabel));
-			const nextResults = source(query);
+			const nextResults = getOptions(activeQuery);
 
 			if (isPromiseLike(nextResults)) {
 				setIsLoading(true);
 				void nextResults
 					.then((resolvedResults) => {
 						if (requestId.current === currentRequestId) {
-							setResults(resolvedResults);
+							setAsyncResults(resolvedResults);
 						}
 					})
 					.finally(() => {
@@ -116,12 +165,12 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 				return;
 			}
 
-			setResults(nextResults);
+			setAsyncResults(nextResults);
 			setIsLoading(false);
 		}, debounceMs);
 
 		return () => window.clearTimeout(timeoutId);
-	}, [debounceMs, getOptionLabel, getOptions, minQueryLength, open, optionSource, query]);
+	}, [activeQuery, debounceMs, getOptions, minQueryLength, open]);
 
 	return (
 		<FormFieldFrame
@@ -151,7 +200,10 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 					</PopoverAnchor>
 					<PopoverContent
 						align="start"
-						className="grid w-(--radix-popover-trigger-width) min-w-72 gap-2 p-2"
+						// No exit animation: a closing popover stays mounted for it, and Popper
+						// keeps re-positioning it — a content change on the way out (see the
+						// selection footer below) would flip it above the input mid-fade.
+						className="grid w-(--radix-popover-trigger-width) min-w-72 gap-2 p-2 data-[state=closed]:animate-none"
 						onInteractOutside={(event) => {
 							// Opening on focus, the same pointer-down lands on the anchor input —
 							// which is outside the content — and would immediately dismiss the
@@ -170,9 +222,11 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 								isLoading={isLoading}
 								onSelect={(option) => {
 									const value = getOptionValue(option);
+									const previousValue = field.state.value;
 									setSelected(option);
 									setQuery(getOptionLabel(option));
 									field.handleChange(value);
+									onValueChange?.(value, previousValue);
 									setOpen(false);
 								}}
 								renderOption={renderOption}
@@ -180,7 +234,9 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 								selectedValue={field.state.value}
 							/>
 						</div>
-						{selected === null ? null : (
+						{/* Only while open: selecting closes the popover, and growing it on the
+						    way out is what makes it jump. Reopening shows the selection. */}
+						{open && selected !== null ? (
 							<div className="flex min-w-0 items-center gap-2 border-t pt-2">
 								<div className="min-w-0 flex-1">
 									<p className="m-0 text-xs font-medium text-muted-foreground">Selected</p>
@@ -195,15 +251,17 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 									aria-label="Clear selection"
 									disabled={disabled}
 									onClick={() => {
+										const previousValue = field.state.value;
 										setSelected(null);
 										setQuery('');
 										field.handleChange(emptyValue);
+										onValueChange?.(emptyValue, previousValue);
 									}}
 								>
 									<XIcon aria-hidden="true" />
 								</Button>
 							</div>
-						)}
+						) : null}
 					</PopoverContent>
 				</Popover>
 			)}
@@ -305,16 +363,4 @@ function filterOptions<TOption extends AutocompleteOption>(
 
 function isPromiseLike<T>(value: T | Promise<T>): value is Promise<T> {
 	return typeof (value as Promise<T>).then === 'function';
-}
-
-function selectedOptionLabel<TOption extends AutocompleteOption>(
-	option: TOption | null | undefined,
-	getOptionLabel: (option: TOption) => string,
-	fallback: string | null | undefined,
-): string {
-	if (option !== null && option !== undefined) {
-		return getOptionLabel(option);
-	}
-
-	return fallback ?? '';
 }
