@@ -154,7 +154,6 @@ function EditTrapLoader({
 				backLabel: 'Back to trap',
 			}}
 			initialGeometry={pointFromTrap(trap)}
-			initialPreviewGeometry={pointFromTrap(trap) as unknown as GeoJsonGeometry}
 			onSave={onSave}
 			organizationId={trap.organizationId}
 			requireLocation={false}

@@ -40,7 +40,7 @@ export function contactSecondaryLine(contact: ContactRow): string | null {
 
 // The one-line full postal address shared by every card (moved to a neutral home
 // so surveillance/control cards can render addresses the SR-card way).
-export { formatAddressLine } from '../-address-format';
+export { formatAddressLine } from '../../lib/address-format';
 
 const INTAKE_TYPE_LABELS: Readonly<Record<string, string>> = {
 	online: 'Online',

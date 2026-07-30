@@ -20,8 +20,8 @@ import type { DrawGeometry, DrawGeometryType, MapDrawController } from './use-ma
  *
  * Which types a given record may store is a domain decision, not a UI one — see
  * `OWNED_GEOMETRY_POLICIES` in `packages/domain/src/shared.ts`. Callers pass the
- * matching `allowedTypes`; point-only records (address, trap, collection,
- * service request, weather station) keep their own dedicated point controls.
+ * matching `allowedTypes`: {@link LOCATABLE_DRAW_TYPES} for records that may hold
+ * any shape, {@link POINT_DRAW_TYPES} for the point-only ones.
  */
 
 const GEOMETRY_TYPE_LABELS: Readonly<Record<DrawGeometryType, string>> = {
@@ -33,11 +33,19 @@ const GEOMETRY_TYPE_LABELS: Readonly<Record<DrawGeometryType, string>> = {
 /** The full locatable set — matches the domain's `LOCATABLE_GEOMETRY_TYPES`. */
 export const LOCATABLE_DRAW_TYPES: readonly DrawGeometryType[] = ['Point', 'LineString', 'Polygon'];
 
+/**
+ * The point-only set — matches the domain's `ADDRESS_GEOMETRY_TYPES`, the policy
+ * behind addresses, traps, collections, service requests, and weather stations.
+ * A single allowed type renders the control without its type toggle.
+ */
+export const POINT_DRAW_TYPES: readonly DrawGeometryType[] = ['Point'];
+
 export interface GeometryControlProps {
 	readonly controller: MapDrawController;
 	readonly geometry: DrawGeometry | null;
 	readonly geometryType: DrawGeometryType;
-	readonly onTypeChange: (type: DrawGeometryType) => void;
+	/** Unused when the record's policy allows one type — the toggle never renders. */
+	readonly onTypeChange?: (type: DrawGeometryType) => void;
 	readonly onDraw: () => void;
 	readonly onClear: () => void;
 	/** Types this record's geometry policy allows. Defaults to all three. */
@@ -87,7 +95,7 @@ export function GeometryControl({
 					disabled={isBusy}
 					onValueChange={(next) => {
 						if (isDrawGeometryType(next) && allowedTypes.includes(next)) {
-							onTypeChange(next);
+							onTypeChange?.(next);
 						}
 					}}
 					size="sm"

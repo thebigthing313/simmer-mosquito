@@ -1,11 +1,14 @@
 import type { AddressRow } from '@simmer-mosquito/sync';
-import { and, eq, ilike, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useRef, useState } from 'react';
+import { addressPrimaryLabel, addressSecondaryLabel } from '../../lib/address-format';
 import { webCollections } from '../../sync/webCollections';
-import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
+import { OptionRow, PickerFallback, PickerFrame, useSelectedRowLabel } from './entity-picker';
 
-// Addresses sync on demand, so the results come from a live `ilike` subset query
-// rather than a client-side filter over an eager set.
+// Addresses sync on demand, so the results come from a live subset query (an
+// `ilike` across the name and the postal fields) rather than a client-side filter
+// over an eager set. Every row reads the same way: the address's name on top, its
+// full postal line beneath.
 
 const searchGcTimeMs = 30_000;
 
@@ -22,16 +25,24 @@ export function AddressPicker({
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
-	const [selectedLabel, setSelectedLabel] = useState('');
+	const [pickedLabel, setPickedLabel] = useState('');
 	const deferredSearch = useDeferredValue(search);
 	const anchorRef = useRef<HTMLDivElement>(null);
+	// An edit form arrives holding only the address id, so the current selection is
+	// resolved from the collection rather than left as an empty-looking field.
+	const selectedLabel = useSelectedRowLabel({
+		collection: webCollections.addresses,
+		pickedLabel,
+		toLabel: addressPrimaryLabel,
+		value,
+	});
 
 	return (
 		<PickerFrame
 			anchorRef={anchorRef}
 			label={label}
 			onClear={() => {
-				setSelectedLabel('');
+				setPickedLabel('');
 				setSearch('');
 				onSelect(null);
 			}}
@@ -49,8 +60,9 @@ export function AddressPicker({
 		>
 			<AddressResults
 				onSelect={(address) => {
-					setSelectedLabel(address.displayName);
-					setSearch(address.displayName);
+					const name = addressPrimaryLabel(address);
+					setPickedLabel(name);
+					setSearch(name);
 					onSelect(address);
 					setOpen(false);
 				}}
@@ -88,7 +100,12 @@ function AddressResults({
 						: base.where(({ address }) =>
 								and(
 									eq(address.organizationId, organizationId),
-									ilike(address.displayName, pattern),
+									or(
+										ilike(address.displayName, pattern),
+										ilike(address.addressLine1, pattern),
+										ilike(address.locality, pattern),
+										ilike(address.postalCode, pattern),
+									),
 								),
 							);
 				return filtered.orderBy(({ address }) => address.displayName, 'asc').limit(6);
@@ -114,12 +131,8 @@ function AddressResults({
 				<OptionRow
 					key={address.id}
 					onSelect={() => onSelect(address)}
-					primary={address.displayName}
-					secondary={
-						typeof address.lat === 'number' && typeof address.lng === 'number'
-							? null
-							: 'No coordinates on file'
-					}
+					primary={addressPrimaryLabel(address)}
+					secondary={addressSecondaryLabel(address)}
 					selected={address.id === selectedValue}
 				/>
 			))}

@@ -1,5 +1,5 @@
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
-	AddressRow,
 	CollectionLureRow,
 	CollectionMethodRow,
 	CollectionTimingMode,
@@ -11,13 +11,20 @@ import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { ArrowLeftIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
+import {
+	DrawToolbar,
+	GeometryControl,
+	POINT_DRAW_TYPES,
+	useFitToGeometry,
+} from '../../../components/map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
 import {
@@ -27,7 +34,6 @@ import {
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
-import { PointControl } from '../traps/-trap-form';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
 
@@ -147,10 +153,6 @@ export function CollectionFormPage({
 	);
 	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
 	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [addressCoord, setAddressCoord] = useState<{
-		readonly lat: number;
-		readonly lng: number;
-	} | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [locationError, setLocationError] = useState<string | null>(null);
 
@@ -171,60 +173,50 @@ export function CollectionFormPage({
 
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const draw = useMapDraw({ map, isLoaded: map !== null, value: null, onChange: () => undefined });
-	const { requestPoint } = draw;
+	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
+		setGeometry(next);
+		setGeometryChanged(true);
+		if (next !== null) {
+			setLocationError(null);
+		}
+	}, []);
+	// The draw layer renders and edits the collection's own point; the trap's point
+	// is separate reference geometry, so only it needs a map feature of its own.
+	const draw = useMapDraw({
+		map,
+		isLoaded: map !== null,
+		value: geometry,
+		onChange: handleGeometryChange,
+	});
+	const { start } = draw;
 
 	// In trap mode the collection inherits the trap's point; in ad-hoc mode it
 	// carries its own drawn point (the address, if any, is reference only).
-	const previewCoord =
-		selectedTrap !== null
-			? { lat: selectedTrap.lat, lng: selectedTrap.lng }
-			: geometry !== null && geometry.type === 'Point'
-				? { lat: geometry.coordinates[1], lng: geometry.coordinates[0] }
-				: null;
-	useFlyTo(map, previewCoord);
-
-	const previewGeoJson =
-		previewCoord === null
-			? null
-			: ({
-					type: 'Feature',
-					properties: {},
-					geometry: { type: 'Point', coordinates: [previewCoord.lng, previewCoord.lat] },
-				} as GeoJSON.Feature);
-
-	// Selecting an address never overwrites a placed point — it just frames the map
-	// and, when no point exists yet, seeds one so the required geometry has a start.
-	const handleAddressSelected = useCallback(
-		(coord: { readonly lat: number; readonly lng: number } | null) => {
-			setLocationError(null);
-			setAddressCoord(coord);
-			if (coord !== null && geometry === null) {
-				setGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
-				setGeometryChanged(true);
-			}
-		},
-		[geometry],
+	const trapPoint = useMemo<GeoJsonGeometry | null>(
+		() =>
+			selectedTrap === null
+				? null
+				: ({ type: 'Point', coordinates: [selectedTrap.lng, selectedTrap.lat] } as GeoJsonGeometry),
+		[selectedTrap],
 	);
+	// The collection's own point is framed last so it wins when a trap pick and a
+	// draw land on the same render.
+	useFitToGeometry(map, trapPoint, draw.isDrawing);
+	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
-	const requestCollectionPoint = useCallback(async () => {
-		setLocationError(null);
-		try {
-			const point = await requestPoint('Click the map to place the collection point.');
-			setGeometry(point);
-			setGeometryChanged(true);
-		} catch {
-			// Draw cancelled (Esc / mode switch); keep the prior point.
-		}
-	}, [requestPoint]);
-
-	const moveToAddress = useCallback(() => {
-		if (addressCoord === null) {
-			return;
-		}
-		setGeometry({ type: 'Point', coordinates: [addressCoord.lng, addressCoord.lat] });
+	const placeAddressPoint = useCallback((point: DrawPoint) => {
+		setGeometry(point);
 		setGeometryChanged(true);
-	}, [addressCoord]);
+	}, []);
+	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+		geometry,
+		onPlacePoint: placeAddressPoint,
+	});
+
+	const startDraw = useCallback(() => {
+		setLocationError(null);
+		start('Point');
+	}, [start]);
 
 	const clearPoint = useCallback(() => {
 		setGeometry(null);
@@ -264,15 +256,14 @@ export function CollectionFormPage({
 				<>
 					<MapCanvas
 						controls={{ layers: false }}
-						geoJson={previewGeoJson}
+						geoJson={trapPoint as unknown as GeoJSON.GeoJSON | null}
 						onMapReady={handleMapReady}
 					/>
-					{draw.isRequestingPoint ? (
-						<MapPrompt>
-							<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />
-							Click the map to place the collection point. Press Esc to cancel.
-						</MapPrompt>
-					) : null}
+					<DrawToolbar
+						controller={draw}
+						geometryType="Point"
+						pointPrompt="Click the map to place the collection point."
+					/>
 				</>
 			}
 		>
@@ -399,30 +390,29 @@ export function CollectionFormPage({
 														The point is this collection’s exact location. An address is optional
 														reference — refine the point off it to the precise spot.
 													</p>
-													<div className="grid gap-1.5">
-														<span className="font-medium text-foreground text-sm">
-															Address (optional)
-														</span>
-														<form.AppField name="addressId">
-															{(field) => (
-																<AddressPicker
-																	onSelect={(address) => {
-																		field.handleChange(address?.id ?? null);
-																		handleAddressSelected(coordOf(address));
-																	}}
-																	organizationId={organizationId}
-																	value={field.state.value}
-																/>
-															)}
-														</form.AppField>
-													</div>
-													<PointControl
-														canMoveToAddress={addressCoord !== null}
+													<form.AppField name="addressId">
+														{(field) => (
+															<AddressPicker
+																label="Address (optional)"
+																onSelect={(address) => {
+																	field.handleChange(address?.id ?? null);
+																	setLocationError(null);
+																	selectAddress(address);
+																}}
+																organizationId={organizationId}
+																value={field.state.value}
+															/>
+														)}
+													</form.AppField>
+													<GeometryControl
+														allowedTypes={POINT_DRAW_TYPES}
+														controller={draw}
 														geometry={geometry}
-														isDrawing={draw.isRequestingPoint}
+														geometryType="Point"
+														label="Point (required)"
 														onClear={clearPoint}
-														onMoveToAddress={moveToAddress}
-														onRequestPoint={requestCollectionPoint}
+														onDraw={startDraw}
+														{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 													/>
 													{locationError === null ? null : (
 														<p className="m-0 text-destructive text-sm">{locationError}</p>
@@ -662,16 +652,6 @@ function FormSection({
 	);
 }
 
-function MapPrompt({ children }: { readonly children: React.ReactNode }) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in">
-			<p className="m-0 inline-flex items-center gap-2 rounded-md border border-border/60 bg-card/95 px-3 py-2 text-foreground text-sm shadow-lg backdrop-blur-sm">
-				{children}
-			</p>
-		</div>
-	);
-}
-
 // --- validation + helpers ---------------------------------------------------
 
 function validate(values: CollectionFormValues): string | null {
@@ -706,27 +686,6 @@ function unitOptions(units: readonly UnitRow[]) {
 
 function profileOptions(profiles: readonly ProfileRow[]) {
 	return profiles.map((profile) => ({ label: profile.displayName, value: profile.id }));
-}
-
-function coordOf(
-	address: AddressRow | null,
-): { readonly lat: number; readonly lng: number } | null {
-	if (address === null || typeof address.lat !== 'number' || typeof address.lng !== 'number') {
-		return null;
-	}
-	return { lat: address.lat, lng: address.lng };
-}
-
-function useFlyTo(
-	map: MapboxMap | null,
-	coord: { readonly lat: number; readonly lng: number } | null,
-): void {
-	useEffect(() => {
-		if (map === null || coord === null) {
-			return;
-		}
-		map.flyTo({ center: [coord.lng, coord.lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
-	}, [map, coord]);
 }
 
 /** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */

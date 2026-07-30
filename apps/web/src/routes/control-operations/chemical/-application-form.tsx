@@ -1,6 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
-	AddressRow,
 	ControlMethodRow,
 	EquipmentRow,
 	InsecticideRow,
@@ -30,6 +29,7 @@ import {
 	GeometryControl,
 	useFitToGeometry,
 } from '../../../components/map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
@@ -159,10 +159,6 @@ export function ApplicationFormPage({
 		initialGeometry?.type ?? 'Point',
 	);
 	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [addressCoord, setAddressCoord] = useState<{
-		readonly lat: number;
-		readonly lng: number;
-	} | null>(null);
 	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -235,27 +231,17 @@ export function ApplicationFormPage({
 		},
 	});
 
-	// Selecting an address never overwrites geometry the user already drew — the
-	// address is reference only. It just frames the map and, when nothing is drawn
-	// yet, seeds a point at the address so the required geometry starts somewhere
-	// sane.
-	const handleAddressSelected = useCallback(
-		(address: AddressRow | null) => {
-			setLocationError(null);
-			if (address === null || typeof address.lat !== 'number' || typeof address.lng !== 'number') {
-				setAddressCoord(null);
-				return;
-			}
-			const coord = { lat: address.lat, lng: address.lng };
-			setAddressCoord(coord);
-			if (geometry === null) {
-				setGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
-				setGeometryType('Point');
-				setGeometryChanged(true);
-			}
-		},
-		[geometry],
-	);
+	// Seeding from an address (or moving onto one) replaces the drawn shape with a
+	// point, so the tool selector follows it.
+	const placeAddressPoint = useCallback((point: DrawPoint) => {
+		setGeometry(point);
+		setGeometryType('Point');
+		setGeometryChanged(true);
+	}, []);
+	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+		geometry,
+		onPlacePoint: placeAddressPoint,
+	});
 
 	// Switching tools replaces the shape, so the old one is cleared rather than
 	// silently saved under the wrong type.
@@ -275,15 +261,6 @@ export function ApplicationFormPage({
 		setLocationError(null);
 		start(geometryType);
 	}, [geometryType, start]);
-
-	const moveToAddress = useCallback(() => {
-		if (addressCoord === null) {
-			return;
-		}
-		setGeometry({ type: 'Point', coordinates: [addressCoord.lng, addressCoord.lat] });
-		setGeometryType('Point');
-		setGeometryChanged(true);
-	}, [addressCoord]);
 
 	const clearGeometry = useCallback(() => {
 		setGeometry(null);
@@ -354,21 +331,20 @@ export function ApplicationFormPage({
 									</span>
 								</div>
 
-								<div className="grid gap-1.5">
-									<span className="font-medium text-foreground text-sm">Address (optional)</span>
-									<form.AppField name="addressId">
-										{(field) => (
-											<AddressPicker
-												onSelect={(address) => {
-													field.handleChange(address?.id ?? null);
-													handleAddressSelected(address);
-												}}
-												organizationId={organizationId}
-												value={field.state.value}
-											/>
-										)}
-									</form.AppField>
-								</div>
+								<form.AppField name="addressId">
+									{(field) => (
+										<AddressPicker
+											label="Address (optional)"
+											onSelect={(address) => {
+												field.handleChange(address?.id ?? null);
+												setLocationError(null);
+												selectAddress(address);
+											}}
+											organizationId={organizationId}
+											value={field.state.value}
+										/>
+									)}
+								</form.AppField>
 
 								<GeometryControl
 									controller={draw}

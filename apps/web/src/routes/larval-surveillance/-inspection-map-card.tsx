@@ -22,8 +22,8 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
+import { addressCardLabel } from '../../lib/address-format';
 import { webCollections } from '../../sync/webCollections';
-import { addressCardLabel } from '../-address-format';
 import { densityLabel, hasAnyLifeStage, LifeStageStrip } from './-larval-display';
 
 const gcTimeMs = 30_000;

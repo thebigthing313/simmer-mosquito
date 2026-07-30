@@ -23,8 +23,8 @@ import {
 } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
 import { useMapCardTags } from '../../hooks/use-map-card-tags';
+import { addressCardLabel } from '../../lib/address-format';
 import { webCollections } from '../../sync/webCollections';
-import { addressCardLabel } from '../-address-format';
 import { trapCardTitle } from './-adult-display';
 
 const gcTimeMs = 30_000;

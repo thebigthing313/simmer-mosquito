@@ -13,8 +13,8 @@ import {
 } from '../../../components/map/map-card';
 import { TagBadge } from '../../../components/tag-badge';
 import { useMapCardTags } from '../../../hooks/use-map-card-tags';
+import { formatAddressLine } from '../../../lib/address-format';
 import { webCollections } from '../../../sync/webCollections';
-import { formatAddressLine } from '../../-address-format';
 import { useAddressGeometry } from './-address-data';
 
 const gcTimeMs = 30_000;

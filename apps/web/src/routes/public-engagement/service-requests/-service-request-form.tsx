@@ -1,21 +1,32 @@
 import { REQUEST_INTAKE_TYPES, type RequestIntakeType } from '@simmer-mosquito/domain';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow, ProfileRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { ArrowLeftIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import {
+	DrawToolbar,
+	GeometryControl,
+	POINT_DRAW_TYPES,
+	useFitToGeometry,
+} from '../../../components/map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
+import {
+	type DrawGeometry,
+	type MapDrawController,
+	useMapDraw,
+} from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import { useAppForm } from '../../../forms';
-import { PointControl } from '../../adult-surveillance/traps/-trap-form';
 
 export type ContactMode = 'existing' | 'new';
 export type AddressMode = 'existing' | 'new';
@@ -120,65 +131,47 @@ export function ServiceRequestFormPage({
 }: ServiceRequestFormPageProps) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [addressCoord, setAddressCoord] = useState<{
-		readonly lat: number;
-		readonly lng: number;
-	} | null>(null);
 	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const draw = useMapDraw({ map, isLoaded: map !== null, value: null, onChange: () => undefined });
-	const { requestPoint } = draw;
+	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
+		setGeometry(next);
+		if (next !== null) {
+			setLocationError(null);
+		}
+	}, []);
+	// The draw layer both renders the placed point and edits it, so the map needs no
+	// separate preview feature.
+	const draw = useMapDraw({
+		map,
+		isLoaded: map !== null,
+		value: geometry,
+		onChange: handleGeometryChange,
+	});
+	const { start } = draw;
 
 	const activeProfiles = useMemo(() => profiles.filter((profile) => profile.isActive), [profiles]);
 
-	const previewCoord =
-		geometry !== null && geometry.type === 'Point'
-			? { lat: geometry.coordinates[1], lng: geometry.coordinates[0] }
-			: null;
-	useFlyTo(map, previewCoord);
+	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
-	const previewGeoJson =
-		previewCoord === null
-			? null
-			: ({
-					type: 'Feature',
-					properties: {},
-					geometry: { type: 'Point', coordinates: [previewCoord.lng, previewCoord.lat] },
-				} as GeoJSON.Feature);
+	const placeAddressPoint = useCallback((point: DrawPoint) => setGeometry(point), []);
+	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+		geometry,
+		onPlacePoint: placeAddressPoint,
+	});
+	const handleAddressSelected = useCallback(
+		(address: AddressRow | null) => {
+			setLocationError(null);
+			selectAddress(address);
+		},
+		[selectAddress],
+	);
 
-	// Selecting an address never overwrites a placed point — it frames the map and,
-	// when no point exists yet, seeds one at the address so the request has a start.
-	const handleAddressSelected = useCallback((address: AddressRow | null) => {
+	const startDraw = useCallback(() => {
 		setLocationError(null);
-		if (address === null || typeof address.lat !== 'number' || typeof address.lng !== 'number') {
-			setAddressCoord(null);
-			return;
-		}
-		const coord = { lat: address.lat, lng: address.lng };
-		setAddressCoord(coord);
-		setGeometry((current) =>
-			current === null ? { type: 'Point', coordinates: [coord.lng, coord.lat] } : current,
-		);
-	}, []);
-
-	const requestRequestPoint = useCallback(async () => {
-		setLocationError(null);
-		try {
-			const point = await requestPoint('Click the map to place the request location.');
-			setGeometry(point);
-		} catch {
-			// Draw cancelled (Esc / mode switch); keep the prior point.
-		}
-	}, [requestPoint]);
-
-	const moveToAddress = useCallback(() => {
-		if (addressCoord === null) {
-			return;
-		}
-		setGeometry({ type: 'Point', coordinates: [addressCoord.lng, addressCoord.lat] });
-	}, [addressCoord]);
+		start('Point');
+	}, [start]);
 
 	const clearPoint = useCallback(() => setGeometry(null), []);
 
@@ -208,17 +201,12 @@ export function ServiceRequestFormPage({
 		<MapSplitPage
 			map={
 				<>
-					<MapCanvas
-						controls={{ layers: false }}
-						geoJson={previewGeoJson}
-						onMapReady={handleMapReady}
+					<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+					<DrawToolbar
+						controller={draw}
+						geometryType="Point"
+						pointPrompt="Click the map to place the request location."
 					/>
-					{draw.isRequestingPoint ? (
-						<MapPrompt>
-							<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />
-							Click the map to place the request location. Press Esc to cancel.
-						</MapPrompt>
-					) : null}
 				</>
 			}
 		>
@@ -266,15 +254,16 @@ export function ServiceRequestFormPage({
 							{hideLocation ? null : (
 								<LocationSection
 									addressCoord={addressCoord}
+									controller={draw}
 									form={form}
 									geometry={geometry}
-									isDrawing={draw.isRequestingPoint}
 									locationError={locationError}
-									onClearPoint={clearPoint}
 									onAddressSelected={handleAddressSelected}
+									onClearPoint={clearPoint}
+									onDrawPoint={startDraw}
 									onMoveToAddress={moveToAddress}
-									onRequestPoint={requestRequestPoint}
 									organizationId={organizationId}
+									requireLocation={requireLocation}
 								/>
 							)}
 
@@ -434,11 +423,12 @@ function LocationSection({
 	form,
 	organizationId,
 	geometry,
-	isDrawing,
+	controller,
 	addressCoord,
 	locationError,
+	requireLocation,
 	onAddressSelected,
-	onRequestPoint,
+	onDrawPoint,
 	onMoveToAddress,
 	onClearPoint,
 }: {
@@ -446,11 +436,12 @@ function LocationSection({
 	readonly form: any;
 	readonly organizationId: string;
 	readonly geometry: DrawGeometry | null;
-	readonly isDrawing: boolean;
+	readonly controller: MapDrawController;
 	readonly addressCoord: { readonly lat: number; readonly lng: number } | null;
 	readonly locationError: string | null;
+	readonly requireLocation: boolean;
 	readonly onAddressSelected: (address: AddressRow | null) => void;
-	readonly onRequestPoint: () => void;
+	readonly onDrawPoint: () => void;
 	readonly onMoveToAddress: () => void;
 	readonly onClearPoint: () => void;
 }) {
@@ -547,13 +538,15 @@ function LocationSection({
 					The point is the request’s exact location. Use an address to frame the map, then refine
 					the point to the precise spot.
 				</p>
-				<PointControl
-					canMoveToAddress={addressCoord !== null}
+				<GeometryControl
+					allowedTypes={POINT_DRAW_TYPES}
+					controller={controller}
 					geometry={geometry}
-					isDrawing={isDrawing}
+					geometryType="Point"
+					label={requireLocation ? 'Point (required)' : 'Point'}
 					onClear={onClearPoint}
-					onMoveToAddress={onMoveToAddress}
-					onRequestPoint={onRequestPoint}
+					onDraw={onDrawPoint}
+					{...(addressCoord === null ? {} : { onMoveToAddress })}
 				/>
 				{locationError === null ? null : (
 					<p className="m-0 text-destructive text-sm">{locationError}</p>
@@ -640,28 +633,6 @@ function FormSection({
 			{children}
 		</section>
 	);
-}
-
-function MapPrompt({ children }: { readonly children: React.ReactNode }) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in">
-			<p className="m-0 inline-flex items-center gap-2 rounded-md border border-border/60 bg-card/95 px-3 py-2 text-foreground text-sm shadow-lg backdrop-blur-sm">
-				{children}
-			</p>
-		</div>
-	);
-}
-
-function useFlyTo(
-	map: MapboxMap | null,
-	coord: { readonly lat: number; readonly lng: number } | null,
-): void {
-	useEffect(() => {
-		if (map === null || coord === null) {
-			return;
-		}
-		map.flyTo({ center: [coord.lng, coord.lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
-	}, [map, coord]);
 }
 
 function parseLocalDate(value: string): Date | undefined {

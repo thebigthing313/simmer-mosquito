@@ -2,7 +2,7 @@ import type { ContactRow } from '@simmer-mosquito/sync';
 import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useRef, useState } from 'react';
 import { webCollections } from '../../sync/webCollections';
-import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
+import { OptionRow, PickerFallback, PickerFrame, useSelectedRowLabel } from './entity-picker';
 
 // Contacts sync on demand, so the results come from a live subset query (an `ilike`
 // across the identity fields) rather than a client-side filter over an eager set.
@@ -23,16 +23,24 @@ export function ContactPicker({
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
-	const [selectedLabel, setSelectedLabel] = useState('');
+	const [pickedLabel, setPickedLabel] = useState('');
 	const deferredSearch = useDeferredValue(search);
 	const anchorRef = useRef<HTMLDivElement>(null);
+	// An edit form arrives holding only the contact id, so the current selection is
+	// resolved from the collection rather than left as an empty-looking field.
+	const selectedLabel = useSelectedRowLabel({
+		collection: webCollections.contacts,
+		pickedLabel,
+		toLabel: contactLabel,
+		value,
+	});
 
 	return (
 		<PickerFrame
 			anchorRef={anchorRef}
 			label={label}
 			onClear={() => {
-				setSelectedLabel('');
+				setPickedLabel('');
 				setSearch('');
 				onSelect(null);
 			}}
@@ -51,7 +59,7 @@ export function ContactPicker({
 			<ContactResults
 				onSelect={(contact) => {
 					const name = contactLabel(contact);
-					setSelectedLabel(name);
+					setPickedLabel(name);
 					setSearch(name);
 					onSelect(contact);
 					setOpen(false);

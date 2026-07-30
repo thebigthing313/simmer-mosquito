@@ -154,11 +154,13 @@ describe('sync descriptors', () => {
 		]);
 	});
 
-	it('syncs address book records on demand without generated geometry projections', () => {
+	it('syncs address book records on demand with centroid coordinates', () => {
 		expect(addressesSyncDescriptor.syncMode).toBe('on-demand');
 		expect(addressesSyncDescriptor.columns).toEqual([
 			'id',
 			'organizationId',
+			'lat',
+			'lng',
 			'displayName',
 			'country',
 			'addressLine1',

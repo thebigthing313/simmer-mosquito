@@ -106,8 +106,9 @@ function toAddressUpdatePayload(original: Partial<AddressRow>, modified: Address
 			body[key] = modified[key] ?? null;
 		}
 	}
-	// Geometry is not part of the synced row, so a moved point shows up as a changed
-	// geojson on the optimistic draft; forward it only when it actually changed.
+	// The drawable geojson is not part of the synced row, so a moved point shows up
+	// as a changed geojson on the optimistic draft; forward it only when it actually
+	// changed.
 	if (modified.geojson !== undefined && !valuesEqual(original.geojson, modified.geojson)) {
 		body.geojson = modified.geojson;
 	}

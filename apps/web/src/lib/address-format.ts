@@ -1,5 +1,8 @@
 import type { AddressRow } from '@simmer-mosquito/sync';
 
+// Kept off the routes layer so shared components (the address picker) and route
+// views format an address identically.
+
 /** The structural address fields the formatters read (satisfied by {@link AddressRow}). */
 type AddressParts = Pick<
 	AddressRow,
@@ -33,4 +36,32 @@ export function addressCardLabel(
 		return null;
 	}
 	return formatAddressLine(address).trim() || address.displayName?.trim() || null;
+}
+
+/**
+ * The address's own name, which every list and picker shows as the primary line.
+ * Falls back to the postal line, then a short id, so a row is never blank.
+ */
+export function addressPrimaryLabel(
+	address: AddressParts & { readonly id: string; readonly displayName: string | null },
+): string {
+	return (
+		address.displayName?.trim() ||
+		formatAddressLine(address).trim() ||
+		`Address ${address.id.slice(0, 8)}`
+	);
+}
+
+/**
+ * The postal line to show *beneath* {@link addressPrimaryLabel} — `null` when it
+ * is empty or when the name already is the postal line (no echoed subtext).
+ */
+export function addressSecondaryLabel(
+	address: AddressParts & { readonly id: string; readonly displayName: string | null },
+): string | null {
+	const line = formatAddressLine(address).trim();
+	if (line.length === 0 || line === addressPrimaryLabel(address)) {
+		return null;
+	}
+	return line;
 }

@@ -1,22 +1,21 @@
-import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { AddressRow, CollectionLureRow, CollectionMethodRow } from '@simmer-mosquito/sync';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import type { CollectionLureRow, CollectionMethodRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	ArrowLeftIcon,
-	CheckIcon,
-	Loader2Icon,
-	MapPinnedIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
+import {
+	DrawToolbar,
+	GeometryControl,
+	POINT_DRAW_TYPES,
+	useFitToGeometry,
+} from '../../../components/map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
 import { AddressPicker } from '../-adult-pickers';
@@ -57,8 +56,6 @@ export interface TrapFormPageProps {
 	readonly defaultValues: TrapFormValues;
 	/** The trap's point to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
-	/** Geometry to frame the map on immediately (edit pre-fill). */
-	readonly initialPreviewGeometry?: GeoJsonGeometry | null;
 	/**
 	 * Whether a point must be set to submit. Create requires one; edit leaves it
 	 * optional so a trap keeps its existing point unless the user refines it.
@@ -94,7 +91,6 @@ export function TrapFormPage({
 	collectionLures,
 	defaultValues,
 	initialGeometry = null,
-	initialPreviewGeometry = null,
 	requireLocation = true,
 	header,
 	submitLabel,
@@ -103,21 +99,28 @@ export function TrapFormPage({
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
 	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [previewGeometry, setPreviewGeometry] = useState<GeoJsonGeometry | null>(
-		initialPreviewGeometry,
-	);
-	const [addressCoord, setAddressCoord] = useState<{
-		readonly lat: number;
-		readonly lng: number;
-	} | null>(null);
 	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const draw = useMapDraw({ map, isLoaded: map !== null, value: null, onChange: () => undefined });
-	const { requestPoint } = draw;
+	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
+		setGeometry(next);
+		setGeometryChanged(true);
+		if (next !== null) {
+			setLocationError(null);
+		}
+	}, []);
+	// The draw layer both renders the trap's point and edits it, so the map needs no
+	// separate preview feature.
+	const draw = useMapDraw({
+		map,
+		isLoaded: map !== null,
+		value: geometry,
+		onChange: handleGeometryChange,
+	});
+	const { start } = draw;
 
-	useFitToGeometry(map, previewGeometry);
+	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
 	const activeMethods = useMemo(
 		() => collectionMethods.filter((method) => method.isActive),
@@ -149,73 +152,35 @@ export function TrapFormPage({
 		},
 	});
 
-	// Selecting an address never overwrites a point the user already placed — the
-	// address is reference only. It just frames the map and, when no point exists
-	// yet, seeds one at the address so the required geometry starts somewhere sane.
-	const handleAddressSelected = useCallback(
-		(address: AddressRow | null) => {
-			setLocationError(null);
-			if (address === null || typeof address.lat !== 'number' || typeof address.lng !== 'number') {
-				setAddressCoord(null);
-				return;
-			}
-			const coord = { lat: address.lat, lng: address.lng };
-			setAddressCoord(coord);
-			if (geometry === null) {
-				setGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
-				setGeometryChanged(true);
-				setPreviewGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
-			}
-		},
-		[geometry],
-	);
-
-	const requestTrapPoint = useCallback(async () => {
-		setLocationError(null);
-		try {
-			const point = await requestPoint('Click the map to place the trap point.');
-			setGeometry(point);
-			setGeometryChanged(true);
-			setPreviewGeometry(point as unknown as GeoJsonGeometry);
-		} catch {
-			// Draw cancelled (Esc / mode switch); keep the prior point.
-		}
-	}, [requestPoint]);
-
-	const moveToAddress = useCallback(() => {
-		if (addressCoord === null) {
-			return;
-		}
-		const point: DrawGeometry = {
-			type: 'Point',
-			coordinates: [addressCoord.lng, addressCoord.lat],
-		};
+	const placeAddressPoint = useCallback((point: DrawPoint) => {
 		setGeometry(point);
 		setGeometryChanged(true);
-		setPreviewGeometry(point as unknown as GeoJsonGeometry);
-	}, [addressCoord]);
+	}, []);
+	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+		geometry,
+		onPlacePoint: placeAddressPoint,
+	});
+
+	const startDraw = useCallback(() => {
+		setLocationError(null);
+		start('Point');
+	}, [start]);
 
 	const clearPoint = useCallback(() => {
 		setGeometry(null);
 		setGeometryChanged(true);
-		setPreviewGeometry(null);
 	}, []);
 
 	return (
 		<MapSplitPage
 			map={
 				<>
-					<MapCanvas
-						controls={{ layers: false }}
-						geoJson={previewGeometry as unknown as GeoJSON.GeoJSON | null}
-						onMapReady={handleMapReady}
+					<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+					<DrawToolbar
+						controller={draw}
+						geometryType="Point"
+						pointPrompt="Click the map to place the trap point."
 					/>
-					{draw.isRequestingPoint ? (
-						<MapPrompt>
-							<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />
-							Click the map to place the trap point. Press Esc to cancel.
-						</MapPrompt>
-					) : null}
 				</>
 			}
 		>
@@ -274,29 +239,30 @@ export function TrapFormPage({
 									</span>
 								</div>
 
-								<div className="grid gap-1.5">
-									<span className="font-medium text-foreground text-sm">Address (optional)</span>
-									<form.AppField name="addressId">
-										{(field) => (
-											<AddressPicker
-												onSelect={(address) => {
-													field.handleChange(address?.id ?? null);
-													handleAddressSelected(address);
-												}}
-												organizationId={organizationId}
-												value={field.state.value}
-											/>
-										)}
-									</form.AppField>
-								</div>
+								<form.AppField name="addressId">
+									{(field) => (
+										<AddressPicker
+											label="Address (optional)"
+											onSelect={(address) => {
+												field.handleChange(address?.id ?? null);
+												setLocationError(null);
+												selectAddress(address);
+											}}
+											organizationId={organizationId}
+											value={field.state.value}
+										/>
+									)}
+								</form.AppField>
 
-								<PointControl
-									canMoveToAddress={addressCoord !== null}
+								<GeometryControl
+									allowedTypes={POINT_DRAW_TYPES}
+									controller={draw}
 									geometry={geometry}
-									isDrawing={draw.isRequestingPoint}
+									geometryType="Point"
+									label={requireLocation ? 'Point (required)' : 'Point'}
 									onClear={clearPoint}
-									onMoveToAddress={moveToAddress}
-									onRequestPoint={requestTrapPoint}
+									onDraw={startDraw}
+									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 								/>
 
 								{locationError === null ? null : (
@@ -380,78 +346,6 @@ export function TrapFormPage({
 	);
 }
 
-// --- location controls ------------------------------------------------------
-
-export function PointControl({
-	geometry,
-	isDrawing,
-	canMoveToAddress,
-	onRequestPoint,
-	onMoveToAddress,
-	onClear,
-}: {
-	readonly geometry: DrawGeometry | null;
-	readonly isDrawing: boolean;
-	readonly canMoveToAddress: boolean;
-	readonly onRequestPoint: () => void;
-	readonly onMoveToAddress: () => void;
-	readonly onClear: () => void;
-}) {
-	return (
-		<div className="grid gap-2 rounded-md border border-border/40 bg-background/70 p-3">
-			<div className="flex items-start justify-between gap-3">
-				<div className="flex min-w-0 items-start gap-2">
-					<MapPinnedIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-					<div className="grid min-w-0 gap-0.5">
-						<span className="font-medium text-foreground text-sm">Point (required)</span>
-						<p className="m-0 min-w-0 text-muted-foreground text-xs">
-							{geometry === null ? 'No point placed yet.' : pointSummary(geometry)}
-						</p>
-					</div>
-				</div>
-				{geometry === null ? (
-					<Badge tone="neutral" variant="outline">
-						Not set
-					</Badge>
-				) : (
-					<Badge tone="success" variant="outline">
-						<CheckIcon aria-hidden="true" />
-						Placed
-					</Badge>
-				)}
-			</div>
-			<div className="flex flex-wrap gap-2">
-				<Button
-					disabled={isDrawing}
-					onClick={onRequestPoint}
-					size="sm"
-					type="button"
-					variant={geometry === null ? 'default' : 'outline'}
-				>
-					{isDrawing ? (
-						<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
-					) : (
-						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-					)}
-					{geometry === null ? 'Drop point' : 'Refine point'}
-				</Button>
-				{canMoveToAddress ? (
-					<Button onClick={onMoveToAddress} size="sm" type="button" variant="ghost">
-						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-						Move to Address
-					</Button>
-				) : null}
-				{geometry === null ? null : (
-					<Button onClick={onClear} size="sm" type="button" variant="ghost">
-						<XIcon aria-hidden="true" data-icon="inline-start" />
-						Clear
-					</Button>
-				)}
-			</div>
-		</div>
-	);
-}
-
 // --- reusable form controls -------------------------------------------------
 
 function FormSection({
@@ -469,16 +363,6 @@ function FormSection({
 	);
 }
 
-function MapPrompt({ children }: { readonly children: React.ReactNode }) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in">
-			<p className="m-0 inline-flex items-center gap-2 rounded-md border border-border/60 bg-card/95 px-3 py-2 text-foreground text-sm shadow-lg backdrop-blur-sm">
-				{children}
-			</p>
-		</div>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
 
 function lureOptions(lures: readonly CollectionLureRow[]) {
@@ -486,48 +370,6 @@ function lureOptions(lures: readonly CollectionLureRow[]) {
 		{ label: 'No lure', value: noLureValue },
 		...lures.map((lure) => ({ label: lure.name, value: lure.id })),
 	];
-}
-
-function pointSummary(geometry: DrawGeometry): string {
-	if (geometry.type !== 'Point') {
-		return 'Point placed';
-	}
-	const coordinates = geometry.coordinates;
-	if (!Array.isArray(coordinates) || coordinates.length < 2) {
-		return 'Point placed';
-	}
-	return `Point · ${coordinates[1].toFixed(5)}, ${coordinates[0].toFixed(5)}`;
-}
-
-function useFitToGeometry(map: MapboxMap | null, geometry: GeoJsonGeometry | null): void {
-	const lastFitRef = useRef<string | null>(null);
-	useEffect(() => {
-		if (map === null || geometry === null) {
-			return;
-		}
-		const signature = JSON.stringify(geometry);
-		if (lastFitRef.current === signature) {
-			return;
-		}
-		lastFitRef.current = signature;
-
-		const bounds = boundsFromGeoJson(geometry);
-		if (bounds === null) {
-			return;
-		}
-		const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
-		if (hasArea) {
-			map.fitBounds(
-				[
-					[bounds.west, bounds.south],
-					[bounds.east, bounds.north],
-				],
-				{ padding: 80, maxZoom: 17, duration: 600 },
-			);
-		} else {
-			map.easeTo({ center: [bounds.west, bounds.south], zoom: Math.max(map.getZoom(), 15) });
-		}
-	}, [map, geometry]);
 }
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

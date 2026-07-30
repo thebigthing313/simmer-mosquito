@@ -18,8 +18,8 @@ import {
 } from '../components/map/map-card';
 import { TagBadge } from '../components/tag-badge';
 import { useMapCardTags } from '../hooks/use-map-card-tags';
+import { addressCardLabel } from '../lib/address-format';
 import { webCollections } from '../sync/webCollections';
-import { addressCardLabel } from './-address-format';
 
 const gcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';

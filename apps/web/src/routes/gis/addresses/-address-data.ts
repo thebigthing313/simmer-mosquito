@@ -9,9 +9,9 @@ export interface AddressGeometry {
 	readonly geomType: string | null;
 }
 
-// Address point geometry is excluded from the Electric sync shape (the synced
-// row carries no lat/lng), so detail views read the point over HTTP the same way
-// habitats and regions do.
+// The synced row carries the centroid (lat/lng) but not the geojson — that stays
+// server-only — so views needing the drawable geometry read it over HTTP the same
+// way habitats and regions do.
 export function addressGeometryQueryKey(addressId: string): readonly unknown[] {
 	return ['address-geometry', addressId];
 }

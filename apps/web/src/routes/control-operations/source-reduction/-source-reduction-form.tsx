@@ -1,12 +1,6 @@
 import { isSourceReductionUnitType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type {
-	AddressRow,
-	ControlMethodRow,
-	HabitatRow,
-	ProfileRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
+import type { ControlMethodRow, HabitatRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
@@ -22,6 +16,7 @@ import {
 	GeometryControl,
 	useFitToGeometry,
 } from '../../../components/map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
@@ -135,10 +130,6 @@ export function SourceReductionFormPage({
 	// A habitat's shape, shown alongside the action's own geometry for context —
 	// never the action's geometry itself, which the draw layer renders.
 	const [referenceGeometry, setReferenceGeometry] = useState<GeoJsonGeometry | null>(null);
-	const [addressCoord, setAddressCoord] = useState<{
-		readonly lat: number;
-		readonly lng: number;
-	} | null>(null);
 	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -192,27 +183,17 @@ export function SourceReductionFormPage({
 		},
 	});
 
-	// Selecting an address never overwrites geometry the user already drew — the
-	// address is reference only. It just frames the map and, when nothing is drawn
-	// yet, seeds a point at the address so the required geometry starts somewhere
-	// sane.
-	const handleAddressSelected = useCallback(
-		(address: AddressRow | null) => {
-			setLocationError(null);
-			if (address === null || typeof address.lat !== 'number' || typeof address.lng !== 'number') {
-				setAddressCoord(null);
-				return;
-			}
-			const coord = { lat: address.lat, lng: address.lng };
-			setAddressCoord(coord);
-			if (geometry === null) {
-				setGeometry({ type: 'Point', coordinates: [coord.lng, coord.lat] });
-				setGeometryType('Point');
-				setGeometryChanged(true);
-			}
-		},
-		[geometry],
-	);
+	// Seeding from an address (or moving onto one) replaces the drawn shape with a
+	// point, so the tool selector follows it.
+	const placeAddressPoint = useCallback((point: DrawPoint) => {
+		setGeometry(point);
+		setGeometryType('Point');
+		setGeometryChanged(true);
+	}, []);
+	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+		geometry,
+		onPlacePoint: placeAddressPoint,
+	});
 
 	// The habitat is larval context, not the action's location — but framing the map
 	// on it (and seeding unplaced geometry) saves the crew a pan across the county.
@@ -254,15 +235,6 @@ export function SourceReductionFormPage({
 		setLocationError(null);
 		start(geometryType);
 	}, [geometryType, start]);
-
-	const moveToAddress = useCallback(() => {
-		if (addressCoord === null) {
-			return;
-		}
-		setGeometry({ type: 'Point', coordinates: [addressCoord.lng, addressCoord.lat] });
-		setGeometryType('Point');
-		setGeometryChanged(true);
-	}, [addressCoord]);
 
 	const clearGeometry = useCallback(() => {
 		setGeometry(null);
@@ -343,7 +315,8 @@ export function SourceReductionFormPage({
 											label="Address (optional)"
 											onSelect={(address) => {
 												field.handleChange(address?.id ?? null);
-												handleAddressSelected(address);
+												setLocationError(null);
+												selectAddress(address);
 											}}
 											organizationId={organizationId}
 											value={field.state.value}
