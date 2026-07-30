@@ -4,26 +4,13 @@ import { formatDate } from './-overview-data';
 
 // --- shared labels ----------------------------------------------------------
 
-/** A trap's human label: `Name (Code)`, whichever exists, else a short id. */
-export function trapDisplayName(trap: {
-	readonly id: string;
-	readonly trapName: TrapRow['trapName'];
-	readonly trapCode: TrapRow['trapCode'];
-}): string {
-	const name = trap.trapName?.trim();
-	const code = trap.trapCode?.trim();
-	if (name && code) {
-		return `${name} (${code})`;
-	}
-	return name || code || `Trap ${trap.id.slice(0, 8)}`;
-}
-
 /**
- * Map-card title for a trap: `code - name`, coalesced so it still reads when only
- * one of the two is set (and a short id when neither is). Distinct from
- * {@link trapDisplayName} (`name (code)`), which the lists/detail views use.
+ * The one trap label used everywhere in the app: `Code - Name`, dropping the dash
+ * when only one of the two is set (and falling back to a short id when neither
+ * is). Selects, lists, detail headers, map cards and route stops all read the
+ * same way, so a trap is recognisable by its code wherever it appears.
  */
-export function trapCardTitle(trap: {
+export function trapDisplayName(trap: {
 	readonly id: string;
 	readonly trapName: TrapRow['trapName'];
 	readonly trapCode: TrapRow['trapCode'];

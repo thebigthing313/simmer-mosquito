@@ -76,7 +76,10 @@ export async function listNearbyRecords(
 		union all
 		select 'trap', t.id, t.lat, t.lng,
 			st_distance(t.geom::geography, center.g),
-			null::text, coalesce(t.trap_name, t.trap_code), t.collection_method_id::text,
+			null::text,
+			-- Same label the web app renders: "code - name", dash-free when only one is set.
+			nullif(concat_ws(' - ', nullif(btrim(t.trap_code), ''), nullif(btrim(t.trap_name), '')), ''),
+			t.collection_method_id::text,
 			case when t.is_active = false then 'inactive' else 'active' end
 		from traps t cross join center
 		where t.organization_id = ${org} and t.deleted_at is null

@@ -25,7 +25,7 @@ import { TagBadge } from '../../components/tag-badge';
 import { useMapCardTags } from '../../hooks/use-map-card-tags';
 import { addressCardLabel } from '../../lib/address-format';
 import { webCollections } from '../../sync/webCollections';
-import { trapCardTitle } from './-adult-display';
+import { trapDisplayName } from './-adult-display';
 
 const gcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
@@ -128,7 +128,7 @@ export function TrapMapCard({
 			}
 			eyebrow={<MapCardEyebrow type="Trap" />}
 			onClose={onClose}
-			title={trapCardTitle(trap)}
+			title={trapDisplayName(trap)}
 			viewDetailLink={(content) => (
 				<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id">
 					{content}

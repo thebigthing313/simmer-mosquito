@@ -33,9 +33,7 @@ export function TrapPicker({
 		const filtered =
 			normalized.length === 0
 				? active
-				: active.filter((trap) =>
-						`${trap.trapName ?? ''} ${trap.trapCode ?? ''}`.toLowerCase().includes(normalized),
-					);
+				: active.filter((trap) => trapDisplayName(trap).toLowerCase().includes(normalized));
 		return filtered.slice(0, 8);
 	}, [traps, normalized]);
 

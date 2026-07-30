@@ -10,7 +10,7 @@ import {
 	MapCardEyebrow,
 } from '../../components/map/map-card';
 import { webCollections } from '../../sync/webCollections';
-import { CollectionFlagBadges, collectionEffectiveDate, trapCardTitle } from './-adult-display';
+import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from './-adult-display';
 
 const gcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
@@ -87,7 +87,7 @@ export function CollectionMapCard({
 			? 'Ad-hoc collection'
 			: trap === undefined
 				? 'Collection'
-				: trapCardTitle(trap);
+				: trapDisplayName(trap);
 	const methodName = method?.name ?? 'Unknown method';
 	const effectiveDate = collectionEffectiveDate(collection);
 

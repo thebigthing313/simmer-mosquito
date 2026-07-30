@@ -600,7 +600,8 @@ export async function listTrapDisplayRowsPage(
 			count(*) over()::int as "total"
 		from traps t
 		where ${sql.join(whereClauses, sql` and `)}
-		order by coalesce(t.trap_name, t.trap_code) asc nulls last, t.created_at desc, t.id
+		-- Sort by what the client shows first ("code - name"), so the list reads in order.
+		order by coalesce(t.trap_code, t.trap_name) asc nulls last, t.created_at desc, t.id
 		limit ${input.limit}
 		offset ${input.offset}
 	`.execute(db);
