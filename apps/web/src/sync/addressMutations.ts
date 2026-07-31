@@ -1,4 +1,5 @@
 import { type AddressRow, createRowPayloadMapper } from '@simmer-mosquito/sync';
+import { isNoOpUpdate } from './change-set';
 
 const mapAddressPayload = createRowPayloadMapper<AddressRow>([
 	'id',
@@ -37,11 +38,14 @@ export function createAddressMutationHandlers(options: { readonly serverUrl: str
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					const body = toAddressUpdatePayload(mutation.original, mutation.modified);
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeAddress(`${endpoint}/${mutation.modified.id}`, 'PATCH', body);
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		},
 		onDelete: async ({ transaction }: DeleteHandlerInput<AddressRow>) => {
 			const txid = await Promise.all(

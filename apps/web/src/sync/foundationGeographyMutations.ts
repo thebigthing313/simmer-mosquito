@@ -1,4 +1,5 @@
 import type { OrganizationSpeciesRow, RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
+import { isNoOpUpdate } from './change-set';
 
 /**
  * Foundation geography + agency taxonomy optimistic mutation handlers: region
@@ -81,6 +82,9 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 							body.geometry = geometry;
 						}
 					}
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeRecord(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -90,7 +94,7 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		};
 	}
 

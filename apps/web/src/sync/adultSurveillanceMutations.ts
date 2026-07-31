@@ -1,4 +1,5 @@
 import type { AdultCollectionRow, CollectionSpeciesRow, TrapRow } from '@simmer-mosquito/sync';
+import { isNoOpUpdate } from './change-set';
 
 /**
  * Adult surveillance optimistic mutation handlers.
@@ -66,6 +67,9 @@ export function createTrapMutationHandlers(options: { readonly serverUrl: string
 					if (locationSource !== undefined) {
 						body.locationSource = locationSource;
 					}
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeAdult(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -75,7 +79,7 @@ export function createTrapMutationHandlers(options: { readonly serverUrl: string
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		},
 		onDelete: async ({ transaction }: MutationInput<TrapRow>) => {
 			const txid = await Promise.all(
@@ -162,11 +166,7 @@ export function createCollectionMutationHandlers(options: { readonly serverUrl: 
 					if (locationSource !== undefined) {
 						body.locationSource = locationSource;
 					}
-					// Nothing the command endpoint owns actually moved — a save that only
-					// touched rows in another table (the collection's crew) or changed nothing
-					// at all. The endpoint rejects an empty change set, so sending it would
-					// fail the whole save over a collection that needs no update.
-					if (Object.keys(body).length === 0) {
+					if (isNoOpUpdate(body)) {
 						return null;
 					}
 					const result = await writeAdult(
@@ -236,6 +236,9 @@ export function createCollectionSpeciesMutationHandlers(options: { readonly serv
 						mutation.modified,
 						COLLECTION_SPECIES_PATCH_KEYS,
 					);
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeAdult(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -245,7 +248,7 @@ export function createCollectionSpeciesMutationHandlers(options: { readonly serv
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		},
 		onDelete: async ({ transaction }: MutationInput<CollectionSpeciesRow>) => {
 			const txid = await Promise.all(

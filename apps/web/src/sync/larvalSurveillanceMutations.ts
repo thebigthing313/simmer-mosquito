@@ -1,4 +1,5 @@
 import type { InspectionRow, SampleRow, SampleSpeciesRow } from '@simmer-mosquito/sync';
+import { isNoOpUpdate } from './change-set';
 
 /**
  * Larval surveillance optimistic mutation handlers for inspections, samples,
@@ -94,6 +95,9 @@ export function createInspectionMutationHandlers(options: { readonly serverUrl: 
 					if (locationSource !== undefined) {
 						body.locationSource = locationSource;
 					}
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeLarval(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -103,7 +107,7 @@ export function createInspectionMutationHandlers(options: { readonly serverUrl: 
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		},
 		onDelete: async ({ transaction }: MutationInput<InspectionRow>) => {
 			const txid = await Promise.all(
@@ -149,6 +153,9 @@ export function createSampleMutationHandlers(options: { readonly serverUrl: stri
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					const body = pickChanged(mutation.original, mutation.modified, SAMPLE_PATCH_KEYS);
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeLarval(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -158,7 +165,7 @@ export function createSampleMutationHandlers(options: { readonly serverUrl: stri
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		},
 		onDelete: async ({ transaction }: MutationInput<SampleRow>) => {
 			const txid = await Promise.all(
@@ -208,6 +215,9 @@ export function createSampleSpeciesMutationHandlers(options: { readonly serverUr
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					const body = pickChanged(mutation.original, mutation.modified, SAMPLE_SPECIES_PATCH_KEYS);
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeLarval(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -217,7 +227,7 @@ export function createSampleSpeciesMutationHandlers(options: { readonly serverUr
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		},
 		onDelete: async ({ transaction }: MutationInput<SampleSpeciesRow>) => {
 			const txid = await Promise.all(

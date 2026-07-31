@@ -5,6 +5,7 @@ import type {
 	NotificationRegistrationTypeRow,
 	ServiceRequestRow,
 } from '@simmer-mosquito/sync';
+import { isNoOpUpdate } from './change-set';
 
 /**
  * Public engagement optimistic mutation handlers: contacts, service requests,
@@ -84,6 +85,9 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					const body = pickChanged(mutation.original, mutation.modified, config.patchKeys);
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeRecord(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -93,7 +97,7 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		};
 	}
 
@@ -181,6 +185,9 @@ export function createServiceRequestMutationHandlers(options: { readonly serverU
 						mutation.modified,
 						SERVICE_REQUEST_PATCH_KEYS,
 					);
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeRecord(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -190,7 +197,7 @@ export function createServiceRequestMutationHandlers(options: { readonly serverU
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		},
 		onDelete: async ({ transaction }: MutationInput<ServiceRequestRow>) => {
 			const txid = await Promise.all(
@@ -257,6 +264,9 @@ export function createNotificationRegistrationMutationHandlers(options: {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					const body = pickChanged(mutation.original, mutation.modified, REGISTRATION_PATCH_KEYS);
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeRecord(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -266,7 +276,7 @@ export function createNotificationRegistrationMutationHandlers(options: {
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		},
 		onDelete: async ({ transaction }: MutationInput<NotificationRegistrationRow>) => {
 			const txid = await Promise.all(

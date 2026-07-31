@@ -9,6 +9,7 @@ import type {
 	RouteRow,
 	TagItemRow,
 } from '@simmer-mosquito/sync';
+import { isNoOpUpdate } from './change-set';
 
 /**
  * Field-work + mission-dispatch optimistic mutation handlers (comments, tag
@@ -97,6 +98,9 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 							body.locationSource = locationSource;
 						}
 					}
+					if (isNoOpUpdate(body)) {
+						return null;
+					}
 					const result = await writeRecord(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -106,7 +110,7 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		};
 	}
 

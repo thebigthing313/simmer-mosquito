@@ -1,4 +1,5 @@
 import type { HabitatRow } from '@simmer-mosquito/sync';
+import { isNoOpUpdate } from './change-set';
 
 export interface HabitatMutationLocationMetadata {
 	readonly locationSource: {
@@ -40,6 +41,9 @@ export function createHabitatMutationHandlers(options: { readonly serverUrl: str
 					const locationSource = readOptionalLocationSource(mutation.metadata);
 					if (locationSource !== undefined) {
 						body.locationSource = locationSource;
+					}
+					if (isNoOpUpdate(body)) {
+						return;
 					}
 					await writeHabitat(`${endpoint}/${mutation.modified.id}`, 'PATCH', body);
 				}),
