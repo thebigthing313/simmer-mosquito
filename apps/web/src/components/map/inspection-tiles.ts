@@ -20,6 +20,8 @@ export interface InspectionTileFilters {
 	/** Only inspections where at least one life stage was found. */
 	readonly positiveOnly?: boolean;
 	readonly habitatTypeIds?: readonly string[];
+	/** Match inspections recorded by any of these profiles. */
+	readonly inspectedByProfileIds?: readonly string[];
 	/** Inclusive `YYYY-MM-DD` lower bound on inspection date. */
 	readonly dateFrom?: string;
 	/** Inclusive `YYYY-MM-DD` upper bound on inspection date. */
@@ -139,6 +141,9 @@ function inspectionTileParams(filters?: InspectionTileFilters): URLSearchParams 
 	}
 	if (filters?.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {
 		params.set('habitatTypeId', [...filters.habitatTypeIds].sort().join(','));
+	}
+	if (filters?.inspectedByProfileIds !== undefined && filters.inspectedByProfileIds.length > 0) {
+		params.set('inspectedBy', [...filters.inspectedByProfileIds].sort().join(','));
 	}
 	if (filters?.dateFrom !== undefined) {
 		params.set('dateFrom', filters.dateFrom);

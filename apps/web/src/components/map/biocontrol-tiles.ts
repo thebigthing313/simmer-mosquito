@@ -15,6 +15,8 @@ import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
  */
 export interface BiocontrolTileFilters {
 	readonly biocontrolMethodIds?: readonly string[];
+	/** Match releases performed by any of these profiles. */
+	readonly technicianProfileIds?: readonly string[];
 	/** Only activities tied to a habitat record. */
 	readonly habitatLinkedOnly?: boolean;
 	/** Inclusive `YYYY-MM-DD` lower bound on activity date. */
@@ -78,6 +80,9 @@ function biocontrolTileParams(filters?: BiocontrolTileFilters): URLSearchParams 
 
 	if (filters?.biocontrolMethodIds !== undefined && filters.biocontrolMethodIds.length > 0) {
 		params.set('biocontrolMethodId', [...filters.biocontrolMethodIds].sort().join(','));
+	}
+	if (filters?.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
+		params.set('technician', [...filters.technicianProfileIds].sort().join(','));
 	}
 	if (filters?.habitatLinkedOnly === true) {
 		params.set('habitatLinked', 'true');

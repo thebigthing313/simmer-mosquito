@@ -16,6 +16,8 @@ import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
 export interface ChemicalTileFilters {
 	readonly insecticideIds?: readonly string[];
 	readonly applicationMethodIds?: readonly string[];
+	/** Match applications performed by any of these profiles. */
+	readonly applicatorProfileIds?: readonly string[];
 	/** Inclusive `YYYY-MM-DD` lower bound on application date. */
 	readonly dateFrom?: string;
 	/** Inclusive `YYYY-MM-DD` upper bound on application date. */
@@ -77,6 +79,9 @@ function chemicalTileParams(filters?: ChemicalTileFilters): URLSearchParams {
 	}
 	if (filters?.applicationMethodIds !== undefined && filters.applicationMethodIds.length > 0) {
 		params.set('applicationMethodId', [...filters.applicationMethodIds].sort().join(','));
+	}
+	if (filters?.applicatorProfileIds !== undefined && filters.applicatorProfileIds.length > 0) {
+		params.set('applicator', [...filters.applicatorProfileIds].sort().join(','));
 	}
 	if (filters?.dateFrom !== undefined) {
 		params.set('dateFrom', filters.dateFrom);

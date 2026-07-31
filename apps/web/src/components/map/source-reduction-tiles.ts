@@ -15,6 +15,8 @@ import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
  */
 export interface SourceReductionTileFilters {
 	readonly sourceReductionMethodIds?: readonly string[];
+	/** Match source reduction performed by any of these profiles. */
+	readonly technicianProfileIds?: readonly string[];
 	/** Inclusive `YYYY-MM-DD` lower bound on activity date. */
 	readonly dateFrom?: string;
 	/** Inclusive `YYYY-MM-DD` upper bound on activity date. */
@@ -82,6 +84,9 @@ function sourceReductionTileParams(filters?: SourceReductionTileFilters): URLSea
 		filters.sourceReductionMethodIds.length > 0
 	) {
 		params.set('sourceReductionMethodId', [...filters.sourceReductionMethodIds].sort().join(','));
+	}
+	if (filters?.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
+		params.set('technician', [...filters.technicianProfileIds].sort().join(','));
 	}
 	if (filters?.dateFrom !== undefined) {
 		params.set('dateFrom', filters.dateFrom);

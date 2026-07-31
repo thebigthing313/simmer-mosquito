@@ -336,6 +336,26 @@ export function formatMonthDay(date: string): string {
 	}).format(parsed);
 }
 
+/**
+ * `Mar 4, 26` — the explorer list date.
+ *
+ * The year is not optional here. An explorer's window is whatever the operator
+ * set it to, so a bare "Mar 4" in a list spanning two seasons names two
+ * different days. Two digits keep the column narrow enough to stay aligned.
+ */
+export function formatListDate(date: string): string {
+	const parsed = parseDateString(date);
+	if (Number.isNaN(parsed.getTime())) {
+		return '—';
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: '2-digit',
+		timeZone: 'UTC',
+	}).format(parsed);
+}
+
 /** Full numeric date, `M/D/YYYY` (e.g. `7/10/2026`). */
 export function formatDate(date: string): string {
 	const parsed = parseDateString(date);

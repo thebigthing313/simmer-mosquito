@@ -20,10 +20,8 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	CheckIcon,
 	ChevronDownIcon,
-	ChevronRightIcon,
 	iconRegistry,
 	MapPinnedIcon,
-	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -32,11 +30,22 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import {
+	ExplorerRow,
+	FilterChip,
+	RESULT_SKELETON_KEYS,
+	toggle,
+} from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas, SAMPLE_STATUS_COLORS, type SampleTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
-import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../-overview-data';
+import {
+	addDaysToDateString,
+	formatListDate,
+	formatMonthDay,
+	todayInTimeZone,
+} from '../-overview-data';
 import { SampleMapCard } from '../-sample-map-card';
 import { samplesSearchSchema } from '../-samples-search';
 
@@ -128,8 +137,6 @@ const DEFAULT_WINDOW_DAYS = 30;
 const RESULT_CHIP_LIMIT = 1;
 
 const PAGE_SIZE = 50;
-
-const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
 
 function SamplesExplorerRoute() {
 	const today = useMemo(() => todayInTimeZone(undefined), []);
@@ -662,39 +669,6 @@ function ActiveFilters({
 	);
 }
 
-function FilterChip({
-	label,
-	color,
-	italic = false,
-	onRemove,
-}: {
-	readonly label: string;
-	readonly color?: string | undefined;
-	readonly italic?: boolean;
-	readonly onRemove: () => void;
-}) {
-	return (
-		<span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-foreground text-xs">
-			{color === undefined ? null : (
-				<span
-					aria-hidden="true"
-					className="size-2 shrink-0 rounded-full ring-1 ring-black/10"
-					style={{ backgroundColor: color }}
-				/>
-			)}
-			<span className={cn('truncate', italic && 'italic')}>{label}</span>
-			<button
-				aria-label={`Remove ${label} filter`}
-				className="rounded-full p-0.5 opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={onRemove}
-				type="button"
-			>
-				<XIcon aria-hidden="true" className="size-3" />
-			</button>
-		</span>
-	);
-}
-
 // --- results list -----------------------------------------------------------
 
 function SampleResults({
@@ -713,7 +687,7 @@ function SampleResults({
 	if (isLoading && rows.length === 0) {
 		return (
 			<div className="grid gap-px overflow-y-auto p-2">
-				{SKELETON_KEYS.map((key) => (
+				{RESULT_SKELETON_KEYS.map((key) => (
 					<Skeleton className="h-[64px]" key={key} />
 				))}
 			</div>
@@ -759,53 +733,38 @@ function SampleListItem({
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly onSelect: (id: string) => void;
 }) {
-	// A full-row background button drives map selection, while the habitat name and
-	// the inspection chevron are links layered above it (z-10). Sibling interactive
-	// elements — not an <a> nested in a <button> — keep the markup valid.
+	const label = sampleName(sample);
 	return (
-		<li className="relative">
-			<button
-				aria-label={`Show ${sampleName(sample)} on the map`}
-				aria-pressed={isSelected}
-				className={cn(
-					'absolute inset-0 size-full transition-colors',
-					isSelected ? 'bg-primary/8 ring-1 ring-primary/40 ring-inset' : 'hover:bg-muted/50',
-				)}
-				onClick={() => onSelect(sample.id)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative flex items-center gap-3 px-4 py-3">
-				<StatusDot status={sample.status} />
-				<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
-					{formatMonthDay(sample.inspectionDate)}
-				</span>
-				<span className="min-w-0 flex-1">
-					<span className="block truncate font-medium text-foreground text-sm">
-						{sampleName(sample)}
-					</span>
-					<SampleContext sample={sample} />
-				</span>
-				<div className="flex shrink-0 items-center gap-1.5">
-					{sample.status === 'identified' ? (
-						<SpeciesResults limit={RESULT_CHIP_LIMIT} nameById={nameById} sample={sample} />
-					) : (
-						<Badge tone={STATUS_META[sample.status].tone} variant="outline">
-							{STATUS_META[sample.status].label}
-						</Badge>
-					)}
-				</div>
-				<Link
-					aria-label={`View the inspection for ${sampleName(sample)}`}
-					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					params={{ id: sample.inspectionId }}
-					title="View Inspection"
-					to="/larval-surveillance/inspections/$id"
-				>
-					<ChevronRightIcon aria-hidden="true" className="size-4" />
-				</Link>
-			</div>
-		</li>
+		<ExplorerRow
+			badges={
+				sample.status === 'identified' ? (
+					<SpeciesResults limit={RESULT_CHIP_LIMIT} nameById={nameById} sample={sample} />
+				) : (
+					<Badge tone={STATUS_META[sample.status].tone} variant="outline">
+						{STATUS_META[sample.status].label}
+					</Badge>
+				)
+			}
+			date={formatListDate(sample.inspectionDate)}
+			detailLabel={`View details for ${label}`}
+			detailLink={{ to: '/larval-surveillance/samples/$id', params: { id: sample.id } }}
+			isSelected={isSelected}
+			onSelect={() => onSelect(sample.id)}
+			selectLabel={`Show ${label} on the map`}
+			subtitle={<SampleContext sample={sample} />}
+			swatch={sampleSwatch(sample)}
+			title={label}
+		/>
 	);
+}
+
+/** The status colour this sample draws in, so the row matches the map. */
+function sampleSwatch(sample: SampleFeature): { readonly color: string; readonly label: string } {
+	const color = SAMPLE_STATUS_COLORS[sample.status];
+	return {
+		color: color ?? 'var(--muted-foreground)',
+		label: STATUS_META[sample.status].label,
+	};
 }
 
 /** Secondary line: the habitat (linked) or an ad-hoc marker, plus the non-mosquito flag. */
@@ -869,7 +828,7 @@ function SpeciesResults({
 	);
 }
 
-function StatusDot({ status }: { readonly status: SampleStatus }) {
+function _StatusDot({ status }: { readonly status: SampleStatus }) {
 	return (
 		<span
 			aria-hidden="true"
@@ -1054,17 +1013,6 @@ function sampleName(sample: SampleFeature): string {
 	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
 }
 
-function toggle<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
-	const next = new Set(set);
-	if (next.has(value)) {
-		next.delete(value);
-	} else {
-		next.add(value);
-	}
-	return next;
-}
-
-/** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */
 function parseLocalDate(value: string): Date | undefined {
 	if (value === '') {
 		return undefined;

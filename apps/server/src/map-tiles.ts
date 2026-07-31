@@ -1263,6 +1263,7 @@ const inspectionFilterParams = new Set([
 	'density',
 	'positive',
 	'habitatTypeId',
+	'inspectedBy',
 	'dateFrom',
 	'dateTo',
 ]);
@@ -1295,6 +1296,11 @@ export function parseInspectionTileFilters(searchParams: URLSearchParams): Inspe
 		return habitatTypeIds;
 	}
 
+	const inspectedByProfileIds = parseOptionalUuidListFilter(searchParams, 'inspectedBy');
+	if (!inspectedByProfileIds.ok) {
+		return inspectedByProfileIds;
+	}
+
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
 	if (!dateFrom.ok) {
 		return dateFrom;
@@ -1312,6 +1318,9 @@ export function parseInspectionTileFilters(searchParams: URLSearchParams): Inspe
 			...(densities.value === undefined ? {} : { densities: densities.value }),
 			...(positive.value === undefined ? {} : { positiveOnly: positive.value }),
 			...(habitatTypeIds.value === undefined ? {} : { habitatTypeIds: habitatTypeIds.value }),
+			...(inspectedByProfileIds.value === undefined
+				? {}
+				: { inspectedByProfileIds: inspectedByProfileIds.value }),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
 			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
 		},
@@ -1464,6 +1473,7 @@ type ApplicationPageQueryResult =
 const applicationFilterParams = new Set([
 	'insecticideId',
 	'applicationMethodId',
+	'applicator',
 	'dateFrom',
 	'dateTo',
 ]);
@@ -1486,6 +1496,11 @@ export function parseApplicationMapFilters(searchParams: URLSearchParams): Appli
 		return applicationMethodIds;
 	}
 
+	const applicatorProfileIds = parseOptionalUuidListFilter(searchParams, 'applicator');
+	if (!applicatorProfileIds.ok) {
+		return applicatorProfileIds;
+	}
+
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
 	if (!dateFrom.ok) {
 		return dateFrom;
@@ -1503,6 +1518,9 @@ export function parseApplicationMapFilters(searchParams: URLSearchParams): Appli
 			...(applicationMethodIds.value === undefined
 				? {}
 				: { applicationMethodIds: applicationMethodIds.value }),
+			...(applicatorProfileIds.value === undefined
+				? {}
+				: { applicatorProfileIds: applicatorProfileIds.value }),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
 			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
 		},
@@ -1551,7 +1569,12 @@ type SourceReductionPageQueryResult =
 	| { readonly ok: true; readonly input: SourceReductionPageInput }
 	| { readonly ok: false; readonly reason: string };
 
-const sourceReductionFilterParams = new Set(['sourceReductionMethodId', 'dateFrom', 'dateTo']);
+const sourceReductionFilterParams = new Set([
+	'sourceReductionMethodId',
+	'technician',
+	'dateFrom',
+	'dateTo',
+]);
 
 export function parseSourceReductionMapFilters(
 	searchParams: URLSearchParams,
@@ -1571,6 +1594,11 @@ export function parseSourceReductionMapFilters(
 		return sourceReductionMethodIds;
 	}
 
+	const technicianProfileIds = parseOptionalUuidListFilter(searchParams, 'technician');
+	if (!technicianProfileIds.ok) {
+		return technicianProfileIds;
+	}
+
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
 	if (!dateFrom.ok) {
 		return dateFrom;
@@ -1587,6 +1615,9 @@ export function parseSourceReductionMapFilters(
 			...(sourceReductionMethodIds.value === undefined
 				? {}
 				: { sourceReductionMethodIds: sourceReductionMethodIds.value }),
+			...(technicianProfileIds.value === undefined
+				? {}
+				: { technicianProfileIds: technicianProfileIds.value }),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
 			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
 		},
@@ -1638,6 +1669,7 @@ type BiocontrolPageQueryResult =
 const biocontrolFilterParams = new Set([
 	'biocontrolMethodId',
 	'habitatLinked',
+	'technician',
 	'dateFrom',
 	'dateTo',
 ]);
@@ -1660,6 +1692,11 @@ export function parseBiocontrolMapFilters(searchParams: URLSearchParams): Biocon
 		return habitatLinked;
 	}
 
+	const biocontrolTechnicianProfileIds = parseOptionalUuidListFilter(searchParams, 'technician');
+	if (!biocontrolTechnicianProfileIds.ok) {
+		return biocontrolTechnicianProfileIds;
+	}
+
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
 	if (!dateFrom.ok) {
 		return dateFrom;
@@ -1676,6 +1713,9 @@ export function parseBiocontrolMapFilters(searchParams: URLSearchParams): Biocon
 			...(biocontrolMethodIds.value === undefined
 				? {}
 				: { biocontrolMethodIds: biocontrolMethodIds.value }),
+			...(biocontrolTechnicianProfileIds.value === undefined
+				? {}
+				: { technicianProfileIds: biocontrolTechnicianProfileIds.value }),
 			// Only `true` narrows; `habitatLinked=false` is the same as omitting it.
 			...(habitatLinked.value === true ? { habitatLinkedOnly: true } : {}),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),

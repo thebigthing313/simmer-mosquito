@@ -32,6 +32,8 @@ function tileEnvelopeCte(input: { readonly z: number; readonly x: number; readon
 export interface ApplicationMapFilters {
 	readonly insecticideIds?: readonly string[];
 	readonly applicationMethodIds?: readonly string[];
+	/** Match applications performed by any of these profiles. */
+	readonly applicatorProfileIds?: readonly string[];
 	/** Inclusive lower bound on `application_date` (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on `application_date` (`YYYY-MM-DD`). */
@@ -98,6 +100,11 @@ function applicationFilterWhere(filters: ApplicationMapFilters | undefined): Raw
 	if (filters?.applicationMethodIds !== undefined && filters.applicationMethodIds.length > 0) {
 		clauses.push(
 			sql<boolean>`a.application_method_id = any(${[...filters.applicationMethodIds]}::uuid[])`,
+		);
+	}
+	if (filters?.applicatorProfileIds !== undefined && filters.applicatorProfileIds.length > 0) {
+		clauses.push(
+			sql<boolean>`a.applicator_profile_id = any(${[...filters.applicatorProfileIds]}::uuid[])`,
 		);
 	}
 	if (filters?.dateFrom !== undefined) {
@@ -248,6 +255,8 @@ const applicationDisplayColumns = sql`
 
 export interface SourceReductionMapFilters {
 	readonly sourceReductionMethodIds?: readonly string[];
+	/** Match source reduction performed by any of these profiles. */
+	readonly technicianProfileIds?: readonly string[];
 	/** Inclusive lower bound on `source_reduction_date` (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on `source_reduction_date` (`YYYY-MM-DD`). */
@@ -306,6 +315,11 @@ function sourceReductionFilterWhere(
 	) {
 		clauses.push(
 			sql<boolean>`sr.source_reduction_method_id = any(${[...filters.sourceReductionMethodIds]}::uuid[])`,
+		);
+	}
+	if (filters?.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
+		clauses.push(
+			sql<boolean>`sr.technician_profile_id = any(${[...filters.technicianProfileIds]}::uuid[])`,
 		);
 	}
 	if (filters?.dateFrom !== undefined) {
@@ -425,6 +439,7 @@ const sourceReductionDisplayColumns = sql`
 	sr.source_reduction_date::text as "sourceReductionDate",
 	sr.sources_eliminated_amount as "sourcesEliminatedAmount",
 	sr.sources_eliminated_unit_id as "sourcesEliminatedUnitId",
+	sr.technician_profile_id as "technicianProfileId",
 	sr.habitat_id as "habitatId",
 	sr.inspection_id as "inspectionId",
 	sr.created_at as "createdAt",
@@ -435,6 +450,8 @@ const sourceReductionDisplayColumns = sql`
 
 export interface BiocontrolMapFilters {
 	readonly biocontrolMethodIds?: readonly string[];
+	/** Match releases performed by any of these profiles. */
+	readonly technicianProfileIds?: readonly string[];
 	/** Only actions linked to a habitat. */
 	readonly habitatLinkedOnly?: boolean;
 	/** Inclusive lower bound on `biocontrol_date` (`YYYY-MM-DD`). */
@@ -490,6 +507,11 @@ function biocontrolFilterWhere(filters: BiocontrolMapFilters | undefined): RawBu
 	if (filters?.biocontrolMethodIds !== undefined && filters.biocontrolMethodIds.length > 0) {
 		clauses.push(
 			sql<boolean>`ba.biocontrol_method_id = any(${[...filters.biocontrolMethodIds]}::uuid[])`,
+		);
+	}
+	if (filters?.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
+		clauses.push(
+			sql<boolean>`ba.technician_profile_id = any(${[...filters.technicianProfileIds]}::uuid[])`,
 		);
 	}
 	if (filters?.habitatLinkedOnly === true) {
@@ -612,6 +634,7 @@ const biocontrolDisplayColumns = sql`
 	ba.biocontrol_date::text as "biocontrolDate",
 	ba.amount_released as "amountReleased",
 	ba.release_unit_id as "releaseUnitId",
+	ba.technician_profile_id as "technicianProfileId",
 	ba.habitat_id as "habitatId",
 	ba.inspection_id as "inspectionId",
 	ba.created_at as "createdAt",

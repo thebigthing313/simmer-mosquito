@@ -110,6 +110,8 @@ export interface InspectionMvtTileFilters {
 	/** Only inspections where at least one life stage (eggs → pupae) was found. */
 	readonly positiveOnly?: boolean;
 	readonly habitatTypeIds?: readonly string[];
+	/** Match inspections recorded by any of these profiles. */
+	readonly inspectedByProfileIds?: readonly string[];
 	/** Inclusive lower bound on `inspection_date` (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on `inspection_date` (`YYYY-MM-DD`). */
@@ -370,6 +372,15 @@ function inspectionFilterWhereClauses(input: {
 	if (input.filters?.habitatTypeIds !== undefined && input.filters.habitatTypeIds.length > 0) {
 		whereClauses.push(
 			sql<boolean>`i.habitat_type_id = any(${[...input.filters.habitatTypeIds]}::uuid[])`,
+		);
+	}
+
+	if (
+		input.filters?.inspectedByProfileIds !== undefined &&
+		input.filters.inspectedByProfileIds.length > 0
+	) {
+		whereClauses.push(
+			sql<boolean>`i.inspected_by_profile_id = any(${[...input.filters.inspectedByProfileIds]}::uuid[])`,
 		);
 	}
 

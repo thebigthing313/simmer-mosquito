@@ -1,31 +1,10 @@
 import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { HabitatTypeRow, LarvalDensity } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from '@simmer-mosquito/ui-web/components/ui/command';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/popover';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import {
-	CheckIcon,
-	ChevronDownIcon,
-	ChevronRightIcon,
-	MapPinnedIcon,
-	PlusIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { CheckIcon, MapPinnedIcon, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -39,6 +18,14 @@ import {
 	DateRangeFilter,
 	datePresetRange,
 } from '../../../components/date-range-filter';
+import {
+	ExplorerRow,
+	FilterChip,
+	MultiSelectFilter,
+	RESULT_SKELETON_KEYS,
+	toggle,
+	usePersonnelOptions,
+} from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	DensityBadge,
@@ -57,7 +44,12 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { InspectionMapCard } from '../-inspection-map-card';
 import { inspectionsSearchSchema } from '../-inspections-search';
-import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../-overview-data';
+import {
+	addDaysToDateString,
+	formatListDate,
+	formatMonthDay,
+	todayInTimeZone,
+} from '../-overview-data';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/')({
 	component: InspectionsExplorerRoute,
@@ -110,8 +102,6 @@ const WETNESS_OPTIONS: readonly { readonly value: WetFilter; readonly label: str
 // Ordered low → high so the filter chips read as the map's heat ramp legend.
 const DENSITY_ORDER: readonly LarvalDensity[] = ['none', 'light', 'medium', 'heavy', 'very_heavy'];
 
-const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
-
 function InspectionsExplorerRoute() {
 	const today = useMemo(() => todayInTimeZone(undefined), []);
 
@@ -131,6 +121,7 @@ function InspectionsExplorerRoute() {
 		() => new Set(search.density),
 	);
 	const [positiveOnly, setPositiveOnly] = useState(() => search.positive ?? false);
+	const [inspectorIds, setInspectorIds] = useState<ReadonlySet<string>>(() => new Set<string>());
 	const [typeIds, setTypeIds] = useState<ReadonlySet<string>>(() => new Set(search.types));
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -148,10 +139,11 @@ function InspectionsExplorerRoute() {
 			...(densities.size > 0 ? { densities: [...densities] } : {}),
 			...(positiveOnly ? { positiveOnly: true } : {}),
 			...(typeIds.size > 0 ? { habitatTypeIds: [...typeIds] } : {}),
+			...(inspectorIds.size > 0 ? { inspectedByProfileIds: [...inspectorIds] } : {}),
 			...(dateFrom === '' ? {} : { dateFrom }),
 			...(dateTo === '' ? {} : { dateTo }),
 		}),
-		[wetness, densities, positiveOnly, typeIds, dateFrom, dateTo],
+		[wetness, densities, positiveOnly, typeIds, inspectorIds, dateFrom, dateTo],
 	);
 
 	// Editing one bound past the other drags the other along, so the range never
@@ -179,6 +171,7 @@ function InspectionsExplorerRoute() {
 		[dateFrom, dateTo, today],
 	);
 
+	const personnel = usePersonnelOptions();
 	const bounds = useMapBounds(map);
 	const { rows, total, isLoading } = useVisibleInspections(bounds, filters, page);
 	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -221,7 +214,12 @@ function InspectionsExplorerRoute() {
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
 	const hasActiveFilters =
-		!isDefaultRange || wetness !== 'all' || densities.size > 0 || positiveOnly || typeIds.size > 0;
+		!isDefaultRange ||
+		wetness !== 'all' ||
+		densities.size > 0 ||
+		positiveOnly ||
+		typeIds.size > 0 ||
+		inspectorIds.size > 0;
 
 	const resetDates = useCallback(() => {
 		setDateFrom(defaultFrom);
@@ -235,6 +233,7 @@ function InspectionsExplorerRoute() {
 		setDensities(new Set());
 		setPositiveOnly(false);
 		setTypeIds(new Set());
+		setInspectorIds(new Set());
 	}, [defaultFrom, today]);
 
 	return (
@@ -296,19 +295,29 @@ function InspectionsExplorerRoute() {
 							options={habitatTypes.map((type) => ({ id: type.id, label: type.name }))}
 							selected={typeIds}
 						/>
+						<MultiSelectFilter
+							empty="No people"
+							label="Inspector"
+							onChange={setInspectorIds}
+							options={personnel.options}
+							selected={inspectorIds}
+						/>
 					</div>
 
 					{hasActiveFilters ? (
 						<ActiveFilters
 							densities={densities}
 							from={dateFrom}
+							inspectorIds={inspectorIds}
 							isDefaultRange={isDefaultRange}
 							onClearAll={clearAll}
 							onClearPositive={() => setPositiveOnly(false)}
 							onClearWetness={() => setWetness('all')}
 							onResetDates={resetDates}
 							onToggleDensity={(value) => setDensities(toggle(densities, value))}
+							onToggleInspector={(id) => setInspectorIds(toggle(inspectorIds, id))}
 							onToggleType={(id) => setTypeIds(toggle(typeIds, id))}
+							personnelNameById={personnel.nameById}
 							positiveOnly={positiveOnly}
 							to={dateTo}
 							typeIds={typeIds}
@@ -470,83 +479,6 @@ function PositiveToggle({
 	);
 }
 
-interface FilterOption {
-	readonly id: string;
-	readonly label: string;
-}
-
-function MultiSelectFilter({
-	label,
-	empty,
-	options,
-	selected,
-	onChange,
-}: {
-	readonly label: string;
-	readonly empty: string;
-	readonly options: readonly FilterOption[];
-	readonly selected: ReadonlySet<string>;
-	readonly onChange: (next: ReadonlySet<string>) => void;
-}) {
-	const [open, setOpen] = useState(false);
-	const count = selected.size;
-
-	return (
-		<Popover onOpenChange={setOpen} open={open}>
-			<PopoverTrigger asChild>
-				<Button
-					aria-label={`Filter by ${label}`}
-					className="h-8 justify-between font-normal"
-					size="sm"
-					variant="outline"
-				>
-					<span className="truncate">{label}</span>
-					<span className="flex items-center gap-1">
-						{count > 0 ? (
-							<Badge className="px-1.5" variant="secondary">
-								{count}
-							</Badge>
-						) : null}
-						<ChevronDownIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-					</span>
-				</Button>
-			</PopoverTrigger>
-			<PopoverContent align="start" className="w-64 p-0">
-				<Command>
-					<CommandInput placeholder={`Search ${label.toLowerCase()}…`} />
-					<CommandList>
-						<CommandEmpty>{empty}</CommandEmpty>
-						<CommandGroup>
-							{options.map((option) => {
-								const isSelected = selected.has(option.id);
-								return (
-									<CommandItem
-										key={option.id}
-										onSelect={() => onChange(toggle(selected, option.id))}
-										value={`${option.label} ${option.id}`}
-									>
-										<span
-											className={cn(
-												'flex size-4 items-center justify-center rounded-sm border',
-												isSelected
-													? 'border-primary bg-primary text-primary-foreground'
-													: 'border-input',
-											)}
-										>
-											{isSelected ? <CheckIcon aria-hidden="true" className="size-3" /> : null}
-										</span>
-										<span className="truncate">{option.label}</span>
-									</CommandItem>
-								);
-							})}
-						</CommandGroup>
-					</CommandList>
-				</Command>
-			</PopoverContent>
-		</Popover>
-	);
-}
-
 function ActiveFilters({
 	from,
 	to,
@@ -556,11 +488,14 @@ function ActiveFilters({
 	positiveOnly,
 	typeIds,
 	typeNameById,
+	inspectorIds,
+	personnelNameById,
 	onResetDates,
 	onClearWetness,
 	onToggleDensity,
 	onClearPositive,
 	onToggleType,
+	onToggleInspector,
 	onClearAll,
 }: {
 	readonly from: string;
@@ -571,11 +506,14 @@ function ActiveFilters({
 	readonly positiveOnly: boolean;
 	readonly typeIds: ReadonlySet<string>;
 	readonly typeNameById: ReadonlyMap<string, string>;
+	readonly inspectorIds: ReadonlySet<string>;
+	readonly personnelNameById: ReadonlyMap<string, string>;
 	readonly onResetDates: () => void;
 	readonly onClearWetness: () => void;
 	readonly onToggleDensity: (value: LarvalDensity) => void;
 	readonly onClearPositive: () => void;
 	readonly onToggleType: (id: string) => void;
+	readonly onToggleInspector: (id: string) => void;
 	readonly onClearAll: () => void;
 }) {
 	return (
@@ -605,6 +543,13 @@ function ActiveFilters({
 					onRemove={() => onToggleType(id)}
 				/>
 			))}
+			{[...inspectorIds].map((id) => (
+				<FilterChip
+					key={`inspector-${id}`}
+					label={personnelNameById.get(id) ?? 'Unknown inspector'}
+					onRemove={() => onToggleInspector(id)}
+				/>
+			))}
 			<button
 				className="ml-auto rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={onClearAll}
@@ -613,37 +558,6 @@ function ActiveFilters({
 				Clear all
 			</button>
 		</div>
-	);
-}
-
-function FilterChip({
-	label,
-	color,
-	onRemove,
-}: {
-	readonly label: string;
-	readonly color?: string | undefined;
-	readonly onRemove: () => void;
-}) {
-	return (
-		<span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-foreground text-xs">
-			{color === undefined ? null : (
-				<span
-					aria-hidden="true"
-					className="size-2 shrink-0 rounded-full ring-1 ring-black/10"
-					style={{ backgroundColor: color }}
-				/>
-			)}
-			{label}
-			<button
-				aria-label={`Remove ${label} filter`}
-				className="rounded-full p-0.5 opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={onRemove}
-				type="button"
-			>
-				<XIcon aria-hidden="true" className="size-3" />
-			</button>
-		</span>
 	);
 }
 
@@ -663,7 +577,7 @@ function InspectionResults({
 	if (isLoading && rows.length === 0) {
 		return (
 			<div className="grid gap-px overflow-y-auto p-2">
-				{SKELETON_KEYS.map((key) => (
+				{RESULT_SKELETON_KEYS.map((key) => (
 					<Skeleton className="h-[64px]" key={key} />
 				))}
 			</div>
@@ -709,31 +623,12 @@ function InspectionListItem({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	// A full-row background button drives map selection, while the habitat name is a
-	// Link layered above it (z-10). Sibling interactive elements — not an <a> nested
-	// in a <button> — keeps the markup valid while both behaviors coexist.
+	const label = siteLabel(inspection);
+	const when = formatListDate(inspection.inspectionDate);
 	return (
-		<li className="relative">
-			<button
-				aria-label={`Show the ${formatMonthDay(inspection.inspectionDate)} inspection of ${siteLabel(inspection)} on the map`}
-				aria-pressed={isSelected}
-				className={cn(
-					'absolute inset-0 size-full transition-colors',
-					isSelected ? 'bg-primary/8 ring-1 ring-primary/40 ring-inset' : 'hover:bg-muted/50',
-				)}
-				onClick={() => onSelect(inspection.id)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative flex items-center gap-3 px-4 py-3">
-				<DensityDot inspection={inspection} />
-				<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
-					{formatMonthDay(inspection.inspectionDate)}
-				</span>
-				<span className="min-w-0 flex-1">
-					<SiteLink inspection={inspection} />
-					<span className="block truncate text-muted-foreground text-xs">{typeName}</span>
-				</span>
-				<div className="flex shrink-0 items-center gap-1.5">
+		<ExplorerRow
+			badges={
+				<>
 					{inspection.isWet ? (
 						<DensityBadge density={inspection.density} />
 					) : (
@@ -742,52 +637,44 @@ function InspectionListItem({
 					{inspection.isWet && hasAnyLifeStage(inspection) ? (
 						<LifeStageStrip size="sm" stages={inspection} />
 					) : null}
-				</div>
-				<Link
-					aria-label={`View details for the ${formatMonthDay(inspection.inspectionDate)} inspection of ${siteLabel(inspection)}`}
-					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					params={{ id: inspection.id }}
-					title="View Inspection Details"
-					to="/larval-surveillance/inspections/$id"
-				>
-					<ChevronRightIcon aria-hidden="true" className="size-4" />
-				</Link>
-			</div>
-		</li>
-	);
-}
-
-/** Habitat name as a link to the record, or a muted "Ad-hoc" when unlinked. */
-function SiteLink({ inspection }: { readonly inspection: InspectionSite }) {
-	if (inspection.habitatId === null) {
-		return (
-			<span className="block truncate text-muted-foreground text-sm italic">Ad-hoc inspection</span>
-		);
-	}
-	return (
-		<Link
-			className="pointer-events-auto relative z-10 block w-fit max-w-full truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-			params={{ id: inspection.habitatId }}
-			to="/larval-surveillance/habitats/$id"
-		>
-			{siteLabel(inspection)}
-		</Link>
-	);
-}
-
-function DensityDot({ inspection }: { readonly inspection: InspectionSite }) {
-	const color = !inspection.isWet
-		? INSPECTION_DRY_COLOR
-		: (INSPECTION_DENSITY_COLORS[inspection.density ?? 'none'] ?? INSPECTION_DENSITY_COLORS.none);
-	const title = inspection.isWet ? densityLabel(inspection.density) : 'Dry';
-	return (
-		<span
-			aria-hidden="true"
-			className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
-			style={{ backgroundColor: color }}
-			title={title}
+				</>
+			}
+			date={when}
+			detailLabel={`View details for the ${when} inspection of ${label}`}
+			detailLink={{ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } }}
+			isSelected={isSelected}
+			onSelect={() => onSelect(inspection.id)}
+			personnel={inspection.inspectedByName}
+			selectLabel={`Show the ${when} inspection of ${label} on the map`}
+			subtitle={typeName}
+			swatch={inspectionSwatch(inspection)}
+			title={label}
+			{...(inspection.habitatId === null
+				? {}
+				: {
+						titleLink: {
+							to: '/larval-surveillance/habitats/$id' as const,
+							params: { id: inspection.habitatId },
+						},
+					})}
 		/>
 	);
+}
+
+/** The heat colour this inspection draws in, so the row matches the map. */
+function inspectionSwatch(inspection: InspectionSite): {
+	readonly color: string;
+	readonly label: string;
+} {
+	if (!inspection.isWet) {
+		return { color: INSPECTION_DRY_COLOR, label: 'Dry' };
+	}
+	// The map keys colours by density name; `none` is the documented fallback.
+	const color =
+		INSPECTION_DENSITY_COLORS[inspection.density ?? 'none'] ??
+		INSPECTION_DENSITY_COLORS.none ??
+		INSPECTION_DRY_COLOR;
+	return { color, label: densityLabel(inspection.density) };
 }
 
 // --- data hooks -------------------------------------------------------------
@@ -946,16 +833,6 @@ function dateRangeLabel(from: string, to: string): string {
 		return `From ${formatMonthDay(from)}`;
 	}
 	return `${formatMonthDay(from)} – ${formatMonthDay(to)}`;
-}
-
-function toggle<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
-	const next = new Set(set);
-	if (next.has(value)) {
-		next.delete(value);
-	} else {
-		next.add(value);
-	}
-	return next;
 }
 
 function resolveTypeName(

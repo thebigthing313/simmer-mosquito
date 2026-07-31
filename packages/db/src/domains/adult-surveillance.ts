@@ -857,6 +857,8 @@ const collectionDisplayColumns = sql`
 	c.has_problem as "hasProblem",
 	c.is_zero_result as "isZeroResult",
 	c.has_bycatch as "hasBycatch",
+	c.set_by_profile_id as "setByProfileId",
+	c.collected_by_profile_id as "collectedByProfileId",
 	c.created_at as "createdAt",
 	c.updated_at as "updatedAt"
 `;

@@ -2,28 +2,12 @@ import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow, TagRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from '@simmer-mosquito/ui-web/components/ui/command';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/popover';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
 	AlertTriangleIcon,
 	CheckCircle2Icon,
-	CheckIcon,
-	ChevronDownIcon,
 	CircleIcon,
 	MapPinnedIcon,
 	SearchIcon,
@@ -32,11 +16,19 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import {
+	ExplorerRow,
+	FilterChip,
+	MultiSelectFilter,
+	RESULT_SKELETON_KEYS,
+	toggle,
+	useEntityTags,
+} from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type HabitatTileFilters, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -51,6 +43,8 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 type AccessFilter = 'all' | 'accessible' | 'inaccessible';
 
 const PAGE_SIZE = 50;
+
+const NO_TAGS: readonly TagRow[] = [];
 
 function HabitatsExplorerRoute() {
 	const [searchInput, setSearchInput] = useState('');
@@ -85,6 +79,9 @@ function HabitatsExplorerRoute() {
 
 	const bounds = useMapBounds(map);
 	const { rows, total, isLoading } = useVisibleHabitats(bounds, filters, page);
+	// Tags for the rows actually on screen, so the subset request stays small.
+	const pageHabitatIds = useMemo(() => rows.map((habitat) => habitat.id), [rows]);
+	const tagsByHabitatId = useEntityTags('habitat', pageHabitatIds);
 	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
 	// A new viewport or filter set always starts back at the first page.
@@ -212,11 +209,12 @@ function HabitatsExplorerRoute() {
 				</div>
 
 				<HabitatResults
-					rows={rows}
 					isLoading={isLoading}
-					selectedId={selectedId}
-					typeNameById={typeNameById}
 					onSelect={setSelectedId}
+					rows={rows}
+					selectedId={selectedId}
+					tagsByHabitatId={tagsByHabitatId}
+					typeNameById={typeNameById}
 				/>
 
 				<div className="border-border/50 border-t p-3">
@@ -244,8 +242,6 @@ const ACCESS_OPTIONS: readonly { readonly value: AccessFilter; readonly label: s
 	{ value: 'accessible', label: 'Accessible' },
 	{ value: 'inaccessible', label: 'Inaccessible' },
 ];
-
-const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
 
 function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
 	if (isLoading && total === 0) {
@@ -330,83 +326,6 @@ function SegmentedFilter<T extends string>({
 	);
 }
 
-interface FilterOption {
-	readonly id: string;
-	readonly label: string;
-}
-
-function MultiSelectFilter({
-	label,
-	empty,
-	options,
-	selected,
-	onChange,
-}: {
-	readonly label: string;
-	readonly empty: string;
-	readonly options: readonly FilterOption[];
-	readonly selected: ReadonlySet<string>;
-	readonly onChange: (next: ReadonlySet<string>) => void;
-}) {
-	const [open, setOpen] = useState(false);
-	const count = selected.size;
-
-	return (
-		<Popover onOpenChange={setOpen} open={open}>
-			<PopoverTrigger asChild>
-				<Button
-					aria-label={`Filter by ${label}`}
-					className="justify-between font-normal"
-					size="sm"
-					variant="outline"
-				>
-					<span className="truncate">{label}</span>
-					<span className="flex items-center gap-1">
-						{count > 0 ? (
-							<Badge className="px-1.5" variant="secondary">
-								{count}
-							</Badge>
-						) : null}
-						<ChevronDownIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-					</span>
-				</Button>
-			</PopoverTrigger>
-			<PopoverContent align="start" className="w-64 p-0">
-				<Command>
-					<CommandInput placeholder={`Search ${label.toLowerCase()}…`} />
-					<CommandList>
-						<CommandEmpty>{empty}</CommandEmpty>
-						<CommandGroup>
-							{options.map((option) => {
-								const isSelected = selected.has(option.id);
-								return (
-									<CommandItem
-										key={option.id}
-										onSelect={() => onChange(toggle(selected, option.id))}
-										value={`${option.label} ${option.id}`}
-									>
-										<span
-											className={cn(
-												'flex size-4 items-center justify-center rounded-sm border',
-												isSelected
-													? 'border-primary bg-primary text-primary-foreground'
-													: 'border-input',
-											)}
-										>
-											{isSelected ? <CheckIcon aria-hidden="true" className="size-3" /> : null}
-										</span>
-										<span className="truncate">{option.label}</span>
-									</CommandItem>
-								);
-							})}
-						</CommandGroup>
-					</CommandList>
-				</Command>
-			</PopoverContent>
-		</Popover>
-	);
-}
-
 function ActiveFilters({
 	status,
 	access,
@@ -475,54 +394,25 @@ function ActiveFilters({
 	);
 }
 
-function FilterChip({
-	label,
-	color,
-	onRemove,
-}: {
-	readonly label: string;
-	readonly color?: string | null;
-	readonly onRemove: () => void;
-}) {
-	const swatch = tagColorStyle(color ?? null);
-	return (
-		<span
-			className={cn(
-				'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs',
-				swatch === null ? 'border-border bg-muted text-foreground' : undefined,
-			)}
-			style={swatch === null ? undefined : swatch}
-		>
-			{label}
-			<button
-				aria-label={`Remove ${label} filter`}
-				className="rounded-full p-0.5 opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={onRemove}
-				type="button"
-			>
-				<XIcon aria-hidden="true" className="size-3" />
-			</button>
-		</span>
-	);
-}
-
 function HabitatResults({
 	rows,
 	isLoading,
 	selectedId,
 	typeNameById,
+	tagsByHabitatId,
 	onSelect,
 }: {
 	readonly rows: readonly HabitatRow[];
 	readonly isLoading: boolean;
 	readonly selectedId: string | null;
 	readonly typeNameById: ReadonlyMap<string, string>;
+	readonly tagsByHabitatId: ReadonlyMap<string, readonly TagRow[]>;
 	readonly onSelect: (id: string) => void;
 }) {
 	if (isLoading && rows.length === 0) {
 		return (
 			<div className="grid gap-px overflow-y-auto p-2">
-				{SKELETON_KEYS.map((key) => (
+				{RESULT_SKELETON_KEYS.map((key) => (
 					<Skeleton className="h-[58px]" key={key} />
 				))}
 			</div>
@@ -549,6 +439,7 @@ function HabitatResults({
 					isSelected={habitat.id === selectedId}
 					key={habitat.id}
 					onSelect={onSelect}
+					tags={tagsByHabitatId.get(habitat.id) ?? NO_TAGS}
 					typeName={resolveTypeName(habitat, typeNameById)}
 				/>
 			))}
@@ -559,46 +450,41 @@ function HabitatResults({
 function HabitatListItem({
 	habitat,
 	typeName,
+	tags,
 	isSelected,
 	onSelect,
 }: {
 	readonly habitat: HabitatRow;
 	readonly typeName: string;
+	readonly tags: readonly TagRow[];
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	// A full-row background button drives map selection/preview, while the name is
-	// a Link to the detail page layered above it (z-10). Keeping them as sibling
-	// interactive elements — rather than an <a> nested in a <button> — stays valid
-	// and lets "click row to preview, click name to open" coexist.
 	return (
-		<li className="relative">
-			<button
-				aria-label={`Show ${habitatName(habitat)} on the map`}
-				aria-pressed={isSelected}
-				className={cn(
-					'absolute inset-0 size-full transition-colors',
-					isSelected ? 'bg-primary/8 ring-1 ring-primary/40 ring-inset' : 'hover:bg-muted/50',
-				)}
-				onClick={() => onSelect(habitat.id)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative flex items-center gap-3 px-4 py-3">
-				<StatusDot habitat={habitat} />
-				<span className="min-w-0 flex-1">
-					<Link
-						className="pointer-events-auto relative z-10 block w-fit max-w-full truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-						params={{ id: habitat.id }}
-						to="/larval-surveillance/habitats/$id"
-					>
-						{habitatName(habitat)}
-					</Link>
-					<span className="block truncate text-muted-foreground text-xs">{typeName}</span>
-				</span>
-				<StatusBadge habitat={habitat} />
-			</div>
-		</li>
+		<ExplorerRow
+			badges={<StatusBadge habitat={habitat} />}
+			detailLabel={`View details for ${habitatName(habitat)}`}
+			detailLink={{ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } }}
+			isSelected={isSelected}
+			onSelect={() => onSelect(habitat.id)}
+			selectLabel={`Show ${habitatName(habitat)} on the map`}
+			subtitle={typeName}
+			swatch={habitatSwatch(habitat)}
+			tags={tags}
+			title={habitatName(habitat)}
+			titleLink={{ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } }}
+		/>
 	);
+}
+
+/** The dot colour a habitat draws in: inaccessible, inactive, or working. */
+function habitatSwatch(habitat: HabitatRow): { readonly color: string; readonly label: string } {
+	if (habitat.isInaccessible) {
+		return { color: 'var(--danger)', label: 'Inaccessible' };
+	}
+	return habitat.isActive
+		? { color: 'var(--success)', label: 'Active' }
+		: { color: 'var(--muted-foreground)', label: 'Inactive' };
 }
 
 function StatusBadge({ habitat }: { readonly habitat: HabitatRow }) {
@@ -626,7 +512,7 @@ function StatusBadge({ habitat }: { readonly habitat: HabitatRow }) {
 	);
 }
 
-function StatusDot({ habitat }: { readonly habitat: HabitatRow }) {
+function _StatusDot({ habitat }: { readonly habitat: HabitatRow }) {
 	const color = habitat.isInaccessible
 		? 'bg-[var(--danger)]'
 		: habitat.isActive
@@ -785,16 +671,6 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 
 // --- helpers ----------------------------------------------------------------
 
-function toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
-	const next = new Set(set);
-	if (next.has(id)) {
-		next.delete(id);
-	} else {
-		next.add(id);
-	}
-	return next;
-}
-
 function resolveTypeName(habitat: HabitatRow, typeNameById: ReadonlyMap<string, string>): string {
 	if (habitat.habitatTypeId === null) {
 		return 'Unassigned type';
@@ -806,7 +682,7 @@ function habitatName(habitat: HabitatRow): string {
 	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
 }
 
-function tagColorStyle(color: string | null): CSSProperties | null {
+function _tagColorStyle(color: string | null): CSSProperties | null {
 	if (color === null || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color.trim())) {
 		return null;
 	}

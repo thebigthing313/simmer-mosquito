@@ -50,6 +50,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { toggle } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
@@ -677,7 +678,7 @@ function RequestsEmpty({ hasFilter }: { readonly hasFilter: boolean }) {
 	);
 }
 
-function toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
+function _toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
 	const next = new Set(set);
 	if (next.has(id)) {
 		next.delete(id);
