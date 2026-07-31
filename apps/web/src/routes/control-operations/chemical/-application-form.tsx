@@ -2,6 +2,7 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	ControlMethodRow,
 	EquipmentRow,
+	InsecticideBatchRow,
 	InsecticideRow,
 	ProfileRow,
 	UnitRow,
@@ -12,9 +13,11 @@ import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/com
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
@@ -36,6 +39,8 @@ import {
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
+import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import { webCollections } from '../../../sync/webCollections';
 import { insecticideDisplayName, todayDateValue, unitOptions } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
@@ -64,6 +69,10 @@ export interface ApplicationFormValues {
 	readonly applicationMethodId: string;
 	/** `noSelectionValue` or the applicator's profile id. */
 	readonly applicatorProfileId: string;
+	/** Profile ids of everyone else who worked this application. */
+	readonly additionalPersonnelIds: readonly string[];
+	/** Ids of the applied product's lots this treatment drew from. */
+	readonly insecticideBatchIds: readonly string[];
 	/** `noSelectionValue` or a vehicle id. */
 	readonly vehicleId: string;
 	/** `noSelectionValue` or an equipment id. */
@@ -123,6 +132,8 @@ export function defaultApplicationFormValues(): ApplicationFormValues {
 		applicationDate: todayDateValue(),
 		applicationMethodId: noSelectionValue,
 		applicatorProfileId: noSelectionValue,
+		additionalPersonnelIds: [],
+		insecticideBatchIds: [],
 		vehicleId: noSelectionValue,
 		equipmentId: noSelectionValue,
 		addressId: null,
@@ -174,59 +185,70 @@ export function ApplicationFormPage({
 
 	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
-	// Inactive catalog rows stay selectable when they are already on the record, so
-	// editing an old application never silently drops its product or method.
 	const insecticideOptions = useMemo(
-		() =>
-			selectableOptions(
-				insecticides,
-				defaultValues.insecticideId,
-				(row) => row.isActive,
-				insecticideDisplayName,
-			),
-		[insecticides, defaultValues.insecticideId],
+		() => lifecycleOptions(insecticides, (row) => row.isActive, insecticideDisplayName),
+		[insecticides],
 	);
 	const methodOptions = useMemo(
 		() =>
-			selectableOptions(
+			lifecycleOptions(
 				applicationMethods,
-				defaultValues.applicationMethodId,
 				(row) => row.isActive,
 				(row) => row.name,
 			),
-		[applicationMethods, defaultValues.applicationMethodId],
+		[applicationMethods],
 	);
 	const profileOptions = useMemo(
 		() =>
-			selectableOptions(
+			lifecycleOptions(
 				profiles,
-				defaultValues.applicatorProfileId,
 				(row) => row.isActive,
 				(row) => row.displayName,
 			),
-		[profiles, defaultValues.applicatorProfileId],
+		[profiles],
 	);
 	const vehicleOptions = useMemo(
 		() =>
-			selectableOptions(
+			lifecycleOptions(
 				vehicles,
-				defaultValues.vehicleId,
 				(row) => row.isActive,
 				(row) => row.vehicleName,
 			),
-		[vehicles, defaultValues.vehicleId],
+		[vehicles],
 	);
 	const equipmentOptions = useMemo(
 		() =>
-			selectableOptions(
+			lifecycleOptions(
 				equipment,
-				defaultValues.equipmentId,
 				(row) => row.isActive,
 				(row) => row.equipmentName,
 			),
-		[equipment, defaultValues.equipmentId],
+		[equipment],
 	);
-	const applicationUnitOptions = useMemo(() => unitOptions(units, isApplicationUnitType), [units]);
+	const unitTypeById = useMemo(
+		() => new Map(units.map((unit) => [unit.id, unit.unitType])),
+		[units],
+	);
+	// A product is measured one way — a pound of granules is never four fluid
+	// ounces — so the unit list narrows to the kind its default unit is in. Until
+	// a product is chosen (or if its default unit is missing) every unit a
+	// treatment can be measured in stays on offer.
+	const unitTypeFor = useCallback(
+		(insecticideId: string): UnitRow['unitType'] | null => {
+			const product = insecticides.find((row) => row.id === insecticideId);
+			return product === undefined ? null : (unitTypeById.get(product.defaultUnitId) ?? null);
+		},
+		[insecticides, unitTypeById],
+	);
+	const applicationUnitOptionsFor = useCallback(
+		(insecticideId: string) => {
+			const unitType = unitTypeFor(insecticideId);
+			return unitType === null
+				? unitOptions(units, isApplicationUnitType)
+				: unitOptions(units, (candidate) => candidate === unitType);
+		},
+		[units, unitTypeFor],
+	);
 
 	const form = useAppForm({
 		defaultValues,
@@ -389,15 +411,23 @@ export function ApplicationFormPage({
 											emptyValue=""
 											label="Insecticide"
 											onValueChange={(next, previousValue) => {
+												const chosen = insecticides.find((row) => row.id === next);
 												// The unit follows the product's default usage unit unless the
-												// user has explicitly chosen a different one.
+												// user has explicitly chosen a different one — and always when
+												// the one they chose measures a different kind of quantity.
 												const previous = insecticides.find((row) => row.id === previousValue);
 												const currentUnit = form.state.values.applicationUnitId;
 												const unitIsDerived =
 													currentUnit === '' || currentUnit === previous?.defaultUnitId;
-												if (unitIsDerived) {
-													const chosen = insecticides.find((row) => row.id === next);
+												const nextUnitType = unitTypeFor(next ?? '');
+												const unitStillFits =
+													nextUnitType === null || unitTypeById.get(currentUnit) === nextUnitType;
+												if (unitIsDerived || !unitStillFits) {
 													form.setFieldValue('applicationUnitId', chosen?.defaultUnitId ?? '');
+												}
+												// Lots belong to one product, so changing the product drops them.
+												if (next !== previousValue) {
+													form.setFieldValue('insecticideBatchIds', []);
 												}
 											}}
 											options={insecticideOptions}
@@ -412,20 +442,46 @@ export function ApplicationFormPage({
 												description="Total product applied across the treated area."
 												label="Amount applied"
 												min={0}
-												placeholder="e.g. 12"
+												placeholder="e.g. 12.5"
 											/>
 										)}
 									</form.AppField>
-									<form.AppField name="applicationUnitId">
-										{(field) => (
-											<field.SelectField
-												label="Unit"
-												options={applicationUnitOptions}
-												placeholder="Select unit"
-											/>
+									<form.Subscribe selector={(state) => state.values.insecticideId}>
+										{(insecticideId) => (
+											<form.AppField name="applicationUnitId">
+												{(field) => (
+													<field.SelectField
+														label="Unit"
+														options={applicationUnitOptionsFor(insecticideId)}
+														placeholder="Select unit"
+													/>
+												)}
+											</form.AppField>
 										)}
-									</form.AppField>
+									</form.Subscribe>
 								</div>
+								{/* Lots are a property of the chosen product, so there is nothing to
+								    offer until one is picked. */}
+								<form.Subscribe selector={(state) => state.values.insecticideId}>
+									{(insecticideId) =>
+										insecticideId === '' ? null : (
+											<form.AppField name="insecticideBatchIds">
+												{(field) => (
+													<InsecticideBatchOptions insecticideId={insecticideId}>
+														{(options) => (
+															<field.MultiSelectField
+																emptyMessage="No batches for this product"
+																label="Batches (optional)"
+																options={options}
+																placeholder="Search batches"
+															/>
+														)}
+													</InsecticideBatchOptions>
+												)}
+											</form.AppField>
+										)
+									}
+								</form.Subscribe>
 							</FormSection>
 
 							<FormSection title="Work">
@@ -477,6 +533,23 @@ export function ApplicationFormPage({
 										)}
 									</form.AppField>
 								</div>
+								<form.Subscribe selector={(state) => state.values.applicatorProfileId}>
+									{(applicatorProfileId) => (
+										<form.AppField name="additionalPersonnelIds">
+											{(field) => (
+												<field.MultiSelectField
+													emptyMessage="No profiles"
+													label="Additional personnel (optional)"
+													options={additionalPersonnelOptions(profiles, field.state.value, {
+														excludeProfileId:
+															applicatorProfileId === noSelectionValue ? null : applicatorProfileId,
+													})}
+													placeholder="Search profiles"
+												/>
+											)}
+										</form.AppField>
+									)}
+								</form.Subscribe>
 							</FormSection>
 
 							{/* Agencies attach their own fields to an application method; render
@@ -540,6 +613,50 @@ export function ApplicationFormPage({
 
 // --- controls ---------------------------------------------------------------
 
+// insecticide_batches is on-demand (docs/sync.md); keep a product's subset warm
+// briefly so flipping between products does not refetch each time.
+const batchOptionsGcTimeMs = 30_000;
+
+/**
+ * The chosen product's lots, as picker options. They sync on demand, so the list
+ * comes from a live subset scoped to that product rather than a client-side
+ * filter over an eager set — which is why this sits in its own component,
+ * mounted only once a product is chosen.
+ */
+function InsecticideBatchOptions({
+	insecticideId,
+	children,
+}: {
+	readonly insecticideId: string;
+	readonly children: (options: readonly FieldOption[]) => ReactNode;
+}) {
+	const result = useLiveQuery(
+		{
+			gcTime: batchOptionsGcTimeMs,
+			query: (query) =>
+				query
+					.from({ batch: webCollections.insecticideBatches })
+					.where(({ batch }) => eq(batch.insecticideId, insecticideId))
+					.orderBy(({ batch }) => batch.batchName, 'asc'),
+		},
+		[insecticideId],
+	);
+	const batches = (result.data ?? []) as unknown as readonly InsecticideBatchRow[];
+	// Spent and retired lots stay on offer, behind the ones still on the shelf —
+	// an application being keyed in after the fact used whatever it used.
+	const options = useMemo(
+		() =>
+			lifecycleOptions(
+				batches,
+				(batch) => batch.isActive,
+				(batch) => batch.batchName,
+			),
+		[batches],
+	);
+
+	return <>{children(options)}</>;
+}
+
 function DateControl({
 	label,
 	value,
@@ -571,23 +688,6 @@ function optionalOptions(
 	emptyLabel: string,
 ): readonly FieldOption[] {
 	return [{ label: emptyLabel, value: noSelectionValue }, ...options];
-}
-
-/**
- * Options for a catalog select: active rows, plus whatever the record already
- * references — a deactivated product or vehicle must stay visible on the row that
- * used it — sorted by label so long catalogs stay scannable.
- */
-function selectableOptions<TRow extends { readonly id: string }>(
-	rows: readonly TRow[],
-	selectedId: string,
-	isActive: (row: TRow) => boolean,
-	toLabel: (row: TRow) => string,
-): readonly FieldOption[] {
-	return rows
-		.filter((row) => isActive(row) || row.id === selectedId)
-		.map((row) => ({ label: toLabel(row), value: row.id }))
-		.sort((first, second) => first.label.localeCompare(second.label));
 }
 
 function validate(values: ApplicationFormValues): string | null {

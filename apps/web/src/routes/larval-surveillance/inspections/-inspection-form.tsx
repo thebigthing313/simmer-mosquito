@@ -24,6 +24,7 @@ import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
@@ -37,6 +38,7 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
+import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { webCollections } from '../../../sync/webCollections';
 import { densityLabel, type LifeStageFlags } from '../-larval-display';
 import { todayInTimeZone } from '../-overview-data';
@@ -82,6 +84,8 @@ export interface InspectionFormValues {
 	readonly inspectionDate: string;
 	/** Attribution; left null defaults to the acting profile server-side. */
 	readonly inspectedByProfileId: string | null;
+	/** Profile ids of everyone else who worked this inspection. */
+	readonly additionalPersonnelIds: readonly string[];
 	readonly isWet: boolean;
 	/** `unsetDensityValue` or a `LarvalDensity`. */
 	readonly density: string;
@@ -129,6 +133,7 @@ export function defaultInspectionFormValues(today: string): InspectionFormValues
 		addressId: null,
 		inspectionDate: today,
 		inspectedByProfileId: null,
+		additionalPersonnelIds: [],
 		isWet: true,
 		density: unsetDensityValue,
 		dipCount: null,
@@ -206,12 +211,6 @@ export function InspectionFormPage({
 	// habitat's geometry or freshly drawn ad-hoc geometry) without a manual pan.
 	useFitToGeometry(map, previewGeometry, draw.isDrawing);
 	useFitToGeometry(map, adhocGeometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
-
-	const activeHabitatTypes = useMemo(
-		() => habitatTypes.filter((type) => type.isActive),
-		[habitatTypes],
-	);
-	const activeProfiles = useMemo(() => profiles.filter((profile) => profile.isActive), [profiles]);
 
 	const form = useAppForm({
 		defaultValues,
@@ -398,7 +397,7 @@ export function InspectionFormPage({
 													{(field) => (
 														<field.SelectField
 															label="Habitat type (optional)"
-															options={habitatTypeOptions(activeHabitatTypes)}
+															options={habitatTypeOptions(habitatTypes)}
 															placeholder="Unassigned type"
 														/>
 													)}
@@ -435,12 +434,28 @@ export function InspectionFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Inspector (optional)"
-												options={profileOptions(activeProfiles)}
+												options={profileOptions(profiles)}
 												placeholder="Default to me"
 											/>
 										)}
 									</form.AppField>
 								</div>
+								<form.Subscribe selector={(state) => state.values.inspectedByProfileId}>
+									{(inspectedByProfileId) => (
+										<form.AppField name="additionalPersonnelIds">
+											{(field) => (
+												<field.MultiSelectField
+													emptyMessage="No profiles"
+													label="Additional personnel (optional)"
+													options={additionalPersonnelOptions(profiles, field.state.value, {
+														excludeProfileId: inspectedByProfileId,
+													})}
+													placeholder="Search profiles"
+												/>
+											)}
+										</form.AppField>
+									)}
+								</form.Subscribe>
 							</FormSection>
 
 							<FormSection title="Findings">
@@ -840,12 +855,20 @@ function densityOptions() {
 function habitatTypeOptions(habitatTypes: readonly HabitatTypeRow[]) {
 	return [
 		{ label: 'Unassigned type', value: noHabitatTypeValue },
-		...habitatTypes.map((type) => ({ label: type.name, value: type.id })),
+		...lifecycleOptions(
+			habitatTypes,
+			(type) => type.isActive,
+			(type) => type.name,
+		),
 	];
 }
 
 function profileOptions(profiles: readonly ProfileRow[]) {
-	return profiles.map((profile) => ({ label: profile.displayName, value: profile.id }));
+	return lifecycleOptions(
+		profiles,
+		(profile) => profile.isActive,
+		(profile) => profile.displayName,
+	);
 }
 
 function habitatLabel(habitat: HabitatRow): string {

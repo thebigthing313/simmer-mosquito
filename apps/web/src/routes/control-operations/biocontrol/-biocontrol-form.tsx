@@ -9,6 +9,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
+import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
@@ -29,6 +30,7 @@ import {
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
+import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayDateValue, unitOptions } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
@@ -48,6 +50,8 @@ export interface BiocontrolFormValues {
 	readonly biocontrolMethodId: string;
 	/** `noTechnicianValue` or a profile id. */
 	readonly technicianProfileId: string;
+	/** Profile ids of everyone else who worked this release. */
+	readonly additionalPersonnelIds: readonly string[];
 	/** `YYYY-MM-DD` — the date the agents were released. */
 	readonly biocontrolDate: string;
 	readonly amountReleased: number | null;
@@ -96,6 +100,7 @@ export function defaultBiocontrolFormValues(): BiocontrolFormValues {
 		habitatId: null,
 		biocontrolMethodId: '',
 		technicianProfileId: noTechnicianValue,
+		additionalPersonnelIds: [],
 		biocontrolDate: todayDateValue(),
 		amountReleased: null,
 		releaseUnitId: '',
@@ -149,8 +154,13 @@ export function BiocontrolFormPage({
 	useFitToGeometry(map, referenceGeometry, draw.isDrawing);
 	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
-	const activeMethods = useMemo(
-		() => biocontrolMethods.filter((method) => method.isActive),
+	const methodOptions = useMemo(
+		() =>
+			lifecycleOptions(
+				biocontrolMethods,
+				(method) => method.isActive,
+				(method) => method.name,
+			),
 		[biocontrolMethods],
 	);
 	// Biocontrol releases are counted, measured by volume, or weighed — the domain
@@ -159,9 +169,11 @@ export function BiocontrolFormPage({
 	const technicianOptions = useMemo(
 		() => [
 			{ label: 'Unassigned', value: noTechnicianValue },
-			...profiles
-				.filter((profile) => profile.isActive)
-				.map((profile) => ({ label: profile.displayName, value: profile.id })),
+			...lifecycleOptions(
+				profiles,
+				(profile) => profile.isActive,
+				(profile) => profile.displayName,
+			),
 		],
 		[profiles],
 	);
@@ -362,10 +374,7 @@ export function BiocontrolFormPage({
 									{(field) => (
 										<field.SelectField
 											label="Biocontrol method"
-											options={activeMethods.map((method) => ({
-												label: method.name,
-												value: method.id,
-											}))}
+											options={methodOptions}
 											placeholder="Select method"
 										/>
 									)}
@@ -435,6 +444,25 @@ export function BiocontrolFormPage({
 										)}
 									</form.AppField>
 								</div>
+								<form.Subscribe selector={(state) => state.values.technicianProfileId}>
+									{(technicianProfileId) => (
+										<form.AppField name="additionalPersonnelIds">
+											{(field) => (
+												<field.MultiSelectField
+													emptyMessage="No profiles"
+													label="Additional personnel (optional)"
+													options={additionalPersonnelOptions(profiles, field.state.value, {
+														excludeProfileId:
+															technicianProfileId === noTechnicianValue
+																? null
+																: technicianProfileId,
+													})}
+													placeholder="Search profiles"
+												/>
+											)}
+										</form.AppField>
+									)}
+								</form.Subscribe>
 								<div className="grid gap-1.5">
 									<form.AppField name="habitatId">
 										{(field) => (

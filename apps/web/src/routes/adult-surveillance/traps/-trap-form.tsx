@@ -18,6 +18,7 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
+import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { AddressPicker } from '../-adult-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
@@ -122,13 +123,14 @@ export function TrapFormPage({
 
 	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
-	const activeMethods = useMemo(
-		() => collectionMethods.filter((method) => method.isActive),
+	const methodOptions = useMemo(
+		() =>
+			lifecycleOptions(
+				collectionMethods,
+				(method) => method.isActive,
+				(method) => method.name,
+			),
 		[collectionMethods],
-	);
-	const activeLures = useMemo(
-		() => collectionLures.filter((lure) => lure.isActive),
-		[collectionLures],
 	);
 
 	const form = useAppForm({
@@ -276,10 +278,7 @@ export function TrapFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Collection method"
-												options={activeMethods.map((method) => ({
-													label: method.name,
-													value: method.id,
-												}))}
+												options={methodOptions}
 												placeholder="Select method"
 											/>
 										)}
@@ -288,7 +287,7 @@ export function TrapFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Lure (optional)"
-												options={lureOptions(activeLures)}
+												options={lureOptions(collectionLures)}
 												placeholder="No lure"
 											/>
 										)}
@@ -368,7 +367,11 @@ function FormSection({
 function lureOptions(lures: readonly CollectionLureRow[]) {
 	return [
 		{ label: 'No lure', value: noLureValue },
-		...lures.map((lure) => ({ label: lure.name, value: lure.id })),
+		...lifecycleOptions(
+			lures,
+			(lure) => lure.isActive,
+			(lure) => lure.name,
+		),
 	];
 }
 

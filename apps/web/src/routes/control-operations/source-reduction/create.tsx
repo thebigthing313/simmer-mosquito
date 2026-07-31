@@ -6,9 +6,14 @@ import type {
 	UnitRow,
 } from '@simmer-mosquito/sync';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import {
+	saveAdditionalPersonnel,
+	useAdditionalPersonnel,
+} from '../../../components/additional-personnel';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { attachLinksBestEffort } from '../../../sync/reconcile-links';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -36,6 +41,11 @@ function CreateSourceReductionRoute() {
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = organization !== null && actorProfileId !== null;
 
+	// Minted up front so the crew rows can be written the moment the action lands
+	// — and so their on-demand stream is already warm when the save fires.
+	const [sourceReductionId] = useState(() => crypto.randomUUID());
+	useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReductionId });
+
 	const onSave = useCallback(
 		async ({ values, geometry }: SourceReductionSaveInput) => {
 			if (organization === null) {
@@ -62,7 +72,7 @@ function CreateSourceReductionRoute() {
 
 			const now = new Date().toISOString();
 			const row: SourceReductionRow = {
-				id: crypto.randomUUID(),
+				id: sourceReductionId,
 				organizationId: organization.id,
 				lat: centroid.lat,
 				lng: centroid.lng,
@@ -94,9 +104,19 @@ function CreateSourceReductionRoute() {
 				metadata: { locationSource },
 			});
 			await settleWrite(transaction);
+			// Crew rows reference the action, so they can only be written once it exists.
+			await attachLinksBestEffort(() =>
+				saveAdditionalPersonnel({
+					target: { type: 'sourceReduction', id: row.id },
+					organizationId: organization.id,
+					actorProfileId,
+					existing: [],
+					profileIds: values.additionalPersonnelIds,
+				}),
+			);
 			await navigate({ to: '/control-operations/source-reduction/$id', params: { id: row.id } });
 		},
-		[organization, actorProfileId, navigate],
+		[organization, actorProfileId, sourceReductionId, navigate],
 	);
 
 	return (

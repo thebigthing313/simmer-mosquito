@@ -18,12 +18,22 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import {
+	type AdditionalPersonnelResult,
+	saveAdditionalPersonnel,
+	useAdditionalPersonnel,
+} from '../../../components/additional-personnel';
 import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
+import {
+	type ApplicationBatchesResult,
+	saveApplicationBatches,
+	useApplicationBatches,
+} from './-application-batches';
 import {
 	ApplicationFormPage,
 	type ApplicationFormValues,
@@ -124,6 +134,10 @@ function EditApplicationLoader({
 		application.id,
 		application.updatedAt,
 	);
+	// Crew and batches live in their own tables; the form edits them as lists and
+	// the save reconciles each against what is attached now.
+	const personnel = useAdditionalPersonnel({ type: 'application', id: application.id });
+	const batches = useApplicationBatches(application.id);
 
 	const onSave = useCallback(
 		async ({
@@ -186,15 +200,36 @@ function EditApplicationLoader({
 							applyEdits,
 						);
 			await settleWrite(transaction);
+			await Promise.all([
+				saveAdditionalPersonnel({
+					target: { type: 'application', id: application.id },
+					organizationId: application.organizationId,
+					actorProfileId,
+					existing: personnel.rows,
+					profileIds: values.additionalPersonnelIds,
+				}),
+				saveApplicationBatches({
+					applicationId: application.id,
+					organizationId: application.organizationId,
+					actorProfileId,
+					existing: batches.rows,
+					insecticideBatchIds: values.insecticideBatchIds,
+				}),
+			]);
 			await navigate({ to: '/control-operations/chemical/$id', params: { id: application.id } });
 		},
-		[application, actorProfileId, navigate],
+		[application, actorProfileId, personnel.rows, batches.rows, navigate],
 	);
 
 	if (geometryQuery.isError) {
 		return <EditUnavailable description="This application's geometry could not be loaded." />;
 	}
-	if (geometryQuery.isPending) {
+	if (personnel.isError || batches.isError) {
+		return (
+			<EditUnavailable description="This application's personnel and batches could not be loaded." />
+		);
+	}
+	if (geometryQuery.isPending || !personnel.isReady || !batches.isReady) {
 		return <EditFormSkeleton />;
 	}
 
@@ -202,7 +237,7 @@ function EditApplicationLoader({
 		<ApplicationFormPage
 			applicationMethods={applicationMethods}
 			canSubmit={canSubmit}
-			defaultValues={defaultsFromApplication(application)}
+			defaultValues={defaultsFromApplication(application, personnel, batches)}
 			equipment={equipment}
 			header={{
 				title: 'Edit Application',
@@ -224,7 +259,11 @@ function EditApplicationLoader({
 	);
 }
 
-function defaultsFromApplication(application: ApplicationRow): ApplicationFormValues {
+function defaultsFromApplication(
+	application: ApplicationRow,
+	personnel: AdditionalPersonnelResult,
+	batches: ApplicationBatchesResult,
+): ApplicationFormValues {
 	return {
 		insecticideId: application.insecticideId,
 		amountApplied: application.amountApplied,
@@ -232,6 +271,8 @@ function defaultsFromApplication(application: ApplicationRow): ApplicationFormVa
 		applicationDate: application.applicationDate.slice(0, 10),
 		applicationMethodId: application.applicationMethodId ?? noSelectionValue,
 		applicatorProfileId: application.applicatorProfileId ?? noSelectionValue,
+		additionalPersonnelIds: personnel.profileIds,
+		insecticideBatchIds: batches.insecticideBatchIds,
 		vehicleId: application.vehicleId ?? noSelectionValue,
 		equipmentId: application.equipmentId ?? noSelectionValue,
 		addressId: application.addressId,

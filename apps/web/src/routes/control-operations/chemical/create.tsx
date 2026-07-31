@@ -9,11 +9,17 @@ import type {
 	VehicleRow,
 } from '@simmer-mosquito/sync';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import {
+	saveAdditionalPersonnel,
+	useAdditionalPersonnel,
+} from '../../../components/additional-personnel';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { attachLinksBestEffort } from '../../../sync/reconcile-links';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
+import { saveApplicationBatches, useApplicationBatches } from './-application-batches';
 import {
 	ApplicationFormPage,
 	type ApplicationFormValues,
@@ -40,6 +46,13 @@ function CreateApplicationRoute() {
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = organization !== null && actorProfileId !== null;
+
+	// The application's id is minted up front so its crew and batch links can be
+	// written the moment it lands — and so the on-demand streams those live on are
+	// already warm when the save fires.
+	const [applicationId] = useState(() => crypto.randomUUID());
+	useAdditionalPersonnel({ type: 'application', id: applicationId });
+	useApplicationBatches(applicationId);
 
 	const onSave = useCallback(
 		async ({
@@ -74,7 +87,7 @@ function CreateApplicationRoute() {
 
 			const now = new Date().toISOString();
 			const row: ApplicationRow = {
-				id: crypto.randomUUID(),
+				id: applicationId,
 				organizationId: organization.id,
 				lat: centroid.lat,
 				lng: centroid.lng,
@@ -107,9 +120,29 @@ function CreateApplicationRoute() {
 
 			const transaction = webCollections.applications.insert(row, { metadata: { locationSource } });
 			await settleWrite(transaction);
+			// Crew and batches are separate rows that reference the application, so
+			// they can only be written once it exists.
+			await attachLinksBestEffort(async () => {
+				await Promise.all([
+					saveAdditionalPersonnel({
+						target: { type: 'application', id: row.id },
+						organizationId: organization.id,
+						actorProfileId,
+						existing: [],
+						profileIds: values.additionalPersonnelIds,
+					}),
+					saveApplicationBatches({
+						applicationId: row.id,
+						organizationId: organization.id,
+						actorProfileId,
+						existing: [],
+						insecticideBatchIds: values.insecticideBatchIds,
+					}),
+				]);
+			});
 			await navigate({ to: '/control-operations/chemical/$id', params: { id: row.id } });
 		},
-		[organization, actorProfileId, navigate],
+		[organization, actorProfileId, applicationId, navigate],
 	);
 
 	return (

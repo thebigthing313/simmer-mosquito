@@ -7,10 +7,15 @@ import type {
 	UnitRow,
 } from '@simmer-mosquito/sync';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
+import {
+	saveAdditionalPersonnel,
+	useAdditionalPersonnel,
+} from '../../../components/additional-personnel';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { attachLinksBestEffort } from '../../../sync/reconcile-links';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -54,6 +59,11 @@ function CreateCollectionRoute() {
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = organization !== null && actorProfileId !== null;
 
+	// Minted up front so the crew rows can be written the moment the collection
+	// lands — and so their on-demand stream is already warm when the save fires.
+	const [collectionId] = useState(() => crypto.randomUUID());
+	useAdditionalPersonnel({ type: 'collection', id: collectionId });
+
 	const onSave = useCallback(
 		async ({ values, trap, geometry }: CollectionSaveInput) => {
 			if (organization === null) {
@@ -82,7 +92,7 @@ function CreateCollectionRoute() {
 			}
 
 			const row: AdultCollectionRow = {
-				id: crypto.randomUUID(),
+				id: collectionId,
 				organizationId: organization.id,
 				lat: centroid.lat,
 				lng: centroid.lng,
@@ -124,9 +134,20 @@ function CreateCollectionRoute() {
 				metadata: { locationSource },
 			});
 			await settleWrite(transaction);
+			// Crew rows reference the collection, so they can only be written once it
+			// exists.
+			await attachLinksBestEffort(() =>
+				saveAdditionalPersonnel({
+					target: { type: 'collection', id: row.id },
+					organizationId: organization.id,
+					actorProfileId,
+					existing: [],
+					profileIds: values.additionalPersonnelIds,
+				}),
+			);
 			await navigate({ to: '/adult-surveillance/collections/$id', params: { id: row.id } });
 		},
-		[organization, actorProfileId, navigate],
+		[organization, actorProfileId, collectionId, navigate],
 	);
 
 	return (

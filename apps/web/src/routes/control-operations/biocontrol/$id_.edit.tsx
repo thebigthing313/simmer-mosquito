@@ -15,6 +15,11 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import {
+	type AdditionalPersonnelResult,
+	saveAdditionalPersonnel,
+	useAdditionalPersonnel,
+} from '../../../components/additional-personnel';
 import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -104,6 +109,9 @@ function EditBiocontrolActionLoader({
 	// The synced row carries only the centroid, so the full shape (which may be a
 	// line or polygon) is read from the display endpoint before the form opens.
 	const geometryQuery = useOwnedGeometry(BIOCONTROL_GEOMETRY_SOURCE, action.id, action.updatedAt);
+	// The crew lives in its own table; the form edits it as a list and the save
+	// reconciles that against who is attached now.
+	const personnel = useAdditionalPersonnel({ type: 'biocontrolAction', id: action.id });
 
 	const onSave = useCallback(
 		async ({
@@ -167,15 +175,27 @@ function EditBiocontrolActionLoader({
 							applyEdits,
 						);
 			await settleWrite(transaction);
+			await saveAdditionalPersonnel({
+				target: { type: 'biocontrolAction', id: action.id },
+				organizationId: action.organizationId,
+				actorProfileId,
+				existing: personnel.rows,
+				profileIds: values.additionalPersonnelIds,
+			});
 			await navigate({ to: '/control-operations/biocontrol/$id', params: { id: action.id } });
 		},
-		[action, actorProfileId, navigate],
+		[action, actorProfileId, personnel.rows, navigate],
 	);
 
 	if (geometryQuery.isError) {
 		return <EditUnavailable description="This biocontrol action's geometry could not be loaded." />;
 	}
-	if (geometryQuery.isPending) {
+	if (personnel.isError) {
+		return (
+			<EditUnavailable description="This biocontrol action's personnel could not be loaded." />
+		);
+	}
+	if (geometryQuery.isPending || !personnel.isReady) {
 		return <EditFormSkeleton />;
 	}
 
@@ -183,7 +203,7 @@ function EditBiocontrolActionLoader({
 		<BiocontrolFormPage
 			biocontrolMethods={biocontrolMethods}
 			canSubmit={canSubmit}
-			defaultValues={defaultsFromAction(action)}
+			defaultValues={defaultsFromAction(action, personnel)}
 			header={{
 				title: 'Edit biocontrol',
 				description: 'Update this release’s method, amount, date, context, or location.',
@@ -202,12 +222,16 @@ function EditBiocontrolActionLoader({
 	);
 }
 
-function defaultsFromAction(action: BiocontrolActionRow): BiocontrolFormValues {
+function defaultsFromAction(
+	action: BiocontrolActionRow,
+	personnel: AdditionalPersonnelResult,
+): BiocontrolFormValues {
 	return {
 		addressId: action.addressId,
 		habitatId: action.habitatId,
 		biocontrolMethodId: action.biocontrolMethodId,
 		technicianProfileId: action.technicianProfileId ?? noTechnicianValue,
+		additionalPersonnelIds: personnel.profileIds,
 		biocontrolDate: action.biocontrolDate.slice(0, 10),
 		amountReleased: action.amountReleased,
 		releaseUnitId: action.releaseUnitId,

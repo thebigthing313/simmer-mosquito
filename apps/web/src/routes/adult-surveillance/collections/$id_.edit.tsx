@@ -16,6 +16,11 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import {
+	type AdditionalPersonnelResult,
+	saveAdditionalPersonnel,
+	useAdditionalPersonnel,
+} from '../../../components/additional-personnel';
 import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -111,6 +116,9 @@ function EditCollectionLoader({
 	readonly canSubmit: boolean;
 }) {
 	const navigate = useNavigate();
+	// The crew lives in its own table; the form edits it as a list and the save
+	// reconciles that against who is attached now.
+	const personnel = useAdditionalPersonnel({ type: 'collection', id: collection.id });
 
 	const onSave = useCallback(
 		async ({ values, geometry, geometryChanged }: CollectionSaveInput) => {
@@ -166,20 +174,41 @@ function EditCollectionLoader({
 							applyEdits,
 						);
 			await settleWrite(transaction);
+			await saveAdditionalPersonnel({
+				target: { type: 'collection', id: collection.id },
+				organizationId: collection.organizationId,
+				actorProfileId,
+				existing: personnel.rows,
+				profileIds: values.additionalPersonnelIds,
+			});
 			await navigate({
 				to: '/adult-surveillance/collections/$id',
 				params: { id: collection.id },
 			});
 		},
-		[collection.id, collection.trapId, actorProfileId, navigate],
+		[
+			collection.id,
+			collection.organizationId,
+			collection.trapId,
+			actorProfileId,
+			personnel.rows,
+			navigate,
+		],
 	);
+
+	if (personnel.isError) {
+		return <EditUnavailable description="This collection's personnel could not be loaded." />;
+	}
+	if (!personnel.isReady) {
+		return <EditFormSkeleton />;
+	}
 
 	return (
 		<CollectionFormPage
 			canSubmit={canSubmit}
 			collectionLures={collectionLures}
 			collectionMethods={collectionMethods}
-			defaultValues={defaultsFromCollection(collection)}
+			defaultValues={defaultsFromCollection(collection, personnel)}
 			header={{
 				title: 'Edit collection',
 				description: 'Update this collection’s method, timing, personnel, location, or result.',
@@ -203,7 +232,10 @@ function EditCollectionLoader({
 	);
 }
 
-function defaultsFromCollection(collection: AdultCollectionRow): CollectionFormValues {
+function defaultsFromCollection(
+	collection: AdultCollectionRow,
+	personnel: AdditionalPersonnelResult,
+): CollectionFormValues {
 	return {
 		sourceMode: collection.trapId === null ? 'adhoc' : 'trap',
 		trapId: collection.trapId,
@@ -218,6 +250,7 @@ function defaultsFromCollection(collection: AdultCollectionRow): CollectionFormV
 		durationUnitId: collection.durationUnitId ?? noUnitValue,
 		setByProfileId: collection.setByProfileId,
 		collectedByProfileId: collection.collectedByProfileId,
+		additionalPersonnelIds: personnel.profileIds,
 		hasProblem: collection.hasProblem,
 		metadata: asMetadataValue(collection.metadata),
 	};

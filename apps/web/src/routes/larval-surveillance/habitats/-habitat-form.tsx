@@ -7,7 +7,7 @@ import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
@@ -28,6 +28,7 @@ import {
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
+import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { AddressIdInput } from '../../-habitat-location-fields';
 
 export const noHabitatTypeValue = 'none';
@@ -119,11 +120,6 @@ export function HabitatFormPage({
 	const requestMapPoint = useCallback(
 		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
 		[requestPoint],
-	);
-
-	const activeHabitatTypes = useMemo(
-		() => habitatTypes.filter((type) => type.isActive),
-		[habitatTypes],
 	);
 
 	const form = useAppForm({
@@ -231,7 +227,7 @@ export function HabitatFormPage({
 									{(field) => (
 										<field.SelectField
 											label="Habitat type"
-											options={habitatTypeOptions(activeHabitatTypes)}
+											options={habitatTypeOptions(habitatTypes)}
 											placeholder="Select a type"
 										/>
 									)}
@@ -391,7 +387,11 @@ function cameraForGeometry(geometry: DrawGeometry | null) {
 function habitatTypeOptions(habitatTypes: readonly HabitatTypeRow[]) {
 	return [
 		{ label: 'Unassigned type', value: noHabitatTypeValue },
-		...habitatTypes.map((type) => ({ label: type.name, value: type.id })),
+		...lifecycleOptions(
+			habitatTypes,
+			(type) => type.isActive,
+			(type) => type.name,
+		),
 	];
 }
 

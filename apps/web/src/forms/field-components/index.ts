@@ -22,6 +22,8 @@ export type { JsonSchemaFieldProps, JsonSchemaValue } from './json-schema-field'
 export { JsonSchemaField, validateJsonSchemaValue } from './json-schema-field';
 export type { MetadataFieldProps } from './metadata-field';
 export { MetadataField, validateMetadataValue, validateSchemaMetadata } from './metadata-field';
+export type { MultiSelectFieldProps } from './multi-select-field';
+export { MultiSelectField } from './multi-select-field';
 export type { NumberFieldProps } from './number-field';
 export { NumberField } from './number-field';
 export type { FieldOption, SelectFieldProps } from './select-field';

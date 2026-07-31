@@ -1,8 +1,13 @@
 import type { CommentRow, InspectionRow, LarvalDensity } from '@simmer-mosquito/sync';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import {
+	saveAdditionalPersonnel,
+	useAdditionalPersonnel,
+} from '../../../components/additional-personnel';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { attachLinksBestEffort } from '../../../sync/reconcile-links';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -33,6 +38,11 @@ function CreateInspectionRoute() {
 	const canSubmit = organization !== null && actorProfileId !== null;
 	const entryMode = settings.larvalSurveillance.inspectionEntryPolicy.mode;
 
+	// Minted up front so the crew rows can be written the moment the inspection
+	// lands — and so their on-demand stream is already warm when the save fires.
+	const [inspectionId] = useState(() => crypto.randomUUID());
+	useAdditionalPersonnel({ type: 'inspection', id: inspectionId });
+
 	const onSave = useCallback(
 		async ({
 			values,
@@ -51,6 +61,7 @@ function CreateInspectionRoute() {
 			const now = new Date().toISOString();
 			const isAdhoc = values.locationMode === 'adhoc';
 			const row = buildInspectionRow(values, {
+				id: inspectionId,
 				organizationId: organization.id,
 				actorProfileId,
 				now,
@@ -63,6 +74,18 @@ function CreateInspectionRoute() {
 						})
 					: webCollections.inspections.insert(row);
 			await settleWrite(transaction);
+
+			// Crew rows reference the inspection, so they can only be written once it
+			// exists.
+			await attachLinksBestEffort(() =>
+				saveAdditionalPersonnel({
+					target: { type: 'inspection', id: row.id },
+					organizationId: organization.id,
+					actorProfileId,
+					existing: [],
+					profileIds: values.additionalPersonnelIds,
+				}),
+			);
 
 			// Attach the optional note as the inspection's first comment. The
 			// inspection must be committed first (the comment references it), so this
@@ -83,7 +106,7 @@ function CreateInspectionRoute() {
 				params: { id: row.id },
 			});
 		},
-		[organization, actorProfileId, navigate],
+		[organization, actorProfileId, inspectionId, navigate],
 	);
 
 	return (
@@ -109,6 +132,7 @@ function CreateInspectionRoute() {
 function buildInspectionRow(
 	values: InspectionFormValues,
 	context: {
+		readonly id: string;
 		readonly organizationId: string;
 		readonly actorProfileId: string;
 		readonly now: string;
@@ -120,7 +144,7 @@ function buildInspectionRow(
 	const isAdhoc = values.locationMode === 'adhoc';
 
 	return {
-		id: crypto.randomUUID(),
+		id: context.id,
 		organizationId: context.organizationId,
 		habitatId: isAdhoc ? null : values.habitatId,
 		habitatTypeId:

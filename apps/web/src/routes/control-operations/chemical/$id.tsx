@@ -56,6 +56,7 @@ import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-o
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
 import { useHabitatNames } from '../-overview-data';
+import { useApplicationBatches } from './-application-batches';
 
 export const Route = createFileRoute('/control-operations/chemical/$id')({
 	component: RouteComponent,
@@ -280,11 +281,6 @@ function ApplicationLocationCard({ application }: { readonly application: Applic
 
 // --- batches (add / remove only) ---------------------------------------------
 
-interface ApplicationBatchEntry {
-	readonly id: string;
-	readonly insecticideBatchId: string;
-}
-
 /**
  * Application batches are add/remove only — there is no update path (see the
  * `noUpdate` application-batch mutation handlers), so the list is an inline
@@ -301,23 +297,8 @@ function ApplicationBatchesCard({
 	readonly canEdit: boolean;
 	readonly productName: string;
 }) {
-	// application_batches is on-demand; scope the subset to this application.
-	const linkedResult = useLiveQuery(
-		{
-			gcTime: applicationGcTimeMs,
-			query: (query) =>
-				query
-					.from({ batch: webCollections.applicationBatches })
-					.where(({ batch }) => eq(batch.applicationId, application.id))
-					.orderBy(({ batch }) => batch.createdAt, 'asc')
-					.select(({ batch }) => ({
-						id: batch.id,
-						insecticideBatchId: batch.insecticideBatchId,
-					})),
-		},
-		[application.id],
-	);
-	const entries = (linkedResult.data ?? []) as unknown as readonly ApplicationBatchEntry[];
+	const linkedResult = useApplicationBatches(application.id);
+	const entries = linkedResult.rows;
 
 	// insecticide_batches is on-demand too; only this product's batches can be
 	// linked, so scope the subset to the applied insecticide.

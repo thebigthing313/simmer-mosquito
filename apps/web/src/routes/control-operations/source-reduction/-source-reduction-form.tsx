@@ -9,6 +9,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
+import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
@@ -29,6 +30,7 @@ import {
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
+import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayDateValue, unitOptions } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
@@ -47,6 +49,8 @@ export interface SourceReductionFormValues {
 	readonly sourceReductionDate: string;
 	/** `noTechnicianValue` or a profile id. */
 	readonly technicianProfileId: string;
+	/** Profile ids of everyone else who worked this source reduction. */
+	readonly additionalPersonnelIds: readonly string[];
 	/**
 	 * Optional address the work was done at — reference data only. The action's own
 	 * point (its geometry) is the authoritative location.
@@ -102,6 +106,7 @@ export function defaultSourceReductionFormValues(): SourceReductionFormValues {
 		sourcesEliminatedUnitId: '',
 		sourceReductionDate: todayDateValue(),
 		technicianProfileId: noTechnicianValue,
+		additionalPersonnelIds: [],
 		addressId: null,
 		habitatId: null,
 		metadata: null,
@@ -154,8 +159,15 @@ export function SourceReductionFormPage({
 	useFitToGeometry(map, referenceGeometry, draw.isDrawing);
 	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
-	const activeMethods = useMemo(() => methods.filter((method) => method.isActive), [methods]);
-	const activeProfiles = useMemo(() => profiles.filter((profile) => profile.isActive), [profiles]);
+	const methodOptions = useMemo(
+		() =>
+			lifecycleOptions(
+				methods,
+				(method) => method.isActive,
+				(method) => method.name,
+			),
+		[methods],
+	);
 	// The domain restricts source-reduction amounts to count/distance/area/volume.
 	const amountUnitOptions = useMemo(() => unitOptions(units, isSourceReductionUnitType), [units]);
 
@@ -347,10 +359,7 @@ export function SourceReductionFormPage({
 										<field.SelectField
 											description="How the crew physically eliminated the breeding sources."
 											label="Method"
-											options={activeMethods.map((method) => ({
-												label: method.name,
-												value: method.id,
-											}))}
+											options={methodOptions}
 											placeholder="Select method"
 										/>
 									)}
@@ -414,12 +423,31 @@ export function SourceReductionFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Technician (optional)"
-												options={technicianOptions(activeProfiles)}
+												options={technicianOptions(profiles)}
 												placeholder="Unassigned"
 											/>
 										)}
 									</form.AppField>
 								</div>
+								<form.Subscribe selector={(state) => state.values.technicianProfileId}>
+									{(technicianProfileId) => (
+										<form.AppField name="additionalPersonnelIds">
+											{(field) => (
+												<field.MultiSelectField
+													emptyMessage="No profiles"
+													label="Additional personnel (optional)"
+													options={additionalPersonnelOptions(profiles, field.state.value, {
+														excludeProfileId:
+															technicianProfileId === noTechnicianValue
+																? null
+																: technicianProfileId,
+													})}
+													placeholder="Search profiles"
+												/>
+											)}
+										</form.AppField>
+									)}
+								</form.Subscribe>
 							</FormSection>
 
 							<FormSection title="Context">
@@ -510,7 +538,11 @@ function validate(values: SourceReductionFormValues): string | null {
 function technicianOptions(profiles: readonly ProfileRow[]) {
 	return [
 		{ label: 'Unassigned', value: noTechnicianValue },
-		...profiles.map((profile) => ({ label: profile.displayName, value: profile.id })),
+		...lifecycleOptions(
+			profiles,
+			(profile) => profile.isActive,
+			(profile) => profile.displayName,
+		),
 	];
 }
 

@@ -15,6 +15,11 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import {
+	type AdditionalPersonnelResult,
+	saveAdditionalPersonnel,
+	useAdditionalPersonnel,
+} from '../../../components/additional-personnel';
 import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -113,6 +118,9 @@ function EditSourceReductionLoader({
 		sourceReduction.id,
 		sourceReduction.updatedAt,
 	);
+	// The crew lives in its own table; the form edits it as a list and the save
+	// reconciles that against who is attached now.
+	const personnel = useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReduction.id });
 
 	const onSave = useCallback(
 		async ({ values, geometry, geometryChanged }: SourceReductionSaveInput) => {
@@ -168,25 +176,35 @@ function EditSourceReductionLoader({
 							applyEdits,
 						);
 			await settleWrite(transaction);
+			await saveAdditionalPersonnel({
+				target: { type: 'sourceReduction', id: sourceReduction.id },
+				organizationId: sourceReduction.organizationId,
+				actorProfileId,
+				existing: personnel.rows,
+				profileIds: values.additionalPersonnelIds,
+			});
 			await navigate({
 				to: '/control-operations/source-reduction/$id',
 				params: { id: sourceReduction.id },
 			});
 		},
-		[sourceReduction, actorProfileId, navigate],
+		[sourceReduction, actorProfileId, personnel.rows, navigate],
 	);
 
 	if (geometryQuery.isError) {
 		return <EditUnavailable description="This source reduction's geometry could not be loaded." />;
 	}
-	if (geometryQuery.isPending) {
+	if (personnel.isError) {
+		return <EditUnavailable description="This source reduction's personnel could not be loaded." />;
+	}
+	if (geometryQuery.isPending || !personnel.isReady) {
 		return <EditFormSkeleton />;
 	}
 
 	return (
 		<SourceReductionFormPage
 			canSubmit={canSubmit}
-			defaultValues={defaultsFromSourceReduction(sourceReduction)}
+			defaultValues={defaultsFromSourceReduction(sourceReduction, personnel)}
 			header={{
 				title: 'Edit source reduction',
 				description: 'Update what was eliminated, who did it, when, or where.',
@@ -208,6 +226,7 @@ function EditSourceReductionLoader({
 
 function defaultsFromSourceReduction(
 	sourceReduction: SourceReductionRow,
+	personnel: AdditionalPersonnelResult,
 ): SourceReductionFormValues {
 	return {
 		sourceReductionMethodId: sourceReduction.sourceReductionMethodId,
@@ -215,6 +234,7 @@ function defaultsFromSourceReduction(
 		sourcesEliminatedUnitId: sourceReduction.sourcesEliminatedUnitId,
 		sourceReductionDate: sourceReduction.sourceReductionDate.slice(0, 10),
 		technicianProfileId: sourceReduction.technicianProfileId ?? noTechnicianValue,
+		additionalPersonnelIds: personnel.profileIds,
 		addressId: sourceReduction.addressId,
 		habitatId: sourceReduction.habitatId,
 		metadata: asMetadataValue(sourceReduction.metadata),

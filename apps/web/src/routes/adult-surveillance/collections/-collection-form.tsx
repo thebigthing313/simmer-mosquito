@@ -16,6 +16,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
+import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
@@ -33,6 +34,7 @@ import {
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
+import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
@@ -63,6 +65,8 @@ export interface CollectionFormValues {
 	readonly durationUnitId: string;
 	readonly setByProfileId: string | null;
 	readonly collectedByProfileId: string | null;
+	/** Profile ids of everyone else who worked this collection. */
+	readonly additionalPersonnelIds: readonly string[];
 	readonly hasProblem: boolean;
 	/** Values for the custom fields the collection method declares. */
 	readonly metadata: MetadataValue;
@@ -128,6 +132,7 @@ export function defaultCollectionFormValues(
 		durationUnitId: noUnitValue,
 		setByProfileId: null,
 		collectedByProfileId: null,
+		additionalPersonnelIds: [],
 		hasProblem: false,
 		metadata: null,
 	};
@@ -156,15 +161,15 @@ export function CollectionFormPage({
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [locationError, setLocationError] = useState<string | null>(null);
 
-	const activeMethods = useMemo(
-		() => collectionMethods.filter((method) => method.isActive),
+	const methodOptions = useMemo(
+		() =>
+			lifecycleOptions(
+				collectionMethods,
+				(method) => method.isActive,
+				(method) => method.name,
+			),
 		[collectionMethods],
 	);
-	const activeLures = useMemo(
-		() => collectionLures.filter((lure) => lure.isActive),
-		[collectionLures],
-	);
-	const activeProfiles = useMemo(() => profiles.filter((profile) => profile.isActive), [profiles]);
 
 	const methodNameById = useMemo(
 		() => new Map(collectionMethods.map((method) => [method.id, method.name])),
@@ -371,10 +376,7 @@ export function CollectionFormPage({
 													{(field) => (
 														<field.SelectField
 															label="Collection method"
-															options={activeMethods.map((method) => ({
-																label: method.name,
-																value: method.id,
-															}))}
+															options={methodOptions}
 															placeholder="Select method"
 														/>
 													)}
@@ -427,7 +429,7 @@ export function CollectionFormPage({
 									{(field) => (
 										<field.SelectField
 											label="Lure (optional)"
-											options={lureOptions(activeLures)}
+											options={lureOptions(collectionLures)}
 											placeholder="No lure"
 										/>
 									)}
@@ -469,7 +471,7 @@ export function CollectionFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Set by (optional)"
-												options={profileOptions(activeProfiles)}
+												options={profileOptions(profiles)}
 												placeholder="Unassigned"
 											/>
 										)}
@@ -478,12 +480,28 @@ export function CollectionFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Collected by (optional)"
-												options={profileOptions(activeProfiles)}
+												options={profileOptions(profiles)}
 												placeholder="Unassigned"
 											/>
 										)}
 									</form.AppField>
 								</div>
+								<form.Subscribe selector={(state) => state.values.collectedByProfileId}>
+									{(collectedByProfileId) => (
+										<form.AppField name="additionalPersonnelIds">
+											{(field) => (
+												<field.MultiSelectField
+													emptyMessage="No profiles"
+													label="Additional personnel (optional)"
+													options={additionalPersonnelOptions(profiles, field.state.value, {
+														excludeProfileId: collectedByProfileId,
+													})}
+													placeholder="Search profiles"
+												/>
+											)}
+										</form.AppField>
+									)}
+								</form.Subscribe>
 							</FormSection>
 
 							<FormSection title="Results">
@@ -673,7 +691,11 @@ function validate(values: CollectionFormValues): string | null {
 function lureOptions(lures: readonly CollectionLureRow[]) {
 	return [
 		{ label: 'No lure', value: noLureValue },
-		...lures.map((lure) => ({ label: lure.name, value: lure.id })),
+		...lifecycleOptions(
+			lures,
+			(lure) => lure.isActive,
+			(lure) => lure.name,
+		),
 	];
 }
 
@@ -685,7 +707,11 @@ function unitOptions(units: readonly UnitRow[]) {
 }
 
 function profileOptions(profiles: readonly ProfileRow[]) {
-	return profiles.map((profile) => ({ label: profile.displayName, value: profile.id }));
+	return lifecycleOptions(
+		profiles,
+		(profile) => profile.isActive,
+		(profile) => profile.displayName,
+	);
 }
 
 /** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */

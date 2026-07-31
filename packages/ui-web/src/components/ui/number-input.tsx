@@ -46,16 +46,28 @@ export function NumberInput({
 	...props
 }: NumberInputProps) {
 	const [isEditing, setIsEditing] = useState(false);
+	// What the user actually typed, alongside the number it parsed to. Rendering
+	// the parsed number back would eat a trailing "." (or a "0" after it), so an
+	// in-progress decimal like "1.0" could never be typed. The draft is dropped as
+	// soon as `value` moves on its own, so an external reset still wins.
+	const [draft, setDraft] = useState<{
+		readonly text: string;
+		readonly value: number | null;
+	} | null>(null);
 	const step = stepValue(props.step);
 	const min = numericLimit(props.min);
 	const max = numericLimit(props.max);
+	const activeDraft = draft !== null && Object.is(draft.value, value ?? null) ? draft : null;
 	const displayValue =
-		value === null || value === undefined
-			? ''
-			: formatNumberValue(value, { isEditing, significantDigits });
+		activeDraft !== null
+			? activeDraft.text
+			: value === null || value === undefined
+				? ''
+				: formatNumberValue(value, { isEditing, significantDigits });
 
 	const commitStep = (delta: number) => {
 		const next = clampNumber((value ?? 0) + delta, min, max);
+		setDraft(null);
 		onValueChange(next);
 		onCommit?.(next);
 	};
@@ -68,12 +80,21 @@ export function NumberInput({
 				inputMode="decimal"
 				onBlur={(event) => {
 					setIsEditing(false);
+					setDraft(null);
 					onBlur?.(event);
 					onCommit?.(value ?? emptyValue);
 				}}
 				onChange={(event) => {
-					const nextValue = event.target.value.trim();
-					onValueChange(nextValue.length === 0 ? emptyValue : Number(nextValue));
+					const text = event.target.value;
+					const trimmed = text.trim();
+					const parsed = trimmed.length === 0 ? emptyValue : Number(trimmed);
+					// Text that is not (yet) a number — "1.2.3", "-", "abc" — leaves the
+					// value where it was rather than pushing NaN downstream; the draft
+					// still shows what was typed so the keystroke is not swallowed.
+					const nextValue =
+						parsed === null || Number.isFinite(parsed) ? parsed : (value ?? emptyValue);
+					setDraft({ text, value: nextValue });
+					onValueChange(nextValue);
 				}}
 				onFocus={(event) => {
 					setIsEditing(true);
