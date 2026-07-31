@@ -91,10 +91,14 @@ function EditHabitatLoader({
 
 	// Geometry is not part of the Electric shape (ADR 0009); fetch it from the
 	// display endpoint. Keyed on updatedAt so re-opening the form after an edit
-	// loads the latest geometry rather than a stale cached version.
+	// loads the latest geometry rather than a stale cached version — and holding
+	// the previous geometry across that key change, since saving writes updatedAt
+	// optimistically and a pending state here would unmount the form mid-save,
+	// taking any error it was about to show with it (see useOwnedGeometry).
 	const geometryQuery = useQuery({
 		queryKey: ['habitat-geometry', habitat.id, habitat.updatedAt],
 		queryFn: ({ signal }) => fetchHabitatGeometry(habitat.id, signal),
+		placeholderData: (previous) => previous,
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 

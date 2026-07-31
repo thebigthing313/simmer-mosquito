@@ -57,6 +57,13 @@ interface OwnedGeometryPayload {
  *
  * `updatedAt` is part of the cache key so re-opening the form after a save loads
  * the geometry that was just written rather than a stale cached copy.
+ *
+ * That key moves under the form's own feet: saving writes `updatedAt`
+ * optimistically, so a form mid-save asks for a key it has never fetched. Holding
+ * the previous geometry keeps `isPending` false across that switch, so the caller
+ * does not swap the form out for a skeleton and unmount it — which on a failed
+ * save discarded the error message the submit handler had just set. The refetch
+ * still happens; only the blanking is suppressed.
  */
 export function useOwnedGeometry(
 	source: OwnedGeometrySource,
@@ -66,6 +73,7 @@ export function useOwnedGeometry(
 	const query = useQuery({
 		queryKey: ['owned-geometry', source.segment, id, updatedAt],
 		queryFn: ({ signal }) => fetchOwnedGeometry(source, id, signal),
+		placeholderData: (previous) => previous,
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 
