@@ -8,7 +8,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry, MoreHorizontalIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useShell } from '../shell-context';
 
@@ -27,34 +27,58 @@ function initials(name: string): string {
 	return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase();
 }
 
-/** Account entry point: the avatar opens user + organization management. */
-export function PrimarySidebarFooter() {
+/**
+ * Account entry point. Expanded it names who is signed in and in what role —
+ * the two things an operator checks before writing a record that will be
+ * attributed to them. Collapsed it falls back to the avatar alone.
+ */
+export function PrimarySidebarFooter({ collapsed }: { readonly collapsed: boolean }) {
 	const { user, onNavigate, onSignOut } = useShell();
 
+	const avatar = (
+		<Avatar className="shrink-0 border border-white/20 bg-secondary" size="default">
+			{user.avatarUrl ? <AvatarImage alt="" src={user.avatarUrl} /> : null}
+			<AvatarFallback className="bg-secondary font-semibold text-secondary-foreground">
+				{initials(user.name)}
+			</AvatarFallback>
+		</Avatar>
+	);
+
 	return (
-		<div className="flex shrink-0 items-center justify-center pb-3">
+		<div className={cn('flex shrink-0 items-center pb-3', collapsed ? 'justify-center' : 'px-3')}>
 			<DropdownMenu>
 				<DropdownMenuTrigger
-					className={cn(
-						'rounded-full outline-none',
-						'focus-visible:ring-2 focus-visible:ring-ring-inverse focus-visible:ring-offset-2 focus-visible:ring-offset-simmer-green-900',
-						'data-[state=open]:ring-2 data-[state=open]:ring-ring/60',
-					)}
 					aria-label="Account and settings"
+					className={cn(
+						'flex items-center outline-none transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
+						'focus-visible:ring-2 focus-visible:ring-ring-inverse focus-visible:ring-offset-2 focus-visible:ring-offset-simmer-green-900',
+						collapsed
+							? 'rounded-full data-[state=open]:ring-2 data-[state=open]:ring-ring/60'
+							: 'w-full gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-white/10 data-[state=open]:bg-white/10',
+					)}
 				>
-					<Avatar size="default" className="border border-white/20 bg-secondary">
-						{user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt="" /> : null}
-						<AvatarFallback className="bg-secondary font-semibold text-secondary-foreground">
-							{initials(user.name)}
-						</AvatarFallback>
-					</Avatar>
+					{avatar}
+					{collapsed ? null : (
+						<>
+							<span className="grid min-w-0 flex-1">
+								<span className="truncate font-medium text-sm text-white">{user.name}</span>
+								{user.role ? (
+									<span className="truncate text-simmer-green-100/70 text-xs">{user.role}</span>
+								) : null}
+							</span>
+							<MoreHorizontalIcon
+								aria-hidden="true"
+								className="size-4 shrink-0 text-simmer-green-100/70"
+							/>
+						</>
+					)}
 				</DropdownMenuTrigger>
-				<DropdownMenuContent side="right" align="end" sideOffset={10} className="w-60">
+				<DropdownMenuContent align="end" className="w-60" side="right" sideOffset={10}>
 					<DropdownMenuLabel className="flex flex-col gap-0.5 py-2">
 						<span className="truncate font-semibold text-foreground">{user.name}</span>
-						<span className="truncate text-xs font-normal text-muted-foreground">{user.email}</span>
+						<span className="truncate font-normal text-muted-foreground text-xs">{user.email}</span>
 						{user.role ? (
-							<span className="mt-1 text-xs font-medium text-primary">{user.role}</span>
+							<span className="mt-1 font-medium text-primary text-xs">{user.role}</span>
 						) : null}
 					</DropdownMenuLabel>
 					<DropdownMenuSeparator />
@@ -75,7 +99,7 @@ export function PrimarySidebarFooter() {
 					{onSignOut ? (
 						<>
 							<DropdownMenuSeparator />
-							<DropdownMenuItem variant="destructive" onSelect={onSignOut}>
+							<DropdownMenuItem onSelect={onSignOut} variant="destructive">
 								<SignOutIcon />
 								Sign out
 							</DropdownMenuItem>
