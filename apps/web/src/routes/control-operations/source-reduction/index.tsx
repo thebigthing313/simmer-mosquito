@@ -324,6 +324,9 @@ async function fetchSourceReductionsPage(
 	) {
 		url.searchParams.set('sourceReductionMethodId', filters.sourceReductionMethodIds.join(','));
 	}
+	if (filters.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
+		url.searchParams.set('technician', filters.technicianProfileIds.join(','));
+	}
 	if (filters.dateFrom !== undefined) {
 		url.searchParams.set('dateFrom', filters.dateFrom);
 	}

@@ -101,6 +101,8 @@ export function NewAddressForm({
 		}
 		try {
 			setGeometry(await requestMapPoint({ prompt: 'Click the map to place this address.' }));
+			// The point is what the outstanding complaint was about, so retire it.
+			setSaveError(null);
 			setGeocoderOpen(false);
 		} catch (error) {
 			setSaveError(error instanceof Error ? error.message : 'Unable to draw address point.');
@@ -224,6 +226,7 @@ export function NewAddressForm({
 					if (point !== null) {
 						setGeometry(point);
 						setGeocoderResponse(result);
+						setSaveError(null);
 					}
 					setGeocoderOpen(false);
 				}}

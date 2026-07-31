@@ -331,6 +331,9 @@ async function fetchBiocontrolPage(
 	if (filters.biocontrolMethodIds !== undefined && filters.biocontrolMethodIds.length > 0) {
 		url.searchParams.set('biocontrolMethodId', filters.biocontrolMethodIds.join(','));
 	}
+	if (filters.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
+		url.searchParams.set('technician', filters.technicianProfileIds.join(','));
+	}
 	if (filters.habitatLinkedOnly === true) {
 		url.searchParams.set('habitatLinked', 'true');
 	}

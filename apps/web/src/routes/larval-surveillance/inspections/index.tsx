@@ -741,6 +741,9 @@ async function fetchVisibleInspections(
 	if (filters.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {
 		url.searchParams.set('habitatTypeId', filters.habitatTypeIds.join(','));
 	}
+	if (filters.inspectedByProfileIds !== undefined && filters.inspectedByProfileIds.length > 0) {
+		url.searchParams.set('inspectedBy', filters.inspectedByProfileIds.join(','));
+	}
 	if (filters.dateFrom !== undefined) {
 		url.searchParams.set('dateFrom', filters.dateFrom);
 	}

@@ -267,7 +267,6 @@ export function HabitatFormPage({
 									{(field) => (
 										<field.TextField
 											label="Habitat name"
-											required
 											placeholder="e.g. North basin catchment"
 										/>
 									)}

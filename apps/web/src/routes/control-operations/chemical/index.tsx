@@ -352,6 +352,9 @@ async function fetchApplicationsPage(
 	if (filters.applicationMethodIds !== undefined && filters.applicationMethodIds.length > 0) {
 		url.searchParams.set('applicationMethodId', filters.applicationMethodIds.join(','));
 	}
+	if (filters.applicatorProfileIds !== undefined && filters.applicatorProfileIds.length > 0) {
+		url.searchParams.set('applicator', filters.applicatorProfileIds.join(','));
+	}
 	if (filters.dateFrom !== undefined) {
 		url.searchParams.set('dateFrom', filters.dateFrom);
 	}
