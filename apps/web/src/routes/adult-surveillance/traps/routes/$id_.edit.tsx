@@ -21,6 +21,11 @@ import {
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/tooltip';
+import {
 	ArrowLeftIcon,
 	ChevronDownIcon,
 	ChevronUpIcon,
@@ -311,26 +316,36 @@ function StopEditor({
 							{stop.name}
 						</span>
 						<div className="flex shrink-0 items-center gap-1">
-							<Button
-								aria-label="Move up"
-								disabled={index === 0}
-								onClick={() => onMove(index, -1)}
-								size="icon-sm"
-								type="button"
-								variant="ghost"
-							>
-								<ChevronUpIcon aria-hidden="true" className="size-4" />
-							</Button>
-							<Button
-								aria-label="Move down"
-								disabled={index === stops.length - 1}
-								onClick={() => onMove(index, 1)}
-								size="icon-sm"
-								type="button"
-								variant="ghost"
-							>
-								<ChevronDownIcon aria-hidden="true" className="size-4" />
-							</Button>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										aria-label="Move up"
+										disabled={index === 0}
+										onClick={() => onMove(index, -1)}
+										size="icon-sm"
+										type="button"
+										variant="ghost"
+									>
+										<ChevronUpIcon aria-hidden="true" className="size-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Move up one stop</TooltipContent>
+							</Tooltip>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										aria-label="Move down"
+										disabled={index === stops.length - 1}
+										onClick={() => onMove(index, 1)}
+										size="icon-sm"
+										type="button"
+										variant="ghost"
+									>
+										<ChevronDownIcon aria-hidden="true" className="size-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Move down one stop</TooltipContent>
+							</Tooltip>
 							<Button
 								aria-label="Remove stop"
 								className="text-muted-foreground hover:text-destructive"

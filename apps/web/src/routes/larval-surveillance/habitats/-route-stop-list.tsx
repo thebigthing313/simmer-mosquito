@@ -199,9 +199,10 @@ function StopRow({
 						>
 							{stop.name}
 						</Link>
+						<StopTypePill typeName={typeName} />
 						<StopStatus stop={stop} />
 					</span>
-					<StopMetaChips tags={tags} typeName={typeName} />
+					<StopTagChips tags={tags} />
 					{stop.description.trim().length > 0 ? (
 						<span className="mt-1 block whitespace-pre-wrap text-foreground/80 text-xs leading-snug">
 							{stop.description}
@@ -222,24 +223,29 @@ function StopRow({
 	);
 }
 
-/** The habitat's type (neutral chip) and tags (colored chips) for a stop, or nothing. */
-export function StopMetaChips({
-	typeName,
-	tags,
-}: {
-	readonly typeName: string | null;
-	readonly tags: readonly TagRow[];
-}) {
-	if (typeName === null && tags.length === 0) {
+/**
+ * The habitat's type, as a neutral pill sitting beside the stop name. It reads as
+ * part of the stop's identity ("Roadside Ditch"), not as one more tag, so it is
+ * kept out of the tag row.
+ */
+export function StopTypePill({ typeName }: { readonly typeName: string | null }) {
+	if (typeName === null) {
+		return null;
+	}
+	return (
+		<span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 font-medium text-[0.7rem] text-muted-foreground">
+			{typeName}
+		</span>
+	);
+}
+
+/** A stop's tags as colored chips, or nothing when it has none. */
+export function StopTagChips({ tags }: { readonly tags: readonly TagRow[] }) {
+	if (tags.length === 0) {
 		return null;
 	}
 	return (
 		<span className="mt-1 flex flex-wrap items-center gap-1">
-			{typeName !== null ? (
-				<span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 font-medium text-[0.7rem] text-muted-foreground">
-					{typeName}
-				</span>
-			) : null}
 			{tags.map((tag) => (
 				<TagChip key={tag.id} tag={tag} />
 			))}

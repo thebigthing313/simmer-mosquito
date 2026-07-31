@@ -29,6 +29,11 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/tooltip';
+import {
 	ArrowLeftIcon,
 	ChevronDownIcon,
 	ChevronRightIcon,
@@ -63,7 +68,13 @@ import {
 	useRouteStops,
 } from '../-route-data';
 import { RouteMap } from '../-route-map';
-import { OrdinalBadge, StopMetaChips, StopStatus, useStopMeta } from '../-route-stop-list';
+import {
+	OrdinalBadge,
+	StopStatus,
+	StopTagChips,
+	StopTypePill,
+	useStopMeta,
+} from '../-route-stop-list';
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
@@ -662,29 +673,40 @@ function EditStopRow({
 						>
 							{stop.name}
 						</Link>
+						<StopTypePill typeName={typeName} />
 						<StopStatus stop={stop} />
 						<span aria-hidden="true" className="min-w-0 flex-1" />
 						<div className="pointer-events-auto flex shrink-0 items-center gap-0.5">
-							<Button
-								aria-label="Move up"
-								className="size-7"
-								disabled={isFirst}
-								onClick={() => onMove(index, 'up')}
-								size="icon"
-								variant="ghost"
-							>
-								<ChevronUpIcon aria-hidden="true" className="size-4" />
-							</Button>
-							<Button
-								aria-label="Move down"
-								className="size-7"
-								disabled={isLast}
-								onClick={() => onMove(index, 'down')}
-								size="icon"
-								variant="ghost"
-							>
-								<ChevronDownIcon aria-hidden="true" className="size-4" />
-							</Button>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										aria-label="Move up"
+										className="size-7"
+										disabled={isFirst}
+										onClick={() => onMove(index, 'up')}
+										size="icon"
+										variant="ghost"
+									>
+										<ChevronUpIcon aria-hidden="true" className="size-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Move up one stop</TooltipContent>
+							</Tooltip>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										aria-label="Move down"
+										className="size-7"
+										disabled={isLast}
+										onClick={() => onMove(index, 'down')}
+										size="icon"
+										variant="ghost"
+									>
+										<ChevronDownIcon aria-hidden="true" className="size-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Move down one stop</TooltipContent>
+							</Tooltip>
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
 									<Button
@@ -729,7 +751,7 @@ function EditStopRow({
 						<span className="min-w-0 truncate">{stop.addressLabel ?? '—'}</span>
 					</span>
 
-					<StopMetaChips tags={tags} typeName={typeName} />
+					<StopTagChips tags={tags} />
 
 					<div className="mt-2 grid gap-1.5">
 						<InlineEditField
