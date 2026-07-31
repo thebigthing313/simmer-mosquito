@@ -43,6 +43,12 @@ export interface MapDrawController {
 	readonly cancel: () => void;
 	readonly undo: () => void;
 	/**
+	 * Adopt a geometry the user obtained some other way — an existing region's
+	 * boundary, a shape read out of an uploaded file — as if it had just been
+	 * drawn. Any in-progress draw is abandoned so the map shows only the result.
+	 */
+	readonly commit: (geometry: DrawGeometry | null) => void;
+	/**
 	 * Capture a single map click as a point — used by the address subform's
 	 * "place on map" path. Resolves on the next click, rejects if superseded.
 	 */
@@ -347,6 +353,14 @@ export function useMapDraw({
 		setMode({ kind: 'idle' });
 	}, []);
 
+	const commit = useCallback((geometry: DrawGeometry | null) => {
+		rejectPending(modeRef.current);
+		cursorRef.current = null;
+		setVertices([]);
+		onChangeRef.current(geometry);
+		setMode({ kind: 'idle' });
+	}, []);
+
 	const undo = useCallback(() => {
 		setVertices((previous) => previous.slice(0, -1));
 	}, []);
@@ -397,6 +411,7 @@ export function useMapDraw({
 		finish,
 		cancel,
 		undo,
+		commit,
 		requestPoint,
 	};
 }

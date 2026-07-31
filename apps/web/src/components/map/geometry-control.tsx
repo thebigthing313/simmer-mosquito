@@ -5,12 +5,15 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import {
 	ArrowLeftIcon,
 	CheckIcon,
+	iconRegistry,
 	Loader2Icon,
 	MapPinnedIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { GeometryImportDialog } from './geometry-import-dialog';
+import { RegionBoundaryPicker } from './region-boundary-picker';
 import type { DrawGeometry, DrawGeometryType, MapDrawController } from './use-map-draw';
 
 /**
@@ -22,7 +25,14 @@ import type { DrawGeometry, DrawGeometryType, MapDrawController } from './use-ma
  * `OWNED_GEOMETRY_POLICIES` in `packages/domain/src/shared.ts`. Callers pass the
  * matching `allowedTypes`: {@link LOCATABLE_DRAW_TYPES} for records that may hold
  * any shape, {@link POINT_DRAW_TYPES} for the point-only ones.
+ *
+ * Areas and lines can also be filled from a shape the agency already has — one of
+ * its regions, or a KML/GeoJSON file — instead of being traced by hand. Those
+ * shortcuts commit through the same draw controller, so an adopted shape behaves
+ * exactly like a drawn one and can be redrawn or cleared.
  */
+
+const UploadIcon = iconRegistry.actions.upload.icon;
 
 const GEOMETRY_TYPE_LABELS: Readonly<Record<DrawGeometryType, string>> = {
 	Point: 'Point',
@@ -53,6 +63,12 @@ export interface GeometryControlProps {
 	readonly label?: string;
 	/** Snap the geometry back to the selected address; hidden when omitted. */
 	readonly onMoveToAddress?: () => void;
+	/**
+	 * The agency whose regions may be reused as a polygon. Pass it on any form
+	 * that captures areas — without it the "fill from a region" shortcut is
+	 * hidden, since there is no org to search.
+	 */
+	readonly organizationId?: string;
 }
 
 export function GeometryControl({
@@ -65,12 +81,19 @@ export function GeometryControl({
 	allowedTypes = LOCATABLE_DRAW_TYPES,
 	label = 'Geometry',
 	onMoveToAddress,
+	organizationId,
 }: GeometryControlProps) {
+	const [isImporting, setIsImporting] = useState(false);
 	const hasGeometry = geometry !== null;
 	const isBusy = controller.isDrawing || controller.isRequestingPoint;
 	// Snapping to an address produces a point, so the affordance only belongs on
 	// the point tool — offering it under Line/Polygon would contradict the toggle.
 	const canMoveToAddress = onMoveToAddress !== undefined && geometryType === 'Point';
+	// Both shortcuts produce an area or a line, so they belong to those tools
+	// only; a point is faster to place by clicking than to source from a file.
+	const canUseRegion =
+		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0;
+	const canImportFile = geometryType === 'Polygon' || geometryType === 'LineString';
 
 	return (
 		<div className="grid gap-2 rounded-md border border-border/40 bg-background/70 p-3">
@@ -152,6 +175,44 @@ export function GeometryControl({
 					</Button>
 				) : null}
 			</div>
+
+			{/* Shapes an agency already holds — a region boundary, a file from GIS
+			    staff — beat re-tracing them by hand, so they sit beside the draw
+			    tool rather than replacing it: whatever lands here is still editable. */}
+			{canUseRegion || canImportFile ? (
+				<div className="flex flex-wrap items-center gap-2 border-border/40 border-t pt-2">
+					<span className="text-muted-foreground text-xs">Fill from</span>
+					{canUseRegion && organizationId !== undefined ? (
+						<RegionBoundaryPicker
+							disabled={isBusy}
+							onSelect={(polygon) => controller.commit(polygon)}
+							organizationId={organizationId}
+						/>
+					) : null}
+					{canImportFile ? (
+						<Button
+							aria-label="Fill this geometry from a KML or GeoJSON file"
+							disabled={isBusy}
+							onClick={() => setIsImporting(true)}
+							size="sm"
+							type="button"
+							variant="outline"
+						>
+							<UploadIcon aria-hidden="true" data-icon="inline-start" />
+							File
+						</Button>
+					) : null}
+				</div>
+			) : null}
+
+			{canImportFile ? (
+				<GeometryImportDialog
+					geometryType={geometryType === 'Polygon' ? 'Polygon' : 'LineString'}
+					onOpenChange={setIsImporting}
+					onSelect={(imported) => controller.commit(imported)}
+					open={isImporting}
+				/>
+			) : null}
 		</div>
 	);
 }

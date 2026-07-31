@@ -8,8 +8,8 @@ import { useEffect } from 'react';
 import { MapCard, MapCardEyebrow, MapCardText } from '../../../components/map/map-card';
 import { TagBadge } from '../../../components/tag-badge';
 import { useMapCardTags } from '../../../hooks/use-map-card-tags';
+import { useRegionGeometry } from '../../../hooks/use-region-geometry';
 import { webCollections } from '../../../sync/webCollections';
-import { useRegionGeometry } from './-region-data';
 
 const gcTimeMs = 30_000;
 

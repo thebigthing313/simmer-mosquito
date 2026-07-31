@@ -392,6 +392,7 @@ export function InspectionFormPage({
 													onClear={clearAdhoc}
 													onDraw={startAdhocDraw}
 													onTypeChange={handleAdhocTypeChange}
+													organizationId={organizationId}
 												/>
 												<form.AppField name="habitatTypeId">
 													{(field) => (

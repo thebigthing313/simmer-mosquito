@@ -1,6 +1,6 @@
 import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { type QueryClient, useQuery } from '@tanstack/react-query';
-import { getServerUrl } from '../../../auth';
+import { getServerUrl } from '../auth';
 
 export interface RegionGeometry {
 	readonly geojson: GeoJsonGeometry | null;
@@ -23,6 +23,22 @@ export function useRegionGeometry(regionId: string) {
 		queryFn: ({ signal }) => fetchRegionGeometry(regionId, signal),
 		staleTime: Number.POSITIVE_INFINITY,
 		placeholderData: (previous) => previous,
+	});
+}
+
+/**
+ * Read one region's boundary imperatively, sharing the hook's cache entry. The
+ * forms' "use a region as this polygon" convenience fetches on click rather than
+ * on render, so it can't go through the hook.
+ */
+export function fetchRegionGeometryOnce(
+	queryClient: QueryClient,
+	regionId: string,
+): Promise<RegionGeometry | null> {
+	return queryClient.fetchQuery({
+		queryKey: regionGeometryQueryKey(regionId),
+		queryFn: ({ signal }) => fetchRegionGeometry(regionId, signal),
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 }
 

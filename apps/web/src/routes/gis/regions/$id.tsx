@@ -34,9 +34,9 @@ import { type ReactNode, useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useRegionGeometry } from '../../../hooks/use-region-geometry';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
-import { useRegionGeometry } from './-region-data';
 
 export const Route = createFileRoute('/gis/regions/$id')({
 	component: RouteComponent,

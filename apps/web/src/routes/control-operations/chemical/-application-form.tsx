@@ -373,6 +373,7 @@ export function ApplicationFormPage({
 									onClear={clearGeometry}
 									onDraw={startDraw}
 									onTypeChange={handleTypeChange}
+									organizationId={organizationId}
 									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 								/>
 

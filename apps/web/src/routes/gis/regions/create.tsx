@@ -5,9 +5,9 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { seedRegionGeometryCache } from '../../../hooks/use-region-geometry';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
-import { seedRegionGeometryCache } from './-region-data';
 import {
 	type DrawGeometry,
 	defaultRegionFormValues,

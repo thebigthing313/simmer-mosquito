@@ -265,6 +265,7 @@ export function HabitatFormPage({
 									onClear={() => setGeometry(null)}
 									onDraw={startDraw}
 									onTypeChange={handleTypeChange}
+									organizationId={organizationId}
 								/>
 
 								{geometryError === null ? null : (

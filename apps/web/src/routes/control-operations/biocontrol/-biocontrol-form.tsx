@@ -348,6 +348,7 @@ export function BiocontrolFormPage({
 									onClear={clearGeometry}
 									onDraw={startDraw}
 									onTypeChange={handleTypeChange}
+									organizationId={organizationId}
 									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 								/>
 
