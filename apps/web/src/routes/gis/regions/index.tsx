@@ -32,6 +32,7 @@ import {
 	GripVerticalIcon,
 	iconRegistry,
 	PlusIcon,
+	SearchIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -41,6 +42,7 @@ import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { SearchInput } from '../../../components/input/search-input';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -106,14 +108,17 @@ function RegionsExplorerRoute() {
 
 	// Visibility (map) is off for every region until a checkbox turns it on.
 	const [visibleIds, setVisibleIds] = useState<ReadonlySet<string>>(() => new Set());
-	// Folders default expanded; only explicitly-collapsed ones are tracked.
-	const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+	// Folders default collapsed; only explicitly-opened ones are tracked.
+	const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
+	const [search, setSearch] = useState('');
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	// Inline rename + drag-and-drop transient state.
 	const [renamingId, setRenamingId] = useState<string | null>(null);
 	const [draggingId, setDraggingId] = useState<string | null>(null);
 	const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
+	// `null` = closed; a folder row = edit it; `'new'` = create one.
+	const [folderDialog, setFolderDialog] = useState<RegionFolderRow | 'new' | null>(null);
 
 	const sortedFolders = useMemo(
 		() => [...folders].sort((a, b) => a.name.localeCompare(b.name)),
@@ -136,6 +141,39 @@ function RegionsExplorerRoute() {
 		}
 		return { byFolder, root };
 	}, [regions]);
+
+	/*
+	 * Search spans both levels of the tree: a folder hit keeps all of its regions
+	 * (you searched for the folder, so you want its contents), a region hit keeps
+	 * just that region under its folder. Folders that end up with nothing drop out.
+	 */
+	const query = search.trim().toLowerCase();
+	const filtered = useMemo(() => {
+		const hit = (value: string | null): boolean => value?.toLowerCase().includes(query) === true;
+		if (query.length === 0) {
+			return {
+				folders: sortedFolders.map((folder) => ({
+					folder,
+					regions: regionsByFolder.byFolder.get(folder.id) ?? ([] as readonly RegionRow[]),
+				})),
+				unfiled: regionsByFolder.root as readonly RegionRow[],
+			};
+		}
+		const matchedFolders: { folder: RegionFolderRow; regions: readonly RegionRow[] }[] = [];
+		for (const folder of sortedFolders) {
+			const folderRegions = regionsByFolder.byFolder.get(folder.id) ?? [];
+			const folderHit = hit(folder.name) || hit(folder.description);
+			const kept = folderHit ? folderRegions : folderRegions.filter((region) => hit(region.name));
+			if (folderHit || kept.length > 0) {
+				matchedFolders.push({ folder, regions: kept });
+			}
+		}
+		return {
+			folders: matchedFolders,
+			unfiled: regionsByFolder.root.filter((region) => hit(region.name)),
+		};
+	}, [query, sortedFolders, regionsByFolder]);
+	const hasMatches = filtered.folders.length > 0 || filtered.unfiled.length > 0;
 
 	const visibleArray = useMemo(() => [...visibleIds], [visibleIds]);
 	const serverUrl = getServerUrl();
@@ -175,12 +213,12 @@ function RegionsExplorerRoute() {
 	}, []);
 
 	const toggleExpand = useCallback((folderId: string, open: boolean) => {
-		setCollapsed((prev) => {
+		setExpandedIds((prev) => {
 			const next = new Set(prev);
 			if (open) {
-				next.delete(folderId);
-			} else {
 				next.add(folderId);
+			} else {
+				next.delete(folderId);
 			}
 			return next;
 		});
@@ -297,61 +335,72 @@ function RegionsExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ layout: 'row', gap: 'tight', padding: 'default' })}>
-					<h1 className="m-0 font-semibold text-foreground text-lg leading-none">Regions</h1>
-					<div className="flex items-center gap-2">
-						<NewFolderButton actorProfileId={actorProfileId} organizationId={organizationId} />
-						<Button asChild size="sm" variant="outline">
-							<Link to="/gis/regions/import">
-								<ImportIcon aria-hidden="true" data-icon="inline-start" />
-								Import
-							</Link>
-						</Button>
-						<Button asChild size="sm">
-							<Link to="/gis/regions/create">
-								<PlusIcon aria-hidden="true" data-icon="inline-start" />
-								Create
-							</Link>
-						</Button>
+				<div className={stickyHeader({ layout: 'stack', gap: 'tight', padding: 'default' })}>
+					<div className="flex items-center justify-between gap-2">
+						<h1 className="m-0 font-semibold text-foreground text-lg leading-none">Regions</h1>
+						<div className="flex items-center gap-2">
+							<Button onClick={() => setFolderDialog('new')} size="sm" variant="outline">
+								New Folder
+							</Button>
+							<Button asChild size="sm" variant="outline">
+								<Link to="/gis/regions/import">
+									<ImportIcon aria-hidden="true" data-icon="inline-start" />
+									Import
+								</Link>
+							</Button>
+							<Button asChild size="sm">
+								<Link to="/gis/regions/create">
+									<PlusIcon aria-hidden="true" data-icon="inline-start" />
+									Create
+								</Link>
+							</Button>
+						</div>
 					</div>
+					<SearchInput
+						aria-label="Search regions and folders"
+						onChange={(event) => setSearch(event.target.value)}
+						placeholder="Search regions and folders"
+						value={search}
+					/>
 				</div>
 
 				{!result.isReady ? (
 					<RegionsSkeleton />
-				) : regions.length === 0 ? (
+				) : regions.length === 0 && sortedFolders.length === 0 ? (
 					<RegionsEmpty />
+				) : !hasMatches ? (
+					<RegionsNoMatches query={search.trim()} />
 				) : (
 					<div className="min-h-0 flex-1 overflow-y-auto p-2">
-						{sortedFolders.map((folder) => {
-							const folderRegions = regionsByFolder.byFolder.get(folder.id) ?? [];
-							return (
-								<FolderNode
-									dnd={dnd}
-									expanded={!collapsed.has(folder.id)}
-									focusedId={focusedId}
-									folder={folder}
-									key={folder.id}
-									onFocusRegion={focusRegion}
-									onToggleExpand={(open) => toggleExpand(folder.id, open)}
-									onToggleFolder={(on) =>
-										toggleFolder(
-											folderRegions.map((r) => r.id),
-											on,
-										)
-									}
-									onToggleRegion={toggleRegion}
-									regions={folderRegions}
-									rename={rename}
-									visibleIds={visibleIds}
-								/>
-							);
-						})}
+						{filtered.folders.map(({ folder, regions: folderRegions }) => (
+							<FolderNode
+								dnd={dnd}
+								// A search already narrowed the tree, so show what it found.
+								expanded={query.length > 0 || expandedIds.has(folder.id)}
+								focusedId={focusedId}
+								folder={folder}
+								key={folder.id}
+								onEdit={() => setFolderDialog(folder)}
+								onFocusRegion={focusRegion}
+								onToggleExpand={(open) => toggleExpand(folder.id, open)}
+								onToggleFolder={(on) =>
+									toggleFolder(
+										folderRegions.map((r) => r.id),
+										on,
+									)
+								}
+								onToggleRegion={toggleRegion}
+								regions={folderRegions}
+								rename={rename}
+								visibleIds={visibleIds}
+							/>
+						))}
 						<UnfiledGroup
 							dnd={dnd}
 							focusedId={focusedId}
 							onFocusRegion={focusRegion}
 							onToggleRegion={toggleRegion}
-							regions={regionsByFolder.root}
+							regions={filtered.unfiled}
 							rename={rename}
 							showHeader={sortedFolders.length > 0}
 							visibleIds={visibleIds}
@@ -359,6 +408,14 @@ function RegionsExplorerRoute() {
 					</div>
 				)}
 			</div>
+			{folderDialog === null ? null : (
+				<FolderDialog
+					actorProfileId={actorProfileId}
+					folder={folderDialog === 'new' ? null : folderDialog}
+					onClose={() => setFolderDialog(null)}
+					organizationId={organizationId}
+				/>
+			)}
 		</MapSplitPage>
 	);
 }
@@ -390,6 +447,7 @@ function FolderNode({
 	onToggleFolder,
 	onToggleRegion,
 	onFocusRegion,
+	onEdit,
 }: {
 	readonly folder: RegionFolderRow;
 	readonly regions: readonly RegionRow[];
@@ -402,6 +460,7 @@ function FolderNode({
 	readonly onToggleFolder: (on: boolean) => void;
 	readonly onToggleRegion: (id: string, on: boolean) => void;
 	readonly onFocusRegion: (id: string) => void;
+	readonly onEdit: () => void;
 }) {
 	const visibleCount = regions.filter((region) => visibleIds.has(region.id)).length;
 	const checkState: boolean | 'indeterminate' =
@@ -417,7 +476,7 @@ function FolderNode({
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: native drag-and-drop drop zone; the region edit form's folder select is the keyboard-accessible path */}
 			<div
 				className={cn(
-					'flex items-center gap-1.5 rounded-md px-1.5 py-1',
+					'group flex items-center gap-1.5 rounded-md px-1.5 py-1',
 					isDropTarget ? 'bg-primary/10 ring-1 ring-primary/40' : 'hover:bg-muted/50',
 				)}
 				onDragOver={(event) => {
@@ -452,12 +511,24 @@ function FolderNode({
 					disabled={regions.length === 0}
 					onCheckedChange={(value) => onToggleFolder(value === true)}
 				/>
-				<span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
-					{folder.name}
-				</span>
+				<div className="min-w-0 flex-1">
+					<p className="m-0 truncate font-medium text-foreground text-sm">{folder.name}</p>
+					{folder.description === null || folder.description.length === 0 ? null : (
+						<p className="m-0 truncate text-muted-foreground text-xs">{folder.description}</p>
+					)}
+				</div>
 				<Badge className="shrink-0" tone="neutral" variant="outline">
 					{regions.length}
 				</Badge>
+				<button
+					aria-label={`Edit ${folder.name}`}
+					className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+					onClick={onEdit}
+					title="Edit Folder"
+					type="button"
+				>
+					<EditIcon aria-hidden="true" className="size-4" />
+				</button>
 			</div>
 			<CollapsibleContent>
 				<div className="ml-3 border-border/50 border-l pl-1.5">
@@ -731,58 +802,89 @@ function RegionRenameField({
 	);
 }
 
-function NewFolderButton({
+/**
+ * One dialog for both folder writes — `folder === null` creates, otherwise it
+ * edits in place. The caller mounts it only while open, so the fields start from
+ * the folder being edited without a sync-back effect.
+ */
+function FolderDialog({
 	organizationId,
 	actorProfileId,
+	folder,
+	onClose,
 }: {
 	readonly organizationId: string;
 	readonly actorProfileId: string | null;
+	readonly folder: RegionFolderRow | null;
+	readonly onClose: () => void;
 }) {
-	const [open, setOpen] = useState(false);
-	const [name, setName] = useState('');
-	const [description, setDescription] = useState('');
+	const [name, setName] = useState(folder?.name ?? '');
+	const [description, setDescription] = useState(folder?.description ?? '');
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
-	const canCreate = organizationId.length > 0 && name.trim().length > 0;
+	const canSave = organizationId.length > 0 && name.trim().length > 0;
 
-	const onCreate = useCallback(async () => {
-		if (!canCreate) {
+	const onSave = useCallback(async () => {
+		if (!canSave) {
 			return;
 		}
 		setIsSaving(true);
 		setError(null);
+		const trimmedName = name.trim();
+		const trimmedDescription = description.trim();
+		const nextDescription = trimmedDescription.length === 0 ? null : trimmedDescription;
+		const now = new Date().toISOString();
 		try {
-			const now = new Date().toISOString();
-			const row: RegionFolderRow = {
-				id: crypto.randomUUID(),
-				organizationId,
-				name: name.trim(),
-				description: description.trim().length === 0 ? null : description.trim(),
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-			await settleWrite(webCollections.regionFolders.insert(row));
-			setName('');
-			setDescription('');
-			setOpen(false);
+			if (folder === null) {
+				const row: RegionFolderRow = {
+					id: crypto.randomUUID(),
+					organizationId,
+					name: trimmedName,
+					description: nextDescription,
+					createdByProfileId: actorProfileId,
+					updatedByProfileId: actorProfileId,
+					createdAt: now,
+					updatedAt: now,
+				};
+				await settleWrite(webCollections.regionFolders.insert(row));
+			} else {
+				await settleWrite(
+					webCollections.regionFolders.update(folder.id, (draft) => {
+						const writable = draft as {
+							-readonly [K in keyof RegionFolderRow]: RegionFolderRow[K];
+						};
+						writable.name = trimmedName;
+						writable.description = nextDescription;
+						if (actorProfileId !== null) {
+							writable.updatedByProfileId = actorProfileId;
+						}
+						writable.updatedAt = now;
+					}),
+				);
+			}
+			onClose();
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to create folder.');
+			setError(cause instanceof Error ? cause.message : 'Unable to save folder.');
 		} finally {
 			setIsSaving(false);
 		}
-	}, [canCreate, organizationId, name, description, actorProfileId]);
+	}, [canSave, organizationId, name, description, actorProfileId, folder, onClose]);
+
+	const isEdit = folder !== null;
 
 	return (
-		<Dialog onOpenChange={setOpen} open={open}>
-			<Button onClick={() => setOpen(true)} size="sm" variant="outline">
-				New Folder
-			</Button>
+		<Dialog
+			onOpenChange={(open) => {
+				if (!open) {
+					onClose();
+				}
+			}}
+			open
+		>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>New Region Folder</DialogTitle>
+					<DialogTitle>{isEdit ? 'Edit Region Folder' : 'New Region Folder'}</DialogTitle>
 					<DialogDescription>Group related regions under a named folder.</DialogDescription>
 				</DialogHeader>
 				<div className="grid gap-4">
@@ -796,7 +898,7 @@ function NewFolderButton({
 						/>
 					</div>
 					<div className="grid gap-1.5">
-						<Label htmlFor="folder-description">Description (optional)</Label>
+						<Label htmlFor="folder-description">Description</Label>
 						<Input
 							id="folder-description"
 							onChange={(event) => setDescription(event.target.value)}
@@ -807,11 +909,11 @@ function NewFolderButton({
 					{error === null ? null : <p className="m-0 text-destructive text-sm">{error}</p>}
 				</div>
 				<DialogFooter>
-					<Button onClick={() => setOpen(false)} type="button" variant="ghost">
+					<Button onClick={onClose} type="button" variant="ghost">
 						Cancel
 					</Button>
-					<Button disabled={!canCreate || isSaving} onClick={onCreate} type="button">
-						Create Folder
+					<Button disabled={!canSave || isSaving} onClick={onSave} type="button">
+						{isEdit ? 'Save Folder' : 'Create Folder'}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -825,6 +927,22 @@ function RegionsSkeleton() {
 			{[0, 1, 2, 3, 4].map((index) => (
 				<Skeleton className="h-9" key={index} />
 			))}
+		</div>
+	);
+}
+
+function RegionsNoMatches({ query }: { readonly query: string }) {
+	return (
+		<div className="flex flex-1 items-center justify-center p-6">
+			<Empty className="min-h-[200px] border border-border/40 bg-muted/30">
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<SearchIcon aria-hidden="true" />
+					</EmptyMedia>
+					<EmptyTitle>No Matches</EmptyTitle>
+					<EmptyDescription>Nothing matches “{query}”.</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
 		</div>
 	);
 }
