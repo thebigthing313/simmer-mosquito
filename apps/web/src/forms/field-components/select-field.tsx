@@ -32,6 +32,7 @@ export function SelectField({
 	triggerClassName,
 }: SelectFieldProps) {
 	const field = useFieldContext<string>();
+	const value = field.state.value ?? '';
 
 	return (
 		<FormFieldFrame
@@ -41,10 +42,27 @@ export function SelectField({
 			renderControl={(controlProps) => (
 				<Select
 					{...(disabled === undefined ? {} : { disabled })}
-					onValueChange={(value) => field.handleChange(value)}
-					value={field.state.value ?? ''}
+					onValueChange={(nextValue) => {
+						// Radix mirrors the value into a hidden native select. Replacing the
+						// option set under a value that is already set — the unit list narrowing
+						// to a newly picked product — leaves that element pointing at an option
+						// that no longer exists, so the browser resets it and fires a change,
+						// which arrives here as an empty value and wipes the field. No option
+						// ever carries an empty value (optional selects use a non-empty
+						// sentinel), so an empty one is always that reset, never a real choice.
+						if (nextValue === '') {
+							return;
+						}
+						field.handleChange(nextValue);
+					}}
+					value={value}
 				>
 					<SelectTrigger {...controlProps} className={triggerClassName}>
+						{/* Label the trigger from the options rather than leaving it to Radix,
+						    which portals the text out of the selected item. When a whole option
+						    set is replaced as the value changes — the unit list narrowing to a
+						    newly picked product — that item never mounted to supply a label, and
+						    the trigger sat on its placeholder over a value that was really set. */}
 						<SelectValue placeholder={placeholder} />
 					</SelectTrigger>
 					<SelectContent>

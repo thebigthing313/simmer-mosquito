@@ -101,6 +101,13 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 							body.locationSource = locationSource;
 						}
 					}
+					// Nothing the command endpoint owns actually moved — a save that only
+					// touched rows in another table (a record's crew, its batches) or changed
+					// nothing at all. The endpoint rejects an empty change set, so sending it
+					// would fail the whole save over a record that needs no update.
+					if (Object.keys(body).length === 0) {
+						return null;
+					}
 					const result = await writeControlOp(
 						`${endpoint}/${mutation.modified.id}`,
 						'PATCH',
@@ -110,7 +117,7 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 					return result.txid;
 				}),
 			);
-			return { txid };
+			return { txid: txid.filter((value) => value !== null) };
 		};
 	}
 
