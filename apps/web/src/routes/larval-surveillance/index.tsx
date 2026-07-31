@@ -1,12 +1,18 @@
 import type { HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/collapsible';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
 	AlertTriangleIcon,
+	ChevronDownIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	iconRegistry,
@@ -14,10 +20,15 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, Suspense, useMemo, useState } from 'react';
+import {
+	DensityBadge,
+	hasAnyLifeStage,
+	LifeStageStrip,
+	WetnessBadge,
+} from '../../components/larval-display';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
 import type { InspectionsSearch } from './-inspections-search';
-import { DensityBadge, hasAnyLifeStage, LifeStageStrip, WetnessBadge } from './-larval-display';
 import {
 	ACTIVITY_WINDOW_DAYS,
 	type ActivityInspection,
@@ -137,6 +148,8 @@ interface ResolvedRow {
 	readonly habitatId: string | null;
 	readonly habitatName: string | null;
 	readonly typeName: string | null;
+	/** `34.05213, -118.24368` — how an ad-hoc inspection identifies itself. */
+	readonly coordinates: string | null;
 }
 
 type Resolver = (inspection: ActivityInspection) => ResolvedRow;
@@ -172,9 +185,15 @@ function useResolver(
 					inspection.habitatTypeId === null
 						? null
 						: (typeNameById.get(inspection.habitatTypeId) ?? 'Unknown type'),
+				coordinates: formatCoordinates(inspection.lat, inspection.lng),
 			}),
 		[habitatNameById, typeNameById],
 	);
+}
+
+/** `34.05213, -118.24368`, or null when the row carries no centroid yet. */
+function formatCoordinates(lat: number | null, lng: number | null): string | null {
+	return lat === null || lng === null ? null : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
 // --- shared panel chrome ----------------------------------------------------
@@ -199,7 +218,12 @@ function Panel({
 			<div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
 				<div className="flex min-w-0 items-center gap-2">
 					<span className="text-muted-foreground">{icon}</span>
-					<h2 className="m-0 truncate font-semibold text-foreground text-sm leading-none">
+					{/*
+					 * `leading-none` here clipped the descenders on g/p/y — a line box the
+					 * exact height of the em cuts anything below the baseline. `leading-tight`
+					 * costs two pixels of header height and keeps the letters whole.
+					 */}
+					<h2 className="m-0 truncate font-semibold text-foreground text-sm leading-tight">
 						{title}
 					</h2>
 					{typeof count === 'number' ? (
@@ -234,10 +258,18 @@ function RowSkeleton({ count = 4 }: { readonly count?: number }) {
 	);
 }
 
-/** Habitat name as a link, or a muted "Ad-hoc" when the inspection has no habitat. */
+/**
+ * Habitat name as a link. An ad-hoc inspection has no habitat, so it is titled by
+ * its coordinates instead — "Ad-hoc inspection" named the category every such row
+ * already belonged to, leaving nothing to tell one row from the next.
+ */
 function HabitatLink({ row }: { readonly row: ResolvedRow }) {
 	if (row.habitatId === null) {
-		return <span className="text-muted-foreground text-sm italic">Ad-hoc inspection</span>;
+		return (
+			<span className="truncate font-medium text-foreground text-sm tabular-nums">
+				{row.coordinates ?? 'Ad-hoc inspection'}
+			</span>
+		);
 	}
 	const label = row.habitatName ?? `Habitat ${row.habitatId.slice(0, 8)}`;
 	return (
@@ -403,6 +435,14 @@ function DailyInspectionsPanel({
 	);
 }
 
+/**
+ * One inspector's day, collapsed to a single summary row until opened.
+ *
+ * A crew of six working a heavy day puts several hundred rows in this panel, and
+ * every one of them had to be scrolled past to reach the next inspector. Closed,
+ * the row answers the question the panel is usually asked — how much each person
+ * got through, and how much of it came back breeding-positive.
+ */
 function InspectorGroupBlock({
 	group,
 	resolve,
@@ -410,34 +450,55 @@ function InspectorGroupBlock({
 	readonly group: InspectorGroup;
 	readonly resolve: Resolver;
 }) {
+	const [open, setOpen] = useState(false);
 	const PersonnelIcon = iconRegistry.entities.organization.icon;
+	const positiveCount = group.rows.filter(
+		(inspection) => inspection.isWet && hasAnyLifeStage(inspection),
+	).length;
+
 	return (
-		<section className="p-3">
-			<div
-				className={cn(
-					stickyHeader({ surface: 'card', layout: 'inline', gap: 'tight', padding: 'tight' }),
-					'mb-1',
-				)}
-			>
-				<PersonnelIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-				<span
-					className={cn(
-						'font-medium text-sm',
-						group.key === UNASSIGNED_KEY && 'text-muted-foreground italic',
+		<Collapsible asChild onOpenChange={setOpen} open={open}>
+			<section>
+				<CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+					{open ? (
+						<ChevronDownIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+					) : (
+						<ChevronRightIcon
+							aria-hidden="true"
+							className="size-4 shrink-0 text-muted-foreground"
+						/>
 					)}
-				>
-					{group.name}
-				</span>
-				<span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
-					{group.rows.length}
-				</span>
-			</div>
-			<ul className="grid">
-				{group.rows.map((inspection) => (
-					<InspectionRow inspection={inspection} key={inspection.id} row={resolve(inspection)} />
-				))}
-			</ul>
-		</section>
+					<PersonnelIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+					<span
+						className={cn(
+							'min-w-0 flex-1 truncate font-medium text-sm',
+							group.key === UNASSIGNED_KEY && 'text-muted-foreground italic',
+						)}
+					>
+						{group.name}
+					</span>
+					{positiveCount > 0 ? (
+						<Badge tone="danger" variant="outline">
+							{positiveCount} positive
+						</Badge>
+					) : null}
+					<span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
+						{group.rows.length}
+					</span>
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<ul className="grid px-3 pb-3">
+						{group.rows.map((inspection) => (
+							<InspectionRow
+								inspection={inspection}
+								key={inspection.id}
+								row={resolve(inspection)}
+							/>
+						))}
+					</ul>
+				</CollapsibleContent>
+			</section>
+		</Collapsible>
 	);
 }
 

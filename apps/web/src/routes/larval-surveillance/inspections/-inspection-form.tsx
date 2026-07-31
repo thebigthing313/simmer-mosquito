@@ -26,6 +26,7 @@ import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react'
 import { getServerUrl } from '../../../auth';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { densityLabel, type LifeStageFlags } from '../../../components/larval-display';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -40,7 +41,6 @@ import {
 import { useAppForm } from '../../../forms';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { webCollections } from '../../../sync/webCollections';
-import { densityLabel, type LifeStageFlags } from '../-larval-display';
 import { todayInTimeZone } from '../-overview-data';
 
 export type InspectionLocationMode = 'habitat' | 'adhoc';

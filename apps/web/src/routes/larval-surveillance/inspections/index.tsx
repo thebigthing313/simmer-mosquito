@@ -41,6 +41,13 @@ import {
 } from '../../../components/date-range-filter';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
+	DensityBadge,
+	densityLabel,
+	hasAnyLifeStage,
+	LifeStageStrip,
+	WetnessBadge,
+} from '../../../components/larval-display';
+import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
 	type InspectionTileFilters,
@@ -50,13 +57,6 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { InspectionMapCard } from '../-inspection-map-card';
 import { inspectionsSearchSchema } from '../-inspections-search';
-import {
-	DensityBadge,
-	densityLabel,
-	hasAnyLifeStage,
-	LifeStageStrip,
-	WetnessBadge,
-} from '../-larval-display';
 import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../-overview-data';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/')({

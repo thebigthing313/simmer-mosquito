@@ -27,9 +27,14 @@ import { getServerUrl } from '../../../auth';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import {
+	DensityBadge,
+	hasAnyLifeStage,
+	LifeStageStrip,
+	WetnessBadge,
+} from '../../../components/larval-display';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { webCollections } from '../../../sync/webCollections';
-import { DensityBadge, hasAnyLifeStage, LifeStageStrip, WetnessBadge } from '../-larval-display';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
 	component: RouteComponent,

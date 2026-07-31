@@ -16,6 +16,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
+import { densityLabel, hasAnyLifeStage, LifeStageStrip } from '../../components/larval-display';
 import {
 	MapCard,
 	MapCardDetail,
@@ -24,7 +25,6 @@ import {
 } from '../../components/map/map-card';
 import { addressCardLabel } from '../../lib/address-format';
 import { webCollections } from '../../sync/webCollections';
-import { densityLabel, hasAnyLifeStage, LifeStageStrip } from './-larval-display';
 
 const gcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';

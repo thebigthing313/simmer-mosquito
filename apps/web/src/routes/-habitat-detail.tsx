@@ -55,7 +55,6 @@ import {
 	CheckCircle2Icon,
 	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
@@ -63,6 +62,7 @@ import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useSt
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { EmptyValue } from '../components/empty-value';
+import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import {
 	customFieldEntries,
@@ -738,7 +738,7 @@ function InspectionHistory({
 									</TableCell>
 								) : null}
 								<TableCell>
-									<LifeStageStrip inspection={inspection} />
+									<LifeStageStrip stages={inspection} />
 								</TableCell>
 							</TableRow>
 						))}
@@ -1311,97 +1311,6 @@ function formatSampleResult(sample: HistorySample): string {
 		return 'Non-mosquito present';
 	}
 	return 'Larvae present';
-}
-
-type LifeStageKey =
-	| 'hasEggs'
-	| 'hasFirstInstar'
-	| 'hasSecondInstar'
-	| 'hasThirdInstar'
-	| 'hasFourthInstar'
-	| 'hasPupae';
-
-// Ordered egg -> instars -> pupae, rendered as a single "E1234P" strip.
-const lifeStageSegments: readonly {
-	readonly key: LifeStageKey;
-	readonly symbol: string;
-	readonly label: string;
-}[] = [
-	{ key: 'hasEggs', symbol: 'E', label: 'Eggs' },
-	{ key: 'hasFirstInstar', symbol: '1', label: '1st instar' },
-	{ key: 'hasSecondInstar', symbol: '2', label: '2nd instar' },
-	{ key: 'hasThirdInstar', symbol: '3', label: '3rd instar' },
-	{ key: 'hasFourthInstar', symbol: '4', label: '4th instar' },
-	{ key: 'hasPupae', symbol: 'P', label: 'Pupae' },
-];
-
-// Read-only segmented indicator styled like a toggle group: each life stage is
-// a fixed cell, highlighted when present and dimmed when absent, so the strip
-// keeps a stable "E1234P" shape regardless of which stages were recorded.
-function LifeStageStrip({ inspection }: { readonly inspection: HistoryInspection }) {
-	const present = lifeStageSegments.filter((segment) => inspection[segment.key] === true);
-	const ariaLabel =
-		present.length === 0
-			? 'No life stages recorded'
-			: `Life stages present: ${present.map((segment) => segment.label).join(', ')}`;
-
-	return (
-		<div
-			aria-label={ariaLabel}
-			className="inline-flex overflow-hidden rounded-md border border-border"
-			role="img"
-		>
-			{lifeStageSegments.map((segment, index) => {
-				const isPresent = inspection[segment.key] === true;
-				return (
-					<span
-						aria-hidden="true"
-						className={cn(
-							'flex size-6 items-center justify-center text-xs font-semibold tabular-nums',
-							index > 0 && 'border-l border-border',
-							isPresent
-								? 'bg-primary text-primary-foreground'
-								: 'bg-muted/40 text-muted-foreground/40',
-						)}
-						key={segment.key}
-						title={segment.label}
-					>
-						{segment.symbol}
-					</span>
-				);
-			})}
-		</div>
-	);
-}
-
-const densityBadges: Record<
-	LarvalDensity,
-	{ readonly label: string; readonly tone: 'neutral' | 'info' | 'warning' | 'danger' }
-> = {
-	none: { label: 'None', tone: 'neutral' },
-	light: { label: 'Light', tone: 'info' },
-	medium: { label: 'Medium', tone: 'warning' },
-	heavy: { label: 'Heavy', tone: 'danger' },
-	very_heavy: { label: 'Very heavy', tone: 'danger' },
-};
-
-function DensityBadge({ density }: { readonly density: LarvalDensity | null }) {
-	if (density === null) {
-		return <span className="text-muted-foreground">—</span>;
-	}
-
-	// very_heavy escalates to the solid destructive variant so it reads as more
-	// severe than heavy, which there is no distinct second danger tone for.
-	if (density === 'very_heavy') {
-		return <Badge variant="destructive">{densityBadges[density].label}</Badge>;
-	}
-
-	const { label, tone } = densityBadges[density];
-	return (
-		<Badge variant="outline" tone={tone}>
-			{label}
-		</Badge>
-	);
 }
 
 function validHexColor(value: string | null): string | null {

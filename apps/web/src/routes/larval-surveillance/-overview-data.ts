@@ -3,10 +3,10 @@ import { eq, gte, inArray, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
+import type { LifeStageFlags } from '../../components/larval-display';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { getToday } from '../../lib/get-today';
 import { webCollections } from '../../sync/webCollections';
-import type { LifeStageFlags } from './-larval-display';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
 export const ACTIVITY_WINDOW_DAYS = 14;
@@ -29,6 +29,9 @@ export interface ActivityInspection extends LifeStageFlags {
 	readonly inspectedByProfileId: string | null;
 	readonly habitatId: string | null;
 	readonly habitatTypeId: string | null;
+	/** Trigger-maintained centroid; the only handle an ad-hoc inspection has. */
+	readonly lat: number | null;
+	readonly lng: number | null;
 	readonly isWet: boolean;
 	readonly density: LarvalDensity | null;
 	readonly larvaeCount: number | null;
@@ -125,6 +128,8 @@ function selectInspection({ inspection }: any) {
 		inspectedByProfileId: inspection.inspectedByProfileId,
 		habitatId: inspection.habitatId,
 		habitatTypeId: inspection.habitatTypeId,
+		lat: inspection.lat,
+		lng: inspection.lng,
 		isWet: inspection.isWet,
 		density: inspection.density,
 		larvaeCount: inspection.larvaeCount,
