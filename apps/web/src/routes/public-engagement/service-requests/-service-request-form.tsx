@@ -30,6 +30,7 @@ import {
 } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
+import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
 import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
@@ -229,7 +230,13 @@ export function ServiceRequestFormPage({
 		value: geometry,
 		onChange: handleGeometryChange,
 	});
-	const { start } = draw;
+	const { start, requestPoint } = draw;
+	// The inline "create address" subform places its point against this form's own
+	// map, so a new address can be sited without leaving the record being filled in.
+	const requestMapPoint = useCallback(
+		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
+		[requestPoint],
+	);
 
 	const profileOptions = useMemo(
 		() =>
@@ -359,6 +366,7 @@ export function ServiceRequestFormPage({
 									onDrawPoint={startDraw}
 									onMoveToAddress={moveToAddress}
 									organizationId={organizationId}
+									requestMapPoint={requestMapPoint}
 									requireLocation={requireLocation}
 								/>
 							)}
@@ -523,6 +531,7 @@ function LocationSection({
 	addressCoord,
 	locationError,
 	requireLocation,
+	requestMapPoint,
 	onAddressSelected,
 	onDrawPoint,
 	onMoveToAddress,
@@ -536,6 +545,7 @@ function LocationSection({
 	readonly addressCoord: { readonly lat: number; readonly lng: number } | null;
 	readonly locationError: string | null;
 	readonly requireLocation: boolean;
+	readonly requestMapPoint: RequestMapPoint;
 	readonly onAddressSelected: (address: AddressRow | null) => void;
 	readonly onDrawPoint: () => void;
 	readonly onMoveToAddress: () => void;
@@ -578,6 +588,7 @@ function LocationSection({
 							{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 							{(field: any) => (
 								<AddressPicker
+									create={{ requestMapPoint }}
 									onSelect={(address: AddressRow | null) => {
 										field.handleChange(address?.id ?? null);
 										onAddressSelected(address);

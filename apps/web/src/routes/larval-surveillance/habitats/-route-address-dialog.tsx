@@ -10,7 +10,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { HomeIcon, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useEffect, useState } from 'react';
-import { AddressIdInput } from '../../-habitat-location-fields';
+import { AddressPicker } from '../../../components/pickers/address-picker';
 import { updateHabitatAddress } from './-route-data';
 
 interface RouteStopAddressDialogProps {
@@ -19,23 +19,18 @@ interface RouteStopAddressDialogProps {
 	readonly habitatId: string;
 	readonly habitatName: string;
 	readonly organizationId: string;
-	readonly actorProfileId: string | null;
 	readonly currentAddressId: string | null;
 	readonly currentAddressLabel: string | null;
-}
-
-// This dialog has no map to draw against, so a new address is placed by geocoding.
-// The manual-point fallback in the create subform rejects with this guidance.
-function requestMapPointUnavailable(): Promise<never> {
-	return Promise.reject(
-		new Error('Geocode the address to place it, or edit the habitat to draw a point on the map.'),
-	);
 }
 
 /**
  * Link the habitat behind a route stop to an address: search the address book, create
  * a new record inline if it isn't there, then persist the link. Reuses the same
- * {@link AddressIdInput} the habitat form uses; Save PATCHes the habitat's `addressId`.
+ * {@link AddressPicker} every form uses; Save PATCHes the habitat's `addressId`.
+ *
+ * No `requestMapPoint`: this dialog has no map, so a new address is placed by
+ * geocoding and the picker hides the draw-a-point path rather than offering one
+ * that cannot work.
  */
 export function RouteStopAddressDialog({
 	open,
@@ -43,7 +38,6 @@ export function RouteStopAddressDialog({
 	habitatId,
 	habitatName,
 	organizationId,
-	actorProfileId,
 	currentAddressId,
 	currentAddressLabel,
 }: RouteStopAddressDialogProps) {
@@ -97,11 +91,10 @@ export function RouteStopAddressDialog({
 					</span>
 				</div>
 
-				<AddressIdInput
-					actorProfileId={actorProfileId}
-					onValueChange={setAddressId}
+				<AddressPicker
+					create={{}}
+					onSelect={(address) => setAddressId(address?.id ?? null)}
 					organizationId={organizationId}
-					requestMapPoint={requestMapPointUnavailable}
 					value={addressId}
 				/>
 

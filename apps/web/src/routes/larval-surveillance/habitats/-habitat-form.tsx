@@ -23,6 +23,7 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
+import { AddressPicker } from '../../../components/pickers/address-picker';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
@@ -32,7 +33,6 @@ import {
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { AddressIdInput } from '../../-habitat-location-fields';
 
 export const noHabitatTypeValue = 'none';
 
@@ -55,7 +55,6 @@ export interface HabitatFormHeader {
 export interface HabitatFormPageProps {
 	readonly mode: 'create' | 'edit';
 	readonly organizationId: string;
-	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 	readonly habitatTypes: readonly HabitatTypeRow[];
 	readonly defaultValues: HabitatFormValues;
@@ -92,7 +91,6 @@ const HABITAT_FIELD_PATHS: Readonly<Record<string, string>> = {
 export function HabitatFormPage({
 	mode,
 	organizationId,
-	actorProfileId,
 	canSubmit,
 	habitatTypes,
 	defaultValues,
@@ -285,24 +283,41 @@ export function HabitatFormPage({
 								</form.AppField>
 							</div>
 
+							{/* Address above geometry, in one section — the same Location block
+							    every other located record's form uses. */}
 							<section
-								aria-labelledby="habitat-geometry-label"
+								aria-labelledby="habitat-location-label"
 								className={cn(
-									'grid gap-3 rounded-md border bg-muted/30 p-4',
+									'grid gap-4 rounded-md border bg-muted/30 p-4',
 									geometryError === null ? 'border-border/50' : 'border-destructive/60',
 								)}
 							>
 								<div className="grid gap-0.5">
 									<span
 										className="font-semibold text-foreground text-sm leading-none"
-										id="habitat-geometry-label"
+										id="habitat-location-label"
 									>
-										Location geometry
+										Location
 									</span>
 									<span className="text-muted-foreground text-xs">
-										Draw on the map; existing habitats stay visible for reference.
+										The geometry is the habitat itself — a point for a single site, a line or area
+										for a stretch of one. An address is optional reference.
 									</span>
 								</div>
+
+								<form.AppField name="addressId">
+									{(field) => (
+										<AddressPicker
+											create={{ requestMapPoint }}
+											onSelect={(address) => {
+												field.handleChange(address?.id ?? null);
+												selectAddress(address);
+											}}
+											organizationId={organizationId}
+											value={field.state.value}
+										/>
+									)}
+								</form.AppField>
 
 								<GeometryControl
 									controller={draw}
@@ -321,19 +336,6 @@ export function HabitatFormPage({
 									<p className="m-0 text-destructive text-sm">{geometryError}</p>
 								)}
 							</section>
-
-							<form.AppField name="addressId">
-								{(field) => (
-									<AddressIdInput
-										actorProfileId={actorProfileId}
-										onSelectAddress={selectAddress}
-										organizationId={organizationId}
-										requestMapPoint={requestMapPoint}
-										value={field.state.value}
-										onValueChange={field.handleChange}
-									/>
-								)}
-							</form.AppField>
 
 							<form.AppField
 								name="description"

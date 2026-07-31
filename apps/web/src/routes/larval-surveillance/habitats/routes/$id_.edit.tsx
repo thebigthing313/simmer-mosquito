@@ -410,7 +410,6 @@ function RouteEditRoute() {
 
 			{addressTarget !== null && organizationId !== null ? (
 				<RouteStopAddressDialog
-					actorProfileId={identity?.profileId ?? null}
 					currentAddressId={addressTarget.addressId}
 					currentAddressLabel={addressTarget.addressLabel}
 					habitatId={addressTarget.habitatId}

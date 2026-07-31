@@ -65,10 +65,10 @@ function EditHabitatRoute() {
 	return (
 		<EditHabitatLoader
 			actorProfileId={actorProfileId}
+			canSubmit={organization !== null && actorProfileId !== null}
 			habitat={habitat}
 			habitatTypes={habitatTypes}
 			organizationId={organization?.id ?? ''}
-			canSubmit={organization !== null && actorProfileId !== null}
 		/>
 	);
 }
@@ -177,7 +177,6 @@ function EditHabitatLoader({
 		<HabitatFormPage
 			mode="edit"
 			organizationId={organizationId}
-			actorProfileId={actorProfileId}
 			canSubmit={canSubmit}
 			habitatTypes={habitatTypes}
 			defaultValues={defaultsFromHabitat(habitat)}

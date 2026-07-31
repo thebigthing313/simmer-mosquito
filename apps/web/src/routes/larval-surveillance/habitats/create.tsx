@@ -87,7 +87,6 @@ function CreateHabitatRoute() {
 		<HabitatFormPage
 			mode="create"
 			organizationId={organization?.id ?? ''}
-			actorProfileId={actorProfileId}
 			canSubmit={canSubmit}
 			habitatTypes={habitatTypes}
 			defaultValues={defaultHabitatFormValues()}

@@ -198,7 +198,13 @@ export function ApplicationFormPage({
 		value: geometry,
 		onChange: handleGeometryChange,
 	});
-	const { start } = draw;
+	const { start, requestPoint } = draw;
+	// The inline "create address" subform places its point against this form's own
+	// map, so a new address can be sited without leaving the record being filled in.
+	const requestMapPoint = useCallback(
+		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
+		[requestPoint],
+	);
 
 	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
@@ -415,6 +421,7 @@ export function ApplicationFormPage({
 								<form.AppField name="addressId">
 									{(field) => (
 										<AddressPicker
+											create={{ requestMapPoint }}
 											label="Address"
 											onSelect={(address) => {
 												field.handleChange(address?.id ?? null);
