@@ -1,3 +1,4 @@
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	AdultCollectionRow,
 	CollectionLureRow,
@@ -75,13 +76,12 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { MapCanvas } from '../../../components/map';
+import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useAppForm } from '../../../forms';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -264,36 +264,14 @@ function CollectionDetailContent({
 
 function CollectionLocationCard({ collection }: { readonly collection: AdultCollectionRow }) {
 	const { lat, lng } = collection;
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			map.setCenter([lng, lat]);
-			map.setZoom(15);
-		},
-		[lat, lng],
-	);
-
-	const geoJson = {
-		type: 'Feature',
-		properties: {},
-		geometry: { type: 'Point', coordinates: [lng, lat] },
-	} as GeoJSON.Feature;
-
 	return (
-		<Card className="overflow-hidden" variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Location</CardTitle>
-				<CardDescription>{`${lat.toFixed(5)}, ${lng.toFixed(5)}`}</CardDescription>
-			</CardHeader>
-			<CardContent padding="compact">
-				<div className="h-[280px] overflow-hidden rounded-md border border-border/40">
-					<MapCanvas
-						controls={{ search: false, layers: false, geolocate: false }}
-						geoJson={geoJson}
-						onMapReady={handleMapReady}
-					/>
-				</div>
-			</CardContent>
-		</Card>
+		<RecordLocationCard
+			description={`${lat.toFixed(5)}, ${lng.toFixed(5)}`}
+			emptyDescription="This collection has no location to display."
+			geojson={{ type: 'Point', coordinates: [lng, lat] } as GeoJsonGeometry}
+			geomType="Point"
+			height="h-[280px]"
+		/>
 	);
 }
 

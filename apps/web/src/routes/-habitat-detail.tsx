@@ -3,10 +3,9 @@ import {
 	resolveOrganizationSettings,
 } from '@simmer-mosquito/domain';
 import {
-	boundsFromGeoJson,
-	centroidFromGeoJson,
 	countGeoJsonVertices,
 	formatGeometryTypeLabel,
+	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
 import type { HabitatRow, LarvalDensity, TagRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
@@ -60,20 +59,10 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import {
-	type CSSProperties,
-	type ReactNode,
-	Suspense,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from 'react';
+import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
-import { type MapCamera, MapCanvas } from '../components/map';
+import { RecordLocationCard } from '../components/map/record-location-card';
 import {
 	customFieldEntries,
 	customSchemaFor,
@@ -295,84 +284,16 @@ function HabitatLocationCard({
 	readonly geometry: HabitatGeometry | null;
 	readonly isPending: boolean;
 }) {
-	const geojson = geometry?.geojson ?? null;
-	const bounds = useMemo(() => (geojson === null ? null : boundsFromGeoJson(geojson)), [geojson]);
-	const centroid = useMemo(
-		() => (geojson === null ? null : centroidFromGeoJson(geojson)),
-		[geojson],
-	);
-	const camera = useMemo<MapCamera | undefined>(
-		() => (centroid === null ? undefined : { center: [centroid.lng, centroid.lat], zoom: 15 }),
-		[centroid],
-	);
-	const mapRef = useRef<MapboxMap | null>(null);
-	const fitToBounds = useCallback(
-		(map: MapboxMap) => {
-			if (bounds === null) {
-				return;
-			}
-
-			const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
-			if (hasArea) {
-				map.fitBounds(
-					[
-						[bounds.west, bounds.south],
-						[bounds.east, bounds.north],
-					],
-					{ padding: 48, maxZoom: 17, duration: 0 },
-				);
-			} else {
-				map.setCenter([bounds.west, bounds.south]);
-				map.setZoom(16);
-			}
-		},
-		[bounds],
-	);
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			mapRef.current = map;
-			fitToBounds(map);
-		},
-		[fitToBounds],
-	);
-	// Refit when the geometry changes underneath an already-loaded map (e.g. the
-	// keyed geometry refetch returns a moved habitat), since onMapReady fires once.
-	useEffect(() => {
-		if (mapRef.current !== null) {
-			fitToBounds(mapRef.current);
-		}
-	}, [fitToBounds]);
-
+	const geojson = (geometry?.geojson ?? null) as GeoJsonGeometry | null;
 	return (
-		<Card variant="surface" className="overflow-hidden">
-			<CardHeader className="px-4 py-4">
-				<div>
-					<CardTitle>Location</CardTitle>
-					<CardDescription>{locationSummary(geometry, isPending)}</CardDescription>
-				</div>
-			</CardHeader>
-			<CardContent padding="compact">
-				{isPending ? (
-					<Skeleton className="h-[380px] w-full" />
-				) : geojson === null ? (
-					<Empty className="min-h-[320px] border border-border/40 bg-muted/30">
-						<EmptyHeader>
-							<EmptyTitle>No Geometry Recorded</EmptyTitle>
-							<EmptyDescription>This habitat has no location to display.</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
-				) : (
-					<div className="h-[380px] overflow-hidden rounded-md border border-border/40">
-						<MapCanvas
-							controls={{ search: false, layers: false, geolocate: false }}
-							geoJson={geojson as unknown as GeoJSON.GeoJSON}
-							onMapReady={handleMapReady}
-							{...(camera === undefined ? {} : { camera })}
-						/>
-					</div>
-				)}
-			</CardContent>
-		</Card>
+		<RecordLocationCard
+			description={locationSummary(geometry, isPending)}
+			emptyDescription="This habitat has no location to display."
+			geojson={geojson}
+			geomType={geometry?.geomType ?? null}
+			height="h-[380px]"
+			isPending={isPending}
+		/>
 	);
 }
 

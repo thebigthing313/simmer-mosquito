@@ -1,3 +1,4 @@
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	CollectionLureRow,
 	CollectionMethodRow,
@@ -10,7 +11,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -51,7 +51,6 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -61,7 +60,7 @@ import {
 	DateRangeFilter,
 	datePresetRange,
 } from '../../../components/date-range-filter';
-import { MapCanvas } from '../../../components/map';
+import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -193,36 +192,14 @@ function TrapLocationCard({
 }: {
 	readonly point: { readonly lat: number; readonly lng: number };
 }) {
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			map.setCenter([point.lng, point.lat]);
-			map.setZoom(15);
-		},
-		[point],
-	);
-
-	const geoJson = {
-		type: 'Feature',
-		properties: {},
-		geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
-	} as GeoJSON.Feature;
-
 	return (
-		<Card className="overflow-hidden" variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Location</CardTitle>
-				<CardDescription>{`${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`}</CardDescription>
-			</CardHeader>
-			<CardContent padding="compact">
-				<div className="h-[280px] overflow-hidden rounded-md border border-border/40">
-					<MapCanvas
-						controls={{ search: false, layers: false, geolocate: false }}
-						geoJson={geoJson}
-						onMapReady={handleMapReady}
-					/>
-				</div>
-			</CardContent>
-		</Card>
+		<RecordLocationCard
+			description={`${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`}
+			emptyDescription="This trap has no location to display."
+			geojson={{ type: 'Point', coordinates: [point.lng, point.lat] } as GeoJsonGeometry}
+			geomType="Point"
+			height="h-[280px]"
+		/>
 	);
 }
 

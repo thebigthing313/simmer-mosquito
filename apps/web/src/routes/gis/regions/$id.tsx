@@ -1,4 +1,4 @@
-import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import {
@@ -15,7 +15,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -29,10 +28,9 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { MapCanvas } from '../../../components/map';
+import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useRegionGeometry } from '../../../hooks/use-region-geometry';
 import { settleWrite } from '../../../sync/settle-write';
@@ -183,50 +181,17 @@ function RegionBoundaryCard({
 	readonly geojson: GeoJsonGeometry | null;
 	readonly isLoading: boolean;
 }) {
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			if (geojson === null) {
-				return;
-			}
-			const bounds = boundsFromGeoJson(geojson);
-			if (bounds === null) {
-				return;
-			}
-			map.fitBounds(
-				[
-					[bounds.west, bounds.south],
-					[bounds.east, bounds.north],
-				],
-				{ padding: 48, maxZoom: 16, duration: 0 },
-			);
-		},
-		[geojson],
-	);
-
 	return (
-		<Card className="overflow-hidden" variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Boundary</CardTitle>
-				<CardDescription>The region's mapped area.</CardDescription>
-			</CardHeader>
-			<CardContent padding="compact">
-				<div className="h-[360px] overflow-hidden rounded-md border border-border/40">
-					{isLoading ? (
-						<Skeleton className="h-full w-full rounded-none" />
-					) : geojson === null ? (
-						<div className="flex h-full items-center justify-center bg-muted/30 text-muted-foreground text-sm">
-							No boundary recorded.
-						</div>
-					) : (
-						<MapCanvas
-							controls={{ search: false, layers: false, geolocate: false }}
-							geoJson={geojson as unknown as GeoJSON.GeoJSON}
-							onMapReady={handleMapReady}
-						/>
-					)}
-				</div>
-			</CardContent>
-		</Card>
+		<RecordLocationCard
+			description="The region's mapped area."
+			emptyDescription="This region has no boundary to display."
+			emptyTitle="No Boundary Recorded"
+			geojson={geojson}
+			geomType={geojson?.type ?? null}
+			height="h-[360px]"
+			isPending={isLoading}
+			title="Boundary"
+		/>
 	);
 }
 

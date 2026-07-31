@@ -5,8 +5,10 @@ import {
 	formatGeometryTypeLabel,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
+	CardAction,
 	CardContent,
 	CardDescription,
 	CardHeader,
@@ -19,8 +21,14 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/tooltip';
+import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MapCanvas } from './map-canvas';
 import type { MapCamera } from './map-styles';
 
@@ -41,6 +49,9 @@ export function RecordLocationCard({
 	geomType,
 	isPending = false,
 	isError = false,
+	title = 'Location',
+	description,
+	emptyTitle,
 	emptyDescription,
 	height = 'h-[320px]',
 }: {
@@ -48,6 +59,12 @@ export function RecordLocationCard({
 	readonly geomType: string | null;
 	readonly isPending?: boolean;
 	readonly isError?: boolean;
+	/** Card heading; a boundary-shaped record may want its own noun. */
+	readonly title?: string;
+	/** Replaces the derived `Polygon · 12 vertices` line (e.g. with coordinates). */
+	readonly description?: ReactNode;
+	/** Heading for the no-geometry state. */
+	readonly emptyTitle?: string;
 	/** Shown when the record has no renderable geometry. */
 	readonly emptyDescription: string;
 	/** Tailwind height for the map well; override for denser layouts. */
@@ -67,10 +84,11 @@ export function RecordLocationCard({
 	// late-arriving fetch still lands framed rather than on the default camera.
 	const mapRef = useRef<MapboxMap | null>(null);
 	const fitToBounds = useCallback(
-		(map: MapboxMap) => {
+		(map: MapboxMap, animate = false) => {
 			if (bounds === null) {
 				return;
 			}
+			const duration = animate ? 400 : 0;
 			const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
 			if (hasArea) {
 				map.fitBounds(
@@ -78,12 +96,11 @@ export function RecordLocationCard({
 						[bounds.west, bounds.south],
 						[bounds.east, bounds.north],
 					],
-					{ padding: 48, maxZoom: 17, duration: 0 },
+					{ padding: 48, maxZoom: 17, duration },
 				);
 				return;
 			}
-			map.setCenter([bounds.west, bounds.south]);
-			map.setZoom(16);
+			map.easeTo({ center: [bounds.west, bounds.south], zoom: 16, duration });
 		},
 		[bounds],
 	);
@@ -100,11 +117,35 @@ export function RecordLocationCard({
 		}
 	}, [fitToBounds]);
 
+	// Panning away is easy and there is no other landmark in a 320px well to
+	// navigate back by, so the header keeps a way to return to the geometry.
+	const recenter = useCallback(() => {
+		if (mapRef.current !== null) {
+			fitToBounds(mapRef.current, true);
+		}
+	}, [fitToBounds]);
+
+	const hasMap = !isPending && geojson !== null;
+
 	return (
 		<Card className="overflow-hidden" variant="surface">
 			<CardHeader className="px-4 py-4">
-				<CardTitle>Location</CardTitle>
-				<CardDescription>{geometrySummary(geojson, geomType, isPending, isError)}</CardDescription>
+				<CardTitle>{title}</CardTitle>
+				<CardDescription>
+					{description ?? geometrySummary(geojson, geomType, isPending, isError)}
+				</CardDescription>
+				{hasMap ? (
+					<CardAction>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button aria-label="Recenter map" onClick={recenter} size="icon-sm" variant="ghost">
+									<LocateFixedIcon aria-hidden="true" className="size-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Recenter on this record</TooltipContent>
+						</Tooltip>
+					</CardAction>
+				) : null}
 			</CardHeader>
 			<CardContent padding="compact">
 				{isPending ? (
@@ -112,7 +153,9 @@ export function RecordLocationCard({
 				) : geojson === null ? (
 					<Empty className="min-h-[220px] border border-border/40 bg-muted/30">
 						<EmptyHeader>
-							<EmptyTitle>{isError ? 'Geometry Unavailable' : 'No Geometry Recorded'}</EmptyTitle>
+							<EmptyTitle>
+								{isError ? 'Geometry Unavailable' : (emptyTitle ?? 'No Geometry Recorded')}
+							</EmptyTitle>
 							<EmptyDescription>{emptyDescription}</EmptyDescription>
 						</EmptyHeader>
 					</Empty>

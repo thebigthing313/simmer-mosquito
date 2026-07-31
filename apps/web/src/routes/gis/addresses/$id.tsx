@@ -15,7 +15,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -29,10 +28,9 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { MapCanvas } from '../../../components/map';
+import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
@@ -183,48 +181,18 @@ function AddressLocationCard({
 	readonly lng: number | null;
 	readonly isLoading: boolean;
 }) {
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			if (lat === null || lng === null) {
-				return;
-			}
-			map.setCenter([lng, lat]);
-			map.setZoom(15);
-		},
-		[lat, lng],
-	);
-
-	const feature =
-		geojson === null
-			? null
-			: ({ type: 'Feature', properties: {}, geometry: geojson } as unknown as GeoJSON.Feature);
-
 	return (
-		<Card className="overflow-hidden" variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Location</CardTitle>
-				<CardDescription>
-					{lat !== null && lng !== null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Address point'}
-				</CardDescription>
-			</CardHeader>
-			<CardContent padding="compact">
-				<div className="h-[300px] overflow-hidden rounded-md border border-border/40">
-					{isLoading ? (
-						<Skeleton className="h-full w-full rounded-none" />
-					) : feature === null ? (
-						<div className="flex h-full items-center justify-center bg-muted/30 text-muted-foreground text-sm">
-							No location recorded.
-						</div>
-					) : (
-						<MapCanvas
-							controls={{ search: false, layers: false, geolocate: false }}
-							geoJson={feature}
-							onMapReady={handleMapReady}
-						/>
-					)}
-				</div>
-			</CardContent>
-		</Card>
+		<RecordLocationCard
+			description={
+				lat !== null && lng !== null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Address point'
+			}
+			emptyDescription="This address has no location to display."
+			emptyTitle="No Location Recorded"
+			geojson={geojson}
+			geomType={geojson?.type ?? null}
+			height="h-[300px]"
+			isPending={isLoading}
+		/>
 	);
 }
 

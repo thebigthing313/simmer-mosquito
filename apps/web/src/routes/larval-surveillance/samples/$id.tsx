@@ -1,8 +1,4 @@
-import {
-	boundsFromGeoJson,
-	centroidFromGeoJson,
-	type GeoJsonGeometry,
-} from '@simmer-mosquito/mapping';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	OrganizationSpeciesRow,
 	SampleRow,
@@ -57,13 +53,11 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { type MapCamera, MapCanvas } from '../../../components/map';
-import { geometrySummary } from '../../../components/map/record-location-card';
+import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
@@ -309,79 +303,13 @@ function SampleLocationCard({
 	readonly geometry: GeoJsonGeometry | null;
 	readonly geomType: string | null;
 }) {
-	const bounds = useMemo(
-		() => (geometry === null ? null : boundsFromGeoJson(geometry)),
-		[geometry],
-	);
-	const centroid = useMemo(
-		() => (geometry === null ? null : centroidFromGeoJson(geometry)),
-		[geometry],
-	);
-	const camera = useMemo<MapCamera | undefined>(
-		() => (centroid === null ? undefined : { center: [centroid.lng, centroid.lat], zoom: 15 }),
-		[centroid],
-	);
-	const mapRef = useRef<MapboxMap | null>(null);
-	const fitToBounds = useCallback(
-		(map: MapboxMap) => {
-			if (bounds === null) {
-				return;
-			}
-			const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
-			if (hasArea) {
-				map.fitBounds(
-					[
-						[bounds.west, bounds.south],
-						[bounds.east, bounds.north],
-					],
-					{ padding: 48, maxZoom: 17, duration: 0 },
-				);
-			} else {
-				map.setCenter([bounds.west, bounds.south]);
-				map.setZoom(16);
-			}
-		},
-		[bounds],
-	);
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			mapRef.current = map;
-			fitToBounds(map);
-		},
-		[fitToBounds],
-	);
-	useEffect(() => {
-		if (mapRef.current !== null) {
-			fitToBounds(mapRef.current);
-		}
-	}, [fitToBounds]);
-
 	return (
-		<Card className="overflow-hidden" variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Location</CardTitle>
-				<CardDescription>{geometrySummary(geometry, geomType)}</CardDescription>
-			</CardHeader>
-			<CardContent padding="compact">
-				{geometry === null ? (
-					<Empty className="min-h-[240px] border border-border/40 bg-muted/30">
-						<EmptyHeader>
-							<EmptyTitle>No Geometry Recorded</EmptyTitle>
-							<EmptyDescription>The parent inspection has no location to display.</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
-				) : (
-					<div className="h-[240px] overflow-hidden rounded-md border border-border/40">
-						<MapCanvas
-							controls={{ search: false, layers: false, geolocate: false }}
-							geoJson={geometry as unknown as GeoJSON.GeoJSON}
-							onMapReady={handleMapReady}
-							{...(camera === undefined ? {} : { camera })}
-						/>
-					</div>
-				)}
-			</CardContent>
-		</Card>
+		<RecordLocationCard
+			emptyDescription="The parent inspection has no location to display."
+			geojson={geometry}
+			geomType={geomType}
+			height="h-[240px]"
+		/>
 	);
 }
 
