@@ -27,6 +27,7 @@ import { type Collection, eq, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue, validateMetadataValue } from '../../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
@@ -227,7 +228,7 @@ export function ControlMethodTable({
 					<TableRow>
 						<TableHead>{config.fieldLabel}</TableHead>
 						<TableHead className="w-28">Status</TableHead>
-						<TableHead className="w-32">Custom Fields</TableHead>
+						<TableHead className="w-[30%]">Custom Fields</TableHead>
 						{canManage ? <TableHead className="w-16 text-right">Edit</TableHead> : null}
 					</TableRow>
 				</TableHeader>
@@ -236,7 +237,9 @@ export function ControlMethodTable({
 						<TableRow key={method.id}>
 							<TableCell className="font-medium">{method.name}</TableCell>
 							<TableCell>{method.isActive ? 'Active' : 'Inactive'}</TableCell>
-							<TableCell>{hasMetadata(method.customSchema) ? 'Configured' : 'None'}</TableCell>
+							<TableCell>
+								<CustomFieldsCell schema={method.customSchema} />
+							</TableCell>
 							{canManage ? (
 								<TableCell className="text-right">
 									<ControlMethodDrawer

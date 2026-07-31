@@ -44,6 +44,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { getServerUrl } from '../../../auth';
 import { OutletSimpleLayout } from '../../../components/app-shell/outlet/simple-layout';
+import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue } from '../../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
@@ -290,7 +291,7 @@ function HabitatTypeSection({
 							<TableRow className="bg-muted/40 hover:bg-muted/40">
 								<TableHead className="w-[28%]">Habitat Type</TableHead>
 								<TableHead>Description</TableHead>
-								<TableHead className="w-[112px]">Custom Fields</TableHead>
+								<TableHead className="w-[22%]">Custom Fields</TableHead>
 								<TableHead className="w-[104px] text-right">Active Sites</TableHead>
 								{canManage ? (
 									<TableHead className="w-[60px] text-right">
@@ -316,12 +317,7 @@ function HabitatTypeSection({
 										{habitatType.description ?? 'No description'}
 									</TableCell>
 									<TableCell className="align-top">
-										<Badge
-											tone={habitatType.customSchema === null ? 'neutral' : 'info'}
-											variant="outline"
-										>
-											{habitatType.customSchema === null ? 'None' : 'Configured'}
-										</Badge>
+										<CustomFieldsCell schema={habitatType.customSchema} />
 									</TableCell>
 									<TableCell className="align-top text-right">
 										<SitesCount

@@ -50,6 +50,7 @@ import {
 import type { Collection } from '@tanstack/react-db';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue } from '../../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
@@ -511,12 +512,7 @@ export function HabitatTypeTable({
 										{habitatType.description ?? 'No description'}
 									</TableCell>
 									<TableCell className="w-(--habitat-fields-column)">
-										<Badge
-											tone={habitatType.customSchema === null ? 'neutral' : 'info'}
-											variant="outline"
-										>
-											{habitatType.customSchema === null ? 'None' : 'Configured'}
-										</Badge>
+										<CustomFieldsCell schema={habitatType.customSchema} />
 									</TableCell>
 									{canManage ? (
 										<TableCell className="w-(--habitat-actions-column) text-right">

@@ -40,8 +40,9 @@ import type { Collection } from '@tanstack/react-db';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { OutletSimpleLayout } from '../../components/app-shell/outlet/simple-layout';
+import { CustomFieldsCell } from '../../components/custom-fields-cell';
 import { useAppForm } from '../../forms';
-import { customFieldCount, validateJsonSchemaValue } from '../../forms/field-components';
+import { validateJsonSchemaValue } from '../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../hooks/use-active-named-collection-rows';
 import {
 	controlMethodFormValues,
@@ -292,7 +293,7 @@ function ControlMethodSection({
 						<TableHeader>
 							<TableRow className="bg-muted/40 hover:bg-muted/40">
 								<TableHead>Method</TableHead>
-								<TableHead className="w-[140px]">Custom Fields</TableHead>
+								<TableHead className="w-[22%]">Custom Fields</TableHead>
 								{canManage ? (
 									<TableHead className="w-[60px] text-right">
 										<span className="sr-only">Actions</span>
@@ -314,7 +315,7 @@ function ControlMethodSection({
 										</div>
 									</TableCell>
 									<TableCell className="align-top">
-										<CustomFieldsValue count={customFieldCount(method.customSchema)} />
+										<CustomFieldsCell schema={method.customSchema} />
 									</TableCell>
 									{canManage ? (
 										<TableCell className="align-top text-right">
@@ -328,21 +329,6 @@ function ControlMethodSection({
 				</div>
 			)}
 		</section>
-	);
-}
-
-function CustomFieldsValue({ count }: { readonly count: number }) {
-	if (count === 0) {
-		return (
-			<Badge tone="neutral" variant="outline">
-				None
-			</Badge>
-		);
-	}
-	return (
-		<Badge tone="info" variant="outline">
-			{count} {count === 1 ? 'field' : 'fields'}
-		</Badge>
 	);
 }
 

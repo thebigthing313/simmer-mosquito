@@ -41,8 +41,9 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { OutletSimpleLayout } from '../../components/app-shell/outlet/simple-layout';
+import { CustomFieldsCell } from '../../components/custom-fields-cell';
 import { useAppForm } from '../../forms';
-import { customFieldCount, validateJsonSchemaValue } from '../../forms/field-components';
+import { validateJsonSchemaValue } from '../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../hooks/use-active-named-collection-rows';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
@@ -281,7 +282,7 @@ function CollectionMethodSection({
 								<TableHead className="w-[26%]">Method</TableHead>
 								<TableHead>Description</TableHead>
 								<TableHead className="w-[96px] text-right">Threshold</TableHead>
-								<TableHead className="w-[116px]">Custom Fields</TableHead>
+								<TableHead className="w-[22%]">Custom Fields</TableHead>
 								<TableHead className="w-[104px] text-right">Active Traps</TableHead>
 								{canManage ? (
 									<TableHead className="w-[60px] text-right">
@@ -310,7 +311,7 @@ function CollectionMethodSection({
 										<ThresholdValue threshold={method.actionThreshold} />
 									</TableCell>
 									<TableCell className="align-top">
-										<CustomFieldsValue count={customFieldCount(method.customSchema)} />
+										<CustomFieldsCell schema={method.customSchema} />
 									</TableCell>
 									<TableCell className="align-top text-right">
 										<TrapsCount count={usageById.get(method.id) ?? 0} />
@@ -339,21 +340,6 @@ function ThresholdValue({ threshold }: { readonly threshold: number | null }) {
 		return <span className="text-muted-foreground text-sm">None</span>;
 	}
 	return <span className="font-medium tabular-nums">{threshold}</span>;
-}
-
-function CustomFieldsValue({ count }: { readonly count: number }) {
-	if (count === 0) {
-		return (
-			<Badge tone="neutral" variant="outline">
-				None
-			</Badge>
-		);
-	}
-	return (
-		<Badge tone="info" variant="outline">
-			{count} {count === 1 ? 'field' : 'fields'}
-		</Badge>
-	);
 }
 
 function TrapsCount({ count }: { readonly count: number }) {
