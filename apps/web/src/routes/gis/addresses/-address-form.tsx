@@ -1,3 +1,4 @@
+import { createAddressCommand } from '@simmer-mosquito/domain';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -26,6 +27,7 @@ import { MapCanvas } from '../../../components/map';
 import { GeometryControl, POINT_DRAW_TYPES } from '../../../components/map/geometry-control';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { RequiredMark } from '../../../components/required-mark';
+import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../../forms/domain-validation';
 
 export type AddressPointGeometry = {
 	readonly type: 'Point';
@@ -150,16 +152,33 @@ export function AddressFormPage({
 	const handleSubmit = useCallback(async () => {
 		setSaveError(null);
 		setLocationError(null);
-		if (values.displayName.trim().length === 0) {
-			setSaveError('A display name is required.');
-			return;
-		}
-		if (values.country.trim().length !== 2) {
-			setSaveError('Country must be a two-letter code.');
-			return;
-		}
 		if (geometry === null) {
 			setLocationError('Geocode the address or place a point on the map.');
+			return;
+		}
+		/*
+		 * The rules here were hand-copied from the domain builder and had already
+		 * drifted — the display-name length cap and the postal/region formats were
+		 * never checked, so they came back as a generic save failure. Running the
+		 * builder keeps the form and the server saying the same thing.
+		 */
+		const issues = validateAgainstCommand(() =>
+			createAddressCommand({
+				...FORM_VALIDATION_CONTEXT,
+				addressId: FORM_VALIDATION_CONTEXT.organizationId,
+				displayName: values.displayName,
+				geometry,
+				country: values.country,
+				addressLine1: values.addressLine1,
+				addressLine2: values.addressLine2,
+				locality: values.locality,
+				region: values.region,
+				postalCode: values.postalCode,
+			}),
+		);
+		if (issues !== undefined) {
+			const messages = [...Object.values(issues.fields), ...issues.form];
+			setSaveError(messages.join(' '));
 			return;
 		}
 		setIsSaving(true);

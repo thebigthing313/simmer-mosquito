@@ -1,3 +1,4 @@
+import { createContactCommand } from '@simmer-mosquito/domain';
 import type { ContactRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
@@ -5,6 +6,7 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { useAppForm } from '../../../forms';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 
 /** The mutable, contact-owned fields (everything except id/org/audit/metadata). */
 export type ContactFields = Pick<
@@ -56,6 +58,17 @@ function nullableText(value: string): string | null {
 	const text = value.trim();
 	return text.length === 0 ? null : text;
 }
+
+/** Domain issue path → the form field holding it. */
+const CONTACT_FIELD_PATHS: Readonly<Record<string, string>> = {
+	contactName: 'contactName',
+	company: 'company',
+	department: 'department',
+	title: 'title',
+	preferredPhone: 'preferredPhone',
+	alternatePhone: 'alternatePhone',
+	email: 'email',
+};
 
 export interface ContactFormValues {
 	readonly contactName: string;
@@ -112,6 +125,26 @@ export function ContactFormPage({
 
 	const form = useAppForm({
 		defaultValues,
+		validators: {
+			onSubmit: domainValidator(
+				({ value }: { readonly value: ContactFormValues }) =>
+					createContactCommand({
+						...FORM_VALIDATION_CONTEXT,
+						contactId: FORM_VALIDATION_CONTEXT.organizationId,
+						contactName: value.contactName,
+						company: value.company,
+						department: value.department,
+						title: value.title,
+						preferredPhone: value.preferredPhone,
+						alternatePhone: value.alternatePhone,
+						email: value.email,
+						wantsEmail: value.wantsEmail,
+						wantsSms: value.wantsSms,
+						wantsPhone: value.wantsPhone,
+					}),
+				CONTACT_FIELD_PATHS,
+			),
+		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			const error = validateContactForm(value);

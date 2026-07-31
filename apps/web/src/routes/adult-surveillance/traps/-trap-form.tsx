@@ -1,3 +1,4 @@
+import { createTrapCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { CollectionLureRow, CollectionMethodRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -18,11 +19,22 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { AddressPicker } from '../-adult-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noLureValue = 'none';
+
+/** Domain issue path → the form field holding it. */
+const TRAP_FIELD_PATHS: Readonly<Record<string, string>> = {
+	collectionMethodId: 'collectionMethodId',
+	collectionLureId: 'collectionLureId',
+	addressId: 'addressId',
+	trapName: 'trapName',
+	trapCode: 'trapCode',
+	description: 'description',
+};
 
 export interface TrapFormValues {
 	/**
@@ -135,6 +147,24 @@ export function TrapFormPage({
 
 	const form = useAppForm({
 		defaultValues,
+		validators: {
+			onSubmit: domainValidator(
+				({ value }: { readonly value: TrapFormValues }) =>
+					createTrapCommand({
+						...FORM_VALIDATION_CONTEXT,
+						trapId: FORM_VALIDATION_CONTEXT.organizationId,
+						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						collectionMethodId: value.collectionMethodId,
+						addressId: value.addressId,
+						collectionLureId:
+							value.collectionLureId === noLureValue ? null : value.collectionLureId,
+						trapName: value.trapName,
+						trapCode: value.trapCode,
+						description: value.description,
+					}),
+				TRAP_FIELD_PATHS,
+			),
+		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			setLocationError(null);

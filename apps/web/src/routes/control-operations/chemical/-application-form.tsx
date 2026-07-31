@@ -1,3 +1,4 @@
+import { recordChemicalApplicationCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	ControlMethodRow,
@@ -33,6 +34,7 @@ import {
 } from '../../../components/map/use-map-draw';
 import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -48,6 +50,20 @@ import { AddressPicker, HabitatPicker } from '../-control-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noSelectionValue = 'none';
+
+/** Domain issue path → the form field holding it. */
+const APPLICATION_FIELD_PATHS: Readonly<Record<string, string>> = {
+	insecticideId: 'insecticideId',
+	amountApplied: 'amountApplied',
+	applicationUnitId: 'applicationUnitId',
+	applicationDate: 'applicationDate',
+	applicatorProfileId: 'applicatorProfileId',
+	applicationMethodId: 'applicationMethodId',
+	vehicleId: 'vehicleId',
+	equipmentId: 'equipmentId',
+	addressId: 'addressId',
+	metadata: 'metadata',
+};
 
 /**
  * Amounts are recorded as a product quantity, so only the unit types a chemical
@@ -253,6 +269,29 @@ export function ApplicationFormPage({
 
 	const form = useAppForm({
 		defaultValues,
+		validators: {
+			onSubmit: domainValidator(
+				({ value }: { readonly value: ApplicationFormValues }) =>
+					recordChemicalApplicationCommand({
+						...FORM_VALIDATION_CONTEXT,
+						applicationId: FORM_VALIDATION_CONTEXT.organizationId,
+						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						insecticideId: value.insecticideId,
+						amountApplied: value.amountApplied as number,
+						applicationUnitId: value.applicationUnitId,
+						applicationDate: value.applicationDate,
+						applicatorProfileId:
+							value.applicatorProfileId === noSelectionValue ? null : value.applicatorProfileId,
+						applicationMethodId:
+							value.applicationMethodId === noSelectionValue ? null : value.applicationMethodId,
+						vehicleId: value.vehicleId === noSelectionValue ? null : value.vehicleId,
+						equipmentId: value.equipmentId === noSelectionValue ? null : value.equipmentId,
+						addressId: value.addressId,
+						metadata: value.metadata,
+					}),
+				APPLICATION_FIELD_PATHS,
+			),
+		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			setLocationError(null);

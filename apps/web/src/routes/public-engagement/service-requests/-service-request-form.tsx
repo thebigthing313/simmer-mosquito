@@ -1,4 +1,8 @@
-import { REQUEST_INTAKE_TYPES, type RequestIntakeType } from '@simmer-mosquito/domain';
+import {
+	createServiceRequestCommand,
+	REQUEST_INTAKE_TYPES,
+	type RequestIntakeType,
+} from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow, ProfileRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -28,6 +32,7 @@ import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
 export type ContactMode = 'existing' | 'new';
@@ -57,6 +62,79 @@ export interface ServiceRequestFormValues {
 	readonly newAddressLocality: string;
 	readonly newAddressRegion: string;
 	readonly newAddressPostal: string;
+}
+
+/**
+ * Domain issue path → the form field holding it. The inline contact and address
+ * subforms nest under `contact.details` / `location.address.details`, matching
+ * the shape the builder validates.
+ */
+const SERVICE_REQUEST_FIELD_PATHS: Readonly<Record<string, string>> = {
+	intakeType: 'intakeType',
+	requestDate: 'requestDate',
+	details: 'details',
+	receivedByProfileId: 'receivedByProfileId',
+	'contact.contactId': 'contactId',
+	'contact.details.contactName': 'newContactName',
+	'contact.details.company': 'newContactCompany',
+	'contact.details.preferredPhone': 'newContactPhone',
+	'contact.details.email': 'newContactEmail',
+	'location.address.addressId': 'addressId',
+	'location.address.details.displayName': 'newAddressName',
+	'location.address.details.addressLine1': 'newAddressLine1',
+	'location.address.details.locality': 'newAddressLocality',
+	'location.address.details.region': 'newAddressRegion',
+	'location.address.details.postalCode': 'newAddressPostal',
+};
+
+/**
+ * The create path's rules, straight from the domain builder: intake type, date,
+ * details, and whichever of the contact/address subforms is in play.
+ */
+function validateServiceRequest(value: ServiceRequestFormValues, geometry: DrawGeometry | null) {
+	return domainValidator(
+		() =>
+			createServiceRequestCommand({
+				...FORM_VALIDATION_CONTEXT,
+				serviceRequestId: FORM_VALIDATION_CONTEXT.organizationId,
+				intakeType: value.intakeType,
+				requestDate: value.requestDate,
+				details: value.details,
+				receivedByProfileId: value.receivedByProfileId === '' ? null : value.receivedByProfileId,
+				contact:
+					value.contactMode === 'existing'
+						? { kind: 'existing', contactId: value.contactId ?? '' }
+						: {
+								kind: 'new',
+								contactId: FORM_VALIDATION_CONTEXT.organizationId,
+								details: {
+									contactName: value.newContactName,
+									company: value.newContactCompany,
+									preferredPhone: value.newContactPhone,
+									email: value.newContactEmail,
+								},
+							},
+				location: {
+					geometry: (geometry ?? null) as never,
+					address:
+						value.addressMode === 'existing'
+							? { kind: 'existing', addressId: value.addressId ?? '' }
+							: {
+									kind: 'new',
+									addressId: FORM_VALIDATION_CONTEXT.organizationId,
+									details: {
+										displayName: value.newAddressName,
+										geometry: (geometry ?? null) as never,
+										addressLine1: value.newAddressLine1,
+										locality: value.newAddressLocality,
+										region: value.newAddressRegion,
+										postalCode: value.newAddressPostal,
+									},
+								},
+				},
+			}),
+		SERVICE_REQUEST_FIELD_PATHS,
+	)({ value });
 }
 
 export interface ServiceRequestSaveInput {
@@ -187,6 +265,14 @@ export function ServiceRequestFormPage({
 
 	const form = useAppForm({
 		defaultValues,
+		validators: {
+			/*
+			 * Skipped when the location is locked (the edit form does not own the
+			 * point) — the builder requires one, and there would be no field to fix.
+			 */
+			onSubmit: (input: { readonly value: ServiceRequestFormValues }) =>
+				hideLocation ? undefined : validateServiceRequest(input.value, geometry),
+		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			setLocationError(null);

@@ -1,4 +1,5 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
+import { createRegionCommand } from '@simmer-mosquito/domain';
 import type { RegionFolderRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -17,7 +18,19 @@ import {
 } from '../../../components/map/geometry-control';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import type { MetadataValue } from '../../../forms/field-components';
+
+/**
+ * Domain issue path → the form field holding it. Geometry is drawn on the map,
+ * so its issues land on the form alert rather than a field.
+ */
+const REGION_FIELD_PATHS: Readonly<Record<string, string>> = {
+	name: 'name',
+	description: 'description',
+	regionFolderId: 'regionFolderId',
+	metadata: 'metadata',
+};
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noRegionFolderValue = 'none';
@@ -106,6 +119,22 @@ export function RegionFormPage({
 
 	const form = useAppForm({
 		defaultValues,
+		validators: {
+			onSubmit: domainValidator(
+				({ value }: { readonly value: RegionFormValues }) =>
+					createRegionCommand({
+						...FORM_VALIDATION_CONTEXT,
+						regionId: FORM_VALIDATION_CONTEXT.organizationId,
+						regionFolderId:
+							value.regionFolderId === noRegionFolderValue ? null : value.regionFolderId,
+						name: value.name,
+						description: value.description,
+						metadata: value.metadata,
+						geometry: geometry ?? null,
+					}),
+				REGION_FIELD_PATHS,
+			),
+		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			if (geometry === null) {

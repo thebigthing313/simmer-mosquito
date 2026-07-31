@@ -1,4 +1,4 @@
-import { isBiocontrolUnitType } from '@simmer-mosquito/domain';
+import { isBiocontrolUnitType, recordBiocontrolActionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { ControlMethodRow, HabitatRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -25,6 +25,7 @@ import {
 } from '../../../components/map/use-map-draw';
 import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -38,6 +39,17 @@ import { AddressPicker, HabitatPicker } from '../-control-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noTechnicianValue = 'none';
+
+/** Domain issue path → the form field holding it. */
+const BIOCONTROL_FIELD_PATHS: Readonly<Record<string, string>> = {
+	biocontrolMethodId: 'biocontrolMethodId',
+	amountReleased: 'amountReleased',
+	releaseUnitId: 'releaseUnitId',
+	biocontrolDate: 'biocontrolDate',
+	technicianProfileId: 'technicianProfileId',
+	addressId: 'addressId',
+	metadata: 'metadata',
+};
 
 export interface BiocontrolFormValues {
 	/**
@@ -181,6 +193,25 @@ export function BiocontrolFormPage({
 
 	const form = useAppForm({
 		defaultValues,
+		validators: {
+			onSubmit: domainValidator(
+				({ value }: { readonly value: BiocontrolFormValues }) =>
+					recordBiocontrolActionCommand({
+						...FORM_VALIDATION_CONTEXT,
+						biocontrolActionId: FORM_VALIDATION_CONTEXT.organizationId,
+						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						biocontrolMethodId: value.biocontrolMethodId,
+						amountReleased: value.amountReleased as number,
+						releaseUnitId: value.releaseUnitId,
+						biocontrolDate: value.biocontrolDate,
+						technicianProfileId:
+							value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
+						addressId: value.addressId,
+						metadata: value.metadata,
+					}),
+				BIOCONTROL_FIELD_PATHS,
+			),
+		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			setLocationError(null);

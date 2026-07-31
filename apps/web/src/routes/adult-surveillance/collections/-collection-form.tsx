@@ -1,3 +1,7 @@
+import {
+	recordCollectedAdHocCollectionCommand,
+	recordCollectedTrapCollectionCommand,
+} from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	CollectionLureRow,
@@ -29,6 +33,7 @@ import { type DrawPoint, useAddressPoint } from '../../../components/map/use-add
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -43,6 +48,73 @@ export type CollectionSourceMode = 'trap' | 'adhoc';
 /** Non-empty sentinels: Radix Select forbids empty-string item values. */
 export const noLureValue = 'none';
 export const noUnitValue = 'none';
+
+/**
+ * Domain issue path → the form field holding it. Timing issues nest under the
+ * `timing` object the builder validates, so they map onto whichever date field
+ * the current timing mode shows.
+ */
+const COLLECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
+	trapId: 'trapId',
+	collectionMethodId: 'collectionMethodId',
+	collectionLureId: 'collectionLureId',
+	addressId: 'addressId',
+	setByProfileId: 'setByProfileId',
+	collectedByProfileId: 'collectedByProfileId',
+	'timing.collectedAt': 'collectedAt',
+	'timing.startedAt': 'startedAt',
+	'timing.collectionDate': 'collectionDate',
+	'timing.durationAmount': 'durationAmount',
+	'timing.durationUnitId': 'durationUnitId',
+};
+
+/**
+ * A collection has four command shapes — trap or ad-hoc, crossed with exact
+ * timestamps or date-plus-duration — and the validator picks the same one the
+ * save will, so the rules an operator is held to match what actually runs.
+ */
+function validateCollection(value: CollectionFormValues, geometry: DrawGeometry | null) {
+	const timing =
+		value.timingMode === 'exact_timestamps'
+			? ({
+					mode: 'exact_timestamps',
+					startedAt: parseDateValue(value.startedAt),
+					collectedAt: parseDateValue(value.collectedAt),
+				} as never)
+			: ({
+					mode: 'collection_date_duration',
+					collectionDate: value.collectionDate ?? '',
+					durationAmount: value.durationAmount as number,
+					durationUnitId: value.durationUnitId === noUnitValue ? '' : value.durationUnitId,
+				} as never);
+	const base = {
+		...FORM_VALIDATION_CONTEXT,
+		collectionId: FORM_VALIDATION_CONTEXT.organizationId,
+		timing,
+		setByProfileId: value.setByProfileId,
+		collectedByProfileId: value.collectedByProfileId,
+	};
+
+	return domainValidator(
+		() =>
+			value.sourceMode === 'trap'
+				? recordCollectedTrapCollectionCommand({ ...base, trapId: value.trapId ?? '' })
+				: recordCollectedAdHocCollectionCommand({
+						...base,
+						collectionMethodId: value.collectionMethodId,
+						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						collectionLureId:
+							value.collectionLureId === noLureValue ? null : value.collectionLureId,
+						addressId: value.addressId,
+					}),
+		COLLECTION_FIELD_PATHS,
+	)({ value });
+}
+
+/** `YYYY-MM-DD` to a Date the builder can range-check; invalid stays invalid. */
+function parseDateValue(value: string | null): Date {
+	return new Date(value ?? '');
+}
 
 export interface CollectionFormValues {
 	readonly sourceMode: CollectionSourceMode;
@@ -231,6 +303,10 @@ export function CollectionFormPage({
 
 	const form = useAppForm({
 		defaultValues,
+		validators: {
+			onSubmit: ({ value }: { readonly value: CollectionFormValues }) =>
+				validateCollection(value, geometry),
+		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			setLocationError(null);

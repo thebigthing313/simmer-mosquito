@@ -1,4 +1,5 @@
 import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
+import { createHabitatCommand } from '@simmer-mosquito/domain';
 import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { HabitatTypeRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -23,6 +24,7 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -75,6 +77,17 @@ export function defaultHabitatFormValues(): HabitatFormValues {
 		metadata: null,
 	};
 }
+
+/**
+ * Domain issue path → the form field that holds it. Geometry is captured on the
+ * map rather than in a field, so its issues land on the form's alert.
+ */
+const HABITAT_FIELD_PATHS: Readonly<Record<string, string>> = {
+	description: 'description',
+	habitatTypeId: 'habitatTypeId',
+	addressId: 'addressId',
+	metadata: 'metadata',
+};
 
 export function HabitatFormPage({
 	mode,
@@ -138,6 +151,29 @@ export function HabitatFormPage({
 
 	const form = useAppForm({
 		defaultValues,
+		validators: {
+			/*
+			 * The domain builder is the validation contract — the server runs this
+			 * same function and rejects with these same issues. Running it here turns
+			 * a round-trip and a generic "Unable to save" into a message on the field.
+			 */
+			onSubmit: domainValidator(
+				({ value }: { readonly value: HabitatFormValues }) =>
+					createHabitatCommand({
+						...FORM_VALIDATION_CONTEXT,
+						habitatId: FORM_VALIDATION_CONTEXT.organizationId,
+						locationSource: {
+							kind: 'geometry',
+							geometry: (geometry ?? null) as never,
+						},
+						addressId: value.addressId,
+						habitatTypeId: value.habitatTypeId === noHabitatTypeValue ? null : value.habitatTypeId,
+						description: value.description,
+						metadata: value.metadata,
+					}),
+				HABITAT_FIELD_PATHS,
+			),
+		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			if (geometry === null) {

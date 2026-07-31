@@ -1,4 +1,8 @@
 import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
+import {
+	recordAdHocInspectionCommand,
+	recordHabitatInspectionCommand,
+} from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -39,6 +43,7 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -95,6 +100,18 @@ export interface InspectionFormValues {
 	/** Optional comment to attach to the inspection on save (blank = none). */
 	readonly comment: string;
 }
+
+/** Domain issue path → the form field holding it. */
+const INSPECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
+	habitatId: 'habitatId',
+	habitatTypeId: 'habitatTypeId',
+	addressId: 'addressId',
+	inspectionDate: 'inspectionDate',
+	inspectedByProfileId: 'inspectedByProfileId',
+	dipCount: 'dipCount',
+	density: 'density',
+	larvaeCount: 'larvaeCount',
+};
 
 export interface InspectionFormHeader {
 	readonly title: string;
@@ -214,6 +231,38 @@ export function InspectionFormPage({
 
 	const form = useAppForm({
 		defaultValues,
+		validators: {
+			// Habitat and ad-hoc inspections are distinct commands with distinct
+			// rules, so the validator picks the same one the save will.
+			onSubmit: domainValidator(({ value }: { readonly value: InspectionFormValues }) => {
+				const result = {
+					...FORM_VALIDATION_CONTEXT,
+					inspectionId: FORM_VALIDATION_CONTEXT.organizationId,
+					inspectionDate: value.inspectionDate,
+					inspectedByProfileId: value.inspectedByProfileId,
+					isWet: value.isWet,
+					dipCount: value.dipCount,
+					density: value.density === unsetDensityValue ? null : (value.density as LarvalDensity),
+					larvaeCount: value.larvaeCount,
+					...value.lifeStages,
+				};
+				return value.locationMode === 'habitat'
+					? recordHabitatInspectionCommand({
+							...result,
+							habitatId: value.habitatId ?? '',
+						})
+					: recordAdHocInspectionCommand({
+							...result,
+							locationSource: {
+								kind: 'geometry',
+								geometry: (adhocGeometry ?? null) as never,
+							},
+							addressId: value.addressId,
+							habitatTypeId:
+								value.habitatTypeId === noHabitatTypeValue ? null : value.habitatTypeId,
+						});
+			}, INSPECTION_FIELD_PATHS),
+		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			setLocationError(null);
