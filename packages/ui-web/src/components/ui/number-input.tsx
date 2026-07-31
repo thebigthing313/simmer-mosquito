@@ -1,5 +1,6 @@
 'use client';
 
+import { roundToOperandPrecision } from '@simmer-mosquito/ui-web/lib/step-precision';
 import type * as React from 'react';
 import { useState } from 'react';
 import { MinusIcon, PlusIcon } from '../../icons/registry';
@@ -66,7 +67,11 @@ export function NumberInput({
 				: formatNumberValue(value, { isEditing, significantDigits });
 
 	const commitStep = (delta: number) => {
-		const next = clampNumber((value ?? 0) + delta, min, max);
+		const current = value ?? 0;
+		// Rounded before clamping so a limit is compared against the number the user
+		// will see, not the drifted one.
+		const stepped = roundToOperandPrecision(current + delta, current, delta);
+		const next = clampNumber(stepped, min, max);
 		setDraft(null);
 		onValueChange(next);
 		onCommit?.(next);
