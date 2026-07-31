@@ -16,6 +16,7 @@ import {
 	GeometryControl,
 	useFitToGeometry,
 } from '../../../components/map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
@@ -121,6 +122,19 @@ export function HabitatFormPage({
 		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
 		[requestPoint],
 	);
+
+	// Seeding from an address (or moving onto one) replaces the shape with a point,
+	// so the tool selector follows it. Same rule as every other located record:
+	// linking an address fills an empty location and never overwrites a drawn one.
+	const placeAddressPoint = useCallback((point: DrawPoint) => {
+		setGeometry(point);
+		setGeometryType('Point');
+		setGeometryError(null);
+	}, []);
+	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+		geometry,
+		onPlacePoint: placeAddressPoint,
+	});
 
 	const form = useAppForm({
 		defaultValues,
@@ -264,6 +278,7 @@ export function HabitatFormPage({
 									onDraw={startDraw}
 									onTypeChange={handleTypeChange}
 									organizationId={organizationId}
+									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 								/>
 
 								{geometryError === null ? null : (
@@ -275,6 +290,7 @@ export function HabitatFormPage({
 								{(field) => (
 									<AddressIdInput
 										actorProfileId={actorProfileId}
+										onSelectAddress={selectAddress}
 										organizationId={organizationId}
 										requestMapPoint={requestMapPoint}
 										value={field.state.value}

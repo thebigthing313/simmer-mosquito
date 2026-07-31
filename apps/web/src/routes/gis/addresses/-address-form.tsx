@@ -1,6 +1,5 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Dialog,
@@ -13,11 +12,9 @@ import {
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	ArrowLeftIcon,
-	CheckIcon,
 	Loader2Icon,
 	MapPinnedIcon,
 	SearchIcon,
-	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
@@ -26,7 +23,8 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
-import { useMapDraw } from '../../../components/map/use-map-draw';
+import { GeometryControl, POINT_DRAW_TYPES } from '../../../components/map/geometry-control';
+import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { RequiredMark } from '../../../components/required-mark';
 
 export type AddressPointGeometry = {
@@ -281,65 +279,49 @@ export function AddressFormPage({
 								locationError === null ? 'border-border/50' : 'border-destructive/60',
 							)}
 						>
-							<div className="flex items-start justify-between gap-3">
-								<div className="grid gap-0.5">
-									<span
-										className="font-semibold text-foreground text-sm leading-none"
-										id="address-location-label"
+							<div className="grid gap-0.5">
+								<span
+									className="font-semibold text-foreground text-sm leading-none"
+									id="address-location-label"
+								>
+									Address location
+								</span>
+								<span className="text-muted-foreground text-xs">
+									Geocode from the fields above, or place the point by hand.
+								</span>
+							</div>
+
+							<GeometryControl
+								allowedTypes={POINT_DRAW_TYPES}
+								controller={draw}
+								extraActions={
+									<Button
+										disabled={isGeocoding}
+										onClick={geocodeAddress}
+										size="sm"
+										type="button"
+										variant="outline"
 									>
-										Location (required)
-									</span>
-									<span className="text-muted-foreground text-xs">
-										{geometry === null ? 'No point placed yet.' : pointSummary(geometry)}
-									</span>
-								</div>
-								{geometry === null ? (
-									<Badge tone="neutral" variant="outline">
-										Not set
-									</Badge>
-								) : (
-									<Badge tone="success" variant="outline">
-										<CheckIcon aria-hidden="true" />
-										Placed
-									</Badge>
-								)}
-							</div>
-							<div className="flex flex-wrap gap-2">
-								<Button
-									disabled={isGeocoding}
-									onClick={geocodeAddress}
-									size="sm"
-									type="button"
-									variant="outline"
-								>
-									{isGeocoding ? (
-										<Loader2Icon
-											aria-hidden="true"
-											className="animate-spin"
-											data-icon="inline-start"
-										/>
-									) : (
-										<SearchIcon aria-hidden="true" data-icon="inline-start" />
-									)}
-									Geocode
-								</Button>
-								<Button
-									disabled={draw.isRequestingPoint}
-									onClick={drawManualPoint}
-									size="sm"
-									type="button"
-									variant={geometry === null ? 'default' : 'ghost'}
-								>
-									<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-									{geometry === null ? 'Place on Map' : 'Move Point'}
-								</Button>
-								{geometry === null ? null : (
-									<Button onClick={clearPoint} size="sm" type="button" variant="ghost">
-										<XIcon aria-hidden="true" data-icon="inline-start" />
-										Clear
+										{isGeocoding ? (
+											<Loader2Icon
+												aria-hidden="true"
+												className="animate-spin"
+												data-icon="inline-start"
+											/>
+										) : (
+											<SearchIcon aria-hidden="true" data-icon="inline-start" />
+										)}
+										Geocode
 									</Button>
-								)}
-							</div>
+								}
+								geometry={geometry as DrawGeometry | null}
+								geometryType="Point"
+								label="Location"
+								onClear={clearPoint}
+								onDraw={() => void drawManualPoint()}
+								required
+							/>
+
 							{locationError === null ? null : (
 								<p className="m-0 text-destructive text-sm">{locationError}</p>
 							)}

@@ -65,6 +65,11 @@ interface AddressIdInputProps {
 	readonly requestMapPoint: (options?: MapPointDrawOptions) => Promise<GeoJsonPointGeometry>;
 	readonly value: string | null;
 	readonly onValueChange: (value: string | null) => void;
+	/**
+	 * The picked row, not just its id — forms use its centroid to seed geometry.
+	 * Fires with `null` when the address is cleared.
+	 */
+	readonly onSelectAddress?: (address: AddressRow | null) => void;
 }
 
 interface HabitatGeometryInputProps {
@@ -79,6 +84,7 @@ export function AddressIdInput({
 	requestMapPoint,
 	value,
 	onValueChange,
+	onSelectAddress,
 }: AddressIdInputProps) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
@@ -149,6 +155,7 @@ export function AddressIdInput({
 							onSelect={(address) => {
 								setSelectedAddress(address);
 								onValueChange(address.id);
+								onSelectAddress?.(address);
 								setSearch(address.displayName);
 								setOpen(false);
 							}}
@@ -184,6 +191,7 @@ export function AddressIdInput({
 					onCreated={(address) => {
 						setSelectedAddress(address);
 						onValueChange(address.id);
+						onSelectAddress?.(address);
 						setSearch(address.displayName);
 						setIsCreating(false);
 					}}

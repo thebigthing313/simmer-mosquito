@@ -11,7 +11,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { RequiredMark } from '../required-mark';
 import { GeometryImportDialog } from './geometry-import-dialog';
 import { RegionBoundaryPicker } from './region-boundary-picker';
@@ -51,6 +51,12 @@ export const LOCATABLE_DRAW_TYPES: readonly DrawGeometryType[] = ['Point', 'Line
  */
 export const POINT_DRAW_TYPES: readonly DrawGeometryType[] = ['Point'];
 
+/**
+ * The area-only set, for records whose geometry is a boundary by definition —
+ * regions. A single allowed type renders the control without its type toggle.
+ */
+export const POLYGON_DRAW_TYPES: readonly DrawGeometryType[] = ['Polygon'];
+
 export interface GeometryControlProps {
 	readonly controller: MapDrawController;
 	readonly geometry: DrawGeometry | null;
@@ -72,6 +78,12 @@ export interface GeometryControlProps {
 	 * hidden, since there is no org to search.
 	 */
 	readonly organizationId?: string;
+	/**
+	 * Extra capture affordances for records whose geometry has a source beyond
+	 * drawing — the address book's geocoder, for one. Rendered alongside the draw
+	 * and clear buttons so every path to a geometry sits in one row.
+	 */
+	readonly extraActions?: ReactNode;
 }
 
 export function GeometryControl({
@@ -86,6 +98,7 @@ export function GeometryControl({
 	required = false,
 	onMoveToAddress,
 	organizationId,
+	extraActions,
 }: GeometryControlProps) {
 	const [isImporting, setIsImporting] = useState(false);
 	const hasGeometry = geometry !== null;
@@ -112,7 +125,12 @@ export function GeometryControl({
 						Captured
 					</Badge>
 				) : (
-					<Badge tone="neutral" variant="outline">
+					/*
+					 * Destructive, not neutral. A record without geometry cannot be placed
+					 * on any map in the product, which is where nearly all of its later
+					 * value comes from — a grey chip read as a setting nobody had got to.
+					 */
+					<Badge tone="danger" variant="outline">
 						Not set
 					</Badge>
 				)}
@@ -175,6 +193,7 @@ export function GeometryControl({
 						Move to Address
 					</Button>
 				) : null}
+				{extraActions}
 				{hasGeometry && !isBusy ? (
 					<Button onClick={onClear} size="sm" type="button" variant="ghost">
 						<XIcon aria-hidden="true" data-icon="inline-start" />
