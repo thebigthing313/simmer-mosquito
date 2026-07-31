@@ -27,6 +27,7 @@ import {
 } from '../../../components/map/geometry-control';
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import {
 	customFieldCount,
@@ -376,6 +377,7 @@ export function CollectionFormPage({
 													{(field) => (
 														<field.SelectField
 															label="Collection method"
+															required
 															options={methodOptions}
 															placeholder="Select method"
 														/>
@@ -395,7 +397,7 @@ export function CollectionFormPage({
 													<form.AppField name="addressId">
 														{(field) => (
 															<AddressPicker
-																label="Address (optional)"
+																label="Address"
 																onSelect={(address) => {
 																	field.handleChange(address?.id ?? null);
 																	setLocationError(null);
@@ -411,7 +413,8 @@ export function CollectionFormPage({
 														controller={draw}
 														geometry={geometry}
 														geometryType="Point"
-														label="Point (required)"
+														label="Point"
+														required
 														onClear={clearPoint}
 														onDraw={startDraw}
 														{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
@@ -428,7 +431,7 @@ export function CollectionFormPage({
 								<form.AppField name="collectionLureId">
 									{(field) => (
 										<field.SelectField
-											label="Lure (optional)"
+											label="Lure"
 											options={lureOptions(collectionLures)}
 											placeholder="No lure"
 										/>
@@ -470,7 +473,7 @@ export function CollectionFormPage({
 									<form.AppField name="setByProfileId">
 										{(field) => (
 											<field.SelectField
-												label="Set by (optional)"
+												label="Set by"
 												options={profileOptions(profiles)}
 												placeholder="Unassigned"
 											/>
@@ -479,7 +482,7 @@ export function CollectionFormPage({
 									<form.AppField name="collectedByProfileId">
 										{(field) => (
 											<field.SelectField
-												label="Collected by (optional)"
+												label="Collected by"
 												options={profileOptions(profiles)}
 												placeholder="Unassigned"
 											/>
@@ -492,7 +495,7 @@ export function CollectionFormPage({
 											{(field) => (
 												<field.MultiSelectField
 													emptyMessage="No profiles"
-													label="Additional personnel (optional)"
+													label="Additional personnel"
 													options={additionalPersonnelOptions(profiles, field.state.value, {
 														excludeProfileId: collectedByProfileId,
 													})}
@@ -581,7 +584,7 @@ function TimingSection({
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (
 									<DateControl
-										label="Set date (optional)"
+										label="Set date"
 										onChange={field.handleChange}
 										value={field.state.value}
 									/>
@@ -592,6 +595,7 @@ function TimingSection({
 								{(field: any) => (
 									<DateControl
 										label="Collected date"
+										required
 										onChange={field.handleChange}
 										value={field.state.value}
 									/>
@@ -605,6 +609,7 @@ function TimingSection({
 								{(field: any) => (
 									<DateControl
 										label="Collection date"
+										required
 										onChange={field.handleChange}
 										value={field.state.value}
 									/>
@@ -635,15 +640,20 @@ function TimingSection({
 function DateControl({
 	label,
 	value,
+	required = false,
 	onChange,
 }: {
 	readonly label: string;
 	readonly value: string | null;
+	readonly required?: boolean;
 	readonly onChange: (value: string | null) => void;
 }) {
 	return (
 		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
+			<span className="font-medium text-foreground text-sm">
+				{label}
+				{required ? <RequiredMark /> : null}
+			</span>
 			<DatePicker
 				ariaLabel={label}
 				className="w-full"

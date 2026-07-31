@@ -23,6 +23,7 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
+import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import {
 	customFieldCount,
@@ -324,7 +325,7 @@ export function SourceReductionFormPage({
 								<form.AppField name="addressId">
 									{(field) => (
 										<AddressPicker
-											label="Address (optional)"
+											label="Address"
 											onSelect={(address) => {
 												field.handleChange(address?.id ?? null);
 												setLocationError(null);
@@ -340,7 +341,8 @@ export function SourceReductionFormPage({
 									controller={draw}
 									geometry={geometry}
 									geometryType={geometryType}
-									label={requireLocation ? 'Geometry (required)' : 'Geometry'}
+									label="Geometry"
+									required={requireLocation}
 									onClear={clearGeometry}
 									onDraw={startDraw}
 									onTypeChange={handleTypeChange}
@@ -359,6 +361,7 @@ export function SourceReductionFormPage({
 										<field.SelectField
 											description="How the crew physically eliminated the breeding sources."
 											label="Method"
+											required
 											options={methodOptions}
 											placeholder="Select method"
 										/>
@@ -367,13 +370,19 @@ export function SourceReductionFormPage({
 								<div className="grid gap-5 sm:grid-cols-2">
 									<form.AppField name="sourcesEliminatedAmount">
 										{(field) => (
-											<field.NumberField label="Sources eliminated" min={0} placeholder="e.g. 12" />
+											<field.NumberField
+												label="Sources eliminated"
+												required
+												min={0}
+												placeholder="e.g. 12"
+											/>
 										)}
 									</form.AppField>
 									<form.AppField name="sourcesEliminatedUnitId">
 										{(field) => (
 											<field.SelectField
 												label="Unit"
+												required
 												options={amountUnitOptions}
 												placeholder="Select unit"
 											/>
@@ -414,6 +423,7 @@ export function SourceReductionFormPage({
 										{(field) => (
 											<DateControl
 												label="Date performed"
+												required
 												onChange={field.handleChange}
 												value={field.state.value}
 											/>
@@ -422,7 +432,7 @@ export function SourceReductionFormPage({
 									<form.AppField name="technicianProfileId">
 										{(field) => (
 											<field.SelectField
-												label="Technician (optional)"
+												label="Technician"
 												options={technicianOptions(profiles)}
 												placeholder="Unassigned"
 											/>
@@ -435,7 +445,7 @@ export function SourceReductionFormPage({
 											{(field) => (
 												<field.MultiSelectField
 													emptyMessage="No profiles"
-													label="Additional personnel (optional)"
+													label="Additional personnel"
 													options={additionalPersonnelOptions(profiles, field.state.value, {
 														excludeProfileId:
 															technicianProfileId === noTechnicianValue
@@ -455,7 +465,7 @@ export function SourceReductionFormPage({
 									<form.AppField name="habitatId">
 										{(field) => (
 											<HabitatPicker
-												label="Habitat (optional)"
+												label="Habitat"
 												organizationId={organizationId}
 												onSelect={(habitat) => {
 													field.handleChange(habitat?.id ?? null);
@@ -490,15 +500,20 @@ export function SourceReductionFormPage({
 function DateControl({
 	label,
 	value,
+	required = false,
 	onChange,
 }: {
 	readonly label: string;
 	readonly value: string;
+	readonly required?: boolean;
 	readonly onChange: (value: string) => void;
 }) {
 	return (
 		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
+			<span className="font-medium text-foreground text-sm">
+				{label}
+				{required ? <RequiredMark /> : null}
+			</span>
 			<DatePicker
 				ariaLabel={label}
 				className="w-full"

@@ -22,11 +22,18 @@ export const shellDomains: readonly ShellDomain[] = [
 			{
 				id: 'overview-main',
 				items: [
-					{ id: 'today', label: 'Today', to: '/today', icon: iconRegistry.simmer.fieldWork.icon },
+					{
+						id: 'today',
+						label: 'Today',
+						to: '/today',
+						stub: true,
+						icon: iconRegistry.simmer.fieldWork.icon,
+					},
 					{
 						id: 'dashboard',
 						label: 'Dashboard',
 						to: '/',
+						stub: true,
 						icon: iconRegistry.generic.component.icon,
 					},
 				],
@@ -56,7 +63,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'habitats-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/larval-surveillance/habitats',
 						icon: iconRegistry.generic.map.icon,
 					},
@@ -82,6 +89,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'habitats-stats',
 						label: 'Statistics',
 						to: '/larval-surveillance/habitats/stats',
+						stub: true,
 						icon: iconRegistry.generic.chart.icon,
 					},
 				],
@@ -92,7 +100,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'inspections-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/larval-surveillance/inspections',
 						icon: iconRegistry.generic.map.icon,
 					},
@@ -106,6 +114,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'inspections-stats',
 						label: 'Statistics',
 						to: '/larval-surveillance/inspections/stats',
+						stub: true,
 						icon: iconRegistry.generic.chart.icon,
 					},
 				],
@@ -116,7 +125,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'samples-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/larval-surveillance/samples',
 						icon: iconRegistry.generic.map.icon,
 					},
@@ -124,6 +133,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'samples-stats',
 						label: 'Statistics',
 						to: '/larval-surveillance/samples/stats',
+						stub: true,
 						icon: iconRegistry.generic.chart.icon,
 					},
 				],
@@ -159,7 +169,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'traps-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/adult-surveillance/traps',
 						icon: iconRegistry.generic.map.icon,
 					},
@@ -179,6 +189,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'traps-stats',
 						label: 'Statistics',
 						to: '/adult-surveillance/traps/stats',
+						stub: true,
 						icon: iconRegistry.generic.chart.icon,
 					},
 				],
@@ -189,7 +200,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'collections-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/adult-surveillance/collections',
 						icon: iconRegistry.generic.map.icon,
 					},
@@ -203,6 +214,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'collections-stats',
 						label: 'Statistics',
 						to: '/adult-surveillance/collections/stats',
+						stub: true,
 						icon: iconRegistry.generic.chart.icon,
 					},
 				],
@@ -215,6 +227,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'arbovirus-surveillance',
 						label: 'Arbovirus Surveillance',
 						to: '/adult-surveillance/arbovirus-surveillance',
+						stub: true,
 						icon: iconRegistry.generic.scanEye.icon,
 					},
 				],
@@ -244,7 +257,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'chemical-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/control-operations/chemical',
 						icon: iconRegistry.generic.map.icon,
 					},
@@ -270,6 +283,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'chemical-stats',
 						label: 'Statistics',
 						to: '/control-operations/chemical/stats',
+						stub: true,
 						icon: iconRegistry.generic.chart.icon,
 					},
 				],
@@ -280,7 +294,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'source-reduction-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/control-operations/source-reduction',
 						icon: iconRegistry.generic.map.icon,
 					},
@@ -300,6 +314,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'source-reduction-stats',
 						label: 'Statistics',
 						to: '/control-operations/source-reduction/stats',
+						stub: true,
 						icon: iconRegistry.generic.chart.icon,
 					},
 				],
@@ -310,7 +325,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'biocontrol-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/control-operations/biocontrol',
 						icon: iconRegistry.generic.map.icon,
 					},
@@ -330,6 +345,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'biocontrol-stats',
 						label: 'Statistics',
 						to: '/control-operations/biocontrol/stats',
+						stub: true,
 						icon: iconRegistry.generic.chart.icon,
 					},
 				],
@@ -342,6 +358,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'resistance-monitoring',
 						label: 'Resistance Monitoring',
 						to: '/control-operations/resistance-monitoring',
+						stub: true,
 						icon: iconRegistry.entities.insecticide.icon,
 					},
 				],
@@ -371,7 +388,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'service-requests-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/public-engagement/service-requests',
 						icon: iconRegistry.generic.map.icon,
 					},
@@ -389,7 +406,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'contacts-explorer',
-						label: 'Explorer',
+						label: 'Map',
 						to: '/public-engagement/contacts',
 						icon: iconRegistry.entities.organization.icon,
 					},
@@ -414,7 +431,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'data-explorer',
-						label: 'Data Explorer',
+						label: 'Data Map',
 						to: '/gis/data-explorer',
 						icon: iconRegistry.generic.compass.icon,
 					},
@@ -471,18 +488,21 @@ export const shellDomains: readonly ShellDomain[] = [
 						id: 'missions',
 						label: 'Missions',
 						to: '/missions',
+						stub: true,
 						icon: iconRegistry.entities.route.icon,
 					},
 					{
 						id: 'assignments',
 						label: 'Assignments',
 						to: '/assignments',
+						stub: true,
 						icon: iconRegistry.entities.vehicle.icon,
 					},
 					{
 						id: 'requests-for-control',
 						label: 'Requests for Control',
 						to: '/requests-for-control',
+						stub: true,
 						icon: iconRegistry.domains.controlOperations.icon,
 					},
 				],

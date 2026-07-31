@@ -36,7 +36,7 @@ export function InsecticideLookupPointer({
 				</Button>
 			}
 		>
-			<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
+			<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-sm text-muted-foreground">
 				Insecticides and their batches are managed in Control Operations, alongside the applications
 				that use them.
 			</p>

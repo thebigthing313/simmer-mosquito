@@ -10,11 +10,12 @@ export interface NumberFieldProps
 	extends BaseFieldProps,
 		Omit<
 			React.ComponentProps<typeof NumberInput>,
-			'disabled' | 'onBlur' | 'onCommit' | 'onValueChange' | 'placeholder' | 'value'
+			'disabled' | 'onBlur' | 'onCommit' | 'onValueChange' | 'placeholder' | 'required' | 'value'
 		> {}
 
 export function NumberField({
 	label,
+	required,
 	description,
 	disabled,
 	placeholder,
@@ -28,6 +29,7 @@ export function NumberField({
 			description={description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			renderControl={(controlProps) => (
 				<NumberInput
 					{...props}

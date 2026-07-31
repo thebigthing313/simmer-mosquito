@@ -42,6 +42,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { OutletSimpleLayout } from '../../components/app-shell/outlet/simple-layout';
 import { CustomFieldsCell } from '../../components/custom-fields-cell';
+import { EmptyValue } from '../../components/empty-value';
 import { useAppForm } from '../../forms';
 import { validateJsonSchemaValue } from '../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../hooks/use-active-named-collection-rows';
@@ -305,7 +306,7 @@ function CollectionMethodSection({
 										</div>
 									</TableCell>
 									<TableCell className="align-top whitespace-normal text-muted-foreground wrap-anywhere">
-										{method.description ?? 'No description'}
+										{method.description ?? <EmptyValue />}
 									</TableCell>
 									<TableCell className="align-top text-right">
 										<ThresholdValue threshold={method.actionThreshold} />

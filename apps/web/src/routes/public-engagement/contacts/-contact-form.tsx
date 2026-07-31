@@ -168,26 +168,18 @@ export function ContactFormPage({
 							title="Identity"
 						>
 							<form.AppField name="contactName">
-								{(field) => (
-									<field.TextField label="Name (optional)" placeholder="e.g. Jordan Rivera" />
-								)}
+								{(field) => <field.TextField label="Name" placeholder="e.g. Jordan Rivera" />}
 							</form.AppField>
 							<div className="grid gap-5 sm:grid-cols-2">
 								<form.AppField name="company">
-									{(field) => (
-										<field.TextField label="Company (optional)" placeholder="e.g. Riverside HOA" />
-									)}
+									{(field) => <field.TextField label="Company" placeholder="e.g. Riverside HOA" />}
 								</form.AppField>
 								<form.AppField name="department">
-									{(field) => (
-										<field.TextField label="Department (optional)" placeholder="e.g. Facilities" />
-									)}
+									{(field) => <field.TextField label="Department" placeholder="e.g. Facilities" />}
 								</form.AppField>
 							</div>
 							<form.AppField name="title">
-								{(field) => (
-									<field.TextField label="Title (optional)" placeholder="e.g. Property Manager" />
-								)}
+								{(field) => <field.TextField label="Title" placeholder="e.g. Property Manager" />}
 							</form.AppField>
 						</FormSection>
 
@@ -195,25 +187,17 @@ export function ContactFormPage({
 							<div className="grid gap-5 sm:grid-cols-2">
 								<form.AppField name="preferredPhone">
 									{(field) => (
-										<field.TextField
-											label="Preferred phone (optional)"
-											placeholder="(555) 123-4567"
-										/>
+										<field.TextField label="Preferred phone" placeholder="(555) 123-4567" />
 									)}
 								</form.AppField>
 								<form.AppField name="alternatePhone">
 									{(field) => (
-										<field.TextField
-											label="Alternate phone (optional)"
-											placeholder="(555) 987-6543"
-										/>
+										<field.TextField label="Alternate phone" placeholder="(555) 987-6543" />
 									)}
 								</form.AppField>
 							</div>
 							<form.AppField name="email">
-								{(field) => (
-									<field.TextField label="Email (optional)" placeholder="name@example.com" />
-								)}
+								{(field) => <field.TextField label="Email" placeholder="name@example.com" />}
 							</form.AppField>
 						</FormSection>
 

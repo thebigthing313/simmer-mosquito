@@ -190,7 +190,9 @@ export function RegionFormPage({
 											value.trim().length === 0 ? 'Name is required.' : undefined,
 									}}
 								>
-									{(field) => <field.TextField label="Name" placeholder="e.g. North district" />}
+									{(field) => (
+										<field.TextField label="Name" required placeholder="e.g. North district" />
+									)}
 								</form.AppField>
 								<form.AppField name="regionFolderId">
 									{(field) => (
@@ -215,7 +217,7 @@ export function RegionFormPage({
 								{(field) => (
 									<field.TextareaField
 										description="Optional context — what this region covers and how it's used."
-										label="Description (optional)"
+										label="Description"
 										placeholder="Describe the region…"
 										rows={3}
 									/>

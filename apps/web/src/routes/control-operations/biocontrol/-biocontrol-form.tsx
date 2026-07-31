@@ -23,6 +23,7 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
+import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import {
 	customFieldCount,
@@ -340,7 +341,7 @@ export function BiocontrolFormPage({
 								<form.AppField name="addressId">
 									{(field) => (
 										<AddressPicker
-											label="Address (optional)"
+											label="Address"
 											onSelect={(address) => {
 												field.handleChange(address?.id ?? null);
 												setLocationError(null);
@@ -356,7 +357,8 @@ export function BiocontrolFormPage({
 									controller={draw}
 									geometry={geometry}
 									geometryType={geometryType}
-									label={requireLocation ? 'Geometry (required)' : 'Geometry'}
+									label="Geometry"
+									required={requireLocation}
 									onClear={clearGeometry}
 									onDraw={startDraw}
 									onTypeChange={handleTypeChange}
@@ -374,6 +376,7 @@ export function BiocontrolFormPage({
 									{(field) => (
 										<field.SelectField
 											label="Biocontrol method"
+											required
 											options={methodOptions}
 											placeholder="Select method"
 										/>
@@ -382,13 +385,19 @@ export function BiocontrolFormPage({
 								<div className="grid gap-5 sm:grid-cols-2">
 									<form.AppField name="amountReleased">
 										{(field) => (
-											<field.NumberField label="Amount released" min={0} placeholder="e.g. 250" />
+											<field.NumberField
+												label="Amount released"
+												required
+												min={0}
+												placeholder="e.g. 250"
+											/>
 										)}
 									</form.AppField>
 									<form.AppField name="releaseUnitId">
 										{(field) => (
 											<field.SelectField
 												label="Unit"
+												required
 												options={releaseUnitOptions}
 												placeholder="Select unit"
 											/>
@@ -429,6 +438,7 @@ export function BiocontrolFormPage({
 										{(field) => (
 											<DateControl
 												label="Release date"
+												required
 												onChange={(next) => field.handleChange(next)}
 												value={field.state.value}
 											/>
@@ -437,7 +447,7 @@ export function BiocontrolFormPage({
 									<form.AppField name="technicianProfileId">
 										{(field) => (
 											<field.SelectField
-												label="Technician (optional)"
+												label="Technician"
 												options={technicianOptions}
 												placeholder="Unassigned"
 											/>
@@ -450,7 +460,7 @@ export function BiocontrolFormPage({
 											{(field) => (
 												<field.MultiSelectField
 													emptyMessage="No profiles"
-													label="Additional personnel (optional)"
+													label="Additional personnel"
 													options={additionalPersonnelOptions(profiles, field.state.value, {
 														excludeProfileId:
 															technicianProfileId === noTechnicianValue
@@ -467,7 +477,7 @@ export function BiocontrolFormPage({
 									<form.AppField name="habitatId">
 										{(field) => (
 											<HabitatPicker
-												label="Habitat (optional)"
+												label="Habitat"
 												organizationId={organizationId}
 												onSelect={(habitat) => {
 													field.handleChange(habitat?.id ?? null);
@@ -502,15 +512,20 @@ export function BiocontrolFormPage({
 function DateControl({
 	label,
 	value,
+	required = false,
 	onChange,
 }: {
 	readonly label: string;
 	readonly value: string;
+	readonly required?: boolean;
 	readonly onChange: (value: string) => void;
 }) {
 	return (
 		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
+			<span className="font-medium text-foreground text-sm">
+				{label}
+				{required ? <RequiredMark /> : null}
+			</span>
 			<DatePicker
 				ariaLabel={label}
 				className="w-full"

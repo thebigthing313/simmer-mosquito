@@ -24,6 +24,7 @@ import {
 	Fish,
 	FlaskConical,
 	GripVertical,
+	Hammer,
 	Home,
 	Info,
 	Layers,
@@ -177,6 +178,7 @@ export const iconRegistry = {
 		eye: icon('eye', 'Show', 'generic', Eye),
 		eyeOff: icon('eyeOff', 'Hide', 'generic', EyeOff),
 		gripVertical: icon('gripVertical', 'Vertical grip', 'generic', GripVertical),
+		hammer: icon('hammer', 'Work in progress', 'generic', Hammer),
 		home: icon('home', 'Home', 'generic', Home),
 		map: icon('map', 'Map', 'generic', LucideMap),
 		moon: icon('moon', 'Moon', 'generic', Moon),
@@ -228,6 +230,7 @@ export const DropletIcon = iconRegistry.generic.droplet.icon;
 export const EyeIcon = iconRegistry.generic.eye.icon;
 export const EyeOffIcon = iconRegistry.generic.eyeOff.icon;
 export const GripVerticalIcon = iconRegistry.generic.gripVertical.icon;
+export const HammerIcon = iconRegistry.generic.hammer.icon;
 export const HomeIcon = iconRegistry.generic.home.icon;
 export const InfoIcon = iconRegistry.actions.info.icon;
 export const Loader2Icon = iconRegistry.actions.loading.icon;

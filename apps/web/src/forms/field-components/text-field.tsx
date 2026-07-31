@@ -9,16 +9,35 @@ export interface BaseFieldProps {
 	readonly description?: string | undefined;
 	readonly disabled?: boolean | undefined;
 	readonly placeholder?: string | undefined;
+	/**
+	 * Marks the label with `*`. Set it wherever the domain command builder rejects
+	 * a missing value, so the form says what the server will enforce.
+	 */
+	readonly required?: boolean | undefined;
 }
 
 export interface TextFieldProps
 	extends BaseFieldProps,
 		Omit<
 			React.ComponentProps<typeof Input>,
-			'defaultValue' | 'disabled' | 'id' | 'onBlur' | 'onChange' | 'placeholder' | 'value'
+			| 'defaultValue'
+			| 'disabled'
+			| 'id'
+			| 'onBlur'
+			| 'onChange'
+			| 'placeholder'
+			| 'required'
+			| 'value'
 		> {}
 
-export function TextField({ label, description, disabled, placeholder, ...props }: TextFieldProps) {
+export function TextField({
+	label,
+	description,
+	disabled,
+	required,
+	placeholder,
+	...props
+}: TextFieldProps) {
 	const field = useFieldContext<string>();
 
 	return (
@@ -26,6 +45,7 @@ export function TextField({ label, description, disabled, placeholder, ...props 
 			description={description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			renderControl={(controlProps) => (
 				<Input
 					{...props}

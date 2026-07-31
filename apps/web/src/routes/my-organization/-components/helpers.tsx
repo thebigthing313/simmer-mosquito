@@ -119,10 +119,10 @@ export function AgencyDetailLine({
 }) {
 	return (
 		<p className="m-0 grid grid-cols-[76px_minmax(0,1fr)] items-baseline gap-2.5">
-			<span className="text-[0.8rem] font-bold text-muted-foreground">{label}</span>
-			<strong className="wrap-anywhere text-[0.92rem] leading-normal text-foreground">
+			<span className="text-xs font-medium text-muted-foreground">{label}</span>
+			<span className="font-medium wrap-anywhere text-sm leading-normal text-foreground">
 				{value === undefined || value === null || value.length === 0 ? 'Not set' : value}
-			</strong>
+			</span>
 		</p>
 	);
 }

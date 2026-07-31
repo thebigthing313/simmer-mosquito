@@ -30,6 +30,7 @@ import type { Collection } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { EmptyValue } from '../../../components/empty-value';
 import { useAppForm } from '../../../forms';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
 import { AddIcon, ArrowRightIcon, CloseIcon, EditIcon } from './constants';
@@ -81,8 +82,8 @@ export function CollectionTimingGuide({ mode }: { readonly mode: AdultCollection
 	return (
 		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 			<div className="grid gap-1">
-				<strong className="text-[0.92rem] text-foreground">Collection timing</strong>
-				<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">
+				<span className="font-medium text-sm text-foreground">Collection timing</span>
+				<p className="m-0 text-sm leading-snug text-muted-foreground">
 					This controls how adult surveillance forms ask crews to record when a trap was collected.
 				</p>
 			</div>
@@ -138,8 +139,8 @@ export function CollectionTimingExample({
 		>
 			<div className="flex flex-wrap items-start justify-between gap-2">
 				<div className="grid gap-1">
-					<strong className="text-[0.88rem] text-foreground">{title}</strong>
-					<p className="m-0 text-[0.8rem] leading-snug text-muted-foreground">{description}</p>
+					<span className="font-medium text-sm text-foreground">{title}</span>
+					<p className="m-0 text-xs leading-snug text-muted-foreground">{description}</p>
 				</div>
 				{active ? (
 					<Badge tone="success" variant="outline">
@@ -179,7 +180,7 @@ export function CollectionMethodLookupPointer({
 				</Button>
 			}
 		>
-			<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
+			<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-sm text-muted-foreground">
 				Collection methods are managed in Adult Surveillance, alongside the traps that use them.
 			</p>
 		</LookupListFrame>
@@ -251,11 +252,11 @@ export function CollectionLureTable({
 	return (
 		<div className="grid gap-2">
 			<div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
-				<span className="text-[0.76rem] font-bold text-muted-foreground">{title}</span>
-				<span className="text-[0.76rem] font-bold text-muted-foreground">{lures.length}</span>
+				<span className="text-xs font-medium text-muted-foreground">{title}</span>
+				<span className="text-xs font-medium text-muted-foreground">{lures.length}</span>
 			</div>
 			{lures.length === 0 ? (
-				<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
+				<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-sm text-muted-foreground">
 					{emptyLabel}
 				</p>
 			) : (
@@ -273,11 +274,11 @@ export function CollectionLureTable({
 						<TableBody>
 							{lures.map((lure) => (
 								<TableRow key={lure.id}>
-									<TableCell className="w-(--lure-name-column) font-bold">
+									<TableCell className="w-(--lure-name-column) font-medium">
 										<span className="wrap-anywhere">{lure.name}</span>
 									</TableCell>
 									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
-										{lure.description ?? 'No description'}
+										{lure.description ?? <EmptyValue />}
 									</TableCell>
 									{canManage ? (
 										<TableCell className="w-(--lure-actions-column) text-right">

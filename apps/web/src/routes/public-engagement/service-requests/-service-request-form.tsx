@@ -26,6 +26,7 @@ import {
 } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
+import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
@@ -282,6 +283,7 @@ export function ServiceRequestFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Intake type"
+												required
 												options={INTAKE_TYPE_OPTIONS}
 												placeholder="Select intake type"
 											/>
@@ -292,6 +294,7 @@ export function ServiceRequestFormPage({
 										{(field: any) => (
 											<DateControl
 												label="Request date"
+												required
 												onChange={(next) => field.handleChange(next ?? '')}
 												value={field.state.value}
 											/>
@@ -312,6 +315,7 @@ export function ServiceRequestFormPage({
 										<field.TextareaField
 											description="What the caller reported — location details, mosquito activity, standing water, etc."
 											label="Details"
+											required
 											placeholder="Describe the request…"
 											rows={4}
 										/>
@@ -505,27 +509,25 @@ function LocationSection({
 							<form.AppField name="newAddressName">
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (
-									<field.TextField label="Address name" placeholder="e.g. 120 Marsh Ln" />
+									<field.TextField label="Address name" required placeholder="e.g. 120 Marsh Ln" />
 								)}
 							</form.AppField>
 							<form.AppField name="newAddressLine1">
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-								{(field: any) => (
-									<field.TextField label="Street (optional)" placeholder="120 Marsh Ln" />
-								)}
+								{(field: any) => <field.TextField label="Street" placeholder="120 Marsh Ln" />}
 							</form.AppField>
 							<div className="grid gap-5 sm:grid-cols-3">
 								<form.AppField name="newAddressLocality">
 									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => <field.TextField label="City (optional)" placeholder="City" />}
+									{(field: any) => <field.TextField label="City" placeholder="City" />}
 								</form.AppField>
 								<form.AppField name="newAddressRegion">
 									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => <field.TextField label="State (optional)" placeholder="ST" />}
+									{(field: any) => <field.TextField label="State" placeholder="ST" />}
 								</form.AppField>
 								<form.AppField name="newAddressPostal">
 									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => <field.TextField label="ZIP (optional)" placeholder="00000" />}
+									{(field: any) => <field.TextField label="ZIP" placeholder="00000" />}
 								</form.AppField>
 							</div>
 						</div>
@@ -549,7 +551,8 @@ function LocationSection({
 					controller={controller}
 					geometry={geometry}
 					geometryType="Point"
-					label={requireLocation ? 'Point (required)' : 'Point'}
+					label="Point"
+					required={requireLocation}
 					onClear={onClearPoint}
 					onDraw={onDrawPoint}
 					{...(addressCoord === null ? {} : { onMoveToAddress })}
@@ -606,15 +609,20 @@ export function validateServiceRequestForm(
 function DateControl({
 	label,
 	value,
+	required = false,
 	onChange,
 }: {
 	readonly label: string;
 	readonly value: string;
+	readonly required?: boolean;
 	readonly onChange: (value: string | null) => void;
 }) {
 	return (
 		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
+			<span className="font-medium text-foreground text-sm">
+				{label}
+				{required ? <RequiredMark /> : null}
+			</span>
 			<DatePicker
 				ariaLabel={label}
 				className="w-full"

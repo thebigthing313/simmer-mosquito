@@ -61,6 +61,7 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
 
 export function MetadataField({
 	label,
+	required,
 	description,
 	disabled,
 	className,
@@ -106,6 +107,7 @@ export function MetadataField({
 			description={description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			renderControl={(controlProps) => (
 				<div
 					{...controlProps}

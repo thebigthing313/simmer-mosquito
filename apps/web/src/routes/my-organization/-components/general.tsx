@@ -27,6 +27,7 @@ import {
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { EmptyValue } from '../../../components/empty-value';
 import { useAppForm } from '../../../forms';
 import {
 	AddIcon,
@@ -229,7 +230,7 @@ export function TagTableSection({
 		<div className="grid gap-2">
 			<h3 className="eyebrow mt-0.5 mb-0">{title}</h3>
 			{tags.length === 0 ? (
-				<p className="m-0 rounded-md border border-border/30 bg-muted/40 px-2.5 py-2 text-[0.86rem] text-muted-foreground">
+				<p className="m-0 rounded-md border border-border/30 bg-muted/40 px-2.5 py-2 text-sm text-muted-foreground">
 					{emptyLabel}
 				</p>
 			) : (
@@ -307,9 +308,7 @@ export function TagColorSwatch({ color }: { readonly color: string | null }) {
 				}
 				style={style}
 			/>
-			<span className="font-mono text-[0.8rem] text-muted-foreground">
-				{normalized ?? 'Default'}
-			</span>
+			<span className="font-mono text-xs text-muted-foreground">{normalized ?? 'Default'}</span>
 		</span>
 	);
 }
@@ -329,7 +328,7 @@ export function TagDisplayTableRow({
 				<TagBadge tag={tag} />
 			</TableCell>
 			<TableCell className="w-(--tag-description-column) whitespace-normal text-muted-foreground wrap-anywhere">
-				{tag.description ?? 'No description'}
+				{tag.description ?? <EmptyValue />}
 			</TableCell>
 			<TableCell className="w-(--tag-color-column)">
 				<TagColorSwatch color={tag.color} />
@@ -771,11 +770,9 @@ export function AgencyDetailsSummary({
 	return (
 		<div className="grid gap-3 border-t border-border/50 pt-3 md:grid-cols-[minmax(140px,0.5fr)_minmax(220px,0.9fr)_minmax(260px,1.2fr)]">
 			<div className="grid min-w-0 content-start gap-1.5">
-				<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
-					Slug
-				</span>
+				<span className="text-xs leading-tight font-semibold text-muted-foreground">Slug</span>
 				{slug === null || slug.length === 0 ? (
-					<strong className="text-[0.92rem] leading-normal text-foreground">Not set</strong>
+					<span className="font-medium text-sm leading-normal text-foreground">Not set</span>
 				) : (
 					<Badge tone="neutral" variant="outline" className="w-fit max-w-full">
 						<span className="truncate">{slug}</span>
@@ -783,18 +780,16 @@ export function AgencyDetailsSummary({
 				)}
 			</div>
 			<div className="grid min-w-0 content-start gap-2">
-				<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
-					Contact
-				</span>
+				<span className="text-xs leading-tight font-semibold text-muted-foreground">Contact</span>
 				<AgencyDetailLine label="Email" value={organization?.mainContactEmail} />
 				<AgencyDetailLine label="Phone" value={organization?.phoneNumber} />
 				<AgencyDetailLine label="Timezone" value={timezone} />
 			</div>
 			<div className="grid min-w-0 content-start gap-2">
-				<span className="text-[0.74rem] leading-tight font-extrabold text-muted-foreground">
+				<span className="text-xs leading-tight font-semibold text-muted-foreground">
 					Mailing address
 				</span>
-				<p className="m-0 max-w-[56ch] wrap-anywhere text-[0.92rem] leading-normal text-foreground">
+				<p className="m-0 max-w-[56ch] wrap-anywhere text-sm leading-normal text-foreground">
 					{address}
 				</p>
 			</div>

@@ -31,6 +31,7 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
+import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import {
 	customFieldCount,
@@ -375,7 +376,7 @@ export function ApplicationFormPage({
 								<form.AppField name="addressId">
 									{(field) => (
 										<AddressPicker
-											label="Address (optional)"
+											label="Address"
 											onSelect={(address) => {
 												field.handleChange(address?.id ?? null);
 												setLocationError(null);
@@ -391,7 +392,8 @@ export function ApplicationFormPage({
 									controller={draw}
 									geometry={geometry}
 									geometryType={geometryType}
-									label={requireLocation ? 'Geometry (required)' : 'Geometry'}
+									label="Geometry"
+									required={requireLocation}
 									onClear={clearGeometry}
 									onDraw={startDraw}
 									onTypeChange={handleTypeChange}
@@ -410,6 +412,7 @@ export function ApplicationFormPage({
 										<field.AutocompleteField
 											emptyValue=""
 											label="Insecticide"
+											required
 											onValueChange={(next, previousValue) => {
 												const chosen = insecticides.find((row) => row.id === next);
 												// The unit follows the product's default usage unit unless the
@@ -441,6 +444,7 @@ export function ApplicationFormPage({
 											<field.NumberField
 												description="Total product applied across the treated area."
 												label="Amount applied"
+												required
 												min={0}
 												placeholder="e.g. 12.5"
 											/>
@@ -452,6 +456,7 @@ export function ApplicationFormPage({
 												{(field) => (
 													<field.SelectField
 														label="Unit"
+														required
 														options={applicationUnitOptionsFor(insecticideId)}
 														placeholder="Select unit"
 													/>
@@ -471,7 +476,7 @@ export function ApplicationFormPage({
 														{(options) => (
 															<field.MultiSelectField
 																emptyMessage="No batches for this product"
-																label="Batches (optional)"
+																label="Batches"
 																options={options}
 																placeholder="Search batches"
 															/>
@@ -490,6 +495,7 @@ export function ApplicationFormPage({
 										{(field) => (
 											<DateControl
 												label="Application date"
+												required
 												onChange={field.handleChange}
 												value={field.state.value}
 											/>
@@ -498,7 +504,7 @@ export function ApplicationFormPage({
 									<form.AppField name="applicationMethodId">
 										{(field) => (
 											<field.SelectField
-												label="Application method (optional)"
+												label="Application method"
 												options={optionalOptions(methodOptions, 'No method')}
 												placeholder="No method"
 											/>
@@ -508,7 +514,7 @@ export function ApplicationFormPage({
 										{(field) => (
 											<field.AutocompleteField
 												emptyValue={noSelectionValue}
-												label="Applicator (optional)"
+												label="Applicator"
 												options={profileOptions}
 												placeholder="Unassigned — search profiles"
 											/>
@@ -517,7 +523,7 @@ export function ApplicationFormPage({
 									<form.AppField name="vehicleId">
 										{(field) => (
 											<field.SelectField
-												label="Vehicle (optional)"
+												label="Vehicle"
 												options={optionalOptions(vehicleOptions, 'No vehicle')}
 												placeholder="No vehicle"
 											/>
@@ -526,7 +532,7 @@ export function ApplicationFormPage({
 									<form.AppField name="equipmentId">
 										{(field) => (
 											<field.SelectField
-												label="Equipment (optional)"
+												label="Equipment"
 												options={optionalOptions(equipmentOptions, 'No equipment')}
 												placeholder="No equipment"
 											/>
@@ -539,7 +545,7 @@ export function ApplicationFormPage({
 											{(field) => (
 												<field.MultiSelectField
 													emptyMessage="No profiles"
-													label="Additional personnel (optional)"
+													label="Additional personnel"
 													options={additionalPersonnelOptions(profiles, field.state.value, {
 														excludeProfileId:
 															applicatorProfileId === noSelectionValue ? null : applicatorProfileId,
@@ -584,7 +590,7 @@ export function ApplicationFormPage({
 									<form.AppField name="habitatId">
 										{(field) => (
 											<HabitatPicker
-												label="Habitat (optional)"
+												label="Habitat"
 												organizationId={organizationId}
 												onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
 												value={field.state.value}
@@ -660,15 +666,20 @@ function InsecticideBatchOptions({
 function DateControl({
 	label,
 	value,
+	required = false,
 	onChange,
 }: {
 	readonly label: string;
 	readonly value: string;
+	readonly required?: boolean;
 	readonly onChange: (value: string) => void;
 }) {
 	return (
 		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
+			<span className="font-medium text-foreground text-sm">
+				{label}
+				{required ? <RequiredMark /> : null}
+			</span>
 			<DatePicker
 				ariaLabel={label}
 				className="w-full"

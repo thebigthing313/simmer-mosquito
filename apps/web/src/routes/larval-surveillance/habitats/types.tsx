@@ -45,6 +45,7 @@ import { toast } from 'sonner';
 import { getServerUrl } from '../../../auth';
 import { OutletSimpleLayout } from '../../../components/app-shell/outlet/simple-layout';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
+import { EmptyValue } from '../../../components/empty-value';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue } from '../../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
@@ -314,7 +315,7 @@ function HabitatTypeSection({
 										</div>
 									</TableCell>
 									<TableCell className="align-top whitespace-normal text-muted-foreground wrap-anywhere">
-										{habitatType.description ?? 'No description'}
+										{habitatType.description ?? <EmptyValue />}
 									</TableCell>
 									<TableCell className="align-top">
 										<CustomFieldsCell schema={habitatType.customSchema} />

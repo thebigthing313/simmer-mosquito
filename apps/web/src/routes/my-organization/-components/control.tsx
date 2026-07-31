@@ -149,7 +149,7 @@ export function ControlMethodLookupPointer({
 				</Button>
 			}
 		>
-			<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
+			<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-sm text-muted-foreground">
 				{config.title} are managed in Control Operations, alongside the work that uses them.
 			</p>
 		</LookupListFrame>

@@ -81,6 +81,7 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
+import { EmptyValue } from '../../../components/empty-value';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useAppForm } from '../../../forms';
 import { customSchemaFor } from '../../../forms/field-components';
@@ -913,11 +914,7 @@ function DetailsCard({
 						)}
 					</DetailRow>
 					<DetailRow label="Set">
-						{collection.startedAt === null ? (
-							<span className="text-muted-foreground">Not recorded</span>
-						) : (
-							formatMonthDay(collection.startedAt)
-						)}
+						{collection.startedAt === null ? <EmptyValue /> : formatMonthDay(collection.startedAt)}
 					</DetailRow>
 					<DetailRow label="Collected by">
 						{collection.collectedByProfileId === null ? (

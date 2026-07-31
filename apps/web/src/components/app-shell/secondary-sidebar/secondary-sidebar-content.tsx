@@ -18,8 +18,13 @@ export function SecondarySidebarContent() {
 		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="px-3 pt-4 pb-2">
 				<h2 className="truncate text-base font-bold text-foreground">{domain.label}</h2>
+				{/*
+				 * The summary wraps rather than truncating. It is one sentence naming
+				 * what the domain covers, and a truncated one ("Egg, larval, and pupal
+				 * surveil…") answers nothing while still costing the same row.
+				 */}
 				{domain.summary ? (
-					<p className="mt-0.5 truncate text-xs text-muted-foreground">{domain.summary}</p>
+					<p className="mt-0.5 text-muted-foreground text-xs leading-snug">{domain.summary}</p>
 				) : null}
 			</div>
 			<nav

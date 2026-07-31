@@ -62,6 +62,7 @@ import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
+import { EmptyValue } from '../components/empty-value';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import {
 	customFieldEntries,
@@ -375,9 +376,7 @@ function HabitatMetadata({
 			<dl className="grid gap-1.5">
 				{entries.map((entry) => (
 					<DetailRow key={entry.key} label={entry.label}>
-						{formatCustomFieldValue(entry) ?? (
-							<span className="text-muted-foreground">Not recorded</span>
-						)}
+						{formatCustomFieldValue(entry) ?? <EmptyValue />}
 					</DetailRow>
 				))}
 			</dl>
@@ -955,7 +954,7 @@ function ApplicationMethodName({
 	);
 
 	if (applicationMethodId === null) {
-		return <span className="text-muted-foreground">No method recorded</span>;
+		return <EmptyValue />;
 	}
 
 	const match = result.data.find((method) => method.id === applicationMethodId);

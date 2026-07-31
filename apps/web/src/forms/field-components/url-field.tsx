@@ -18,11 +18,20 @@ export interface UrlFieldProps
 	extends BaseFieldProps,
 		Omit<
 			React.ComponentProps<typeof InputGroupInput>,
-			'defaultValue' | 'disabled' | 'id' | 'onBlur' | 'onChange' | 'placeholder' | 'type' | 'value'
+			| 'defaultValue'
+			| 'disabled'
+			| 'id'
+			| 'onBlur'
+			| 'onChange'
+			| 'placeholder'
+			| 'required'
+			| 'type'
+			| 'value'
 		> {}
 
 export function UrlField({
 	label,
+	required,
 	description,
 	disabled,
 	placeholder = 'https://...',
@@ -47,6 +56,7 @@ export function UrlField({
 			description={pasteFailed ? 'Clipboard access was not available.' : description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			renderControl={(controlProps) => (
 				<InputGroup data-disabled={disabled ? true : undefined}>
 					<InputGroupInput

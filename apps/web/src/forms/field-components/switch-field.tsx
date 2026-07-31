@@ -9,10 +9,16 @@ export interface SwitchFieldProps
 	extends Omit<BaseFieldProps, 'placeholder'>,
 		Omit<
 			React.ComponentProps<typeof Switch>,
-			'checked' | 'disabled' | 'id' | 'onBlur' | 'onCheckedChange'
+			'checked' | 'disabled' | 'id' | 'onBlur' | 'onCheckedChange' | 'required'
 		> {}
 
-export function SwitchField({ label, description, disabled, ...props }: SwitchFieldProps) {
+export function SwitchField({
+	label,
+	description,
+	disabled,
+	required,
+	...props
+}: SwitchFieldProps) {
 	const field = useFieldContext<boolean>();
 
 	return (
@@ -20,6 +26,7 @@ export function SwitchField({ label, description, disabled, ...props }: SwitchFi
 			description={description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			orientation="horizontal"
 			renderControl={(controlProps) => (
 				<Switch

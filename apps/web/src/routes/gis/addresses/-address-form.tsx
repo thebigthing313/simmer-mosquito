@@ -27,6 +27,7 @@ import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import { useMapDraw } from '../../../components/map/use-map-draw';
+import { RequiredMark } from '../../../components/required-mark';
 
 export type AddressPointGeometry = {
 	readonly type: 'Point';
@@ -234,11 +235,13 @@ export function AddressFormPage({
 							<div className="grid gap-4 sm:grid-cols-2">
 								<LabeledInput
 									label="Display name"
+									required
 									onValueChange={(value) => setField('displayName', value)}
 									value={values.displayName}
 								/>
 								<LabeledInput
 									label="Country"
+									required
 									maxLength={2}
 									onValueChange={(value) => setField('country', value)}
 									value={values.country}
@@ -444,19 +447,23 @@ function LabeledInput({
 	value,
 	onValueChange,
 	maxLength,
+	required = false,
 }: {
 	readonly label: string;
 	readonly value: string;
 	readonly onValueChange: (value: string) => void;
 	readonly maxLength?: number;
+	readonly required?: boolean;
 }) {
 	const inputId = useId();
 	return (
 		<div className="grid gap-1.5">
 			<label className="font-medium text-foreground text-sm" htmlFor={inputId}>
 				{label}
+				{required ? <RequiredMark /> : null}
 			</label>
 			<Input
+				aria-required={required ? true : undefined}
 				id={inputId}
 				maxLength={maxLength}
 				onChange={(event) => onValueChange(event.target.value)}

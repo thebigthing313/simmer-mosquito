@@ -27,6 +27,7 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
+import { EmptyValue } from '../../../components/empty-value';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -241,7 +242,7 @@ function SourceReductionDetailsCard({
 					</DetailRow>
 					<DetailRow label="Habitat">
 						{habitatId === null ? (
-							<span className="text-muted-foreground">No habitat linked</span>
+							<EmptyValue />
 						) : (
 							<Link
 								className="rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

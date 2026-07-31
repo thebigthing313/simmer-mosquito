@@ -148,7 +148,7 @@ export function EditSettingsSheet({
 						{showsCollectionTiming ? <CollectionTimingGuide mode={selectedTimingMode} /> : null}
 					</div>
 					{error === null ? null : (
-						<p className="m-0 px-4 text-[0.84rem] leading-snug text-destructive">{error}</p>
+						<p className="m-0 px-4 text-sm leading-snug text-destructive">{error}</p>
 					)}
 					<SheetFooter>
 						<Button type="submit" disabled={onSave === undefined}>
@@ -174,10 +174,10 @@ export function SettingsDisplayGrid({ fields }: { readonly fields: readonly Sett
 					className="grid min-h-[68px] min-w-0 content-start gap-1.5 rounded-md border border-border/30 bg-muted/40 px-2.5 py-2"
 					key={field.label}
 				>
-					<span className="text-[0.78rem] font-bold text-muted-foreground">{field.label}</span>
-					<strong className="wrap-anywhere text-[0.92rem] text-foreground">
+					<span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+					<span className="font-medium wrap-anywhere text-sm text-foreground">
 						{displayFieldValue(field)}
-					</strong>
+					</span>
 				</div>
 			))}
 		</div>
@@ -274,12 +274,10 @@ export function SetupList({ items }: { readonly items: readonly SetupCatalog[] }
 						key={catalog.label}
 					>
 						<div className="min-w-0">
-							<strong className="wrap-anywhere text-[0.92rem] text-foreground">
+							<span className="font-medium wrap-anywhere text-sm text-foreground">
 								{catalog.label}
-							</strong>
-							<p className="m-0 text-[0.86rem] leading-snug text-muted-foreground">
-								{catalog.detail}
-							</p>
+							</span>
+							<p className="m-0 text-sm leading-snug text-muted-foreground">{catalog.detail}</p>
 						</div>
 						<Badge tone={catalog.editable ? 'success' : 'neutral'} variant="outline">
 							{catalog.editable ? 'Editable' : 'Read only'}
@@ -295,8 +293,8 @@ function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingM
 	return (
 		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 			<div className="grid gap-1">
-				<strong className="text-[0.92rem] text-foreground">Collection timing</strong>
-				<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">
+				<span className="font-medium text-sm text-foreground">Collection timing</span>
+				<p className="m-0 text-sm leading-snug text-muted-foreground">
 					This controls how adult surveillance forms ask crews to record when a trap was collected.
 				</p>
 			</div>
@@ -305,15 +303,15 @@ function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingM
 					className="grid gap-1 rounded-md border border-border/30 bg-background p-2 data-[active=true]:border-primary/35"
 					data-active={mode === 'exact_timestamps'}
 				>
-					<strong className="text-[0.84rem] text-foreground">Exact timestamps</strong>
-					<p className="m-0 text-[0.78rem] text-muted-foreground">Set time and pickup time.</p>
+					<span className="font-medium text-sm text-foreground">Exact timestamps</span>
+					<p className="m-0 text-xs text-muted-foreground">Set time and pickup time.</p>
 				</div>
 				<div
 					className="grid gap-1 rounded-md border border-border/30 bg-background p-2 data-[active=true]:border-primary/35"
 					data-active={mode === 'collection_date_duration'}
 				>
-					<strong className="text-[0.84rem] text-foreground">Collection date and duration</strong>
-					<p className="m-0 text-[0.78rem] text-muted-foreground">Collection date plus duration.</p>
+					<span className="font-medium text-sm text-foreground">Collection date and duration</span>
+					<p className="m-0 text-xs text-muted-foreground">Collection date plus duration.</p>
 				</div>
 			</div>
 		</section>
@@ -339,8 +337,8 @@ export function LookupListFrame({
 		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 			<div className="flex flex-wrap items-start justify-between gap-2">
 				<div className="grid min-w-0 gap-1">
-					<strong className="wrap-anywhere text-[0.92rem] text-foreground">{title}</strong>
-					<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">{detail}</p>
+					<span className="font-medium wrap-anywhere text-sm text-foreground">{title}</span>
+					<p className="m-0 text-sm leading-snug text-muted-foreground">{detail}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					{activeCount === undefined ? null : (

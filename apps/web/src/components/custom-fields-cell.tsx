@@ -1,5 +1,6 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { customFieldDescriptors } from '../forms/field-components';
+import { RequiredMark } from './required-mark';
 
 /**
  * The custom fields a lookup row declares, named, for catalog tables.
@@ -24,7 +25,7 @@ export function CustomFieldsCell({ schema }: { readonly schema: unknown }) {
 					variant="outline"
 				>
 					{descriptor.label}
-					{descriptor.required ? <span className="text-[var(--danger)]">*</span> : null}
+					{descriptor.required ? <RequiredMark /> : null}
 				</Badge>
 			))}
 		</span>

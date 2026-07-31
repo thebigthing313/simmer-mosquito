@@ -19,6 +19,12 @@ export interface ShellNavItem {
 	readonly icon?: RegistryIcon;
 	/** Optional compact count/indicator (e.g. items needing attention). */
 	readonly badge?: string | number;
+	/**
+	 * The destination is wired but not built. Marked in the sidebar so an operator
+	 * learns which sections are placeholders from the navigation rather than by
+	 * arriving on one.
+	 */
+	readonly stub?: boolean;
 }
 
 /** A labelled (or unlabelled) cluster of items within a domain. */

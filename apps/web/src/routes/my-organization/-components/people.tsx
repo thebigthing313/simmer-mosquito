@@ -109,10 +109,10 @@ export function PeopleSection({
 				<div className="grid gap-3">
 					<article className="grid min-w-0 items-center gap-3 rounded-md border border-border/40 bg-muted/40 p-2.5 md:grid-cols-[minmax(240px,1fr)_auto]">
 						<div className="min-w-0">
-							<strong className="wrap-anywhere text-[0.92rem] text-foreground">
+							<span className="font-medium wrap-anywhere text-sm text-foreground">
 								{displayName}
-							</strong>
-							<p className="m-0 text-[0.86rem] leading-snug text-muted-foreground">
+							</span>
+							<p className="m-0 text-sm leading-snug text-muted-foreground">
 								{email ?? 'No email available'}
 							</p>
 						</div>
@@ -229,7 +229,7 @@ export function ProfileGroup({
 				</Badge>
 			</div>
 			{rows.length === 0 ? (
-				<p className="m-0 rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-[0.86rem] text-muted-foreground">
+				<p className="m-0 rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
 					{emptyLabel}
 				</p>
 			) : (
@@ -261,9 +261,9 @@ export function ProfileRowItem({
 		<article className="grid min-w-0 items-start gap-3 rounded-md border border-border/40 bg-card px-3 py-2.5 md:grid-cols-[minmax(220px,1fr)_auto]">
 			<div className="grid min-w-0 gap-1">
 				<div className="flex min-w-0 flex-wrap items-center gap-2">
-					<strong className="wrap-anywhere text-[0.93rem] leading-snug text-foreground">
+					<span className="font-medium wrap-anywhere text-sm leading-snug text-foreground">
 						{profile.displayName}
-					</strong>
+					</span>
 					<Badge tone={profile.isActive ? 'success' : 'neutral'} variant="outline">
 						{profile.isActive ? 'Active' : 'Inactive'}
 					</Badge>
@@ -276,7 +276,7 @@ export function ProfileRowItem({
 						</Badge>
 					)}
 				</div>
-				<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">
+				<p className="m-0 text-sm leading-snug text-muted-foreground">
 					{profile.email ?? 'No login link'}
 				</p>
 			</div>
@@ -341,12 +341,12 @@ export function HistoricalProfileSheet({
 								placeholder="Name used on historical records"
 							/>
 						</Field>
-						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 text-[0.88rem] font-bold">
+						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 font-medium text-sm">
 							<span>Active for assignment</span>
 							<Switch checked={isActive} onCheckedChange={setIsActive} />
 						</div>
 						{error === null ? null : (
-							<p className="m-0 text-[0.84rem] leading-snug text-destructive">{error}</p>
+							<p className="m-0 text-sm leading-snug text-destructive">{error}</p>
 						)}
 					</div>
 					<SheetFooter>
@@ -474,7 +474,7 @@ export function InviteProfileSheet({
 							</Select>
 						</Field>
 						{error === null ? null : (
-							<p className="m-0 text-[0.84rem] leading-snug text-destructive">{error}</p>
+							<p className="m-0 text-sm leading-snug text-destructive">{error}</p>
 						)}
 					</div>
 					<SheetFooter>
@@ -561,7 +561,7 @@ export function EditProfileSheet({
 							<Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
 						</Field>
 						<div className="grid gap-1.5">
-							<span className="text-[0.78rem] font-bold text-muted-foreground">Link state</span>
+							<span className="text-xs font-medium text-muted-foreground">Link state</span>
 							<Badge tone={profile.userId === null ? 'neutral' : 'info'} variant="outline">
 								{profile.userId === null ? 'Historical profile' : 'Linked profile'}
 							</Badge>
@@ -585,12 +585,12 @@ export function EditProfileSheet({
 								</Select>
 							</Field>
 						)}
-						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 text-[0.88rem] font-bold">
+						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 font-medium text-sm">
 							<span>Active</span>
 							<Switch checked={isActive} onCheckedChange={setIsActive} />
 						</div>
 						{error === null ? null : (
-							<p className="m-0 text-[0.84rem] leading-snug text-destructive">{error}</p>
+							<p className="m-0 text-sm leading-snug text-destructive">{error}</p>
 						)}
 					</div>
 					<SheetFooter>

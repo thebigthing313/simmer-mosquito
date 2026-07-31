@@ -244,7 +244,7 @@ export function TrapFormPage({
 								<form.AppField name="addressId">
 									{(field) => (
 										<AddressPicker
-											label="Address (optional)"
+											label="Address"
 											onSelect={(address) => {
 												field.handleChange(address?.id ?? null);
 												setLocationError(null);
@@ -261,7 +261,8 @@ export function TrapFormPage({
 									controller={draw}
 									geometry={geometry}
 									geometryType="Point"
-									label={requireLocation ? 'Point (required)' : 'Point'}
+									label="Point"
+									required={requireLocation}
 									onClear={clearPoint}
 									onDraw={startDraw}
 									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
@@ -278,6 +279,7 @@ export function TrapFormPage({
 										{(field) => (
 											<field.SelectField
 												label="Collection method"
+												required
 												options={methodOptions}
 												placeholder="Select method"
 											/>
@@ -286,7 +288,7 @@ export function TrapFormPage({
 									<form.AppField name="collectionLureId">
 										{(field) => (
 											<field.SelectField
-												label="Lure (optional)"
+												label="Lure"
 												options={lureOptions(collectionLures)}
 												placeholder="No lure"
 											/>
@@ -299,23 +301,18 @@ export function TrapFormPage({
 								<div className="grid gap-5 sm:grid-cols-2">
 									<form.AppField name="trapName">
 										{(field) => (
-											<field.TextField
-												label="Trap name (optional)"
-												placeholder="e.g. North Basin CDC"
-											/>
+											<field.TextField label="Trap name" placeholder="e.g. North Basin CDC" />
 										)}
 									</form.AppField>
 									<form.AppField name="trapCode">
-										{(field) => (
-											<field.TextField label="Trap code (optional)" placeholder="e.g. NB-01" />
-										)}
+										{(field) => <field.TextField label="Trap code" placeholder="e.g. NB-01" />}
 									</form.AppField>
 								</div>
 								<form.AppField name="description">
 									{(field) => (
 										<field.TextareaField
 											description="Access notes, mounting details, or anything crews should know."
-											label="Description (optional)"
+											label="Description"
 											placeholder="Add a description for this trap…"
 											rows={3}
 										/>

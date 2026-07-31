@@ -51,6 +51,7 @@ import type { Collection } from '@tanstack/react-db';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
+import { EmptyValue } from '../../../components/empty-value';
 import { useAppForm } from '../../../forms';
 import { validateJsonSchemaValue } from '../../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
@@ -120,8 +121,8 @@ export function LarvalEntryPolicyGuide({
 	return (
 		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 			<div className="grid gap-1">
-				<strong className="text-[0.92rem] text-foreground">Inspection entry mode</strong>
-				<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">
+				<span className="font-medium text-sm text-foreground">Inspection entry mode</span>
+				<p className="m-0 text-sm leading-snug text-muted-foreground">
 					This controls whether larval inspection forms collect a density category, a dip count, or
 					both.
 				</p>
@@ -182,8 +183,8 @@ export function LarvalEntryModeExample({
 		>
 			<div className="flex flex-wrap items-start justify-between gap-2">
 				<div className="grid gap-1">
-					<strong className="text-[0.88rem] text-foreground">{title}</strong>
-					<p className="m-0 text-[0.8rem] leading-snug text-muted-foreground">{description}</p>
+					<span className="font-medium text-sm text-foreground">{title}</span>
+					<p className="m-0 text-xs leading-snug text-muted-foreground">{description}</p>
 				</div>
 				{active ? (
 					<Badge tone="success" variant="outline">
@@ -201,8 +202,8 @@ export function DensityRangesDisplay({ ranges }: { readonly ranges: LarvalDensit
 		<div className="grid gap-2 rounded-md border border-border/30 bg-background p-2.5">
 			<div className="flex flex-wrap items-start justify-between gap-2">
 				<div className="grid gap-1">
-					<strong className="text-[0.88rem] text-foreground">Density inference</strong>
-					<p className="m-0 text-[0.8rem] leading-snug text-muted-foreground">
+					<span className="font-medium text-sm text-foreground">Density inference</span>
+					<p className="m-0 text-xs leading-snug text-muted-foreground">
 						The app uses larvae per dip to infer density. Zero larvae is always None.
 					</p>
 				</div>
@@ -234,10 +235,10 @@ export function DensityRangeTile({
 	const label = densityLabel(density);
 	return (
 		<div className="grid gap-1 rounded-md border border-border/30 bg-muted/30 p-2">
-			<span className="text-[0.74rem] font-bold text-muted-foreground">{label}</span>
-			<strong className="text-[0.88rem] text-foreground">
+			<span className="text-xs font-medium text-muted-foreground">{label}</span>
+			<span className="font-medium text-sm text-foreground">
 				{density === 'none' ? '0 larvae' : formatDensityRange(range)}
-			</strong>
+			</span>
 		</div>
 	);
 }
@@ -330,8 +331,10 @@ export function LarvalSettingsDrawer({
 					<div className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 						<div className="flex items-center justify-between gap-3">
 							<div>
-								<strong className="text-[0.92rem] text-foreground">Density inference ranges</strong>
-								<p className="m-0 text-[0.8rem] leading-snug text-muted-foreground">
+								<span className="font-medium text-sm text-foreground">
+									Density inference ranges
+								</span>
+								<p className="m-0 text-xs leading-snug text-muted-foreground">
 									Configure larvae per dip ranges for inferred densities.
 								</p>
 							</div>
@@ -354,7 +357,7 @@ export function LarvalSettingsDrawer({
 						</div>
 					</div>
 					{error === null ? null : (
-						<p className="m-0 text-[0.84rem] leading-snug text-destructive">{error}</p>
+						<p className="m-0 text-sm leading-snug text-destructive">{error}</p>
 					)}
 					<SheetFooter className="px-0">
 						<Button type="submit" disabled={!canManage || organization === null}>
@@ -387,7 +390,7 @@ export function DensityRangeEditor({
 }) {
 	return (
 		<div className="grid gap-2 rounded-md border border-border/30 bg-background p-2.5">
-			<strong className="text-[0.86rem] text-foreground">{densityLabel(density)}</strong>
+			<span className="font-medium text-sm text-foreground">{densityLabel(density)}</span>
 			<div className="grid grid-cols-2 gap-2">
 				<Field className="gap-1">
 					<FieldLabel>Greater than</FieldLabel>
@@ -480,13 +483,11 @@ export function HabitatTypeTable({
 	return (
 		<div className="grid gap-2">
 			<div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
-				<span className="text-[0.76rem] font-bold text-muted-foreground">{title}</span>
-				<span className="text-[0.76rem] font-bold text-muted-foreground">
-					{habitatTypes.length}
-				</span>
+				<span className="text-xs font-medium text-muted-foreground">{title}</span>
+				<span className="text-xs font-medium text-muted-foreground">{habitatTypes.length}</span>
 			</div>
 			{habitatTypes.length === 0 ? (
-				<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-[0.84rem] text-muted-foreground">
+				<p className="m-0 rounded-md bg-background/60 px-2.5 py-2 text-sm text-muted-foreground">
 					{emptyLabel}
 				</p>
 			) : (
@@ -505,11 +506,11 @@ export function HabitatTypeTable({
 						<TableBody>
 							{habitatTypes.map((habitatType) => (
 								<TableRow key={habitatType.id}>
-									<TableCell className="w-(--habitat-name-column) font-bold">
+									<TableCell className="w-(--habitat-name-column) font-medium">
 										<span className="wrap-anywhere">{habitatType.name}</span>
 									</TableCell>
 									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
-										{habitatType.description ?? 'No description'}
+										{habitatType.description ?? <EmptyValue />}
 									</TableCell>
 									<TableCell className="w-(--habitat-fields-column)">
 										<CustomFieldsCell schema={habitatType.customSchema} />

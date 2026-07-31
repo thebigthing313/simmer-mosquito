@@ -365,7 +365,7 @@ function StopEditor({
 							defaultValue={stop.directionsToNextItem ?? ''}
 							key={stop.routeItemId}
 							onBlur={(event) => onSetDirections(stop.routeItemId, event.target.value)}
-							placeholder="Directions to the next stop (optional)"
+							placeholder="Directions to the next stop"
 						/>
 					) : null}
 				</li>

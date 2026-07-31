@@ -16,6 +16,7 @@ export interface MultiSelectFieldProps extends BaseFieldProps {
 /** A form field holding a list of ids — attendees, product lots, and the like. */
 export function MultiSelectField({
 	label,
+	required,
 	description,
 	disabled,
 	options,
@@ -29,6 +30,7 @@ export function MultiSelectField({
 			description={description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			renderControl={(controlProps) => (
 				<MultiSelect
 					{...controlProps}

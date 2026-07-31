@@ -1,3 +1,9 @@
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/tooltip';
+import { HammerIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ShellNavItem } from '../types';
 
@@ -16,16 +22,16 @@ export function SecondarySidebarItem({
 	return (
 		<li>
 			<button
-				type="button"
 				aria-current={active ? 'page' : undefined}
-				data-active={active}
-				onClick={() => onSelect(item)}
 				className={cn(
-					'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground outline-none transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
+					'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sidebar-foreground text-sm outline-none transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
 					'hover:bg-sidebar-accent/70 focus-visible:ring-2 focus-visible:ring-ring',
 					'data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground',
 					'[&_svg]:size-4 [&_svg]:shrink-0',
 				)}
+				data-active={active}
+				onClick={() => onSelect(item)}
+				type="button"
 			>
 				{Icon ? (
 					<Icon
@@ -34,10 +40,25 @@ export function SecondarySidebarItem({
 					/>
 				) : null}
 				<span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+				{/*
+				 * Placeholder sections are marked here rather than left to be discovered
+				 * on arrival — an operator planning their day should be able to see from
+				 * the navigation which sections cannot yet do anything.
+				 */}
+				{item.stub === true ? (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<span aria-label="Work in progress" className="text-muted-foreground/70" role="img">
+								<HammerIcon aria-hidden="true" />
+							</span>
+						</TooltipTrigger>
+						<TooltipContent side="right">Work in progress</TooltipContent>
+					</Tooltip>
+				) : null}
 				{item.badge !== undefined ? (
 					<span
 						className={cn(
-							'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums',
+							'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-semibold text-xs tabular-nums',
 							active
 								? 'bg-primary text-primary-foreground'
 								: 'bg-sidebar-accent text-muted-foreground',

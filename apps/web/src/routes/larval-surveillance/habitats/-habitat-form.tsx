@@ -219,6 +219,7 @@ export function HabitatFormPage({
 									{(field) => (
 										<field.TextField
 											label="Habitat name"
+											required
 											placeholder="e.g. North basin catchment"
 										/>
 									)}
@@ -257,7 +258,8 @@ export function HabitatFormPage({
 									controller={draw}
 									geometry={geometry}
 									geometryType={geometryType}
-									label="Geometry (required)"
+									label="Geometry"
+									required
 									onClear={() => setGeometry(null)}
 									onDraw={startDraw}
 									onTypeChange={handleTypeChange}
@@ -291,6 +293,7 @@ export function HabitatFormPage({
 								{(field) => (
 									<field.TextareaField
 										label="Description"
+										required
 										placeholder="Describe access notes, habitat condition, and useful field context."
 										rows={4}
 									/>

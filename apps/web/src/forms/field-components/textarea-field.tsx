@@ -9,11 +9,19 @@ export interface TextareaFieldProps
 	extends BaseFieldProps,
 		Omit<
 			React.ComponentProps<typeof Textarea>,
-			'defaultValue' | 'disabled' | 'id' | 'onBlur' | 'onChange' | 'placeholder' | 'value'
+			| 'defaultValue'
+			| 'disabled'
+			| 'id'
+			| 'onBlur'
+			| 'onChange'
+			| 'placeholder'
+			| 'required'
+			| 'value'
 		> {}
 
 export function TextareaField({
 	label,
+	required,
 	description,
 	disabled,
 	placeholder,
@@ -26,6 +34,7 @@ export function TextareaField({
 			description={description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			renderControl={(controlProps) => (
 				<Textarea
 					{...props}

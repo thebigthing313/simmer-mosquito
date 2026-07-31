@@ -29,7 +29,14 @@ export interface AutocompleteFieldProps<TOption extends AutocompleteOption = Aut
 	extends BaseFieldProps,
 		Omit<
 			React.ComponentProps<typeof Input>,
-			'defaultValue' | 'disabled' | 'id' | 'onBlur' | 'onChange' | 'placeholder' | 'value'
+			| 'defaultValue'
+			| 'disabled'
+			| 'id'
+			| 'onBlur'
+			| 'onChange'
+			| 'placeholder'
+			| 'required'
+			| 'value'
 		> {
 	readonly options?: readonly TOption[] | undefined;
 	readonly getOptions?:
@@ -59,6 +66,7 @@ export interface AutocompleteFieldProps<TOption extends AutocompleteOption = Aut
 
 export function AutocompleteField<TOption extends AutocompleteOption = AutocompleteOption>({
 	label,
+	required,
 	description,
 	disabled,
 	placeholder = 'Search',
@@ -177,6 +185,7 @@ export function AutocompleteField<TOption extends AutocompleteOption = Autocompl
 			description={description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			renderControl={(controlProps) => (
 				<Popover open={open} onOpenChange={setOpen}>
 					<PopoverAnchor asChild>

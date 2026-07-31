@@ -82,8 +82,8 @@ export function ServiceRequestContextGuide({
 	return (
 		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 			<div className="grid gap-1">
-				<strong className="text-[0.92rem] text-foreground">Service request context</strong>
-				<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">
+				<span className="font-medium text-sm text-foreground">Service request context</span>
+				<p className="m-0 text-sm leading-snug text-muted-foreground">
 					These defaults decide which nearby records are shown alongside a resident service request
 					so staff can see recent local activity.
 				</p>
@@ -120,9 +120,9 @@ export function PublicSettingTile({
 }) {
 	return (
 		<div className="grid gap-1 rounded-md border border-border/30 bg-background p-2.5">
-			<strong className="text-[0.84rem] text-foreground">{label}</strong>
-			<span className="text-[0.9rem] font-semibold text-foreground">{value}</span>
-			<p className="m-0 text-[0.78rem] leading-snug text-muted-foreground">{detail}</p>
+			<span className="font-medium text-sm text-foreground">{label}</span>
+			<span className="text-sm font-semibold text-foreground">{value}</span>
+			<p className="m-0 text-xs leading-snug text-muted-foreground">{detail}</p>
 		</div>
 	);
 }

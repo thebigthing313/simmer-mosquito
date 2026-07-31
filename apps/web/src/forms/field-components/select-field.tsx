@@ -25,6 +25,7 @@ export interface SelectFieldProps extends BaseFieldProps {
 
 export function SelectField({
 	label,
+	required,
 	description,
 	disabled,
 	options,
@@ -39,6 +40,7 @@ export function SelectField({
 			description={description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			renderControl={(controlProps) => (
 				<Select
 					{...(disabled === undefined ? {} : { disabled })}

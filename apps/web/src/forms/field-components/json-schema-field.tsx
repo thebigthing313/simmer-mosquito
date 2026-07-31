@@ -39,7 +39,13 @@ const valueTypeOptions: readonly { readonly label: string; readonly value: Custo
 	{ label: 'Date', value: 'date' },
 ];
 
-export function JsonSchemaField({ label, description, disabled, className }: JsonSchemaFieldProps) {
+export function JsonSchemaField({
+	label,
+	description,
+	disabled,
+	required,
+	className,
+}: JsonSchemaFieldProps) {
 	const field = useFieldContext<JsonSchemaValue>();
 	const fieldId = useId();
 	const [rows, setRows] = useState<readonly CustomFieldRow[]>(() =>
@@ -67,6 +73,7 @@ export function JsonSchemaField({ label, description, disabled, className }: Jso
 			description={description}
 			disabled={disabled}
 			label={label}
+			required={required}
 			renderControl={(controlProps) => (
 				<div
 					{...controlProps}

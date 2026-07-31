@@ -12,6 +12,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
+import { RequiredMark } from '../required-mark';
 import { GeometryImportDialog } from './geometry-import-dialog';
 import { RegionBoundaryPicker } from './region-boundary-picker';
 import type { DrawGeometry, DrawGeometryType, MapDrawController } from './use-map-draw';
@@ -61,6 +62,8 @@ export interface GeometryControlProps {
 	/** Types this record's geometry policy allows. Defaults to all three. */
 	readonly allowedTypes?: readonly DrawGeometryType[];
 	readonly label?: string;
+	/** Marks the label with `*` when the record cannot be saved without geometry. */
+	readonly required?: boolean;
 	/** Snap the geometry back to the selected address; hidden when omitted. */
 	readonly onMoveToAddress?: () => void;
 	/**
@@ -80,6 +83,7 @@ export function GeometryControl({
 	onClear,
 	allowedTypes = LOCATABLE_DRAW_TYPES,
 	label = 'Geometry',
+	required = false,
 	onMoveToAddress,
 	organizationId,
 }: GeometryControlProps) {
@@ -98,7 +102,10 @@ export function GeometryControl({
 	return (
 		<div className="grid gap-2 rounded-md border border-border/40 bg-background/70 p-3">
 			<div className="flex items-start justify-between gap-3">
-				<span className="font-medium text-foreground text-sm">{label}</span>
+				<span className="font-medium text-foreground text-sm">
+					{label}
+					{required ? <RequiredMark /> : null}
+				</span>
 				{hasGeometry ? (
 					<Badge tone="success" variant="outline">
 						<CheckIcon aria-hidden="true" />

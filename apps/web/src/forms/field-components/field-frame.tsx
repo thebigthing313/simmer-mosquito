@@ -7,6 +7,7 @@ import {
 	FieldLabel,
 } from '@simmer-mosquito/ui-web/components/ui/field';
 import { useId } from 'react';
+import { RequiredMark } from '../../components/required-mark';
 import { useFieldContext } from '../form-contexts';
 import { errorMessagesFrom } from '../form-errors';
 
@@ -14,11 +15,14 @@ export interface FormFieldFrameProps {
 	readonly label?: string | undefined;
 	readonly description?: string | undefined;
 	readonly disabled?: boolean | undefined;
+	/** Marks the label with `*`. Optional fields carry no marker at all. */
+	readonly required?: boolean | undefined;
 	readonly orientation?: React.ComponentProps<typeof Field>['orientation'] | undefined;
 	readonly renderControl: (props: {
 		readonly id: string;
 		readonly 'aria-describedby': string | undefined;
 		readonly 'aria-invalid': true | undefined;
+		readonly 'aria-required': true | undefined;
 	}) => React.ReactNode;
 }
 
@@ -26,6 +30,7 @@ export function FormFieldFrame({
 	label,
 	description,
 	disabled,
+	required,
 	orientation,
 	renderControl,
 }: FormFieldFrameProps) {
@@ -45,11 +50,17 @@ export function FormFieldFrame({
 			data-invalid={invalid}
 			orientation={orientation}
 		>
-			{label === undefined ? null : <FieldLabel htmlFor={controlId}>{label}</FieldLabel>}
+			{label === undefined ? null : (
+				<FieldLabel htmlFor={controlId}>
+					{label}
+					{required === true ? <RequiredMark /> : null}
+				</FieldLabel>
+			)}
 			{renderControl({
 				id: controlId,
 				'aria-describedby': describedBy.length === 0 ? undefined : describedBy,
 				'aria-invalid': invalid ? true : undefined,
+				'aria-required': required === true ? true : undefined,
 			})}
 			{description === undefined ? null : (
 				<FieldDescription id={descriptionId}>{description}</FieldDescription>

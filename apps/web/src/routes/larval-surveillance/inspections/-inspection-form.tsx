@@ -396,7 +396,7 @@ export function InspectionFormPage({
 												<form.AppField name="habitatTypeId">
 													{(field) => (
 														<field.SelectField
-															label="Habitat type (optional)"
+															label="Habitat type"
 															options={habitatTypeOptions(habitatTypes)}
 															placeholder="Unassigned type"
 														/>
@@ -433,7 +433,7 @@ export function InspectionFormPage({
 									<form.AppField name="inspectedByProfileId">
 										{(field) => (
 											<field.SelectField
-												label="Inspector (optional)"
+												label="Inspector"
 												options={profileOptions(profiles)}
 												placeholder="Default to me"
 											/>
@@ -446,7 +446,7 @@ export function InspectionFormPage({
 											{(field) => (
 												<field.MultiSelectField
 													emptyMessage="No profiles"
-													label="Additional personnel (optional)"
+													label="Additional personnel"
 													options={additionalPersonnelOptions(profiles, field.state.value, {
 														excludeProfileId: inspectedByProfileId,
 													})}
@@ -479,9 +479,7 @@ export function InspectionFormPage({
 														<form.AppField name="density">
 															{(field) => (
 																<field.SelectField
-																	label={
-																		entryMode === 'density_only' ? 'Density' : 'Density (optional)'
-																	}
+																	label={entryMode === 'density_only' ? 'Density' : 'Density'}
 																	options={densityOptions()}
 																	placeholder="Select density"
 																/>
@@ -493,9 +491,7 @@ export function InspectionFormPage({
 															{(field) => (
 																<field.NumberField
 																	label={
-																		entryMode === 'count_and_dips_required'
-																			? 'Dips taken'
-																			: 'Dips (optional)'
+																		entryMode === 'count_and_dips_required' ? 'Dips taken' : 'Dips'
 																	}
 																	min={1}
 																	placeholder="e.g. 10"
@@ -544,7 +540,7 @@ export function InspectionFormPage({
 									{(field) => (
 										<field.TextareaField
 											description="Saved as the first comment on this inspection. Add access details, conditions, or follow-up."
-											label="Comment (optional)"
+											label="Comment"
 											placeholder="Add a note for this inspection…"
 											rows={3}
 										/>
