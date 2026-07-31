@@ -6,12 +6,17 @@ import type { ShellCrumb, ShellDomain, ShellNavGroup, ShellNavItem } from './typ
  * The product's operational domains, expressed fresh from the SIMMER domain
  * vocabulary. Each domain is one icon in the primary rail; its groups populate
  * the secondary sidebar. Paths point at the live route table.
+ *
+ * Each `summary` names what the domain covers in integrated mosquito management
+ * vocabulary. Keep them descriptive: the reader is a mosquito control
+ * professional, so a summary states what is here, never why it matters or how
+ * the work should be done.
  */
 export const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'overview',
 		label: 'Overview',
-		summary: 'Where work stands today',
+		summary: 'Where the program stands today',
 		icon: iconRegistry.generic.component.icon,
 		groups: [
 			{
@@ -31,7 +36,7 @@ export const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'larval',
 		label: 'Larval Surveillance',
-		summary: 'Monitor immature mosquito populations in the field',
+		summary: 'Egg, larval, and pupal surveillance across your habitats',
 		icon: iconRegistry.domains.larvalSurveillance.icon,
 		groups: [
 			{
@@ -128,7 +133,7 @@ export const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'adult',
 		label: 'Adult Surveillance',
-		summary: 'Monitor adult mosquito populations across traps and collections',
+		summary: 'Adult surveillance — trap collections, species composition, and abundance',
 		icon: iconRegistry.domains.adultSurveillance.icon,
 		groups: [
 			{
@@ -202,12 +207,24 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 				],
 			},
+			{
+				id: 'adult-arbovirus',
+				label: 'Arbovirus',
+				items: [
+					{
+						id: 'arbovirus-surveillance',
+						label: 'Arbovirus Surveillance',
+						to: '/adult-surveillance/arbovirus-surveillance',
+						icon: iconRegistry.generic.scanEye.icon,
+					},
+				],
+			},
 		],
 	},
 	{
 		id: 'control',
 		label: 'Control Operations',
-		summary: 'Treatment work across chemical, source reduction, and biocontrol',
+		summary: 'Source reduction, biocontrol, and insecticide applications',
 		icon: iconRegistry.domains.controlOperations.icon,
 		groups: [
 			{
@@ -317,12 +334,24 @@ export const shellDomains: readonly ShellDomain[] = [
 					},
 				],
 			},
+			{
+				id: 'control-resistance',
+				label: 'Resistance',
+				items: [
+					{
+						id: 'resistance-monitoring',
+						label: 'Resistance Monitoring',
+						to: '/control-operations/resistance-monitoring',
+						icon: iconRegistry.entities.insecticide.icon,
+					},
+				],
+			},
 		],
 	},
 	{
 		id: 'public',
 		label: 'Public Engagement',
-		summary: 'Requests from the public',
+		summary: 'Community engagement — service requests and the contacts behind them',
 		icon: iconRegistry.domains.publicEngagement.icon,
 		groups: [
 			{
@@ -377,7 +406,7 @@ export const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'gis',
 		label: 'GIS',
-		summary: 'Spatial reference data',
+		summary: 'Every record on the map — regions, addresses, and weather',
 		icon: iconRegistry.domains.gis.icon,
 		groups: [
 			{
@@ -432,7 +461,7 @@ export const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'operations',
 		label: 'Operations',
-		summary: 'Dispatch and field crews',
+		summary: 'Dispatch, crew assignments, and requested control work',
 		icon: iconRegistry.entities.vehicle.icon,
 		groups: [
 			{
@@ -463,7 +492,7 @@ export const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'organization',
 		label: 'Organization',
-		summary: 'Agency configuration',
+		summary: 'Agency setup, people, and the catalogs behind every record',
 		icon: iconRegistry.generic.settings.icon,
 		groups: [
 			{

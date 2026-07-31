@@ -33,7 +33,9 @@ import { Route as MyOrganizationInsecticidesRouteImport } from './routes/my-orga
 import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as GisDataExplorerRouteImport } from './routes/gis/data-explorer'
+import { Route as ControlOperationsResistanceMonitoringRouteImport } from './routes/control-operations/resistance-monitoring'
 import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes/adult-surveillance/collection-methods'
+import { Route as AdultSurveillanceArbovirusSurveillanceRouteImport } from './routes/adult-surveillance/arbovirus-surveillance'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as PublicEngagementServiceRequestsIndexRouteImport } from './routes/public-engagement/service-requests/index'
 import { Route as PublicEngagementContactsIndexRouteImport } from './routes/public-engagement/contacts/index'
@@ -229,10 +231,22 @@ const GisDataExplorerRoute = GisDataExplorerRouteImport.update({
   path: '/gis/data-explorer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ControlOperationsResistanceMonitoringRoute =
+  ControlOperationsResistanceMonitoringRouteImport.update({
+    id: '/control-operations/resistance-monitoring',
+    path: '/control-operations/resistance-monitoring',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdultSurveillanceCollectionMethodsRoute =
   AdultSurveillanceCollectionMethodsRouteImport.update({
     id: '/adult-surveillance/collection-methods',
     path: '/adult-surveillance/collection-methods',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdultSurveillanceArbovirusSurveillanceRoute =
+  AdultSurveillanceArbovirusSurveillanceRouteImport.update({
+    id: '/adult-surveillance/arbovirus-surveillance',
+    path: '/adult-surveillance/arbovirus-surveillance',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
@@ -652,7 +666,9 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -747,7 +763,9 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -844,7 +862,9 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -942,7 +962,9 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/today'
     | '/admin/organizations'
+    | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -1037,7 +1059,9 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/today'
     | '/admin/organizations'
+    | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -1133,7 +1157,9 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/today'
     | '/admin/organizations'
+    | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -1230,7 +1256,9 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   TodayRoute: typeof TodayRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
+  AdultSurveillanceArbovirusSurveillanceRoute: typeof AdultSurveillanceArbovirusSurveillanceRoute
   AdultSurveillanceCollectionMethodsRoute: typeof AdultSurveillanceCollectionMethodsRoute
+  ControlOperationsResistanceMonitoringRoute: typeof ControlOperationsResistanceMonitoringRoute
   GisDataExplorerRoute: typeof GisDataExplorerRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
   ControlOperationsIndexRoute: typeof ControlOperationsIndexRoute
@@ -1475,11 +1503,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GisDataExplorerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/control-operations/resistance-monitoring': {
+      id: '/control-operations/resistance-monitoring'
+      path: '/control-operations/resistance-monitoring'
+      fullPath: '/control-operations/resistance-monitoring'
+      preLoaderRoute: typeof ControlOperationsResistanceMonitoringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/adult-surveillance/collection-methods': {
       id: '/adult-surveillance/collection-methods'
       path: '/adult-surveillance/collection-methods'
       fullPath: '/adult-surveillance/collection-methods'
       preLoaderRoute: typeof AdultSurveillanceCollectionMethodsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/arbovirus-surveillance': {
+      id: '/adult-surveillance/arbovirus-surveillance'
+      path: '/adult-surveillance/arbovirus-surveillance'
+      fullPath: '/adult-surveillance/arbovirus-surveillance'
+      preLoaderRoute: typeof AdultSurveillanceArbovirusSurveillanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/organizations': {
@@ -2017,8 +2059,12 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   TodayRoute: TodayRoute,
   AdminOrganizationsRoute: AdminOrganizationsRouteWithChildren,
+  AdultSurveillanceArbovirusSurveillanceRoute:
+    AdultSurveillanceArbovirusSurveillanceRoute,
   AdultSurveillanceCollectionMethodsRoute:
     AdultSurveillanceCollectionMethodsRoute,
+  ControlOperationsResistanceMonitoringRoute:
+    ControlOperationsResistanceMonitoringRoute,
   GisDataExplorerRoute: GisDataExplorerRoute,
   AdultSurveillanceIndexRoute: AdultSurveillanceIndexRoute,
   ControlOperationsIndexRoute: ControlOperationsIndexRoute,

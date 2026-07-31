@@ -17,8 +17,8 @@ function ApplicationMethodsRoute() {
 			canManage={canManage}
 			collection={webCollections.applicationMethods}
 			collectionKey="applicationMethods"
-			customFieldsDescription="Add fields crews should capture with every application made this way — droplet size, swath width, or a calibration note."
-			description="How your agency applies insecticide: ULV truck spray, backpack sprayer, granular spreader, and any other delivery method crews record against."
+			customFieldsDescription="Add fields crews should capture with every application made this way — droplet size classification, swath width, or an equipment calibration note."
+			description="How your agency applies insecticide — ULV truck spray, aerial application, backpack low-volume, granular spreader, barrier and residual treatment, and any other delivery method crews record against."
 			emptyDescription="Application methods describe how a product reaches the target — they are the delivery method on every chemical treatment record."
 			icon={iconRegistry.entities.application.icon}
 			namePlaceholder="e.g. ULV truck spray"

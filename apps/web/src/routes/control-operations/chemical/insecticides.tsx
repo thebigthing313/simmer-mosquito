@@ -146,8 +146,8 @@ function InsecticidesRoute() {
 							Insecticides
 						</h1>
 						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
-							The products your agency applies — active ingredient, registration, default usage
-							unit, and the lots crews draw from.
+							The products your agency applies — active ingredient, EPA registration number, default
+							usage unit, and the lots crews draw from.
 						</p>
 					</div>
 				</div>

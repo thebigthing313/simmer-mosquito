@@ -61,14 +61,16 @@ function AdultSurveillanceOverviewRoute() {
 			<header className="grid gap-1.5">
 				<div className="flex items-center gap-2 text-muted-foreground">
 					<AdultIcon aria-hidden="true" className="size-4" />
-					<span className="font-medium text-xs uppercase tracking-wide">Adult surveillance</span>
+					<span className="font-medium text-xs uppercase tracking-wide">
+						Surveillance &amp; mapping
+					</span>
 				</div>
 				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Surveillance Overview
+					Adult Surveillance
 				</h1>
 				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-					Recent collection activity, species identified across your traps, and the collections
-					waiting on identification or flagged for attention.
+					Collection activity across your traps, the species composition in what they caught, and
+					the collections still awaiting identification or flagged with a problem.
 				</p>
 			</header>
 

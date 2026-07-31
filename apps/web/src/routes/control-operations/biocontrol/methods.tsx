@@ -20,7 +20,7 @@ function BiocontrolMethodsRoute() {
 			collection={webCollections.biocontrolMethods}
 			collectionKey="biocontrolMethods"
 			customFieldsDescription="Add fields your crews record on every release — stocking rate, agent life stage, or source hatchery."
-			description="The living controls your agency releases against mosquitoes — mosquitofish stocking, copepods, Bti-producing agents, and the like."
+			description="The living controls your agency releases against mosquitoes — mosquitofish stocking, larvivorous fish, predacious copepods, and the like."
 			emptyDescription="Add the biocontrol methods your agency releases so crews can record them in the field."
 			icon={BiocontrolIcon}
 			namePlaceholder="e.g. Mosquitofish stocking"

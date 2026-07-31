@@ -121,7 +121,8 @@ export function LarvalEntryPolicyGuide({
 			<div className="grid gap-1">
 				<strong className="text-[0.92rem] text-foreground">Inspection entry mode</strong>
 				<p className="m-0 text-[0.84rem] leading-snug text-muted-foreground">
-					This controls whether larval inspection forms collect density, counts and dips, or both.
+					This controls whether larval inspection forms collect a density category, a dip count, or
+					both.
 				</p>
 			</div>
 			<div className="grid gap-2 md:grid-cols-3">

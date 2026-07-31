@@ -130,9 +130,9 @@ function HabitatTypesRoute() {
 							Habitat Types
 						</h1>
 						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
-							Habitat types classify the larval sites your crews inspect — catch basins, ponds,
-							ditches, and more. Manage the labels and any custom fields your agency records against
-							them.
+							Habitat types classify the larval sites your crews inspect — catch basins, storm
+							drains, ditches, tire piles, and the rest. Manage the labels and any custom fields
+							your agency records against them.
 						</p>
 					</div>
 				</div>

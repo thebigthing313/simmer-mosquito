@@ -20,7 +20,7 @@ function SourceReductionMethodsRoute() {
 			collection={webCollections.sourceReductionMethods}
 			collectionKey="sourceReductionMethods"
 			customFieldsDescription="Extra details crews should capture for this method — container type, tire count, ditch length, and so on."
-			description="How your crews physically eliminate breeding sources: dumping containers, removing tires, ditching, clearing culverts, and similar work."
+			description="How your crews physically eliminate larval habitat — dumping containers, removing tires, ditching, clearing culverts, and similar work."
 			emptyDescription="Source reduction methods name the physical work that removes standing water — dumping containers, tire removal, ditching, culvert clearing."
 			icon={SourceReductionIcon}
 			namePlaceholder="e.g. Container dumping"

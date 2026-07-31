@@ -74,14 +74,16 @@ function LarvalSurveillanceOverviewRoute() {
 			<header className="grid gap-1.5">
 				<div className="flex items-center gap-2 text-muted-foreground">
 					<LarvalIcon aria-hidden="true" className="size-4" />
-					<span className="font-medium text-xs uppercase tracking-wide">Larval surveillance</span>
+					<span className="font-medium text-xs uppercase tracking-wide">
+						Surveillance &amp; mapping
+					</span>
 				</div>
 				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Surveillance Overview
+					Larval Surveillance
 				</h1>
 				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-					Recent inspection activity, species identified in samples, and the finds that need
-					attention across your habitats.
+					Inspection activity across your habitats, the species your samples identified, and the
+					habitats where larval density came back heavy.
 				</p>
 			</header>
 

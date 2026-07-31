@@ -408,7 +408,12 @@ export function ApplicationFormPage({
 								<div className="grid gap-5 sm:grid-cols-2">
 									<form.AppField name="amountApplied">
 										{(field) => (
-											<field.NumberField label="Amount applied" min={0} placeholder="e.g. 12" />
+											<field.NumberField
+												description="Total product applied across the treated area."
+												label="Amount applied"
+												min={0}
+												placeholder="e.g. 12"
+											/>
 										)}
 									</form.AppField>
 									<form.AppField name="applicationUnitId">

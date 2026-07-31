@@ -74,12 +74,25 @@ const people: Elsewhere = {
 	to: '/my-organization/people',
 	icon: iconRegistry.entities.organization.icon,
 };
+const collections: Elsewhere = {
+	label: 'Collections',
+	description: 'What your traps caught, by species and trap night',
+	to: '/adult-surveillance/collections',
+	icon: iconRegistry.domains.adultSurveillance.icon,
+};
+const insecticides: Elsewhere = {
+	label: 'Insecticides',
+	description: 'Products, active ingredients, and the lots crews draw from',
+	to: '/control-operations/chemical/insecticides',
+	icon: iconRegistry.entities.insecticide.icon,
+};
 
 /**
  * Per-route copy for the sections that are wired but not built.
  *
- * Every entry is written from the domain docs rather than invented, and
- * `elsewhere` only ever points at routes that actually exist — linking one
+ * Every entry is written from the domain docs rather than invented — the two
+ * surveillance entries from the AMCA IMM chapters they implement — and
+ * `elsewhere` only ever points at routes that actually exist. Linking one
  * unbuilt section to another is how a placeholder becomes a maze.
  */
 const CONTENT: Readonly<Record<string, UpcomingContent>> = {
@@ -137,6 +150,28 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 			'Sourcing mission items directly from an open request',
 		],
 		elsewhere: [serviceRequests, controlOverview, larvalOverview],
+	},
+	'/adult-surveillance/arbovirus-surveillance': {
+		title: 'Arbovirus Surveillance',
+		summary:
+			'Testing the environment for arboviruses: mosquito pools, sentinel flocks, dead birds, and the results that come back.',
+		willLand: [
+			'Mosquito pools sorted by species, trap location, and collection date, tracked from submission through laboratory result',
+			'Infection rate and vector index calculated against the trap nights the pool came from',
+			'Positive detections on the map beside the collections and habitats that produced them',
+		],
+		elsewhere: [collections, adultOverview, trapRoutes],
+	},
+	'/control-operations/resistance-monitoring': {
+		title: 'Resistance Monitoring',
+		summary:
+			'Susceptibility testing for local mosquito populations, tracked by active ingredient and season.',
+		willLand: [
+			'Bottle bioassay results per population and active ingredient, with concentration, diagnostic time, and percent mortality',
+			'Susceptibility trended across seasons and regions',
+			'Product rotation informed by which active ingredients still perform locally',
+		],
+		elsewhere: [insecticides, controlOverview, adultOverview],
 	},
 };
 

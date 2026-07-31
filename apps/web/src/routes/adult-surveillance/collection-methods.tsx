@@ -121,9 +121,9 @@ function CollectionMethodsRoute() {
 							Collection Methods
 						</h1>
 						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
-							Collection methods describe how your crews catch adult mosquitoes — light traps,
-							gravid traps, resting boxes, and more. Manage the labels, action thresholds, and any
-							custom fields recorded against them.
+							Collection methods describe how your crews catch adult mosquitoes — light traps with
+							and without attractant, gravid traps, resting traps, and emergence traps. Manage the
+							labels, action thresholds, and any custom fields recorded against them.
 						</p>
 					</div>
 				</div>
@@ -584,7 +584,7 @@ function CollectionMethodDialog({
 							<form.AppField name="actionThreshold">
 								{(field) => (
 									<field.NumberField
-										description="Mosquito count at or above this number should be treated as needing follow-up. Leave blank when the method has no count trigger."
+										description="The count at or above which collections made this way warrant a response. Leave blank when the method has no count trigger."
 										emptyValue={null}
 										label="Action threshold"
 										min={0}

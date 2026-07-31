@@ -27,21 +27,30 @@ type LandingCapability = {
 	readonly detail: string;
 };
 
+/**
+ * The three capabilities are the three integrated mosquito management tactics
+ * SIMMER covers today, ordered the way a program runs them. Copy stays
+ * descriptive: the reader runs a mosquito control agency and does not need the
+ * value of surveillance explained back to them.
+ */
 const CAPABILITIES: readonly LandingCapability[] = [
 	{
 		icon: SurveillanceIcon,
-		title: 'Surveillance in the field',
-		detail: 'Larval and adult populations tracked across every habitat and trap.',
+		title: 'Surveillance',
+		detail:
+			'Larval and adult populations tracked per habitat, trap, and collection, against your action thresholds.',
 	},
 	{
 		icon: ControlIcon,
-		title: 'Control operations, coordinated',
-		detail: 'Treatments, source reduction, and biocontrol planned where the work happens.',
+		title: 'Control operations',
+		detail:
+			'Source reduction, biocontrol, and insecticide applications recorded with product, rate, and treated area.',
 	},
 	{
 		icon: EngagementIcon,
-		title: 'Public requests to dispatch',
-		detail: 'Service requests routed from residents straight into field work.',
+		title: 'Community engagement',
+		detail:
+			'Service requests and the contacts behind them, kept alongside the field data they belong to.',
 	},
 ];
 
@@ -67,22 +76,26 @@ function LandingStage() {
 	return (
 		<section className="landing-stage relative isolate flex flex-col overflow-hidden px-8 py-10 text-white sm:px-10 sm:py-12 lg:min-h-screen lg:px-14 lg:py-14">
 			<div className="landing-rise relative z-10 flex flex-1 flex-col justify-between gap-9 lg:gap-14">
-				<img
-					src="/logo.svg"
-					alt="SIMMER"
-					width={248}
-					height={122}
-					className="landing-logo w-[190px] max-w-[58%] lg:w-[240px]"
-				/>
+				<div className="grid gap-3">
+					<img
+						src="/logo.svg"
+						alt="SIMMER"
+						width={248}
+						height={122}
+						className="landing-logo w-[190px] max-w-[58%] lg:w-[240px]"
+					/>
+					<p className="m-0 max-w-[34ch] text-[0.72rem] font-medium uppercase leading-snug tracking-[0.14em] text-simmer-green-100/80">
+						Strategic Integrated Mosquito Management Enterprise Resources
+					</p>
+				</div>
 
 				<div className="flex flex-col justify-center gap-6 lg:gap-7">
-					<h1 className="m-0 max-w-[16ch] text-balance font-bold text-[clamp(1.95rem,1.2rem+2.4vw,2.9rem)] leading-[1.08] tracking-[-0.02em]">
-						Run mosquito control from one living map.
+					<h1 className="m-0 max-w-[18ch] text-balance font-bold text-[clamp(1.95rem,1.2rem+2.4vw,2.9rem)] leading-[1.08] tracking-[-0.02em]">
+						Integrated mosquito management, on one living map.
 					</h1>
 					<p className="m-0 max-w-[48ch] text-pretty text-[1.02rem] leading-relaxed text-simmer-green-100">
-						Surveillance, field operations, and public requests stay tied to the ground they happen
-						on — so your team sees what needs attention next, and acts on it without leaving the
-						map.
+						Surveillance, control operations, and public requests stay tied to the ground they
+						happen on, so every decision rests on the data your program collected.
 					</p>
 
 					<ul className="m-0 mt-1 grid list-none gap-4 p-0">
@@ -104,8 +117,9 @@ function LandingStage() {
 					</ul>
 				</div>
 
-				<p className="m-0 text-[0.85rem] leading-normal text-simmer-green-100/90">
-					Built for the mosquito control and surveillance agencies that keep communities protected.
+				<p className="m-0 max-w-[52ch] text-[0.85rem] leading-normal text-simmer-green-100/90">
+					Built around the five tactics of integrated mosquito management, for the agencies that
+					keep communities protected.
 				</p>
 			</div>
 		</section>
