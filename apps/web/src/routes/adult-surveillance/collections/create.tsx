@@ -15,7 +15,7 @@ import {
 } from '../../../components/additional-personnel';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { attachLinksBestEffort } from '../../../sync/reconcile-links';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -136,7 +136,7 @@ function CreateCollectionRoute() {
 			await settleWrite(transaction);
 			// Crew rows reference the collection, so they can only be written once it
 			// exists.
-			await attachLinksBestEffort(() =>
+			await attachLinksBestEffort('the additional personnel', () =>
 				saveAdditionalPersonnel({
 					target: { type: 'collection', id: row.id },
 					organizationId: organization.id,

@@ -13,22 +13,6 @@ export interface LinkReconciliation<TRow> {
 	readonly additions: readonly string[];
 }
 
-/**
- * Run a record's link writes without letting them block the save.
- *
- * On create the parent row is already committed by the time its links are
- * written, so a link failure must not strand the user on a form for a record
- * that exists — they would only be able to retry into a duplicate-id insert.
- * Links are editable from the record itself, so the save moves on.
- */
-export async function attachLinksBestEffort(write: () => Promise<void>): Promise<void> {
-	try {
-		await write();
-	} catch {
-		// Intentionally swallowed — see above.
-	}
-}
-
 export function reconcileLinks<TRow>(
 	existing: readonly TRow[],
 	keyOf: (row: TRow) => string,

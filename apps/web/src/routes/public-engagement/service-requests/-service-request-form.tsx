@@ -27,6 +27,7 @@ import {
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import { useAppForm } from '../../../forms';
+import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
 export type ContactMode = 'existing' | 'new';
 export type AddressMode = 'existing' | 'new';
@@ -151,7 +152,15 @@ export function ServiceRequestFormPage({
 	});
 	const { start } = draw;
 
-	const activeProfiles = useMemo(() => profiles.filter((profile) => profile.isActive), [profiles]);
+	const profileOptions = useMemo(
+		() =>
+			lifecycleOptions(
+				profiles,
+				(profile) => profile.isActive,
+				(profile) => profile.displayName,
+			),
+		[profiles],
+	);
 
 	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
 
@@ -293,10 +302,7 @@ export function ServiceRequestFormPage({
 									{(field) => (
 										<field.SelectField
 											label="Received by"
-											options={activeProfiles.map((profile) => ({
-												label: profile.displayName,
-												value: profile.id,
-											}))}
+											options={profileOptions}
 											placeholder="Select a profile"
 										/>
 									)}

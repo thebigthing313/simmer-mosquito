@@ -7,7 +7,7 @@ import {
 } from '../../../components/additional-personnel';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { attachLinksBestEffort } from '../../../sync/reconcile-links';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -77,7 +77,7 @@ function CreateInspectionRoute() {
 
 			// Crew rows reference the inspection, so they can only be written once it
 			// exists.
-			await attachLinksBestEffort(() =>
+			await attachLinksBestEffort('the additional personnel', () =>
 				saveAdditionalPersonnel({
 					target: { type: 'inspection', id: row.id },
 					organizationId: organization.id,
@@ -192,10 +192,10 @@ async function addInspectionComment(
 		createdAt: context.now,
 		updatedAt: context.now,
 	};
-	try {
-		await settleWrite(webCollections.comments.insert(comment));
-	} catch {
-		// Best-effort: the inspection is already saved, and the comment can be added
-		// from its detail page. Don't block navigation on a comment failure.
-	}
+	// Same bind as the crew rows: the inspection is already saved, so a failed
+	// comment cannot fail the save — but the note the user typed is not on the
+	// record, so it is reported rather than dropped.
+	await attachLinksBestEffort('the note', () =>
+		settleWrite(webCollections.comments.insert(comment)),
+	);
 }

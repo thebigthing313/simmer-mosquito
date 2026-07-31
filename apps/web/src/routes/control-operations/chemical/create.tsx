@@ -16,7 +16,7 @@ import {
 } from '../../../components/additional-personnel';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { attachLinksBestEffort } from '../../../sync/reconcile-links';
+import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { saveApplicationBatches, useApplicationBatches } from './-application-batches';
@@ -121,9 +121,10 @@ function CreateApplicationRoute() {
 			const transaction = webCollections.applications.insert(row, { metadata: { locationSource } });
 			await settleWrite(transaction);
 			// Crew and batches are separate rows that reference the application, so
-			// they can only be written once it exists.
-			await attachLinksBestEffort(async () => {
-				await Promise.all([
+			// they can only be written once it exists. Reported one at a time, so a
+			// failure names which of the two did not land.
+			await Promise.all([
+				attachLinksBestEffort('the additional personnel', () =>
 					saveAdditionalPersonnel({
 						target: { type: 'application', id: row.id },
 						organizationId: organization.id,
@@ -131,6 +132,8 @@ function CreateApplicationRoute() {
 						existing: [],
 						profileIds: values.additionalPersonnelIds,
 					}),
+				),
+				attachLinksBestEffort('the batches', () =>
 					saveApplicationBatches({
 						applicationId: row.id,
 						organizationId: organization.id,
@@ -138,8 +141,8 @@ function CreateApplicationRoute() {
 						existing: [],
 						insecticideBatchIds: values.insecticideBatchIds,
 					}),
-				]);
-			});
+				),
+			]);
 			await navigate({ to: '/control-operations/chemical/$id', params: { id: row.id } });
 		},
 		[organization, actorProfileId, applicationId, navigate],
