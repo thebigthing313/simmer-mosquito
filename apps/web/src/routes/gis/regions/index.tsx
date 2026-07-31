@@ -9,14 +9,6 @@ import {
 	CollapsibleTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/collapsible';
 import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@simmer-mosquito/ui-web/components/ui/dialog';
-import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
@@ -24,7 +16,6 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	ChevronDownIcon,
@@ -48,6 +39,7 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
+import { RegionFolderDialog } from './-folder-dialog';
 import { RegionMapCard } from './-region-map-card';
 
 export const Route = createFileRoute('/gis/regions/')({
@@ -409,7 +401,7 @@ function RegionsExplorerRoute() {
 				)}
 			</div>
 			{folderDialog === null ? null : (
-				<FolderDialog
+				<RegionFolderDialog
 					actorProfileId={actorProfileId}
 					folder={folderDialog === 'new' ? null : folderDialog}
 					onClose={() => setFolderDialog(null)}
@@ -799,125 +791,6 @@ function RegionRenameField({
 			}}
 			value={value}
 		/>
-	);
-}
-
-/**
- * One dialog for both folder writes — `folder === null` creates, otherwise it
- * edits in place. The caller mounts it only while open, so the fields start from
- * the folder being edited without a sync-back effect.
- */
-function FolderDialog({
-	organizationId,
-	actorProfileId,
-	folder,
-	onClose,
-}: {
-	readonly organizationId: string;
-	readonly actorProfileId: string | null;
-	readonly folder: RegionFolderRow | null;
-	readonly onClose: () => void;
-}) {
-	const [name, setName] = useState(folder?.name ?? '');
-	const [description, setDescription] = useState(folder?.description ?? '');
-	const [error, setError] = useState<string | null>(null);
-	const [isSaving, setIsSaving] = useState(false);
-
-	const canSave = organizationId.length > 0 && name.trim().length > 0;
-
-	const onSave = useCallback(async () => {
-		if (!canSave) {
-			return;
-		}
-		setIsSaving(true);
-		setError(null);
-		const trimmedName = name.trim();
-		const trimmedDescription = description.trim();
-		const nextDescription = trimmedDescription.length === 0 ? null : trimmedDescription;
-		const now = new Date().toISOString();
-		try {
-			if (folder === null) {
-				const row: RegionFolderRow = {
-					id: crypto.randomUUID(),
-					organizationId,
-					name: trimmedName,
-					description: nextDescription,
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				};
-				await settleWrite(webCollections.regionFolders.insert(row));
-			} else {
-				await settleWrite(
-					webCollections.regionFolders.update(folder.id, (draft) => {
-						const writable = draft as {
-							-readonly [K in keyof RegionFolderRow]: RegionFolderRow[K];
-						};
-						writable.name = trimmedName;
-						writable.description = nextDescription;
-						if (actorProfileId !== null) {
-							writable.updatedByProfileId = actorProfileId;
-						}
-						writable.updatedAt = now;
-					}),
-				);
-			}
-			onClose();
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save folder.');
-		} finally {
-			setIsSaving(false);
-		}
-	}, [canSave, organizationId, name, description, actorProfileId, folder, onClose]);
-
-	const isEdit = folder !== null;
-
-	return (
-		<Dialog
-			onOpenChange={(open) => {
-				if (!open) {
-					onClose();
-				}
-			}}
-			open
-		>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>{isEdit ? 'Edit Region Folder' : 'New Region Folder'}</DialogTitle>
-					<DialogDescription>Group related regions under a named folder.</DialogDescription>
-				</DialogHeader>
-				<div className="grid gap-4">
-					<div className="grid gap-1.5">
-						<Label htmlFor="folder-name">Name</Label>
-						<Input
-							id="folder-name"
-							onChange={(event) => setName(event.target.value)}
-							placeholder="e.g. Districts"
-							value={name}
-						/>
-					</div>
-					<div className="grid gap-1.5">
-						<Label htmlFor="folder-description">Description</Label>
-						<Input
-							id="folder-description"
-							onChange={(event) => setDescription(event.target.value)}
-							placeholder="What this folder groups"
-							value={description}
-						/>
-					</div>
-					{error === null ? null : <p className="m-0 text-destructive text-sm">{error}</p>}
-				</div>
-				<DialogFooter>
-					<Button onClick={onClose} type="button" variant="ghost">
-						Cancel
-					</Button>
-					<Button disabled={!canSave || isSaving} onClick={onSave} type="button">
-						{isEdit ? 'Save Folder' : 'Create Folder'}
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
 	);
 }
 

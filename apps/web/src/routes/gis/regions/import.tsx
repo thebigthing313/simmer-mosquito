@@ -13,7 +13,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@simmer-mosquito/ui-web/components/ui/select';
-import { ArrowLeftIcon, iconRegistry, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	ArrowLeftIcon,
+	iconRegistry,
+	Loader2Icon,
+	PlusIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
@@ -25,6 +30,7 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isTxIdConfirmationTimeout } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
+import { RegionFolderDialog } from './-folder-dialog';
 import { type ImportPolygon, MAX_POLYGONS, parseRegionsFromFile } from './-import-parse';
 
 export const Route = createFileRoute('/gis/regions/import')({
@@ -33,6 +39,7 @@ export const Route = createFileRoute('/gis/regions/import')({
 
 const UploadIcon = iconRegistry.actions.upload.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
+const ShowOnMapIcon = iconRegistry.actions.locate.icon;
 const UNFILED = 'unfiled';
 
 /** How many region writes to keep in flight at once during an import. */
@@ -97,6 +104,7 @@ function ImportRegionsRoute() {
 	const [progress, setProgress] = useState<ImportProgress | null>(null);
 	const [pendingSync, setPendingSync] = useState(0);
 	const [importErrors, setImportErrors] = useState<readonly string[]>([]);
+	const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
 	const canImport =
@@ -340,19 +348,29 @@ function ImportRegionsRoute() {
 							<>
 								<div className="grid gap-1.5">
 									<Label htmlFor="import-folder">Import into folder</Label>
-									<Select onValueChange={setFolderId} value={folderId}>
-										<SelectTrigger className="w-full" id="import-folder">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value={UNFILED}>Unfiled</SelectItem>
-											{folders.map((folder) => (
-												<SelectItem key={folder.id} value={folder.id}>
-													{folder.name}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+									<div className="flex items-center gap-2">
+										<Select onValueChange={setFolderId} value={folderId}>
+											<SelectTrigger className="flex-1" id="import-folder">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value={UNFILED}>Unfiled</SelectItem>
+												{folders.map((folder) => (
+													<SelectItem key={folder.id} value={folder.id}>
+														{folder.name}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+										<Button
+											onClick={() => setIsCreatingFolder(true)}
+											type="button"
+											variant="outline"
+										>
+											<PlusIcon aria-hidden="true" data-icon="inline-start" />
+											New Folder
+										</Button>
+									</div>
 								</div>
 
 								<div className="grid gap-2">
@@ -364,7 +382,7 @@ function ImportRegionsRoute() {
 											{items.length}
 										</Badge>
 									</div>
-									<ul className="grid gap-2">
+									<ul className="grid gap-1">
 										{items.map((item, index) => (
 											<ImportRow
 												index={index}
@@ -426,29 +444,37 @@ function ImportRegionsRoute() {
 										/>
 									</div>
 								)}
-
-								<div className="flex justify-end gap-2 border-border/50 border-t pt-5">
-									<Button asChild type="button" variant="ghost">
-										<Link to="/gis/regions">Cancel</Link>
-									</Button>
-									<Button disabled={!canImport} onClick={runImport} type="button">
-										{isImporting ? (
-											<Loader2Icon
-												aria-hidden="true"
-												className="animate-spin"
-												data-icon="inline-start"
-											/>
-										) : null}
-										{isImporting && progress !== null
-											? `Importing ${progress.done} of ${progress.total}…`
-											: `Import ${items.length} ${items.length === 1 ? 'region' : 'regions'}`}
-									</Button>
-								</div>
 							</>
 						)}
 					</div>
 				</div>
+
+				{/* Outside the scroll area so a long polygon list never buries the actions. */}
+				{items.length === 0 ? null : (
+					<footer className="flex justify-end gap-2 border-border/50 border-t bg-background px-5 py-4">
+						<Button asChild type="button" variant="ghost">
+							<Link to="/gis/regions">Cancel</Link>
+						</Button>
+						<Button disabled={!canImport} onClick={runImport} type="button">
+							{isImporting ? (
+								<Loader2Icon aria-hidden="true" className="animate-spin" data-icon="inline-start" />
+							) : null}
+							{isImporting && progress !== null
+								? `Importing ${progress.done} of ${progress.total}…`
+								: `Import ${items.length} ${items.length === 1 ? 'region' : 'regions'}`}
+						</Button>
+					</footer>
+				)}
 			</div>
+			{isCreatingFolder ? (
+				<RegionFolderDialog
+					actorProfileId={actorProfileId}
+					folder={null}
+					onClose={() => setIsCreatingFolder(false)}
+					onSaved={setFolderId}
+					organizationId={organizationId}
+				/>
+			) : null}
 		</MapSplitPage>
 	);
 }
@@ -468,34 +494,35 @@ function ImportRow({
 	readonly onDelete: () => void;
 	readonly onSelect: () => void;
 }) {
-	const vertexCount = Math.max((item.geometry.coordinates[0]?.length ?? 1) - 1, 0);
 	return (
-		<li
-			className={cn(
-				'grid grid-cols-[1fr_auto] items-center gap-2 rounded-md border p-2',
-				isSelected ? 'border-primary/50 bg-primary/5' : 'border-border/50',
-			)}
-		>
-			<div className="grid min-w-0 gap-1">
-				<Input
-					aria-label={`Name for polygon ${index + 1}`}
-					onChange={(event) => onRename(event.target.value)}
-					onFocus={onSelect}
-					value={item.name}
-				/>
-				<button
-					className="w-fit text-left text-muted-foreground text-xs hover:text-foreground"
-					onClick={onSelect}
-					type="button"
-				>
-					{vertexCount} vertices · show on map
-				</button>
-			</div>
+		<li className="flex items-center gap-1">
+			<Input
+				aria-label={`Name for polygon ${index + 1}`}
+				className={cn('min-w-0 flex-1', isSelected ? 'border-primary/60 bg-primary/5' : null)}
+				onChange={(event) => onRename(event.target.value)}
+				onFocus={onSelect}
+				value={item.name}
+			/>
+			<Button
+				aria-label={`Show ${item.name} on the map`}
+				className={cn(
+					'text-muted-foreground hover:text-foreground',
+					isSelected ? 'text-primary' : null,
+				)}
+				onClick={onSelect}
+				size="icon"
+				title="Show on the Map"
+				type="button"
+				variant="ghost"
+			>
+				<ShowOnMapIcon aria-hidden="true" />
+			</Button>
 			<Button
 				aria-label={`Remove ${item.name}`}
 				className="text-muted-foreground hover:text-destructive"
 				onClick={onDelete}
 				size="icon"
+				title="Remove"
 				type="button"
 				variant="ghost"
 			>
