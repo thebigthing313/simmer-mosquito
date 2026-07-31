@@ -21,7 +21,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { registerAdminFoundationRoutes } from './admin-foundations.js';
 import { registerAdminInvitationRoutes } from './admin-invitations.js';
-import { registerAdultSurveillanceCommandRoutes } from './adult-surveillance-commands.js';
+import { registerAdultSurveillanceCommandRoutes } from './adult-surveillance-commands/index.js';
 import {
 	resolveAuthContext,
 	toAuthFailureBody,
@@ -37,23 +37,23 @@ import {
 import { registerAuthUserRoutes } from './auth-user-commands.js';
 import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
 import { registerControlMethodCommandRoutes } from './control-method-commands.js';
-import { registerControlOperationsCommandRoutes } from './control-operations-commands.js';
+import { registerControlOperationsCommandRoutes } from './control-operations-commands/index.js';
 import { registerControlProductCommandRoutes } from './control-product-commands.js';
 import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
 import { createDevSessionProvider } from './dev-impersonation.js';
 import { readServerEnv } from './env.js';
-import { registerFieldWorkCommandRoutes } from './field-work-commands.js';
-import { registerFoundationCommandRoutes } from './foundation-commands.js';
-import { registerFoundationGeographyCommandRoutes } from './foundation-geography-commands.js';
+import { registerFieldWorkCommandRoutes } from './field-work-commands/index.js';
+import { registerFoundationCommandRoutes } from './foundation-commands/index.js';
+import { registerFoundationGeographyCommandRoutes } from './foundation-geography-commands/index.js';
 import { registerGeocoderRoutes } from './geocoder.js';
-import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands.js';
+import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands/index.js';
 import { registerMapTileRoutes } from './map-tiles.js';
-import { registerMissionDispatchCommandRoutes } from './mission-dispatch-commands.js';
+import { registerMissionDispatchCommandRoutes } from './mission-dispatch-commands/index.js';
 import { registerOrganizationCommandRoutes } from './organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
-import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands.js';
+import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands/index.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 

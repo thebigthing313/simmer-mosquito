@@ -1,0 +1,643 @@
+import { type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import {
+	type AdultCollectionLocationSourceInput,
+	type AdultSurveillanceCommand,
+	type CollectedCollectionTiming,
+	type CollectionTiming,
+	cancelPendingCollectionCommand,
+	clearCollectionZeroResultCommand,
+	collectCollectionCommand,
+	deleteCollectionCommand,
+	markCollectionZeroResultCommand,
+	recordCollectedAdHocCollectionCommand,
+	recordCollectedTrapCollectionCommand,
+	setAdHocCollectionCommand,
+	setCollectionBycatchCommand,
+	setTrapCollectionCommand,
+	updateAdHocCollectionConfigurationCommand,
+	updateCollectionFieldDetailsCommand,
+} from '@simmer-mosquito/domain';
+import type { Hono, MiddlewareHandler } from 'hono';
+import type { AuthContext } from '../auth-context.js';
+import type { AuthVariables } from '../auth-middleware.js';
+import {
+	type AdultSurveillanceDb,
+	type AdultSurveillanceTransaction,
+	agencyCommandContext,
+	type CollectionInsertInput,
+	type CollectionTimingColumns,
+	type CollectionUpdateColumns,
+	type CommandContext,
+	collectionReturnColumns,
+	createCommand,
+	geojsonToGeom,
+	handleCommandError,
+	hasTimingFields,
+	type InvalidCommandBody,
+	invalidUpdate,
+	isCollectedTiming,
+	loadTrapSnapshot,
+	localDateColumn,
+	pendingStartedAt,
+	readCollectionTiming,
+	readCurrentTransactionId,
+	readDate,
+	readJsonObject,
+	readNullableText,
+	readOptionalJsonObject,
+	readText,
+	resolveLocationGeom,
+	type SafeCollection,
+	toSafeCollection,
+} from './shared.js';
+
+// ---------------------------------------------------------------------------
+// Collections
+// ---------------------------------------------------------------------------
+
+export function registerCollectionRoutes(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: {
+		readonly db: AdultSurveillanceDb;
+		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	},
+): void {
+	app.post('/adult-surveillance/collections', options.authContextMiddleware, async (context) => {
+		const raw = await readJsonObject(context.req);
+		if (!raw.ok) {
+			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
+		}
+
+		const commandResult = buildCollectionCreateCommand(context.get('authContext'), raw.payload);
+		if (!commandResult.ok) {
+			return context.json(commandResult.body, 400);
+		}
+
+		return runCollectionCommands(context, options.db, [commandResult.command], 201);
+	});
+
+	app.patch(
+		'/adult-surveillance/collections/:collectionId',
+		options.authContextMiddleware,
+		async (context) => {
+			const raw = await readJsonObject(context.req);
+			if (!raw.ok) {
+				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
+			}
+
+			const commandsResult = buildCollectionUpdateCommands(
+				context.get('authContext'),
+				context.req.param('collectionId'),
+				raw.payload,
+			);
+			if (!commandsResult.ok) {
+				return context.json(commandsResult.body, 400);
+			}
+
+			return runCollectionCommands(context, options.db, commandsResult.commands);
+		},
+	);
+
+	app.post(
+		'/adult-surveillance/collections/:collectionId/collect',
+		options.authContextMiddleware,
+		async (context) => {
+			const raw = await readJsonObject(context.req);
+			if (!raw.ok) {
+				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
+			}
+
+			const ctx = agencyCommandContext(context.get('authContext'));
+			const commandResult = createCommand(() =>
+				collectCollectionCommand({
+					...ctx,
+					collectionId: context.req.param('collectionId'),
+					collectedAt: readDate(raw.payload.collectedAt) ?? new Date(Number.NaN),
+					collectedByProfileId: readNullableText(raw.payload.collectedByProfileId),
+					hasProblem: raw.payload.hasProblem === true,
+					metadata: raw.payload.metadata ?? null,
+				}),
+			);
+			if (!commandResult.ok) {
+				return context.json(commandResult.body, 400);
+			}
+
+			return runCollectionCommands(context, options.db, [commandResult.command]);
+		},
+	);
+
+	app.post(
+		'/adult-surveillance/collections/:collectionId/cancel',
+		options.authContextMiddleware,
+		async (context) => {
+			const ctx = agencyCommandContext(context.get('authContext'));
+			const commandResult = createCommand(() =>
+				cancelPendingCollectionCommand({
+					...ctx,
+					collectionId: context.req.param('collectionId'),
+				}),
+			);
+			if (!commandResult.ok) {
+				return context.json(commandResult.body, 400);
+			}
+
+			return runCollectionCommands(context, options.db, [commandResult.command]);
+		},
+	);
+
+	app.delete(
+		'/adult-surveillance/collections/:collectionId',
+		options.authContextMiddleware,
+		async (context) => {
+			const raw = await readOptionalJsonObject(context.req);
+			const ctx = agencyCommandContext(context.get('authContext'));
+			const commandResult = createCommand(() =>
+				deleteCollectionCommand({
+					...ctx,
+					collectionId: context.req.param('collectionId'),
+					acknowledgedSpeciesCountDeletion: raw?.acknowledgedSpeciesCountDeletion !== false,
+				}),
+			);
+			if (!commandResult.ok) {
+				return context.json(commandResult.body, 400);
+			}
+
+			return runCollectionCommands(context, options.db, [commandResult.command]);
+		},
+	);
+}
+
+function buildCollectionCreateCommand(
+	authContext: AuthContext,
+	payload: Record<string, unknown>,
+):
+	| { readonly ok: true; readonly command: AdultSurveillanceCommand }
+	| { readonly ok: false; readonly body: InvalidCommandBody } {
+	const ctx = agencyCommandContext(authContext);
+	const collectionId = readText(payload.id) ?? '';
+	const timing = readCollectionTiming(payload);
+	const collected = isCollectedTiming(timing);
+	const trapId = readNullableText(payload.trapId);
+	const metadata = payload.metadata ?? null;
+	const setByProfileId = readNullableText(payload.setByProfileId);
+
+	if (trapId !== null) {
+		if (collected) {
+			return createCommand(() =>
+				recordCollectedTrapCollectionCommand({
+					...ctx,
+					collectionId,
+					trapId,
+					timing: timing as CollectedCollectionTiming,
+					setByProfileId,
+					collectedByProfileId: readNullableText(payload.collectedByProfileId),
+					hasProblem: payload.hasProblem === true,
+					acknowledgedPendingTrapCollection: true,
+					metadata,
+				}),
+			);
+		}
+		return createCommand(() =>
+			setTrapCollectionCommand({
+				...ctx,
+				collectionId,
+				trapId,
+				startedAt: pendingStartedAt(timing),
+				setByProfileId,
+				metadata,
+			}),
+		);
+	}
+
+	const collectionMethodId = readText(payload.collectionMethodId) ?? '';
+	const locationSource = payload.locationSource as AdultCollectionLocationSourceInput;
+	const collectionLureId = readNullableText(payload.collectionLureId);
+	const addressId = readNullableText(payload.addressId);
+
+	if (collected) {
+		return createCommand(() =>
+			recordCollectedAdHocCollectionCommand({
+				...ctx,
+				collectionId,
+				collectionMethodId,
+				locationSource,
+				collectionLureId,
+				addressId,
+				timing: timing as CollectedCollectionTiming,
+				setByProfileId,
+				collectedByProfileId: readNullableText(payload.collectedByProfileId),
+				hasProblem: payload.hasProblem === true,
+				metadata,
+			}),
+		);
+	}
+
+	return createCommand(() =>
+		setAdHocCollectionCommand({
+			...ctx,
+			collectionId,
+			collectionMethodId,
+			locationSource,
+			collectionLureId,
+			addressId,
+			startedAt: pendingStartedAt(timing),
+			setByProfileId,
+			metadata,
+		}),
+	);
+}
+
+function buildCollectionUpdateCommands(
+	authContext: AuthContext,
+	collectionId: string,
+	payload: Record<string, unknown>,
+):
+	| { readonly ok: true; readonly commands: readonly AdultSurveillanceCommand[] }
+	| { readonly ok: false; readonly body: InvalidCommandBody } {
+	const ctx = agencyCommandContext(authContext);
+	const commands: AdultSurveillanceCommand[] = [];
+
+	const hasMethod = 'collectionMethodId' in payload;
+	const hasLocation = 'locationSource' in payload;
+	const hasLure = 'collectionLureId' in payload;
+	const hasAddress = 'addressId' in payload;
+	if (hasMethod || hasLocation || hasLure || hasAddress) {
+		const result = createCommand(() =>
+			updateAdHocCollectionConfigurationCommand({
+				...ctx,
+				collectionId,
+				...(hasMethod ? { collectionMethodId: readText(payload.collectionMethodId) ?? '' } : {}),
+				...(hasLocation
+					? { locationSource: payload.locationSource as AdultCollectionLocationSourceInput }
+					: {}),
+				...(hasLure ? { collectionLureId: readNullableText(payload.collectionLureId) } : {}),
+				...(hasAddress ? { addressId: readNullableText(payload.addressId) } : {}),
+			}),
+		);
+		if (!result.ok) {
+			return result;
+		}
+		commands.push(result.command);
+	}
+
+	const hasTiming = hasTimingFields(payload);
+	const hasSetBy = 'setByProfileId' in payload;
+	const hasCollectedBy = 'collectedByProfileId' in payload;
+	const hasProblem = 'hasProblem' in payload;
+	const hasMetadata = 'metadata' in payload;
+	if (hasTiming || hasSetBy || hasCollectedBy || hasProblem || hasMetadata) {
+		const result = createCommand(() =>
+			updateCollectionFieldDetailsCommand({
+				...ctx,
+				collectionId,
+				...(hasTiming ? { timing: readCollectionTiming(payload) } : {}),
+				...(hasSetBy ? { setByProfileId: readNullableText(payload.setByProfileId) } : {}),
+				...(hasCollectedBy
+					? { collectedByProfileId: readNullableText(payload.collectedByProfileId) }
+					: {}),
+				...(hasProblem ? { hasProblem: payload.hasProblem === true } : {}),
+				...(hasMetadata ? { metadata: payload.metadata ?? null } : {}),
+			}),
+		);
+		if (!result.ok) {
+			return result;
+		}
+		commands.push(result.command);
+	}
+
+	if (typeof payload.isZeroResult === 'boolean') {
+		const result = createCommand(() =>
+			payload.isZeroResult
+				? markCollectionZeroResultCommand({
+						...ctx,
+						collectionId,
+						acknowledgedSpeciesCountsClearance: true,
+					})
+				: clearCollectionZeroResultCommand({ ...ctx, collectionId }),
+		);
+		if (!result.ok) {
+			return result;
+		}
+		commands.push(result.command);
+	}
+
+	if (typeof payload.hasBycatch === 'boolean') {
+		const result = createCommand(() =>
+			setCollectionBycatchCommand({
+				...ctx,
+				collectionId,
+				hasBycatch: payload.hasBycatch === true,
+			}),
+		);
+		if (!result.ok) {
+			return result;
+		}
+		commands.push(result.command);
+	}
+
+	if (commands.length === 0) {
+		return invalidUpdate('collection');
+	}
+
+	return { ok: true, commands };
+}
+
+async function runCollectionCommands(
+	context: CommandContext,
+	db: AdultSurveillanceDb,
+	commands: readonly AdultSurveillanceCommand[],
+	createdStatus?: 201,
+) {
+	try {
+		const result = await writeCollectionCommands(db, commands);
+		if (result.row === null) {
+			return context.json({ error: 'collection_not_found' }, 404);
+		}
+		return context.json({ collection: result.row, txid: result.txid }, createdStatus ?? 200);
+	} catch (error) {
+		return handleCommandError(context, error);
+	}
+}
+
+async function writeCollectionCommands(
+	db: AdultSurveillanceDb,
+	commands: readonly AdultSurveillanceCommand[],
+): Promise<MutationWriteResult<SafeCollection | null>> {
+	return db.transaction().execute(async (trx) => {
+		let row: SafeCollection | null = null;
+		for (const command of commands) {
+			row = await writeCollectionCommand(trx, command);
+		}
+		return { row, txid: await readCurrentTransactionId(trx) };
+	});
+}
+
+async function writeCollectionCommand(
+	trx: AdultSurveillanceTransaction,
+	command: AdultSurveillanceCommand,
+): Promise<SafeCollection | null> {
+	switch (command.type) {
+		case 'adultSurveillance.setTrapCollection': {
+			const snapshot = await loadTrapSnapshot(
+				trx,
+				command.payload.organizationId,
+				command.payload.trapId,
+			);
+			return insertCollection(trx, {
+				id: command.payload.collectionId,
+				organizationId: command.payload.organizationId,
+				geom: geojsonToGeom(snapshot.geojson),
+				trapId: command.payload.trapId,
+				collectionMethodId: snapshot.collectionMethodId,
+				collectionLureId: snapshot.collectionLureId,
+				addressId: snapshot.addressId,
+				timing: command.payload.timing,
+				setByProfileId: command.payload.setByProfileId,
+				collectedByProfileId: null,
+				hasProblem: false,
+				metadata: command.payload.metadata,
+				actorProfileId: command.payload.actorProfileId,
+			});
+		}
+		case 'adultSurveillance.recordCollectedTrapCollection': {
+			const snapshot = await loadTrapSnapshot(
+				trx,
+				command.payload.organizationId,
+				command.payload.trapId,
+			);
+			return insertCollection(trx, {
+				id: command.payload.collectionId,
+				organizationId: command.payload.organizationId,
+				geom: geojsonToGeom(snapshot.geojson),
+				trapId: command.payload.trapId,
+				collectionMethodId: snapshot.collectionMethodId,
+				collectionLureId: snapshot.collectionLureId,
+				addressId: snapshot.addressId,
+				timing: command.payload.timing,
+				setByProfileId: command.payload.setByProfileId,
+				collectedByProfileId: command.payload.collectedByProfileId,
+				hasProblem: command.payload.hasProblem,
+				metadata: command.payload.metadata,
+				actorProfileId: command.payload.actorProfileId,
+			});
+		}
+		case 'adultSurveillance.setAdHocCollection':
+			return insertCollection(trx, {
+				id: command.payload.collectionId,
+				organizationId: command.payload.organizationId,
+				geom: await resolveLocationGeom(
+					trx,
+					command.payload.organizationId,
+					command.payload.locationSource,
+				),
+				trapId: null,
+				collectionMethodId: command.payload.collectionMethodId,
+				collectionLureId: command.payload.collectionLureId,
+				addressId: command.payload.addressId,
+				timing: command.payload.timing,
+				setByProfileId: command.payload.setByProfileId,
+				collectedByProfileId: null,
+				hasProblem: false,
+				metadata: command.payload.metadata,
+				actorProfileId: command.payload.actorProfileId,
+			});
+		case 'adultSurveillance.recordCollectedAdHocCollection':
+			return insertCollection(trx, {
+				id: command.payload.collectionId,
+				organizationId: command.payload.organizationId,
+				geom: await resolveLocationGeom(
+					trx,
+					command.payload.organizationId,
+					command.payload.locationSource,
+				),
+				trapId: null,
+				collectionMethodId: command.payload.collectionMethodId,
+				collectionLureId: command.payload.collectionLureId,
+				addressId: command.payload.addressId,
+				timing: command.payload.timing,
+				setByProfileId: command.payload.setByProfileId,
+				collectedByProfileId: command.payload.collectedByProfileId,
+				hasProblem: command.payload.hasProblem,
+				metadata: command.payload.metadata,
+				actorProfileId: command.payload.actorProfileId,
+			});
+		case 'adultSurveillance.collectCollection':
+			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
+				collected_at: command.payload.collectedAt,
+				collected_by_profile_id: command.payload.collectedByProfileId,
+				has_problem: command.payload.hasProblem,
+				updated_by_profile_id: command.payload.actorProfileId,
+			});
+		case 'adultSurveillance.cancelPendingCollection':
+			return softDeleteCollection(
+				trx,
+				command.payload.collectionId,
+				command.payload.organizationId,
+				command.payload.actorProfileId,
+			);
+		case 'adultSurveillance.updateCollectionFieldDetails':
+			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
+				...(command.payload.changes.timing !== undefined
+					? timingColumns(command.payload.changes.timing)
+					: {}),
+				...('setByProfileId' in command.payload.changes
+					? { set_by_profile_id: command.payload.changes.setByProfileId ?? null }
+					: {}),
+				...('collectedByProfileId' in command.payload.changes
+					? { collected_by_profile_id: command.payload.changes.collectedByProfileId ?? null }
+					: {}),
+				...('hasProblem' in command.payload.changes
+					? { has_problem: command.payload.changes.hasProblem ?? false }
+					: {}),
+				...('metadata' in command.payload.changes
+					? { metadata: command.payload.changes.metadata ?? null }
+					: {}),
+				updated_by_profile_id: command.payload.actorProfileId,
+			});
+		case 'adultSurveillance.updateAdHocCollectionConfiguration':
+			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
+				...(command.payload.changes.locationSource !== undefined
+					? {
+							geom: await resolveLocationGeom(
+								trx,
+								command.payload.organizationId,
+								command.payload.changes.locationSource,
+							),
+						}
+					: {}),
+				...('collectionMethodId' in command.payload.changes
+					? { collection_method_id: command.payload.changes.collectionMethodId }
+					: {}),
+				...('collectionLureId' in command.payload.changes
+					? { collection_lure_id: command.payload.changes.collectionLureId ?? null }
+					: {}),
+				...('addressId' in command.payload.changes
+					? { address_id: command.payload.changes.addressId ?? null }
+					: {}),
+				updated_by_profile_id: command.payload.actorProfileId,
+			});
+		case 'adultSurveillance.deleteCollection':
+			return softDeleteCollection(
+				trx,
+				command.payload.collectionId,
+				command.payload.organizationId,
+				command.payload.actorProfileId,
+			);
+		case 'adultSurveillance.markCollectionZeroResult': {
+			await trx
+				.updateTable('collection_species')
+				.set({
+					deleted_at: sql`now()`,
+					deleted_by_profile_id: command.payload.actorProfileId,
+					updated_at: sql`now()`,
+				})
+				.where('collection_id', '=', command.payload.collectionId)
+				.where('organization_id', '=', command.payload.organizationId)
+				.where('deleted_at', 'is', null)
+				.execute();
+			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
+				is_zero_result: true,
+				updated_by_profile_id: command.payload.actorProfileId,
+			});
+		}
+		case 'adultSurveillance.clearCollectionZeroResult':
+			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
+				is_zero_result: false,
+				updated_by_profile_id: command.payload.actorProfileId,
+			});
+		case 'adultSurveillance.setCollectionBycatch':
+			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
+				has_bycatch: command.payload.hasBycatch,
+				updated_by_profile_id: command.payload.actorProfileId,
+			});
+		default:
+			throw new Error(`Unsupported collection command: ${command.type}`);
+	}
+}
+
+async function insertCollection(
+	trx: AdultSurveillanceTransaction,
+	input: CollectionInsertInput,
+): Promise<SafeCollection> {
+	const row = await trx
+		.insertInto('collections')
+		.values({
+			id: input.id,
+			organization_id: input.organizationId,
+			geom: input.geom,
+			trap_id: input.trapId,
+			collection_method_id: input.collectionMethodId,
+			collection_lure_id: input.collectionLureId,
+			address_id: input.addressId,
+			collected_by_profile_id: input.collectedByProfileId,
+			set_by_profile_id: input.setByProfileId,
+			has_problem: input.hasProblem,
+			metadata: input.metadata,
+			created_by_profile_id: input.actorProfileId,
+			updated_by_profile_id: input.actorProfileId,
+			...timingColumns(input.timing),
+		})
+		.returning(collectionReturnColumns)
+		.executeTakeFirstOrThrow();
+	return toSafeCollection(row);
+}
+
+async function updateCollection(
+	trx: AdultSurveillanceTransaction,
+	collectionId: string,
+	organizationId: string,
+	set: CollectionUpdateColumns,
+): Promise<SafeCollection | null> {
+	const row = await trx
+		.updateTable('collections')
+		.set({ ...set, updated_at: sql`now()` })
+		.where('id', '=', collectionId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.returning(collectionReturnColumns)
+		.executeTakeFirst();
+	return row === undefined ? null : toSafeCollection(row);
+}
+
+async function softDeleteCollection(
+	trx: AdultSurveillanceTransaction,
+	collectionId: string,
+	organizationId: string,
+	actorProfileId: string,
+): Promise<SafeCollection | null> {
+	const row = await trx
+		.updateTable('collections')
+		.set({
+			deleted_at: sql`now()`,
+			deleted_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', collectionId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.returning(collectionReturnColumns)
+		.executeTakeFirst();
+	return row === undefined ? null : toSafeCollection(row);
+}
+
+function timingColumns(timing: CollectionTiming): CollectionTimingColumns {
+	if (timing.mode === 'collection_date_duration') {
+		return {
+			collection_timing_mode: 'collection_date_duration',
+			started_at: null,
+			collected_at: null,
+			collection_date: localDateColumn(timing.collectionDate),
+			duration_amount: timing.durationAmount,
+			duration_unit_id: timing.durationUnitId,
+		};
+	}
+	return {
+		collection_timing_mode: 'exact_timestamps',
+		started_at: timing.startedAt,
+		collected_at: 'collectedAt' in timing ? timing.collectedAt : null,
+		collection_date: null,
+		duration_amount: null,
+		duration_unit_id: null,
+	};
+}

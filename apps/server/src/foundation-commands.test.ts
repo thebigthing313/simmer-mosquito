@@ -4,7 +4,7 @@ import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
-import { registerFoundationCommandRoutes } from './foundation-commands.js';
+import { registerFoundationCommandRoutes } from './foundation-commands/index.js';
 
 describe('registerFoundationCommandRoutes', () => {
 	it('creates collection methods through agency-scoped domain commands', async () => {
