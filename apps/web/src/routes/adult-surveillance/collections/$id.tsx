@@ -77,6 +77,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
@@ -955,6 +956,7 @@ function DetailsCard({
 						)}
 					</DetailRow>
 				</dl>
+				<AdditionalPersonnelList target={{ type: 'collection', id: collection.id }} />
 			</CardContent>
 		</Card>
 	);

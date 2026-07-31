@@ -29,6 +29,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
 import { getServerUrl } from '../../../auth';
+import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { type MapCamera, MapCanvas } from '../../../components/map';
@@ -421,6 +422,7 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt)}</DetailRow>
 				</dl>
+				<AdditionalPersonnelList target={{ type: 'inspection', id: inspection.id }} />
 			</CardContent>
 		</Card>
 	);
