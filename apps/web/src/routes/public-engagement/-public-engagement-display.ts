@@ -53,6 +53,11 @@ export function intakeTypeLabel(intakeType: string): string {
 	return INTAKE_TYPE_LABELS[intakeType] ?? intakeType;
 }
 
+/** `24 people` — outreach is counted in people reached, never a volume. */
+export function formatReach(reach: number): string {
+	return reach === 1 ? '1 person' : `${reach.toLocaleString()} people`;
+}
+
 /** A request is open until it is closed; deletion is a separate (soft) state. */
 export function isServiceRequestOpen(request: Pick<ServiceRequestRow, 'closedAt'>): boolean {
 	return request.closedAt === null;

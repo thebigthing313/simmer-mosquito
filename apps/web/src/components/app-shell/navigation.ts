@@ -374,7 +374,7 @@ export const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'public',
 		label: 'Public Engagement',
-		summary: 'Community engagement — service requests and the contacts behind them',
+		summary: 'Community engagement — service requests, outreach, and the contacts behind them',
 		icon: iconRegistry.domains.publicEngagement.icon,
 		groups: [
 			{
@@ -403,6 +403,37 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'New Request',
 						to: '/public-engagement/service-requests/create',
 						icon: iconRegistry.actions.add.icon,
+					},
+				],
+			},
+			{
+				id: 'public-outreach',
+				label: 'Outreach Actions',
+				items: [
+					{
+						id: 'outreach-explorer',
+						label: 'Map',
+						to: '/public-engagement/outreach',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'outreach-create',
+						label: 'Record Outreach',
+						to: '/public-engagement/outreach/create',
+						icon: iconRegistry.actions.add.icon,
+					},
+					{
+						id: 'outreach-methods',
+						label: 'Outreach Methods',
+						to: '/public-engagement/outreach/methods',
+						icon: iconRegistry.generic.component.icon,
+					},
+					{
+						id: 'outreach-stats',
+						label: 'Statistics',
+						to: '/public-engagement/outreach/stats',
+						stub: true,
+						icon: iconRegistry.generic.chart.icon,
 					},
 				],
 			},

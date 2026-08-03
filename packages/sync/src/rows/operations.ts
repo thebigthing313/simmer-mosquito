@@ -281,6 +281,9 @@ export interface SourceReductionRow extends AuditedOrganizationRowBase {
 }
 
 export interface OutreachActionRow extends AuditedOrganizationRowBase {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly outreachMethodId: string;
 	readonly technicianProfileId: string | null;
 	readonly outreachDate: string;

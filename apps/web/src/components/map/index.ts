@@ -38,6 +38,11 @@ export {
 	DEFAULT_MAP_CAMERA,
 	type MapCamera,
 } from './map-styles';
+export {
+	buildOutreachExtentUrl,
+	buildOutreachTileUrl,
+	type OutreachTileFilters,
+} from './outreach-tiles';
 export { buildRegionExtentUrl, buildRegionTileUrl, type RegionTileFilters } from './region-tiles';
 export {
 	buildSampleExtentUrl,
@@ -60,6 +65,7 @@ export { type GeolocationCoords, useGeolocation } from './use-geolocation';
 export type { HabitatTileLayerConfig } from './use-habitat-tile-layer';
 export type { InspectionTileLayerConfig } from './use-inspection-tile-layer';
 export { type MapExtentFitSource, useMapExtentFit } from './use-map-extent-fit';
+export type { OutreachTileLayerConfig } from './use-outreach-tile-layer';
 export type { RegionTileLayerConfig } from './use-region-tile-layer';
 export type { RouteLayerConfig, RouteStopFeature } from './use-route-layer';
 export type { SampleTileLayerConfig } from './use-sample-tile-layer';

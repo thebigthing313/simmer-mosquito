@@ -71,7 +71,7 @@ export const Route = createFileRoute('/public-engagement/service-requests/$id')(
 	component: ServiceRequestDetailRoute,
 });
 
-const RequestIcon = iconRegistry.domains.publicEngagement.icon;
+const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const detailGcTimeMs = 30_000;

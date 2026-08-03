@@ -668,3 +668,209 @@ const biocontrolDisplayColumns = sql`
 	ba.created_at as "createdAt",
 	ba.updated_at as "updatedAt"
 `;
+
+// --- outreach ---------------------------------------------------------------
+//
+// Outreach is performed control work that the public-engagement side of the app
+// explores, so it reads through the same tile / page / by-id trio as its sibling
+// control actions. It carries no habitat link (docs/control-operations-domain.md
+// keeps `habitat_id` off outreach for v1), so the context narrowing the other
+// explorers offer stops at the inspection it may have come from.
+
+export interface OutreachMapFilters {
+	readonly outreachMethodIds?: readonly string[];
+	/** Match outreach performed by any of these profiles. */
+	readonly technicianProfileIds?: readonly string[];
+	/** Match outreach falling inside any of these regions. */
+	readonly regionIds?: readonly string[];
+	/** Inclusive lower bound on `outreach_date` (`YYYY-MM-DD`). */
+	readonly dateFrom?: string;
+	/** Inclusive upper bound on `outreach_date` (`YYYY-MM-DD`). */
+	readonly dateTo?: string;
+}
+
+export interface OutreachMvtTileInput {
+	readonly z: number;
+	readonly x: number;
+	readonly y: number;
+	readonly organizationId: string;
+	readonly filters?: OutreachMapFilters;
+}
+
+export interface OutreachPageInput {
+	readonly organizationId: string;
+	readonly filters?: OutreachMapFilters;
+	readonly limit: number;
+	readonly offset: number;
+}
+
+export interface OutreachByIdInput {
+	readonly organizationId: string;
+	readonly id: string;
+}
+
+export interface SafeOutreachDisplayRow {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geomType: string;
+	readonly outreachMethodId: string;
+	readonly outreachDate: string;
+	readonly reach: number;
+	readonly reachDescription: string | null;
+	readonly technicianProfileId: string | null;
+	readonly addressId: string | null;
+	readonly inspectionId: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+export interface OutreachPageResult {
+	readonly total: number;
+	readonly rows: SafeOutreachDisplayRow[];
+}
+
+function outreachFilterWhere(filters: OutreachMapFilters | undefined): RawBuilder<boolean>[] {
+	const clauses: RawBuilder<boolean>[] = [];
+	if (filters?.outreachMethodIds !== undefined && filters.outreachMethodIds.length > 0) {
+		clauses.push(
+			sql<boolean>`oa.outreach_method_id = any(${[...filters.outreachMethodIds]}::uuid[])`,
+		);
+	}
+	if (filters?.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
+		clauses.push(
+			sql<boolean>`oa.technician_profile_id = any(${[...filters.technicianProfileIds]}::uuid[])`,
+		);
+	}
+	if (filters?.dateFrom !== undefined) {
+		clauses.push(sql<boolean>`oa.outreach_date >= ${filters.dateFrom}`);
+	}
+	if (filters?.dateTo !== undefined) {
+		clauses.push(sql<boolean>`oa.outreach_date <= ${filters.dateTo}`);
+	}
+	clauses.push(
+		...regionMembershipClauses({
+			geom: sql`oa.geom`,
+			organizationId: sql`oa.organization_id`,
+			regionIds: filters?.regionIds,
+		}),
+	);
+	return clauses;
+}
+
+export async function getOutreachMvtTile(
+	db: Kysely<SimmerDatabase>,
+	input: OutreachMvtTileInput,
+): Promise<Uint8Array> {
+	const whereClauses: RawBuilder<boolean>[] = [
+		sql<boolean>`oa.organization_id = ${input.organizationId}`,
+		sql<boolean>`oa.deleted_at is null`,
+		sql<boolean>`oa.geom && bounds.geom_4326`,
+		sql<boolean>`st_intersects(oa.geom, bounds.geom_4326)`,
+		...outreachFilterWhere(input.filters),
+	];
+
+	const result = await sql<{ readonly tile: Uint8Array | null }>`
+		with
+		${tileEnvelopeCte(input)},
+		tile_rows as (
+			select
+				oa.id,
+				st_asmvtgeom(
+					st_transform(oa.geom, 3857),
+					bounds.geom_3857,
+					extent => ${mvtExtent},
+					buffer => ${mvtBuffer}
+				) as geom
+			from outreach_actions oa
+			cross join bounds
+			where ${sql.join(whereClauses, sql` and `)}
+		)
+		select coalesce(st_asmvt(tile_rows, 'outreach', ${mvtExtent}, 'geom'), ''::bytea) as tile
+		from tile_rows
+	`.execute(db);
+
+	return result.rows[0]?.tile ?? new Uint8Array();
+}
+
+export async function listOutreachDisplayRowsPage(
+	db: Kysely<SimmerDatabase>,
+	input: OutreachPageInput,
+): Promise<OutreachPageResult> {
+	const whereClauses: RawBuilder<boolean>[] = [
+		sql<boolean>`oa.organization_id = ${input.organizationId}`,
+		sql<boolean>`oa.deleted_at is null`,
+		...outreachFilterWhere(input.filters),
+	];
+
+	const result = await sql<SafeOutreachDisplayRow & { readonly total: number }>`
+		select
+			${outreachDisplayColumns},
+			count(*) over()::int as "total"
+		from outreach_actions oa
+		where ${sql.join(whereClauses, sql` and `)}
+		order by oa.outreach_date desc, oa.created_at desc, oa.id
+		limit ${input.limit}
+		offset ${input.offset}
+	`.execute(db);
+
+	return {
+		total: result.rows[0]?.total ?? 0,
+		rows: result.rows,
+	};
+}
+
+export async function getOutreachDisplayRowById(
+	db: Kysely<SimmerDatabase>,
+	input: OutreachByIdInput,
+): Promise<SafeOutreachDisplayRow | undefined> {
+	const result = await sql<SafeOutreachDisplayRow>`
+		select ${outreachDisplayColumns}
+		from outreach_actions oa
+		where oa.id = ${input.id}
+			and oa.organization_id = ${input.organizationId}
+			and oa.deleted_at is null
+		limit 1
+	`.execute(db);
+
+	return result.rows[0];
+}
+
+/**
+ * Extent of every outreach action matching the map filters, ignoring the
+ * viewport — what the explorer map frames on load and after a filter change.
+ */
+export async function getOutreachMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly organizationId: string; readonly filters?: OutreachMapFilters },
+): Promise<MapExtent | null> {
+	return readMapExtent(db, {
+		geom: sql`oa.geom`,
+		from: sql`outreach_actions oa`,
+		where: [
+			sql<boolean>`oa.organization_id = ${input.organizationId}`,
+			sql<boolean>`oa.deleted_at is null`,
+			...outreachFilterWhere(input.filters),
+		],
+	});
+}
+
+const outreachDisplayColumns = sql`
+	oa.id,
+	oa.organization_id as "organizationId",
+	oa.lat,
+	oa.lng,
+	oa.geojson,
+	oa.geom_type as "geomType",
+	oa.outreach_method_id as "outreachMethodId",
+	oa.outreach_date::text as "outreachDate",
+	oa.reach,
+	oa.reach_description as "reachDescription",
+	oa.technician_profile_id as "technicianProfileId",
+	oa.address_id as "addressId",
+	oa.inspection_id as "inspectionId",
+	oa.created_at as "createdAt",
+	oa.updated_at as "updatedAt"
+`;

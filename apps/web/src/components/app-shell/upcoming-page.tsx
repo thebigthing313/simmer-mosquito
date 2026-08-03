@@ -54,7 +54,7 @@ const serviceRequests: Elsewhere = {
 	label: 'Service Requests',
 	description: 'Requests from the public, on the map',
 	to: '/public-engagement/service-requests',
-	icon: iconRegistry.domains.publicEngagement.icon,
+	icon: iconRegistry.entities.serviceRequest.icon,
 };
 const trapRoutes: Elsewhere = {
 	label: 'Trap Routes',

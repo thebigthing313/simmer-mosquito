@@ -35,6 +35,9 @@ import {
 	getInspectionDisplayRowById,
 	getInspectionMapExtent,
 	getInspectionMvtTile,
+	getOutreachDisplayRowById,
+	getOutreachMapExtent,
+	getOutreachMvtTile,
 	getRegionById,
 	getRegionMapExtent,
 	getRegionMvtTile,
@@ -68,10 +71,16 @@ import {
 	listHabitatDisplayRowsByBounds,
 	listHabitatDisplayRowsByIds,
 	listInspectionDisplayRowsByBounds,
+	listOutreachDisplayRowsPage,
 	listSampleDisplayRowsByBounds,
 	listSourceReductionDisplayRowsPage,
 	listTrapDisplayRowsPage,
 	type MapExtent,
+	type OutreachByIdInput,
+	type OutreachMapFilters,
+	type OutreachMvtTileInput,
+	type OutreachPageInput,
+	type OutreachPageResult,
 	type RegionMvtTileFilters,
 	type RegionMvtTileInput,
 	type SafeApplicationDisplayRow,
@@ -79,6 +88,7 @@ import {
 	type SafeCollectionDisplayRow,
 	type SafeHabitatDisplayRow,
 	type SafeInspectionDisplayRow,
+	type SafeOutreachDisplayRow,
 	type SafeSampleDisplayRow,
 	type SafeSourceReductionDisplayRow,
 	type SafeTrapDisplayRow,
@@ -189,6 +199,12 @@ type BiocontrolDisplayByIdReader = (
 	db: TileDb,
 	input: BiocontrolByIdInput,
 ) => Promise<SafeBiocontrolDisplayRow | undefined>;
+type OutreachTileReader = (db: TileDb, input: OutreachMvtTileInput) => Promise<Uint8Array>;
+type OutreachPageReader = (db: TileDb, input: OutreachPageInput) => Promise<OutreachPageResult>;
+type OutreachDisplayByIdReader = (
+	db: TileDb,
+	input: OutreachByIdInput,
+) => Promise<SafeOutreachDisplayRow | undefined>;
 type TrapTileReader = (db: TileDb, input: TrapMvtTileInput) => Promise<Uint8Array>;
 type TrapPageReader = (db: TileDb, input: TrapPageInput) => Promise<TrapPageResult>;
 type TrapDisplayByIdReader = (
@@ -376,6 +392,9 @@ export function registerMapTileRoutes(
 		readonly getBiocontrolTile?: BiocontrolTileReader;
 		readonly listBiocontrolDisplayRows?: BiocontrolPageReader;
 		readonly getBiocontrolDisplayRow?: BiocontrolDisplayByIdReader;
+		readonly getOutreachTile?: OutreachTileReader;
+		readonly listOutreachDisplayRows?: OutreachPageReader;
+		readonly getOutreachDisplayRow?: OutreachDisplayByIdReader;
 		readonly getTrapTile?: TrapTileReader;
 		readonly listTrapDisplayRows?: TrapPageReader;
 		readonly getTrapDisplayRow?: TrapDisplayByIdReader;
@@ -390,6 +409,7 @@ export function registerMapTileRoutes(
 		readonly getApplicationExtent?: MapExtentReader<ApplicationMapFilters>;
 		readonly getSourceReductionExtent?: MapExtentReader<SourceReductionMapFilters>;
 		readonly getBiocontrolExtent?: MapExtentReader<BiocontrolMapFilters>;
+		readonly getOutreachExtent?: MapExtentReader<OutreachMapFilters>;
 		readonly getTrapExtent?: MapExtentReader<TrapMapFilters>;
 		readonly getCollectionExtent?: MapExtentReader<CollectionMapFilters>;
 	},
@@ -403,6 +423,7 @@ export function registerMapTileRoutes(
 		getApplicationTile: options.getApplicationTile ?? getApplicationMvtTile,
 		getSourceReductionTile: options.getSourceReductionTile ?? getSourceReductionMvtTile,
 		getBiocontrolTile: options.getBiocontrolTile ?? getBiocontrolMvtTile,
+		getOutreachTile: options.getOutreachTile ?? getOutreachMvtTile,
 		getTrapTile: options.getTrapTile ?? getTrapMvtTile,
 		getCollectionTile: options.getCollectionTile ?? getCollectionMvtTile,
 		getHabitatExtent: options.getHabitatExtent ?? getHabitatMapExtent,
@@ -413,6 +434,7 @@ export function registerMapTileRoutes(
 		getApplicationExtent: options.getApplicationExtent ?? getApplicationMapExtent,
 		getSourceReductionExtent: options.getSourceReductionExtent ?? getSourceReductionMapExtent,
 		getBiocontrolExtent: options.getBiocontrolExtent ?? getBiocontrolMapExtent,
+		getOutreachExtent: options.getOutreachExtent ?? getOutreachMapExtent,
 		getTrapExtent: options.getTrapExtent ?? getTrapMapExtent,
 		getCollectionExtent: options.getCollectionExtent ?? getCollectionMapExtent,
 	});
@@ -433,6 +455,8 @@ export function registerMapTileRoutes(
 		options.getSourceReductionDisplayRow ?? getSourceReductionDisplayRowById;
 	const listBiocontrolRows = options.listBiocontrolDisplayRows ?? listBiocontrolDisplayRowsPage;
 	const getBiocontrolRow = options.getBiocontrolDisplayRow ?? getBiocontrolDisplayRowById;
+	const listOutreachRows = options.listOutreachDisplayRows ?? listOutreachDisplayRowsPage;
+	const getOutreachRow = options.getOutreachDisplayRow ?? getOutreachDisplayRowById;
 	const listTrapRows = options.listTrapDisplayRows ?? listTrapDisplayRowsPage;
 	const getTrapRow = options.getTrapDisplayRow ?? getTrapDisplayRowById;
 	const listCollectionRows = options.listCollectionDisplayRows ?? listCollectionDisplayRowsPage;
@@ -781,6 +805,41 @@ export function registerMapTileRoutes(
 		return context.json({ biocontrolAction });
 	});
 
+	app.get('/map/outreach', options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = parseOutreachPageQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const page = await listOutreachRows(options.db, queryResult.input);
+
+		return context.json({ outreachActions: page.rows, total: page.total });
+	});
+
+	app.get('/map/outreach/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Outreach id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const outreachAction = await getOutreachRow(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (outreachAction === undefined) {
+			return context.json({ error: 'not_found', reason: 'Outreach action not found.' }, 404);
+		}
+
+		return context.json({ outreachAction });
+	});
+
 	app.get('/map/traps', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
 		const queryResult = parseTrapPageQuery(
@@ -931,6 +990,7 @@ function createTileSetRegistry(options: {
 	readonly getApplicationTile: ApplicationTileReader;
 	readonly getSourceReductionTile: SourceReductionTileReader;
 	readonly getBiocontrolTile: BiocontrolTileReader;
+	readonly getOutreachTile: OutreachTileReader;
 	readonly getTrapTile: TrapTileReader;
 	readonly getCollectionTile: CollectionTileReader;
 	readonly getHabitatExtent: MapExtentReader<HabitatMvtTileFilters>;
@@ -941,6 +1001,7 @@ function createTileSetRegistry(options: {
 	readonly getApplicationExtent: MapExtentReader<ApplicationMapFilters>;
 	readonly getSourceReductionExtent: MapExtentReader<SourceReductionMapFilters>;
 	readonly getBiocontrolExtent: MapExtentReader<BiocontrolMapFilters>;
+	readonly getOutreachExtent: MapExtentReader<OutreachMapFilters>;
 	readonly getTrapExtent: MapExtentReader<TrapMapFilters>;
 	readonly getCollectionExtent: MapExtentReader<CollectionMapFilters>;
 }): ReadonlyMap<string, TileSetDefinition> {
@@ -1047,6 +1108,19 @@ function createTileSetRegistry(options: {
 						filters: input.filters,
 					}),
 				getExtent: (db, input) => options.getBiocontrolExtent(db, input),
+			}),
+		],
+		[
+			'outreach',
+			defineTileSet<OutreachMapFilters>({
+				parseFilters: parseOutreachMapFilters,
+				getTile: (db, input) =>
+					options.getOutreachTile(db, {
+						...input.coordinate,
+						organizationId: input.organizationId,
+						filters: input.filters,
+					}),
+				getExtent: (db, input) => options.getOutreachExtent(db, input),
 			}),
 		],
 		[
@@ -1804,6 +1878,105 @@ export function parseBiocontrolPageQuery(
 	filterParams.delete('offset');
 
 	const filterResult = parseBiocontrolMapFilters(filterParams);
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			filters: filterResult.filters,
+			limit: limit.value,
+			offset: offset.value,
+		},
+	};
+}
+
+type OutreachFilterResult =
+	| { readonly ok: true; readonly filters: OutreachMapFilters }
+	| { readonly ok: false; readonly reason: string };
+
+type OutreachPageQueryResult =
+	| { readonly ok: true; readonly input: OutreachPageInput }
+	| { readonly ok: false; readonly reason: string };
+
+const outreachFilterParams = new Set([
+	'outreachMethodId',
+	'technician',
+	'dateFrom',
+	'dateTo',
+	regionFilterParam,
+]);
+
+export function parseOutreachMapFilters(searchParams: URLSearchParams): OutreachFilterResult {
+	const unknownParams = [...searchParams.keys()].filter(
+		(param) => !outreachFilterParams.has(param),
+	);
+	if (unknownParams.length > 0) {
+		return { ok: false, reason: `Unsupported outreach filter: ${unknownParams[0]}.` };
+	}
+
+	const outreachMethodIds = parseOptionalUuidListFilter(searchParams, 'outreachMethodId');
+	if (!outreachMethodIds.ok) {
+		return outreachMethodIds;
+	}
+
+	const technicianProfileIds = parseOptionalUuidListFilter(searchParams, 'technician');
+	if (!technicianProfileIds.ok) {
+		return technicianProfileIds;
+	}
+
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
+	}
+
+	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
+	if (!dateFrom.ok) {
+		return dateFrom;
+	}
+
+	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
+	if (!dateTo.ok) {
+		return dateTo;
+	}
+
+	return {
+		ok: true,
+		filters: {
+			...(outreachMethodIds.value === undefined
+				? {}
+				: { outreachMethodIds: outreachMethodIds.value }),
+			...(technicianProfileIds.value === undefined
+				? {}
+				: { technicianProfileIds: technicianProfileIds.value }),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
+			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
+			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
+		},
+	};
+}
+
+export function parseOutreachPageQuery(
+	searchParams: URLSearchParams,
+	organizationId: string,
+): OutreachPageQueryResult {
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('limit');
+	filterParams.delete('offset');
+
+	const filterResult = parseOutreachMapFilters(filterParams);
 	if (!filterResult.ok) {
 		return filterResult;
 	}

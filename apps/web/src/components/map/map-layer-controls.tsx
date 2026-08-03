@@ -75,7 +75,7 @@ const MAP_DATA_LAYERS: readonly MapDataLayer[] = [
 		id: 'service-requests',
 		label: 'Service requests',
 		description: 'Requests from the public',
-		icon: iconRegistry.domains.publicEngagement.icon,
+		icon: iconRegistry.entities.serviceRequest.icon,
 		facets: [{ id: 'status', label: 'Status', options: ['Open', 'In progress', 'Closed'] }],
 	},
 	{

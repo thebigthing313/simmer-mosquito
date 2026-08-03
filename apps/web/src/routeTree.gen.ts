@@ -39,6 +39,7 @@ import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes
 import { Route as AdultSurveillanceArbovirusSurveillanceRouteImport } from './routes/adult-surveillance/arbovirus-surveillance'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as PublicEngagementServiceRequestsIndexRouteImport } from './routes/public-engagement/service-requests/index'
+import { Route as PublicEngagementOutreachIndexRouteImport } from './routes/public-engagement/outreach/index'
 import { Route as PublicEngagementContactsIndexRouteImport } from './routes/public-engagement/contacts/index'
 import { Route as LarvalSurveillanceSamplesIndexRouteImport } from './routes/larval-surveillance/samples/index'
 import { Route as LarvalSurveillanceInspectionsIndexRouteImport } from './routes/larval-surveillance/inspections/index'
@@ -53,6 +54,10 @@ import { Route as AdultSurveillanceTrapsIndexRouteImport } from './routes/adult-
 import { Route as AdultSurveillanceCollectionsIndexRouteImport } from './routes/adult-surveillance/collections/index'
 import { Route as PublicEngagementServiceRequestsCreateRouteImport } from './routes/public-engagement/service-requests/create'
 import { Route as PublicEngagementServiceRequestsIdRouteImport } from './routes/public-engagement/service-requests/$id'
+import { Route as PublicEngagementOutreachStatsRouteImport } from './routes/public-engagement/outreach/stats'
+import { Route as PublicEngagementOutreachMethodsRouteImport } from './routes/public-engagement/outreach/methods'
+import { Route as PublicEngagementOutreachCreateRouteImport } from './routes/public-engagement/outreach/create'
+import { Route as PublicEngagementOutreachIdRouteImport } from './routes/public-engagement/outreach/$id'
 import { Route as PublicEngagementContactsCreateRouteImport } from './routes/public-engagement/contacts/create'
 import { Route as PublicEngagementContactsIdRouteImport } from './routes/public-engagement/contacts/$id'
 import { Route as LarvalSurveillanceSamplesStatsRouteImport } from './routes/larval-surveillance/samples/stats'
@@ -94,6 +99,7 @@ import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/a
 import { Route as LarvalSurveillanceHabitatsRoutesIndexRouteImport } from './routes/larval-surveillance/habitats/routes/index'
 import { Route as AdultSurveillanceTrapsRoutesIndexRouteImport } from './routes/adult-surveillance/traps/routes/index'
 import { Route as PublicEngagementServiceRequestsIdEditRouteImport } from './routes/public-engagement/service-requests/$id_.edit'
+import { Route as PublicEngagementOutreachIdEditRouteImport } from './routes/public-engagement/outreach/$id_.edit'
 import { Route as PublicEngagementContactsIdEditRouteImport } from './routes/public-engagement/contacts/$id_.edit'
 import { Route as LarvalSurveillanceInspectionsIdEditRouteImport } from './routes/larval-surveillance/inspections/$id_.edit'
 import { Route as LarvalSurveillanceHabitatsRoutesIdRouteImport } from './routes/larval-surveillance/habitats/routes/$id'
@@ -268,6 +274,12 @@ const PublicEngagementServiceRequestsIndexRoute =
     path: '/public-engagement/service-requests/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PublicEngagementOutreachIndexRoute =
+  PublicEngagementOutreachIndexRouteImport.update({
+    id: '/public-engagement/outreach/',
+    path: '/public-engagement/outreach/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PublicEngagementContactsIndexRoute =
   PublicEngagementContactsIndexRouteImport.update({
     id: '/public-engagement/contacts/',
@@ -347,6 +359,30 @@ const PublicEngagementServiceRequestsIdRoute =
   PublicEngagementServiceRequestsIdRouteImport.update({
     id: '/public-engagement/service-requests/$id',
     path: '/public-engagement/service-requests/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementOutreachStatsRoute =
+  PublicEngagementOutreachStatsRouteImport.update({
+    id: '/public-engagement/outreach/stats',
+    path: '/public-engagement/outreach/stats',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementOutreachMethodsRoute =
+  PublicEngagementOutreachMethodsRouteImport.update({
+    id: '/public-engagement/outreach/methods',
+    path: '/public-engagement/outreach/methods',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementOutreachCreateRoute =
+  PublicEngagementOutreachCreateRouteImport.update({
+    id: '/public-engagement/outreach/create',
+    path: '/public-engagement/outreach/create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementOutreachIdRoute =
+  PublicEngagementOutreachIdRouteImport.update({
+    id: '/public-engagement/outreach/$id',
+    path: '/public-engagement/outreach/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
 const PublicEngagementContactsCreateRoute =
@@ -589,6 +625,12 @@ const PublicEngagementServiceRequestsIdEditRoute =
     path: '/public-engagement/service-requests/$id/edit',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PublicEngagementOutreachIdEditRoute =
+  PublicEngagementOutreachIdEditRouteImport.update({
+    id: '/public-engagement/outreach/$id_/edit',
+    path: '/public-engagement/outreach/$id/edit',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PublicEngagementContactsIdEditRoute =
   PublicEngagementContactsIdEditRouteImport.update({
     id: '/public-engagement/contacts/$id_/edit',
@@ -740,6 +782,10 @@ export interface FileRoutesByFullPath {
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
   '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
+  '/public-engagement/outreach/$id': typeof PublicEngagementOutreachIdRoute
+  '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
+  '/public-engagement/outreach/methods': typeof PublicEngagementOutreachMethodsRoute
+  '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/adult-surveillance/collections/': typeof AdultSurveillanceCollectionsIndexRoute
@@ -754,6 +800,7 @@ export interface FileRoutesByFullPath {
   '/larval-surveillance/inspections/': typeof LarvalSurveillanceInspectionsIndexRoute
   '/larval-surveillance/samples/': typeof LarvalSurveillanceSamplesIndexRoute
   '/public-engagement/contacts/': typeof PublicEngagementContactsIndexRoute
+  '/public-engagement/outreach/': typeof PublicEngagementOutreachIndexRoute
   '/public-engagement/service-requests/': typeof PublicEngagementServiceRequestsIndexRoute
   '/adult-surveillance/collections/$id/edit': typeof AdultSurveillanceCollectionsIdEditRoute
   '/adult-surveillance/traps/$id/edit': typeof AdultSurveillanceTrapsIdEditRoute
@@ -767,6 +814,7 @@ export interface FileRoutesByFullPath {
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
   '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/outreach/$id/edit': typeof PublicEngagementOutreachIdEditRoute
   '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes/': typeof AdultSurveillanceTrapsRoutesIndexRoute
   '/larval-surveillance/habitats/routes/': typeof LarvalSurveillanceHabitatsRoutesIndexRoute
@@ -840,6 +888,10 @@ export interface FileRoutesByTo {
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
   '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
+  '/public-engagement/outreach/$id': typeof PublicEngagementOutreachIdRoute
+  '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
+  '/public-engagement/outreach/methods': typeof PublicEngagementOutreachMethodsRoute
+  '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/adult-surveillance/collections': typeof AdultSurveillanceCollectionsIndexRoute
@@ -854,6 +906,7 @@ export interface FileRoutesByTo {
   '/larval-surveillance/inspections': typeof LarvalSurveillanceInspectionsIndexRoute
   '/larval-surveillance/samples': typeof LarvalSurveillanceSamplesIndexRoute
   '/public-engagement/contacts': typeof PublicEngagementContactsIndexRoute
+  '/public-engagement/outreach': typeof PublicEngagementOutreachIndexRoute
   '/public-engagement/service-requests': typeof PublicEngagementServiceRequestsIndexRoute
   '/adult-surveillance/collections/$id/edit': typeof AdultSurveillanceCollectionsIdEditRoute
   '/adult-surveillance/traps/$id/edit': typeof AdultSurveillanceTrapsIdEditRoute
@@ -867,6 +920,7 @@ export interface FileRoutesByTo {
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
   '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/outreach/$id/edit': typeof PublicEngagementOutreachIdEditRoute
   '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes': typeof AdultSurveillanceTrapsRoutesIndexRoute
   '/larval-surveillance/habitats/routes': typeof LarvalSurveillanceHabitatsRoutesIndexRoute
@@ -942,6 +996,10 @@ export interface FileRoutesById {
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
   '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
+  '/public-engagement/outreach/$id': typeof PublicEngagementOutreachIdRoute
+  '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
+  '/public-engagement/outreach/methods': typeof PublicEngagementOutreachMethodsRoute
+  '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
   '/adult-surveillance/collections/': typeof AdultSurveillanceCollectionsIndexRoute
@@ -956,6 +1014,7 @@ export interface FileRoutesById {
   '/larval-surveillance/inspections/': typeof LarvalSurveillanceInspectionsIndexRoute
   '/larval-surveillance/samples/': typeof LarvalSurveillanceSamplesIndexRoute
   '/public-engagement/contacts/': typeof PublicEngagementContactsIndexRoute
+  '/public-engagement/outreach/': typeof PublicEngagementOutreachIndexRoute
   '/public-engagement/service-requests/': typeof PublicEngagementServiceRequestsIndexRoute
   '/adult-surveillance/collections/$id_/edit': typeof AdultSurveillanceCollectionsIdEditRoute
   '/adult-surveillance/traps/$id_/edit': typeof AdultSurveillanceTrapsIdEditRoute
@@ -969,6 +1028,7 @@ export interface FileRoutesById {
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id_/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
   '/public-engagement/contacts/$id_/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/outreach/$id_/edit': typeof PublicEngagementOutreachIdEditRoute
   '/public-engagement/service-requests/$id_/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes/': typeof AdultSurveillanceTrapsRoutesIndexRoute
   '/larval-surveillance/habitats/routes/': typeof LarvalSurveillanceHabitatsRoutesIndexRoute
@@ -1045,6 +1105,10 @@ export interface FileRouteTypes {
     | '/larval-surveillance/samples/stats'
     | '/public-engagement/contacts/$id'
     | '/public-engagement/contacts/create'
+    | '/public-engagement/outreach/$id'
+    | '/public-engagement/outreach/create'
+    | '/public-engagement/outreach/methods'
+    | '/public-engagement/outreach/stats'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/adult-surveillance/collections/'
@@ -1059,6 +1123,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/'
     | '/larval-surveillance/samples/'
     | '/public-engagement/contacts/'
+    | '/public-engagement/outreach/'
     | '/public-engagement/service-requests/'
     | '/adult-surveillance/collections/$id/edit'
     | '/adult-surveillance/traps/$id/edit'
@@ -1072,6 +1137,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id/edit'
     | '/public-engagement/contacts/$id/edit'
+    | '/public-engagement/outreach/$id/edit'
     | '/public-engagement/service-requests/$id/edit'
     | '/adult-surveillance/traps/routes/'
     | '/larval-surveillance/habitats/routes/'
@@ -1145,6 +1211,10 @@ export interface FileRouteTypes {
     | '/larval-surveillance/samples/stats'
     | '/public-engagement/contacts/$id'
     | '/public-engagement/contacts/create'
+    | '/public-engagement/outreach/$id'
+    | '/public-engagement/outreach/create'
+    | '/public-engagement/outreach/methods'
+    | '/public-engagement/outreach/stats'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/adult-surveillance/collections'
@@ -1159,6 +1229,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections'
     | '/larval-surveillance/samples'
     | '/public-engagement/contacts'
+    | '/public-engagement/outreach'
     | '/public-engagement/service-requests'
     | '/adult-surveillance/collections/$id/edit'
     | '/adult-surveillance/traps/$id/edit'
@@ -1172,6 +1243,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id/edit'
     | '/public-engagement/contacts/$id/edit'
+    | '/public-engagement/outreach/$id/edit'
     | '/public-engagement/service-requests/$id/edit'
     | '/adult-surveillance/traps/routes'
     | '/larval-surveillance/habitats/routes'
@@ -1246,6 +1318,10 @@ export interface FileRouteTypes {
     | '/larval-surveillance/samples/stats'
     | '/public-engagement/contacts/$id'
     | '/public-engagement/contacts/create'
+    | '/public-engagement/outreach/$id'
+    | '/public-engagement/outreach/create'
+    | '/public-engagement/outreach/methods'
+    | '/public-engagement/outreach/stats'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
     | '/adult-surveillance/collections/'
@@ -1260,6 +1336,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/'
     | '/larval-surveillance/samples/'
     | '/public-engagement/contacts/'
+    | '/public-engagement/outreach/'
     | '/public-engagement/service-requests/'
     | '/adult-surveillance/collections/$id_/edit'
     | '/adult-surveillance/traps/$id_/edit'
@@ -1273,6 +1350,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id_/edit'
     | '/public-engagement/contacts/$id_/edit'
+    | '/public-engagement/outreach/$id_/edit'
     | '/public-engagement/service-requests/$id_/edit'
     | '/adult-surveillance/traps/routes/'
     | '/larval-surveillance/habitats/routes/'
@@ -1340,6 +1418,10 @@ export interface RootRouteChildren {
   LarvalSurveillanceSamplesStatsRoute: typeof LarvalSurveillanceSamplesStatsRoute
   PublicEngagementContactsIdRoute: typeof PublicEngagementContactsIdRoute
   PublicEngagementContactsCreateRoute: typeof PublicEngagementContactsCreateRoute
+  PublicEngagementOutreachIdRoute: typeof PublicEngagementOutreachIdRoute
+  PublicEngagementOutreachCreateRoute: typeof PublicEngagementOutreachCreateRoute
+  PublicEngagementOutreachMethodsRoute: typeof PublicEngagementOutreachMethodsRoute
+  PublicEngagementOutreachStatsRoute: typeof PublicEngagementOutreachStatsRoute
   PublicEngagementServiceRequestsIdRoute: typeof PublicEngagementServiceRequestsIdRoute
   PublicEngagementServiceRequestsCreateRoute: typeof PublicEngagementServiceRequestsCreateRoute
   AdultSurveillanceCollectionsIndexRoute: typeof AdultSurveillanceCollectionsIndexRoute
@@ -1354,6 +1436,7 @@ export interface RootRouteChildren {
   LarvalSurveillanceInspectionsIndexRoute: typeof LarvalSurveillanceInspectionsIndexRoute
   LarvalSurveillanceSamplesIndexRoute: typeof LarvalSurveillanceSamplesIndexRoute
   PublicEngagementContactsIndexRoute: typeof PublicEngagementContactsIndexRoute
+  PublicEngagementOutreachIndexRoute: typeof PublicEngagementOutreachIndexRoute
   PublicEngagementServiceRequestsIndexRoute: typeof PublicEngagementServiceRequestsIndexRoute
   AdultSurveillanceCollectionsIdEditRoute: typeof AdultSurveillanceCollectionsIdEditRoute
   AdultSurveillanceTrapsIdEditRoute: typeof AdultSurveillanceTrapsIdEditRoute
@@ -1367,6 +1450,7 @@ export interface RootRouteChildren {
   LarvalSurveillanceHabitatsRoutesIdRoute: typeof LarvalSurveillanceHabitatsRoutesIdRoute
   LarvalSurveillanceInspectionsIdEditRoute: typeof LarvalSurveillanceInspectionsIdEditRoute
   PublicEngagementContactsIdEditRoute: typeof PublicEngagementContactsIdEditRoute
+  PublicEngagementOutreachIdEditRoute: typeof PublicEngagementOutreachIdEditRoute
   PublicEngagementServiceRequestsIdEditRoute: typeof PublicEngagementServiceRequestsIdEditRoute
   AdultSurveillanceTrapsRoutesIndexRoute: typeof AdultSurveillanceTrapsRoutesIndexRoute
   LarvalSurveillanceHabitatsRoutesIndexRoute: typeof LarvalSurveillanceHabitatsRoutesIndexRoute
@@ -1586,6 +1670,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEngagementServiceRequestsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/public-engagement/outreach/': {
+      id: '/public-engagement/outreach/'
+      path: '/public-engagement/outreach'
+      fullPath: '/public-engagement/outreach/'
+      preLoaderRoute: typeof PublicEngagementOutreachIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/public-engagement/contacts/': {
       id: '/public-engagement/contacts/'
       path: '/public-engagement/contacts'
@@ -1682,6 +1773,34 @@ declare module '@tanstack/react-router' {
       path: '/public-engagement/service-requests/$id'
       fullPath: '/public-engagement/service-requests/$id'
       preLoaderRoute: typeof PublicEngagementServiceRequestsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/outreach/stats': {
+      id: '/public-engagement/outreach/stats'
+      path: '/public-engagement/outreach/stats'
+      fullPath: '/public-engagement/outreach/stats'
+      preLoaderRoute: typeof PublicEngagementOutreachStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/outreach/methods': {
+      id: '/public-engagement/outreach/methods'
+      path: '/public-engagement/outreach/methods'
+      fullPath: '/public-engagement/outreach/methods'
+      preLoaderRoute: typeof PublicEngagementOutreachMethodsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/outreach/create': {
+      id: '/public-engagement/outreach/create'
+      path: '/public-engagement/outreach/create'
+      fullPath: '/public-engagement/outreach/create'
+      preLoaderRoute: typeof PublicEngagementOutreachCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/outreach/$id': {
+      id: '/public-engagement/outreach/$id'
+      path: '/public-engagement/outreach/$id'
+      fullPath: '/public-engagement/outreach/$id'
+      preLoaderRoute: typeof PublicEngagementOutreachIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/public-engagement/contacts/create': {
@@ -1971,6 +2090,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEngagementServiceRequestsIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/public-engagement/outreach/$id_/edit': {
+      id: '/public-engagement/outreach/$id_/edit'
+      path: '/public-engagement/outreach/$id/edit'
+      fullPath: '/public-engagement/outreach/$id/edit'
+      preLoaderRoute: typeof PublicEngagementOutreachIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/public-engagement/contacts/$id_/edit': {
       id: '/public-engagement/contacts/$id_/edit'
       path: '/public-engagement/contacts/$id/edit'
@@ -2182,6 +2308,10 @@ const rootRouteChildren: RootRouteChildren = {
   LarvalSurveillanceSamplesStatsRoute: LarvalSurveillanceSamplesStatsRoute,
   PublicEngagementContactsIdRoute: PublicEngagementContactsIdRoute,
   PublicEngagementContactsCreateRoute: PublicEngagementContactsCreateRoute,
+  PublicEngagementOutreachIdRoute: PublicEngagementOutreachIdRoute,
+  PublicEngagementOutreachCreateRoute: PublicEngagementOutreachCreateRoute,
+  PublicEngagementOutreachMethodsRoute: PublicEngagementOutreachMethodsRoute,
+  PublicEngagementOutreachStatsRoute: PublicEngagementOutreachStatsRoute,
   PublicEngagementServiceRequestsIdRoute:
     PublicEngagementServiceRequestsIdRoute,
   PublicEngagementServiceRequestsCreateRoute:
@@ -2201,6 +2331,7 @@ const rootRouteChildren: RootRouteChildren = {
     LarvalSurveillanceInspectionsIndexRoute,
   LarvalSurveillanceSamplesIndexRoute: LarvalSurveillanceSamplesIndexRoute,
   PublicEngagementContactsIndexRoute: PublicEngagementContactsIndexRoute,
+  PublicEngagementOutreachIndexRoute: PublicEngagementOutreachIndexRoute,
   PublicEngagementServiceRequestsIndexRoute:
     PublicEngagementServiceRequestsIndexRoute,
   AdultSurveillanceCollectionsIdEditRoute:
@@ -2220,6 +2351,7 @@ const rootRouteChildren: RootRouteChildren = {
   LarvalSurveillanceInspectionsIdEditRoute:
     LarvalSurveillanceInspectionsIdEditRoute,
   PublicEngagementContactsIdEditRoute: PublicEngagementContactsIdEditRoute,
+  PublicEngagementOutreachIdEditRoute: PublicEngagementOutreachIdEditRoute,
   PublicEngagementServiceRequestsIdEditRoute:
     PublicEngagementServiceRequestsIdEditRoute,
   AdultSurveillanceTrapsRoutesIndexRoute:

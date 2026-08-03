@@ -16,6 +16,7 @@ import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
+import { buildOutreachExtentUrl } from './outreach-tiles';
 import { buildRegionExtentUrl } from './region-tiles';
 import { buildSampleExtentUrl } from './sample-tiles';
 import { buildSourceReductionExtentUrl } from './source-reduction-tiles';
@@ -39,6 +40,7 @@ import {
 import { type MapExtentFitSource, useMapExtentFit } from './use-map-extent-fit';
 import { useMapboxMap } from './use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from './use-nearby-layer';
+import { type OutreachTileLayerConfig, useOutreachTileLayer } from './use-outreach-tile-layer';
 import { type RegionTileLayerConfig, useRegionTileLayer } from './use-region-tile-layer';
 import { type RouteLayerConfig, useRouteLayer } from './use-route-layer';
 import { type SampleTileLayerConfig, useSampleTileLayer } from './use-sample-tile-layer';
@@ -80,6 +82,7 @@ export function MapCanvas({
 	chemicalLayer,
 	sourceReductionLayer,
 	biocontrolLayer,
+	outreachLayer,
 	trapLayer,
 	collectionLayer,
 	routeLayer,
@@ -108,6 +111,8 @@ export function MapCanvas({
 	readonly sourceReductionLayer?: SourceReductionTileLayerConfig;
 	/** Mount the biocontrol vector-tile layer with filters + selection wiring. */
 	readonly biocontrolLayer?: BiocontrolTileLayerConfig;
+	/** Mount the outreach vector-tile layer with filters + selection wiring. */
+	readonly outreachLayer?: OutreachTileLayerConfig;
 	/** Mount the trap vector-tile layer with filters + selection wiring. */
 	readonly trapLayer?: TrapTileLayerConfig;
 	/** Mount the collection vector-tile layer with filters + selection wiring. */
@@ -157,6 +162,7 @@ export function MapCanvas({
 	useChemicalTileLayer(map, isLoaded, chemicalLayer);
 	useSourceReductionTileLayer(map, isLoaded, sourceReductionLayer);
 	useBiocontrolTileLayer(map, isLoaded, biocontrolLayer);
+	useOutreachTileLayer(map, isLoaded, outreachLayer);
 	useTrapTileLayer(map, isLoaded, trapLayer);
 	useCollectionTileLayer(map, isLoaded, collectionLayer);
 	useRouteLayer(map, isLoaded, routeLayer);
@@ -174,6 +180,7 @@ export function MapCanvas({
 			chemicalLayer,
 			sourceReductionLayer,
 			biocontrolLayer,
+			outreachLayer,
 			trapLayer,
 			collectionLayer,
 		}),
@@ -267,6 +274,7 @@ interface ExtentFitLayers {
 	readonly chemicalLayer: ChemicalTileLayerConfig | undefined;
 	readonly sourceReductionLayer: SourceReductionTileLayerConfig | undefined;
 	readonly biocontrolLayer: BiocontrolTileLayerConfig | undefined;
+	readonly outreachLayer: OutreachTileLayerConfig | undefined;
 	readonly trapLayer: TrapTileLayerConfig | undefined;
 	readonly collectionLayer: CollectionTileLayerConfig | undefined;
 }
@@ -301,6 +309,7 @@ function resolveExtentUrl(layers: ExtentFitLayers): string | null {
 		chemicalLayer,
 		sourceReductionLayer,
 		biocontrolLayer,
+		outreachLayer,
 		trapLayer,
 		collectionLayer,
 	} = layers;
@@ -336,6 +345,9 @@ function resolveExtentUrl(layers: ExtentFitLayers): string | null {
 	}
 	if (biocontrolLayer !== undefined) {
 		return buildBiocontrolExtentUrl(biocontrolLayer.serverUrl, biocontrolLayer.filters);
+	}
+	if (outreachLayer !== undefined) {
+		return buildOutreachExtentUrl(outreachLayer.serverUrl, outreachLayer.filters);
 	}
 	if (trapLayer !== undefined) {
 		return buildTrapExtentUrl(trapLayer.serverUrl, trapLayer.filters);

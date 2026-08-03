@@ -80,7 +80,7 @@ import {
 import { RequestStatusBadge } from '../-public-engagement-ui';
 import { ServiceRequestMapCard } from '../-service-request-map-card';
 
-const RequestIcon = iconRegistry.domains.publicEngagement.icon;
+const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const requestsGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';

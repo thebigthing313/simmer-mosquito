@@ -20,7 +20,9 @@ export const Route = createFileRoute('/public-engagement/')({
 });
 
 const PublicIcon = iconRegistry.domains.publicEngagement.icon;
+const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const ContactIcon = iconRegistry.entities.organization.icon;
+const OutreachIcon = iconRegistry.entities.outreachAction.icon;
 const overviewGcTimeMs = 30_000;
 
 function PublicEngagementOverviewRoute() {
@@ -57,7 +59,8 @@ function PublicEngagementOverviewRoute() {
 						Public Engagement
 					</h1>
 					<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-						Service requests reported by the public, and the contacts behind them.
+						Service requests reported by the public, the outreach your crews do, and the contacts
+						behind both.
 					</p>
 				</header>
 
@@ -68,9 +71,19 @@ function PublicEngagementOverviewRoute() {
 						description="Public reports mapped to where they came from, tracked from open to closed."
 						exploreLabel="Open Explorer"
 						exploreTo="/public-engagement/service-requests"
-						icon={<PublicIcon aria-hidden="true" className="size-5 text-primary" />}
+						icon={<RequestIcon aria-hidden="true" className="size-5 text-primary" />}
 						stat={openCount === null ? null : { label: 'open', value: openCount }}
 						title="Service Requests"
+					/>
+					<OverviewCard
+						actionLabel="Record Outreach"
+						actionTo="/public-engagement/outreach/create"
+						description="Door hangers, site visits, presentations, and mailers, mapped to where they landed."
+						exploreLabel="Open Explorer"
+						exploreTo="/public-engagement/outreach"
+						icon={<OutreachIcon aria-hidden="true" className="size-5 text-primary" />}
+						stat={null}
+						title="Outreach Actions"
 					/>
 					<OverviewCard
 						actionLabel="New Contact"
@@ -102,10 +115,14 @@ function OverviewCard({
 	readonly title: string;
 	readonly description: string;
 	readonly stat: { readonly label: string; readonly value: number } | null;
-	readonly exploreTo: '/public-engagement/service-requests' | '/public-engagement/contacts';
+	readonly exploreTo:
+		| '/public-engagement/service-requests'
+		| '/public-engagement/outreach'
+		| '/public-engagement/contacts';
 	readonly exploreLabel: string;
 	readonly actionTo:
 		| '/public-engagement/service-requests/create'
+		| '/public-engagement/outreach/create'
 		| '/public-engagement/contacts/create';
 	readonly actionLabel: string;
 }) {

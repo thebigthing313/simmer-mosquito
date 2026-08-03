@@ -68,6 +68,13 @@ export const mapDomain = {
 	chemicalLine: '#6841b8',
 	sourceReduction: '#2f9e8f',
 	sourceReductionLine: '#27897c',
+	/**
+	 * Outreach. Magenta is the one family the other control marks leave open —
+	 * green, purple, and teal are spoken for, and the warm end belongs to the
+	 * density ramp and the selection halo.
+	 */
+	outreach: '#c4569e',
+	outreachLine: '#a84385',
 	collection: '#2f9e8f',
 	/** Connector lines between related records (inspection routes, habitat runs). */
 	connector: brand.blue,

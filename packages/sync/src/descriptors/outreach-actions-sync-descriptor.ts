@@ -9,6 +9,9 @@ export const outreachActionsSyncDescriptor = createSyncDescriptor<OutreachAction
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'outreachMethodId',
 		'technicianProfileId',
 		'outreachDate',

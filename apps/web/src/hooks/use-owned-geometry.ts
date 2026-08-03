@@ -29,6 +29,10 @@ export const BIOCONTROL_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	segment: 'biocontrol',
 	bodyKey: 'biocontrolAction',
 };
+export const OUTREACH_GEOMETRY_SOURCE: OwnedGeometrySource = {
+	segment: 'outreach',
+	bodyKey: 'outreachAction',
+};
 
 export interface OwnedGeometryQuery {
 	/**
