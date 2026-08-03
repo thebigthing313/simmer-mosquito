@@ -27,15 +27,19 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type BiocontrolTileFilters, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import {
+	dateParam,
+	type FilterCodecs,
+	flagParam,
+	idSetParam,
+	searchValidator,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { BiocontrolMapCard } from '../-biocontrol-map-card';
 import { ContextBadge, formatAmount, nameById, todayDateValue } from '../-control-display';
 import { addDaysToDateString, useHabitatNames } from '../-overview-data';
-
-export const Route = createFileRoute('/control-operations/biocontrol/')({
-	component: BiocontrolExplorerRoute,
-});
 
 interface BiocontrolSite {
 	readonly id: string;
@@ -50,6 +54,27 @@ interface BiocontrolSite {
 	readonly inspectionId: string | null;
 }
 
+interface BiocontrolFilters {
+	readonly from: string;
+	readonly to: string;
+	readonly people: ReadonlySet<string>;
+	readonly methods: ReadonlySet<string>;
+	readonly habitat: boolean;
+}
+
+const FILTER_CODECS: FilterCodecs<BiocontrolFilters> = {
+	from: dateParam,
+	to: dateParam,
+	people: idSetParam,
+	methods: idSetParam,
+	habitat: flagParam,
+};
+
+export const Route = createFileRoute('/control-operations/biocontrol/')({
+	component: BiocontrolExplorerRoute,
+	validateSearch: searchValidator(FILTER_CODECS),
+});
+
 const DEFAULT_WINDOW_DAYS = 90;
 const PAGE_SIZE = 50;
 
@@ -59,31 +84,65 @@ function BiocontrolExplorerRoute() {
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],
 	);
-	const [dateFrom, setDateFrom] = useState(defaultFrom);
-	const [dateTo, setDateTo] = useState(today);
-	const [personIds, setPersonIds] = useState<ReadonlySet<string>>(() => new Set<string>());
-	const [methodIds, setMethodIds] = useState<ReadonlySet<string>>(() => new Set());
-	const [habitatOnly, setHabitatOnly] = useState(false);
+	// The filter state lives in the URL, so a shared link and Back out of a record
+	// both land on the list the operator had narrowed to.
+	const filterDefaults = useMemo<BiocontrolFilters>(
+		() => ({
+			from: defaultFrom,
+			to: today,
+			people: new Set(),
+			methods: new Set(),
+			habitat: false,
+		}),
+		[defaultFrom, today],
+	);
+	const { filters: query, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
+	const dateFrom = query.from;
+	const dateTo = query.to;
+	const personIds = query.people;
+	const methodIds = query.methods;
+	const habitatOnly = query.habitat;
+	const setPersonIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ people: next }),
+		[setFilters],
+	);
+	const setMethodIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ methods: next }),
+		[setFilters],
+	);
+	const setHabitatOnly = useCallback(
+		(next: boolean) => setFilters({ habitat: next }),
+		[setFilters],
+	);
 	const [page, setPage] = useState(0);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 
 	// Editing one bound past the other drags the other along, so the range never inverts.
-	const handleFromChange = useCallback((next: string) => {
-		setDateFrom(next);
-		setDateTo((prev) => (next !== '' && prev !== '' && next > prev ? next : prev));
-	}, []);
-	const handleToChange = useCallback((next: string) => {
-		setDateTo(next);
-		setDateFrom((prev) => (next !== '' && prev !== '' && next < prev ? next : prev));
-	}, []);
+	const handleFromChange = useCallback(
+		(next: string) => {
+			setFilters({
+				from: next,
+				...(next !== '' && dateTo !== '' && next > dateTo ? { to: next } : {}),
+			});
+		},
+		[setFilters, dateTo],
+	);
+	const handleToChange = useCallback(
+		(next: string) => {
+			setFilters({
+				to: next,
+				...(next !== '' && dateFrom !== '' && next < dateFrom ? { from: next } : {}),
+			});
+		},
+		[setFilters, dateFrom],
+	);
 	const applyPreset = useCallback(
 		(preset: DatePreset) => {
 			const range = datePresetRange(preset, today);
-			setDateFrom(range.from);
-			setDateTo(range.to);
+			setFilters({ from: range.from, to: range.to });
 		},
-		[today],
+		[setFilters, today],
 	);
 	const activePresetId = useMemo(
 		() => activeDatePresetId(dateFrom, dateTo, today),
@@ -162,13 +221,7 @@ function BiocontrolExplorerRoute() {
 		methodIds.size > 0 ||
 		habitatOnly ||
 		personIds.size > 0;
-	const clearAll = useCallback(() => {
-		setDateFrom(defaultFrom);
-		setDateTo(today);
-		setMethodIds(new Set());
-		setPersonIds(new Set());
-		setHabitatOnly(false);
-	}, [defaultFrom, today]);
+	const clearAll = reset;
 
 	return (
 		<MapSplitPage

@@ -48,13 +48,22 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, inArray, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { toggle } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import {
+	choiceParam,
+	type FilterCodecs,
+	idSetParam,
+	searchValidator,
+	textParam,
+	useDebouncedTextFilter,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	contactDisplayName,
@@ -65,10 +74,6 @@ import {
 import { RequestStatusBadge } from '../-public-engagement-ui';
 import { ServiceRequestMapCard } from '../-service-request-map-card';
 
-export const Route = createFileRoute('/public-engagement/service-requests/')({
-	component: ServiceRequestsExplorerRoute,
-});
-
 const RequestIcon = iconRegistry.domains.publicEngagement.icon;
 const requestsGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
@@ -76,6 +81,31 @@ const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 const EMPTY_TAGS: readonly TagRow[] = [];
 
 type StatusFilter = 'all' | 'open' | 'closed';
+
+const STATUS_VALUES: readonly StatusFilter[] = ['all', 'open', 'closed'];
+
+interface RequestFilters {
+	readonly status: StatusFilter;
+	readonly search: string;
+	readonly tags: ReadonlySet<string>;
+}
+
+const REQUEST_FILTER_DEFAULTS: RequestFilters = {
+	status: 'open',
+	search: '',
+	tags: new Set(),
+};
+
+const REQUEST_FILTER_CODECS: FilterCodecs<RequestFilters> = {
+	status: choiceParam(STATUS_VALUES, REQUEST_FILTER_DEFAULTS.status),
+	search: textParam,
+	tags: idSetParam,
+};
+
+export const Route = createFileRoute('/public-engagement/service-requests/')({
+	component: ServiceRequestsExplorerRoute,
+	validateSearch: searchValidator(REQUEST_FILTER_CODECS),
+});
 
 function ServiceRequestsExplorerRoute() {
 	const { auth } = Route.useRouteContext();
@@ -111,9 +141,21 @@ function ServiceRequestsExplorerRoute() {
 		[tagById],
 	);
 
-	const [status, setStatus] = useState<StatusFilter>('open');
-	const [search, setSearch] = useState('');
-	const [selectedTagIds, setSelectedTagIds] = useState<ReadonlySet<string>>(() => new Set());
+	// The filter state lives in the URL, so a shared link and Back out of a
+	// request both land on the list the operator had narrowed to.
+	const { filters: query, setFilters } = useSearchFilters(
+		REQUEST_FILTER_DEFAULTS,
+		REQUEST_FILTER_CODECS,
+	);
+	const status = query.status;
+	const selectedTagIds = query.tags;
+	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
+	const setSelectedTagIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ tags: next }),
+		[setFilters],
+	);
+	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const { input: search, setInput: setSearch } = useDebouncedTextFilter(query.search, commitSearch);
 	const [page, setPage] = useState(0);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);

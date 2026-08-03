@@ -40,6 +40,7 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas, SAMPLE_STATUS_COLORS, type SampleTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { adhocLabel } from '../../../lib/coordinate-label';
+import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	addDaysToDateString,
@@ -48,14 +49,14 @@ import {
 	todayInTimeZone,
 } from '../-overview-data';
 import { SampleMapCard } from '../-sample-map-card';
-import { samplesSearchSchema } from '../-samples-search';
+import { type SampleFilters, sampleFilterCodecs } from '../-samples-search';
 
 const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 
 export const Route = createFileRoute('/larval-surveillance/samples/')({
 	component: SamplesExplorerRoute,
-	validateSearch: (search) => samplesSearchSchema.parse(search),
+	validateSearch: searchValidator(sampleFilterCodecs),
 });
 
 /** One identified species within a sample, as returned by `/map/samples`. */
@@ -146,13 +147,40 @@ function SamplesExplorerRoute() {
 		[today],
 	);
 
-	// Seed from the URL (a deep link from the overview), then own the state locally.
-	const search = Route.useSearch();
-	const [dateFrom, setDateFrom] = useState(() => search.from ?? defaultFrom);
-	const [dateTo, setDateTo] = useState(() => search.to ?? today);
-	const [status, setStatus] = useState<StatusFilterValue>(() => search.status ?? 'all');
-	const [speciesIds, setSpeciesIds] = useState<ReadonlySet<string>>(() => new Set(search.species));
-	const [nonMosquito, setNonMosquito] = useState(() => search.nonMosquito ?? false);
+	// The filter state lives in the URL, so a deep link, a shared link, and Back
+	// out of a record all land on the same view.
+	const filterDefaults = useMemo<SampleFilters>(
+		() => ({
+			from: defaultFrom,
+			to: today,
+			status: 'all',
+			species: new Set(),
+			nonMosquito: false,
+		}),
+		[defaultFrom, today],
+	);
+	const {
+		filters: query,
+		setFilters,
+		reset,
+	} = useSearchFilters(filterDefaults, sampleFilterCodecs);
+	const dateFrom = query.from;
+	const dateTo = query.to;
+	const status = query.status;
+	const speciesIds = query.species;
+	const nonMosquito = query.nonMosquito;
+	const setStatus = useCallback(
+		(next: StatusFilterValue) => setFilters({ status: next }),
+		[setFilters],
+	);
+	const setSpeciesIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ species: next }),
+		[setFilters],
+	);
+	const setNonMosquito = useCallback(
+		(next: boolean) => setFilters({ nonMosquito: next }),
+		[setFilters],
+	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [page, setPage] = useState(0);
@@ -212,25 +240,33 @@ function SamplesExplorerRoute() {
 
 	// Editing one bound past the other drags the other along so the range never
 	// inverts into an empty query.
-	const handleFromChange = useCallback((next: string) => {
-		setDateFrom(next);
-		setDateTo((prev) => (next !== '' && prev !== '' && next > prev ? next : prev));
-	}, []);
-	const handleToChange = useCallback((next: string) => {
-		setDateTo(next);
-		setDateFrom((prev) => (next !== '' && prev !== '' && next < prev ? next : prev));
-	}, []);
+	const handleFromChange = useCallback(
+		(next: string) => {
+			setFilters({
+				from: next,
+				...(next !== '' && dateTo !== '' && next > dateTo ? { to: next } : {}),
+			});
+		},
+		[setFilters, dateTo],
+	);
+	const handleToChange = useCallback(
+		(next: string) => {
+			setFilters({
+				to: next,
+				...(next !== '' && dateFrom !== '' && next < dateFrom ? { from: next } : {}),
+			});
+		},
+		[setFilters, dateFrom],
+	);
 	const applyPreset = useCallback(
 		(preset: DatePreset) => {
 			if (preset.days === null) {
-				setDateFrom('');
-				setDateTo('');
+				setFilters({ from: '', to: '' });
 				return;
 			}
-			setDateFrom(addDaysToDateString(today, -(preset.days - 1)));
-			setDateTo(today);
+			setFilters({ from: addDaysToDateString(today, -(preset.days - 1)), to: today });
 		},
-		[today],
+		[setFilters, today],
 	);
 
 	const activePresetId = useMemo(() => {
@@ -252,17 +288,11 @@ function SamplesExplorerRoute() {
 	const hasActiveFilters =
 		!isDefaultRange || status !== 'all' || speciesIds.size > 0 || nonMosquito;
 
-	const resetDates = useCallback(() => {
-		setDateFrom(defaultFrom);
-		setDateTo(today);
-	}, [defaultFrom, today]);
-	const clearAll = useCallback(() => {
-		setDateFrom(defaultFrom);
-		setDateTo(today);
-		setStatus('all');
-		setSpeciesIds(new Set());
-		setNonMosquito(false);
-	}, [defaultFrom, today]);
+	const resetDates = useCallback(
+		() => setFilters({ from: defaultFrom, to: today }),
+		[setFilters, defaultFrom, today],
+	);
+	const clearAll = reset;
 
 	return (
 		<MapSplitPage

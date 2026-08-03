@@ -27,15 +27,19 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type CollectionTileFilters, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import {
+	dateParam,
+	type FilterCodecs,
+	flagParam,
+	idSetParam,
+	searchValidator,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from '../-adult-display';
 import { CollectionMapCard } from '../-collection-map-card';
 import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
-
-export const Route = createFileRoute('/adult-surveillance/collections/')({
-	component: CollectionsExplorerRoute,
-});
 
 interface CollectionSite {
 	readonly id: string;
@@ -52,6 +56,25 @@ interface CollectionSite {
 	readonly collectedByProfileId: string | null;
 }
 
+interface CollectionFilters {
+	readonly from: string;
+	readonly to: string;
+	readonly methods: ReadonlySet<string>;
+	readonly problems: boolean;
+}
+
+const COLLECTION_FILTER_CODECS: FilterCodecs<CollectionFilters> = {
+	from: dateParam,
+	to: dateParam,
+	methods: idSetParam,
+	problems: flagParam,
+};
+
+export const Route = createFileRoute('/adult-surveillance/collections/')({
+	component: CollectionsExplorerRoute,
+	validateSearch: searchValidator(COLLECTION_FILTER_CODECS),
+});
+
 const DEFAULT_WINDOW_DAYS = 90;
 const PAGE_SIZE = 50;
 
@@ -61,30 +84,58 @@ function CollectionsExplorerRoute() {
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],
 	);
-	const [dateFrom, setDateFrom] = useState(defaultFrom);
-	const [dateTo, setDateTo] = useState(today);
-	const [methodIds, setMethodIds] = useState<ReadonlySet<string>>(() => new Set());
-	const [problemOnly, setProblemOnly] = useState(false);
+	// The filter state lives in the URL, so a shared link and Back out of a record
+	// both land on the list the operator had narrowed to.
+	const filterDefaults = useMemo<CollectionFilters>(
+		() => ({ from: defaultFrom, to: today, methods: new Set(), problems: false }),
+		[defaultFrom, today],
+	);
+	const {
+		filters: query,
+		setFilters,
+		reset,
+	} = useSearchFilters(filterDefaults, COLLECTION_FILTER_CODECS);
+	const dateFrom = query.from;
+	const dateTo = query.to;
+	const methodIds = query.methods;
+	const problemOnly = query.problems;
+	const setMethodIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ methods: next }),
+		[setFilters],
+	);
+	const setProblemOnly = useCallback(
+		(next: boolean) => setFilters({ problems: next }),
+		[setFilters],
+	);
 	const [page, setPage] = useState(0);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 
 	// Editing one bound past the other drags the other along, so the range never inverts.
-	const handleFromChange = useCallback((next: string) => {
-		setDateFrom(next);
-		setDateTo((prev) => (next !== '' && prev !== '' && next > prev ? next : prev));
-	}, []);
-	const handleToChange = useCallback((next: string) => {
-		setDateTo(next);
-		setDateFrom((prev) => (next !== '' && prev !== '' && next < prev ? next : prev));
-	}, []);
+	const handleFromChange = useCallback(
+		(next: string) => {
+			setFilters({
+				from: next,
+				...(next !== '' && dateTo !== '' && next > dateTo ? { to: next } : {}),
+			});
+		},
+		[setFilters, dateTo],
+	);
+	const handleToChange = useCallback(
+		(next: string) => {
+			setFilters({
+				to: next,
+				...(next !== '' && dateFrom !== '' && next < dateFrom ? { from: next } : {}),
+			});
+		},
+		[setFilters, dateFrom],
+	);
 	const applyPreset = useCallback(
 		(preset: DatePreset) => {
 			const range = datePresetRange(preset, today);
-			setDateFrom(range.from);
-			setDateTo(range.to);
+			setFilters({ from: range.from, to: range.to });
 		},
-		[today],
+		[setFilters, today],
 	);
 	const activePresetId = useMemo(
 		() => activeDatePresetId(dateFrom, dateTo, today),
@@ -155,12 +206,7 @@ function CollectionsExplorerRoute() {
 
 	const hasActiveFilters =
 		dateFrom !== defaultFrom || dateTo !== today || methodIds.size > 0 || problemOnly;
-	const clearAll = useCallback(() => {
-		setDateFrom(defaultFrom);
-		setDateTo(today);
-		setMethodIds(new Set());
-		setProblemOnly(false);
-	}, [defaultFrom, today]);
+	const clearAll = reset;
 
 	return (
 		<MapSplitPage

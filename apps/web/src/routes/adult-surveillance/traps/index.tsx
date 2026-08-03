@@ -30,13 +30,18 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas, type TrapTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import {
+	choiceParam,
+	type FilterCodecs,
+	idSetParam,
+	searchValidator,
+	textParam,
+	useDebouncedTextFilter,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { trapDisplayName } from '../-adult-display';
 import { TrapMapCard } from '../-trap-map-card';
-
-export const Route = createFileRoute('/adult-surveillance/traps/')({
-	component: TrapsExplorerRoute,
-});
 
 interface TrapSite {
 	readonly id: string;
@@ -53,13 +58,55 @@ interface TrapSite {
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
+const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
+
+interface TrapFilters {
+	readonly search: string;
+	readonly status: StatusFilter;
+	readonly methods: ReadonlySet<string>;
+}
+
+const TRAP_FILTER_DEFAULTS: TrapFilters = {
+	search: '',
+	status: 'active',
+	methods: new Set(),
+};
+
+const TRAP_FILTER_CODECS: FilterCodecs<TrapFilters> = {
+	search: textParam,
+	status: choiceParam(STATUS_VALUES, TRAP_FILTER_DEFAULTS.status),
+	methods: idSetParam,
+};
+
+export const Route = createFileRoute('/adult-surveillance/traps/')({
+	component: TrapsExplorerRoute,
+	validateSearch: searchValidator(TRAP_FILTER_CODECS),
+});
+
 const PAGE_SIZE = 50;
 
 function TrapsExplorerRoute() {
-	const [searchInput, setSearchInput] = useState('');
-	const search = useDebouncedValue(searchInput.trim().toLowerCase(), 200);
-	const [status, setStatus] = useState<StatusFilter>('active');
-	const [methodIds, setMethodIds] = useState<ReadonlySet<string>>(() => new Set());
+	// The filter state lives in the URL, so a shared link and Back out of a trap
+	// both land on the list the operator had narrowed to.
+	const {
+		filters: query,
+		setFilters,
+		reset,
+	} = useSearchFilters(TRAP_FILTER_DEFAULTS, TRAP_FILTER_CODECS);
+	const search = query.search.toLowerCase();
+	const status = query.status;
+	const methodIds = query.methods;
+	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const {
+		input: searchInput,
+		setInput: setSearchInput,
+		clear: clearSearchInput,
+	} = useDebouncedTextFilter(query.search, commitSearch, 200);
+	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
+	const setMethodIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ methods: next }),
+		[setFilters],
+	);
 	const [page, setPage] = useState(0);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -124,10 +171,9 @@ function TrapsExplorerRoute() {
 
 	const hasActiveFilters = status !== 'active' || methodIds.size > 0 || search.length > 0;
 	const clearAll = useCallback(() => {
-		setStatus('active');
-		setMethodIds(new Set());
-		setSearchInput('');
-	}, []);
+		clearSearchInput();
+		reset();
+	}, [clearSearchInput, reset]);
 
 	return (
 		<MapSplitPage
@@ -503,12 +549,3 @@ function _StatusDot({ isActive }: { readonly isActive: boolean }) {
 }
 
 // --- helpers ----------------------------------------------------------------
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-	const [debounced, setDebounced] = useState(value);
-	useEffect(() => {
-		const handle = setTimeout(() => setDebounced(value), delayMs);
-		return () => clearTimeout(handle);
-	}, [value, delayMs]);
-	return debounced;
-}

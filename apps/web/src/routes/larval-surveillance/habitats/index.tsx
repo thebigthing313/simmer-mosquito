@@ -32,27 +32,80 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type HabitatTileFilters, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import {
+	choiceParam,
+	type FilterCodecs,
+	idSetParam,
+	searchValidator,
+	textParam,
+	useDebouncedTextFilter,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { HabitatMapCard } from '../../-habitat-map-card';
 
-export const Route = createFileRoute('/larval-surveillance/habitats/')({
-	component: HabitatsExplorerRoute,
-});
-
 type StatusFilter = 'all' | 'active' | 'inactive';
 type AccessFilter = 'all' | 'accessible' | 'inaccessible';
+
+const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
+const ACCESS_VALUES: readonly AccessFilter[] = ['all', 'accessible', 'inaccessible'];
+
+interface HabitatFilters {
+	readonly search: string;
+	readonly status: StatusFilter;
+	readonly access: AccessFilter;
+	readonly typeIds: ReadonlySet<string>;
+	readonly tagIds: ReadonlySet<string>;
+}
+
+const HABITAT_FILTER_DEFAULTS: HabitatFilters = {
+	search: '',
+	status: 'active',
+	access: 'all',
+	typeIds: new Set(),
+	tagIds: new Set(),
+};
+
+const HABITAT_FILTER_CODECS: FilterCodecs<HabitatFilters> = {
+	search: textParam,
+	status: choiceParam(STATUS_VALUES, HABITAT_FILTER_DEFAULTS.status),
+	access: choiceParam(ACCESS_VALUES, HABITAT_FILTER_DEFAULTS.access),
+	typeIds: idSetParam,
+	tagIds: idSetParam,
+};
+
+export const Route = createFileRoute('/larval-surveillance/habitats/')({
+	component: HabitatsExplorerRoute,
+	validateSearch: searchValidator(HABITAT_FILTER_CODECS),
+});
 
 const PAGE_SIZE = 50;
 
 const NO_TAGS: readonly TagRow[] = [];
 
 function HabitatsExplorerRoute() {
-	const [searchInput, setSearchInput] = useState('');
-	const search = useDebouncedValue(searchInput.trim(), 250);
-	const [status, setStatus] = useState<StatusFilter>('active');
-	const [access, setAccess] = useState<AccessFilter>('all');
-	const [typeIds, setTypeIds] = useState<ReadonlySet<string>>(() => new Set());
-	const [tagIds, setTagIds] = useState<ReadonlySet<string>>(() => new Set());
+	const {
+		filters: query,
+		setFilters,
+		reset,
+	} = useSearchFilters(HABITAT_FILTER_DEFAULTS, HABITAT_FILTER_CODECS);
+	const { search, status, access, typeIds, tagIds } = query;
+	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const {
+		input: searchInput,
+		setInput: setSearchInput,
+		clear: clearSearchInput,
+	} = useDebouncedTextFilter(search, commitSearch);
+	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
+	const setAccess = useCallback((next: AccessFilter) => setFilters({ access: next }), [setFilters]);
+	const setTypeIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ typeIds: next }),
+		[setFilters],
+	);
+	const setTagIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ tagIds: next }),
+		[setFilters],
+	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [page, setPage] = useState(0);
@@ -123,12 +176,9 @@ function HabitatsExplorerRoute() {
 	const hasActiveFilters =
 		status !== 'active' || access !== 'all' || typeIds.size > 0 || tagIds.size > 0;
 	const clearAll = useCallback(() => {
-		setStatus('active');
-		setAccess('all');
-		setTypeIds(new Set());
-		setTagIds(new Set());
-		setSearchInput('');
-	}, []);
+		clearSearchInput();
+		reset();
+	}, [clearSearchInput, reset]);
 
 	return (
 		<MapSplitPage
@@ -658,15 +708,6 @@ function useMapBounds(map: MapboxMap | null): BoundingBox | null {
 	}, [map]);
 
 	return bounds;
-}
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-	const [debounced, setDebounced] = useState(value);
-	useEffect(() => {
-		const handle = setTimeout(() => setDebounced(value), delayMs);
-		return () => clearTimeout(handle);
-	}, [value, delayMs]);
-	return debounced;
 }
 
 // --- helpers ----------------------------------------------------------------

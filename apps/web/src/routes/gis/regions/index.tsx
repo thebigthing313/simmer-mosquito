@@ -37,13 +37,28 @@ import { SearchInput } from '../../../components/input/search-input';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import {
+	type FilterCodecs,
+	searchValidator,
+	textParam,
+	useDebouncedTextFilter,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { RegionFolderDialog } from './-folder-dialog';
 import { RegionMapCard } from './-region-map-card';
 
+interface RegionFilters {
+	readonly search: string;
+}
+
+const REGION_FILTER_DEFAULTS: RegionFilters = { search: '' };
+const REGION_FILTER_CODECS: FilterCodecs<RegionFilters> = { search: textParam };
+
 export const Route = createFileRoute('/gis/regions/')({
 	component: RegionsExplorerRoute,
+	validateSearch: searchValidator(REGION_FILTER_CODECS),
 });
 
 const RegionIcon = iconRegistry.entities.region.icon;
@@ -102,7 +117,20 @@ function RegionsExplorerRoute() {
 	const [visibleIds, setVisibleIds] = useState<ReadonlySet<string>>(() => new Set());
 	// Folders default collapsed; only explicitly-opened ones are tracked.
 	const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
-	const [search, setSearch] = useState('');
+	// The search term lives in the URL, so a shared link and Back out of a region
+	// both land on the list the operator had narrowed to.
+	const { filters: regionQuery, setFilters: setRegionFilters } = useSearchFilters(
+		REGION_FILTER_DEFAULTS,
+		REGION_FILTER_CODECS,
+	);
+	const commitSearch = useCallback(
+		(next: string) => setRegionFilters({ search: next }),
+		[setRegionFilters],
+	);
+	const { input: search, setInput: setSearch } = useDebouncedTextFilter(
+		regionQuery.search,
+		commitSearch,
+	);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	// Inline rename + drag-and-drop transient state.

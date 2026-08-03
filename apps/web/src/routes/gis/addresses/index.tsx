@@ -20,17 +20,32 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas } from '../../../components/map';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import {
+	type FilterCodecs,
+	searchValidator,
+	textParam,
+	useDebouncedTextFilter,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { AddressMapCard } from './-address-map-card';
 
+interface AddressFilters {
+	readonly search: string;
+}
+
+const ADDRESS_FILTER_DEFAULTS: AddressFilters = { search: '' };
+const ADDRESS_FILTER_CODECS: FilterCodecs<AddressFilters> = { search: textParam };
+
 export const Route = createFileRoute('/gis/addresses/')({
 	component: AddressesExplorerRoute,
+	validateSearch: searchValidator(ADDRESS_FILTER_CODECS),
 });
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
@@ -57,7 +72,15 @@ function AddressesExplorerRoute() {
 	);
 	const addresses = (result.data ?? []) as readonly AddressRow[];
 
-	const [search, setSearch] = useState('');
+	// The search term lives in the URL, so a shared link and Back out of an
+	// address both land on the list the operator had narrowed to.
+	const { filters: query, setFilters } = useSearchFilters(
+		ADDRESS_FILTER_DEFAULTS,
+		ADDRESS_FILTER_CODECS,
+	);
+	const search = query.search;
+	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const { input: searchInput, setInput: setSearch } = useDebouncedTextFilter(search, commitSearch);
 	const [page, setPage] = useState(0);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
@@ -148,7 +171,7 @@ function AddressesExplorerRoute() {
 							onChange={(event) => setSearch(event.target.value)}
 							placeholder="Search addresses…"
 							type="search"
-							value={search}
+							value={searchInput}
 						/>
 					</div>
 				</div>

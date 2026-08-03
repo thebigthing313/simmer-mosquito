@@ -42,9 +42,10 @@ import {
 } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { adhocLabel } from '../../../lib/coordinate-label';
+import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { InspectionMapCard } from '../-inspection-map-card';
-import { inspectionsSearchSchema } from '../-inspections-search';
+import { type InspectionFilters, inspectionFilterCodecs } from '../-inspections-search';
 import {
 	addDaysToDateString,
 	formatListDate,
@@ -54,7 +55,7 @@ import {
 
 export const Route = createFileRoute('/larval-surveillance/inspections/')({
 	component: InspectionsExplorerRoute,
-	validateSearch: (search) => inspectionsSearchSchema.parse(search),
+	validateSearch: searchValidator(inspectionFilterCodecs),
 });
 
 /**
@@ -111,19 +112,51 @@ function InspectionsExplorerRoute() {
 		[today],
 	);
 
-	// Seed the filter state from the URL search params (a deep link from the
-	// overview's "view on map" actions), falling back to the explorer's defaults.
-	// State is local from here on; the params only prime the initial view.
-	const search = Route.useSearch();
-	const [dateFrom, setDateFrom] = useState(() => search.from ?? defaultFrom);
-	const [dateTo, setDateTo] = useState(() => search.to ?? today);
-	const [wetness, setWetness] = useState<WetFilter>(() => search.water ?? 'all');
-	const [densities, setDensities] = useState<ReadonlySet<LarvalDensity>>(
-		() => new Set(search.density),
+	// The filter state lives in the URL, so a deep link from the overview's "view
+	// on map" actions, a shared link, and Back out of a record all land on the
+	// same view.
+	const filterDefaults = useMemo<InspectionFilters>(
+		() => ({
+			from: defaultFrom,
+			to: today,
+			water: 'all',
+			density: new Set(),
+			positive: false,
+			types: new Set(),
+			inspectors: new Set(),
+		}),
+		[defaultFrom, today],
 	);
-	const [positiveOnly, setPositiveOnly] = useState(() => search.positive ?? false);
-	const [inspectorIds, setInspectorIds] = useState<ReadonlySet<string>>(() => new Set<string>());
-	const [typeIds, setTypeIds] = useState<ReadonlySet<string>>(() => new Set(search.types));
+	const {
+		filters: query,
+		setFilters,
+		reset,
+	} = useSearchFilters(filterDefaults, inspectionFilterCodecs);
+	const dateFrom = query.from;
+	const dateTo = query.to;
+	const wetness = query.water;
+	const densities = query.density as ReadonlySet<LarvalDensity>;
+	const positiveOnly = query.positive;
+	const typeIds = query.types;
+	const inspectorIds = query.inspectors;
+	const setWetness = useCallback((next: WetFilter) => setFilters({ water: next }), [setFilters]);
+	const setDensities = useCallback(
+		(next: ReadonlySet<LarvalDensity>) =>
+			setFilters({ density: next as InspectionFilters['density'] }),
+		[setFilters],
+	);
+	const setPositiveOnly = useCallback(
+		(next: boolean) => setFilters({ positive: next }),
+		[setFilters],
+	);
+	const setTypeIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ types: next }),
+		[setFilters],
+	);
+	const setInspectorIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ inspectors: next }),
+		[setFilters],
+	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [page, setPage] = useState(0);
@@ -149,21 +182,30 @@ function InspectionsExplorerRoute() {
 
 	// Editing one bound past the other drags the other along, so the range never
 	// inverts into an empty query.
-	const handleFromChange = useCallback((next: string) => {
-		setDateFrom(next);
-		setDateTo((prev) => (next !== '' && prev !== '' && next > prev ? next : prev));
-	}, []);
-	const handleToChange = useCallback((next: string) => {
-		setDateTo(next);
-		setDateFrom((prev) => (next !== '' && prev !== '' && next < prev ? next : prev));
-	}, []);
+	const handleFromChange = useCallback(
+		(next: string) => {
+			setFilters({
+				from: next,
+				...(next !== '' && dateTo !== '' && next > dateTo ? { to: next } : {}),
+			});
+		},
+		[setFilters, dateTo],
+	);
+	const handleToChange = useCallback(
+		(next: string) => {
+			setFilters({
+				to: next,
+				...(next !== '' && dateFrom !== '' && next < dateFrom ? { from: next } : {}),
+			});
+		},
+		[setFilters, dateFrom],
+	);
 	const applyPreset = useCallback(
 		(preset: DatePreset) => {
 			const range = datePresetRange(preset, today);
-			setDateFrom(range.from);
-			setDateTo(range.to);
+			setFilters({ from: range.from, to: range.to });
 		},
-		[today],
+		[setFilters, today],
 	);
 
 	// Which preset (if any) the current range exactly matches — drives chip highlight.
@@ -222,20 +264,12 @@ function InspectionsExplorerRoute() {
 		typeIds.size > 0 ||
 		inspectorIds.size > 0;
 
-	const resetDates = useCallback(() => {
-		setDateFrom(defaultFrom);
-		setDateTo(today);
-	}, [defaultFrom, today]);
+	const resetDates = useCallback(
+		() => setFilters({ from: defaultFrom, to: today }),
+		[setFilters, defaultFrom, today],
+	);
 
-	const clearAll = useCallback(() => {
-		setDateFrom(defaultFrom);
-		setDateTo(today);
-		setWetness('all');
-		setDensities(new Set());
-		setPositiveOnly(false);
-		setTypeIds(new Set());
-		setInspectorIds(new Set());
-	}, [defaultFrom, today]);
+	const clearAll = reset;
 
 	return (
 		<MapSplitPage
