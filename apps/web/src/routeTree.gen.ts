@@ -14,6 +14,7 @@ import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RequestsForControlRouteImport } from './routes/requests-for-control'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MyOrganizationRouteImport } from './routes/my-organization'
 import { Route as MissionsRouteImport } from './routes/missions'
 import { Route as LandingRouteImport } from './routes/landing'
@@ -129,6 +130,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const RequestsForControlRoute = RequestsForControlRouteImport.update({
   id: '/requests-for-control',
   path: '/requests-for-control',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyOrganizationRoute = MyOrganizationRouteImport.update({
@@ -660,6 +666,7 @@ export interface FileRoutesByFullPath {
   '/landing': typeof LandingRoute
   '/missions': typeof MissionsRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
+  '/profile': typeof ProfileRoute
   '/requests-for-control': typeof RequestsForControlRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
@@ -757,6 +764,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
   '/missions': typeof MissionsRoute
+  '/profile': typeof ProfileRoute
   '/requests-for-control': typeof RequestsForControlRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
@@ -856,6 +864,7 @@ export interface FileRoutesById {
   '/landing': typeof LandingRoute
   '/missions': typeof MissionsRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
+  '/profile': typeof ProfileRoute
   '/requests-for-control': typeof RequestsForControlRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
@@ -956,6 +965,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/missions'
     | '/my-organization'
+    | '/profile'
     | '/requests-for-control'
     | '/reset-password'
     | '/sign-in'
@@ -1053,6 +1063,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/landing'
     | '/missions'
+    | '/profile'
     | '/requests-for-control'
     | '/reset-password'
     | '/sign-in'
@@ -1151,6 +1162,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/missions'
     | '/my-organization'
+    | '/profile'
     | '/requests-for-control'
     | '/reset-password'
     | '/sign-in'
@@ -1250,6 +1262,7 @@ export interface RootRouteChildren {
   LandingRoute: typeof LandingRoute
   MissionsRoute: typeof MissionsRoute
   MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
+  ProfileRoute: typeof ProfileRoute
   RequestsForControlRoute: typeof RequestsForControlRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignInRoute: typeof SignInRoute
@@ -1368,6 +1381,13 @@ declare module '@tanstack/react-router' {
       path: '/requests-for-control'
       fullPath: '/requests-for-control'
       preLoaderRoute: typeof RequestsForControlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-organization': {
@@ -2053,6 +2073,7 @@ const rootRouteChildren: RootRouteChildren = {
   LandingRoute: LandingRoute,
   MissionsRoute: MissionsRoute,
   MyOrganizationRoute: MyOrganizationRouteWithChildren,
+  ProfileRoute: ProfileRoute,
   RequestsForControlRoute: RequestsForControlRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignInRoute: SignInRoute,

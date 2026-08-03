@@ -12,8 +12,6 @@ import { iconRegistry, MoreHorizontalIcon } from '@simmer-mosquito/ui-web/icons/
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useShell } from '../shell-context';
 
-const SettingsIcon = iconRegistry.generic.settings.icon;
-const MembersIcon = iconRegistry.entities.organization.icon;
 const ProfileIcon = iconRegistry.actions.edit.icon;
 const SignOutIcon = iconRegistry.arrows.arrowRight.icon;
 
@@ -83,17 +81,9 @@ export function PrimarySidebarFooter({ collapsed }: { readonly collapsed: boolea
 					</DropdownMenuLabel>
 					<DropdownMenuSeparator />
 					<DropdownMenuGroup>
-						<DropdownMenuItem onSelect={() => onNavigate('/account/profile')}>
+						<DropdownMenuItem onSelect={() => onNavigate('/profile')}>
 							<ProfileIcon />
 							Profile
-						</DropdownMenuItem>
-						<DropdownMenuItem onSelect={() => onNavigate('/organization')}>
-							<SettingsIcon />
-							Organization settings
-						</DropdownMenuItem>
-						<DropdownMenuItem onSelect={() => onNavigate('/organization/members')}>
-							<MembersIcon />
-							Members &amp; roles
 						</DropdownMenuItem>
 					</DropdownMenuGroup>
 					{onSignOut ? (

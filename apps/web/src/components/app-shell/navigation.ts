@@ -641,6 +641,16 @@ export function firstDestination(domain: ShellDomain): LinkProps['to'] | null {
 	return null;
 }
 
+/**
+ * Destinations reached from the account menu rather than the domain rail. They
+ * belong to no domain, so they carry their own trail instead of falling back to
+ * whichever domain happens to sort first.
+ */
+const standalonePages: readonly {
+	readonly path: string;
+	readonly crumbs: readonly ShellCrumb[];
+}[] = [{ path: '/profile', crumbs: [{ label: 'Account' }, { label: 'Profile' }] }];
+
 function titleCase(segment: string): string {
 	return segment.replace(/[-_]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 }
@@ -659,6 +669,11 @@ export function buildBreadcrumbs(
 	activePath: string,
 	labels?: ReadonlyMap<string, string>,
 ): readonly ShellCrumb[] {
+	const standalone = standalonePages.find((page) => pathMatches(activePath, page.path));
+	if (standalone !== undefined) {
+		return standalone.crumbs;
+	}
+
 	const { domain, group, item } = resolveActive(activePath);
 	const crumbs: ShellCrumb[] = [{ label: domain.label }];
 
