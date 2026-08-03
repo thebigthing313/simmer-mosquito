@@ -1,4 +1,10 @@
-import type { ControlMethodRow, InsecticideRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
+import type {
+	ControlMethodRow,
+	FormulationRow,
+	InsecticideRow,
+	ProfileRow,
+	UnitRow,
+} from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -44,6 +50,7 @@ const ApplicationIcon = iconRegistry.entities.application.icon;
 const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 const InsecticideIcon = iconRegistry.entities.insecticide.icon;
+const FormulationIcon = iconRegistry.entities.formulation.icon;
 
 export const Route = createFileRoute('/control-operations/')({
 	component: ControlOperationsOverviewRoute,
@@ -66,6 +73,7 @@ function ControlOperationsOverviewRoute() {
 		webCollections.biocontrolMethods,
 	);
 	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
+	const { rows: formulations } = useCollectionRows<FormulationRow>(webCollections.formulations);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
 
@@ -122,6 +130,7 @@ function ControlOperationsOverviewRoute() {
 					<CatalogPanel
 						applicationMethods={applicationMethods}
 						biocontrolMethods={biocontrolMethods}
+						formulations={formulations}
 						insecticides={insecticides}
 						sourceReductionMethods={sourceReductionMethods}
 					/>
@@ -760,16 +769,18 @@ function CatalogPanel({
 	applicationMethods,
 	sourceReductionMethods,
 	biocontrolMethods,
+	formulations,
 	insecticides,
 }: {
 	readonly applicationMethods: readonly ControlMethodRow[];
 	readonly sourceReductionMethods: readonly ControlMethodRow[];
 	readonly biocontrolMethods: readonly ControlMethodRow[];
+	readonly formulations: readonly FormulationRow[];
 	readonly insecticides: readonly InsecticideRow[];
 }) {
 	return (
 		<Panel icon={<ControlIcon className="size-4" />} title="Catalogs">
-			<ul className="grid gap-1 p-2 sm:grid-cols-2 xl:grid-cols-4">
+			<ul className="grid gap-1 p-2 sm:grid-cols-2 xl:grid-cols-5">
 				<CatalogTile
 					activeCount={applicationMethods.filter((method) => method.isActive).length}
 					icon={<ApplicationIcon aria-hidden="true" className="size-4" />}
@@ -781,6 +792,12 @@ function CatalogPanel({
 					icon={<InsecticideIcon aria-hidden="true" className="size-4" />}
 					label="Insecticides"
 					to="/control-operations/chemical/insecticides"
+				/>
+				<CatalogTile
+					activeCount={formulations.filter((formulation) => formulation.isActive).length}
+					icon={<FormulationIcon aria-hidden="true" className="size-4" />}
+					label="Formulations"
+					to="/control-operations/chemical/formulations"
 				/>
 				<CatalogTile
 					activeCount={sourceReductionMethods.filter((method) => method.isActive).length}
@@ -811,6 +828,7 @@ function CatalogTile({
 	readonly to:
 		| '/control-operations/chemical/methods'
 		| '/control-operations/chemical/insecticides'
+		| '/control-operations/chemical/formulations'
 		| '/control-operations/source-reduction/methods'
 		| '/control-operations/biocontrol/methods';
 }) {

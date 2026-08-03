@@ -526,7 +526,9 @@ export interface FormulationsTable {
 	formulation_name: string;
 	description: string | null;
 	is_active: BooleanWithDefault;
-	diluent_ratio: ColumnType<number, number | undefined, number>;
+	/** What one batch of the mix makes, in `batch_unit_id`. */
+	batch_size: number;
+	batch_unit_id: string;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;
@@ -540,7 +542,9 @@ export interface FormulationInsecticidesTable {
 	organization_id: string;
 	formulation_id: string;
 	insecticide_id: string;
-	ratio: number;
+	/** How much of this product one batch takes, in `unit_id`. */
+	amount: number;
+	unit_id: string;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;

@@ -1,8 +1,13 @@
-import { recordChemicalApplicationCommand } from '@simmer-mosquito/domain';
+import {
+	expandFormulationApplicationCommands,
+	recordChemicalApplicationCommand,
+} from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	ControlMethodRow,
 	EquipmentRow,
+	FormulationInsecticideRow,
+	FormulationRow,
 	InsecticideBatchRow,
 	InsecticideRow,
 	ProfileRow,
@@ -12,6 +17,7 @@ import type {
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
+import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -48,9 +54,18 @@ import { webCollections } from '../../../sync/webCollections';
 import { insecticideDisplayName, todayDateValue } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
+import {
+	componentAmounts,
+	formatAmountValue,
+	formatAmountWithUnit,
+	sortedComponents,
+} from './-formulation-math';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noSelectionValue = 'none';
+
+/** Shared empty list, so an unselected formulation keeps a stable identity. */
+const NO_COMPONENTS: readonly FormulationInsecticideRow[] = [];
 
 /** Domain issue path → the form field holding it. */
 const APPLICATION_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -67,6 +82,19 @@ const APPLICATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
+ * The same map for a formulation entry, where the product and the amount are the
+ * mix's. Anything the expansion reports per component (`components.0.ratio`) has
+ * no field of its own and lands on the form alert.
+ */
+const FORMULATION_FIELD_PATHS: Readonly<Record<string, string>> = {
+	...APPLICATION_FIELD_PATHS,
+	insecticideId: 'formulationId',
+	totalAmount: 'amountApplied',
+	batchSize: 'formulationId',
+	components: 'formulationId',
+};
+
+/**
  * Amounts are recorded as a product quantity, so only the unit types a chemical
  * treatment can be measured in are offered (matching the insecticide catalog's
  * default-usage-unit choices).
@@ -75,9 +103,22 @@ function isApplicationUnitType(unitType: UnitRow['unitType']): boolean {
 	return unitType === 'volume' || unitType === 'weight' || unitType === 'count';
 }
 
+/**
+ * Whether the operator is entering one product or a saved mix.
+ *
+ * A formulation is a calculator, not a record: choosing one splits the total
+ * into an ordinary single-insecticide application per component product. Nothing
+ * downstream stores which mix it came from (see `docs/control-operations-domain.md`).
+ */
+export type ApplicationProductMode = 'insecticide' | 'formulation';
+
 export interface ApplicationFormValues {
-	/** An insecticide id, or '' when unset (placeholder shown). */
+	readonly productMode: ApplicationProductMode;
+	/** An insecticide id, or '' when unset (placeholder shown). Single-product entry. */
 	readonly insecticideId: string;
+	/** A formulation id, or '' when unset. Formulation entry. */
+	readonly formulationId: string;
+	/** The amount that went out — of the product, or of the whole mix. */
 	readonly amountApplied: number | null;
 	/** A unit id, or '' when unset. Defaults from the chosen insecticide. */
 	readonly applicationUnitId: string;
@@ -91,6 +132,8 @@ export interface ApplicationFormValues {
 	readonly additionalPersonnelIds: readonly string[];
 	/** Ids of the applied product's lots this treatment drew from. */
 	readonly insecticideBatchIds: readonly string[];
+	/** Lots per component product, keyed by insecticide id. Formulation entry. */
+	readonly componentBatchIds: Readonly<Record<string, readonly string[]>>;
 	/** `noSelectionValue` or a vehicle id. */
 	readonly vehicleId: string;
 	/** `noSelectionValue` or an equipment id. */
@@ -119,6 +162,14 @@ export interface ApplicationFormPageProps {
 	readonly canSubmit: boolean;
 	readonly applicationMethods: readonly ControlMethodRow[];
 	readonly insecticides: readonly InsecticideRow[];
+	/**
+	 * The agency's saved mixes. Passing them turns on formulation entry — leave
+	 * them out where a single application row is being edited, since the record
+	 * itself only ever holds one product.
+	 */
+	readonly formulations?: readonly FormulationRow[];
+	/** Every mix's component rows; the chosen mix's are picked out of these. */
+	readonly formulationComponents?: readonly FormulationInsecticideRow[];
 	readonly units: readonly UnitRow[];
 	readonly profiles: readonly ProfileRow[];
 	readonly vehicles: readonly VehicleRow[];
@@ -144,7 +195,9 @@ export interface ApplicationFormPageProps {
 
 export function defaultApplicationFormValues(): ApplicationFormValues {
 	return {
+		productMode: 'insecticide',
 		insecticideId: '',
+		formulationId: '',
 		amountApplied: null,
 		applicationUnitId: '',
 		applicationDate: todayDateValue(),
@@ -152,6 +205,7 @@ export function defaultApplicationFormValues(): ApplicationFormValues {
 		applicatorProfileId: noSelectionValue,
 		additionalPersonnelIds: [],
 		insecticideBatchIds: [],
+		componentBatchIds: {},
 		vehicleId: noSelectionValue,
 		equipmentId: noSelectionValue,
 		addressId: null,
@@ -165,6 +219,8 @@ export function ApplicationFormPage({
 	canSubmit,
 	applicationMethods,
 	insecticides,
+	formulations,
+	formulationComponents,
 	units,
 	profiles,
 	vehicles,
@@ -274,35 +330,104 @@ export function ApplicationFormPage({
 		[units, unitTypeFor],
 	);
 
+	// Formulation entry is offered only where the caller supplied the catalog —
+	// recording new work. Editing a saved application edits its one product.
+	const formulationEntry = formulations !== undefined;
+	const formulationOptions = useMemo(
+		() =>
+			formulations === undefined
+				? []
+				: lifecycleOptions(
+						formulations,
+						(row) => row.isActive,
+						(row) => row.formulationName,
+					),
+		[formulations],
+	);
+	const formulationById = useMemo(
+		() => new Map((formulations ?? []).map((row) => [row.id, row] as const)),
+		[formulations],
+	);
+	const componentsByFormulation = useMemo(() => {
+		const grouped = new Map<string, FormulationInsecticideRow[]>();
+		for (const component of formulationComponents ?? []) {
+			const bucket = grouped.get(component.formulationId);
+			if (bucket === undefined) {
+				grouped.set(component.formulationId, [component]);
+			} else {
+				bucket.push(component);
+			}
+		}
+		return grouped;
+	}, [formulationComponents]);
+	const componentsFor = useCallback(
+		(formulationId: string): readonly FormulationInsecticideRow[] =>
+			componentsByFormulation.get(formulationId) ?? NO_COMPONENTS,
+		[componentsByFormulation],
+	);
+	const formulationFor = useCallback(
+		(formulationId: string): FormulationRow | undefined => formulationById.get(formulationId),
+		[formulationById],
+	);
+
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: ApplicationFormValues }) =>
-					recordChemicalApplicationCommand({
-						...FORM_VALIDATION_CONTEXT,
-						applicationId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
-						insecticideId: value.insecticideId,
-						amountApplied: value.amountApplied as number,
-						applicationUnitId: value.applicationUnitId,
-						applicationDate: value.applicationDate,
-						applicatorProfileId:
-							value.applicatorProfileId === noSelectionValue ? null : value.applicatorProfileId,
-						applicationMethodId:
-							value.applicationMethodId === noSelectionValue ? null : value.applicationMethodId,
-						vehicleId: value.vehicleId === noSelectionValue ? null : value.vehicleId,
-						equipmentId: value.equipmentId === noSelectionValue ? null : value.equipmentId,
-						addressId: value.addressId,
-						metadata: value.metadata,
-					}),
-				APPLICATION_FIELD_PATHS,
-			),
+			onSubmit: ({ value }: { readonly value: ApplicationFormValues }) => {
+				const locationSource = {
+					kind: 'geometry',
+					geometry: (geometry ?? null) as never,
+				} as const;
+				const shared = {
+					...FORM_VALIDATION_CONTEXT,
+					locationSource,
+					applicationDate: value.applicationDate,
+					applicatorProfileId:
+						value.applicatorProfileId === noSelectionValue ? null : value.applicatorProfileId,
+					applicationMethodId:
+						value.applicationMethodId === noSelectionValue ? null : value.applicationMethodId,
+					vehicleId: value.vehicleId === noSelectionValue ? null : value.vehicleId,
+					equipmentId: value.equipmentId === noSelectionValue ? null : value.equipmentId,
+					addressId: value.addressId,
+					metadata: value.metadata,
+				};
+				// A mix is validated as what it becomes: the same expansion the save
+				// runs, so a rule that would reject one of the generated applications
+				// is reported here rather than after the first row lands.
+				if (value.productMode === 'formulation') {
+					return domainValidator(
+						() =>
+							expandFormulationApplicationCommands({
+								...shared,
+								totalAmount: value.amountApplied as number,
+								batchSize: formulationFor(value.formulationId)?.batchSize ?? Number.NaN,
+								components: componentsFor(value.formulationId).map((component, index) => ({
+									insecticideId: component.insecticideId,
+									amount: component.amount,
+									unitId: component.unitId,
+									applicationId: placeholderApplicationId(index),
+								})),
+							}),
+						FORMULATION_FIELD_PATHS,
+					)({ value });
+				}
+				return domainValidator(
+					() =>
+						recordChemicalApplicationCommand({
+							...shared,
+							applicationId: FORM_VALIDATION_CONTEXT.organizationId,
+							insecticideId: value.insecticideId,
+							amountApplied: value.amountApplied as number,
+							applicationUnitId: value.applicationUnitId,
+						}),
+					APPLICATION_FIELD_PATHS,
+				)({ value });
+			},
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			setLocationError(null);
-			const invalid = validate(value);
+			const invalid = validate(value, componentsFor(value.formulationId).length);
 			if (invalid !== null) {
 				setSaveError(invalid);
 				return;
@@ -454,83 +579,228 @@ export function ApplicationFormPage({
 							</section>
 
 							<FormSection title="Product">
-								<form.AppField name="insecticideId">
-									{(field) => (
-										<field.AutocompleteField
-											emptyValue=""
-											label="Insecticide"
-											required
-											onValueChange={(next, previousValue) => {
-												const chosen = insecticides.find((row) => row.id === next);
-												// The unit follows the product's default usage unit unless the
-												// user has explicitly chosen a different one — and always when
-												// the one they chose measures a different kind of quantity.
-												const previous = insecticides.find((row) => row.id === previousValue);
-												const currentUnit = form.state.values.applicationUnitId;
-												const unitIsDerived =
-													currentUnit === '' || currentUnit === previous?.defaultUnitId;
-												const nextUnitType = unitTypeFor(next ?? '');
-												const unitStillFits =
-													nextUnitType === null || unitTypeById.get(currentUnit) === nextUnitType;
-												if (unitIsDerived || !unitStillFits) {
-													form.setFieldValue('applicationUnitId', chosen?.defaultUnitId ?? '');
-												}
-												// Lots belong to one product, so changing the product drops them.
-												if (next !== previousValue) {
-													form.setFieldValue('insecticideBatchIds', []);
-												}
-											}}
-											options={insecticideOptions}
-											placeholder="Search insecticides"
-										/>
-									)}
-								</form.AppField>
-								<div className="grid gap-5 sm:grid-cols-2">
-									<form.AppField name="amountApplied">
+								{formulationEntry ? (
+									<form.AppField name="productMode">
 										{(field) => (
-											<field.NumberField
-												description="Total product applied across the treated area."
-												label="Amount applied"
-												required
-												min={0}
-												placeholder="e.g. 12.5"
-											/>
+											<ToggleGroup
+												aria-label="Product entry"
+												className="w-full"
+												onValueChange={(next) => {
+													if (next !== 'insecticide' && next !== 'formulation') {
+														return;
+													}
+													field.handleChange(next);
+													// Each mode owns its own product and lots; leaving the
+													// other mode's behind would silently save with them.
+													if (next === 'formulation') {
+														form.setFieldValue('insecticideId', '');
+														form.setFieldValue('insecticideBatchIds', []);
+													} else {
+														form.setFieldValue('formulationId', '');
+														form.setFieldValue('componentBatchIds', {});
+													}
+												}}
+												size="sm"
+												type="single"
+												value={field.state.value}
+												variant="outline"
+											>
+												<ToggleGroupItem className="flex-1 text-xs" value="insecticide">
+													Single insecticide
+												</ToggleGroupItem>
+												<ToggleGroupItem className="flex-1 text-xs" value="formulation">
+													Formulation
+												</ToggleGroupItem>
+											</ToggleGroup>
 										)}
 									</form.AppField>
-									<form.Subscribe selector={(state) => state.values.insecticideId}>
-										{(insecticideId) => (
-											<form.AppField name="applicationUnitId">
-												{(field) => (
-													<field.SelectField
-														label="Unit"
-														required
-														options={applicationUnitOptionsFor(insecticideId)}
-														placeholder="Select unit"
-													/>
-												)}
-											</form.AppField>
-										)}
-									</form.Subscribe>
-								</div>
-								{/* Lots are a property of the chosen product, so there is nothing to
-								    offer until one is picked. */}
-								<form.Subscribe selector={(state) => state.values.insecticideId}>
-									{(insecticideId) =>
-										insecticideId === '' ? null : (
-											<form.AppField name="insecticideBatchIds">
-												{(field) => (
-													<InsecticideBatchOptions insecticideId={insecticideId}>
-														{(options) => (
-															<field.MultiSelectField
-																emptyMessage="No batches for this product"
-																label="Batches"
-																options={options}
-																placeholder="Search batches"
+								) : null}
+
+								<form.Subscribe selector={(state) => state.values.productMode}>
+									{(productMode) =>
+										productMode === 'formulation' ? (
+											<div className="grid gap-5">
+												<form.AppField name="formulationId">
+													{(field) => (
+														<field.AutocompleteField
+															emptyValue=""
+															label="Formulation"
+															required
+															onValueChange={(next, previousValue) => {
+																if (next === previousValue) {
+																	return;
+																}
+																// The amount is entered in whatever the mix is
+																// batched in, so the unit comes from the mix.
+																form.setFieldValue(
+																	'applicationUnitId',
+																	formulationFor(next ?? '')?.batchUnitId ?? '',
+																);
+																// Lots belong to the products in the mix, so
+																// switching mixes starts them over.
+																form.setFieldValue('componentBatchIds', {});
+															}}
+															options={formulationOptions}
+															placeholder="Search formulations"
+														/>
+													)}
+												</form.AppField>
+												<div className="grid gap-5 sm:grid-cols-2">
+													<form.AppField name="amountApplied">
+														{(field) => (
+															<field.NumberField
+																description="Finished mix that went out, not product."
+																label="Total mix applied"
+																required
+																min={0}
+																placeholder="e.g. 78"
 															/>
 														)}
-													</InsecticideBatchOptions>
-												)}
-											</form.AppField>
+													</form.AppField>
+													<form.AppField name="applicationUnitId">
+														{(field) => (
+															<field.SelectField
+																description="Set by the mix."
+																disabled
+																label="Unit"
+																required
+																options={unitOptions(units, isApplicationUnitType)}
+																placeholder="Pick a formulation first"
+															/>
+														)}
+													</form.AppField>
+												</div>
+												<form.Subscribe
+													selector={(state) =>
+														[state.values.formulationId, state.values.amountApplied] as const
+													}
+												>
+													{([formulationId, amountApplied]) => (
+														<FormulationBreakdown
+															components={componentsFor(formulationId)}
+															formulation={formulationFor(formulationId)}
+															insecticides={insecticides}
+															totalAmount={amountApplied}
+															units={units}
+														/>
+													)}
+												</form.Subscribe>
+												{/* Lots are per product, so a mix asks once for each of its own. */}
+												<form.Subscribe selector={(state) => state.values.formulationId}>
+													{(formulationId) =>
+														componentsFor(formulationId).map((component) => (
+															<form.AppField
+																key={component.id}
+																name={`componentBatchIds.${component.insecticideId}`}
+															>
+																{(field) => (
+																	<InsecticideBatchOptions insecticideId={component.insecticideId}>
+																		{(options) => (
+																			<field.MultiSelectField
+																				emptyMessage="No batches for this product"
+																				label={`${productLabel(insecticides, component.insecticideId)} batches`}
+																				options={options}
+																				placeholder="Search batches"
+																			/>
+																		)}
+																	</InsecticideBatchOptions>
+																)}
+															</form.AppField>
+														))
+													}
+												</form.Subscribe>
+											</div>
+										) : (
+											<div className="grid gap-5">
+												<form.AppField name="insecticideId">
+													{(field) => (
+														<field.AutocompleteField
+															emptyValue=""
+															label="Insecticide"
+															required
+															onValueChange={(next, previousValue) => {
+																const chosen = insecticides.find((row) => row.id === next);
+																// The unit follows the product's default usage unit unless
+																// the user has explicitly chosen a different one — and
+																// always when the one they chose measures a different kind
+																// of quantity.
+																const previous = insecticides.find(
+																	(row) => row.id === previousValue,
+																);
+																const currentUnit = form.state.values.applicationUnitId;
+																const unitIsDerived =
+																	currentUnit === '' || currentUnit === previous?.defaultUnitId;
+																const nextUnitType = unitTypeFor(next ?? '');
+																const unitStillFits =
+																	nextUnitType === null ||
+																	unitTypeById.get(currentUnit) === nextUnitType;
+																if (unitIsDerived || !unitStillFits) {
+																	form.setFieldValue(
+																		'applicationUnitId',
+																		chosen?.defaultUnitId ?? '',
+																	);
+																}
+																// Lots belong to one product, so changing the product
+																// drops them.
+																if (next !== previousValue) {
+																	form.setFieldValue('insecticideBatchIds', []);
+																}
+															}}
+															options={insecticideOptions}
+															placeholder="Search insecticides"
+														/>
+													)}
+												</form.AppField>
+												<div className="grid gap-5 sm:grid-cols-2">
+													<form.AppField name="amountApplied">
+														{(field) => (
+															<field.NumberField
+																description="Total product applied across the treated area."
+																label="Amount applied"
+																required
+																min={0}
+																placeholder="e.g. 12.5"
+															/>
+														)}
+													</form.AppField>
+													<form.Subscribe selector={(state) => state.values.insecticideId}>
+														{(insecticideId) => (
+															<form.AppField name="applicationUnitId">
+																{(field) => (
+																	<field.SelectField
+																		label="Unit"
+																		required
+																		options={applicationUnitOptionsFor(insecticideId)}
+																		placeholder="Select unit"
+																	/>
+																)}
+															</form.AppField>
+														)}
+													</form.Subscribe>
+												</div>
+												{/* Lots are a property of the chosen product, so there is nothing to
+												    offer until one is picked. */}
+												<form.Subscribe selector={(state) => state.values.insecticideId}>
+													{(insecticideId) =>
+														insecticideId === '' ? null : (
+															<form.AppField name="insecticideBatchIds">
+																{(field) => (
+																	<InsecticideBatchOptions insecticideId={insecticideId}>
+																		{(options) => (
+																			<field.MultiSelectField
+																				emptyMessage="No batches for this product"
+																				label="Batches"
+																				options={options}
+																				placeholder="Search batches"
+																			/>
+																		)}
+																	</InsecticideBatchOptions>
+																)}
+															</form.AppField>
+														)
+													}
+												</form.Subscribe>
+											</div>
 										)
 									}
 								</form.Subscribe>
@@ -666,6 +936,96 @@ export function ApplicationFormPage({
 
 // --- controls ---------------------------------------------------------------
 
+/**
+ * What the chosen mix will be saved as: one application per component product,
+ * each carrying its share of the total. The split is the domain's own, so this
+ * is a preview of the rows, not an estimate of them.
+ */
+function FormulationBreakdown({
+	components,
+	formulation,
+	insecticides,
+	totalAmount,
+	units,
+}: {
+	readonly components: readonly FormulationInsecticideRow[];
+	readonly formulation: FormulationRow | undefined;
+	readonly insecticides: readonly InsecticideRow[];
+	readonly totalAmount: number | null;
+	readonly units: readonly UnitRow[];
+}) {
+	if (formulation === undefined) {
+		return null;
+	}
+	if (components.length === 0) {
+		return (
+			<p className="m-0 rounded-md border border-border/50 border-dashed px-3 py-2 text-muted-foreground text-sm">
+				This mix has no products in it. Add one under Formulations before recording against it.
+			</p>
+		);
+	}
+
+	const ordered = sortedComponents(components);
+	const amounts = componentAmounts({
+		components: ordered,
+		batchSize: formulation.batchSize,
+		totalAmount,
+	});
+	const amountByInsecticide = new Map(
+		(amounts ?? []).map((amount) => [amount.insecticideId, amount.amount] as const),
+	);
+	const unitById = new Map(units.map((unit) => [unit.id, unit] as const));
+	const batchLabel = formatAmountWithUnit(
+		formulation.batchSize,
+		unitById.get(formulation.batchUnitId),
+	);
+	const batches = totalAmount === null ? null : totalAmount / formulation.batchSize;
+
+	return (
+		<div className="grid gap-2 rounded-md border border-border/50 bg-muted/30 p-3">
+			<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+				<span className="font-medium text-foreground text-sm">
+					Saves as {ordered.length} {ordered.length === 1 ? 'application' : 'applications'}
+				</span>
+				<span className="text-muted-foreground text-xs">
+					{batches === null || !Number.isFinite(batches)
+						? `One batch makes ${batchLabel}`
+						: `${formatAmountValue(batches)} × ${batchLabel}`}
+				</span>
+			</div>
+			<ul className="m-0 grid list-none gap-1 p-0">
+				{ordered.map((component) => {
+					const unit = unitById.get(component.unitId);
+					const applied = amountByInsecticide.get(component.insecticideId);
+					return (
+						<li className="flex items-baseline justify-between gap-3 text-sm" key={component.id}>
+							<span className="min-w-0 truncate text-foreground">
+								{productLabel(insecticides, component.insecticideId)}
+							</span>
+							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+								{formatAmountWithUnit(component.amount, unit)} per batch
+								{applied === undefined ? null : (
+									<>
+										{' · '}
+										<span className="font-medium text-foreground text-sm">
+											{formatAmountWithUnit(applied, unit)}
+										</span>
+									</>
+								)}
+							</span>
+						</li>
+					);
+				})}
+			</ul>
+			{amounts === null ? (
+				<p className="m-0 text-muted-foreground text-xs">
+					Enter the total to see what each product works out to.
+				</p>
+			) : null}
+		</div>
+	);
+}
+
 // insecticide_batches is on-demand (docs/sync.md); keep a product's subset warm
 // briefly so flipping between products does not refetch each time.
 const batchOptionsGcTimeMs = 30_000;
@@ -748,8 +1108,16 @@ function optionalOptions(
 	return [{ label: emptyLabel, value: noSelectionValue }, ...options];
 }
 
-function validate(values: ApplicationFormValues): string | null {
-	if (values.insecticideId === '') {
+function validate(values: ApplicationFormValues, componentCount: number): string | null {
+	const mixed = values.productMode === 'formulation';
+	if (mixed) {
+		if (values.formulationId === '') {
+			return 'Select the formulation that was applied.';
+		}
+		if (componentCount === 0) {
+			return 'This formulation has no products to record against.';
+		}
+	} else if (values.insecticideId === '') {
 		return 'Select the insecticide that was applied.';
 	}
 	if (
@@ -757,7 +1125,7 @@ function validate(values: ApplicationFormValues): string | null {
 		!Number.isFinite(values.amountApplied) ||
 		values.amountApplied <= 0
 	) {
-		return 'Enter the amount applied.';
+		return mixed ? 'Enter the total amount of mix applied.' : 'Enter the amount applied.';
 	}
 	if (values.applicationUnitId === '') {
 		return 'Select the unit the amount was measured in.';
@@ -766,6 +1134,20 @@ function validate(values: ApplicationFormValues): string | null {
 		return 'Enter the date this application was made.';
 	}
 	return null;
+}
+
+/** A component product's name, for a label or a breakdown row. */
+function productLabel(insecticides: readonly InsecticideRow[], insecticideId: string): string {
+	const insecticide = insecticides.find((row) => row.id === insecticideId);
+	return insecticide === undefined ? 'Unknown insecticide' : insecticideDisplayName(insecticide);
+}
+
+/**
+ * A well-formed stand-in id per generated application, so the expansion runs its
+ * real rules during validation. The save mints the ids that are actually stored.
+ */
+function placeholderApplicationId(index: number): string {
+	return `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`;
 }
 
 /** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */

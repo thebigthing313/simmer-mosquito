@@ -224,13 +224,17 @@ export interface FormulationRow extends AuditedOrganizationRowBase {
 	readonly formulationName: string;
 	readonly description: string | null;
 	readonly isActive: boolean;
-	readonly diluentRatio: number;
+	/** What one batch of the mix makes, in `batchUnitId`. */
+	readonly batchSize: number;
+	readonly batchUnitId: string;
 }
 
 export interface FormulationInsecticideRow extends AuditedOrganizationRowBase {
 	readonly formulationId: string;
 	readonly insecticideId: string;
-	readonly ratio: number;
+	/** How much of this product one batch takes, in `unitId`. */
+	readonly amount: number;
+	readonly unitId: string;
 }
 
 export interface ApplicationRow extends AuditedOrganizationRowBase {

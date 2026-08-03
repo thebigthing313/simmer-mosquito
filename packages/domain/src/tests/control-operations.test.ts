@@ -35,6 +35,7 @@ const habitatId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const inspectionId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const collectionId = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const unitId = '12121212-1212-4212-8212-121212121212';
+const unitId2 = '13131313-1313-4313-8313-131313131313';
 const requestedControlActionId = '13131313-1313-4313-8313-131313131313';
 const outreachMethodId = '14141414-1414-4414-8414-141414141414';
 const outreachActionId = '15151515-1515-4515-8515-151515151515';
@@ -346,20 +347,41 @@ describe('requested control action commands', () => {
 });
 
 describe('formulation helpers', () => {
-	it('calculates component amounts using relative ratios and diluent ratio', () => {
+	it('scales component amounts by how many batches of the mix went out', () => {
 		expect(
 			calculateFormulationComponentAmounts({
-				totalAmount: 100,
-				diluentRatio: 1,
+				totalAmount: 300,
+				batchSize: 100,
 				components: [
-					{ insecticideId, ratio: 2 },
-					{ insecticideId: insecticideId2, ratio: 1 },
+					{ insecticideId, amount: 2, unitId },
+					{ insecticideId: insecticideId2, amount: 1, unitId: unitId2 },
 				],
 			}),
 		).toEqual([
-			{ insecticideId, ratio: 2, amount: 50 },
-			{ insecticideId: insecticideId2, ratio: 1, amount: 25 },
+			{ insecticideId, unitId, amount: 6 },
+			{ insecticideId: insecticideId2, unitId: unitId2, amount: 3 },
 		]);
+	});
+
+	it('keeps each component in its own unit, so a weight can come out of a volume mix', () => {
+		// 0.5 lb of material into 26 gal of water, applied over three tanks.
+		expect(
+			calculateFormulationComponentAmounts({
+				totalAmount: 78,
+				batchSize: 26,
+				components: [{ insecticideId, amount: 0.5, unitId }],
+			}),
+		).toEqual([{ insecticideId, unitId, amount: 1.5 }]);
+	});
+
+	it('scales a part-batch application down', () => {
+		expect(
+			calculateFormulationComponentAmounts({
+				totalAmount: 13,
+				batchSize: 26,
+				components: [{ insecticideId, amount: 0.5, unitId }],
+			}),
+		).toEqual([{ insecticideId, unitId, amount: 0.25 }]);
 	});
 
 	it('expands formulation input into ordinary single-insecticide application commands', () => {
@@ -367,19 +389,20 @@ describe('formulation helpers', () => {
 			organizationId,
 			actorProfileId,
 			totalAmount: 12,
+			batchSize: 3,
 			components: [
 				{
 					insecticideId,
-					ratio: 1,
+					amount: 1,
+					unitId,
 					applicationId,
-					applicationUnitId: unitId,
 					applicationBatches: [{ applicationBatchId, insecticideBatchId: batchId }],
 				},
 				{
 					insecticideId: insecticideId2,
-					ratio: 2,
+					amount: 2,
+					unitId: unitId2,
 					applicationId: applicationId2,
-					applicationUnitId: unitId,
 					applicationBatches: [
 						{ applicationBatchId: applicationBatchId2, insecticideBatchId: batchId2 },
 					],

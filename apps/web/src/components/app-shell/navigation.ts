@@ -280,6 +280,12 @@ export const shellDomains: readonly ShellDomain[] = [
 						icon: iconRegistry.entities.insecticide.icon,
 					},
 					{
+						id: 'chemical-formulations',
+						label: 'Formulations',
+						to: '/control-operations/chemical/formulations',
+						icon: iconRegistry.entities.formulation.icon,
+					},
+					{
 						id: 'chemical-stats',
 						label: 'Statistics',
 						to: '/control-operations/chemical/stats',

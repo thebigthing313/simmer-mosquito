@@ -126,8 +126,8 @@ export function createFormulationMutationHandlers(options: { readonly serverUrl:
 		serverUrl: options.serverUrl,
 		path: '/control-operations/formulations',
 		noun: 'formulation',
-		insertKeys: ['formulationName', 'description', 'diluentRatio'],
-		patchKeys: ['formulationName', 'description', 'diluentRatio', 'isActive'],
+		insertKeys: ['formulationName', 'description', 'batchSize', 'batchUnitId'],
+		patchKeys: ['formulationName', 'description', 'batchSize', 'batchUnitId', 'isActive'],
 	});
 }
 
@@ -138,8 +138,8 @@ export function createFormulationInsecticideMutationHandlers(options: {
 		serverUrl: options.serverUrl,
 		path: '/control-operations/formulation-insecticides',
 		noun: 'formulation insecticide',
-		insertKeys: ['formulationId', 'insecticideId', 'ratio'],
-		patchKeys: ['insecticideId', 'ratio'],
+		insertKeys: ['formulationId', 'insecticideId', 'amount', 'unitId'],
+		patchKeys: ['insecticideId', 'amount', 'unitId'],
 	});
 }
 

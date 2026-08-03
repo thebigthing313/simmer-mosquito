@@ -46,14 +46,14 @@ export function registerFormulationRoutes(
 			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
 		}
 		const ctx = agencyCommandContext(context.get('authContext'));
-		const diluentRatio = readNumber(raw.payload.diluentRatio);
 		const result = createCommand(() =>
 			createFormulationCommand({
 				...ctx,
 				formulationId: readText(raw.payload.id) ?? '',
 				formulationName: readText(raw.payload.formulationName) ?? '',
 				description: readNullableText(raw.payload.description),
-				...(diluentRatio !== undefined ? { diluentRatio } : {}),
+				batchSize: readNumber(raw.payload.batchSize) ?? Number.NaN,
+				batchUnitId: readText(raw.payload.batchUnitId) ?? '',
 			}),
 		);
 		if (!result.ok) {
@@ -112,15 +112,17 @@ function buildFormulationUpdateCommands(
 
 	const hasName = 'formulationName' in payload;
 	const hasDescription = 'description' in payload;
-	const hasDiluent = 'diluentRatio' in payload;
-	if (hasName || hasDescription || hasDiluent) {
+	const hasBatchSize = 'batchSize' in payload;
+	const hasBatchUnit = 'batchUnitId' in payload;
+	if (hasName || hasDescription || hasBatchSize || hasBatchUnit) {
 		const result = createCommand(() =>
 			updateFormulationDetailsCommand({
 				...ctx,
 				formulationId,
 				...(hasName ? { formulationName: readText(payload.formulationName) ?? '' } : {}),
 				...(hasDescription ? { description: readNullableText(payload.description) } : {}),
-				...(hasDiluent ? { diluentRatio: readNumber(payload.diluentRatio) ?? Number.NaN } : {}),
+				...(hasBatchSize ? { batchSize: readNumber(payload.batchSize) ?? Number.NaN } : {}),
+				...(hasBatchUnit ? { batchUnitId: readText(payload.batchUnitId) ?? '' } : {}),
 			}),
 		);
 		if (!result.ok) {
@@ -190,7 +192,8 @@ async function writeFormulationCommand(
 					organization_id: command.payload.organizationId,
 					formulation_name: command.payload.formulationName,
 					description: command.payload.description,
-					diluent_ratio: command.payload.diluentRatio,
+					batch_size: command.payload.batchSize,
+					batch_unit_id: command.payload.batchUnitId,
 					is_active: true,
 					created_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
@@ -207,8 +210,11 @@ async function writeFormulationCommand(
 				...('description' in command.payload.changes
 					? { description: command.payload.changes.description ?? null }
 					: {}),
-				...('diluentRatio' in command.payload.changes
-					? { diluent_ratio: command.payload.changes.diluentRatio }
+				...('batchSize' in command.payload.changes
+					? { batch_size: command.payload.changes.batchSize }
+					: {}),
+				...('batchUnitId' in command.payload.changes
+					? { batch_unit_id: command.payload.changes.batchUnitId }
 					: {}),
 				updated_by_profile_id: command.payload.actorProfileId,
 			});

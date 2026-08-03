@@ -1,5 +1,6 @@
 import {
 	AlertTriangle,
+	Beaker,
 	Box,
 	Calendar,
 	ChartColumn,
@@ -114,6 +115,7 @@ export const iconRegistry = {
 		collection: icon('collection', 'Collection', 'entities', Layers),
 		contact: icon('contact', 'Contact', 'entities', User),
 		equipment: icon('equipment', 'Equipment', 'entities', Wrench),
+		formulation: icon('formulation', 'Formulation', 'entities', Beaker),
 		insecticide: icon('insecticide', 'Insecticide', 'entities', SprayCan),
 		inspection: icon('inspection', 'Inspection', 'entities', ClipboardCheck),
 		organization: icon('organization', 'Organization', 'entities', Users),

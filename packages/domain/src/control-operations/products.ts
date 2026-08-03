@@ -25,7 +25,6 @@ import {
 	basePayload,
 	INSECTICIDE_TYPES,
 	idCommand,
-	normalizeNonnegativeFiniteNumber,
 	normalizeNullableUrl,
 	normalizePositiveFiniteNumber,
 	normalizeStringUnion,
@@ -173,7 +172,9 @@ export interface CreateFormulationCommandInput extends ControlCommandInput {
 	readonly formulationId: DomainId;
 	readonly formulationName: string;
 	readonly description?: string | null;
-	readonly diluentRatio?: number;
+	/** What one batch of the mix makes, in `batchUnitId` — 26 gallons of spray. */
+	readonly batchSize: number;
+	readonly batchUnitId: DomainId;
 }
 
 export type CreateFormulationCommand = ControlOperationsDomainCommand<
@@ -182,7 +183,8 @@ export type CreateFormulationCommand = ControlOperationsDomainCommand<
 		readonly formulationId: DomainId;
 		readonly formulationName: string;
 		readonly description: string | null;
-		readonly diluentRatio: number;
+		readonly batchSize: number;
+		readonly batchUnitId: DomainId;
 	}
 >;
 
@@ -190,7 +192,8 @@ export interface UpdateFormulationDetailsCommandInput extends ControlCommandInpu
 	readonly formulationId: DomainId;
 	readonly formulationName?: string;
 	readonly description?: string | null;
-	readonly diluentRatio?: number;
+	readonly batchSize?: number;
+	readonly batchUnitId?: DomainId;
 }
 
 export type UpdateFormulationDetailsCommand = ControlOperationsDomainCommand<
@@ -200,7 +203,8 @@ export type UpdateFormulationDetailsCommand = ControlOperationsDomainCommand<
 		readonly changes: Readonly<{
 			readonly formulationName?: string;
 			readonly description?: string | null;
-			readonly diluentRatio?: number;
+			readonly batchSize?: number;
+			readonly batchUnitId?: DomainId;
 		}>;
 	}
 >;
@@ -235,7 +239,9 @@ export interface AddFormulationInsecticideCommandInput extends ControlCommandInp
 	readonly formulationInsecticideId: DomainId;
 	readonly formulationId: DomainId;
 	readonly insecticideId: DomainId;
-	readonly ratio: number;
+	/** How much of this product one batch takes, in `unitId` — 0.5 pounds. */
+	readonly amount: number;
+	readonly unitId: DomainId;
 }
 
 export type AddFormulationInsecticideCommand = ControlOperationsDomainCommand<
@@ -244,14 +250,16 @@ export type AddFormulationInsecticideCommand = ControlOperationsDomainCommand<
 		readonly formulationInsecticideId: DomainId;
 		readonly formulationId: DomainId;
 		readonly insecticideId: DomainId;
-		readonly ratio: number;
+		readonly amount: number;
+		readonly unitId: DomainId;
 	}
 >;
 
 export interface UpdateFormulationInsecticideCommandInput extends ControlCommandInput {
 	readonly formulationInsecticideId: DomainId;
 	readonly insecticideId?: DomainId;
-	readonly ratio?: number;
+	readonly amount?: number;
+	readonly unitId?: DomainId;
 	readonly acknowledgedDeactivateEmptyFormulation?: boolean;
 }
 
@@ -261,7 +269,8 @@ export type UpdateFormulationInsecticideCommand = ControlOperationsDomainCommand
 		readonly formulationInsecticideId: DomainId;
 		readonly changes: Readonly<{
 			readonly insecticideId?: DomainId;
-			readonly ratio?: number;
+			readonly amount?: number;
+			readonly unitId?: DomainId;
 		}>;
 		readonly acknowledgedDeactivateEmptyFormulation: boolean;
 	}
@@ -282,30 +291,33 @@ export type RemoveFormulationInsecticideCommand = ControlOperationsDomainCommand
 
 export interface FormulationComponentAmountInput {
 	readonly insecticideId: DomainId;
-	readonly ratio: number;
+	/** Per batch of the mix. */
+	readonly amount: number;
+	readonly unitId: DomainId;
 }
 
 export interface CalculateFormulationComponentAmountsInput {
+	/** How much mix went out, in the formulation's batch unit. */
 	readonly totalAmount: number;
-	readonly diluentRatio?: number;
+	readonly batchSize: number;
 	readonly components: readonly FormulationComponentAmountInput[];
 }
 
 export interface FormulationComponentAmount {
 	readonly insecticideId: DomainId;
+	/** The scaled amount, in `unitId` — the product's own unit, not the batch's. */
 	readonly amount: number;
-	readonly ratio: number;
+	readonly unitId: DomainId;
 }
 
 export interface FormulationExpansionComponentInput extends FormulationComponentAmountInput {
 	readonly applicationId: DomainId;
-	readonly applicationUnitId: DomainId;
 	readonly applicationBatches?: readonly ApplicationBatchInput[];
 }
 
 export interface ExpandFormulationApplicationCommandsInput extends ControlCommandInput {
 	readonly totalAmount: number;
-	readonly diluentRatio?: number;
+	readonly batchSize: number;
 	readonly components: readonly FormulationExpansionComponentInput[];
 	readonly applicationDate: LocalDateString;
 	readonly applicatorProfileId?: DomainId | null;
@@ -537,11 +549,8 @@ export function createFormulationCommand(
 		200,
 	);
 	const description = normalizeNullableText(input.description, 'description', issues, 2_000);
-	const diluentRatio = normalizeNonnegativeFiniteNumber(
-		input.diluentRatio ?? 0,
-		'diluentRatio',
-		issues,
-	);
+	const batchSize = normalizePositiveFiniteNumber(input.batchSize, 'batchSize', issues);
+	requireUuid(input.batchUnitId, 'batchUnitId', issues);
 	throwIfIssues('Create formulation command is invalid.', issues);
 	return {
 		type: 'controlOperations.createFormulation',
@@ -550,7 +559,8 @@ export function createFormulationCommand(
 			formulationId: normalizeRequiredId(input.formulationId),
 			formulationName,
 			description,
-			diluentRatio,
+			batchSize,
+			batchUnitId: normalizeRequiredId(input.batchUnitId),
 		},
 	};
 }
@@ -561,8 +571,9 @@ export function updateFormulationDetailsCommand(
 	const issues = validateIdCommand(input, 'formulationId');
 	const hasName = input.formulationName !== undefined;
 	const hasDescription = input.description !== undefined;
-	const hasDiluent = input.diluentRatio !== undefined;
-	if (!hasName && !hasDescription && !hasDiluent) {
+	const hasBatchSize = input.batchSize !== undefined;
+	const hasBatchUnit = input.batchUnitId !== undefined;
+	if (!hasName && !hasDescription && !hasBatchSize && !hasBatchUnit) {
 		issues.push({ path: 'changes', message: 'At least one formulation field must change.' });
 	}
 	const formulationName = hasName
@@ -571,9 +582,12 @@ export function updateFormulationDetailsCommand(
 	const description = hasDescription
 		? normalizeNullableText(input.description, 'description', issues, 2_000)
 		: undefined;
-	const diluentRatio = hasDiluent
-		? normalizeNonnegativeFiniteNumber(input.diluentRatio, 'diluentRatio', issues)
+	const batchSize = hasBatchSize
+		? normalizePositiveFiniteNumber(input.batchSize, 'batchSize', issues)
 		: undefined;
+	if (hasBatchUnit) {
+		requireUuid(input.batchUnitId, 'batchUnitId', issues);
+	}
 	throwIfIssues('Update formulation details command is invalid.', issues);
 	return {
 		type: 'controlOperations.updateFormulationDetails',
@@ -583,7 +597,8 @@ export function updateFormulationDetailsCommand(
 			changes: {
 				...(formulationName !== undefined ? { formulationName } : {}),
 				...(hasDescription ? { description: description ?? null } : {}),
-				...(diluentRatio !== undefined ? { diluentRatio } : {}),
+				...(batchSize !== undefined ? { batchSize } : {}),
+				...(hasBatchUnit ? { batchUnitId: normalizeRequiredId(input.batchUnitId) } : {}),
 			},
 		},
 	};
@@ -624,7 +639,8 @@ export function addFormulationInsecticideCommand(
 	requireUuid(input.formulationInsecticideId, 'formulationInsecticideId', issues);
 	requireUuid(input.formulationId, 'formulationId', issues);
 	requireUuid(input.insecticideId, 'insecticideId', issues);
-	const ratio = normalizePositiveFiniteNumber(input.ratio, 'ratio', issues);
+	const amount = normalizePositiveFiniteNumber(input.amount, 'amount', issues);
+	requireUuid(input.unitId, 'unitId', issues);
 	throwIfIssues('Add formulation insecticide command is invalid.', issues);
 	return {
 		type: 'controlOperations.addFormulationInsecticide',
@@ -633,7 +649,8 @@ export function addFormulationInsecticideCommand(
 			formulationInsecticideId: normalizeRequiredId(input.formulationInsecticideId),
 			formulationId: normalizeRequiredId(input.formulationId),
 			insecticideId: normalizeRequiredId(input.insecticideId),
-			ratio,
+			amount,
+			unitId: normalizeRequiredId(input.unitId),
 		},
 	};
 }
@@ -643,8 +660,9 @@ export function updateFormulationInsecticideCommand(
 ): UpdateFormulationInsecticideCommand {
 	const issues = validateIdCommand(input, 'formulationInsecticideId');
 	const hasInsecticide = input.insecticideId !== undefined;
-	const hasRatio = input.ratio !== undefined;
-	if (!hasInsecticide && !hasRatio) {
+	const hasAmount = input.amount !== undefined;
+	const hasUnit = input.unitId !== undefined;
+	if (!hasInsecticide && !hasAmount && !hasUnit) {
 		issues.push({
 			path: 'changes',
 			message: 'At least one formulation component field must change.',
@@ -653,7 +671,12 @@ export function updateFormulationInsecticideCommand(
 	if (hasInsecticide) {
 		requireUuid(input.insecticideId, 'insecticideId', issues);
 	}
-	const ratio = hasRatio ? normalizePositiveFiniteNumber(input.ratio, 'ratio', issues) : undefined;
+	if (hasUnit) {
+		requireUuid(input.unitId, 'unitId', issues);
+	}
+	const amount = hasAmount
+		? normalizePositiveFiniteNumber(input.amount, 'amount', issues)
+		: undefined;
 	throwIfIssues('Update formulation insecticide command is invalid.', issues);
 	return {
 		type: 'controlOperations.updateFormulationInsecticide',
@@ -662,7 +685,8 @@ export function updateFormulationInsecticideCommand(
 			formulationInsecticideId: normalizeRequiredId(input.formulationInsecticideId),
 			changes: {
 				...(hasInsecticide ? { insecticideId: normalizeRequiredId(input.insecticideId) } : {}),
-				...(ratio !== undefined ? { ratio } : {}),
+				...(amount !== undefined ? { amount } : {}),
+				...(hasUnit ? { unitId: normalizeRequiredId(input.unitId) } : {}),
 			},
 			acknowledgedDeactivateEmptyFormulation: input.acknowledgedDeactivateEmptyFormulation ?? false,
 		},
@@ -684,21 +708,27 @@ export function removeFormulationInsecticideCommand(
 	};
 }
 
+/**
+ * Scale a formulation's components to the amount of mix that went out.
+ *
+ * A formulation is a recipe: one batch makes `batchSize` of finished mix and
+ * takes `amount` of each product. Applying `totalAmount` of that mix is
+ * `totalAmount / batchSize` batches, so each product scales by the same factor
+ * and stays in its own unit — 0.5 lb per 26 gal, applied over 78 gal, is 1.5 lb.
+ *
+ * No unit conversion happens here, and none is needed: the batch amount and each
+ * product amount are each read back in the unit they were entered in.
+ */
 export function calculateFormulationComponentAmounts(
 	input: CalculateFormulationComponentAmountsInput,
 ): readonly FormulationComponentAmount[] {
 	const issues = createIssues();
 	const totalAmount = normalizePositiveFiniteNumber(input.totalAmount, 'totalAmount', issues);
-	const diluentRatio = normalizeNonnegativeFiniteNumber(
-		input.diluentRatio ?? 0,
-		'diluentRatio',
-		issues,
-	);
+	const batchSize = normalizePositiveFiniteNumber(input.batchSize, 'batchSize', issues);
 	if (!Array.isArray(input.components) || input.components.length === 0) {
 		issues.push({ path: 'components', message: 'At least one formulation component is required.' });
 	}
 	const seen = new Set<string>();
-	let componentRatioTotal = 0;
 	const components = (input.components ?? []).map((component, index) => {
 		requireUuid(component.insecticideId, `components.${index}.insecticideId`, issues);
 		const insecticideId = normalizeRequiredId(component.insecticideId);
@@ -709,23 +739,20 @@ export function calculateFormulationComponentAmounts(
 			});
 		}
 		seen.add(insecticideId);
-		const ratio = normalizePositiveFiniteNumber(
-			component.ratio,
-			`components.${index}.ratio`,
+		requireUuid(component.unitId, `components.${index}.unitId`, issues);
+		const amount = normalizePositiveFiniteNumber(
+			component.amount,
+			`components.${index}.amount`,
 			issues,
 		);
-		componentRatioTotal += ratio;
-		return { insecticideId, ratio };
+		return { insecticideId, amount, unitId: normalizeRequiredId(component.unitId) };
 	});
-	if (componentRatioTotal <= 0) {
-		issues.push({ path: 'components', message: 'Component ratios must sum to more than zero.' });
-	}
 	throwIfIssues('Formulation component amounts are invalid.', issues);
-	const totalRatio = componentRatioTotal + diluentRatio;
+	const batches = totalAmount / batchSize;
 	return components.map((component) => ({
 		insecticideId: component.insecticideId,
-		ratio: component.ratio,
-		amount: Number(((totalAmount * component.ratio) / totalRatio).toFixed(6)),
+		unitId: component.unitId,
+		amount: Number((component.amount * batches).toFixed(6)),
 	}));
 }
 
@@ -746,7 +773,6 @@ export function expandFormulationApplicationCommands(
 			});
 		}
 		applicationIds.add(applicationId);
-		requireUuid(component.applicationUnitId, `components.${index}.applicationUnitId`, issues);
 		const amount = amountByInsecticide.get(normalizeRequiredId(component.insecticideId));
 		if (amount === undefined) {
 			issues.push({
@@ -761,7 +787,9 @@ export function expandFormulationApplicationCommands(
 			applicationId: component.applicationId,
 			insecticideId: component.insecticideId,
 			amountApplied: amount?.amount ?? 0,
-			applicationUnitId: component.applicationUnitId,
+			// Each generated application is recorded in its own product's unit —
+			// pounds of granules out of a mix measured in gallons.
+			applicationUnitId: amount?.unitId ?? component.unitId,
 			applicationDate: input.applicationDate,
 			locationSource: input.locationSource,
 			...(input.applicatorProfileId !== undefined

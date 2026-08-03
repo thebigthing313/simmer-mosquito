@@ -48,7 +48,8 @@ export function registerFormulationInsecticideRoutes(
 					formulationInsecticideId: readText(raw.payload.id) ?? '',
 					formulationId: readText(raw.payload.formulationId) ?? '',
 					insecticideId: readText(raw.payload.insecticideId) ?? '',
-					ratio: readNumber(raw.payload.ratio) ?? Number.NaN,
+					amount: readNumber(raw.payload.amount) ?? Number.NaN,
+					unitId: readText(raw.payload.unitId) ?? '',
 				}),
 			);
 			if (!result.ok) {
@@ -75,7 +76,8 @@ export function registerFormulationInsecticideRoutes(
 					...('insecticideId' in payload
 						? { insecticideId: readText(payload.insecticideId) ?? '' }
 						: {}),
-					...('ratio' in payload ? { ratio: readNumber(payload.ratio) ?? Number.NaN } : {}),
+					...('amount' in payload ? { amount: readNumber(payload.amount) ?? Number.NaN } : {}),
+					...('unitId' in payload ? { unitId: readText(payload.unitId) ?? '' } : {}),
 					acknowledgedDeactivateEmptyFormulation: true,
 				}),
 			);
@@ -152,7 +154,8 @@ async function writeFormulationInsecticideCommand(
 					organization_id: command.payload.organizationId,
 					formulation_id: command.payload.formulationId,
 					insecticide_id: command.payload.insecticideId,
-					ratio: command.payload.ratio,
+					amount: command.payload.amount,
+					unit_id: command.payload.unitId,
 					created_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				})
@@ -167,7 +170,12 @@ async function writeFormulationInsecticideCommand(
 					...('insecticideId' in command.payload.changes
 						? { insecticide_id: command.payload.changes.insecticideId }
 						: {}),
-					...('ratio' in command.payload.changes ? { ratio: command.payload.changes.ratio } : {}),
+					...('amount' in command.payload.changes
+						? { amount: command.payload.changes.amount }
+						: {}),
+					...('unitId' in command.payload.changes
+						? { unit_id: command.payload.changes.unitId }
+						: {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 					updated_at: sql`now()`,
 				})

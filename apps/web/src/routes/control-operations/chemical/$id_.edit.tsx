@@ -265,7 +265,12 @@ function defaultsFromApplication(
 	batches: ApplicationBatchesResult,
 ): ApplicationFormValues {
 	return {
+		// A saved application holds one product: it never records the mix it may
+		// have been calculated from, so editing is always single-product.
+		productMode: 'insecticide',
 		insecticideId: application.insecticideId,
+		formulationId: '',
+		componentBatchIds: {},
 		amountApplied: application.amountApplied,
 		applicationUnitId: application.applicationUnitId,
 		applicationDate: application.applicationDate.slice(0, 10),

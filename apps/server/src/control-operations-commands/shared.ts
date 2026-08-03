@@ -334,7 +334,8 @@ export const formulationReturnColumns = [
 	'formulation_name',
 	'description',
 	'is_active',
-	'diluent_ratio',
+	'batch_size',
+	'batch_unit_id',
 	'created_by_profile_id',
 	'updated_by_profile_id',
 	'created_at',
@@ -347,7 +348,8 @@ export interface SafeFormulation {
 	readonly formulationName: string;
 	readonly description: string | null;
 	readonly isActive: boolean;
-	readonly diluentRatio: number;
+	readonly batchSize: number;
+	readonly batchUnitId: string;
 	readonly createdByProfileId: string | null;
 	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
@@ -360,7 +362,8 @@ export function toSafeFormulation(row: {
 	readonly formulation_name: string;
 	readonly description: string | null;
 	readonly is_active: boolean;
-	readonly diluent_ratio: number;
+	readonly batch_size: number;
+	readonly batch_unit_id: string;
 	readonly created_by_profile_id: string | null;
 	readonly updated_by_profile_id: string | null;
 	readonly created_at: Date;
@@ -372,7 +375,8 @@ export function toSafeFormulation(row: {
 		formulationName: row.formulation_name,
 		description: row.description,
 		isActive: row.is_active,
-		diluentRatio: row.diluent_ratio,
+		batchSize: row.batch_size,
+		batchUnitId: row.batch_unit_id,
 		createdByProfileId: row.created_by_profile_id,
 		updatedByProfileId: row.updated_by_profile_id,
 		createdAt: row.created_at,
@@ -385,7 +389,8 @@ export const formulationInsecticideReturnColumns = [
 	'organization_id',
 	'formulation_id',
 	'insecticide_id',
-	'ratio',
+	'amount',
+	'unit_id',
 	'created_by_profile_id',
 	'updated_by_profile_id',
 	'created_at',
@@ -397,7 +402,8 @@ export interface SafeFormulationInsecticide {
 	readonly organizationId: string;
 	readonly formulationId: string;
 	readonly insecticideId: string;
-	readonly ratio: number;
+	readonly amount: number;
+	readonly unitId: string;
 	readonly createdByProfileId: string | null;
 	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
@@ -409,7 +415,8 @@ export function toSafeFormulationInsecticide(row: {
 	readonly organization_id: string;
 	readonly formulation_id: string;
 	readonly insecticide_id: string;
-	readonly ratio: number;
+	readonly amount: number;
+	readonly unit_id: string;
 	readonly created_by_profile_id: string | null;
 	readonly updated_by_profile_id: string | null;
 	readonly created_at: Date;
@@ -420,7 +427,8 @@ export function toSafeFormulationInsecticide(row: {
 		organizationId: row.organization_id,
 		formulationId: row.formulation_id,
 		insecticideId: row.insecticide_id,
-		ratio: row.ratio,
+		amount: row.amount,
+		unitId: row.unit_id,
 		createdByProfileId: row.created_by_profile_id,
 		updatedByProfileId: row.updated_by_profile_id,
 		createdAt: row.created_at,
@@ -671,7 +679,8 @@ export type CommandsResult =
 export type FormulationUpdateColumns = {
 	formulation_name?: string;
 	description?: string | null;
-	diluent_ratio?: number;
+	batch_size?: number;
+	batch_unit_id?: string;
 	is_active?: boolean;
 	updated_by_profile_id: string;
 };

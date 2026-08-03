@@ -444,16 +444,23 @@ insecticide, amount, unit, and optional batches.
 Do not add `applications.formulation_id` for v1. If users need historical
 formulation usage later, consider it in a future release.
 
+A formulation is a recipe stated the way a product label states it: one batch
+makes a given amount of finished mix and takes a given amount of each product.
+"0.5 lb of material into 26 gallons of water" is `batchSize` 26 gallons with one
+component of `amount` 0.5 pounds.
+
 Formulation fields:
 
 - `formulationName` required and unique per organization after trim/case fold
 - `description` optional
-- `diluentRatio >= 0`
-- component `ratio > 0`
+- `batchSize > 0` with a required `batchUnitId`
+- component `amount > 0` with a required `unitId`
 
-Ratios are relative proportions. Do not require component ratios plus diluent
-ratio to sum to 1, 100, or any fixed total. Helpers may normalize ratios for
-calculation.
+Every amount carries its own unit and none of them are relative parts. A
+component's unit is independent of the batch unit, which is what lets a weight of
+product come out of a mix measured by volume. Do not reintroduce dimensionless
+ratios: they cannot express a label rate, and they silently assume the product
+and the diluent are measured the same way.
 
 Formulations may be created as drafts with zero components. Activation requires
 at least one active, non-deleted insecticide component. Active formulations must
@@ -481,16 +488,17 @@ The control operations public seam exports pure formulation helpers:
 
 Helpers must not depend on DB access or persisted formulation usage.
 
-`calculateFormulationComponentAmounts` should accept formulation/component ratio
-data and return component amounts after normalizing relative ratios.
+`calculateFormulationComponentAmounts` accepts the amount of mix that went out,
+the formulation's `batchSize`, and its components. Applying `totalAmount` of a
+mix is `totalAmount / batchSize` batches, so each component scales by that factor
+and is returned in its own `unitId` — 0.5 lb per 26 gal, applied over 78 gal, is
+1.5 lb. No unit conversion is performed or required.
 
 `expandFormulationApplicationCommands` should:
 
 - accept shared application context
 - accept caller-provided application IDs
-- accept optional per-component unit overrides
-- default each component output unit to the insecticide's current
-  `defaultUnitId`
+- record each generated application in its component's own `unitId`
 - accept optional per-component batch mappings
 - require caller-provided `applicationBatchId` values
 - return ordinary single-insecticide `RecordChemicalApplicationCommand` values
@@ -1193,7 +1201,7 @@ size limits in the domain layer for v1.
 Use the shared validation boundary in `docs/domain-command-contract.md`.
 Control-specific builder checks include URL syntax for label/MSDS links,
 nested control context shape, positive quantities, outreach reach, formulation
-ratio and diluent rules, and JSON object/null metadata or custom schema.
+batch and component amount rules, and JSON object/null metadata or custom schema.
 
 Control-specific server checks include unit compatibility, correction windows
 in organization timezone, requested-action compatibility, batch compatibility,
@@ -1345,13 +1353,17 @@ Add lightweight, context-free checks:
 
 ```sql
 alter table formulations
-  add constraint formulations_diluent_ratio_nonnegative
-  check (diluent_ratio >= 0);
+  add constraint formulations_batch_size_positive
+  check (batch_size > 0);
 
 alter table formulation_insecticides
-  add constraint formulation_insecticides_ratio_positive
-  check (ratio > 0);
+  add constraint formulation_insecticides_amount_positive
+  check (amount > 0);
 ```
+
+`formulations.batch_unit_id` and `formulation_insecticides.unit_id` are required
+FKs to `units`, added with the recipe columns in
+`202608030001_formulation_batch_units.sql`.
 
 ### Deferred Schema
 
