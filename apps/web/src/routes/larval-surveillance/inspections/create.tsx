@@ -142,6 +142,7 @@ function CreateInspectionRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultInspectionFormValues(today, actorProfileId)}
 			habitatTypes={habitatTypes}
+			mode="create"
 			header={{
 				title: 'Record inspection',
 				description: 'Log a larval inspection against a habitat or an ad-hoc field location.',

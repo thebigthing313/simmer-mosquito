@@ -160,8 +160,16 @@ export interface InspectionFormPageProps {
 	readonly initialAdhocGeometry?: DrawGeometry | null;
 	/** Geometry to frame the map on immediately (edit pre-fill). */
 	readonly initialPreviewGeometry?: GeoJsonGeometry | null;
-	/** Edit locks the habitat/ad-hoc choice — the two are distinct command paths. */
-	readonly lockLocationMode?: boolean;
+	/**
+	 * Create records a new inspection; edit revises one in place.
+	 *
+	 * Editing locks where the inspection happened. Habitat and ad-hoc are distinct
+	 * commands, and the update command cannot move an inspection to a different
+	 * habitat either — its type, address, and geometry were snapshotted from the
+	 * one it was recorded against. Offering either as an editable field would be
+	 * offering a change the server silently drops.
+	 */
+	readonly mode: 'create' | 'edit';
 	readonly header: InspectionFormHeader;
 	readonly submitLabel: string;
 	readonly onSave: (input: {
@@ -258,12 +266,13 @@ export function InspectionFormPage({
 	defaultValues,
 	initialAdhocGeometry = null,
 	initialPreviewGeometry = null,
-	lockLocationMode = false,
+	mode,
 	header,
 	submitLabel,
 	onSave,
 }: InspectionFormPageProps) {
 	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const isEditing = mode === 'edit';
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
 
@@ -462,7 +471,9 @@ export function InspectionFormPage({
 										Location
 									</span>
 									<span className="text-muted-foreground text-xs">
-										Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers.
+										{isEditing
+											? 'Where the inspection happened is fixed. Record a new inspection to cover a different site.'
+											: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers.'}
 									</span>
 								</div>
 
@@ -471,7 +482,7 @@ export function InspectionFormPage({
 										<ToggleGroup
 											aria-label="Location mode"
 											className="w-full"
-											disabled={lockLocationMode}
+											disabled={isEditing}
 											onValueChange={(next) => {
 												if (next === 'habitat' || next === 'adhoc') {
 													field.handleChange(next);
@@ -496,16 +507,20 @@ export function InspectionFormPage({
 									{(locationMode) =>
 										locationMode === 'habitat' ? (
 											<form.AppField name="habitatId">
-												{(field) => (
-													<HabitatPicker
-														onSelect={(habitat) => {
-															field.handleChange(habitat?.id ?? null);
-															handleHabitatSelected(habitat);
-														}}
-														organizationId={organizationId}
-														value={field.state.value}
-													/>
-												)}
+												{(field) =>
+													isEditing ? (
+														<SelectedHabitat habitatId={field.state.value} />
+													) : (
+														<HabitatPicker
+															onSelect={(habitat) => {
+																field.handleChange(habitat?.id ?? null);
+																handleHabitatSelected(habitat);
+															}}
+															organizationId={organizationId}
+															value={field.state.value}
+														/>
+													)
+												}
 											</form.AppField>
 										) : (
 											<div className="grid gap-4">
@@ -685,6 +700,7 @@ export function InspectionFormPage({
 										<form.AppField name="samples">
 											{(field) => (
 												<SamplesSection
+													isEditing={isEditing}
 													onChange={field.handleChange}
 													value={field.state.value as readonly InspectionSampleDraft[]}
 												/>
@@ -772,17 +788,28 @@ function hasLarvalData(values: InspectionFormValues): boolean {
  */
 function SamplesSection({
 	value,
+	isEditing,
 	onChange,
 }: {
 	readonly value: readonly InspectionSampleDraft[];
+	readonly isEditing: boolean;
 	readonly onChange: (next: readonly InspectionSampleDraft[]) => void;
 }) {
 	return (
-		<FormSection title="Samples">
+		<FormSection
+			note={
+				isEditing
+					? 'Samples already on this inspection are managed from its record; these are added to them.'
+					: null
+			}
+			title={isEditing ? 'Add Samples' : 'Samples'}
+		>
 			<div className="grid gap-3">
 				{value.length === 0 ? (
 					<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-3 text-muted-foreground text-sm">
-						No specimens collected. Add one for each sample taken during this inspection.
+						{isEditing
+							? 'No samples to add.'
+							: 'No specimens collected. Add one for each sample taken during this inspection.'}
 					</p>
 				) : (
 					<ul className="grid gap-2">
@@ -828,9 +855,46 @@ function SamplesSection({
 	);
 }
 
+/**
+ * The habitat an inspection is already recorded against, as a read-only line.
+ *
+ * A picker here would offer a change the update command drops: an inspection's
+ * habitat, and the type/address/geometry snapshotted from it, are fixed once
+ * recorded.
+ */
+function SelectedHabitat({ habitatId }: { readonly habitatId: string | null }) {
+	const result = useLiveQuery(
+		{
+			gcTime: habitatSearchGcTimeMs,
+			query: (query) =>
+				query
+					.from({ habitat: webCollections.habitats })
+					.where(({ habitat }) => eq(habitat.id, habitatId ?? UNMATCHABLE_ID))
+					.findOne(),
+		},
+		[habitatId],
+	);
+	const habitat = result.data as HabitatRow | undefined;
+
+	return (
+		<LabeledControl label="Habitat">
+			<div className="flex min-h-9 w-full items-center rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-foreground text-sm">
+				{habitat === undefined ? (
+					<span className="text-muted-foreground">
+						{result.isReady ? 'Habitat unavailable' : 'Loading habitat…'}
+					</span>
+				) : (
+					habitatLabel(habitat)
+				)}
+			</div>
+		</LabeledControl>
+	);
+}
+
 // --- habitat picker ---------------------------------------------------------
 
 const habitatSearchGcTimeMs = 30_000;
+const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 function HabitatPicker({
 	organizationId,

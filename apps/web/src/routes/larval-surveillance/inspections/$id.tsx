@@ -51,6 +51,7 @@ const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
+const EditIcon = iconRegistry.actions.edit.icon;
 
 // The inspection samples/species/linked-action subsets stream from on-demand
 // collections; keep them warm briefly after unmount so returning reuses them.
@@ -199,6 +200,12 @@ function InspectionHeader({ inspection }: { readonly inspection: InspectionDetai
 					<WetnessBadge isWet={false} />
 				)}
 				<PositivityBadge inspection={inspection} />
+				<Button asChild size="sm" variant="outline">
+					<Link params={{ id: inspection.id }} to="/larval-surveillance/inspections/$id/edit">
+						<EditIcon aria-hidden="true" />
+						Edit
+					</Link>
+				</Button>
 			</div>
 		</div>
 	);
