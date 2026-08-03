@@ -1,4 +1,5 @@
-import type { CommentRow, InspectionRow, LarvalDensity } from '@simmer-mosquito/sync';
+import type { CommentRow, InspectionRow, LarvalDensity, SampleRow } from '@simmer-mosquito/sync';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -16,6 +17,7 @@ import {
 	defaultInspectionFormValues,
 	InspectionFormPage,
 	type InspectionFormValues,
+	type InspectionSampleDraft,
 	noHabitatTypeValue,
 	unsetDensityValue,
 } from './-inspection-form';
@@ -23,6 +25,8 @@ import {
 export const Route = createFileRoute('/larval-surveillance/inspections/create')({
 	component: CreateInspectionRoute,
 });
+
+const warmGcTimeMs = 30_000;
 
 function CreateInspectionRoute() {
 	const { auth } = Route.useRouteContext();
@@ -36,12 +40,24 @@ function CreateInspectionRoute() {
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = organization !== null && actorProfileId !== null;
-	const entryMode = settings.larvalSurveillance.inspectionEntryPolicy.mode;
+	const policy = settings.larvalSurveillance.inspectionEntryPolicy;
 
 	// Minted up front so the crew rows can be written the moment the inspection
 	// lands — and so their on-demand stream is already warm when the save fires.
 	const [inspectionId] = useState(() => crypto.randomUUID());
 	useAdditionalPersonnel({ type: 'inspection', id: inspectionId });
+	// Same reason: samples sync on demand, and a write against a cold stream times
+	// out waiting for its txid confirmation.
+	useLiveQuery(
+		{
+			gcTime: warmGcTimeMs,
+			query: (query) =>
+				query
+					.from({ sample: webCollections.samples })
+					.where(({ sample }) => eq(sample.inspectionId, inspectionId)),
+		},
+		[inspectionId],
+	);
 
 	const onSave = useCallback(
 		async ({
@@ -74,6 +90,18 @@ function CreateInspectionRoute() {
 						})
 					: webCollections.inspections.insert(row);
 			await settleWrite(transaction);
+
+			// Samples reference the inspection, so they follow it. Best-effort like
+			// the crew rows: a sample that fails to land is reported rather than
+			// failing a save that already succeeded.
+			await attachLinksBestEffort('the samples', () =>
+				saveInspectionSamples(values.samples, {
+					inspectionId: row.id,
+					organizationId: organization.id,
+					actorProfileId,
+					now,
+				}),
+			);
 
 			// Crew rows reference the inspection, so they can only be written once it
 			// exists.
@@ -112,8 +140,7 @@ function CreateInspectionRoute() {
 	return (
 		<InspectionFormPage
 			canSubmit={canSubmit}
-			defaultValues={defaultInspectionFormValues(today)}
-			entryMode={entryMode}
+			defaultValues={defaultInspectionFormValues(today, actorProfileId)}
 			habitatTypes={habitatTypes}
 			header={{
 				title: 'Record inspection',
@@ -123,6 +150,7 @@ function CreateInspectionRoute() {
 			}}
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
+			policy={policy}
 			profiles={profiles}
 			submitLabel="Record inspection"
 		/>
@@ -167,6 +195,40 @@ function buildInspectionRow(
 		createdAt: context.now,
 		updatedAt: context.now,
 	};
+}
+
+/**
+ * Write the specimens drafted on the form. A blank label records an unlabeled
+ * sample — the insert handler sends `displayName: null` and the server picks the
+ * unlabeled command.
+ */
+async function saveInspectionSamples(
+	samples: readonly InspectionSampleDraft[],
+	context: {
+		readonly inspectionId: string;
+		readonly organizationId: string;
+		readonly actorProfileId: string;
+		readonly now: string;
+	},
+): Promise<void> {
+	for (const sample of samples) {
+		const row: SampleRow = {
+			id: sample.id,
+			organizationId: context.organizationId,
+			inspectionId: context.inspectionId,
+			displayName: sample.label.trim() === '' ? null : sample.label.trim(),
+			isZeroLarvae: false,
+			hasNonMosquito: false,
+			unidentifiableReason: null,
+			createdByProfileId: context.actorProfileId,
+			updatedByProfileId: context.actorProfileId,
+			createdAt: context.now,
+			updatedAt: context.now,
+		};
+		// Sequential: the samples stream is on-demand, so the first insert warms it
+		// and the rest confirm against a live shape instead of racing a cold one.
+		await settleWrite(webCollections.samples.insert(row));
+	}
 }
 
 async function addInspectionComment(

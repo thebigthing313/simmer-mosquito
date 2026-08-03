@@ -1,4 +1,4 @@
-import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
+import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import {
 	recordAdHocInspectionCommand,
 	recordHabitatInspectionCommand,
@@ -7,6 +7,16 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
@@ -19,6 +29,7 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import {
 	ArrowLeftIcon,
 	CheckIcon,
+	PlusIcon,
 	SearchIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
@@ -42,6 +53,7 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
+import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -97,8 +109,23 @@ export interface InspectionFormValues {
 	readonly dipCount: number | null;
 	readonly larvaeCount: number | null;
 	readonly lifeStages: LifeStageFlags;
+	/** Specimens collected during this inspection, written once it lands. */
+	readonly samples: readonly InspectionSampleDraft[];
 	/** Optional comment to attach to the inspection on save (blank = none). */
 	readonly comment: string;
+}
+
+/**
+ * A specimen the crew is recording alongside the inspection.
+ *
+ * The id is minted here rather than at save time so a row keeps its identity
+ * while the form is open — React keys off it, and the save writes it straight
+ * through.
+ */
+export interface InspectionSampleDraft {
+	readonly id: string;
+	/** Blank records an unlabeled sample; the domain has a command for each. */
+	readonly label: string;
 }
 
 /** Domain issue path → the form field holding it. */
@@ -124,7 +151,8 @@ export interface InspectionFormHeader {
 export interface InspectionFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly entryMode: LarvalInspectionEntryMode;
+	/** The agency's larval entry policy — decides which abundance fields exist. */
+	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 	readonly profiles: readonly ProfileRow[];
 	readonly habitatTypes: readonly HabitatTypeRow[];
 	readonly defaultValues: InspectionFormValues;
@@ -142,47 +170,89 @@ export interface InspectionFormPageProps {
 	}) => Promise<void>;
 }
 
-export function defaultInspectionFormValues(today: string): InspectionFormValues {
+/**
+ * `inspectedByProfileId` is seeded with the acting profile rather than left null
+ * for the server to fill in. The field then names the person the inspection will
+ * be attributed to, which is what the operator needs to check before saving —
+ * "Default to me" said only that a default existed.
+ */
+export function defaultInspectionFormValues(
+	today: string,
+	inspectedByProfileId: string | null,
+): InspectionFormValues {
 	return {
 		locationMode: 'habitat',
 		habitatId: null,
 		habitatTypeId: noHabitatTypeValue,
 		addressId: null,
 		inspectionDate: today,
-		inspectedByProfileId: null,
+		inspectedByProfileId,
 		additionalPersonnelIds: [],
 		isWet: true,
 		density: unsetDensityValue,
 		dipCount: null,
 		larvaeCount: null,
 		lifeStages: emptyLifeStages(),
+		samples: [],
 		comment: '',
 	};
 }
 
-interface ResultColumns {
-	readonly density: boolean;
-	readonly dips: boolean;
-	readonly larvae: boolean;
+interface ResultColumn {
+	readonly show: boolean;
+	readonly required: boolean;
 }
 
-// Which abundance inputs the agency's entry policy makes meaningful — mirrors the
-// server-side validation so the form only asks for fields it can accept.
-function resultColumnsForMode(mode: LarvalInspectionEntryMode): ResultColumns {
+interface ResultColumns {
+	readonly density: ResultColumn;
+	readonly dips: ResultColumn;
+	readonly larvae: ResultColumn;
+}
+
+/**
+ * Which abundance inputs the agency's entry policy makes meaningful, and which
+ * of them it insists on. Mirrors `normalizeLarvalInspectionResult` so the form
+ * asks for exactly what the command will accept — under density-only entry a
+ * larvae count is rejected outright, and under count-and-dips both counts are
+ * required, so neither should be presented the same way as an optional field.
+ *
+ * Hybrid requires density *or* the count pair, which no single field can be
+ * marked for; the section's own note carries that rule instead.
+ */
+function resultColumnsForMode(mode: ResolvedLarvalInspectionEntryPolicy['mode']): ResultColumns {
 	switch (mode) {
 		case 'density_only':
-			return { density: true, dips: true, larvae: false };
+			return {
+				density: { show: true, required: true },
+				dips: { show: true, required: false },
+				larvae: { show: false, required: false },
+			};
 		case 'count_and_dips_required':
-			return { density: false, dips: true, larvae: true };
+			return {
+				density: { show: false, required: false },
+				dips: { show: true, required: true },
+				larvae: { show: true, required: true },
+			};
 		default:
-			return { density: true, dips: true, larvae: true };
+			return {
+				density: { show: true, required: false },
+				dips: { show: true, required: false },
+				larvae: { show: true, required: false },
+			};
 	}
+}
+
+/** What the section says it needs, when no one field can carry the rule. */
+function findingsRequirement(mode: ResolvedLarvalInspectionEntryPolicy['mode']): string | null {
+	return mode === 'hybrid'
+		? 'Record a density, or a larvae count with the dips it came from.'
+		: null;
 }
 
 export function InspectionFormPage({
 	organizationId,
 	canSubmit,
-	entryMode,
+	policy,
 	profiles,
 	habitatTypes,
 	defaultValues,
@@ -194,6 +264,7 @@ export function InspectionFormPage({
 	onSave,
 }: InspectionFormPageProps) {
 	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
 
 	const [map, setMap] = useState<MapboxMap | null>(null);
@@ -208,6 +279,9 @@ export function InspectionFormPage({
 	);
 	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
+	// Switching to dry throws away whatever abundance was keyed in — the command
+	// rejects a dry inspection that carries any — so the crew is asked first.
+	const [pendingDry, setPendingDry] = useState(false);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const handleAdhocGeometryChange = useCallback((next: DrawGeometry | null) => {
@@ -240,6 +314,9 @@ export function InspectionFormPage({
 					inspectionId: FORM_VALIDATION_CONTEXT.organizationId,
 					inspectionDate: value.inspectionDate,
 					inspectedByProfileId: value.inspectedByProfileId,
+					// The agency's own policy, so the form enforces the same abundance
+					// rules the server will rather than the built-in default.
+					policy,
 					isWet: value.isWet,
 					dipCount: value.dipCount,
 					density: value.density === unsetDensityValue ? null : (value.density as LarvalDensity),
@@ -441,13 +518,17 @@ export function InspectionFormPage({
 													onDraw={startAdhocDraw}
 													onTypeChange={handleAdhocTypeChange}
 													organizationId={organizationId}
+													required
 												/>
 												<form.AppField name="habitatTypeId">
 													{(field) => (
-														<field.SelectField
+														<field.AutocompleteField
+															// The sentinel, not `null`: `habitatTypeId` is a plain
+															// string here and the submit mapping reads it back.
+															emptyValue={noHabitatTypeValue}
 															label="Habitat type"
 															options={habitatTypeOptions(habitatTypes)}
-															placeholder="Unassigned type"
+															placeholder="Search habitat types"
 														/>
 													)}
 												</form.AppField>
@@ -465,7 +546,7 @@ export function InspectionFormPage({
 								<div className="grid gap-5 sm:grid-cols-2">
 									<form.AppField name="inspectionDate">
 										{(field) => (
-											<LabeledControl label="Inspection date">
+											<LabeledControl label="Inspection date" required>
 												<DatePicker
 													ariaLabel="Inspection date"
 													className="w-full"
@@ -481,10 +562,11 @@ export function InspectionFormPage({
 									</form.AppField>
 									<form.AppField name="inspectedByProfileId">
 										{(field) => (
-											<field.SelectField
+											<field.AutocompleteField
 												label="Inspector"
 												options={profileOptions(profiles)}
-												placeholder="Default to me"
+												placeholder="Search people"
+												required
 											/>
 										)}
 									</form.AppField>
@@ -507,14 +589,24 @@ export function InspectionFormPage({
 								</form.Subscribe>
 							</FormSection>
 
-							<FormSection title="Findings">
+							<FormSection title="Findings" note={findingsRequirement(entryMode)}>
 								<form.AppField name="isWet">
 									{(field) => (
 										<LabeledControl
 											description="Larvae can only be present when standing water was found."
-											label="Water state"
+											label="Conditions"
+											required
 										>
-											<WaterToggle onChange={field.handleChange} value={field.state.value} />
+											<WaterToggle
+												onChange={(next) => {
+													if (next || !hasLarvalData(form.state.values)) {
+														field.handleChange(next);
+														return;
+													}
+													setPendingDry(true);
+												}}
+												value={field.state.value}
+											/>
 										</LabeledControl>
 									)}
 								</form.AppField>
@@ -524,18 +616,19 @@ export function InspectionFormPage({
 										isWet ? (
 											<div className="grid gap-5">
 												<div className="grid gap-5 sm:grid-cols-2">
-													{columns.density ? (
+													{columns.density.show ? (
 														<form.AppField name="density">
 															{(field) => (
 																<field.SelectField
-																	label={entryMode === 'density_only' ? 'Density' : 'Density'}
+																	label="Density"
 																	options={densityOptions()}
 																	placeholder="Select density"
+																	required={columns.density.required}
 																/>
 															)}
 														</form.AppField>
 													) : null}
-													{columns.dips ? (
+													{columns.dips.show ? (
 														<form.AppField name="dipCount">
 															{(field) => (
 																<field.NumberField
@@ -544,17 +637,19 @@ export function InspectionFormPage({
 																	}
 																	min={1}
 																	placeholder="e.g. 10"
+																	required={columns.dips.required}
 																/>
 															)}
 														</form.AppField>
 													) : null}
-													{columns.larvae ? (
+													{columns.larvae.show ? (
 														<form.AppField name="larvaeCount">
 															{(field) => (
 																<field.NumberField
 																	label="Larvae counted"
 																	min={0}
 																	placeholder="e.g. 24"
+																	required={columns.larvae.required}
 																/>
 															)}
 														</form.AppField>
@@ -584,6 +679,21 @@ export function InspectionFormPage({
 								</form.Subscribe>
 							</FormSection>
 
+							<form.Subscribe selector={(state) => state.values.isWet}>
+								{(isWet) =>
+									isWet ? (
+										<form.AppField name="samples">
+											{(field) => (
+												<SamplesSection
+													onChange={field.handleChange}
+													value={field.state.value as readonly InspectionSampleDraft[]}
+												/>
+											)}
+										</form.AppField>
+									) : null
+								}
+							</form.Subscribe>
+
 							<FormSection title="Notes">
 								<form.AppField name="comment">
 									{(field) => (
@@ -607,7 +717,114 @@ export function InspectionFormPage({
 					</form.AppForm>
 				</div>
 			</div>
+
+			<AlertDialog onOpenChange={setPendingDry} open={pendingDry}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Clear the larval findings?</AlertDialogTitle>
+						<AlertDialogDescription>
+							A dry inspection records no abundance or life-stage detail, so the density, counts,
+							and stages entered here will be cleared.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Keep wet</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => {
+								form.setFieldValue('isWet', false);
+								form.setFieldValue('density', unsetDensityValue);
+								form.setFieldValue('dipCount', null);
+								form.setFieldValue('larvaeCount', null);
+								form.setFieldValue('lifeStages', emptyLifeStages());
+								form.setFieldValue('samples', []);
+								setPendingDry(false);
+							}}
+						>
+							Mark dry
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</MapSplitPage>
+	);
+}
+
+/** Whether anything the dry branch would discard has been entered. */
+function hasLarvalData(values: InspectionFormValues): boolean {
+	return (
+		values.density !== unsetDensityValue ||
+		values.dipCount !== null ||
+		values.larvaeCount !== null ||
+		Object.values(values.lifeStages).some(Boolean) ||
+		values.samples.length > 0
+	);
+}
+
+// --- samples ----------------------------------------------------------------
+
+/**
+ * The specimens collected on this inspection.
+ *
+ * They are drafted here and written once the inspection lands, so a crew keys a
+ * habitat and everything they took from it in one pass rather than saving, then
+ * hunting the record down to add each sample. A blank label records an unlabeled
+ * sample, which the domain has its own command for.
+ */
+function SamplesSection({
+	value,
+	onChange,
+}: {
+	readonly value: readonly InspectionSampleDraft[];
+	readonly onChange: (next: readonly InspectionSampleDraft[]) => void;
+}) {
+	return (
+		<FormSection title="Samples">
+			<div className="grid gap-3">
+				{value.length === 0 ? (
+					<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-3 text-muted-foreground text-sm">
+						No specimens collected. Add one for each sample taken during this inspection.
+					</p>
+				) : (
+					<ul className="grid gap-2">
+						{value.map((sample, index) => (
+							<li className="flex items-center gap-2" key={sample.id}>
+								<Input
+									aria-label={`Sample ${index + 1} label`}
+									onChange={(event) =>
+										onChange(
+											value.map((row) =>
+												row.id === sample.id ? { ...row, label: event.target.value } : row,
+											),
+										)
+									}
+									placeholder={`Sample ${index + 1} — label optional`}
+									value={sample.label}
+								/>
+								<Button
+									aria-label={`Remove sample ${index + 1}`}
+									onClick={() => onChange(value.filter((row) => row.id !== sample.id))}
+									size="icon"
+									type="button"
+									variant="ghost"
+								>
+									<XIcon aria-hidden="true" />
+								</Button>
+							</li>
+						))}
+					</ul>
+				)}
+				<Button
+					className="w-fit"
+					onClick={() => onChange([...value, { id: crypto.randomUUID(), label: '' }])}
+					size="sm"
+					type="button"
+					variant="outline"
+				>
+					<PlusIcon aria-hidden="true" data-icon="inline-start" />
+					Add sample
+				</Button>
+			</div>
+		</FormSection>
 	);
 }
 
@@ -631,7 +848,7 @@ function HabitatPicker({
 	const anchorRef = useRef<HTMLDivElement>(null);
 
 	return (
-		<LabeledControl label="Habitat">
+		<LabeledControl label="Habitat" required>
 			<Popover onOpenChange={setOpen} open={open}>
 				<PopoverAnchor asChild>
 					<div className="relative" ref={anchorRef}>
@@ -778,14 +995,22 @@ function SearchFallback({ label }: { readonly label: string }) {
 
 function FormSection({
 	title,
+	note,
 	children,
 }: {
 	readonly title: string;
+	/** A rule the section carries that no single field can be marked for. */
+	readonly note?: string | null;
 	readonly children: React.ReactNode;
 }) {
 	return (
 		<section className="grid gap-4">
-			<h2 className="m-0 font-semibold text-foreground text-sm">{title}</h2>
+			<div className="grid gap-0.5">
+				<h2 className="m-0 font-semibold text-foreground text-sm">{title}</h2>
+				{note === undefined || note === null ? null : (
+					<p className="m-0 text-muted-foreground text-xs">{note}</p>
+				)}
+			</div>
 			{children}
 		</section>
 	);
@@ -794,15 +1019,20 @@ function FormSection({
 function LabeledControl({
 	label,
 	description,
+	required = false,
 	children,
 }: {
 	readonly label: string;
 	readonly description?: string;
+	readonly required?: boolean;
 	readonly children: React.ReactNode;
 }) {
 	return (
 		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
+			<span className="font-medium text-foreground text-sm">
+				{label}
+				{required ? <RequiredMark /> : null}
+			</span>
 			{children}
 			{description === undefined ? null : (
 				<span className="text-muted-foreground text-xs">{description}</span>
@@ -850,7 +1080,7 @@ function LifeStageSelector({
 	readonly onChange: (value: LifeStageFlags) => void;
 }) {
 	return (
-		<div className="inline-flex overflow-hidden rounded-md border border-border">
+		<div className="flex w-fit overflow-hidden rounded-md border border-border">
 			{LIFE_STAGE_SEGMENTS.map((segment, index) => {
 				const isOn = value[segment.key];
 				return (
