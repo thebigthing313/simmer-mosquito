@@ -330,7 +330,7 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 				<dl className="grid gap-2.5">
 					<DetailRow label="Habitat">
 						{inspection.habitatId === null ? (
-							<span className="text-muted-foreground italic">Ad-hoc — no habitat</span>
+							<span className="tabular-nums">{adhocLabel(inspection.lat, inspection.lng)}</span>
 						) : (
 							<Link
 								className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"

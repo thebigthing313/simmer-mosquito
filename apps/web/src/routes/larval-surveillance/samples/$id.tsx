@@ -1024,7 +1024,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 					</DetailRow>
 					<DetailRow label="Habitat">
 						{geo.habitatId === null ? (
-							<span className="text-muted-foreground italic">Ad-hoc — no habitat</span>
+							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
 						) : (
 							<Link
 								className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"

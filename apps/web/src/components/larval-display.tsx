@@ -55,7 +55,10 @@ export function LifeStageStrip({
 	return (
 		<div
 			aria-label={ariaLabel}
-			className="inline-flex overflow-hidden rounded-md border border-border"
+			// `w-fit`, not `inline-flex` alone: the segments are fixed-size, and a
+			// grid or flex parent stretches an item to its track by default — which
+			// left a run of empty box trailing the P.
+			className="flex w-fit overflow-hidden rounded-md border border-border"
 			role="img"
 		>
 			{lifeStageSegments.map((segment, index) => {

@@ -80,7 +80,7 @@ export function ExplorerRow({
 				 * Reserved whether or not this record has a date, so a list mixing dated
 				 * and undated records keeps one left edge.
 				 */}
-				<span className="w-[4.5rem] shrink-0 text-muted-foreground text-xs tabular-nums">
+				<span className="w-[5.5rem] shrink-0 text-muted-foreground text-xs tabular-nums">
 					{date ?? ''}
 				</span>
 				<span className="min-w-0 flex-1">

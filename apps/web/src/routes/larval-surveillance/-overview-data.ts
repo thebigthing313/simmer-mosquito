@@ -344,7 +344,9 @@ export function formatMonthDay(date: string): string {
  *
  * The year is not optional here. An explorer's window is whatever the operator
  * set it to, so a bare "Mar 4" in a list spanning two seasons names two
- * different days. Two digits keep the column narrow enough to stay aligned.
+ * different days. It is written in full: "May 27, 26" reads as a day-month-year
+ * in the parts of the world that write dates that way, and surveillance records
+ * are dated evidence — the year should not need decoding.
  */
 export function formatListDate(date: string): string {
 	const parsed = parseDateString(date);
@@ -354,7 +356,7 @@ export function formatListDate(date: string): string {
 	return new Intl.DateTimeFormat('en-US', {
 		month: 'short',
 		day: 'numeric',
-		year: '2-digit',
+		year: 'numeric',
 		timeZone: 'UTC',
 	}).format(parsed);
 }
