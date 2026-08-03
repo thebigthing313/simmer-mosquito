@@ -2,6 +2,7 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
+import { regionMembershipClauses } from './map-region-filter.js';
 
 export interface HabitatMvtTileFilters {
 	readonly isActive?: boolean;
@@ -9,6 +10,8 @@ export interface HabitatMvtTileFilters {
 	readonly habitatTypeIds?: readonly string[];
 	/** Match habitats carrying any of these tag ids (polymorphic `tag_items`). */
 	readonly tagIds?: readonly string[];
+	/** Match habitats falling inside any of these regions. */
+	readonly regionIds?: readonly string[];
 	/** Case-insensitive substring match across habitat name + description. */
 	readonly search?: string;
 }
@@ -403,6 +406,14 @@ function habitatFilterWhereClauses(input: {
 			)`,
 		);
 	}
+
+	whereClauses.push(
+		...regionMembershipClauses({
+			geom: sql`h.geom`,
+			organizationId: sql`h.organization_id`,
+			regionIds: input.filters?.regionIds,
+		}),
+	);
 
 	const search = input.filters?.search?.trim();
 	if (search !== undefined && search.length > 0) {

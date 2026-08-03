@@ -50,7 +50,13 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import { toggle } from '../../../components/explorer';
+import {
+	FilterChip,
+	MultiSelectFilter,
+	toggle,
+	useRegionMembership,
+	useRegionOptions,
+} from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
@@ -88,18 +94,21 @@ interface RequestFilters {
 	readonly status: StatusFilter;
 	readonly search: string;
 	readonly tags: ReadonlySet<string>;
+	readonly regions: ReadonlySet<string>;
 }
 
 const REQUEST_FILTER_DEFAULTS: RequestFilters = {
 	status: 'open',
 	search: '',
 	tags: new Set(),
+	regions: new Set(),
 };
 
 const REQUEST_FILTER_CODECS: FilterCodecs<RequestFilters> = {
 	status: choiceParam(STATUS_VALUES, REQUEST_FILTER_DEFAULTS.status),
 	search: textParam,
 	tags: idSetParam,
+	regions: idSetParam,
 };
 
 export const Route = createFileRoute('/public-engagement/service-requests/')({
@@ -149,13 +158,22 @@ function ServiceRequestsExplorerRoute() {
 	);
 	const status = query.status;
 	const selectedTagIds = query.tags;
+	const selectedRegionIds = query.regions;
 	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
 	const setSelectedTagIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ tags: next }),
 		[setFilters],
 	);
+	const setSelectedRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
+		[setFilters],
+	);
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
 	const { input: search, setInput: setSearch } = useDebouncedTextFilter(query.search, commitSearch);
+	const regions = useRegionOptions();
+	// Requests are filtered from rows already synced here, so region membership is
+	// answered against the boundaries directly rather than by the server.
+	const regionMembership = useRegionMembership(selectedRegionIds);
 	const [page, setPage] = useState(0);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
@@ -164,6 +182,7 @@ function ServiceRequestsExplorerRoute() {
 	// tag ids — it resolves the set of request ids carrying any selected tag,
 	// rather than loading tag rows for every request up front.
 	const selectedTagKey = [...selectedTagIds].sort().join(',');
+	const selectedRegionKey = [...selectedRegionIds].sort().join(',');
 	const taggedRequestIds = useRequestIdsForTags(selectedTagIds);
 
 	const filtered = useMemo(() => {
@@ -179,6 +198,9 @@ function ServiceRequestsExplorerRoute() {
 			if (selectedTagIds.size > 0 && !taggedRequestIds.has(request.id)) {
 				return false;
 			}
+			if (!regionMembership.contains({ lng: request.lng, lat: request.lat })) {
+				return false;
+			}
 			if (query.length === 0) {
 				return true;
 			}
@@ -187,13 +209,13 @@ function ServiceRequestsExplorerRoute() {
 				request.details.toLowerCase().includes(query)
 			);
 		});
-	}, [requests, status, search, selectedTagIds, taggedRequestIds]);
+	}, [requests, status, search, selectedTagIds, taggedRequestIds, regionMembership]);
 
 	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset paging when the filter set changes.
 	useEffect(() => {
 		setPage(0);
-	}, [search, status, selectedTagKey]);
+	}, [search, status, selectedTagKey, selectedRegionKey]);
 	useEffect(() => {
 		if (page > pageCount - 1) {
 			setPage(pageCount - 1);
@@ -251,7 +273,11 @@ function ServiceRequestsExplorerRoute() {
 	}, [map, focused]);
 
 	const hasTagFilter = availableTags.length > 0 || selectedTagIds.size > 0;
-	const hasFilter = search.trim().length > 0 || status !== 'all' || selectedTagIds.size > 0;
+	const hasFilter =
+		search.trim().length > 0 ||
+		status !== 'all' ||
+		selectedTagIds.size > 0 ||
+		selectedRegionIds.size > 0;
 
 	return (
 		<MapSplitPage
@@ -318,6 +344,13 @@ function ServiceRequestsExplorerRoute() {
 								selected={selectedTagIds}
 							/>
 						) : null}
+						<MultiSelectFilter
+							empty="No regions"
+							label="Region"
+							onChange={setSelectedRegionIds}
+							options={regions.options}
+							selected={selectedRegionIds}
+						/>
 						<div className="relative min-w-[12rem] flex-1">
 							<SearchIcon
 								aria-hidden="true"
@@ -333,7 +366,7 @@ function ServiceRequestsExplorerRoute() {
 							/>
 						</div>
 					</div>
-					{selectedTagIds.size > 0 ? (
+					{selectedTagIds.size > 0 || selectedRegionIds.size > 0 ? (
 						<div className="flex flex-wrap items-center gap-1.5">
 							{availableTags
 								.filter((tag) => selectedTagIds.has(tag.id))
@@ -344,9 +377,18 @@ function ServiceRequestsExplorerRoute() {
 										tag={tag}
 									/>
 								))}
+							{[...selectedRegionIds].map((id) => (
+								<FilterChip
+									key={`region-${id}`}
+									label={regions.nameById.get(id) ?? 'Unknown region'}
+									onRemove={() => setSelectedRegionIds(toggle(selectedRegionIds, id))}
+								/>
+							))}
 							<button
 								className="rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								onClick={() => setSelectedTagIds(new Set())}
+								// One patch, one navigation: two calls would each read the same
+								// prior search and the second would undo the first.
+								onClick={() => setFilters({ tags: new Set(), regions: new Set() })}
 								type="button"
 							>
 								Clear
@@ -355,7 +397,7 @@ function ServiceRequestsExplorerRoute() {
 					) : null}
 				</div>
 
-				{!result.isReady ? (
+				{!result.isReady || !regionMembership.isReady ? (
 					<RequestsSkeleton />
 				) : filtered.length === 0 ? (
 					<RequestsEmpty hasFilter={hasFilter} />

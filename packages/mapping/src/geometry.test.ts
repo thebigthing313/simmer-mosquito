@@ -5,6 +5,7 @@ import {
 	containsLngLat,
 	countGeoJsonVertices,
 	formatBoundingBox,
+	geometryContainsLngLat,
 	ownedCentroidFromGeoJson,
 	parseBoundingBox,
 } from './geometry.js';
@@ -29,6 +30,83 @@ describe('geometry helpers', () => {
 
 		expect(containsLngLat(bbox, { lng: -74.5, lat: 40.5 })).toBe(true);
 		expect(containsLngLat(bbox, { lng: -73.5, lat: 40.5 })).toBe(false);
+	});
+
+	it('checks whether a point falls inside a region boundary', () => {
+		const square = {
+			type: 'Polygon',
+			coordinates: [
+				[
+					[-75, 40],
+					[-74, 40],
+					[-74, 41],
+					[-75, 41],
+					[-75, 40],
+				],
+			],
+		} as const;
+
+		expect(geometryContainsLngLat(square, { lng: -74.5, lat: 40.5 })).toBe(true);
+		expect(geometryContainsLngLat(square, { lng: -73.5, lat: 40.5 })).toBe(false);
+		// A record sitting on the district line belongs to the district.
+		expect(geometryContainsLngLat(square, { lng: -75, lat: 40.5 })).toBe(true);
+		expect(geometryContainsLngLat(square, { lng: -74, lat: 41 })).toBe(true);
+	});
+
+	it('excludes points inside a hole, and reads every part of a multipolygon', () => {
+		const withHole = {
+			type: 'Polygon',
+			coordinates: [
+				[
+					[0, 0],
+					[10, 0],
+					[10, 10],
+					[0, 10],
+					[0, 0],
+				],
+				[
+					[4, 4],
+					[6, 4],
+					[6, 6],
+					[4, 6],
+					[4, 4],
+				],
+			],
+		} as const;
+
+		expect(geometryContainsLngLat(withHole, { lng: 1, lat: 1 })).toBe(true);
+		expect(geometryContainsLngLat(withHole, { lng: 5, lat: 5 })).toBe(false);
+
+		const twoParts = {
+			type: 'MultiPolygon',
+			coordinates: [
+				withHole.coordinates,
+				[
+					[
+						[20, 20],
+						[21, 20],
+						[21, 21],
+						[20, 21],
+						[20, 20],
+					],
+				],
+			],
+		} as const;
+
+		expect(geometryContainsLngLat(twoParts, { lng: 20.5, lat: 20.5 })).toBe(true);
+		expect(geometryContainsLngLat(twoParts, { lng: 15, lat: 15 })).toBe(false);
+	});
+
+	it('reports no containment for geometries that enclose nothing', () => {
+		const line = {
+			type: 'LineString',
+			coordinates: [
+				[0, 0],
+				[10, 10],
+			],
+		} as const;
+
+		expect(geometryContainsLngLat(line, { lng: 5, lat: 5 })).toBe(false);
 	});
 
 	it('calculates simple bounds and centroid fallbacks for GeoJSON', () => {

@@ -4,6 +4,32 @@
  * the tiles a map draws and the extent it frames can never fall out of step.
  */
 
+/**
+ * The region narrowing every record tileset accepts.
+ *
+ * Regions are the agency's own operational geography, so "only this district" is
+ * asked of habitats, traps, applications, and everything else alike. One shape
+ * and one param name across every tileset keeps a region deep link into one
+ * explorer readable by the next.
+ */
+export interface RegionScopedTileFilters {
+	/** Show only records falling inside these regions. Empty means every region. */
+	readonly regionIds?: readonly string[];
+}
+
+/** Fold the region narrowing into a tileset's query, under the shared param. */
+export function setRegionTileParam(
+	params: URLSearchParams,
+	regionIds: readonly string[] | undefined,
+): void {
+	if (regionIds === undefined || regionIds.length === 0) {
+		return;
+	}
+	// Sorted so re-selecting the same regions in a different order leaves the URL
+	// — and therefore the tile source — untouched.
+	params.set('regionId', [...regionIds].sort().join(','));
+}
+
 /** The vector-tile template for one tileset, with the filters folded in. */
 export function tileTemplateUrl(
 	serverUrl: string,

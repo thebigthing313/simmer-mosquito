@@ -28,6 +28,7 @@ import {
 	RESULT_SKELETON_KEYS,
 	toggle,
 	useEntityTags,
+	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type HabitatTileFilters, MapCanvas } from '../../../components/map';
@@ -56,6 +57,7 @@ interface HabitatFilters {
 	readonly access: AccessFilter;
 	readonly typeIds: ReadonlySet<string>;
 	readonly tagIds: ReadonlySet<string>;
+	readonly regions: ReadonlySet<string>;
 }
 
 const HABITAT_FILTER_DEFAULTS: HabitatFilters = {
@@ -64,6 +66,7 @@ const HABITAT_FILTER_DEFAULTS: HabitatFilters = {
 	access: 'all',
 	typeIds: new Set(),
 	tagIds: new Set(),
+	regions: new Set(),
 };
 
 const HABITAT_FILTER_CODECS: FilterCodecs<HabitatFilters> = {
@@ -72,6 +75,7 @@ const HABITAT_FILTER_CODECS: FilterCodecs<HabitatFilters> = {
 	access: choiceParam(ACCESS_VALUES, HABITAT_FILTER_DEFAULTS.access),
 	typeIds: idSetParam,
 	tagIds: idSetParam,
+	regions: idSetParam,
 };
 
 export const Route = createFileRoute('/larval-surveillance/habitats/')({
@@ -89,7 +93,7 @@ function HabitatsExplorerRoute() {
 		setFilters,
 		reset,
 	} = useSearchFilters(HABITAT_FILTER_DEFAULTS, HABITAT_FILTER_CODECS);
-	const { search, status, access, typeIds, tagIds } = query;
+	const { search, status, access, typeIds, tagIds, regions: regionIds } = query;
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
 	const {
 		input: searchInput,
@@ -106,12 +110,17 @@ function HabitatsExplorerRoute() {
 		(next: ReadonlySet<string>) => setFilters({ tagIds: next }),
 		[setFilters],
 	);
+	const setRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
+		[setFilters],
+	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [page, setPage] = useState(0);
 
 	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
 	const { rows: tags } = useCollectionRows<TagRow>(webCollections.tags);
+	const regions = useRegionOptions();
 
 	const typeNameById = useMemo(
 		() => new Map(habitatTypes.map((type) => [type.id, type.name])),
@@ -125,9 +134,10 @@ function HabitatsExplorerRoute() {
 			...(access === 'all' ? {} : { isInaccessible: access === 'inaccessible' }),
 			...(typeIds.size > 0 ? { habitatTypeIds: [...typeIds] } : {}),
 			...(tagIds.size > 0 ? { tagIds: [...tagIds] } : {}),
+			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
 			...(search.length > 0 ? { search } : {}),
 		}),
-		[status, access, typeIds, tagIds, search],
+		[status, access, typeIds, tagIds, regionIds, search],
 	);
 
 	const bounds = useMapBounds(map);
@@ -174,7 +184,11 @@ function HabitatsExplorerRoute() {
 	);
 
 	const hasActiveFilters =
-		status !== 'active' || access !== 'all' || typeIds.size > 0 || tagIds.size > 0;
+		status !== 'active' ||
+		access !== 'all' ||
+		typeIds.size > 0 ||
+		tagIds.size > 0 ||
+		regionIds.size > 0;
 	const clearAll = useCallback(() => {
 		clearSearchInput();
 		reset();
@@ -239,6 +253,13 @@ function HabitatsExplorerRoute() {
 							selected={tagIds}
 							onChange={setTagIds}
 						/>
+						<MultiSelectFilter
+							label="Region"
+							empty="No regions"
+							options={regions.options}
+							selected={regionIds}
+							onChange={setRegionIds}
+						/>
 					</div>
 
 					{hasActiveFilters ? (
@@ -247,12 +268,15 @@ function HabitatsExplorerRoute() {
 							access={access}
 							typeIds={typeIds}
 							tagIds={tagIds}
+							regionIds={regionIds}
 							typeNameById={typeNameById}
 							tagById={tagById}
+							regionNameById={regions.nameById}
 							onClearStatus={() => setStatus('active')}
 							onClearAccess={() => setAccess('all')}
 							onToggleType={(id) => setTypeIds(toggle(typeIds, id))}
 							onToggleTag={(id) => setTagIds(toggle(tagIds, id))}
+							onToggleRegion={(id) => setRegionIds(toggle(regionIds, id))}
 							onClearAll={clearAll}
 						/>
 					) : null}
@@ -381,24 +405,30 @@ function ActiveFilters({
 	access,
 	typeIds,
 	tagIds,
+	regionIds,
 	typeNameById,
 	tagById,
+	regionNameById,
 	onClearStatus,
 	onClearAccess,
 	onToggleType,
 	onToggleTag,
+	onToggleRegion,
 	onClearAll,
 }: {
 	readonly status: StatusFilter;
 	readonly access: AccessFilter;
 	readonly typeIds: ReadonlySet<string>;
 	readonly tagIds: ReadonlySet<string>;
+	readonly regionIds: ReadonlySet<string>;
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly tagById: ReadonlyMap<string, TagRow>;
+	readonly regionNameById: ReadonlyMap<string, string>;
 	readonly onClearStatus: () => void;
 	readonly onClearAccess: () => void;
 	readonly onToggleType: (id: string) => void;
 	readonly onToggleTag: (id: string) => void;
+	readonly onToggleRegion: (id: string) => void;
 	readonly onClearAll: () => void;
 }) {
 	return (
@@ -415,6 +445,13 @@ function ActiveFilters({
 					onRemove={onClearAccess}
 				/>
 			) : null}
+			{[...regionIds].map((id) => (
+				<FilterChip
+					key={`region-${id}`}
+					label={regionNameById.get(id) ?? 'Unknown region'}
+					onRemove={() => onToggleRegion(id)}
+				/>
+			))}
 			{[...typeIds].map((id) => (
 				<FilterChip
 					key={`type-${id}`}
@@ -652,6 +689,9 @@ async function fetchVisibleHabitats(
 	}
 	if (filters.tagIds !== undefined && filters.tagIds.length > 0) {
 		url.searchParams.set('tagId', filters.tagIds.join(','));
+	}
+	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
+		url.searchParams.set('regionId', filters.regionIds.join(','));
 	}
 	if (filters.search !== undefined && filters.search.length > 0) {
 		url.searchParams.set('search', filters.search);

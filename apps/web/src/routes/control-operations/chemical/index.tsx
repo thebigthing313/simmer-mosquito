@@ -23,6 +23,7 @@ import {
 	RESULT_SKELETON_KEYS,
 	toggle,
 	usePersonnelOptions,
+	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type ChemicalTileFilters, MapCanvas } from '../../../components/map';
@@ -61,6 +62,7 @@ interface ApplicationFilters {
 	readonly insecticides: ReadonlySet<string>;
 	readonly people: ReadonlySet<string>;
 	readonly methods: ReadonlySet<string>;
+	readonly regions: ReadonlySet<string>;
 }
 
 const FILTER_CODECS: FilterCodecs<ApplicationFilters> = {
@@ -69,6 +71,7 @@ const FILTER_CODECS: FilterCodecs<ApplicationFilters> = {
 	insecticides: idSetParam,
 	people: idSetParam,
 	methods: idSetParam,
+	regions: idSetParam,
 };
 
 export const Route = createFileRoute('/control-operations/chemical/')({
@@ -94,6 +97,7 @@ function ApplicationsExplorerRoute() {
 			insecticides: new Set(),
 			people: new Set(),
 			methods: new Set(),
+			regions: new Set(),
 		}),
 		[defaultFrom, today],
 	);
@@ -103,6 +107,7 @@ function ApplicationsExplorerRoute() {
 	const insecticideIds = query.insecticides;
 	const personIds = query.people;
 	const methodIds = query.methods;
+	const regionIds = query.regions;
 	const setInsecticideIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ insecticides: next }),
 		[setFilters],
@@ -113,6 +118,10 @@ function ApplicationsExplorerRoute() {
 	);
 	const setMethodIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ methods: next }),
+		[setFilters],
+	);
+	const setRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
 		[setFilters],
 	);
 	const [page, setPage] = useState(0);
@@ -174,15 +183,17 @@ function ApplicationsExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const personnel = usePersonnelOptions();
+	const regions = useRegionOptions();
 	const filters = useMemo<ChemicalTileFilters>(
 		() => ({
 			...(insecticideIds.size > 0 ? { insecticideIds: [...insecticideIds] } : {}),
 			...(methodIds.size > 0 ? { applicationMethodIds: [...methodIds] } : {}),
 			...(personIds.size > 0 ? { applicatorProfileIds: [...personIds] } : {}),
+			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
 			...(dateFrom === '' ? {} : { dateFrom }),
 			...(dateTo === '' ? {} : { dateTo }),
 		}),
-		[insecticideIds, methodIds, personIds, dateFrom, dateTo],
+		[insecticideIds, methodIds, personIds, regionIds, dateFrom, dateTo],
 	);
 
 	// A new filter set always starts at the first page.
@@ -228,7 +239,8 @@ function ApplicationsExplorerRoute() {
 		dateTo !== today ||
 		insecticideIds.size > 0 ||
 		methodIds.size > 0 ||
-		personIds.size > 0;
+		personIds.size > 0 ||
+		regionIds.size > 0;
 	const clearAll = reset;
 
 	return (
@@ -294,6 +306,13 @@ function ApplicationsExplorerRoute() {
 							options={personnel.options}
 							selected={personIds}
 						/>
+						<MultiSelectFilter
+							empty="No regions"
+							label="Region"
+							onChange={setRegionIds}
+							options={regions.options}
+							selected={regionIds}
+						/>
 					</div>
 
 					{hasActiveFilters ? (
@@ -317,6 +336,13 @@ function ApplicationsExplorerRoute() {
 									key={`person-${id}`}
 									label={personnel.nameById.get(id) ?? 'Unknown person'}
 									onRemove={() => setPersonIds(toggle(personIds, id))}
+								/>
+							))}
+							{[...regionIds].map((id) => (
+								<FilterChip
+									key={`region-${id}`}
+									label={regions.nameById.get(id) ?? 'Unknown region'}
+									onRemove={() => setRegionIds(toggle(regionIds, id))}
 								/>
 							))}
 							<button
@@ -406,6 +432,9 @@ async function fetchApplicationsPage(
 	}
 	if (filters.applicatorProfileIds !== undefined && filters.applicatorProfileIds.length > 0) {
 		url.searchParams.set('applicator', filters.applicatorProfileIds.join(','));
+	}
+	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
+		url.searchParams.set('regionId', filters.regionIds.join(','));
 	}
 	if (filters.dateFrom !== undefined) {
 		url.searchParams.set('dateFrom', filters.dateFrom);

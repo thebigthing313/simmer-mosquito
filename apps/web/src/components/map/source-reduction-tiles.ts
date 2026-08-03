@@ -5,7 +5,12 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
-import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
+import {
+	type RegionScopedTileFilters,
+	setRegionTileParam,
+	tileExtentUrl,
+	tileTemplateUrl,
+} from './tile-urls';
 
 /**
  * Server-side filters for the source-reduction vector tiles. Mirrors the
@@ -13,7 +18,7 @@ import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
  * understands; the same shape drives the `/map/source-reduction` paged list so
  * the map and the list stay in lockstep.
  */
-export interface SourceReductionTileFilters {
+export interface SourceReductionTileFilters extends RegionScopedTileFilters {
 	readonly sourceReductionMethodIds?: readonly string[];
 	/** Match source reduction performed by any of these profiles. */
 	readonly technicianProfileIds?: readonly string[];
@@ -94,6 +99,8 @@ function sourceReductionTileParams(filters?: SourceReductionTileFilters): URLSea
 	if (filters?.dateTo !== undefined) {
 		params.set('dateTo', filters.dateTo);
 	}
+
+	setRegionTileParam(params, filters?.regionIds);
 
 	return params;
 }

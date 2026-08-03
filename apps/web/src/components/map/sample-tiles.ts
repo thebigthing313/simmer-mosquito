@@ -5,14 +5,19 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
-import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
+import {
+	type RegionScopedTileFilters,
+	setRegionTileParam,
+	tileExtentUrl,
+	tileTemplateUrl,
+} from './tile-urls';
 
 /**
  * Server-side filters for the sample vector tiles. Mirrors the query params the
  * `/map/tiles/samples/{z}/{x}/{y}.mvt` endpoint understands; the same shape drives
  * the `/map/samples` bbox list so the map and the list stay in lockstep.
  */
-export interface SampleTileFilters {
+export interface SampleTileFilters extends RegionScopedTileFilters {
 	/** Species ids the sample must have an identified result for. */
 	readonly speciesIds?: readonly string[];
 	/** Lifecycle status (`identified` … `unidentifiable`). */
@@ -126,6 +131,8 @@ function sampleTileParams(filters?: SampleTileFilters): URLSearchParams {
 	if (filters?.dateTo !== undefined) {
 		params.set('dateTo', filters.dateTo);
 	}
+
+	setRegionTileParam(params, filters?.regionIds);
 
 	return params;
 }

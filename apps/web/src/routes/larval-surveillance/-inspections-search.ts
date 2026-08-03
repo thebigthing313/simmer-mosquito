@@ -31,6 +31,8 @@ export interface InspectionFilters {
 	readonly positive: boolean;
 	readonly types: ReadonlySet<string>;
 	readonly inspectors: ReadonlySet<string>;
+	/** Restrict to inspections inside these regions. */
+	readonly regions: ReadonlySet<string>;
 }
 
 export const inspectionFilterCodecs: FilterCodecs<InspectionFilters> = {
@@ -41,6 +43,7 @@ export const inspectionFilterCodecs: FilterCodecs<InspectionFilters> = {
 	positive: flagParam,
 	types: idSetParam,
 	inspectors: idSetParam,
+	regions: idSetParam,
 };
 
 /**
@@ -56,4 +59,5 @@ export type InspectionsSearch = {
 	readonly positive?: boolean;
 	readonly types?: readonly string[];
 	readonly inspectors?: readonly string[];
+	readonly regions?: readonly string[];
 };

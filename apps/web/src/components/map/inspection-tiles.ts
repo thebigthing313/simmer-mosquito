@@ -5,7 +5,12 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
-import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
+import {
+	type RegionScopedTileFilters,
+	setRegionTileParam,
+	tileExtentUrl,
+	tileTemplateUrl,
+} from './tile-urls';
 
 /**
  * Server-side filters for the inspection vector tiles. Mirrors the query params
@@ -13,7 +18,7 @@ import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
  * shape drives the `/map/inspections` bbox list so the map and the list stay in
  * lockstep.
  */
-export interface InspectionTileFilters {
+export interface InspectionTileFilters extends RegionScopedTileFilters {
 	readonly isWet?: boolean;
 	/** Larval-density enum values (`none` … `very_heavy`). */
 	readonly densities?: readonly string[];
@@ -151,6 +156,8 @@ function inspectionTileParams(filters?: InspectionTileFilters): URLSearchParams 
 	if (filters?.dateTo !== undefined) {
 		params.set('dateTo', filters.dateTo);
 	}
+
+	setRegionTileParam(params, filters?.regionIds);
 
 	return params;
 }

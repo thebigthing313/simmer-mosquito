@@ -26,6 +26,7 @@ import {
 	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
 	toggle,
+	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas, type TrapTileFilters } from '../../../components/map';
@@ -64,18 +65,21 @@ interface TrapFilters {
 	readonly search: string;
 	readonly status: StatusFilter;
 	readonly methods: ReadonlySet<string>;
+	readonly regions: ReadonlySet<string>;
 }
 
 const TRAP_FILTER_DEFAULTS: TrapFilters = {
 	search: '',
 	status: 'active',
 	methods: new Set(),
+	regions: new Set(),
 };
 
 const TRAP_FILTER_CODECS: FilterCodecs<TrapFilters> = {
 	search: textParam,
 	status: choiceParam(STATUS_VALUES, TRAP_FILTER_DEFAULTS.status),
 	methods: idSetParam,
+	regions: idSetParam,
 };
 
 export const Route = createFileRoute('/adult-surveillance/traps/')({
@@ -96,6 +100,7 @@ function TrapsExplorerRoute() {
 	const search = query.search.toLowerCase();
 	const status = query.status;
 	const methodIds = query.methods;
+	const regionIds = query.regions;
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
 	const {
 		input: searchInput,
@@ -107,6 +112,10 @@ function TrapsExplorerRoute() {
 		(next: ReadonlySet<string>) => setFilters({ methods: next }),
 		[setFilters],
 	);
+	const setRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
+		[setFilters],
+	);
 	const [page, setPage] = useState(0);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -114,6 +123,7 @@ function TrapsExplorerRoute() {
 	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
 		webCollections.collectionMethods,
 	);
+	const regions = useRegionOptions();
 
 	const methodNameById = useMemo(
 		() => new Map(methods.map((method) => [method.id, method.name])),
@@ -126,9 +136,10 @@ function TrapsExplorerRoute() {
 		() => ({
 			...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
 			...(status === 'all' ? {} : { isActive: status === 'active' }),
+			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
 			...(search.length > 0 ? { search } : {}),
 		}),
-		[methodIds, status, search],
+		[methodIds, status, regionIds, search],
 	);
 
 	// A new filter set always starts at the first page.
@@ -169,7 +180,8 @@ function TrapsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const hasActiveFilters = status !== 'active' || methodIds.size > 0 || search.length > 0;
+	const hasActiveFilters =
+		status !== 'active' || methodIds.size > 0 || regionIds.size > 0 || search.length > 0;
 	const clearAll = useCallback(() => {
 		clearSearchInput();
 		reset();
@@ -215,13 +227,22 @@ function TrapsExplorerRoute() {
 						value={status}
 					/>
 
-					<MultiSelectFilter
-						empty="No collection methods"
-						label="Method"
-						onChange={setMethodIds}
-						options={methods.map((method) => ({ id: method.id, label: method.name }))}
-						selected={methodIds}
-					/>
+					<div className="grid grid-cols-2 gap-2">
+						<MultiSelectFilter
+							empty="No collection methods"
+							label="Method"
+							onChange={setMethodIds}
+							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							selected={methodIds}
+						/>
+						<MultiSelectFilter
+							empty="No regions"
+							label="Region"
+							onChange={setRegionIds}
+							options={regions.options}
+							selected={regionIds}
+						/>
+					</div>
 
 					{hasActiveFilters ? (
 						<div className="flex flex-wrap items-center gap-1.5">
@@ -236,6 +257,13 @@ function TrapsExplorerRoute() {
 									key={id}
 									label={methodNameById.get(id) ?? 'Unknown method'}
 									onRemove={() => setMethodIds(toggle(methodIds, id))}
+								/>
+							))}
+							{[...regionIds].map((id) => (
+								<FilterChip
+									key={`region-${id}`}
+									label={regions.nameById.get(id) ?? 'Unknown region'}
+									onRemove={() => setRegionIds(toggle(regionIds, id))}
 								/>
 							))}
 							<button
@@ -321,6 +349,9 @@ async function fetchTrapsPage(
 	}
 	if (filters.search !== undefined) {
 		url.searchParams.set('search', filters.search);
+	}
+	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
+		url.searchParams.set('regionId', filters.regionIds.join(','));
 	}
 
 	const response = await fetch(url, { credentials: 'include', signal });

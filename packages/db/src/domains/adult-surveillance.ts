@@ -7,6 +7,7 @@ import type {
 	SimmerDatabase,
 } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
+import { regionMembershipClauses } from './map-region-filter.js';
 
 export interface CreateTrapInput {
 	readonly organizationId: string;
@@ -480,6 +481,8 @@ export interface TrapMapFilters {
 	readonly isActive?: boolean;
 	/** Case-insensitive match on trap name, code, or description. */
 	readonly search?: string;
+	/** Match traps falling inside any of these regions. */
+	readonly regionIds?: readonly string[];
 }
 
 export interface TrapMvtTileInput {
@@ -546,6 +549,13 @@ function trapFilterWhere(filters: TrapMapFilters | undefined): RawBuilder<boolea
 			)`,
 		);
 	}
+	clauses.push(
+		...regionMembershipClauses({
+			geom: sql`t.geom`,
+			organizationId: sql`t.organization_id`,
+			regionIds: filters?.regionIds,
+		}),
+	);
 	return clauses;
 }
 
@@ -672,6 +682,8 @@ export interface CollectionMapFilters {
 	readonly collectionMethodIds?: readonly string[];
 	/** Only collections flagged with a problem. */
 	readonly problemOnly?: boolean;
+	/** Match collections falling inside any of these regions. */
+	readonly regionIds?: readonly string[];
 	/** Inclusive lower bound on the collection's effective date (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on the collection's effective date (`YYYY-MM-DD`). */
@@ -742,6 +754,13 @@ function collectionFilterWhere(filters: CollectionMapFilters | undefined): RawBu
 	if (filters?.dateTo !== undefined) {
 		clauses.push(sql<boolean>`${collectionEffectiveDateExpr} <= ${filters.dateTo}`);
 	}
+	clauses.push(
+		...regionMembershipClauses({
+			geom: sql`c.geom`,
+			organizationId: sql`c.organization_id`,
+			regionIds: filters?.regionIds,
+		}),
+	);
 	return clauses;
 }
 

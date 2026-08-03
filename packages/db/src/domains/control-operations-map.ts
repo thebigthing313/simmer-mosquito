@@ -2,6 +2,7 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
+import { regionMembershipClauses } from './map-region-filter.js';
 
 // --- control-operations map surfaces ----------------------------------------
 //
@@ -34,6 +35,8 @@ export interface ApplicationMapFilters {
 	readonly applicationMethodIds?: readonly string[];
 	/** Match applications performed by any of these profiles. */
 	readonly applicatorProfileIds?: readonly string[];
+	/** Match applications falling inside any of these regions. */
+	readonly regionIds?: readonly string[];
 	/** Inclusive lower bound on `application_date` (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on `application_date` (`YYYY-MM-DD`). */
@@ -113,6 +116,13 @@ function applicationFilterWhere(filters: ApplicationMapFilters | undefined): Raw
 	if (filters?.dateTo !== undefined) {
 		clauses.push(sql<boolean>`a.application_date <= ${filters.dateTo}`);
 	}
+	clauses.push(
+		...regionMembershipClauses({
+			geom: sql`a.geom`,
+			organizationId: sql`a.organization_id`,
+			regionIds: filters?.regionIds,
+		}),
+	);
 	return clauses;
 }
 
@@ -257,6 +267,8 @@ export interface SourceReductionMapFilters {
 	readonly sourceReductionMethodIds?: readonly string[];
 	/** Match source reduction performed by any of these profiles. */
 	readonly technicianProfileIds?: readonly string[];
+	/** Match source reduction falling inside any of these regions. */
+	readonly regionIds?: readonly string[];
 	/** Inclusive lower bound on `source_reduction_date` (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on `source_reduction_date` (`YYYY-MM-DD`). */
@@ -328,6 +340,13 @@ function sourceReductionFilterWhere(
 	if (filters?.dateTo !== undefined) {
 		clauses.push(sql<boolean>`sr.source_reduction_date <= ${filters.dateTo}`);
 	}
+	clauses.push(
+		...regionMembershipClauses({
+			geom: sql`sr.geom`,
+			organizationId: sql`sr.organization_id`,
+			regionIds: filters?.regionIds,
+		}),
+	);
 	return clauses;
 }
 
@@ -454,6 +473,8 @@ export interface BiocontrolMapFilters {
 	readonly technicianProfileIds?: readonly string[];
 	/** Only actions linked to a habitat. */
 	readonly habitatLinkedOnly?: boolean;
+	/** Match releases falling inside any of these regions. */
+	readonly regionIds?: readonly string[];
 	/** Inclusive lower bound on `biocontrol_date` (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on `biocontrol_date` (`YYYY-MM-DD`). */
@@ -523,6 +544,13 @@ function biocontrolFilterWhere(filters: BiocontrolMapFilters | undefined): RawBu
 	if (filters?.dateTo !== undefined) {
 		clauses.push(sql<boolean>`ba.biocontrol_date <= ${filters.dateTo}`);
 	}
+	clauses.push(
+		...regionMembershipClauses({
+			geom: sql`ba.geom`,
+			organizationId: sql`ba.organization_id`,
+			regionIds: filters?.regionIds,
+		}),
+	);
 	return clauses;
 }
 

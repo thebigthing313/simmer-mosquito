@@ -25,6 +25,7 @@ import {
 	RESULT_SKELETON_KEYS,
 	toggle,
 	usePersonnelOptions,
+	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -124,6 +125,7 @@ function InspectionsExplorerRoute() {
 			positive: false,
 			types: new Set(),
 			inspectors: new Set(),
+			regions: new Set(),
 		}),
 		[defaultFrom, today],
 	);
@@ -139,6 +141,7 @@ function InspectionsExplorerRoute() {
 	const positiveOnly = query.positive;
 	const typeIds = query.types;
 	const inspectorIds = query.inspectors;
+	const regionIds = query.regions;
 	const setWetness = useCallback((next: WetFilter) => setFilters({ water: next }), [setFilters]);
 	const setDensities = useCallback(
 		(next: ReadonlySet<LarvalDensity>) =>
@@ -155,6 +158,10 @@ function InspectionsExplorerRoute() {
 	);
 	const setInspectorIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ inspectors: next }),
+		[setFilters],
+	);
+	const setRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
 		[setFilters],
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
@@ -174,10 +181,11 @@ function InspectionsExplorerRoute() {
 			...(positiveOnly ? { positiveOnly: true } : {}),
 			...(typeIds.size > 0 ? { habitatTypeIds: [...typeIds] } : {}),
 			...(inspectorIds.size > 0 ? { inspectedByProfileIds: [...inspectorIds] } : {}),
+			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
 			...(dateFrom === '' ? {} : { dateFrom }),
 			...(dateTo === '' ? {} : { dateTo }),
 		}),
-		[wetness, densities, positiveOnly, typeIds, inspectorIds, dateFrom, dateTo],
+		[wetness, densities, positiveOnly, typeIds, inspectorIds, regionIds, dateFrom, dateTo],
 	);
 
 	// Editing one bound past the other drags the other along, so the range never
@@ -215,6 +223,7 @@ function InspectionsExplorerRoute() {
 	);
 
 	const personnel = usePersonnelOptions();
+	const regions = useRegionOptions();
 	const bounds = useMapBounds(map);
 	const { rows, total, isLoading } = useVisibleInspections(bounds, filters, page);
 	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -262,7 +271,8 @@ function InspectionsExplorerRoute() {
 		densities.size > 0 ||
 		positiveOnly ||
 		typeIds.size > 0 ||
-		inspectorIds.size > 0;
+		inspectorIds.size > 0 ||
+		regionIds.size > 0;
 
 	const resetDates = useCallback(
 		() => setFilters({ from: defaultFrom, to: today }),
@@ -337,6 +347,13 @@ function InspectionsExplorerRoute() {
 							options={personnel.options}
 							selected={inspectorIds}
 						/>
+						<MultiSelectFilter
+							empty="No regions"
+							label="Region"
+							onChange={setRegionIds}
+							options={regions.options}
+							selected={regionIds}
+						/>
 					</div>
 
 					{hasActiveFilters ? (
@@ -351,9 +368,12 @@ function InspectionsExplorerRoute() {
 							onResetDates={resetDates}
 							onToggleDensity={(value) => setDensities(toggle(densities, value))}
 							onToggleInspector={(id) => setInspectorIds(toggle(inspectorIds, id))}
+							onToggleRegion={(id) => setRegionIds(toggle(regionIds, id))}
 							onToggleType={(id) => setTypeIds(toggle(typeIds, id))}
 							personnelNameById={personnel.nameById}
 							positiveOnly={positiveOnly}
+							regionIds={regionIds}
+							regionNameById={regions.nameById}
 							to={dateTo}
 							typeIds={typeIds}
 							typeNameById={typeNameById}
@@ -525,12 +545,15 @@ function ActiveFilters({
 	typeNameById,
 	inspectorIds,
 	personnelNameById,
+	regionIds,
+	regionNameById,
 	onResetDates,
 	onClearWetness,
 	onToggleDensity,
 	onClearPositive,
 	onToggleType,
 	onToggleInspector,
+	onToggleRegion,
 	onClearAll,
 }: {
 	readonly from: string;
@@ -543,12 +566,15 @@ function ActiveFilters({
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly inspectorIds: ReadonlySet<string>;
 	readonly personnelNameById: ReadonlyMap<string, string>;
+	readonly regionIds: ReadonlySet<string>;
+	readonly regionNameById: ReadonlyMap<string, string>;
 	readonly onResetDates: () => void;
 	readonly onClearWetness: () => void;
 	readonly onToggleDensity: (value: LarvalDensity) => void;
 	readonly onClearPositive: () => void;
 	readonly onToggleType: (id: string) => void;
 	readonly onToggleInspector: (id: string) => void;
+	readonly onToggleRegion: (id: string) => void;
 	readonly onClearAll: () => void;
 }) {
 	return (
@@ -583,6 +609,13 @@ function ActiveFilters({
 					key={`inspector-${id}`}
 					label={personnelNameById.get(id) ?? 'Unknown inspector'}
 					onRemove={() => onToggleInspector(id)}
+				/>
+			))}
+			{[...regionIds].map((id) => (
+				<FilterChip
+					key={`region-${id}`}
+					label={regionNameById.get(id) ?? 'Unknown region'}
+					onRemove={() => onToggleRegion(id)}
 				/>
 			))}
 			<button
@@ -778,6 +811,9 @@ async function fetchVisibleInspections(
 	}
 	if (filters.inspectedByProfileIds !== undefined && filters.inspectedByProfileIds.length > 0) {
 		url.searchParams.set('inspectedBy', filters.inspectedByProfileIds.join(','));
+	}
+	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
+		url.searchParams.set('regionId', filters.regionIds.join(','));
 	}
 	if (filters.dateFrom !== undefined) {
 		url.searchParams.set('dateFrom', filters.dateFrom);

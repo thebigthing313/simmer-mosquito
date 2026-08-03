@@ -22,6 +22,7 @@ import {
 	RESULT_SKELETON_KEYS,
 	toggle,
 	usePersonnelOptions,
+	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas, type SourceReductionTileFilters } from '../../../components/map';
@@ -57,6 +58,7 @@ interface SourceReductionFilters {
 	readonly to: string;
 	readonly people: ReadonlySet<string>;
 	readonly methods: ReadonlySet<string>;
+	readonly regions: ReadonlySet<string>;
 }
 
 const FILTER_CODECS: FilterCodecs<SourceReductionFilters> = {
@@ -64,6 +66,7 @@ const FILTER_CODECS: FilterCodecs<SourceReductionFilters> = {
 	to: dateParam,
 	people: idSetParam,
 	methods: idSetParam,
+	regions: idSetParam,
 };
 
 export const Route = createFileRoute('/control-operations/source-reduction/')({
@@ -83,7 +86,13 @@ function SourceReductionExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
 	const filterDefaults = useMemo<SourceReductionFilters>(
-		() => ({ from: defaultFrom, to: today, people: new Set(), methods: new Set() }),
+		() => ({
+			from: defaultFrom,
+			to: today,
+			people: new Set(),
+			methods: new Set(),
+			regions: new Set(),
+		}),
 		[defaultFrom, today],
 	);
 	const { filters: query, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
@@ -91,12 +100,17 @@ function SourceReductionExplorerRoute() {
 	const dateTo = query.to;
 	const personIds = query.people;
 	const methodIds = query.methods;
+	const regionIds = query.regions;
 	const setPersonIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ people: next }),
 		[setFilters],
 	);
 	const setMethodIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ methods: next }),
+		[setFilters],
+	);
+	const setRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
 		[setFilters],
 	);
 	const [page, setPage] = useState(0);
@@ -145,14 +159,16 @@ function SourceReductionExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const personnel = usePersonnelOptions();
+	const regions = useRegionOptions();
 	const filters = useMemo<SourceReductionTileFilters>(
 		() => ({
 			...(methodIds.size > 0 ? { sourceReductionMethodIds: [...methodIds] } : {}),
 			...(personIds.size > 0 ? { technicianProfileIds: [...personIds] } : {}),
+			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
 			...(dateFrom === '' ? {} : { dateFrom }),
 			...(dateTo === '' ? {} : { dateTo }),
 		}),
-		[methodIds, personIds, dateFrom, dateTo],
+		[methodIds, personIds, regionIds, dateFrom, dateTo],
 	);
 
 	// A new filter set always starts at the first page.
@@ -202,7 +218,11 @@ function SourceReductionExplorerRoute() {
 	);
 
 	const hasActiveFilters =
-		dateFrom !== defaultFrom || dateTo !== today || methodIds.size > 0 || personIds.size > 0;
+		dateFrom !== defaultFrom ||
+		dateTo !== today ||
+		methodIds.size > 0 ||
+		personIds.size > 0 ||
+		regionIds.size > 0;
 	const clearAll = reset;
 
 	return (
@@ -261,6 +281,13 @@ function SourceReductionExplorerRoute() {
 							options={personnel.options}
 							selected={personIds}
 						/>
+						<MultiSelectFilter
+							empty="No regions"
+							label="Region"
+							onChange={setRegionIds}
+							options={regions.options}
+							selected={regionIds}
+						/>
 					</div>
 
 					{hasActiveFilters ? (
@@ -277,6 +304,13 @@ function SourceReductionExplorerRoute() {
 									key={`person-${id}`}
 									label={personnel.nameById.get(id) ?? 'Unknown person'}
 									onRemove={() => setPersonIds(toggle(personIds, id))}
+								/>
+							))}
+							{[...regionIds].map((id) => (
+								<FilterChip
+									key={`region-${id}`}
+									label={regions.nameById.get(id) ?? 'Unknown region'}
+									onRemove={() => setRegionIds(toggle(regionIds, id))}
 								/>
 							))}
 							<button
@@ -367,6 +401,9 @@ async function fetchSourceReductionsPage(
 	}
 	if (filters.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
 		url.searchParams.set('technician', filters.technicianProfileIds.join(','));
+	}
+	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
+		url.searchParams.set('regionId', filters.regionIds.join(','));
 	}
 	if (filters.dateFrom !== undefined) {
 		url.searchParams.set('dateFrom', filters.dateFrom);

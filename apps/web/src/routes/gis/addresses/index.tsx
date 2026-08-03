@@ -23,11 +23,19 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import {
+	FilterChip,
+	MultiSelectFilter,
+	toggle,
+	useRegionMembership,
+	useRegionOptions,
+} from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas } from '../../../components/map';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import {
 	type FilterCodecs,
+	idSetParam,
 	searchValidator,
 	textParam,
 	useDebouncedTextFilter,
@@ -38,10 +46,14 @@ import { AddressMapCard } from './-address-map-card';
 
 interface AddressFilters {
 	readonly search: string;
+	readonly regions: ReadonlySet<string>;
 }
 
-const ADDRESS_FILTER_DEFAULTS: AddressFilters = { search: '' };
-const ADDRESS_FILTER_CODECS: FilterCodecs<AddressFilters> = { search: textParam };
+const ADDRESS_FILTER_DEFAULTS: AddressFilters = { search: '', regions: new Set() };
+const ADDRESS_FILTER_CODECS: FilterCodecs<AddressFilters> = {
+	search: textParam,
+	regions: idSetParam,
+};
 
 export const Route = createFileRoute('/gis/addresses/')({
 	component: AddressesExplorerRoute,
@@ -79,33 +91,47 @@ function AddressesExplorerRoute() {
 		ADDRESS_FILTER_CODECS,
 	);
 	const search = query.search;
+	const regionIds = query.regions;
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
 	const { input: searchInput, setInput: setSearch } = useDebouncedTextFilter(search, commitSearch);
+	const setRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
+		[setFilters],
+	);
+	const regions = useRegionOptions();
+	// The map narrows by region server-side; the list is built from synced rows, so
+	// it asks the same question of the boundaries directly.
+	const regionMembership = useRegionMembership(regionIds);
 	const [page, setPage] = useState(0);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
 	const filtered = useMemo(() => {
 		const query = search.trim().toLowerCase();
-		if (query.length === 0) {
-			return addresses;
-		}
-		return addresses.filter((address) =>
-			[
+		return addresses.filter((address) => {
+			const point = { lng: address.lng ?? Number.NaN, lat: address.lat ?? Number.NaN };
+			if (!regionMembership.contains(point)) {
+				return false;
+			}
+			if (query.length === 0) {
+				return true;
+			}
+			return [
 				address.displayName,
 				address.addressLine1,
 				address.locality,
 				address.region,
 				address.postalCode,
-			].some((part) => (part ?? '').toLowerCase().includes(query)),
-		);
-	}, [addresses, search]);
+			].some((part) => (part ?? '').toLowerCase().includes(query));
+		});
+	}, [addresses, search, regionMembership]);
 
 	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset to the first page on a new search.
+	const regionKey = [...regionIds].sort().join(',');
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset to the first page on a new narrowing.
 	useEffect(() => {
 		setPage(0);
-	}, [search]);
+	}, [search, regionKey]);
 	useEffect(() => {
 		if (page > pageCount - 1) {
 			setPage(pageCount - 1);
@@ -121,10 +147,13 @@ function AddressesExplorerRoute() {
 		() => ({
 			serverUrl,
 			selectedId: focusedId,
-			...(trimmedSearch.length > 0 ? { filters: { search: trimmedSearch } } : {}),
+			filters: {
+				...(trimmedSearch.length > 0 ? { search: trimmedSearch } : {}),
+				...(regionKey.length > 0 ? { regionIds: regionKey.split(',') } : {}),
+			},
 			onSelectFeature: (id: string | null) => setFocusedId(id),
 		}),
-		[serverUrl, focusedId, trimmedSearch],
+		[serverUrl, focusedId, trimmedSearch, regionKey],
 	);
 	return (
 		<MapSplitPage
@@ -174,12 +203,28 @@ function AddressesExplorerRoute() {
 							value={searchInput}
 						/>
 					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<MultiSelectFilter
+							empty="No regions"
+							label="Region"
+							onChange={setRegionIds}
+							options={regions.options}
+							selected={regionIds}
+						/>
+						{[...regionIds].map((id) => (
+							<FilterChip
+								key={`region-${id}`}
+								label={regions.nameById.get(id) ?? 'Unknown region'}
+								onRemove={() => setRegionIds(toggle(regionIds, id))}
+							/>
+						))}
+					</div>
 				</div>
 
-				{!result.isReady ? (
+				{!result.isReady || !regionMembership.isReady ? (
 					<AddressesSkeleton />
 				) : filtered.length === 0 ? (
-					<AddressesEmpty hasSearch={search.trim().length > 0} />
+					<AddressesEmpty hasFilter={search.trim().length > 0 || regionIds.size > 0} />
 				) : (
 					<div className="flex min-h-0 flex-1 flex-col">
 						<ul className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -282,7 +327,7 @@ function AddressesSkeleton() {
 	);
 }
 
-function AddressesEmpty({ hasSearch }: { readonly hasSearch: boolean }) {
+function AddressesEmpty({ hasFilter }: { readonly hasFilter: boolean }) {
 	return (
 		<div className="flex flex-1 items-center justify-center p-6">
 			<Empty className="min-h-[200px] border border-border/40 bg-muted/30">
@@ -290,10 +335,10 @@ function AddressesEmpty({ hasSearch }: { readonly hasSearch: boolean }) {
 					<EmptyMedia variant="icon">
 						<AddressIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>{hasSearch ? 'No Addresses Match' : 'No Addresses Yet'}</EmptyTitle>
+					<EmptyTitle>{hasFilter ? 'No Addresses Match' : 'No Addresses Yet'}</EmptyTitle>
 					<EmptyDescription>
-						{hasSearch
-							? 'Try a different search term.'
+						{hasFilter
+							? 'Try a different search term or region.'
 							: 'Create an address to build the shared address book.'}
 					</EmptyDescription>
 				</EmptyHeader>

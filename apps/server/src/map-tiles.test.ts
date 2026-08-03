@@ -5,11 +5,13 @@ import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
 	parseAddressTileFilters,
+	parseCollectionMapFilters,
 	parseHabitatDisplayQuery,
 	parseHabitatTileFilters,
 	parseInspectionDisplayQuery,
 	parseInspectionTileFilters,
 	parseTileCoordinate,
+	parseTrapMapFilters,
 	registerMapTileRoutes,
 } from './map-tiles.js';
 
@@ -75,6 +77,38 @@ describe('parseHabitatTileFilters', () => {
 		expect(parseHabitatTileFilters(new URLSearchParams({ where: 'true' }))).toMatchObject({
 			ok: false,
 			reason: 'Unsupported habitat tile filter: where.',
+		});
+	});
+});
+
+// Every map surface takes the same `regionId` list, so a region deep link from
+// one explorer stays readable by the next. Checked across three tilesets with
+// different filter shapes to catch a whitelist that was updated in only one.
+describe('region filter', () => {
+	const first = '9a3d9e12-2a1c-4d5f-8f2b-6d0f47a03c31';
+	const second = 'b7c0c1d4-8f43-4f6a-9d21-5f9a7b2e14aa';
+
+	it('parses a region id list on the habitat, trap, and collection filters', () => {
+		const params = new URLSearchParams({ regionId: `${first},${second}` });
+
+		expect(parseHabitatTileFilters(params)).toEqual({
+			ok: true,
+			filters: { regionIds: [first, second] },
+		});
+		expect(parseTrapMapFilters(params)).toEqual({
+			ok: true,
+			filters: { regionIds: [first, second] },
+		});
+		expect(parseCollectionMapFilters(params)).toEqual({
+			ok: true,
+			filters: { regionIds: [first, second] },
+		});
+	});
+
+	it('rejects a region id that is not a UUID', () => {
+		expect(parseHabitatTileFilters(new URLSearchParams({ regionId: 'downtown' }))).toMatchObject({
+			ok: false,
+			reason: 'regionId must contain only UUID values.',
 		});
 	});
 });

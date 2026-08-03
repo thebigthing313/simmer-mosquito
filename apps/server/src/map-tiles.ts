@@ -109,6 +109,14 @@ const mvtContentType = 'application/vnd.mapbox-vector-tile';
 const maxSupportedZoom = 22;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * The region narrowing every map surface accepts. Regions are the agency's own
+ * operational geography, so "only this district" is asked of habitats, traps,
+ * applications, and everything else alike — one param name across every tileset
+ * keeps a deep link from one explorer readable by the next.
+ */
+const regionFilterParam = 'regionId';
+
 type TileDb = Kysely<SimmerDatabase>;
 type HabitatTileReader = (db: TileDb, input: HabitatMvtTileInput) => Promise<Uint8Array>;
 type RegionTileReader = (db: TileDb, input: RegionMvtTileInput) => Promise<Uint8Array>;
@@ -1136,6 +1144,11 @@ export function parseHabitatTileFilters(searchParams: URLSearchParams): HabitatF
 		return tagIds;
 	}
 
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
+	}
+
 	const search = parseOptionalTextFilter(searchParams, 'search');
 	if (!search.ok) {
 		return search;
@@ -1148,6 +1161,7 @@ export function parseHabitatTileFilters(searchParams: URLSearchParams): HabitatF
 			...(isInaccessible.value === undefined ? {} : { isInaccessible: isInaccessible.value }),
 			...(habitatTypeIds.value === undefined ? {} : { habitatTypeIds: habitatTypeIds.value }),
 			...(tagIds.value === undefined ? {} : { tagIds: tagIds.value }),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
 			...(search.value === undefined ? {} : { search: search.value }),
 		},
 	};
@@ -1157,7 +1171,7 @@ type AddressFilterResult =
 	| { readonly ok: true; readonly filters: AddressMvtTileFilters }
 	| { readonly ok: false; readonly reason: string };
 
-const addressFilterParams = new Set(['search']);
+const addressFilterParams = new Set(['search', regionFilterParam]);
 
 export function parseAddressTileFilters(searchParams: URLSearchParams): AddressFilterResult {
 	const unknownParams = [...searchParams.keys()].filter((param) => !addressFilterParams.has(param));
@@ -1170,10 +1184,16 @@ export function parseAddressTileFilters(searchParams: URLSearchParams): AddressF
 		return search;
 	}
 
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
+	}
+
 	return {
 		ok: true,
 		filters: {
 			...(search.value === undefined ? {} : { search: search.value }),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
 		},
 	};
 }
@@ -1266,6 +1286,7 @@ const inspectionFilterParams = new Set([
 	'inspectedBy',
 	'dateFrom',
 	'dateTo',
+	regionFilterParam,
 ]);
 
 export function parseInspectionTileFilters(searchParams: URLSearchParams): InspectionFilterResult {
@@ -1301,6 +1322,11 @@ export function parseInspectionTileFilters(searchParams: URLSearchParams): Inspe
 		return inspectedByProfileIds;
 	}
 
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
+	}
+
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
 	if (!dateFrom.ok) {
 		return dateFrom;
@@ -1321,6 +1347,7 @@ export function parseInspectionTileFilters(searchParams: URLSearchParams): Inspe
 			...(inspectedByProfileIds.value === undefined
 				? {}
 				: { inspectedByProfileIds: inspectedByProfileIds.value }),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
 			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
 		},
@@ -1368,7 +1395,14 @@ export function parseInspectionDisplayQuery(
 	};
 }
 
-const sampleFilterParams = new Set(['species', 'status', 'nonMosquito', 'dateFrom', 'dateTo']);
+const sampleFilterParams = new Set([
+	'species',
+	'status',
+	'nonMosquito',
+	'dateFrom',
+	'dateTo',
+	regionFilterParam,
+]);
 const sampleStatusSet = new Set<string>(sampleStatusValues);
 
 export function parseSampleTileFilters(searchParams: URLSearchParams): SampleFilterResult {
@@ -1392,6 +1426,11 @@ export function parseSampleTileFilters(searchParams: URLSearchParams): SampleFil
 		return nonMosquito;
 	}
 
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
+	}
+
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
 	if (!dateFrom.ok) {
 		return dateFrom;
@@ -1409,6 +1448,7 @@ export function parseSampleTileFilters(searchParams: URLSearchParams): SampleFil
 			...(status.value === undefined ? {} : { status: status.value }),
 			// Only `true` narrows; `nonMosquito=false` is the same as omitting it.
 			...(nonMosquito.value === true ? { nonMosquitoOnly: true } : {}),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
 			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
 		},
@@ -1476,6 +1516,7 @@ const applicationFilterParams = new Set([
 	'applicator',
 	'dateFrom',
 	'dateTo',
+	regionFilterParam,
 ]);
 
 export function parseApplicationMapFilters(searchParams: URLSearchParams): ApplicationFilterResult {
@@ -1501,6 +1542,11 @@ export function parseApplicationMapFilters(searchParams: URLSearchParams): Appli
 		return applicatorProfileIds;
 	}
 
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
+	}
+
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
 	if (!dateFrom.ok) {
 		return dateFrom;
@@ -1521,6 +1567,7 @@ export function parseApplicationMapFilters(searchParams: URLSearchParams): Appli
 			...(applicatorProfileIds.value === undefined
 				? {}
 				: { applicatorProfileIds: applicatorProfileIds.value }),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
 			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
 		},
@@ -1574,6 +1621,7 @@ const sourceReductionFilterParams = new Set([
 	'technician',
 	'dateFrom',
 	'dateTo',
+	regionFilterParam,
 ]);
 
 export function parseSourceReductionMapFilters(
@@ -1599,6 +1647,11 @@ export function parseSourceReductionMapFilters(
 		return technicianProfileIds;
 	}
 
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
+	}
+
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
 	if (!dateFrom.ok) {
 		return dateFrom;
@@ -1618,6 +1671,7 @@ export function parseSourceReductionMapFilters(
 			...(technicianProfileIds.value === undefined
 				? {}
 				: { technicianProfileIds: technicianProfileIds.value }),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
 			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
 		},
@@ -1672,6 +1726,7 @@ const biocontrolFilterParams = new Set([
 	'technician',
 	'dateFrom',
 	'dateTo',
+	regionFilterParam,
 ]);
 
 export function parseBiocontrolMapFilters(searchParams: URLSearchParams): BiocontrolFilterResult {
@@ -1697,6 +1752,11 @@ export function parseBiocontrolMapFilters(searchParams: URLSearchParams): Biocon
 		return biocontrolTechnicianProfileIds;
 	}
 
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
+	}
+
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
 	if (!dateFrom.ok) {
 		return dateFrom;
@@ -1718,6 +1778,7 @@ export function parseBiocontrolMapFilters(searchParams: URLSearchParams): Biocon
 				: { technicianProfileIds: biocontrolTechnicianProfileIds.value }),
 			// Only `true` narrows; `habitatLinked=false` is the same as omitting it.
 			...(habitatLinked.value === true ? { habitatLinkedOnly: true } : {}),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
 			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
 		},
@@ -1766,7 +1827,7 @@ type TrapPageQueryResult =
 	| { readonly ok: true; readonly input: TrapPageInput }
 	| { readonly ok: false; readonly reason: string };
 
-const trapFilterParams = new Set(['collectionMethodId', 'status', 'search']);
+const trapFilterParams = new Set(['collectionMethodId', 'status', 'search', regionFilterParam]);
 
 export function parseTrapMapFilters(searchParams: URLSearchParams): TrapFilterResult {
 	const unknownParams = [...searchParams.keys()].filter((param) => !trapFilterParams.has(param));
@@ -1789,6 +1850,11 @@ export function parseTrapMapFilters(searchParams: URLSearchParams): TrapFilterRe
 		return search;
 	}
 
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
+	}
+
 	return {
 		ok: true,
 		filters: {
@@ -1797,6 +1863,7 @@ export function parseTrapMapFilters(searchParams: URLSearchParams): TrapFilterRe
 				: { collectionMethodIds: collectionMethodIds.value }),
 			...(isActive.value === undefined ? {} : { isActive: isActive.value }),
 			...(search.value === undefined ? {} : { search: search.value }),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
 		},
 	};
 }
@@ -1871,7 +1938,13 @@ type CollectionPageQueryResult =
 	| { readonly ok: true; readonly input: CollectionPageInput }
 	| { readonly ok: false; readonly reason: string };
 
-const collectionFilterParams = new Set(['collectionMethodId', 'problem', 'dateFrom', 'dateTo']);
+const collectionFilterParams = new Set([
+	'collectionMethodId',
+	'problem',
+	'dateFrom',
+	'dateTo',
+	regionFilterParam,
+]);
 
 export function parseCollectionMapFilters(searchParams: URLSearchParams): CollectionFilterResult {
 	const unknownParams = [...searchParams.keys()].filter(
@@ -1889,6 +1962,11 @@ export function parseCollectionMapFilters(searchParams: URLSearchParams): Collec
 	const problem = parseOptionalBooleanFilter(searchParams, 'problem');
 	if (!problem.ok) {
 		return problem;
+	}
+
+	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
+	if (!regionIds.ok) {
+		return regionIds;
 	}
 
 	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
@@ -1909,6 +1987,7 @@ export function parseCollectionMapFilters(searchParams: URLSearchParams): Collec
 				: { collectionMethodIds: collectionMethodIds.value }),
 			// Only `true` narrows; `problem=false` is the same as omitting it.
 			...(problem.value === true ? { problemOnly: true } : {}),
+			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
 			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
 			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
 		},
@@ -2020,6 +2099,7 @@ const habitatFilterParams = new Set([
 	'habitatTypeId',
 	'tagId',
 	'search',
+	regionFilterParam,
 ]);
 const maxDisplayLimit = 50;
 const maxSearchLength = 200;

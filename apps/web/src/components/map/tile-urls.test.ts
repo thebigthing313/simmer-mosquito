@@ -57,6 +57,24 @@ describe('tile and extent URLs', () => {
 		expect(queryOf(extentUrl).length).toBeGreaterThan(0);
 	});
 
+	// Every record tileset takes the region narrowing under the same param, so a
+	// region deep link into one explorer stays readable by the next.
+	it('folds the region narrowing into every record tileset the same way', () => {
+		const second = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
+
+		expect(buildHabitatTileUrl(serverUrl, { regionIds: [regionId] })).toBe(
+			`https://api.example.test/map/tiles/habitats/{z}/{x}/{y}.mvt?regionId=${regionId}`,
+		);
+		expect(buildAddressExtentUrl(serverUrl, { regionIds: [regionId] })).toBe(
+			`https://api.example.test/map/tiles/addresses/extent?regionId=${regionId}`,
+		);
+		// Sorted, so re-picking the same regions in another order leaves the tile
+		// source untouched rather than refetching every tile on screen.
+		expect(queryOf(buildTrapTileUrl(serverUrl, { regionIds: [regionId, second] }))).toBe(
+			queryOf(buildTrapTileUrl(serverUrl, { regionIds: [second, regionId] })),
+		);
+	});
+
 	it('names the ticked regions on the extent request only', () => {
 		// Region tiles stream whole and hide client-side, so the id set narrows the
 		// frame without refetching a single tile.

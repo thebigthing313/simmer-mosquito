@@ -5,7 +5,12 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
-import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
+import {
+	type RegionScopedTileFilters,
+	setRegionTileParam,
+	tileExtentUrl,
+	tileTemplateUrl,
+} from './tile-urls';
 
 /**
  * Server-side filters for the biocontrol vector tiles. Mirrors the query params
@@ -13,7 +18,7 @@ import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
  * shape drives the `/map/biocontrol` paged list so the map and the list stay in
  * lockstep.
  */
-export interface BiocontrolTileFilters {
+export interface BiocontrolTileFilters extends RegionScopedTileFilters {
 	readonly biocontrolMethodIds?: readonly string[];
 	/** Match releases performed by any of these profiles. */
 	readonly technicianProfileIds?: readonly string[];
@@ -93,6 +98,8 @@ function biocontrolTileParams(filters?: BiocontrolTileFilters): URLSearchParams 
 	if (filters?.dateTo !== undefined) {
 		params.set('dateTo', filters.dateTo);
 	}
+
+	setRegionTileParam(params, filters?.regionIds);
 
 	return params;
 }

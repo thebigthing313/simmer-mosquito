@@ -5,14 +5,19 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
-import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
+import {
+	type RegionScopedTileFilters,
+	setRegionTileParam,
+	tileExtentUrl,
+	tileTemplateUrl,
+} from './tile-urls';
 
 /**
  * Server-side filters for the trap vector tiles. Mirrors the query params the
  * `/map/tiles/traps/{z}/{x}/{y}.mvt` endpoint understands; the same shape drives
  * the `/map/traps` paged list so the map and the list stay in lockstep.
  */
-export interface TrapTileFilters {
+export interface TrapTileFilters extends RegionScopedTileFilters {
 	readonly collectionMethodIds?: readonly string[];
 	readonly isActive?: boolean;
 	readonly search?: string;
@@ -92,6 +97,8 @@ function trapTileParams(filters?: TrapTileFilters): URLSearchParams {
 	if (search !== undefined && search.length > 0) {
 		params.set('search', search);
 	}
+
+	setRegionTileParam(params, filters?.regionIds);
 
 	return params;
 }

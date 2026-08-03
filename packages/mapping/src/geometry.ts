@@ -119,6 +119,113 @@ export function containsLngLat(bbox: BoundingBox, point: LngLat): boolean {
 	);
 }
 
+/**
+ * Whether a point falls inside an area geometry — the client-side half of the
+ * region filter.
+ *
+ * Not every explorer narrows its list through the server: the address book and
+ * the service-request list are built from rows already synced to the browser, so
+ * "is this record inside the selected region" has to be answerable locally. Both
+ * hold point records, and this answers the same question PostGIS answers for the
+ * tile-backed explorers.
+ *
+ * Points on the boundary count as inside, matching `ST_Intersects` — a record
+ * sitting exactly on a district line should not vanish from both districts.
+ * Non-area geometries hold nothing, so they return false.
+ */
+export function geometryContainsLngLat(geometry: GeoJsonGeometry, point: LngLat): boolean {
+	if (geometry.type === 'Polygon') {
+		return polygonContainsLngLat(geometry.coordinates, point);
+	}
+	if (geometry.type === 'MultiPolygon') {
+		return geometry.coordinates.some((polygon) => polygonContainsLngLat(polygon, point));
+	}
+	return false;
+}
+
+/** Inside the outer ring, and not inside any hole punched out of it. */
+function polygonContainsLngLat(
+	rings: readonly (readonly GeoJsonPosition[])[],
+	point: LngLat,
+): boolean {
+	const outer = rings[0];
+	if (outer === undefined) {
+		return false;
+	}
+	if (isOnRing(outer, point)) {
+		return true;
+	}
+	if (!isInsideRing(outer, point)) {
+		return false;
+	}
+	for (const hole of rings.slice(1)) {
+		// A hole's edge is still the polygon's boundary, so it stays inside.
+		if (isOnRing(hole, point)) {
+			return true;
+		}
+		if (isInsideRing(hole, point)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/** Even-odd ray casting: count the ring crossings due west of the point. */
+function isInsideRing(ring: readonly GeoJsonPosition[], point: LngLat): boolean {
+	let inside = false;
+	for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+		const current = ring[index];
+		const last = ring[previous];
+		if (current === undefined || last === undefined) {
+			continue;
+		}
+		const [currentLng, currentLat] = current;
+		const [lastLng, lastLat] = last;
+		if (currentLat > point.lat !== lastLat > point.lat) {
+			const crossingLng =
+				((lastLng - currentLng) * (point.lat - currentLat)) / (lastLat - currentLat) + currentLng;
+			if (point.lng < crossingLng) {
+				inside = !inside;
+			}
+		}
+	}
+	return inside;
+}
+
+// Degrees, so this is a tolerance of well under a millimetre on the ground —
+// enough to absorb the rounding of a coordinate that round-tripped through JSON.
+const onEdgeEpsilon = 1e-12;
+
+function isOnRing(ring: readonly GeoJsonPosition[], point: LngLat): boolean {
+	for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+		const current = ring[index];
+		const last = ring[previous];
+		if (current === undefined || last === undefined) {
+			continue;
+		}
+		if (isOnSegment(last, current, point)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function isOnSegment(start: GeoJsonPosition, end: GeoJsonPosition, point: LngLat): boolean {
+	const [startLng, startLat] = start;
+	const [endLng, endLat] = end;
+	const cross =
+		(point.lng - startLng) * (endLat - startLat) - (point.lat - startLat) * (endLng - startLng);
+	if (Math.abs(cross) > onEdgeEpsilon) {
+		return false;
+	}
+	return (
+		point.lng >= Math.min(startLng, endLng) - onEdgeEpsilon &&
+		point.lng <= Math.max(startLng, endLng) + onEdgeEpsilon &&
+		point.lat >= Math.min(startLat, endLat) - onEdgeEpsilon &&
+		point.lat <= Math.max(startLat, endLat) + onEdgeEpsilon
+	);
+}
+
 export function extendBounds(bbox: BoundingBox | null, point: LngLat): BoundingBox {
 	if (bbox === null) {
 		return {

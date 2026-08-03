@@ -2,6 +2,7 @@ import { type Kysely, type RawBuilder, sql, type Transaction } from 'kysely';
 
 import type { GeoJsonGeometry, OwnedGeometryInfo, SimmerDatabase } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
+import { regionMembershipClauses } from './map-region-filter.js';
 
 export interface CreateAddressInput {
 	readonly id?: string;
@@ -295,6 +296,8 @@ export async function deleteAddress(
 export interface AddressMvtTileFilters {
 	/** Case-insensitive substring match on the address display name. */
 	readonly search?: string;
+	/** Match addresses falling inside any of these regions. */
+	readonly regionIds?: readonly string[];
 }
 
 export interface AddressMvtTileInput {
@@ -384,6 +387,14 @@ function addressFilterWhereClauses(input: {
 		// position()-based match keeps user input literal — no LIKE wildcard escaping.
 		whereClauses.push(sql<boolean>`position(lower(${search}) in lower(a.display_name)) > 0`);
 	}
+
+	whereClauses.push(
+		...regionMembershipClauses({
+			geom: sql`a.geom`,
+			organizationId: sql`a.organization_id`,
+			regionIds: input.filters?.regionIds,
+		}),
+	);
 
 	return whereClauses;
 }

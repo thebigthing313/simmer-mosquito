@@ -5,7 +5,12 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
-import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
+import {
+	type RegionScopedTileFilters,
+	setRegionTileParam,
+	tileExtentUrl,
+	tileTemplateUrl,
+} from './tile-urls';
 
 /**
  * Server-side filters for the collection vector tiles. Mirrors the query params
@@ -13,7 +18,7 @@ import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
  * shape drives the `/map/collections` paged list so the map and the list stay in
  * lockstep.
  */
-export interface CollectionTileFilters {
+export interface CollectionTileFilters extends RegionScopedTileFilters {
 	readonly collectionMethodIds?: readonly string[];
 	/** Only collections flagged with a problem. */
 	readonly problemOnly?: boolean;
@@ -101,6 +106,8 @@ function collectionTileParams(filters?: CollectionTileFilters): URLSearchParams 
 	if (filters?.dateTo !== undefined) {
 		params.set('dateTo', filters.dateTo);
 	}
+
+	setRegionTileParam(params, filters?.regionIds);
 
 	return params;
 }

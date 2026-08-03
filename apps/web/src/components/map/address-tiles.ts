@@ -1,13 +1,18 @@
 import { mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type { CircleLayerSpecification, ExpressionSpecification } from 'mapbox-gl';
-import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
+import {
+	type RegionScopedTileFilters,
+	setRegionTileParam,
+	tileExtentUrl,
+	tileTemplateUrl,
+} from './tile-urls';
 
 /**
  * Server-side filters for the address vector tiles. Mirrors the query params the
  * `/map/tiles/addresses/{z}/{x}/{y}.mvt` endpoint understands; the same `search`
  * drives the address-book list so the map and the list stay in lockstep.
  */
-export interface AddressTileFilters {
+export interface AddressTileFilters extends RegionScopedTileFilters {
 	readonly search?: string;
 }
 
@@ -49,6 +54,8 @@ function addressTileParams(filters?: AddressTileFilters): URLSearchParams {
 	if (search !== undefined && search.length > 0) {
 		params.set('search', search);
 	}
+
+	setRegionTileParam(params, filters?.regionIds);
 
 	return params;
 }

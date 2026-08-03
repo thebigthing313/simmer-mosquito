@@ -33,8 +33,10 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import {
 	ExplorerRow,
 	FilterChip,
+	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
 	toggle,
+	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas, SAMPLE_STATUS_COLORS, type SampleTileFilters } from '../../../components/map';
@@ -156,6 +158,7 @@ function SamplesExplorerRoute() {
 			status: 'all',
 			species: new Set(),
 			nonMosquito: false,
+			regions: new Set(),
 		}),
 		[defaultFrom, today],
 	);
@@ -169,6 +172,7 @@ function SamplesExplorerRoute() {
 	const status = query.status;
 	const speciesIds = query.species;
 	const nonMosquito = query.nonMosquito;
+	const regionIds = query.regions;
 	const setStatus = useCallback(
 		(next: StatusFilterValue) => setFilters({ status: next }),
 		[setFilters],
@@ -181,21 +185,27 @@ function SamplesExplorerRoute() {
 		(next: boolean) => setFilters({ nonMosquito: next }),
 		[setFilters],
 	);
+	const setRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
+		[setFilters],
+	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [page, setPage] = useState(0);
 
 	const { nameById, options } = useSpeciesCatalog();
+	const regions = useRegionOptions();
 
 	const filters = useMemo<SampleTileFilters>(
 		() => ({
 			...(speciesIds.size > 0 ? { speciesIds: [...speciesIds] } : {}),
 			...(status === 'all' ? {} : { status }),
 			...(nonMosquito ? { nonMosquitoOnly: true } : {}),
+			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
 			...(dateFrom === '' ? {} : { dateFrom }),
 			...(dateTo === '' ? {} : { dateTo }),
 		}),
-		[speciesIds, status, nonMosquito, dateFrom, dateTo],
+		[speciesIds, status, nonMosquito, regionIds, dateFrom, dateTo],
 	);
 
 	const bounds = useMapBounds(map);
@@ -286,7 +296,7 @@ function SamplesExplorerRoute() {
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
 	const hasActiveFilters =
-		!isDefaultRange || status !== 'all' || speciesIds.size > 0 || nonMosquito;
+		!isDefaultRange || status !== 'all' || speciesIds.size > 0 || nonMosquito || regionIds.size > 0;
 
 	const resetDates = useCallback(
 		() => setFilters({ from: defaultFrom, to: today }),
@@ -334,6 +344,13 @@ function SamplesExplorerRoute() {
 
 					<div className="flex flex-wrap items-center gap-2">
 						<SpeciesFilter onChange={setSpeciesIds} options={options} selected={speciesIds} />
+						<MultiSelectFilter
+							empty="No regions"
+							label="Region"
+							onChange={setRegionIds}
+							options={regions.options}
+							selected={regionIds}
+						/>
 						<NonMosquitoToggle onChange={setNonMosquito} value={nonMosquito} />
 					</div>
 
@@ -347,7 +364,10 @@ function SamplesExplorerRoute() {
 							onClearNonMosquito={() => setNonMosquito(false)}
 							onClearStatus={() => setStatus('all')}
 							onResetDates={resetDates}
+							onToggleRegion={(id) => setRegionIds(toggle(regionIds, id))}
 							onToggleSpecies={(id) => setSpeciesIds(toggle(speciesIds, id))}
+							regionIds={regionIds}
+							regionNameById={regions.nameById}
 							speciesIds={speciesIds}
 							status={status}
 							to={dateTo}
@@ -647,10 +667,13 @@ function ActiveFilters({
 	speciesIds,
 	nonMosquito,
 	nameById,
+	regionIds,
+	regionNameById,
 	onResetDates,
 	onClearStatus,
 	onToggleSpecies,
 	onClearNonMosquito,
+	onToggleRegion,
 	onClearAll,
 }: {
 	readonly from: string;
@@ -660,10 +683,13 @@ function ActiveFilters({
 	readonly speciesIds: ReadonlySet<string>;
 	readonly nonMosquito: boolean;
 	readonly nameById: ReadonlyMap<string, string>;
+	readonly regionIds: ReadonlySet<string>;
+	readonly regionNameById: ReadonlyMap<string, string>;
 	readonly onResetDates: () => void;
 	readonly onClearStatus: () => void;
 	readonly onToggleSpecies: (id: string) => void;
 	readonly onClearNonMosquito: () => void;
+	readonly onToggleRegion: (id: string) => void;
 	readonly onClearAll: () => void;
 }) {
 	return (
@@ -684,6 +710,13 @@ function ActiveFilters({
 					key={`species-${id}`}
 					label={nameById.get(id) ?? 'Unknown species'}
 					onRemove={() => onToggleSpecies(id)}
+				/>
+			))}
+			{[...regionIds].map((id) => (
+				<FilterChip
+					key={`region-${id}`}
+					label={regionNameById.get(id) ?? 'Unknown region'}
+					onRemove={() => onToggleRegion(id)}
 				/>
 			))}
 			{nonMosquito ? (
@@ -962,6 +995,9 @@ async function fetchVisibleSamples(
 	}
 	if (filters.nonMosquitoOnly === true) {
 		url.searchParams.set('nonMosquito', 'true');
+	}
+	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
+		url.searchParams.set('regionId', [...filters.regionIds].join(','));
 	}
 	if (filters.dateFrom !== undefined) {
 		url.searchParams.set('dateFrom', filters.dateFrom);

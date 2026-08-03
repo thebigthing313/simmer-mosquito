@@ -23,6 +23,7 @@ import {
 	RESULT_SKELETON_KEYS,
 	toggle,
 	usePersonnelOptions,
+	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type BiocontrolTileFilters, MapCanvas } from '../../../components/map';
@@ -60,6 +61,7 @@ interface BiocontrolFilters {
 	readonly people: ReadonlySet<string>;
 	readonly methods: ReadonlySet<string>;
 	readonly habitat: boolean;
+	readonly regions: ReadonlySet<string>;
 }
 
 const FILTER_CODECS: FilterCodecs<BiocontrolFilters> = {
@@ -68,6 +70,7 @@ const FILTER_CODECS: FilterCodecs<BiocontrolFilters> = {
 	people: idSetParam,
 	methods: idSetParam,
 	habitat: flagParam,
+	regions: idSetParam,
 };
 
 export const Route = createFileRoute('/control-operations/biocontrol/')({
@@ -93,6 +96,7 @@ function BiocontrolExplorerRoute() {
 			people: new Set(),
 			methods: new Set(),
 			habitat: false,
+			regions: new Set(),
 		}),
 		[defaultFrom, today],
 	);
@@ -101,6 +105,7 @@ function BiocontrolExplorerRoute() {
 	const dateTo = query.to;
 	const personIds = query.people;
 	const methodIds = query.methods;
+	const regionIds = query.regions;
 	const habitatOnly = query.habitat;
 	const setPersonIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ people: next }),
@@ -108,6 +113,10 @@ function BiocontrolExplorerRoute() {
 	);
 	const setMethodIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ methods: next }),
+		[setFilters],
+	);
+	const setRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
 		[setFilters],
 	);
 	const setHabitatOnly = useCallback(
@@ -158,15 +167,17 @@ function BiocontrolExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no toggle) drop out.
 	const personnel = usePersonnelOptions();
+	const regions = useRegionOptions();
 	const filters = useMemo<BiocontrolTileFilters>(
 		() => ({
 			...(methodIds.size > 0 ? { biocontrolMethodIds: [...methodIds] } : {}),
 			...(personIds.size > 0 ? { technicianProfileIds: [...personIds] } : {}),
 			...(habitatOnly ? { habitatLinkedOnly: true } : {}),
+			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
 			...(dateFrom === '' ? {} : { dateFrom }),
 			...(dateTo === '' ? {} : { dateTo }),
 		}),
-		[methodIds, habitatOnly, personIds, dateFrom, dateTo],
+		[methodIds, habitatOnly, personIds, regionIds, dateFrom, dateTo],
 	);
 
 	// A new filter set always starts at the first page.
@@ -220,6 +231,7 @@ function BiocontrolExplorerRoute() {
 		dateTo !== today ||
 		methodIds.size > 0 ||
 		habitatOnly ||
+		regionIds.size > 0 ||
 		personIds.size > 0;
 	const clearAll = reset;
 
@@ -279,6 +291,13 @@ function BiocontrolExplorerRoute() {
 							options={personnel.options}
 							selected={personIds}
 						/>
+						<MultiSelectFilter
+							empty="No regions"
+							label="Region"
+							onChange={setRegionIds}
+							options={regions.options}
+							selected={regionIds}
+						/>
 						<HabitatToggle onChange={setHabitatOnly} value={habitatOnly} />
 					</div>
 
@@ -296,6 +315,13 @@ function BiocontrolExplorerRoute() {
 									key={`person-${id}`}
 									label={personnel.nameById.get(id) ?? 'Unknown person'}
 									onRemove={() => setPersonIds(toggle(personIds, id))}
+								/>
+							))}
+							{[...regionIds].map((id) => (
+								<FilterChip
+									key={`region-${id}`}
+									label={regions.nameById.get(id) ?? 'Unknown region'}
+									onRemove={() => setRegionIds(toggle(regionIds, id))}
 								/>
 							))}
 							{habitatOnly ? (
@@ -386,6 +412,9 @@ async function fetchBiocontrolPage(
 	}
 	if (filters.technicianProfileIds !== undefined && filters.technicianProfileIds.length > 0) {
 		url.searchParams.set('technician', filters.technicianProfileIds.join(','));
+	}
+	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
+		url.searchParams.set('regionId', filters.regionIds.join(','));
 	}
 	if (filters.habitatLinkedOnly === true) {
 		url.searchParams.set('habitatLinked', 'true');

@@ -2,6 +2,7 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
+import { regionMembershipClauses } from './map-region-filter.js';
 
 /** One sample still awaiting species identification, with its inspection context. */
 export interface AwaitingSampleRow {
@@ -117,6 +118,8 @@ export interface InspectionMvtTileFilters {
 	readonly habitatTypeIds?: readonly string[];
 	/** Match inspections recorded by any of these profiles. */
 	readonly inspectedByProfileIds?: readonly string[];
+	/** Match inspections falling inside any of these regions. */
+	readonly regionIds?: readonly string[];
 	/** Inclusive lower bound on `inspection_date` (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on `inspection_date` (`YYYY-MM-DD`). */
@@ -397,6 +400,14 @@ function inspectionFilterWhereClauses(input: {
 		whereClauses.push(sql<boolean>`i.inspection_date <= ${input.filters.dateTo}`);
 	}
 
+	whereClauses.push(
+		...regionMembershipClauses({
+			geom: sql`i.geom`,
+			organizationId: sql`i.organization_id`,
+			regionIds: input.filters?.regionIds,
+		}),
+	);
+
 	return whereClauses;
 }
 
@@ -441,6 +452,8 @@ export interface SampleListFilters {
 	readonly status?: SampleStatus;
 	/** Only samples flagged as containing non-mosquito organisms or material. */
 	readonly nonMosquitoOnly?: boolean;
+	/** Match samples whose parent inspection falls inside any of these regions. */
+	readonly regionIds?: readonly string[];
 	/** Inclusive lower bound on the parent inspection's date (`YYYY-MM-DD`). */
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on the parent inspection's date (`YYYY-MM-DD`). */
@@ -730,6 +743,15 @@ function sampleFilterWhereClauses(input: {
 	if (filters.status !== undefined) {
 		clauses.push(sampleStatusClause(filters.status));
 	}
+	// A sample inherits the parent inspection's geometry, so region membership is
+	// tested against that — the same geometry the tile and extent reads project.
+	clauses.push(
+		...regionMembershipClauses({
+			geom: sql`i.geom`,
+			organizationId: sql`s.organization_id`,
+			regionIds: filters.regionIds,
+		}),
+	);
 
 	return clauses;
 }

@@ -23,6 +23,7 @@ import {
 	RESULT_SKELETON_KEYS,
 	toggle,
 	usePersonnelOptions,
+	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type CollectionTileFilters, MapCanvas } from '../../../components/map';
@@ -61,6 +62,7 @@ interface CollectionFilters {
 	readonly to: string;
 	readonly methods: ReadonlySet<string>;
 	readonly problems: boolean;
+	readonly regions: ReadonlySet<string>;
 }
 
 const COLLECTION_FILTER_CODECS: FilterCodecs<CollectionFilters> = {
@@ -68,6 +70,7 @@ const COLLECTION_FILTER_CODECS: FilterCodecs<CollectionFilters> = {
 	to: dateParam,
 	methods: idSetParam,
 	problems: flagParam,
+	regions: idSetParam,
 };
 
 export const Route = createFileRoute('/adult-surveillance/collections/')({
@@ -87,7 +90,13 @@ function CollectionsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
 	const filterDefaults = useMemo<CollectionFilters>(
-		() => ({ from: defaultFrom, to: today, methods: new Set(), problems: false }),
+		() => ({
+			from: defaultFrom,
+			to: today,
+			methods: new Set(),
+			problems: false,
+			regions: new Set(),
+		}),
 		[defaultFrom, today],
 	);
 	const {
@@ -99,12 +108,17 @@ function CollectionsExplorerRoute() {
 	const dateTo = query.to;
 	const methodIds = query.methods;
 	const problemOnly = query.problems;
+	const regionIds = query.regions;
 	const setMethodIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ methods: next }),
 		[setFilters],
 	);
 	const setProblemOnly = useCallback(
 		(next: boolean) => setFilters({ problems: next }),
+		[setFilters],
+	);
+	const setRegionIds = useCallback(
+		(next: ReadonlySet<string>) => setFilters({ regions: next }),
 		[setFilters],
 	);
 	const [page, setPage] = useState(0);
@@ -156,14 +170,16 @@ function CollectionsExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const personnel = usePersonnelOptions();
+	const regions = useRegionOptions();
 	const filters = useMemo<CollectionTileFilters>(
 		() => ({
 			...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
 			...(problemOnly ? { problemOnly: true } : {}),
+			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
 			...(dateFrom === '' ? {} : { dateFrom }),
 			...(dateTo === '' ? {} : { dateTo }),
 		}),
-		[methodIds, problemOnly, dateFrom, dateTo],
+		[methodIds, problemOnly, regionIds, dateFrom, dateTo],
 	);
 
 	// A new filter set always starts at the first page.
@@ -205,7 +221,11 @@ function CollectionsExplorerRoute() {
 	);
 
 	const hasActiveFilters =
-		dateFrom !== defaultFrom || dateTo !== today || methodIds.size > 0 || problemOnly;
+		dateFrom !== defaultFrom ||
+		dateTo !== today ||
+		methodIds.size > 0 ||
+		problemOnly ||
+		regionIds.size > 0;
 	const clearAll = reset;
 
 	return (
@@ -257,6 +277,13 @@ function CollectionsExplorerRoute() {
 							options={methods.map((method) => ({ id: method.id, label: method.name }))}
 							selected={methodIds}
 						/>
+						<MultiSelectFilter
+							empty="No regions"
+							label="Region"
+							onChange={setRegionIds}
+							options={regions.options}
+							selected={regionIds}
+						/>
 						<ProblemToggle onChange={setProblemOnly} value={problemOnly} />
 					</div>
 
@@ -267,6 +294,13 @@ function CollectionsExplorerRoute() {
 									key={id}
 									label={methodNameById.get(id) ?? 'Unknown method'}
 									onRemove={() => setMethodIds(toggle(methodIds, id))}
+								/>
+							))}
+							{[...regionIds].map((id) => (
+								<FilterChip
+									key={`region-${id}`}
+									label={regions.nameById.get(id) ?? 'Unknown region'}
+									onRemove={() => setRegionIds(toggle(regionIds, id))}
 								/>
 							))}
 							{problemOnly ? (
@@ -356,6 +390,9 @@ async function fetchCollectionsPage(
 	}
 	if (filters.problemOnly === true) {
 		url.searchParams.set('problem', 'true');
+	}
+	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
+		url.searchParams.set('regionId', filters.regionIds.join(','));
 	}
 	if (filters.dateFrom !== undefined) {
 		url.searchParams.set('dateFrom', filters.dateFrom);

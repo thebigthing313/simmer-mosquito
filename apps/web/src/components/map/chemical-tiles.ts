@@ -5,7 +5,12 @@ import type {
 	FillLayerSpecification,
 	LineLayerSpecification,
 } from 'mapbox-gl';
-import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
+import {
+	type RegionScopedTileFilters,
+	setRegionTileParam,
+	tileExtentUrl,
+	tileTemplateUrl,
+} from './tile-urls';
 
 /**
  * Server-side filters for the chemical-application vector tiles. Mirrors the
@@ -13,7 +18,7 @@ import { tileExtentUrl, tileTemplateUrl } from './tile-urls';
  * the same shape drives the `/map/chemical` paged list so the map and the list
  * stay in lockstep.
  */
-export interface ChemicalTileFilters {
+export interface ChemicalTileFilters extends RegionScopedTileFilters {
 	readonly insecticideIds?: readonly string[];
 	readonly applicationMethodIds?: readonly string[];
 	/** Match applications performed by any of these profiles. */
@@ -89,6 +94,8 @@ function chemicalTileParams(filters?: ChemicalTileFilters): URLSearchParams {
 	if (filters?.dateTo !== undefined) {
 		params.set('dateTo', filters.dateTo);
 	}
+
+	setRegionTileParam(params, filters?.regionIds);
 
 	return params;
 }

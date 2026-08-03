@@ -35,6 +35,7 @@ export {
 	extendBounds,
 	formatBoundingBox,
 	formatGeometryTypeLabel,
+	geometryContainsLngLat,
 	isBoundingBox,
 	isLngLat,
 	isPointGeomType,

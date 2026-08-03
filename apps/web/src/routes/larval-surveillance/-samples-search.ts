@@ -33,6 +33,8 @@ export interface SampleFilters {
 	readonly species: ReadonlySet<string>;
 	/** Restrict to samples flagged with non-mosquito material. */
 	readonly nonMosquito: boolean;
+	/** Restrict to samples whose parent inspection sits inside these regions. */
+	readonly regions: ReadonlySet<string>;
 }
 
 export const sampleFilterCodecs: FilterCodecs<SampleFilters> = {
@@ -41,6 +43,7 @@ export const sampleFilterCodecs: FilterCodecs<SampleFilters> = {
 	status: choiceParam(sampleStatusValues, 'all'),
 	species: idSetParam,
 	nonMosquito: flagParam,
+	regions: idSetParam,
 };
 
 /**
@@ -54,4 +57,5 @@ export type SamplesSearch = {
 	readonly status?: SampleStatusValue;
 	readonly species?: readonly string[];
 	readonly nonMosquito?: boolean;
+	readonly regions?: readonly string[];
 };

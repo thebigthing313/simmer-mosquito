@@ -63,7 +63,11 @@ export function seedRegionGeometryCache(
 	void queryClient.invalidateQueries({ queryKey: regionGeometryQueryKey(regionId) });
 }
 
-async function fetchRegionGeometry(
+/**
+ * Read one region's boundary. Exported so a caller resolving several at once can
+ * share this hook's cache entries rather than opening a second cache of its own.
+ */
+export async function fetchRegionGeometry(
 	regionId: string,
 	signal: AbortSignal,
 ): Promise<RegionGeometry | null> {
