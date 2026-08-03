@@ -13,6 +13,7 @@ import {
 	validateAdultCollectionLocationSource,
 	validateTrapLocationSource,
 } from '../location-intent.js';
+import type { UnitType } from '../organization-settings/types-and-defaults.js';
 import type { DomainId, DomainValidationIssue, JsonObject, LocalDateString } from '../shared.js';
 
 export type AdultSurveillanceCommandType =
@@ -317,4 +318,22 @@ export function basePayload(input: AdultCommandInput): AdultCommandPayload {
 
 export function isValidDate(value: Date | undefined): value is Date {
 	return value instanceof Date && !Number.isNaN(value.getTime());
+}
+
+/**
+ * The unit types a trap's run length can be measured in.
+ *
+ * A collection recorded as a date plus a duration is saying how long the trap
+ * ran, so only time units carry meaning — a weight or an area would be recorded
+ * without complaint and read back as nonsense. Mirrors the shape the control
+ * domain uses for its amount fields (`isBiocontrolUnitType` and friends): the
+ * unit row is not available at command-build time, so this narrows what a form
+ * offers rather than what the builder rejects.
+ */
+export const COLLECTION_DURATION_UNIT_TYPES = ['duration'] as const;
+
+export function isCollectionDurationUnitType(unitType: UnitType): boolean {
+	return COLLECTION_DURATION_UNIT_TYPES.includes(
+		unitType as (typeof COLLECTION_DURATION_UNIT_TYPES)[number],
+	);
 }

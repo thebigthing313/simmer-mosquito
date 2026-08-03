@@ -18,6 +18,7 @@ export type {
 	ExactCollectedCollectionTiming,
 	ExactPendingCollectionTiming,
 } from './shared.js';
+export { COLLECTION_DURATION_UNIT_TYPES, isCollectionDurationUnitType } from './shared.js';
 export * from './traps.js';
 
 import type {

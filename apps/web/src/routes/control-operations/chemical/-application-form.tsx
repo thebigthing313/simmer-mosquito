@@ -43,8 +43,9 @@ import {
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import { unitOptions } from '../../../lib/unit-options';
 import { webCollections } from '../../../sync/webCollections';
-import { insecticideDisplayName, todayDateValue, unitOptions } from '../-control-display';
+import { insecticideDisplayName, todayDateValue } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 

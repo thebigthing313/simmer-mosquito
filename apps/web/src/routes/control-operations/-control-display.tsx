@@ -62,21 +62,6 @@ export function nameById<TRow extends { readonly id: string }>(
 	return new Map(rows.map((row) => [row.id, toName(row)] as const));
 }
 
-/**
- * Unit options for an action's amount field, narrowed to the unit types the domain
- * allows for that action (see `isSourceReductionUnitType` / `isBiocontrolUnitType`).
- */
-export function unitOptions(
-	units: readonly UnitRow[],
-	isAllowed: (unitType: UnitRow['unitType']) => boolean,
-): readonly { readonly label: string; readonly value: string }[] {
-	return units
-		.filter((unit) => isAllowed(unit.unitType))
-		.slice()
-		.sort((first, second) => first.unitName.localeCompare(second.unitName))
-		.map((unit) => ({ label: `${unit.unitName} (${unit.abbreviation})`, value: unit.id }));
-}
-
 /** The larval/adult record a control action was performed against, if any. */
 export function ContextBadge({
 	habitatId,

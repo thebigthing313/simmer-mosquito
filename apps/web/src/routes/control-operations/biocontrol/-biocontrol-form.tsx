@@ -33,7 +33,8 @@ import {
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { todayDateValue, unitOptions } from '../-control-display';
+import { unitOptions } from '../../../lib/unit-options';
+import { todayDateValue } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 

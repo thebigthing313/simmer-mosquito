@@ -1,4 +1,5 @@
 import {
+	isCollectionDurationUnitType,
 	recordCollectedAdHocCollectionCommand,
 	recordCollectedTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
@@ -41,6 +42,7 @@ import {
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import { unitOptions } from '../../../lib/unit-options';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
@@ -134,7 +136,7 @@ export interface CollectionFormValues {
 	/** `YYYY-MM-DD` collection date (date + duration mode). */
 	readonly collectionDate: string | null;
 	readonly durationAmount: number | null;
-	/** `noUnitValue` or a unit id (date + duration mode). */
+	/** `noUnitValue` until picked; required in date + duration mode. */
 	readonly durationUnitId: string;
 	readonly setByProfileId: string | null;
 	readonly collectedByProfileId: string | null;
@@ -629,6 +631,13 @@ function TimingSection({
 	readonly form: any;
 	readonly units: readonly UnitRow[];
 }) {
+	// A date-plus-duration collection is saying how long the trap ran, so the only
+	// units that carry meaning are times.
+	const durationUnitOptions = useMemo(
+		() => unitOptions(units, isCollectionDurationUnitType),
+		[units],
+	);
+
 	return (
 		<FormSection title="Timing">
 			<form.AppField name="timingMode">
@@ -707,7 +716,12 @@ function TimingSection({
 							<form.AppField name="durationUnitId">
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (
-									<field.SelectField label="Unit" options={unitOptions(units)} placeholder="Unit" />
+									<field.SelectField
+										label="Unit"
+										options={durationUnitOptions}
+										placeholder="Select a unit"
+										required
+									/>
 								)}
 							</form.AppField>
 						</div>
@@ -789,13 +803,6 @@ function lureOptions(lures: readonly CollectionLureRow[]) {
 			(lure) => lure.isActive,
 			(lure) => lure.name,
 		),
-	];
-}
-
-function unitOptions(units: readonly UnitRow[]) {
-	return [
-		{ label: 'No unit', value: noUnitValue },
-		...units.map((unit) => ({ label: unit.unitName, value: unit.id })),
 	];
 }
 
