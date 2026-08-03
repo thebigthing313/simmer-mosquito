@@ -55,9 +55,26 @@ select {
  * soft top-left light source and a faint map graticule give it depth without
  * decorative nature motifs. The real SIMMER badge is a self-contained cream
  * emblem, so it reads in full colour on the dark field — a soft shadow lifts it.
+ *
+ * The landing page is one screen, not a document. Its rhythm and display type
+ * are therefore measured against viewport *height*: with fixed spacing the
+ * stage needed ~990px to lay out, so every laptop below that got a scrollbar on
+ * the first surface of the product. These compress on a 720p window and open
+ * back up on a tall display. They live here rather than inline because they are
+ * one scale, read by elements at every depth of the stage.
  */
 .landing-stage {
 	--landing-grid: color-mix(in oklch, white 5.5%, transparent);
+	--landing-pad-x: clamp(1.5rem, 3.4vw, 3.5rem);
+	--landing-pad-y: clamp(1.25rem, 3vh, 3.5rem);
+	--landing-gap: clamp(0.9rem, 2.9vh, 3.5rem);
+	--landing-gap-tight: clamp(0.8rem, 2.4vh, 1.75rem);
+	--landing-logo: clamp(120px, 19vh, 240px);
+	/*
+	 * Width still governs the headline on narrow desktops (it wraps at 24ch);
+	 * height governs it on short ones. Whichever is scarcer wins.
+	 */
+	--landing-display: clamp(1.4rem, min(1.2rem + 2.4vw, 0.8rem + 3.7vh), 2.9rem);
 	background-color: var(--simmer-green-800);
 	background-image:
 		radial-gradient(
@@ -72,6 +89,18 @@ select {
 		),
 		repeating-linear-gradient(0deg, var(--landing-grid) 0 1px, transparent 1px 66px),
 		repeating-linear-gradient(90deg, var(--landing-grid) 0 1px, transparent 1px 66px);
+}
+
+/*
+ * The stage's closing line is the first thing to go when the window is too
+ * short for everything: past this point the scale has nothing left to give, and
+ * a sentence sliced in half by the clip reads far worse than one that isn't
+ * there. The capabilities above it and the sign-in panel beside it both stay.
+ */
+@media (max-height: 720px) {
+	.landing-tail {
+		display: none;
+	}
 }
 
 .landing-logo {

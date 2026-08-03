@@ -93,8 +93,9 @@ function AuthShell({
 	return (
 		<div className="grid min-h-screen grid-rows-[auto_1fr] lg:grid-cols-[1.02fr_0.98fr] lg:grid-rows-1">
 			<AuthStage />
-			<section className="landing-fade flex items-center justify-center bg-(--app-stage) px-6 py-10 sm:px-10 lg:py-14">
-				<div className="flex w-full max-w-[400px] flex-col gap-6">
+			{/* Animation on the panel, not the section — see the landing entry column. */}
+			<section className="flex bg-(--app-stage) px-6 py-10 sm:px-10 lg:py-14">
+				<div className="landing-fade m-auto flex w-full max-w-[400px] flex-col gap-6">
 					<header className="grid gap-2">
 						<h1 className="m-0 text-balance text-[1.55rem] font-bold leading-tight tracking-[-0.01em] text-foreground">
 							{title}

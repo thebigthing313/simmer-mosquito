@@ -63,8 +63,10 @@ export function LandingPage({
 }) {
 	const redirectPath = toRedirectPath(redirectTo);
 
+	// Locked to the viewport at desktop widths, like the shell it introduces:
+	// each column owns its own overflow, so the window itself never scrolls.
 	return (
-		<div className="grid min-h-screen grid-rows-[auto_1fr] lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-1">
+		<div className="grid min-h-svh grid-rows-[auto_1fr] lg:h-svh lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-1">
 			<LandingStage />
 			<LandingEntry authReason={authReason} redirectPath={redirectPath} />
 		</div>
@@ -74,31 +76,31 @@ export function LandingPage({
 /** The committed brand stage: real logo, value proposition, and capability list. */
 function LandingStage() {
 	return (
-		<section className="landing-stage relative isolate flex flex-col overflow-hidden px-8 py-10 text-white sm:px-10 sm:py-12 lg:min-h-screen lg:px-14 lg:py-14">
-			<div className="landing-rise relative z-10 flex flex-1 flex-col justify-between gap-9 lg:gap-14">
-				<div className="grid gap-3">
+		<section className="landing-stage relative isolate flex min-h-0 flex-col overflow-hidden px-(--landing-pad-x) py-(--landing-pad-y) text-white">
+			<div className="landing-rise relative z-10 flex flex-1 flex-col justify-between gap-(--landing-gap)">
+				<div className="grid gap-2">
 					<img
 						src="/logo.svg"
 						alt="SIMMER"
 						width={248}
 						height={122}
-						className="landing-logo w-[190px] max-w-[58%] lg:w-[240px]"
+						className="landing-logo w-(--landing-logo) max-w-[58%]"
 					/>
-					<p className="m-0 max-w-[34ch] text-[0.72rem] font-medium uppercase leading-snug tracking-[0.14em] text-simmer-green-100/80">
+					<p className="m-0 max-w-[64ch] text-[0.72rem] font-medium uppercase leading-snug tracking-[0.14em] text-simmer-green-100/80">
 						Strategic Integrated Mosquito Management Enterprise Resources
 					</p>
 				</div>
 
-				<div className="flex flex-col justify-center gap-6 lg:gap-7">
-					<h1 className="m-0 max-w-[18ch] text-balance font-bold text-[clamp(1.95rem,1.2rem+2.4vw,2.9rem)] leading-[1.08] tracking-[-0.02em]">
+				<div className="flex flex-col justify-center gap-(--landing-gap-tight)">
+					<h1 className="m-0 max-w-[24ch] text-balance font-bold text-(length:--landing-display) leading-[1.08] tracking-[-0.02em]">
 						Integrated mosquito management, on one living map.
 					</h1>
-					<p className="m-0 max-w-[48ch] text-pretty text-[1.02rem] leading-relaxed text-simmer-green-100">
+					<p className="m-0 max-w-[62ch] text-pretty text-[1.02rem] leading-relaxed text-simmer-green-100">
 						Surveillance, control operations, and public requests stay tied to the ground they
 						happen on, so every decision rests on the data your program collected.
 					</p>
 
-					<ul className="m-0 mt-1 grid list-none gap-4 p-0">
+					<ul className="m-0 grid list-none gap-(--landing-gap-tight) p-0">
 						{CAPABILITIES.map(({ icon: Icon, title, detail }) => (
 							<li key={title} className="flex items-start gap-3.5">
 								<span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md bg-white/10 text-white ring-1 ring-inset ring-white/15">
@@ -108,7 +110,7 @@ function LandingStage() {
 									<p className="m-0 text-[0.95rem] font-semibold leading-tight text-white">
 										{title}
 									</p>
-									<p className="m-0 max-w-[42ch] text-[0.86rem] leading-snug text-simmer-green-100">
+									<p className="m-0 max-w-[54ch] text-[0.86rem] leading-snug text-simmer-green-100">
 										{detail}
 									</p>
 								</div>
@@ -117,7 +119,7 @@ function LandingStage() {
 					</ul>
 				</div>
 
-				<p className="m-0 max-w-[52ch] text-[0.85rem] leading-normal text-simmer-green-100/90">
+				<p className="landing-tail m-0 max-w-[88ch] text-[0.85rem] leading-normal text-simmer-green-100/90">
 					Built around the five tactics of integrated mosquito management, for the agencies that
 					keep communities protected.
 				</p>
@@ -134,9 +136,13 @@ function LandingEntry({
 	readonly authReason: 'organization_required' | undefined;
 	readonly redirectPath: string;
 }) {
+	// `m-auto` rather than `items-center`: a centred flex child in a scroll
+	// container puts its own overflowing top out of reach. The entry animation
+	// rides the panel, not the section — translating a full-height grid item
+	// pushes the window into overflow for as long as it runs.
 	return (
-		<section className="landing-fade flex items-center justify-center bg-(--app-stage) px-6 py-12 sm:px-10">
-			<div className="flex w-full max-w-[420px] flex-col gap-7">
+		<section className="flex min-h-0 overflow-y-auto bg-(--app-stage) px-6 py-12 sm:px-10">
+			<div className="landing-fade m-auto flex w-full max-w-[420px] flex-col gap-7">
 				<div className="grid gap-2">
 					<h2 className="m-0 text-[1.5rem] font-bold leading-tight text-foreground">
 						Welcome Back
