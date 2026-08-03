@@ -1,11 +1,12 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { AddressRow, ContactRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
+import type { ContactRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { webCollections } from '../../../sync/webCollections';
+import { contactFieldsFromValues } from '../-contact-fields';
 import { settleWrite } from '../-public-engagement-writes';
 import {
 	defaultServiceRequestFormValues,
@@ -89,16 +90,7 @@ function CreateServiceRequestRoute() {
 				const contactRow: ContactRow = {
 					id: crypto.randomUUID(),
 					organizationId: organization.id,
-					contactName: nullableText(values.newContactName),
-					company: nullableText(values.newContactCompany),
-					department: null,
-					title: null,
-					preferredPhone: nullableText(values.newContactPhone),
-					alternatePhone: null,
-					email: nullableText(values.newContactEmail),
-					wantsEmail: false,
-					wantsSms: false,
-					wantsPhone: false,
+					...contactFieldsFromValues(values.newContact),
 					metadata: null,
 					...audit,
 				};
@@ -109,31 +101,9 @@ function CreateServiceRequestRoute() {
 				throw new Error('Select or create a contact for this request.');
 			}
 
-			// 2. New address (if any) — the request's point seeds the address geometry.
-			let addressId = values.addressId;
-			if (values.addressMode === 'new') {
-				const point = { type: 'Point' as const, coordinates: [centroid.lng, centroid.lat] };
-				const addressRow: AddressRow = {
-					id: crypto.randomUUID(),
-					organizationId: organization.id,
-					lat: centroid.lat,
-					lng: centroid.lng,
-					geojson: point as unknown as AddressRow['geojson'],
-					geomType: 'Point',
-					displayName: values.newAddressName.trim(),
-					country: 'US',
-					addressLine1: nullableText(values.newAddressLine1),
-					addressLine2: null,
-					locality: nullableText(values.newAddressLocality),
-					region: nullableText(values.newAddressRegion),
-					postalCode: nullableText(values.newAddressPostal),
-					geocoderResponse: null,
-					...audit,
-				};
-				// addresses' insert handler returns no txid, so this resolves on POST.
-				await settleWrite(webCollections.addresses.insert(addressRow));
-				addressId = addressRow.id;
-			}
+			// 2. The address is always an existing row: new ones are created by the
+			//    picker's own inline form, which commits before handing back the id.
+			const addressId = values.addressId;
 			if (addressId === null) {
 				throw new Error('Select or create an address for this request.');
 			}
@@ -185,11 +155,6 @@ function CreateServiceRequestRoute() {
 			submitLabel="Create Request"
 		/>
 	);
-}
-
-function nullableText(value: string): string | null {
-	const text = value.trim();
-	return text.length === 0 ? null : text;
 }
 
 function localToday(): string {

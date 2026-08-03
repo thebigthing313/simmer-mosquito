@@ -35,9 +35,15 @@ import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import {
+	CONTACT_FIELD_PATHS,
+	type ContactFormValues,
+	defaultContactFormValues,
+	validateContactForm,
+} from '../-contact-fields';
+import { ContactFieldsBlock } from '../-contact-fields-block';
 
 export type ContactMode = 'existing' | 'new';
-export type AddressMode = 'existing' | 'new';
 
 export const INTAKE_TYPE_OPTIONS = REQUEST_INTAKE_TYPES.map((value: RequestIntakeType) => ({
 	value,
@@ -52,23 +58,14 @@ export interface ServiceRequestFormValues {
 	readonly receivedByProfileId: string;
 	readonly contactMode: ContactMode;
 	readonly contactId: string | null;
-	readonly newContactName: string;
-	readonly newContactCompany: string;
-	readonly newContactPhone: string;
-	readonly newContactEmail: string;
-	readonly addressMode: AddressMode;
+	/** The inline "new contact" subform — the same fields the contact page owns. */
+	readonly newContact: ContactFormValues;
 	readonly addressId: string | null;
-	readonly newAddressName: string;
-	readonly newAddressLine1: string;
-	readonly newAddressLocality: string;
-	readonly newAddressRegion: string;
-	readonly newAddressPostal: string;
 }
 
 /**
- * Domain issue path → the form field holding it. The inline contact and address
- * subforms nest under `contact.details` / `location.address.details`, matching
- * the shape the builder validates.
+ * Domain issue path → the form field holding it. The inline contact subform nests
+ * under `contact.details`, matching the shape the builder validates.
  */
 const SERVICE_REQUEST_FIELD_PATHS: Readonly<Record<string, string>> = {
 	intakeType: 'intakeType',
@@ -76,16 +73,10 @@ const SERVICE_REQUEST_FIELD_PATHS: Readonly<Record<string, string>> = {
 	details: 'details',
 	receivedByProfileId: 'receivedByProfileId',
 	'contact.contactId': 'contactId',
-	'contact.details.contactName': 'newContactName',
-	'contact.details.company': 'newContactCompany',
-	'contact.details.preferredPhone': 'newContactPhone',
-	'contact.details.email': 'newContactEmail',
 	'location.address.addressId': 'addressId',
-	'location.address.details.displayName': 'newAddressName',
-	'location.address.details.addressLine1': 'newAddressLine1',
-	'location.address.details.locality': 'newAddressLocality',
-	'location.address.details.region': 'newAddressRegion',
-	'location.address.details.postalCode': 'newAddressPostal',
+	...Object.fromEntries(
+		CONTACT_FIELD_PATHS.map((field) => [`contact.details.${field}`, `newContact.${field}`]),
+	),
 };
 
 /**
@@ -108,30 +99,11 @@ function validateServiceRequest(value: ServiceRequestFormValues, geometry: DrawG
 						: {
 								kind: 'new',
 								contactId: FORM_VALIDATION_CONTEXT.organizationId,
-								details: {
-									contactName: value.newContactName,
-									company: value.newContactCompany,
-									preferredPhone: value.newContactPhone,
-									email: value.newContactEmail,
-								},
+								details: value.newContact,
 							},
 				location: {
 					geometry: (geometry ?? null) as never,
-					address:
-						value.addressMode === 'existing'
-							? { kind: 'existing', addressId: value.addressId ?? '' }
-							: {
-									kind: 'new',
-									addressId: FORM_VALIDATION_CONTEXT.organizationId,
-									details: {
-										displayName: value.newAddressName,
-										geometry: (geometry ?? null) as never,
-										addressLine1: value.newAddressLine1,
-										locality: value.newAddressLocality,
-										region: value.newAddressRegion,
-										postalCode: value.newAddressPostal,
-									},
-								},
+					address: { kind: 'existing', addressId: value.addressId ?? '' },
 				},
 			}),
 		SERVICE_REQUEST_FIELD_PATHS,
@@ -183,17 +155,8 @@ export function defaultServiceRequestFormValues(
 		receivedByProfileId,
 		contactMode: 'existing',
 		contactId: null,
-		newContactName: '',
-		newContactCompany: '',
-		newContactPhone: '',
-		newContactEmail: '',
-		addressMode: 'existing',
+		newContact: defaultContactFormValues(),
 		addressId: null,
-		newAddressName: '',
-		newAddressLine1: '',
-		newAddressLocality: '',
-		newAddressRegion: '',
-		newAddressPostal: '',
 	};
 }
 
@@ -489,32 +452,8 @@ function ContactSection({
 							)}
 						</form.AppField>
 					) : (
-						<div className="grid gap-5 rounded-md border border-border/50 bg-muted/30 p-4">
-							<p className="m-0 text-muted-foreground text-xs">
-								Enter at least one identifier — a name, company, phone, or email.
-							</p>
-							<div className="grid gap-5 sm:grid-cols-2">
-								<form.AppField name="newContactName">
-									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => (
-										<field.TextField label="Name" placeholder="e.g. Jordan Rivera" />
-									)}
-								</form.AppField>
-								<form.AppField name="newContactCompany">
-									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => (
-										<field.TextField label="Company" placeholder="e.g. Riverside HOA" />
-									)}
-								</form.AppField>
-								<form.AppField name="newContactPhone">
-									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => <field.TextField label="Phone" placeholder="(555) 123-4567" />}
-								</form.AppField>
-								<form.AppField name="newContactEmail">
-									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => <field.TextField label="Email" placeholder="name@example.com" />}
-								</form.AppField>
-							</div>
+						<div className="grid gap-6 rounded-md border border-border/50 bg-muted/30 p-4">
+							<ContactFieldsBlock form={form} headingLevel="h3" prefix="newContact." />
 						</div>
 					)
 				}
@@ -553,84 +492,27 @@ function LocationSection({
 }) {
 	return (
 		<FormSection title="Location">
-			<form.AppField name="addressMode">
+			{/*
+			 * One way in to a new address: the picker's own "Create Address", which
+			 * geocodes the entry and can place its point on this form's map. The form
+			 * used to carry a second, thinner set of address fields beside it that did
+			 * neither, so which one an intake taker reached for decided whether the
+			 * address came out geocoded.
+			 */}
+			<form.AppField name="addressId">
 				{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 				{(field: any) => (
-					<ToggleGroup
-						aria-label="Address source"
-						className="w-full"
-						onValueChange={(next: string) => {
-							if (next === 'existing' || next === 'new') {
-								field.handleChange(next);
-							}
+					<AddressPicker
+						create={{ requestMapPoint }}
+						onSelect={(address: AddressRow | null) => {
+							field.handleChange(address?.id ?? null);
+							onAddressSelected(address);
 						}}
-						size="sm"
-						type="single"
+						organizationId={organizationId}
 						value={field.state.value}
-						variant="outline"
-					>
-						<ToggleGroupItem className="flex-1 text-xs" value="existing">
-							Existing address
-						</ToggleGroupItem>
-						<ToggleGroupItem className="flex-1 text-xs" value="new">
-							New address
-						</ToggleGroupItem>
-					</ToggleGroup>
+					/>
 				)}
 			</form.AppField>
-
-			<form.Subscribe
-				selector={(state: { values: ServiceRequestFormValues }) => state.values.addressMode}
-			>
-				{(addressMode: AddressMode) =>
-					addressMode === 'existing' ? (
-						<form.AppField name="addressId">
-							{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-							{(field: any) => (
-								<AddressPicker
-									create={{ requestMapPoint }}
-									onSelect={(address: AddressRow | null) => {
-										field.handleChange(address?.id ?? null);
-										onAddressSelected(address);
-									}}
-									organizationId={organizationId}
-									value={field.state.value}
-								/>
-							)}
-						</form.AppField>
-					) : (
-						<div className="grid gap-5 rounded-md border border-border/50 bg-muted/30 p-4">
-							<p className="m-0 text-muted-foreground text-xs">
-								A new address is created from these fields and the point below.
-							</p>
-							<form.AppField name="newAddressName">
-								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-								{(field: any) => (
-									<field.TextField label="Address name" required placeholder="e.g. 120 Marsh Ln" />
-								)}
-							</form.AppField>
-							<form.AppField name="newAddressLine1">
-								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-								{(field: any) => <field.TextField label="Street" placeholder="120 Marsh Ln" />}
-							</form.AppField>
-							<div className="grid gap-5 sm:grid-cols-3">
-								<form.AppField name="newAddressLocality">
-									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => <field.TextField label="City" placeholder="City" />}
-								</form.AppField>
-								<form.AppField name="newAddressRegion">
-									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => <field.TextField label="State" placeholder="ST" />}
-								</form.AppField>
-								<form.AppField name="newAddressPostal">
-									{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-									{(field: any) => <field.TextField label="ZIP" placeholder="00000" />}
-								</form.AppField>
-							</div>
-						</div>
-					)
-				}
-			</form.Subscribe>
 
 			<section
 				aria-label="Request point"
@@ -679,23 +561,15 @@ export function validateServiceRequestForm(
 		if (values.contactId === null) {
 			return 'Select the contact for this request.';
 		}
-	} else if (
-		values.newContactName.trim().length === 0 &&
-		values.newContactCompany.trim().length === 0 &&
-		values.newContactPhone.trim().length === 0 &&
-		values.newContactEmail.trim().length === 0
-	) {
-		return 'Enter at least one identifier for the new contact.';
+	} else {
+		const contactError = validateContactForm(values.newContact);
+		if (contactError !== null) {
+			return contactError;
+		}
 	}
 
-	if (!options.hideLocation) {
-		if (values.addressMode === 'existing') {
-			if (values.addressId === null) {
-				return 'Select the address for this request.';
-			}
-		} else if (values.newAddressName.trim().length === 0) {
-			return 'Enter a name for the new address.';
-		}
+	if (!options.hideLocation && values.addressId === null) {
+		return 'Select or create the address for this request.';
 	}
 
 	return null;

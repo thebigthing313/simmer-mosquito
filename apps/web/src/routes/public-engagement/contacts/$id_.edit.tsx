@@ -11,13 +11,13 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { webCollections } from '../../../sync/webCollections';
-import { settleWrite } from '../-public-engagement-writes';
 import {
-	ContactFormPage,
 	type ContactFormValues,
 	contactFieldsFromValues,
 	defaultsFromContact,
-} from './-contact-form';
+} from '../-contact-fields';
+import { settleWrite } from '../-public-engagement-writes';
+import { ContactFormPage } from './-contact-form';
 
 export const Route = createFileRoute('/public-engagement/contacts/$id_/edit')({
 	component: EditContactRoute,

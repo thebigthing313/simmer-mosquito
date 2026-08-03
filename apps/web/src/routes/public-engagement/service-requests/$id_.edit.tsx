@@ -146,7 +146,6 @@ function defaultsFromServiceRequest(request: ServiceRequestRow): ServiceRequestF
 		details: request.details,
 		contactMode: 'existing',
 		contactId: request.contactId,
-		addressMode: 'existing',
 		addressId: request.addressId,
 	};
 }
