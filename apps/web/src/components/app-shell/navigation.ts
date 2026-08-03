@@ -143,7 +143,7 @@ export const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'adult',
 		label: 'Adult Surveillance',
-		summary: 'Adult surveillance — trap collections, species composition, and abundance',
+		summary: 'Trap collections, species composition, and abundance',
 		icon: iconRegistry.domains.adultSurveillance.icon,
 		groups: [
 			{
