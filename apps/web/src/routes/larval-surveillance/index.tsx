@@ -255,19 +255,26 @@ function RowSkeleton({ count = 4 }: { readonly count?: number }) {
 }
 
 /**
- * Habitat name as a link. An ad-hoc inspection has no habitat, so it is titled by
- * its coordinates instead — "Ad-hoc inspection" named the category every such row
- * already belonged to, leaving nothing to tell one row from the next.
+ * What names an inspection's site. An ad-hoc inspection has no habitat, so it is
+ * titled by its coordinates instead — "Ad-hoc inspection" named the category
+ * every such row already belonged to, leaving nothing to tell one row from the
+ * next.
  */
+function siteName(row: ResolvedRow): string {
+	if (row.habitatId === null) {
+		return row.coordinates ?? 'Ad-hoc inspection';
+	}
+	return row.habitatName ?? `Habitat ${row.habitatId.slice(0, 8)}`;
+}
+
+/** Habitat name as a link to the habitat, for panels that list a day's work. */
 function HabitatLink({ row }: { readonly row: ResolvedRow }) {
+	const label = siteName(row);
 	if (row.habitatId === null) {
 		return (
-			<span className="truncate font-medium text-foreground text-sm tabular-nums">
-				{row.coordinates ?? 'Ad-hoc inspection'}
-			</span>
+			<span className="truncate font-medium text-foreground text-sm tabular-nums">{label}</span>
 		);
 	}
-	const label = row.habitatName ?? `Habitat ${row.habitatId.slice(0, 8)}`;
 	return (
 		<Link
 			className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -754,12 +761,23 @@ function HeavyInspectionsPanel({
 								<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
 									{formatMonthDay(inspection.inspectionDate)}
 								</span>
-								<div className="grid min-w-0 flex-1">
-									<HabitatLink row={row} />
+								{/*
+								 * The reason to look at this panel is to open the inspection that
+								 * came back heavy, so the row's body goes there rather than to the
+								 * habitat — the habitat is one hop further on from the inspection.
+								 */}
+								<Link
+									className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									params={{ id: inspection.id }}
+									to="/larval-surveillance/inspections/$id"
+								>
+									<span className="truncate font-medium text-foreground text-sm tabular-nums group-hover:text-primary">
+										{siteName(row)}
+									</span>
 									<span className="truncate text-muted-foreground text-xs">
 										{row.typeName ?? 'Unassigned type'}
 									</span>
-								</div>
+								</Link>
 								<div className="flex shrink-0 items-center gap-2">
 									<DensityBadge density={inspection.density} />
 									{hasAnyLifeStage(inspection) ? (
