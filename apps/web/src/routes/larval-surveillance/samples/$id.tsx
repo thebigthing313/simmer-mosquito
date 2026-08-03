@@ -59,6 +59,7 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 
@@ -264,7 +265,7 @@ function SampleHeader({
 					{geo.habitatId === null ? (
 						<>
 							<span aria-hidden="true">·</span>
-							<span className="italic">Ad-hoc inspection</span>
+							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
 						</>
 					) : (
 						<>
@@ -1220,10 +1221,7 @@ function breadcrumbLabel(geo: SampleGeoRow): string {
 }
 
 function coordinateLabel(geo: SampleGeoRow): string {
-	if (geo.lat == null || geo.lng == null) {
-		return 'Unknown coordinates';
-	}
-	return `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`;
+	return formatCoordinates(geo.lat, geo.lng) ?? 'Unknown coordinates';
 }
 
 function messageOf(cause: unknown, fallback: string): string {

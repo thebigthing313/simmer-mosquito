@@ -24,6 +24,7 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
+import { adhocLabel } from '../../lib/coordinate-label';
 import { webCollections } from '../../sync/webCollections';
 
 const gcTimeMs = 30_000;
@@ -163,7 +164,7 @@ export function SampleMapCard({
 			<div className="grid gap-1.5">
 				<MapCardDetail icon={MapPinnedIcon}>
 					{inspection?.habitatId == null ? (
-						<span className="italic">Ad-hoc inspection</span>
+						<span className="tabular-nums">{adhocLabel(inspection?.lat, inspection?.lng)}</span>
 					) : (
 						<Link
 							className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

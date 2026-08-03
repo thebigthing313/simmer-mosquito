@@ -24,6 +24,7 @@ import {
 	MapCardLocation,
 } from '../../components/map/map-card';
 import { addressCardLabel } from '../../lib/address-format';
+import { adhocLabel } from '../../lib/coordinate-label';
 import { webCollections } from '../../sync/webCollections';
 
 const gcTimeMs = 30_000;
@@ -129,7 +130,7 @@ export function InspectionMapCard({
 		habitatName ||
 		addressLabel ||
 		(inspection.habitatId === null
-			? 'Ad-hoc inspection'
+			? adhocLabel(inspection.lat, inspection.lng)
 			: `Habitat ${inspection.habitatId.slice(0, 8)}`);
 	const typeName =
 		inspection.habitatTypeId === null ? 'Unassigned type' : (habitatType?.name ?? 'Unknown type');
@@ -140,7 +141,7 @@ export function InspectionMapCard({
 			onClose={onClose}
 			title={
 				inspection.habitatId === null ? (
-					<span className="text-muted-foreground italic">Ad-hoc inspection</span>
+					<span className="tabular-nums">{siteLabel}</span>
 				) : (
 					<Link
 						className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"

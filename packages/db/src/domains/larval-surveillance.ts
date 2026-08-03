@@ -10,6 +10,9 @@ export interface AwaitingSampleRow {
 	readonly inspectionDate: string;
 	readonly habitatId: string | null;
 	readonly habitatName: string | null;
+	/** The parent inspection's centroid — what titles a sample with no habitat. */
+	readonly lat: number | null;
+	readonly lng: number | null;
 }
 
 export interface SamplesAwaitingInput {
@@ -69,7 +72,9 @@ export async function listSamplesAwaitingIdentification(
 			s.display_name as "displayName",
 			i.inspection_date::text as "inspectionDate",
 			i.habitat_id as "habitatId",
-			h.habitat_name as "habitatName"
+			h.habitat_name as "habitatName",
+			i.lat,
+			i.lng
 		from samples s
 		join inspections i on i.id = s.inspection_id
 		left join habitats h on h.id = i.habitat_id

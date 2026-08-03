@@ -41,6 +41,7 @@ import {
 	MapCanvas,
 } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { adhocLabel } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
 import { InspectionMapCard } from '../-inspection-map-card';
 import { inspectionsSearchSchema } from '../-inspections-search';
@@ -853,7 +854,7 @@ function siteLabel(inspection: InspectionSite): string {
 		inspection.habitatName?.trim() ||
 		inspection.addressDisplayName?.trim() ||
 		(inspection.habitatId === null
-			? 'Ad-hoc inspection'
+			? adhocLabel(inspection.lat, inspection.lng)
 			: `Habitat ${inspection.habitatId.slice(0, 8)}`)
 	);
 }

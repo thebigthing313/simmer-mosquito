@@ -34,6 +34,7 @@ import {
 	WetnessBadge,
 } from '../../../components/larval-display';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { adhocLabel } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
@@ -207,7 +208,7 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 	if (inspection.habitatId === null) {
 		return (
 			<p className="m-0 text-[0.95rem] text-muted-foreground">
-				<span className="text-muted-foreground italic">Ad-hoc inspection</span>
+				<span className="tabular-nums">{adhocLabel(inspection.lat, inspection.lng)}</span>
 				{inspection.addressDisplayName === null ? null : ` · ${inspection.addressDisplayName}`}
 			</p>
 		);
@@ -1076,7 +1077,7 @@ function siteLabel(inspection: InspectionDetailRow): string {
 		inspection.habitatName?.trim() ||
 		inspection.addressDisplayName?.trim() ||
 		(inspection.habitatId === null
-			? 'Ad-hoc inspection'
+			? adhocLabel(inspection.lat, inspection.lng)
 			: `Habitat ${inspection.habitatId.slice(0, 8)}`)
 	);
 }

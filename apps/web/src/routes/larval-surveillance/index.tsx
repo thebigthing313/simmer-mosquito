@@ -27,6 +27,7 @@ import {
 	WetnessBadge,
 } from '../../components/larval-display';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { adhocLabel, formatCoordinates } from '../../lib/coordinate-label';
 import { webCollections } from '../../sync/webCollections';
 import type { InspectionsSearch } from './-inspections-search';
 import {
@@ -189,11 +190,6 @@ function useResolver(
 			}),
 		[habitatNameById, typeNameById],
 	);
-}
-
-/** `34.05213, -118.24368`, or null when the row carries no centroid yet. */
-function formatCoordinates(lat: number | null, lng: number | null): string | null {
-	return lat === null || lng === null ? null : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
 // --- shared panel chrome ----------------------------------------------------
@@ -684,9 +680,9 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 								>
 									{sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`}
 								</Link>
-								<span className="truncate text-muted-foreground text-xs">
+								<span className="truncate text-muted-foreground text-xs tabular-nums">
 									{sample.habitatName ??
-										(sample.habitatId === null ? 'Ad-hoc inspection' : 'Habitat')}
+										(sample.habitatId === null ? adhocLabel(sample.lat, sample.lng) : 'Habitat')}
 								</span>
 							</div>
 							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
