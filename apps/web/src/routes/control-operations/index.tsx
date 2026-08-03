@@ -51,6 +51,7 @@ const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 const InsecticideIcon = iconRegistry.entities.insecticide.icon;
 const FormulationIcon = iconRegistry.entities.formulation.icon;
+const MapIcon = iconRegistry.generic.map.icon;
 
 export const Route = createFileRoute('/control-operations/')({
 	component: ControlOperationsOverviewRoute,
@@ -118,11 +119,11 @@ function ControlOperationsOverviewRoute() {
 			</header>
 
 			<div className="grid gap-5 xl:grid-cols-12">
-				<div className="xl:col-span-7">
+				<div className="grid content-start gap-5 xl:col-span-7">
 					<DailyControlActionsPanel labels={labels} today={today} />
+					<InsecticideUsagePanel labels={labels} today={today} />
 				</div>
 				<div className="grid content-start gap-5 xl:col-span-5">
-					<InsecticideUsagePanel labels={labels} today={today} />
 					<RecentSourceReductionsPanel labels={labels} since={since} />
 					<RecentBiocontrolPanel labels={labels} since={since} />
 				</div>
@@ -155,13 +156,13 @@ function Panel({
 	icon,
 	title,
 	count,
-	footer,
+	action,
 	children,
 }: {
 	readonly icon: ReactNode;
 	readonly title: string;
 	readonly count?: number | undefined;
-	readonly footer?: ReactNode;
+	readonly action?: ReactNode;
 	readonly children: ReactNode;
 }) {
 	return (
@@ -178,12 +179,30 @@ function Panel({
 						</span>
 					) : null}
 				</div>
+				{action ? <div className="shrink-0">{action}</div> : null}
 			</div>
 			<div className="min-w-0">{children}</div>
-			{footer ? (
-				<div className="border-border/60 border-t px-4 py-2.5 text-sm">{footer}</div>
-			) : null}
 		</Card>
+	);
+}
+
+/** Header shortcut from a panel to the map explorer holding the same records. */
+function MapLinkButton({
+	label,
+	to,
+}: {
+	readonly label: string;
+	readonly to:
+		| '/control-operations/chemical'
+		| '/control-operations/source-reduction'
+		| '/control-operations/biocontrol';
+}) {
+	return (
+		<Button asChild className="size-7" size="icon" variant="ghost">
+			<Link aria-label={label} title={label} to={to}>
+				<MapIcon aria-hidden="true" className="size-4" />
+			</Link>
+		</Button>
 	);
 }
 
@@ -570,15 +589,8 @@ function InsecticideUsagePanel({
 
 	return (
 		<Panel
+			action={<MapLinkButton label="Open the applications map" to="/control-operations/chemical" />}
 			count={isReady ? rows.length : undefined}
-			footer={
-				<Link
-					className="font-medium text-primary hover:underline"
-					to="/control-operations/chemical"
-				>
-					View all applications
-				</Link>
-			}
 			icon={<InsecticideIcon className="size-4" />}
 			title="Insecticide Usage"
 		>
@@ -652,15 +664,13 @@ function RecentSourceReductionsPanel({
 
 	return (
 		<Panel
-			count={isReady ? sourceReductions.length : undefined}
-			footer={
-				<Link
-					className="font-medium text-primary hover:underline"
+			action={
+				<MapLinkButton
+					label="Open the source reductions map"
 					to="/control-operations/source-reduction"
-				>
-					View all source reductions
-				</Link>
+				/>
 			}
+			count={isReady ? sourceReductions.length : undefined}
 			icon={<SourceReductionIcon className="size-4" />}
 			title="Source Reductions"
 		>
@@ -711,15 +721,8 @@ function RecentBiocontrolPanel({
 
 	return (
 		<Panel
+			action={<MapLinkButton label="Open the biocontrol map" to="/control-operations/biocontrol" />}
 			count={isReady ? biocontrolActions.length : undefined}
-			footer={
-				<Link
-					className="font-medium text-primary hover:underline"
-					to="/control-operations/biocontrol"
-				>
-					View all biocontrol releases
-				</Link>
-			}
 			icon={<BiocontrolIcon className="size-4" />}
 			title="Biocontrol Releases"
 		>
