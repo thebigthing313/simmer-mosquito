@@ -273,10 +273,13 @@ export function HabitatFormPage({
 								</form.AppField>
 								<form.AppField name="habitatTypeId">
 									{(field) => (
-										<field.SelectField
+										<field.AutocompleteField
+											// The sentinel, not `null`: `habitatTypeId` is typed as a
+											// plain string and the submit mapping reads it back.
+											emptyValue={noHabitatTypeValue}
 											label="Habitat type"
 											options={habitatTypeOptions(habitatTypes)}
-											placeholder="Select a type"
+											placeholder="Search habitat types"
 										/>
 									)}
 								</form.AppField>
