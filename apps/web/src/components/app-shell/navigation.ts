@@ -406,7 +406,7 @@ export const shellDomains: readonly ShellDomain[] = [
 				items: [
 					{
 						id: 'contacts-explorer',
-						label: 'Map',
+						label: 'Directory',
 						to: '/public-engagement/contacts',
 						icon: iconRegistry.entities.organization.icon,
 					},
