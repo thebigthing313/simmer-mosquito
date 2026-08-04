@@ -152,6 +152,29 @@ export function validateLocalDate(
 	}
 }
 
+/**
+ * How far ahead of the server a client-supplied instant may sit before it counts
+ * as being in the future.
+ *
+ * Lifecycle and progress commands carry timestamps the *client* stamped — a
+ * phone that finished a stop, a tablet replaying an offline queue — and consumer
+ * clocks drift. Compared against a bare `Date.now()`, a device even slightly
+ * fast fails every one of those commands, which reads as a broken app rather
+ * than a clock problem. The allowance is wide enough to absorb ordinary drift
+ * and narrow enough that a genuinely future-dated entry is still rejected.
+ */
+export const CLOCK_SKEW_TOLERANCE_MS = 2 * 60 * 1000;
+
+/**
+ * Whether an instant sits far enough ahead of the server to reject.
+ *
+ * The single place the tolerance is applied, so every domain's future check
+ * agrees on what "in the future" means.
+ */
+export function isFutureBeyondClockSkew(value: Date, now: number = Date.now()): boolean {
+	return value.getTime() > now + CLOCK_SKEW_TOLERANCE_MS;
+}
+
 export function throwIfIssues(message: string, issues: readonly DomainValidationIssue[]): void {
 	if (issues.length > 0) {
 		throw new DomainValidationError(message, issues);
