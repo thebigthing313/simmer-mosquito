@@ -10,6 +10,7 @@ import {
 	additionalPersonnelReturnColumns,
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	createCommand,
 	denyUnauthorizedCommands,
 	type FieldWorkDb,
@@ -84,7 +85,12 @@ async function runAdditionalPersonnelCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeAdditionalPersonnelCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeAdditionalPersonnelCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'additional_personnel_not_found' }, 404);
 		}

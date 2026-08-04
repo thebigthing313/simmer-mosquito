@@ -14,12 +14,7 @@ import {
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import {
-	COMMENT_CORRECTION_WINDOW_DAYS,
-	readAssigneeOwnership,
-	readCommentOwnership,
-	readItemParentId,
-} from '../command-ownership.js';
+import { resolveCommandOwnership } from '../command-ownership.js';
 import { authorizeCommands, type CommandActor } from '../command-permissions.js';
 
 export type FieldWorkDb = Kysely<SimmerDatabase>;
@@ -194,14 +189,23 @@ export async function softDelete<TRow, TSafe>(
 	return row === undefined ? null : toSafe(row as TRow);
 }
 
+/**
+ * The write transaction every field-work endpoint commits through.
+ *
+ * `actor` is required rather than optional so ownership cannot be skipped by
+ * omission: every command is checked against the permission map before its
+ * handler runs, and a caller that has no actor to pass cannot compile.
+ */
 export async function writeCommands<TSafe>(
 	db: FieldWorkDb,
+	actor: CommandActor,
 	commands: readonly FieldWorkCommand[],
 	write: (trx: FieldWorkTransaction, command: FieldWorkCommand) => Promise<TSafe | null>,
 ): Promise<MutationWriteResult<TSafe | null>> {
 	return db.transaction().execute(async (trx) => {
 		let row: TSafe | null = null;
 		for (const command of commands) {
+			await assertCommandOwnership(trx, command, actor);
 			row = await write(trx, command);
 		}
 		return { row, txid: await readCurrentTransactionId(trx) };
@@ -621,81 +625,24 @@ export function denyUnauthorizedCommands(
 	return denial === null ? null : context.json(denial, 403);
 }
 
-/** Collectors may execute only the assignment assigned to them. */
-export async function assertAssignmentAssignee(
+/**
+ * The row-level half, raised as this module's `CommandError`.
+ *
+ * Runs from `writeCommands` for every command rather than from the handlers, so
+ * "who may touch this row" is answered by the command's entry in the permission
+ * map and not by whether its `case` arm remembered to ask.
+ */
+export async function assertCommandOwnership(
 	trx: FieldWorkTransaction,
-	assignmentId: string,
-	organizationId: string,
+	command: FieldWorkCommand,
 	actor: CommandActor,
 ): Promise<void> {
-	if (actor.role !== 'collector') {
-		return;
+	const outcome = await resolveCommandOwnership(trx, command, actor);
+	if (outcome.kind === 'missing') {
+		throw new CommandError(404, { error: `${outcome.entity}_not_found` });
 	}
-	const verdict = await readAssigneeOwnership(
-		trx,
-		'assignments',
-		assignmentId,
-		organizationId,
-		actor.profileId,
-	);
-	if (verdict === 'missing') {
-		throw new CommandError(404, { error: 'assignment_not_found' });
-	}
-	if (verdict === 'not_owner') {
-		throw new CommandError(403, {
-			error: 'forbidden',
-			reason: 'Collectors can only work assignments assigned to them.',
-		});
-	}
-}
-
-/** The same rule for item progress, resolved through the item's parent assignment. */
-export async function assertAssignmentItemAssignee(
-	trx: FieldWorkTransaction,
-	assignmentItemId: string,
-	organizationId: string,
-	actor: CommandActor,
-): Promise<void> {
-	if (actor.role !== 'collector') {
-		return;
-	}
-	const assignmentId = await readItemParentId(
-		trx,
-		'assignment_items',
-		assignmentItemId,
-		organizationId,
-	);
-	if (assignmentId === null) {
-		throw new CommandError(404, { error: 'assignment_item_not_found' });
-	}
-	await assertAssignmentAssignee(trx, assignmentId, organizationId, actor);
-}
-
-/** Below manager, a comment may be corrected only by its author, and only for a while. */
-export async function assertCommentAuthor(
-	trx: FieldWorkTransaction,
-	commentId: string,
-	organizationId: string,
-	actor: CommandActor,
-): Promise<void> {
-	if (actor.role !== 'collector') {
-		return;
-	}
-	const verdict = await readCommentOwnership(trx, commentId, organizationId, actor.profileId);
-	if (verdict === 'missing') {
-		throw new CommandError(404, { error: 'comment_not_found' });
-	}
-	if (verdict === 'not_author') {
-		throw new CommandError(403, {
-			error: 'forbidden',
-			reason: 'Only the author or a manager can change this comment.',
-		});
-	}
-	if (verdict === 'window_expired') {
-		throw new CommandError(403, {
-			error: 'forbidden',
-			reason: `Comments can only be changed by their author for ${COMMENT_CORRECTION_WINDOW_DAYS} days.`,
-		});
+	if (outcome.kind === 'refused') {
+		throw new CommandError(403, { error: 'forbidden', reason: outcome.reason });
 	}
 }
 

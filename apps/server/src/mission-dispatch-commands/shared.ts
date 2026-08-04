@@ -9,7 +9,7 @@ import { DomainValidationError, type MissionDispatchCommand } from '@simmer-mosq
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readAssigneeOwnership, readItemParentId } from '../command-ownership.js';
+import { resolveCommandOwnership } from '../command-ownership.js';
 import { authorizeCommands, type CommandActor } from '../command-permissions.js';
 
 export type MissionDispatchDb = Kysely<SimmerDatabase>;
@@ -276,8 +276,16 @@ export async function softDelete<TRow, TSafe>(
 	return row === undefined ? null : toSafe(row as TRow);
 }
 
+/**
+ * The write transaction every mission-dispatch endpoint commits through.
+ *
+ * `actor` is required rather than optional so ownership cannot be skipped by
+ * omission: every command is checked against the permission map before its
+ * handler runs, and a caller that has no actor to pass cannot compile.
+ */
 export async function writeCommands<TSafe>(
 	db: MissionDispatchDb,
+	actor: CommandActor,
 	commands: readonly MissionDispatchCommand[],
 	write: (
 		trx: MissionDispatchTransaction,
@@ -287,6 +295,7 @@ export async function writeCommands<TSafe>(
 	return db.transaction().execute(async (trx) => {
 		let row: TSafe | null = null;
 		for (const command of commands) {
+			await assertCommandOwnership(trx, command, actor);
 			row = await write(trx, command);
 		}
 		return { row, txid: await readCurrentTransactionId(trx) };
@@ -499,49 +508,25 @@ export function denyUnauthorizedCommands(
 	return denial === null ? null : context.json(denial, 403);
 }
 
-/** Collectors may execute only the mission assigned to them. */
-export async function assertMissionAssignee(
+/**
+ * The row-level half, raised as this module's `CommandError`.
+ *
+ * Runs from `writeCommands` for every command rather than from the handlers, so
+ * "who may touch this row" is answered by the command's entry in the permission
+ * map and not by whether its `case` arm remembered to ask.
+ */
+export async function assertCommandOwnership(
 	trx: MissionDispatchTransaction,
-	missionId: string,
-	organizationId: string,
+	command: MissionDispatchCommand,
 	actor: CommandActor,
 ): Promise<void> {
-	if (actor.role !== 'collector') {
-		return;
+	const outcome = await resolveCommandOwnership(trx, command, actor);
+	if (outcome.kind === 'missing') {
+		throw new CommandError(404, { error: `${outcome.entity}_not_found` });
 	}
-	const verdict = await readAssigneeOwnership(
-		trx,
-		'missions',
-		missionId,
-		organizationId,
-		actor.profileId,
-	);
-	if (verdict === 'missing') {
-		throw new CommandError(404, { error: 'mission_not_found' });
+	if (outcome.kind === 'refused') {
+		throw new CommandError(403, { error: 'forbidden', reason: outcome.reason });
 	}
-	if (verdict === 'not_owner') {
-		throw new CommandError(403, {
-			error: 'forbidden',
-			reason: 'Collectors can only execute missions assigned to them.',
-		});
-	}
-}
-
-/** The same rule for item progress and helper commands, via the item's parent mission. */
-export async function assertMissionItemAssignee(
-	trx: MissionDispatchTransaction,
-	missionItemId: string,
-	organizationId: string,
-	actor: CommandActor,
-): Promise<void> {
-	if (actor.role !== 'collector') {
-		return;
-	}
-	const missionId = await readItemParentId(trx, 'mission_items', missionItemId, organizationId);
-	if (missionId === null) {
-		throw new CommandError(404, { error: 'mission_item_not_found' });
-	}
-	await assertMissionAssignee(trx, missionId, organizationId, actor);
 }
 
 export function geojsonToGeom(geojson: unknown) {

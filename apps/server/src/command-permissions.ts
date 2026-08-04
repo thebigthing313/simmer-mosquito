@@ -21,18 +21,51 @@ export interface CommandActor {
 	readonly profileId: string;
 }
 
+/**
+ * Where the owning record sits, for the rules a role cannot settle alone.
+ *
+ * The permission entry names it rather than the handler, because the handler is
+ * the thing that forgets. The write loop reads this and refuses before the
+ * command's own code runs, so a command mapped to an ownership rule is checked
+ * whether or not anyone remembered to check it.
+ */
+export type OwnedRecordRef =
+	| { readonly table: 'assignments'; readonly payloadKey: 'assignmentId' }
+	| { readonly table: 'assignment_items'; readonly payloadKey: 'assignmentItemId' }
+	| { readonly table: 'missions'; readonly payloadKey: 'missionId' }
+	| { readonly table: 'mission_items'; readonly payloadKey: 'missionItemId' };
+
 export type CommandPermission =
 	/** A role floor and nothing else. */
 	| { readonly kind: 'role'; readonly minimum: MinimumRole }
-	/** Manager-and-above, or the collector the parent record is assigned to. */
-	| { readonly kind: 'assignedCollector' }
+	/** Manager-and-above, or the collector the named record is assigned to. */
+	| { readonly kind: 'assignedCollector'; readonly owned: OwnedRecordRef }
 	/** Manager-and-above, or the author inside the correction window. */
-	| { readonly kind: 'author' };
+	| { readonly kind: 'author' }
+	/** No entry in the map — see `readCommandPermission`. */
+	| { readonly kind: 'unmapped' };
 
 const MANAGER: CommandPermission = { kind: 'role', minimum: 'manager' };
 const COLLECTOR: CommandPermission = { kind: 'role', minimum: 'collector' };
-const ASSIGNED: CommandPermission = { kind: 'assignedCollector' };
 const AUTHOR: CommandPermission = { kind: 'author' };
+const UNMAPPED: CommandPermission = { kind: 'unmapped' };
+
+const OWN_ASSIGNMENT: CommandPermission = {
+	kind: 'assignedCollector',
+	owned: { table: 'assignments', payloadKey: 'assignmentId' },
+};
+const OWN_ASSIGNMENT_ITEM: CommandPermission = {
+	kind: 'assignedCollector',
+	owned: { table: 'assignment_items', payloadKey: 'assignmentItemId' },
+};
+const OWN_MISSION: CommandPermission = {
+	kind: 'assignedCollector',
+	owned: { table: 'missions', payloadKey: 'missionId' },
+};
+const OWN_MISSION_ITEM: CommandPermission = {
+	kind: 'assignedCollector',
+	owned: { table: 'mission_items', payloadKey: 'missionItemId' },
+};
 
 const FIELD_WORK_PERMISSIONS: Record<FieldWorkCommandType, CommandPermission> = {
 	// Commenting is collector-and-above; editing someone else's note, or an old
@@ -79,12 +112,12 @@ const FIELD_WORK_PERMISSIONS: Record<FieldWorkCommandType, CommandPermission> = 
 	'fieldWork.reopenAssignment': MANAGER,
 
 	// Executing the work: the assigned collector, or any manager correcting it.
-	'fieldWork.startAssignment': ASSIGNED,
-	'fieldWork.completeAssignment': ASSIGNED,
-	'fieldWork.completeAssignmentItem': ASSIGNED,
-	'fieldWork.reopenAssignmentItem': ASSIGNED,
-	'fieldWork.skipAssignmentItem': ASSIGNED,
-	'fieldWork.unskipAssignmentItem': ASSIGNED,
+	'fieldWork.startAssignment': OWN_ASSIGNMENT,
+	'fieldWork.completeAssignment': OWN_ASSIGNMENT,
+	'fieldWork.completeAssignmentItem': OWN_ASSIGNMENT_ITEM,
+	'fieldWork.reopenAssignmentItem': OWN_ASSIGNMENT_ITEM,
+	'fieldWork.skipAssignmentItem': OWN_ASSIGNMENT_ITEM,
+	'fieldWork.unskipAssignmentItem': OWN_ASSIGNMENT_ITEM,
 };
 
 const MISSION_DISPATCH_PERMISSIONS: Record<MissionDispatchCommandType, CommandPermission> = {
@@ -104,29 +137,32 @@ const MISSION_DISPATCH_PERMISSIONS: Record<MissionDispatchCommandType, CommandPe
 	'missionDispatch.removeMissionItem': MANAGER,
 	'missionDispatch.moveMissionItems': MANAGER,
 
-	// Assigned collectors execute their own mission and record the work.
-	'missionDispatch.startMission': ASSIGNED,
-	'missionDispatch.completeMission': ASSIGNED,
-	'missionDispatch.completeMissionItem': ASSIGNED,
-	'missionDispatch.reopenMissionItem': ASSIGNED,
-	'missionDispatch.skipMissionItem': ASSIGNED,
-	'missionDispatch.unskipMissionItem': ASSIGNED,
-	'missionDispatch.recordChemicalApplicationForMissionItem': ASSIGNED,
-	'missionDispatch.recordSourceReductionForMissionItem': ASSIGNED,
-	'missionDispatch.recordOutreachActionForMissionItem': ASSIGNED,
-	'missionDispatch.recordBiocontrolActionForMissionItem': ASSIGNED,
+	// Assigned collectors execute their own mission and record the work. The four
+	// `record*` commands have no handler yet; when one lands it inherits this
+	// check from the map rather than having to remember it.
+	'missionDispatch.startMission': OWN_MISSION,
+	'missionDispatch.completeMission': OWN_MISSION,
+	'missionDispatch.completeMissionItem': OWN_MISSION_ITEM,
+	'missionDispatch.reopenMissionItem': OWN_MISSION_ITEM,
+	'missionDispatch.skipMissionItem': OWN_MISSION_ITEM,
+	'missionDispatch.unskipMissionItem': OWN_MISSION_ITEM,
+	'missionDispatch.recordChemicalApplicationForMissionItem': OWN_MISSION_ITEM,
+	'missionDispatch.recordSourceReductionForMissionItem': OWN_MISSION_ITEM,
+	'missionDispatch.recordOutreachActionForMissionItem': OWN_MISSION_ITEM,
+	'missionDispatch.recordBiocontrolActionForMissionItem': OWN_MISSION_ITEM,
 };
 
 export function readCommandPermission(
 	type: FieldWorkCommandType | MissionDispatchCommandType,
 ): CommandPermission {
-	const permission =
-		type in FIELD_WORK_PERMISSIONS
-			? FIELD_WORK_PERMISSIONS[type as FieldWorkCommandType]
-			: MISSION_DISPATCH_PERMISSIONS[type as MissionDispatchCommandType];
-	// An unmapped command type is a programming error, not a caller error;
-	// refusing it is the safe reading either way.
-	return permission ?? MANAGER;
+	const permission = Object.hasOwn(FIELD_WORK_PERMISSIONS, type)
+		? FIELD_WORK_PERMISSIONS[type as FieldWorkCommandType]
+		: MISSION_DISPATCH_PERMISSIONS[type as MissionDispatchCommandType];
+	// Both maps are total over their union, so this is unreachable through the
+	// type system. It stays as the runtime half of the same promise: an unmapped
+	// command is a programming error, and the safe reading of "nobody decided who
+	// may send this" is that nobody may.
+	return permission ?? UNMAPPED;
 }
 
 export type CommandDecision = 'allow' | 'deny' | 'ownership';
@@ -139,6 +175,9 @@ export type CommandDecision = 'allow' | 'deny' | 'ownership';
  * the write transaction has to read.
  */
 export function decideCommand(role: SimmerRole, permission: CommandPermission): CommandDecision {
+	if (permission.kind === 'unmapped') {
+		return 'deny';
+	}
 	if (hasAtLeastRole(role, 'manager')) {
 		return 'allow';
 	}

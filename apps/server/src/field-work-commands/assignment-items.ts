@@ -19,10 +19,8 @@ import { assertItemProgress } from './assignment-lifecycle.js';
 import {
 	agencyCommandContext,
 	applyPlacement,
-	assertAssignmentItemAssignee,
 	assignmentItemReturnColumns,
 	assignmentPlacementRef,
-	type CommandActor,
 	type CommandContext,
 	type CommandsResult,
 	commandActor,
@@ -187,10 +185,12 @@ async function runAssignmentItemCommands(
 		return denial;
 	}
 
-	const actor = commandActor(context.get('authContext'));
 	try {
-		const result = await writeCommands(db, commands, (trx, command) =>
-			writeAssignmentItemCommand(trx, command, actor),
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeAssignmentItemCommand,
 		);
 		if (result.row === null) {
 			return context.json({ error: 'assignment_item_not_found' }, 404);
@@ -204,7 +204,6 @@ async function runAssignmentItemCommands(
 async function writeAssignmentItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-	actor: CommandActor,
 ): Promise<SafeAssignmentItem | null> {
 	switch (command.type) {
 		case 'fieldWork.addAssignmentItem': {
@@ -259,12 +258,6 @@ async function writeAssignmentItemCommand(
 				toSafeAssignmentItem,
 			);
 		case 'fieldWork.completeAssignmentItem':
-			await assertAssignmentItemAssignee(
-				trx,
-				command.payload.assignmentItemId,
-				command.payload.organizationId,
-				actor,
-			);
 			await assertItemProgress(
 				trx,
 				command.payload.assignmentItemId,
@@ -289,12 +282,6 @@ async function writeAssignmentItemCommand(
 				toSafeAssignmentItem,
 			);
 		case 'fieldWork.reopenAssignmentItem':
-			await assertAssignmentItemAssignee(
-				trx,
-				command.payload.assignmentItemId,
-				command.payload.organizationId,
-				actor,
-			);
 			await assertItemProgress(
 				trx,
 				command.payload.assignmentItemId,
@@ -315,12 +302,6 @@ async function writeAssignmentItemCommand(
 				toSafeAssignmentItem,
 			);
 		case 'fieldWork.skipAssignmentItem':
-			await assertAssignmentItemAssignee(
-				trx,
-				command.payload.assignmentItemId,
-				command.payload.organizationId,
-				actor,
-			);
 			await assertItemProgress(
 				trx,
 				command.payload.assignmentItemId,
@@ -344,12 +325,6 @@ async function writeAssignmentItemCommand(
 				toSafeAssignmentItem,
 			);
 		case 'fieldWork.unskipAssignmentItem':
-			await assertAssignmentItemAssignee(
-				trx,
-				command.payload.assignmentItemId,
-				command.payload.organizationId,
-				actor,
-			);
 			await assertItemProgress(
 				trx,
 				command.payload.assignmentItemId,

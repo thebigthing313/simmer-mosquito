@@ -19,8 +19,6 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
 	agencyCommandContext,
-	assertMissionAssignee,
-	type CommandActor,
 	type CommandContext,
 	type CommandsResult,
 	commandActor,
@@ -260,10 +258,12 @@ async function runMissionCommands(
 		return denial;
 	}
 
-	const actor = commandActor(context.get('authContext'));
 	try {
-		const result = await writeCommands(db, commands, (trx, command) =>
-			writeMissionCommand(trx, command, actor),
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeMissionCommand,
 		);
 		if (result.row === null) {
 			return context.json({ error: 'mission_not_found' }, 404);
@@ -277,7 +277,6 @@ async function runMissionCommands(
 async function writeMissionCommand(
 	trx: MissionDispatchTransaction,
 	command: MissionDispatchCommand,
-	actor: CommandActor,
 ): Promise<SafeMission | null> {
 	switch (command.type) {
 		case 'missionDispatch.createMission': {
@@ -365,23 +364,11 @@ async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.startMission':
-			await assertMissionAssignee(
-				trx,
-				command.payload.missionId,
-				command.payload.organizationId,
-				actor,
-			);
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				started_at: command.payload.startedAt === null ? sql`now()` : command.payload.startedAt,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.completeMission':
-			await assertMissionAssignee(
-				trx,
-				command.payload.missionId,
-				command.payload.organizationId,
-				actor,
-			);
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				completed_at:
 					command.payload.completedAt === null ? sql`now()` : command.payload.completedAt,

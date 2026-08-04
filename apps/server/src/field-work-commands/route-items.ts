@@ -13,6 +13,7 @@ import {
 	agencyCommandContext,
 	applyPlacement,
 	type CommandContext,
+	commandActor,
 	createCommand,
 	denyUnauthorizedCommands,
 	type FieldWorkDb,
@@ -116,7 +117,12 @@ async function runRouteItemCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeRouteItemCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeRouteItemCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'route_item_not_found' }, 404);
 		}

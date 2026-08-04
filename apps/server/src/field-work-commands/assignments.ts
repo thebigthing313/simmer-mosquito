@@ -25,10 +25,8 @@ import {
 import {
 	agencyCommandContext,
 	applyPlacement,
-	assertAssignmentAssignee,
 	assignmentPlacementRef,
 	assignmentReturnColumns,
-	type CommandActor,
 	type CommandContext,
 	type CommandsResult,
 	commandActor,
@@ -284,10 +282,12 @@ async function runAssignmentCommands(
 		return denial;
 	}
 
-	const actor = commandActor(context.get('authContext'));
 	try {
-		const result = await writeCommands(db, commands, (trx, command) =>
-			writeAssignmentCommand(trx, command, actor),
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeAssignmentCommand,
 		);
 		if (result.row === null) {
 			return context.json({ error: 'assignment_not_found' }, 404);
@@ -301,7 +301,6 @@ async function runAssignmentCommands(
 async function writeAssignmentCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-	actor: CommandActor,
 ): Promise<SafeAssignment | null> {
 	switch (command.type) {
 		case 'fieldWork.createAssignment':
@@ -361,12 +360,6 @@ async function writeAssignmentCommand(
 			);
 		}
 		case 'fieldWork.startAssignment':
-			await assertAssignmentAssignee(
-				trx,
-				command.payload.assignmentId,
-				command.payload.organizationId,
-				actor,
-			);
 			await assertAssignmentTransition(
 				trx,
 				command.payload.assignmentId,
@@ -387,12 +380,6 @@ async function writeAssignmentCommand(
 				toSafeAssignment,
 			);
 		case 'fieldWork.completeAssignment':
-			await assertAssignmentAssignee(
-				trx,
-				command.payload.assignmentId,
-				command.payload.organizationId,
-				actor,
-			);
 			await assertAssignmentTransition(
 				trx,
 				command.payload.assignmentId,

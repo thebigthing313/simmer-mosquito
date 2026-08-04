@@ -10,6 +10,7 @@ import type { AuthVariables } from '../auth-middleware.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	createCommand,
 	denyUnauthorizedCommands,
 	type FieldWorkDb,
@@ -78,7 +79,12 @@ async function runTagItemCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeTagItemCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeTagItemCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'tag_item_not_found' }, 404);
 		}

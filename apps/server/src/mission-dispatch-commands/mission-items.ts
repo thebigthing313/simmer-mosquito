@@ -18,8 +18,6 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
 	agencyCommandContext,
-	assertMissionItemAssignee,
-	type CommandActor,
 	type CommandContext,
 	type CommandsResult,
 	commandActor,
@@ -246,10 +244,12 @@ async function runMissionItemCommands(
 		return denial;
 	}
 
-	const actor = commandActor(context.get('authContext'));
 	try {
-		const result = await writeCommands(db, commands, (trx, command) =>
-			writeMissionItemCommand(trx, command, actor),
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeMissionItemCommand,
 		);
 		if (result.row === null) {
 			return context.json({ error: 'mission_item_not_found' }, 404);
@@ -263,7 +263,6 @@ async function runMissionItemCommands(
 async function writeMissionItemCommand(
 	trx: MissionDispatchTransaction,
 	command: MissionDispatchCommand,
-	actor: CommandActor,
 ): Promise<SafeMissionItem | null> {
 	switch (command.type) {
 		case 'missionDispatch.addMissionItem': {
@@ -359,12 +358,6 @@ async function writeMissionItemCommand(
 			);
 		}
 		case 'missionDispatch.completeMissionItem':
-			await assertMissionItemAssignee(
-				trx,
-				command.payload.missionItemId,
-				command.payload.organizationId,
-				actor,
-			);
 			return updateMissionItemRow(
 				trx,
 				command.payload.missionItemId,
@@ -380,12 +373,6 @@ async function writeMissionItemCommand(
 				},
 			);
 		case 'missionDispatch.reopenMissionItem':
-			await assertMissionItemAssignee(
-				trx,
-				command.payload.missionItemId,
-				command.payload.organizationId,
-				actor,
-			);
 			return updateMissionItemRow(
 				trx,
 				command.payload.missionItemId,
@@ -397,12 +384,6 @@ async function writeMissionItemCommand(
 				},
 			);
 		case 'missionDispatch.skipMissionItem':
-			await assertMissionItemAssignee(
-				trx,
-				command.payload.missionItemId,
-				command.payload.organizationId,
-				actor,
-			);
 			return updateMissionItemRow(
 				trx,
 				command.payload.missionItemId,
@@ -417,12 +398,6 @@ async function writeMissionItemCommand(
 				},
 			);
 		case 'missionDispatch.unskipMissionItem':
-			await assertMissionItemAssignee(
-				trx,
-				command.payload.missionItemId,
-				command.payload.organizationId,
-				actor,
-			);
 			return updateMissionItemRow(
 				trx,
 				command.payload.missionItemId,

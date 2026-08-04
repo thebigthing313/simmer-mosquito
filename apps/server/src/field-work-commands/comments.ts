@@ -11,8 +11,6 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
 	agencyCommandContext,
-	assertCommentAuthor,
-	type CommandActor,
 	type CommandContext,
 	commandActor,
 	commentReturnColumns,
@@ -124,10 +122,12 @@ async function runCommentCommands(
 		return denial;
 	}
 
-	const actor = commandActor(context.get('authContext'));
 	try {
-		const result = await writeCommands(db, commands, (trx, command) =>
-			writeCommentCommand(trx, command, actor),
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeCommentCommand,
 		);
 		if (result.row === null) {
 			return context.json({ error: 'comment_not_found' }, 404);
@@ -141,7 +141,6 @@ async function runCommentCommands(
 async function writeCommentCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-	actor: CommandActor,
 ): Promise<SafeComment | null> {
 	switch (command.type) {
 		case 'fieldWork.addComment': {
@@ -166,12 +165,6 @@ async function writeCommentCommand(
 			return toSafeComment(row);
 		}
 		case 'fieldWork.updateComment':
-			await assertCommentAuthor(
-				trx,
-				command.payload.commentId,
-				command.payload.organizationId,
-				actor,
-			);
 			return updateRow(
 				trx,
 				'comments',
@@ -211,12 +204,6 @@ async function writeCommentCommand(
 				toSafeComment,
 			);
 		case 'fieldWork.deleteComment':
-			await assertCommentAuthor(
-				trx,
-				command.payload.commentId,
-				command.payload.organizationId,
-				actor,
-			);
 			return softDelete(
 				trx,
 				'comments',
