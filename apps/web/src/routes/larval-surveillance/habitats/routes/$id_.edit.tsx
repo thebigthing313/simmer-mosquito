@@ -52,6 +52,12 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
+import {
+	type MoveAction,
+	type OrderPlacement,
+	OrdinalBadge,
+	useStopOrder,
+} from '../../../../components/stop-order';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
 import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
@@ -59,7 +65,6 @@ import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
 	type HabitatSite,
 	moveRouteItems,
-	type RoutePlacement,
 	type RouteStopView,
 	stopTone,
 	updateHabitatDescription,
@@ -68,19 +73,16 @@ import {
 	useRouteStops,
 } from '../-route-data';
 import { RouteMap } from '../-route-map';
-import {
-	OrdinalBadge,
-	StopStatus,
-	StopTagChips,
-	StopTypePill,
-	useStopMeta,
-} from '../-route-stop-list';
+import { StopStatus, StopTagChips, StopTypePill, useStopMeta } from '../-route-stop-list';
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 const NO_TAGS: readonly TagRow[] = [];
+
+/** Module-level so the ordering hook's identity stays stable across renders. */
+const stopKey = (stop: RouteStopView) => stop.routeItemId;
 
 type MutableRouteRow = { -readonly [Key in keyof RouteRow]: RouteRow[Key] };
 type MutableRouteItemRow = { -readonly [Key in keyof RouteItemRow]: RouteItemRow[Key] };
@@ -103,7 +105,6 @@ function RouteEditRoute() {
 	useBreadcrumbLabel(id, route?.routeName ?? null);
 
 	const [nameDraft, setNameDraft] = useState<string | null>(null);
-	const [pendingOrder, setPendingOrder] = useState<string[] | null>(null);
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 	const [highlightId, setHighlightId] = useState<string | null>(null);
 	const [removeTarget, setRemoveTarget] = useState<RouteStopView | null>(null);
@@ -113,31 +114,16 @@ function RouteEditRoute() {
 
 	const organizationId = identity?.organizationId ?? null;
 
-	// Optimistic ordering: reflect a move instantly, reconcile when sync catches up.
-	const orderedStops = useMemo(() => {
-		if (pendingOrder === null) {
-			return stops;
-		}
-		const rank = new Map(pendingOrder.map((routeItemId, index) => [routeItemId, index]));
-		return [...stops].sort(
-			(first, second) =>
-				(rank.get(first.routeItemId) ?? Number.MAX_SAFE_INTEGER) -
-				(rank.get(second.routeItemId) ?? Number.MAX_SAFE_INTEGER),
-		);
-	}, [stops, pendingOrder]);
-
-	useEffect(() => {
-		if (pendingOrder === null) {
-			return;
-		}
-		const current = stops.map((stop) => stop.routeItemId);
-		if (
-			current.length === pendingOrder.length &&
-			current.every((value, index) => value === pendingOrder[index])
-		) {
-			setPendingOrder(null);
-		}
-	}, [stops, pendingOrder]);
+	const commitMove = useCallback(
+		(movedIds: readonly string[], placement: OrderPlacement) =>
+			moveRouteItems(id, movedIds, placement),
+		[id],
+	);
+	const { ordered: orderedStops, move: moveStop } = useStopOrder({
+		items: stops,
+		keyOf: stopKey,
+		commit: commitMove,
+	});
 
 	const features = useMemo<RouteStopFeature[]>(
 		() =>
@@ -213,22 +199,15 @@ function RouteEditRoute() {
 	);
 
 	const move = useCallback(
-		async (index: number, action: 'up' | 'down' | 'top' | 'bottom') => {
-			const ids = orderedStops.map((stop) => stop.routeItemId);
-			const plan = planMove(ids, index, action);
-			if (plan === null) {
-				return;
-			}
+		async (index: number, action: MoveAction) => {
 			setError(null);
-			setPendingOrder(plan.order);
 			try {
-				await moveRouteItems(id, [ids[index] as string], plan.placement);
+				await moveStop(index, action);
 			} catch (cause) {
-				setPendingOrder(null);
 				setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
 			}
 		},
-		[orderedStops, id],
+		[moveStop],
 	);
 
 	const saveDirections = useCallback(async (routeItemId: string, value: string) => {
@@ -661,7 +640,7 @@ function EditStopRow({
 				type="button"
 			/>
 			<div className="pointer-events-none relative flex items-start gap-3 p-3">
-				<OrdinalBadge ordinal={ordinal} stop={stop} />
+				<OrdinalBadge ordinal={ordinal} tone={stopTone(stop)} />
 
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2">
@@ -907,56 +886,6 @@ function RouteEditNotFound() {
 			</Empty>
 		</div>
 	);
-}
-
-/** Compute the new id order + the server placement for a single-item move. */
-function planMove(
-	ids: readonly string[],
-	index: number,
-	action: 'up' | 'down' | 'top' | 'bottom',
-): { readonly order: string[]; readonly placement: RoutePlacement } | null {
-	const moved = ids[index];
-	if (moved === undefined) {
-		return null;
-	}
-	const rest = ids.filter((_, position) => position !== index);
-
-	switch (action) {
-		case 'up': {
-			if (index === 0) {
-				return null;
-			}
-			const anchor = ids[index - 1] as string;
-			const order = [...ids];
-			order.splice(index, 1);
-			order.splice(index - 1, 0, moved);
-			return { order, placement: { kind: 'before', routeItemId: anchor } };
-		}
-		case 'down': {
-			if (index >= ids.length - 1) {
-				return null;
-			}
-			const anchor = ids[index + 1] as string;
-			const order = [...ids];
-			order.splice(index, 1);
-			order.splice(index + 1, 0, moved);
-			return { order, placement: { kind: 'after', routeItemId: anchor } };
-		}
-		case 'top': {
-			if (index === 0) {
-				return null;
-			}
-			return { order: [moved, ...rest], placement: { kind: 'start' } };
-		}
-		case 'bottom': {
-			if (index >= ids.length - 1) {
-				return null;
-			}
-			return { order: [...rest, moved], placement: { kind: 'end' } };
-		}
-		default:
-			return null;
-	}
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {

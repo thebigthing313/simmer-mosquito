@@ -10,6 +10,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, inArray, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, useMemo } from 'react';
+import { OrdinalBadge } from '../../../components/stop-order';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { type RouteStopCluster, type RouteStopView, stopTone } from './-route-data';
@@ -189,7 +190,7 @@ function StopRow({
 				type="button"
 			/>
 			<div className="pointer-events-none relative flex items-start gap-3 px-3 py-2.5">
-				<OrdinalBadge ordinal={stop.ordinal} stop={stop} />
+				<OrdinalBadge ordinal={stop.ordinal} tone={stopTone(stop)} />
 				<span className="min-w-0 flex-1">
 					<span className="flex items-center gap-2">
 						<Link
@@ -265,31 +266,6 @@ function TagChip({ tag }: { readonly tag: TagRow }) {
 			title={tag.description ?? undefined}
 		>
 			{tag.tagName}
-		</span>
-	);
-}
-
-export function OrdinalBadge({
-	ordinal,
-	stop,
-}: {
-	readonly ordinal: number;
-	readonly stop: { readonly isActive: boolean; readonly isInaccessible: boolean };
-}) {
-	const tone = stopTone(stop);
-	return (
-		<span
-			aria-hidden="true"
-			className={cn(
-				'mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full font-semibold text-[0.72rem] ring-2 ring-background',
-				tone === 'inaccessible'
-					? 'bg-[var(--danger)] text-white'
-					: tone === 'inactive'
-						? 'bg-muted-foreground text-background'
-						: 'bg-primary text-primary-foreground',
-			)}
-		>
-			{ordinal}
 		</span>
 	);
 }

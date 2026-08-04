@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../../auth';
 import type { RouteStopFeature } from '../../../components/map';
+import type { OrderPlacement } from '../../../components/stop-order';
+import { postCommand } from '../../../sync/post-command';
 import { webCollections } from '../../../sync/webCollections';
 
 // `route_items` is an on-demand shape (docs/sync.md); keep a route's members warm
@@ -368,12 +370,6 @@ export function boundsOfStops(
 
 // --- editing helpers --------------------------------------------------------
 
-export type RoutePlacement =
-	| { readonly kind: 'start' }
-	| { readonly kind: 'end' }
-	| { readonly kind: 'before'; readonly routeItemId: string }
-	| { readonly kind: 'after'; readonly routeItemId: string };
-
 const minSearchLength = 2;
 
 /** Name/address habitat search for the add-stop picker (min 2 chars). */
@@ -458,27 +454,25 @@ async function patchHabitat(
 	}
 }
 
-/** Reorder route items server-side via the dedicated move endpoint. */
+/**
+ * Reorder route items server-side via the dedicated move endpoint.
+ *
+ * The shared planner names the anchor `anchorId`; the route command endpoint calls
+ * it `routeItemId`. Translating here keeps the wire vocabulary in the domain module
+ * that owns it, so the shared ordering code stays free of either name.
+ */
 export async function moveRouteItems(
 	routeId: string,
 	routeItemIds: readonly string[],
-	placement: RoutePlacement,
+	placement: OrderPlacement,
 ): Promise<void> {
-	const response = await fetch(
-		new URL(`/field-work/routes/${routeId}/move-items`, getServerUrl()),
-		{
-			method: 'POST',
-			credentials: 'include',
-			headers: { accept: 'application/json', 'content-type': 'application/json' },
-			body: JSON.stringify({ routeItemIds: [...routeItemIds], placement }),
-		},
+	const wirePlacement =
+		placement.kind === 'before' || placement.kind === 'after'
+			? { kind: placement.kind, routeItemId: placement.anchorId }
+			: placement;
+	await postCommand(
+		`/field-work/routes/${routeId}/move-items`,
+		{ routeItemIds: [...routeItemIds], placement: wirePlacement },
+		'Unable to reorder the route.',
 	);
-	const result = (await response.json().catch(() => ({}))) as {
-		readonly txid?: number;
-		readonly reason?: string;
-		readonly message?: string;
-	};
-	if (!response.ok || result.txid === undefined) {
-		throw new Error(result.reason ?? result.message ?? 'Unable to reorder the route.');
-	}
 }
