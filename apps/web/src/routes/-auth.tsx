@@ -32,6 +32,7 @@ import {
 	signUp,
 	verifyEmail,
 } from '../auth';
+import { LandingStage } from './-landing-stage';
 
 /**
  * In-app (bring-your-own-UI) auth screens. These replace the WorkOS-hosted
@@ -47,39 +48,6 @@ const SpinnerIcon = iconRegistry.actions.loading.icon;
 const EyeShowIcon = iconRegistry.generic.eye.icon;
 const EyeHideIcon = iconRegistry.generic.eyeOff.icon;
 
-/**
- * The committed brand stage. On desktop it's a full-height green column carrying
- * the SIMMER logo and a stable value line; on mobile it collapses to a compact
- * logo band above the form so the task stays above the fold.
- */
-function AuthStage() {
-	return (
-		<section className="landing-stage relative isolate flex overflow-hidden px-8 py-8 text-white lg:min-h-screen lg:px-14 lg:py-12">
-			<div className="landing-rise relative z-10 flex flex-1 flex-col">
-				<img
-					src="/logo.svg"
-					alt="SIMMER"
-					width={248}
-					height={122}
-					className="landing-logo w-[150px] lg:w-[208px]"
-				/>
-				<div className="hidden flex-1 flex-col justify-center gap-5 lg:flex">
-					<h2 className="m-0 max-w-[13ch] text-balance font-bold text-[clamp(1.7rem,1.05rem+1.4vw,2.35rem)] leading-[1.08] tracking-[-0.02em]">
-						Your agency&rsquo;s map room.
-					</h2>
-					<p className="m-0 max-w-[42ch] text-pretty text-[1.02rem] leading-relaxed text-simmer-green-100">
-						Surveillance, control operations, and public requests — every record tied to the ground
-						it happens on.
-					</p>
-				</div>
-				<p className="mt-8 hidden text-[0.82rem] leading-normal text-simmer-green-100/85 lg:block">
-					Built for the mosquito control and surveillance agencies that keep communities protected.
-				</p>
-			</div>
-		</section>
-	);
-}
-
 function AuthShell({
 	title,
 	description,
@@ -91,23 +59,25 @@ function AuthShell({
 	readonly children?: ReactNode;
 	readonly footer?: ReactNode;
 }) {
+	// Same frame as the landing page: locked to the viewport at desktop widths,
+	// each column owning its own overflow, so the window itself never scrolls.
 	return (
-		<div className="grid min-h-screen grid-rows-[auto_1fr] lg:grid-cols-[1.02fr_0.98fr] lg:grid-rows-1">
-			<AuthStage />
+		<div className="grid min-h-svh grid-rows-[auto_1fr] lg:h-svh lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-1">
+			<LandingStage variant="aside" />
 			{/* Animation on the panel, not the section — see the landing entry column. */}
-			<section className="flex bg-(--app-stage) px-6 py-10 sm:px-10 lg:py-14">
+			<section className="flex min-h-0 overflow-y-auto bg-(--app-stage) px-6 py-10 sm:px-10 lg:py-12">
 				<div className="landing-fade m-auto flex w-full max-w-[400px] flex-col gap-6">
 					<header className="grid gap-2">
-						<h1 className="m-0 text-balance text-[1.55rem] font-bold leading-tight tracking-[-0.01em] text-foreground">
+						<h1 className="m-0 text-balance font-bold text-[1.55rem] text-foreground leading-tight tracking-[-0.01em]">
 							{title}
 						</h1>
 						{description ? (
-							<p className="m-0 leading-normal text-muted-foreground">{description}</p>
+							<p className="m-0 text-muted-foreground leading-normal">{description}</p>
 						) : null}
 					</header>
 					{children}
 					{footer ? (
-						<div className="border-t border-border/60 pt-5 text-sm text-muted-foreground">
+						<div className="border-border/60 border-t pt-5 text-muted-foreground text-sm">
 							{footer}
 						</div>
 					) : null}

@@ -3,7 +3,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import type { ComponentType, SVGProps } from 'react';
+import { LandingStage } from './-landing-stage';
 
 /**
  * Pre-shell surfaces: the unauthenticated landing page and the chrome
@@ -12,47 +12,12 @@ import type { ComponentType, SVGProps } from 'react';
  *
  * The landing page is the one product surface that earns a committed brand
  * treatment: a drenched-green "map room" stage carrying the real SIMMER logo,
- * paired with a calm, focused sign-in panel.
+ * paired with a calm, focused sign-in panel. The auth pages stand on the same
+ * stage — see `-landing-stage`.
  */
 
 const BrandMark = iconRegistry.simmer.brandMark.icon;
-const SurveillanceIcon = iconRegistry.generic.scanEye.icon;
-const ControlIcon = iconRegistry.domains.controlOperations.icon;
-const EngagementIcon = iconRegistry.domains.publicEngagement.icon;
 const WarningIcon = iconRegistry.actions.warning.icon;
-
-type LandingCapability = {
-	readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
-	readonly title: string;
-	readonly detail: string;
-};
-
-/**
- * The three capabilities are the three integrated mosquito management tactics
- * SIMMER covers today, ordered the way a program runs them. Copy stays
- * descriptive: the reader runs a mosquito control agency and does not need the
- * value of surveillance explained back to them.
- */
-const CAPABILITIES: readonly LandingCapability[] = [
-	{
-		icon: SurveillanceIcon,
-		title: 'Surveillance',
-		detail:
-			'Larval and adult populations tracked per habitat, trap, and collection, against your action thresholds.',
-	},
-	{
-		icon: ControlIcon,
-		title: 'Control operations',
-		detail:
-			'Source reduction, biocontrol, and insecticide applications recorded with product, rate, and treated area.',
-	},
-	{
-		icon: EngagementIcon,
-		title: 'Community engagement',
-		detail:
-			'Service requests and the contacts behind them, kept alongside the field data they belong to.',
-	},
-];
 
 export function LandingPage({
 	authReason,
@@ -70,61 +35,6 @@ export function LandingPage({
 			<LandingStage />
 			<LandingEntry authReason={authReason} redirectPath={redirectPath} />
 		</div>
-	);
-}
-
-/** The committed brand stage: real logo, value proposition, and capability list. */
-function LandingStage() {
-	return (
-		<section className="landing-stage relative isolate flex min-h-0 flex-col overflow-hidden px-(--landing-pad-x) py-(--landing-pad-y) text-white">
-			<div className="landing-rise relative z-10 flex flex-1 flex-col justify-between gap-(--landing-gap)">
-				<div className="grid gap-2">
-					<img
-						src="/logo.svg"
-						alt="SIMMER"
-						width={248}
-						height={122}
-						className="landing-logo w-(--landing-logo) max-w-[58%]"
-					/>
-					<p className="m-0 max-w-[64ch] text-[0.72rem] font-medium uppercase leading-snug tracking-[0.14em] text-simmer-green-100/80">
-						Strategic Integrated Mosquito Management Enterprise Resources
-					</p>
-				</div>
-
-				<div className="flex flex-col justify-center gap-(--landing-gap-tight)">
-					<h1 className="m-0 max-w-[24ch] text-balance font-bold text-(length:--landing-display) leading-[1.08] tracking-[-0.02em]">
-						Integrated mosquito management, on one living map.
-					</h1>
-					<p className="m-0 max-w-[62ch] text-pretty text-[1.02rem] leading-relaxed text-simmer-green-100">
-						Surveillance, control operations, and public requests stay tied to the ground they
-						happen on, so every decision rests on the data your program collected.
-					</p>
-
-					<ul className="m-0 grid list-none gap-(--landing-gap-tight) p-0">
-						{CAPABILITIES.map(({ icon: Icon, title, detail }) => (
-							<li key={title} className="flex items-start gap-3.5">
-								<span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md bg-white/10 text-white ring-1 ring-inset ring-white/15">
-									<Icon className="size-[1.15rem]" aria-hidden="true" />
-								</span>
-								<div className="grid gap-0.5">
-									<p className="m-0 text-[0.95rem] font-semibold leading-tight text-white">
-										{title}
-									</p>
-									<p className="m-0 max-w-[54ch] text-[0.86rem] leading-snug text-simmer-green-100">
-										{detail}
-									</p>
-								</div>
-							</li>
-						))}
-					</ul>
-				</div>
-
-				<p className="landing-tail m-0 max-w-[88ch] text-[0.85rem] leading-normal text-simmer-green-100/90">
-					Built around the five tactics of integrated mosquito management, for the agencies that
-					keep communities protected.
-				</p>
-			</div>
-		</section>
 	);
 }
 
