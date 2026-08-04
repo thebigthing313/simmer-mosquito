@@ -36,7 +36,7 @@ import {
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
 import { webCollections } from '../../../sync/webCollections';
-import { ContextBadge, formatActionDate, formatAmount } from '../-control-display';
+import { formatActionDate, formatAmount } from '../-control-display';
 import { useHabitatNames } from '../-overview-data';
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id')({
@@ -139,10 +139,6 @@ function SourceReductionDetailContent({
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
-					<ContextBadge
-						habitatId={sourceReduction.habitatId}
-						inspectionId={sourceReduction.inspectionId}
-					/>
 					<Button asChild size="sm" variant="outline">
 						<Link
 							params={{ id: sourceReduction.id }}

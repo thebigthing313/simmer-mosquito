@@ -36,7 +36,7 @@ import {
 } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
-import { ContextBadge, formatAmount, nameById, todayDateValue } from '../-control-display';
+import { formatAmount, nameById, todayDateValue } from '../-control-display';
 import { addDaysToDateString, useHabitatNames } from '../-overview-data';
 import { SourceReductionMapCard } from '../-source-reduction-map-card';
 
@@ -541,7 +541,6 @@ function SourceReductionListItem({
 }) {
 	return (
 		<ExplorerRow
-			badges={<ContextBadge habitatId={row.habitatId} inspectionId={row.inspectionId} />}
 			date={formatListDate(row.sourceReductionDate)}
 			detailLabel={`View details for ${methodName}`}
 			detailLink={{ to: '/control-operations/source-reduction/$id', params: { id: row.id } }}
