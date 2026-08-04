@@ -17,6 +17,12 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
+	assertAssignmentTransition,
+	checkCompleteAssignment,
+	checkReopenAssignment,
+	checkStartAssignment,
+} from './assignment-lifecycle.js';
+import {
 	agencyCommandContext,
 	applyPlacement,
 	assignmentPlacementRef,
@@ -342,6 +348,12 @@ async function writeAssignmentCommand(
 			);
 		}
 		case 'fieldWork.startAssignment':
+			await assertAssignmentTransition(
+				trx,
+				command.payload.assignmentId,
+				command.payload.organizationId,
+				checkStartAssignment,
+			);
 			return updateRow(
 				trx,
 				'assignments',
@@ -356,6 +368,12 @@ async function writeAssignmentCommand(
 				toSafeAssignment,
 			);
 		case 'fieldWork.completeAssignment':
+			await assertAssignmentTransition(
+				trx,
+				command.payload.assignmentId,
+				command.payload.organizationId,
+				checkCompleteAssignment,
+			);
 			return updateRow(
 				trx,
 				'assignments',
@@ -385,6 +403,12 @@ async function writeAssignmentCommand(
 				toSafeAssignment,
 			);
 		case 'fieldWork.reopenAssignment':
+			await assertAssignmentTransition(
+				trx,
+				command.payload.assignmentId,
+				command.payload.organizationId,
+				checkReopenAssignment,
+			);
 			// `started_at` deliberately survives: reopening resumes work rather than
 			// resetting it, so an assignment that had been started comes back as in
 			// progress. Nothing else on the row records when the crew actually

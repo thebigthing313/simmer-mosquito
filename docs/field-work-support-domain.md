@@ -769,6 +769,10 @@ omitted. Server handlers should reject future timestamps beyond a small
 clock-skew allowance. `completeAssignment` requires the assignment to already be
 started; it does not auto-start.
 
+`startAssignment` rejects completed and cancelled assignments. It is allowed on
+an assignment that is already in progress, so a manager can correct a start time
+without reopening first.
+
 Cancellation is allowed before or after start. `cancellationReason` is optional
 plain text and should be trimmed/null-normalized.
 
