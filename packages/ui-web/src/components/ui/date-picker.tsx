@@ -83,6 +83,14 @@ export function DatePicker({
 			<PopoverContent align="start" className="w-auto p-0">
 				<Calendar
 					autoFocus
+					/*
+					 * Always six week rows, padded with the neighbouring months' days.
+					 * A calendar month spans four, five, or six weeks depending on the
+					 * weekday it starts on, so an unpadded grid changes height as you
+					 * page through it — the popup jumps, and the day under the cursor
+					 * is no longer the day you were about to click.
+					 */
+					fixedWeeks
 					mode="single"
 					onSelect={(date) => {
 						onChange(date);
