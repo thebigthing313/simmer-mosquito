@@ -346,6 +346,10 @@ Progress timestamps are optional command inputs and default server-side when
 omitted. They cannot be future beyond clock skew and must be on or after
 mission `started_at` once effective start is known.
 
+The clock-skew allowance is enforced. The "on or after `started_at`" rule is
+not, for the same reason it is unenforced in field work — see
+`docs/field-work-support-domain.md` and issue #53.
+
 `skipMissionItem` requires a non-empty trimmed `skipReason` and uses plain text
 only. No skip reason enum or lookup table is part of v1.
 

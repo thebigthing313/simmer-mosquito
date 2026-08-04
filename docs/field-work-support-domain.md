@@ -928,6 +928,12 @@ Server handlers should reject future item progress timestamps beyond a small
 clock-skew allowance and require progress timestamps to be on or after
 `assignments.started_at`.
 
+The clock-skew allowance is enforced. The "on or after `started_at`" rule is
+not, deliberately: `started_at` is stamped by the server while progress
+timestamps come from the device, so a phone a minute behind would have ordinary
+work refused — the same failure the clock-skew allowance exists to prevent.
+Enforcing it needs a tolerance of its own; tracked in issue #53.
+
 `completeAssignment` requires:
 
 - assignment is started
