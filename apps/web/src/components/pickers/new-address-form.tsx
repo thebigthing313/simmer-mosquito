@@ -82,9 +82,12 @@ export function NewAddressForm({
 			url.searchParams.set('country', country);
 			url.searchParams.set('limit', '5');
 			const response = await fetch(url, { credentials: 'include' });
-			const body = (await response.json()) as GeocoderResponse | { readonly error: string };
-			if (!response.ok || !('results' in body)) {
-				throw new Error('Unable to geocode address.');
+			const body = (await response.json().catch(() => null)) as
+				| GeocoderResponse
+				| { readonly error?: string }
+				| null;
+			if (!response.ok || body === null || !('results' in body)) {
+				throw new Error(geocoderErrorMessage(response.status, readErrorCode(body)));
 			}
 			setGeocoderResults(body.results);
 			setGeocoderOpen(true);
@@ -359,6 +362,43 @@ function geocoderResultKey(result: GeocoderResult): string {
 
 function coordinatePair(point: GeoJsonPointGeometry): string {
 	return `${point.coordinates[1].toFixed(5)}, ${point.coordinates[0].toFixed(5)}`;
+}
+
+function readErrorCode(body: unknown): string | undefined {
+	if (typeof body !== 'object' || body === null) {
+		return undefined;
+	}
+	const error = (body as { readonly error?: unknown }).error;
+	return typeof error === 'string' ? error : undefined;
+}
+
+/**
+ * Every geocoder failure used to read "Unable to geocode address." — equally
+ * true of an unset API key, a rate limit, an expired session, and an upstream
+ * outage, and equally useless for deciding whether to retry, place the point by
+ * hand, or tell someone the deployment is misconfigured. `/geocoder/search`
+ * already distinguishes them; this says which, and names the way out.
+ *
+ * Placing the point on the map is always available in this form, so it is the
+ * fallback every message points at.
+ */
+function geocoderErrorMessage(status: number, error: string | undefined): string {
+	if (status === 401) {
+		return 'Your session has expired. Sign in again to look up addresses.';
+	}
+	if (error === 'geocoder_not_configured') {
+		return 'Address lookup is not configured on this deployment. Place the point on the map instead.';
+	}
+	if (status === 429) {
+		return 'Address lookup is rate limited right now. Try again shortly, or place the point on the map.';
+	}
+	if (error === 'invalid_query') {
+		return 'Enter more of the address before looking it up.';
+	}
+	if (status >= 500) {
+		return 'The address lookup service is unavailable. Place the point on the map instead.';
+	}
+	return 'Unable to geocode address. Place the point on the map instead.';
 }
 
 function addressQueryText(input: {

@@ -92,6 +92,16 @@ if (env.devImpersonate) {
 	);
 }
 
+// A missing key does not stop the server, but it does silently turn address
+// lookup off — and the failure only shows up as one form button not working, on
+// a deployment nobody is watching the console of. Say it once at boot, where a
+// platform log will keep it.
+if (env.geocodioApiKey === null) {
+	console.warn(
+		'[geocoder] GEOCODIO_API_KEY is not set — /geocoder/search will answer 503 geocoder_not_configured and address lookup will be unavailable. Addresses can still be placed on the map by hand.',
+	);
+}
+
 const authContextMiddleware = createAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,
