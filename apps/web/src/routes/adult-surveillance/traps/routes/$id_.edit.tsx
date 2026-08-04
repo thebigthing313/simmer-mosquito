@@ -35,8 +35,15 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
+import type { RouteStopFeature } from '../../../../components/map';
+import {
+	type MoveAction,
+	type OrderPlacement,
+	useStopOrder,
+} from '../../../../components/stop-order';
 import { useCollectionRows } from '../../../../hooks/use-collection-rows';
 import { isWriteBlocked } from '../../../../lib/write-access';
+import { moveRouteItems } from '../../../../sync/move-route-items';
 import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
 import { TrapPicker } from '../../-adult-pickers';
@@ -47,6 +54,8 @@ const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
 type MutableRouteItemRow = { -readonly [K in keyof RouteItemRow]: RouteItemRow[K] };
+
+const stopKey = (stop: RouteStopView) => stop.routeItemId;
 
 export const Route = createFileRoute('/adult-surveillance/traps/routes/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -66,7 +75,7 @@ function EditTrapRouteRoute() {
 	const { auth } = Route.useRouteContext();
 	const { routes, isReady } = useTrapRoutes();
 	const route = routes.find((candidate) => candidate.id === id) ?? null;
-	const { stops, features, itemCount, isLoading } = useRouteStops(id);
+	const { stops, itemCount, isLoading } = useRouteStops(id);
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
 	const navigate = useNavigate();
 
@@ -76,6 +85,34 @@ function EditTrapRouteRoute() {
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
+
+	const commitMove = useCallback(
+		(movedIds: readonly string[], placement: OrderPlacement) =>
+			moveRouteItems(id, movedIds, placement),
+		[id],
+	);
+	const { ordered: orderedStops, move: moveStop } = useStopOrder({
+		items: stops,
+		keyOf: stopKey,
+		commit: commitMove,
+	});
+
+	// Numbered off the displayed order, so the map renumbers with the list while a
+	// move is still in flight rather than showing the last synced sequence.
+	const features = useMemo<readonly RouteStopFeature[]>(
+		() =>
+			orderedStops
+				.map((stop, index) => ({ stop, ordinal: index + 1 }))
+				.filter((entry) => entry.stop.hasLocation)
+				.map((entry) => ({
+					id: entry.stop.routeItemId,
+					lat: entry.stop.lat as number,
+					lng: entry.stop.lng as number,
+					ordinal: entry.ordinal,
+					tone: entry.stop.isActive ? ('default' as const) : ('inactive' as const),
+				})),
+		[orderedStops],
+	);
 
 	const onRoute = useMemo(() => new Set(stops.map((stop) => stop.trapId)), [stops]);
 	const availableTraps = useMemo(
@@ -126,27 +163,16 @@ function EditTrapRouteRoute() {
 		[id, route, stops, actorProfileId],
 	);
 
-	// Reorder by swapping the two adjacent items' stored positions.
 	const move = useCallback(
-		(index: number, direction: -1 | 1) => {
-			const current = stops[index];
-			const neighbor = stops[index + direction];
-			if (current === undefined || neighbor === undefined) {
-				return;
-			}
+		async (index: number, action: MoveAction) => {
 			setError(null);
 			try {
-				void webCollections.routeItems.update(current.routeItemId, (draft) => {
-					(draft as MutableRouteItemRow).position = neighbor.position;
-				});
-				void webCollections.routeItems.update(neighbor.routeItemId, (draft) => {
-					(draft as MutableRouteItemRow).position = current.position;
-				});
+				await moveStop(index, action);
 			} catch (cause) {
 				setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
 			}
 		},
-		[stops],
+		[moveStop],
 	);
 
 	const setDirections = useCallback((routeItemId: string, value: string) => {
@@ -232,7 +258,7 @@ function EditTrapRouteRoute() {
 								onMove={move}
 								onRemove={removeStop}
 								onSetDirections={setDirections}
-								stops={stops}
+								stops={orderedStops}
 							/>
 
 							<div className="border-border/50 border-t pt-4">
@@ -279,7 +305,7 @@ function StopEditor({
 }: {
 	readonly stops: readonly RouteStopView[];
 	readonly isLoading: boolean;
-	readonly onMove: (index: number, direction: -1 | 1) => void;
+	readonly onMove: (index: number, action: MoveAction) => void;
 	readonly onRemove: (routeItemId: string) => void;
 	readonly onSetDirections: (routeItemId: string, value: string) => void;
 }) {
@@ -320,7 +346,7 @@ function StopEditor({
 									: 'bg-muted text-muted-foreground',
 							)}
 						>
-							{stop.ordinal}
+							{index + 1}
 						</span>
 						<span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
 							{stop.name}
@@ -331,7 +357,7 @@ function StopEditor({
 									<Button
 										aria-label="Move up"
 										disabled={index === 0}
-										onClick={() => onMove(index, -1)}
+										onClick={() => onMove(index, 'up')}
 										size="icon-sm"
 										type="button"
 										variant="ghost"
@@ -346,7 +372,7 @@ function StopEditor({
 									<Button
 										aria-label="Move down"
 										disabled={index === stops.length - 1}
-										onClick={() => onMove(index, 1)}
+										onClick={() => onMove(index, 'down')}
 										size="icon-sm"
 										type="button"
 										variant="ghost"
