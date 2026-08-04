@@ -34,8 +34,21 @@ export function OutletShell({ children }: { readonly children: React.ReactNode }
 				<SecondarySidebar />
 				<div className="flex min-w-0 flex-1 flex-col">
 					<AppHeader />
+					{/*
+					 * `relative` is load-bearing, not decorative. An `overflow` ancestor
+					 * only clips an absolutely-positioned descendant when it is also in
+					 * that descendant's containing-block chain — and with every wrapper
+					 * from here down statically positioned, the chain ran all the way out
+					 * to the initial containing block. The hidden native `<select>` a
+					 * Select renders for form submission is `position: absolute` with
+					 * `top: auto`, so it resolved to its static position in *document*
+					 * coordinates, escaped every scroll container on the way up, and
+					 * stretched the page: a form long enough put a scrollbar on the
+					 * browser window itself. Positioning `main` closes the chain here, so
+					 * an outlet's overflow can never reach the document again.
+					 */}
 					<main
-						className="min-h-0 flex-1 overflow-y-auto bg-(--app-stage)"
+						className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage)"
 						id="main-content"
 						tabIndex={-1}
 					>
