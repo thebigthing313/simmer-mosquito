@@ -7,6 +7,7 @@ import type {
 } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
+import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -17,14 +18,6 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from '@simmer-mosquito/ui-web/components/ui/command';
-import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
@@ -32,25 +25,18 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/popover';
+import { NumberInput } from '@simmer-mosquito/ui-web/components/ui/number-input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import {
 	ArrowLeftIcon,
 	CalendarIcon,
-	CheckIcon,
-	ChevronDownIcon,
 	iconRegistry,
 	KeyboardIcon,
 	Loader2Icon,
 	PlusIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -76,7 +62,9 @@ function RouteComponent() {
 }
 
 const SampleIcon = iconRegistry.entities.sample.icon;
-const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
+// Identification is about the mosquitoes in the sample, not the taxonomy tree the
+// names come from — the same mark heads the card on adult collections.
+const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
 
@@ -544,7 +532,6 @@ function IdentificationCard({
 
 						{canManage ? (
 							<AddSpeciesRow
-								nameById={nameById}
 								onAdd={handleAddSpecies}
 								options={options}
 								takenSpeciesIds={takenSpeciesIds}
@@ -639,26 +626,29 @@ function SpeciesResultRow({
 	readonly onUpdateCount: (rowId: string, count: number) => Promise<void>;
 	readonly onRemove: (rowId: string) => Promise<void>;
 }) {
-	const [draft, setDraft] = useState(String(row.larvaeCount));
+	const [draft, setDraft] = useState<number | null>(row.larvaeCount);
 	const [busy, setBusy] = useState(false);
 
 	// Keep the input in sync when the persisted value changes out from under us.
 	useEffect(() => {
-		setDraft(String(row.larvaeCount));
+		setDraft(row.larvaeCount);
 	}, [row.larvaeCount]);
 
-	const commit = async () => {
-		const next = Number.parseInt(draft, 10);
-		if (!Number.isFinite(next) || next < 0) {
-			setDraft(String(row.larvaeCount));
+	// Commits on blur, Enter, and stepper click; a blank or negative entry reverts to
+	// the stored count rather than writing a value the server would reject.
+	const commit = async (next: number | null) => {
+		if (next === null || !Number.isFinite(next) || next < 0) {
+			setDraft(row.larvaeCount);
 			return;
 		}
-		if (next === row.larvaeCount) {
+		const resolved = Math.trunc(next);
+		setDraft(resolved);
+		if (resolved === row.larvaeCount) {
 			return;
 		}
 		setBusy(true);
 		try {
-			await onUpdateCount(row.id, next);
+			await onUpdateCount(row.id, resolved);
 		} finally {
 			setBusy(false);
 		}
@@ -681,21 +671,13 @@ function SpeciesResultRow({
 			</span>
 			{canManage ? (
 				<>
-					<Input
+					<NumberInput
 						aria-label={`Larvae count for ${name}`}
-						className="h-8 w-20 text-right tabular-nums"
+						className="w-28"
 						disabled={busy}
-						inputMode="numeric"
 						min={0}
-						onBlur={() => void commit()}
-						onChange={(event) => setDraft(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === 'Enter') {
-								event.preventDefault();
-								void commit();
-							}
-						}}
-						type="number"
+						onCommit={(next) => void commit(next)}
+						onValueChange={setDraft}
 						value={draft}
 					/>
 					<Button
@@ -721,36 +703,38 @@ function SpeciesResultRow({
 function AddSpeciesRow({
 	options,
 	takenSpeciesIds,
-	nameById,
 	onAdd,
 }: {
 	readonly options: readonly SpeciesOption[];
 	readonly takenSpeciesIds: ReadonlySet<string>;
-	readonly nameById: ReadonlyMap<string, string>;
 	readonly onAdd: (speciesId: string, count: number) => Promise<void>;
 }) {
-	const [open, setOpen] = useState(false);
 	const [speciesId, setSpeciesId] = useState<string | null>(null);
-	const [count, setCount] = useState('1');
+	const [count, setCount] = useState<number | null>(1);
 	const [busy, setBusy] = useState(false);
 
+	// `sample_species` holds one row per species, so anything already identified is
+	// edited in the list above rather than offered again here.
 	const available = useMemo(
-		() => options.filter((option) => !takenSpeciesIds.has(option.id)),
+		() =>
+			options
+				.filter((option) => !takenSpeciesIds.has(option.id))
+				.map((option) => ({ value: option.id, label: option.label })),
 		[options, takenSpeciesIds],
 	);
 
-	const parsedCount = Number.parseInt(count, 10);
-	const canAdd = speciesId !== null && Number.isFinite(parsedCount) && parsedCount >= 0 && !busy;
+	const canAdd =
+		speciesId !== null && count !== null && Number.isFinite(count) && count >= 0 && !busy;
 
 	const submit = async () => {
-		if (speciesId === null || !Number.isFinite(parsedCount) || parsedCount < 0 || busy) {
+		if (speciesId === null || count === null || !Number.isFinite(count) || count < 0 || busy) {
 			return;
 		}
 		setBusy(true);
 		try {
-			await onAdd(speciesId, parsedCount);
+			await onAdd(speciesId, Math.trunc(count));
 			setSpeciesId(null);
-			setCount('1');
+			setCount(1);
 		} finally {
 			setBusy(false);
 		}
@@ -760,79 +744,29 @@ function AddSpeciesRow({
 		<div className="grid gap-1.5">
 			<SectionLabel>Add species</SectionLabel>
 			<div className="flex flex-wrap items-center gap-2">
-				<Popover onOpenChange={setOpen} open={open}>
-					<PopoverTrigger asChild>
-						<button
-							aria-label="Choose species"
-							className={cn(
-								'inline-flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-input px-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-								speciesId === null ? 'text-muted-foreground' : 'text-foreground',
-							)}
-							type="button"
-						>
-							<SpeciesIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-							<span className={cn('min-w-0 flex-1 truncate', speciesId !== null && 'italic')}>
-								{speciesId === null ? 'Select a species…' : (nameById.get(speciesId) ?? 'Species')}
-							</span>
-							<ChevronDownIcon
-								aria-hidden="true"
-								className="size-4 shrink-0 text-muted-foreground"
-							/>
-						</button>
-					</PopoverTrigger>
-					<PopoverContent align="start" className="w-72 p-0">
-						<Command>
-							<CommandInput placeholder="Search species…" />
-							<CommandList>
-								<CommandEmpty>
-									{available.length === 0
-										? 'All catalog species are already identified.'
-										: 'No species match.'}
-								</CommandEmpty>
-								<CommandGroup>
-									{available.map((option) => (
-										<CommandItem
-											key={option.id}
-											onSelect={() => {
-												setSpeciesId(option.id);
-												setOpen(false);
-											}}
-											value={`${option.label} ${option.id}`}
-										>
-											<span
-												className={cn(
-													'flex size-4 items-center justify-center rounded-sm border',
-													option.id === speciesId
-														? 'border-primary bg-primary text-primary-foreground'
-														: 'border-input',
-												)}
-											>
-												{option.id === speciesId ? (
-													<CheckIcon aria-hidden="true" className="size-3" />
-												) : null}
-											</span>
-											<span className="truncate italic">{option.label}</span>
-										</CommandItem>
-									))}
-								</CommandGroup>
-							</CommandList>
-						</Command>
-					</PopoverContent>
-				</Popover>
-				<Input
+				<div className="min-w-48 flex-1">
+					<Autocomplete
+						aria-label="Choose species"
+						onValueChange={setSpeciesId}
+						options={available}
+						placeholder="Search species…"
+						renderOption={renderSpeciesOption}
+						renderSelectedValue={renderSpeciesOption}
+						value={speciesId}
+					/>
+				</div>
+				<NumberInput
 					aria-label="Larvae count"
-					className="h-9 w-24 text-right tabular-nums"
-					inputMode="numeric"
+					className="w-28"
 					min={0}
-					onChange={(event) => setCount(event.target.value)}
 					onKeyDown={(event) => {
 						if (event.key === 'Enter' && canAdd) {
 							event.preventDefault();
 							void submit();
 						}
 					}}
+					onValueChange={setCount}
 					placeholder="Count"
-					type="number"
 					value={count}
 				/>
 				<Button disabled={!canAdd} onClick={() => void submit()} size="sm" type="button">
@@ -1097,6 +1031,11 @@ function SectionLabel({ children }: { readonly children: ReactNode }) {
 interface SpeciesOption {
 	readonly id: string;
 	readonly label: string;
+}
+
+/** Species names are binomials, so they read italic wherever they appear. */
+function renderSpeciesOption(option: { readonly label: string }) {
+	return <span className="italic">{option.label}</span>;
 }
 
 /**

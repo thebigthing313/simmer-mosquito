@@ -21,6 +21,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
+import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -31,14 +32,6 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from '@simmer-mosquito/ui-web/components/ui/command';
-import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
@@ -46,11 +39,6 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { NumberInput } from '@simmer-mosquito/ui-web/components/ui/number-input';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/popover';
 import {
 	Select,
 	SelectContent,
@@ -68,13 +56,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	ArrowLeftIcon,
-	ChevronDownIcon,
-	iconRegistry,
-	KeyboardIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { ArrowLeftIcon, iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
@@ -106,7 +88,9 @@ export const Route = createFileRoute('/adult-surveillance/collections/$id')({
 });
 
 const CollectionIcon = iconRegistry.entities.collection.icon;
-const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
+// Identification is about the mosquitoes in the sample, not the taxonomy tree the
+// names come from — the same mark heads the card on larval samples.
+const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const TrapIcon = iconRegistry.entities.trap.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
@@ -289,6 +273,16 @@ interface SpeciesEntry {
 	readonly identifiedByProfileId: string | null;
 }
 
+interface SpeciesOption {
+	readonly value: string;
+	readonly label: string;
+}
+
+/** Species names are binomials, so they read italic wherever they appear. */
+function renderSpeciesOption(option: SpeciesOption) {
+	return <span className="italic">{option.label}</span>;
+}
+
 function ResultsCard({
 	collection,
 	actorProfileId,
@@ -304,8 +298,8 @@ function ResultsCard({
 		() => [...speciesRows].sort((a, b) => a.displayName.localeCompare(b.displayName)),
 		[speciesRows],
 	);
-	const speciesNameById = useMemo(
-		() => new Map(species.map((row) => [row.id, row.displayName])),
+	const speciesOptions = useMemo(
+		() => species.map((row) => ({ value: row.id, label: row.displayName })),
 		[species],
 	);
 
@@ -386,7 +380,7 @@ function ResultsCard({
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
 							<SpeciesIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-							Results
+							Identification
 						</CardTitle>
 						<CardDescription>
 							Collection flags and the specimens identified in this sample.
@@ -486,8 +480,7 @@ function ResultsCard({
 											key={entry.id}
 											onChange={updateSpecies}
 											onRemove={removeSpecies}
-											species={species}
-											speciesName={speciesNameById.get(entry.speciesId) ?? 'Unknown species'}
+											speciesOptions={speciesOptions}
 										/>
 									))}
 								</TableBody>
@@ -499,7 +492,7 @@ function ResultsCard({
 						<AddSpeciesForm
 							actorProfileId={actorProfileId}
 							collection={collection}
-							species={species}
+							speciesOptions={speciesOptions}
 						/>
 					) : null}
 				</div>
@@ -536,15 +529,13 @@ function ResultsCard({
 
 function EditableSpeciesRow({
 	entry,
-	species,
-	speciesName,
+	speciesOptions,
 	canEdit,
 	onChange,
 	onRemove,
 }: {
 	readonly entry: SpeciesEntry;
-	readonly species: readonly SpeciesRow[];
-	readonly speciesName: string;
+	readonly speciesOptions: readonly SpeciesOption[];
 	readonly canEdit: boolean;
 	readonly onChange: (
 		entryId: string,
@@ -555,12 +546,20 @@ function EditableSpeciesRow({
 	return (
 		<TableRow>
 			<TableCell>
-				<SpeciesPicker
+				<Autocomplete
+					aria-label="Species"
 					disabled={!canEdit}
-					onSelect={(id) => onChange(entry.id, { speciesId: id })}
-					selectedLabel={speciesName}
-					species={species}
-					triggerClassName="w-full"
+					onValueChange={(next) => {
+						// Clearing has no meaning here — a recorded specimen is always some
+						// species — so only a real selection writes.
+						if (next !== null) {
+							onChange(entry.id, { speciesId: next });
+						}
+					}}
+					options={speciesOptions}
+					placeholder="Search species…"
+					renderOption={renderSpeciesOption}
+					renderSelectedValue={renderSpeciesOption}
 					value={entry.speciesId}
 				/>
 			</TableCell>
@@ -674,18 +673,13 @@ function SpeciesCountCell({
 
 function AddSpeciesForm({
 	collection,
-	species,
+	speciesOptions,
 	actorProfileId,
 }: {
 	readonly collection: AdultCollectionRow;
-	readonly species: readonly SpeciesRow[];
+	readonly speciesOptions: readonly SpeciesOption[];
 	readonly actorProfileId: string | null;
 }) {
-	const speciesOptions = useMemo(
-		() => species.map((row) => ({ value: row.id, label: row.displayName })),
-		[species],
-	);
-
 	const form = useAppForm({
 		defaultValues: {
 			speciesId: null as string | null,
@@ -734,8 +728,8 @@ function AddSpeciesForm({
 							<field.AutocompleteField
 								options={speciesOptions}
 								placeholder="Select species"
-								renderOption={(option) => <span className="italic">{option.label}</span>}
-								renderSelectedValue={(option) => <span className="italic">{option.label}</span>}
+								renderOption={renderSpeciesOption}
+								renderSelectedValue={renderSpeciesOption}
 							/>
 						)}
 					</form.AppField>
@@ -785,63 +779,6 @@ const STATUS_FIELD_OPTIONS = [
 		(a, b) => a.label.localeCompare(b.label),
 	),
 ];
-
-function SpeciesPicker({
-	species,
-	value,
-	selectedLabel,
-	onSelect,
-	disabled = false,
-	triggerClassName,
-}: {
-	readonly species: readonly SpeciesRow[];
-	readonly value: string | null;
-	readonly selectedLabel: string | null;
-	readonly onSelect: (id: string) => void;
-	readonly disabled?: boolean;
-	readonly triggerClassName?: string;
-}) {
-	const [open, setOpen] = useState(false);
-	return (
-		<Popover onOpenChange={setOpen} open={open}>
-			<PopoverTrigger asChild>
-				<Button
-					className={cn('justify-between font-normal', triggerClassName)}
-					disabled={disabled}
-					type="button"
-					variant="outline"
-				>
-					<span className={cn('truncate', value === null && 'text-muted-foreground')}>
-						{selectedLabel ?? 'Select species'}
-					</span>
-					<ChevronDownIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-				</Button>
-			</PopoverTrigger>
-			<PopoverContent align="start" className="w-72 p-0">
-				<Command>
-					<CommandInput placeholder="Search species…" />
-					<CommandList>
-						<CommandEmpty>No species found</CommandEmpty>
-						<CommandGroup>
-							{species.map((row) => (
-								<CommandItem
-									key={row.id}
-									onSelect={() => {
-										onSelect(row.id);
-										setOpen(false);
-									}}
-									value={`${row.displayName} ${row.id}`}
-								>
-									<span className="truncate italic">{row.displayName}</span>
-								</CommandItem>
-							))}
-						</CommandGroup>
-					</CommandList>
-				</Command>
-			</PopoverContent>
-		</Popover>
-	);
-}
 
 function SpeciesEmpty({
 	title,
