@@ -2,15 +2,11 @@ import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
 import { createHabitatCommand } from '@simmer-mosquito/domain';
 import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { HabitatTypeRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -32,6 +28,7 @@ import {
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
+import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
 export const noHabitatTypeValue = 'none';
@@ -209,192 +206,164 @@ export function HabitatFormPage({
 	const editCamera = mode === 'edit' ? cameraForGeometry(initialGeometry) : undefined;
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					<MapCanvas
-						controls={{ layers: false }}
-						habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
-						onMapReady={handleMapReady}
-						{...(editCamera === undefined ? {} : { camera: editCamera })}
-					/>
-					<DrawToolbar
-						controller={draw}
-						geometryType={geometryType}
-						pointPrompt="Click the map to place the address point."
-					/>
-					<MapLegend mode={mode} />
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						params={header.backParams ?? {}}
-						to={header.backTo}
-					>
-						<ArrowLeftIcon aria-hidden="true" />
-						{header.backLabel}
-					</Link>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							{header.title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
-					</div>
-				</header>
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				gap="tight"
+				header={header}
+				map={
+					<>
+						<MapCanvas
+							controls={{ layers: false }}
+							habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
+							onMapReady={handleMapReady}
+							{...(editCamera === undefined ? {} : { camera: editCamera })}
+						/>
+						<DrawToolbar
+							controller={draw}
+							geometryType={geometryType}
+							pointPrompt="Click the map to place the address point."
+						/>
+						<MapLegend mode={mode} />
+					</>
+				}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Habitat" />
+				{saveError === null ? null : (
+					<Alert variant="destructive">
+						<AlertTitle>Unable to Save Habitat</AlertTitle>
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
+				)}
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<form.AppForm>
-						<form
-							className="grid gap-5"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
-						>
-							<form.FormErrorAlert title="Unable to Save Habitat" />
-							{saveError === null ? null : (
-								<Alert variant="destructive">
-									<AlertTitle>Unable to Save Habitat</AlertTitle>
-									<AlertDescription>{saveError}</AlertDescription>
-								</Alert>
-							)}
+				<div className="grid gap-5 sm:grid-cols-2">
+					<form.AppField name="habitatName">
+						{(field) => (
+							<field.TextField label="Habitat name" placeholder="e.g. North basin catchment" />
+						)}
+					</form.AppField>
+					<form.AppField name="habitatTypeId">
+						{(field) => (
+							<field.AutocompleteField
+								// The sentinel, not `null`: `habitatTypeId` is typed as a
+								// plain string and the submit mapping reads it back.
+								emptyValue={noHabitatTypeValue}
+								label="Habitat type"
+								options={habitatTypeOptions(habitatTypes)}
+								placeholder="Search habitat types"
+							/>
+						)}
+					</form.AppField>
+				</div>
 
-							<div className="grid gap-5 sm:grid-cols-2">
-								<form.AppField name="habitatName">
-									{(field) => (
-										<field.TextField
-											label="Habitat name"
-											placeholder="e.g. North basin catchment"
-										/>
-									)}
-								</form.AppField>
-								<form.AppField name="habitatTypeId">
-									{(field) => (
-										<field.AutocompleteField
-											// The sentinel, not `null`: `habitatTypeId` is typed as a
-											// plain string and the submit mapping reads it back.
-											emptyValue={noHabitatTypeValue}
-											label="Habitat type"
-											options={habitatTypeOptions(habitatTypes)}
-											placeholder="Search habitat types"
-										/>
-									)}
-								</form.AppField>
-							</div>
-
-							{/* Address above geometry, in one section — the same Location block
+				{/* Address above geometry, in one section — the same Location block
 							    every other located record's form uses. */}
-							<section
-								aria-labelledby="habitat-location-label"
-								className={cn(
-									'grid gap-4 rounded-md border bg-muted/30 p-4',
-									geometryError === null ? 'border-border/50' : 'border-destructive/60',
-								)}
-							>
-								<div className="grid gap-0.5">
-									<span
-										className="font-semibold text-foreground text-sm leading-none"
-										id="habitat-location-label"
-									>
-										Location
-									</span>
-									<span className="text-muted-foreground text-xs">
-										The geometry is the habitat itself — a point for a single site, a line or area
-										for a stretch of one. An address is optional reference.
-									</span>
-								</div>
+				<section
+					aria-labelledby="habitat-location-label"
+					className={cn(
+						'grid gap-4 rounded-md border bg-muted/30 p-4',
+						geometryError === null ? 'border-border/50' : 'border-destructive/60',
+					)}
+				>
+					<div className="grid gap-0.5">
+						<span
+							className="font-semibold text-foreground text-sm leading-none"
+							id="habitat-location-label"
+						>
+							Location
+						</span>
+						<span className="text-muted-foreground text-xs">
+							The geometry is the habitat itself — a point for a single site, a line or area for a
+							stretch of one. An address is optional reference.
+						</span>
+					</div>
 
-								<form.AppField name="addressId">
-									{(field) => (
-										<AddressPicker
-											create={{ requestMapPoint }}
-											onSelect={(address) => {
-												field.handleChange(address?.id ?? null);
-												selectAddress(address);
-											}}
-											organizationId={organizationId}
-											value={field.state.value}
-										/>
-									)}
-								</form.AppField>
-
-								<GeometryControl
-									controller={draw}
-									geometry={geometry}
-									geometryType={geometryType}
-									label="Geometry"
-									required
-									onClear={() => setGeometry(null)}
-									onDraw={startDraw}
-									onTypeChange={handleTypeChange}
-									organizationId={organizationId}
-									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
-								/>
-
-								{geometryError === null ? null : (
-									<p className="m-0 text-destructive text-sm">{geometryError}</p>
-								)}
-							</section>
-
-							<form.AppField
-								name="description"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Description is required.' : undefined,
+					<form.AppField name="addressId">
+						{(field) => (
+							<AddressPicker
+								create={{ requestMapPoint }}
+								onSelect={(address) => {
+									field.handleChange(address?.id ?? null);
+									selectAddress(address);
 								}}
+								organizationId={organizationId}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
+
+					<GeometryControl
+						controller={draw}
+						geometry={geometry}
+						geometryType={geometryType}
+						label="Geometry"
+						required
+						onClear={() => setGeometry(null)}
+						onDraw={startDraw}
+						onTypeChange={handleTypeChange}
+						organizationId={organizationId}
+						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+					/>
+
+					{geometryError === null ? null : (
+						<p className="m-0 text-destructive text-sm">{geometryError}</p>
+					)}
+				</section>
+
+				<form.AppField
+					name="description"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Description is required.' : undefined,
+					}}
+				>
+					{(field) => (
+						<field.TextareaField
+							label="Description"
+							required
+							placeholder="Describe access notes, habitat condition, and useful field context."
+							rows={4}
+						/>
+					)}
+				</form.AppField>
+
+				{/* Habitat metadata is guided by the type's custom schema (see
+							    docs/larval-surveillance-domain.md), but stays open to ad-hoc keys
+							    so a habitat can carry notes its type never declared. */}
+				<form.Subscribe selector={(state) => state.values.habitatTypeId}>
+					{(habitatTypeId) => {
+						const schema = customSchemaFor(habitatTypes, habitatTypeId);
+						const hasTypeFields = customFieldCount(schema) > 0;
+						return (
+							<form.AppField
+								name="metadata"
+								validators={{ onSubmit: validateSchemaMetadata(schema) }}
 							>
 								{(field) => (
-									<field.TextareaField
-										label="Description"
-										required
-										placeholder="Describe access notes, habitat condition, and useful field context."
-										rows={4}
+									<field.MetadataField
+										label="Metadata"
+										description={
+											hasTypeFields
+												? 'Fields this habitat type collects, plus any agency-specific notes.'
+												: 'Optional structured notes for agency-specific habitat details.'
+										}
+										mode={{ kind: 'schema', schema, allowExtra: true }}
 									/>
 								)}
 							</form.AppField>
-
-							{/* Habitat metadata is guided by the type's custom schema (see
-							    docs/larval-surveillance-domain.md), but stays open to ad-hoc keys
-							    so a habitat can carry notes its type never declared. */}
-							<form.Subscribe selector={(state) => state.values.habitatTypeId}>
-								{(habitatTypeId) => {
-									const schema = customSchemaFor(habitatTypes, habitatTypeId);
-									const hasTypeFields = customFieldCount(schema) > 0;
-									return (
-										<form.AppField
-											name="metadata"
-											validators={{ onSubmit: validateSchemaMetadata(schema) }}
-										>
-											{(field) => (
-												<field.MetadataField
-													label="Metadata"
-													description={
-														hasTypeFields
-															? 'Fields this habitat type collects, plus any agency-specific notes.'
-															: 'Optional structured notes for agency-specific habitat details.'
-													}
-													mode={{ kind: 'schema', schema, allowExtra: true }}
-												/>
-											)}
-										</form.AppField>
-									);
-								}}
-							</form.Subscribe>
-
-							<div className="border-border/50 border-t pt-5">
-								<form.FormActions>
-									<form.ResetButton />
-									<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
-								</form.FormActions>
-							</div>
-						</form>
-					</form.AppForm>
-				</div>
-			</div>
-		</MapSplitPage>
+						);
+					}}
+				</form.Subscribe>
+			</RecordFormPage>
+		</form.AppForm>
 	);
 }
 

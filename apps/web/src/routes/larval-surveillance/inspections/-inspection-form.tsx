@@ -5,7 +5,6 @@ import {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -26,21 +25,13 @@ import {
 	PopoverContent,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import {
-	ArrowLeftIcon,
-	CheckIcon,
-	PlusIcon,
-	SearchIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { CheckIcon, PlusIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
-import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { densityLabel, type LifeStageFlags } from '../../../components/larval-display';
 import { MapCanvas } from '../../../components/map';
 import {
@@ -56,6 +47,7 @@ import {
 import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -408,331 +400,303 @@ export function InspectionFormPage({
 	}, []);
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					<MapCanvas
-						controls={{ layers: false }}
-						geoJson={previewGeometry as unknown as GeoJSON.GeoJSON | null}
-						habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
-						onMapReady={handleMapReady}
-					/>
-					<DrawToolbar controller={draw} geometryType={adhocGeometryType} />
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						params={header.backParams ?? {}}
-						to={header.backTo}
-					>
-						<ArrowLeftIcon aria-hidden="true" />
-						{header.backLabel}
-					</Link>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							{header.title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
-					</div>
-				</header>
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				header={header}
+				map={
+					<>
+						<MapCanvas
+							controls={{ layers: false }}
+							geoJson={previewGeometry as unknown as GeoJSON.GeoJSON | null}
+							habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
+							onMapReady={handleMapReady}
+						/>
+						<DrawToolbar controller={draw} geometryType={adhocGeometryType} />
+					</>
+				}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Inspection" />
+				{saveError === null ? null : (
+					<Alert variant="destructive">
+						<AlertTitle>Unable to Save Inspection</AlertTitle>
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
+				)}
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<form.AppForm>
-						<form
-							className="grid gap-6"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
+				<section
+					aria-labelledby="inspection-location-label"
+					className={cn(
+						'grid gap-4 rounded-md border bg-muted/30 p-4',
+						locationError === null ? 'border-border/50' : 'border-destructive/60',
+					)}
+				>
+					<div className="grid gap-0.5">
+						<span
+							className="font-semibold text-foreground text-sm leading-none"
+							id="inspection-location-label"
 						>
-							<form.FormErrorAlert title="Unable to Save Inspection" />
-							{saveError === null ? null : (
-								<Alert variant="destructive">
-									<AlertTitle>Unable to Save Inspection</AlertTitle>
-									<AlertDescription>{saveError}</AlertDescription>
-								</Alert>
-							)}
+							Location
+						</span>
+						<span className="text-muted-foreground text-xs">
+							{isEditing
+								? 'Where the inspection happened is fixed. Record a new inspection to cover a different site.'
+								: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers.'}
+						</span>
+					</div>
 
-							<section
-								aria-labelledby="inspection-location-label"
-								className={cn(
-									'grid gap-4 rounded-md border bg-muted/30 p-4',
-									locationError === null ? 'border-border/50' : 'border-destructive/60',
-								)}
+					<form.AppField name="locationMode">
+						{(field) => (
+							<ToggleGroup
+								aria-label="Location mode"
+								className="w-full"
+								disabled={isEditing}
+								onValueChange={(next) => {
+									if (next === 'habitat' || next === 'adhoc') {
+										field.handleChange(next);
+									}
+								}}
+								size="sm"
+								type="single"
+								value={field.state.value}
+								variant="outline"
 							>
-								<div className="grid gap-0.5">
-									<span
-										className="font-semibold text-foreground text-sm leading-none"
-										id="inspection-location-label"
-									>
-										Location
-									</span>
-									<span className="text-muted-foreground text-xs">
-										{isEditing
-											? 'Where the inspection happened is fixed. Record a new inspection to cover a different site.'
-											: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers.'}
-									</span>
-								</div>
+								<ToggleGroupItem className="flex-1 text-xs" value="habitat">
+									Existing habitat
+								</ToggleGroupItem>
+								<ToggleGroupItem className="flex-1 text-xs" value="adhoc">
+									Ad-hoc location
+								</ToggleGroupItem>
+							</ToggleGroup>
+						)}
+					</form.AppField>
 
-								<form.AppField name="locationMode">
-									{(field) => (
-										<ToggleGroup
-											aria-label="Location mode"
-											className="w-full"
-											disabled={isEditing}
-											onValueChange={(next) => {
-												if (next === 'habitat' || next === 'adhoc') {
-													field.handleChange(next);
-												}
-											}}
-											size="sm"
-											type="single"
-											value={field.state.value}
-											variant="outline"
-										>
-											<ToggleGroupItem className="flex-1 text-xs" value="habitat">
-												Existing habitat
-											</ToggleGroupItem>
-											<ToggleGroupItem className="flex-1 text-xs" value="adhoc">
-												Ad-hoc location
-											</ToggleGroupItem>
-										</ToggleGroup>
-									)}
-								</form.AppField>
-
-								<form.Subscribe selector={(state) => state.values.locationMode}>
-									{(locationMode) =>
-										locationMode === 'habitat' ? (
-											<form.AppField name="habitatId">
-												{(field) =>
-													isEditing ? (
-														<SelectedHabitat habitatId={field.state.value} />
-													) : (
-														<HabitatPicker
-															onSelect={(habitat) => {
-																field.handleChange(habitat?.id ?? null);
-																handleHabitatSelected(habitat);
-															}}
-															organizationId={organizationId}
-															value={field.state.value}
-														/>
-													)
-												}
-											</form.AppField>
+					<form.Subscribe selector={(state) => state.values.locationMode}>
+						{(locationMode) =>
+							locationMode === 'habitat' ? (
+								<form.AppField name="habitatId">
+									{(field) =>
+										isEditing ? (
+											<SelectedHabitat habitatId={field.state.value} />
 										) : (
-											<div className="grid gap-4">
-												<GeometryControl
-													controller={draw}
-													geometry={adhocGeometry}
-													geometryType={adhocGeometryType}
-													label="Inspected location"
-													onClear={clearAdhoc}
-													onDraw={startAdhocDraw}
-													onTypeChange={handleAdhocTypeChange}
-													organizationId={organizationId}
-													required
-												/>
-												<form.AppField name="habitatTypeId">
-													{(field) => (
-														<field.AutocompleteField
-															// The sentinel, not `null`: `habitatTypeId` is a plain
-															// string here and the submit mapping reads it back.
-															emptyValue={noHabitatTypeValue}
-															label="Habitat type"
-															options={habitatTypeOptions(habitatTypes)}
-															placeholder="Search habitat types"
-														/>
-													)}
-												</form.AppField>
-											</div>
+											<HabitatPicker
+												onSelect={(habitat) => {
+													field.handleChange(habitat?.id ?? null);
+													handleHabitatSelected(habitat);
+												}}
+												organizationId={organizationId}
+												value={field.state.value}
+											/>
 										)
 									}
-								</form.Subscribe>
-
-								{locationError === null ? null : (
-									<p className="m-0 text-destructive text-sm">{locationError}</p>
-								)}
-							</section>
-
-							<FormSection title="Inspection">
-								<div className="grid gap-5 sm:grid-cols-2">
-									<form.AppField name="inspectionDate">
+								</form.AppField>
+							) : (
+								<div className="grid gap-4">
+									<GeometryControl
+										controller={draw}
+										geometry={adhocGeometry}
+										geometryType={adhocGeometryType}
+										label="Inspected location"
+										onClear={clearAdhoc}
+										onDraw={startAdhocDraw}
+										onTypeChange={handleAdhocTypeChange}
+										organizationId={organizationId}
+										required
+									/>
+									<form.AppField name="habitatTypeId">
 										{(field) => (
-											<LabeledControl label="Inspection date" required>
-												<DatePicker
-													ariaLabel="Inspection date"
-													className="w-full"
-													max={parseLocalDate(today)}
-													onChange={(date) =>
-														field.handleChange(date === undefined ? '' : formatLocalDate(date))
-													}
-													placeholder="Select date"
-													value={parseLocalDate(field.state.value)}
+											<field.AutocompleteField
+												// The sentinel, not `null`: `habitatTypeId` is a plain
+												// string here and the submit mapping reads it back.
+												emptyValue={noHabitatTypeValue}
+												label="Habitat type"
+												options={habitatTypeOptions(habitatTypes)}
+												placeholder="Search habitat types"
+											/>
+										)}
+									</form.AppField>
+								</div>
+							)
+						}
+					</form.Subscribe>
+
+					{locationError === null ? null : (
+						<p className="m-0 text-destructive text-sm">{locationError}</p>
+					)}
+				</section>
+
+				<FormSection title="Inspection">
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="inspectionDate">
+							{(field) => (
+								<LabeledControl label="Inspection date" required>
+									<DatePicker
+										ariaLabel="Inspection date"
+										className="w-full"
+										max={parseLocalDate(today)}
+										onChange={(date) =>
+											field.handleChange(date === undefined ? '' : formatLocalDate(date))
+										}
+										placeholder="Select date"
+										value={parseLocalDate(field.state.value)}
+									/>
+								</LabeledControl>
+							)}
+						</form.AppField>
+						<form.AppField name="inspectedByProfileId">
+							{(field) => (
+								<field.AutocompleteField
+									label="Inspector"
+									options={profileOptions(profiles)}
+									placeholder="Search people"
+									required
+								/>
+							)}
+						</form.AppField>
+					</div>
+					<form.Subscribe selector={(state) => state.values.inspectedByProfileId}>
+						{(inspectedByProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId: inspectedByProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+				</FormSection>
+
+				<FormSection title="Findings" note={findingsRequirement(entryMode)}>
+					<form.AppField name="isWet">
+						{(field) => (
+							<LabeledControl
+								description="Larvae can only be present when standing water was found."
+								label="Conditions"
+								required
+							>
+								<WaterToggle
+									onChange={(next) => {
+										if (next || !hasLarvalData(form.state.values)) {
+											field.handleChange(next);
+											return;
+										}
+										setPendingDry(true);
+									}}
+									value={field.state.value}
+								/>
+							</LabeledControl>
+						)}
+					</form.AppField>
+
+					<form.Subscribe selector={(state) => state.values.isWet}>
+						{(isWet) =>
+							isWet ? (
+								<div className="grid gap-5">
+									<div className="grid gap-5 sm:grid-cols-2">
+										{columns.density.show ? (
+											<form.AppField name="density">
+												{(field) => (
+													<field.SelectField
+														label="Density"
+														options={densityOptions()}
+														placeholder="Select density"
+														required={columns.density.required}
+													/>
+												)}
+											</form.AppField>
+										) : null}
+										{columns.dips.show ? (
+											<form.AppField name="dipCount">
+												{(field) => (
+													<field.NumberField
+														label={entryMode === 'count_and_dips_required' ? 'Dips taken' : 'Dips'}
+														min={1}
+														placeholder="e.g. 10"
+														required={columns.dips.required}
+													/>
+												)}
+											</form.AppField>
+										) : null}
+										{columns.larvae.show ? (
+											<form.AppField name="larvaeCount">
+												{(field) => (
+													<field.NumberField
+														label="Larvae counted"
+														min={0}
+														placeholder="e.g. 24"
+														required={columns.larvae.required}
+													/>
+												)}
+											</form.AppField>
+										) : null}
+									</div>
+
+									<form.AppField name="lifeStages">
+										{(field) => (
+											<LabeledControl
+												description="Mark every immature stage present. Required when larvae were found."
+												label="Life stages"
+											>
+												<LifeStageSelector
+													onChange={field.handleChange}
+													value={field.state.value}
 												/>
 											</LabeledControl>
 										)}
 									</form.AppField>
-									<form.AppField name="inspectedByProfileId">
-										{(field) => (
-											<field.AutocompleteField
-												label="Inspector"
-												options={profileOptions(profiles)}
-												placeholder="Search people"
-												required
-											/>
-										)}
-									</form.AppField>
 								</div>
-								<form.Subscribe selector={(state) => state.values.inspectedByProfileId}>
-									{(inspectedByProfileId) => (
-										<form.AppField name="additionalPersonnelIds">
-											{(field) => (
-												<field.MultiSelectField
-													emptyMessage="No profiles"
-													label="Additional personnel"
-													options={additionalPersonnelOptions(profiles, field.state.value, {
-														excludeProfileId: inspectedByProfileId,
-													})}
-													placeholder="Search profiles"
-												/>
-											)}
-										</form.AppField>
-									)}
-								</form.Subscribe>
-							</FormSection>
+							) : (
+								<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-3 text-muted-foreground text-sm">
+									Dry inspections record no abundance or life-stage detail.
+								</p>
+							)
+						}
+					</form.Subscribe>
+				</FormSection>
 
-							<FormSection title="Findings" note={findingsRequirement(entryMode)}>
-								<form.AppField name="isWet">
-									{(field) => (
-										<LabeledControl
-											description="Larvae can only be present when standing water was found."
-											label="Conditions"
-											required
-										>
-											<WaterToggle
-												onChange={(next) => {
-													if (next || !hasLarvalData(form.state.values)) {
-														field.handleChange(next);
-														return;
-													}
-													setPendingDry(true);
-												}}
-												value={field.state.value}
-											/>
-										</LabeledControl>
-									)}
-								</form.AppField>
+				<form.Subscribe selector={(state) => state.values.isWet}>
+					{(isWet) =>
+						isWet ? (
+							<form.AppField name="samples">
+								{(field) => (
+									<SamplesSection
+										isEditing={isEditing}
+										onChange={field.handleChange}
+										value={field.state.value as readonly InspectionSampleDraft[]}
+									/>
+								)}
+							</form.AppField>
+						) : null
+					}
+				</form.Subscribe>
 
-								<form.Subscribe selector={(state) => state.values.isWet}>
-									{(isWet) =>
-										isWet ? (
-											<div className="grid gap-5">
-												<div className="grid gap-5 sm:grid-cols-2">
-													{columns.density.show ? (
-														<form.AppField name="density">
-															{(field) => (
-																<field.SelectField
-																	label="Density"
-																	options={densityOptions()}
-																	placeholder="Select density"
-																	required={columns.density.required}
-																/>
-															)}
-														</form.AppField>
-													) : null}
-													{columns.dips.show ? (
-														<form.AppField name="dipCount">
-															{(field) => (
-																<field.NumberField
-																	label={
-																		entryMode === 'count_and_dips_required' ? 'Dips taken' : 'Dips'
-																	}
-																	min={1}
-																	placeholder="e.g. 10"
-																	required={columns.dips.required}
-																/>
-															)}
-														</form.AppField>
-													) : null}
-													{columns.larvae.show ? (
-														<form.AppField name="larvaeCount">
-															{(field) => (
-																<field.NumberField
-																	label="Larvae counted"
-																	min={0}
-																	placeholder="e.g. 24"
-																	required={columns.larvae.required}
-																/>
-															)}
-														</form.AppField>
-													) : null}
-												</div>
-
-												<form.AppField name="lifeStages">
-													{(field) => (
-														<LabeledControl
-															description="Mark every immature stage present. Required when larvae were found."
-															label="Life stages"
-														>
-															<LifeStageSelector
-																onChange={field.handleChange}
-																value={field.state.value}
-															/>
-														</LabeledControl>
-													)}
-												</form.AppField>
-											</div>
-										) : (
-											<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-3 text-muted-foreground text-sm">
-												Dry inspections record no abundance or life-stage detail.
-											</p>
-										)
-									}
-								</form.Subscribe>
-							</FormSection>
-
-							<form.Subscribe selector={(state) => state.values.isWet}>
-								{(isWet) =>
-									isWet ? (
-										<form.AppField name="samples">
-											{(field) => (
-												<SamplesSection
-													isEditing={isEditing}
-													onChange={field.handleChange}
-													value={field.state.value as readonly InspectionSampleDraft[]}
-												/>
-											)}
-										</form.AppField>
-									) : null
-								}
-							</form.Subscribe>
-
-							<FormSection title="Notes">
-								<form.AppField name="comment">
-									{(field) => (
-										<field.TextareaField
-											description="Saved as the first comment on this inspection. Add access details, conditions, or follow-up."
-											label="Comment"
-											placeholder="Add a note for this inspection…"
-											rows={3}
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-
-							<div className="border-border/50 border-t pt-5">
-								<form.FormActions>
-									<form.ResetButton />
-									<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
-								</form.FormActions>
-							</div>
-						</form>
-					</form.AppForm>
-				</div>
-			</div>
+				<FormSection title="Notes">
+					<form.AppField name="comment">
+						{(field) => (
+							<field.TextareaField
+								description="Saved as the first comment on this inspection. Add access details, conditions, or follow-up."
+								label="Comment"
+								placeholder="Add a note for this inspection…"
+								rows={3}
+							/>
+						)}
+					</form.AppField>
+				</FormSection>
+			</RecordFormPage>
 
 			<AlertDialog onOpenChange={setPendingDry} open={pendingDry}>
 				<AlertDialogContent>
@@ -761,7 +725,7 @@ export function InspectionFormPage({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-		</MapSplitPage>
+		</form.AppForm>
 	);
 }
 

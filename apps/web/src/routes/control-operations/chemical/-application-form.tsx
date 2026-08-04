@@ -14,18 +14,14 @@ import type {
 	UnitRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -48,6 +44,7 @@ import {
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
+import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { webCollections } from '../../../sync/webCollections';
@@ -481,456 +478,424 @@ export function ApplicationFormPage({
 	}, []);
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
-					<DrawToolbar controller={draw} geometryType={geometryType} />
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						params={header.backParams ?? {}}
-						to={header.backTo}
-					>
-						<ArrowLeftIcon aria-hidden="true" />
-						{header.backLabel}
-					</Link>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							{header.title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
-					</div>
-				</header>
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				header={header}
+				map={
+					<>
+						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<DrawToolbar controller={draw} geometryType={geometryType} />
+					</>
+				}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Application" />
+				{saveError === null ? null : (
+					<Alert variant="destructive">
+						<AlertTitle>Unable to Save Application</AlertTitle>
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
+				)}
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<form.AppForm>
-						<form
-							className="grid gap-6"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
+				<section
+					aria-labelledby="application-location-label"
+					className={cn(
+						'grid gap-4 rounded-md border bg-muted/30 p-4',
+						locationError === null ? 'border-border/50' : 'border-destructive/60',
+					)}
+				>
+					<div className="grid gap-0.5">
+						<span
+							className="font-semibold text-foreground text-sm leading-none"
+							id="application-location-label"
 						>
-							<form.FormErrorAlert title="Unable to Save Application" />
-							{saveError === null ? null : (
-								<Alert variant="destructive">
-									<AlertTitle>Unable to Save Application</AlertTitle>
-									<AlertDescription>{saveError}</AlertDescription>
-								</Alert>
+							Location
+						</span>
+						<span className="text-muted-foreground text-xs">
+							The geometry is where the product was applied — a point for a spot treatment, a line
+							or area for a treated swath. An address is optional reference.
+						</span>
+					</div>
+
+					<form.AppField name="addressId">
+						{(field) => (
+							<AddressPicker
+								create={{ requestMapPoint }}
+								label="Address"
+								onSelect={(address) => {
+									field.handleChange(address?.id ?? null);
+									setLocationError(null);
+									selectAddress(address);
+								}}
+								organizationId={organizationId}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
+
+					<GeometryControl
+						controller={draw}
+						geometry={geometry}
+						geometryType={geometryType}
+						label="Geometry"
+						required={requireLocation}
+						onClear={clearGeometry}
+						onDraw={startDraw}
+						onTypeChange={handleTypeChange}
+						organizationId={organizationId}
+						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+					/>
+
+					{locationError === null ? null : (
+						<p className="m-0 text-destructive text-sm">{locationError}</p>
+					)}
+				</section>
+
+				<FormSection title="Product">
+					{formulationEntry ? (
+						<form.AppField name="productMode">
+							{(field) => (
+								<ToggleGroup
+									aria-label="Product entry"
+									className="w-full"
+									onValueChange={(next) => {
+										if (next !== 'insecticide' && next !== 'formulation') {
+											return;
+										}
+										field.handleChange(next);
+										// Each mode owns its own product and lots; leaving the
+										// other mode's behind would silently save with them.
+										if (next === 'formulation') {
+											form.setFieldValue('insecticideId', '');
+											form.setFieldValue('insecticideBatchIds', []);
+										} else {
+											form.setFieldValue('formulationId', '');
+											form.setFieldValue('componentBatchIds', {});
+										}
+									}}
+									size="sm"
+									type="single"
+									value={field.state.value}
+									variant="outline"
+								>
+									<ToggleGroupItem className="flex-1 text-xs" value="insecticide">
+										Single insecticide
+									</ToggleGroupItem>
+									<ToggleGroupItem className="flex-1 text-xs" value="formulation">
+										Formulation
+									</ToggleGroupItem>
+								</ToggleGroup>
 							)}
+						</form.AppField>
+					) : null}
 
-							<section
-								aria-labelledby="application-location-label"
-								className={cn(
-									'grid gap-4 rounded-md border bg-muted/30 p-4',
-									locationError === null ? 'border-border/50' : 'border-destructive/60',
-								)}
-							>
-								<div className="grid gap-0.5">
-									<span
-										className="font-semibold text-foreground text-sm leading-none"
-										id="application-location-label"
-									>
-										Location
-									</span>
-									<span className="text-muted-foreground text-xs">
-										The geometry is where the product was applied — a point for a spot treatment, a
-										line or area for a treated swath. An address is optional reference.
-									</span>
-								</div>
-
-								<form.AppField name="addressId">
-									{(field) => (
-										<AddressPicker
-											create={{ requestMapPoint }}
-											label="Address"
-											onSelect={(address) => {
-												field.handleChange(address?.id ?? null);
-												setLocationError(null);
-												selectAddress(address);
-											}}
-											organizationId={organizationId}
-											value={field.state.value}
-										/>
-									)}
-								</form.AppField>
-
-								<GeometryControl
-									controller={draw}
-									geometry={geometry}
-									geometryType={geometryType}
-									label="Geometry"
-									required={requireLocation}
-									onClear={clearGeometry}
-									onDraw={startDraw}
-									onTypeChange={handleTypeChange}
-									organizationId={organizationId}
-									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
-								/>
-
-								{locationError === null ? null : (
-									<p className="m-0 text-destructive text-sm">{locationError}</p>
-								)}
-							</section>
-
-							<FormSection title="Product">
-								{formulationEntry ? (
-									<form.AppField name="productMode">
-										{(field) => (
-											<ToggleGroup
-												aria-label="Product entry"
-												className="w-full"
-												onValueChange={(next) => {
-													if (next !== 'insecticide' && next !== 'formulation') {
-														return;
-													}
-													field.handleChange(next);
-													// Each mode owns its own product and lots; leaving the
-													// other mode's behind would silently save with them.
-													if (next === 'formulation') {
-														form.setFieldValue('insecticideId', '');
-														form.setFieldValue('insecticideBatchIds', []);
-													} else {
-														form.setFieldValue('formulationId', '');
-														form.setFieldValue('componentBatchIds', {});
-													}
-												}}
-												size="sm"
-												type="single"
-												value={field.state.value}
-												variant="outline"
-											>
-												<ToggleGroupItem className="flex-1 text-xs" value="insecticide">
-													Single insecticide
-												</ToggleGroupItem>
-												<ToggleGroupItem className="flex-1 text-xs" value="formulation">
-													Formulation
-												</ToggleGroupItem>
-											</ToggleGroup>
-										)}
-									</form.AppField>
-								) : null}
-
-								<form.Subscribe selector={(state) => state.values.productMode}>
-									{(productMode) =>
-										productMode === 'formulation' ? (
-											<div className="grid gap-5">
-												<form.AppField name="formulationId">
-													{(field) => (
-														<field.AutocompleteField
-															emptyValue=""
-															label="Formulation"
-															required
-															onValueChange={(next, previousValue) => {
-																if (next === previousValue) {
-																	return;
-																}
-																// The amount is entered in whatever the mix is
-																// batched in, so the unit comes from the mix.
-																form.setFieldValue(
-																	'applicationUnitId',
-																	formulationFor(next ?? '')?.batchUnitId ?? '',
-																);
-																// Lots belong to the products in the mix, so
-																// switching mixes starts them over.
-																form.setFieldValue('componentBatchIds', {});
-															}}
-															options={formulationOptions}
-															placeholder="Search formulations"
-														/>
-													)}
-												</form.AppField>
-												<div className="grid gap-5 sm:grid-cols-2">
-													<form.AppField name="amountApplied">
-														{(field) => (
-															<field.NumberField
-																description="Finished mix that went out, not product."
-																label="Total mix applied"
-																required
-																min={0}
-																placeholder="e.g. 78"
-															/>
-														)}
-													</form.AppField>
-													<form.AppField name="applicationUnitId">
-														{(field) => (
-															<field.SelectField
-																description="Set by the mix."
-																disabled
-																label="Unit"
-																required
-																options={unitOptions(units, isApplicationUnitType)}
-																placeholder="Pick a formulation first"
-															/>
-														)}
-													</form.AppField>
-												</div>
-												<form.Subscribe
-													selector={(state) =>
-														[state.values.formulationId, state.values.amountApplied] as const
-													}
-												>
-													{([formulationId, amountApplied]) => (
-														<FormulationBreakdown
-															components={componentsFor(formulationId)}
-															formulation={formulationFor(formulationId)}
-															insecticides={insecticides}
-															totalAmount={amountApplied}
-															units={units}
-														/>
-													)}
-												</form.Subscribe>
-												{/* Lots are per product, so a mix asks once for each of its own. */}
-												<form.Subscribe selector={(state) => state.values.formulationId}>
-													{(formulationId) =>
-														componentsFor(formulationId).map((component) => (
-															<form.AppField
-																key={component.id}
-																name={`componentBatchIds.${component.insecticideId}`}
-															>
-																{(field) => (
-																	<InsecticideBatchOptions insecticideId={component.insecticideId}>
-																		{(options) => (
-																			<field.MultiSelectField
-																				emptyMessage="No batches for this product"
-																				label={`${productLabel(insecticides, component.insecticideId)} batches`}
-																				options={options}
-																				placeholder="Search batches"
-																			/>
-																		)}
-																	</InsecticideBatchOptions>
-																)}
-															</form.AppField>
-														))
-													}
-												</form.Subscribe>
-											</div>
-										) : (
-											<div className="grid gap-5">
-												<form.AppField name="insecticideId">
-													{(field) => (
-														<field.AutocompleteField
-															emptyValue=""
-															label="Insecticide"
-															required
-															onValueChange={(next, previousValue) => {
-																const chosen = insecticides.find((row) => row.id === next);
-																// The unit follows the product's default usage unit unless
-																// the user has explicitly chosen a different one — and
-																// always when the one they chose measures a different kind
-																// of quantity.
-																const previous = insecticides.find(
-																	(row) => row.id === previousValue,
-																);
-																const currentUnit = form.state.values.applicationUnitId;
-																const unitIsDerived =
-																	currentUnit === '' || currentUnit === previous?.defaultUnitId;
-																const nextUnitType = unitTypeFor(next ?? '');
-																const unitStillFits =
-																	nextUnitType === null ||
-																	unitTypeById.get(currentUnit) === nextUnitType;
-																if (unitIsDerived || !unitStillFits) {
-																	form.setFieldValue(
-																		'applicationUnitId',
-																		chosen?.defaultUnitId ?? '',
-																	);
-																}
-																// Lots belong to one product, so changing the product
-																// drops them.
-																if (next !== previousValue) {
-																	form.setFieldValue('insecticideBatchIds', []);
-																}
-															}}
-															options={insecticideOptions}
-															placeholder="Search insecticides"
-														/>
-													)}
-												</form.AppField>
-												<div className="grid gap-5 sm:grid-cols-2">
-													<form.AppField name="amountApplied">
-														{(field) => (
-															<field.NumberField
-																description="Total product applied across the treated area."
-																label="Amount applied"
-																required
-																min={0}
-																placeholder="e.g. 12.5"
-															/>
-														)}
-													</form.AppField>
-													<form.Subscribe selector={(state) => state.values.insecticideId}>
-														{(insecticideId) => (
-															<form.AppField name="applicationUnitId">
-																{(field) => (
-																	<field.SelectField
-																		label="Unit"
-																		required
-																		options={applicationUnitOptionsFor(insecticideId)}
-																		placeholder="Select unit"
-																	/>
-																)}
-															</form.AppField>
-														)}
-													</form.Subscribe>
-												</div>
-												{/* Lots are a property of the chosen product, so there is nothing to
-												    offer until one is picked. */}
-												<form.Subscribe selector={(state) => state.values.insecticideId}>
-													{(insecticideId) =>
-														insecticideId === '' ? null : (
-															<form.AppField name="insecticideBatchIds">
-																{(field) => (
-																	<InsecticideBatchOptions insecticideId={insecticideId}>
-																		{(options) => (
-																			<field.MultiSelectField
-																				emptyMessage="No batches for this product"
-																				label="Batches"
-																				options={options}
-																				placeholder="Search batches"
-																			/>
-																		)}
-																	</InsecticideBatchOptions>
-																)}
-															</form.AppField>
-														)
-													}
-												</form.Subscribe>
-											</div>
-										)
-									}
-								</form.Subscribe>
-							</FormSection>
-
-							<FormSection title="Work">
-								<div className="grid gap-5 sm:grid-cols-2">
-									<form.AppField name="applicationDate">
-										{(field) => (
-											<DateControl
-												label="Application date"
-												required
-												onChange={field.handleChange}
-												value={field.state.value}
-											/>
-										)}
-									</form.AppField>
-									<form.AppField name="applicationMethodId">
-										{(field) => (
-											<field.SelectField
-												label="Application method"
-												options={optionalOptions(methodOptions, 'No method')}
-												placeholder="No method"
-											/>
-										)}
-									</form.AppField>
-									<form.AppField name="applicatorProfileId">
+					<form.Subscribe selector={(state) => state.values.productMode}>
+						{(productMode) =>
+							productMode === 'formulation' ? (
+								<div className="grid gap-5">
+									<form.AppField name="formulationId">
 										{(field) => (
 											<field.AutocompleteField
-												emptyValue={noSelectionValue}
-												label="Applicator"
-												options={profileOptions}
-												placeholder="Unassigned — search profiles"
+												emptyValue=""
+												label="Formulation"
+												required
+												onValueChange={(next, previousValue) => {
+													if (next === previousValue) {
+														return;
+													}
+													// The amount is entered in whatever the mix is
+													// batched in, so the unit comes from the mix.
+													form.setFieldValue(
+														'applicationUnitId',
+														formulationFor(next ?? '')?.batchUnitId ?? '',
+													);
+													// Lots belong to the products in the mix, so
+													// switching mixes starts them over.
+													form.setFieldValue('componentBatchIds', {});
+												}}
+												options={formulationOptions}
+												placeholder="Search formulations"
 											/>
 										)}
 									</form.AppField>
-									<form.AppField name="vehicleId">
-										{(field) => (
-											<field.SelectField
-												label="Vehicle"
-												options={optionalOptions(vehicleOptions, 'No vehicle')}
-												placeholder="No vehicle"
-											/>
-										)}
-									</form.AppField>
-									<form.AppField name="equipmentId">
-										{(field) => (
-											<field.SelectField
-												label="Equipment"
-												options={optionalOptions(equipmentOptions, 'No equipment')}
-												placeholder="No equipment"
-											/>
-										)}
-									</form.AppField>
-								</div>
-								<form.Subscribe selector={(state) => state.values.applicatorProfileId}>
-									{(applicatorProfileId) => (
-										<form.AppField name="additionalPersonnelIds">
+									<div className="grid gap-5 sm:grid-cols-2">
+										<form.AppField name="amountApplied">
 											{(field) => (
-												<field.MultiSelectField
-													emptyMessage="No profiles"
-													label="Additional personnel"
-													options={additionalPersonnelOptions(profiles, field.state.value, {
-														excludeProfileId:
-															applicatorProfileId === noSelectionValue ? null : applicatorProfileId,
-													})}
-													placeholder="Search profiles"
+												<field.NumberField
+													description="Finished mix that went out, not product."
+													label="Total mix applied"
+													required
+													min={0}
+													placeholder="e.g. 78"
 												/>
 											)}
 										</form.AppField>
-									)}
-								</form.Subscribe>
-							</FormSection>
-
-							{/* Agencies attach their own fields to an application method; render
-							    whichever the selected one declares, and nothing when it declares
-							    none (including when no method is chosen). */}
-							<form.Subscribe selector={(state) => state.values.applicationMethodId}>
-								{(methodId) => {
-									const schema = customSchemaFor(applicationMethods, methodId);
-									if (customFieldCount(schema) === 0) {
-										return null;
-									}
-									return (
-										<FormSection title="Custom Fields">
-											<form.AppField
-												name="metadata"
-												validators={{ onSubmit: validateSchemaMetadata(schema) }}
-											>
-												{(field) => (
-													<field.MetadataField
-														description="Extra details your agency collects for this method."
-														mode={{ kind: 'schema', schema }}
-													/>
-												)}
-											</form.AppField>
-										</FormSection>
-									);
-								}}
-							</form.Subscribe>
-
-							<FormSection title="Context">
-								<div className="grid gap-1.5">
-									<form.AppField name="habitatId">
+										<form.AppField name="applicationUnitId">
+											{(field) => (
+												<field.SelectField
+													description="Set by the mix."
+													disabled
+													label="Unit"
+													required
+													options={unitOptions(units, isApplicationUnitType)}
+													placeholder="Pick a formulation first"
+												/>
+											)}
+										</form.AppField>
+									</div>
+									<form.Subscribe
+										selector={(state) =>
+											[state.values.formulationId, state.values.amountApplied] as const
+										}
+									>
+										{([formulationId, amountApplied]) => (
+											<FormulationBreakdown
+												components={componentsFor(formulationId)}
+												formulation={formulationFor(formulationId)}
+												insecticides={insecticides}
+												totalAmount={amountApplied}
+												units={units}
+											/>
+										)}
+									</form.Subscribe>
+									{/* Lots are per product, so a mix asks once for each of its own. */}
+									<form.Subscribe selector={(state) => state.values.formulationId}>
+										{(formulationId) =>
+											componentsFor(formulationId).map((component) => (
+												<form.AppField
+													key={component.id}
+													name={`componentBatchIds.${component.insecticideId}`}
+												>
+													{(field) => (
+														<InsecticideBatchOptions insecticideId={component.insecticideId}>
+															{(options) => (
+																<field.MultiSelectField
+																	emptyMessage="No batches for this product"
+																	label={`${productLabel(insecticides, component.insecticideId)} batches`}
+																	options={options}
+																	placeholder="Search batches"
+																/>
+															)}
+														</InsecticideBatchOptions>
+													)}
+												</form.AppField>
+											))
+										}
+									</form.Subscribe>
+								</div>
+							) : (
+								<div className="grid gap-5">
+									<form.AppField name="insecticideId">
 										{(field) => (
-											<HabitatPicker
-												label="Habitat"
-												organizationId={organizationId}
-												onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
-												value={field.state.value}
+											<field.AutocompleteField
+												emptyValue=""
+												label="Insecticide"
+												required
+												onValueChange={(next, previousValue) => {
+													const chosen = insecticides.find((row) => row.id === next);
+													// The unit follows the product's default usage unit unless
+													// the user has explicitly chosen a different one — and
+													// always when the one they chose measures a different kind
+													// of quantity.
+													const previous = insecticides.find((row) => row.id === previousValue);
+													const currentUnit = form.state.values.applicationUnitId;
+													const unitIsDerived =
+														currentUnit === '' || currentUnit === previous?.defaultUnitId;
+													const nextUnitType = unitTypeFor(next ?? '');
+													const unitStillFits =
+														nextUnitType === null || unitTypeById.get(currentUnit) === nextUnitType;
+													if (unitIsDerived || !unitStillFits) {
+														form.setFieldValue('applicationUnitId', chosen?.defaultUnitId ?? '');
+													}
+													// Lots belong to one product, so changing the product
+													// drops them.
+													if (next !== previousValue) {
+														form.setFieldValue('insecticideBatchIds', []);
+													}
+												}}
+												options={insecticideOptions}
+												placeholder="Search insecticides"
 											/>
 										)}
 									</form.AppField>
-									<p className="m-0 text-muted-foreground text-xs">
-										Link the treatment to a known larval site. Leave it empty for standalone work.
-									</p>
+									<div className="grid gap-5 sm:grid-cols-2">
+										<form.AppField name="amountApplied">
+											{(field) => (
+												<field.NumberField
+													description="Total product applied across the treated area."
+													label="Amount applied"
+													required
+													min={0}
+													placeholder="e.g. 12.5"
+												/>
+											)}
+										</form.AppField>
+										<form.Subscribe selector={(state) => state.values.insecticideId}>
+											{(insecticideId) => (
+												<form.AppField name="applicationUnitId">
+													{(field) => (
+														<field.SelectField
+															label="Unit"
+															required
+															options={applicationUnitOptionsFor(insecticideId)}
+															placeholder="Select unit"
+														/>
+													)}
+												</form.AppField>
+											)}
+										</form.Subscribe>
+									</div>
+									{/* Lots are a property of the chosen product, so there is nothing to
+												    offer until one is picked. */}
+									<form.Subscribe selector={(state) => state.values.insecticideId}>
+										{(insecticideId) =>
+											insecticideId === '' ? null : (
+												<form.AppField name="insecticideBatchIds">
+													{(field) => (
+														<InsecticideBatchOptions insecticideId={insecticideId}>
+															{(options) => (
+																<field.MultiSelectField
+																	emptyMessage="No batches for this product"
+																	label="Batches"
+																	options={options}
+																	placeholder="Search batches"
+																/>
+															)}
+														</InsecticideBatchOptions>
+													)}
+												</form.AppField>
+											)
+										}
+									</form.Subscribe>
 								</div>
-							</FormSection>
+							)
+						}
+					</form.Subscribe>
+				</FormSection>
 
-							<div className="border-border/50 border-t pt-5">
-								<form.FormActions>
-									<form.ResetButton />
-									<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
-								</form.FormActions>
-							</div>
-						</form>
-					</form.AppForm>
-				</div>
-			</div>
-		</MapSplitPage>
+				<FormSection title="Work">
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="applicationDate">
+							{(field) => (
+								<DateControl
+									label="Application date"
+									required
+									onChange={field.handleChange}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+						<form.AppField name="applicationMethodId">
+							{(field) => (
+								<field.SelectField
+									label="Application method"
+									options={optionalOptions(methodOptions, 'No method')}
+									placeholder="No method"
+								/>
+							)}
+						</form.AppField>
+						<form.AppField name="applicatorProfileId">
+							{(field) => (
+								<field.AutocompleteField
+									emptyValue={noSelectionValue}
+									label="Applicator"
+									options={profileOptions}
+									placeholder="Unassigned — search profiles"
+								/>
+							)}
+						</form.AppField>
+						<form.AppField name="vehicleId">
+							{(field) => (
+								<field.SelectField
+									label="Vehicle"
+									options={optionalOptions(vehicleOptions, 'No vehicle')}
+									placeholder="No vehicle"
+								/>
+							)}
+						</form.AppField>
+						<form.AppField name="equipmentId">
+							{(field) => (
+								<field.SelectField
+									label="Equipment"
+									options={optionalOptions(equipmentOptions, 'No equipment')}
+									placeholder="No equipment"
+								/>
+							)}
+						</form.AppField>
+					</div>
+					<form.Subscribe selector={(state) => state.values.applicatorProfileId}>
+						{(applicatorProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId:
+												applicatorProfileId === noSelectionValue ? null : applicatorProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+				</FormSection>
+
+				{/* Agencies attach their own fields to an application method; render
+							    whichever the selected one declares, and nothing when it declares
+							    none (including when no method is chosen). */}
+				<form.Subscribe selector={(state) => state.values.applicationMethodId}>
+					{(methodId) => {
+						const schema = customSchemaFor(applicationMethods, methodId);
+						if (customFieldCount(schema) === 0) {
+							return null;
+						}
+						return (
+							<FormSection title="Custom Fields">
+								<form.AppField
+									name="metadata"
+									validators={{ onSubmit: validateSchemaMetadata(schema) }}
+								>
+									{(field) => (
+										<field.MetadataField
+											description="Extra details your agency collects for this method."
+											mode={{ kind: 'schema', schema }}
+										/>
+									)}
+								</form.AppField>
+							</FormSection>
+						);
+					}}
+				</form.Subscribe>
+
+				<FormSection title="Context">
+					<div className="grid gap-1.5">
+						<form.AppField name="habitatId">
+							{(field) => (
+								<HabitatPicker
+									label="Habitat"
+									organizationId={organizationId}
+									onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+						<p className="m-0 text-muted-foreground text-xs">
+							Link the treatment to a known larval site. Leave it empty for standalone work.
+						</p>
+					</div>
+				</FormSection>
+			</RecordFormPage>
+		</form.AppForm>
 	);
 }
 

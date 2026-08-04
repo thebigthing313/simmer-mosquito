@@ -1,16 +1,12 @@
 import { isBiocontrolUnitType, recordBiocontrolActionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { ControlMethodRow, HabitatRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
-import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -32,6 +28,7 @@ import {
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
+import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { todayDateValue } from '../-control-display';
@@ -309,240 +306,212 @@ export function BiocontrolFormPage({
 	}, []);
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					<MapCanvas
-						controls={{ layers: false }}
-						geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
-						onMapReady={handleMapReady}
-					/>
-					<DrawToolbar controller={draw} geometryType={geometryType} />
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						params={header.backParams ?? {}}
-						to={header.backTo}
-					>
-						<ArrowLeftIcon aria-hidden="true" />
-						{header.backLabel}
-					</Link>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							{header.title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
-					</div>
-				</header>
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				header={header}
+				map={
+					<>
+						<MapCanvas
+							controls={{ layers: false }}
+							geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
+							onMapReady={handleMapReady}
+						/>
+						<DrawToolbar controller={draw} geometryType={geometryType} />
+					</>
+				}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Biocontrol Action" />
+				{saveError === null ? null : (
+					<Alert variant="destructive">
+						<AlertTitle>Unable to Save Biocontrol Action</AlertTitle>
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
+				)}
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<form.AppForm>
-						<form
-							className="grid gap-6"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
+				<section
+					aria-labelledby="biocontrol-location-label"
+					className={cn(
+						'grid gap-4 rounded-md border bg-muted/30 p-4',
+						locationError === null ? 'border-border/50' : 'border-destructive/60',
+					)}
+				>
+					<div className="grid gap-0.5">
+						<span
+							className="font-semibold text-foreground text-sm leading-none"
+							id="biocontrol-location-label"
 						>
-							<form.FormErrorAlert title="Unable to Save Biocontrol Action" />
-							{saveError === null ? null : (
-								<Alert variant="destructive">
-									<AlertTitle>Unable to Save Biocontrol Action</AlertTitle>
-									<AlertDescription>{saveError}</AlertDescription>
-								</Alert>
-							)}
+							Location
+						</span>
+						<span className="text-muted-foreground text-xs">
+							The geometry is where the agents were released — a point for a single release, a line
+							or area for a distributed one. An address is optional reference.
+						</span>
+					</div>
 
-							<section
-								aria-labelledby="biocontrol-location-label"
-								className={cn(
-									'grid gap-4 rounded-md border bg-muted/30 p-4',
-									locationError === null ? 'border-border/50' : 'border-destructive/60',
-								)}
-							>
-								<div className="grid gap-0.5">
-									<span
-										className="font-semibold text-foreground text-sm leading-none"
-										id="biocontrol-location-label"
-									>
-										Location
-									</span>
-									<span className="text-muted-foreground text-xs">
-										The geometry is where the agents were released — a point for a single release, a
-										line or area for a distributed one. An address is optional reference.
-									</span>
-								</div>
-
-								<form.AppField name="addressId">
-									{(field) => (
-										<AddressPicker
-											create={{ requestMapPoint }}
-											label="Address"
-											onSelect={(address) => {
-												field.handleChange(address?.id ?? null);
-												setLocationError(null);
-												selectAddress(address);
-											}}
-											organizationId={organizationId}
-											value={field.state.value}
-										/>
-									)}
-								</form.AppField>
-
-								<GeometryControl
-									controller={draw}
-									geometry={geometry}
-									geometryType={geometryType}
-									label="Geometry"
-									required={requireLocation}
-									onClear={clearGeometry}
-									onDraw={startDraw}
-									onTypeChange={handleTypeChange}
-									organizationId={organizationId}
-									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
-								/>
-
-								{locationError === null ? null : (
-									<p className="m-0 text-destructive text-sm">{locationError}</p>
-								)}
-							</section>
-
-							<FormSection title="Release">
-								<form.AppField name="biocontrolMethodId">
-									{(field) => (
-										<field.SelectField
-											label="Biocontrol method"
-											required
-											options={methodOptions}
-											placeholder="Select method"
-										/>
-									)}
-								</form.AppField>
-								<div className="grid gap-5 sm:grid-cols-2">
-									<form.AppField name="amountReleased">
-										{(field) => (
-											<field.NumberField
-												label="Amount released"
-												required
-												min={0}
-												placeholder="e.g. 250"
-											/>
-										)}
-									</form.AppField>
-									<form.AppField name="releaseUnitId">
-										{(field) => (
-											<field.SelectField
-												label="Unit"
-												required
-												options={releaseUnitOptions}
-												placeholder="Select unit"
-											/>
-										)}
-									</form.AppField>
-								</div>
-							</FormSection>
-
-							{/* Agencies attach their own fields to a method; render whichever the
-							    selected one declares, and nothing when it declares none. */}
-							<form.Subscribe selector={(state) => state.values.biocontrolMethodId}>
-								{(methodId) => {
-									const schema = customSchemaFor(biocontrolMethods, methodId);
-									if (customFieldCount(schema) === 0) {
-										return null;
-									}
-									return (
-										<FormSection title="Custom Fields">
-											<form.AppField
-												name="metadata"
-												validators={{ onSubmit: validateSchemaMetadata(schema) }}
-											>
-												{(field) => (
-													<field.MetadataField
-														description="Extra details your agency collects for this method."
-														mode={{ kind: 'schema', schema }}
-													/>
-												)}
-											</form.AppField>
-										</FormSection>
-									);
+					<form.AppField name="addressId">
+						{(field) => (
+							<AddressPicker
+								create={{ requestMapPoint }}
+								label="Address"
+								onSelect={(address) => {
+									field.handleChange(address?.id ?? null);
+									setLocationError(null);
+									selectAddress(address);
 								}}
-							</form.Subscribe>
+								organizationId={organizationId}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
 
-							<FormSection title="Work">
-								<div className="grid gap-5 sm:grid-cols-2">
-									<form.AppField name="biocontrolDate">
-										{(field) => (
-											<DateControl
-												label="Release date"
-												required
-												onChange={(next) => field.handleChange(next)}
-												value={field.state.value}
-											/>
-										)}
-									</form.AppField>
-									<form.AppField name="technicianProfileId">
-										{(field) => (
-											<field.SelectField
-												label="Technician"
-												options={technicianOptions}
-												placeholder="Unassigned"
-											/>
-										)}
-									</form.AppField>
-								</div>
-								<form.Subscribe selector={(state) => state.values.technicianProfileId}>
-									{(technicianProfileId) => (
-										<form.AppField name="additionalPersonnelIds">
-											{(field) => (
-												<field.MultiSelectField
-													emptyMessage="No profiles"
-													label="Additional personnel"
-													options={additionalPersonnelOptions(profiles, field.state.value, {
-														excludeProfileId:
-															technicianProfileId === noTechnicianValue
-																? null
-																: technicianProfileId,
-													})}
-													placeholder="Search profiles"
-												/>
-											)}
-										</form.AppField>
+					<GeometryControl
+						controller={draw}
+						geometry={geometry}
+						geometryType={geometryType}
+						label="Geometry"
+						required={requireLocation}
+						onClear={clearGeometry}
+						onDraw={startDraw}
+						onTypeChange={handleTypeChange}
+						organizationId={organizationId}
+						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+					/>
+
+					{locationError === null ? null : (
+						<p className="m-0 text-destructive text-sm">{locationError}</p>
+					)}
+				</section>
+
+				<FormSection title="Release">
+					<form.AppField name="biocontrolMethodId">
+						{(field) => (
+							<field.SelectField
+								label="Biocontrol method"
+								required
+								options={methodOptions}
+								placeholder="Select method"
+							/>
+						)}
+					</form.AppField>
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="amountReleased">
+							{(field) => (
+								<field.NumberField
+									label="Amount released"
+									required
+									min={0}
+									placeholder="e.g. 250"
+								/>
+							)}
+						</form.AppField>
+						<form.AppField name="releaseUnitId">
+							{(field) => (
+								<field.SelectField
+									label="Unit"
+									required
+									options={releaseUnitOptions}
+									placeholder="Select unit"
+								/>
+							)}
+						</form.AppField>
+					</div>
+				</FormSection>
+
+				{/* Agencies attach their own fields to a method; render whichever the
+							    selected one declares, and nothing when it declares none. */}
+				<form.Subscribe selector={(state) => state.values.biocontrolMethodId}>
+					{(methodId) => {
+						const schema = customSchemaFor(biocontrolMethods, methodId);
+						if (customFieldCount(schema) === 0) {
+							return null;
+						}
+						return (
+							<FormSection title="Custom Fields">
+								<form.AppField
+									name="metadata"
+									validators={{ onSubmit: validateSchemaMetadata(schema) }}
+								>
+									{(field) => (
+										<field.MetadataField
+											description="Extra details your agency collects for this method."
+											mode={{ kind: 'schema', schema }}
+										/>
 									)}
-								</form.Subscribe>
-								<div className="grid gap-1.5">
-									<form.AppField name="habitatId">
-										{(field) => (
-											<HabitatPicker
-												label="Habitat"
-												organizationId={organizationId}
-												onSelect={(habitat) => {
-													field.handleChange(habitat?.id ?? null);
-													handleHabitatSelected(habitat);
-												}}
-												value={field.state.value}
-											/>
-										)}
-									</form.AppField>
-									<span className="text-muted-foreground text-xs">
-										Link the release to the larval site it was performed against.
-									</span>
-								</div>
+								</form.AppField>
 							</FormSection>
+						);
+					}}
+				</form.Subscribe>
 
-							<div className="border-border/50 border-t pt-5">
-								<form.FormActions>
-									<form.ResetButton />
-									<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
-								</form.FormActions>
-							</div>
-						</form>
-					</form.AppForm>
-				</div>
-			</div>
-		</MapSplitPage>
+				<FormSection title="Work">
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="biocontrolDate">
+							{(field) => (
+								<DateControl
+									label="Release date"
+									required
+									onChange={(next) => field.handleChange(next)}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+						<form.AppField name="technicianProfileId">
+							{(field) => (
+								<field.SelectField
+									label="Technician"
+									options={technicianOptions}
+									placeholder="Unassigned"
+								/>
+							)}
+						</form.AppField>
+					</div>
+					<form.Subscribe selector={(state) => state.values.technicianProfileId}>
+						{(technicianProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId:
+												technicianProfileId === noTechnicianValue ? null : technicianProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+					<div className="grid gap-1.5">
+						<form.AppField name="habitatId">
+							{(field) => (
+								<HabitatPicker
+									label="Habitat"
+									organizationId={organizationId}
+									onSelect={(habitat) => {
+										field.handleChange(habitat?.id ?? null);
+										handleHabitatSelected(habitat);
+									}}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+						<span className="text-muted-foreground text-xs">
+							Link the release to the larval site it was performed against.
+						</span>
+					</div>
+				</FormSection>
+			</RecordFormPage>
+		</form.AppForm>
 	);
 }
 

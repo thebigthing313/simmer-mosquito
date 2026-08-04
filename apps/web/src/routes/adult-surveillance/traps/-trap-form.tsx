@@ -1,14 +1,10 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { CollectionLureRow, CollectionMethodRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -20,6 +16,7 @@ import { type DrawPoint, useAddressPoint } from '../../../components/map/use-add
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { AddressPicker } from '../-adult-pickers';
 
@@ -210,172 +207,144 @@ export function TrapFormPage({
 	}, []);
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
-					<DrawToolbar
-						controller={draw}
-						geometryType="Point"
-						pointPrompt="Click the map to place the trap point."
-					/>
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						params={header.backParams ?? {}}
-						to={header.backTo}
-					>
-						<ArrowLeftIcon aria-hidden="true" />
-						{header.backLabel}
-					</Link>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							{header.title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
-					</div>
-				</header>
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				header={header}
+				map={
+					<>
+						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<DrawToolbar
+							controller={draw}
+							geometryType="Point"
+							pointPrompt="Click the map to place the trap point."
+						/>
+					</>
+				}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Trap" />
+				{saveError === null ? null : (
+					<Alert variant="destructive">
+						<AlertTitle>Unable to Save Trap</AlertTitle>
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
+				)}
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<form.AppForm>
-						<form
-							className="grid gap-6"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
+				<section
+					aria-labelledby="trap-location-label"
+					className={cn(
+						'grid gap-4 rounded-md border bg-muted/30 p-4',
+						locationError === null ? 'border-border/50' : 'border-destructive/60',
+					)}
+				>
+					<div className="grid gap-0.5">
+						<span
+							className="font-semibold text-foreground text-sm leading-none"
+							id="trap-location-label"
 						>
-							<form.FormErrorAlert title="Unable to Save Trap" />
-							{saveError === null ? null : (
-								<Alert variant="destructive">
-									<AlertTitle>Unable to Save Trap</AlertTitle>
-									<AlertDescription>{saveError}</AlertDescription>
-								</Alert>
-							)}
+							Location
+						</span>
+						<span className="text-muted-foreground text-xs">
+							The point is the trap’s exact location. An address is optional reference — refine the
+							point off it to the precise spot.
+						</span>
+					</div>
 
-							<section
-								aria-labelledby="trap-location-label"
-								className={cn(
-									'grid gap-4 rounded-md border bg-muted/30 p-4',
-									locationError === null ? 'border-border/50' : 'border-destructive/60',
-								)}
-							>
-								<div className="grid gap-0.5">
-									<span
-										className="font-semibold text-foreground text-sm leading-none"
-										id="trap-location-label"
-									>
-										Location
-									</span>
-									<span className="text-muted-foreground text-xs">
-										The point is the trap’s exact location. An address is optional reference —
-										refine the point off it to the precise spot.
-									</span>
-								</div>
+					<form.AppField name="addressId">
+						{(field) => (
+							<AddressPicker
+								create={{ requestMapPoint }}
+								label="Address"
+								onSelect={(address) => {
+									field.handleChange(address?.id ?? null);
+									setLocationError(null);
+									selectAddress(address);
+								}}
+								organizationId={organizationId}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
 
-								<form.AppField name="addressId">
-									{(field) => (
-										<AddressPicker
-											create={{ requestMapPoint }}
-											label="Address"
-											onSelect={(address) => {
-												field.handleChange(address?.id ?? null);
-												setLocationError(null);
-												selectAddress(address);
-											}}
-											organizationId={organizationId}
-											value={field.state.value}
-										/>
-									)}
-								</form.AppField>
+					<GeometryControl
+						allowedTypes={POINT_DRAW_TYPES}
+						controller={draw}
+						geometry={geometry}
+						geometryType="Point"
+						label="Point"
+						required={requireLocation}
+						onClear={clearPoint}
+						onDraw={startDraw}
+						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+					/>
 
-								<GeometryControl
-									allowedTypes={POINT_DRAW_TYPES}
-									controller={draw}
-									geometry={geometry}
-									geometryType="Point"
-									label="Point"
-									required={requireLocation}
-									onClear={clearPoint}
-									onDraw={startDraw}
-									{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+					{locationError === null ? null : (
+						<p className="m-0 text-destructive text-sm">{locationError}</p>
+					)}
+				</section>
+
+				<FormSection title="Configuration">
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="collectionMethodId">
+							{(field) => (
+								<field.SelectField
+									label="Collection method"
+									required
+									options={methodOptions}
+									placeholder="Select method"
 								/>
+							)}
+						</form.AppField>
+						<form.AppField name="collectionLureId">
+							{(field) => (
+								<field.SelectField
+									label="Lure"
+									options={lureOptions(collectionLures)}
+									placeholder="No lure"
+								/>
+							)}
+						</form.AppField>
+					</div>
+				</FormSection>
 
-								{locationError === null ? null : (
-									<p className="m-0 text-destructive text-sm">{locationError}</p>
-								)}
-							</section>
-
-							<FormSection title="Configuration">
-								<div className="grid gap-5 sm:grid-cols-2">
-									<form.AppField name="collectionMethodId">
-										{(field) => (
-											<field.SelectField
-												label="Collection method"
-												required
-												options={methodOptions}
-												placeholder="Select method"
-											/>
-										)}
-									</form.AppField>
-									<form.AppField name="collectionLureId">
-										{(field) => (
-											<field.SelectField
-												label="Lure"
-												options={lureOptions(collectionLures)}
-												placeholder="No lure"
-											/>
-										)}
-									</form.AppField>
-								</div>
-							</FormSection>
-
-							<FormSection title="Identity">
-								<div className="grid gap-5 sm:grid-cols-2">
-									<form.AppField name="trapName">
-										{(field) => (
-											<field.TextField label="Trap name" placeholder="e.g. North Basin CDC" />
-										)}
-									</form.AppField>
-									<form.AppField name="trapCode">
-										{(field) => <field.TextField label="Trap code" placeholder="e.g. NB-01" />}
-									</form.AppField>
-								</div>
-								<form.AppField name="description">
-									{(field) => (
-										<field.TextareaField
-											description="Access notes, mounting details, or anything crews should know."
-											label="Description"
-											placeholder="Add a description for this trap…"
-											rows={3}
-										/>
-									)}
-								</form.AppField>
-								<form.AppField name="isActive">
-									{(field) => (
-										<field.SwitchField
-											description="Inactive traps stay on record but drop out of active surveillance."
-											label="Active"
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-
-							<div className="border-border/50 border-t pt-5">
-								<form.FormActions>
-									<form.ResetButton />
-									<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
-								</form.FormActions>
-							</div>
-						</form>
-					</form.AppForm>
-				</div>
-			</div>
-		</MapSplitPage>
+				<FormSection title="Identity">
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="trapName">
+							{(field) => <field.TextField label="Trap name" placeholder="e.g. North Basin CDC" />}
+						</form.AppField>
+						<form.AppField name="trapCode">
+							{(field) => <field.TextField label="Trap code" placeholder="e.g. NB-01" />}
+						</form.AppField>
+					</div>
+					<form.AppField name="description">
+						{(field) => (
+							<field.TextareaField
+								description="Access notes, mounting details, or anything crews should know."
+								label="Description"
+								placeholder="Add a description for this trap…"
+								rows={3}
+							/>
+						)}
+					</form.AppField>
+					<form.AppField name="isActive">
+						{(field) => (
+							<field.SwitchField
+								description="Inactive traps stay on record but drop out of active surveillance."
+								label="Active"
+							/>
+						)}
+					</form.AppField>
+				</FormSection>
+			</RecordFormPage>
+		</form.AppForm>
 	);
 }
 

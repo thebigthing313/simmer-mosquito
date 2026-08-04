@@ -12,17 +12,13 @@ import type {
 	TrapRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -41,6 +37,7 @@ import {
 	type MetadataValue,
 	validateSchemaMetadata,
 } from '../../../forms/field-components';
+import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
@@ -341,283 +338,254 @@ export function CollectionFormPage({
 	});
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					<MapCanvas
-						controls={{ layers: false }}
-						geoJson={trapPoint as unknown as GeoJSON.GeoJSON | null}
-						onMapReady={handleMapReady}
-					/>
-					<DrawToolbar
-						controller={draw}
-						geometryType="Point"
-						pointPrompt="Click the map to place the collection point."
-					/>
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						params={header.backParams ?? {}}
-						to={header.backTo}
-					>
-						<ArrowLeftIcon aria-hidden="true" />
-						{header.backLabel}
-					</Link>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							{header.title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
-					</div>
-				</header>
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				header={header}
+				map={
+					<>
+						<MapCanvas
+							controls={{ layers: false }}
+							geoJson={trapPoint as unknown as GeoJSON.GeoJSON | null}
+							onMapReady={handleMapReady}
+						/>
+						<DrawToolbar
+							controller={draw}
+							geometryType="Point"
+							pointPrompt="Click the map to place the collection point."
+						/>
+					</>
+				}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Collection" />
+				{saveError === null ? null : (
+					<Alert variant="destructive">
+						<AlertTitle>Unable to Save Collection</AlertTitle>
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
+				)}
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<form.AppForm>
-						<form
-							className="grid gap-6"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
-						>
-							<form.FormErrorAlert title="Unable to Save Collection" />
-							{saveError === null ? null : (
-								<Alert variant="destructive">
-									<AlertTitle>Unable to Save Collection</AlertTitle>
-									<AlertDescription>{saveError}</AlertDescription>
-								</Alert>
-							)}
-
-							<FormSection title="Source">
-								<form.AppField name="sourceMode">
-									{(field) => (
-										<ToggleGroup
-											aria-label="Collection source"
-											className="w-full"
-											disabled={lockSourceMode}
-											onValueChange={(next) => {
-												if (next === 'trap' || next === 'adhoc') {
-													field.handleChange(next);
-												}
-											}}
-											size="sm"
-											type="single"
-											value={field.state.value}
-											variant="outline"
-										>
-											<ToggleGroupItem className="flex-1 text-xs" value="trap">
-												Existing trap
-											</ToggleGroupItem>
-											<ToggleGroupItem className="flex-1 text-xs" value="adhoc">
-												One-off collection
-											</ToggleGroupItem>
-										</ToggleGroup>
-									)}
-								</form.AppField>
-
-								<form.Subscribe selector={(state) => state.values.sourceMode}>
-									{(sourceMode) =>
-										sourceMode === 'trap' ? (
-											<form.AppField name="trapId">
-												{(field) => (
-													<div className="grid gap-2">
-														<TrapPicker
-															onSelect={(trap) => {
-																field.handleChange(trap?.id ?? null);
-																setSelectedTrap(trap);
-																// Derive method + lure from the trap.
-																form.setFieldValue(
-																	'collectionMethodId',
-																	trap?.collectionMethodId ?? '',
-																);
-																form.setFieldValue(
-																	'collectionLureId',
-																	trap?.collectionLureId ?? noLureValue,
-																);
-															}}
-															traps={traps}
-															value={field.state.value}
-														/>
-														{selectedTrap === null ? null : (
-															<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
-																Method:{' '}
-																<span className="font-medium text-foreground">
-																	{methodNameById.get(selectedTrap.collectionMethodId) ??
-																		'Unknown method'}
-																</span>{' '}
-																· inherited from the trap.
-															</p>
-														)}
-													</div>
-												)}
-											</form.AppField>
-										) : (
-											<div className="grid gap-5">
-												<form.AppField name="collectionMethodId">
-													{(field) => (
-														<field.SelectField
-															label="Collection method"
-															required
-															options={methodOptions}
-															placeholder="Select method"
-														/>
-													)}
-												</form.AppField>
-												<section
-													aria-label="Collection location"
-													className={cn(
-														'grid gap-4 rounded-md border bg-muted/30 p-4',
-														locationError === null ? 'border-border/50' : 'border-destructive/60',
-													)}
-												>
-													<p className="m-0 text-muted-foreground text-xs">
-														The point is this collection’s exact location. An address is optional
-														reference — refine the point off it to the precise spot.
-													</p>
-													<form.AppField name="addressId">
-														{(field) => (
-															<AddressPicker
-																create={{ requestMapPoint }}
-																label="Address"
-																onSelect={(address) => {
-																	field.handleChange(address?.id ?? null);
-																	setLocationError(null);
-																	selectAddress(address);
-																}}
-																organizationId={organizationId}
-																value={field.state.value}
-															/>
-														)}
-													</form.AppField>
-													<GeometryControl
-														allowedTypes={POINT_DRAW_TYPES}
-														controller={draw}
-														geometry={geometry}
-														geometryType="Point"
-														label="Point"
-														required
-														onClear={clearPoint}
-														onDraw={startDraw}
-														{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
-													/>
-													{locationError === null ? null : (
-														<p className="m-0 text-destructive text-sm">{locationError}</p>
-													)}
-												</section>
-											</div>
-										)
+				<FormSection title="Source">
+					<form.AppField name="sourceMode">
+						{(field) => (
+							<ToggleGroup
+								aria-label="Collection source"
+								className="w-full"
+								disabled={lockSourceMode}
+								onValueChange={(next) => {
+									if (next === 'trap' || next === 'adhoc') {
+										field.handleChange(next);
 									}
-								</form.Subscribe>
-
-								<form.AppField name="collectionLureId">
-									{(field) => (
-										<field.SelectField
-											label="Lure"
-											options={lureOptions(collectionLures)}
-											placeholder="No lure"
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-
-							{/* Agencies attach their own fields to a collection method; render
-							    whichever the method on this collection declares — whether it was
-							    picked directly or inherited from the trap. */}
-							<form.Subscribe selector={(state) => state.values.collectionMethodId}>
-								{(methodId) => {
-									const schema = customSchemaFor(collectionMethods, methodId);
-									if (customFieldCount(schema) === 0) {
-										return null;
-									}
-									return (
-										<FormSection title="Custom Fields">
-											<form.AppField
-												name="metadata"
-												validators={{ onSubmit: validateSchemaMetadata(schema) }}
-											>
-												{(field) => (
-													<field.MetadataField
-														description="Extra details your agency collects for this method."
-														mode={{ kind: 'schema', schema }}
-													/>
-												)}
-											</form.AppField>
-										</FormSection>
-									);
 								}}
-							</form.Subscribe>
+								size="sm"
+								type="single"
+								value={field.state.value}
+								variant="outline"
+							>
+								<ToggleGroupItem className="flex-1 text-xs" value="trap">
+									Existing trap
+								</ToggleGroupItem>
+								<ToggleGroupItem className="flex-1 text-xs" value="adhoc">
+									One-off collection
+								</ToggleGroupItem>
+							</ToggleGroup>
+						)}
+					</form.AppField>
 
-							<TimingSection form={form} units={units} />
-
-							<FormSection title="Personnel">
-								<div className="grid gap-5 sm:grid-cols-2">
-									<form.AppField name="setByProfileId">
+					<form.Subscribe selector={(state) => state.values.sourceMode}>
+						{(sourceMode) =>
+							sourceMode === 'trap' ? (
+								<form.AppField name="trapId">
+									{(field) => (
+										<div className="grid gap-2">
+											<TrapPicker
+												onSelect={(trap) => {
+													field.handleChange(trap?.id ?? null);
+													setSelectedTrap(trap);
+													// Derive method + lure from the trap.
+													form.setFieldValue('collectionMethodId', trap?.collectionMethodId ?? '');
+													form.setFieldValue(
+														'collectionLureId',
+														trap?.collectionLureId ?? noLureValue,
+													);
+												}}
+												traps={traps}
+												value={field.state.value}
+											/>
+											{selectedTrap === null ? null : (
+												<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
+													Method:{' '}
+													<span className="font-medium text-foreground">
+														{methodNameById.get(selectedTrap.collectionMethodId) ??
+															'Unknown method'}
+													</span>{' '}
+													· inherited from the trap.
+												</p>
+											)}
+										</div>
+									)}
+								</form.AppField>
+							) : (
+								<div className="grid gap-5">
+									<form.AppField name="collectionMethodId">
 										{(field) => (
 											<field.SelectField
-												label="Set by"
-												options={profileOptions(profiles)}
-												placeholder="Unassigned"
+												label="Collection method"
+												required
+												options={methodOptions}
+												placeholder="Select method"
 											/>
 										)}
 									</form.AppField>
-									<form.AppField name="collectedByProfileId">
-										{(field) => (
-											<field.SelectField
-												label="Collected by"
-												options={profileOptions(profiles)}
-												placeholder="Unassigned"
-											/>
+									<section
+										aria-label="Collection location"
+										className={cn(
+											'grid gap-4 rounded-md border bg-muted/30 p-4',
+											locationError === null ? 'border-border/50' : 'border-destructive/60',
 										)}
-									</form.AppField>
-								</div>
-								<form.Subscribe selector={(state) => state.values.collectedByProfileId}>
-									{(collectedByProfileId) => (
-										<form.AppField name="additionalPersonnelIds">
+									>
+										<p className="m-0 text-muted-foreground text-xs">
+											The point is this collection’s exact location. An address is optional
+											reference — refine the point off it to the precise spot.
+										</p>
+										<form.AppField name="addressId">
 											{(field) => (
-												<field.MultiSelectField
-													emptyMessage="No profiles"
-													label="Additional personnel"
-													options={additionalPersonnelOptions(profiles, field.state.value, {
-														excludeProfileId: collectedByProfileId,
-													})}
-													placeholder="Search profiles"
+												<AddressPicker
+													create={{ requestMapPoint }}
+													label="Address"
+													onSelect={(address) => {
+														field.handleChange(address?.id ?? null);
+														setLocationError(null);
+														selectAddress(address);
+													}}
+													organizationId={organizationId}
+													value={field.state.value}
 												/>
 											)}
 										</form.AppField>
-									)}
-								</form.Subscribe>
-							</FormSection>
+										<GeometryControl
+											allowedTypes={POINT_DRAW_TYPES}
+											controller={draw}
+											geometry={geometry}
+											geometryType="Point"
+											label="Point"
+											required
+											onClear={clearPoint}
+											onDraw={startDraw}
+											{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+										/>
+										{locationError === null ? null : (
+											<p className="m-0 text-destructive text-sm">{locationError}</p>
+										)}
+									</section>
+								</div>
+							)
+						}
+					</form.Subscribe>
 
-							<FormSection title="Results">
-								<form.AppField name="hasProblem">
+					<form.AppField name="collectionLureId">
+						{(field) => (
+							<field.SelectField
+								label="Lure"
+								options={lureOptions(collectionLures)}
+								placeholder="No lure"
+							/>
+						)}
+					</form.AppField>
+				</FormSection>
+
+				{/* Agencies attach their own fields to a collection method; render
+							    whichever the method on this collection declares — whether it was
+							    picked directly or inherited from the trap. */}
+				<form.Subscribe selector={(state) => state.values.collectionMethodId}>
+					{(methodId) => {
+						const schema = customSchemaFor(collectionMethods, methodId);
+						if (customFieldCount(schema) === 0) {
+							return null;
+						}
+						return (
+							<FormSection title="Custom Fields">
+								<form.AppField
+									name="metadata"
+									validators={{ onSubmit: validateSchemaMetadata(schema) }}
+								>
 									{(field) => (
-										<field.SwitchField
-											description="Flag if the trap failed, was tampered with, or the sample is compromised."
-											label="Problem with this collection"
+										<field.MetadataField
+											description="Extra details your agency collects for this method."
+											mode={{ kind: 'schema', schema }}
 										/>
 									)}
 								</form.AppField>
-								<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2.5 text-muted-foreground text-sm">
-									Record the species identified — and mark a zero result or bycatch — on the
-									collection’s detail page after saving.
-								</p>
 							</FormSection>
+						);
+					}}
+				</form.Subscribe>
 
-							<div className="border-border/50 border-t pt-5">
-								<form.FormActions>
-									<form.ResetButton />
-									<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
-								</form.FormActions>
-							</div>
-						</form>
-					</form.AppForm>
-				</div>
-			</div>
-		</MapSplitPage>
+				<TimingSection form={form} units={units} />
+
+				<FormSection title="Personnel">
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="setByProfileId">
+							{(field) => (
+								<field.SelectField
+									label="Set by"
+									options={profileOptions(profiles)}
+									placeholder="Unassigned"
+								/>
+							)}
+						</form.AppField>
+						<form.AppField name="collectedByProfileId">
+							{(field) => (
+								<field.SelectField
+									label="Collected by"
+									options={profileOptions(profiles)}
+									placeholder="Unassigned"
+								/>
+							)}
+						</form.AppField>
+					</div>
+					<form.Subscribe selector={(state) => state.values.collectedByProfileId}>
+						{(collectedByProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId: collectedByProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+				</FormSection>
+
+				<FormSection title="Results">
+					<form.AppField name="hasProblem">
+						{(field) => (
+							<field.SwitchField
+								description="Flag if the trap failed, was tampered with, or the sample is compromised."
+								label="Problem with this collection"
+							/>
+						)}
+					</form.AppField>
+					<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2.5 text-muted-foreground text-sm">
+						Record the species identified — and mark a zero result or bycatch — on the collection’s
+						detail page after saving.
+					</p>
+				</FormSection>
+			</RecordFormPage>
+		</form.AppForm>
 	);
 }
 

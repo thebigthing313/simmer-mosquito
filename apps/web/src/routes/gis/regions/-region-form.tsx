@@ -1,14 +1,10 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createRegionCommand } from '@simmer-mosquito/domain';
 import type { RegionFolderRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -20,6 +16,7 @@ import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-d
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import type { MetadataValue } from '../../../forms/field-components';
+import { RecordFormPage } from '../../../forms/form-components';
 
 /**
  * Domain issue path → the form field holding it. Geometry is drawn on the map,
@@ -160,140 +157,113 @@ export function RegionFormPage({
 	}, []);
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
-					<DrawToolbar controller={draw} geometryType="Polygon" />
-					<MapLegend mode={mode} />
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						params={header.backParams ?? {}}
-						to={header.backTo}
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				gap="tight"
+				header={header}
+				map={
+					<>
+						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<DrawToolbar controller={draw} geometryType="Polygon" />
+						<MapLegend mode={mode} />
+					</>
+				}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Region" />
+				{saveError === null ? null : (
+					<Alert variant="destructive">
+						<AlertTitle>Unable to Save Region</AlertTitle>
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
+				)}
+
+				<div className="grid gap-5 sm:grid-cols-2">
+					<form.AppField
+						name="name"
+						validators={{
+							onSubmit: ({ value }) =>
+								value.trim().length === 0 ? 'Name is required.' : undefined,
+						}}
 					>
-						<ArrowLeftIcon aria-hidden="true" />
-						{header.backLabel}
-					</Link>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							{header.title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
-					</div>
-				</header>
-
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<form.AppForm>
-						<form
-							className="grid gap-5"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
-						>
-							<form.FormErrorAlert title="Unable to Save Region" />
-							{saveError === null ? null : (
-								<Alert variant="destructive">
-									<AlertTitle>Unable to Save Region</AlertTitle>
-									<AlertDescription>{saveError}</AlertDescription>
-								</Alert>
-							)}
-
-							<div className="grid gap-5 sm:grid-cols-2">
-								<form.AppField
-									name="name"
-									validators={{
-										onSubmit: ({ value }) =>
-											value.trim().length === 0 ? 'Name is required.' : undefined,
-									}}
-								>
-									{(field) => (
-										<field.TextField label="Name" required placeholder="e.g. North district" />
-									)}
-								</form.AppField>
-								<form.AppField name="regionFolderId">
-									{(field) => (
-										<field.SelectField
-											label="Folder"
-											options={folderOptions(activeFolders)}
-											placeholder="Unfiled"
-										/>
-									)}
-								</form.AppField>
-							</div>
-
-							<section
-								aria-labelledby="region-geometry-label"
-								className={cn(
-									'grid gap-3 rounded-md border bg-muted/30 p-4',
-									geometryError === null ? 'border-border/50' : 'border-destructive/60',
-								)}
-							>
-								<div className="grid gap-0.5">
-									<span
-										className="font-semibold text-foreground text-sm leading-none"
-										id="region-geometry-label"
-									>
-										Region boundary
-									</span>
-									<span className="text-muted-foreground text-xs">
-										Draw the region's area on the map.
-									</span>
-								</div>
-
-								<GeometryControl
-									allowedTypes={POLYGON_DRAW_TYPES}
-									controller={draw}
-									geometry={geometry}
-									geometryType="Polygon"
-									label="Boundary"
-									onClear={clearGeometry}
-									onDraw={startDraw}
-									required
-								/>
-
-								{geometryError === null ? null : (
-									<p className="m-0 text-destructive text-sm">{geometryError}</p>
-								)}
-							</section>
-
-							<form.AppField name="description">
-								{(field) => (
-									<field.TextareaField
-										description="Optional context — what this region covers and how it's used."
-										label="Description"
-										placeholder="Describe the region…"
-										rows={3}
-									/>
-								)}
-							</form.AppField>
-
-							<form.AppField name="metadata">
-								{(field) => (
-									<field.MetadataField
-										description="Optional structured notes for agency-specific region details."
-										label="Metadata"
-										mode={{ kind: 'manual' }}
-									/>
-								)}
-							</form.AppField>
-
-							<div className="border-border/50 border-t pt-5">
-								<form.FormActions>
-									<form.ResetButton />
-									<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
-								</form.FormActions>
-							</div>
-						</form>
-					</form.AppForm>
+						{(field) => <field.TextField label="Name" required placeholder="e.g. North district" />}
+					</form.AppField>
+					<form.AppField name="regionFolderId">
+						{(field) => (
+							<field.SelectField
+								label="Folder"
+								options={folderOptions(activeFolders)}
+								placeholder="Unfiled"
+							/>
+						)}
+					</form.AppField>
 				</div>
-			</div>
-		</MapSplitPage>
+
+				<section
+					aria-labelledby="region-geometry-label"
+					className={cn(
+						'grid gap-3 rounded-md border bg-muted/30 p-4',
+						geometryError === null ? 'border-border/50' : 'border-destructive/60',
+					)}
+				>
+					<div className="grid gap-0.5">
+						<span
+							className="font-semibold text-foreground text-sm leading-none"
+							id="region-geometry-label"
+						>
+							Region boundary
+						</span>
+						<span className="text-muted-foreground text-xs">
+							Draw the region's area on the map.
+						</span>
+					</div>
+
+					<GeometryControl
+						allowedTypes={POLYGON_DRAW_TYPES}
+						controller={draw}
+						geometry={geometry}
+						geometryType="Polygon"
+						label="Boundary"
+						onClear={clearGeometry}
+						onDraw={startDraw}
+						required
+					/>
+
+					{geometryError === null ? null : (
+						<p className="m-0 text-destructive text-sm">{geometryError}</p>
+					)}
+				</section>
+
+				<form.AppField name="description">
+					{(field) => (
+						<field.TextareaField
+							description="Optional context — what this region covers and how it's used."
+							label="Description"
+							placeholder="Describe the region…"
+							rows={3}
+						/>
+					)}
+				</form.AppField>
+
+				<form.AppField name="metadata">
+					{(field) => (
+						<field.MetadataField
+							description="Optional structured notes for agency-specific region details."
+							label="Metadata"
+							mode={{ kind: 'manual' }}
+						/>
+					)}
+				</form.AppField>
+			</RecordFormPage>
+		</form.AppForm>
 	);
 }
 

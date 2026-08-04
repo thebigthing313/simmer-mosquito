@@ -5,16 +5,12 @@ import {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow, ProfileRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -34,6 +30,7 @@ import type { RequestMapPoint } from '../../../components/pickers/new-address-fo
 import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import {
 	CONTACT_FIELD_PATHS,
@@ -264,133 +261,107 @@ export function ServiceRequestFormPage({
 	});
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
-					<DrawToolbar
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				header={header}
+				map={
+					<>
+						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<DrawToolbar
+							controller={draw}
+							geometryType="Point"
+							pointPrompt="Click the map to place the request location."
+						/>
+					</>
+				}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Service Request" />
+				{saveError === null ? null : (
+					<Alert variant="destructive">
+						<AlertTitle>Unable to Save Service Request</AlertTitle>
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
+				)}
+
+				<ContactSection
+					disableNewContact={disableNewContact}
+					form={form}
+					organizationId={organizationId}
+				/>
+
+				{hideLocation ? null : (
+					<LocationSection
+						addressCoord={addressCoord}
 						controller={draw}
-						geometryType="Point"
-						pointPrompt="Click the map to place the request location."
+						form={form}
+						geometry={geometry}
+						locationError={locationError}
+						onAddressSelected={handleAddressSelected}
+						onClearPoint={clearPoint}
+						onDrawPoint={startDraw}
+						onMoveToAddress={moveToAddress}
+						organizationId={organizationId}
+						requestMapPoint={requestMapPoint}
+						requireLocation={requireLocation}
 					/>
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						params={header.backParams ?? {}}
-						to={header.backTo}
-					>
-						<ArrowLeftIcon aria-hidden="true" />
-						{header.backLabel}
-					</Link>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							{header.title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
-					</div>
-				</header>
+				)}
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<form.AppForm>
-						<form
-							className="grid gap-6"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
-						>
-							<form.FormErrorAlert title="Unable to Save Service Request" />
-							{saveError === null ? null : (
-								<Alert variant="destructive">
-									<AlertTitle>Unable to Save Service Request</AlertTitle>
-									<AlertDescription>{saveError}</AlertDescription>
-								</Alert>
-							)}
-
-							<ContactSection
-								disableNewContact={disableNewContact}
-								form={form}
-								organizationId={organizationId}
-							/>
-
-							{hideLocation ? null : (
-								<LocationSection
-									addressCoord={addressCoord}
-									controller={draw}
-									form={form}
-									geometry={geometry}
-									locationError={locationError}
-									onAddressSelected={handleAddressSelected}
-									onClearPoint={clearPoint}
-									onDrawPoint={startDraw}
-									onMoveToAddress={moveToAddress}
-									organizationId={organizationId}
-									requestMapPoint={requestMapPoint}
-									requireLocation={requireLocation}
+				<FormSection title="Request">
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="intakeType">
+							{(field) => (
+								<field.SelectField
+									label="Intake type"
+									required
+									options={INTAKE_TYPE_OPTIONS}
+									placeholder="Select intake type"
 								/>
 							)}
-
-							<FormSection title="Request">
-								<div className="grid gap-5 sm:grid-cols-2">
-									<form.AppField name="intakeType">
-										{(field) => (
-											<field.SelectField
-												label="Intake type"
-												required
-												options={INTAKE_TYPE_OPTIONS}
-												placeholder="Select intake type"
-											/>
-										)}
-									</form.AppField>
-									<form.AppField name="requestDate">
-										{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-										{(field: any) => (
-											<DateControl
-												label="Request date"
-												required
-												onChange={(next) => field.handleChange(next ?? '')}
-												value={field.state.value}
-											/>
-										)}
-									</form.AppField>
-								</div>
-								<form.AppField name="receivedByProfileId">
-									{(field) => (
-										<field.SelectField
-											label="Received by"
-											options={profileOptions}
-											placeholder="Select a profile"
-										/>
-									)}
-								</form.AppField>
-								<form.AppField name="details">
-									{(field) => (
-										<field.TextareaField
-											description="What the caller reported — location details, mosquito activity, standing water, etc."
-											label="Details"
-											required
-											placeholder="Describe the request…"
-											rows={4}
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-
-							<div className="border-border/50 border-t pt-5">
-								<form.FormActions>
-									<form.ResetButton />
-									<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
-								</form.FormActions>
-							</div>
-						</form>
-					</form.AppForm>
-				</div>
-			</div>
-		</MapSplitPage>
+						</form.AppField>
+						<form.AppField name="requestDate">
+							{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+							{(field: any) => (
+								<DateControl
+									label="Request date"
+									required
+									onChange={(next) => field.handleChange(next ?? '')}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+					</div>
+					<form.AppField name="receivedByProfileId">
+						{(field) => (
+							<field.SelectField
+								label="Received by"
+								options={profileOptions}
+								placeholder="Select a profile"
+							/>
+						)}
+					</form.AppField>
+					<form.AppField name="details">
+						{(field) => (
+							<field.TextareaField
+								description="What the caller reported — location details, mosquito activity, standing water, etc."
+								label="Details"
+								required
+								placeholder="Describe the request…"
+								rows={4}
+							/>
+						)}
+					</form.AppField>
+				</FormSection>
+			</RecordFormPage>
+		</form.AppForm>
 	);
 }
 
