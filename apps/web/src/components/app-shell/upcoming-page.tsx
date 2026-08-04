@@ -68,11 +68,11 @@ const habitatRoutes: Elsewhere = {
 	to: '/larval-surveillance/habitats/routes',
 	icon: iconRegistry.entities.route.icon,
 };
-const people: Elsewhere = {
-	label: 'People',
-	description: 'Profiles and memberships for your agency',
-	to: '/my-organization/people',
-	icon: iconRegistry.entities.organization.icon,
+const assignments: Elsewhere = {
+	label: 'Assignments',
+	description: 'Ordered worklists crews already work from',
+	to: '/operations/assignments',
+	icon: iconRegistry.entities.vehicle.icon,
 };
 const collections: Elsewhere = {
 	label: 'Collections',
@@ -118,7 +118,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 		],
 		elsewhere: [serviceRequests, larvalOverview, adultOverview],
 	},
-	'/missions': {
+	'/operations/missions': {
 		title: 'Missions',
 		summary:
 			'Planned dispatch work: an ordered set of stops, a responsible crew lead, and a lifecycle that runs from scheduled through completed.',
@@ -127,20 +127,9 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 			'Ordered mission items, each carrying its own progress',
 			'Provenance from a planned stop to the control action actually performed',
 		],
-		elsewhere: [trapRoutes, habitatRoutes, controlOverview],
+		elsewhere: [assignments, habitatRoutes, controlOverview],
 	},
-	'/assignments': {
-		title: 'Assignments',
-		summary:
-			'Crew ownership of field records: who is responsible for which traps, habitats, and requests, and over what period.',
-		willLand: [
-			'Typed assignment items pointing at surveillance and control records',
-			'Crew workload across a date range',
-			'Handover when ownership changes mid-period',
-		],
-		elsewhere: [people, trapRoutes, habitatRoutes],
-	},
-	'/requests-for-control': {
+	'/operations/requests-for-control': {
 		title: 'Requests for Control',
 		summary:
 			'Control work that has been requested but not yet performed — the queue missions draw their stops from.',
