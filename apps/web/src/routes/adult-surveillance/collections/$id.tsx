@@ -76,6 +76,8 @@ import {
 	collectionTitle,
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
+	SpeciesSexBadge,
+	SpeciesStatusBadge,
 	speciesSexLabel,
 	speciesStatusLabel,
 	trapDisplayName,
@@ -302,6 +304,10 @@ function ResultsCard({
 		() => species.map((row) => ({ value: row.id, label: row.displayName })),
 		[species],
 	);
+	const speciesNameById = useMemo(
+		() => new Map(species.map((row) => [row.id, row.displayName])),
+		[species],
+	);
 
 	const result = useLiveQuery(
 		{
@@ -473,16 +479,23 @@ function ResultsCard({
 									</TableRow>
 								</TableHeader>
 								<TableBody>
-									{entries.map((entry) => (
-										<EditableSpeciesRow
-											canEdit={canEdit}
-											entry={entry}
-											key={entry.id}
-											onChange={updateSpecies}
-											onRemove={removeSpecies}
-											speciesOptions={speciesOptions}
-										/>
-									))}
+									{entries.map((entry) =>
+										canEdit ? (
+											<EditableSpeciesRow
+												entry={entry}
+												key={entry.id}
+												onChange={updateSpecies}
+												onRemove={removeSpecies}
+												speciesOptions={speciesOptions}
+											/>
+										) : (
+											<ReadOnlySpeciesRow
+												entry={entry}
+												key={entry.id}
+												speciesName={speciesNameById.get(entry.speciesId) ?? 'Unknown species'}
+											/>
+										),
+									)}
 								</TableBody>
 							</Table>
 						</div>
@@ -527,16 +540,46 @@ function ResultsCard({
 	);
 }
 
+/**
+ * A recorded specimen line as a viewer sees it: the values themselves, not the
+ * editor's controls greyed out. A disabled input offers an affordance that cannot
+ * be used and renders its own content muted, which is the harder thing to read of
+ * the two. Larval samples present their read-only results the same way.
+ */
+function ReadOnlySpeciesRow({
+	entry,
+	speciesName,
+}: {
+	readonly entry: SpeciesEntry;
+	readonly speciesName: string;
+}) {
+	return (
+		<TableRow>
+			<TableCell>
+				<span className="italic">{speciesName}</span>
+			</TableCell>
+			<TableCell>
+				{entry.sex === null ? <EmptyValue /> : <SpeciesSexBadge sex={entry.sex} />}
+			</TableCell>
+			<TableCell>
+				{entry.status === null ? <EmptyValue /> : <SpeciesStatusBadge status={entry.status} />}
+			</TableCell>
+			{/* The column header already says Count, so the number stands on its own. */}
+			<TableCell className="text-right font-medium tabular-nums">
+				{entry.count.toLocaleString()}
+			</TableCell>
+		</TableRow>
+	);
+}
+
 function EditableSpeciesRow({
 	entry,
 	speciesOptions,
-	canEdit,
 	onChange,
 	onRemove,
 }: {
 	readonly entry: SpeciesEntry;
 	readonly speciesOptions: readonly SpeciesOption[];
-	readonly canEdit: boolean;
 	readonly onChange: (
 		entryId: string,
 		changes: Partial<Pick<CollectionSpeciesRow, 'speciesId' | 'sex' | 'status' | 'count'>>,
@@ -548,7 +591,6 @@ function EditableSpeciesRow({
 			<TableCell>
 				<Autocomplete
 					aria-label="Species"
-					disabled={!canEdit}
 					onValueChange={(next) => {
 						// Clearing has no meaning here — a recorded specimen is always some
 						// species — so only a real selection writes.
@@ -565,7 +607,6 @@ function EditableSpeciesRow({
 			</TableCell>
 			<TableCell>
 				<Select
-					disabled={!canEdit}
 					onValueChange={(next) =>
 						onChange(entry.id, { sex: next === 'unset' ? null : (next as SpeciesSex) })
 					}
@@ -585,7 +626,6 @@ function EditableSpeciesRow({
 			</TableCell>
 			<TableCell>
 				<Select
-					disabled={!canEdit}
 					onValueChange={(next) =>
 						onChange(entry.id, { status: next === 'unset' ? null : (next as SpeciesStatus) })
 					}
@@ -605,24 +645,21 @@ function EditableSpeciesRow({
 			</TableCell>
 			<TableCell>
 				<SpeciesCountCell
-					disabled={!canEdit}
 					onCommit={(next) => onChange(entry.id, { count: next })}
 					value={entry.count}
 				/>
 			</TableCell>
-			{canEdit ? (
-				<TableCell className="text-right">
-					<Button
-						aria-label="Remove species"
-						onClick={() => onRemove(entry.id)}
-						size="icon"
-						type="button"
-						variant="ghost"
-					>
-						<DeleteIcon aria-hidden="true" className="size-4" />
-					</Button>
-				</TableCell>
-			) : null}
+			<TableCell className="text-right">
+				<Button
+					aria-label="Remove species"
+					onClick={() => onRemove(entry.id)}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					<DeleteIcon aria-hidden="true" className="size-4" />
+				</Button>
+			</TableCell>
 		</TableRow>
 	);
 }
@@ -634,11 +671,9 @@ function EditableSpeciesRow({
  */
 function SpeciesCountCell({
 	value,
-	disabled,
 	onCommit,
 }: {
 	readonly value: number;
-	readonly disabled: boolean;
 	readonly onCommit: (next: number) => void;
 }) {
 	const [draft, setDraft] = useState<number | null>(value);
@@ -654,7 +689,6 @@ function SpeciesCountCell({
 		<NumberInput
 			aria-label="Count"
 			className="w-full"
-			disabled={disabled}
 			min={1}
 			onCommit={(next) => {
 				// Revert empty / non-positive / non-numeric entries to the stored count.
