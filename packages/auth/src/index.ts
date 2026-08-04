@@ -825,22 +825,45 @@ function isEmailTaken(error: unknown): boolean {
 	return code === 'email_not_available' || code === 'email_taken';
 }
 
+/** WorkOS's own codes for a password refused by the organization's policy. */
+const PASSWORD_POLICY_CODES = new Set([
+	'password_strength_error',
+	'password_validation_error',
+	'weak_password',
+]);
+
 /**
  * Whether WorkOS refused a password on policy grounds.
  *
  * Only used where 422 is ambiguous — password reset, where the same status can
  * mean a spent token. Matches on the code or message rather than the status
  * alone so an unrelated 422 keeps its existing meaning.
+ *
+ * Anything naming a token is explicitly *not* a password rejection. WorkOS's
+ * reset-token failures are themselves called `password_reset_token_*`, so a
+ * bare "does it say password" test would answer yes to a spent link and tell
+ * someone to change a password that was never the problem — the same
+ * misdirection this function exists to remove, pointed the other way. When the
+ * two are indistinguishable, "your link expired" is the safer reading: it was
+ * the behaviour before this mapping existed, and it is recoverable.
  */
 function isPasswordRejection(error: unknown): boolean {
 	if (!isUnprocessable(error)) {
 		return false;
 	}
-	const code = readErrorCode(error) ?? '';
-	if (code.includes('password')) {
+
+	const code = (readErrorCode(error) ?? '').toLowerCase();
+	// A 422 carrying `errors` arrives with the per-requirement codes as its
+	// message (`password_too_short`), so the message is worth reading too.
+	const message = error instanceof Error ? error.message.toLowerCase() : '';
+	if (code.includes('token') || message.includes('token')) {
+		return false;
+	}
+	if (PASSWORD_POLICY_CODES.has(code)) {
 		return true;
 	}
-	return error instanceof Error && error.message.toLowerCase().includes('password');
+
+	return code.includes('password') || message.includes('password');
 }
 
 function readErrorMessage(error: unknown): string {
