@@ -52,13 +52,20 @@ export function collectionTitle(collection: {
 // vocabulary used across the traps/collections detail screens so overview,
 // explorer, and detail read identically.
 
-type Tone = 'neutral' | 'info' | 'warning' | 'danger' | 'success';
+type Tone = 'neutral' | 'info' | 'catalog' | 'warning' | 'danger' | 'success';
 
 // --- specimen sex -----------------------------------------------------------
 
+/**
+ * Sex is categorical, not a status, so it reads on the two non-status tones:
+ * `catalog` (pink) for female and `info` (blue) for male. Females are what the
+ * agency acts on — they are the biters, the ones tested for virus, the ones
+ * driving thresholds — so they take the tone that stands out against a table of
+ * neutral rows.
+ */
 const sexMeta: Record<SpeciesSex, { readonly label: string; readonly tone: Tone }> = {
-	female: { label: 'Female', tone: 'info' },
-	male: { label: 'Male', tone: 'neutral' },
+	female: { label: 'Female', tone: 'catalog' },
+	male: { label: 'Male', tone: 'info' },
 };
 
 export function speciesSexLabel(sex: SpeciesSex | null): string {
