@@ -238,6 +238,54 @@ describe('registerAuthUserRoutes', () => {
 		expect(finalizeSession).not.toHaveBeenCalled();
 	});
 
+	// WorkOS enforces the organization's password policy when the invitee's
+	// password is set. Unmapped, that rejection reached the invitation page as a
+	// generic failure, so a password refused for being too weak looked like the
+	// page silently doing nothing.
+	it('tells an invitee their password was refused rather than failing generically', async () => {
+		const { app } = createApp({
+			getInvitationByToken: vi.fn(async () => ({
+				id: 'inv_1',
+				email: 'invitee@example.test',
+				state: 'pending' as const,
+				organizationId: 'workos_org_1',
+			})),
+			acceptInvitationWithPassword: vi.fn(async () => ({
+				status: 'weak_password' as const,
+				message: 'Password has been found in an online data breach.',
+			})),
+		});
+
+		const response = await postJson(app, '/auth/accept-invitation', {
+			invitationToken: 'itok',
+			password: 'password123',
+		});
+
+		expect(response.status).toBe(422);
+		await expect(response.json()).resolves.toEqual({
+			ok: false,
+			status: 'weak_password',
+			reason: 'Password has been found in an online data breach.',
+		});
+	});
+
+	it('tells a password reset apart from an expired link when the password is refused', async () => {
+		const { app } = createApp({
+			resetPassword: vi.fn(async () => ({
+				status: 'weak_password' as const,
+				message: 'Password has been found in an online data breach.',
+			})),
+		});
+
+		const response = await postJson(app, '/auth/reset-password', {
+			token: 'rtok',
+			newPassword: 'password123',
+		});
+
+		expect(response.status).toBe(422);
+		await expect(response.json()).resolves.toMatchObject({ status: 'weak_password' });
+	});
+
 	it('surfaces the organization list when a multi-org user must choose', async () => {
 		const { app, finalizeSession } = createApp({
 			signInWithPassword: vi.fn(async () => ({

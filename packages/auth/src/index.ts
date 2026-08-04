@@ -108,7 +108,10 @@ export type SelectOrganizationResult =
 	| { readonly status: 'authenticated'; readonly session: AuthenticatedSession }
 	| { readonly status: 'invalid_selection' };
 
-export type ResetPasswordResult = { readonly status: 'ok' } | { readonly status: 'invalid_token' };
+export type ResetPasswordResult =
+	| { readonly status: 'ok' }
+	| { readonly status: 'weak_password'; readonly message: string }
+	| { readonly status: 'invalid_token' };
 
 export interface InvitationSummary {
 	readonly id: string;
@@ -132,6 +135,7 @@ export type AcceptInvitationResult =
 	| AuthChallenge
 	| { readonly status: 'invalid_invitation' }
 	| { readonly status: 'account_exists' }
+	| { readonly status: 'weak_password'; readonly message: string }
 	| { readonly status: 'invalid_credentials' };
 
 interface WorkOsUserLike {
@@ -383,6 +387,14 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 				});
 				return { status: 'ok' };
 			} catch (error) {
+				// A rejected password and a spent token both land here. Told apart,
+				// because "this reset link is invalid or has expired" sends someone to
+				// request another link when all they had to do was pick a different
+				// password.
+				if (isPasswordRejection(error)) {
+					return { status: 'weak_password', message: readErrorMessage(error) };
+				}
+
 				if (isNotFound(error) || isUnprocessable(error) || isBadRequest(error)) {
 					return { status: 'invalid_token' };
 				}
@@ -435,13 +447,25 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 					return { status: 'account_exists' };
 				}
 
-				await workos.userManagement.updateUser({
-					userId: existingUser.id,
-					password: input.password,
-					emailVerified: true,
-					...(input.firstName === undefined ? {} : { firstName: input.firstName }),
-					...(input.lastName === undefined ? {} : { lastName: input.lastName }),
-				});
+				try {
+					await workos.userManagement.updateUser({
+						userId: existingUser.id,
+						password: input.password,
+						emailVerified: true,
+						...(input.firstName === undefined ? {} : { firstName: input.firstName }),
+						...(input.lastName === undefined ? {} : { lastName: input.lastName }),
+					});
+				} catch (error) {
+					// Same policy check sign-up gets: WorkOS enforces length and
+					// breached-password detection here, and an unmapped rejection would
+					// reach the invitee as a generic failure with no way to tell that the
+					// password was the problem.
+					if (isUnprocessable(error)) {
+						return { status: 'weak_password', message: readErrorMessage(error) };
+					}
+
+					throw error;
+				}
 			} else {
 				try {
 					await workos.userManagement.createUser({
@@ -455,6 +479,10 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 					// The invitee already has a login; they must sign in to accept instead.
 					if (isEmailTaken(error)) {
 						return { status: 'account_exists' };
+					}
+
+					if (isUnprocessable(error)) {
+						return { status: 'weak_password', message: readErrorMessage(error) };
 					}
 
 					throw error;
@@ -795,6 +823,24 @@ function isBadRequest(error: unknown): boolean {
 function isEmailTaken(error: unknown): boolean {
 	const code = readErrorCode(error);
 	return code === 'email_not_available' || code === 'email_taken';
+}
+
+/**
+ * Whether WorkOS refused a password on policy grounds.
+ *
+ * Only used where 422 is ambiguous — password reset, where the same status can
+ * mean a spent token. Matches on the code or message rather than the status
+ * alone so an unrelated 422 keeps its existing meaning.
+ */
+function isPasswordRejection(error: unknown): boolean {
+	if (!isUnprocessable(error)) {
+		return false;
+	}
+	const code = readErrorCode(error) ?? '';
+	if (code.includes('password')) {
+		return true;
+	}
+	return error instanceof Error && error.message.toLowerCase().includes('password');
 }
 
 function readErrorMessage(error: unknown): string {

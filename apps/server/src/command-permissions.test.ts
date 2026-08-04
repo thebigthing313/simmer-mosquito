@@ -100,7 +100,7 @@ describe('field-work endpoints', () => {
 	// The reported bug: a signed-in Viewer reordered a habitat route's stops and
 	// the write went through, persisting across a hard reload.
 	it('refuses a viewer reordering route stops without touching the database', async () => {
-		const response = await request('viewer', '/field-work/routes/' + routeId + '/move-items', {
+		const response = await request('viewer', `/field-work/routes/${routeId}/move-items`, {
 			routeItemIds: [routeItemId],
 			placement: { kind: 'start' },
 		});
@@ -110,7 +110,7 @@ describe('field-work endpoints', () => {
 	});
 
 	it('refuses a collector reordering route stops', async () => {
-		const response = await request('collector', '/field-work/routes/' + routeId + '/move-items', {
+		const response = await request('collector', `/field-work/routes/${routeId}/move-items`, {
 			routeItemIds: [routeItemId],
 			placement: { kind: 'start' },
 		});
