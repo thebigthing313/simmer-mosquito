@@ -33,6 +33,7 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { CommentsSection } from '../../../components/comments-section';
 import { MapCanvas } from '../../../components/map';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
+import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { HabitatMapCard } from '../../-habitat-map-card';
@@ -194,12 +195,14 @@ function ServiceRequestDetailContent({
 						<RequestStatusBadge open={open} />
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: request.id }} to="/public-engagement/service-requests/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id: request.id }} to="/public-engagement/service-requests/$id/edit">
+									<EditIcon aria-hidden="true" />
+									Edit
+								</Link>
+							</Button>
+						</WriteOnly>
 						<CloseReopenButton actorProfileId={actorProfileId} open={open} requestId={request.id} />
 						<DeleteServiceRequestButton requestId={request.id} />
 					</div>

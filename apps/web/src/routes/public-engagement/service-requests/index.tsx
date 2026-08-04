@@ -60,6 +60,7 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
+import { WriteOnly } from '../../../components/write-only';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import {
 	choiceParam,
@@ -307,12 +308,14 @@ function ServiceRequestsExplorerRoute() {
 								Requests from the public, mapped to their reported location.
 							</p>
 						</div>
-						<Button asChild size="sm">
-							<Link to="/public-engagement/service-requests/create">
-								<PlusIcon aria-hidden="true" data-icon="inline-start" />
-								New Request
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild size="sm">
+								<Link to="/public-engagement/service-requests/create">
+									<PlusIcon aria-hidden="true" data-icon="inline-start" />
+									New Request
+								</Link>
+							</Button>
+						</WriteOnly>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
 						<ToggleGroup

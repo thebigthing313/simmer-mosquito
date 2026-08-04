@@ -47,7 +47,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
@@ -59,6 +59,7 @@ import {
 	useStopOrder,
 } from '../../../../components/stop-order';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
+import { isWriteBlocked } from '../../../../lib/write-access';
 import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
@@ -88,6 +89,15 @@ type MutableRouteRow = { -readonly [Key in keyof RouteRow]: RouteRow[Key] };
 type MutableRouteItemRow = { -readonly [Key in keyof RouteItemRow]: RouteItemRow[Key] };
 
 export const Route = createFileRoute('/larval-surveillance/habitats/routes/$id_/edit')({
+	beforeLoad: async ({ context, params }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({
+				params: { id: params.id },
+				replace: true,
+				to: '/larval-surveillance/habitats/routes/$id',
+			});
+		}
+	},
 	component: RouteEditRoute,
 });
 

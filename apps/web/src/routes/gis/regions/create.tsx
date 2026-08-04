@@ -1,11 +1,12 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { seedRegionGeometryCache } from '../../../hooks/use-region-geometry';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -17,6 +18,11 @@ import {
 } from './-region-form';
 
 export const Route = createFileRoute('/gis/regions/create')({
+	beforeLoad: async ({ context }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({ replace: true, to: '/gis/regions' });
+		}
+	},
 	component: CreateRegionRoute,
 });
 

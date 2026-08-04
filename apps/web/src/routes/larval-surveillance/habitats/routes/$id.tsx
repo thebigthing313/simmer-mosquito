@@ -14,6 +14,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
+import { WriteOnly } from '../../../../components/write-only';
 import { useHabitatRoutes, useRouteStops } from '../-route-data';
 import { RouteMap } from '../-route-map';
 import { RouteStopList } from '../-route-stop-list';
@@ -72,12 +73,14 @@ function RouteDetailRoute() {
 							</h1>
 							<p className="mt-0.5 text-muted-foreground text-sm">{stopCountLabel(itemCount)}</p>
 						</div>
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id }} to="/larval-surveillance/habitats/routes/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit Route
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id }} to="/larval-surveillance/habitats/routes/$id/edit">
+									<EditIcon aria-hidden="true" />
+									Edit Route
+								</Link>
+							</Button>
+						</WriteOnly>
 					</div>
 				</div>
 
@@ -136,12 +139,14 @@ function RouteBody({
 						</EmptyDescription>
 					</EmptyHeader>
 					<EmptyContent>
-						<Button asChild>
-							<Link params={{ id: routeId }} to="/larval-surveillance/habitats/routes/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Add Stops
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild>
+								<Link params={{ id: routeId }} to="/larval-surveillance/habitats/routes/$id/edit">
+									<EditIcon aria-hidden="true" />
+									Add Stops
+								</Link>
+							</Button>
+						</WriteOnly>
 					</EmptyContent>
 				</Empty>
 			</div>

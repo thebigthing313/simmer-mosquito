@@ -27,6 +27,7 @@ import {
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type BiocontrolTileFilters, MapCanvas } from '../../../components/map';
+import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import {
 	dateParam,
@@ -257,12 +258,14 @@ function BiocontrolExplorerRoute() {
 						<h1 className="font-semibold text-foreground text-lg leading-none">Biocontrol</h1>
 						<div className="flex items-center gap-2.5">
 							<ResultMeta isLoading={isLoading} total={total} />
-							<Button asChild size="sm">
-								<Link to="/control-operations/biocontrol/create">
-									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									Record
-								</Link>
-							</Button>
+							<WriteOnly>
+								<Button asChild size="sm">
+									<Link to="/control-operations/biocontrol/create">
+										<PlusIcon aria-hidden="true" data-icon="inline-start" />
+										Record
+									</Link>
+								</Button>
+							</WriteOnly>
 						</div>
 					</div>
 

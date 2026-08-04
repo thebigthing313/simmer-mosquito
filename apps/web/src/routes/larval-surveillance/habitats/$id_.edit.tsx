@@ -9,12 +9,13 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import type { MetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
@@ -26,6 +27,15 @@ import {
 } from './-habitat-form';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/$id_/edit')({
+	beforeLoad: async ({ context, params }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({
+				params: { id: params.id },
+				replace: true,
+				to: '/larval-surveillance/habitats/$id',
+			});
+		}
+	},
 	component: EditHabitatRoute,
 });
 

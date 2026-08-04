@@ -22,6 +22,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
+import { WriteOnly } from '../../../../components/write-only';
 import { RouteCreateDialog } from '../-route-create-dialog';
 import { useHabitatRoutes, useRouteStopCounts, useRouteStops } from '../-route-data';
 import { RouteMap } from '../-route-map';
@@ -93,14 +94,16 @@ function RoutesIndexRoute() {
 												Open route
 											</Link>
 										</Button>
-										<Button asChild className="flex-1" size="sm" variant="outline">
-											<Link
-												params={{ id: selectedRoute.id }}
-												to="/larval-surveillance/habitats/routes/$id/edit"
-											>
-												Edit
-											</Link>
-										</Button>
+										<WriteOnly>
+											<Button asChild className="flex-1" size="sm" variant="outline">
+												<Link
+													params={{ id: selectedRoute.id }}
+													to="/larval-surveillance/habitats/routes/$id/edit"
+												>
+													Edit
+												</Link>
+											</Button>
+										</WriteOnly>
 									</div>
 								</div>
 							</div>
@@ -117,10 +120,12 @@ function RoutesIndexRoute() {
 									{routeCountLabel(routes.length)}
 								</span>
 							</div>
-							<Button onClick={() => setCreateOpen(true)} size="sm">
-								<PlusIcon aria-hidden="true" />
-								New Route
-							</Button>
+							<WriteOnly>
+								<Button onClick={() => setCreateOpen(true)} size="sm">
+									<PlusIcon aria-hidden="true" />
+									New Route
+								</Button>
+							</WriteOnly>
 						</div>
 
 						{routes.length > 0 ? (

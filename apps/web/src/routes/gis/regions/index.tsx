@@ -35,6 +35,7 @@ import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { SearchInput } from '../../../components/input/search-input';
 import { MapCanvas } from '../../../components/map';
+import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import {
@@ -359,21 +360,23 @@ function RegionsExplorerRoute() {
 					<div className="flex items-center justify-between gap-2">
 						<h1 className="m-0 font-semibold text-foreground text-lg leading-none">Regions</h1>
 						<div className="flex items-center gap-2">
-							<Button onClick={() => setFolderDialog('new')} size="sm" variant="outline">
-								New Folder
-							</Button>
-							<Button asChild size="sm" variant="outline">
-								<Link to="/gis/regions/import">
-									<ImportIcon aria-hidden="true" data-icon="inline-start" />
-									Import
-								</Link>
-							</Button>
-							<Button asChild size="sm">
-								<Link to="/gis/regions/create">
-									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									Create
-								</Link>
-							</Button>
+							<WriteOnly>
+								<Button onClick={() => setFolderDialog('new')} size="sm" variant="outline">
+									New Folder
+								</Button>
+								<Button asChild size="sm" variant="outline">
+									<Link to="/gis/regions/import">
+										<ImportIcon aria-hidden="true" data-icon="inline-start" />
+										Import
+									</Link>
+								</Button>
+								<Button asChild size="sm">
+									<Link to="/gis/regions/create">
+										<PlusIcon aria-hidden="true" data-icon="inline-start" />
+										Create
+									</Link>
+								</Button>
+							</WriteOnly>
 						</div>
 					</div>
 					<SearchInput

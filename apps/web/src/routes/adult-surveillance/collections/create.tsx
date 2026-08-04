@@ -6,7 +6,7 @@ import type {
 	TrapRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
 import {
@@ -16,6 +16,7 @@ import {
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -37,8 +38,16 @@ const createCollectionSearchSchema = z.object({
 });
 
 export const Route = createFileRoute('/adult-surveillance/collections/create')({
-	component: CreateCollectionRoute,
+	// After `validateSearch`: the options object is read in order, and a
+	// `beforeLoad` declared ahead of it is typed against a route whose search
+	// schema is not known yet — which erases `trapId` from `Route.useSearch()`.
 	validateSearch: (search) => createCollectionSearchSchema.parse(search),
+	beforeLoad: async ({ context }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({ replace: true, to: '/adult-surveillance/collections' });
+		}
+	},
+	component: CreateCollectionRoute,
 });
 
 function CreateCollectionRoute() {

@@ -1,9 +1,10 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -15,6 +16,11 @@ import {
 } from './-trap-form';
 
 export const Route = createFileRoute('/adult-surveillance/traps/create')({
+	beforeLoad: async ({ context }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({ replace: true, to: '/adult-surveillance/traps' });
+		}
+	},
 	component: CreateTrapRoute,
 });
 

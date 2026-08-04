@@ -52,6 +52,7 @@ import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { WriteOnly } from '../../../components/write-only';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
@@ -212,12 +213,14 @@ function ApplicationDetailContent({
 						inspectionId={application.inspectionId}
 					/>
 					{canEdit ? (
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: application.id }} to="/control-operations/chemical/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id: application.id }} to="/control-operations/chemical/$id/edit">
+									<EditIcon aria-hidden="true" />
+									Edit
+								</Link>
+							</Button>
+						</WriteOnly>
 					) : null}
 				</div>
 			</div>

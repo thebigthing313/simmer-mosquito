@@ -72,6 +72,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Create Habitat',
 						to: '/larval-surveillance/habitats/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 					{
 						id: 'habitats-types',
@@ -109,6 +110,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Create Inspection',
 						to: '/larval-surveillance/inspections/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 					{
 						id: 'inspections-stats',
@@ -178,6 +180,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Add Trap',
 						to: '/adult-surveillance/traps/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 					{
 						id: 'traps-routes',
@@ -209,6 +212,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Collection',
 						to: '/adult-surveillance/collections/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 					{
 						id: 'collections-stats',
@@ -266,6 +270,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Application',
 						to: '/control-operations/chemical/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 					{
 						id: 'chemical-methods',
@@ -309,6 +314,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Source Reduction',
 						to: '/control-operations/source-reduction/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 					{
 						id: 'source-reduction-methods',
@@ -340,6 +346,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Release',
 						to: '/control-operations/biocontrol/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 					{
 						id: 'biocontrol-methods',
@@ -403,6 +410,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'New Request',
 						to: '/public-engagement/service-requests/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 				],
 			},
@@ -421,6 +429,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Outreach',
 						to: '/public-engagement/outreach/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 					{
 						id: 'outreach-methods',
@@ -452,6 +461,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'New Contact',
 						to: '/public-engagement/contacts/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 				],
 			},
@@ -501,12 +511,14 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Create Region',
 						to: '/gis/regions/create',
 						icon: iconRegistry.actions.add.icon,
+						write: true,
 					},
 					{
 						id: 'regions-import',
 						label: 'Import Regions',
 						to: '/gis/regions/import',
 						icon: iconRegistry.actions.upload.icon,
+						write: true,
 					},
 				],
 			},
@@ -630,6 +642,29 @@ function pathMatches(activePath: string, target: string): boolean {
 }
 
 /** Flat list of every item across all domains, paired with its owning domain + group. */
+/**
+ * The same navigation with every form destination removed — what a viewer sees.
+ *
+ * Built once at module scope, not per render: it is a pure function of a
+ * constant. Groups that held nothing but forms drop out with them, so the
+ * sidebar never shows an empty heading.
+ *
+ * Note this is *only* the navigation. The route guards in `lib/write-access`
+ * are what actually stop a viewer reaching a form; this stops the sidebar
+ * offering a door that would close in their face.
+ */
+export const readOnlyShellDomains: readonly ShellDomain[] = shellDomains
+	.map((domain) => ({
+		...domain,
+		groups: domain.groups
+			.map((group) => ({ ...group, items: group.items.filter((item) => item.write !== true) }))
+			.filter((group) => group.items.length > 0),
+	}))
+	.filter((domain) => domain.groups.length > 0);
+
+// Built from the full navigation on purpose: `resolveActive` answers "where am
+// I", and a viewer who lands on a form path before the guard redirects them
+// still needs the breadcrumb and rail to say something true.
 const flatItems: readonly {
 	readonly domain: ShellDomain;
 	readonly group: ShellNavGroup;

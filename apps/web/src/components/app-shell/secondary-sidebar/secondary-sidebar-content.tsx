@@ -4,9 +4,14 @@ import { SecondarySidebarGroup } from './secondary-sidebar-group';
 
 /** Title + grouped navigation for the active domain. */
 export function SecondarySidebarContent() {
-	const { onNavigate } = useShell();
-	const { domain, item } = useActiveShellLocation();
+	const { domains, onNavigate } = useShell();
+	const { domain: activeDomain, item } = useActiveShellLocation();
 	const activeItemId = item?.id ?? null;
+	// `resolveActive` answers "where am I" against the full navigation, so it can
+	// still name the domain of a path the caller does not offer. What gets *drawn*
+	// comes from the caller's `domains` — which is how the read-only navigation
+	// (see `readOnlyShellDomains`) actually reaches the sidebar.
+	const domain = domains.find((candidate) => candidate.id === activeDomain.id) ?? activeDomain;
 
 	function handleSelect(navItem: ShellNavItem) {
 		if (navItem.to !== undefined) {

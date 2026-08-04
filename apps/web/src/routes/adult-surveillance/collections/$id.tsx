@@ -67,6 +67,7 @@ import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { WriteOnly } from '../../../components/write-only';
 import { useAppForm } from '../../../forms';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -213,12 +214,14 @@ function CollectionDetailContent({
 						collection={collection}
 					/>
 					{canEdit ? (
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: collection.id }} to="/adult-surveillance/collections/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id: collection.id }} to="/adult-surveillance/collections/$id/edit">
+									<EditIcon aria-hidden="true" />
+									Edit
+								</Link>
+							</Button>
+						</WriteOnly>
 					) : null}
 				</div>
 			</div>

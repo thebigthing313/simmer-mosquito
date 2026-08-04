@@ -28,6 +28,7 @@ import {
 	RESULT_SKELETON_KEYS,
 	usePersonnelOptions,
 } from '../../../components/explorer';
+import { WriteOnly } from '../../../components/write-only';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -220,12 +221,14 @@ function AssignmentsIndexRoute() {
 								{visible.length === 1 ? '1 assignment' : `${visible.length} assignments`}
 							</span>
 						</div>
-						<Button asChild size="sm">
-							<Link to="/operations/assignments/create">
-								<PlusIcon aria-hidden="true" />
-								New Assignment
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild size="sm">
+								<Link to="/operations/assignments/create">
+									<PlusIcon aria-hidden="true" />
+									New Assignment
+								</Link>
+							</Button>
+						</WriteOnly>
 					</div>
 
 					<DateRangeFilter
@@ -341,12 +344,14 @@ function AssignmentResults({
 					</EmptyHeader>
 					{hasFilters ? null : (
 						<EmptyContent>
-							<Button asChild size="sm">
-								<Link to="/operations/assignments/create">
-									<PlusIcon aria-hidden="true" />
-									New Assignment
-								</Link>
-							</Button>
+							<WriteOnly>
+								<Button asChild size="sm">
+									<Link to="/operations/assignments/create">
+										<PlusIcon aria-hidden="true" />
+										New Assignment
+									</Link>
+								</Button>
+							</WriteOnly>
 						</EmptyContent>
 					)}
 				</Empty>
@@ -462,11 +467,13 @@ function SelectedAssignmentCard({
 							Open
 						</Link>
 					</Button>
-					<Button asChild className="flex-1" size="sm" variant="outline">
-						<Link params={{ id: assignment.id }} to="/operations/assignments/$id/edit">
-							Edit
-						</Link>
-					</Button>
+					<WriteOnly>
+						<Button asChild className="flex-1" size="sm" variant="outline">
+							<Link params={{ id: assignment.id }} to="/operations/assignments/$id/edit">
+								Edit
+							</Link>
+						</Button>
+					</WriteOnly>
 				</div>
 			</div>
 		</div>

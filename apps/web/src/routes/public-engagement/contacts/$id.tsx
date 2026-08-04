@@ -21,6 +21,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { WriteOnly } from '../../../components/write-only';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	contactDisplayName,
@@ -98,12 +99,14 @@ function ContactDetailContent({ contact }: { readonly contact: ContactRow }) {
 					) : null}
 				</div>
 				<div className="flex items-center gap-2">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: contact.id }} to="/public-engagement/contacts/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
+					<WriteOnly>
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: contact.id }} to="/public-engagement/contacts/$id/edit">
+								<EditIcon aria-hidden="true" />
+								Edit
+							</Link>
+						</Button>
+					</WriteOnly>
 					<DeleteContactButton contactId={contact.id} />
 				</div>
 			</div>

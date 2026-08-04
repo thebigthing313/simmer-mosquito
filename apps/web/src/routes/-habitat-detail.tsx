@@ -63,6 +63,7 @@ import { EmptyValue } from '../components/empty-value';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { LinkedAddressValue } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
+import { WriteOnly } from '../components/write-only';
 import {
 	customFieldEntries,
 	customSchemaFor,
@@ -156,11 +157,13 @@ export function HabitatDetail({
 						Back to habitats
 					</Link>
 					{backTo === '/larval-surveillance/habitats' ? (
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
-								Edit Habitat
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
+									Edit Habitat
+								</Link>
+							</Button>
+						</WriteOnly>
 					) : null}
 				</div>
 				<Suspense fallback={<HabitatDetailSkeleton />}>

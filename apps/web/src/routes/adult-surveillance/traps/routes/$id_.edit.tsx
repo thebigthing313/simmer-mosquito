@@ -32,10 +32,11 @@ import {
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import { useCollectionRows } from '../../../../hooks/use-collection-rows';
+import { isWriteBlocked } from '../../../../lib/write-access';
 import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
 import { TrapPicker } from '../../-adult-pickers';
@@ -48,6 +49,15 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
 type MutableRouteItemRow = { -readonly [K in keyof RouteItemRow]: RouteItemRow[K] };
 
 export const Route = createFileRoute('/adult-surveillance/traps/routes/$id_/edit')({
+	beforeLoad: async ({ context, params }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({
+				params: { id: params.id },
+				replace: true,
+				to: '/adult-surveillance/traps/routes/$id',
+			});
+		}
+	},
 	component: EditTrapRouteRoute,
 });
 

@@ -9,9 +9,10 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
@@ -22,6 +23,11 @@ import {
 } from './-address-form';
 
 export const Route = createFileRoute('/gis/addresses/$id_/edit')({
+	beforeLoad: async ({ context, params }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/addresses/$id' });
+		}
+	},
 	component: EditAddressRoute,
 });
 

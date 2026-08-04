@@ -35,6 +35,7 @@ import {
 } from '../../../components/larval-display';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { WriteOnly } from '../../../components/write-only';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
 
@@ -201,12 +202,14 @@ function InspectionHeader({ inspection }: { readonly inspection: InspectionDetai
 					<WetnessBadge isWet={false} />
 				)}
 				<PositivityBadge inspection={inspection} />
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: inspection.id }} to="/larval-surveillance/inspections/$id/edit">
-						<EditIcon aria-hidden="true" />
-						Edit
-					</Link>
-				</Button>
+				<WriteOnly>
+					<Button asChild size="sm" variant="outline">
+						<Link params={{ id: inspection.id }} to="/larval-surveillance/inspections/$id/edit">
+							<EditIcon aria-hidden="true" />
+							Edit
+						</Link>
+					</Button>
+				</WriteOnly>
 			</div>
 		</div>
 	);

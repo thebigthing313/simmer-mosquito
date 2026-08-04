@@ -25,6 +25,7 @@ import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { WriteOnly } from '../../../components/write-only';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -118,12 +119,14 @@ function OutreachDetailContent({ action }: { readonly action: OutreachActionRow 
 						{formatReach(action.reach)} reached on {formatActionDate(action.outreachDate)}
 					</p>
 				</div>
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: action.id }} to="/public-engagement/outreach/$id/edit">
-						<EditIcon aria-hidden="true" />
-						Edit
-					</Link>
-				</Button>
+				<WriteOnly>
+					<Button asChild size="sm" variant="outline">
+						<Link params={{ id: action.id }} to="/public-engagement/outreach/$id/edit">
+							<EditIcon aria-hidden="true" />
+							Edit
+						</Link>
+					</Button>
+				</WriteOnly>
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">

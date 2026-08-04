@@ -30,6 +30,7 @@ import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { WriteOnly } from '../../../components/write-only';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
@@ -138,12 +139,14 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 				</div>
 				<div className="flex items-center gap-2">
 					<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
+					<WriteOnly>
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id/edit">
+								<EditIcon aria-hidden="true" />
+								Edit
+							</Link>
+						</Button>
+					</WriteOnly>
 				</div>
 			</div>
 

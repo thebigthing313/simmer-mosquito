@@ -1,9 +1,10 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedAddressGeometryCache } from './-address-data';
@@ -15,6 +16,11 @@ import {
 } from './-address-form';
 
 export const Route = createFileRoute('/gis/addresses/create')({
+	beforeLoad: async ({ context }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({ replace: true, to: '/gis/addresses' });
+		}
+	},
 	component: CreateAddressRoute,
 });
 

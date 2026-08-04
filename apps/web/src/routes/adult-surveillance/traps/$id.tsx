@@ -62,6 +62,7 @@ import {
 } from '../../../components/date-range-filter';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -153,12 +154,14 @@ function TrapDetailContent({ trap }: { readonly trap: TrapRow }) {
 				</div>
 				<div className="flex items-center gap-2">
 					<StatusBadge isActive={trap.isActive} />
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
+					<WriteOnly>
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id/edit">
+								<EditIcon aria-hidden="true" />
+								Edit
+							</Link>
+						</Button>
+					</WriteOnly>
 				</div>
 			</div>
 
@@ -268,11 +271,13 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 								Species
 							</TabsTrigger>
 						</TabsList>
-						<Button asChild size="sm" variant="outline">
-							<Link search={{ trapId }} to="/adult-surveillance/collections/create">
-								Record Collection
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild size="sm" variant="outline">
+								<Link search={{ trapId }} to="/adult-surveillance/collections/create">
+									Record Collection
+								</Link>
+							</Button>
+						</WriteOnly>
 					</div>
 				</CardHeader>
 				<CardContent padding="compact">

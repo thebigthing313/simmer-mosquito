@@ -21,19 +21,25 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { isTxIdConfirmationTimeout } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { RegionFolderDialog } from './-folder-dialog';
 import { type ImportPolygon, MAX_POLYGONS, parseRegionsFromFile } from './-import-parse';
 
 export const Route = createFileRoute('/gis/regions/import')({
+	beforeLoad: async ({ context }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({ replace: true, to: '/gis/regions' });
+		}
+	},
 	component: ImportRegionsRoute,
 });
 

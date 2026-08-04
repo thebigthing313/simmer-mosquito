@@ -31,6 +31,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { WriteOnly } from '../../../components/write-only';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
@@ -122,12 +123,14 @@ function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: address.id }} to="/gis/addresses/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
+					<WriteOnly>
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: address.id }} to="/gis/addresses/$id/edit">
+								<EditIcon aria-hidden="true" />
+								Edit
+							</Link>
+						</Button>
+					</WriteOnly>
 					<Button
 						className="text-destructive hover:bg-destructive/10 hover:text-destructive"
 						onClick={() => setDeleteOpen(true)}

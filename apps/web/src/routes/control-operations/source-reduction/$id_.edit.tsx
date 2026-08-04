@@ -13,7 +13,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import {
 	type AdditionalPersonnelResult,
@@ -27,6 +27,7 @@ import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -39,6 +40,15 @@ import {
 const sourceReductionGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id_/edit')({
+	beforeLoad: async ({ context, params }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({
+				params: { id: params.id },
+				replace: true,
+				to: '/control-operations/source-reduction/$id',
+			});
+		}
+	},
 	component: EditSourceReductionRoute,
 });
 

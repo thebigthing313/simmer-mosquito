@@ -25,6 +25,11 @@ export interface ShellNavItem {
 	 * arriving on one.
 	 */
 	readonly stub?: boolean;
+	/**
+	 * The destination is a form. Dropped from the navigation for viewers, whose
+	 * route guards would bounce them straight back off it.
+	 */
+	readonly write?: boolean;
 }
 
 /** A labelled (or unlabelled) cluster of items within a domain. */

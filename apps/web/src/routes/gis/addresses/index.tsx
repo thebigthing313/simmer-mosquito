@@ -32,6 +32,7 @@ import {
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas } from '../../../components/map';
+import { WriteOnly } from '../../../components/write-only';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import {
 	type FilterCodecs,
@@ -182,12 +183,14 @@ function AddressesExplorerRoute() {
 								Geocoded addresses shared across surveillance and control work.
 							</p>
 						</div>
-						<Button asChild size="sm">
-							<Link to="/gis/addresses/create">
-								<PlusIcon aria-hidden="true" data-icon="inline-start" />
-								Create
-							</Link>
-						</Button>
+						<WriteOnly>
+							<Button asChild size="sm">
+								<Link to="/gis/addresses/create">
+									<PlusIcon aria-hidden="true" data-icon="inline-start" />
+									Create
+								</Link>
+							</Button>
+						</WriteOnly>
 					</div>
 					<div className="relative">
 						<SearchIcon

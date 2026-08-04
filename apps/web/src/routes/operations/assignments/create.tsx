@@ -6,10 +6,11 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayDateValue } from '../../control-operations/-control-display';
@@ -32,6 +33,11 @@ import {
 } from './-assignment-form';
 
 export const Route = createFileRoute('/operations/assignments/create')({
+	beforeLoad: async ({ context }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({ replace: true, to: '/operations/assignments' });
+		}
+	},
 	component: AssignmentCreateRoute,
 });
 

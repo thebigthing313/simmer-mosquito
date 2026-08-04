@@ -1,10 +1,11 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type { ContactRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import { contactFieldsFromValues } from '../-contact-fields';
 import { settleWrite } from '../-public-engagement-writes';
@@ -15,6 +16,11 @@ import {
 } from './-service-request-form';
 
 export const Route = createFileRoute('/public-engagement/service-requests/create')({
+	beforeLoad: async ({ context }) => {
+		if (await isWriteBlocked(context)) {
+			throw redirect({ replace: true, to: '/public-engagement/service-requests' });
+		}
+	},
 	component: CreateServiceRequestRoute,
 });
 

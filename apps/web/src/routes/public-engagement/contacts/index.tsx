@@ -20,6 +20,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { WriteOnly } from '../../../components/write-only';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { webCollections } from '../../../sync/webCollections';
 import { contactDisplayName, contactSecondaryLine } from '../-public-engagement-display';
@@ -96,12 +97,14 @@ function ContactsExplorerRoute() {
 							notifications.
 						</p>
 					</div>
-					<Button asChild size="sm">
-						<Link to="/public-engagement/contacts/create">
-							<PlusIcon aria-hidden="true" data-icon="inline-start" />
-							Create
-						</Link>
-					</Button>
+					<WriteOnly>
+						<Button asChild size="sm">
+							<Link to="/public-engagement/contacts/create">
+								<PlusIcon aria-hidden="true" data-icon="inline-start" />
+								Create
+							</Link>
+						</Button>
+					</WriteOnly>
 				</div>
 
 				<div className="relative max-w-md">

@@ -31,6 +31,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useRegionGeometry } from '../../../hooks/use-region-geometry';
 import { settleWrite } from '../../../sync/settle-write';
@@ -128,12 +129,14 @@ function RegionDetailContent({ region }: { readonly region: RegionRow }) {
 					<p className="m-0 text-[0.95rem] text-muted-foreground">{folderName ?? 'Unfiled'}</p>
 				</div>
 				<div className="flex items-center gap-2">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: region.id }} to="/gis/regions/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
+					<WriteOnly>
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: region.id }} to="/gis/regions/$id/edit">
+								<EditIcon aria-hidden="true" />
+								Edit
+							</Link>
+						</Button>
+					</WriteOnly>
 					<Button
 						className="text-destructive hover:bg-destructive/10 hover:text-destructive"
 						onClick={() => setDeleteOpen(true)}
