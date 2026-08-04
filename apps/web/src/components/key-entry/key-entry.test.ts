@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type CommitBaseline, type CommitStep, planCommit } from './commit-plan';
+import { createCommitQueue } from './commit-queue';
 import {
 	applyPress,
 	applySetCount,
@@ -98,6 +99,75 @@ describe('tally direct edits', () => {
 
 		expect(tallyEntries(state)).toHaveLength(0);
 		expect(state.history).toHaveLength(0);
+	});
+});
+
+// --- commit queue ------------------------------------------------------------
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason: unknown) => void;
+	const promise = new Promise<T>((resolveFn, rejectFn) => {
+		resolve = resolveFn;
+		reject = rejectFn;
+	});
+	return { promise, resolve, reject };
+}
+
+describe('commit queue', () => {
+	// Regression: an idle auto-save flush and an explicit save could run at once, both
+	// plan against the same pre-write state, and insert the same row twice.
+	it('never runs two tasks at the same time', async () => {
+		const enqueue = createCommitQueue();
+		const first = deferred<void>();
+		let running = 0;
+		let maxConcurrent = 0;
+
+		const track = async (body: Promise<void>) => {
+			running += 1;
+			maxConcurrent = Math.max(maxConcurrent, running);
+			try {
+				await body;
+			} finally {
+				running -= 1;
+			}
+		};
+
+		const a = enqueue(() => track(first.promise));
+		const b = enqueue(() => track(Promise.resolve()));
+
+		first.resolve();
+		await Promise.all([a, b]);
+
+		expect(maxConcurrent).toBe(1);
+	});
+
+	it('runs tasks in the order they were enqueued', async () => {
+		const enqueue = createCommitQueue();
+		const order: string[] = [];
+		const gate = deferred<void>();
+
+		const a = enqueue(async () => {
+			await gate.promise;
+			order.push('a');
+		});
+		const b = enqueue(async () => {
+			order.push('b');
+		});
+
+		gate.resolve();
+		await Promise.all([a, b]);
+
+		expect(order).toEqual(['a', 'b']);
+	});
+
+	it('keeps draining after a task fails, and reports each outcome to its caller', async () => {
+		const enqueue = createCommitQueue();
+		const failure = enqueue(() => Promise.reject(new Error('write rejected')));
+		const recovery = enqueue(() => Promise.resolve('ok'));
+
+		await expect(failure).rejects.toThrow('write rejected');
+		await expect(recovery).resolves.toBe('ok');
 	});
 });
 

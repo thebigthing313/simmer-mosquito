@@ -34,6 +34,7 @@ import type {
 	ResolvedSpeciesKeyBinding,
 	SpeciesKeyBindingsView,
 } from '../../hooks/use-species-key-bindings';
+import { createCommitQueue } from './commit-queue';
 import {
 	NO_VARIANT,
 	type TallyEntry,
@@ -117,25 +118,42 @@ export function KeyEntryDialog({
 		setCommittedSignature(signature);
 	}, []);
 
+	// The scheduled idle flush, so an explicit save can call it off. Without that, a
+	// burst followed straight by Enter leaves the timer to fire mid-save.
+	const autoSaveTimerRef = useRef<number | null>(null);
+	const cancelScheduledFlush = useCallback(() => {
+		if (autoSaveTimerRef.current !== null) {
+			window.clearTimeout(autoSaveTimerRef.current);
+			autoSaveTimerRef.current = null;
+		}
+	}, []);
+
+	const enqueueCommitRef = useRef(createCommitQueue());
+
 	const commit = useCallback(
-		async (entries: readonly TallyEntry[]): Promise<boolean> => {
-			const signature = signatureOf(entries);
-			if (signature === committedRef.current) {
-				return true;
-			}
-			setBusy(true);
-			setError(null);
-			try {
-				await onCommit(entries);
-				markCommitted(signature);
-				return true;
-			} catch (cause) {
-				setError(messageOf(cause, 'Unable to save these counts.'));
-				return false;
-			} finally {
-				setBusy(false);
-			}
-		},
+		(entries: readonly TallyEntry[]): Promise<boolean> =>
+			// Queued rather than called directly: a flush already in flight has to finish
+			// before the next plans, or both read the same pre-write state and insert the
+			// same row twice. Once the first lands, the signature check below turns a
+			// duplicate request into a no-op.
+			enqueueCommitRef.current(async () => {
+				const signature = signatureOf(entries);
+				if (signature === committedRef.current) {
+					return true;
+				}
+				setBusy(true);
+				setError(null);
+				try {
+					await onCommit(entries);
+					markCommitted(signature);
+					return true;
+				} catch (cause) {
+					setError(messageOf(cause, 'Unable to save these counts.'));
+					return false;
+				} finally {
+					setBusy(false);
+				}
+			}),
 		[markCommitted, onCommit],
 	);
 
@@ -152,11 +170,16 @@ export function KeyEntryDialog({
 		if (!open || !autoSave || !hasPendingChanges) {
 			return;
 		}
-		const timer = setTimeout(() => {
+		const timer = window.setTimeout(() => {
+			autoSaveTimerRef.current = null;
 			void commit(pendingEntries);
 		}, AUTO_SAVE_IDLE_MS);
+		autoSaveTimerRef.current = timer;
 		return () => {
-			clearTimeout(timer);
+			window.clearTimeout(timer);
+			if (autoSaveTimerRef.current === timer) {
+				autoSaveTimerRef.current = null;
+			}
 		};
 	}, [open, autoSave, hasPendingChanges, pendingEntries, commit]);
 
@@ -183,6 +206,7 @@ export function KeyEntryDialog({
 	}, [markCommitted, mode, tally]);
 
 	const requestClose = useCallback(async () => {
+		cancelScheduledFlush();
 		const hasUnsaved = signatureOf(entriesRef.current) !== committedRef.current;
 		if (hasUnsaved && !confirmDiscard) {
 			// Auto-save owes the user this write, so try it before closing. A failure
@@ -202,15 +226,16 @@ export function KeyEntryDialog({
 		}
 		reset();
 		onOpenChange(false);
-	}, [autoSave, commit, confirmDiscard, onOpenChange, reset]);
+	}, [autoSave, cancelScheduledFlush, commit, confirmDiscard, onOpenChange, reset]);
 
 	const save = useCallback(async () => {
+		cancelScheduledFlush();
 		const saved = await commit(entriesRef.current);
 		if (saved) {
 			reset();
 			onOpenChange(false);
 		}
-	}, [commit, onOpenChange, reset]);
+	}, [cancelScheduledFlush, commit, onOpenChange, reset]);
 
 	const handleKeyDown = useCallback(
 		(event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -273,13 +298,11 @@ export function KeyEntryDialog({
 				// by side, and species names are long enough that a narrower shell truncates
 				// the reference someone is reading mid-entry.
 				className="max-h-[90vh] gap-0 overflow-hidden p-0 sm:max-w-4xl"
-				// Take over both dismissal paths: Escape runs the unsaved-tally guard, and
-				// an outside click never discards a tally someone is mid-way through — the
-				// modal closes through Escape, the X, or Done.
-				onEscapeKeyDown={(event) => {
-					event.preventDefault();
-					void requestClose();
-				}}
+				// Escape is deliberately NOT handled here. Radix already routes it through
+				// onOpenChange, and adding a second handler ran the unsaved-tally guard
+				// twice per press — invisible in a browser, where the extra close is a
+				// no-op, but it meant two commits could be requested for one keystroke.
+				// An outside click never dismisses: it would discard a tally mid-entry.
 				onInteractOutside={(event) => {
 					event.preventDefault();
 				}}
