@@ -60,6 +60,7 @@ import {
 	DateRangeFilter,
 	datePresetRange,
 } from '../../../components/date-range-filter';
+import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
@@ -71,7 +72,7 @@ import {
 	SpeciesDistributionBars,
 	trapDisplayName,
 } from '../-adult-display';
-import { todayInTimeZone, useAddressNames } from '../-overview-data';
+import { todayInTimeZone } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/traps/$id')({
 	component: RouteComponent,
@@ -137,10 +138,6 @@ function TrapDetailContent({ trap }: { readonly trap: TrapRow }) {
 			? null
 			: (lures.find((lure) => lure.id === trap.collectionLureId)?.name ?? 'Unknown lure');
 
-	const addressNameById = useAddressNames(trap.addressId === null ? [] : [trap.addressId]);
-	const addressName =
-		trap.addressId === null ? null : (addressNameById.get(trap.addressId) ?? null);
-
 	return (
 		<>
 			<div className="flex flex-wrap items-start justify-between gap-3">
@@ -171,12 +168,7 @@ function TrapDetailContent({ trap }: { readonly trap: TrapRow }) {
 					<TrapCollectionsCard trapId={trap.id} />
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
-					<TrapDetailsCard
-						address={addressName}
-						lureName={lureName}
-						methodName={methodName}
-						trap={trap}
-					/>
+					<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />
 					<CommentsSection
 						description="Access notes, maintenance, and follow-up for this trap."
 						target={{ type: 'trap', id: trap.id }}
@@ -596,12 +588,10 @@ function TrapDetailsCard({
 	trap,
 	methodName,
 	lureName,
-	address,
 }: {
 	readonly trap: TrapRow;
 	readonly methodName: string;
 	readonly lureName: string | null;
-	readonly address: string | null;
 }) {
 	return (
 		<Card variant="surface">
@@ -618,7 +608,7 @@ function TrapDetailsCard({
 						{trap.trapCode ?? <span className="text-muted-foreground">Not set</span>}
 					</DetailRow>
 					<DetailRow label="Address">
-						{address ?? <span className="text-muted-foreground">Ad-hoc / no address</span>}
+						<LinkedAddressValue addressId={trap.addressId} />
 					</DetailRow>
 					<DetailRow label="Status">{trap.isActive ? 'Active' : 'Inactive'}</DetailRow>
 				</dl>

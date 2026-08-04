@@ -28,6 +28,7 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { EmptyValue } from '../../../components/empty-value';
+import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -260,6 +261,9 @@ function SourceReductionDetailsCard({
 								{habitatName ?? `Habitat ${habitatId.slice(0, 8)}`}
 							</Link>
 						)}
+					</DetailRow>
+					<DetailRow label="Address">
+						<LinkedAddressValue addressId={sourceReduction.addressId} />
 					</DetailRow>
 				</dl>
 				<AdditionalPersonnelList target={{ type: 'sourceReduction', id: sourceReduction.id }} />

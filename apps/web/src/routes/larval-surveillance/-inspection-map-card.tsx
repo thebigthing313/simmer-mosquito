@@ -11,12 +11,12 @@ import {
 	ContactIcon,
 	DropletIcon,
 	iconRegistry,
-	MapPinnedIcon,
 	MosquitoIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { densityLabel, hasAnyLifeStage, LifeStageStrip } from '../../components/larval-display';
+import { MapCardAddress } from '../../components/linked-address';
 import {
 	MapCard,
 	MapCardDetail,
@@ -181,9 +181,7 @@ export function InspectionMapCard({
 						</MapCardDetail>
 					</>
 				) : null}
-				{addressLabel === null ? null : (
-					<MapCardDetail icon={MapPinnedIcon}>{addressLabel}</MapCardDetail>
-				)}
+				{inspection.addressId === null ? null : <MapCardAddress addressId={inspection.addressId} />}
 				<MapCardLocation geomType={inspection.geomType} lat={inspection.lat} lng={inspection.lng} />
 			</div>
 		</MapCard>

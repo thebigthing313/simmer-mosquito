@@ -1,9 +1,4 @@
-import type {
-	AddressRow,
-	CollectionLureRow,
-	CollectionMethodRow,
-	TrapRow,
-} from '@simmer-mosquito/sync';
+import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
@@ -11,10 +6,10 @@ import {
 	CircleIcon,
 	iconRegistry,
 	LocateFixedIcon,
-	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
+import { MapCardAddress } from '../../components/linked-address';
 import {
 	coordinateLabel,
 	MapCard,
@@ -23,7 +18,6 @@ import {
 } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
 import { useMapCardTags } from '../../hooks/use-map-card-tags';
-import { addressCardLabel } from '../../lib/address-format';
 import { webCollections } from '../../sync/webCollections';
 import { trapDisplayName } from './-adult-display';
 
@@ -85,20 +79,6 @@ export function TrapMapCard({
 	);
 	const lure = lureResult.data as CollectionLureRow | undefined;
 
-	const addressId = trap?.addressId ?? UNMATCHABLE_ID;
-	const addressResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, addressId))
-					.findOne(),
-		},
-		[addressId],
-	);
-	const address = addressResult.data as AddressRow | undefined;
-
 	const tags = useMapCardTags(id);
 
 	if (trap === undefined) {
@@ -114,7 +94,6 @@ export function TrapMapCard({
 
 	const methodName = method?.name ?? 'Unknown method';
 	const lureName = trap.collectionLureId === null ? null : (lure?.name ?? 'Unknown lure');
-	const addressName = addressCardLabel(address);
 
 	return (
 		<MapCard
@@ -140,9 +119,7 @@ export function TrapMapCard({
 					{methodName}
 					{lureName === null ? '' : ` · ${lureName} lure`}
 				</MapCardDetail>
-				<MapCardDetail icon={MapPinnedIcon}>
-					{addressName ?? <span className="italic">No linked address</span>}
-				</MapCardDetail>
+				<MapCardAddress addressId={trap.addressId} />
 				<MapCardDetail icon={LocateFixedIcon} mono>
 					{coordinateLabel(trap)}
 				</MapCardDetail>

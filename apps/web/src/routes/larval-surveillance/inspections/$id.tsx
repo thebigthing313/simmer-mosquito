@@ -33,6 +33,7 @@ import {
 	LifeStageStrip,
 	WetnessBadge,
 } from '../../../components/larval-display';
+import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
@@ -348,9 +349,7 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 						</Suspense>
 					</DetailRow>
 					<DetailRow label="Address">
-						{inspection.addressDisplayName ?? (
-							<span className="text-muted-foreground">No linked address</span>
-						)}
+						<LinkedAddressValue addressId={inspection.addressId} />
 					</DetailRow>
 					<DetailRow label="Inspector">
 						{inspection.inspectedByName ?? (

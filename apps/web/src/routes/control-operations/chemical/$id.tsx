@@ -50,6 +50,7 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
+import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -572,6 +573,9 @@ function ApplicationDetailsCard({
 								{habitatName ?? 'Unknown habitat'}
 							</Link>
 						)}
+					</DetailRow>
+					<DetailRow label="Address">
+						<LinkedAddressValue addressId={application.addressId} />
 					</DetailRow>
 				</dl>
 				<AdditionalPersonnelList target={{ type: 'application', id: application.id }} />

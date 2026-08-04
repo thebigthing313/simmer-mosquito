@@ -53,7 +53,6 @@ import {
 	AlertTriangleIcon,
 	ArrowLeftIcon,
 	CheckCircle2Icon,
-	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { and, eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
@@ -62,6 +61,7 @@ import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { EmptyValue } from '../components/empty-value';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
+import { LinkedAddressValue } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import {
 	customFieldEntries,
@@ -320,9 +320,7 @@ function HabitatDetailsCard({
 						</Suspense>
 					</DetailRow>
 					<DetailRow label="Address">
-						<Suspense fallback={<span className="text-muted-foreground">Loading address…</span>}>
-							<HabitatAddress addressId={habitat.addressId} />
-						</Suspense>
+						<LinkedAddressValue addressId={habitat.addressId} />
 					</DetailRow>
 					<DetailRow label="Tags">
 						<Suspense fallback={<span className="text-muted-foreground">Loading tags…</span>}>
@@ -401,37 +399,6 @@ function AuditValue({ at, profileId }: { readonly at: string; readonly profileId
 					</Suspense>
 				</>
 			)}
-		</span>
-	);
-}
-
-function HabitatAddress({ addressId }: { readonly addressId: string | null }) {
-	if (addressId === null) {
-		return <span className="text-muted-foreground">No linked address</span>;
-	}
-
-	return <ResolvedHabitatAddress addressId={addressId} />;
-}
-
-function ResolvedHabitatAddress({ addressId }: { readonly addressId: string }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ address: webCollections.addresses })
-				.where(({ address }) => eq(address.id, addressId))
-				.findOne(),
-		[addressId],
-	);
-
-	const address = result.data;
-	if (address === undefined) {
-		return <span className="text-muted-foreground">Linked address unavailable</span>;
-	}
-
-	return (
-		<span className="inline-flex items-center gap-1.5">
-			<MapPinnedIcon aria-hidden="true" className="text-muted-foreground" />
-			{address.displayName}
 		</span>
 	);
 }

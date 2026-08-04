@@ -1,9 +1,4 @@
-import type {
-	AddressRow,
-	ControlMethodRow,
-	OutreachActionRow,
-	ProfileRow,
-} from '@simmer-mosquito/sync';
+import type { ControlMethodRow, OutreachActionRow, ProfileRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -28,19 +23,19 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { EmptyValue } from '../../../components/empty-value';
+import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { webCollections } from '../../../sync/webCollections';
 import { formatActionDate, nameById } from '../../control-operations/-control-display';
-import { formatAddressLine, formatReach } from '../-public-engagement-display';
+import { formatReach } from '../-public-engagement-display';
 
 const OutreachIcon = iconRegistry.entities.outreachAction.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
 const outreachGcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 export const Route = createFileRoute('/public-engagement/outreach/$id')({
 	component: RouteComponent,
@@ -184,20 +179,6 @@ function OutreachDetailsCard({
 	readonly technicianName: string | null;
 }) {
 	// addresses sync on demand, so resolve just the linked one as a bounded subset.
-	const addressId = action.addressId ?? UNMATCHABLE_ID;
-	const addressResult = useLiveQuery(
-		{
-			gcTime: outreachGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, addressId))
-					.findOne(),
-		},
-		[addressId],
-	);
-	const address = addressResult.data as AddressRow | undefined;
-
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
@@ -220,17 +201,7 @@ function OutreachDetailsCard({
 						{technicianName ?? <span className="text-muted-foreground">Unassigned</span>}
 					</DetailRow>
 					<DetailRow label="Address">
-						{action.addressId === null || address === undefined ? (
-							<EmptyValue />
-						) : (
-							<Link
-								className="rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								params={{ id: address.id }}
-								to="/gis/addresses/$id"
-							>
-								{formatAddressLine(address) || address.displayName}
-							</Link>
-						)}
+						<LinkedAddressValue addressId={action.addressId} />
 					</DetailRow>
 				</dl>
 				<AdditionalPersonnelList target={{ type: 'outreachAction', id: action.id }} />

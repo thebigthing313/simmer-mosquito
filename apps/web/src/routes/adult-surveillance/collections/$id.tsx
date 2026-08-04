@@ -65,6 +65,7 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { EmptyValue } from '../../../components/empty-value';
+import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useAppForm } from '../../../forms';
 import { customSchemaFor } from '../../../forms/field-components';
@@ -924,6 +925,9 @@ function DetailsCard({
 						) : (
 							(profileNameById.get(collection.setByProfileId) ?? 'Unknown')
 						)}
+					</DetailRow>
+					<DetailRow label="Address">
+						<LinkedAddressValue addressId={collection.addressId} />
 					</DetailRow>
 				</dl>
 				<AdditionalPersonnelList target={{ type: 'collection', id: collection.id }} />

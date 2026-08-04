@@ -1,15 +1,15 @@
-import type { AddressRow, ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
+import type { ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ContactIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { ContactIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
+import { MapCardAddress } from '../../components/linked-address';
 import { MapCard, MapCardDetail, MapCardEyebrow, MapCardText } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
 import { useMapCardTags } from '../../hooks/use-map-card-tags';
 import { webCollections } from '../../sync/webCollections';
 import {
 	contactDisplayName,
-	formatAddressLine,
 	isServiceRequestOpen,
 	serviceRequestTitle,
 } from './-public-engagement-display';
@@ -46,7 +46,6 @@ export function ServiceRequestMapCard({
 	const request = requestResult.data as ServiceRequestRow | undefined;
 
 	const contactId = request?.contactId ?? UNMATCHABLE_ID;
-	const addressId = request?.addressId ?? UNMATCHABLE_ID;
 	const contactResult = useLiveQuery(
 		{
 			gcTime: gcTimeMs,
@@ -59,18 +58,6 @@ export function ServiceRequestMapCard({
 		[contactId],
 	);
 	const contact = contactResult.data as ContactRow | undefined;
-	const addressResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, addressId))
-					.findOne(),
-		},
-		[addressId],
-	);
-	const address = addressResult.data as AddressRow | undefined;
 
 	const tags = useMapCardTags(id);
 
@@ -86,11 +73,7 @@ export function ServiceRequestMapCard({
 	}
 
 	const contactLabel = contact === undefined ? null : contactDisplayName(contact);
-	const addressLabel =
-		address === undefined
-			? null
-			: formatAddressLine(address).trim() || address.displayName?.trim() || null;
-	const detailsLoading = !contactResult.isReady || !addressResult.isReady;
+	const contactLoading = !contactResult.isReady;
 
 	return (
 		<MapCard
@@ -116,14 +99,10 @@ export function ServiceRequestMapCard({
 				<div className="grid gap-1.5">
 					<MapCardDetail icon={ContactIcon}>
 						{contactLabel ?? (
-							<span className="italic">{detailsLoading ? 'Loading…' : 'No contact'}</span>
+							<span className="italic">{contactLoading ? 'Loading…' : 'No contact'}</span>
 						)}
 					</MapCardDetail>
-					{addressLabel === null && !detailsLoading ? null : (
-						<MapCardDetail icon={MapPinnedIcon}>
-							{addressLabel ?? <span className="italic">Loading…</span>}
-						</MapCardDetail>
-					)}
+					<MapCardAddress addressId={request.addressId} />
 				</div>
 				<MapCardText>{request.details}</MapCardText>
 			</div>

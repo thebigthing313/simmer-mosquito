@@ -1,14 +1,14 @@
-import type { AddressRow, HabitatRow, HabitatTypeRow } from '@simmer-mosquito/sync';
+import type { HabitatRow, HabitatTypeRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	AlertTriangleIcon,
 	CheckCircle2Icon,
 	ComponentIcon,
-	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
+import { MapCardAddress } from '../components/linked-address';
 import {
 	MapCard,
 	MapCardDetail,
@@ -18,7 +18,6 @@ import {
 } from '../components/map/map-card';
 import { TagBadge } from '../components/tag-badge';
 import { useMapCardTags } from '../hooks/use-map-card-tags';
-import { addressCardLabel } from '../lib/address-format';
 import { webCollections } from '../sync/webCollections';
 
 const gcTimeMs = 30_000;
@@ -68,20 +67,6 @@ export function HabitatMapCard({
 	);
 	const habitatType = typeResult.data as HabitatTypeRow | undefined;
 
-	const addressId = habitat?.addressId ?? UNMATCHABLE_ID;
-	const addressResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, addressId))
-					.findOne(),
-		},
-		[addressId],
-	);
-	const address = addressResult.data as AddressRow | undefined;
-
 	const tags = useMapCardTags(id);
 
 	if (habitat === undefined) {
@@ -99,7 +84,6 @@ export function HabitatMapCard({
 	const typeName =
 		habitat.habitatTypeId === null ? 'Unassigned type' : (habitatType?.name ?? 'Unknown type');
 	const description = habitat.description.trim();
-	const addressLabel = addressCardLabel(address);
 
 	return (
 		<MapCard
@@ -123,9 +107,7 @@ export function HabitatMapCard({
 			<div className="grid gap-3">
 				<div className="grid gap-1.5">
 					<MapCardDetail icon={ComponentIcon}>{typeName}</MapCardDetail>
-					<MapCardDetail icon={MapPinnedIcon}>
-						{addressLabel ?? <span className="italic">No linked address</span>}
-					</MapCardDetail>
+					<MapCardAddress addressId={habitat.addressId} />
 					<MapCardLocation geomType={habitat.geomType} lat={habitat.lat} lng={habitat.lng} />
 				</div>
 				{description.length === 0 ? null : <MapCardText>{description}</MapCardText>}
