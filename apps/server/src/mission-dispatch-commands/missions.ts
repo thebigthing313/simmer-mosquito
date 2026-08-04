@@ -370,8 +370,10 @@ async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.reopenMission':
+			// Preserves `started_at` for the same reason assignment reopen does: the
+			// mission returns to in progress, and the original start time is not
+			// recoverable from anywhere else.
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
-				started_at: null,
 				completed_at: null,
 				cancelled_at: null,
 				cancellation_reason: null,

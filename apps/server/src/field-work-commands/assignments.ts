@@ -385,13 +385,16 @@ async function writeAssignmentCommand(
 				toSafeAssignment,
 			);
 		case 'fieldWork.reopenAssignment':
+			// `started_at` deliberately survives: reopening resumes work rather than
+			// resetting it, so an assignment that had been started comes back as in
+			// progress. Nothing else on the row records when the crew actually
+			// started, so clearing it would discard that for good.
 			return updateRow(
 				trx,
 				'assignments',
 				command.payload.assignmentId,
 				command.payload.organizationId,
 				{
-					started_at: null,
 					completed_at: null,
 					cancelled_at: null,
 					cancellation_reason: null,
