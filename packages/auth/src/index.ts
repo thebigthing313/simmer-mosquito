@@ -129,6 +129,7 @@ export interface AcceptInvitationInput {
 
 export type AcceptInvitationResult =
 	| { readonly status: 'authenticated'; readonly session: AuthenticatedSession }
+	| AuthChallenge
 	| { readonly status: 'invalid_invitation' }
 	| { readonly status: 'account_exists' }
 	| { readonly status: 'invalid_credentials' };
@@ -417,6 +418,14 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 			// new user in that case fails ("Could not create user" / email taken),
 			// so instead set the password on the provisional account. Only fall back
 			// to createUser when no account exists yet.
+			//
+			// `emailVerified: true` is what keeps acceptance a single step. The
+			// invitation token was mailed to this address and the caller has already
+			// matched it to a pending invitation for it, so holding the token proves
+			// control of the mailbox — the same proof a verification code collects.
+			// Left unverified, the authenticate call below answers
+			// `email_verification_required` and mails a code the acceptance form has
+			// no way to collect.
 			const existingUser = await findUserByEmail(workos, input.email);
 			if (existingUser !== null) {
 				// A user who has already signed in owns a real account; they must sign
@@ -429,6 +438,7 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 				await workos.userManagement.updateUser({
 					userId: existingUser.id,
 					password: input.password,
+					emailVerified: true,
 					...(input.firstName === undefined ? {} : { firstName: input.firstName }),
 					...(input.lastName === undefined ? {} : { lastName: input.lastName }),
 				});
@@ -437,6 +447,7 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 					await workos.userManagement.createUser({
 						email: input.email,
 						password: input.password,
+						emailVerified: true,
 						...(input.firstName === undefined ? {} : { firstName: input.firstName }),
 						...(input.lastName === undefined ? {} : { lastName: input.lastName }),
 					});
@@ -451,8 +462,8 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 			}
 
 			try {
-				// Passing the invitation token accepts the invite and verifies the email
-				// in one step, so no separate verification round-trip is needed here.
+				// Passing the invitation token accepts the invite as part of the same
+				// authentication, so the invitee lands in the organization directly.
 				const response = await workos.userManagement.authenticateWithPassword({
 					clientId: config.clientId,
 					email: input.email,
@@ -465,12 +476,16 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 
 				return { status: 'authenticated', session: toAuthenticatedSession(response) };
 			} catch (error) {
-				const failure = mapPasswordAuthFailure(error, input.email);
-				if (failure.status === 'invalid_credentials') {
-					return { status: 'invalid_credentials' };
+				// The token was revoked, expired, or already spent between the lookup
+				// and this call — an invitation problem, not a credential one.
+				if (readErrorCode(error) === 'invitation_invalid') {
+					return { status: 'invalid_invitation' };
 				}
 
-				throw error;
+				// A challenge (verification, organization selection) is one more step,
+				// not a failure. Hand it back so the caller can finish the flow
+				// instead of dead-ending on an unhandled throw.
+				return mapPasswordAuthFailure(error, input.email);
 			}
 		},
 

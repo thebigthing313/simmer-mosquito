@@ -208,6 +208,36 @@ describe('registerAuthUserRoutes', () => {
 		expect(acceptInvitationWithPassword).not.toHaveBeenCalled();
 	});
 
+	it('surfaces a verification challenge from accept-invitation instead of failing', async () => {
+		const { app, finalizeSession } = createApp({
+			getInvitationByToken: vi.fn(async () => ({
+				id: 'inv_1',
+				email: 'invitee@example.test',
+				state: 'pending' as const,
+				organizationId: 'workos_org_1',
+			})),
+			acceptInvitationWithPassword: vi.fn(async () => ({
+				status: 'verification_required' as const,
+				pendingAuthenticationToken: 'pat_invite',
+				email: 'invitee@example.test',
+			})),
+		});
+
+		const response = await postJson(app, '/auth/accept-invitation', {
+			invitationToken: 'itok',
+			password: 'sup3rsecret',
+		});
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({
+			ok: false,
+			status: 'verification_required',
+			pendingAuthenticationToken: 'pat_invite',
+			email: 'invitee@example.test',
+		});
+		expect(finalizeSession).not.toHaveBeenCalled();
+	});
+
 	it('surfaces the organization list when a multi-org user must choose', async () => {
 		const { app, finalizeSession } = createApp({
 			signInWithPassword: vi.fn(async () => ({

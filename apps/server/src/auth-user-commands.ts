@@ -286,6 +286,16 @@ export function registerAuthUserRoutes(
 			return respondAuthenticated(context, finalizeSession, result.session);
 		}
 
+		// WorkOS can still ask for a code or an organization before it issues the
+		// session; surface it like sign-in does so the invitee can finish rather
+		// than face a dead end.
+		if (
+			result.status === 'verification_required' ||
+			result.status === 'organization_selection_required'
+		) {
+			return context.json(challengeBody(result));
+		}
+
 		if (result.status === 'account_exists') {
 			return context.json({ ok: false, status: 'account_exists' }, 409);
 		}

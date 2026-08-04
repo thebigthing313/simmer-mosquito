@@ -18,6 +18,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { appAuthController } from '../app-auth';
 import {
+	type AcceptInvitationOutcome,
 	type AuthenticatedOutcome,
 	type AuthOrganizationChoice,
 	acceptInvitation,
@@ -459,9 +460,9 @@ type PendingStep =
 			readonly pendingAuthenticationToken: string;
 	  };
 
-/** Maps a sign-in/sign-up challenge outcome to the next inline step, or null if there is none. */
+/** Maps a credential-step challenge outcome to the next inline step, or null if there is none. */
 function toPendingStep(
-	outcome: SignInOutcome | SignUpOutcome,
+	outcome: SignInOutcome | SignUpOutcome | AcceptInvitationOutcome,
 	fallbackEmail: string,
 ): PendingStep | null {
 	if (outcome.status === 'verification_required') {
@@ -847,6 +848,7 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 	const [firstName, setFirstName] = useState('');
 	const [lastName, setLastName] = useState('');
 	const [password, setPassword] = useState('');
+	const [step, setStep] = useState<PendingStep | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
 
@@ -874,6 +876,10 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 			active = false;
 		};
 	}, [token]);
+
+	if (step !== null) {
+		return <PendingAuthFlow initialStep={step} redirectTo="/" onAuthenticated={onAuthenticated} />;
+	}
 
 	if (invitation.status === 'loading') {
 		return (
@@ -921,6 +927,12 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 			return;
 		}
 
+		const next = toPendingStep(outcome, invitation.status === 'ready' ? invitation.email : '');
+		if (next !== null) {
+			setStep(next);
+			return;
+		}
+
 		if (outcome.status === 'account_exists') {
 			setError('You already have a SIMMER account. Sign in to accept this invitation.');
 			return;
@@ -936,7 +948,7 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 			return;
 		}
 
-		setError(outcome.reason);
+		setError(outcome.status === 'error' ? outcome.reason : 'Unable to accept the invitation.');
 	}
 
 	return (

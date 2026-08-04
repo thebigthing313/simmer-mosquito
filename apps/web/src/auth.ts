@@ -372,6 +372,8 @@ export type ResetPasswordOutcome =
 
 export type AcceptInvitationOutcome =
 	| AuthenticatedOutcome
+	| VerificationRequiredOutcome
+	| OrganizationSelectionRequiredOutcome
 	| { readonly status: 'account_exists' }
 	| { readonly status: 'invalid_invitation' }
 	| { readonly status: 'weak_password'; readonly reason: string }
@@ -520,6 +522,14 @@ export async function acceptInvitation(input: {
 	const { data } = await postAuthJson('/auth/accept-invitation', input);
 	if (data.ok === true) {
 		return authenticatedOutcome(data);
+	}
+
+	if (data.status === 'verification_required') {
+		return verificationOutcome(data);
+	}
+
+	if (data.status === 'organization_selection_required') {
+		return organizationSelectionOutcome(data);
 	}
 
 	if (data.status === 'account_exists') {
