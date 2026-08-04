@@ -45,6 +45,7 @@ import {
 	CheckIcon,
 	ChevronDownIcon,
 	iconRegistry,
+	KeyboardIcon,
 	Loader2Icon,
 	PlusIcon,
 	XIcon,
@@ -62,6 +63,8 @@ import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
+import { todayInTimeZone } from '../-overview-data';
+import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
 export const Route = createFileRoute('/larval-surveillance/samples/$id')({
 	component: RouteComponent,
@@ -342,6 +345,7 @@ function IdentificationCard({
 	readonly identity: Identity | null;
 }) {
 	const [error, setError] = useState<string | null>(null);
+	const [keyEntryOpen, setKeyEntryOpen] = useState(false);
 
 	// The on-demand sample record — the source of truth for the disposition flags
 	// and label. Falls back to the one-shot seed until the subset is ready.
@@ -415,7 +419,9 @@ function IdentificationCard({
 				speciesId,
 				larvaeCount,
 				identifiedByProfileId: identity.profileId,
-				identifiedAt: now,
+				// A calendar date, not a timestamp — the domain builder validates
+				// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
+				identifiedAt: todayInTimeZone(undefined),
 				createdByProfileId: identity.profileId,
 				updatedByProfileId: identity.profileId,
 				createdAt: now,
@@ -492,9 +498,22 @@ function IdentificationCard({
 						</CardTitle>
 						<CardDescription>{meta.description}</CardDescription>
 					</div>
-					<Badge tone={meta.tone} variant="outline">
-						{meta.label}
-					</Badge>
+					<div className="flex shrink-0 items-center gap-2">
+						<Badge tone={meta.tone} variant="outline">
+							{meta.label}
+						</Badge>
+						{canManage ? (
+							<Button
+								onClick={() => setKeyEntryOpen(true)}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								<KeyboardIcon aria-hidden="true" />
+								Key entry
+							</Button>
+						) : null}
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent className="grid gap-5" padding="compact">
@@ -544,6 +563,16 @@ function IdentificationCard({
 					</>
 				)}
 			</CardContent>
+
+			{identity?.organizationId == null ? null : (
+				<SampleKeyEntryDialog
+					actorProfileId={identity.profileId}
+					onOpenChange={setKeyEntryOpen}
+					open={keyEntryOpen}
+					organizationId={identity.organizationId}
+					sampleId={sampleId}
+				/>
+			)}
 		</Card>
 	);
 }

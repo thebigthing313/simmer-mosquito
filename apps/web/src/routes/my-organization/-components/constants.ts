@@ -193,4 +193,5 @@ export const sections = [
 	{ id: 'control', label: 'Control Methods', to: '/my-organization/control-methods' },
 	{ id: 'insecticides', label: 'Insecticides', to: '/my-organization/insecticides' },
 	{ id: 'public', label: 'Public Engagement', to: '/my-organization/public-engagement' },
+	{ id: 'keyBindings', label: 'Key Bindings', to: '/my-organization/key-bindings' },
 ] as const;

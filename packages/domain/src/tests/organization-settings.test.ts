@@ -227,6 +227,7 @@ describe('organization settings resolution', () => {
 			schemaVersion: 1,
 			timezone: 'America/New_York',
 			unitDefaults,
+			speciesKeyBindings: { bindings: [] },
 			unknownRoot: 'keep',
 			adultSurveillance: {
 				futureAdultSetting: 'keep',

@@ -72,6 +72,7 @@ import {
 	ArrowLeftIcon,
 	ChevronDownIcon,
 	iconRegistry,
+	KeyboardIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -97,6 +98,7 @@ import {
 	speciesStatusLabel,
 	trapDisplayName,
 } from '../-adult-display';
+import { CollectionKeyEntryDialog } from '../-collection-key-entry';
 import { formatMonthDay, todayInTimeZone } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id')({
@@ -333,6 +335,7 @@ function ResultsCard({
 	);
 
 	const [confirmZeroResult, setConfirmZeroResult] = useState(false);
+	const [keyEntryOpen, setKeyEntryOpen] = useState(false);
 
 	const setFlag = useCallback(
 		(key: 'isZeroResult' | 'hasBycatch' | 'hasProblem', value: boolean) => {
@@ -389,11 +392,24 @@ function ResultsCard({
 							Collection flags and the specimens identified in this sample.
 						</CardDescription>
 					</div>
-					{entries.length > 0 ? (
-						<Badge tone="neutral" variant="outline">
-							{total.toLocaleString()} specimens
-						</Badge>
-					) : null}
+					<div className="flex shrink-0 items-center gap-2">
+						{entries.length > 0 ? (
+							<Badge tone="neutral" variant="outline">
+								{total.toLocaleString()} specimens
+							</Badge>
+						) : null}
+						{canEdit && !collection.isZeroResult ? (
+							<Button
+								onClick={() => setKeyEntryOpen(true)}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								<KeyboardIcon aria-hidden="true" />
+								Key entry
+							</Button>
+						) : null}
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
@@ -488,6 +504,14 @@ function ResultsCard({
 					) : null}
 				</div>
 			</CardContent>
+
+			<CollectionKeyEntryDialog
+				actorProfileId={actorProfileId}
+				collectionId={collection.id}
+				onOpenChange={setKeyEntryOpen}
+				open={keyEntryOpen}
+				organizationId={collection.organizationId}
+			/>
 
 			<AlertDialog onOpenChange={setConfirmZeroResult} open={confirmZeroResult}>
 				<AlertDialogContent>

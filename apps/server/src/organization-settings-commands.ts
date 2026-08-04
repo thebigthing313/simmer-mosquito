@@ -7,6 +7,7 @@ import {
 	updateInsecticideBatchTrackingCommand,
 	updateLarvalInspectionEntryPolicyCommand,
 	updateServiceRequestContextCommand,
+	updateSpeciesKeyBindingsCommand,
 	updateTimezoneCommand,
 	updateUnitDefaultsCommand,
 } from '@simmer-mosquito/domain';
@@ -145,6 +146,25 @@ export function registerOrganizationSettingsCommandRoutes(
 			);
 		},
 	);
+
+	app.patch(
+		'/organization-settings/species-key-bindings',
+		options.authContextMiddleware,
+		async (context) => {
+			const payloadResult = await readJsonObject(context.req);
+			if (!payloadResult.ok) {
+				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+			}
+
+			return writeSettingsCommandResponse(options.db, context.get('authContext'), () =>
+				updateSpeciesKeyBindingsCommand({
+					...agencyCommandContext(context.get('authContext')),
+					speciesKeyBindings: payloadResult.payload.speciesKeyBindings as never,
+					expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
+				}),
+			);
+		},
+	);
 }
 
 async function writeSettingsCommandResponse(
@@ -257,6 +277,20 @@ async function validateDbReferences(
 		}
 	}
 
+	// Referenced-row existence is a server-side check: the builder can only confirm the
+	// binding shape, not that the taxonomy still carries the species it names.
+	if (command.type === 'organizationSettings.updateSpeciesKeyBindings') {
+		for (const binding of command.payload.speciesKeyBindings.bindings) {
+			const exists = await speciesExists(db, binding.speciesId);
+			if (!exists) {
+				return {
+					error: 'invalid_species_key_binding',
+					reason: `Key "${binding.key}" is bound to a species that no longer exists.`,
+				};
+			}
+		}
+	}
+
 	if (command.type === 'organizationSettings.updateServiceRequestContext') {
 		const code = command.payload.serviceRequestContext.radius.unitCode;
 		const exists = await unitCodeExists(db, code, 'distance');
@@ -269,6 +303,16 @@ async function validateDbReferences(
 	}
 
 	return null;
+}
+
+async function speciesExists(db: OrganizationSettingsDb, speciesId: string): Promise<boolean> {
+	const row = await db
+		.selectFrom('species')
+		.select('id')
+		.where('id', '=', speciesId)
+		.executeTakeFirst();
+
+	return row !== undefined;
 }
 
 async function unitCodeExists(
@@ -308,6 +352,11 @@ function settingsChangeForCommand(command: OrganizationSettingsCommand) {
 			return {
 				kind: 'serviceRequestContext' as const,
 				serviceRequestContext: command.payload.serviceRequestContext,
+			};
+		case 'organizationSettings.updateSpeciesKeyBindings':
+			return {
+				kind: 'speciesKeyBindings' as const,
+				speciesKeyBindings: command.payload.speciesKeyBindings,
 			};
 	}
 }

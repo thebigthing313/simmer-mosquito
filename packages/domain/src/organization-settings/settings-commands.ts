@@ -6,6 +6,7 @@ import {
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 import { resolveLarvalInspectionEntryPolicy } from './larval-inspection-policy.js';
+import { normalizeSpeciesKeyBindings } from './species-key-bindings.js';
 import {
 	type AdultCollectionTimingMode,
 	DEFAULT_ADULT_COLLECTION_TIMING_MODE,
@@ -23,6 +24,8 @@ import {
 	type UpdateLarvalInspectionEntryPolicyCommandInput,
 	type UpdateServiceRequestContextCommand,
 	type UpdateServiceRequestContextCommandInput,
+	type UpdateSpeciesKeyBindingsCommand,
+	type UpdateSpeciesKeyBindingsCommandInput,
 	type UpdateTimezoneCommand,
 	type UpdateTimezoneCommandInput,
 	type UpdateUnitDefaultsCommand,
@@ -150,6 +153,25 @@ export function updateServiceRequestContextCommand(
 		payload: {
 			...basePayload(input),
 			serviceRequestContext,
+		},
+	};
+}
+
+export function updateSpeciesKeyBindingsCommand(
+	input: UpdateSpeciesKeyBindingsCommandInput,
+): UpdateSpeciesKeyBindingsCommand {
+	const issues = validateCommandBase(input);
+	const speciesKeyBindings = normalizeSpeciesKeyBindings(
+		input.speciesKeyBindings,
+		'speciesKeyBindings',
+		issues,
+	);
+	throwIfIssues('Update species key bindings command is invalid.', issues);
+	return {
+		type: 'organizationSettings.updateSpeciesKeyBindings',
+		payload: {
+			...basePayload(input),
+			speciesKeyBindings,
 		},
 	};
 }

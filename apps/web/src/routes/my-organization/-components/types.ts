@@ -25,7 +25,8 @@ export type OrganizationSectionId =
 	| 'larval'
 	| 'control'
 	| 'insecticides'
-	| 'public';
+	| 'public'
+	| 'keyBindings';
 
 export type MutableOrganizationRow = {
 	-readonly [Key in keyof OrganizationRow]: OrganizationRow[Key];

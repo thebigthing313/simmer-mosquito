@@ -30,6 +30,7 @@ import { Route as AdultSurveillanceIndexRouteImport } from './routes/adult-surve
 import { Route as MyOrganizationPublicEngagementRouteImport } from './routes/my-organization/public-engagement'
 import { Route as MyOrganizationPeopleRouteImport } from './routes/my-organization/people'
 import { Route as MyOrganizationLarvalSurveillanceRouteImport } from './routes/my-organization/larval-surveillance'
+import { Route as MyOrganizationKeyBindingsRouteImport } from './routes/my-organization/key-bindings'
 import { Route as MyOrganizationInsecticidesRouteImport } from './routes/my-organization/insecticides'
 import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
@@ -220,6 +221,12 @@ const MyOrganizationLarvalSurveillanceRoute =
   MyOrganizationLarvalSurveillanceRouteImport.update({
     id: '/larval-surveillance',
     path: '/larval-surveillance',
+    getParentRoute: () => MyOrganizationRoute,
+  } as any)
+const MyOrganizationKeyBindingsRoute =
+  MyOrganizationKeyBindingsRouteImport.update({
+    id: '/key-bindings',
+    path: '/key-bindings',
     getParentRoute: () => MyOrganizationRoute,
   } as any)
 const MyOrganizationInsecticidesRoute =
@@ -736,6 +743,7 @@ export interface FileRoutesByFullPath {
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
   '/my-organization/insecticides': typeof MyOrganizationInsecticidesRoute
+  '/my-organization/key-bindings': typeof MyOrganizationKeyBindingsRoute
   '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
@@ -842,6 +850,7 @@ export interface FileRoutesByTo {
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
   '/my-organization/insecticides': typeof MyOrganizationInsecticidesRoute
+  '/my-organization/key-bindings': typeof MyOrganizationKeyBindingsRoute
   '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
@@ -950,6 +959,7 @@ export interface FileRoutesById {
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
   '/my-organization/insecticides': typeof MyOrganizationInsecticidesRoute
+  '/my-organization/key-bindings': typeof MyOrganizationKeyBindingsRoute
   '/my-organization/larval-surveillance': typeof MyOrganizationLarvalSurveillanceRoute
   '/my-organization/people': typeof MyOrganizationPeopleRoute
   '/my-organization/public-engagement': typeof MyOrganizationPublicEngagementRoute
@@ -1059,6 +1069,7 @@ export interface FileRouteTypes {
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
     | '/my-organization/insecticides'
+    | '/my-organization/key-bindings'
     | '/my-organization/larval-surveillance'
     | '/my-organization/people'
     | '/my-organization/public-engagement'
@@ -1165,6 +1176,7 @@ export interface FileRouteTypes {
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
     | '/my-organization/insecticides'
+    | '/my-organization/key-bindings'
     | '/my-organization/larval-surveillance'
     | '/my-organization/people'
     | '/my-organization/public-engagement'
@@ -1272,6 +1284,7 @@ export interface FileRouteTypes {
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
     | '/my-organization/insecticides'
+    | '/my-organization/key-bindings'
     | '/my-organization/larval-surveillance'
     | '/my-organization/people'
     | '/my-organization/public-engagement'
@@ -1605,6 +1618,13 @@ declare module '@tanstack/react-router' {
       path: '/larval-surveillance'
       fullPath: '/my-organization/larval-surveillance'
       preLoaderRoute: typeof MyOrganizationLarvalSurveillanceRouteImport
+      parentRoute: typeof MyOrganizationRoute
+    }
+    '/my-organization/key-bindings': {
+      id: '/my-organization/key-bindings'
+      path: '/key-bindings'
+      fullPath: '/my-organization/key-bindings'
+      preLoaderRoute: typeof MyOrganizationKeyBindingsRouteImport
       parentRoute: typeof MyOrganizationRoute
     }
     '/my-organization/insecticides': {
@@ -2202,6 +2222,7 @@ interface MyOrganizationRouteChildren {
   MyOrganizationAdultSurveillanceRoute: typeof MyOrganizationAdultSurveillanceRoute
   MyOrganizationControlMethodsRoute: typeof MyOrganizationControlMethodsRoute
   MyOrganizationInsecticidesRoute: typeof MyOrganizationInsecticidesRoute
+  MyOrganizationKeyBindingsRoute: typeof MyOrganizationKeyBindingsRoute
   MyOrganizationLarvalSurveillanceRoute: typeof MyOrganizationLarvalSurveillanceRoute
   MyOrganizationPeopleRoute: typeof MyOrganizationPeopleRoute
   MyOrganizationPublicEngagementRoute: typeof MyOrganizationPublicEngagementRoute
@@ -2212,6 +2233,7 @@ const MyOrganizationRouteChildren: MyOrganizationRouteChildren = {
   MyOrganizationAdultSurveillanceRoute: MyOrganizationAdultSurveillanceRoute,
   MyOrganizationControlMethodsRoute: MyOrganizationControlMethodsRoute,
   MyOrganizationInsecticidesRoute: MyOrganizationInsecticidesRoute,
+  MyOrganizationKeyBindingsRoute: MyOrganizationKeyBindingsRoute,
   MyOrganizationLarvalSurveillanceRoute: MyOrganizationLarvalSurveillanceRoute,
   MyOrganizationPeopleRoute: MyOrganizationPeopleRoute,
   MyOrganizationPublicEngagementRoute: MyOrganizationPublicEngagementRoute,

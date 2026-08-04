@@ -29,7 +29,7 @@ domain doc instead of expanding this file.
 | Public engagement | **Contact**, **Service Request**, **Notification Type**, **Notification Registration**, **Mission Notification** | `docs/public-engagement-domain.md` |
 | Mission dispatch | **Mission**, **Mission Item**, **Mission Progress** | `docs/mission-dispatch-domain.md` |
 | Weather | **Weather Station**, **Weather Summary**, **Weather Summary Import** | `docs/weather-domain.md` |
-| Organization settings | Timezone, unit defaults, larval density policy, control defaults, public engagement defaults | `docs/organization-settings-domain.md` |
+| Organization settings | Timezone, unit defaults, larval density policy, control defaults, public engagement defaults, **Species Key Binding** | `docs/organization-settings-domain.md` |
 | Foundation/reference data | Addresses, regions, taxonomy, organization species, organization lookup catalogs | `docs/foundation-domain.md` |
 
 ## Relationship Cues

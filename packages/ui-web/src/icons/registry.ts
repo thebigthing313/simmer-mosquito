@@ -28,6 +28,7 @@ import {
 	Hammer,
 	Home,
 	Info,
+	Keyboard,
 	Layers,
 	Loader2,
 	LocateFixed,
@@ -185,6 +186,7 @@ export const iconRegistry = {
 		gripVertical: icon('gripVertical', 'Vertical grip', 'generic', GripVertical),
 		hammer: icon('hammer', 'Work in progress', 'generic', Hammer),
 		home: icon('home', 'Home', 'generic', Home),
+		keyboard: icon('keyboard', 'Keyboard', 'generic', Keyboard),
 		map: icon('map', 'Map', 'generic', LucideMap),
 		moon: icon('moon', 'Moon', 'generic', Moon),
 		print: icon('print', 'Print', 'generic', Printer),
@@ -238,6 +240,7 @@ export const GripVerticalIcon = iconRegistry.generic.gripVertical.icon;
 export const HammerIcon = iconRegistry.generic.hammer.icon;
 export const HomeIcon = iconRegistry.generic.home.icon;
 export const InfoIcon = iconRegistry.actions.info.icon;
+export const KeyboardIcon = iconRegistry.generic.keyboard.icon;
 export const Loader2Icon = iconRegistry.actions.loading.icon;
 export const LocateFixedIcon = iconRegistry.actions.locate.icon;
 export const MapPinnedIcon = iconRegistry.simmer.fieldWork.icon;

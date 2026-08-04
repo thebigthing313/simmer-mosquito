@@ -299,4 +299,20 @@ describe('larval surveillance commands', () => {
 			}),
 		).toThrow(DomainValidationError);
 	});
+
+	// Regression: callers reached for `new Date().toISOString()` and every add was
+	// rejected as invalid. identifiedAt is a calendar date, never a timestamp.
+	it('rejects an ISO timestamp for identifiedAt', () => {
+		expect(() =>
+			addSampleSpeciesCountCommand({
+				organizationId,
+				actorProfileId,
+				sampleSpeciesId,
+				sampleId,
+				speciesId,
+				larvaeCount: 3,
+				identifiedAt: '2024-05-03T14:22:07.123Z',
+			}),
+		).toThrow(DomainValidationError);
+	});
 });

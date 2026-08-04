@@ -23,6 +23,12 @@ missing legacy version data.
 {
   schemaVersion: 1,
   timezone: "America/New_York",
+  speciesKeyBindings: {
+    bindings: [
+      { key: "a", speciesId: "…" },
+      { key: "p", speciesId: "…" }
+    ]
+  },
   unitDefaults: {
     weight: "pound",
     distance: "mile",
@@ -69,6 +75,7 @@ under product language namespaces such as `adultSurveillance`, `larvalSurveillan
 Missing settings resolve to defaults instead of blocking workflows.
 
 - `timezone`: `America/New_York`
+- `speciesKeyBindings.bindings`: `[]`
 - `unitDefaults`: US customary defaults by unit type
 - `adultSurveillance.collectionTimingMode`: `exact_timestamps`
 - `larvalSurveillance.inspectionEntryPolicy.mode`: `hybrid`
@@ -112,6 +119,7 @@ V1 settings commands are narrow, explicit, web-management workflows:
 - `organizationSettings.updateLarvalInspectionEntryPolicy`
 - `organizationSettings.updateInsecticideBatchTracking`
 - `organizationSettings.updateServiceRequestContext`
+- `organizationSettings.updateSpeciesKeyBindings`
 
 Every command payload includes:
 
@@ -223,6 +231,48 @@ time. The database stores only canonical validated inspection fields. If queued
 commands replay under changed settings and no longer validate, the server
 rejects them with structured errors and mobile surfaces a failed-queue item for
 user correction.
+
+## Species Key Bindings
+
+`speciesKeyBindings` maps single keyboard characters to species so identification can
+be entered by key press instead of by picker. It is top-level rather than namespaced
+because adult and larval identification read the same set, and the species ids come
+from the global taxonomy rather than either domain's catalog.
+
+A binding is `{ key, speciesId }` and nothing more. Sex and physiological status are
+**not** bound to the key: the adult entry modal carries a sticky sex/status mode that
+every press inherits, so an agency needs one key per species rather than one per
+species/sex/status combination. Larval entry ignores the mode entirely.
+
+Bindable keys are the letters `a`–`z` and digits `0`–`9`, stored and matched
+lowercase. `Escape`, `Enter`, `Backspace`, `Tab`, and the arrow keys are reserved by
+the entry modal (close, commit, undo, focus movement) and are never bindable.
+
+Binding rules are strict on write and tolerant on read:
+
+- one key binds one species, and one species holds one key — both directions are
+  unique, so the modal lookup and a printed bench sheet stay unambiguous;
+- the command builder rejects an unbindable key, a blank species, or either kind of
+  duplicate;
+- `resolveSpeciesKeyBindings` drops unusable stored entries with non-fatal issues
+  instead of throwing, because a bad binding from an import or a hand edit must never
+  block identification entry.
+
+Server save validation additionally checks that every bound `speciesId` still exists
+in the taxonomy — referenced-row existence the pure builder cannot see.
+
+Default is an empty list. With no bindings, key entry stays unavailable and the modal
+points an owner or admin at the setup surface.
+
+### Scope
+
+v1 stores one binding set per agency: shared bench workstations and printed key
+sheets are the common case, and it reuses the whole settings pipeline. Per-person
+bindings are anticipated but not built — `resolveEffectiveSpeciesKeyBindings({
+organization, user })` is the seam, and it already prefers a non-empty personal set
+over the agency set. Adding user scope is a persistence change (a `preferences`
+column on `users` or `memberships`, plus a self-scoped write endpoint) behind that
+one function; no consumer changes.
 
 ## Control Operations
 

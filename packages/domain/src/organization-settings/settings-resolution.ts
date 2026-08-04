@@ -1,6 +1,7 @@
 import { createIssues } from '../command-validation.js';
 import type { DomainValidationIssue } from '../shared.js';
 import { resolveLarvalInspectionEntryPolicy } from './larval-inspection-policy.js';
+import { cloneSpeciesKeyBindings, resolveSpeciesKeyBindings } from './species-key-bindings.js';
 import {
 	type AdultCollectionTimingMode,
 	DEFAULT_ADULT_COLLECTION_TIMING_MODE,
@@ -15,6 +16,7 @@ import {
 	type ResolvedLarvalInspectionEntryPolicy,
 	type ResolvedOrganizationSettings,
 	type ServiceRequestContextSettings,
+	type SpeciesKeyBindings,
 	type UnitDefaults,
 	type UnitType,
 } from './types-and-defaults.js';
@@ -79,6 +81,7 @@ export function resolveOrganizationSettings(raw: unknown): ResolvedOrganizationS
 			schemaVersion: ORGANIZATION_SETTINGS_SCHEMA_VERSION,
 			timezone,
 			unitDefaults,
+			speciesKeyBindings: resolveSpeciesKeyBindings(source.speciesKeyBindings, issues),
 			adultSurveillance: {
 				collectionTimingMode: resolveAdultCollectionTimingMode(
 					adultSurveillance.collectionTimingMode,
@@ -127,6 +130,10 @@ export function mergeOrganizationSettingsChange(
 		| {
 				readonly kind: 'serviceRequestContext';
 				readonly serviceRequestContext: ServiceRequestContextSettings;
+		  }
+		| {
+				readonly kind: 'speciesKeyBindings';
+				readonly speciesKeyBindings: SpeciesKeyBindings;
 		  },
 ): OrganizationSettingsJson {
 	const base = isPlainObject(raw) ? cloneObject(raw) : {};
@@ -134,6 +141,7 @@ export function mergeOrganizationSettingsChange(
 	base.schemaVersion = ORGANIZATION_SETTINGS_SCHEMA_VERSION;
 	base.timezone = resolved.timezone;
 	base.unitDefaults = { ...resolved.unitDefaults };
+	base.speciesKeyBindings = cloneSpeciesKeyBindings(resolved.speciesKeyBindings);
 	const resolvedAdultSurveillance = isPlainObject(base.adultSurveillance)
 		? cloneObject(base.adultSurveillance)
 		: {};
@@ -200,6 +208,9 @@ export function mergeOrganizationSettingsChange(
 			base.publicEngagement = publicEngagement;
 			break;
 		}
+		case 'speciesKeyBindings':
+			base.speciesKeyBindings = cloneSpeciesKeyBindings(change.speciesKeyBindings);
+			break;
 	}
 	return base;
 }

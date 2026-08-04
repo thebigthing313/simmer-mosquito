@@ -585,6 +585,12 @@ export const shellDomains: readonly ShellDomain[] = [
 						to: '/my-organization/larval-surveillance',
 						icon: iconRegistry.domains.larvalSurveillance.icon,
 					},
+					{
+						id: 'org-key-bindings',
+						label: 'Key Bindings',
+						to: '/my-organization/key-bindings',
+						icon: iconRegistry.generic.keyboard.icon,
+					},
 				],
 			},
 			{
