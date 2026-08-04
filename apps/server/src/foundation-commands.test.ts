@@ -1,4 +1,4 @@
-import type { SafeOrgLookup, SafeTag } from '@simmer-mosquito/db';
+import type { SafeOrgLookup, SafeTag, SimmerRole } from '@simmer-mosquito/db';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
@@ -254,6 +254,45 @@ describe('registerFoundationCommandRoutes', () => {
 			],
 		]);
 	});
+
+	// The tag catalog answers `fieldWork.*` commands from a foundation route, so
+	// it has to consult the same permission map the `/field-work/*` routes do.
+	// Nothing is written: the writer records every call it receives.
+	it.each([
+		['viewer', 'POST', '/foundation/tags'],
+		['collector', 'POST', '/foundation/tags'],
+		['collector', 'PATCH', '/foundation/tags/c15223fd-f242-4e6f-8c0e-0229ecdd95c3'],
+		['collector', 'DELETE', '/foundation/tags/c15223fd-f242-4e6f-8c0e-0229ecdd95c3'],
+	] as const)('refuses a %s issuing %s %s', async (role, method, path) => {
+		const calls: unknown[] = [];
+		const app = createApp(
+			{
+				writeTagCommands: async (_db, commands) => {
+					calls.push(commands);
+					return { row: tagRow, txid: 49 };
+				},
+			},
+			role,
+		);
+
+		const response = await app.request(
+			path,
+			method === 'DELETE'
+				? { method }
+				: {
+						method,
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({
+							id: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
+							tagName: 'High priority',
+						}),
+					},
+		);
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
+		expect(calls).toEqual([]);
+	});
 });
 
 function createApp(
@@ -261,12 +300,13 @@ function createApp(
 		Parameters<typeof registerFoundationCommandRoutes>[1],
 		'writeCollectionMethodCommands' | 'writeTagCommands'
 	>,
+	role: SimmerRole = 'manager',
 ) {
 	const app = new Hono<{ Variables: AuthVariables }>();
 	registerFoundationCommandRoutes(app, {
 		db: {} as Parameters<typeof registerFoundationCommandRoutes>[1]['db'],
 		authContextMiddleware: createMiddleware(async (context, next) => {
-			context.set('authContext', authContext);
+			context.set('authContext', { ...authContext, role });
 			await next();
 		}),
 		...options,
@@ -280,6 +320,9 @@ const profileId = '0105b111-e0be-46b0-b5e9-a87507889b51';
 const authContext = {
 	organization: { id: organizationId },
 	profile: { id: profileId },
+	// Tag catalog management is manager-and-above, so the happy paths below sign
+	// in as one. `createApp` takes an override for the refusal cases.
+	role: 'manager',
 } as AuthContext;
 
 const collectionMethodRow: SafeOrgLookup = {
