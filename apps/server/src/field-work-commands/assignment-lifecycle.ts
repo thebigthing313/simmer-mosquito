@@ -34,6 +34,41 @@ export interface AssignmentSnapshot {
 /** The item-progress commands that carry a precondition of their own. */
 export type ItemProgressCommand = 'complete' | 'reopen' | 'skip' | 'unskip';
 
+/** Every way a lifecycle command can be refused. */
+export type LifecycleRejection =
+	| 'assignment_not_startable'
+	| 'assignment_not_started'
+	| 'assignment_not_completable'
+	| 'assignment_has_no_items'
+	| 'assignment_items_pending'
+	| 'assignment_not_reopenable'
+	| 'assignment_not_in_progress'
+	| 'assignment_item_skipped'
+	| 'assignment_item_not_completed'
+	| 'assignment_item_not_skipped';
+
+/**
+ * What to tell the person who tried.
+ *
+ * The code alone reaches the client as an error with no `reason`, and every
+ * command caller falls back to a generic "unable to" line when one is missing —
+ * so a refusal that is entirely explainable ("some stops are still pending")
+ * arrives looking like a fault. A total `Record` over the rejection union, so a
+ * new refusal cannot be added without wording it.
+ */
+const REJECTION_REASONS: Record<LifecycleRejection, string> = {
+	assignment_not_startable: 'This assignment is closed. Reopen it first.',
+	assignment_not_started: 'This assignment has not been started.',
+	assignment_not_completable: 'This assignment is already closed.',
+	assignment_has_no_items: 'This assignment has no stops.',
+	assignment_items_pending: 'Some stops are still pending.',
+	assignment_not_reopenable: 'Only a completed or cancelled assignment can be reopened.',
+	assignment_not_in_progress: 'This assignment is closed.',
+	assignment_item_skipped: 'This stop was skipped. Unskip it first.',
+	assignment_item_not_completed: 'This stop is not completed.',
+	assignment_item_not_skipped: 'This stop was not skipped.',
+};
+
 export function readAssignmentState(row: {
 	readonly started_at: Date | null;
 	readonly completed_at: Date | null;
@@ -63,7 +98,7 @@ export function readAssignmentItemState(row: {
  * on an assignment that is already in progress — so only the terminal states
  * refuse it.
  */
-export function checkStartAssignment(snapshot: AssignmentSnapshot): string | null {
+export function checkStartAssignment(snapshot: AssignmentSnapshot): LifecycleRejection | null {
 	return snapshot.state === 'completed' || snapshot.state === 'cancelled'
 		? 'assignment_not_startable'
 		: null;
@@ -74,7 +109,7 @@ export function checkStartAssignment(snapshot: AssignmentSnapshot): string | nul
  * completed or skipped. Completing items does not auto-complete the assignment,
  * so this is the only place the "all stops handled" rule is checked.
  */
-export function checkCompleteAssignment(snapshot: AssignmentSnapshot): string | null {
+export function checkCompleteAssignment(snapshot: AssignmentSnapshot): LifecycleRejection | null {
 	if (snapshot.state === 'not_started') {
 		return 'assignment_not_started';
 	}
@@ -87,7 +122,7 @@ export function checkCompleteAssignment(snapshot: AssignmentSnapshot): string | 
 	return snapshot.pendingItemCount > 0 ? 'assignment_items_pending' : null;
 }
 
-export function checkReopenAssignment(snapshot: AssignmentSnapshot): string | null {
+export function checkReopenAssignment(snapshot: AssignmentSnapshot): LifecycleRejection | null {
 	return snapshot.state === 'completed' || snapshot.state === 'cancelled'
 		? null
 		: 'assignment_not_reopenable';
@@ -103,7 +138,7 @@ export function checkItemProgress(
 	command: ItemProgressCommand,
 	parent: AssignmentState,
 	item: AssignmentItemState,
-): string | null {
+): LifecycleRejection | null {
 	if (parent === 'not_started') {
 		return 'assignment_not_started';
 	}
@@ -131,29 +166,42 @@ export async function loadAssignmentSnapshot(
 	assignmentId: string,
 	organizationId: string,
 ): Promise<AssignmentSnapshot | null> {
+	// Locked for the rest of the transaction: the precondition is checked and then
+	// written against, so two crews completing the same assignment at once would
+	// otherwise both read "no pending stops" and both commit.
 	const assignment = await trx
 		.selectFrom('assignments')
 		.select(['started_at', 'completed_at', 'cancelled_at'])
 		.where('id', '=', assignmentId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
+		.forUpdate()
 		.executeTakeFirst();
 	if (assignment === undefined) {
 		return null;
 	}
 
-	const items = await trx
+	// Counted in the database rather than by reading every stop: a long route is
+	// hundreds of rows and this only ever needs the two totals.
+	const counts = await trx
 		.selectFrom('assignment_items')
-		.select(['completed_at', 'skipped_at'])
+		.select((eb) => [
+			eb.fn.countAll<string>().as('active_count'),
+			eb.fn
+				.countAll<string>()
+				.filterWhere('completed_at', 'is', null)
+				.filterWhere('skipped_at', 'is', null)
+				.as('pending_count'),
+		])
 		.where('assignment_id', '=', assignmentId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
-		.execute();
+		.executeTakeFirstOrThrow();
 
 	return {
 		state: readAssignmentState(assignment),
-		activeItemCount: items.length,
-		pendingItemCount: items.filter((item) => readAssignmentItemState(item) === 'pending').length,
+		activeItemCount: Number(counts.active_count),
+		pendingItemCount: Number(counts.pending_count),
 	};
 }
 
@@ -162,7 +210,7 @@ export async function assertAssignmentTransition(
 	trx: FieldWorkTransaction,
 	assignmentId: string,
 	organizationId: string,
-	check: (snapshot: AssignmentSnapshot) => string | null,
+	check: (snapshot: AssignmentSnapshot) => LifecycleRejection | null,
 ): Promise<void> {
 	const snapshot = await loadAssignmentSnapshot(trx, assignmentId, organizationId);
 	if (snapshot === null) {
@@ -171,7 +219,7 @@ export async function assertAssignmentTransition(
 
 	const rejection = check(snapshot);
 	if (rejection !== null) {
-		throw new CommandError(400, { error: rejection });
+		throw new CommandError(400, { error: rejection, reason: REJECTION_REASONS[rejection] });
 	}
 }
 
@@ -210,6 +258,6 @@ export async function assertItemProgress(
 		readAssignmentItemState(item),
 	);
 	if (rejection !== null) {
-		throw new CommandError(400, { error: rejection });
+		throw new CommandError(400, { error: rejection, reason: REJECTION_REASONS[rejection] });
 	}
 }
