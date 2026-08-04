@@ -260,6 +260,21 @@ interface PreloadableCollection {
 	readonly preload: () => Promise<unknown>;
 }
 
+/**
+ * Sort indexes.
+ *
+ * A TanStack DB query that pairs `orderBy` with `limit` can only page lazily
+ * when the sorted column is indexed. Without one it silently sorts the whole
+ * collection to hand back six rows, and says so in a console warning — which is
+ * how the habitat pickers were found doing it on every keystroke.
+ *
+ * Indexes are declared per column rather than switching the collections to
+ * `autoIndex: 'eager'`: only a handful of columns are ever sorted-and-limited
+ * (the typeahead pickers), and eager auto-indexing would build and maintain
+ * indexes for every column of every collection to serve them. Each one is
+ * written next to its collection with a note naming the surface that sorts by
+ * it, so an index that outlives its picker is visible as dead weight.
+ */
 function createReadOnlyWebCollection<TRow extends { readonly id: string }>(
 	descriptor: SyncDescriptor<TRow>,
 	shapeServerUrl: string,
@@ -368,6 +383,7 @@ export function createWebCollections(options: {
 			}),
 		}),
 	);
+	// The address picker on every location-bearing form.
 	addresses.createIndex((row) => row.displayName, { indexType: BasicIndex });
 	const applicationMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
@@ -483,6 +499,8 @@ export function createWebCollections(options: {
 			}),
 		}),
 	);
+	// The habitat pickers on the control-action and inspection forms.
+	habitats.createIndex((row) => row.habitatName, { indexType: BasicIndex });
 	const inspections = createCollection(
 		electricShapeCollectionOptions<InspectionRow>({
 			descriptor: inspectionsSyncDescriptor,
@@ -524,6 +542,8 @@ export function createWebCollections(options: {
 			...createRegionMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
+	// The region boundary picker on the habitat and region forms.
+	regions.createIndex((row) => row.name, { indexType: BasicIndex });
 	const traps = createCollection(
 		electricShapeCollectionOptions<TrapRow>({
 			descriptor: trapsSyncDescriptor,
@@ -649,6 +669,8 @@ export function createWebCollections(options: {
 			...createContactMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
+	// The contact picker on the service-request and outreach forms.
+	contacts.createIndex((row) => row.contactName, { indexType: BasicIndex });
 	const serviceRequests = createCollection(
 		electricShapeCollectionOptions<ServiceRequestRow>({
 			descriptor: serviceRequestsSyncDescriptor,

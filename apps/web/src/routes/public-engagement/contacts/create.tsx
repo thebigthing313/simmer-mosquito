@@ -30,6 +30,10 @@ function CreateContactRoute() {
 
 	// contacts syncs on demand; keep the org's stream warm so the insert's txid
 	// confirmation resolves instead of timing out against a cold shape.
+	//
+	// The row itself is never read, so there is no order to impose — and an
+	// ordered, limited query whose sort column has no index loads the entire
+	// collection to serve it.
 	useLiveQuery(
 		{
 			gcTime: warmGcTimeMs,
@@ -37,7 +41,6 @@ function CreateContactRoute() {
 				query
 					.from({ contact: webCollections.contacts })
 					.where(({ contact }) => eq(contact.organizationId, organizationId))
-					.orderBy(({ contact }) => contact.id, 'asc')
 					.limit(1),
 		},
 		[organizationId],
