@@ -17,13 +17,21 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
+	assertAssignmentTransition,
+	checkCompleteAssignment,
+	checkReopenAssignment,
+	checkStartAssignment,
+} from './assignment-lifecycle.js';
+import {
 	agencyCommandContext,
 	applyPlacement,
 	assignmentPlacementRef,
 	assignmentReturnColumns,
 	type CommandContext,
 	type CommandsResult,
+	commandActor,
 	createCommand,
+	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	handleCommandError,
@@ -269,8 +277,18 @@ async function runAssignmentCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await writeCommands(db, commands, writeAssignmentCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeAssignmentCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'assignment_not_found' }, 404);
 		}
@@ -342,6 +360,12 @@ async function writeAssignmentCommand(
 			);
 		}
 		case 'fieldWork.startAssignment':
+			await assertAssignmentTransition(
+				trx,
+				command.payload.assignmentId,
+				command.payload.organizationId,
+				checkStartAssignment,
+			);
 			return updateRow(
 				trx,
 				'assignments',
@@ -356,6 +380,12 @@ async function writeAssignmentCommand(
 				toSafeAssignment,
 			);
 		case 'fieldWork.completeAssignment':
+			await assertAssignmentTransition(
+				trx,
+				command.payload.assignmentId,
+				command.payload.organizationId,
+				checkCompleteAssignment,
+			);
 			return updateRow(
 				trx,
 				'assignments',
@@ -385,13 +415,22 @@ async function writeAssignmentCommand(
 				toSafeAssignment,
 			);
 		case 'fieldWork.reopenAssignment':
+			await assertAssignmentTransition(
+				trx,
+				command.payload.assignmentId,
+				command.payload.organizationId,
+				checkReopenAssignment,
+			);
+			// `started_at` deliberately survives: reopening resumes work rather than
+			// resetting it, so an assignment that had been started comes back as in
+			// progress. Nothing else on the row records when the crew actually
+			// started, so clearing it would discard that for good.
 			return updateRow(
 				trx,
 				'assignments',
 				command.payload.assignmentId,
 				command.payload.organizationId,
 				{
-					started_at: null,
 					completed_at: null,
 					cancelled_at: null,
 					cancellation_reason: null,

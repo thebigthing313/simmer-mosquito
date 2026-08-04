@@ -60,12 +60,12 @@ import {
 } from '../../../../components/stop-order';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
 import { isWriteBlocked } from '../../../../lib/write-access';
+import { moveRouteItems } from '../../../../sync/move-route-items';
 import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
 	type HabitatSite,
-	moveRouteItems,
 	type RouteStopView,
 	stopTone,
 	updateHabitatDescription,

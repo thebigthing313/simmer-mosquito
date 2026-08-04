@@ -769,6 +769,10 @@ omitted. Server handlers should reject future timestamps beyond a small
 clock-skew allowance. `completeAssignment` requires the assignment to already be
 started; it does not auto-start.
 
+`startAssignment` rejects completed and cancelled assignments. It is allowed on
+an assignment that is already in progress, so a manager can correct a start time
+without reopening first.
+
 Cancellation is allowed before or after start. `cancellationReason` is optional
 plain text and should be trimmed/null-normalized.
 
@@ -923,6 +927,12 @@ skipped fields and reason.
 Server handlers should reject future item progress timestamps beyond a small
 clock-skew allowance and require progress timestamps to be on or after
 `assignments.started_at`.
+
+The clock-skew allowance is enforced. The "on or after `started_at`" rule is
+not, deliberately: `started_at` is stamped by the server while progress
+timestamps come from the device, so a phone a minute behind would have ordinary
+work refused — the same failure the clock-skew allowance exists to prevent.
+Enforcing it needs a tolerance of its own; tracked in issue #53.
 
 `completeAssignment` requires:
 

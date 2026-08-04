@@ -1,11 +1,6 @@
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Field,
-	FieldDescription,
-	FieldGroup,
-	FieldLabel,
-} from '@simmer-mosquito/ui-web/components/ui/field';
+import { Field, FieldGroup, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	InputGroup,
@@ -14,6 +9,7 @@ import {
 	InputGroupInput,
 } from '@simmer-mosquito/ui-web/components/ui/input-group';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { appAuthController } from '../app-auth';
@@ -47,6 +43,8 @@ import { LandingStage } from './-landing-stage';
 const SpinnerIcon = iconRegistry.actions.loading.icon;
 const EyeShowIcon = iconRegistry.generic.eye.icon;
 const EyeHideIcon = iconRegistry.generic.eyeOff.icon;
+const CheckIcon = iconRegistry.actions.check.icon;
+const CircleIcon = iconRegistry.generic.circle.icon;
 
 function AuthShell({
 	title,
@@ -115,7 +113,6 @@ function PasswordField({
 	value,
 	onChange,
 	minLength,
-	hint,
 }: {
 	readonly id: string;
 	readonly label: string;
@@ -123,7 +120,6 @@ function PasswordField({
 	readonly value: string;
 	readonly onChange: (value: string) => void;
 	readonly minLength?: number;
-	readonly hint?: string;
 }) {
 	const [visible, setVisible] = useState(false);
 	const ToggleIcon = visible ? EyeHideIcon : EyeShowIcon;
@@ -153,8 +149,104 @@ function PasswordField({
 					</InputGroupButton>
 				</InputGroupAddon>
 			</InputGroup>
-			{hint ? <FieldDescription>{hint}</FieldDescription> : null}
 		</Field>
+	);
+}
+
+/**
+ * The shortest password the server will take.
+ *
+ * Mirrors `MIN_PASSWORD_LENGTH` in the server's auth endpoints. WorkOS applies
+ * the organization's own policy on top — length plus breached-password
+ * detection — so this is a floor the page can check, not the whole rule. What
+ * WorkOS refuses comes back as its own message and is shown verbatim.
+ */
+const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * The two fields every "choose a password" step uses.
+ *
+ * A single password box on an account-creation form is a typo waiting to lock
+ * someone out of an account they have not signed into yet, so the password is
+ * always confirmed. The requirement list is stated up front and answers live:
+ * before this, the only signal that a password was too weak arrived after
+ * submitting, and on the invitation page it did not arrive at all.
+ */
+function NewPasswordFields({
+	idPrefix,
+	label,
+	password,
+	confirm,
+	onPasswordChange,
+	onConfirmChange,
+}: {
+	readonly idPrefix: string;
+	readonly label: string;
+	readonly password: string;
+	readonly confirm: string;
+	readonly onPasswordChange: (value: string) => void;
+	readonly onConfirmChange: (value: string) => void;
+}) {
+	return (
+		<>
+			<PasswordField
+				autoComplete="new-password"
+				id={`${idPrefix}-password`}
+				label={label}
+				minLength={MIN_PASSWORD_LENGTH}
+				onChange={onPasswordChange}
+				value={password}
+			/>
+			<PasswordField
+				autoComplete="new-password"
+				id={`${idPrefix}-confirm`}
+				label="Confirm password"
+				onChange={onConfirmChange}
+				value={confirm}
+			/>
+			<PasswordRequirements confirm={confirm} password={password} />
+		</>
+	);
+}
+
+function PasswordRequirements({
+	password,
+	confirm,
+}: {
+	readonly password: string;
+	readonly confirm: string;
+}) {
+	return (
+		<ul className="grid gap-1 text-muted-foreground text-xs">
+			<Requirement met={password.length >= MIN_PASSWORD_LENGTH}>
+				At least {MIN_PASSWORD_LENGTH} characters
+			</Requirement>
+			<Requirement met={password.length > 0 && password === confirm}>
+				Both entries match
+			</Requirement>
+			<Requirement met={null}>Not a password known to have been breached</Requirement>
+		</ul>
+	);
+}
+
+/**
+ * One requirement line. `met: null` marks a rule only the server can settle —
+ * it is stated so the user knows it exists, without a checkbox that would be
+ * lying either way.
+ */
+function Requirement({
+	met,
+	children,
+}: {
+	readonly met: boolean | null;
+	readonly children: ReactNode;
+}) {
+	const Icon = met === true ? CheckIcon : CircleIcon;
+	return (
+		<li className={cn('flex items-center gap-1.5', met === true && 'text-foreground')}>
+			<Icon aria-hidden="true" className={cn('size-3 shrink-0', met === null && 'opacity-50')} />
+			{children}
+		</li>
 	);
 }
 
@@ -301,15 +393,21 @@ export function SignUpPage({ redirectTo }: { readonly redirectTo: string }) {
 	const [lastName, setLastName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
+	const [confirm, setConfirm] = useState('');
 	const [step, setStep] = useState<PendingStep | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
-		setPending(true);
 		setError(null);
 
+		if (password !== confirm) {
+			setError('Passwords do not match.');
+			return;
+		}
+
+		setPending(true);
 		const outcome = await signUp({
 			email,
 			password,
@@ -402,14 +500,13 @@ export function SignUpPage({ redirectTo }: { readonly redirectTo: string }) {
 							onChange={(event) => setEmail(event.target.value)}
 						/>
 					</Field>
-					<PasswordField
-						id="signup-password"
+					<NewPasswordFields
+						confirm={confirm}
+						idPrefix="signup"
 						label="Password"
-						autoComplete="new-password"
-						minLength={8}
-						hint="At least 8 characters."
-						value={password}
-						onChange={setPassword}
+						onConfirmChange={setConfirm}
+						onPasswordChange={setPassword}
+						password={password}
 					/>
 					<SubmitButton pending={pending} pendingLabel="Creating account…">
 						Create Account
@@ -780,21 +877,13 @@ export function ResetPasswordPage({ token }: { readonly token: string }) {
 			<form onSubmit={handleSubmit}>
 				<FieldGroup>
 					<FormError message={error} />
-					<PasswordField
-						id="reset-password"
+					<NewPasswordFields
+						confirm={confirm}
+						idPrefix="reset"
 						label="New password"
-						autoComplete="new-password"
-						minLength={8}
-						hint="At least 8 characters."
-						value={password}
-						onChange={setPassword}
-					/>
-					<PasswordField
-						id="reset-confirm"
-						label="Confirm new password"
-						autoComplete="new-password"
-						value={confirm}
-						onChange={setConfirm}
+						onConfirmChange={setConfirm}
+						onPasswordChange={setPassword}
+						password={password}
 					/>
 					<SubmitButton pending={pending} pendingLabel="Updating…">
 						Update Password
@@ -818,6 +907,7 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 	const [firstName, setFirstName] = useState('');
 	const [lastName, setLastName] = useState('');
 	const [password, setPassword] = useState('');
+	const [confirm, setConfirm] = useState('');
 	const [step, setStep] = useState<PendingStep | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
@@ -881,9 +971,14 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
-		setPending(true);
 		setError(null);
 
+		if (password !== confirm) {
+			setError('Passwords do not match.');
+			return;
+		}
+
+		setPending(true);
 		const outcome = await acceptInvitation({
 			invitationToken: token,
 			password,
@@ -965,14 +1060,13 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 							/>
 						</Field>
 					</div>
-					<PasswordField
-						id="invite-password"
+					<NewPasswordFields
+						confirm={confirm}
+						idPrefix="invite"
 						label="Create a password"
-						autoComplete="new-password"
-						minLength={8}
-						hint="At least 8 characters."
-						value={password}
-						onChange={setPassword}
+						onConfirmChange={setConfirm}
+						onPasswordChange={setPassword}
+						password={password}
 					/>
 					<SubmitButton pending={pending} pendingLabel="Setting up…">
 						Accept Invitation

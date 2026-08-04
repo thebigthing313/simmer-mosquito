@@ -1,5 +1,6 @@
 import {
 	createIssues,
+	isFutureBeyondClockSkew,
 	jsonObject as normalizeMetadata,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
@@ -221,7 +222,7 @@ export function normalizeTimestamp(
 		issues.push({ path, message: `${path} must be a valid Date.` });
 		return new Date(0);
 	}
-	if (!allowFuture && value.getTime() > Date.now()) {
+	if (!allowFuture && isFutureBeyondClockSkew(value)) {
 		issues.push({ path, message: `${path} cannot be in the future.` });
 	}
 	return value;

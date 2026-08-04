@@ -21,7 +21,9 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
+	commandActor,
 	createCommand,
+	denyUnauthorizedCommands,
 	handleCommandError,
 	insertMissionItem,
 	invalidUpdate,
@@ -251,8 +253,18 @@ async function runMissionCommands(
 	commands: readonly MissionDispatchCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await writeCommands(db, commands, writeMissionCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeMissionCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'mission_not_found' }, 404);
 		}
@@ -370,8 +382,10 @@ async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.reopenMission':
+			// Preserves `started_at` for the same reason assignment reopen does: the
+			// mission returns to in progress, and the original start time is not
+			// recoverable from anywhere else.
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
-				started_at: null,
 				completed_at: null,
 				cancelled_at: null,
 				cancellation_reason: null,

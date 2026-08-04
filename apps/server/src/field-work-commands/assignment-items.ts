@@ -15,6 +15,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { assertItemProgress } from './assignment-lifecycle.js';
 import {
 	agencyCommandContext,
 	applyPlacement,
@@ -22,7 +23,9 @@ import {
 	assignmentPlacementRef,
 	type CommandContext,
 	type CommandsResult,
+	commandActor,
 	createCommand,
+	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	handleCommandError,
@@ -177,8 +180,18 @@ async function runAssignmentItemCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await writeCommands(db, commands, writeAssignmentItemCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeAssignmentItemCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'assignment_item_not_found' }, 404);
 		}
@@ -245,6 +258,12 @@ async function writeAssignmentItemCommand(
 				toSafeAssignmentItem,
 			);
 		case 'fieldWork.completeAssignmentItem':
+			await assertItemProgress(
+				trx,
+				command.payload.assignmentItemId,
+				command.payload.organizationId,
+				'complete',
+			);
 			return updateRow(
 				trx,
 				'assignment_items',
@@ -263,6 +282,12 @@ async function writeAssignmentItemCommand(
 				toSafeAssignmentItem,
 			);
 		case 'fieldWork.reopenAssignmentItem':
+			await assertItemProgress(
+				trx,
+				command.payload.assignmentItemId,
+				command.payload.organizationId,
+				'reopen',
+			);
 			return updateRow(
 				trx,
 				'assignment_items',
@@ -277,6 +302,12 @@ async function writeAssignmentItemCommand(
 				toSafeAssignmentItem,
 			);
 		case 'fieldWork.skipAssignmentItem':
+			await assertItemProgress(
+				trx,
+				command.payload.assignmentItemId,
+				command.payload.organizationId,
+				'skip',
+			);
 			return updateRow(
 				trx,
 				'assignment_items',
@@ -294,6 +325,12 @@ async function writeAssignmentItemCommand(
 				toSafeAssignmentItem,
 			);
 		case 'fieldWork.unskipAssignmentItem':
+			await assertItemProgress(
+				trx,
+				command.payload.assignmentItemId,
+				command.payload.organizationId,
+				'unskip',
+			);
 			return updateRow(
 				trx,
 				'assignment_items',

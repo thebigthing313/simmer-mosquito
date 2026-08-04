@@ -41,9 +41,10 @@ import {
 	type UpdateHabitatTypeCommand,
 	updateTagCommand,
 } from '@simmer-mosquito/domain';
-import type { Hono, MiddlewareHandler } from 'hono';
+import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { authorizeCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	createCommand,
@@ -63,6 +64,23 @@ import {
 // --------------------------------------------------------------------------
 // Tags
 // --------------------------------------------------------------------------
+
+/**
+ * The role check the tag catalog runs before writing.
+ *
+ * `fieldWork.createTag` and friends are field-work commands answered by a
+ * foundation endpoint, so they are named in the same permission map the
+ * `/field-work/*` routes read — but this module funnels through its own writer
+ * and would otherwise never consult it. "Tag catalog management is
+ * manager-and-above" (`docs/field-work-support-domain.md`).
+ */
+function denyUnauthorizedTagCommands(
+	context: Context<{ Variables: AuthVariables }>,
+	commands: readonly TagCommand[],
+): Response | null {
+	const denial = authorizeCommands(context.get('authContext').role, commands);
+	return denial === null ? null : context.json(denial, 403);
+}
 
 export function registerTagRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -91,6 +109,11 @@ export function registerTagRoutes(
 			return context.json(commandResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedTagCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeTagCommands(options.db, [commandResult.command]);
 		return context.json({ tag: toTagResponse(result.row), txid: result.txid }, 201);
 	});
@@ -110,6 +133,11 @@ export function registerTagRoutes(
 			return context.json(commandsResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedTagCommands(context, commandsResult.commands);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeTagCommands(options.db, commandsResult.commands);
 		if (result.row === null) {
 			return context.json({ error: 'tag_not_found' }, 404);
@@ -127,6 +155,11 @@ export function registerTagRoutes(
 		);
 		if (!commandResult.ok) {
 			return context.json(commandResult.body, 400);
+		}
+
+		const denial = denyUnauthorizedTagCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
 		}
 
 		const result = await writeTagCommands(options.db, [commandResult.command]);

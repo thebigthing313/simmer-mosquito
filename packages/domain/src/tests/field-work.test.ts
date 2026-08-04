@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { DomainValidationError } from '../adult-surveillance/index.js';
+import { CLOCK_SKEW_TOLERANCE_MS } from '../command-validation.js';
 import {
 	addAssignmentItemCommand,
 	addCommentCommand,
 	addRouteItemCommand,
 	assignTagCommand,
+	completeAssignmentCommand,
+	completeAssignmentItemCommand,
 	createAssignmentFromRouteCommand,
 	createTagCommand,
 	moveAssignmentItemsCommand,
 	moveRouteItemsCommand,
 	selfAssignRouteCommand,
 	skipAssignmentItemCommand,
+	startAssignmentCommand,
 	updateTagCommand,
 } from '../field-work/index.js';
 
@@ -186,5 +190,49 @@ describe('field-work support commands', () => {
 				skipReason: '  No access ',
 			}).payload,
 		).toMatchObject({ assignmentItemId, skippedAt: null, skipReason: 'No access' });
+	});
+
+	it('accepts lifecycle timestamps from a client clock running slightly fast', () => {
+		const slightlyAhead = new Date(Date.now() + 30_000);
+
+		expect(
+			startAssignmentCommand({
+				organizationId,
+				actorProfileId,
+				assignmentId,
+				startedAt: slightlyAhead,
+			}).payload.startedAt,
+		).toEqual(slightlyAhead);
+
+		expect(
+			completeAssignmentItemCommand({
+				organizationId,
+				actorProfileId,
+				assignmentItemId,
+				completedAt: slightlyAhead,
+			}).payload.completedAt,
+		).toEqual(slightlyAhead);
+	});
+
+	it('still rejects lifecycle timestamps beyond the clock-skew allowance', () => {
+		const wellAhead = new Date(Date.now() + CLOCK_SKEW_TOLERANCE_MS + 60_000);
+
+		expect(() =>
+			startAssignmentCommand({
+				organizationId,
+				actorProfileId,
+				assignmentId,
+				startedAt: wellAhead,
+			}),
+		).toThrow(DomainValidationError);
+
+		expect(() =>
+			completeAssignmentCommand({
+				organizationId,
+				actorProfileId,
+				assignmentId,
+				completedAt: wellAhead,
+			}),
+		).toThrow(DomainValidationError);
 	});
 });

@@ -1,5 +1,6 @@
 import {
 	createIssues,
+	isFutureBeyondClockSkew,
 	nullableText as normalizeNullableText,
 	requiredId as normalizeRequiredId,
 	validateAgencyCommandContext,
@@ -228,7 +229,7 @@ export function normalizeOptionalTimestamp(
 		issues.push({ path, message: `${path} must be a valid Date.` });
 		return null;
 	}
-	if (!allowFuture && value.getTime() > Date.now()) {
+	if (!allowFuture && isFutureBeyondClockSkew(value)) {
 		issues.push({ path, message: `${path} cannot be in the future.` });
 	}
 	return value;

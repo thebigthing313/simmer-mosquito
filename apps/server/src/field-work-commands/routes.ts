@@ -12,7 +12,9 @@ import {
 	agencyCommandContext,
 	applyPlacement,
 	type CommandContext,
+	commandActor,
 	createCommand,
+	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	handleCommandError,
@@ -123,8 +125,18 @@ async function runRouteCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await writeCommands(db, commands, writeRouteCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeRouteCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'route_not_found' }, 404);
 		}

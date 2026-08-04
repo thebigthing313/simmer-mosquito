@@ -14,6 +14,8 @@ import {
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { resolveCommandOwnership } from '../command-ownership.js';
+import { authorizeCommands, type CommandActor } from '../command-permissions.js';
 
 export type FieldWorkDb = Kysely<SimmerDatabase>;
 export type FieldWorkTransaction = Transaction<SimmerDatabase>;
@@ -187,14 +189,23 @@ export async function softDelete<TRow, TSafe>(
 	return row === undefined ? null : toSafe(row as TRow);
 }
 
+/**
+ * The write transaction every field-work endpoint commits through.
+ *
+ * `actor` is required rather than optional so ownership cannot be skipped by
+ * omission: every command is checked against the permission map before its
+ * handler runs, and a caller that has no actor to pass cannot compile.
+ */
 export async function writeCommands<TSafe>(
 	db: FieldWorkDb,
+	actor: CommandActor,
 	commands: readonly FieldWorkCommand[],
 	write: (trx: FieldWorkTransaction, command: FieldWorkCommand) => Promise<TSafe | null>,
 ): Promise<MutationWriteResult<TSafe | null>> {
 	return db.transaction().execute(async (trx) => {
 		let row: TSafe | null = null;
 		for (const command of commands) {
+			await assertCommandOwnership(trx, command, actor);
 			row = await write(trx, command);
 		}
 		return { row, txid: await readCurrentTransactionId(trx) };
@@ -533,8 +544,8 @@ export type CommandsResult =
 
 export class CommandError extends Error {
 	constructor(
-		readonly status: 400 | 404,
-		readonly body: { readonly error: string },
+		readonly status: 400 | 403 | 404,
+		readonly body: { readonly error: string; readonly reason?: string },
 	) {
 		super(body.error);
 	}
@@ -587,6 +598,52 @@ export function agencyCommandContext(authContext: AuthContext) {
 		organizationId: authContext.organization.id,
 		actorProfileId: authContext.profile.id,
 	};
+}
+
+// ===========================================================================
+// Authorization
+// ===========================================================================
+
+export type { CommandActor };
+
+export function commandActor(authContext: AuthContext): CommandActor {
+	return { role: authContext.role, profileId: authContext.profile.id };
+}
+
+/**
+ * The role check every field-work endpoint runs before writing anything.
+ *
+ * Returns the 403 response to send, or null to continue — either because the
+ * role is sufficient outright or because the rule is an ownership one the write
+ * transaction settles against the stored row.
+ */
+export function denyUnauthorizedCommands(
+	context: CommandContext,
+	commands: readonly FieldWorkCommand[],
+): Response | null {
+	const denial = authorizeCommands(context.get('authContext').role, commands);
+	return denial === null ? null : context.json(denial, 403);
+}
+
+/**
+ * The row-level half, raised as this module's `CommandError`.
+ *
+ * Runs from `writeCommands` for every command rather than from the handlers, so
+ * "who may touch this row" is answered by the command's entry in the permission
+ * map and not by whether its `case` arm remembered to ask.
+ */
+export async function assertCommandOwnership(
+	trx: FieldWorkTransaction,
+	command: FieldWorkCommand,
+	actor: CommandActor,
+): Promise<void> {
+	const outcome = await resolveCommandOwnership(trx, command, actor);
+	if (outcome.kind === 'missing') {
+		throw new CommandError(404, { error: `${outcome.entity}_not_found` });
+	}
+	if (outcome.kind === 'refused') {
+		throw new CommandError(403, { error: 'forbidden', reason: outcome.reason });
+	}
 }
 
 export function readTarget(payload: Record<string, unknown>): {

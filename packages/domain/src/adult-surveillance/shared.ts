@@ -1,5 +1,6 @@
 import {
 	createIssues,
+	isFutureBeyondClockSkew,
 	jsonObject as normalizeMetadata,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
@@ -270,7 +271,7 @@ export function validateOperationalDate(
 		issues.push({ path, message: `${path} must be a valid Date.` });
 		return;
 	}
-	if (value.getTime() > Date.now()) {
+	if (isFutureBeyondClockSkew(value)) {
 		issues.push({ path, message: `${path} cannot be in the future.` });
 	}
 }

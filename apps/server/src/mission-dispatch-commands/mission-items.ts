@@ -20,7 +20,9 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
+	commandActor,
 	createCommand,
+	denyUnauthorizedCommands,
 	geojsonToGeom,
 	handleCommandError,
 	insertMissionItem,
@@ -237,8 +239,18 @@ async function runMissionItemCommands(
 	commands: readonly MissionDispatchCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await writeCommands(db, commands, writeMissionItemCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeMissionItemCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'mission_item_not_found' }, 404);
 		}

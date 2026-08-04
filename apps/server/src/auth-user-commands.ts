@@ -225,6 +225,10 @@ export function registerAuthUserRoutes(
 			return context.json({ ok: true });
 		}
 
+		if (result.status === 'weak_password') {
+			return context.json({ ok: false, status: 'weak_password', reason: result.message }, 422);
+		}
+
 		return context.json({ ok: false, status: 'invalid_token' }, 400);
 	});
 
@@ -298,6 +302,10 @@ export function registerAuthUserRoutes(
 
 		if (result.status === 'account_exists') {
 			return context.json({ ok: false, status: 'account_exists' }, 409);
+		}
+
+		if (result.status === 'weak_password') {
+			return context.json({ ok: false, status: 'weak_password', reason: result.message }, 422);
 		}
 
 		if (result.status === 'invalid_invitation') {

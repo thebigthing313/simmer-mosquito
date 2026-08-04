@@ -12,8 +12,10 @@ import type { AuthVariables } from '../auth-middleware.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	commentReturnColumns,
 	createCommand,
+	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	handleCommandError,
@@ -115,8 +117,18 @@ async function runCommentCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await writeCommands(db, commands, writeCommentCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeCommentCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'comment_not_found' }, 404);
 		}
