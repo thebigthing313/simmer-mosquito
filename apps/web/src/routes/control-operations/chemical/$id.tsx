@@ -53,6 +53,7 @@ import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
@@ -222,7 +223,7 @@ function ApplicationDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<ApplicationLocationCard application={application} />
+					<ApplicationLocationCard application={application} habitatName={habitatName} />
 					<ApplicationBatchesCard
 						actorProfileId={actorProfileId}
 						application={application}
@@ -261,16 +262,27 @@ function ApplicationDetailContent({
  * An application owns Point/LineString/Polygon geometry, so the detail page renders
  * the treated swath as drawn rather than collapsing it to a centroid. Electric
  * streams only the centroid (ADR 0009), so the full geometry is fetched here.
+ *
+ * The habitat treated draws underneath it: whether a swath covered the site it
+ * was written against is the question a reviewer opens this card to answer.
  */
-function ApplicationLocationCard({ application }: { readonly application: ApplicationRow }) {
+function ApplicationLocationCard({
+	application,
+	habitatName,
+}: {
+	readonly application: ApplicationRow;
+	readonly habitatName: string | null;
+}) {
 	const geometry = useOwnedGeometry(
 		CHEMICAL_GEOMETRY_SOURCE,
 		application.id,
 		application.updatedAt,
 	);
+	const habitatContext = useHabitatLocationContext(application.habitatId, habitatName);
 
 	return (
 		<RecordLocationCard
+			context={habitatContext}
 			emptyDescription="This application has no location to display."
 			geojson={geometry.geojson}
 			geomType={geometry.geomType ?? application.geomType}

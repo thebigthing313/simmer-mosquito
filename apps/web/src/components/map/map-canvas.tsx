@@ -31,6 +31,7 @@ import {
 	type CollectionTileLayerConfig,
 	useCollectionTileLayer,
 } from './use-collection-tile-layer';
+import { useContextGeoJsonLayer } from './use-context-geojson-layer';
 import { type GeoJsonLayerInteraction, useGeoJsonLayer } from './use-geojson-layer';
 import { type HabitatTileLayerConfig, useHabitatTileLayer } from './use-habitat-tile-layer';
 import {
@@ -89,6 +90,7 @@ export function MapCanvas({
 	nearbyLayer,
 	geoJson,
 	geoJsonInteraction,
+	contextGeoJson,
 	fitToData,
 	onMapReady,
 }: {
@@ -125,6 +127,11 @@ export function MapCanvas({
 	readonly geoJson?: GeoJSON.GeoJSON | null;
 	/** Opt into click-to-select + highlight on the GeoJSON overlay's features. */
 	readonly geoJsonInteraction?: GeoJsonLayerInteraction;
+	/**
+	 * A quiet, non-interactive shape drawn *under* `geoJson` — the habitat a
+	 * control action was performed against, and nothing an operator can click.
+	 */
+	readonly contextGeoJson?: GeoJSON.GeoJSON | null;
 	/**
 	 * Frame the data this canvas draws, on load and on every filter change. Pass
 	 * `true` to fit the mounted tile layer's filtered extent (one request per
@@ -167,6 +174,9 @@ export function MapCanvas({
 	useCollectionTileLayer(map, isLoaded, collectionLayer);
 	useRouteLayer(map, isLoaded, routeLayer);
 	useNearbyLayer(map, isLoaded, nearbyLayer);
+	// Before useGeoJsonLayer: Mapbox appends layers in add order and effects run
+	// in hook order, so registering context first is what puts the record on top.
+	useContextGeoJsonLayer(map, isLoaded, contextGeoJson ?? null);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null, geoJsonInteraction);
 	useMapExtentFit(
 		map,

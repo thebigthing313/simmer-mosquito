@@ -5,6 +5,7 @@ export {
 	type MapInteractionRole,
 	type MapLifecycleState,
 	type MapStatusTone,
+	mapContext,
 	mapDensity,
 	mapDomain,
 	mapInteraction,

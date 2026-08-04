@@ -97,6 +97,24 @@ export const mapStatus = {
 } as const;
 
 /**
+ * Surrounding context — the feature a record was worked against (today, the
+ * habitat behind a control action), drawn beneath that record's own geometry on
+ * detail maps.
+ *
+ * Deliberately outside the domain hues and drawn dashed and near-unfilled:
+ * context is not a record, and a second saturated shape on a one-record map
+ * would read as one. It borrows the neutral status family rather than
+ * introducing a hue, because "this is the surround, not the subject" is the
+ * same thing `mapStatus.neutral` says about a mark.
+ */
+export const mapContext = {
+	/** The dashed boundary of the surrounding feature. */
+	outline: '#5b6b6d',
+	/** A barely-there wash inside it, so the surround has extent but no weight. */
+	fill: mapStatus.neutral,
+} as const;
+
+/**
  * The larval density ramp, keyed by the `larval_density` enum plus the dry tone.
  * Ordered cool to hot. This is a sequential scale carrying operational
  * magnitude, so it is deliberately not built from the domain hues above.

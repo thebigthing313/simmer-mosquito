@@ -31,6 +31,7 @@ import { EmptyValue } from '../../../components/empty-value';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
@@ -147,7 +148,7 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<ReleaseLocationCard action={action} />
+					<ReleaseLocationCard action={action} habitatName={habitatName} />
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<BiocontrolDetailsCard
@@ -175,12 +176,23 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
  * A biocontrol release owns Point/LineString/Polygon geometry, so the detail page
  * renders the release area as drawn rather than collapsing it to a centroid.
  * Electric streams only the centroid (ADR 0009), so it is fetched here.
+ *
+ * The habitat stocked draws underneath it, so the release area reads against the
+ * water body it was meant to cover.
  */
-function ReleaseLocationCard({ action }: { readonly action: BiocontrolActionRow }) {
+function ReleaseLocationCard({
+	action,
+	habitatName,
+}: {
+	readonly action: BiocontrolActionRow;
+	readonly habitatName: string | null;
+}) {
 	const geometry = useOwnedGeometry(BIOCONTROL_GEOMETRY_SOURCE, action.id, action.updatedAt);
+	const habitatContext = useHabitatLocationContext(action.habitatId, habitatName);
 
 	return (
 		<RecordLocationCard
+			context={habitatContext}
 			emptyDescription="This biocontrol action has no location to display."
 			geojson={geometry.geojson}
 			geomType={geometry.geomType ?? action.geomType}

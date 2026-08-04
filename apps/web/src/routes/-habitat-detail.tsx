@@ -56,7 +56,6 @@ import {
 	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { and, eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../components/app-shell';
@@ -69,12 +68,9 @@ import {
 	customSchemaFor,
 	formatCustomFieldValue,
 } from '../forms/field-components';
+import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { webCollections } from '../sync/webCollections';
-import {
-	fetchHabitatGeometry,
-	type HabitatGeometry,
-	habitatGeometryQueryKey,
-} from './-habitat-geometry-cache';
+import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
 
 const historyPageSize = 25;
@@ -1047,15 +1043,6 @@ function useSpeciesName(speciesId: string): string {
 	);
 
 	return result.data?.displayName ?? 'Unknown species';
-}
-
-function useHabitatGeometry(habitatId: string) {
-	return useQuery({
-		queryKey: habitatGeometryQueryKey(habitatId),
-		queryFn: ({ signal }) => fetchHabitatGeometry(habitatId, signal),
-		staleTime: Number.POSITIVE_INFINITY,
-		placeholderData: (previous) => previous,
-	});
 }
 
 function HistoryEmpty({

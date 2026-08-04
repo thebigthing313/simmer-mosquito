@@ -31,6 +31,7 @@ import { EmptyValue } from '../../../components/empty-value';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
@@ -153,7 +154,10 @@ function SourceReductionDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<SourceReductionLocationCard sourceReduction={sourceReduction} />
+					<SourceReductionLocationCard
+						habitatName={habitatName}
+						sourceReduction={sourceReduction}
+					/>
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<SourceReductionDetailsCard
@@ -183,20 +187,28 @@ function SourceReductionDetailContent({
  * renders the shape that was actually recorded rather than its centroid — the
  * treated stretch or area is the point of the record. Electric streams only the
  * centroid (ADR 0009), so the full geometry is fetched here.
+ *
+ * The habitat the work was performed against draws underneath it: a treated
+ * stretch is only legible inside the ditch it was cut from, and an action that
+ * recorded no shape of its own is still located by its habitat.
  */
 function SourceReductionLocationCard({
 	sourceReduction,
+	habitatName,
 }: {
 	readonly sourceReduction: SourceReductionRow;
+	readonly habitatName: string | null;
 }) {
 	const geometry = useOwnedGeometry(
 		SOURCE_REDUCTION_GEOMETRY_SOURCE,
 		sourceReduction.id,
 		sourceReduction.updatedAt,
 	);
+	const habitatContext = useHabitatLocationContext(sourceReduction.habitatId, habitatName);
 
 	return (
 		<RecordLocationCard
+			context={habitatContext}
 			emptyDescription="This source reduction action has no location to display."
 			geojson={geometry.geojson}
 			geomType={geometry.geomType ?? sourceReduction.geomType}
