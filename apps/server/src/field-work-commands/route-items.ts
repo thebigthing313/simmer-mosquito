@@ -14,6 +14,7 @@ import {
 	applyPlacement,
 	type CommandContext,
 	createCommand,
+	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	handleCommandError,
@@ -109,6 +110,11 @@ async function runRouteItemCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
 		const result = await writeCommands(db, commands, writeRouteItemCommand);
 		if (result.row === null) {

@@ -11,6 +11,7 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	createCommand,
+	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	handleCommandError,
@@ -77,6 +78,11 @@ async function runAdditionalPersonnelCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
 		const result = await writeCommands(db, commands, writeAdditionalPersonnelCommand);
 		if (result.row === null) {

@@ -9,6 +9,8 @@ import { DomainValidationError, type MissionDispatchCommand } from '@simmer-mosq
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { readAssigneeOwnership, readItemParentId } from '../command-ownership.js';
+import { authorizeCommands, type CommandActor } from '../command-permissions.js';
 
 export type MissionDispatchDb = Kysely<SimmerDatabase>;
 export type MissionDispatchTransaction = Transaction<SimmerDatabase>;
@@ -416,8 +418,8 @@ export type CommandsResult =
 
 export class CommandError extends Error {
 	constructor(
-		readonly status: 400 | 404,
-		readonly body: { readonly error: string },
+		readonly status: 400 | 403 | 404,
+		readonly body: { readonly error: string; readonly reason?: string },
 	) {
 		super(body.error);
 	}
@@ -470,6 +472,76 @@ export function agencyCommandContext(authContext: AuthContext) {
 		organizationId: authContext.organization.id,
 		actorProfileId: authContext.profile.id,
 	};
+}
+
+// ===========================================================================
+// Authorization
+// ===========================================================================
+
+export type { CommandActor };
+
+export function commandActor(authContext: AuthContext): CommandActor {
+	return { role: authContext.role, profileId: authContext.profile.id };
+}
+
+/**
+ * The role check every mission-dispatch endpoint runs before writing.
+ *
+ * Collectors execute missions; they do not create, edit, cancel, reopen, or
+ * delete them, and viewers are read-only. Ownership rules — "their assigned
+ * mission" — are settled in the write transaction.
+ */
+export function denyUnauthorizedCommands(
+	context: CommandContext,
+	commands: readonly MissionDispatchCommand[],
+): Response | null {
+	const denial = authorizeCommands(context.get('authContext').role, commands);
+	return denial === null ? null : context.json(denial, 403);
+}
+
+/** Collectors may execute only the mission assigned to them. */
+export async function assertMissionAssignee(
+	trx: MissionDispatchTransaction,
+	missionId: string,
+	organizationId: string,
+	actor: CommandActor,
+): Promise<void> {
+	if (actor.role !== 'collector') {
+		return;
+	}
+	const verdict = await readAssigneeOwnership(
+		trx,
+		'missions',
+		missionId,
+		organizationId,
+		actor.profileId,
+	);
+	if (verdict === 'missing') {
+		throw new CommandError(404, { error: 'mission_not_found' });
+	}
+	if (verdict === 'not_owner') {
+		throw new CommandError(403, {
+			error: 'forbidden',
+			reason: 'Collectors can only execute missions assigned to them.',
+		});
+	}
+}
+
+/** The same rule for item progress and helper commands, via the item's parent mission. */
+export async function assertMissionItemAssignee(
+	trx: MissionDispatchTransaction,
+	missionItemId: string,
+	organizationId: string,
+	actor: CommandActor,
+): Promise<void> {
+	if (actor.role !== 'collector') {
+		return;
+	}
+	const missionId = await readItemParentId(trx, 'mission_items', missionItemId, organizationId);
+	if (missionId === null) {
+		throw new CommandError(404, { error: 'mission_item_not_found' });
+	}
+	await assertMissionAssignee(trx, missionId, organizationId, actor);
 }
 
 export function geojsonToGeom(geojson: unknown) {

@@ -14,6 +14,13 @@ import {
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import {
+	COMMENT_CORRECTION_WINDOW_DAYS,
+	readAssigneeOwnership,
+	readCommentOwnership,
+	readItemParentId,
+} from '../command-ownership.js';
+import { authorizeCommands, type CommandActor } from '../command-permissions.js';
 
 export type FieldWorkDb = Kysely<SimmerDatabase>;
 export type FieldWorkTransaction = Transaction<SimmerDatabase>;
@@ -533,8 +540,8 @@ export type CommandsResult =
 
 export class CommandError extends Error {
 	constructor(
-		readonly status: 400 | 404,
-		readonly body: { readonly error: string },
+		readonly status: 400 | 403 | 404,
+		readonly body: { readonly error: string; readonly reason?: string },
 	) {
 		super(body.error);
 	}
@@ -587,6 +594,109 @@ export function agencyCommandContext(authContext: AuthContext) {
 		organizationId: authContext.organization.id,
 		actorProfileId: authContext.profile.id,
 	};
+}
+
+// ===========================================================================
+// Authorization
+// ===========================================================================
+
+export type { CommandActor };
+
+export function commandActor(authContext: AuthContext): CommandActor {
+	return { role: authContext.role, profileId: authContext.profile.id };
+}
+
+/**
+ * The role check every field-work endpoint runs before writing anything.
+ *
+ * Returns the 403 response to send, or null to continue — either because the
+ * role is sufficient outright or because the rule is an ownership one the write
+ * transaction settles against the stored row.
+ */
+export function denyUnauthorizedCommands(
+	context: CommandContext,
+	commands: readonly FieldWorkCommand[],
+): Response | null {
+	const denial = authorizeCommands(context.get('authContext').role, commands);
+	return denial === null ? null : context.json(denial, 403);
+}
+
+/** Collectors may execute only the assignment assigned to them. */
+export async function assertAssignmentAssignee(
+	trx: FieldWorkTransaction,
+	assignmentId: string,
+	organizationId: string,
+	actor: CommandActor,
+): Promise<void> {
+	if (actor.role !== 'collector') {
+		return;
+	}
+	const verdict = await readAssigneeOwnership(
+		trx,
+		'assignments',
+		assignmentId,
+		organizationId,
+		actor.profileId,
+	);
+	if (verdict === 'missing') {
+		throw new CommandError(404, { error: 'assignment_not_found' });
+	}
+	if (verdict === 'not_owner') {
+		throw new CommandError(403, {
+			error: 'forbidden',
+			reason: 'Collectors can only work assignments assigned to them.',
+		});
+	}
+}
+
+/** The same rule for item progress, resolved through the item's parent assignment. */
+export async function assertAssignmentItemAssignee(
+	trx: FieldWorkTransaction,
+	assignmentItemId: string,
+	organizationId: string,
+	actor: CommandActor,
+): Promise<void> {
+	if (actor.role !== 'collector') {
+		return;
+	}
+	const assignmentId = await readItemParentId(
+		trx,
+		'assignment_items',
+		assignmentItemId,
+		organizationId,
+	);
+	if (assignmentId === null) {
+		throw new CommandError(404, { error: 'assignment_item_not_found' });
+	}
+	await assertAssignmentAssignee(trx, assignmentId, organizationId, actor);
+}
+
+/** Below manager, a comment may be corrected only by its author, and only for a while. */
+export async function assertCommentAuthor(
+	trx: FieldWorkTransaction,
+	commentId: string,
+	organizationId: string,
+	actor: CommandActor,
+): Promise<void> {
+	if (actor.role !== 'collector') {
+		return;
+	}
+	const verdict = await readCommentOwnership(trx, commentId, organizationId, actor.profileId);
+	if (verdict === 'missing') {
+		throw new CommandError(404, { error: 'comment_not_found' });
+	}
+	if (verdict === 'not_author') {
+		throw new CommandError(403, {
+			error: 'forbidden',
+			reason: 'Only the author or a manager can change this comment.',
+		});
+	}
+	if (verdict === 'window_expired') {
+		throw new CommandError(403, {
+			error: 'forbidden',
+			reason: `Comments can only be changed by their author for ${COMMENT_CORRECTION_WINDOW_DAYS} days.`,
+		});
+	}
 }
 
 export function readTarget(payload: Record<string, unknown>): {
