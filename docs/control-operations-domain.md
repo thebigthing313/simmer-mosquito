@@ -1063,8 +1063,7 @@ grants a collector their own recent record "when no supervisory/associated-recor
 rules require manager escalation" — support rows, batch links, and a linked
 requested control action all escalate — and those preconditions are not
 implemented. Refusing a collector who should have been allowed is the recoverable
-direction to be wrong in; the reverse is not. See the follow-up issue linked from
-#50.
+direction to be wrong in; the reverse is not. See #63.
 
 Linked requested action deletion/escalation:
 
