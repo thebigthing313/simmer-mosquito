@@ -48,6 +48,7 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
 	let setupComplete = false;
 
 	try {
+		await dropAbandonedSchemas(setupPool);
 		await setupPool.query(`create schema ${schemaName}`);
 		schemaCreated = true;
 		await setupPool.query(`set search_path to ${schemaName}, public`);
@@ -82,6 +83,41 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
 		} finally {
 			await teardownPool.end();
 		}
+	}
+}
+
+/**
+ * How long a test schema may live before it counts as abandoned.
+ *
+ * Comfortably longer than the slowest suite, so a run in progress on another
+ * machine is never mistaken for litter.
+ */
+const ABANDONED_SCHEMA_AGE_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Sweep schemas left behind by killed runs.
+ *
+ * `withTestDb` drops its schema in a `finally`, which covers a failing test but
+ * not the process being killed — a cancelled CI job, a Ctrl-C, a timeout that
+ * takes the worker with it. The database is shared now, so that litter
+ * accumulates where everyone can see it.
+ *
+ * The name carries the creation time, so age is readable without a catalog
+ * column. Only schemas older than the cutoff go, which keeps concurrent runs —
+ * two PRs, or a laptop and a CI job — from dropping each other's work.
+ */
+async function dropAbandonedSchemas(pool: InstanceType<typeof Pool>): Promise<void> {
+	const { rows } = await pool.query<{ readonly nspname: string }>(
+		"select nspname from pg_namespace where nspname like 'simmer\\_test\\_%'",
+	);
+
+	const cutoff = Date.now() - ABANDONED_SCHEMA_AGE_MS;
+	for (const { nspname } of rows) {
+		const createdAt = Number.parseInt(nspname.split('_')[3] ?? '', 10);
+		if (Number.isNaN(createdAt) || createdAt >= cutoff) {
+			continue;
+		}
+		await pool.query(`drop schema if exists ${nspname} cascade`);
 	}
 }
 
