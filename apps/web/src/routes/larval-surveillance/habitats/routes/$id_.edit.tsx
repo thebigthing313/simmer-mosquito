@@ -59,7 +59,7 @@ import {
 	useStopOrder,
 } from '../../../../components/stop-order';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
-import { isWriteBlocked } from '../../../../lib/write-access';
+import { isBelowRole } from '../../../../lib/write-access';
 import { moveRouteItems } from '../../../../sync/move-route-items';
 import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
@@ -90,7 +90,7 @@ type MutableRouteItemRow = { -readonly [Key in keyof RouteItemRow]: RouteItemRow
 
 export const Route = createFileRoute('/larval-surveillance/habitats/routes/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

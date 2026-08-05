@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { AuthMe } from '../auth';
-import { canWriteRecords, isWriteBlocked, readOrgRole } from './write-access';
+import {
+	canManageCatalogs,
+	canPlanWork,
+	canWriteRecords,
+	hasAtLeastRole,
+	isBelowRole,
+	isWriteBlocked,
+	readOrgRole,
+} from './write-access';
 
 function authWithRole(role: string | null): AuthMe {
 	return {
@@ -53,6 +61,66 @@ describe('canWriteRecords', () => {
 		expect(canWriteRecords(authWithRole('viewer'))).toBe(false);
 		expect(canWriteRecords(null)).toBe(false);
 		expect(canWriteRecords({ authenticated: false, reason: 'no session' })).toBe(false);
+	});
+});
+
+describe('the role ladder', () => {
+	// The point of the ladder is that these three answers differ. Before it, the
+	// app had one predicate — viewer-or-not — and offered a collector every
+	// planning screen in the product.
+	it('separates recording from planning from configuring', () => {
+		const floors = {
+			owner: { write: true, plan: true, catalogs: true },
+			admin: { write: true, plan: true, catalogs: true },
+			manager: { write: true, plan: true, catalogs: false },
+			collector: { write: true, plan: false, catalogs: false },
+			viewer: { write: false, plan: false, catalogs: false },
+		} as const;
+
+		for (const [role, expected] of Object.entries(floors)) {
+			const auth = authWithRole(role);
+			expect({
+				write: canWriteRecords(auth),
+				plan: canPlanWork(auth),
+				catalogs: canManageCatalogs(auth),
+			}).toEqual(expected);
+		}
+	});
+
+	it('orders the ladder the same way the server does', () => {
+		// Mirrors `hasAtLeastRole` in `apps/server/src/roles.ts`. The two are
+		// written down twice, so a test that pins the ordering is the only thing
+		// keeping them from drifting apart quietly.
+		expect(hasAtLeastRole(authWithRole('owner'), 'admin')).toBe(true);
+		expect(hasAtLeastRole(authWithRole('admin'), 'admin')).toBe(true);
+		expect(hasAtLeastRole(authWithRole('manager'), 'admin')).toBe(false);
+		expect(hasAtLeastRole(authWithRole('manager'), 'manager')).toBe(true);
+		expect(hasAtLeastRole(authWithRole('collector'), 'manager')).toBe(false);
+		expect(hasAtLeastRole(authWithRole('collector'), 'collector')).toBe(true);
+		expect(hasAtLeastRole(authWithRole('viewer'), 'collector')).toBe(false);
+	});
+
+	it('denies every floor when identity cannot be read', () => {
+		for (const minimum of ['admin', 'manager', 'collector'] as const) {
+			expect(hasAtLeastRole(null, minimum)).toBe(false);
+			expect(hasAtLeastRole({ authenticated: false, reason: 'no session' }, minimum)).toBe(false);
+		}
+	});
+});
+
+describe('isBelowRole', () => {
+	it('blocks a collector from a manager-and-above route', async () => {
+		const context = { auth: { load: () => Promise.resolve(authWithRole('collector')) } };
+
+		expect(await isBelowRole(context, 'manager')).toBe(true);
+		expect(await isBelowRole(context, 'collector')).toBe(false);
+	});
+
+	it('blocks a manager from an owner/admin route', async () => {
+		const context = { auth: { load: () => Promise.resolve(authWithRole('manager')) } };
+
+		expect(await isBelowRole(context, 'admin')).toBe(true);
+		expect(await isBelowRole(context, 'manager')).toBe(false);
 	});
 });
 

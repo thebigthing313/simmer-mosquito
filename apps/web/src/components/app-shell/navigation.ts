@@ -1,5 +1,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { LinkProps } from '@tanstack/react-router';
+import type { AuthMe } from '../../auth';
+import { hasAtLeastRole } from '../../lib/write-access';
 import type { ShellCrumb, ShellDomain, ShellNavGroup, ShellNavItem } from './types';
 
 /**
@@ -72,7 +74,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Create Habitat',
 						to: '/larval-surveillance/habitats/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'manager',
 					},
 					{
 						id: 'habitats-types',
@@ -110,7 +112,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Create Inspection',
 						to: '/larval-surveillance/inspections/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'collector',
 					},
 					{
 						id: 'inspections-stats',
@@ -180,7 +182,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Add Trap',
 						to: '/adult-surveillance/traps/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'manager',
 					},
 					{
 						id: 'traps-routes',
@@ -212,7 +214,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Collection',
 						to: '/adult-surveillance/collections/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'collector',
 					},
 					{
 						id: 'collections-stats',
@@ -270,7 +272,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Application',
 						to: '/control-operations/chemical/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'collector',
 					},
 					{
 						id: 'chemical-methods',
@@ -314,7 +316,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Source Reduction',
 						to: '/control-operations/source-reduction/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'collector',
 					},
 					{
 						id: 'source-reduction-methods',
@@ -346,7 +348,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Release',
 						to: '/control-operations/biocontrol/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'collector',
 					},
 					{
 						id: 'biocontrol-methods',
@@ -410,7 +412,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'New Request',
 						to: '/public-engagement/service-requests/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'manager',
 					},
 				],
 			},
@@ -429,7 +431,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Record Outreach',
 						to: '/public-engagement/outreach/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'collector',
 					},
 					{
 						id: 'outreach-methods',
@@ -461,7 +463,7 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'New Contact',
 						to: '/public-engagement/contacts/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'manager',
 					},
 				],
 			},
@@ -511,14 +513,14 @@ export const shellDomains: readonly ShellDomain[] = [
 						label: 'Create Region',
 						to: '/gis/regions/create',
 						icon: iconRegistry.actions.add.icon,
-						write: true,
+						write: 'manager',
 					},
 					{
 						id: 'regions-import',
 						label: 'Import Regions',
 						to: '/gis/regions/import',
 						icon: iconRegistry.actions.upload.icon,
-						write: true,
+						write: 'manager',
 					},
 				],
 			},
@@ -643,24 +645,32 @@ function pathMatches(activePath: string, target: string): boolean {
 
 /** Flat list of every item across all domains, paired with its owning domain + group. */
 /**
- * The same navigation with every form destination removed — what a viewer sees.
+ * The navigation as one role sees it: forms above their floor removed.
  *
- * Built once at module scope, not per render: it is a pure function of a
- * constant. Groups that held nothing but forms drop out with them, so the
- * sidebar never shows an empty heading.
+ * Groups that held nothing but such forms drop out with them, so the sidebar
+ * never shows an empty heading, and a domain that becomes empty drops out of the
+ * rail.
  *
  * Note this is *only* the navigation. The route guards in `lib/write-access`
- * are what actually stop a viewer reaching a form; this stops the sidebar
- * offering a door that would close in their face.
+ * are what actually stop someone reaching a form; this stops the sidebar
+ * offering a door that would close in their face. Both read the same floors,
+ * which are the server's.
  */
-export const readOnlyShellDomains: readonly ShellDomain[] = shellDomains
-	.map((domain) => ({
-		...domain,
-		groups: domain.groups
-			.map((group) => ({ ...group, items: group.items.filter((item) => item.write !== true) }))
-			.filter((group) => group.items.length > 0),
-	}))
-	.filter((domain) => domain.groups.length > 0);
+export function shellDomainsForRole(auth: AuthMe | null): readonly ShellDomain[] {
+	return shellDomains
+		.map((domain) => ({
+			...domain,
+			groups: domain.groups
+				.map((group) => ({
+					...group,
+					items: group.items.filter(
+						(item) => item.write === undefined || hasAtLeastRole(auth, item.write),
+					),
+				}))
+				.filter((group) => group.items.length > 0),
+		}))
+		.filter((domain) => domain.groups.length > 0);
+}
 
 // Built from the full navigation on purpose: `resolveActive` answers "where am
 // I", and a viewer who lands on a form path before the guard redirects them

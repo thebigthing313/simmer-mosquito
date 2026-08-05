@@ -11,7 +11,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import { serviceRequestTitle } from '../-public-engagement-display';
 import { settleWrite } from '../-public-engagement-writes';
@@ -24,7 +24,7 @@ import {
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

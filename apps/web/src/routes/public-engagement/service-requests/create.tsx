@@ -5,7 +5,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import { contactFieldsFromValues } from '../-contact-fields';
 import { settleWrite } from '../-public-engagement-writes';
@@ -17,7 +17,7 @@ import {
 
 export const Route = createFileRoute('/public-engagement/service-requests/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({ replace: true, to: '/public-engagement/service-requests' });
 		}
 	},

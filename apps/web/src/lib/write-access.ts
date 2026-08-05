@@ -38,9 +38,56 @@ export function readOrgRole(auth: AuthMe | null): OrgRole {
 	return role !== null && ORG_ROLES.has(role) ? (role as OrgRole) : 'viewer';
 }
 
+/**
+ * The ladder, in the same order and with the same three floors the server uses
+ * (`apps/server/src/roles.ts`, `apps/server/src/command-permissions.ts`).
+ *
+ * The two have to agree. When they disagree the UI either offers work the
+ * server will refuse — a form filled in and then 403'd on save — or hides work
+ * the account is entitled to. Neither is discoverable from the other side, so
+ * the ordering is written down twice on purpose and the names match.
+ */
+const ROLE_RANK: Record<OrgRole, number> = {
+	owner: 4,
+	admin: 3,
+	manager: 2,
+	collector: 1,
+	viewer: 0,
+};
+
+/** The floors commands are written against, mirroring the server's `MinimumRole`. */
+export type MinimumRole = 'admin' | 'manager' | 'collector';
+
+export function hasAtLeastRole(auth: AuthMe | null, minimum: MinimumRole): boolean {
+	return ROLE_RANK[readOrgRole(auth)] >= ROLE_RANK[minimum];
+}
+
 /** Every role except `viewer` records field work. */
 export function canWriteRecords(auth: AuthMe | null): boolean {
-	return readOrgRole(auth) !== 'viewer';
+	return hasAtLeastRole(auth, 'collector');
+}
+
+/**
+ * Whether this membership plans work rather than only recording it.
+ *
+ * Manager-and-above: route and assignment planning, mission dispatch, the trap
+ * and habitat catalogs, contacts and service requests, regions, and the tag
+ * catalog. A collector records against these; they do not shape them.
+ */
+export function canPlanWork(auth: AuthMe | null): boolean {
+	return hasAtLeastRole(auth, 'manager');
+}
+
+/**
+ * Whether this membership configures the agency.
+ *
+ * Owner/admin: the lookup catalogs (collection methods, lures, habitat types),
+ * species curation, control methods, insecticides and formulations, and the
+ * notification type catalog. A manager runs the agency's work with these; only
+ * an owner or admin decides what they are.
+ */
+export function canManageCatalogs(auth: AuthMe | null): boolean {
+	return hasAtLeastRole(auth, 'admin');
 }
 
 /**
@@ -59,4 +106,18 @@ export async function isWriteBlocked(context: {
 	readonly auth: { readonly load: () => Promise<AuthMe> };
 }): Promise<boolean> {
 	return !canWriteRecords(await context.auth.load());
+}
+
+/**
+ * The same guard at a higher floor, for the routes a collector cannot use.
+ *
+ * `isWriteBlocked` is this with `minimum: 'collector'`; it keeps its own name
+ * because it reads better at the call sites that only care about viewers, and
+ * because most of them predate the rest of the ladder.
+ */
+export async function isBelowRole(
+	context: { readonly auth: { readonly load: () => Promise<AuthMe> } },
+	minimum: MinimumRole,
+): Promise<boolean> {
+	return !hasAtLeastRole(await context.auth.load(), minimum);
 }

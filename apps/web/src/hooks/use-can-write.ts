@@ -1,4 +1,4 @@
-import { canWriteRecords } from '../lib/write-access';
+import { canWriteRecords, hasAtLeastRole, type MinimumRole } from '../lib/write-access';
 import { useAuthSnapshot } from './use-auth-snapshot';
 
 /**
@@ -15,4 +15,16 @@ import { useAuthSnapshot } from './use-auth-snapshot';
  */
 export function useCanWrite(): boolean {
 	return canWriteRecords(useAuthSnapshot());
+}
+
+/**
+ * The same question at a higher floor.
+ *
+ * A collector records work but does not plan it, and neither records nor plans
+ * is the same as configuring the agency. A control that starts one of those
+ * writes asks for the floor its command requires, so the ladder the server
+ * enforces is the ladder the page draws.
+ */
+export function useHasRole(minimum: MinimumRole): boolean {
+	return hasAtLeastRole(useAuthSnapshot(), minimum);
 }

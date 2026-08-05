@@ -6,7 +6,7 @@ import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { seedRegionGeometryCache } from '../../../hooks/use-region-geometry';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowRole } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -19,7 +19,7 @@ import {
 
 export const Route = createFileRoute('/gis/regions/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({ replace: true, to: '/gis/regions' });
 		}
 	},

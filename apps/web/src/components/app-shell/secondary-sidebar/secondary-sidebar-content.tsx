@@ -9,8 +9,8 @@ export function SecondarySidebarContent() {
 	const activeItemId = item?.id ?? null;
 	// `resolveActive` answers "where am I" against the full navigation, so it can
 	// still name the domain of a path the caller does not offer. What gets *drawn*
-	// comes from the caller's `domains` — which is how the read-only navigation
-	// (see `readOnlyShellDomains`) actually reaches the sidebar.
+	// comes from the caller's `domains` — which is how the role-filtered
+	// navigation (see `shellDomainsForRole`) actually reaches the sidebar.
 	const domain = domains.find((candidate) => candidate.id === activeDomain.id) ?? activeDomain;
 
 	function handleSelect(navItem: ShellNavItem) {

@@ -1,5 +1,6 @@
 import type { RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { LinkProps } from '@tanstack/react-router';
+import type { MinimumRole } from '../../lib/write-access';
 
 /**
  * Shell domain/navigation model.
@@ -26,10 +27,15 @@ export interface ShellNavItem {
 	 */
 	readonly stub?: boolean;
 	/**
-	 * The destination is a form. Dropped from the navigation for viewers, whose
-	 * route guards would bounce them straight back off it.
+	 * The destination is a form, and this is the role it needs.
+	 *
+	 * Dropped from the navigation below that floor, because the route guard would
+	 * bounce the click straight back off it. It has to match the guard in the
+	 * route's own `beforeLoad` — `'collector'` for recording field work,
+	 * `'manager'` for the catalogs and planning — which in turn matches the
+	 * server's floor for the command the form sends.
 	 */
-	readonly write?: boolean;
+	readonly write?: MinimumRole;
 }
 
 /** A labelled (or unlabelled) cluster of items within a domain. */

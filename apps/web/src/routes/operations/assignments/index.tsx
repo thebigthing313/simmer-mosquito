@@ -221,7 +221,7 @@ function AssignmentsIndexRoute() {
 								{visible.length === 1 ? '1 assignment' : `${visible.length} assignments`}
 							</span>
 						</div>
-						<WriteOnly>
+						<WriteOnly minimum="manager">
 							<Button asChild size="sm">
 								<Link to="/operations/assignments/create">
 									<PlusIcon aria-hidden="true" />
@@ -344,7 +344,7 @@ function AssignmentResults({
 					</EmptyHeader>
 					{hasFilters ? null : (
 						<EmptyContent>
-							<WriteOnly>
+							<WriteOnly minimum="manager">
 								<Button asChild size="sm">
 									<Link to="/operations/assignments/create">
 										<PlusIcon aria-hidden="true" />
@@ -467,7 +467,7 @@ function SelectedAssignmentCard({
 							Open
 						</Link>
 					</Button>
-					<WriteOnly>
+					<WriteOnly minimum="manager">
 						<Button asChild className="flex-1" size="sm" variant="outline">
 							<Link params={{ id: assignment.id }} to="/operations/assignments/$id/edit">
 								Edit

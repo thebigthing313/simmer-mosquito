@@ -308,7 +308,7 @@ function ServiceRequestsExplorerRoute() {
 								Requests from the public, mapped to their reported location.
 							</p>
 						</div>
-						<WriteOnly>
+						<WriteOnly minimum="manager">
 							<Button asChild size="sm">
 								<Link to="/public-engagement/service-requests/create">
 									<PlusIcon aria-hidden="true" data-icon="inline-start" />

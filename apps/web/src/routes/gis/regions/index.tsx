@@ -360,7 +360,7 @@ function RegionsExplorerRoute() {
 					<div className="flex items-center justify-between gap-2">
 						<h1 className="m-0 font-semibold text-foreground text-lg leading-none">Regions</h1>
 						<div className="flex items-center gap-2">
-							<WriteOnly>
+							<WriteOnly minimum="manager">
 								<Button onClick={() => setFolderDialog('new')} size="sm" variant="outline">
 									New Folder
 								</Button>

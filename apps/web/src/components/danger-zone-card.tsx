@@ -29,6 +29,7 @@ import {
 	impactCountLabel,
 	useDeleteImpact,
 } from '../hooks/use-delete-impact';
+import type { MinimumRole } from '../lib/write-access';
 import { settleWrite } from '../sync/settle-write';
 import { WriteOnly } from './write-only';
 
@@ -57,17 +58,46 @@ export interface DangerZoneCardProps {
  * where to go afterwards, so the warning cannot fall out of step with what the
  * command actually does.
  *
- * Hidden entirely for viewers, matching every other control that starts a
- * write — the answer to "why can't I?" is a fact about the account, not about
- * the record on screen.
+ * Hidden entirely for roles that cannot delete this kind of record, matching
+ * every other control that starts a write — the answer to "why can't I?" is a
+ * fact about the account, not about the record on screen.
  */
 export function DangerZoneCard(props: DangerZoneCardProps) {
 	return (
-		<WriteOnly>
+		<WriteOnly minimum={DELETE_FLOOR[props.recordType]}>
 			<DangerZone {...props} />
 		</WriteOnly>
 	);
 }
+
+/**
+ * The role each delete needs, from `apps/server/src/command-permissions.ts`.
+ *
+ * Derived from `recordType` rather than taken as a prop, because a prop is
+ * something a page can get wrong and this card is the only delete surface in
+ * the app. A record a collector may create is one they may remove; the rest are
+ * supervisory, and the control actions are manager-only in code pending #63.
+ */
+const DELETE_FLOOR: Record<DeletableRecordType, MinimumRole> = {
+	collection: 'collector',
+	inspection: 'collector',
+	sample: 'collector',
+
+	address: 'manager',
+	region: 'manager',
+	trap: 'manager',
+	habitat: 'manager',
+	contact: 'manager',
+	serviceRequest: 'manager',
+	route: 'manager',
+	assignment: 'manager',
+	mission: 'manager',
+	application: 'manager',
+	sourceReduction: 'manager',
+	outreachAction: 'manager',
+	biocontrolAction: 'manager',
+	requestedControlAction: 'manager',
+};
 
 function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: DangerZoneCardProps) {
 	const navigate = useNavigate();

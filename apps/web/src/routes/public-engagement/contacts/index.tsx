@@ -97,7 +97,7 @@ function ContactsExplorerRoute() {
 							notifications.
 						</p>
 					</div>
-					<WriteOnly>
+					<WriteOnly minimum="manager">
 						<Button asChild size="sm">
 							<Link to="/public-engagement/contacts/create">
 								<PlusIcon aria-hidden="true" data-icon="inline-start" />

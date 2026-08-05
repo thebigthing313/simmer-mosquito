@@ -12,7 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowRole } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
@@ -24,7 +24,7 @@ import {
 
 export const Route = createFileRoute('/gis/addresses/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/addresses/$id' });
 		}
 	},

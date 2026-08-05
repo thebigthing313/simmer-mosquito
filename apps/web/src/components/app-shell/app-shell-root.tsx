@@ -3,10 +3,9 @@ import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { Suspense } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
-import { canWriteRecords } from '../../lib/write-access';
 import { webCollections } from '../../sync/webCollections';
 import { BreadcrumbLabelProvider } from './breadcrumb-labels';
-import { readOnlyShellDomains, shellDomains } from './navigation';
+import { shellDomainsForRole } from './navigation';
 import { OutletContentFallback } from './outlet/outlet-content-fallback';
 import { OutletShell } from './outlet/outlet-shell';
 import { ShellProvider } from './shell-context';
@@ -72,7 +71,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				currentOrganization={currentOrganization}
 				onSelectOrganization={() => undefined}
 				user={shellUser}
-				domains={canWriteRecords(auth) ? shellDomains : readOnlyShellDomains}
+				domains={shellDomainsForRole(auth)}
 				activePath={pathname}
 				onNavigate={(to) => {
 					// The shell models destinations as plain strings; the router's typed

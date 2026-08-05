@@ -76,7 +76,7 @@ function RouteDetailRoute() {
 							</h1>
 							<p className="mt-0.5 text-muted-foreground text-sm">{stopCountLabel(itemCount)}</p>
 						</div>
-						<WriteOnly>
+						<WriteOnly minimum="manager">
 							<Button asChild size="sm" variant="outline">
 								<Link params={{ id }} to="/adult-surveillance/traps/routes/$id/edit">
 									<EditIcon aria-hidden="true" />
@@ -100,7 +100,7 @@ function RouteDetailRoute() {
 				{/* The divider belongs to the card, not the panel — outside `WriteOnly`
 				    it would leave viewers a bordered empty strip under the stop list. */}
 				{route === null ? null : (
-					<WriteOnly>
+					<WriteOnly minimum="manager">
 						<div className="shrink-0 border-border/40 border-t p-3">
 							<DangerZoneCard
 								name={route.routeName}
@@ -159,7 +159,7 @@ function RouteBody({
 						</EmptyDescription>
 					</EmptyHeader>
 					<EmptyContent>
-						<WriteOnly>
+						<WriteOnly minimum="manager">
 							<Button asChild>
 								<Link params={{ id: routeId }} to="/adult-surveillance/traps/routes/$id/edit">
 									<EditIcon aria-hidden="true" />

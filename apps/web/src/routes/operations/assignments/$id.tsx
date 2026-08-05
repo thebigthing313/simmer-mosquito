@@ -225,7 +225,7 @@ function AssignmentRunRoute() {
 									</div>
 									<div className="flex shrink-0 items-center gap-2">
 										<AssignmentStatusBadge status={assignment.status} />
-										<WriteOnly>
+										<WriteOnly minimum="manager">
 											<Button asChild size="sm" variant="outline">
 												<Link params={{ id }} to="/operations/assignments/$id/edit">
 													<EditIcon aria-hidden="true" />
@@ -356,9 +356,11 @@ function LifecycleControls({
 	if (assignment.status === 'completed' || assignment.status === 'cancelled') {
 		return (
 			<div className="flex flex-wrap gap-2">
-				<Button disabled={busy} onClick={onReopen} size="sm" variant="outline">
-					Reopen
-				</Button>
+				<WriteOnly minimum="manager">
+					<Button disabled={busy} onClick={onReopen} size="sm" variant="outline">
+						Reopen
+					</Button>
+				</WriteOnly>
 			</div>
 		);
 	}
@@ -382,9 +384,11 @@ function LifecycleControls({
 					Complete
 				</Button>
 			)}
-			<Button disabled={busy} onClick={onCancel} size="sm" variant="outline">
-				Cancel
-			</Button>
+			<WriteOnly minimum="manager">
+				<Button disabled={busy} onClick={onCancel} size="sm" variant="outline">
+					Cancel
+				</Button>
+			</WriteOnly>
 			{assignment.status === 'inProgress' && counts.pending > 0 ? (
 				<span className="self-center text-muted-foreground text-xs">
 					{counts.pending === 1 ? '1 stop still pending' : `${counts.pending} stops still pending`}
@@ -439,7 +443,7 @@ function RunStopList({
 						</EmptyDescription>
 					</EmptyHeader>
 					<EmptyContent>
-						<WriteOnly>
+						<WriteOnly minimum="manager">
 							<Button asChild>
 								<Link params={{ id: assignmentId }} to="/operations/assignments/$id/edit">
 									<EditIcon aria-hidden="true" />

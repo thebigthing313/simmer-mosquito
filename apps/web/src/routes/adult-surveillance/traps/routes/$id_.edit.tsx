@@ -42,7 +42,7 @@ import {
 	useStopOrder,
 } from '../../../../components/stop-order';
 import { useCollectionRows } from '../../../../hooks/use-collection-rows';
-import { isWriteBlocked } from '../../../../lib/write-access';
+import { isBelowRole } from '../../../../lib/write-access';
 import { moveRouteItems } from '../../../../sync/move-route-items';
 import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
@@ -59,7 +59,7 @@ const stopKey = (stop: RouteStopView) => stop.routeItemId;
 
 export const Route = createFileRoute('/adult-surveillance/traps/routes/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

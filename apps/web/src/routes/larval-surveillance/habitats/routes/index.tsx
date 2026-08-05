@@ -23,7 +23,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import { WriteOnly } from '../../../../components/write-only';
-import { useCanWrite } from '../../../../hooks/use-can-write';
+import { useHasRole } from '../../../../hooks/use-can-write';
 import { RouteCreateDialog } from '../-route-create-dialog';
 import { useHabitatRoutes, useRouteStopCounts, useRouteStops } from '../-route-data';
 import { RouteMap } from '../-route-map';
@@ -95,7 +95,7 @@ function RoutesIndexRoute() {
 												Open route
 											</Link>
 										</Button>
-										<WriteOnly>
+										<WriteOnly minimum="manager">
 											<Button asChild className="flex-1" size="sm" variant="outline">
 												<Link
 													params={{ id: selectedRoute.id }}
@@ -121,7 +121,7 @@ function RoutesIndexRoute() {
 									{routeCountLabel(routes.length)}
 								</span>
 							</div>
-							<WriteOnly>
+							<WriteOnly minimum="manager">
 								<Button onClick={() => setCreateOpen(true)} size="sm">
 									<PlusIcon aria-hidden="true" />
 									New Route
@@ -175,7 +175,7 @@ function RouteResults({
 	readonly onSelect: (id: string) => void;
 	readonly onCreate: () => void;
 }) {
-	const canWrite = useCanWrite();
+	const canWrite = useHasRole('manager');
 
 	if (isLoading && totalCount === 0) {
 		return (
@@ -202,7 +202,7 @@ function RouteResults({
 						</EmptyDescription>
 					</EmptyHeader>
 					<EmptyContent>
-						<WriteOnly>
+						<WriteOnly minimum="manager">
 							<Button onClick={onCreate}>
 								<PlusIcon aria-hidden="true" />
 								New Route

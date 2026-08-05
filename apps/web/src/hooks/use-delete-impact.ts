@@ -24,7 +24,13 @@ export type DeletableRecordType =
 	| 'contact'
 	| 'serviceRequest'
 	| 'route'
-	| 'assignment';
+	| 'assignment'
+	// Neither has a detail page yet, so nothing passes these today. They are here
+	// because this union claims to mirror the database's, and a mirror missing two
+	// members is the drift the comment above warns about rather than a shorter
+	// list of what the endpoint answers.
+	| 'requestedControlAction'
+	| 'mission';
 
 /** One consequence: how many rows, and what to call them. */
 export interface DeleteImpactEntry {

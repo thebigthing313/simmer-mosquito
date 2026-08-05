@@ -97,7 +97,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 						{addressLine(address) || 'No street address'}
 					</p>
 				</div>
-				<WriteOnly>
+				<WriteOnly minimum="manager">
 					<Button asChild size="sm" variant="outline">
 						<Link params={{ id: address.id }} to="/gis/addresses/$id/edit">
 							<EditIcon aria-hidden="true" />

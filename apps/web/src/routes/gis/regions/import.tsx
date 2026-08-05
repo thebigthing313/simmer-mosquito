@@ -28,7 +28,7 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowRole } from '../../../lib/write-access';
 import { isTxIdConfirmationTimeout } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { RegionFolderDialog } from './-folder-dialog';
@@ -36,7 +36,7 @@ import { type ImportPolygon, MAX_POLYGONS, parseRegionsFromFile } from './-impor
 
 export const Route = createFileRoute('/gis/regions/import')({
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({ replace: true, to: '/gis/regions' });
 		}
 	},

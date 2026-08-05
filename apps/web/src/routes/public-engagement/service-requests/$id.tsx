@@ -195,7 +195,7 @@ function ServiceRequestDetailContent({
 						<RequestStatusBadge open={open} />
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
-						<WriteOnly>
+						<WriteOnly minimum="manager">
 							<Button asChild size="sm" variant="outline">
 								<Link params={{ id: request.id }} to="/public-engagement/service-requests/$id/edit">
 									<EditIcon aria-hidden="true" />

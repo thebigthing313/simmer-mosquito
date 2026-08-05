@@ -155,7 +155,7 @@ function TrapDetailContent({ trap }: { readonly trap: TrapRow }) {
 				</div>
 				<div className="flex items-center gap-2">
 					<StatusBadge isActive={trap.isActive} />
-					<WriteOnly>
+					<WriteOnly minimum="manager">
 						<Button asChild size="sm" variant="outline">
 							<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id/edit">
 								<EditIcon aria-hidden="true" />

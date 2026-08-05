@@ -10,7 +10,7 @@ import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-ro
 import { useCallback, useMemo, useState } from 'react';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowRole } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayDateValue } from '../../control-operations/-control-display';
@@ -34,7 +34,7 @@ import {
 
 export const Route = createFileRoute('/operations/assignments/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({ replace: true, to: '/operations/assignments' });
 		}
 	},

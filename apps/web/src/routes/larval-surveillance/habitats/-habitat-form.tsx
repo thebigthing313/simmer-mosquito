@@ -20,6 +20,7 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
+import { WriteOnly } from '../../../components/write-only';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
@@ -250,73 +251,84 @@ export function HabitatFormPage({
 							<field.TextField label="Habitat name" placeholder="e.g. North basin catchment" />
 						)}
 					</form.AppField>
-					<form.AppField name="habitatTypeId">
-						{(field) => (
-							<field.AutocompleteField
-								// The sentinel, not `null`: `habitatTypeId` is typed as a
-								// plain string and the submit mapping reads it back.
-								emptyValue={noHabitatTypeValue}
-								label="Habitat type"
-								options={habitatTypeOptions(habitatTypes)}
-								placeholder="Search habitat types"
-							/>
-						)}
-					</form.AppField>
+					{/* Type, address, and geometry are `updateHabitatConfiguration` and
+					    `updateHabitatLocation`, both manager-and-above. A collector may
+					    change a habitat's name, description, and metadata
+					    (`docs/larval-surveillance-domain.md`), so the form shows them the
+					    fields they can save and leaves the rest to the detail page. On
+					    create the whole route is manager-and-above, so these always
+					    render there. */}
+					<WriteOnly minimum="manager">
+						<form.AppField name="habitatTypeId">
+							{(field) => (
+								<field.AutocompleteField
+									// The sentinel, not `null`: `habitatTypeId` is typed as a
+									// plain string and the submit mapping reads it back.
+									emptyValue={noHabitatTypeValue}
+									label="Habitat type"
+									options={habitatTypeOptions(habitatTypes)}
+									placeholder="Search habitat types"
+								/>
+							)}
+						</form.AppField>
+					</WriteOnly>
 				</div>
 
 				{/* Address above geometry, in one section — the same Location block
 							    every other located record's form uses. */}
-				<section
-					aria-labelledby="habitat-location-label"
-					className={cn(
-						'grid gap-4 rounded-md border bg-muted/30 p-4',
-						geometryError === null ? 'border-border/50' : 'border-destructive/60',
-					)}
-				>
-					<div className="grid gap-0.5">
-						<span
-							className="font-semibold text-foreground text-sm leading-none"
-							id="habitat-location-label"
-						>
-							Location
-						</span>
-						<span className="text-muted-foreground text-xs">
-							The geometry is the habitat itself — a point for a single site, a line or area for a
-							stretch of one. An address is optional reference.
-						</span>
-					</div>
-
-					<form.AppField name="addressId">
-						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint }}
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									selectAddress(address);
-								}}
-								organizationId={organizationId}
-								value={field.state.value}
-							/>
+				<WriteOnly minimum="manager">
+					<section
+						aria-labelledby="habitat-location-label"
+						className={cn(
+							'grid gap-4 rounded-md border bg-muted/30 p-4',
+							geometryError === null ? 'border-border/50' : 'border-destructive/60',
 						)}
-					</form.AppField>
+					>
+						<div className="grid gap-0.5">
+							<span
+								className="font-semibold text-foreground text-sm leading-none"
+								id="habitat-location-label"
+							>
+								Location
+							</span>
+							<span className="text-muted-foreground text-xs">
+								The geometry is the habitat itself — a point for a single site, a line or area for a
+								stretch of one. An address is optional reference.
+							</span>
+						</div>
 
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						label="Geometry"
-						required
-						onClear={() => setGeometry(null)}
-						onDraw={startDraw}
-						onTypeChange={handleTypeChange}
-						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
-					/>
+						<form.AppField name="addressId">
+							{(field) => (
+								<AddressPicker
+									create={{ requestMapPoint }}
+									onSelect={(address) => {
+										field.handleChange(address?.id ?? null);
+										selectAddress(address);
+									}}
+									organizationId={organizationId}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
 
-					{geometryError === null ? null : (
-						<p className="m-0 text-destructive text-sm">{geometryError}</p>
-					)}
-				</section>
+						<GeometryControl
+							controller={draw}
+							geometry={geometry}
+							geometryType={geometryType}
+							label="Geometry"
+							required
+							onClear={() => setGeometry(null)}
+							onDraw={startDraw}
+							onTypeChange={handleTypeChange}
+							organizationId={organizationId}
+							{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+						/>
+
+						{geometryError === null ? null : (
+							<p className="m-0 text-destructive text-sm">{geometryError}</p>
+						)}
+					</section>
+				</WriteOnly>
 
 				<form.AppField
 					name="description"

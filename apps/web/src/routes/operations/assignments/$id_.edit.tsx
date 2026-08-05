@@ -55,7 +55,7 @@ import {
 	useStopOrder,
 } from '../../../components/stop-order';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	type AssignmentStopView,
@@ -100,7 +100,7 @@ const stopKey = (stop: AssignmentStopView) => stop.assignmentItemId;
 
 export const Route = createFileRoute('/operations/assignments/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

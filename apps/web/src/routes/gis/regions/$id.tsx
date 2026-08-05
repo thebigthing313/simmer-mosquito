@@ -102,7 +102,7 @@ function RegionDetailContent({ region }: { readonly region: RegionRow }) {
 					</h1>
 					<p className="m-0 text-[0.95rem] text-muted-foreground">{folderName ?? 'Unfiled'}</p>
 				</div>
-				<WriteOnly>
+				<WriteOnly minimum="manager">
 					<Button asChild size="sm" variant="outline">
 						<Link params={{ id: region.id }} to="/gis/regions/$id/edit">
 							<EditIcon aria-hidden="true" />

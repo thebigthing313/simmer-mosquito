@@ -210,7 +210,7 @@ function TrapsExplorerRoute() {
 						<h1 className="font-semibold text-foreground text-lg leading-none">Traps</h1>
 						<div className="flex items-center gap-2.5">
 							<ResultMeta isLoading={isLoading} total={total} />
-							<WriteOnly>
+							<WriteOnly minimum="manager">
 								<Button asChild size="sm">
 									<Link to="/adult-surveillance/traps/create">
 										<PlusIcon aria-hidden="true" data-icon="inline-start" />

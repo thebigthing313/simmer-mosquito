@@ -5,7 +5,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowRole } from '../../../lib/write-access';
 import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
@@ -19,7 +19,7 @@ import {
 
 export const Route = createFileRoute('/larval-surveillance/habitats/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowRole(context, 'manager')) {
 			throw redirect({ replace: true, to: '/larval-surveillance/habitats' });
 		}
 	},

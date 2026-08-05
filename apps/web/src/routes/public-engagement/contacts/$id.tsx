@@ -98,7 +98,7 @@ function ContactDetailContent({ contact }: { readonly contact: ContactRow }) {
 					) : null}
 				</div>
 				<div className="flex items-center gap-2">
-					<WriteOnly>
+					<WriteOnly minimum="manager">
 						<Button asChild size="sm" variant="outline">
 							<Link params={{ id: contact.id }} to="/public-engagement/contacts/$id/edit">
 								<EditIcon aria-hidden="true" />
