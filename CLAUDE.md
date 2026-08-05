@@ -44,12 +44,13 @@ pnpm db:rollback
 pnpm db:status
 ```
 
-Fast tests are pure (no DB). Postgres-backed integration tests (`*.integration.test.ts` in `packages/db`) are **opt-in** and require an explicit test DB:
+Fast tests are pure (no DB). Postgres-backed integration tests (`*.integration.test.ts`) are **opt-in** and require an explicit test DB. They live in `packages/db` and in `apps/server` — the latter for the ownership and lifecycle reads that decide whether a write happens, which take a plain `Transaction` and no server context. `apps/server` imports the harness from `@simmer-mosquito/db/test-support`, so `packages/db` must be built first.
 
 ```sh
 # PowerShell — point at the Railway staging Postgres in .env:
 $env:TEST_DATABASE_URL=(Get-Content .env | Select-String '^DATABASE_URL=').ToString().Substring(13)
 pnpm --filter @simmer-mosquito/db test
+pnpm --filter @simmer-mosquito/server test
 ```
 
 Each test builds a throwaway `simmer_test_*` schema, applies every migration into it, and drops it afterwards — `public` is never touched. Against a remote database that is ~10s per test, so `describeDbIntegration` sets its own long timeout; do not run these suites under vitest's default. Without `TEST_DATABASE_URL` they **skip silently**, so a green `pnpm test` does not mean they ran.

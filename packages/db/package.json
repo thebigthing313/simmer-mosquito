@@ -8,6 +8,10 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
+		"./test-support": {
+			"types": "./dist/test-support/db-integration.d.ts",
+			"import": "./dist/test-support/db-integration.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.js",

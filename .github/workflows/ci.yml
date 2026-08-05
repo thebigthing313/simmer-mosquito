@@ -91,12 +91,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Runs the package script directly rather than through nx: these suites
+      # `@simmer-mosquito/server` imports the harness from `@simmer-mosquito/db`
+      # at its `./test-support` entry point, so the package has to be built
+      # before its integration suite can resolve it.
+      - name: Build workspace
+        run: pnpm build
+
+      # Runs the package scripts directly rather than through nx: these suites
       # skip themselves when the URL is missing, so a cached "pass" from a run
       # without it would be indistinguishable from a real one.
+      #
+      # `@simmer-mosquito/server` is here as well as `db` because the reads that
+      # decide whether a write happens — ownership and assignment lifecycle —
+      # live in the server and take a plain `Transaction`. Its pure tests run
+      # again as a side effect, which costs seconds.
       - name: Run integration suites
         env:
           TEST_DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           test -n "$TEST_DATABASE_URL"
           pnpm --filter @simmer-mosquito/db test
+          pnpm --filter @simmer-mosquito/server test
