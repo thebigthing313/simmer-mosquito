@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { deletableRecordLabel, deletableRecordTypes, isDeletableRecordType } from './index.js';
 
 /**
- * The record types the delete-impact endpoint accepts.
+ * Every record type the delete-impact endpoint accepts.
  *
+ * This is a lock on the server registry, not a comparison against the client:
  * `apps/web` restates the subset it has detail pages for in
- * `hooks/use-delete-impact.ts` — the browser bundle does not depend on this
- * package. Pinning the full list here means adding a deletable record fails
- * this test, which is the prompt to decide whether the client needs it too.
+ * `hooks/use-delete-impact.ts` (today, all of these but `mission` and
+ * `requestedControlAction`, which have delete endpoints and no page), and the
+ * browser bundle cannot import this package to be checked against it. Pinning
+ * the list means adding a deletable record fails this test, which is the prompt
+ * to decide whether the client needs it too.
  */
 const EXPECTED_TYPES = [
 	'address',
@@ -30,13 +33,18 @@ const EXPECTED_TYPES = [
 ];
 
 describe('deletable record registry', () => {
-	it('covers exactly the record types the client knows about', () => {
+	it('accepts exactly the record types it declares', () => {
 		expect([...deletableRecordTypes()].sort()).toEqual([...EXPECTED_TYPES].sort());
 	});
 
 	it('names every record in domain language', () => {
 		for (const recordType of deletableRecordTypes()) {
-			expect(deletableRecordLabel(recordType).trim()).not.toBe('');
+			const label = deletableRecordLabel(recordType);
+			expect(label.trim()).not.toBe('');
+			// The label reaches the user through `RecordDeleteBlockedError`, so a
+			// multi-word type that never got one would leak `requestedControlAction`
+			// into a sentence an agency reads.
+			expect(label).not.toMatch(/[A-Z]/);
 		}
 	});
 

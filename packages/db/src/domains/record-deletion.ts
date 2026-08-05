@@ -120,7 +120,12 @@ export class RecordDeleteBlockedError extends Error {
 		recordId: string,
 		blockers: readonly DeleteImpactEntry[],
 	) {
-		super(`Deleting this ${recordType} is blocked by records that reference it.`);
+		// The domain noun, not the registry key: this message is handed to the
+		// user verbatim by the command layer, and `requestedControlAction` is not
+		// a word anyone in an agency says.
+		super(
+			`Deleting this ${deletableRecordLabel(recordType)} is blocked by records that reference it.`,
+		);
 		this.name = 'RecordDeleteBlockedError';
 		this.recordType = recordType;
 		this.recordId = recordId;

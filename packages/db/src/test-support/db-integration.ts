@@ -48,7 +48,7 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
 	let setupComplete = false;
 
 	try {
-		await dropAbandonedSchemas(setupPool);
+		await sweepAbandonedSchemasOnce(setupPool);
 		await setupPool.query(`create schema ${schemaName}`);
 		schemaCreated = true;
 		await setupPool.query(`set search_path to ${schemaName}, public`);
@@ -93,6 +93,27 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
  * machine is never mistaken for litter.
  */
 const ABANDONED_SCHEMA_AGE_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * The sweep is worth doing once a run, not once a test.
+ *
+ * Litter accumulates between runs, never during one, so re-checking before each
+ * of eighteen tests only buys eighteen round-trips to a remote database. The
+ * promise is cached rather than a boolean so tests that start concurrently wait
+ * on the same sweep instead of racing it.
+ */
+let abandonedSchemaSweep: Promise<void> | null = null;
+
+function sweepAbandonedSchemasOnce(pool: InstanceType<typeof Pool>): Promise<void> {
+	// Each caller brings its own pool and closes it afterwards, so a cached
+	// rejection would strand every later test on a connection that no longer
+	// exists. Clear it on failure and let the next test retry with a live pool.
+	abandonedSchemaSweep ??= dropAbandonedSchemas(pool).catch((error: unknown) => {
+		abandonedSchemaSweep = null;
+		throw error;
+	});
+	return abandonedSchemaSweep;
+}
 
 /**
  * Sweep schemas left behind by killed runs.
