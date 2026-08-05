@@ -51,15 +51,19 @@ export interface DeleteImpact {
  *
  * The counts are live data — a colleague can file a service request against
  * this address while the page sits open — so this stays short-lived and
- * refetches when the window regains focus. The server re-checks inside the
- * delete transaction regardless; this read is what lets the page say so first
- * instead of failing at the button.
+ * refetches when the window regains focus. The app turns that refetch off by
+ * default (`main.tsx`), which is right for the reference data most queries
+ * read and wrong here: a detail page left open over lunch would otherwise
+ * offer a delete against counts from before lunch. The server re-checks inside
+ * the delete transaction regardless; this read is what lets the page say so
+ * first instead of failing at the button.
  */
 export function useDeleteImpact(recordType: DeletableRecordType, recordId: string) {
 	return useQuery({
 		queryKey: deleteImpactQueryKey(recordType, recordId),
 		queryFn: ({ signal }) => fetchDeleteImpact(recordType, recordId, signal),
 		staleTime: 15_000,
+		refetchOnWindowFocus: true,
 	});
 }
 

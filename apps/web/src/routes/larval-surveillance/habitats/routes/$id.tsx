@@ -96,17 +96,21 @@ function RouteDetailRoute() {
 					selectedStopId={selectedStopId}
 				/>
 
+				{/* The divider belongs to the card, not the panel — outside `WriteOnly`
+				    it would leave viewers a bordered empty strip under the stop list. */}
 				{route === null ? null : (
-					<div className="shrink-0 border-border/40 border-t p-3">
-						<DangerZoneCard
-							name={route.routeName}
-							noun="route"
-							onDelete={() => webCollections.routes.delete(route.id)}
-							recordId={route.id}
-							recordType="route"
-							returnTo="/larval-surveillance/habitats/routes"
-						/>
-					</div>
+					<WriteOnly>
+						<div className="shrink-0 border-border/40 border-t p-3">
+							<DangerZoneCard
+								name={route.routeName}
+								noun="route"
+								onDelete={() => webCollections.routes.delete(route.id)}
+								recordId={route.id}
+								recordType="route"
+								returnTo="/larval-surveillance/habitats/routes"
+							/>
+						</div>
+					</WriteOnly>
 				)}
 			</div>
 		</MapSplitPage>

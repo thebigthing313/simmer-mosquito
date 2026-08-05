@@ -17,12 +17,15 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { useQueryClient } from '@tanstack/react-query';
 import { type LinkProps, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useState } from 'react';
+import { toast } from 'sonner';
 import {
 	type DeletableRecordType,
 	type DeleteImpact,
 	type DeleteImpactEntry,
+	deleteImpactQueryKey,
 	impactCountLabel,
 	useDeleteImpact,
 } from '../hooks/use-delete-impact';
@@ -68,6 +71,7 @@ export function DangerZoneCard(props: DangerZoneCardProps) {
 
 function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: DangerZoneCardProps) {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const impactQuery = useDeleteImpact(recordType, recordId);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -85,13 +89,26 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 			await settleWrite(onDelete());
 			await navigate({ to: returnTo });
 		} catch (cause) {
-			setDeleteError(cause instanceof Error ? cause.message : `Unable to delete the ${noun}.`);
+			const message = cause instanceof Error ? cause.message : `Unable to delete the ${noun}.`;
+
+			// The delete is optimistic, so the row leaves the collection the moment
+			// the button is pressed and this card unmounts with the record it was
+			// describing. By the time a refusal comes back there is nothing here to
+			// set state on — hence the toast, which lives above the route in the
+			// app shell and outlasts the rollback that puts the page back.
+			toast.error(message);
+			setDeleteError(message);
+
 			// A delete refused mid-flight means something started referencing this
-			// record while the page was open. Re-read so the card names it.
-			void impactQuery.refetch();
+			// record while the page was open. Invalidate rather than refetch: this
+			// goes through the cache, so it still lands when the card is gone, and
+			// the remounted card reads the blockers instead of a stale all-clear.
+			void queryClient.invalidateQueries({
+				queryKey: deleteImpactQueryKey(recordType, recordId),
+			});
 			setIsDeleting(false);
 		}
-	}, [impactQuery, navigate, noun, onDelete, returnTo]);
+	}, [navigate, noun, onDelete, queryClient, recordId, recordType, returnTo]);
 
 	return (
 		<Card className="border-destructive/40" variant="panel">
@@ -133,13 +150,12 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 					<AlertDialogHeader>
 						<AlertDialogTitle>Delete {name}?</AlertDialogTitle>
 						<AlertDialogDescription>
-							{impact === undefined ||
-							(impact.cascades.length === 0 && impact.detaches.length === 0)
+							{impact === undefined || !hasEffects(impact)
 								? `This ${noun} will be removed. This can't be undone.`
 								: `This can't be undone.`}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
-					{impact === undefined ? null : <ConfirmEffects impact={impact} />}
+					{impact === undefined || !hasEffects(impact) ? null : <EffectLists impact={impact} />}
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction onClick={confirmDelete}>Delete {titleCase(noun)}</AlertDialogAction>
@@ -165,7 +181,7 @@ function DeleteEffects({
 		);
 	}
 
-	if (impact.cascades.length === 0 && impact.detaches.length === 0) {
+	if (!hasEffects(impact)) {
 		return (
 			<p className="m-0 text-muted-foreground text-sm">
 				Nothing else references this {noun}. This can't be undone.
@@ -173,22 +189,21 @@ function DeleteEffects({
 		);
 	}
 
-	return (
-		<div className="grid gap-3 text-sm">
-			<EffectGroup entries={impact.cascades} label="Also deleted" />
-			<EffectGroup entries={impact.detaches} label="Kept, no longer linked" />
-		</div>
-	);
+	return <EffectLists impact={impact} />;
+}
+
+/** True when deleting this record would reach past the record itself. */
+function hasEffects(impact: DeleteImpact): boolean {
+	return impact.cascades.length > 0 || impact.detaches.length > 0;
 }
 
 /**
- * The same two lists inside the confirmation, so the last screen before the
- * write repeats what the button was standing next to.
+ * What goes and what stays.
+ *
+ * Rendered twice — on the card, and again inside the confirmation, so the last
+ * screen before the write repeats what the button was standing next to.
  */
-function ConfirmEffects({ impact }: { readonly impact: DeleteImpact }) {
-	if (impact.cascades.length === 0 && impact.detaches.length === 0) {
-		return null;
-	}
+function EffectLists({ impact }: { readonly impact: DeleteImpact }) {
 	return (
 		<div className="grid gap-3 text-sm">
 			<EffectGroup entries={impact.cascades} label="Also deleted" />
