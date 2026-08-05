@@ -1,3 +1,4 @@
+import { CLOCK_SKEW_TOLERANCE_MS } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import {
 	type AssignmentSnapshot,
@@ -5,6 +6,7 @@ import {
 	checkItemProgress,
 	checkReopenAssignment,
 	checkStartAssignment,
+	isProgressBeforeStart,
 	readAssignmentItemState,
 	readAssignmentState,
 } from './assignment-lifecycle.js';
@@ -110,6 +112,64 @@ describe('checkItemProgress', () => {
 	it('allows skipping a stop in any non-skipped state', () => {
 		expect(checkItemProgress('skip', 'in_progress', 'pending')).toBeNull();
 		expect(checkItemProgress('skip', 'in_progress', 'completed')).toBeNull();
+	});
+
+	it('refuses progress dated before the assignment started', () => {
+		expect(
+			checkItemProgress('complete', 'in_progress', 'pending', {
+				progressAt: new Date('2026-08-04T07:00:00.000Z'),
+				startedAt: new Date('2026-08-04T09:00:00.000Z'),
+			}),
+		).toBe('assignment_item_progress_before_start');
+	});
+
+	it('reports the state problem first when a stop has both', () => {
+		// A skipped stop being completed with an impossible timestamp is told to
+		// unskip first. Answering with the timing rule would send someone to check
+		// the clock over a transition that was never going to be allowed.
+		expect(
+			checkItemProgress('complete', 'in_progress', 'skipped', {
+				progressAt: new Date('2026-08-04T07:00:00.000Z'),
+				startedAt: new Date('2026-08-04T09:00:00.000Z'),
+			}),
+		).toBe('assignment_item_skipped');
+	});
+});
+
+describe('isProgressBeforeStart', () => {
+	const startedAt = new Date('2026-08-04T09:00:00.000Z');
+
+	it('accepts a stop finished after the assignment began', () => {
+		expect(isProgressBeforeStart(new Date('2026-08-04T09:30:00.000Z'), startedAt)).toBe(false);
+	});
+
+	it('accepts a stop finished at the exact start instant', () => {
+		// "On or after", so the boundary itself is allowed.
+		expect(isProgressBeforeStart(startedAt, startedAt)).toBe(false);
+	});
+
+	it('forgives a device clock inside the same allowance the future check uses', () => {
+		// The failure this prevents: `started_at` is the server's `now()`, the
+		// progress time is the phone's, and a phone a minute slow would otherwise
+		// have real work refused for happening "before" an assignment it was part
+		// of. This is #37's fix from the other direction.
+		const slightlySlow = new Date(startedAt.getTime() - CLOCK_SKEW_TOLERANCE_MS + 1_000);
+
+		expect(isProgressBeforeStart(slightlySlow, startedAt)).toBe(false);
+	});
+
+	it('refuses a timestamp further back than ordinary drift explains', () => {
+		const wellBefore = new Date(startedAt.getTime() - CLOCK_SKEW_TOLERANCE_MS - 60_000);
+
+		expect(isProgressBeforeStart(wellBefore, startedAt)).toBe(true);
+	});
+
+	it('has nothing to say when either clock is unknown', () => {
+		// A null progress time means the server is about to stamp it; a null
+		// `started_at` is already refused as `assignment_not_started`.
+		expect(isProgressBeforeStart(null, startedAt)).toBe(false);
+		expect(isProgressBeforeStart(new Date('2020-01-01T00:00:00.000Z'), null)).toBe(false);
+		expect(isProgressBeforeStart(null, null)).toBe(false);
 	});
 });
 

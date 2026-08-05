@@ -928,11 +928,19 @@ Server handlers should reject future item progress timestamps beyond a small
 clock-skew allowance and require progress timestamps to be on or after
 `assignments.started_at`.
 
-The clock-skew allowance is enforced. The "on or after `started_at`" rule is
-not, deliberately: `started_at` is stamped by the server while progress
-timestamps come from the device, so a phone a minute behind would have ordinary
-work refused — the same failure the clock-skew allowance exists to prevent.
-Enforcing it needs a tolerance of its own; tracked in issue #53.
+Both are enforced. The "on or after `started_at`" comparison carries the same
+`CLOCK_SKEW_TOLERANCE_MS` allowance as the future check, and for the same
+reason: `started_at` is stamped by the server while progress timestamps come
+from the device, so a strict comparison would refuse ordinary work from a phone
+a minute behind. One allowance rather than two, because it is one fact about
+consumer clocks.
+
+The rule applies only to a timestamp the command actually carries.
+`reopenAssignmentItem` and `unskipAssignmentItem` clear a progress timestamp
+rather than setting one, and a command that omits its timestamp is stamped
+server-side, so neither is compared. Refused progress answers
+`assignment_item_progress_before_start`, after the item's state rules — a
+skipped stop being completed is told to unskip first, whatever its clock says.
 
 `completeAssignment` requires:
 

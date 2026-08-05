@@ -263,6 +263,7 @@ async function writeAssignmentItemCommand(
 				command.payload.assignmentItemId,
 				command.payload.organizationId,
 				'complete',
+				command.payload.completedAt,
 			);
 			return updateRow(
 				trx,
@@ -286,7 +287,10 @@ async function writeAssignmentItemCommand(
 				trx,
 				command.payload.assignmentItemId,
 				command.payload.organizationId,
+				// Reopening clears the completion rather than dating it, so there is no
+				// device timestamp for the start-time rule to judge.
 				'reopen',
+				null,
 			);
 			return updateRow(
 				trx,
@@ -307,6 +311,7 @@ async function writeAssignmentItemCommand(
 				command.payload.assignmentItemId,
 				command.payload.organizationId,
 				'skip',
+				command.payload.skippedAt,
 			);
 			return updateRow(
 				trx,
@@ -330,6 +335,7 @@ async function writeAssignmentItemCommand(
 				command.payload.assignmentItemId,
 				command.payload.organizationId,
 				'unskip',
+				null,
 			);
 			return updateRow(
 				trx,
