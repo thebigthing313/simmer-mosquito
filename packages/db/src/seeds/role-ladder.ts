@@ -365,35 +365,35 @@ async function upsertAssignments(
 
 	await upsertAssignment(trx, organizationId, {
 		id: roleLadderIds.ownAssignmentId,
-		name: 'Assigned to Casey',
+		name: 'Role ladder — assigned to the collector',
 		assignedTo: collector.profileId,
 		assignedBy: manager.profileId,
 		started: false,
 	});
 	await upsertAssignment(trx, organizationId, {
 		id: roleLadderIds.otherAssignmentId,
-		name: 'Assigned to Quinn',
+		name: 'Role ladder — assigned to another collector',
 		assignedTo: other.profileId,
 		assignedBy: manager.profileId,
 		started: false,
 	});
 	await upsertAssignment(trx, organizationId, {
 		id: roleLadderIds.unassignedAssignmentId,
-		name: 'Assigned to nobody',
+		name: 'Role ladder — assigned to nobody',
 		assignedTo: null,
 		assignedBy: manager.profileId,
 		started: false,
 	});
 	await upsertAssignment(trx, organizationId, {
 		id: roleLadderIds.mixedAssignmentId,
-		name: 'Started, one stop still pending',
+		name: 'Role ladder — started, one stop pending',
 		assignedTo: collector.profileId,
 		assignedBy: manager.profileId,
 		started: true,
 	});
 	await upsertAssignment(trx, organizationId, {
 		id: roleLadderIds.emptyAssignmentId,
-		name: 'Started with no stops',
+		name: 'Role ladder — started with no stops',
 		assignedTo: collector.profileId,
 		assignedBy: manager.profileId,
 		started: true,

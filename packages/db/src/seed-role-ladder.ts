@@ -38,7 +38,7 @@ import {
 async function resolveExistingProfiles(
 	db: ReturnType<typeof createDb>,
 	organizationId: string,
-): Promise<ExistingProfileIds> {
+): Promise<Record<string, { readonly id: string; readonly displayName: string }>> {
 	const rows = await db
 		.selectFrom('memberships')
 		.innerJoin('profiles', 'profiles.id', 'memberships.profile_id')
@@ -49,14 +49,18 @@ async function resolveExistingProfiles(
 		.orderBy('profiles.display_name')
 		.execute();
 
-	const found: Record<string, string> = {};
-	const collectors: string[] = [];
+	const found: Record<string, { readonly id: string; readonly displayName: string }> = {};
+	const collectors: { readonly id: string; readonly displayName: string }[] = [];
 	for (const row of rows) {
+		const person = { id: row.id, displayName: row.display_name };
 		if (row.role === 'collector') {
-			collectors.push(row.id);
+			collectors.push(person);
 			continue;
 		}
-		found[row.role] ??= row.id;
+		// First by display name when a role has more than one holder. Arbitrary,
+		// which is why the caller prints who was chosen: a role with two people is
+		// exactly where a silent pick would attach the fixtures to the wrong one.
+		found[row.role] ??= person;
 	}
 	const [firstCollector, secondCollector] = collectors;
 	if (firstCollector !== undefined) {
@@ -66,7 +70,7 @@ async function resolveExistingProfiles(
 		found.otherCollector = secondCollector;
 	}
 
-	return found as ExistingProfileIds;
+	return found;
 }
 
 const databaseUrl = process.env.DATABASE_URL ?? process.env.SIMMER_DATABASE_URL;
@@ -102,13 +106,15 @@ try {
 	// into a real organization — attach the fixtures to *their* profiles rather
 	// than to stand-ins. An assignment "assigned to the collector" is no use if
 	// it is assigned to somebody the tester cannot sign in as.
-	const existingProfileIds = await resolveExistingProfiles(db, organizationId);
-	if (Object.keys(existingProfileIds).length > 0) {
+	const existing = await resolveExistingProfiles(db, organizationId);
+	const existingProfileIds: ExistingProfileIds = {};
+	if (Object.keys(existing).length > 0) {
 		console.log('Reusing profiles already in this organization:');
-		for (const [key, id] of Object.entries(existingProfileIds)) {
-			console.log(`  ${key}: ${id}`);
+		for (const [key, person] of Object.entries(existing)) {
+			console.log(`  ${key.padEnd(15)} ${person.displayName.padEnd(22)} ${person.id}`);
+			existingProfileIds[key as RoleLadderKey] = person.id;
 		}
-		console.log('');
+		console.log('  (a role held by more than one person resolves to the first by name)\n');
 	}
 
 	const result = await seedRoleLadder(db, {
@@ -128,16 +134,23 @@ try {
 		].join(' '),
 	);
 
-	if (result.linkedUserCount === 0) {
+	if (result.linkedUserCount === 0 && Object.keys(existingProfileIds).length === 0) {
 		console.log(
-			'No WorkOS user ids supplied, so nobody can sign in as these profiles yet. ' +
-				'Create the accounts in WorkOS, then re-run with SIMMER_ROLE_LADDER_<ROLE> set.',
+			'No WorkOS user ids supplied and no existing profiles found, so nobody can sign in ' +
+				'as these profiles yet. Create the accounts in WorkOS, then either invite them into ' +
+				'this organization or re-run with SIMMER_ROLE_LADDER_<ROLE> set.',
 		);
 	}
 
 	console.log('\nFixture ids:');
+	console.log(`  organizationId: ${result.organizationId}`);
 	for (const [name, id] of Object.entries(roleLadderIds)) {
-		console.log(`  ${name}: ${id}`);
+		// `roleLadderIds.organizationId` is only the default constant. This run may
+		// have been pointed somewhere else, and printing the wrong id is worse than
+		// printing none.
+		if (name !== 'organizationId') {
+			console.log(`  ${name}: ${id}`);
+		}
 	}
 } finally {
 	await db.destroy();
