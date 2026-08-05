@@ -23,6 +23,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import { WriteOnly } from '../../../../components/write-only';
+import { useCanWrite } from '../../../../hooks/use-can-write';
 import { RouteCreateDialog } from '../-route-create-dialog';
 import { useHabitatRoutes, useRouteStopCounts, useRouteStops } from '../-route-data';
 import { RouteMap } from '../-route-map';
@@ -174,6 +175,8 @@ function RouteResults({
 	readonly onSelect: (id: string) => void;
 	readonly onCreate: () => void;
 }) {
+	const canWrite = useCanWrite();
+
 	if (isLoading && totalCount === 0) {
 		return (
 			<div className="grid gap-2 p-3">
@@ -194,15 +197,17 @@ function RouteResults({
 						</EmptyMedia>
 						<EmptyTitle>No Routes Yet</EmptyTitle>
 						<EmptyDescription>
-							Routes group habitats into an ordered run field crews can follow. Create your first to
-							start adding stops.
+							Routes group habitats into an ordered run field crews can follow.
+							{canWrite ? ' Create your first to start adding stops.' : null}
 						</EmptyDescription>
 					</EmptyHeader>
 					<EmptyContent>
-						<Button onClick={onCreate}>
-							<PlusIcon aria-hidden="true" />
-							New Route
-						</Button>
+						<WriteOnly>
+							<Button onClick={onCreate}>
+								<PlusIcon aria-hidden="true" />
+								New Route
+							</Button>
+						</WriteOnly>
 					</EmptyContent>
 				</Empty>
 			</div>
