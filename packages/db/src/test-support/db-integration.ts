@@ -11,13 +11,23 @@ const { Pool } = pg;
 const testDatabaseUrl =
 	process.env.SIMMER_TEST_DATABASE_URL ?? process.env.TEST_DATABASE_URL ?? null;
 
+/**
+ * Every test in an integration suite applies the full migration set into a
+ * throwaway schema, and the test database is remote — a Railway environment
+ * rather than a container on the loopback. That is roughly ten seconds per
+ * test, so the suite carries its own timeout; vitest's five-second default
+ * fails these on latency alone and leaks the schema it was mid-way through
+ * building.
+ */
+const INTEGRATION_TIMEOUT_MS = 180_000;
+
 export function describeDbIntegration(name: string, suite: () => void): void {
 	if (testDatabaseUrl === null) {
 		describe.skip(name, suite);
 		return;
 	}
 
-	describe(name, suite);
+	describe(name, { timeout: INTEGRATION_TIMEOUT_MS }, suite);
 }
 
 export interface TestDbContext {

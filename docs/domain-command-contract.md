@@ -35,6 +35,24 @@ Server command handlers validate context-dependent rules:
 - schema-level constraints and foreign keys;
 - source geometry lookup and snapshot behavior.
 
+## Delete Policy
+
+Deleting a record is never just the one row. Each domain doc states, per
+deletable record, which rows go with it, which survive with their link cleared,
+and which references refuse the delete outright.
+
+That policy lives as data in `packages/db/src/domains/record-deletion.ts`, not
+in the handlers. A delete command case calls `applyRecordDeletion` inside its
+transaction before soft-deleting its own row; the same registry answers
+`GET /records/:recordType/:recordId/delete-impact`, which the detail page's
+danger zone reads to state the consequences and to refuse the delete before the
+user commits. One source means the warning and the write cannot drift apart.
+
+Adding a deletable record type means adding its rules to that registry, not
+hand-rolling cleanup in the handler. A blocked delete answers 409 with the same
+entry shape the impact read returns, so a client that raced a new reference can
+still name what stopped it.
+
 ## Offline And Sync
 
 - Offline queues store domain commands, not DB-shaped patches.
