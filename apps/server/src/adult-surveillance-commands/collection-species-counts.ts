@@ -7,6 +7,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
@@ -130,6 +131,11 @@ async function runCollectionSpeciesCommands(
 	commands: readonly AdultSurveillanceCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedAgencyCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
 		const result = await writeCollectionSpeciesCommands(db, commands);
 		if (result.row === null) {

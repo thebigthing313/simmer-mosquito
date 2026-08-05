@@ -1,6 +1,7 @@
 import { createHabitatTypeCommand, deleteHabitatTypeCommand } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	buildHabitatTypeUpdateCommands,
@@ -44,6 +45,11 @@ export function registerHabitatTypeRoutes(
 			return context.json(commandResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeCollectionMethodCommands(options.db, [commandResult.command]);
 		return context.json(
 			{ habitatType: toCollectionMethodResponse(result.row), txid: result.txid },
@@ -67,6 +73,11 @@ export function registerHabitatTypeRoutes(
 			);
 			if (!commandsResult.ok) {
 				return context.json(commandsResult.body, 400);
+			}
+
+			const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
+			if (denial !== null) {
+				return denial;
 			}
 
 			const result = await writeCollectionMethodCommands(options.db, commandsResult.commands);
@@ -93,6 +104,11 @@ export function registerHabitatTypeRoutes(
 			);
 			if (!commandResult.ok) {
 				return context.json(commandResult.body, 400);
+			}
+
+			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+			if (denial !== null) {
+				return denial;
 			}
 
 			const result = await writeCollectionMethodCommands(options.db, [commandResult.command]);

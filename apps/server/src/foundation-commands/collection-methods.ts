@@ -4,6 +4,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	buildUpdateCommands,
@@ -48,6 +49,11 @@ export function registerCollectionMethodRoutes(
 			return context.json(commandResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeCollectionMethodCommands(options.db, [commandResult.command]);
 		return context.json(
 			{ collectionMethod: toCollectionMethodResponse(result.row), txid: result.txid },
@@ -75,6 +81,11 @@ export function registerCollectionMethodRoutes(
 				return context.json(commandsResult.body, 400);
 			}
 
+			const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
+			if (denial !== null) {
+				return denial;
+			}
+
 			const result = await writeCollectionMethodCommands(options.db, commandsResult.commands);
 			if (result.row === null) {
 				return context.json({ error: 'collection_method_not_found' }, 404);
@@ -100,6 +111,11 @@ export function registerCollectionMethodRoutes(
 			);
 			if (!commandResult.ok) {
 				return context.json(commandResult.body, 400);
+			}
+
+			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+			if (denial !== null) {
+				return denial;
 			}
 
 			const result = await writeCollectionMethodCommands(options.db, [commandResult.command]);

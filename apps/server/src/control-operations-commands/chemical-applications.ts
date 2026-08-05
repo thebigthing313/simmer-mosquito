@@ -10,14 +10,17 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { type CommandActor, denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type ApplicationUpdateColumns,
 	agencyCommandContext,
 	applicationReturnColumns,
+	assertActionOwnership,
 	type CommandContext,
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
+	commandActor,
 	contextIds,
 	createCommand,
 	handleCommandError,
@@ -201,8 +204,17 @@ async function runApplicationCommands(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedAgencyCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await writeApplicationCommands(db, commands);
+		const result = await writeApplicationCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'application_not_found' }, 404);
 		}
@@ -214,11 +226,13 @@ async function runApplicationCommands(
 
 async function writeApplicationCommands(
 	db: ControlOperationsDb,
+	actor: CommandActor,
 	commands: readonly ControlOperationsCommand[],
 ): Promise<MutationWriteResult<SafeApplication | null>> {
 	return db.transaction().execute(async (trx) => {
 		let row: SafeApplication | null = null;
 		for (const command of commands) {
+			await assertActionOwnership(trx, command, actor);
 			row = await writeApplicationCommand(trx, command);
 		}
 		return { row, txid: await readCurrentTransactionId(trx) };

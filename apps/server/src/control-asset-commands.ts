@@ -31,6 +31,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
 
 type ControlAssetDb = Kysely<SimmerDatabase>;
 type ControlAssetTransaction = Transaction<SimmerDatabase>;
@@ -83,6 +84,11 @@ export function registerControlAssetCommandRoutes(
 			return context.json(commandResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeControlAssetCommands(options.db, [commandResult.command]);
 		return context.json({ asset: toControlAssetResponse(result.row), txid: result.txid }, 201);
 	});
@@ -108,6 +114,11 @@ export function registerControlAssetCommandRoutes(
 			return context.json(commandsResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeControlAssetCommands(options.db, commandsResult.commands);
 		if (result.row === null) {
 			return context.json({ error: 'control_asset_not_found' }, 404);
@@ -127,6 +138,11 @@ export function registerControlAssetCommandRoutes(
 		);
 		if (!commandResult.ok) {
 			return context.json(commandResult.body, 400);
+		}
+
+		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
 		}
 
 		const result = await writeControlAssetCommands(options.db, [commandResult.command]);

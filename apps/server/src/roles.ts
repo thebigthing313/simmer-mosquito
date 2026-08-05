@@ -17,8 +17,16 @@ const ROLE_RANK: Record<SimmerRole, number> = {
 	viewer: 0,
 };
 
-/** The floors commands are written against: "manager-and-above", "collector-and-above". */
-export type MinimumRole = 'manager' | 'collector';
+/**
+ * The floors commands are written against.
+ *
+ * Three of the five roles are floors. `owner` is not, because nothing is owner-
+ * only — the domain docs say "owner/admin" wherever they mean the top, and
+ * `admin` is the lower of that pair. `viewer` is not, because a floor of
+ * "viewer-and-above" would be every signed-in membership, which is what the
+ * absence of a check already meant.
+ */
+export type MinimumRole = 'admin' | 'manager' | 'collector';
 
 export function hasAtLeastRole(role: SimmerRole, minimum: MinimumRole): boolean {
 	return ROLE_RANK[role] >= ROLE_RANK[minimum];

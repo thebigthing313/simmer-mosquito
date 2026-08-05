@@ -50,6 +50,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
 
 type ControlMethodCommandDb = Parameters<typeof writeCollectionMethodLookupCommandsWithTxid>[0];
 type ControlMethodTransaction = Parameters<
@@ -117,6 +118,11 @@ export function registerControlMethodCommandRoutes(
 			return context.json(commandResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeControlMethodCommands(options.db, [commandResult.command]);
 		return context.json({ method: toControlMethodResponse(result.row), txid: result.txid }, 201);
 	});
@@ -142,6 +148,11 @@ export function registerControlMethodCommandRoutes(
 			return context.json(commandsResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeControlMethodCommands(options.db, commandsResult.commands);
 		if (result.row === null) {
 			return context.json({ error: 'control_method_not_found' }, 404);
@@ -165,6 +176,11 @@ export function registerControlMethodCommandRoutes(
 		);
 		if (!commandResult.ok) {
 			return context.json(commandResult.body, 400);
+		}
+
+		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
 		}
 
 		const result = await writeControlMethodCommands(options.db, [commandResult.command]);

@@ -1,6 +1,7 @@
 import { createCollectionLureCommand, deleteCollectionLureCommand } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	buildCollectionLureUpdateCommands,
@@ -43,6 +44,11 @@ export function registerCollectionLureRoutes(
 			return context.json(commandResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeCollectionMethodCommands(options.db, [commandResult.command]);
 		return context.json(
 			{ collectionLure: toCollectionMethodResponse(result.row), txid: result.txid },
@@ -66,6 +72,11 @@ export function registerCollectionLureRoutes(
 			);
 			if (!commandsResult.ok) {
 				return context.json(commandsResult.body, 400);
+			}
+
+			const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
+			if (denial !== null) {
+				return denial;
 			}
 
 			const result = await writeCollectionMethodCommands(options.db, commandsResult.commands);
@@ -92,6 +103,11 @@ export function registerCollectionLureRoutes(
 			);
 			if (!commandResult.ok) {
 				return context.json(commandResult.body, 400);
+			}
+
+			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+			if (denial !== null) {
+				return denial;
 			}
 
 			const result = await writeCollectionMethodCommands(options.db, [commandResult.command]);

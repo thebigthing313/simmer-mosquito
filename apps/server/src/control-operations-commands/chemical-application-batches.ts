@@ -6,11 +6,14 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { type CommandActor, denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	applicationBatchReturnColumns,
+	assertActionOwnership,
 	type CommandContext,
 	type ControlOperationsDb,
+	commandActor,
 	createCommand,
 	handleCommandError,
 	insertApplicationBatch,
@@ -80,8 +83,17 @@ async function runApplicationBatchCommands(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedAgencyCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await writeApplicationBatchCommands(db, commands);
+		const result = await writeApplicationBatchCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'application_batch_not_found' }, 404);
 		}
@@ -93,11 +105,13 @@ async function runApplicationBatchCommands(
 
 async function writeApplicationBatchCommands(
 	db: ControlOperationsDb,
+	actor: CommandActor,
 	commands: readonly ControlOperationsCommand[],
 ): Promise<MutationWriteResult<SafeApplicationBatch | null>> {
 	return db.transaction().execute(async (trx) => {
 		let row: SafeApplicationBatch | null = null;
 		for (const command of commands) {
+			await assertActionOwnership(trx, command, actor);
 			if (command.type === 'controlOperations.addChemicalApplicationBatch') {
 				row = await insertApplicationBatch(trx, {
 					id: command.payload.applicationBatchId,

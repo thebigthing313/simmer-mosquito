@@ -14,18 +14,25 @@
  * and mission dispatch can each raise their own.
  */
 
-import type { SimmerDatabase, Transaction } from '@simmer-mosquito/db';
-import type { FieldWorkCommandType, MissionDispatchCommandType } from '@simmer-mosquito/domain';
+import { type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
 import {
+	type AgencyCommandType,
 	type CommandActor,
 	type OwnedRecordRef,
+	type PerformedRecordRef,
 	readCommandPermission,
 } from './command-permissions.js';
 
 type CommandTransaction = Transaction<SimmerDatabase>;
 
 /** The nouns the 404s are named after: `${entity}_not_found`. */
-export type OwnedEntity = 'assignment' | 'assignment_item' | 'mission' | 'mission_item' | 'comment';
+export type OwnedEntity =
+	| 'assignment'
+	| 'assignment_item'
+	| 'mission'
+	| 'mission_item'
+	| 'comment'
+	| 'control_action';
 
 export type OwnershipOutcome =
 	| { readonly kind: 'allowed' }
@@ -46,13 +53,17 @@ const ALLOWED: OwnershipOutcome = { kind: 'allowed' };
 export async function resolveCommandOwnership(
 	trx: CommandTransaction,
 	command: {
-		readonly type: FieldWorkCommandType | MissionDispatchCommandType;
+		readonly type: AgencyCommandType;
 		readonly payload: unknown;
 	},
 	actor: CommandActor,
 ): Promise<OwnershipOutcome> {
 	const permission = readCommandPermission(command.type);
-	if (permission.kind !== 'assignedCollector' && permission.kind !== 'author') {
+	if (
+		permission.kind !== 'assignedCollector' &&
+		permission.kind !== 'author' &&
+		permission.kind !== 'performer'
+	) {
 		return ALLOWED;
 	}
 	// Manager-and-above were allowed outright at the route boundary, and viewers
@@ -70,9 +81,20 @@ export async function resolveCommandOwnership(
 		return { kind: 'refused', reason: 'This command cannot be checked against its record.' };
 	}
 
-	return permission.kind === 'author'
-		? await resolveCommentOwnership(trx, payload, organizationId, actor)
-		: await resolveAssigneeOwnership(trx, permission.owned, payload, organizationId, actor);
+	switch (permission.kind) {
+		case 'author':
+			return await resolveCommentOwnership(trx, payload, organizationId, actor);
+		case 'performer':
+			return await resolvePerformerOwnership(
+				trx,
+				permission.performed,
+				payload,
+				organizationId,
+				actor,
+			);
+		case 'assignedCollector':
+			return await resolveAssigneeOwnership(trx, permission.owned, payload, organizationId, actor);
+	}
 }
 
 async function resolveAssigneeOwnership(
@@ -147,6 +169,133 @@ async function resolveCommentOwnership(
 		case 'owner':
 			return ALLOWED;
 	}
+}
+
+async function resolvePerformerOwnership(
+	trx: CommandTransaction,
+	performed: PerformedRecordRef,
+	payload: Record<string, unknown>,
+	organizationId: string,
+	actor: CommandActor,
+): Promise<OwnershipOutcome> {
+	const namedId = readPayloadId(payload, performed.payloadKey);
+	if (namedId === null) {
+		return { kind: 'missing', entity: 'control_action' };
+	}
+
+	const recordId =
+		performed.through === undefined
+			? namedId
+			: await readLinkedParentId(trx, performed.through, namedId, organizationId);
+	if (recordId === null) {
+		return { kind: 'missing', entity: 'control_action' };
+	}
+
+	const verdict = await readPerformerOwnership(
+		trx,
+		performed,
+		recordId,
+		organizationId,
+		actor.profileId,
+	);
+	switch (verdict) {
+		case 'missing':
+			return { kind: 'missing', entity: 'control_action' };
+		case 'not_performer':
+			return {
+				kind: 'refused',
+				reason: 'Collectors can only correct control actions they performed.',
+			};
+		case 'window_expired':
+			return {
+				kind: 'refused',
+				reason: `Control actions can only be corrected by their performer for ${ACTION_CORRECTION_WINDOW_DAYS} days.`,
+			};
+		case 'owner':
+			return ALLOWED;
+	}
+}
+
+async function readLinkedParentId(
+	trx: CommandTransaction,
+	through: NonNullable<PerformedRecordRef['through']>,
+	id: string,
+	organizationId: string,
+): Promise<string | null> {
+	const row = await trx
+		.selectFrom(through.table)
+		.select(sql<string>`${sql.ref(through.parentColumn)}`.as('parent_id'))
+		.where('id', '=', id)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	return row?.parent_id ?? null;
+}
+
+/**
+ * How long a collector may correct a control action they performed.
+ *
+ * `docs/control-operations-domain.md`: "collectors can update/delete their own
+ * action records within 30 days of the stored action date". Deliberately the
+ * same length as the comment window — the two are the same idea about the same
+ * people, and two different numbers would only be something to look up.
+ */
+export const ACTION_CORRECTION_WINDOW_DAYS = 30;
+
+export type PerformerVerdict = 'owner' | 'not_performer' | 'window_expired' | 'missing';
+
+/**
+ * Whether a control action was performed by the acting profile, recently enough.
+ *
+ * The window is measured from the *action date* rather than from when the row
+ * was written, because that is what the doc says and because backfilling last
+ * month's work should not buy a fresh month to change it in.
+ *
+ * An action with no performer is nobody's to correct: `technician_profile_id`
+ * and `applicator_profile_id` are nullable, and a null there must not match a
+ * collector's profile id.
+ */
+export async function readPerformerOwnership(
+	trx: CommandTransaction,
+	performed: PerformedRecordRef,
+	recordId: string,
+	organizationId: string,
+	actorProfileId: string,
+	now: Date = new Date(),
+): Promise<PerformerVerdict> {
+	const row = await trx
+		.selectFrom(performed.table)
+		.select([
+			sql<string | null>`${sql.ref(performed.performerColumn)}`.as('performer_id'),
+			sql<Date | string>`${sql.ref(performed.performedOnColumn)}`.as('performed_on'),
+		])
+		.where('id', '=', recordId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	if (row === undefined) {
+		return 'missing';
+	}
+	if (row.performer_id === null || row.performer_id !== actorProfileId) {
+		return 'not_performer';
+	}
+	return isWithinCorrectionWindow(asDate(row.performed_on), now, ACTION_CORRECTION_WINDOW_DAYS)
+		? 'owner'
+		: 'window_expired';
+}
+
+/**
+ * The action tables mix `date` and `timestamptz` columns, and the `date` ones
+ * come back as a `YYYY-MM-DD` string. Both have to become a `Date` before the
+ * window arithmetic, and a value that parses to nothing is treated as the epoch
+ * so an unreadable date expires the window rather than opening it.
+ */
+function asDate(value: Date | string): Date {
+	if (value instanceof Date) {
+		return value;
+	}
+	const parsed = new Date(value);
+	return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
 }
 
 function entityOf(table: OwnedRecordRef['table']): OwnedEntity {
@@ -257,10 +406,16 @@ export async function readCommentOwnership(
 	if (row.commented_by_profile_id !== actorProfileId) {
 		return 'not_author';
 	}
-	return isWithinCorrectionWindow(row.commented_at, now) ? 'owner' : 'window_expired';
+	return isWithinCorrectionWindow(row.commented_at, now, COMMENT_CORRECTION_WINDOW_DAYS)
+		? 'owner'
+		: 'window_expired';
 }
 
-export function isWithinCorrectionWindow(commentedAt: Date, now: Date): boolean {
-	const elapsedDays = (now.getTime() - commentedAt.getTime()) / (24 * 60 * 60 * 1000);
-	return elapsedDays <= COMMENT_CORRECTION_WINDOW_DAYS;
+export function isWithinCorrectionWindow(
+	recordedAt: Date,
+	now: Date,
+	windowDays: number = COMMENT_CORRECTION_WINDOW_DAYS,
+): boolean {
+	const elapsedDays = (now.getTime() - recordedAt.getTime()) / (24 * 60 * 60 * 1000);
+	return elapsedDays <= windowDays;
 }

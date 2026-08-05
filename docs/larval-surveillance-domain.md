@@ -24,11 +24,20 @@ Habitat catalog commands are mostly manager-and-above workflows:
 - `larvalSurveillance.deleteHabitat`
 - `larvalSurveillance.mergeHabitats`
 
-Collectors may update low-risk habitat details and accessibility:
+Collectors may update low-risk habitat details and accessibility, and may turn a
+source they found on an ad hoc inspection into a habitat:
 
 - `larvalSurveillance.updateHabitatDetails`
 - `larvalSurveillance.markHabitatInaccessible`
 - `larvalSurveillance.clearHabitatInaccessible`
+- `larvalSurveillance.createHabitatFromInspection`
+
+`createHabitatFromInspection` is collector-and-above because it is the second
+half of the ad hoc inspection flow rather than a planning decision: the collector
+is standing at the source. Plain `createHabitat` — naming a site from a map or an
+address, with no inspection behind it — stays manager-and-above.
+
+These floors are enforced in `apps/server/src/command-permissions.ts`.
 
 Inspection workflow commands are collector-and-above workflows:
 

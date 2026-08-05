@@ -17,6 +17,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { type CommandActor, denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type AgencyContext,
 	agencyCommandContext,
@@ -25,6 +26,7 @@ import {
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
+	commandActor,
 	contextIds,
 	createCommand,
 	handleCommandError,
@@ -74,6 +76,7 @@ interface ActionConfig<TSafe> {
 	readonly buildDelete: (ctx: AgencyContext, id: string) => ControlOperationsCommand;
 	readonly write: (
 		db: ControlOperationsDb,
+		actor: CommandActor,
 		commands: readonly ControlOperationsCommand[],
 	) => Promise<MutationWriteResult<TSafe | null>>;
 	readonly responseKey: string;
@@ -143,8 +146,13 @@ async function runActionCommands<TSafe>(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedAgencyCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await config.write(db, commands);
+		const result = await config.write(db, commandActor(context.get('authContext')), commands);
 		if (result.row === null) {
 			return context.json({ error: config.notFoundError }, 404);
 		}
@@ -239,7 +247,8 @@ export const sourceReductionConfig: ActionConfig<SafeSourceReduction> = {
 			sourceReductionId: id,
 			acknowledgedSupportRecordDeletion: true,
 		}),
-	write: (db, commands) => writeActionCommands(db, commands, writeSourceReductionCommand),
+	write: (db, actor, commands) =>
+		writeActionCommands(db, actor, commands, writeSourceReductionCommand),
 };
 
 async function writeSourceReductionCommand(
@@ -425,7 +434,8 @@ export const outreachActionConfig: ActionConfig<SafeOutreachAction> = {
 			outreachActionId: id,
 			acknowledgedSupportRecordDeletion: true,
 		}),
-	write: (db, commands) => writeActionCommands(db, commands, writeOutreachActionCommand),
+	write: (db, actor, commands) =>
+		writeActionCommands(db, actor, commands, writeOutreachActionCommand),
 };
 
 async function writeOutreachActionCommand(
@@ -610,7 +620,8 @@ export const biocontrolActionConfig: ActionConfig<SafeBiocontrolAction> = {
 			biocontrolActionId: id,
 			acknowledgedSupportRecordDeletion: true,
 		}),
-	write: (db, commands) => writeActionCommands(db, commands, writeBiocontrolActionCommand),
+	write: (db, actor, commands) =>
+		writeActionCommands(db, actor, commands, writeBiocontrolActionCommand),
 };
 
 async function writeBiocontrolActionCommand(

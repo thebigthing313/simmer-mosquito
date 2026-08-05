@@ -21,6 +21,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
 
 type PublicEngagementDb = Kysely<SimmerDatabase>;
 type PublicEngagementTransaction = Transaction<SimmerDatabase>;
@@ -71,6 +72,11 @@ export function registerPublicEngagementCommandRoutes(
 				return context.json(commandResult.body, 400);
 			}
 
+			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+			if (denial !== null) {
+				return denial;
+			}
+
 			const result = await writeNotificationTypeCommands(options.db, [commandResult.command]);
 			return context.json(
 				{ notificationType: toNotificationTypeResponse(result.row), txid: result.txid },
@@ -97,6 +103,11 @@ export function registerPublicEngagementCommandRoutes(
 				return context.json(commandsResult.body, 400);
 			}
 
+			const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
+			if (denial !== null) {
+				return denial;
+			}
+
 			const result = await writeNotificationTypeCommands(options.db, commandsResult.commands);
 			if (result.row === null) {
 				return context.json({ error: 'notification_type_not_found' }, 404);
@@ -121,6 +132,11 @@ export function registerPublicEngagementCommandRoutes(
 			);
 			if (!commandResult.ok) {
 				return context.json(commandResult.body, 400);
+			}
+
+			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+			if (denial !== null) {
+				return denial;
 			}
 
 			const result = await writeNotificationTypeCommands(options.db, [commandResult.command]);

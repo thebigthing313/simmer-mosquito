@@ -1,6 +1,7 @@
 import { RecordDeleteBlockedError } from '@simmer-mosquito/db';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import { deleteBlockedBody } from '../record-deletion.js';
 import {
 	type FoundationCommandDb,
@@ -16,6 +17,15 @@ import {
 // Addresses
 // --------------------------------------------------------------------------
 
+/**
+ * These three endpoints write their rows directly rather than through the
+ * `foundation.*Address` command builders, so there is no command object to hand
+ * the permission map. They name the command they implement instead, which keeps
+ * the answer in the same place as every other endpoint's: "createAddress is
+ * collector-and-above so mobile collectors can create ad hoc address book
+ * entries while entering field records. Update, delete, and merge are
+ * manager-and-above" (`docs/foundation-domain.md`).
+ */
 export function registerAddressRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
@@ -24,6 +34,11 @@ export function registerAddressRoutes(
 	},
 ): void {
 	app.post('/foundation/addresses', options.authContextMiddleware, async (context) => {
+		const denial = denyUnauthorizedAgencyCommands(context, [{ type: 'foundation.createAddress' }]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const payloadResult = await readAddressCreatePayload(context.req);
 		if (!payloadResult.ok) {
 			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
@@ -41,6 +56,13 @@ export function registerAddressRoutes(
 	});
 
 	app.patch('/foundation/addresses/:addressId', options.authContextMiddleware, async (context) => {
+		const denial = denyUnauthorizedAgencyCommands(context, [
+			{ type: 'foundation.updateAddressDetails' },
+		]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const payloadResult = await readAddressUpdatePayload(context.req);
 		if (!payloadResult.ok) {
 			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
@@ -60,6 +82,11 @@ export function registerAddressRoutes(
 	});
 
 	app.delete('/foundation/addresses/:addressId', options.authContextMiddleware, async (context) => {
+		const denial = denyUnauthorizedAgencyCommands(context, [{ type: 'foundation.deleteAddress' }]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const authContext = context.get('authContext');
 		try {
 			const result = await writeAddressDeleteWithTxid(options.db, context.req.param('addressId'), {

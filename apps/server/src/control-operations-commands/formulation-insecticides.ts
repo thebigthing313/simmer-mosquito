@@ -7,6 +7,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -114,6 +115,11 @@ async function runFormulationInsecticideCommands(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedAgencyCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
 		const result = await writeFormulationInsecticideCommands(db, commands);
 		if (result.row === null) {

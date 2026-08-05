@@ -32,6 +32,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
 
 type ControlProductDb = Kysely<SimmerDatabase>;
 type ControlProductTransaction = Transaction<SimmerDatabase>;
@@ -107,6 +108,11 @@ export function registerControlProductCommandRoutes(
 			return context.json(commandResult.body, 400);
 		}
 
+		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+		if (denial !== null) {
+			return denial;
+		}
+
 		const result = await writeInsecticideCommands(options.db, [commandResult.command]);
 		return context.json({ insecticide: toInsecticideResponse(result.row), txid: result.txid }, 201);
 	});
@@ -127,6 +133,11 @@ export function registerControlProductCommandRoutes(
 			);
 			if (!commandsResult.ok) {
 				return context.json(commandsResult.body, 400);
+			}
+
+			const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
+			if (denial !== null) {
+				return denial;
 			}
 
 			const result = await writeInsecticideCommands(options.db, commandsResult.commands);
@@ -150,6 +161,11 @@ export function registerControlProductCommandRoutes(
 			);
 			if (!commandResult.ok) {
 				return context.json(commandResult.body, 400);
+			}
+
+			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+			if (denial !== null) {
+				return denial;
 			}
 
 			const result = await writeInsecticideCommands(options.db, [commandResult.command]);
@@ -182,6 +198,11 @@ export function registerControlProductCommandRoutes(
 				return context.json(commandResult.body, 400);
 			}
 
+			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+			if (denial !== null) {
+				return denial;
+			}
+
 			const result = await writeInsecticideBatchCommands(options.db, [commandResult.command]);
 			return context.json(
 				{ batch: toInsecticideBatchResponse(result.row), txid: result.txid },
@@ -208,6 +229,11 @@ export function registerControlProductCommandRoutes(
 				return context.json(commandsResult.body, 400);
 			}
 
+			const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
+			if (denial !== null) {
+				return denial;
+			}
+
 			const result = await writeInsecticideBatchCommands(options.db, commandsResult.commands);
 			if (result.row === null) {
 				return context.json({ error: 'insecticide_batch_not_found' }, 404);
@@ -229,6 +255,11 @@ export function registerControlProductCommandRoutes(
 			);
 			if (!commandResult.ok) {
 				return context.json(commandResult.body, 400);
+			}
+
+			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
+			if (denial !== null) {
+				return denial;
 			}
 
 			const result = await writeInsecticideBatchCommands(options.db, [commandResult.command]);

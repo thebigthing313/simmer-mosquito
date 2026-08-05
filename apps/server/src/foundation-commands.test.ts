@@ -9,12 +9,15 @@ import { registerFoundationCommandRoutes } from './foundation-commands/index.js'
 describe('registerFoundationCommandRoutes', () => {
 	it('creates collection methods through agency-scoped domain commands', async () => {
 		const calls: unknown[] = [];
-		const app = createApp({
-			writeCollectionMethodCommands: async (_db, commands) => {
-				calls.push(commands);
-				return { row: collectionMethodRow, txid: 42 };
+		const app = createApp(
+			{
+				writeCollectionMethodCommands: async (_db, commands) => {
+					calls.push(commands);
+					return { row: collectionMethodRow, txid: 42 };
+				},
 			},
-		});
+			'admin',
+		);
 
 		const response = await app.request('/foundation/collection-methods', {
 			method: 'POST',
@@ -71,12 +74,15 @@ describe('registerFoundationCommandRoutes', () => {
 
 	it('updates details and lifecycle in one txid-returning write', async () => {
 		const calls: unknown[] = [];
-		const app = createApp({
-			writeCollectionMethodCommands: async (_db, commands) => {
-				calls.push(commands);
-				return { row: { ...collectionMethodRow, isActive: false }, txid: 43 };
+		const app = createApp(
+			{
+				writeCollectionMethodCommands: async (_db, commands) => {
+					calls.push(commands);
+					return { row: { ...collectionMethodRow, isActive: false }, txid: 43 };
+				},
 			},
-		});
+			'admin',
+		);
 
 		const response = await app.request(
 			'/foundation/collection-methods/4fe25a2d-925c-4d37-9d4e-07185ad19858',
@@ -101,12 +107,15 @@ describe('registerFoundationCommandRoutes', () => {
 
 	it('creates collection lures through agency-scoped domain commands', async () => {
 		const calls: unknown[] = [];
-		const app = createApp({
-			writeCollectionMethodCommands: async (_db, commands) => {
-				calls.push(commands);
-				return { row: { ...collectionMethodRow, name: 'Dry ice' }, txid: 44 };
+		const app = createApp(
+			{
+				writeCollectionMethodCommands: async (_db, commands) => {
+					calls.push(commands);
+					return { row: { ...collectionMethodRow, name: 'Dry ice' }, txid: 44 };
+				},
 			},
-		});
+			'admin',
+		);
 
 		const response = await app.request('/foundation/collection-lures', {
 			method: 'POST',
@@ -137,12 +146,18 @@ describe('registerFoundationCommandRoutes', () => {
 
 	it('updates habitat type details and lifecycle in one txid-returning write', async () => {
 		const calls: unknown[] = [];
-		const app = createApp({
-			writeCollectionMethodCommands: async (_db, commands) => {
-				calls.push(commands);
-				return { row: { ...collectionMethodRow, name: 'Catch basin', isActive: false }, txid: 45 };
+		const app = createApp(
+			{
+				writeCollectionMethodCommands: async (_db, commands) => {
+					calls.push(commands);
+					return {
+						row: { ...collectionMethodRow, name: 'Catch basin', isActive: false },
+						txid: 45,
+					};
+				},
 			},
-		});
+			'admin',
+		);
 
 		const response = await app.request(
 			'/foundation/habitat-types/d93dd5f9-0dac-4097-bc9d-d3b0d23333e6',
@@ -257,12 +272,20 @@ describe('registerFoundationCommandRoutes', () => {
 
 	// The tag catalog answers `fieldWork.*` commands from a foundation route, so
 	// it has to consult the same permission map the `/field-work/*` routes do.
-	// Nothing is written: the writer records every call it receives.
+	// Nothing is written: the writers record every call they receive.
 	it.each([
 		['viewer', 'POST', '/foundation/tags'],
 		['collector', 'POST', '/foundation/tags'],
 		['collector', 'PATCH', '/foundation/tags/c15223fd-f242-4e6f-8c0e-0229ecdd95c3'],
 		['collector', 'DELETE', '/foundation/tags/c15223fd-f242-4e6f-8c0e-0229ecdd95c3'],
+		// "Lookup management is owner/admin only" — a manager clears the tag
+		// catalog's floor and is still refused here, which is the case that would
+		// have passed silently if the ladder only had one rung above viewer.
+		['manager', 'POST', '/foundation/collection-methods'],
+		['manager', 'POST', '/foundation/collection-lures'],
+		['manager', 'POST', '/foundation/habitat-types'],
+		['collector', 'POST', '/foundation/collection-methods'],
+		['viewer', 'POST', '/foundation/collection-methods'],
 	] as const)('refuses a %s issuing %s %s', async (role, method, path) => {
 		const calls: unknown[] = [];
 		const app = createApp(
@@ -270,6 +293,10 @@ describe('registerFoundationCommandRoutes', () => {
 				writeTagCommands: async (_db, commands) => {
 					calls.push(commands);
 					return { row: tagRow, txid: 49 };
+				},
+				writeCollectionMethodCommands: async (_db, commands) => {
+					calls.push(commands);
+					return { row: collectionMethodRow, txid: 49 };
 				},
 			},
 			role,
@@ -282,9 +309,13 @@ describe('registerFoundationCommandRoutes', () => {
 				: {
 						method,
 						headers: { 'content-type': 'application/json' },
+						// Valid for both endpoint families: the role check sits after the
+						// command is built, so a malformed body would answer 400 and prove
+						// nothing about the role.
 						body: JSON.stringify({
 							id: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
 							tagName: 'High priority',
+							name: 'CDC light trap',
 						}),
 					},
 		);

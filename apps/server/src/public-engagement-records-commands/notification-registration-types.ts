@@ -5,6 +5,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -80,6 +81,11 @@ async function runRegistrationTypeCommands(
 	commands: readonly PublicEngagementCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedAgencyCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
 		const result = await writeCommands(db, commands, writeRegistrationTypeCommand);
 		if (result.row === null) {

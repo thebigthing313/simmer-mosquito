@@ -12,12 +12,14 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
+	commandActor,
 	contextIds,
 	createCommand,
 	handleCommandError,
@@ -207,8 +209,18 @@ async function runRequestedControlActionCommands(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
+	const denial = denyUnauthorizedAgencyCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
 	try {
-		const result = await writeActionCommands(db, commands, writeRequestedControlActionCommand);
+		const result = await writeActionCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeRequestedControlActionCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'requested_control_action_not_found' }, 404);
 		}

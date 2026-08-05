@@ -1046,6 +1046,26 @@ Actual action recording:
   manager escalation
 - managers can update/delete older records and records for other performers
 
+### What the server enforces today
+
+The role floors and the performer correction window are enforced in
+`apps/server/src/command-permissions.ts` and
+`apps/server/src/command-ownership.ts`. A collector reaching an `update*` command
+on one of these records must be the stored performer — `applicator_profile_id`
+for applications, `technician_profile_id` for the rest,
+`requested_by_profile_id` for requests — and the action date must be within 30
+days, measured from the action date rather than from when the row was written.
+
+**Deletion is stricter in code than in this section.** `deleteChemicalApplication`,
+`deleteSourceReduction`, `deleteOutreachAction`, `deleteBiocontrolAction`, and
+`deleteRequestedControlAction` are manager-and-above outright. The rule above
+grants a collector their own recent record "when no supervisory/associated-record
+rules require manager escalation" — support rows, batch links, and a linked
+requested control action all escalate — and those preconditions are not
+implemented. Refusing a collector who should have been allowed is the recoverable
+direction to be wrong in; the reverse is not. See the follow-up issue linked from
+#50.
+
 Linked requested action deletion/escalation:
 
 - actual action deletion requires manager-and-above when linked to a requested

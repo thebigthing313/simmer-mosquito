@@ -15,6 +15,8 @@ import {
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { resolveCommandOwnership } from '../command-ownership.js';
+import type { CommandActor } from '../command-permissions.js';
 import { deleteBlockedBody } from '../record-deletion.js';
 
 export type ControlOperationsDb = Kysely<SimmerDatabase>;
@@ -46,8 +48,43 @@ export async function insertApplicationBatch(
 	return toSafeApplicationBatch(row);
 }
 
+/**
+ * The row-level half of authorization, raised as this module's `CommandError`.
+ *
+ * Control operations are the only domain where a collector's reach depends on a
+ * record they *performed* rather than one assigned to them, so the check needs
+ * the stored row and runs inside the write transaction. It runs from the write
+ * loop for every command rather than from the handlers, so a command whose
+ * permission entry names an ownership rule is checked whether or not its `case`
+ * arm remembered to ask.
+ */
+export async function assertActionOwnership(
+	trx: ControlOperationsTransaction,
+	command: ControlOperationsCommand,
+	actor: CommandActor,
+): Promise<void> {
+	const outcome = await resolveCommandOwnership(trx, command, actor);
+	if (outcome.kind === 'missing') {
+		throw new CommandError(404, { error: `${outcome.entity}_not_found` });
+	}
+	if (outcome.kind === 'refused') {
+		throw new CommandError(403, { error: 'forbidden', reason: outcome.reason });
+	}
+}
+
+export function commandActor(authContext: AuthContext): CommandActor {
+	return { role: authContext.role, profileId: authContext.profile.id };
+}
+
+/**
+ * The write transaction the control-operations endpoints commit through.
+ *
+ * `actor` is required rather than optional so ownership cannot be skipped by
+ * omission: a caller with no actor to pass cannot compile.
+ */
 export async function writeActionCommands<TSafe>(
 	db: ControlOperationsDb,
+	actor: CommandActor,
 	commands: readonly ControlOperationsCommand[],
 	write: (
 		trx: ControlOperationsTransaction,
@@ -57,6 +94,7 @@ export async function writeActionCommands<TSafe>(
 	return db.transaction().execute(async (trx) => {
 		let row: TSafe | null = null;
 		for (const command of commands) {
+			await assertActionOwnership(trx, command, actor);
 			row = await write(trx, command);
 		}
 		return { row, txid: await readCurrentTransactionId(trx) };
@@ -708,8 +746,8 @@ export type ApplicationUpdateColumns = {
 
 export class CommandError extends Error {
 	constructor(
-		readonly status: 400 | 404,
-		readonly body: { readonly error: string },
+		readonly status: 400 | 403 | 404,
+		readonly body: { readonly error: string; readonly reason?: string },
 	) {
 		super(body.error);
 	}
