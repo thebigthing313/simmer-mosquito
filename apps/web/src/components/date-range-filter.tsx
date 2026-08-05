@@ -1,5 +1,6 @@
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { formatLocalDate, parseLocalDate } from '../lib/local-date';
 import { addDaysToDateString } from '../routes/larval-surveillance/-overview-data';
 
 export interface DatePreset {
@@ -42,27 +43,6 @@ export function activeDatePresetId(from: string, to: string, today: string): str
 		}
 	}
 	return null;
-}
-
-/** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */
-export function parseLocalDate(value: string): Date | undefined {
-	if (value === '') {
-		return undefined;
-	}
-	const [year, month, day] = value.split('-').map(Number);
-	if (year === undefined || month === undefined || day === undefined) {
-		return undefined;
-	}
-	const date = new Date(year, month - 1, day);
-	return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-/** Format a local Date back to a `YYYY-MM-DD` string (its own calendar day). */
-export function formatLocalDate(date: Date): string {
-	const year = date.getFullYear();
-	const month = `${date.getMonth() + 1}`.padStart(2, '0');
-	const day = `${date.getDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
 }
 
 /**

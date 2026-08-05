@@ -49,6 +49,7 @@ import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
 
@@ -1176,27 +1177,6 @@ function profileOptions(profiles: readonly ProfileRow[]) {
 
 function habitatLabel(habitat: HabitatRow): string {
 	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
-}
-
-/** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */
-function parseLocalDate(value: string): Date | undefined {
-	if (value === '') {
-		return undefined;
-	}
-	const [year, month, day] = value.split('-').map(Number);
-	if (year === undefined || month === undefined || day === undefined) {
-		return undefined;
-	}
-	const date = new Date(year, month - 1, day);
-	return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-/** Format a local Date back to a `YYYY-MM-DD` string (its own calendar day). */
-function formatLocalDate(date: Date): string {
-	const year = date.getFullYear();
-	const month = `${date.getMonth() + 1}`.padStart(2, '0');
-	const day = `${date.getDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
 }
 
 async function fetchHabitatGeometry(habitatId: string): Promise<GeoJsonGeometry | null> {

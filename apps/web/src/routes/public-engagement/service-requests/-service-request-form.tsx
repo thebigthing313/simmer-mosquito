@@ -6,11 +6,11 @@ import {
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow, ProfileRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
+import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -27,7 +27,6 @@ import {
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
-import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { RecordFormPage } from '../../../forms/form-components';
@@ -333,7 +332,7 @@ export function ServiceRequestFormPage({
 								<DateControl
 									label="Request date"
 									required
-									onChange={(next) => field.handleChange(next ?? '')}
+									onChange={field.handleChange}
 									value={field.state.value}
 								/>
 							)}
@@ -548,34 +547,6 @@ export function validateServiceRequestForm(
 
 // --- controls ---------------------------------------------------------------
 
-function DateControl({
-	label,
-	value,
-	required = false,
-	onChange,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly required?: boolean;
-	readonly onChange: (value: string | null) => void;
-}) {
-	return (
-		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">
-				{label}
-				{required ? <RequiredMark /> : null}
-			</span>
-			<DatePicker
-				ariaLabel={label}
-				className="w-full"
-				onChange={(date) => onChange(date === undefined ? null : formatLocalDate(date))}
-				placeholder="Select date"
-				value={parseLocalDate(value)}
-			/>
-		</div>
-	);
-}
-
 function FormSection({
 	title,
 	children,
@@ -589,23 +560,4 @@ function FormSection({
 			{children}
 		</section>
 	);
-}
-
-function parseLocalDate(value: string): Date | undefined {
-	if (value === '') {
-		return undefined;
-	}
-	const [year, month, day] = value.slice(0, 10).split('-').map(Number);
-	if (year === undefined || month === undefined || day === undefined) {
-		return undefined;
-	}
-	const date = new Date(year, month - 1, day);
-	return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-function formatLocalDate(date: Date): string {
-	const year = date.getFullYear();
-	const month = `${date.getMonth() + 1}`.padStart(2, '0');
-	const day = `${date.getDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
 }

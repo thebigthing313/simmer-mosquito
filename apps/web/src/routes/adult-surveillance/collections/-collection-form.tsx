@@ -13,12 +13,12 @@ import type {
 	UnitRow,
 } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
+import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -28,7 +28,6 @@ import {
 } from '../../../components/map/geometry-control';
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
-import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
@@ -645,7 +644,7 @@ function TimingSection({
 								{(field: any) => (
 									<DateControl
 										label="Set date"
-										onChange={field.handleChange}
+										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
 										value={field.state.value}
 									/>
 								)}
@@ -656,7 +655,7 @@ function TimingSection({
 									<DateControl
 										label="Collected date"
 										required
-										onChange={field.handleChange}
+										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
 										value={field.state.value}
 									/>
 								)}
@@ -670,7 +669,7 @@ function TimingSection({
 									<DateControl
 										label="Collection date"
 										required
-										onChange={field.handleChange}
+										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
 										value={field.state.value}
 									/>
 								)}
@@ -701,34 +700,6 @@ function TimingSection({
 }
 
 // --- controls ---------------------------------------------------------------
-
-function DateControl({
-	label,
-	value,
-	required = false,
-	onChange,
-}: {
-	readonly label: string;
-	readonly value: string | null;
-	readonly required?: boolean;
-	readonly onChange: (value: string | null) => void;
-}) {
-	return (
-		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">
-				{label}
-				{required ? <RequiredMark /> : null}
-			</span>
-			<DatePicker
-				ariaLabel={label}
-				className="w-full"
-				onChange={(date) => onChange(date === undefined ? null : formatLocalDate(date))}
-				placeholder="Select date"
-				value={parseLocalDate(value)}
-			/>
-		</div>
-	);
-}
 
 function FormSection({
 	title,
@@ -780,25 +751,4 @@ function profileOptions(profiles: readonly ProfileRow[]) {
 		(profile) => profile.isActive,
 		(profile) => profile.displayName,
 	);
-}
-
-/** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */
-function parseLocalDate(value: string | null): Date | undefined {
-	if (value === null || value === '') {
-		return undefined;
-	}
-	const [year, month, day] = value.slice(0, 10).split('-').map(Number);
-	if (year === undefined || month === undefined || day === undefined) {
-		return undefined;
-	}
-	const date = new Date(year, month - 1, day);
-	return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-/** Format a local Date back to a `YYYY-MM-DD` string. */
-function formatLocalDate(date: Date): string {
-	const year = date.getFullYear();
-	const month = `${date.getMonth() + 1}`.padStart(2, '0');
-	const day = `${date.getDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
 }

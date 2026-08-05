@@ -15,13 +15,13 @@ import type {
 	VehicleRow,
 } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
+import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -34,7 +34,6 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
@@ -1035,34 +1034,6 @@ function InsecticideBatchOptions({
 	return <>{children(options)}</>;
 }
 
-function DateControl({
-	label,
-	value,
-	required = false,
-	onChange,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly required?: boolean;
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">
-				{label}
-				{required ? <RequiredMark /> : null}
-			</span>
-			<DatePicker
-				ariaLabel={label}
-				className="w-full"
-				onChange={(date) => onChange(date === undefined ? '' : formatLocalDate(date))}
-				placeholder="Select date"
-				value={parseLocalDate(value)}
-			/>
-		</div>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
 
 /** Prepend the "not set" sentinel every optional select needs. */
@@ -1113,33 +1084,6 @@ function productLabel(insecticides: readonly InsecticideRow[], insecticideId: st
  */
 function placeholderApplicationId(index: number): string {
 	return `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`;
-}
-
-/** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */
-function parseLocalDate(value: string): Date | undefined {
-	if (value === '') {
-		return undefined;
-	}
-	const [yearPart, monthPart, dayPart] = value.slice(0, 10).split('-');
-	if (yearPart === undefined || monthPart === undefined || dayPart === undefined) {
-		return undefined;
-	}
-	const year = Number.parseInt(yearPart, 10);
-	const month = Number.parseInt(monthPart, 10);
-	const day = Number.parseInt(dayPart, 10);
-	if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-		return undefined;
-	}
-	const date = new Date(year, month - 1, day);
-	return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-/** Format a local Date back to a `YYYY-MM-DD` string. */
-function formatLocalDate(date: Date): string {
-	const year = date.getFullYear();
-	const month = `${date.getMonth() + 1}`.padStart(2, '0');
-	const day = `${date.getDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
 }
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

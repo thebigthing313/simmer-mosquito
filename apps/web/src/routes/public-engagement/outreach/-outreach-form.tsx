@@ -2,11 +2,11 @@ import { recordOutreachActionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { ControlMethodRow, ProfileRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
+import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
@@ -19,7 +19,6 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { RequiredMark } from '../../../components/required-mark';
 import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
@@ -455,55 +454,6 @@ export function OutreachFormPage({
 
 // --- controls ---------------------------------------------------------------
 
-function DateControl({
-	label,
-	value,
-	required = false,
-	onChange,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly required?: boolean;
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">
-				{label}
-				{required ? <RequiredMark /> : null}
-			</span>
-			<DatePicker
-				ariaLabel={label}
-				className="w-full"
-				onChange={(date) => onChange(date === undefined ? '' : formatLocalDate(date))}
-				placeholder="Select date"
-				value={parseLocalDate(value)}
-			/>
-		</div>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
-
-/** Parse a `YYYY-MM-DD` string to a local Date, or undefined when empty/invalid. */
-function parseLocalDate(value: string): Date | undefined {
-	if (value === '') {
-		return undefined;
-	}
-	const [year, month, day] = value.slice(0, 10).split('-').map(Number);
-	if (year === undefined || month === undefined || day === undefined) {
-		return undefined;
-	}
-	const date = new Date(year, month - 1, day);
-	return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-/** Format a local Date back to a `YYYY-MM-DD` string. */
-function formatLocalDate(date: Date): string {
-	const year = date.getFullYear();
-	const month = `${date.getMonth() + 1}`.padStart(2, '0');
-	const day = `${date.getDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
-}
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

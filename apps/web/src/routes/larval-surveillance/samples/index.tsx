@@ -42,6 +42,7 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas, SAMPLE_STATUS_COLORS, type SampleTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { adhocLabel } from '../../../lib/coordinate-label';
+import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
 import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -1078,26 +1079,6 @@ function useMapBounds(map: MapboxMap | null): BoundingBox | null {
 
 function sampleName(sample: SampleFeature): string {
 	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}
-
-function parseLocalDate(value: string): Date | undefined {
-	if (value === '') {
-		return undefined;
-	}
-	const [year, month, day] = value.split('-').map(Number);
-	if (year === undefined || month === undefined || day === undefined) {
-		return undefined;
-	}
-	const date = new Date(year, month - 1, day);
-	return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-/** Format a local Date back to a `YYYY-MM-DD` string (its own calendar day). */
-function formatLocalDate(date: Date): string {
-	const year = date.getFullYear();
-	const month = `${date.getMonth() + 1}`.padStart(2, '0');
-	const day = `${date.getDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
 }
 
 /** Human label for the active range chip, tolerating open-ended bounds. */
