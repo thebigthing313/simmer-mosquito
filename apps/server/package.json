@@ -6,6 +6,7 @@
 	"scripts": {
 		"build": "tsgo -b",
 		"build:ts6": "tsc -b",
+		"check:role-ladder": "tsx src/check-role-ladder.ts",
 		"build:ts7": "tsgo -b",
 		"dev": "node --import tsx scripts/dev.mjs",
 		"start": "node dist/main.js",
