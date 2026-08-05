@@ -48,13 +48,30 @@ jobs:
   # than because the code is wrong — keeping them separate means that failure
   # mode never hides the typecheck, build, and pure-test signal.
   database-integration:
-    name: Database integration tests
+    name: Database integration tests (same-repo only)
+    # A fork PR's workflow run receives no secrets, so `TEST_DATABASE_URL` would
+    # be empty and the guard below would fail a check no outside contributor can
+    # fix. Skipping the job outright makes absence the skip and leaves
+    # presence-but-broken the failure. `github.event_name` has to be checked
+    # first: on a push there is no `pull_request` payload, and comparing against
+    # it would skip the job on `main` and `staging` too.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # The staging connection string lives as an environment secret; this is the
     # only way a job can read it. Each test builds and drops its own schema, so
     # nothing here touches the data staging serves.
     environment: staging
+    # Superseded runs are cancelled rather than left to pile up: three pushes in
+    # a minute would otherwise mean three suites opening connections and churning
+    # migrations through the same staging Postgres that serves local development.
+    # A cancelled run leaves its `simmer_test_*` schema behind, which is what the
+    # sweeper in `packages/db/src/test-support/db-integration.ts` cleans up.
+    concurrency:
+      group: db-integration-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Check out repository
