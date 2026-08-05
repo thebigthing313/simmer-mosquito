@@ -1,5 +1,5 @@
 import type { InspectionRow, SampleRow, SampleSpeciesRow } from '@simmer-mosquito/sync';
-import { isNoOpUpdate } from './change-set';
+import { isNoOpUpdate, pickChanged } from './change-set';
 
 /**
  * Larval surveillance optimistic mutation handlers for inspections, samples,
@@ -89,7 +89,12 @@ export function createInspectionMutationHandlers(options: { readonly serverUrl: 
 					}
 					Object.assign(
 						body,
-						pickChanged(mutation.original, mutation.modified, INSPECTION_LOCATION_KEYS),
+						pickChanged(
+							mutation.original,
+							mutation.modified,
+							INSPECTION_LOCATION_KEYS,
+							'inspections.update',
+						),
 					);
 					const locationSource = readOptionalLocationSource(mutation.metadata);
 					if (locationSource !== undefined) {
@@ -152,7 +157,12 @@ export function createSampleMutationHandlers(options: { readonly serverUrl: stri
 		onUpdate: async ({ transaction }: MutationInput<SampleRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, SAMPLE_PATCH_KEYS);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						SAMPLE_PATCH_KEYS,
+						'samples.update',
+					);
 					if (isNoOpUpdate(body)) {
 						return null;
 					}
@@ -214,7 +224,12 @@ export function createSampleSpeciesMutationHandlers(options: { readonly serverUr
 		onUpdate: async ({ transaction }: MutationInput<SampleSpeciesRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, SAMPLE_SPECIES_PATCH_KEYS);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						SAMPLE_SPECIES_PATCH_KEYS,
+						'sampleSpeciesCounts.update',
+					);
 					if (isNoOpUpdate(body)) {
 						return null;
 					}
@@ -250,20 +265,6 @@ export function createSampleSpeciesMutationHandlers(options: { readonly serverUr
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-function pickChanged<TRow extends object, TKey extends keyof TRow>(
-	original: Partial<TRow>,
-	modified: TRow,
-	keys: readonly TKey[],
-): Record<string, unknown> {
-	const body: Record<string, unknown> = {};
-	for (const key of keys) {
-		if (original[key] !== modified[key]) {
-			body[key as string] = modified[key];
-		}
-	}
-	return body;
-}
 
 function hasChanged<TRow extends object, TKey extends keyof TRow>(
 	original: Partial<TRow>,

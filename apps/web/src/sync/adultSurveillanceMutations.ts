@@ -1,5 +1,5 @@
 import type { AdultCollectionRow, CollectionSpeciesRow, TrapRow } from '@simmer-mosquito/sync';
-import { isNoOpUpdate } from './change-set';
+import { isNoOpUpdate, pickChanged } from './change-set';
 
 /**
  * Adult surveillance optimistic mutation handlers.
@@ -62,7 +62,12 @@ export function createTrapMutationHandlers(options: { readonly serverUrl: string
 		onUpdate: async ({ transaction }: MutationInput<TrapRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, TRAP_PATCH_KEYS);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						TRAP_PATCH_KEYS,
+						'traps.update',
+					);
 					const locationSource = readOptionalLocationSource(mutation.metadata);
 					if (locationSource !== undefined) {
 						body.locationSource = locationSource;
@@ -151,7 +156,12 @@ export function createCollectionMutationHandlers(options: { readonly serverUrl: 
 		onUpdate: async ({ transaction }: MutationInput<AdultCollectionRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, COLLECTION_SCALAR_KEYS);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						COLLECTION_SCALAR_KEYS,
+						'collections.update',
+					);
 					// Timing columns move together: if any changed, resend the whole set so the
 					// server can rebuild a coherent CollectionTiming.
 					if (hasChanged(mutation.original, mutation.modified, COLLECTION_TIMING_KEYS)) {
@@ -235,6 +245,7 @@ export function createCollectionSpeciesMutationHandlers(options: { readonly serv
 						mutation.original,
 						mutation.modified,
 						COLLECTION_SPECIES_PATCH_KEYS,
+						'collectionSpeciesCounts.update',
 					);
 					if (isNoOpUpdate(body)) {
 						return null;
@@ -271,20 +282,6 @@ export function createCollectionSpeciesMutationHandlers(options: { readonly serv
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-function pickChanged<TRow extends object, TKey extends keyof TRow>(
-	original: Partial<TRow>,
-	modified: TRow,
-	keys: readonly TKey[],
-): Record<string, unknown> {
-	const body: Record<string, unknown> = {};
-	for (const key of keys) {
-		if (original[key] !== modified[key]) {
-			body[key as string] = modified[key];
-		}
-	}
-	return body;
-}
 
 function hasChanged<TRow extends object, TKey extends keyof TRow>(
 	original: Partial<TRow>,

@@ -1,5 +1,5 @@
 import type { OrganizationSpeciesRow, RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
-import { isNoOpUpdate } from './change-set';
+import { isNoOpUpdate, pickChanged } from './change-set';
 
 /**
  * Foundation geography + agency taxonomy optimistic mutation handlers: region
@@ -75,7 +75,12 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 		handlers.onUpdate = async ({ transaction }: MutationInput<TRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, config.patchKeys);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						config.patchKeys,
+						`${config.noun}.update`,
+					);
 					if (config.hasGeometry) {
 						const geometry = readOptionalGeometry(mutation.metadata);
 						if (geometry !== undefined) {
@@ -136,30 +141,6 @@ export function createOrganizationSpeciesMutationHandlers(options: { readonly se
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-function pickChanged<TRow extends object, TKey extends keyof TRow>(
-	original: Partial<TRow>,
-	modified: TRow,
-	keys: readonly TKey[],
-): Record<string, unknown> {
-	const body: Record<string, unknown> = {};
-	for (const key of keys) {
-		if (!shallowEqual(original[key], modified[key])) {
-			body[key as string] = modified[key];
-		}
-	}
-	return body;
-}
-
-function shallowEqual(a: unknown, b: unknown): boolean {
-	if (a === b) {
-		return true;
-	}
-	if (typeof a === 'object' || typeof b === 'object') {
-		return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-	}
-	return false;
-}
 
 function readGeometry(metadata: unknown): unknown {
 	const geometry = readOptionalGeometry(metadata);

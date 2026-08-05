@@ -5,7 +5,7 @@ import type {
 	NotificationRegistrationTypeRow,
 	ServiceRequestRow,
 } from '@simmer-mosquito/sync';
-import { isNoOpUpdate } from './change-set';
+import { isNoOpUpdate, pickChanged } from './change-set';
 
 /**
  * Public engagement optimistic mutation handlers: contacts, service requests,
@@ -84,7 +84,12 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 		handlers.onUpdate = async ({ transaction }: MutationInput<TRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, config.patchKeys);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						config.patchKeys,
+						`${config.noun}.update`,
+					);
 					if (isNoOpUpdate(body)) {
 						return null;
 					}
@@ -184,6 +189,7 @@ export function createServiceRequestMutationHandlers(options: { readonly serverU
 						mutation.original,
 						mutation.modified,
 						SERVICE_REQUEST_PATCH_KEYS,
+						'serviceRequests.update',
 					);
 					if (isNoOpUpdate(body)) {
 						return null;
@@ -263,7 +269,12 @@ export function createNotificationRegistrationMutationHandlers(options: {
 		onUpdate: async ({ transaction }: MutationInput<NotificationRegistrationRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, REGISTRATION_PATCH_KEYS);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						REGISTRATION_PATCH_KEYS,
+						'notificationRegistrations.update',
+					);
 					if (isNoOpUpdate(body)) {
 						return null;
 					}
@@ -326,20 +337,6 @@ export function createMissionNotificationMutationHandlers(options: { readonly se
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-function pickChanged<TRow extends object, TKey extends keyof TRow>(
-	original: Partial<TRow>,
-	modified: TRow,
-	keys: readonly TKey[],
-): Record<string, unknown> {
-	const body: Record<string, unknown> = {};
-	for (const key of keys) {
-		if (original[key] !== modified[key]) {
-			body[key as string] = modified[key];
-		}
-	}
-	return body;
-}
 
 function readGeometry(metadata: unknown): unknown {
 	if (isRecord(metadata) && metadata.geometry !== undefined) {

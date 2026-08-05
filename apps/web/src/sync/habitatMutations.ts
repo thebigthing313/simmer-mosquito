@@ -1,5 +1,5 @@
 import type { HabitatRow } from '@simmer-mosquito/sync';
-import { isNoOpUpdate } from './change-set';
+import { isNoOpUpdate, pickChanged } from './change-set';
 
 export interface HabitatMutationLocationMetadata {
 	readonly locationSource: {
@@ -34,7 +34,12 @@ export function createHabitatMutationHandlers(options: { readonly serverUrl: str
 		onUpdate: async ({ transaction }: HabitatUpdateInput) => {
 			await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, HABITAT_PATCH_KEYS);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						HABITAT_PATCH_KEYS,
+						'habitats.update',
+					);
 					if (metadataChanged(mutation.original.metadata, mutation.modified.metadata)) {
 						body.metadata = mutation.modified.metadata;
 					}
@@ -130,20 +135,6 @@ function readOptionalLocationSource(metadata: unknown): unknown {
 		return metadata.locationSource;
 	}
 	return undefined;
-}
-
-function pickChanged<TKey extends keyof HabitatRow>(
-	original: Partial<HabitatRow>,
-	modified: HabitatRow,
-	keys: readonly TKey[],
-): Record<string, unknown> {
-	const body: Record<string, unknown> = {};
-	for (const key of keys) {
-		if (original[key] !== modified[key]) {
-			body[key as string] = modified[key];
-		}
-	}
-	return body;
 }
 
 function metadataChanged(original: unknown, modified: unknown): boolean {

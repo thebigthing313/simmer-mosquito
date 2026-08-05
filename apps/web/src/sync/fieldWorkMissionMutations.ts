@@ -9,7 +9,7 @@ import type {
 	RouteRow,
 	TagItemRow,
 } from '@simmer-mosquito/sync';
-import { isNoOpUpdate } from './change-set';
+import { isNoOpUpdate, pickChanged } from './change-set';
 
 /**
  * Field-work + mission-dispatch optimistic mutation handlers (comments, tag
@@ -91,7 +91,12 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 		handlers.onUpdate = async ({ transaction }: MutationInput<TRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, config.patchKeys);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						config.patchKeys,
+						`${config.noun}.update`,
+					);
 					if (config.hasLocation) {
 						const locationSource = readOptionalLocationSource(mutation.metadata);
 						if (locationSource !== undefined) {
@@ -244,20 +249,6 @@ export function createMissionItemMutationHandlers(options: { readonly serverUrl:
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-function pickChanged<TRow extends object, TKey extends keyof TRow>(
-	original: Partial<TRow>,
-	modified: TRow,
-	keys: readonly TKey[],
-): Record<string, unknown> {
-	const body: Record<string, unknown> = {};
-	for (const key of keys) {
-		if (original[key] !== modified[key]) {
-			body[key as string] = modified[key];
-		}
-	}
-	return body;
-}
 
 function readOptionalLocationSource(metadata: unknown): unknown {
 	if (isRecord(metadata) && metadata.locationSource !== undefined) {

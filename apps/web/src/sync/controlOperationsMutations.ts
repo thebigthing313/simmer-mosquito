@@ -8,7 +8,7 @@ import type {
 	RequestedControlActionRow,
 	SourceReductionRow,
 } from '@simmer-mosquito/sync';
-import { isNoOpUpdate } from './change-set';
+import { isNoOpUpdate, pickChanged } from './change-set';
 
 /**
  * Control operations optimistic mutation handlers — formulations, formulation
@@ -95,7 +95,12 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 		handlers.onUpdate = async ({ transaction }: MutationInput<TRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
-					const body = pickChanged(mutation.original, mutation.modified, config.patchKeys);
+					const body = pickChanged(
+						mutation.original,
+						mutation.modified,
+						config.patchKeys,
+						`${config.noun}.update`,
+					);
 					if (config.hasLocation) {
 						const locationSource = readOptionalLocationSource(mutation.metadata);
 						if (locationSource !== undefined) {
@@ -290,30 +295,6 @@ const BIOCONTROL_ACTION_FIELD_KEYS = [
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-function pickChanged<TRow extends object, TKey extends keyof TRow>(
-	original: Partial<TRow>,
-	modified: TRow,
-	keys: readonly TKey[],
-): Record<string, unknown> {
-	const body: Record<string, unknown> = {};
-	for (const key of keys) {
-		if (!shallowEqual(original[key], modified[key])) {
-			body[key as string] = modified[key];
-		}
-	}
-	return body;
-}
-
-function shallowEqual(a: unknown, b: unknown): boolean {
-	if (a === b) {
-		return true;
-	}
-	if (typeof a === 'object' || typeof b === 'object') {
-		return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-	}
-	return false;
-}
 
 function readOptionalLocationSource(metadata: unknown): unknown {
 	if (isRecord(metadata) && metadata.locationSource !== undefined) {
