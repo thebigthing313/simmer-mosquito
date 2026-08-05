@@ -194,3 +194,152 @@ function personId(key: string): string {
 function daysAgo(value: Date): number {
 	return (Date.now() - value.getTime()) / (24 * 60 * 60 * 1000);
 }
+
+/**
+ * The path that matters once real accounts exist: an agency already has people,
+ * invited into it with roles somebody chose, and the fixtures have to belong to
+ * *them* — an assignment "assigned to the collector" is no use if it is assigned
+ * to a stand-in the tester cannot sign in as.
+ */
+describeDbIntegration('role ladder fixtures over an existing agency', () => {
+	it('attaches the fixtures to profiles that are already there', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createAgencyWithCollector(db);
+
+			await seedRoleLadder(db, {
+				organizationId: org.organizationId,
+				existingProfileIds: { collector: org.collectorProfileId },
+			});
+
+			const own = await db
+				.selectFrom('assignments')
+				.select(['assigned_to_profile_id'])
+				.where('id', '=', roleLadderIds.ownAssignmentId)
+				.executeTakeFirstOrThrow();
+			expect(own.assigned_to_profile_id).toBe(org.collectorProfileId);
+
+			const comment = await db
+				.selectFrom('comments')
+				.select(['commented_by_profile_id'])
+				.where('id', '=', roleLadderIds.expiredCommentId)
+				.executeTakeFirstOrThrow();
+			expect(comment.commented_by_profile_id).toBe(org.collectorProfileId);
+
+			const action = await db
+				.selectFrom('source_reductions')
+				.select(['technician_profile_id'])
+				.where('id', '=', roleLadderIds.ownActionId)
+				.executeTakeFirstOrThrow();
+			expect(action.technician_profile_id).toBe(org.collectorProfileId);
+		});
+	});
+
+	it('leaves an existing membership’s role and profile untouched', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createAgencyWithCollector(db);
+
+			await seedRoleLadder(db, {
+				organizationId: org.organizationId,
+				existingProfileIds: { collector: org.collectorProfileId },
+			});
+
+			// The role came from a real invitation. Nothing this seed does may
+			// change it, and nothing may rename the person either.
+			const membership = await db
+				.selectFrom('memberships')
+				.select(['role', 'status'])
+				.where('profile_id', '=', org.collectorProfileId)
+				.executeTakeFirstOrThrow();
+			expect(membership).toMatchObject({ role: 'collector', status: 'active' });
+
+			const profile = await db
+				.selectFrom('profiles')
+				.select(['display_name'])
+				.where('id', '=', org.collectorProfileId)
+				.executeTakeFirstOrThrow();
+			expect(profile.display_name).toBe('Adrian Collector');
+		});
+	});
+
+	it('does not rename the agency it is pointed at', async () => {
+		await withTestDb(async ({ db }) => {
+			// The footgun: an upsert that set the name would rebrand a live agency
+			// "Role Ladder Test District" on the way past.
+			const org = await createAgencyWithCollector(db);
+
+			await seedRoleLadder(db, { organizationId: org.organizationId });
+
+			const organization = await db
+				.selectFrom('organizations')
+				.select(['name'])
+				.where('id', '=', org.organizationId)
+				.executeTakeFirstOrThrow();
+			expect(organization.name).toBe('Middlesex County Mosquito Extermination Commission');
+		});
+	});
+
+	it('still supplies the second collector the ownership cases need', async () => {
+		await withTestDb(async ({ db }) => {
+			// Only one collector exists, so the "somebody else's" party has to be
+			// created — otherwise `otherAssignmentId` would be assigned to the same
+			// person and prove nothing.
+			const org = await createAgencyWithCollector(db);
+
+			await seedRoleLadder(db, {
+				organizationId: org.organizationId,
+				existingProfileIds: { collector: org.collectorProfileId },
+			});
+
+			const other = await db
+				.selectFrom('assignments')
+				.select(['assigned_to_profile_id'])
+				.where('id', '=', roleLadderIds.otherAssignmentId)
+				.executeTakeFirstOrThrow();
+			expect(other.assigned_to_profile_id).not.toBeNull();
+			expect(other.assigned_to_profile_id).not.toBe(org.collectorProfileId);
+		});
+	});
+});
+
+async function createAgencyWithCollector(
+	db: Parameters<typeof seedRoleLadder>[0],
+): Promise<{ readonly organizationId: string; readonly collectorProfileId: string }> {
+	const organization = await db
+		.insertInto('organizations')
+		.values({
+			workos_organization_id: 'workos_mcmec_test',
+			name: 'Middlesex County Mosquito Extermination Commission',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+
+	const profile = await db
+		.insertInto('profiles')
+		.values({ organization_id: organization.id, display_name: 'Adrian Collector' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+
+	const user = await db
+		.insertInto('users')
+		.values({
+			workos_user_id: 'user_01TESTCOLLECTOR',
+			email: 'you+simmer-collector@gmail.com',
+			display_name: 'Adrian Collector',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+
+	await db
+		.insertInto('memberships')
+		.values({
+			organization_id: organization.id,
+			profile_id: profile.id,
+			user_id: user.id,
+			role: 'collector',
+			status: 'active',
+			is_default: true,
+		})
+		.execute();
+
+	return { organizationId: organization.id, collectorProfileId: profile.id };
+}

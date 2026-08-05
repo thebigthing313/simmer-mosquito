@@ -152,6 +152,23 @@ export const roleLadderIds = {
 	otherActionId: '00000000-0000-4000-8000-000000002405',
 } as const;
 
+/**
+ * Profiles that already exist, keyed by role.
+ *
+ * The case this is for: real accounts have been invited into a real agency, so
+ * each role already has a profile with a role that came from a genuine
+ * invitation. Naming those here makes the fixtures below belong to the account
+ * that will actually sign in — an assignment "assigned to the collector" is
+ * assigned to *them*, not to a stand-in they have no way to be.
+ *
+ * A named profile is left completely untouched: no profile write, no membership
+ * write, so nothing this seed does can change a role somebody set deliberately.
+ */
+export type ExistingProfileIds = Partial<Record<RoleLadderKey, string>>;
+
+/** Resolves a role to the profile id the fixtures should use. */
+type ProfileResolver = (key: RoleLadderKey) => string;
+
 export interface SeedRoleLadderOptions {
 	readonly organizationId?: string;
 	/**
@@ -160,6 +177,8 @@ export interface SeedRoleLadderOptions {
 	 * for appearing as an assignee.
 	 */
 	readonly workosUserIds?: WorkosUserIds;
+	/** Existing profiles to attach the fixtures to instead of creating stand-ins. */
+	readonly existingProfileIds?: ExistingProfileIds;
 }
 
 export interface SeedRoleLadderResult {
@@ -180,14 +199,16 @@ export async function seedRoleLadder(
 ): Promise<SeedRoleLadderResult> {
 	const organizationId = options.organizationId ?? ROLE_LADDER_ORGANIZATION_ID;
 	const workosUserIds = options.workosUserIds ?? {};
+	const existingProfileIds = options.existingProfileIds ?? {};
+	const profileId: ProfileResolver = (key) => existingProfileIds[key] ?? person(key).profileId;
 
 	await db.transaction().execute(async (trx) => {
 		await upsertOrganization(trx, organizationId);
-		await upsertPeople(trx, organizationId, workosUserIds);
+		await upsertPeople(trx, organizationId, workosUserIds, existingProfileIds);
 		await upsertHabitat(trx, organizationId);
-		await upsertAssignments(trx, organizationId);
-		await upsertComments(trx, organizationId);
-		await upsertControlActions(trx, organizationId);
+		await upsertAssignments(trx, organizationId, profileId);
+		await upsertComments(trx, organizationId, profileId);
+		await upsertControlActions(trx, organizationId, profileId);
 	});
 
 	return {
@@ -204,6 +225,15 @@ export async function seedRoleLadder(
 // Rows
 // ---------------------------------------------------------------------------
 
+/**
+ * The organization the fixtures hang off — created only if it is not already
+ * there.
+ *
+ * `doNothing`, emphatically not `doUpdateSet`: pointing this at an agency that
+ * already exists is the *expected* use once real accounts have been invited into
+ * one, and an upsert that set the name would rename a live organization to
+ * "Role Ladder Test District" on the way past.
+ */
 async function upsertOrganization(trx: DbExecutor, organizationId: string): Promise<void> {
 	await trx
 		.insertInto('organizations')
@@ -212,9 +242,7 @@ async function upsertOrganization(trx: DbExecutor, organizationId: string): Prom
 			workos_organization_id: `workos_role_ladder_${organizationId.slice(-6)}`,
 			name: 'Role Ladder Test District',
 		})
-		.onConflict((conflict) =>
-			conflict.column('id').doUpdateSet({ name: 'Role Ladder Test District' }),
-		)
+		.onConflict((conflict) => conflict.column('id').doNothing())
 		.execute();
 }
 
@@ -222,8 +250,17 @@ async function upsertPeople(
 	trx: DbExecutor,
 	organizationId: string,
 	workosUserIds: WorkosUserIds,
+	existingProfileIds: ExistingProfileIds,
 ): Promise<void> {
 	for (const person of roleLadderPeople) {
+		// A profile that already exists is left entirely alone — no profile write,
+		// no membership write. Its role came from a real invitation and its display
+		// name is what somebody chose; this seed only needs its id, so the fixtures
+		// below can belong to the account that will actually sign in.
+		if (existingProfileIds[person.key] !== undefined) {
+			continue;
+		}
+
 		await trx
 			.insertInto('profiles')
 			.values({
@@ -262,6 +299,9 @@ async function upsertPeople(
 			role: person.role,
 			status: (userId === null ? 'invited' : 'active') as MembershipStatus,
 			user_id: userId,
+			// `is_default` is unique per user, so a person who already belongs
+			// somewhere cannot claim it again.
+			is_default: userId === null,
 			invited_email: userId === null ? person.email : null,
 		};
 
@@ -271,7 +311,6 @@ async function upsertPeople(
 				id: person.membershipId,
 				organization_id: organizationId,
 				profile_id: person.profileId,
-				is_default: true,
 				...membership,
 			})
 			.onConflict((conflict) => conflict.column('id').doUpdateSet(membership))
@@ -316,10 +355,14 @@ async function upsertHabitat(trx: DbExecutor, organizationId: string): Promise<v
 		.execute();
 }
 
-async function upsertAssignments(trx: DbExecutor, organizationId: string): Promise<void> {
-	const collector = person('collector');
-	const other = person('otherCollector');
-	const manager = person('manager');
+async function upsertAssignments(
+	trx: DbExecutor,
+	organizationId: string,
+	profileId: ProfileResolver,
+): Promise<void> {
+	const collector = { profileId: profileId('collector') };
+	const other = { profileId: profileId('otherCollector') };
+	const manager = { profileId: profileId('manager') };
 
 	await upsertAssignment(trx, organizationId, {
 		id: roleLadderIds.ownAssignmentId,
@@ -360,9 +403,30 @@ async function upsertAssignments(trx: DbExecutor, organizationId: string): Promi
 	// Three stops on the mixed assignment: one done, one skipped, one pending. The
 	// pending one is what makes `completeAssignment` refuse, which is the
 	// precondition with no other way to reach it.
-	await upsertAssignmentItem(trx, organizationId, roleLadderIds.mixedAssignmentId, 1, 'completed');
-	await upsertAssignmentItem(trx, organizationId, roleLadderIds.mixedAssignmentId, 2, 'skipped');
-	await upsertAssignmentItem(trx, organizationId, roleLadderIds.mixedAssignmentId, 3, 'pending');
+	await upsertAssignmentItem(
+		trx,
+		organizationId,
+		roleLadderIds.mixedAssignmentId,
+		1,
+		'completed',
+		profileId,
+	);
+	await upsertAssignmentItem(
+		trx,
+		organizationId,
+		roleLadderIds.mixedAssignmentId,
+		2,
+		'skipped',
+		profileId,
+	);
+	await upsertAssignmentItem(
+		trx,
+		organizationId,
+		roleLadderIds.mixedAssignmentId,
+		3,
+		'pending',
+		profileId,
+	);
 }
 
 async function upsertAssignment(
@@ -406,6 +470,7 @@ async function upsertAssignmentItem(
 	assignmentId: string,
 	position: number,
 	state: 'pending' | 'completed' | 'skipped',
+	profileId: ProfileResolver,
 ): Promise<void> {
 	const itemId = `00000000-0000-4000-8000-00000000220${position + 5}`;
 	// Each stop needs its own entity: an assignment cannot visit the same site
@@ -434,12 +499,12 @@ async function upsertAssignmentItem(
 			entity_id: habitatId,
 			position,
 			...(state === 'completed'
-				? { completed_at: sql`now()`, completed_by_profile_id: person('collector').profileId }
+				? { completed_at: sql`now()`, completed_by_profile_id: profileId('collector') }
 				: {}),
 			...(state === 'skipped'
 				? {
 						skipped_at: sql`now()`,
-						skipped_by_profile_id: person('collector').profileId,
+						skipped_by_profile_id: profileId('collector'),
 						skip_reason: 'Locked gate',
 					}
 				: {}),
@@ -448,9 +513,13 @@ async function upsertAssignmentItem(
 		.execute();
 }
 
-async function upsertComments(trx: DbExecutor, organizationId: string): Promise<void> {
-	const collector = person('collector');
-	const other = person('otherCollector');
+async function upsertComments(
+	trx: DbExecutor,
+	organizationId: string,
+	profileId: ProfileResolver,
+): Promise<void> {
+	const collector = { profileId: profileId('collector') };
+	const other = { profileId: profileId('otherCollector') };
 
 	await upsertComment(trx, organizationId, {
 		id: roleLadderIds.freshCommentId,
@@ -503,7 +572,11 @@ async function upsertComment(
 		.execute();
 }
 
-async function upsertControlActions(trx: DbExecutor, organizationId: string): Promise<void> {
+async function upsertControlActions(
+	trx: DbExecutor,
+	organizationId: string,
+	profileId: ProfileResolver,
+): Promise<void> {
 	await trx
 		.insertInto('units')
 		.values({
@@ -529,19 +602,19 @@ async function upsertControlActions(trx: DbExecutor, organizationId: string): Pr
 
 	await upsertSourceReduction(trx, organizationId, {
 		id: roleLadderIds.ownActionId,
-		by: person('collector').profileId,
+		by: profileId('collector'),
 		daysAgo: 1,
 	});
 	// Same performer, outside the window: the case that separates "yours" from
 	// "yours and recent".
 	await upsertSourceReduction(trx, organizationId, {
 		id: roleLadderIds.staleActionId,
-		by: person('collector').profileId,
+		by: profileId('collector'),
 		daysAgo: PAST_THE_WINDOW_DAYS,
 	});
 	await upsertSourceReduction(trx, organizationId, {
 		id: roleLadderIds.otherActionId,
-		by: person('otherCollector').profileId,
+		by: profileId('otherCollector'),
 		daysAgo: 1,
 	});
 }

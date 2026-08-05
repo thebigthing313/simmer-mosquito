@@ -1,5 +1,6 @@
 import { createDb } from './index.js';
 import {
+	type ExistingProfileIds,
 	ROLE_LADDER_ORGANIZATION_ID,
 	type RoleLadderKey,
 	roleLadderIds,
@@ -27,6 +28,47 @@ import {
  * that account has to be created there first.
  */
 
+/**
+ * The organization's own people, mapped onto the ladder by their membership role.
+ *
+ * Deliberately does not touch roles: it reads what is there. Two collectors are
+ * used as `collector` and `otherCollector`, which is what the "somebody else's
+ * record" cases need; with only one, the seed creates the second itself.
+ */
+async function resolveExistingProfiles(
+	db: ReturnType<typeof createDb>,
+	organizationId: string,
+): Promise<ExistingProfileIds> {
+	const rows = await db
+		.selectFrom('memberships')
+		.innerJoin('profiles', 'profiles.id', 'memberships.profile_id')
+		.select(['memberships.role', 'profiles.id', 'profiles.display_name'])
+		.where('memberships.organization_id', '=', organizationId)
+		.where('memberships.status', '=', 'active')
+		.where('profiles.deleted_at', 'is', null)
+		.orderBy('profiles.display_name')
+		.execute();
+
+	const found: Record<string, string> = {};
+	const collectors: string[] = [];
+	for (const row of rows) {
+		if (row.role === 'collector') {
+			collectors.push(row.id);
+			continue;
+		}
+		found[row.role] ??= row.id;
+	}
+	const [firstCollector, secondCollector] = collectors;
+	if (firstCollector !== undefined) {
+		found.collector = firstCollector;
+	}
+	if (secondCollector !== undefined) {
+		found.otherCollector = secondCollector;
+	}
+
+	return found as ExistingProfileIds;
+}
+
 const databaseUrl = process.env.DATABASE_URL ?? process.env.SIMMER_DATABASE_URL;
 
 if (databaseUrl === undefined || databaseUrl.trim() === '') {
@@ -53,9 +95,26 @@ for (const person of roleLadderPeople) {
 const db = createDb({ databaseUrl, maxConnections: 1 });
 
 try {
+	const organizationId =
+		process.env.SIMMER_ROLE_LADDER_ORGANIZATION_ID ?? ROLE_LADDER_ORGANIZATION_ID;
+
+	// When pointed at an agency that already has people — real accounts invited
+	// into a real organization — attach the fixtures to *their* profiles rather
+	// than to stand-ins. An assignment "assigned to the collector" is no use if
+	// it is assigned to somebody the tester cannot sign in as.
+	const existingProfileIds = await resolveExistingProfiles(db, organizationId);
+	if (Object.keys(existingProfileIds).length > 0) {
+		console.log('Reusing profiles already in this organization:');
+		for (const [key, id] of Object.entries(existingProfileIds)) {
+			console.log(`  ${key}: ${id}`);
+		}
+		console.log('');
+	}
+
 	const result = await seedRoleLadder(db, {
-		organizationId: process.env.SIMMER_ROLE_LADDER_ORGANIZATION_ID ?? ROLE_LADDER_ORGANIZATION_ID,
+		organizationId,
 		workosUserIds,
+		existingProfileIds,
 	});
 
 	console.log(

@@ -13,23 +13,49 @@ the reordering bug in #36 was found in the first place.
 
 ```sh
 # Against whichever database the app you are testing is pointed at.
-pnpm --filter @simmer-mosquito/db seed:role-ladder
+# `SIMMER_ROLE_LADDER_ORGANIZATION_ID` points it at an agency that already
+# exists — which is the normal case once real accounts have been invited into
+# one. Omit it and the seed builds its own throwaway organization instead.
+SIMMER_ROLE_LADDER_ORGANIZATION_ID=<your agency id> \
+  pnpm --filter @simmer-mosquito/db seed:role-ladder
 ```
+
+Pointed at an existing agency, the seed **reads its people and leaves them
+alone**: it maps each membership role to a profile and attaches the fixtures to
+those, so "the assignment assigned to the collector" belongs to the account you
+will actually sign in as. It never writes a role, renames a profile, or renames
+the organization. If the agency has only one collector it creates the second one
+itself, because the "somebody else's record" cases need two.
 
 Idempotent, and worth re-running before a session: the expired comment and the
 stale control action are backdated from *now*, so a stale seed leaves them
 drifting further out of the correction window rather than sitting just past its
 edge.
 
-It creates one organization ("Role Ladder Test District") with six profiles —
-Owner, Admin, Manager, **two** Collectors, and Viewer. Two collectors, because
-every ownership rule has a "somebody else's" case, and using the Manager's
-profile for that would conflate *not yours* with *not your role*.
+With no organization id it builds its own ("Role Ladder Test District") with six
+profiles — Owner, Admin, Manager, **two** Collectors, and Viewer. Two collectors,
+because every ownership rule has a "somebody else's" case, and using the
+Manager's profile for that would conflate *not yours* with *not your role*.
 
 ## Accounts
 
 The seed cannot create the logins. Identity lives in WorkOS, so each account has
-to exist there first.
+to exist there first — and the **order matters**.
+
+### Invite first, then sign in
+
+`upsertWorkOsIdentity` provisions a SIMMER membership the first time a WorkOS
+user signs in, and where that membership's role comes from depends on what is
+waiting for it (`packages/db/src/domains/identity-memberships.ts`):
+
+1. an existing membership → keeps its role
+2. an **invited** membership matching the email → adopts *its* role
+3. neither → `owner` if the organization has no members yet, otherwise
+   **`viewer`**
+
+So invite each account into the agency at the role you want *before* its first
+sign-in. Do it the other way round and every account lands as a viewer, and the
+ladder will look like it refuses everything.
 
 ### One mailbox, several accounts
 
@@ -54,7 +80,13 @@ Create each in the WorkOS **staging** dashboard with a password and
 a code. (Gmail also ignores dots, but plus-addressing is the clearer lever —
 the tag survives into WorkOS, so the account list stays readable.)
 
-### Linking them
+Once they have signed in, they are ordinary members and the seed needs nothing
+from you but the organization id — it finds them by role.
+
+### If you are building the accounts from nothing instead
+
+The seed can also create the invited memberships itself, so the accounts adopt
+their roles on first sign-in. Give it the WorkOS user ids:
 
 ```sh
 SIMMER_ROLE_LADDER_COLLECTOR=user_01ABC… \
@@ -64,22 +96,22 @@ SIMMER_ROLE_LADDER_MANAGER_EMAIL=you+simmer-manager@gmail.com \
   pnpm --filter @simmer-mosquito/db seed:role-ladder
 ```
 
-`_EMAIL` is optional. It only decides what `users.email` says before that
+`_EMAIL` is optional and only decides what `users.email` says before that
 account's first sign-in — the link is by WorkOS user id, and
-`upsertWorkOsIdentity` overwrites the address from WorkOS on every login. Set it
-anyway: without it the row claims the fixture's `@example.test` address, which
-is a confusing thing to find when you are working out which login is which.
+`upsertWorkOsIdentity` overwrites the address on every login. Set it anyway:
+without it the row claims the fixture's `@example.test` address, which is a
+confusing thing to find when you are working out which login is which.
 
-Anyone without an id still gets a profile and an **invited** membership. That is
+Anyone with no id still gets a profile and an invited membership, which is
 enough to be an assignee, to author a comment, and to be the subject of an
-API-driven check — it is only the browser half that needs the account.
+API-driven check.
 
-Keep this to **staging**. These are real accounts in whichever environment the
-API key points at.
+Keep all of this to **staging**. These are real accounts and real rows in
+whichever environment the keys point at.
 
-The two that matter most are **Collector** and **Manager**. Owner and Viewer are
-the two halves already verified (2026-08-04, #36), and Admin differs from Owner
-only where a command names the `admin` floor.
+The two roles that matter most are **Collector** and **Manager**. Owner and
+Viewer are the two halves already verified (2026-08-04, #36), and Admin differs
+from Owner only where a command names the `admin` floor.
 
 ## What the fixtures are for
 
