@@ -6,5 +6,11 @@
 		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
 		"types": ["node"]
 	},
-	"include": ["src/**/*.ts"]
+	// Tests are excluded from the build so `dist` does not carry a second copy of
+	// every suite. Vitest picked both up, which ran the whole integration set
+	// twice against the remote test database for no added signal.
+	// `src/test-support` is *not* a test file and stays: it is the harness, and
+	// `apps/server` imports it through the `./test-support` export.
+	"include": ["src/**/*.ts"],
+	"exclude": ["src/**/*.test.ts"]
 }

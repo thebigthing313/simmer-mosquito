@@ -158,6 +158,154 @@ describeDbIntegration('record deletion policy', () => {
 		});
 	});
 
+	// `mission` carries the registry's longest chain: four `detachesUnderChild`
+	// rules that reach performed actions *through* `mission_items`, plus two
+	// cascades and a support cascade. It has no detail page, so nothing exercises
+	// it by hand either — if `orderRules` regressed, this is where it would show
+	// first and be noticed last.
+	it('reaches a mission’s performed actions through its stops without deleting them', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'mission_reach');
+			const unit = await createUnit(db);
+			const missionId = await createMission(db, org);
+			const itemId = await createMissionItem(db, org, missionId);
+			const otherMissionItem = await createMissionItem(db, org, await createMission(db, org));
+
+			const applicationId = await createApplication(db, org, unit, { missionItemId: itemId });
+			const sourceReductionId = await createSourceReduction(db, org, unit, {
+				missionItemId: itemId,
+			});
+			const outreachId = await createOutreachAction(db, org, unit, { missionItemId: itemId });
+			const biocontrolId = await createBiocontrolAction(db, org, unit, { missionItemId: itemId });
+			// A neighbour on a different mission, to catch a rule that resolved its
+			// child set too widely.
+			const untouchedApplication = await createApplication(db, org, unit, {
+				missionItemId: otherMissionItem,
+			});
+			await createComment(db, org, 'mission', missionId);
+
+			const impact = await readDeleteImpact(db, {
+				recordType: 'mission',
+				recordId: missionId,
+				organizationId: org,
+			});
+			expect(impact.found).toBe(true);
+			expect(impact.blockers).toEqual([]);
+			expect(entry(impact.cascades, 'missionItems')).toBe(1);
+			expect(entry(impact.cascades, 'missionComments')).toBe(1);
+			expect(entry(impact.detaches, 'missionItemApplications')).toBe(1);
+			expect(entry(impact.detaches, 'missionItemSourceReductions')).toBe(1);
+			expect(entry(impact.detaches, 'missionItemOutreachActions')).toBe(1);
+			expect(entry(impact.detaches, 'missionItemBiocontrolActions')).toBe(1);
+
+			await db.transaction().execute(async (trx) => {
+				await applyRecordDeletion(trx, {
+					recordType: 'mission',
+					recordId: missionId,
+					organizationId: org,
+					actorProfileId: null,
+				});
+			});
+
+			// The point of `detachesUnderChild`: the work that was done survives with
+			// its link to a deleted stop cleared. Losing it would erase a record of
+			// pesticide actually applied.
+			for (const [table, id] of [
+				['applications', applicationId],
+				['source_reductions', sourceReductionId],
+				['outreach_actions', outreachId],
+				['biocontrol_actions', biocontrolId],
+			] as const) {
+				const row = await db
+					.selectFrom(table)
+					.select(['mission_item_id', 'deleted_at'])
+					.where('id', '=', id)
+					.executeTakeFirstOrThrow();
+				expect(row.deleted_at).toBeNull();
+				expect(row.mission_item_id).toBeNull();
+			}
+
+			// The other mission's stop is untouched on both counts.
+			const neighbour = await db
+				.selectFrom('applications')
+				.select(['mission_item_id', 'deleted_at'])
+				.where('id', '=', untouchedApplication)
+				.executeTakeFirstOrThrow();
+			expect(neighbour.deleted_at).toBeNull();
+			expect(neighbour.mission_item_id).toBe(otherMissionItem);
+
+			const item = await db
+				.selectFrom('mission_items')
+				.select(['deleted_at'])
+				.where('id', '=', itemId)
+				.executeTakeFirstOrThrow();
+			expect(item.deleted_at).not.toBeNull();
+			expect(await liveCommentCount(db, 'mission', missionId)).toBe(0);
+		});
+	});
+
+	it('clears every reference to a deleted control request and keeps the work', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'request_reach');
+			const unit = await createUnit(db);
+			const requestId = await createRequestedControlAction(db, org);
+
+			const applicationId = await createApplication(db, org, unit, { requestId });
+			const sourceReductionId = await createSourceReduction(db, org, unit, { requestId });
+			const outreachId = await createOutreachAction(db, org, unit, { requestId });
+			const biocontrolId = await createBiocontrolAction(db, org, unit, { requestId });
+			const missionItemId = await createMissionItem(db, org, await createMission(db, org), {
+				requestId,
+			});
+			await createComment(db, org, 'requested_control_action', requestId);
+
+			const impact = await readDeleteImpact(db, {
+				recordType: 'requestedControlAction',
+				recordId: requestId,
+				organizationId: org,
+			});
+			expect(impact.found).toBe(true);
+			expect(impact.blockers).toEqual([]);
+			expect(entry(impact.detaches, 'controlRequestApplications')).toBe(1);
+			expect(entry(impact.detaches, 'controlRequestMissionItems')).toBe(1);
+			expect(entry(impact.cascades, 'controlRequestComments')).toBe(1);
+
+			await db.transaction().execute(async (trx) => {
+				await applyRecordDeletion(trx, {
+					recordType: 'requestedControlAction',
+					recordId: requestId,
+					organizationId: org,
+					actorProfileId: null,
+				});
+			});
+
+			for (const [table, id] of [
+				['applications', applicationId],
+				['source_reductions', sourceReductionId],
+				['outreach_actions', outreachId],
+				['biocontrol_actions', biocontrolId],
+			] as const) {
+				const row = await db
+					.selectFrom(table)
+					.select(['requested_control_action_id', 'deleted_at'])
+					.where('id', '=', id)
+					.executeTakeFirstOrThrow();
+				expect(row.deleted_at).toBeNull();
+				expect(row.requested_control_action_id).toBeNull();
+			}
+
+			const missionItem = await db
+				.selectFrom('mission_items')
+				.select(['requested_control_action_id', 'deleted_at'])
+				.where('id', '=', missionItemId)
+				.executeTakeFirstOrThrow();
+			expect(missionItem.deleted_at).toBeNull();
+			expect(missionItem.requested_control_action_id).toBeNull();
+
+			expect(await liveCommentCount(db, 'requested_control_action', requestId)).toBe(0);
+		});
+	});
+
 	it('reports nothing for a record another agency owns', async () => {
 		await withTestDb(async ({ db }) => {
 			const owner = await createOrganization(db, 'impact_owner');
@@ -367,6 +515,196 @@ async function createComment(
 			entity_type: entityType,
 			entity_id: entityId,
 			comment_text: 'Note',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+// --- Mission dispatch and control-request fixtures -------------------------
+
+async function createUnit(db: Db): Promise<string> {
+	const row = await db
+		.insertInto('units')
+		.values({
+			code: 'test_units',
+			unit_name: 'units',
+			abbreviation: 'u',
+			unit_type: 'count',
+			unit_system: 'si',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createMission(db: Db, organizationId: string): Promise<string> {
+	const row = await db
+		.insertInto('missions')
+		.values({
+			organization_id: organizationId,
+			control_type: 'application' as const,
+			scheduled_start_at: sql`timestamptz '2026-08-05 06:00:00+00'`,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createMissionItem(
+	db: Db,
+	organizationId: string,
+	missionId: string,
+	links: { readonly requestId?: string } = {},
+): Promise<string> {
+	const row = await db
+		.insertInto('mission_items')
+		.values({
+			organization_id: organizationId,
+			mission_id: missionId,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+			position: 1,
+			requested_control_action_id: links.requestId ?? null,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createRequestedControlAction(db: Db, organizationId: string): Promise<string> {
+	const row = await db
+		.insertInto('requested_control_actions')
+		.values({
+			organization_id: organizationId,
+			control_type: 'application' as const,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+interface ActionLinks {
+	readonly missionItemId?: string;
+	readonly requestId?: string;
+}
+
+/** Each application brings its own insecticide: the trade name is unique per agency. */
+let nextInsecticide = 1;
+
+async function createApplication(
+	db: Db,
+	organizationId: string,
+	unitId: string,
+	links: ActionLinks,
+): Promise<string> {
+	const suffix = nextInsecticide++;
+	const insecticide = await db
+		.insertInto('insecticides')
+		.values({
+			organization_id: organizationId,
+			trade_name: `Test larvicide ${suffix}`,
+			active_ingredient: 'Bti',
+			type: 'larvicide',
+			registration_number: `12345-${suffix}`,
+			default_unit_id: unitId,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const row = await db
+		.insertInto('applications')
+		.values({
+			organization_id: organizationId,
+			insecticide_id: insecticide.id,
+			application_date: sql`date '2026-08-01'`,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+			amount_applied: 2,
+			application_unit_id: unitId,
+			mission_item_id: links.missionItemId ?? null,
+			requested_control_action_id: links.requestId ?? null,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createSourceReduction(
+	db: Db,
+	organizationId: string,
+	unitId: string,
+	links: ActionLinks,
+): Promise<string> {
+	const method = await db
+		.insertInto('source_reduction_methods')
+		.values({ organization_id: organizationId, name: 'Ditch clearing' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const row = await db
+		.insertInto('source_reductions')
+		.values({
+			organization_id: organizationId,
+			source_reduction_method_id: method.id,
+			source_reduction_date: sql`date '2026-08-01'`,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+			sources_eliminated_amount: 3,
+			sources_eliminated_unit_id: unitId,
+			mission_item_id: links.missionItemId ?? null,
+			requested_control_action_id: links.requestId ?? null,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createOutreachAction(
+	db: Db,
+	organizationId: string,
+	_unitId: string,
+	links: ActionLinks,
+): Promise<string> {
+	const method = await db
+		.insertInto('outreach_methods')
+		.values({ organization_id: organizationId, name: 'Door hangers' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const row = await db
+		.insertInto('outreach_actions')
+		.values({
+			organization_id: organizationId,
+			outreach_method_id: method.id,
+			outreach_date: sql`date '2026-08-01'`,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+			reach: 25,
+			mission_item_id: links.missionItemId ?? null,
+			requested_control_action_id: links.requestId ?? null,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createBiocontrolAction(
+	db: Db,
+	organizationId: string,
+	unitId: string,
+	links: ActionLinks,
+): Promise<string> {
+	const method = await db
+		.insertInto('biocontrol_methods')
+		.values({ organization_id: organizationId, name: 'Gambusia release' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const row = await db
+		.insertInto('biocontrol_actions')
+		.values({
+			organization_id: organizationId,
+			biocontrol_method_id: method.id,
+			biocontrol_date: sql`date '2026-08-01'`,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+			amount_released: 40,
+			release_unit_id: unitId,
+			mission_item_id: links.missionItemId ?? null,
+			requested_control_action_id: links.requestId ?? null,
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
