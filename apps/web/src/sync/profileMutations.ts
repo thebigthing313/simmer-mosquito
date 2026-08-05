@@ -1,5 +1,6 @@
 import { createRowPayloadMapper, type ProfileRow } from '@simmer-mosquito/sync';
 import type { AdminMembership, SimmerRole } from '../auth';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 const mapProfilePayload = createRowPayloadMapper<ProfileRow>([
 	'id',
@@ -59,12 +60,12 @@ export async function inviteOrganizationProfile(
 		},
 		body: JSON.stringify(input),
 	});
-	const result = (await readResponseBody(response, 'Unable to send invitation.')) as
+	const result = (await readResponseBody(response)) as
 		| { readonly txid: number }
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 
 	if (!response.ok || !('txid' in result)) {
-		throw new Error(messageFromErrorResult(result, 'Unable to send invitation.'));
+		throw commandErrorFrom(response, result, 'Unable to send invitation.');
 	}
 }
 
@@ -82,12 +83,12 @@ export async function updateOrganizationMembershipRole(
 		},
 		body: JSON.stringify({ role }),
 	});
-	const result = (await readResponseBody(response, 'Unable to update role.')) as
+	const result = (await readResponseBody(response)) as
 		| { readonly membership: AdminMembership; readonly txid: number }
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 
 	if (!response.ok || !('membership' in result)) {
-		throw new Error(messageFromErrorResult(result, 'Unable to update role.'));
+		throw commandErrorFrom(response, result, 'Unable to update role.');
 	}
 
 	return result.membership;
@@ -124,43 +125,13 @@ async function writeProfile(
 		},
 		body: JSON.stringify(body),
 	});
-	const result = (await readResponseBody(response, 'Unable to save profile.')) as
+	const result = (await readResponseBody(response)) as
 		| ProfileMutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 
 	if (!response.ok || !('txid' in result)) {
-		throw new Error(messageFromErrorResult(result, 'Unable to save profile.'));
+		throw commandErrorFrom(response, result, 'Unable to save profile.');
 	}
 
 	return result;
-}
-
-async function readResponseBody(response: Response, fallback: string): Promise<unknown> {
-	const bodyText = await response.text();
-	if (bodyText.trim().length === 0) {
-		return {};
-	}
-
-	try {
-		return JSON.parse(bodyText) as unknown;
-	} catch {
-		if (!response.ok) {
-			return { message: fallback };
-		}
-
-		throw new Error(fallback);
-	}
-}
-
-function messageFromErrorResult(result: unknown, fallback: string): string {
-	if (typeof result !== 'object' || result === null) {
-		return fallback;
-	}
-
-	const record = result as { readonly reason?: unknown; readonly message?: unknown };
-	return typeof record.reason === 'string'
-		? record.reason
-		: typeof record.message === 'string'
-			? record.message
-			: fallback;
 }

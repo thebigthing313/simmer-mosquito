@@ -30,6 +30,7 @@ import {
 	useDeleteImpact,
 } from '../hooks/use-delete-impact';
 import type { MinimumRole } from '../lib/write-access';
+import { readBlockers } from '../sync/command-error';
 import { settleWrite } from '../sync/settle-write';
 import { WriteOnly } from './write-only';
 
@@ -106,9 +107,13 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
+	const [refusedBlockers, setRefusedBlockers] = useState<readonly DeleteImpactEntry[]>([]);
 
 	const impact = impactQuery.data;
-	const blockers = impact?.blockers ?? [];
+	// The impact read is what normally knows, and it disables the button up
+	// front. `refusedBlockers` is the race: a reference landed while the page was
+	// open, and the 409 that refused the delete carries what it was.
+	const blockers = refusedBlockers.length > 0 ? refusedBlockers : (impact?.blockers ?? []);
 	const isBlocked = blockers.length > 0;
 
 	const confirmDelete = useCallback(async () => {
@@ -119,7 +124,13 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 			await settleWrite(onDelete());
 			await navigate({ to: returnTo });
 		} catch (cause) {
-			const message = cause instanceof Error ? cause.message : `Unable to delete the ${noun}.`;
+			const blocked = readBlockers(cause);
+			const message =
+				blocked.length > 0
+					? `Deleting this ${noun} is blocked by ${impactCountLabel(blocked[0] as DeleteImpactEntry)}.`
+					: cause instanceof Error
+						? cause.message
+						: `Unable to delete the ${noun}.`;
 
 			// The delete is optimistic, so the row leaves the collection the moment
 			// the button is pressed and this card unmounts with the record it was
@@ -128,6 +139,10 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 			// app shell and outlasts the rollback that puts the page back.
 			toast.error(message);
 			setDeleteError(message);
+			// The 409 already said what stopped it, so render that rather than
+			// waiting on a second read to say the same thing. The invalidation below
+			// still runs; this is what fills the gap until it lands.
+			setRefusedBlockers(blocked);
 
 			// A delete refused mid-flight means something started referencing this
 			// record while the page was open. Invalidate rather than refetch: this

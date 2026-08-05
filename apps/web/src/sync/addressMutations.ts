@@ -1,5 +1,6 @@
 import { type AddressRow, createRowPayloadMapper } from '@simmer-mosquito/sync';
 import { isNoOpUpdate } from './change-set';
+import { commandErrorFrom } from './command-error';
 
 const mapAddressPayload = createRowPayloadMapper<AddressRow>([
 	'id',
@@ -148,13 +149,7 @@ async function writeAddress(
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 
 	if (!response.ok || !('txid' in result)) {
-		throw new Error(
-			'reason' in result && typeof result.reason === 'string'
-				? result.reason
-				: 'message' in result && typeof result.message === 'string'
-					? result.message
-					: 'Unable to save address.',
-		);
+		throw commandErrorFrom(response, result, 'Unable to save address.');
 	}
 
 	return result;

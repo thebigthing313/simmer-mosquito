@@ -10,6 +10,7 @@ import type {
 	TagItemRow,
 } from '@simmer-mosquito/sync';
 import { isNoOpUpdate, pickChanged } from './change-set';
+import { commandErrorFrom } from './command-error';
 
 /**
  * Field-work + mission-dispatch optimistic mutation handlers (comments, tag
@@ -284,13 +285,7 @@ async function writeRecord(
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 
 	if (!response.ok || !('txid' in result)) {
-		throw new Error(
-			'reason' in result && typeof result.reason === 'string'
-				? result.reason
-				: 'message' in result && typeof result.message === 'string'
-					? result.message
-					: `Unable to save ${noun}.`,
-		);
+		throw commandErrorFrom(response, result, `Unable to save ${noun}.`);
 	}
 
 	return result;

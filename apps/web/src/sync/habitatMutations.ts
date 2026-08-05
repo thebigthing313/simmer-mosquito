@@ -1,5 +1,6 @@
 import type { HabitatRow } from '@simmer-mosquito/sync';
 import { isNoOpUpdate, pickChanged } from './change-set';
+import { commandErrorFrom } from './command-error';
 
 export interface HabitatMutationLocationMetadata {
 	readonly locationSource: {
@@ -160,13 +161,7 @@ async function writeHabitat(
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 
 	if (!response.ok || !('txid' in result)) {
-		throw new Error(
-			'reason' in result && typeof result.reason === 'string'
-				? result.reason
-				: 'message' in result && typeof result.message === 'string'
-					? result.message
-					: 'Unable to save habitat.',
-		);
+		throw commandErrorFrom(response, result, 'Unable to save habitat.');
 	}
 
 	return result;
