@@ -19,6 +19,7 @@
 		"build": "tsgo -b",
 		"build:ts6": "tsc -b",
 		"build:ts7": "tsgo -b",
+		"seed:role-ladder": "tsx src/seed-role-ladder.ts",
 		"seed:sync-baseline": "tsx src/seed-sync-baseline.ts",
 		"test": "vitest run --passWithNoTests",
 		"typecheck": "tsgo -p tsconfig.json --noEmit --pretty false",
