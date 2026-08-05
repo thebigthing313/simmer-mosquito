@@ -36,10 +36,18 @@ if (databaseUrl === undefined || databaseUrl.trim() === '') {
 
 const workosUserIds: WorkosUserIds = {};
 for (const person of roleLadderPeople) {
-	const value = process.env[`SIMMER_ROLE_LADDER_${person.key.toUpperCase()}`];
-	if (value !== undefined && value.trim() !== '') {
-		workosUserIds[person.key as RoleLadderKey] = value.trim();
+	const key = person.key.toUpperCase();
+	const value = process.env[`SIMMER_ROLE_LADDER_${key}`];
+	if (value === undefined || value.trim() === '') {
+		continue;
 	}
+	// The address is optional and only decides what `users.email` says before
+	// that account's first sign-in. Worth setting, because the practical way to
+	// get several logins out of one mailbox is plus-addressing and the fixture's
+	// own `@example.test` address would otherwise sit there looking authoritative.
+	const email = process.env[`SIMMER_ROLE_LADDER_${key}_EMAIL`]?.trim();
+	workosUserIds[person.key as RoleLadderKey] =
+		email === undefined || email === '' ? value.trim() : { workosUserId: value.trim(), email };
 }
 
 const db = createDb({ databaseUrl, maxConnections: 1 });

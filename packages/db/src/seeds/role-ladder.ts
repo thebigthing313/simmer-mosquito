@@ -105,8 +105,24 @@ export const roleLadderPeople = [
 
 export type RoleLadderKey = (typeof roleLadderPeople)[number]['key'];
 
-/** WorkOS user ids to link, keyed by person. Absent means "profile only". */
-export type WorkosUserIds = Partial<Record<RoleLadderKey, string>>;
+/**
+ * A WorkOS account to link a fixture profile to.
+ *
+ * `email` is optional and only affects what `users.email` says before that
+ * account's first sign-in — `upsertWorkOsIdentity` overwrites it from WorkOS on
+ * every login, and the link itself is by `workosUserId`. Supply it anyway when
+ * the real address differs from the fixture's, which it will: the practical way
+ * to get several test logins out of one mailbox is plus-addressing
+ * (`you+simmer-collector@gmail.com`), and a `users` row claiming
+ * `casey.collector@example.test` is a confusing thing to read.
+ */
+export interface WorkosAccount {
+	readonly workosUserId: string;
+	readonly email?: string;
+}
+
+/** WorkOS accounts to link, keyed by person. Absent means "profile only". */
+export type WorkosUserIds = Partial<Record<RoleLadderKey, string | WorkosAccount>>;
 
 /** The fixture ids, so a test or a checklist can name the rows it is about. */
 export const roleLadderIds = {
@@ -230,11 +246,18 @@ async function upsertPeople(
 		// which is also what they are, until somebody creates the WorkOS account.
 		// Conflict is on the fixed id rather than on organization+profile, because
 		// no unique index covers that pair.
-		const workosUserId = workosUserIds[person.key];
+		const account = toWorkosAccount(workosUserIds[person.key]);
 		const userId =
-			workosUserId === undefined
+			account === null
 				? null
-				: await upsertUser(trx, workosUserId, person.displayName, person.email);
+				: await upsertUser(
+						trx,
+						account.workosUserId,
+						person.displayName,
+						// The real address when one was given: this row is what somebody
+						// reads to work out which login is which.
+						account.email ?? person.email,
+					);
 		const membership = {
 			role: person.role,
 			status: (userId === null ? 'invited' : 'active') as MembershipStatus,
@@ -549,6 +572,14 @@ async function upsertSourceReduction(
 			}),
 		)
 		.execute();
+}
+
+/** Accepts a bare WorkOS id for the common case, or an account with its email. */
+function toWorkosAccount(value: string | WorkosAccount | undefined): WorkosAccount | null {
+	if (value === undefined) {
+		return null;
+	}
+	return typeof value === 'string' ? { workosUserId: value } : value;
 }
 
 function person(key: RoleLadderKey): RoleLadderPerson {

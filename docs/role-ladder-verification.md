@@ -29,17 +29,53 @@ profile for that would conflate *not yours* with *not your role*.
 ## Accounts
 
 The seed cannot create the logins. Identity lives in WorkOS, so each account has
-to exist there first; the seed links one when you give it the id:
+to exist there first.
+
+### One mailbox, several accounts
+
+Use plus-addressing. WorkOS treats `you+collector@gmail.com` and
+`you+manager@gmail.com` as two distinct users and stores the tag verbatim —
+verified against the staging environment on 2026-08-05 — while Gmail delivers
+both to `you@gmail.com`. So every test account's password reset, verification
+code, and invitation lands in one inbox you already read.
+
+Tag by role rather than by number, so the inbox says which account a message is
+about:
+
+```
+you+simmer-collector@gmail.com
+you+simmer-collector2@gmail.com   # the "somebody else's record" cases
+you+simmer-manager@gmail.com
+you+simmer-admin@gmail.com
+```
+
+Create each in the WorkOS **staging** dashboard with a password and
+`emailVerified` set, which is what lets you sign straight in without waiting on
+a code. (Gmail also ignores dots, but plus-addressing is the clearer lever —
+the tag survives into WorkOS, so the account list stays readable.)
+
+### Linking them
 
 ```sh
 SIMMER_ROLE_LADDER_COLLECTOR=user_01ABC… \
+SIMMER_ROLE_LADDER_COLLECTOR_EMAIL=you+simmer-collector@gmail.com \
 SIMMER_ROLE_LADDER_MANAGER=user_01DEF… \
+SIMMER_ROLE_LADDER_MANAGER_EMAIL=you+simmer-manager@gmail.com \
   pnpm --filter @simmer-mosquito/db seed:role-ladder
 ```
+
+`_EMAIL` is optional. It only decides what `users.email` says before that
+account's first sign-in — the link is by WorkOS user id, and
+`upsertWorkOsIdentity` overwrites the address from WorkOS on every login. Set it
+anyway: without it the row claims the fixture's `@example.test` address, which
+is a confusing thing to find when you are working out which login is which.
 
 Anyone without an id still gets a profile and an **invited** membership. That is
 enough to be an assignee, to author a comment, and to be the subject of an
 API-driven check — it is only the browser half that needs the account.
+
+Keep this to **staging**. These are real accounts in whichever environment the
+API key points at.
 
 The two that matter most are **Collector** and **Manager**. Owner and Viewer are
 the two halves already verified (2026-08-04, #36), and Admin differs from Owner
