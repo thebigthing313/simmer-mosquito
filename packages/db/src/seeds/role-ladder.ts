@@ -143,7 +143,6 @@ export const roleLadderIds = {
 	expiredCommentId: '00000000-0000-4000-8000-000000002302',
 	otherAuthorCommentId: '00000000-0000-4000-8000-000000002303',
 	sourceReductionMethodId: '00000000-0000-4000-8000-000000002401',
-	unitId: '00000000-0000-4000-8000-000000002402',
 	/** Performed by the collector, recently: theirs to correct. */
 	ownActionId: '00000000-0000-4000-8000-000000002403',
 	/** Performed by the collector, but older than the correction window. */
@@ -577,18 +576,7 @@ async function upsertControlActions(
 	organizationId: string,
 	profileId: ProfileResolver,
 ): Promise<void> {
-	await trx
-		.insertInto('units')
-		.values({
-			id: roleLadderIds.unitId,
-			code: 'role_ladder_sources',
-			unit_name: 'sources',
-			abbreviation: 'src',
-			unit_type: 'count',
-			unit_system: 'si',
-		})
-		.onConflict((conflict) => conflict.column('id').doNothing())
-		.execute();
+	const unitId = await resolveCountUnit(trx);
 
 	await trx
 		.insertInto('source_reduction_methods')
@@ -600,19 +588,19 @@ async function upsertControlActions(
 		.onConflict((conflict) => conflict.column('id').doNothing())
 		.execute();
 
-	await upsertSourceReduction(trx, organizationId, {
+	await upsertSourceReduction(trx, organizationId, unitId, {
 		id: roleLadderIds.ownActionId,
 		by: profileId('collector'),
 		daysAgo: 1,
 	});
 	// Same performer, outside the window: the case that separates "yours" from
 	// "yours and recent".
-	await upsertSourceReduction(trx, organizationId, {
+	await upsertSourceReduction(trx, organizationId, unitId, {
 		id: roleLadderIds.staleActionId,
 		by: profileId('collector'),
 		daysAgo: PAST_THE_WINDOW_DAYS,
 	});
-	await upsertSourceReduction(trx, organizationId, {
+	await upsertSourceReduction(trx, organizationId, unitId, {
 		id: roleLadderIds.otherActionId,
 		by: profileId('otherCollector'),
 		daysAgo: 1,
@@ -622,6 +610,7 @@ async function upsertControlActions(
 async function upsertSourceReduction(
 	trx: DbExecutor,
 	organizationId: string,
+	unitId: string,
 	input: { readonly id: string; readonly by: string; readonly daysAgo: number },
 ): Promise<void> {
 	await trx
@@ -634,7 +623,7 @@ async function upsertSourceReduction(
 			source_reduction_date: sql`current_date - ${`${input.daysAgo} days`}::interval`,
 			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
 			sources_eliminated_amount: 3,
-			sources_eliminated_unit_id: roleLadderIds.unitId,
+			sources_eliminated_unit_id: unitId,
 			habitat_id: roleLadderIds.habitatId,
 		})
 		.onConflict((conflict) =>
@@ -653,6 +642,43 @@ function toWorkosAccount(value: string | WorkosAccount | undefined): WorkosAccou
 		return null;
 	}
 	return typeof value === 'string' ? { workosUserId: value } : value;
+}
+
+/**
+ * A unit for the fixture's "3 sources eliminated", preferring one that exists.
+ *
+ * `units` is **global** — no `organization_id` — so inserting a fixture unit
+ * would put `role_ladder_sources` in every agency's picker, in every environment
+ * this seed is ever run against, permanently. Reusing a count unit avoids that;
+ * the fixture only needs the source reduction to be valid, and which unit it
+ * carries is incidental to every rule being tested.
+ *
+ * It creates one only when the database has no count unit at all, which is a
+ * bare schema rather than any real environment.
+ */
+async function resolveCountUnit(trx: DbExecutor): Promise<string> {
+	const existing = await trx
+		.selectFrom('units')
+		.select(['id'])
+		.where('unit_type', '=', 'count')
+		.orderBy('code')
+		.executeTakeFirst();
+	if (existing !== undefined) {
+		return existing.id;
+	}
+
+	const created = await trx
+		.insertInto('units')
+		.values({
+			code: 'count',
+			unit_name: 'count',
+			abbreviation: 'ct',
+			unit_type: 'count',
+			unit_system: 'si',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return created.id;
 }
 
 function person(key: RoleLadderKey): RoleLadderPerson {
