@@ -1,4 +1,10 @@
-import { type Kysely, type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
+import {
+	type Kysely,
+	RecordDeleteBlockedError,
+	type SimmerDatabase,
+	sql,
+	type Transaction,
+} from '@simmer-mosquito/db';
 import {
 	DomainValidationError,
 	type LarvalDensity,
@@ -9,6 +15,7 @@ import {
 import type { Context } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { deleteBlockedBody } from '../record-deletion.js';
 
 export type LarvalSurveillanceDb = Kysely<SimmerDatabase>;
 export type LarvalSurveillanceTransaction = Transaction<SimmerDatabase>;
@@ -513,6 +520,9 @@ export class CommandError extends Error {
 export function handleCommandError(context: CommandContext, error: unknown) {
 	if (error instanceof CommandError) {
 		return context.json(error.body, error.status);
+	}
+	if (error instanceof RecordDeleteBlockedError) {
+		return context.json(deleteBlockedBody(error), 409);
 	}
 	throw error;
 }

@@ -54,6 +54,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import {
 	activeDatePresetId,
 	type DatePreset,
@@ -169,6 +170,14 @@ function TrapDetailContent({ trap }: { readonly trap: TrapRow }) {
 				<div className="grid min-w-0 content-start gap-5">
 					<TrapLocationCard point={{ lat: trap.lat, lng: trap.lng }} />
 					<TrapCollectionsCard trapId={trap.id} />
+					<DangerZoneCard
+						name={trapDisplayName(trap)}
+						noun="trap"
+						onDelete={() => webCollections.traps.delete(trap.id)}
+						recordId={trap.id}
+						recordType="trap"
+						returnTo="/adult-surveillance/traps"
+					/>
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />

@@ -11,13 +11,23 @@ const { Pool } = pg;
 const testDatabaseUrl =
 	process.env.SIMMER_TEST_DATABASE_URL ?? process.env.TEST_DATABASE_URL ?? null;
 
+/**
+ * Every test in an integration suite applies the full migration set into a
+ * throwaway schema, and the test database is remote — a Railway environment
+ * rather than a container on the loopback. That is roughly ten seconds per
+ * test, so the suite carries its own timeout; vitest's five-second default
+ * fails these on latency alone and leaks the schema it was mid-way through
+ * building.
+ */
+const INTEGRATION_TIMEOUT_MS = 180_000;
+
 export function describeDbIntegration(name: string, suite: () => void): void {
 	if (testDatabaseUrl === null) {
 		describe.skip(name, suite);
 		return;
 	}
 
-	describe(name, suite);
+	describe(name, { timeout: INTEGRATION_TIMEOUT_MS }, suite);
 }
 
 export interface TestDbContext {
@@ -38,6 +48,7 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
 	let setupComplete = false;
 
 	try {
+		await sweepAbandonedSchemasOnce(setupPool);
 		await setupPool.query(`create schema ${schemaName}`);
 		schemaCreated = true;
 		await setupPool.query(`set search_path to ${schemaName}, public`);
@@ -72,6 +83,62 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
 		} finally {
 			await teardownPool.end();
 		}
+	}
+}
+
+/**
+ * How long a test schema may live before it counts as abandoned.
+ *
+ * Comfortably longer than the slowest suite, so a run in progress on another
+ * machine is never mistaken for litter.
+ */
+const ABANDONED_SCHEMA_AGE_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * The sweep is worth doing once a run, not once a test.
+ *
+ * Litter accumulates between runs, never during one, so re-checking before each
+ * of eighteen tests only buys eighteen round-trips to a remote database. The
+ * promise is cached rather than a boolean so tests that start concurrently wait
+ * on the same sweep instead of racing it.
+ */
+let abandonedSchemaSweep: Promise<void> | null = null;
+
+function sweepAbandonedSchemasOnce(pool: InstanceType<typeof Pool>): Promise<void> {
+	// Each caller brings its own pool and closes it afterwards, so a cached
+	// rejection would strand every later test on a connection that no longer
+	// exists. Clear it on failure and let the next test retry with a live pool.
+	abandonedSchemaSweep ??= dropAbandonedSchemas(pool).catch((error: unknown) => {
+		abandonedSchemaSweep = null;
+		throw error;
+	});
+	return abandonedSchemaSweep;
+}
+
+/**
+ * Sweep schemas left behind by killed runs.
+ *
+ * `withTestDb` drops its schema in a `finally`, which covers a failing test but
+ * not the process being killed — a cancelled CI job, a Ctrl-C, a timeout that
+ * takes the worker with it. The database is shared now, so that litter
+ * accumulates where everyone can see it.
+ *
+ * The name carries the creation time, so age is readable without a catalog
+ * column. Only schemas older than the cutoff go, which keeps concurrent runs —
+ * two PRs, or a laptop and a CI job — from dropping each other's work.
+ */
+async function dropAbandonedSchemas(pool: InstanceType<typeof Pool>): Promise<void> {
+	const { rows } = await pool.query<{ readonly nspname: string }>(
+		"select nspname from pg_namespace where nspname like 'simmer\\_test\\_%'",
+	);
+
+	const cutoff = Date.now() - ABANDONED_SCHEMA_AGE_MS;
+	for (const { nspname } of rows) {
+		const createdAt = Number.parseInt(nspname.split('_')[3] ?? '', 10);
+		if (Number.isNaN(createdAt) || createdAt >= cutoff) {
+			continue;
+		}
+		await pool.query(`drop schema if exists ${nspname} cascade`);
 	}
 }
 

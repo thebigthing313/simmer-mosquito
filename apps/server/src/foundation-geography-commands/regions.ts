@@ -1,3 +1,4 @@
+import { applyRecordDeletion } from '@simmer-mosquito/db';
 import {
 	createRegionCommand,
 	deleteRegionCommand,
@@ -210,6 +211,12 @@ async function writeRegionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'foundation.deleteRegion':
+			await applyRecordDeletion(trx, {
+				recordType: 'region',
+				recordId: command.payload.regionId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'regions',

@@ -27,6 +27,7 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -161,6 +162,14 @@ function SourceReductionDetailContent({
 					<SourceReductionLocationCard
 						habitatName={habitatName}
 						sourceReduction={sourceReduction}
+					/>
+					<DangerZoneCard
+						name={methodName}
+						noun="source reduction"
+						onDelete={() => webCollections.sourceReductions.delete(sourceReduction.id)}
+						recordId={sourceReduction.id}
+						recordType="sourceReduction"
+						returnTo="/control-operations/source-reduction"
 					/>
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">

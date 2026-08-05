@@ -1,4 +1,4 @@
-import { sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	type ControlOperationsCommand,
 	deleteRequestedControlActionCommand,
@@ -329,6 +329,12 @@ async function writeRequestedControlActionCommand(
 				toSafeRequestedControlAction,
 			);
 		case 'controlOperations.deleteRequestedControlAction':
+			await applyRecordDeletion(trx, {
+				recordType: 'requestedControlAction',
+				recordId: command.payload.requestedControlActionId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'requested_control_actions',

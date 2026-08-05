@@ -54,6 +54,7 @@ import { registerOrganizationSettingsCommandRoutes } from './organization-settin
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
 import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands/index.js';
+import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 
@@ -154,6 +155,15 @@ app.use(
 
 app.use(
 	'/geocoder/*',
+	cors({
+		origin: allowedCorsOrigins(),
+		credentials: true,
+		allowMethods: ['GET', 'OPTIONS'],
+	}),
+);
+
+app.use(
+	'/records/*',
 	cors({
 		origin: allowedCorsOrigins(),
 		credentials: true,
@@ -496,6 +506,11 @@ registerMapTileRoutes(app, {
 });
 
 registerServiceRequestNearbyRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerRecordDeletionRoutes(app, {
 	db,
 	authContextMiddleware,
 });

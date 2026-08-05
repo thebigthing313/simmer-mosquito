@@ -59,6 +59,7 @@ import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
+import { DangerZoneCard } from '../components/danger-zone-card';
 import { EmptyValue } from '../components/empty-value';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { LinkedAddressValue } from '../components/linked-address';
@@ -220,6 +221,14 @@ function HabitatDetailContent({ habitat }: { readonly habitat: HabitatRow }) {
 					<Suspense fallback={<HistorySkeleton />}>
 						<HabitatHistoryCard habitatId={habitat.id} />
 					</Suspense>
+					<DangerZoneCard
+						name={habitatName(habitat)}
+						noun="habitat"
+						onDelete={() => webCollections.habitats.delete(habitat.id)}
+						recordId={habitat.id}
+						recordType="habitat"
+						returnTo="/larval-surveillance/habitats"
+					/>
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<HabitatInspectionStats habitatId={habitat.id} />

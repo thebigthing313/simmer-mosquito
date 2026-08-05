@@ -17,10 +17,11 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useState } from 'react';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { WriteOnly } from '../../../components/write-only';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -30,7 +31,6 @@ import {
 	serviceRequestTitle,
 } from '../-public-engagement-display';
 import { RequestStatusBadge } from '../-public-engagement-ui';
-import { settleWrite } from '../-public-engagement-writes';
 
 export const Route = createFileRoute('/public-engagement/contacts/$id')({
 	component: ContactDetailRoute,
@@ -38,7 +38,6 @@ export const Route = createFileRoute('/public-engagement/contacts/$id')({
 
 const ContactIcon = iconRegistry.entities.organization.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-const DeleteIcon = iconRegistry.actions.delete.icon;
 const detailGcTimeMs = 30_000;
 
 function ContactDetailRoute() {
@@ -107,7 +106,6 @@ function ContactDetailContent({ contact }: { readonly contact: ContactRow }) {
 							</Link>
 						</Button>
 					</WriteOnly>
-					<DeleteContactButton contactId={contact.id} />
 				</div>
 			</div>
 
@@ -146,6 +144,15 @@ function ContactDetailContent({ contact }: { readonly contact: ContactRow }) {
 					</Card>
 
 					<ContactServiceRequestsCard contactId={contact.id} />
+
+					<DangerZoneCard
+						name={name}
+						noun="contact"
+						onDelete={() => webCollections.contacts.delete(contact.id)}
+						recordId={contact.id}
+						recordType="contact"
+						returnTo="/public-engagement/contacts"
+					/>
 				</div>
 
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
@@ -215,50 +222,6 @@ function ContactServiceRequestsCard({ contactId }: { readonly contactId: string 
 				)}
 			</CardContent>
 		</Card>
-	);
-}
-
-function DeleteContactButton({ contactId }: { readonly contactId: string }) {
-	const navigate = useNavigate();
-	const [confirming, setConfirming] = useState(false);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	const handleDelete = useCallback(async () => {
-		setBusy(true);
-		setError(null);
-		try {
-			await settleWrite(webCollections.contacts.delete(contactId));
-			await navigate({ to: '/public-engagement/contacts' });
-		} catch (thrown) {
-			setError(thrown instanceof Error ? thrown.message : 'Unable to delete contact.');
-			setBusy(false);
-			setConfirming(false);
-		}
-	}, [contactId, navigate]);
-
-	if (!confirming) {
-		return (
-			<Button onClick={() => setConfirming(true)} size="sm" variant="ghost">
-				<DeleteIcon aria-hidden="true" />
-				Delete
-			</Button>
-		);
-	}
-
-	return (
-		<div className="grid justify-items-end gap-1.5">
-			<div className="flex items-center gap-2">
-				<span className="text-muted-foreground text-sm">Delete this contact?</span>
-				<Button disabled={busy} onClick={handleDelete} size="sm" variant="destructive">
-					Delete
-				</Button>
-				<Button disabled={busy} onClick={() => setConfirming(false)} size="sm" variant="ghost">
-					Cancel
-				</Button>
-			</div>
-			{error === null ? null : <span className="text-destructive text-xs">{error}</span>}
-		</div>
 	);
 }
 

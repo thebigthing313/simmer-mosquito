@@ -64,6 +64,7 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -230,6 +231,14 @@ function CollectionDetailContent({
 				<div className="grid min-w-0 content-start gap-5">
 					<CollectionLocationCard collection={collection} />
 					<ResultsCard actorProfileId={actorProfileId} canEdit={canEdit} collection={collection} />
+					<DangerZoneCard
+						name={title}
+						noun="collection"
+						onDelete={() => webCollections.collections.delete(collection.id)}
+						recordId={collection.id}
+						recordType="collection"
+						returnTo="/adult-surveillance/collections"
+					/>
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<DetailsCard

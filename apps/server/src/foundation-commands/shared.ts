@@ -1,4 +1,5 @@
 import {
+	applyRecordDeletion,
 	createAddress,
 	deleteAddress,
 	type GeoJsonGeometry,
@@ -139,6 +140,12 @@ export async function writeAddressDeleteWithTxid(
 	input: { readonly organizationId: string; readonly actorProfileId: string },
 ): Promise<MutationWriteResult<SafeAddress | null>> {
 	return db.transaction().execute(async (trx) => {
+		await applyRecordDeletion(trx, {
+			recordType: 'address',
+			recordId: addressId,
+			organizationId: input.organizationId,
+			actorProfileId: input.actorProfileId,
+		});
 		const row = await deleteAddress(trx, addressId, input);
 		const result = await sql<{
 			txid: string;

@@ -1,6 +1,7 @@
 import {
 	type Kysely,
 	type MutationWriteResult,
+	RecordDeleteBlockedError,
 	type SimmerDatabase,
 	sql,
 	type Transaction,
@@ -14,6 +15,7 @@ import {
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { deleteBlockedBody } from '../record-deletion.js';
 
 export type ControlOperationsDb = Kysely<SimmerDatabase>;
 export type ControlOperationsTransaction = Transaction<SimmerDatabase>;
@@ -716,6 +718,9 @@ export class CommandError extends Error {
 export function handleCommandError(context: CommandContext, error: unknown) {
 	if (error instanceof CommandError) {
 		return context.json(error.body, error.status);
+	}
+	if (error instanceof RecordDeleteBlockedError) {
+		return context.json(deleteBlockedBody(error), 409);
 	}
 	throw error;
 }

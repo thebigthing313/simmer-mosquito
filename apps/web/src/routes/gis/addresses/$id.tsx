@@ -1,16 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -27,12 +17,12 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useState } from 'react';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { WriteOnly } from '../../../components/write-only';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
 
@@ -42,7 +32,6 @@ export const Route = createFileRoute('/gis/addresses/$id')({
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-const DeleteIcon = iconRegistry.actions.delete.icon;
 
 const addressGcTimeMs = 30_000;
 
@@ -91,21 +80,7 @@ function AddressDetail({ addressId }: { readonly addressId: string }) {
 
 function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 	useBreadcrumbLabel(address.id, address.displayName);
-	const navigate = useNavigate();
-	const [deleteOpen, setDeleteOpen] = useState(false);
-	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const geometryQuery = useAddressGeometry(address.id);
-
-	const confirmDelete = useCallback(async () => {
-		setDeleteOpen(false);
-		setDeleteError(null);
-		try {
-			await settleWrite(webCollections.addresses.delete(address.id));
-			await navigate({ to: '/gis/addresses' });
-		} catch (cause) {
-			setDeleteError(cause instanceof Error ? cause.message : 'Unable to delete the address.');
-		}
-	}, [address.id, navigate]);
 
 	return (
 		<>
@@ -122,28 +97,15 @@ function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 						{addressLine(address) || 'No street address'}
 					</p>
 				</div>
-				<div className="flex items-center gap-2">
-					<WriteOnly>
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: address.id }} to="/gis/addresses/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
-					</WriteOnly>
-					<Button
-						className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-						onClick={() => setDeleteOpen(true)}
-						size="sm"
-						variant="ghost"
-					>
-						<DeleteIcon aria-hidden="true" />
-						Delete
+				<WriteOnly>
+					<Button asChild size="sm" variant="outline">
+						<Link params={{ id: address.id }} to="/gis/addresses/$id/edit">
+							<EditIcon aria-hidden="true" />
+							Edit
+						</Link>
 					</Button>
-				</div>
+				</WriteOnly>
 			</div>
-
-			{deleteError === null ? null : <p className="m-0 text-destructive text-sm">{deleteError}</p>}
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<AddressLocationCard
@@ -152,23 +114,18 @@ function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 					lat={geometryQuery.data?.lat ?? null}
 					lng={geometryQuery.data?.lng ?? null}
 				/>
-				<AddressDetailsCard address={address} />
+				<div className="grid content-start gap-5">
+					<AddressDetailsCard address={address} />
+					<DangerZoneCard
+						name={address.displayName}
+						noun="address"
+						onDelete={() => webCollections.addresses.delete(address.id)}
+						recordId={address.id}
+						recordType="address"
+						returnTo="/gis/addresses"
+					/>
+				</div>
 			</div>
-
-			<AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Delete This Address?</AlertDialogTitle>
-						<AlertDialogDescription>
-							{address.displayName} will be removed from the address book. This can't be undone.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDelete}>Delete Address</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
 		</>
 	);
 }

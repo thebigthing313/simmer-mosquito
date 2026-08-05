@@ -47,13 +47,14 @@ pnpm db:status
 Fast tests are pure (no DB). Postgres-backed integration tests (`*.integration.test.ts` in `packages/db`) are **opt-in** and require an explicit test DB:
 
 ```sh
-docker-compose up -d postgres
-# PowerShell:
-$env:TEST_DATABASE_URL='postgres://postgres:postgres@localhost:55432/simmer_mosquito'
+# PowerShell — point at the Railway staging Postgres in .env:
+$env:TEST_DATABASE_URL=(Get-Content .env | Select-String '^DATABASE_URL=').ToString().Substring(13)
 pnpm --filter @simmer-mosquito/db test
 ```
 
-**Local dev backends:** `apps/server` + frontends run locally; Postgres + Electric come from either the Railway `staging` environment (recommended default — `.env`/`apps/server/.env` point `DATABASE_URL`/`ELECTRIC_URL`/`ELECTRIC_SECRET` at staging) or local Docker Compose. See `docs/deployment.md` → "Local development". Deploys are gated on `pnpm test` passing (`verify` job) — keep tests green or nothing deploys; pushing `main` is a production release.
+Each test builds a throwaway `simmer_test_*` schema, applies every migration into it, and drops it afterwards — `public` is never touched. Against a remote database that is ~10s per test, so `describeDbIntegration` sets its own long timeout; do not run these suites under vitest's default. Without `TEST_DATABASE_URL` they **skip silently**, so a green `pnpm test` does not mean they ran.
+
+**Local dev backends:** `apps/server` + frontends run locally; Postgres + Electric come from the Railway `staging` environment (`.env`/`apps/server/.env` point `DATABASE_URL`/`ELECTRIC_URL`/`ELECTRIC_SECRET` at staging). There is no local Docker Postgres. See `docs/deployment.md` → "Local development". Deploys are gated on `pnpm test` passing (`verify` job) — keep tests green or nothing deploys; pushing `main` is a production release.
 
 ## Architecture
 

@@ -22,6 +22,7 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -132,6 +133,14 @@ function OutreachDetailContent({ action }: { readonly action: OutreachActionRow 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
 					<OutreachLocationCard action={action} />
+					<DangerZoneCard
+						name={methodName}
+						noun="outreach action"
+						onDelete={() => webCollections.outreachActions.delete(action.id)}
+						recordId={action.id}
+						recordType="outreachAction"
+						returnTo="/public-engagement/outreach"
+					/>
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<OutreachDetailsCard
