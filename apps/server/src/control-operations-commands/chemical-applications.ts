@@ -1,4 +1,4 @@
-import { type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, type MutationWriteResult, sql } from '@simmer-mosquito/db';
 import {
 	type ControlActionLocationSourceInput,
 	type ControlOperationsCommand,
@@ -308,6 +308,12 @@ async function writeApplicationCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'controlOperations.deleteChemicalApplication':
+			await applyRecordDeletion(trx, {
+				recordType: 'application',
+				recordId: command.payload.applicationId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'applications',

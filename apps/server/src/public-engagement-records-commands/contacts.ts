@@ -1,3 +1,4 @@
+import { applyRecordDeletion } from '@simmer-mosquito/db';
 import {
 	createContactCommand,
 	deleteContactCommand,
@@ -247,6 +248,12 @@ async function writeContactCommand(
 			return loadContact(trx, command.payload.targetContactId, command.payload.organizationId);
 		}
 		case 'publicEngagement.deleteContact':
+			await applyRecordDeletion(trx, {
+				recordType: 'contact',
+				recordId: command.payload.contactId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'contacts',

@@ -1,3 +1,4 @@
+import { applyRecordDeletion } from '@simmer-mosquito/db';
 import {
 	createRouteCommand,
 	deleteRouteCommand,
@@ -182,6 +183,12 @@ async function writeRouteCommand(
 				toSafeRoute,
 			);
 		case 'fieldWork.deleteRoute':
+			await applyRecordDeletion(trx, {
+				recordType: 'route',
+				recordId: command.payload.routeId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'routes',

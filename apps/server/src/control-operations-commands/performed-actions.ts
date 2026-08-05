@@ -1,4 +1,4 @@
-import type { MutationWriteResult } from '@simmer-mosquito/db';
+import { applyRecordDeletion, type MutationWriteResult } from '@simmer-mosquito/db';
 import {
 	type ControlActionLocationSourceInput,
 	type ControlOperationsCommand,
@@ -325,6 +325,12 @@ async function writeSourceReductionCommand(
 				toSafeSourceReduction,
 			);
 		case 'controlOperations.deleteSourceReduction':
+			await applyRecordDeletion(trx, {
+				recordType: 'sourceReduction',
+				recordId: command.payload.sourceReductionId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'source_reductions',
@@ -502,6 +508,12 @@ async function writeOutreachActionCommand(
 				toSafeOutreachAction,
 			);
 		case 'controlOperations.deleteOutreachAction':
+			await applyRecordDeletion(trx, {
+				recordType: 'outreachAction',
+				recordId: command.payload.outreachActionId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'outreach_actions',
@@ -680,6 +692,12 @@ async function writeBiocontrolActionCommand(
 				toSafeBiocontrolAction,
 			);
 		case 'controlOperations.deleteBiocontrolAction':
+			await applyRecordDeletion(trx, {
+				recordType: 'biocontrolAction',
+				recordId: command.payload.biocontrolActionId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'biocontrol_actions',

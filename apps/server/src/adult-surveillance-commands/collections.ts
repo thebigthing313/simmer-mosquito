@@ -1,4 +1,4 @@
-import { type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, type MutationWriteResult, sql } from '@simmer-mosquito/db';
 import {
 	type AdultCollectionLocationSourceInput,
 	type AdultSurveillanceCommand,
@@ -599,12 +599,24 @@ async function updateCollection(
 	return row === undefined ? null : toSafeCollection(row);
 }
 
+/**
+ * Cancelling a pending collection and deleting a collected one both retire the
+ * row, so both carry the same consequences for the species counts, comments,
+ * and helpers hanging off it — and both leave the control work that cited the
+ * collection standing, with its link cleared.
+ */
 async function softDeleteCollection(
 	trx: AdultSurveillanceTransaction,
 	collectionId: string,
 	organizationId: string,
 	actorProfileId: string,
 ): Promise<SafeCollection | null> {
+	await applyRecordDeletion(trx, {
+		recordType: 'collection',
+		recordId: collectionId,
+		organizationId,
+		actorProfileId,
+	});
 	const row = await trx
 		.updateTable('collections')
 		.set({

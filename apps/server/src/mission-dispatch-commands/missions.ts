@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	assignMissionCommand,
 	cancelMissionCommand,
@@ -392,6 +392,12 @@ async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.deleteMission':
+			await applyRecordDeletion(trx, {
+				recordType: 'mission',
+				recordId: command.payload.missionId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'missions',

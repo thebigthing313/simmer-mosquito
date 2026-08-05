@@ -1,4 +1,4 @@
-import { sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	type AssignmentItemPlacement,
 	cancelAssignmentCommand,
@@ -440,6 +440,12 @@ async function writeAssignmentCommand(
 				toSafeAssignment,
 			);
 		case 'fieldWork.deleteAssignment':
+			await applyRecordDeletion(trx, {
+				recordType: 'assignment',
+				recordId: command.payload.assignmentId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'assignments',

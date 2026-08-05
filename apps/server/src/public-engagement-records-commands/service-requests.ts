@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	type ContactReferenceInput,
 	closeServiceRequestCommand,
@@ -366,6 +366,12 @@ async function writeServiceRequestCommand(
 				},
 			);
 		case 'publicEngagement.deleteServiceRequest':
+			await applyRecordDeletion(trx, {
+				recordType: 'serviceRequest',
+				recordId: command.payload.serviceRequestId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return softDelete(
 				trx,
 				'service_requests',

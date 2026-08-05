@@ -1,4 +1,4 @@
-import { type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, type MutationWriteResult, sql } from '@simmer-mosquito/db';
 import {
 	deleteInspectionCommand,
 	type LarvalSurveillanceCommand,
@@ -277,6 +277,12 @@ async function writeInspectionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'larvalSurveillance.deleteInspection': {
+			await applyRecordDeletion(trx, {
+				recordType: 'inspection',
+				recordId: command.payload.inspectionId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			const row = await trx
 				.updateTable('inspections')
 				.set({
