@@ -16,7 +16,9 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
+import { DangerZoneCard } from '../../../../components/danger-zone-card';
 import { WriteOnly } from '../../../../components/write-only';
+import { webCollections } from '../../../../sync/webCollections';
 import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';
 import { TrapRouteMap } from './-trap-route-map';
 
@@ -94,6 +96,19 @@ function RouteDetailRoute() {
 					selectedStopId={selectedStopId}
 					stops={stops}
 				/>
+
+				{route === null ? null : (
+					<div className="shrink-0 border-border/40 border-t p-3">
+						<DangerZoneCard
+							name={route.routeName}
+							noun="route"
+							onDelete={() => webCollections.routes.delete(route.id)}
+							recordId={route.id}
+							recordType="route"
+							returnTo="/adult-surveillance/traps/routes"
+						/>
+					</div>
+				)}
 			</div>
 		</MapSplitPage>
 	);

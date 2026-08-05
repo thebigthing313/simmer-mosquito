@@ -50,6 +50,7 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { WriteOnly } from '../../../components/write-only';
@@ -233,6 +234,14 @@ function ApplicationDetailContent({
 						application={application}
 						canEdit={canEdit}
 						productName={productName}
+					/>
+					<DangerZoneCard
+						name={productName}
+						noun="chemical application"
+						onDelete={() => webCollections.applications.delete(application.id)}
+						recordId={application.id}
+						recordType="application"
+						returnTo="/control-operations/chemical"
 					/>
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">

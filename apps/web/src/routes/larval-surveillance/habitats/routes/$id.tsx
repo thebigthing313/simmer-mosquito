@@ -14,7 +14,9 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
+import { DangerZoneCard } from '../../../../components/danger-zone-card';
 import { WriteOnly } from '../../../../components/write-only';
+import { webCollections } from '../../../../sync/webCollections';
 import { useHabitatRoutes, useRouteStops } from '../-route-data';
 import { RouteMap } from '../-route-map';
 import { RouteStopList } from '../-route-stop-list';
@@ -93,6 +95,19 @@ function RouteDetailRoute() {
 					routeId={id}
 					selectedStopId={selectedStopId}
 				/>
+
+				{route === null ? null : (
+					<div className="shrink-0 border-border/40 border-t p-3">
+						<DangerZoneCard
+							name={route.routeName}
+							noun="route"
+							onDelete={() => webCollections.routes.delete(route.id)}
+							recordId={route.id}
+							recordType="route"
+							returnTo="/larval-surveillance/habitats/routes"
+						/>
+					</div>
+				)}
 			</div>
 		</MapSplitPage>
 	);

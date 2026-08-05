@@ -44,6 +44,7 @@ import { type ReactNode, useCallback, useEffect, useId, useMemo, useState } from
 import { getServerUrl } from '../../../auth';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
@@ -219,6 +220,14 @@ function SampleDetailContent({ geo }: { readonly geo: SampleGeoRow }) {
 						identity={identity}
 						sampleId={geo.id}
 						seed={geo}
+					/>
+					<DangerZoneCard
+						name={breadcrumbLabel(geo)}
+						noun="sample"
+						onDelete={() => webCollections.samples.delete(geo.id)}
+						recordId={geo.id}
+						recordType="sample"
+						returnTo="/larval-surveillance/samples"
 					/>
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">

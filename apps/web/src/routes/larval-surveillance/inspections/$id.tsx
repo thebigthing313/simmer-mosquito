@@ -27,6 +27,7 @@ import { getServerUrl } from '../../../auth';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import {
 	DensityBadge,
 	hasAnyLifeStage,
@@ -168,6 +169,14 @@ function InspectionDetailContent({ inspection }: { readonly inspection: Inspecti
 					</div>
 					<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
 					<LinkedControlActionsCard inspectionId={inspection.id} />
+					<DangerZoneCard
+						name={breadcrumbLabel(inspection)}
+						noun="inspection"
+						onDelete={() => webCollections.inspections.delete(inspection.id)}
+						recordId={inspection.id}
+						recordType="inspection"
+						returnTo="/larval-surveillance/inspections"
+					/>
 				</div>
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<ContextCard inspection={inspection} />

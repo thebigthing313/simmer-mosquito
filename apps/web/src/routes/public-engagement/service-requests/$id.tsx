@@ -25,12 +25,13 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CommentsSection } from '../../../components/comments-section';
+import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { MapCanvas } from '../../../components/map';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import { WriteOnly } from '../../../components/write-only';
@@ -74,7 +75,6 @@ export const Route = createFileRoute('/public-engagement/service-requests/$id')(
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-const DeleteIcon = iconRegistry.actions.delete.icon;
 const detailGcTimeMs = 30_000;
 const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance', 'control'];
 
@@ -204,7 +204,6 @@ function ServiceRequestDetailContent({
 							</Button>
 						</WriteOnly>
 						<CloseReopenButton actorProfileId={actorProfileId} open={open} requestId={request.id} />
-						<DeleteServiceRequestButton requestId={request.id} />
 					</div>
 				</div>
 
@@ -225,6 +224,14 @@ function ServiceRequestDetailContent({
 						<CommentsSection
 							description="Follow-up, resolution notes, and field context for this request."
 							target={{ type: 'serviceRequest', id: request.id }}
+						/>
+						<DangerZoneCard
+							name={title}
+							noun="service request"
+							onDelete={() => webCollections.serviceRequests.delete(request.id)}
+							recordId={request.id}
+							recordType="serviceRequest"
+							returnTo="/public-engagement/service-requests"
 						/>
 					</div>
 				</div>
@@ -892,50 +899,6 @@ function CloseReopenButton({
 			<Button disabled={busy} onClick={handleToggle} size="sm" variant="outline">
 				{open ? 'Close Request' : 'Reopen Request'}
 			</Button>
-			{error === null ? null : <span className="text-destructive text-xs">{error}</span>}
-		</div>
-	);
-}
-
-function DeleteServiceRequestButton({ requestId }: { readonly requestId: string }) {
-	const navigate = useNavigate();
-	const [confirming, setConfirming] = useState(false);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	const handleDelete = useCallback(async () => {
-		setBusy(true);
-		setError(null);
-		try {
-			await settleWrite(webCollections.serviceRequests.delete(requestId));
-			await navigate({ to: '/public-engagement/service-requests' });
-		} catch (thrown) {
-			setError(thrown instanceof Error ? thrown.message : 'Unable to delete the request.');
-			setBusy(false);
-			setConfirming(false);
-		}
-	}, [requestId, navigate]);
-
-	if (!confirming) {
-		return (
-			<Button onClick={() => setConfirming(true)} size="sm" variant="ghost">
-				<DeleteIcon aria-hidden="true" />
-				Delete
-			</Button>
-		);
-	}
-
-	return (
-		<div className="grid justify-items-end gap-1">
-			<div className="flex items-center gap-2">
-				<span className="text-muted-foreground text-sm">Delete this request?</span>
-				<Button disabled={busy} onClick={handleDelete} size="sm" variant="destructive">
-					Delete
-				</Button>
-				<Button disabled={busy} onClick={() => setConfirming(false)} size="sm" variant="ghost">
-					Cancel
-				</Button>
-			</div>
 			{error === null ? null : <span className="text-destructive text-xs">{error}</span>}
 		</div>
 	);
