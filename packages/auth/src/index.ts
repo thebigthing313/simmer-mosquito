@@ -284,7 +284,12 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 
 				// WorkOS enforces the org's password policy (length, breached-password
 				// detection) at user creation; surface it instead of a 500.
-				if (isUnprocessable(error)) {
+				//
+				// `isPasswordRejection`, not `isUnprocessable`: `createUser` answers a
+				// weak password with a **400** `password_strength_error` (#54), so
+				// gating on 422 meant this arm never ran and a refused password
+				// reached the caller as an unhandled throw.
+				if (isPasswordRejection(error)) {
 					return { status: 'weak_password', message: readErrorMessage(error) };
 				}
 
@@ -456,11 +461,12 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 						...(input.lastName === undefined ? {} : { lastName: input.lastName }),
 					});
 				} catch (error) {
-					// Same policy check sign-up gets: WorkOS enforces length and
-					// breached-password detection here, and an unmapped rejection would
-					// reach the invitee as a generic failure with no way to tell that the
-					// password was the problem.
-					if (isUnprocessable(error)) {
+					// Same policy check sign-up gets, and the same correction: `updateUser`
+					// answers a weak password with a **400** `password_strength_error`
+					// (#54), so the 422 this used to require never arrived and the
+					// invitee got a generic failure with no way to tell that the password
+					// was the problem.
+					if (isPasswordRejection(error)) {
 						return { status: 'weak_password', message: readErrorMessage(error) };
 					}
 
@@ -825,48 +831,92 @@ function isEmailTaken(error: unknown): boolean {
 	return code === 'email_not_available' || code === 'email_taken';
 }
 
-/** WorkOS's own codes for a password refused by the organization's policy. */
-const PASSWORD_POLICY_CODES = new Set([
-	'password_strength_error',
-	'password_validation_error',
-	'weak_password',
-]);
+/**
+ * WorkOS's codes for a password refused by the organization's policy.
+ *
+ * Observed against a live environment rather than inferred (#54, probe in
+ * `probe-reset-password.ts`). Both arrive as **400** `BadRequestException`:
+ *
+ * - `password_reset_error` — `resetPassword`, message "Could not reset password."
+ * - `password_strength_error` — `createUser` and `updateUser`, message
+ *   "Password does not meet strength requirements."
+ *
+ * The earlier guesses were `password_strength_error` (right, but not on the
+ * reset path), `password_validation_error`, and `weak_password` (neither
+ * observed anywhere).
+ */
+const PASSWORD_POLICY_CODES = new Set(['password_reset_error', 'password_strength_error']);
 
 /**
  * Whether WorkOS refused a password on policy grounds.
  *
- * Only used where 422 is ambiguous — password reset, where the same status can
- * mean a spent token. Matches on the code or message rather than the status
- * alone so an unrelated 422 keeps its existing meaning.
+ * The status is what settles it, and it is not what this function used to
+ * assume. A refused password is a **400**; a spent, malformed, or unknown reset
+ * token is a **404** with `password_reset_token_not_found`. Nothing observed
+ * was a 422 at all — so gating on 422, as this did, made the function answer
+ * `false` for every real policy rejection and told a user who had picked a
+ * short password that their link had expired.
  *
- * Anything naming a token is explicitly *not* a password rejection. WorkOS's
- * reset-token failures are themselves called `password_reset_token_*`, so a
- * bare "does it say password" test would answer yes to a spent link and tell
- * someone to change a password that was never the problem — the same
- * misdirection this function exists to remove, pointed the other way. When the
- * two are indistinguishable, "your link expired" is the safer reading: it was
- * the behaviour before this mapping existed, and it is recoverable.
+ * 422 is still accepted because it costs nothing and WorkOS is free to change;
+ * 404 is still excluded, because that is the token's status and a token failure
+ * must never read as a password one.
  */
 function isPasswordRejection(error: unknown): boolean {
-	if (!isUnprocessable(error)) {
+	if (isNotFound(error)) {
+		return false;
+	}
+	if (!isBadRequest(error) && !isUnprocessable(error)) {
 		return false;
 	}
 
 	const code = (readErrorCode(error) ?? '').toLowerCase();
-	// A 422 carrying `errors` arrives with the per-requirement codes as its
-	// message (`password_too_short`), so the message is worth reading too.
-	const message = error instanceof Error ? error.message.toLowerCase() : '';
-	if (code.includes('token') || message.includes('token')) {
+	if (code.includes('token')) {
 		return false;
 	}
-	if (PASSWORD_POLICY_CODES.has(code)) {
-		return true;
-	}
-
-	return code.includes('password') || message.includes('password');
+	// The observed codes, or — as a narrow fallback — a per-requirement code from
+	// `errors[]`, which is WorkOS's own data rather than a guess about wording.
+	// The message-substring test this replaces was the fragile half: none of the
+	// observed messages mention "password" in a way worth matching on.
+	return PASSWORD_POLICY_CODES.has(code) || readPasswordIssueCodes(error).length > 0;
 }
 
+/**
+ * The per-requirement codes on a refused password: `password_too_short`,
+ * `password_too_weak`.
+ */
+function readPasswordIssueCodes(error: unknown): readonly string[] {
+	return readErrorEntries(error)
+		.map((entry) => (typeof entry.code === 'string' ? entry.code : ''))
+		.filter((code) => code.startsWith('password_'));
+}
+
+function readErrorEntries(error: unknown): readonly Record<string, unknown>[] {
+	const entries = (error as { readonly errors?: unknown } | null)?.errors;
+	if (!Array.isArray(entries)) {
+		return [];
+	}
+	return entries.filter(
+		(entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
+	);
+}
+
+/**
+ * What to show someone whose password was refused.
+ *
+ * The top-level message is no help — "Could not reset password." is what WorkOS
+ * says when the password was too short, which tells the user nothing they can
+ * act on. The actionable text is in `errors[]`: "The provided password does not
+ * meet the minimum length requirements. Please try a password with 10 or more
+ * characters."
+ */
 function readErrorMessage(error: unknown): string {
+	const issues = readErrorEntries(error)
+		.map((entry) => (typeof entry.message === 'string' ? entry.message.trim() : ''))
+		.filter((message) => message !== '');
+	if (issues.length > 0) {
+		return issues.join(' ');
+	}
+
 	if (error instanceof Error && error.message.trim() !== '') {
 		return error.message;
 	}

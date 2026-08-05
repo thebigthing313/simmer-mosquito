@@ -15,6 +15,7 @@
 		"build": "tsgo -b",
 		"build:ts6": "tsc -b",
 		"build:ts7": "tsgo -b",
+		"probe:reset-password": "tsx src/probe-reset-password.ts",
 		"test": "vitest run --passWithNoTests",
 		"typecheck": "tsgo -p tsconfig.json --noEmit --pretty false",
 		"typecheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
