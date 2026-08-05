@@ -14,6 +14,7 @@ import type { StopTone } from '../../../components/stop-order';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { type LifecycleOption, lifecycleOptions } from '../../../lib/lifecycle-options';
 import { postCommand } from '../../../sync/post-command';
+import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { trapDisplayName } from '../../adult-surveillance/-adult-display';
 
@@ -196,10 +197,10 @@ export interface AssignmentView extends AssignmentRow {
 /** Pin colour reports progress on the work, not the state of the site. */
 export function assignmentStopTone(stop: AssignmentStopView): StopTone {
 	if (stop.progress === 'skipped') {
-		return 'inaccessible';
+		return 'skipped';
 	}
 	if (stop.progress === 'completed') {
-		return 'inactive';
+		return 'done';
 	}
 	return 'default';
 }
@@ -654,6 +655,221 @@ export function useRouteSnapshotItems(routeId: string | null): {
 }
 
 // --- writes -----------------------------------------------------------------
+
+type MutableAssignmentRow = { -readonly [Key in keyof AssignmentRow]: AssignmentRow[Key] };
+type MutableAssignmentItemRow = {
+	-readonly [Key in keyof AssignmentItemRow]: AssignmentItemRow[Key];
+};
+
+/**
+ * Every write below is a plain collection update, because the PATCH handlers
+ * derive their command from *which* fields changed rather than from a verb in
+ * the body. Two consequences worth knowing before adding one:
+ *
+ * 1. Details and lifecycle must never ride the same update. One PATCH body
+ *    builds both command families, so an edit form that "normalises"
+ *    `completedAt` back to null while saving a name would silently reopen the
+ *    assignment.
+ * 2. A field is only sent when it actually changes, so writing the value a row
+ *    already holds is a no-op rather than a redundant command — which is why
+ *    each helper can null every field its transition owns without worrying
+ *    about the ones already null.
+ */
+
+/** The planning fields. Deliberately touches no lifecycle timestamp. */
+export async function updateAssignmentDetails(
+	assignmentId: string,
+	changes: {
+		readonly assignmentName: string | null;
+		readonly assignmentDate: string;
+		readonly assignedToProfileId: string | null;
+		readonly dueAt: string | null;
+	},
+): Promise<void> {
+	await settleWrite(
+		webCollections.assignments.update(assignmentId, (draft) => {
+			const mutable = draft as MutableAssignmentRow;
+			mutable.assignmentName = changes.assignmentName;
+			mutable.assignmentDate = changes.assignmentDate;
+			mutable.assignedToProfileId = changes.assignedToProfileId;
+			mutable.dueAt = changes.dueAt;
+		}),
+	);
+}
+
+export async function startAssignment(assignmentId: string): Promise<void> {
+	await settleWrite(
+		webCollections.assignments.update(assignmentId, (draft) => {
+			(draft as MutableAssignmentRow).startedAt = nowTimestamp();
+		}),
+	);
+}
+
+export async function completeAssignment(assignmentId: string): Promise<void> {
+	await settleWrite(
+		webCollections.assignments.update(assignmentId, (draft) => {
+			(draft as MutableAssignmentRow).completedAt = nowTimestamp();
+		}),
+	);
+}
+
+/** Cancelling carries its reason in the same draft, so one PATCH holds both. */
+export async function cancelAssignment(
+	assignmentId: string,
+	cancellationReason: string | null,
+): Promise<void> {
+	await settleWrite(
+		webCollections.assignments.update(assignmentId, (draft) => {
+			const mutable = draft as MutableAssignmentRow;
+			mutable.cancelledAt = nowTimestamp();
+			mutable.cancellationReason = cancellationReason;
+		}),
+	);
+}
+
+/**
+ * Reopen a closed assignment.
+ *
+ * `startedAt` is deliberately left alone: the server keeps it (issue #38), since
+ * reopening resumes work rather than resetting it and nothing else on the row
+ * records when the crew actually started. Nulling it here would show
+ * "Not started" until sync corrected the row back.
+ */
+export async function reopenAssignment(assignmentId: string): Promise<void> {
+	await settleWrite(
+		webCollections.assignments.update(assignmentId, (draft) => {
+			const mutable = draft as MutableAssignmentRow;
+			mutable.completedAt = null;
+			mutable.cancelledAt = null;
+			mutable.cancellationReason = null;
+		}),
+	);
+}
+
+/** Append a stop. `entityType` is written camelCase — see {@link targetTypeOf}. */
+export async function addAssignmentItem(input: {
+	readonly assignmentItemId: string;
+	readonly assignmentId: string;
+	readonly organizationId: string;
+	readonly actorProfileId: string | null;
+	readonly target: { readonly type: TargetType; readonly id: string };
+	readonly position: number;
+}): Promise<void> {
+	const now = new Date().toISOString();
+	const row: AssignmentItemRow = {
+		id: input.assignmentItemId,
+		organizationId: input.organizationId,
+		assignmentId: input.assignmentId,
+		entityType: input.target.type,
+		entityId: input.target.id,
+		position: input.position,
+		directionsToNextItem: null,
+		completedAt: null,
+		completedByProfileId: null,
+		skippedAt: null,
+		skippedByProfileId: null,
+		skipReason: null,
+		createdByProfileId: input.actorProfileId,
+		updatedByProfileId: input.actorProfileId,
+		createdAt: now,
+		updatedAt: now,
+	};
+	await settleWrite(webCollections.assignmentItems.insert(row));
+}
+
+export async function removeAssignmentItem(assignmentItemId: string): Promise<void> {
+	await settleWrite(webCollections.assignmentItems.delete(assignmentItemId));
+}
+
+export async function updateAssignmentItemDirections(
+	assignmentItemId: string,
+	directions: string,
+): Promise<void> {
+	const trimmed = directions.trim();
+	await settleWrite(
+		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
+			(draft as MutableAssignmentItemRow).directionsToNextItem =
+				trimmed.length === 0 ? null : trimmed;
+		}),
+	);
+}
+
+/**
+ * Item progress.
+ *
+ * The `*ByProfileId` columns are mirrored optimistically so a row does not
+ * flicker between what the page wrote and what the server stamped. They are not
+ * patch keys, so they never reach the wire — the server sets them from the
+ * authenticated actor.
+ */
+export async function completeAssignmentItem(
+	assignmentItemId: string,
+	actorProfileId: string | null,
+): Promise<void> {
+	await settleWrite(
+		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
+			const mutable = draft as MutableAssignmentItemRow;
+			mutable.completedAt = nowTimestamp();
+			mutable.completedByProfileId = actorProfileId;
+		}),
+	);
+}
+
+export async function skipAssignmentItem(
+	assignmentItemId: string,
+	skipReason: string,
+	actorProfileId: string | null,
+): Promise<void> {
+	await settleWrite(
+		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
+			const mutable = draft as MutableAssignmentItemRow;
+			mutable.skippedAt = nowTimestamp();
+			mutable.skipReason = skipReason;
+			mutable.skippedByProfileId = actorProfileId;
+		}),
+	);
+}
+
+export async function unskipAssignmentItem(assignmentItemId: string): Promise<void> {
+	await settleWrite(
+		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
+			const mutable = draft as MutableAssignmentItemRow;
+			mutable.skippedAt = null;
+			mutable.skipReason = null;
+			mutable.skippedByProfileId = null;
+		}),
+	);
+}
+
+export async function reopenAssignmentItem(assignmentItemId: string): Promise<void> {
+	await settleWrite(
+		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
+			const mutable = draft as MutableAssignmentItemRow;
+			mutable.completedAt = null;
+			mutable.completedByProfileId = null;
+		}),
+	);
+}
+
+/**
+ * The controls a stop offers, in the order the server would resolve them.
+ *
+ * `readItemLifecycleTransition` checks `skippedAt` before `completedAt`, so a
+ * skipped stop must never be offered Complete: the PATCH would be read as a
+ * skip-then-complete and the row would keep reading as skipped until sync
+ * corrected the optimistic value. Unskip first is the only legal path.
+ */
+export function itemActionsFor(progress: ItemProgress): readonly ItemAction[] {
+	if (progress === 'skipped') {
+		return ['unskip'];
+	}
+	if (progress === 'completed') {
+		return ['reopen'];
+	}
+	return ['complete', 'skip'];
+}
+
+export type ItemAction = 'complete' | 'skip' | 'unskip' | 'reopen';
 
 /**
  * Snapshot a route's stops into a new assignment.

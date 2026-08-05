@@ -27,7 +27,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import {
 	Tooltip,
 	TooltipContent,
@@ -48,11 +47,12 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
 import {
+	InlineEditField,
 	type MoveAction,
 	type OrderPlacement,
 	OrdinalBadge,
@@ -774,104 +774,6 @@ function EditStopRow({
 				</div>
 			</div>
 		</li>
-	);
-}
-
-/**
- * A read view that turns into a textarea with explicit Save / Cancel when clicked.
- * Keeps its draft aligned with synced changes while idle; Escape cancels, ⌘/Ctrl+Enter saves.
- */
-function InlineEditField({
-	value,
-	ariaLabel,
-	emptyLabel,
-	textareaPlaceholder,
-	onSave,
-	renderValue,
-}: {
-	readonly value: string;
-	readonly ariaLabel: string;
-	readonly emptyLabel: string;
-	readonly textareaPlaceholder: string;
-	readonly onSave: (value: string) => void;
-	readonly renderValue: (value: string) => ReactNode;
-}) {
-	const [editing, setEditing] = useState(false);
-	const [draft, setDraft] = useState(value);
-	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-	useEffect(() => {
-		if (!editing) {
-			setDraft(value);
-		}
-	}, [value, editing]);
-
-	useEffect(() => {
-		if (!editing) {
-			return;
-		}
-		const node = textareaRef.current;
-		if (node !== null) {
-			node.focus();
-			node.setSelectionRange(node.value.length, node.value.length);
-		}
-	}, [editing]);
-
-	const save = () => {
-		setEditing(false);
-		if (draft !== value) {
-			onSave(draft);
-		}
-	};
-	const cancel = () => {
-		setDraft(value);
-		setEditing(false);
-	};
-
-	if (editing) {
-		return (
-			<div className="pointer-events-auto grid gap-1.5">
-				<Textarea
-					aria-label={ariaLabel}
-					className="min-h-[64px] text-sm"
-					onChange={(event) => setDraft(event.target.value)}
-					onKeyDown={(event) => {
-						if (event.key === 'Escape') {
-							event.preventDefault();
-							cancel();
-						} else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-							event.preventDefault();
-							save();
-						}
-					}}
-					placeholder={textareaPlaceholder}
-					ref={textareaRef}
-					value={draft}
-				/>
-				<div className="flex items-center gap-2">
-					<Button onClick={save} size="sm" type="button">
-						Save
-					</Button>
-					<Button onClick={cancel} size="sm" type="button" variant="ghost">
-						Cancel
-					</Button>
-				</div>
-			</div>
-		);
-	}
-
-	return (
-		<button
-			className="-mx-1 pointer-events-auto block w-full rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			onClick={() => setEditing(true)}
-			type="button"
-		>
-			{value.trim().length > 0 ? (
-				renderValue(value)
-			) : (
-				<span className="text-muted-foreground/60 text-xs italic">{emptyLabel}</span>
-			)}
-		</button>
 	);
 }
 

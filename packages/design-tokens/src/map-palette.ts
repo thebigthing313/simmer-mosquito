@@ -97,6 +97,26 @@ export const mapStatus = {
 } as const;
 
 /**
+ * Worklist progress — what a crew did at a stop, not what the site is.
+ *
+ * Deliberately separate from {@link mapLifecycle}: an assignment's pins report
+ * progress on the work, so a stop completed this morning must not paint the
+ * same grey as a habitat retired last season.
+ *
+ * `done` is blue rather than a second green because green already means "still
+ * to do" on the layer that draws these, and two greens is a legend nobody can
+ * read at pin size. `skipped` shares a hue with {@link mapStatus.pending} but
+ * not its meaning — a skipped stop is closed, not queued — so it is named
+ * separately rather than aliased.
+ */
+export const mapProgress = {
+	/** Worked and closed out. */
+	done: brand.blue,
+	/** Deliberately passed over, with a reason on the record. */
+	skipped: '#e0a12e',
+} as const;
+
+/**
  * Surrounding context — the feature a record was worked against (today, the
  * habitat behind a control action), drawn beneath that record's own geometry on
  * detail maps.
@@ -132,4 +152,5 @@ export type MapInteractionRole = keyof typeof mapInteraction;
 export type MapDomainMark = keyof typeof mapDomain;
 export type MapLifecycleState = keyof typeof mapLifecycle;
 export type MapStatusTone = keyof typeof mapStatus;
+export type MapProgressTone = keyof typeof mapProgress;
 export type MapDensityStep = keyof typeof mapDensity;

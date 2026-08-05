@@ -15,6 +15,16 @@ export type StopTone = RouteStopFeature['tone'];
  * assignment it reports progress on the work. Each caller decides; the badge only
  * draws.
  */
+const toneClass: Readonly<Record<StopTone, string>> = {
+	default: 'bg-primary text-primary-foreground',
+	inactive: 'bg-muted-foreground text-background',
+	inaccessible: 'bg-[var(--danger)] text-white',
+	// Blue, not green: `default` already owns the brand green here, and a worked
+	// stop next to an unworked one has to be told apart at 24px.
+	done: 'bg-[var(--info)] text-white',
+	skipped: 'bg-[var(--warning)] text-white',
+};
+
 export function OrdinalBadge({
 	ordinal,
 	tone,
@@ -27,11 +37,7 @@ export function OrdinalBadge({
 			aria-hidden="true"
 			className={cn(
 				'mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full font-semibold text-[0.72rem] ring-2 ring-background',
-				tone === 'inaccessible'
-					? 'bg-[var(--danger)] text-white'
-					: tone === 'inactive'
-						? 'bg-muted-foreground text-background'
-						: 'bg-primary text-primary-foreground',
+				toneClass[tone],
 			)}
 		>
 			{ordinal}

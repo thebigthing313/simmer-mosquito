@@ -62,6 +62,40 @@ export function toDueTime(dueAt: string | null): string {
 	return `${`${parsed.getHours()}`.padStart(2, '0')}:${`${parsed.getMinutes()}`.padStart(2, '0')}`;
 }
 
+/** A stored assignment back into the form's shape, so edit starts where create left off. */
+export function toAssignmentDetails(row: {
+	readonly assignmentName: string | null;
+	readonly assignmentDate: string;
+	readonly assignedToProfileId: string | null;
+	readonly dueAt: string | null;
+}): AssignmentDetailValues {
+	return {
+		assignmentName: row.assignmentName ?? '',
+		assignmentDate: row.assignmentDate,
+		assignedToProfileId: row.assignedToProfileId ?? NO_ASSIGNEE,
+		dueTime: toDueTime(row.dueAt),
+	};
+}
+
+/**
+ * Whether two drafts would produce the same record.
+ *
+ * Compared on the form's own values rather than on the stored row: a due time
+ * round-trips through an instant, so an unedited `dueAt` can come back a few
+ * milliseconds different and read as a change nobody made.
+ */
+export function sameAssignmentDetails(
+	first: AssignmentDetailValues,
+	second: AssignmentDetailValues,
+): boolean {
+	return (
+		first.assignmentName.trim() === second.assignmentName.trim() &&
+		first.assignmentDate === second.assignmentDate &&
+		first.assignedToProfileId === second.assignedToProfileId &&
+		first.dueTime === second.dueTime
+	);
+}
+
 export function assignmentNameOrNull(values: AssignmentDetailValues): string | null {
 	const trimmed = values.assignmentName.trim();
 	return trimmed.length === 0 ? null : trimmed;

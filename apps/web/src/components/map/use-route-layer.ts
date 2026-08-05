@@ -1,3 +1,4 @@
+import { mapProgress } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -20,8 +21,16 @@ export interface RouteStopFeature {
 	readonly lat: number;
 	/** 1-indexed position along the route; rendered inside the pin. */
 	readonly ordinal: number;
-	/** Drives the pin fill so status reads without a legend. */
-	readonly tone: 'default' | 'inactive' | 'inaccessible';
+	/**
+	 * Drives the pin fill so status reads without a legend.
+	 *
+	 * Two vocabularies share the union because two kinds of ordered list share
+	 * this layer. A route's stops report the *site* — retired, inaccessible — and
+	 * a worklist's stops report the *work* — done, skipped. A caller picks one
+	 * family; nothing here forces it, because a route has no notion of a stop
+	 * being done and an assignment has no notion of one being retired.
+	 */
+	readonly tone: 'default' | 'inactive' | 'inaccessible' | 'done' | 'skipped';
 }
 
 export interface RouteLayerConfig {
@@ -50,6 +59,11 @@ const colors = {
 	stop: '#0c5331',
 	stopInactive: '#8a9a93',
 	stopInaccessible: '#e5484d',
+	// The progress tones come from the shared palette rather than two more local
+	// hexes; the four above predate it and are left alone so restyling the route
+	// map stays its own change.
+	stopDone: mapProgress.done,
+	stopSkipped: mapProgress.skipped,
 	stroke: '#f9fdfb',
 	ring: '#e4c04a',
 	label: '#f9fdfb',
@@ -68,6 +82,10 @@ const toneColor: ExpressionSpecification = [
 	colors.stopInaccessible,
 	'inactive',
 	colors.stopInactive,
+	'done',
+	colors.stopDone,
+	'skipped',
+	colors.stopSkipped,
 	colors.stop,
 ];
 

@@ -4,12 +4,14 @@ export {
 	type MapDomainMark,
 	type MapInteractionRole,
 	type MapLifecycleState,
+	type MapProgressTone,
 	type MapStatusTone,
 	mapContext,
 	mapDensity,
 	mapDomain,
 	mapInteraction,
 	mapLifecycle,
+	mapProgress,
 	mapStatus,
 } from './map-palette.js';
 export { type TagPaletteEntry, tagPalette } from './tag-palette.js';

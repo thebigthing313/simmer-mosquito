@@ -4,7 +4,10 @@ import {
 	assignmentStatus,
 	assignmentStopTone,
 	canCompleteAssignment,
+	canEditPlan,
+	canProgressItems,
 	canStartAssignment,
+	itemActionsFor,
 	itemProgress,
 	progressCounts,
 	targetTypeOf,
@@ -119,14 +122,62 @@ describe('canCompleteAssignment', () => {
 	});
 });
 
+describe('canProgressItems', () => {
+	it('only lets a started, open assignment be worked', () => {
+		expect(canProgressItems('inProgress')).toBe(true);
+		expect(canProgressItems('notStarted')).toBe(false);
+		expect(canProgressItems('completed')).toBe(false);
+		expect(canProgressItems('cancelled')).toBe(false);
+	});
+});
+
+describe('canEditPlan', () => {
+	it('closes the plan once the assignment is closed', () => {
+		expect(canEditPlan('notStarted')).toBe(true);
+		expect(canEditPlan('inProgress')).toBe(true);
+		expect(canEditPlan('completed')).toBe(false);
+		expect(canEditPlan('cancelled')).toBe(false);
+	});
+});
+
+describe('itemActionsFor', () => {
+	it('offers both ways to close out a pending stop', () => {
+		expect(itemActionsFor('pending')).toEqual(['complete', 'skip']);
+	});
+
+	it('offers only reopen on a completed stop', () => {
+		expect(itemActionsFor('completed')).toEqual(['reopen']);
+	});
+
+	it('never offers Complete on a skipped stop', () => {
+		// readItemLifecycleTransition checks skippedAt before completedAt, so a PATCH
+		// that set completedAt on a skipped row would still be read as a skip — the
+		// stop would keep rendering as skipped once sync corrected the optimistic
+		// value. Unskip first is the only legal path.
+		expect(itemActionsFor('skipped')).toEqual(['unskip']);
+		expect(itemActionsFor('skipped')).not.toContain('complete');
+	});
+});
+
 describe('assignmentStopTone', () => {
 	const stop = (progress: 'pending' | 'completed' | 'skipped') =>
 		({ progress }) as Parameters<typeof assignmentStopTone>[0];
 
 	it('maps progress onto the map layer tones', () => {
 		expect(assignmentStopTone(stop('pending'))).toBe('default');
-		expect(assignmentStopTone(stop('completed'))).toBe('inactive');
-		expect(assignmentStopTone(stop('skipped'))).toBe('inaccessible');
+		expect(assignmentStopTone(stop('completed'))).toBe('done');
+		expect(assignmentStopTone(stop('skipped'))).toBe('skipped');
+	});
+
+	it('never borrows the site-lifecycle tones', () => {
+		// A worked stop used to paint `inactive` and a skipped one `inaccessible`,
+		// which said the site was retired or unreachable rather than that the crew
+		// had been there. The two vocabularies share a union; they must not share
+		// values.
+		const siteTones = ['inactive', 'inaccessible'];
+		for (const progress of ['pending', 'completed', 'skipped'] as const) {
+			expect(siteTones).not.toContain(assignmentStopTone(stop(progress)));
+		}
 	});
 });
 
