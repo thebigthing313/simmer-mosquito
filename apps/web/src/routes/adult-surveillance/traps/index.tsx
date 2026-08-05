@@ -193,7 +193,7 @@ function TrapsExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
-						controls={{ layers: false }}
+						controls={{ layers: false, measure: true }}
 						fitToData
 						onMapReady={handleMapReady}
 						trapLayer={trapLayer}

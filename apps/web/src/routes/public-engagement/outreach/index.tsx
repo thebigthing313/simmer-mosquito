@@ -217,7 +217,7 @@ function OutreachExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
-						controls={{ layers: false }}
+						controls={{ layers: false, measure: true }}
 						fitToData
 						onMapReady={handleMapReady}
 						outreachLayer={outreachLayer}

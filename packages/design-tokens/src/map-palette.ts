@@ -37,6 +37,19 @@ export const mapInteraction = {
 	selectedStroke: '#b45309',
 	/** The halo that keeps a point mark legible over dense basemap tiles. */
 	pointStroke: '#f9fdfb',
+
+	/**
+	 * Measurement shapes.
+	 *
+	 * Violet, because a measurement is the one thing on the map that is not a
+	 * record and not a selection — it is a question the operator is asking about
+	 * the map, and it must not be mistaken for either. Deliberately outside the
+	 * domain hues below and away from amber selection, so a rectangle dropped
+	 * over a cluster of traps reads as scaffolding at a glance.
+	 */
+	measure: '#7c3aed',
+	/** The casing that keeps a measurement legible over a dark basemap. */
+	measureStroke: '#5b21b6',
 } as const;
 
 /**

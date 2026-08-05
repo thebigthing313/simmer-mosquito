@@ -62,7 +62,9 @@ import {
 	Send,
 	Settings,
 	Speech,
+	Spline,
 	SprayCan,
+	Square,
 	Sun,
 	Tag,
 	Trash2,
@@ -193,7 +195,10 @@ export const iconRegistry = {
 		puzzle: icon('puzzle', 'Puzzle', 'generic', Puzzle),
 		satellite: icon('satellite', 'Satellite', 'generic', Satellite),
 		scanEye: icon('scanEye', 'Scan eye', 'generic', ScanEye),
+		ruler: icon('ruler', 'Measure', 'generic', Ruler),
 		settings: icon('settings', 'Settings', 'generic', Settings),
+		spline: icon('spline', 'Line', 'generic', Spline),
+		square: icon('square', 'Rectangle', 'generic', Square),
 		success: icon('success', 'Success', 'generic', CircleCheck),
 		sun: icon('sun', 'Sun', 'generic', Sun),
 	},
@@ -257,11 +262,14 @@ export const PinOffIcon = iconRegistry.actions.unpin.icon;
 export const PlusIcon = iconRegistry.actions.add.icon;
 export const PuzzleIcon = iconRegistry.generic.puzzle.icon;
 export const SaveIcon = iconRegistry.actions.save.icon;
+export const RulerIcon = iconRegistry.generic.ruler.icon;
 export const SatelliteIcon = iconRegistry.generic.satellite.icon;
 export const ScanEyeIcon = iconRegistry.generic.scanEye.icon;
 export const SearchIcon = iconRegistry.actions.search.icon;
 export const SendIcon = iconRegistry.actions.send.icon;
 export const SettingsIcon = iconRegistry.generic.settings.icon;
+export const SplineIcon = iconRegistry.generic.spline.icon;
+export const SquareIcon = iconRegistry.generic.square.icon;
 export const SunIcon = iconRegistry.generic.sun.icon;
 export const TagIcon = iconRegistry.entities.tag.icon;
 export const TriangleAlertIcon = iconRegistry.actions.warning.icon;

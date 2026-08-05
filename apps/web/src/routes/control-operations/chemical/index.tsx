@@ -250,7 +250,7 @@ function ApplicationsExplorerRoute() {
 				<>
 					<MapCanvas
 						chemicalLayer={chemicalLayer}
-						controls={{ layers: false }}
+						controls={{ layers: false, measure: true }}
 						fitToData
 						onMapReady={handleMapReady}
 					/>

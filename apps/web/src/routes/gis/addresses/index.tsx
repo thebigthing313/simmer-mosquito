@@ -162,7 +162,7 @@ function AddressesExplorerRoute() {
 				<>
 					<MapCanvas
 						addressLayer={addressLayer}
-						controls={{ layers: false }}
+						controls={{ layers: false, measure: true }}
 						fitToData
 						onMapReady={setMap}
 					/>

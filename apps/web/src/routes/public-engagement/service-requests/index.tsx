@@ -285,7 +285,7 @@ function ServiceRequestsExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
-						controls={{ layers: false }}
+						controls={{ layers: false, measure: true }}
 						fitToData={mappedBounds}
 						geoJson={geoJson}
 						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}

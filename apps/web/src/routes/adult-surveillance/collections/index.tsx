@@ -235,7 +235,7 @@ function CollectionsExplorerRoute() {
 				<>
 					<MapCanvas
 						collectionLayer={collectionLayer}
-						controls={{ layers: false }}
+						controls={{ layers: false, measure: true }}
 						fitToData
 						onMapReady={handleMapReady}
 					/>

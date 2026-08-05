@@ -310,7 +310,7 @@ function SamplesExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
-						controls={{ layers: false }}
+						controls={{ layers: false, measure: true }}
 						fitToData
 						onMapReady={handleMapReady}
 						sampleLayer={sampleLayer}

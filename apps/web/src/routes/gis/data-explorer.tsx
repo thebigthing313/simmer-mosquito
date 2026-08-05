@@ -9,7 +9,7 @@ export const Route = createFileRoute('/gis/data-explorer')({
 function DataExplorerRoute() {
 	return (
 		<OutletFullPageMap>
-			<MapCanvas />
+			<MapCanvas controls={{ measure: true }} />
 		</OutletFullPageMap>
 	);
 }

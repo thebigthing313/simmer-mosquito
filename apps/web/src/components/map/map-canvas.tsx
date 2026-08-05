@@ -16,6 +16,7 @@ import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
+import { MeasureControl, MeasureControlButton } from './measure-control';
 import { buildOutreachExtentUrl } from './outreach-tiles';
 import { buildRegionExtentUrl } from './region-tiles';
 import { buildSampleExtentUrl } from './sample-tiles';
@@ -39,6 +40,7 @@ import {
 	useInspectionTileLayer,
 } from './use-inspection-tile-layer';
 import { type MapExtentFitSource, useMapExtentFit } from './use-map-extent-fit';
+import { useMapMeasure } from './use-map-measure';
 import { useMapboxMap } from './use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from './use-nearby-layer';
 import { type OutreachTileLayerConfig, useOutreachTileLayer } from './use-outreach-tile-layer';
@@ -62,6 +64,8 @@ export interface MapControlsConfig {
 	readonly layers?: boolean;
 	readonly geolocate?: boolean;
 	readonly zoom?: boolean;
+	/** Ephemeral distance/area tools. Off by default — see {@link MeasureControl}. */
+	readonly measure?: boolean;
 	readonly attribution?: boolean;
 }
 
@@ -144,6 +148,7 @@ export function MapCanvas({
 }) {
 	const [container, setContainer] = useState<HTMLDivElement | null>(null);
 	const [basemapId, setBasemapId] = useState<BasemapId>(DEFAULT_BASEMAP_ID);
+	const [measureOpen, setMeasureOpen] = useState(false);
 
 	const show = {
 		search: controls?.search ?? true,
@@ -151,6 +156,9 @@ export function MapCanvas({
 		layers: controls?.layers ?? true,
 		geolocate: controls?.geolocate ?? true,
 		zoom: controls?.zoom ?? true,
+		// Opt-in rather than on by default: measuring is occasional, and a map
+		// embedded in a form or a card has no room for another cluster.
+		measure: controls?.measure ?? false,
 		attribution: controls?.attribution ?? true,
 	};
 
@@ -160,6 +168,8 @@ export function MapCanvas({
 		attribution: show.attribution,
 		...(camera === undefined ? {} : { camera }),
 	});
+
+	const measure = useMapMeasure({ map, isLoaded: isLoaded && show.measure });
 
 	useHabitatTileLayer(map, isLoaded, habitatLayer);
 	useRegionTileLayer(map, isLoaded, regionLayer);
@@ -253,6 +263,35 @@ export function MapCanvas({
 									<BasemapSwitcher onChange={setBasemapId} value={basemapId} />
 								) : null}
 								{show.layers ? <MapLayerControls /> : null}
+							</div>
+						) : null}
+						{show.measure ? (
+							<div
+								className={cn(
+									'pointer-events-auto absolute left-4 flex flex-col items-start gap-2',
+									show.attribution ? 'bottom-11' : 'bottom-4',
+								)}
+							>
+								{measureOpen ? (
+									<MeasureControl
+										controller={measure}
+										onClose={() => {
+											measure.clear();
+											setMeasureOpen(false);
+										}}
+									/>
+								) : null}
+								<MeasureControlButton
+									active={measureOpen}
+									onClick={() => {
+										// Closing takes the shapes with it: a measurement is a
+										// question, and the answer does not outlive the asking.
+										if (measureOpen) {
+											measure.clear();
+										}
+										setMeasureOpen((open) => !open);
+									}}
+								/>
 							</div>
 						) : null}
 						{show.geolocate || show.zoom ? (

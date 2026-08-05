@@ -287,7 +287,7 @@ function InspectionsExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
-						controls={{ layers: false }}
+						controls={{ layers: false, measure: true }}
 						fitToData
 						inspectionLayer={inspectionLayer}
 						onMapReady={handleMapReady}

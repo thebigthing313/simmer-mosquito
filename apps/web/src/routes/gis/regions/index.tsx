@@ -344,7 +344,7 @@ function RegionsExplorerRoute() {
 					 * already frames that single boundary.
 					 */}
 					<MapCanvas
-						controls={{ layers: false }}
+						controls={{ layers: false, measure: true }}
 						fitToData={focusedId === null}
 						onMapReady={setMap}
 						regionLayer={regionLayer}

@@ -44,6 +44,18 @@ export {
 	parseBoundingBox,
 	toLngLat,
 } from './geometry.js';
+export type { MeasurementSystem } from './measurement.js';
+export {
+	distanceMeters,
+	formatArea,
+	formatDistance,
+	pathLengthMeters,
+	polygonAreaMeters,
+	polygonPerimeterMeters,
+	rectanglePolygon,
+	ringAreaMeters,
+	ringPerimeterMeters,
+} from './measurement.js';
 export type {
 	MapOverlayDefinition,
 	MapOverlayGroup,
