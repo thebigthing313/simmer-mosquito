@@ -1,12 +1,11 @@
 import type { ControlMethodRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { OutletSimpleLayout } from '../../components/app-shell';
+import { Panel, PanelMessage, RowSkeleton } from '../../components/overview-panel';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { webCollections } from '../../sync/webCollections';
 import {
@@ -75,63 +74,6 @@ function PublicEngagementOverviewRoute() {
 				</div>
 			</div>
 		</OutletSimpleLayout>
-	);
-}
-
-// --- shared panel chrome ----------------------------------------------------
-
-function Panel({
-	icon,
-	title,
-	count,
-	action,
-	footer,
-	children,
-}: {
-	readonly icon: ReactNode;
-	readonly title: string;
-	readonly count?: number | undefined;
-	readonly action?: ReactNode;
-	readonly footer?: ReactNode;
-	readonly children: ReactNode;
-}) {
-	return (
-		<Card className="overflow-hidden" variant="panel">
-			<div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
-				<div className="flex min-w-0 items-center gap-2">
-					<span className="text-muted-foreground">{icon}</span>
-					<h2 className="m-0 truncate font-semibold text-foreground text-sm leading-tight">
-						{title}
-					</h2>
-					{typeof count === 'number' ? (
-						<span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
-							{count}
-						</span>
-					) : null}
-				</div>
-				{action ? <div className="shrink-0">{action}</div> : null}
-			</div>
-			<div className="min-w-0">{children}</div>
-			{footer ? (
-				<div className="border-border/60 border-t px-4 py-2.5 text-sm">{footer}</div>
-			) : null}
-		</Card>
-	);
-}
-
-function PanelMessage({ children }: { readonly children: ReactNode }) {
-	return <p className="m-0 px-4 py-8 text-center text-muted-foreground text-sm">{children}</p>;
-}
-
-const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
-
-function RowSkeleton({ count = 4 }: { readonly count?: number }) {
-	return (
-		<div aria-hidden="true" className="grid gap-2 p-4">
-			{SKELETON_KEYS.slice(0, count).map((key) => (
-				<Skeleton className="h-11 w-full rounded-md" key={key} />
-			))}
-		</div>
 	);
 }
 
@@ -211,7 +153,7 @@ function OpenServiceRequestsPanel({
 
 	return (
 		<Panel
-			action={
+			actions={
 				<ExplorerLinkButton
 					label="Open the service requests map"
 					to="/public-engagement/service-requests"
@@ -265,7 +207,9 @@ function RecentOutreachPanel({ since }: { readonly since: string }) {
 
 	return (
 		<Panel
-			action={<ExplorerLinkButton label="Open the outreach map" to="/public-engagement/outreach" />}
+			actions={
+				<ExplorerLinkButton label="Open the outreach map" to="/public-engagement/outreach" />
+			}
 			count={isReady ? outreachActions.length : undefined}
 			footer={
 				outreachActions.length > preview.length ? (
@@ -278,7 +222,7 @@ function RecentOutreachPanel({ since }: { readonly since: string }) {
 				) : undefined
 			}
 			icon={<OutreachIcon className="size-4" />}
-			title={`Recent Outreach Actions · last ${OUTREACH_ACTIVITY_WINDOW_DAYS} days`}
+			title={`Recent Outreach Actions · Last ${OUTREACH_ACTIVITY_WINDOW_DAYS} Days`}
 		>
 			{isError ? (
 				<PanelMessage>Outreach activity is unavailable right now.</PanelMessage>

@@ -1,7 +1,8 @@
 import type { SpeciesRow } from '@simmer-mosquito/sync';
-import { eq, gte, toArray, useLiveQuery } from '@tanstack/react-db';
+import { eq, gte, or, toArray, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { localDayStartAsTimestamp } from '../../lib/local-date';
 import { webCollections } from '../../sync/webCollections';
 
 // Adult overview reads entirely from synced collections — there is no adult
@@ -32,6 +33,7 @@ export interface ActivityCollection {
 	readonly addressId: string | null;
 	readonly collectionMethodId: string;
 	readonly collectedAt: string | null;
+	readonly collectionDate: string | null;
 	readonly collectedByProfileId: string | null;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
@@ -49,6 +51,7 @@ export interface AwaitingCollection {
 	readonly trapId: string | null;
 	readonly collectionMethodId: string;
 	readonly collectedAt: string | null;
+	readonly collectionDate: string | null;
 }
 
 interface LoadState {
@@ -66,6 +69,7 @@ function selectCollection({ collection }: any) {
 		addressId: collection.addressId,
 		collectionMethodId: collection.collectionMethodId,
 		collectedAt: collection.collectedAt,
+		collectionDate: collection.collectionDate,
 		collectedByProfileId: collection.collectedByProfileId,
 		hasProblem: collection.hasProblem,
 		isZeroResult: collection.isZeroResult,
@@ -74,29 +78,77 @@ function selectCollection({ collection }: any) {
 }
 
 /**
- * Collections retrieved on or after `sinceDate` (a `YYYY-MM-DD`), newest first.
- * `collected_at` is an ISO timestamp whose leading date sorts/compares against a
- * bare date string, so pending (uncollected) collections — a null `collected_at`
- * — fall out of the window naturally.
+ * The window predicate for collections, over both timing modes.
+ *
+ * `exact_timestamps` dates a collection by `collectedAt`, a `timestamptz`;
+ * `collection_date_duration` leaves that null and dates it by `collectionDate`,
+ * a plain date. Reading only `collectedAt` — as this did — emptied the whole
+ * overview for any agency on the second mode. Each column is compared against a
+ * bound in its own type: a bare `YYYY-MM-DD` against a `timestamptz` is not a
+ * predicate Electric will parse ({@link localDayStartAsTimestamp}).
+ *
+ * A collection with neither date set is genuinely pending, and drops out of the
+ * window on its own — a comparison against null is never true.
  */
+// biome-ignore lint/suspicious/noExplicitAny: query-builder ref proxy has no exported type
+function withinWindow(collection: any, sinceDate: string, sinceTimestamp: string) {
+	return or(gte(collection.collectedAt, sinceTimestamp), gte(collection.collectionDate, sinceDate));
+}
+
+interface Dated {
+	readonly collectedAt: string | null;
+	readonly collectionDate: string | null;
+}
+
+/**
+ * What a collection sorts by; the empty string for one carrying neither date.
+ *
+ * The same fallback `collectionEffectiveDate` applies, spelled out again rather
+ * than imported: `-adult-display` reads its date formatters from this module, so
+ * importing back from it would close an import cycle.
+ */
+function sortDate(row: Dated): string {
+	return row.collectedAt ?? row.collectionDate ?? '';
+}
+
+/** Newest first, by whichever column dates the collection. */
+function byDateDescending(first: Dated, second: Dated): number {
+	const firstDate = sortDate(first);
+	const secondDate = sortDate(second);
+	if (firstDate === secondDate) {
+		return 0;
+	}
+	return firstDate > secondDate ? -1 : 1;
+}
+
+/** Collections dated on or after `sinceDate` (a `YYYY-MM-DD`), newest first. */
 export function useRecentCollections(sinceDate: string): {
 	readonly collections: readonly ActivityCollection[];
 } & LoadState {
+	const sinceTimestamp = useMemo(() => localDayStartAsTimestamp(sinceDate), [sinceDate]);
+
 	const result = useLiveQuery(
 		{
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ collection: webCollections.collections })
-					.where(({ collection }) => gte(collection.collectedAt, sinceDate))
-					.orderBy(({ collection }) => collection.collectedAt, 'desc')
+					.where(({ collection }) => withinWindow(collection, sinceDate, sinceTimestamp))
 					.select(selectCollection),
 		},
-		[sinceDate],
+		[sinceDate, sinceTimestamp],
+	);
+
+	// Sorted here rather than in the query: the two timing modes date a collection
+	// from different columns, and no single `orderBy` orders both.
+	const collections = useMemo(
+		() =>
+			[...((result.data ?? []) as unknown as readonly ActivityCollection[])].sort(byDateDescending),
+		[result.data],
 	);
 
 	return {
-		collections: (result.data ?? []) as unknown as readonly ActivityCollection[],
+		collections,
 		isReady: result.isReady,
 		isError: result.isError,
 	};
@@ -161,27 +213,29 @@ export function useSpeciesComposition(sinceDate: string): {
 // --- awaiting identification -------------------------------------------------
 
 /**
- * Recent collections that have been retrieved but not yet identified — collected
- * (a non-null `collected_at`), not flagged zero-result, and carrying no species
- * counts. Resolved with a nested `collection_species` include correlated on
+ * Recent collections that have been retrieved but not yet identified — dated (so
+ * no longer pending), not flagged zero-result, and carrying no species counts.
+ * Resolved with a nested `collection_species` include correlated on
  * `collection_id`, then filtered client-side to the empty-species set.
  */
 export function useAwaitingIdentification(sinceDate: string): {
 	readonly awaiting: readonly AwaitingCollection[];
 } & LoadState {
+	const sinceTimestamp = useMemo(() => localDayStartAsTimestamp(sinceDate), [sinceDate]);
+
 	const result = useLiveQuery(
 		{
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ collection: webCollections.collections })
-					.where(({ collection }) => gte(collection.collectedAt, sinceDate))
-					.orderBy(({ collection }) => collection.collectedAt, 'desc')
+					.where(({ collection }) => withinWindow(collection, sinceDate, sinceTimestamp))
 					.select(({ collection }) => ({
 						id: collection.id,
 						trapId: collection.trapId,
 						collectionMethodId: collection.collectionMethodId,
 						collectedAt: collection.collectedAt,
+						collectionDate: collection.collectionDate,
 						isZeroResult: collection.isZeroResult,
 						species: toArray(
 							query
@@ -191,7 +245,7 @@ export function useAwaitingIdentification(sinceDate: string): {
 						),
 					})),
 		},
-		[sinceDate],
+		[sinceDate, sinceTimestamp],
 	);
 
 	const awaiting = useMemo(() => {
@@ -201,12 +255,14 @@ export function useAwaitingIdentification(sinceDate: string): {
 		})[];
 		return rows
 			.filter((row) => !row.isZeroResult && row.species.length === 0)
-			.map(({ id, trapId, collectionMethodId, collectedAt }) => ({
+			.map(({ id, trapId, collectionMethodId, collectedAt, collectionDate }) => ({
 				id,
 				trapId,
 				collectionMethodId,
 				collectedAt,
-			}));
+				collectionDate,
+			}))
+			.sort(byDateDescending);
 	}, [result.data]);
 
 	return { awaiting, isReady: result.isReady, isError: result.isError };

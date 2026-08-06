@@ -2,7 +2,6 @@ import type { HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -19,13 +18,14 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, Suspense, useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import {
 	DensityBadge,
 	hasAnyLifeStage,
 	LifeStageStrip,
 	WetnessBadge,
 } from '../../components/larval-display';
+import { Panel, PanelMessage, RowSkeleton } from '../../components/overview-panel';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { adhocLabel, formatCoordinates } from '../../lib/coordinate-label';
 import { webCollections } from '../../sync/webCollections';
@@ -189,68 +189,6 @@ function useResolver(
 				coordinates: formatCoordinates(inspection.lat, inspection.lng),
 			}),
 		[habitatNameById, typeNameById],
-	);
-}
-
-// --- shared panel chrome ----------------------------------------------------
-
-function Panel({
-	icon,
-	title,
-	count,
-	actions,
-	footer,
-	children,
-}: {
-	readonly icon: ReactNode;
-	readonly title: string;
-	readonly count?: number | undefined;
-	readonly actions?: ReactNode;
-	readonly footer?: ReactNode;
-	readonly children: ReactNode;
-}) {
-	return (
-		<Card className="overflow-hidden" variant="panel">
-			<div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
-				<div className="flex min-w-0 items-center gap-2">
-					<span className="text-muted-foreground">{icon}</span>
-					{/*
-					 * `leading-none` here clipped the descenders on g/p/y — a line box the
-					 * exact height of the em cuts anything below the baseline. `leading-tight`
-					 * costs two pixels of header height and keeps the letters whole.
-					 */}
-					<h2 className="m-0 truncate font-semibold text-foreground text-sm leading-tight">
-						{title}
-					</h2>
-					{typeof count === 'number' ? (
-						<span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
-							{count}
-						</span>
-					) : null}
-				</div>
-				{actions ? <div className="shrink-0">{actions}</div> : null}
-			</div>
-			<div className="min-w-0">{children}</div>
-			{footer ? (
-				<div className="border-border/60 border-t px-4 py-2.5 text-sm">{footer}</div>
-			) : null}
-		</Card>
-	);
-}
-
-function PanelMessage({ children }: { readonly children: ReactNode }) {
-	return <p className="m-0 px-4 py-8 text-center text-muted-foreground text-sm">{children}</p>;
-}
-
-const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
-
-function RowSkeleton({ count = 4 }: { readonly count?: number }) {
-	return (
-		<div aria-hidden="true" className="grid gap-2 p-4">
-			{SKELETON_KEYS.slice(0, count).map((key) => (
-				<Skeleton className="h-11 w-full rounded-md" key={key} />
-			))}
-		</div>
 	);
 }
 
@@ -739,7 +677,7 @@ function HeavyInspectionsPanel({
 			}
 			count={isReady ? hot.length : undefined}
 			icon={<AlertTriangleIcon className="size-4" />}
-			title={`Heavy & very heavy · last ${ACTIVITY_WINDOW_DAYS} days`}
+			title={`Heavy & Very Heavy · Last ${ACTIVITY_WINDOW_DAYS} Days`}
 		>
 			{isError ? (
 				<PanelMessage>Inspection activity is unavailable right now.</PanelMessage>

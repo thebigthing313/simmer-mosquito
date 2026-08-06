@@ -7,13 +7,11 @@ import type {
 } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/collapsible';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
 	ChevronDownIcon,
@@ -24,6 +22,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
+import { Panel, PanelMessage, RowSkeleton } from '../../components/overview-panel';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
 import { formatActionDate, formatAmount } from './-control-display';
@@ -150,42 +149,6 @@ interface Labels {
 	readonly profileNameById: ReadonlyMap<string, string>;
 }
 
-// --- shared panel chrome ----------------------------------------------------
-
-function Panel({
-	icon,
-	title,
-	count,
-	action,
-	children,
-}: {
-	readonly icon: ReactNode;
-	readonly title: string;
-	readonly count?: number | undefined;
-	readonly action?: ReactNode;
-	readonly children: ReactNode;
-}) {
-	return (
-		<Card className="overflow-hidden" variant="panel">
-			<div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
-				<div className="flex min-w-0 items-center gap-2">
-					<span className="text-muted-foreground">{icon}</span>
-					<h2 className="m-0 truncate font-semibold text-foreground text-sm leading-none">
-						{title}
-					</h2>
-					{typeof count === 'number' ? (
-						<span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
-							{count}
-						</span>
-					) : null}
-				</div>
-				{action ? <div className="shrink-0">{action}</div> : null}
-			</div>
-			<div className="min-w-0">{children}</div>
-		</Card>
-	);
-}
-
 /** Header shortcut from a panel to the map explorer holding the same records. */
 function MapLinkButton({
 	label,
@@ -203,22 +166,6 @@ function MapLinkButton({
 				<MapIcon aria-hidden="true" className="size-4" />
 			</Link>
 		</Button>
-	);
-}
-
-function PanelMessage({ children }: { readonly children: ReactNode }) {
-	return <p className="m-0 px-4 py-8 text-center text-muted-foreground text-sm">{children}</p>;
-}
-
-const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
-
-function RowSkeleton({ count = 4 }: { readonly count?: number }) {
-	return (
-		<div aria-hidden="true" className="grid gap-2 p-4">
-			{SKELETON_KEYS.slice(0, count).map((key) => (
-				<Skeleton className="h-11 w-full rounded-md" key={key} />
-			))}
-		</div>
 	);
 }
 
@@ -589,7 +536,9 @@ function InsecticideUsagePanel({
 
 	return (
 		<Panel
-			action={<MapLinkButton label="Open the applications map" to="/control-operations/chemical" />}
+			actions={
+				<MapLinkButton label="Open the applications map" to="/control-operations/chemical" />
+			}
 			count={isReady ? rows.length : undefined}
 			icon={<InsecticideIcon className="size-4" />}
 			title="Insecticide Usage"
@@ -664,7 +613,7 @@ function RecentSourceReductionsPanel({
 
 	return (
 		<Panel
-			action={
+			actions={
 				<MapLinkButton
 					label="Open the source reductions map"
 					to="/control-operations/source-reduction"
@@ -721,7 +670,9 @@ function RecentBiocontrolPanel({
 
 	return (
 		<Panel
-			action={<MapLinkButton label="Open the biocontrol map" to="/control-operations/biocontrol" />}
+			actions={
+				<MapLinkButton label="Open the biocontrol map" to="/control-operations/biocontrol" />
+			}
 			count={isReady ? biocontrolActions.length : undefined}
 			icon={<BiocontrolIcon className="size-4" />}
 			title="Biocontrol Releases"

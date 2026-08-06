@@ -1,16 +1,15 @@
 import type { CollectionMethodRow, ProfileRow, TrapRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Panel, PanelMessage, RowSkeleton } from '../../components/overview-panel';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
-import { CollectionFlagBadges, trapDisplayName } from './-adult-display';
+import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from './-adult-display';
 import {
 	type ActivityCollection,
 	ADULT_ACTIVITY_WINDOW_DAYS,
@@ -107,61 +106,12 @@ function collectionMethodLabel(collection: ActivityCollection, labels: Labels): 
 	return labels.methodNameById.get(collection.collectionMethodId) ?? 'Unknown method';
 }
 
-// --- shared panel chrome ----------------------------------------------------
-
-function Panel({
-	icon,
-	title,
-	count,
-	actions,
-	footer,
-	children,
-}: {
-	readonly icon: ReactNode;
-	readonly title: string;
-	readonly count?: number | undefined;
-	readonly actions?: ReactNode;
-	readonly footer?: ReactNode;
-	readonly children: ReactNode;
-}) {
-	return (
-		<Card className="overflow-hidden" variant="panel">
-			<div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
-				<div className="flex min-w-0 items-center gap-2">
-					<span className="text-muted-foreground">{icon}</span>
-					<h2 className="m-0 truncate font-semibold text-foreground text-sm leading-none">
-						{title}
-					</h2>
-					{typeof count === 'number' ? (
-						<span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
-							{count}
-						</span>
-					) : null}
-				</div>
-				{actions ? <div className="shrink-0">{actions}</div> : null}
-			</div>
-			<div className="min-w-0">{children}</div>
-			{footer ? (
-				<div className="border-border/60 border-t px-4 py-2.5 text-sm">{footer}</div>
-			) : null}
-		</Card>
-	);
-}
-
-function PanelMessage({ children }: { readonly children: ReactNode }) {
-	return <p className="m-0 px-4 py-8 text-center text-muted-foreground text-sm">{children}</p>;
-}
-
-const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6'] as const;
-
-function RowSkeleton({ count = 4 }: { readonly count?: number }) {
-	return (
-		<div aria-hidden="true" className="grid gap-2 p-4">
-			{SKELETON_KEYS.slice(0, count).map((key) => (
-				<Skeleton className="h-11 w-full rounded-md" key={key} />
-			))}
-		</div>
-	);
+/** A collection's date as `Mon D` — an em dash while it is still pending. */
+function collectionDayLabel(collection: {
+	readonly collectedAt: string | null;
+	readonly collectionDate: string | null;
+}): string {
+	return formatMonthDay(collectionEffectiveDate(collection) ?? '');
 }
 
 function CollectionLink({
@@ -197,7 +147,7 @@ interface DayGroup {
 function groupByDay(collections: readonly ActivityCollection[]): readonly DayGroup[] {
 	const groups = new Map<string, ActivityCollection[]>();
 	for (const collection of collections) {
-		const day = (collection.collectedAt ?? '').slice(0, 10);
+		const day = (collectionEffectiveDate(collection) ?? '').slice(0, 10);
 		if (day === '') {
 			continue;
 		}
@@ -208,7 +158,7 @@ function groupByDay(collections: readonly ActivityCollection[]): readonly DayGro
 			groups.set(day, [collection]);
 		}
 	}
-	// collectedAt already sorted desc, so day keys arrive newest-first.
+	// The rows arrive sorted newest-first, so day keys do too.
 	return [...groups.entries()].map(([day, rows]) => ({ day, rows }));
 }
 
@@ -226,7 +176,7 @@ function RecentCollectionsPanel({
 		<Panel
 			count={isReady ? collections.length : undefined}
 			icon={<CollectionIcon className="size-4" />}
-			title={`Recent collections · last ${ADULT_ACTIVITY_WINDOW_DAYS} days`}
+			title={`Recent Collections · Last ${ADULT_ACTIVITY_WINDOW_DAYS} Days`}
 		>
 			{isError ? (
 				<PanelMessage>Collection activity is unavailable right now.</PanelMessage>
@@ -456,7 +406,7 @@ function AwaitingIdentificationPanel({
 								</span>
 							</div>
 							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-								{collection.collectedAt === null ? '—' : formatMonthDay(collection.collectedAt)}
+								{collectionDayLabel(collection)}
 							</span>
 						</li>
 					))}
@@ -479,7 +429,7 @@ function AttentionPanel({ labels, since }: { readonly labels: Labels; readonly s
 		<Panel
 			count={isReady ? flagged.length : undefined}
 			icon={<AlertTriangleIcon className="size-4" />}
-			title={`Flagged for attention · last ${ADULT_ACTIVITY_WINDOW_DAYS} days`}
+			title={`Flagged for Attention · Last ${ADULT_ACTIVITY_WINDOW_DAYS} Days`}
 		>
 			{isError ? (
 				<PanelMessage>Collection activity is unavailable right now.</PanelMessage>
@@ -507,7 +457,7 @@ function AttentionPanel({ labels, since }: { readonly labels: Labels; readonly s
 								</span>
 							</div>
 							<span className="w-11 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
-								{collection.collectedAt === null ? '—' : formatMonthDay(collection.collectedAt)}
+								{collectionDayLabel(collection)}
 							</span>
 						</li>
 					))}
