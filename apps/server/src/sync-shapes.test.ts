@@ -433,3 +433,62 @@ describe('registerSyncShapeRoutes', () => {
 		}
 	});
 });
+
+describe('shape response caching', () => {
+	/**
+	 * Electric answers every shape request with `public, max-age=604800, …`,
+	 * intended for a CDN in front of a public shape log. Forwarded from this proxy
+	 * it told browsers to keep month-old, org-scoped, cookie-authorized snapshots
+	 * on disk — which both desynced the Electric client from the current log
+	 * position and made per-tenant rows storable by any shared cache.
+	 *
+	 * The bug was invisible in review and in the UI: the app rendered, and the
+	 * client blamed a CDN that does not exist. Only the response headers said so,
+	 * which is exactly why it is asserted here rather than left to be noticed.
+	 */
+	function electricResponse(): Response {
+		return new Response('{"data":[]}', {
+			headers: {
+				'cache-control': 'public, max-age=604800, s-maxage=3600, stale-while-revalidate=2629746',
+				'electric-handle': 'handle-1',
+			},
+		});
+	}
+
+	function appWithElectric(): Hono<{ Variables: AuthVariables }> {
+		const app = new Hono<{ Variables: AuthVariables }>();
+		registerSyncShapeRoutes(app, {
+			electricUrl: 'http://localhost:3001/v1/shape',
+			authContextMiddleware: createMiddleware(async (context, next) => {
+				context.set('authContext', { organization: { id: 'org-1' } } as never);
+				await next();
+			}),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+			fetch: (() => Promise.resolve(electricResponse())) as typeof fetch,
+		});
+		return app;
+	}
+
+	it('never forwards Electric’s public caching directive to the browser', async () => {
+		const response = await appWithElectric().request('/sync/shapes/units');
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get('cache-control')).toBe('private, no-store');
+		// The specific failure: `public` on a cookie-authorized, org-scoped body.
+		expect(response.headers.get('cache-control')).not.toContain('public');
+		expect(response.headers.get('cache-control')).not.toContain('max-age');
+	});
+
+	it('varies on cookie so no shared cache keys two operators together', async () => {
+		const response = await appWithElectric().request('/sync/shapes/units');
+
+		expect(response.headers.get('vary')).toBe('cookie');
+	});
+
+	it('still forwards the Electric stream headers the client needs', async () => {
+		const response = await appWithElectric().request('/sync/shapes/units');
+
+		expect(response.headers.get('electric-handle')).toBe('handle-1');
+		expect(response.headers.get('access-control-expose-headers')).toContain('electric-handle');
+	});
+});

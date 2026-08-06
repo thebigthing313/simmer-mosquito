@@ -702,6 +702,37 @@ function copyElectricHeaders(headers: Headers): Headers {
 	}
 
 	copied.set('access-control-expose-headers', electricExposeHeaders.join(', '));
+	/*
+	 * Electric's own caching headers are replaced, not forwarded.
+	 *
+	 * Electric answers every shape request with
+	 * `public, max-age=604800, s-maxage=3600, stale-while-revalidate=2629746`.
+	 * That is right for the deployment it assumes — a CDN in front of a public,
+	 * immutable shape log, keyed on the full query string. It is wrong for this
+	 * proxy on both counts.
+	 *
+	 * `public` is wrong because these routes sit behind the session cookie and the
+	 * server *forces* the org-scoped `where` (see the shape route handlers). Two
+	 * operators hit byte-identical URLs and must not receive each other's rows, so
+	 * a response that any shared cache may store is a tenancy leak waiting on a
+	 * proxy nobody remembered was there.
+	 *
+	 * The week-long `max-age` is wrong because `offset=-1` is not immutable: it is
+	 * "the snapshot as of now", and its URL is stable across days. Chrome cached it
+	 * to disk and replayed month-old snapshots — handle and log offset included —
+	 * which desynced the client from Electric's current position. The client then
+	 * marked the handle expired, refetched, got the same (live) handle back, and
+	 * logged that a CDN was serving stale data. There was no CDN; it was the
+	 * browser doing exactly what we told it.
+	 *
+	 * `no-store` rather than a shorter `max-age` because Electric sends no `ETag`
+	 * or `Last-Modified`, so there is nothing to revalidate against — a cache
+	 * entry here can only ever be served blind. Losing the cache costs one
+	 * snapshot fetch per collection per load; live updates ride the long-poll,
+	 * which is untouched.
+	 */
+	copied.set('cache-control', 'private, no-store');
+	copied.set('vary', 'cookie');
 
 	return copied;
 }
