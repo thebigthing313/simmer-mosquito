@@ -1,10 +1,12 @@
 import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
-import type {
-	CircleLayerSpecification,
-	ExpressionSpecification,
-	FillLayerSpecification,
-	LineLayerSpecification,
-} from 'mapbox-gl';
+import type { ExpressionSpecification } from 'mapbox-gl';
+import {
+	allLayerIds,
+	type GeometryTileLayer,
+	geometryTileLayers,
+	interactiveLayerIds,
+	selectedLayerIds,
+} from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
@@ -24,7 +26,7 @@ export interface TrapTileFilters extends RegionScopedTileFilters {
 }
 
 export const TRAP_SOURCE_ID = 'traps';
-const TRAP_SOURCE_LAYER = 'traps';
+const _TRAP_SOURCE_LAYER = 'traps';
 
 /**
  * Map paint colors. Traps carry an `isActive` feature property, so points read
@@ -39,26 +41,11 @@ const colors = {
 } as const;
 
 /** Layers the user can click to select a trap. Order = hit priority. */
-export const TRAP_INTERACTIVE_LAYER_IDS = [
-	`${TRAP_SOURCE_ID}-points`,
-	`${TRAP_SOURCE_ID}-lines`,
-	`${TRAP_SOURCE_ID}-polygon-fill`,
-] as const;
+export const TRAP_INTERACTIVE_LAYER_IDS = interactiveLayerIds(TRAP_SOURCE_ID);
 
-const TRAP_SELECTED_LAYER_IDS = [
-	`${TRAP_SOURCE_ID}-selected-fill`,
-	`${TRAP_SOURCE_ID}-selected-outline`,
-	`${TRAP_SOURCE_ID}-selected-line`,
-	`${TRAP_SOURCE_ID}-selected-point`,
-] as const;
+const TRAP_SELECTED_LAYER_IDS = selectedLayerIds(TRAP_SOURCE_ID);
 
-export const TRAP_LAYER_IDS = [
-	`${TRAP_SOURCE_ID}-polygon-fill`,
-	`${TRAP_SOURCE_ID}-polygon-outline`,
-	`${TRAP_SOURCE_ID}-lines`,
-	`${TRAP_SOURCE_ID}-points`,
-	...TRAP_SELECTED_LAYER_IDS,
-] as const;
+export const TRAP_LAYER_IDS = allLayerIds(TRAP_SOURCE_ID);
 
 // A trap with no recorded `isActive` reads as active — the common case.
 const statusColor: ExpressionSpecification = [
@@ -67,10 +54,6 @@ const statusColor: ExpressionSpecification = [
 	colors.active,
 	colors.inactive,
 ];
-
-const polygonOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];
-const lineOnly: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'];
-const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildTrapTileUrl(serverUrl: string, filters?: TrapTileFilters): string {
@@ -104,104 +87,8 @@ function trapTileParams(filters?: TrapTileFilters): URLSearchParams {
 }
 
 /** The GL layers for the trap source. `selectedId` drives the highlight set. */
-export function trapTileLayers(
-	selectedId: string | null,
-): (FillLayerSpecification | LineLayerSpecification | CircleLayerSpecification)[] {
-	// Match the `id` property, not the feature id: tiles use the 4-arg ST_AsMVT (no
-	// native feature id) and promoteId doesn't reach render-time filters, so `['id']`
-	// evaluates to undefined here. An id no feature can carry keeps this empty when
-	// nothing is selected.
-	const matchesSelected: ExpressionSpecification = ['==', ['get', 'id'], selectedId ?? ' '];
-	const selectedPolygon: ExpressionSpecification = ['all', polygonOnly, matchesSelected];
-	const selectedLine: ExpressionSpecification = ['all', lineOnly, matchesSelected];
-	const selectedPoint: ExpressionSpecification = ['all', pointOnly, matchesSelected];
-
-	return [
-		{
-			id: `${TRAP_SOURCE_ID}-polygon-fill`,
-			type: 'fill',
-			source: TRAP_SOURCE_ID,
-			'source-layer': TRAP_SOURCE_LAYER,
-			filter: polygonOnly,
-			paint: { 'fill-color': statusColor, 'fill-opacity': 0.24 },
-		},
-		{
-			id: `${TRAP_SOURCE_ID}-polygon-outline`,
-			type: 'line',
-			source: TRAP_SOURCE_ID,
-			'source-layer': TRAP_SOURCE_LAYER,
-			filter: polygonOnly,
-			paint: {
-				'line-color': statusColor,
-				'line-opacity': 0.8,
-				'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 16, 2],
-			},
-		},
-		{
-			id: `${TRAP_SOURCE_ID}-lines`,
-			type: 'line',
-			source: TRAP_SOURCE_ID,
-			'source-layer': TRAP_SOURCE_LAYER,
-			filter: lineOnly,
-			paint: {
-				'line-color': statusColor,
-				'line-opacity': 0.82,
-				'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.2, 16, 3],
-			},
-		},
-		{
-			id: `${TRAP_SOURCE_ID}-points`,
-			type: 'circle',
-			source: TRAP_SOURCE_ID,
-			'source-layer': TRAP_SOURCE_LAYER,
-			filter: pointOnly,
-			paint: {
-				'circle-color': statusColor,
-				'circle-opacity': 0.92,
-				'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3, 16, 6.5],
-				'circle-stroke-color': colors.pointStroke,
-				'circle-stroke-width': 1.2,
-			},
-		},
-		// --- selection highlight: drawn on top, scoped to the selected feature ---
-		{
-			id: `${TRAP_SOURCE_ID}-selected-fill`,
-			type: 'fill',
-			source: TRAP_SOURCE_ID,
-			'source-layer': TRAP_SOURCE_LAYER,
-			filter: selectedPolygon,
-			paint: { 'fill-color': colors.selected, 'fill-opacity': 0.3 },
-		},
-		{
-			id: `${TRAP_SOURCE_ID}-selected-outline`,
-			type: 'line',
-			source: TRAP_SOURCE_ID,
-			'source-layer': TRAP_SOURCE_LAYER,
-			filter: selectedPolygon,
-			paint: { 'line-color': colors.selected, 'line-width': 3 },
-		},
-		{
-			id: `${TRAP_SOURCE_ID}-selected-line`,
-			type: 'line',
-			source: TRAP_SOURCE_ID,
-			'source-layer': TRAP_SOURCE_LAYER,
-			filter: selectedLine,
-			paint: { 'line-color': colors.selected, 'line-width': 5 },
-		},
-		{
-			id: `${TRAP_SOURCE_ID}-selected-point`,
-			type: 'circle',
-			source: TRAP_SOURCE_ID,
-			'source-layer': TRAP_SOURCE_LAYER,
-			filter: selectedPoint,
-			paint: {
-				'circle-color': colors.selected,
-				'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 6, 16, 10],
-				'circle-stroke-color': colors.pointStroke,
-				'circle-stroke-width': 2.5,
-			},
-		},
-	];
+export function trapTileLayers(selectedId: string | null): GeometryTileLayer[] {
+	return geometryTileLayers(TRAP_SOURCE_ID, { fill: statusColor, line: statusColor }, selectedId);
 }
 
 export { TRAP_SELECTED_LAYER_IDS };

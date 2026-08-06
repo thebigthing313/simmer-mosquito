@@ -1,10 +1,12 @@
 import { mapDensity, mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import type {
-	CircleLayerSpecification,
-	ExpressionSpecification,
-	FillLayerSpecification,
-	LineLayerSpecification,
-} from 'mapbox-gl';
+import type { ExpressionSpecification } from 'mapbox-gl';
+import {
+	allLayerIds,
+	type GeometryTileLayer,
+	geometryTileLayers,
+	interactiveLayerIds,
+	selectedLayerIds,
+} from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
@@ -34,7 +36,7 @@ export interface InspectionTileFilters extends RegionScopedTileFilters {
 }
 
 export const INSPECTION_SOURCE_ID = 'inspections';
-const INSPECTION_SOURCE_LAYER = 'inspections';
+const _INSPECTION_SOURCE_LAYER = 'inspections';
 
 /**
  * Density heat ramp. Points are colored by the surveillance signal — a dry site
@@ -70,27 +72,12 @@ export const INSPECTION_DENSITY_COLORS: Readonly<Record<string, string>> = {
 
 export const INSPECTION_DRY_COLOR = colors.dry;
 
-/** Layers the user can click to select an inspection. Order = hit priority. */
-export const INSPECTION_INTERACTIVE_LAYER_IDS = [
-	`${INSPECTION_SOURCE_ID}-points`,
-	`${INSPECTION_SOURCE_ID}-lines`,
-	`${INSPECTION_SOURCE_ID}-polygon-fill`,
-] as const;
+/** Layers the user can click to select a inspection. Order = hit priority. */
+export const INSPECTION_INTERACTIVE_LAYER_IDS = interactiveLayerIds(INSPECTION_SOURCE_ID);
 
-const INSPECTION_SELECTED_LAYER_IDS = [
-	`${INSPECTION_SOURCE_ID}-selected-fill`,
-	`${INSPECTION_SOURCE_ID}-selected-outline`,
-	`${INSPECTION_SOURCE_ID}-selected-line`,
-	`${INSPECTION_SOURCE_ID}-selected-point`,
-] as const;
+const INSPECTION_SELECTED_LAYER_IDS = selectedLayerIds(INSPECTION_SOURCE_ID);
 
-export const INSPECTION_LAYER_IDS = [
-	`${INSPECTION_SOURCE_ID}-polygon-fill`,
-	`${INSPECTION_SOURCE_ID}-polygon-outline`,
-	`${INSPECTION_SOURCE_ID}-lines`,
-	`${INSPECTION_SOURCE_ID}-points`,
-	...INSPECTION_SELECTED_LAYER_IDS,
-] as const;
+export const INSPECTION_LAYER_IDS = allLayerIds(INSPECTION_SOURCE_ID);
 
 // Wet sites match on density; a null/unrecorded density falls to the "none"
 // tone. A dry site is neutral regardless of density.
@@ -114,10 +101,6 @@ const densityColor: ExpressionSpecification = [
 	],
 	colors.dry,
 ];
-
-const polygonOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];
-const lineOnly: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'];
-const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildInspectionTileUrl(serverUrl: string, filters?: InspectionTileFilters): string {
@@ -163,104 +146,12 @@ function inspectionTileParams(filters?: InspectionTileFilters): URLSearchParams 
 }
 
 /** The GL layers for the inspection source. `selectedId` drives the highlight set. */
-export function inspectionTileLayers(
-	selectedId: string | null,
-): (FillLayerSpecification | LineLayerSpecification | CircleLayerSpecification)[] {
-	// Match the `id` property, not the feature id: tiles use the 4-arg ST_AsMVT (no
-	// native feature id) and promoteId doesn't reach render-time filters, so `['id']`
-	// evaluates to undefined here. An id no feature can carry keeps this empty when
-	// nothing is selected.
-	const matchesSelected: ExpressionSpecification = ['==', ['get', 'id'], selectedId ?? ' '];
-	const selectedPolygon: ExpressionSpecification = ['all', polygonOnly, matchesSelected];
-	const selectedLine: ExpressionSpecification = ['all', lineOnly, matchesSelected];
-	const selectedPoint: ExpressionSpecification = ['all', pointOnly, matchesSelected];
-
-	return [
-		{
-			id: `${INSPECTION_SOURCE_ID}-polygon-fill`,
-			type: 'fill',
-			source: INSPECTION_SOURCE_ID,
-			'source-layer': INSPECTION_SOURCE_LAYER,
-			filter: polygonOnly,
-			paint: { 'fill-color': densityColor, 'fill-opacity': 0.24 },
-		},
-		{
-			id: `${INSPECTION_SOURCE_ID}-polygon-outline`,
-			type: 'line',
-			source: INSPECTION_SOURCE_ID,
-			'source-layer': INSPECTION_SOURCE_LAYER,
-			filter: polygonOnly,
-			paint: {
-				'line-color': densityColor,
-				'line-opacity': 0.8,
-				'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 16, 2],
-			},
-		},
-		{
-			id: `${INSPECTION_SOURCE_ID}-lines`,
-			type: 'line',
-			source: INSPECTION_SOURCE_ID,
-			'source-layer': INSPECTION_SOURCE_LAYER,
-			filter: lineOnly,
-			paint: {
-				'line-color': densityColor,
-				'line-opacity': 0.82,
-				'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.2, 16, 3],
-			},
-		},
-		{
-			id: `${INSPECTION_SOURCE_ID}-points`,
-			type: 'circle',
-			source: INSPECTION_SOURCE_ID,
-			'source-layer': INSPECTION_SOURCE_LAYER,
-			filter: pointOnly,
-			paint: {
-				'circle-color': densityColor,
-				'circle-opacity': 0.92,
-				'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3, 16, 6.5],
-				'circle-stroke-color': colors.pointStroke,
-				'circle-stroke-width': 1.2,
-			},
-		},
-		// --- selection highlight: drawn on top, scoped to the selected feature ---
-		{
-			id: `${INSPECTION_SOURCE_ID}-selected-fill`,
-			type: 'fill',
-			source: INSPECTION_SOURCE_ID,
-			'source-layer': INSPECTION_SOURCE_LAYER,
-			filter: selectedPolygon,
-			paint: { 'fill-color': colors.selected, 'fill-opacity': 0.3 },
-		},
-		{
-			id: `${INSPECTION_SOURCE_ID}-selected-outline`,
-			type: 'line',
-			source: INSPECTION_SOURCE_ID,
-			'source-layer': INSPECTION_SOURCE_LAYER,
-			filter: selectedPolygon,
-			paint: { 'line-color': colors.selected, 'line-width': 3 },
-		},
-		{
-			id: `${INSPECTION_SOURCE_ID}-selected-line`,
-			type: 'line',
-			source: INSPECTION_SOURCE_ID,
-			'source-layer': INSPECTION_SOURCE_LAYER,
-			filter: selectedLine,
-			paint: { 'line-color': colors.selected, 'line-width': 5 },
-		},
-		{
-			id: `${INSPECTION_SOURCE_ID}-selected-point`,
-			type: 'circle',
-			source: INSPECTION_SOURCE_ID,
-			'source-layer': INSPECTION_SOURCE_LAYER,
-			filter: selectedPoint,
-			paint: {
-				'circle-color': colors.selected,
-				'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 6, 16, 10],
-				'circle-stroke-color': colors.pointStroke,
-				'circle-stroke-width': 2.5,
-			},
-		},
-	];
+export function inspectionTileLayers(selectedId: string | null): GeometryTileLayer[] {
+	return geometryTileLayers(
+		INSPECTION_SOURCE_ID,
+		{ fill: densityColor, line: densityColor },
+		selectedId,
+	);
 }
 
 export { INSPECTION_SELECTED_LAYER_IDS };

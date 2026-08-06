@@ -1,10 +1,12 @@
 import { mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
-import type {
-	CircleLayerSpecification,
-	ExpressionSpecification,
-	FillLayerSpecification,
-	LineLayerSpecification,
-} from 'mapbox-gl';
+import type { ExpressionSpecification } from 'mapbox-gl';
+import {
+	allLayerIds,
+	type GeometryTileLayer,
+	geometryTileLayers,
+	interactiveLayerIds,
+	selectedLayerIds,
+} from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
 	setRegionTileParam,
@@ -31,7 +33,7 @@ export interface SampleTileFilters extends RegionScopedTileFilters {
 }
 
 export const SAMPLE_SOURCE_ID = 'samples';
-const SAMPLE_SOURCE_LAYER = 'samples';
+const _SAMPLE_SOURCE_LAYER = 'samples';
 
 /**
  * Status palette. Points are colored by where a sample sits in the lab workflow —
@@ -62,26 +64,11 @@ export const SAMPLE_STATUS_COLORS: Readonly<Record<string, string>> = {
 };
 
 /** Layers the user can click to select a sample. Order = hit priority. */
-export const SAMPLE_INTERACTIVE_LAYER_IDS = [
-	`${SAMPLE_SOURCE_ID}-points`,
-	`${SAMPLE_SOURCE_ID}-lines`,
-	`${SAMPLE_SOURCE_ID}-polygon-fill`,
-] as const;
+export const SAMPLE_INTERACTIVE_LAYER_IDS = interactiveLayerIds(SAMPLE_SOURCE_ID);
 
-const SAMPLE_SELECTED_LAYER_IDS = [
-	`${SAMPLE_SOURCE_ID}-selected-fill`,
-	`${SAMPLE_SOURCE_ID}-selected-outline`,
-	`${SAMPLE_SOURCE_ID}-selected-line`,
-	`${SAMPLE_SOURCE_ID}-selected-point`,
-] as const;
+const SAMPLE_SELECTED_LAYER_IDS = selectedLayerIds(SAMPLE_SOURCE_ID);
 
-export const SAMPLE_LAYER_IDS = [
-	`${SAMPLE_SOURCE_ID}-polygon-fill`,
-	`${SAMPLE_SOURCE_ID}-polygon-outline`,
-	`${SAMPLE_SOURCE_ID}-lines`,
-	`${SAMPLE_SOURCE_ID}-points`,
-	...SAMPLE_SELECTED_LAYER_IDS,
-] as const;
+export const SAMPLE_LAYER_IDS = allLayerIds(SAMPLE_SOURCE_ID);
 
 // Color by the server-resolved status property; an unexpected value falls to the
 // awaiting tone so a point is never left unpainted.
@@ -98,10 +85,6 @@ const statusColor: ExpressionSpecification = [
 	colors.unidentifiable,
 	colors.awaiting,
 ];
-
-const polygonOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];
-const lineOnly: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'];
-const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
 
 /** Build the tile template URL with the active filters folded into the query. */
 export function buildSampleTileUrl(serverUrl: string, filters?: SampleTileFilters): string {
@@ -138,104 +121,8 @@ function sampleTileParams(filters?: SampleTileFilters): URLSearchParams {
 }
 
 /** The GL layers for the sample source. `selectedId` drives the highlight set. */
-export function sampleTileLayers(
-	selectedId: string | null,
-): (FillLayerSpecification | LineLayerSpecification | CircleLayerSpecification)[] {
-	// Match the `id` property, not the feature id: tiles use the 4-arg ST_AsMVT (no
-	// native feature id) and promoteId doesn't reach render-time filters, so `['id']`
-	// evaluates to undefined here. An id no feature can carry keeps this empty when
-	// nothing is selected.
-	const matchesSelected: ExpressionSpecification = ['==', ['get', 'id'], selectedId ?? ' '];
-	const selectedPolygon: ExpressionSpecification = ['all', polygonOnly, matchesSelected];
-	const selectedLine: ExpressionSpecification = ['all', lineOnly, matchesSelected];
-	const selectedPoint: ExpressionSpecification = ['all', pointOnly, matchesSelected];
-
-	return [
-		{
-			id: `${SAMPLE_SOURCE_ID}-polygon-fill`,
-			type: 'fill',
-			source: SAMPLE_SOURCE_ID,
-			'source-layer': SAMPLE_SOURCE_LAYER,
-			filter: polygonOnly,
-			paint: { 'fill-color': statusColor, 'fill-opacity': 0.24 },
-		},
-		{
-			id: `${SAMPLE_SOURCE_ID}-polygon-outline`,
-			type: 'line',
-			source: SAMPLE_SOURCE_ID,
-			'source-layer': SAMPLE_SOURCE_LAYER,
-			filter: polygonOnly,
-			paint: {
-				'line-color': statusColor,
-				'line-opacity': 0.8,
-				'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 16, 2],
-			},
-		},
-		{
-			id: `${SAMPLE_SOURCE_ID}-lines`,
-			type: 'line',
-			source: SAMPLE_SOURCE_ID,
-			'source-layer': SAMPLE_SOURCE_LAYER,
-			filter: lineOnly,
-			paint: {
-				'line-color': statusColor,
-				'line-opacity': 0.82,
-				'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.2, 16, 3],
-			},
-		},
-		{
-			id: `${SAMPLE_SOURCE_ID}-points`,
-			type: 'circle',
-			source: SAMPLE_SOURCE_ID,
-			'source-layer': SAMPLE_SOURCE_LAYER,
-			filter: pointOnly,
-			paint: {
-				'circle-color': statusColor,
-				'circle-opacity': 0.92,
-				'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3, 16, 6.5],
-				'circle-stroke-color': colors.pointStroke,
-				'circle-stroke-width': 1.2,
-			},
-		},
-		// --- selection highlight: drawn on top, scoped to the selected feature ---
-		{
-			id: `${SAMPLE_SOURCE_ID}-selected-fill`,
-			type: 'fill',
-			source: SAMPLE_SOURCE_ID,
-			'source-layer': SAMPLE_SOURCE_LAYER,
-			filter: selectedPolygon,
-			paint: { 'fill-color': colors.selected, 'fill-opacity': 0.3 },
-		},
-		{
-			id: `${SAMPLE_SOURCE_ID}-selected-outline`,
-			type: 'line',
-			source: SAMPLE_SOURCE_ID,
-			'source-layer': SAMPLE_SOURCE_LAYER,
-			filter: selectedPolygon,
-			paint: { 'line-color': colors.selected, 'line-width': 3 },
-		},
-		{
-			id: `${SAMPLE_SOURCE_ID}-selected-line`,
-			type: 'line',
-			source: SAMPLE_SOURCE_ID,
-			'source-layer': SAMPLE_SOURCE_LAYER,
-			filter: selectedLine,
-			paint: { 'line-color': colors.selected, 'line-width': 5 },
-		},
-		{
-			id: `${SAMPLE_SOURCE_ID}-selected-point`,
-			type: 'circle',
-			source: SAMPLE_SOURCE_ID,
-			'source-layer': SAMPLE_SOURCE_LAYER,
-			filter: selectedPoint,
-			paint: {
-				'circle-color': colors.selected,
-				'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 6, 16, 10],
-				'circle-stroke-color': colors.pointStroke,
-				'circle-stroke-width': 2.5,
-			},
-		},
-	];
+export function sampleTileLayers(selectedId: string | null): GeometryTileLayer[] {
+	return geometryTileLayers(SAMPLE_SOURCE_ID, { fill: statusColor, line: statusColor }, selectedId);
 }
 
 export { SAMPLE_SELECTED_LAYER_IDS };
