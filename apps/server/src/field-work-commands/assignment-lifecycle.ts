@@ -14,8 +14,8 @@
  * half.
  */
 
-import { CLOCK_SKEW_TOLERANCE_MS } from '@simmer-mosquito/domain';
 import { CommandError } from '../command-endpoint.js';
+import { isProgressBeforeStart, type ProgressTiming } from '../progress-timing.js';
 import type { FieldWorkTransaction } from './shared.js';
 
 /** Assignment state, derived from timestamps — there is no status column by design. */
@@ -72,42 +72,6 @@ const REJECTION_REASONS: Record<LifecycleRejection, string> = {
 	assignment_item_progress_before_start:
 		'This stop is dated before the assignment started. Check the assignment start time.',
 };
-
-/**
- * Whether a device-stamped progress time sits before the assignment began.
- *
- * `docs/field-work-support-domain.md` requires progress timestamps to be on or
- * after `assignments.started_at`. The two values come from different clocks:
- * `started_at` is stamped by the server (`now()` when the command omits it) and
- * the progress time comes from the device that finished the stop. Compared
- * strictly, a phone a minute slow would have a genuinely-completed stop refused
- * for happening "before" an assignment it was plainly part of — the same
- * failure `CLOCK_SKEW_TOLERANCE_MS` was added to prevent from the other
- * direction, which is why it is the same allowance here rather than a second
- * number to keep in step.
- *
- * Answers false when either side is unknown. A null progress time means the
- * server is about to stamp it, and a null `started_at` means there is nothing to
- * be before — `checkItemProgress` has already refused that case as
- * `assignment_not_started`.
- */
-export function isProgressBeforeStart(progressAt: Date | null, startedAt: Date | null): boolean {
-	if (progressAt === null || startedAt === null) {
-		return false;
-	}
-	return progressAt.getTime() < startedAt.getTime() - CLOCK_SKEW_TOLERANCE_MS;
-}
-
-/**
- * The clocks a progress command is judged against.
- *
- * `reopen` and `unskip` clear a timestamp rather than setting one, so they pass
- * `progressAt: null` and the comparison does not apply to them.
- */
-export interface ProgressTiming {
-	readonly progressAt: Date | null;
-	readonly startedAt: Date | null;
-}
 
 export function readAssignmentState(row: {
 	readonly started_at: Date | null;

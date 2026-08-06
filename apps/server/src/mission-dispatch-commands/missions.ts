@@ -19,6 +19,13 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import {
+	assertMissionTransition,
+	checkCancelMission,
+	checkCompleteMission,
+	checkReopenMission,
+	checkStartMission,
+} from './mission-lifecycle.js';
+import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
@@ -343,17 +350,49 @@ async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.startMission':
+			await assertMissionTransition(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				checkStartMission,
+			);
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				started_at: command.payload.startedAt === null ? sql`now()` : command.payload.startedAt,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
-		case 'missionDispatch.completeMission':
+		case 'missionDispatch.completeMission': {
+			const snapshot = await assertMissionTransition(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				(current) => checkCompleteMission(current, { autoStart: command.payload.autoStartMission }),
+			);
+			// The documented auto-start: a mission finished without anyone having
+			// started it takes `completedAt` as its start, so its window contains
+			// the work rather than beginning after it. Folded into this update
+			// rather than done as a second write — the row is already locked and
+			// both timestamps describe the same commit.
+			const autoStart =
+				snapshot.state === 'scheduled' && command.payload.autoStartMission
+					? {
+							started_at:
+								command.payload.completedAt === null ? sql`now()` : command.payload.completedAt,
+						}
+					: {};
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
+				...autoStart,
 				completed_at:
 					command.payload.completedAt === null ? sql`now()` : command.payload.completedAt,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
+		}
 		case 'missionDispatch.cancelMission':
+			await assertMissionTransition(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				checkCancelMission,
+			);
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				cancelled_at:
 					command.payload.cancelledAt === null ? sql`now()` : command.payload.cancelledAt,
@@ -361,6 +400,12 @@ async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.reopenMission':
+			await assertMissionTransition(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				checkReopenMission,
+			);
 			// Preserves `started_at` for the same reason assignment reopen does: the
 			// mission returns to in progress, and the original start time is not
 			// recoverable from anywhere else.

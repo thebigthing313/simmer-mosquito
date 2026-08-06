@@ -17,6 +17,7 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
+import { assertMissionItemProgress, autoStartMissionIfScheduled } from './mission-lifecycle.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -325,7 +326,26 @@ async function writeMissionItemCommand(
 				},
 			);
 		}
-		case 'missionDispatch.completeMissionItem':
+		case 'missionDispatch.completeMissionItem': {
+			const { missionId, snapshot } = await assertMissionItemProgress(
+				trx,
+				command.payload.missionItemId,
+				command.payload.organizationId,
+				'complete',
+				{
+					progressAt: command.payload.completedAt,
+					autoStart: command.payload.autoStartMission,
+				},
+			);
+			await autoStartMissionIfScheduled(trx, missionId, command.payload.organizationId, snapshot, {
+				autoStart: command.payload.autoStartMission,
+				startedAt: command.payload.completedAt,
+				actorProfileId: command.payload.actorProfileId,
+			});
+			// `skipped_at` is still cleared, but only ever from a pending stop now:
+			// the precondition sends a skipped one through unskip first, so the skip
+			// and its reason can no longer be erased by a completion nobody meant to
+			// overwrite it with.
 			return updateMissionItemRow(
 				trx,
 				command.payload.missionItemId,
@@ -340,7 +360,18 @@ async function writeMissionItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 			);
+		}
 		case 'missionDispatch.reopenMissionItem':
+			await assertMissionItemProgress(
+				trx,
+				command.payload.missionItemId,
+				command.payload.organizationId,
+				// Reopening clears the completion rather than dating it, so there is no
+				// device timestamp for the start-time rule to judge — and no reason to
+				// start a mission in order to un-record something on it.
+				'reopen',
+				{ progressAt: null, autoStart: false },
+			);
 			return updateMissionItemRow(
 				trx,
 				command.payload.missionItemId,
@@ -351,7 +382,19 @@ async function writeMissionItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 			);
-		case 'missionDispatch.skipMissionItem':
+		case 'missionDispatch.skipMissionItem': {
+			const { missionId, snapshot } = await assertMissionItemProgress(
+				trx,
+				command.payload.missionItemId,
+				command.payload.organizationId,
+				'skip',
+				{ progressAt: command.payload.skippedAt, autoStart: command.payload.autoStartMission },
+			);
+			await autoStartMissionIfScheduled(trx, missionId, command.payload.organizationId, snapshot, {
+				autoStart: command.payload.autoStartMission,
+				startedAt: command.payload.skippedAt,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			return updateMissionItemRow(
 				trx,
 				command.payload.missionItemId,
@@ -365,7 +408,15 @@ async function writeMissionItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 			);
+		}
 		case 'missionDispatch.unskipMissionItem':
+			await assertMissionItemProgress(
+				trx,
+				command.payload.missionItemId,
+				command.payload.organizationId,
+				'unskip',
+				{ progressAt: null, autoStart: false },
+			);
 			return updateMissionItemRow(
 				trx,
 				command.payload.missionItemId,

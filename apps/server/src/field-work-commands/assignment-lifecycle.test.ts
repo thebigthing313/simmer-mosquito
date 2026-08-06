@@ -1,12 +1,12 @@
 import { CLOCK_SKEW_TOLERANCE_MS } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
+import { isProgressBeforeStart } from '../progress-timing.js';
 import {
 	type AssignmentSnapshot,
 	checkCompleteAssignment,
 	checkItemProgress,
 	checkReopenAssignment,
 	checkStartAssignment,
-	isProgressBeforeStart,
 	readAssignmentItemState,
 	readAssignmentState,
 } from './assignment-lifecycle.js';

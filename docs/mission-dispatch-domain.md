@@ -346,18 +346,25 @@ Progress timestamps are optional command inputs and default server-side when
 omitted. They cannot be future beyond clock skew and must be on or after
 mission `started_at` once effective start is known.
 
-The clock-skew allowance is enforced. The "on or after `started_at`" rule is
-not, and unlike field work — where it now is — the reason is that mission
-dispatch has no lifecycle preconditions at all: no mission command checks the
-mission's state before writing, so there is nothing for a timing rule to attach
-to. That gap is tracked in issue #64, and the timing rule comes with it.
+Both are enforced, in `apps/server/src/mission-dispatch-commands/mission-lifecycle.ts`.
 
-"Once effective start is known" is the part that will need deciding there. A
-progress command may auto-start a scheduled mission, so on that path the
-`started_at` being compared against is stamped by the very command under
-validation. The field-work rule sidesteps this because assignments do not
-auto-start; missions cannot, and the sensible reading is that the comparison
-applies only when the mission was already started before the command ran.
+"Once effective start is known" is settled as: **the mission was already started
+before the command ran**. On the auto-start path the `started_at` a progress
+timestamp would be compared against is the one the very command under validation
+is about to stamp, so there is no prior start for it to be before and the
+comparison does not apply. Auto-start writes the progress timestamp itself as
+`started_at`, so a mission's window contains the work that opened it rather than
+beginning after it.
+
+The clock-skew allowance is the one in `isProgressBeforeStart`
+(`apps/server/src/progress-timing.ts`), shared with field work — the two domains
+state the same rule about the same pair of clocks, and one of them drifting from
+the other would be a bug in whichever moved.
+
+Not yet enforced: the early-start rule that `acknowledgedEarlyStart` exists for.
+The flag rides on `startMission`, `completeMissionItem`, and `skipMissionItem`,
+but this document never says what counts as early, so there is nothing to
+implement against.
 
 `skipMissionItem` requires a non-empty trimmed `skipReason` and uses plain text
 only. No skip reason enum or lookup table is part of v1.
