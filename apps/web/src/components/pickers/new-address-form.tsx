@@ -102,13 +102,19 @@ export function NewAddressForm({
 		if (requestMapPoint === undefined) {
 			return;
 		}
+		// Closed *before* the click is awaited. The geocoder dialog is modal, so
+		// leaving it up while waiting means its overlay swallows the map click the
+		// await is waiting for — the request never resolves and the dialog never
+		// closes, which is what "Use Manual Coordinates" looked like from the far
+		// side: a modal that would not go away over a map that would not respond.
+		setGeocoderOpen(false);
 		try {
 			setGeometry(await requestMapPoint({ prompt: 'Click the map to place this address.' }));
 			// The point is what the outstanding complaint was about, so retire it.
 			setSaveError(null);
-			setGeocoderOpen(false);
-		} catch (error) {
-			setSaveError(error instanceof Error ? error.message : 'Unable to draw address point.');
+		} catch {
+			// Draw cancelled (Esc / another map request took over); keep the prior
+			// point and stay quiet — the user called it off.
 		}
 	}
 
