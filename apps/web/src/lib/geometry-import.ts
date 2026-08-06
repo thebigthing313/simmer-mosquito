@@ -299,7 +299,7 @@ function closeRing(positions: readonly ImportPosition[]): ImportPosition[] {
 // KML
 // ---------------------------------------------------------------------------
 
-export function parseKmlGroups(text: string, kinds: readonly ImportGeometryKind[]): ImportGroup[] {
+function parseKmlGroups(text: string, kinds: readonly ImportGeometryKind[]): ImportGroup[] {
 	if (typeof DOMParser === 'undefined') {
 		throw new Error('KML parsing is only available in the browser.');
 	}

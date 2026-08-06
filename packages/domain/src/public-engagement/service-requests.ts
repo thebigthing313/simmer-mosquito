@@ -5,6 +5,7 @@ import {
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateLocalDate,
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import type {
@@ -25,7 +26,6 @@ import {
 	validateBase,
 	validateContactReference,
 	validateIdCommand,
-	validateLocalDate,
 	validateServiceRequestLocation,
 } from './core.js';
 export interface CreateServiceRequestCommandInput extends PublicEngagementCommandInput {

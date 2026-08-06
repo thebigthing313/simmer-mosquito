@@ -10,7 +10,7 @@ export interface DatePreset {
 	readonly days: number | null;
 }
 
-export const DATE_PRESETS: readonly DatePreset[] = [
+const DATE_PRESETS: readonly DatePreset[] = [
 	{ id: '7d', label: 'Last 7 days', days: 7 },
 	{ id: '30d', label: 'Last 30 days', days: 30 },
 	{ id: '90d', label: 'Last 90 days', days: 90 },

@@ -1,4 +1,4 @@
-import type { ColumnType, Generated, RawBuilder } from 'kysely';
+import type { ColumnType, Generated, Kysely, RawBuilder, Transaction } from 'kysely';
 
 type TimestampWithDefault = ColumnType<Date, Date | undefined, Date | undefined>;
 type NullableTimestampWithDefault = ColumnType<
@@ -1116,3 +1116,14 @@ export interface SimmerDatabase {
 	weather_source_subscriptions: WeatherSourceSubscriptionsTable;
 	weather_summaries: WeatherSummariesTable;
 }
+
+/**
+ * Anything that can run a query: the pool-backed instance or a transaction on it.
+ *
+ * Every reader and writer in `domains/` and `seeds/` takes one of these so the
+ * same function works inside a server-authorized transaction and standalone.
+ * It was declared identically in eight modules before living here, which made it
+ * a private type in each of their exported signatures — callers could pass one
+ * but could not name it.
+ */
+export type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;

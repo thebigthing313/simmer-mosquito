@@ -11,7 +11,7 @@ import {
 	validateAdHocInspectionLocationSource,
 	validateHabitatLocationSource,
 } from '../location-intent.js';
-import type { DomainId, DomainValidationIssue, LocalDateString } from '../shared.js';
+import type { DomainId, DomainValidationIssue } from '../shared.js';
 
 export type ImmatureStageFlag =
 	| 'hasFirstInstar'
@@ -65,14 +65,6 @@ export interface LarvalCommandPayload {
 	readonly actorProfileId: DomainId;
 }
 
-export interface HabitatIdLike extends LarvalCommandInput {
-	readonly habitatId: DomainId;
-}
-
-export interface SampleIdLike extends LarvalCommandInput {
-	readonly sampleId: DomainId;
-}
-
 export interface SampleSpeciesIdLike extends LarvalCommandInput {
 	readonly sampleSpeciesId: DomainId;
 }
@@ -118,26 +110,6 @@ export function validatePositiveInteger(
 ): void {
 	if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
 		issues.push({ path, message: `${path} must be a positive integer.` });
-	}
-}
-
-export function validateLocalDate(
-	value: LocalDateString | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	if (value === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-		issues.push({ path, message: `${path} must be a YYYY-MM-DD date string.` });
-		return;
-	}
-	const parsed = new Date(`${value}T00:00:00.000Z`);
-	if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-		issues.push({ path, message: `${path} must be a valid calendar date.` });
-		return;
-	}
-	const today = new Date().toISOString().slice(0, 10);
-	if (value > today) {
-		issues.push({ path, message: `${path} cannot be in the future.` });
 	}
 }
 

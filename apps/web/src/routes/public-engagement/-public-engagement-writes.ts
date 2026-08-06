@@ -5,4 +5,4 @@
 // `src/sync/settle-write.ts` and is used app-wide; re-exported here so existing
 // public-engagement imports keep working.
 
-export { isTxIdConfirmationTimeout, settleWrite } from '../../sync/settle-write';
+export { settleWrite } from '../../sync/settle-write';

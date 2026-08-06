@@ -3,6 +3,7 @@ import {
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateNotFutureLocalDate,
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
@@ -10,7 +11,6 @@ import {
 	type AdultCommandPayload,
 	basePayload,
 	type DomainCommand,
-	validateLocalDate,
 	validateSpeciesCount,
 	validateSpeciesCountBase,
 } from './shared.js';
@@ -88,7 +88,7 @@ export function addCollectionSpeciesCountCommand(
 	requireUuid(input.collectionId, 'collectionId', issues);
 	requireUuid(input.speciesId, 'speciesId', issues);
 	validateSpeciesCount(input.count, 'count', issues);
-	validateLocalDate(input.identifiedDate, 'identifiedDate', issues);
+	validateNotFutureLocalDate(input.identifiedDate, 'identifiedDate', issues);
 	throwIfIssues('Add collection species count command is invalid.', issues);
 
 	return {
@@ -130,7 +130,7 @@ export function updateCollectionSpeciesCountCommand(
 		requireUuid(input.speciesId, 'speciesId', issues);
 	}
 	if (hasIdentifiedDate) {
-		validateLocalDate(input.identifiedDate, 'identifiedDate', issues);
+		validateNotFutureLocalDate(input.identifiedDate, 'identifiedDate', issues);
 	}
 	throwIfIssues('Update collection species count command is invalid.', issues);
 

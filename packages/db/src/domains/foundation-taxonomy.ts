@@ -1,7 +1,8 @@
-import { type Kysely, sql, type Transaction } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 
 import type {
 	CreateUnitInput,
+	DbExecutor,
 	MutationWriteResult,
 	SafeUnit,
 	SimmerDatabase,
@@ -63,8 +64,6 @@ export interface SafeOrganizationSpecies {
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
-
-type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
 
 export async function createGenus(db: DbExecutor, input: CreateGenusInput): Promise<SafeGenus> {
 	const row = await db

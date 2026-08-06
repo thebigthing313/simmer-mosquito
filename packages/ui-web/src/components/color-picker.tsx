@@ -11,7 +11,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 
-interface ColorPickerProps {
+export interface ColorPickerProps {
 	readonly value: string | null;
 	readonly onChange: (next: string | null) => void;
 	readonly disabled?: boolean;

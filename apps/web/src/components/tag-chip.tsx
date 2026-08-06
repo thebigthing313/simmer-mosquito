@@ -1,6 +1,7 @@
 import type { TagRow } from '@simmer-mosquito/sync';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { CSSProperties } from 'react';
+import { hexWithAlpha } from '../lib/hex-color';
 
 /**
  * A tag, tinted from the colour the agency chose for it.
@@ -10,7 +11,7 @@ import type { CSSProperties } from 'react';
  * that reads. A missing or malformed colour falls back to neutral rather than
  * rendering something unreadable.
  */
-export function TagChip({ tag }: { readonly tag: TagRow }) {
+function TagChip({ tag }: { readonly tag: TagRow }) {
 	const style = tagColorStyle(tag.color);
 	return (
 		<span
@@ -47,7 +48,7 @@ export function TagChipRow({
 }
 
 /** A tinted chip style from a #RGB/#RRGGBB tag colour, or null for neutral. */
-export function tagColorStyle(color: string | null): CSSProperties | null {
+function tagColorStyle(color: string | null): CSSProperties | null {
 	if (color === null || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color.trim())) {
 		return null;
 	}
@@ -57,13 +58,4 @@ export function tagColorStyle(color: string | null): CSSProperties | null {
 		backgroundColor: hexWithAlpha(hex, 0.14),
 		color: hex,
 	};
-}
-
-function hexWithAlpha(hex: string, alpha: number): string {
-	const normalized =
-		hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
-	const value = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
-		.toString(16)
-		.padStart(2, '0');
-	return `${normalized}${value}`;
 }

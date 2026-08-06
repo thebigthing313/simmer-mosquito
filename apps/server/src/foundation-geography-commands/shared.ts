@@ -210,7 +210,7 @@ export type CommandsResult =
 	| { readonly ok: true; readonly commands: readonly FoundationCommand[] }
 	| { readonly ok: false; readonly body: InvalidCommandBody };
 
-export class CommandError extends Error {
+class CommandError extends Error {
 	constructor(
 		readonly status: 400 | 404,
 		readonly body: { readonly error: string },
@@ -282,7 +282,7 @@ export function geojsonToGeom(geojson: unknown) {
 	), 4326))`;
 }
 
-export async function readCurrentTransactionId(trx: FoundationTransaction): Promise<number> {
+async function readCurrentTransactionId(trx: FoundationTransaction): Promise<number> {
 	const result = await sql<{
 		txid: string;
 	}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
@@ -324,6 +324,6 @@ export function readNullableText(value: unknown): string | null {
 	return readText(value);
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

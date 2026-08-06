@@ -15,7 +15,6 @@ import {
 	type DomainValidationIssue,
 	type GeoJsonPoint,
 	type JsonObject,
-	type LocalDateString,
 	normalizeGeometry,
 	normalizePointGeometry,
 	type SupportedGeoJsonGeometry,
@@ -207,7 +206,7 @@ export interface NotificationRegistrationSubscription {
 export const REQUEST_INTAKE_TYPES = ['online', 'phone', 'walk-in', 'other'] as const;
 export const NOTIFICATION_CHANNELS = ['email', 'sms', 'phone'] as const;
 export const MISSION_NOTIFICATION_STATUSES = ['pending', 'completed', 'failed', 'skipped'] as const;
-export const REGISTRATION_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon'] as const;
+const REGISTRATION_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon'] as const;
 
 export function validateBase(
 	input: PublicEngagementCommandInput,
@@ -270,7 +269,7 @@ export function validateServiceRequestLocation(
 	};
 }
 
-export function validateServiceRequestAddress(
+function validateServiceRequestAddress(
 	input: ServiceRequestAddressInput,
 	path: string,
 	issues: DomainValidationIssue[],
@@ -311,7 +310,7 @@ export function validateNotificationRegistrationLocation(
 	};
 }
 
-export function validateNotificationAddress(
+function validateNotificationAddress(
 	input: NotificationRegistrationAddressInput,
 	path: string,
 	issues: DomainValidationIssue[],
@@ -432,7 +431,7 @@ export function normalizeCreateContactDetails(
 	};
 }
 
-export function emptyContactDetails(): CreateContactDetails {
+function emptyContactDetails(): CreateContactDetails {
 	return {
 		contactName: null,
 		preferredPhone: null,
@@ -447,7 +446,7 @@ export function emptyContactDetails(): CreateContactDetails {
 	};
 }
 
-export function normalizeInlineAddressDetails(
+function normalizeInlineAddressDetails(
 	input: CreateInlineAddressDetailsInput,
 	path: string,
 	issues: DomainValidationIssue[],
@@ -583,7 +582,7 @@ export function validatePhonePreferencePatch(
 	}
 }
 
-export function validatePointGeometry(
+function validatePointGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
@@ -599,7 +598,7 @@ export function validatePointGeometry(
 	}
 }
 
-export function validateRegistrationGeometry(
+function validateRegistrationGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
@@ -636,21 +635,6 @@ export function validateIdList(
 	});
 }
 
-export function validateLocalDate(
-	value: LocalDateString | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	if (value === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-		issues.push({ path, message: `${path} must be a YYYY-MM-DD date string.` });
-		return;
-	}
-	const parsed = new Date(`${value}T00:00:00.000Z`);
-	if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-		issues.push({ path, message: `${path} must be a valid calendar date.` });
-	}
-}
-
 export function normalizeOptionalTimestamp(
 	value: Date | null | undefined,
 	path: string,
@@ -669,7 +653,7 @@ export function normalizeOptionalTimestamp(
 	return value;
 }
 
-export function normalizeCountry(
+function normalizeCountry(
 	value: string | null | undefined,
 	path: string,
 	issues: DomainValidationIssue[],
@@ -681,7 +665,7 @@ export function normalizeCountry(
 	return 'US';
 }
 
-export function normalizeUsRegion(
+function normalizeUsRegion(
 	value: string | null | undefined,
 	path: string,
 	issues: DomainValidationIssue[],
@@ -697,7 +681,7 @@ export function normalizeUsRegion(
 	return upper;
 }
 
-export function normalizePostalCode(
+function normalizePostalCode(
 	value: string | null | undefined,
 	path: string,
 	issues: DomainValidationIssue[],
@@ -763,6 +747,6 @@ export function validateBoolean(
 	}
 }
 
-export function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -85,4 +85,4 @@ export function useActiveDomainIndex(): number {
 	return domains.findIndex((candidate) => candidate.id === domain.id);
 }
 
-export type { ShellDomain, ShellNavItem } from './types';
+export type { ShellDomain } from './types';

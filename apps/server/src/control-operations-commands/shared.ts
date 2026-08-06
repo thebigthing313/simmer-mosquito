@@ -105,7 +105,7 @@ export async function writeActionCommands<TSafe>(
 // Location source / context resolution
 // ===========================================================================
 
-export type GeomTable =
+type GeomTable =
 	| 'addresses'
 	| 'habitats'
 	| 'inspections'
@@ -170,7 +170,7 @@ export async function resolveGeom(
 	}
 }
 
-export async function loadGeojson(
+async function loadGeojson(
 	trx: ControlOperationsTransaction,
 	table: GeomTable,
 	id: string,
@@ -744,7 +744,7 @@ export type ApplicationUpdateColumns = {
 	updated_by_profile_id: string;
 };
 
-export class CommandError extends Error {
+class CommandError extends Error {
 	constructor(
 		readonly status: 400 | 403 | 404,
 		readonly body: { readonly error: string; readonly reason?: string },
@@ -805,7 +805,7 @@ export function agencyCommandContext(authContext: AuthContext): AgencyContext {
 	};
 }
 
-export function geojsonToGeom(geojson: unknown) {
+function geojsonToGeom(geojson: unknown) {
 	const serialized = JSON.stringify(geojson);
 	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
 		case
@@ -874,6 +874,6 @@ export function readDate(value: unknown): Date | null {
 	return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

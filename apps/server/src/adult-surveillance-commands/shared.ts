@@ -425,7 +425,7 @@ export interface CollectionInsertInput {
 	readonly actorProfileId: string;
 }
 
-export class CommandError extends Error {
+class CommandError extends Error {
 	constructor(
 		readonly status: 400 | 404,
 		readonly body: { readonly error: string },
@@ -563,6 +563,6 @@ export function readSpeciesStatus(
 		: null;
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

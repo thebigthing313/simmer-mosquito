@@ -1,6 +1,6 @@
 import { type Kysely, sql, type Transaction } from 'kysely';
 
-import type { MutationWriteResult, SimmerDatabase } from '../index.js';
+import type { DbExecutor, MutationWriteResult, SimmerDatabase } from '../index.js';
 
 export type OrgLookupKind = 'collection_methods' | 'collection_lures' | 'habitat_types';
 
@@ -68,8 +68,6 @@ export interface HabitatTypeLookupLifecycleInput {
 	readonly organizationId: string;
 	readonly actorProfileId?: string | null;
 }
-
-type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
 
 export async function createOrgLookup(
 	db: DbExecutor,

@@ -124,15 +124,6 @@ export function useRouteStopCounts(): {
 	return { countByRouteId, isLoading: result.isLoading };
 }
 
-/** A single habitat route by id (or null while unresolved). */
-export function useHabitatRoute(routeId: string | null): RouteRow | null {
-	const { routes } = useHabitatRoutes();
-	return useMemo(
-		() => (routeId === null ? null : (routes.find((route) => route.id === routeId) ?? null)),
-		[routes, routeId],
-	);
-}
-
 function useRouteItems(routeId: string | null): {
 	readonly items: readonly RouteItemRow[];
 	readonly isLoading: boolean;
@@ -317,7 +308,7 @@ export function useRouteStops(routeId: string | null): {
 }
 
 /** Group consecutive stops that share a non-null address into one cluster. */
-export function clusterByAddress(stops: readonly RouteStopView[]): RouteStopCluster[] {
+function clusterByAddress(stops: readonly RouteStopView[]): RouteStopCluster[] {
 	const clusters: RouteStopCluster[] = [];
 	for (const stop of stops) {
 		const last = clusters.at(-1);

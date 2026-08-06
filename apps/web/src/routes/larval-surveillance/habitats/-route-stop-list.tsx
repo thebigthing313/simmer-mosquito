@@ -12,6 +12,7 @@ import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, useMemo } from 'react';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { hexWithAlpha } from '../../../lib/hex-color';
 import { webCollections } from '../../../sync/webCollections';
 import { type RouteStopCluster, type RouteStopView, stopTone } from './-route-data';
 
@@ -301,13 +302,4 @@ function tagColorStyle(color: string | null): CSSProperties | null {
 		backgroundColor: hexWithAlpha(hex, 0.14),
 		color: hex,
 	};
-}
-
-function hexWithAlpha(hex: string, alpha: number): string {
-	const normalized =
-		hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
-	const value = Math.round(alpha * 255)
-		.toString(16)
-		.padStart(2, '0');
-	return `${normalized}${value}`;
 }

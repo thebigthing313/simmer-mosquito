@@ -5,7 +5,7 @@ import {
 	requiredId as normalizeRequiredId,
 	validateAgencyCommandContext,
 } from '../command-validation.js';
-import type { DomainId, DomainValidationIssue, LocalDateString } from '../shared.js';
+import type { DomainId, DomainValidationIssue } from '../shared.js';
 
 export type CommentTargetType =
 	| 'address'
@@ -199,21 +199,6 @@ export function validateIdCommand<T extends FieldWorkCommandInput>(
 
 export function basePayload(input: FieldWorkCommandInput): FieldWorkCommandPayload {
 	return validateAgencyCommandContext(input, createIssues());
-}
-
-export function validateLocalDate(
-	value: LocalDateString | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	if (value === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-		issues.push({ path, message: `${path} must be a YYYY-MM-DD date string.` });
-		return;
-	}
-	const parsed = new Date(`${value}T00:00:00.000Z`);
-	if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-		issues.push({ path, message: `${path} must be a valid calendar date.` });
-	}
 }
 
 export function normalizeOptionalTimestamp(

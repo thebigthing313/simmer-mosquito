@@ -89,7 +89,7 @@ export function validateAgainstCommand(
  * Returning `undefined` passes. Otherwise `fields` populates each named field's
  * error and `form` populates the alert.
  */
-export function toFormValidatorResult(
+function toFormValidatorResult(
 	errors: DomainFormErrors | undefined,
 ): { readonly form?: string; readonly fields?: Record<string, string> } | undefined {
 	if (errors === undefined) {

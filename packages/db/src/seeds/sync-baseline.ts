@@ -1,7 +1,5 @@
-import { type Kysely, sql, type Transaction } from 'kysely';
-import type { RouteType, SimmerDatabase, UnitSystem, UnitType } from '../index.js';
-
-type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
+import { type Kysely, sql } from 'kysely';
+import type { DbExecutor, RouteType, SimmerDatabase, UnitSystem, UnitType } from '../index.js';
 
 export const SYNC_BASELINE_ORGANIZATION_ID = '00000000-0000-4000-8000-000000000101';
 
@@ -310,7 +308,7 @@ export interface SeedSyncBaselineResult {
 	readonly routeCount: number;
 }
 
-type WithDynamicId<T extends { readonly id: string }> = Omit<T, 'id'> & {
+export type WithDynamicId<T extends { readonly id: string }> = Omit<T, 'id'> & {
 	readonly id: string;
 };
 

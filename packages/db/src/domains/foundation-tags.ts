@@ -1,6 +1,6 @@
 import { type Kysely, sql, type Transaction } from 'kysely';
 
-import type { MutationWriteResult, SimmerDatabase } from '../index.js';
+import type { DbExecutor, MutationWriteResult, SimmerDatabase } from '../index.js';
 
 export interface CreateTagInput {
 	readonly id?: string;
@@ -38,8 +38,6 @@ export interface SafeTag {
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
-
-type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
 
 export async function createTag(db: DbExecutor, input: CreateTagInput): Promise<SafeTag> {
 	const row = await db

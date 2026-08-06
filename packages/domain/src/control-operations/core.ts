@@ -261,7 +261,7 @@ export function locationContextChanges(
 	};
 }
 
-export function validatePatchLocationSource(
+function validatePatchLocationSource(
 	input: {
 		readonly locationSource?:
 			| ControlActionLocationSourceInput
@@ -330,18 +330,6 @@ export function normalizePositiveFiniteNumber(
 	return value;
 }
 
-export function normalizeNonnegativeFiniteNumber(
-	value: number | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): number {
-	if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-		issues.push({ path, message: `${path} must be a nonnegative finite number.` });
-		return 0;
-	}
-	return value;
-}
-
 export function normalizePositiveInteger(
 	value: number | undefined,
 	path: string,
@@ -383,7 +371,7 @@ export function normalizeStringUnion<TValue extends string>(
 	return value as TValue;
 }
 
-export function humanizeCommandType(type: string): string {
+function humanizeCommandType(type: string): string {
 	const command = type.split('.').at(-1) ?? type;
 	return command.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase());
 }

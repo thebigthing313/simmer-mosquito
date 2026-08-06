@@ -13,10 +13,10 @@ import {
 // definition. Every codec drops what it cannot read, so a malformed or
 // hand-edited URL degrades to the explorer's own defaults instead of erroring.
 
-export const inspectionDensityValues = ['none', 'light', 'medium', 'heavy', 'very_heavy'] as const;
+const inspectionDensityValues = ['none', 'light', 'medium', 'heavy', 'very_heavy'] as const;
 export type InspectionDensityValue = (typeof inspectionDensityValues)[number];
 
-export const waterValues = ['all', 'wet', 'dry'] as const;
+const waterValues = ['all', 'wet', 'dry'] as const;
 export type WaterFilterValue = (typeof waterValues)[number];
 
 /** The explorer's filter state, keyed by the param each field appears under. */

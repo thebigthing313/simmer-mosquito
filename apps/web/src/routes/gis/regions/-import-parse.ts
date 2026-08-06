@@ -12,16 +12,12 @@ import {
 	flattenGeometries,
 	type ImportGroup,
 	type ImportPolygonGeometry,
-	type ImportPosition,
 	importCandidatesFrom,
 	POLYGON_KINDS,
 	parseGeoJsonGroups,
-	parseKmlGroups,
 } from '../../../lib/geometry-import';
 
 export { declareMissingNamespaces, parseKmlCoordinates } from '../../../lib/geometry-import';
-
-export type Position = ImportPosition;
 
 export type ImportPolygon = ImportPolygonGeometry;
 
@@ -53,10 +49,6 @@ export function parseRegionsFromFile(text: string, fileName: string): ParseResul
 
 export function parseGeoJson(text: string): ParseResult {
 	return finalize(parseGeoJsonGroups(text, POLYGON_KINDS));
-}
-
-export function parseKml(text: string): ParseResult {
-	return finalize(parseKmlGroups(text, POLYGON_KINDS));
 }
 
 /** Flatten any GeoJSON geometry into the polygons it contains. */

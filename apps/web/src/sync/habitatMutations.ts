@@ -2,7 +2,7 @@ import type { HabitatRow } from '@simmer-mosquito/sync';
 import { isNoOpUpdate, pickChanged } from './change-set';
 import { commandErrorFrom } from './command-error';
 
-export interface HabitatMutationLocationMetadata {
+interface HabitatMutationLocationMetadata {
 	readonly locationSource: {
 		readonly kind: 'geometry';
 		readonly geometry: unknown;

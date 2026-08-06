@@ -11,7 +11,7 @@ export function errorMessagesFrom(errors: readonly unknown[]): FieldErrorMessage
 	return [...new Set(messages)].map((message) => ({ message }));
 }
 
-export function errorMessageFrom(error: unknown): string[] {
+function errorMessageFrom(error: unknown): string[] {
 	if (error === null || error === undefined || error === false) {
 		return [];
 	}

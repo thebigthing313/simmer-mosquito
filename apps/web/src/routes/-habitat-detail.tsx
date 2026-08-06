@@ -71,6 +71,7 @@ import {
 	formatCustomFieldValue,
 } from '../forms/field-components';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
+import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import { webCollections } from '../sync/webCollections';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
@@ -1277,22 +1278,6 @@ function formatSampleResult(sample: HistorySample): string {
 		return 'Non-mosquito present';
 	}
 	return 'Larvae present';
-}
-
-function validHexColor(value: string | null): string | null {
-	if (value === null) {
-		return null;
-	}
-
-	const normalized = value.trim();
-	return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : null;
-}
-
-function hexWithAlpha(hex: string, alpha: number): string {
-	const alphaHex = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
-		.toString(16)
-		.padStart(2, '0');
-	return `${hex}${alphaHex}`;
 }
 
 function formatDate(value: string): string {

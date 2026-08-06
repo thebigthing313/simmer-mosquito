@@ -173,7 +173,7 @@ export function basePayload(input: MissionDispatchCommandInput): MissionDispatch
 	return validateAgencyCommandContext(input, createIssues());
 }
 
-export function validateLocatableGeometry(
+function validateLocatableGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],

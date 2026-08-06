@@ -1,4 +1,9 @@
-import { createIssues, requiredUuid as requireUuid, throwIfIssues } from '../command-validation.js';
+import {
+	createIssues,
+	requiredUuid as requireUuid,
+	throwIfIssues,
+	validateLocalDate,
+} from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
 	basePayload,
@@ -10,7 +15,6 @@ import {
 	normalizeSummaryMetrics,
 	validateBase,
 	validateDateRange,
-	validateLocalDate,
 	validateMetricPairOrdering,
 	validateMetricSet,
 	WEATHER_SUMMARY_METRIC_FIELDS,

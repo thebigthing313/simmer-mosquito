@@ -15,8 +15,6 @@ export {
 	addDaysToDateString,
 	buildWeek,
 	dayOfMonth,
-	formatDate,
-	formatMonthDay,
 	startOfWeek,
 	todayInTimeZone,
 	useHabitatNames,
@@ -37,7 +35,7 @@ interface LoadState {
 	readonly isError: boolean;
 }
 
-export interface RecentApplication {
+interface RecentApplication {
 	readonly id: string;
 	readonly insecticideId: string;
 	readonly applicationMethodId: string | null;
@@ -73,7 +71,7 @@ export interface RecentBiocontrolAction {
 }
 
 /** Chemical applications made on or after `sinceDate` (a `YYYY-MM-DD`), newest first. */
-export function useRecentApplications(sinceDate: string): {
+function useRecentApplications(sinceDate: string): {
 	readonly applications: readonly RecentApplication[];
 } & LoadState {
 	const result = useLiveQuery(

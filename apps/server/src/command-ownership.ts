@@ -411,7 +411,7 @@ export async function readCommentOwnership(
 		: 'window_expired';
 }
 
-export function isWithinCorrectionWindow(
+function isWithinCorrectionWindow(
 	recordedAt: Date,
 	now: Date,
 	windowDays: number = COMMENT_CORRECTION_WINDOW_DAYS,

@@ -23,28 +23,27 @@ import {
 } from './form-components';
 import { fieldContext, formContext } from './form-contexts';
 
-export const { useAppForm, withForm, withFieldGroup, useTypedAppFormContext, extendForm } =
-	createFormHook({
-		fieldContext,
-		formContext,
-		fieldComponents: {
-			AutocompleteField,
-			HiddenField,
-			JsonSchemaField,
-			MetadataField,
-			MultiSelectField,
-			NumberField,
-			SelectField,
-			SwitchField,
-			TextareaField,
-			TextField,
-			UrlField,
-		},
-		formComponents: {
-			AppFieldGroup,
-			FormActions,
-			FormErrorAlert,
-			ResetButton,
-			SubmitButton,
-		},
-	});
+export const { useAppForm } = createFormHook({
+	fieldContext,
+	formContext,
+	fieldComponents: {
+		AutocompleteField,
+		HiddenField,
+		JsonSchemaField,
+		MetadataField,
+		MultiSelectField,
+		NumberField,
+		SelectField,
+		SwitchField,
+		TextareaField,
+		TextField,
+		UrlField,
+	},
+	formComponents: {
+		AppFieldGroup,
+		FormActions,
+		FormErrorAlert,
+		ResetButton,
+		SubmitButton,
+	},
+});

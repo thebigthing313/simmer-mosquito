@@ -108,13 +108,13 @@ export interface OrganizationSettingsDomainCommand<
 	readonly payload: TPayload;
 }
 
-interface OrganizationSettingsCommandInput {
+export interface OrganizationSettingsCommandInput {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 	readonly expectedUpdatedAt?: Date | null;
 }
 
-interface OrganizationSettingsCommandPayload {
+export interface OrganizationSettingsCommandPayload {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 	readonly expectedUpdatedAt: Date | null;

@@ -209,7 +209,7 @@ function useProfileMembershipRows(
 	return result.data;
 }
 
-export function ProfileGroup({
+function ProfileGroup({
 	canManage,
 	emptyLabel,
 	rows,
@@ -248,7 +248,7 @@ export function ProfileGroup({
 	);
 }
 
-export function ProfileRowItem({
+function ProfileRowItem({
 	canManage,
 	membership,
 	profile,
@@ -285,7 +285,7 @@ export function ProfileRowItem({
 	);
 }
 
-export function HistoricalProfileSheet({
+function HistoricalProfileSheet({
 	onOpenChange,
 	open,
 	organization,
@@ -367,7 +367,7 @@ export function HistoricalProfileSheet({
 	);
 }
 
-export function InviteProfileSheet({
+function InviteProfileSheet({
 	onOpenChange,
 	open,
 	profiles,
@@ -495,7 +495,7 @@ export function InviteProfileSheet({
 	);
 }
 
-export function EditProfileSheet({
+function EditProfileSheet({
 	membership,
 	profile,
 }: {

@@ -3,38 +3,31 @@
 import {
 	Autocomplete,
 	type AutocompleteOption,
+	type AutocompleteProps,
 } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
-import type { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { useFieldContext } from '../form-contexts';
 import { FormFieldFrame } from './field-frame';
 import type { BaseFieldProps } from './text-field';
 
 export type { AutocompleteOption };
 
+/**
+ * Everything the underlying control accepts, minus what the form owns.
+ *
+ * Derived from {@link AutocompleteProps} rather than restated: the search
+ * behaviour props (`getOptions`, `debounceMs`, `getOptionLabel`, …) belong to
+ * the control, and a copy here goes stale the moment one of them changes.
+ * `value`, `id`, and `onBlur` come from the field binding, and the presentation
+ * props `disabled`/`placeholder`/`required` come from {@link BaseFieldProps}.
+ */
+type InheritedAutocompleteProps<TOption extends AutocompleteOption> = Omit<
+	AutocompleteProps<TOption>,
+	'disabled' | 'id' | 'onBlur' | 'onValueChange' | 'placeholder' | 'required' | 'value'
+>;
+
 export interface AutocompleteFieldProps<TOption extends AutocompleteOption = AutocompleteOption>
 	extends BaseFieldProps,
-		Omit<
-			React.ComponentProps<typeof Input>,
-			| 'defaultValue'
-			| 'disabled'
-			| 'id'
-			| 'onBlur'
-			| 'onChange'
-			| 'placeholder'
-			| 'required'
-			| 'value'
-		> {
-	readonly options?: readonly TOption[] | undefined;
-	readonly getOptions?:
-		| ((query: string) => readonly TOption[] | Promise<readonly TOption[]>)
-		| undefined;
-	/**
-	 * The row behind the current value, when the caller already has it. Omit for a
-	 * static `options` list — the field resolves the selection from it by value.
-	 */
-	readonly selectedOption?: TOption | null | undefined;
-	/** What clearing writes back. Use `''` for fields typed as a plain string. */
-	readonly emptyValue?: string | null | undefined;
+		InheritedAutocompleteProps<TOption> {
 	/**
 	 * Runs after the field value changes, with the outgoing value — for selections
 	 * that drive a sibling field (a product's default unit, say).
@@ -42,12 +35,6 @@ export interface AutocompleteFieldProps<TOption extends AutocompleteOption = Aut
 	readonly onValueChange?:
 		| ((value: string | null | undefined, previousValue: string | null | undefined) => void)
 		| undefined;
-	readonly debounceMs?: number | undefined;
-	readonly minQueryLength?: number | undefined;
-	readonly getOptionLabel?: ((option: TOption) => string) | undefined;
-	readonly getOptionValue?: ((option: TOption) => string) | undefined;
-	readonly renderOption?: ((option: TOption) => React.ReactNode) | undefined;
-	readonly renderSelectedValue?: ((option: TOption) => React.ReactNode) | undefined;
 }
 
 /**

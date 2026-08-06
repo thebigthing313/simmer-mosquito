@@ -12,7 +12,7 @@ import type { ShellDomain } from '../types';
  * The pitch holds in both rail widths — only the button's width changes.
  */
 export const PRIMARY_ICON_SIZE = 44;
-export const PRIMARY_ICON_GAP = 6;
+const PRIMARY_ICON_GAP = 6;
 export const PRIMARY_ITEM_PITCH = PRIMARY_ICON_SIZE + PRIMARY_ICON_GAP;
 /** Top padding of the icon list (`py-3`). The active indicator offsets by this. */
 export const PRIMARY_LIST_PADDING_Y = 12;

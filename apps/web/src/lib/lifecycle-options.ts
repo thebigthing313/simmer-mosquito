@@ -14,7 +14,7 @@ export interface LifecycleOption {
 }
 
 /** Mark a row that is out of service without hiding it. */
-export function lifecycleLabel(label: string, isActive: boolean): string {
+function lifecycleLabel(label: string, isActive: boolean): string {
 	return isActive ? label : `${label} (inactive)`;
 }
 

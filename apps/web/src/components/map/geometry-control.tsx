@@ -42,7 +42,7 @@ const GEOMETRY_TYPE_LABELS: Readonly<Record<DrawGeometryType, string>> = {
 };
 
 /** The full locatable set — matches the domain's `LOCATABLE_GEOMETRY_TYPES`. */
-export const LOCATABLE_DRAW_TYPES: readonly DrawGeometryType[] = ['Point', 'LineString', 'Polygon'];
+const LOCATABLE_DRAW_TYPES: readonly DrawGeometryType[] = ['Point', 'LineString', 'Polygon'];
 
 /**
  * The point-only set — matches the domain's `ADDRESS_GEOMETRY_TYPES`, the policy
@@ -312,7 +312,7 @@ export function DrawToolbar({
 	);
 }
 
-export function MapPrompt({ children }: { readonly children: React.ReactNode }) {
+function MapPrompt({ children }: { readonly children: React.ReactNode }) {
 	return (
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in">
 			<p className="m-0 inline-flex items-center gap-2 rounded-md border border-border/60 bg-card/95 px-3 py-2 text-foreground text-sm shadow-lg backdrop-blur-sm">
@@ -322,7 +322,7 @@ export function MapPrompt({ children }: { readonly children: React.ReactNode }) 
 	);
 }
 
-export function geometrySummary(geometry: DrawGeometry | null): string {
+function geometrySummary(geometry: DrawGeometry | null): string {
 	if (geometry === null) {
 		return 'No geometry drawn yet.';
 	}

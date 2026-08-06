@@ -113,7 +113,7 @@ interface SampleEntry {
 	readonly species: readonly SampleSpeciesEntry[];
 }
 
-export function InspectionDetail({ inspectionId }: { readonly inspectionId: string }) {
+function InspectionDetail({ inspectionId }: { readonly inspectionId: string }) {
 	const query = useInspectionDetail(inspectionId);
 
 	return (

@@ -51,7 +51,7 @@ export function toDueAt(values: AssignmentDetailValues): string | null {
 }
 
 /** The stored instant back into an `HH:MM` field value. */
-export function toDueTime(dueAt: string | null): string {
+function toDueTime(dueAt: string | null): string {
 	if (dueAt === null) {
 		return '';
 	}

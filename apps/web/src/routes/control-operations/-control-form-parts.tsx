@@ -20,9 +20,3 @@ export function FormSection({
 		</section>
 	);
 }
-
-/** Trim a form text value down to the nullable column it maps to. */
-export function nullableText(value: string): string | null {
-	const text = value.trim();
-	return text.length === 0 ? null : text;
-}

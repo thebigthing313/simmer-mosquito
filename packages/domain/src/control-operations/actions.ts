@@ -170,14 +170,14 @@ export type RemoveChemicalApplicationBatchCommand = ControlOperationsDomainComma
 	ControlCommandPayload & { readonly applicationBatchId: DomainId }
 >;
 
-interface ActionBaseInput extends ControlCommandInput {
+export interface ActionBaseInput extends ControlCommandInput {
 	readonly locationSource: ControlActionLocationSourceInput;
 	readonly addressId?: DomainId | null;
 	readonly requestedControlActionId?: DomainId | null;
 	readonly metadata?: unknown | null;
 }
 
-interface ActionBasePayload extends ControlCommandPayload {
+export interface ActionBasePayload extends ControlCommandPayload {
 	readonly locationSource: ControlActionLocationSource;
 	readonly addressId: DomainId | null;
 	readonly requestedControlActionId: DomainId | null;

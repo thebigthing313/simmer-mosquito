@@ -139,7 +139,7 @@ interface SampleGeoRow {
 	readonly updatedAt: string;
 }
 
-export function SampleDetail({ sampleId }: { readonly sampleId: string }) {
+function SampleDetail({ sampleId }: { readonly sampleId: string }) {
 	const query = useSampleGeoContext(sampleId);
 
 	return (

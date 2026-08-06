@@ -166,7 +166,7 @@ export function EditSettingsSheet({
 	);
 }
 
-export function SettingsDisplayGrid({ fields }: { readonly fields: readonly SettingField[] }) {
+function SettingsDisplayGrid({ fields }: { readonly fields: readonly SettingField[] }) {
 	return (
 		<div className="grid gap-2 md:grid-cols-4">
 			{fields.map((field) => (
@@ -184,7 +184,7 @@ export function SettingsDisplayGrid({ fields }: { readonly fields: readonly Sett
 	);
 }
 
-export function SettingsEditor({
+function SettingsEditor({
 	field,
 	onCollectionTimingChange,
 }: {
@@ -242,7 +242,7 @@ export function SettingsEditor({
 	);
 }
 
-export function SwitchEditor({ field }: { readonly field: SwitchSettingField }) {
+function SwitchEditor({ field }: { readonly field: SwitchSettingField }) {
 	const [checked, setChecked] = useState(field.checked);
 
 	return (
@@ -259,7 +259,7 @@ export function SwitchEditor({ field }: { readonly field: SwitchSettingField }) 
 	);
 }
 
-export function SetupList({ items }: { readonly items: readonly SetupCatalog[] }) {
+function SetupList({ items }: { readonly items: readonly SetupCatalog[] }) {
 	if (items.length === 0) {
 		return null;
 	}

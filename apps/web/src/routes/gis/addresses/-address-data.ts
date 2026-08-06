@@ -2,7 +2,7 @@ import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapp
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../../auth';
 
-export interface AddressGeometry {
+interface AddressGeometry {
 	readonly geojson: GeoJsonGeometry | null;
 	readonly lat: number | null;
 	readonly lng: number | null;
@@ -12,7 +12,7 @@ export interface AddressGeometry {
 // The synced row carries the centroid (lat/lng) but not the geojson — that stays
 // server-only — so views needing the drawable geometry read it over HTTP the same
 // way habitats and regions do.
-export function addressGeometryQueryKey(addressId: string): readonly unknown[] {
+function addressGeometryQueryKey(addressId: string): readonly unknown[] {
 	return ['address-geometry', addressId];
 }
 

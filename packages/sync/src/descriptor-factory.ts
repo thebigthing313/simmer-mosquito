@@ -5,8 +5,8 @@ import type { SyncDescriptor } from './index.js';
 // served by the /map/* endpoints — never streamed through an Electric shape.
 const serverOnlyGeometryColumns = new Set(['geom', 'geojson']);
 
-type ServerOnlyGeometryColumn = 'geom' | 'geojson';
-type NoGeometryColumns<TColumns extends readonly string[]> =
+export type ServerOnlyGeometryColumn = 'geom' | 'geojson';
+export type NoGeometryColumns<TColumns extends readonly string[]> =
 	Extract<TColumns[number], ServerOnlyGeometryColumn> extends never ? TColumns : never;
 
 export function createSyncDescriptor<

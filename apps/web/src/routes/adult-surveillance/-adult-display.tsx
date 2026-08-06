@@ -149,7 +149,7 @@ export function CollectionFlagBadges({
 	);
 }
 
-export function collectionFlagList(
+function collectionFlagList(
 	collection: CollectionFlags,
 ): readonly { readonly label: string; readonly tone: Tone }[] {
 	const flags: { readonly label: string; readonly tone: Tone }[] = [];

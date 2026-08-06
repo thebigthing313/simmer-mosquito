@@ -78,7 +78,7 @@ export function AdultSurveillanceSettings({
 	);
 }
 
-export function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingMode }) {
+function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingMode }) {
 	return (
 		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 			<div className="grid gap-1">
@@ -121,7 +121,7 @@ export function CollectionTimingGuide({ mode }: { readonly mode: AdultCollection
 	);
 }
 
-export function CollectionTimingExample({
+function CollectionTimingExample({
 	active,
 	children,
 	description,
@@ -157,7 +157,7 @@ export function CollectionTimingExample({
  * Methods are managed on the adult surveillance route, next to the traps that use them.
  * This keeps their counts visible in settings and points at the one place that edits them.
  */
-export function CollectionMethodLookupPointer({
+function CollectionMethodLookupPointer({
 	methods,
 }: {
 	readonly methods: Collection<CollectionMethodRow, string | number>;
@@ -187,7 +187,7 @@ export function CollectionMethodLookupPointer({
 	);
 }
 
-export function CollectionLureLookupList({
+function CollectionLureLookupList({
 	canManage,
 	organization,
 	lures,
@@ -236,7 +236,7 @@ export function CollectionLureLookupList({
 	);
 }
 
-export function CollectionLureTable({
+function CollectionLureTable({
 	canManage,
 	emptyLabel,
 	lures,
@@ -305,7 +305,7 @@ export function CollectionLureTable({
 	);
 }
 
-export function CollectionLureDrawer({
+function CollectionLureDrawer({
 	canManage,
 	lure,
 	organization,

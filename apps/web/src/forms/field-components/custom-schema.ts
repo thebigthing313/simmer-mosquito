@@ -138,7 +138,7 @@ export function formatCustomFieldValue(entry: CustomFieldEntry): string | null {
 	return String(entry.value);
 }
 
-export function labelFromFieldKey(key: string): string {
+function labelFromFieldKey(key: string): string {
 	const spaced = key
 		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
 		.replace(/[_-]+/g, ' ')

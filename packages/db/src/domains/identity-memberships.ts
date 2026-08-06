@@ -82,13 +82,13 @@ export class StageOrganizationInvitationError extends Error {
 	}
 }
 
-interface MembershipProvisioningCandidate {
+export interface MembershipProvisioningCandidate {
 	readonly id: string;
 	readonly profileId: string;
 	readonly role: SimmerRole;
 }
 
-interface InviteProfileCandidate {
+export interface InviteProfileCandidate {
 	readonly id: string;
 	readonly userId: string | null;
 	readonly deletedAt: Date | null;

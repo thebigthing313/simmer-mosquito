@@ -111,7 +111,7 @@ export function LarvalSurveillanceSettings({
 	);
 }
 
-export function LarvalEntryPolicyGuide({
+function LarvalEntryPolicyGuide({
 	policy,
 	showDensityRanges = true,
 }: {
@@ -165,7 +165,7 @@ export function LarvalEntryPolicyGuide({
 	);
 }
 
-export function LarvalEntryModeExample({
+function LarvalEntryModeExample({
 	active,
 	children,
 	description,
@@ -197,7 +197,7 @@ export function LarvalEntryModeExample({
 	);
 }
 
-export function DensityRangesDisplay({ ranges }: { readonly ranges: LarvalDensityRanges | null }) {
+function DensityRangesDisplay({ ranges }: { readonly ranges: LarvalDensityRanges | null }) {
 	return (
 		<div className="grid gap-2 rounded-md border border-border/30 bg-background p-2.5">
 			<div className="flex flex-wrap items-start justify-between gap-2">
@@ -225,7 +225,7 @@ export function DensityRangesDisplay({ ranges }: { readonly ranges: LarvalDensit
 	);
 }
 
-export function DensityRangeTile({
+function DensityRangeTile({
 	density,
 	range,
 }: {
@@ -377,7 +377,7 @@ export function LarvalSettingsDrawer({
 	);
 }
 
-export function DensityRangeEditor({
+function DensityRangeEditor({
 	density,
 	disabled,
 	onChange,
@@ -418,7 +418,7 @@ export function DensityRangeEditor({
 	);
 }
 
-export function HabitatTypeLookupList({
+function HabitatTypeLookupList({
 	canManage,
 	habitatTypes,
 	organization,
@@ -467,7 +467,7 @@ export function HabitatTypeLookupList({
 	);
 }
 
-export function HabitatTypeTable({
+function HabitatTypeTable({
 	canManage,
 	emptyLabel,
 	habitatTypes,
@@ -540,7 +540,7 @@ export function HabitatTypeTable({
 	);
 }
 
-export function HabitatTypeDrawer({
+function HabitatTypeDrawer({
 	canManage,
 	habitatType,
 	organization,

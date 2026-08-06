@@ -29,6 +29,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { EmptyValue } from '../../../components/empty-value';
 import { useAppForm } from '../../../forms';
+import { hexWithAlpha, validHexColor } from '../../../lib/hex-color';
 import {
 	AddIcon,
 	CloseIcon,
@@ -165,7 +166,7 @@ export function GeneralOrganizationSection({
 	);
 }
 
-export function TagSections({
+function TagSections({
 	canManage,
 	isCreating,
 	onCancelCreate,
@@ -209,7 +210,7 @@ export function TagSections({
 	);
 }
 
-export function TagTableSection({
+function TagTableSection({
 	canManage,
 	editingTagId,
 	emptyLabel,
@@ -267,7 +268,7 @@ export function TagTableSection({
 	);
 }
 
-export function TagBadge({ tag }: { readonly tag: TagRow }) {
+function TagBadge({ tag }: { readonly tag: TagRow }) {
 	const color = validHexColor(tag.color);
 	const style =
 		color === null
@@ -292,7 +293,7 @@ export function TagBadge({ tag }: { readonly tag: TagRow }) {
 	);
 }
 
-export function TagColorSwatch({ color }: { readonly color: string | null }) {
+function TagColorSwatch({ color }: { readonly color: string | null }) {
 	const normalized = validHexColor(color);
 	const style =
 		normalized === null ? undefined : ({ '--tag-color': normalized } as React.CSSProperties);
@@ -313,7 +314,7 @@ export function TagColorSwatch({ color }: { readonly color: string | null }) {
 	);
 }
 
-export function TagDisplayTableRow({
+function TagDisplayTableRow({
 	canManage,
 	onEdit,
 	tag,
@@ -345,7 +346,7 @@ export function TagDisplayTableRow({
 	);
 }
 
-export function TagCreatePanel({
+function TagCreatePanel({
 	onCancel,
 	organization,
 }: {
@@ -410,7 +411,7 @@ export function TagCreatePanel({
 	);
 }
 
-export function TagEditorTableRow({
+function TagEditorTableRow({
 	onCancel,
 	tag,
 }: {
@@ -507,27 +508,11 @@ export function TagEditorTableRow({
 	);
 }
 
-export function sortedTags(tags: readonly TagRow[]): TagRow[] {
+function sortedTags(tags: readonly TagRow[]): TagRow[] {
 	return [...tags].sort((first, second) => first.tagName.localeCompare(second.tagName));
 }
 
-export function validHexColor(value: string | null): string | null {
-	if (value === null) {
-		return null;
-	}
-
-	const normalized = value.trim();
-	return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : null;
-}
-
-export function hexWithAlpha(hex: string, alpha: number): string {
-	const alphaHex = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
-		.toString(16)
-		.padStart(2, '0');
-	return `${hex}${alphaHex}`;
-}
-
-export function EditAgencyDetailsSheet({
+function EditAgencyDetailsSheet({
 	defaultValues,
 	description,
 	organization,
@@ -652,7 +637,7 @@ export function EditAgencyDetailsSheet({
 	);
 }
 
-export function EditUnitDefaultsSheet({
+function EditUnitDefaultsSheet({
 	defaultValues,
 	description,
 	organization,
@@ -757,7 +742,7 @@ export function EditUnitDefaultsSheet({
 	);
 }
 
-export function AgencyDetailsSummary({
+function AgencyDetailsSummary({
 	organization,
 	timezone,
 }: {

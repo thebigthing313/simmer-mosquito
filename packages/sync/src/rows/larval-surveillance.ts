@@ -4,7 +4,7 @@ export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy'
 // /map/* display endpoints. The synced row carries only the trigger-maintained
 // centroid columns (lat, lng, geomType), which always resolve because geom is
 // NOT NULL on the locatable tables.
-interface OwnedGeometryProjection {
+export interface OwnedGeometryProjection {
 	readonly geojson?: unknown;
 }
 

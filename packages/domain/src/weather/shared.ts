@@ -2,6 +2,7 @@ import {
 	createIssues,
 	requiredId as normalizeRequiredId,
 	validateAgencyCommandContext,
+	validateLocalDate,
 } from '../command-validation.js';
 import {
 	type DomainId,
@@ -121,21 +122,6 @@ export function normalizeExpectedUpdatedAt(
 		return null;
 	}
 	return value;
-}
-
-export function validateLocalDate(
-	value: LocalDateString | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	if (value === undefined || !isLocalDateString(value)) {
-		issues.push({ path, message: `${path} must be a YYYY-MM-DD date string.` });
-		return;
-	}
-	const parsed = new Date(`${value}T00:00:00.000Z`);
-	if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-		issues.push({ path, message: `${path} must be a valid calendar date.` });
-	}
 }
 
 export function validateDateRange(

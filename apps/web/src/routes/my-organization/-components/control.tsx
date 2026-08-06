@@ -118,7 +118,7 @@ export function ControlOperationsSettings({
  * Methods are managed on the control operations routes, next to the work that uses them.
  * This keeps their counts visible in settings and points at the one place that edits them.
  */
-export function ControlMethodLookupPointer({
+function ControlMethodLookupPointer({
 	collectionKey,
 	methods,
 	to,
@@ -209,7 +209,7 @@ export function ControlMethodLookupList({
 	);
 }
 
-export function ControlMethodTable({
+function ControlMethodTable({
 	canManage,
 	collectionKey,
 	methods,
@@ -264,7 +264,7 @@ export function ControlMethodTable({
 	);
 }
 
-export function ControlMethodDrawer({
+function ControlMethodDrawer({
 	canManage,
 	collectionKey,
 	method,
@@ -372,7 +372,7 @@ export function ControlMethodDrawer({
 	);
 }
 
-export function ControlAssetLookupList({
+function ControlAssetLookupList({
 	assets,
 	canManage,
 	collectionKey,
@@ -546,7 +546,7 @@ function useActiveEquipmentRows(collection: Collection<EquipmentRow, string | nu
 	};
 }
 
-export function ControlAssetTable({
+function ControlAssetTable({
 	assets,
 	canManage,
 	collectionKey,
@@ -605,7 +605,7 @@ export function ControlAssetTable({
 	);
 }
 
-export function ControlAssetDrawer({
+function ControlAssetDrawer({
 	asset,
 	canManage,
 	collectionKey,

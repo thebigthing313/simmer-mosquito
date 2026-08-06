@@ -14,7 +14,7 @@ import type { ShellCrumb, ShellDomain, ShellNavGroup, ShellNavItem } from './typ
  * professional, so a summary states what is here, never why it matters or how
  * the work should be done.
  */
-export const shellDomains: readonly ShellDomain[] = [
+const shellDomains: readonly ShellDomain[] = [
 	{
 		id: 'overview',
 		label: 'Overview',

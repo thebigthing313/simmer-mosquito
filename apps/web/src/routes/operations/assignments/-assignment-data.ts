@@ -41,7 +41,7 @@ const LATEST_DATE = '9999-12-31';
  */
 const CLOCK_SKEW_MARGIN_MS = 2_000;
 
-export function nowTimestamp(): string {
+function nowTimestamp(): string {
 	return new Date(Date.now() - CLOCK_SKEW_MARGIN_MS).toISOString();
 }
 
@@ -362,7 +362,7 @@ export function useAssignmentItemCounts(assignmentIds: readonly string[]): {
  * Traps are an eager collection, so they need no subset at all — the catalog is
  * already local and is filtered in memory.
  */
-export function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
+function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
 	readonly byKey: ReadonlyMap<string, AssignmentTarget>;
 	readonly isReady: boolean;
 } {

@@ -4,6 +4,7 @@ import {
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateNotFutureLocalDate,
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
@@ -11,7 +12,6 @@ import {
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,
-	validateLocalDate,
 	validatePositiveInteger,
 	validateSampleSpeciesBase,
 } from './shared.js';
@@ -76,7 +76,7 @@ export function addSampleSpeciesCountCommand(
 	requireUuid(input.sampleId, 'sampleId', issues);
 	requireUuid(input.speciesId, 'speciesId', issues);
 	validatePositiveInteger(input.larvaeCount, 'larvaeCount', issues);
-	validateLocalDate(input.identifiedAt, 'identifiedAt', issues);
+	validateNotFutureLocalDate(input.identifiedAt, 'identifiedAt', issues);
 	normalizeOptionalUuid(input.identifiedByProfileId, 'identifiedByProfileId', issues);
 	throwIfIssues('Add sample species count command is invalid.', issues);
 
@@ -115,7 +115,7 @@ export function updateSampleSpeciesCountCommand(
 		validatePositiveInteger(input.larvaeCount, 'larvaeCount', issues);
 	}
 	if (hasIdentifiedAt) {
-		validateLocalDate(input.identifiedAt, 'identifiedAt', issues);
+		validateNotFutureLocalDate(input.identifiedAt, 'identifiedAt', issues);
 	}
 	if (hasIdentifiedBy) {
 		normalizeOptionalUuid(input.identifiedByProfileId, 'identifiedByProfileId', issues);

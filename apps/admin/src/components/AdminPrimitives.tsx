@@ -235,21 +235,6 @@ export function AdminEmpty({
 	);
 }
 
-export function CatalogBrowserLayout({
-	children,
-	sidebar,
-}: {
-	readonly children: ReactNode;
-	readonly sidebar: ReactNode;
-}) {
-	return (
-		<div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
-			{children}
-			<div className="grid gap-3 lg:sticky lg:top-5">{sidebar}</div>
-		</div>
-	);
-}
-
 export function RecordActions({ children }: { readonly children: ReactNode }) {
 	return <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">{children}</div>;
 }

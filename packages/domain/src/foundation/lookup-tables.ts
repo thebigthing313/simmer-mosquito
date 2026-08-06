@@ -10,7 +10,7 @@ import type {
 	FoundationDomainCommand,
 } from './shared.js';
 
-interface CreateCollectionMethodCommandInputBase extends AgencyFoundationCommandInput {
+export interface CreateCollectionMethodCommandInputBase extends AgencyFoundationCommandInput {
 	readonly collectionMethodId: DomainId;
 	readonly name: string;
 	readonly description?: string | null;

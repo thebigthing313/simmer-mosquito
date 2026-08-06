@@ -33,7 +33,7 @@ export const US_TIMEZONE_OPTIONS = [
 	{ label: 'Alaska Time', value: 'America/Anchorage' },
 	{ label: 'Hawaii Time', value: 'Pacific/Honolulu' },
 ] as const;
-export const US_STATE_OPTIONS = [
+const US_STATE_OPTIONS = [
 	{ code: 'AL', name: 'Alabama' },
 	{ code: 'AK', name: 'Alaska' },
 	{ code: 'AZ', name: 'Arizona' },

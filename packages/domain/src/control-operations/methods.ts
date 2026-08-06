@@ -15,12 +15,12 @@ export type ControlMethodKind =
 	| 'outreachMethod'
 	| 'biocontrolMethod';
 
-interface MethodCommandInput extends ControlCommandInput {
+export interface MethodCommandInput extends ControlCommandInput {
 	readonly name: string;
 	readonly customSchema?: unknown | null;
 }
 
-interface MethodCommandPayload extends ControlCommandPayload {
+export interface MethodCommandPayload extends ControlCommandPayload {
 	readonly name: string;
 	readonly customSchema: JsonObject | null;
 }

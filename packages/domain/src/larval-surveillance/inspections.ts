@@ -5,6 +5,7 @@ import {
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateNotFutureLocalDate,
 } from '../command-validation.js';
 import type {
 	AdHocInspectionLocationSource,
@@ -26,7 +27,6 @@ import {
 	validateAdHocInspectionLocationSourceInput,
 	validateBase,
 	validateIdCommand,
-	validateLocalDate,
 } from './shared.js';
 
 export interface ImmatureStageFlags {
@@ -38,7 +38,7 @@ export interface ImmatureStageFlags {
 	readonly hasEggs: boolean;
 }
 
-interface LarvalInspectionResultInput extends Partial<ImmatureStageFlags> {
+export interface LarvalInspectionResultInput extends Partial<ImmatureStageFlags> {
 	readonly isWet: boolean;
 	readonly dipCount?: number | null;
 	readonly density?: LarvalDensity | null;
@@ -54,7 +54,9 @@ export interface NormalizedLarvalInspectionResult extends ImmatureStageFlags {
 	readonly isBreedingPositive: boolean;
 }
 
-interface InspectionResultCommandInput extends LarvalCommandInput, LarvalInspectionResultInput {
+export interface InspectionResultCommandInput
+	extends LarvalCommandInput,
+		LarvalInspectionResultInput {
 	readonly inspectionId: DomainId;
 	readonly inspectionDate: LocalDateString;
 	readonly inspectedByProfileId?: DomainId | null;
@@ -70,7 +72,9 @@ export interface RecordAdHocInspectionCommandInput extends InspectionResultComma
 	readonly habitatTypeId?: DomainId | null;
 }
 
-interface InspectionResultPayload extends LarvalCommandPayload, NormalizedLarvalInspectionResult {
+export interface InspectionResultPayload
+	extends LarvalCommandPayload,
+		NormalizedLarvalInspectionResult {
 	readonly inspectionId: DomainId;
 	readonly inspectionDate: LocalDateString;
 	readonly inspectedByProfileId: DomainId;
@@ -247,7 +251,7 @@ function validateInspectionBase(input: InspectionResultCommandInput): DomainVali
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.inspectionId, 'inspectionId', issues);
-	validateLocalDate(input.inspectionDate, 'inspectionDate', issues);
+	validateNotFutureLocalDate(input.inspectionDate, 'inspectionDate', issues);
 	normalizeOptionalUuid(input.inspectedByProfileId, 'inspectedByProfileId', issues);
 	normalizeInspectionResult(input, 'result', issues);
 	return issues;

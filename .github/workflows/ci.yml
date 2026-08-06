@@ -37,6 +37,19 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Structural rot only: unused files/exports/dependencies, circular
+      # dependencies, unresolved imports. Those default to `error` in fallow and
+      # the workspace is currently at zero, so this fails on what a branch adds
+      # rather than on a pre-existing backlog. The softer cleanup rules stay at
+      # `warn` by choice (.fallowrc.jsonc), and duplication and complexity are
+      # not run here at all — `fallow dupes` reports the deliberate
+      # adult/larval domain mirroring, which is not a merge blocker.
+      #
+      # Goes through the wrapper rather than `pnpm exec fallow` so a local run on
+      # Windows behaves identically; the wrapper is a no-op on this runner.
+      - name: Dead code
+        run: pnpm fallow dead-code
+
       - name: Test
         run: pnpm test
 

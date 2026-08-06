@@ -1,0 +1,88 @@
+{
+	"$schema": "./node_modules/fallow/schema.json",
+
+	// Nx/pnpm monorepo. Both globs are already in pnpm-workspace.yaml; fallow
+	// discovers them on its own, but stating them keeps the scope explicit.
+	"workspaces": {
+		"patterns": ["apps/*", "packages/*"]
+	},
+
+	// Every runtime root the module graph cannot infer. The four apps are bundled
+	// from `src/main`; the packages are resolved through their package.json
+	// `exports`, which point at `dist/` — so `src/index.ts` is named here to seed
+	// the graph from source rather than from a build that may not exist yet.
+	"entry": [
+		"apps/*/src/main.{ts,tsx}",
+		"packages/*/src/index.ts",
+
+		// Standalone scripts invoked by package.json, not imported by anything.
+		// `check:role-ladder`, `seed:role-ladder`, `seed:sync-baseline`.
+		"apps/server/src/check-role-ladder.ts",
+		"packages/db/src/seed-*.ts",
+		"packages/auth/src/probe-reset-password.ts",
+
+		// Second published entry point of @simmer-mosquito/db, imported by the
+		// server's integration suites via `@simmer-mosquito/db/test-support`.
+		"packages/db/src/test-support/db-integration.ts"
+	],
+
+	// Vendored shadcn primitives: imported, but not ours to edit. Hidden rather
+	// than excluded — `ignorePatterns` would drop them from the module graph and
+	// take everything downstream of them with it.
+	//
+	// `routeTree.gen.ts` is deliberately absent. It is generated and biome skips
+	// it, but fallow's TanStack Router plugin already resolves the route tree, so
+	// a pattern for it suppresses nothing and fallow warns that it matched no
+	// finding. Never move it to `ignorePatterns`: it is the single edge making
+	// every file under `src/routes` reachable from `main.tsx`, and dropping it
+	// would report all three SPAs' routes as dead.
+	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
+
+	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and
+	// `@tanstack/electric-db-collection` each depend on an exact version of it, so
+	// apps/web and packages/sync list it to keep all three moving together — a
+	// bump that misses one of them is inert. Nothing imports it directly and
+	// nothing should.
+	//
+	// `fallow-type-aware` is fallow's own semantic sidecar: a spawned binary, not
+	// an import. It is a direct devDependency only so pnpm links its `.CMD` shim
+	// into `node_modules/.bin`, which is what makes `--type-aware` runnable on
+	// Windows — see scripts/fallow.mjs. Keep its version in lockstep with fallow.
+	//
+	// The last two are run by hand, not imported: `kysely-codegen` regenerates the
+	// DB types after a migration, and `@tanstack/react-query-devtools` is mounted
+	// ad hoc while debugging a query. Both were reported as unused and both are
+	// deliberately kept.
+	"ignoreDependencies": [
+		"@tanstack/db",
+		"@tanstack/react-query-devtools",
+		"fallow-type-aware",
+		"kysely-codegen"
+	],
+
+	"rules": {
+		// Opt-in API-hygiene check. The packages expose their public surface
+		// through top-level barrel modules (CLAUDE.md), so an exported signature
+		// that references a file-private type is a real break for the apps
+		// consuming it. Advisory for now.
+		"private-type-leaks": "warn"
+	},
+
+	"overrides": [
+		{
+			// The apps are leaves: nothing imports them, so an unexported type in
+			// one of their signatures cannot break a consumer. The check earns its
+			// keep at the package seams, and only there.
+			"files": ["apps/**"],
+			"rules": { "private-type-leaks": "off" }
+		},
+		{
+			// Kysely table definitions. The flagged names (`TimestampWithDefault`,
+			// `GeometryColumn`, `GeneratedColumn`, …) are local notation for
+			// describing a column, repeated across ~180 field declarations — they
+			// describe the schema rather than form an API anyone needs to name.
+			"files": ["packages/db/src/tables.ts"],
+			"rules": { "private-type-leaks": "off" }
+		}
+	]
+}

@@ -12,7 +12,7 @@ import {
 import type { JsonObject } from './shared.js';
 
 type JsonFieldName = 'customSchema' | 'metadata';
-type EmptyRecord = Record<PropertyKey, never>;
+export type EmptyRecord = Record<PropertyKey, never>;
 
 export interface NamedReferenceFieldSet {
 	readonly description?: true;
@@ -43,7 +43,7 @@ export type NamedReferenceUpdateInput<TFields extends NamedReferenceFieldSet> =
 		readonly acknowledgedHistoricalLabelChange?: boolean;
 	};
 
-type NamedReferenceCreatePayload<TFields extends NamedReferenceFieldSet> = {
+export type NamedReferenceCreatePayload<TFields extends NamedReferenceFieldSet> = {
 	readonly name: string;
 } & (TFields['description'] extends true ? { readonly description: string | null } : EmptyRecord) &
 	(TFields['customSchema'] extends true
@@ -55,7 +55,7 @@ type NamedReferenceCreatePayload<TFields extends NamedReferenceFieldSet> = {
 		: EmptyRecord) &
 	(TFields['serialNumber'] extends true ? { readonly serialNumber: string | null } : EmptyRecord);
 
-type NamedReferenceUpdateChanges<TFields extends NamedReferenceFieldSet> = {
+export type NamedReferenceUpdateChanges<TFields extends NamedReferenceFieldSet> = {
 	readonly name?: string;
 } & (TFields['description'] extends true ? { readonly description?: string | null } : EmptyRecord) &
 	(TFields['customSchema'] extends true
@@ -67,7 +67,7 @@ type NamedReferenceUpdateChanges<TFields extends NamedReferenceFieldSet> = {
 		: EmptyRecord) &
 	(TFields['serialNumber'] extends true ? { readonly serialNumber?: string | null } : EmptyRecord);
 
-type NamedReferenceUpdatePayload<TFields extends NamedReferenceFieldSet> = {
+export type NamedReferenceUpdatePayload<TFields extends NamedReferenceFieldSet> = {
 	readonly changes: Readonly<NamedReferenceUpdateChanges<TFields>>;
 	readonly acknowledgedHistoricalLabelChange: boolean;
 };

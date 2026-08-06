@@ -58,7 +58,6 @@ import type {
 	OrgRole,
 	PersistenceTransaction,
 	ProfileFormValues,
-	ProfileGroups,
 	PublicSettingsFormValues,
 	SelectOption,
 	SelectSettingField,
@@ -70,40 +69,6 @@ import type {
 
 export function formatRole(role: OrgRole): string {
 	return role.charAt(0).toUpperCase() + role.slice(1);
-}
-
-export function profileGroups(profiles: readonly ProfileRow[]): ProfileGroups {
-	const sorted = [...profiles].sort(
-		(first, second) =>
-			Number(second.isActive) - Number(first.isActive) ||
-			first.displayName.localeCompare(second.displayName),
-	);
-
-	return {
-		activeLinked: sorted.filter((profile) => profile.isActive && profile.userId !== null),
-		inactiveLinked: sorted.filter((profile) => !profile.isActive && profile.userId !== null),
-		historical: sorted.filter((profile) => profile.userId === null),
-	};
-}
-
-export function sortedTags(tags: readonly TagRow[]): TagRow[] {
-	return [...tags].sort((first, second) => first.tagName.localeCompare(second.tagName));
-}
-
-export function validHexColor(value: string | null): string | null {
-	if (value === null) {
-		return null;
-	}
-
-	const normalized = value.trim();
-	return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : null;
-}
-
-export function hexWithAlpha(hex: string, alpha: number): string {
-	const alphaHex = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
-		.toString(16)
-		.padStart(2, '0');
-	return `${hex}${alphaHex}`;
 }
 
 export function errorMessageForSave(saveError: unknown): string {
@@ -278,7 +243,7 @@ export function savePublicSettingsFromValues(
 	});
 }
 
-export function createOrganizationTag(
+function createOrganizationTag(
 	organization: OrganizationRow | null,
 	formData: FormData,
 ): PersistenceTransaction {
@@ -339,7 +304,7 @@ export function updateProfile(
 	});
 }
 
-export function updateOrganizationTag(
+function updateOrganizationTag(
 	tag: TagRow,
 	formData: FormData,
 	isActive: boolean,
@@ -365,7 +330,7 @@ export function deleteOrganizationTag(tag: TagRow): PersistenceTransaction {
 	return collections.tags.delete(tag.id);
 }
 
-export function tagFormData(values: TagFormValues): FormData {
+function tagFormData(values: TagFormValues): FormData {
 	const formData = new FormData();
 	formData.set('tagName', values.tagName);
 	formData.set('description', values.description);
@@ -380,7 +345,7 @@ export function updateCurrentOrganization(
 	return settleWrite(updateCurrentOrganizationOptimistically(organization, applyChanges));
 }
 
-export function updateCurrentOrganizationOptimistically(
+function updateCurrentOrganizationOptimistically(
 	organization: OrganizationRow | null,
 	applyChanges: (draft: MutableOrganizationRow) => void,
 ): PersistenceTransaction {
@@ -402,7 +367,7 @@ export function watchPersistence(transaction: PersistenceTransaction, fallback: 
 	});
 }
 
-export function requiredFormText(formData: FormData, name: string): string {
+function requiredFormText(formData: FormData, name: string): string {
 	const value = formData.get(name);
 	const text = typeof value === 'string' ? value.trim() : '';
 	if (text.length === 0) {
@@ -411,13 +376,13 @@ export function requiredFormText(formData: FormData, name: string): string {
 	return text;
 }
 
-export function nullableFormText(formData: FormData, name: string): string | null {
+function nullableFormText(formData: FormData, name: string): string | null {
 	const value = formData.get(name);
 	const text = typeof value === 'string' ? value.trim() : '';
 	return text.length === 0 ? null : text;
 }
 
-export function nullableFormHexColor(formData: FormData, name: string): string | null {
+function nullableFormHexColor(formData: FormData, name: string): string | null {
 	const text = nullableFormText(formData, name);
 	if (text === null) {
 		return null;
@@ -806,10 +771,7 @@ export function deleteInsecticideBatch(
 	return collection.delete(batch.id);
 }
 
-export function nullableNonnegativeIntegerValue(
-	value: number | null,
-	label: string,
-): number | null {
+function nullableNonnegativeIntegerValue(value: number | null, label: string): number | null {
 	if (value === null) {
 		return null;
 	}
@@ -820,21 +782,21 @@ export function nullableNonnegativeIntegerValue(
 	return value;
 }
 
-export function nonnegativeNumberValue(value: number | null, label: string): number {
+function nonnegativeNumberValue(value: number | null, label: string): number {
 	if (value === null || !Number.isFinite(value) || value < 0) {
 		throw new Error(`${label} must be zero or greater.`);
 	}
 	return value;
 }
 
-export function nonnegativeIntegerValue(value: number | null, label: string): number {
+function nonnegativeIntegerValue(value: number | null, label: string): number {
 	if (value === null || !Number.isInteger(value) || value < 0) {
 		throw new Error(`${label} must be a nonnegative whole number.`);
 	}
 	return value;
 }
 
-export function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
+function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -934,16 +896,6 @@ export function notificationTypeFormValues(
 	};
 }
 
-export function publicSettingsFormValues(settings: OrganizationSettings): PublicSettingsFormValues {
-	const context = settings.publicEngagement.serviceRequestContext;
-	return {
-		radiusAmount: context.radius.amount,
-		radiusUnitCode: context.radius.unitCode,
-		daysBefore: context.timeWindow.daysBefore,
-		daysAfter: context.timeWindow.daysAfter,
-	};
-}
-
 export function densityRangeFormValues(ranges: LarvalDensityRanges | null): DensityRangeFormValues {
 	if (ranges === null) {
 		return defaultDensityRangeValues;
@@ -957,7 +909,7 @@ export function densityRangeFormValues(ranges: LarvalDensityRanges | null): Dens
 	};
 }
 
-export function densityRangeFormValue(range: LarvalDensityRange): DensityRangeFormValue {
+function densityRangeFormValue(range: LarvalDensityRange): DensityRangeFormValue {
 	return {
 		minInclusive: String(range.minInclusive),
 		maxExclusive:
@@ -990,7 +942,7 @@ export function safeDensityRangesFromFormValues(
 	}
 }
 
-export function densityRangeFromFormValue(
+function densityRangeFromFormValue(
 	value: DensityRangeFormValue,
 	label: string,
 ): LarvalDensityRange {
@@ -1004,7 +956,7 @@ export function densityRangeFromFormValue(
 	};
 }
 
-export function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
+function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
 	const sequence: Array<readonly [DensityRangeKey, LarvalDensityRange]> = [
 		['light', ranges.light],
 		['medium', ranges.medium],
@@ -1030,7 +982,7 @@ export function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
 	}
 }
 
-export function requiredFiniteNumber(value: string, label: string): number {
+function requiredFiniteNumber(value: string, label: string): number {
 	const numberValue = Number(value);
 	if (!Number.isFinite(numberValue) || numberValue < 0) {
 		throw new Error(`${label} must be a number greater than or equal to zero.`);
@@ -1127,7 +1079,7 @@ export function unitOptionsForDefault(
 		.map(unitOption);
 }
 
-export function compareUnitsForSelect(code: string, first: UnitRow, second: UnitRow): number {
+function compareUnitsForSelect(code: string, first: UnitRow, second: UnitRow): number {
 	if (first.code === code || second.code === code) {
 		return first.code === code ? -1 : 1;
 	}
@@ -1139,7 +1091,7 @@ export function compareUnitsForSelect(code: string, first: UnitRow, second: Unit
 	);
 }
 
-export function unitOption(unit: UnitRow): SelectOption {
+function unitOption(unit: UnitRow): SelectOption {
 	return {
 		label:
 			unit.abbreviation.length === 0 ? unit.unitName : `${unit.unitName} (${unit.abbreviation})`,

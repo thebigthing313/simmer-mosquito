@@ -1,8 +1,6 @@
-import { type Kysely, type RawBuilder, sql, type Transaction } from 'kysely';
+import { type RawBuilder, sql, type Transaction } from 'kysely';
 
-import type { SimmerDatabase } from '../index.js';
-
-type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
+import type { DbExecutor, SimmerDatabase } from '../index.js';
 
 /**
  * Deleting a record is never just the one row.

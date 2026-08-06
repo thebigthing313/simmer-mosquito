@@ -224,12 +224,6 @@ export interface DensityRangeFormValue {
 	readonly maxExclusive: string;
 }
 
-export interface ProfileGroups {
-	readonly activeLinked: readonly ProfileRow[];
-	readonly inactiveLinked: readonly ProfileRow[];
-	readonly historical: readonly ProfileRow[];
-}
-
 export type UnitDefaultsFormValues = UnitDefaults;
 
 export type SetupDomain =

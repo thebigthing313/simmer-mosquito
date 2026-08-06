@@ -618,11 +618,11 @@ export function readOptionalText(value: unknown): string | null {
 	return trimmed.length === 0 ? null : trimmed;
 }
 
-export function readOptionalJson(value: unknown): unknown | null {
+function readOptionalJson(value: unknown): unknown | null {
 	return value === undefined ? null : value;
 }
 
-export function readOptionalNonnegativeInteger(value: unknown): number | null | undefined {
+function readOptionalNonnegativeInteger(value: unknown): number | null | undefined {
 	if (value === undefined || value === null || value === '') {
 		return null;
 	}
@@ -634,7 +634,7 @@ export function readOptionalNonnegativeInteger(value: unknown): number | null | 
 	return value;
 }
 
-export function readGeoJson(value: unknown): GeoJsonGeometry | null {
+function readGeoJson(value: unknown): GeoJsonGeometry | null {
 	if (!isRecord(value) || typeof value.type !== 'string') {
 		return null;
 	}
@@ -646,7 +646,7 @@ export function invalid(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 

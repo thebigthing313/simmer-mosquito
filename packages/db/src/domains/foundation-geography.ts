@@ -1,6 +1,6 @@
-import { type Kysely, type RawBuilder, sql, type Transaction } from 'kysely';
+import { type RawBuilder, sql } from 'kysely';
 
-import type { GeoJsonGeometry, OwnedGeometryInfo, SimmerDatabase } from '../index.js';
+import type { DbExecutor, GeoJsonGeometry, OwnedGeometryInfo } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 
@@ -80,8 +80,6 @@ export interface SafeRegion {
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
-
-type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
 
 function geojsonToGeom(geojson: GeoJsonGeometry): RawBuilder<string> {
 	const serialized = JSON.stringify(geojson);

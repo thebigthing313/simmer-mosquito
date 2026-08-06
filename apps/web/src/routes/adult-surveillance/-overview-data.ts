@@ -1,5 +1,5 @@
 import type { SpeciesRow } from '@simmer-mosquito/sync';
-import { eq, gte, inArray, toArray, useLiveQuery } from '@tanstack/react-db';
+import { eq, gte, toArray, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
@@ -14,23 +14,15 @@ import { webCollections } from '../../sync/webCollections';
 // adult panels build day strips and windows from one implementation.
 export {
 	addDaysToDateString,
-	buildWeek,
-	dayOfMonth,
 	formatDate,
 	formatMonthDay,
-	startOfWeek,
 	todayInTimeZone,
-	weekdayLabel,
 } from '../larval-surveillance/-overview-data';
 
 /** How far back the recent-window queries reach. */
 export const ADULT_ACTIVITY_WINDOW_DAYS = 14;
 
 const activityGcTimeMs = 30_000;
-
-// A syntactically valid uuid that matches no row — keeps an `IN` subset predicate
-// live (and empty) while the id set is still empty.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 // --- projected query shapes -------------------------------------------------
 
@@ -218,49 +210,4 @@ export function useAwaitingIdentification(sinceDate: string): {
 	}, [result.data]);
 
 	return { awaiting, isReady: result.isReady, isError: result.isError };
-}
-
-// --- address name resolution (live on-demand subset) ------------------------
-
-interface AddressName {
-	readonly id: string;
-	readonly displayName: string | null;
-}
-
-// Bound the subset so a wide activity window stays a reasonable id set; unique
-// addresses past this fall back to a short-id label rather than loading.
-const maxAddressNameIds = 500;
-
-/**
- * Resolve address display names for a set of ids straight off the on-demand
- * `addresses` collection. The `IN` subset (a POST body, so a large id set never
- * hits the URL-length ceiling) loads exactly these rows and reuses rows already
- * synced for other screens.
- */
-export function useAddressNames(ids: readonly string[]): ReadonlyMap<string, string> {
-	const sortedIds = useMemo(() => [...new Set(ids)].sort().slice(0, maxAddressNameIds), [ids]);
-	const idsKey = sortedIds.join(',');
-	const queryIds = sortedIds.length > 0 ? sortedIds : [UNMATCHABLE_ID];
-
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => inArray(address.id, queryIds))
-					.select(({ address }) => ({ id: address.id, displayName: address.displayName })),
-		},
-		[idsKey],
-	);
-
-	return useMemo(() => {
-		const map = new Map<string, string>();
-		for (const address of (result.data ?? []) as readonly AddressName[]) {
-			if (address.displayName !== null && address.displayName.trim().length > 0) {
-				map.set(address.id, address.displayName.trim());
-			}
-		}
-		return map;
-	}, [result.data]);
 }

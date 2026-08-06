@@ -11,7 +11,7 @@ import { webCollections } from '../../sync/webCollections';
 /** How far back the recent-window queries (heavy list, open samples) reach. */
 export const ACTIVITY_WINDOW_DAYS = 14;
 /** Days in a calendar week (the daily-inspections strip). */
-export const WEEK_LENGTH = 7;
+const WEEK_LENGTH = 7;
 
 // Inspections, samples, and sample_species are on-demand shapes (docs/sync.md).
 // Keep the subset warm briefly after unmount so quick nav back reuses it.
@@ -202,7 +202,7 @@ export function useSpeciesComposition(sinceDate: string): {
 // --- samples awaiting identification (server read endpoint) -----------------
 
 /** The preview length the overview asks the endpoint for. */
-export const AWAITING_SAMPLES_PREVIEW = 6;
+const AWAITING_SAMPLES_PREVIEW = 6;
 
 /**
  * Recent samples awaiting identification, resolved by the server rather than a

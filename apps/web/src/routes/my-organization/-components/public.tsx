@@ -73,11 +73,7 @@ export function PublicEngagementSettings({
 	);
 }
 
-export function ServiceRequestContextGuide({
-	settings,
-}: {
-	readonly settings: OrganizationSettings;
-}) {
+function ServiceRequestContextGuide({ settings }: { readonly settings: OrganizationSettings }) {
 	const context = settings.publicEngagement.serviceRequestContext;
 	return (
 		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
@@ -109,7 +105,7 @@ export function ServiceRequestContextGuide({
 	);
 }
 
-export function PublicSettingTile({
+function PublicSettingTile({
 	detail,
 	label,
 	value,
@@ -181,7 +177,7 @@ export function PublicSettingsDrawer({
 	);
 }
 
-export function NotificationTypeLookupList({
+function NotificationTypeLookupList({
 	canManage,
 	notificationTypes,
 	organization,
@@ -228,7 +224,7 @@ export function NotificationTypeLookupList({
 	);
 }
 
-export function NotificationTypeTable({
+function NotificationTypeTable({
 	canManage,
 	notificationTypes,
 	organization,
@@ -277,7 +273,7 @@ export function NotificationTypeTable({
 	);
 }
 
-export function NotificationTypeDrawer({
+function NotificationTypeDrawer({
 	canManage,
 	notificationType,
 	organization,

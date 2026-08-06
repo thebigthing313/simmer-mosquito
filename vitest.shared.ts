@@ -14,7 +14,7 @@ import { defineConfig } from 'vitest/config';
  * Excluding it here rather than excluding tests from the build keeps both
  * properties — tests are typechecked, and they run once.
  */
-export const sharedTestExclude = ['**/node_modules/**', '**/dist/**', '**/.nx/**', '**/build/**'];
+const sharedTestExclude = ['**/node_modules/**', '**/dist/**', '**/.nx/**', '**/build/**'];
 
 export default defineConfig({
 	test: {

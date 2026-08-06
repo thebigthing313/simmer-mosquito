@@ -5,6 +5,7 @@ import {
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	validateAgencyCommandContext,
+	validateNotFutureLocalDate,
 } from '../command-validation.js';
 import {
 	type AdultCollectionLocationSource,
@@ -171,7 +172,7 @@ function validateDateDurationTiming(
 	path: string,
 	issues: DomainValidationIssue[],
 ): DateDurationCollectionTiming {
-	validateLocalDate(timing.collectionDate, `${path}.collectionDate`, issues);
+	validateNotFutureLocalDate(timing.collectionDate, `${path}.collectionDate`, issues);
 	if (!Number.isFinite(timing.durationAmount) || timing.durationAmount <= 0) {
 		issues.push({
 			path: `${path}.durationAmount`,
@@ -276,26 +277,6 @@ export function validateOperationalDate(
 	}
 }
 
-export function validateLocalDate(
-	value: LocalDateString | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	if (value === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-		issues.push({ path, message: `${path} must be a YYYY-MM-DD date string.` });
-		return;
-	}
-	const parsed = new Date(`${value}T00:00:00.000Z`);
-	if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-		issues.push({ path, message: `${path} must be a valid calendar date.` });
-		return;
-	}
-	const today = new Date().toISOString().slice(0, 10);
-	if (value > today) {
-		issues.push({ path, message: `${path} cannot be in the future.` });
-	}
-}
-
 export function normalizeNullableText(value: string | null | undefined): string | null {
 	if (value === undefined || value === null) {
 		return null;
@@ -317,7 +298,7 @@ export function basePayload(input: AdultCommandInput): AdultCommandPayload {
 	return validateAgencyCommandContext(input, createIssues());
 }
 
-export function isValidDate(value: Date | undefined): value is Date {
+function isValidDate(value: Date | undefined): value is Date {
 	return value instanceof Date && !Number.isNaN(value.getTime());
 }
 

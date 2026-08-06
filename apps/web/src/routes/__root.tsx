@@ -4,10 +4,15 @@ import { AppShellRoot } from '../components/app-shell/app-shell-root';
 import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
 import { WorkspaceChromeError, WorkspaceChromeFallback } from './-components';
 
+// Both are exported because the generated route tree names them in its inferred
+// signatures; nothing imports them directly, but declaration emit needs them —
+// unexporting them fails the build with TS4023.
+// fallow-ignore-next-line unused-type
 export interface RootSearch {
 	readonly auth?: 'organization_required';
 }
 
+// fallow-ignore-next-line unused-type
 export interface RouterContext {
 	readonly auth: AppAuthController;
 }

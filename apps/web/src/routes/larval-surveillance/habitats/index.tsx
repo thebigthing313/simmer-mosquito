@@ -18,7 +18,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
@@ -761,27 +761,6 @@ function resolveTypeName(habitat: HabitatRow, typeNameById: ReadonlyMap<string, 
 
 function habitatName(habitat: HabitatRow): string {
 	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
-}
-
-function _tagColorStyle(color: string | null): CSSProperties | null {
-	if (color === null || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color.trim())) {
-		return null;
-	}
-	const hex = color.trim();
-	return {
-		borderColor: hexWithAlpha(hex, 0.36),
-		backgroundColor: hexWithAlpha(hex, 0.14),
-		color: hex,
-	};
-}
-
-function hexWithAlpha(hex: string, alpha: number): string {
-	const normalized =
-		hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
-	const value = Math.round(alpha * 255)
-		.toString(16)
-		.padStart(2, '0');
-	return `${normalized}${value}`;
 }
 
 /** Clamp to valid lng/lat and collapse a world-spanning view to a single box. */

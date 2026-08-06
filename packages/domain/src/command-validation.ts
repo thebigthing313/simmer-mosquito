@@ -137,6 +137,14 @@ export function jsonObject(
 	return value as JsonObject;
 }
 
+/**
+ * A calendar date the command may carry, in any direction.
+ *
+ * Shape and calendar validity only — an assignment is due in the future and a
+ * forecast describes one, so nothing here rejects a date for being ahead of
+ * today. Operational dates that record something already observed want
+ * `validateNotFutureLocalDate` instead.
+ */
 export function validateLocalDate(
 	value: LocalDateString | undefined,
 	path: string,
@@ -149,6 +157,35 @@ export function validateLocalDate(
 	const parsed = new Date(`${value}T00:00:00.000Z`);
 	if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
 		issues.push({ path, message: `${path} must be a valid calendar date.` });
+	}
+}
+
+/**
+ * A calendar date for work that has already happened.
+ *
+ * A trap was collected, a habitat was inspected, a sample was identified — none
+ * of which can be true of tomorrow, so a future date is a typo rather than a
+ * plan. Surveillance commands validate their operational dates through here.
+ *
+ * This lived as a second, identically-named `validateLocalDate` inside the adult
+ * and larval `shared.ts` modules, which made the difference between the two
+ * rules invisible at every call site and ambiguous through the package barrel.
+ * The name now says which rule is being applied.
+ */
+export function validateNotFutureLocalDate(
+	value: LocalDateString | undefined,
+	path: string,
+	issues: DomainValidationIssue[],
+): void {
+	const before = issues.length;
+	validateLocalDate(value, path, issues);
+	if (issues.length > before || value === undefined) {
+		return;
+	}
+
+	const today = new Date().toISOString().slice(0, 10);
+	if (value > today) {
+		issues.push({ path, message: `${path} cannot be in the future.` });
 	}
 }
 

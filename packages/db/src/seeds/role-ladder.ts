@@ -1,7 +1,5 @@
-import { type Kysely, sql, type Transaction } from 'kysely';
-import type { MembershipStatus, SimmerDatabase, SimmerRole } from '../index.js';
-
-type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
+import { type Kysely, sql } from 'kysely';
+import type { DbExecutor, MembershipStatus, SimmerDatabase, SimmerRole } from '../index.js';
 
 /**
  * The rows needed to verify the role ladder end to end.
@@ -36,7 +34,7 @@ type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
 /** A stable organization id, so re-running the seed updates rather than duplicates. */
 export const ROLE_LADDER_ORGANIZATION_ID = '00000000-0000-4000-8000-000000000201';
 
-export interface RoleLadderPerson {
+interface RoleLadderPerson {
 	readonly key: string;
 	readonly profileId: string;
 	readonly membershipId: string;

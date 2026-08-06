@@ -245,7 +245,7 @@ function unionBounds(
 }
 
 /** `Polygon · 12 vertices` — the stored type, not an assumed point. */
-export function geometrySummary(
+function geometrySummary(
 	geojson: GeoJsonGeometry | null,
 	geomType: string | null,
 	isPending = false,

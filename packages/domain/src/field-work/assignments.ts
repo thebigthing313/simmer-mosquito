@@ -6,6 +6,7 @@ import {
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateLocalDate,
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue, LocalDateString } from '../shared.js';
 import {
@@ -22,7 +23,6 @@ import {
 	validateBase,
 	validateIdCommand,
 	validateIdList,
-	validateLocalDate,
 	validateTarget,
 } from './shared.js';
 

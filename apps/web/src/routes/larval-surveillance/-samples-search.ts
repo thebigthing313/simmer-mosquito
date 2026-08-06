@@ -13,7 +13,7 @@ import {
 // degrades to the explorer's own defaults instead of erroring.
 
 /** Sample lifecycle states the explorer can filter to; mirrors the server enum. */
-export const sampleStatusValues = [
+const sampleStatusValues = [
 	'all',
 	'identified',
 	'awaiting',
@@ -44,18 +44,4 @@ export const sampleFilterCodecs: FilterCodecs<SampleFilters> = {
 	species: idSetParam,
 	nonMosquito: flagParam,
 	regions: idSetParam,
-};
-
-/**
- * The encoded shape, as a deep link supplies it. A type alias rather than an
- * interface so it carries an implicit index signature and satisfies the router's
- * search type.
- */
-export type SamplesSearch = {
-	readonly from?: string;
-	readonly to?: string;
-	readonly status?: SampleStatusValue;
-	readonly species?: readonly string[];
-	readonly nonMosquito?: boolean;
-	readonly regions?: readonly string[];
 };

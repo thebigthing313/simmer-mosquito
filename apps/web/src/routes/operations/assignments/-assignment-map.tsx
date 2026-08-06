@@ -118,7 +118,7 @@ export function AssignmentMap({
 }
 
 /** SW/NE bounds across every located stop, or null when none has coordinates. */
-export function boundsOfFeatures(
+function boundsOfFeatures(
 	features: readonly RouteStopFeature[],
 ): [[number, number], [number, number]] | null {
 	let west = Number.POSITIVE_INFINITY;

@@ -41,7 +41,7 @@ import { ContactFieldsBlock } from '../-contact-fields-block';
 
 export type ContactMode = 'existing' | 'new';
 
-export const INTAKE_TYPE_OPTIONS = REQUEST_INTAKE_TYPES.map((value: RequestIntakeType) => ({
+const INTAKE_TYPE_OPTIONS = REQUEST_INTAKE_TYPES.map((value: RequestIntakeType) => ({
 	value,
 	label: value === 'walk-in' ? 'Walk-in' : value.charAt(0).toUpperCase() + value.slice(1),
 }));
@@ -516,7 +516,7 @@ function LocationSection({
 
 // --- validation -------------------------------------------------------------
 
-export function validateServiceRequestForm(
+function validateServiceRequestForm(
 	values: ServiceRequestFormValues,
 	options: { readonly hideLocation: boolean; readonly disableNewContact: boolean },
 ): string | null {

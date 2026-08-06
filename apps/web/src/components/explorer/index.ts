@@ -14,5 +14,5 @@ export { type FilterOption, MultiSelectFilter, toggle } from './multi-select-fil
 export { RESULT_SKELETON_KEYS } from './result-skeleton';
 export { useEntityTags } from './use-entity-tags';
 export { usePersonnelOptions } from './use-personnel-options';
-export { type RegionMembership, useRegionMembership } from './use-region-membership';
+export { useRegionMembership } from './use-region-membership';
 export { useRegionOptions } from './use-region-options';

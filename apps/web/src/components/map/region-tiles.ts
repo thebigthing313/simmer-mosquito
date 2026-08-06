@@ -85,7 +85,7 @@ function regionTileParams(filters?: RegionTileFilters): URLSearchParams {
  * — a render-time layer filter still sees `feature.id === undefined`. Filtering
  * on `['id']` here would match nothing, so no region ever draws.
  */
-export function regionVisibilityFilter(visibleIds: readonly string[]): ExpressionSpecification {
+function regionVisibilityFilter(visibleIds: readonly string[]): ExpressionSpecification {
 	return ['in', ['get', 'id'], ['literal', [...visibleIds]]];
 }
 
@@ -146,5 +146,3 @@ export function regionTileLayers(
 		},
 	];
 }
-
-export { REGION_SELECTED_LAYER_IDS };

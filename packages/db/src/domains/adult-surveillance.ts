@@ -1,7 +1,8 @@
-import { type Kysely, type RawBuilder, sql, type Transaction } from 'kysely';
+import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type {
 	CollectionTimingMode,
+	DbExecutor,
 	GeoJsonGeometry,
 	OwnedGeometryInfo,
 	SimmerDatabase,
@@ -88,8 +89,6 @@ export interface SafeCollection {
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
-
-type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
 
 function geojsonToGeom(geojson: GeoJsonGeometry): RawBuilder<string> {
 	const serialized = JSON.stringify(geojson);

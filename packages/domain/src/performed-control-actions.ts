@@ -334,7 +334,7 @@ export function validateControlActionContext(
 	return { kind: 'none' };
 }
 
-export function normalizeApplicationBatches(
+function normalizeApplicationBatches(
 	values: readonly ApplicationBatchInput[],
 	issues: DomainValidationIssue[],
 ): readonly ApplicationBatchInput[] {
@@ -375,7 +375,7 @@ export function normalizeApplicationBatches(
 	});
 }
 
-export function positiveFiniteNumber(
+function positiveFiniteNumber(
 	value: number | undefined,
 	path: string,
 	issues: DomainValidationIssue[],
@@ -387,7 +387,7 @@ export function positiveFiniteNumber(
 	return value;
 }
 
-export function positiveInteger(
+function positiveInteger(
 	value: number | undefined,
 	path: string,
 	issues: DomainValidationIssue[],

@@ -637,7 +637,7 @@ export function denyUnauthorizedCommands(
  * "who may touch this row" is answered by the command's entry in the permission
  * map and not by whether its `case` arm remembered to ask.
  */
-export async function assertCommandOwnership(
+async function assertCommandOwnership(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
 	actor: CommandActor,
@@ -687,7 +687,7 @@ export function nowLocalDate(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
-export async function readCurrentTransactionId(trx: FieldWorkTransaction): Promise<number> {
+async function readCurrentTransactionId(trx: FieldWorkTransaction): Promise<number> {
 	const result = await sql<{
 		txid: string;
 	}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
@@ -737,6 +737,6 @@ export function readDate(value: unknown): Date | null {
 	return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

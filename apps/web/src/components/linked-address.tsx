@@ -28,7 +28,7 @@ const gcTimeMs = 30_000;
 /** A sentinel no real row matches, so the query is inert when nothing is linked. */
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
-export function useLinkedAddress(addressId: string | null | undefined): {
+function useLinkedAddress(addressId: string | null | undefined): {
 	readonly address: AddressRow | undefined;
 	readonly isReady: boolean;
 } {

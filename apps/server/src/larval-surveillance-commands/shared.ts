@@ -98,7 +98,7 @@ export async function resolveLocationGeom(
 	}
 }
 
-export async function loadGeojson(
+async function loadGeojson(
 	trx: LarvalSurveillanceTransaction,
 	table: 'addresses' | 'habitats' | 'inspections' | 'service_requests',
 	id: string,
@@ -176,7 +176,7 @@ export function hasInspectionResultFields(payload: Record<string, unknown>): boo
 	return 'inspectionDate' in payload || 'isWet' in payload;
 }
 
-export function readDensity(value: unknown): LarvalDensity | null {
+function readDensity(value: unknown): LarvalDensity | null {
 	return value === 'none' ||
 		value === 'light' ||
 		value === 'medium' ||
@@ -628,10 +628,10 @@ export function readNumber(value: unknown): number | undefined {
 	return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-export function readNumberOrNull(value: unknown): number | null {
+function readNumberOrNull(value: unknown): number | null {
 	return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

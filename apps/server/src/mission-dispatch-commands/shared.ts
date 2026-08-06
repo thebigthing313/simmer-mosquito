@@ -115,7 +115,7 @@ export async function resolveItemGeom(
 	throw new CommandError(400, { error: 'mission_item_location_required' });
 }
 
-export async function resolveLocationSourceGeom(
+async function resolveLocationSourceGeom(
 	trx: MissionDispatchTransaction,
 	organizationId: string,
 	source: { readonly kind: string } & Record<string, unknown>,
@@ -427,7 +427,7 @@ export type CommandsResult =
 	| { readonly ok: true; readonly commands: readonly MissionDispatchCommand[] }
 	| { readonly ok: false; readonly body: InvalidCommandBody };
 
-export class CommandError extends Error {
+class CommandError extends Error {
 	constructor(
 		readonly status: 400 | 403 | 404,
 		readonly body: { readonly error: string; readonly reason?: string },
@@ -520,7 +520,7 @@ export function denyUnauthorizedCommands(
  * "who may touch this row" is answered by the command's entry in the permission
  * map and not by whether its `case` arm remembered to ask.
  */
-export async function assertCommandOwnership(
+async function assertCommandOwnership(
 	trx: MissionDispatchTransaction,
 	command: MissionDispatchCommand,
 	actor: CommandActor,
@@ -549,7 +549,7 @@ export function localDateColumn(value: string) {
 	return sql<Date>`${value}::date`;
 }
 
-export async function readCurrentTransactionId(trx: MissionDispatchTransaction): Promise<number> {
+async function readCurrentTransactionId(trx: MissionDispatchTransaction): Promise<number> {
 	const result = await sql<{
 		txid: string;
 	}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
@@ -605,6 +605,6 @@ export function readStringArray(value: unknown): readonly string[] {
 		: [];
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
