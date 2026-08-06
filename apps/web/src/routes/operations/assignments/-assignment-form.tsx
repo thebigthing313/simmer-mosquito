@@ -1,4 +1,5 @@
 import type { RouteRow } from '@simmer-mosquito/sync';
+import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
@@ -10,7 +11,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/select';
 import { useMemo, useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
-import { RequiredMark } from '../../../components/required-mark';
 import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
 import { NO_ASSIGNEE } from './-assignment-data';
 

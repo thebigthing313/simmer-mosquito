@@ -1,12 +1,12 @@
 import type { CollectionMethodRow, ProfileRow, TrapRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-import { Panel, PanelMessage, RowSkeleton } from '../../components/overview-panel';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
 import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from './-adult-display';

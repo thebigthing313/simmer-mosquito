@@ -1,4 +1,5 @@
 import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
@@ -12,7 +13,6 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { RequiredMark } from '../required-mark';
 import { GeometryImportDialog } from './geometry-import-dialog';
 import { RegionBoundaryPicker } from './region-boundary-picker';
 import type { DrawGeometry, DrawGeometryType, MapDrawController } from './use-map-draw';

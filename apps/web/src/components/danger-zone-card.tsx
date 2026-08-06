@@ -1,3 +1,4 @@
+import { settleWrite } from '@simmer-mosquito/sync';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -31,7 +32,6 @@ import {
 } from '../hooks/use-delete-impact';
 import type { MinimumRole } from '../lib/write-access';
 import { readBlockers } from '../sync/command-error';
-import { settleWrite } from '../sync/settle-write';
 import { WriteOnly } from './write-only';
 
 const DeleteIcon = iconRegistry.actions.delete.icon;

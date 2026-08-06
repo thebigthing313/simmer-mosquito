@@ -1,6 +1,8 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createRegionCommand } from '@simmer-mosquito/domain';
 import type { RegionFolderRow } from '@simmer-mosquito/sync';
+import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
+import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -13,10 +15,7 @@ import {
 	useFitToGeometry,
 } from '../../../components/map/geometry-control';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
-import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import type { MetadataValue } from '../../../forms/field-components';
-import { RecordFormPage } from '../../../forms/form-components';
 
 /**
  * Domain issue path → the form field holding it. Geometry is drawn on the map,
@@ -167,7 +166,7 @@ export function RegionFormPage({
 				}
 				gap="tight"
 				header={header}
-				map={
+				aside={
 					<>
 						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
 						<DrawToolbar controller={draw} geometryType="Polygon" />

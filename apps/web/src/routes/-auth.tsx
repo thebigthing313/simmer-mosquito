@@ -1,28 +1,25 @@
+import type {
+	AcceptInvitationOutcome,
+	AuthenticatedOutcome,
+	AuthOrganizationChoice,
+	SignInOutcome,
+	SignUpOutcome,
+} from '@simmer-mosquito/auth/browser';
+import { PasswordField } from '@simmer-mosquito/ui-web/components/password-field';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupButton,
-	InputGroupInput,
-} from '@simmer-mosquito/ui-web/components/ui/input-group';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { appAuthController } from '../app-auth';
 import {
-	type AcceptInvitationOutcome,
-	type AuthenticatedOutcome,
-	type AuthOrganizationChoice,
 	acceptInvitation,
 	fetchInvitation,
 	requestPasswordReset,
 	resetPassword,
-	type SignInOutcome,
-	type SignUpOutcome,
 	selectOrganization,
 	signIn,
 	signUp,
@@ -41,8 +38,6 @@ import { LandingStage } from './-landing-stage';
  */
 
 const SpinnerIcon = iconRegistry.actions.loading.icon;
-const EyeShowIcon = iconRegistry.generic.eye.icon;
-const EyeHideIcon = iconRegistry.generic.eyeOff.icon;
 const CheckIcon = iconRegistry.actions.check.icon;
 const CircleIcon = iconRegistry.generic.circle.icon;
 
@@ -99,57 +94,6 @@ function SubmitButton({
 		<Button type="submit" size="lg" className="w-full" disabled={pending}>
 			{pending ? pendingLabel : children}
 		</Button>
-	);
-}
-
-/**
- * Password input with a reveal toggle. Auth is exactly where users need to
- * confirm what they typed, so every password field gets a show/hide control.
- */
-function PasswordField({
-	id,
-	label,
-	autoComplete,
-	value,
-	onChange,
-	minLength,
-}: {
-	readonly id: string;
-	readonly label: string;
-	readonly autoComplete: string;
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-	readonly minLength?: number;
-}) {
-	const [visible, setVisible] = useState(false);
-	const ToggleIcon = visible ? EyeHideIcon : EyeShowIcon;
-
-	return (
-		<Field>
-			<FieldLabel htmlFor={id}>{label}</FieldLabel>
-			<InputGroup>
-				<InputGroupInput
-					id={id}
-					type={visible ? 'text' : 'password'}
-					autoComplete={autoComplete}
-					required
-					{...(minLength === undefined ? {} : { minLength })}
-					value={value}
-					onChange={(event) => onChange(event.target.value)}
-				/>
-				<InputGroupAddon align="inline-end">
-					<InputGroupButton
-						type="button"
-						size="icon-xs"
-						aria-pressed={visible}
-						aria-label={visible ? 'Hide password' : 'Show password'}
-						onClick={() => setVisible((current) => !current)}
-					>
-						<ToggleIcon className="size-4" />
-					</InputGroupButton>
-				</InputGroupAddon>
-			</InputGroup>
-		</Field>
 	);
 }
 

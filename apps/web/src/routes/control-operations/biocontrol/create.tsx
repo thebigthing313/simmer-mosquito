@@ -5,6 +5,7 @@ import type {
 	ProfileRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import {
@@ -15,7 +16,6 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	BiocontrolFormPage,

@@ -1,5 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -7,7 +8,6 @@ import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { seedRegionGeometryCache } from '../../../hooks/use-region-geometry';
 import { isBelowRole } from '../../../lib/write-access';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,

@@ -44,6 +44,29 @@ export {
 	parseBoundingBox,
 	toLngLat,
 } from './geometry.js';
+export type {
+	ImportCandidate,
+	ImportCandidateResult,
+	ImportGeometry,
+	ImportGeometryKind,
+	ImportGroup,
+	ImportGroupResult,
+	ImportLineGeometry,
+	ImportPolygonGeometry,
+	ImportPosition,
+} from './geometry-import.js';
+export {
+	collectImportGroups,
+	declareMissingNamespaces,
+	flattenGeometries,
+	importCandidatesFrom,
+	importVertexCount,
+	isWgs84Geometry,
+	LINE_KINDS,
+	POLYGON_KINDS,
+	parseGeoJsonGroups,
+	parseKmlCoordinates,
+} from './geometry-import.js';
 export type { MeasurementSystem } from './measurement.js';
 export {
 	distanceMeters,

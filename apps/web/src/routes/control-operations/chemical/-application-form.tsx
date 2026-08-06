@@ -14,6 +14,15 @@ import type {
 	UnitRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
+import {
+	customFieldCount,
+	customSchemaFor,
+	type FieldOption,
+	type MetadataValue,
+	RecordFormPage,
+	useAppForm,
+	validateSchemaMetadata,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -34,16 +43,7 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import {
-	customFieldCount,
-	customSchemaFor,
-	type FieldOption,
-	type MetadataValue,
-	validateSchemaMetadata,
-} from '../../../forms/field-components';
-import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { webCollections } from '../../../sync/webCollections';
@@ -486,7 +486,7 @@ export function ApplicationFormPage({
 					</>
 				}
 				header={header}
-				map={
+				aside={
 					<>
 						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
 						<DrawToolbar controller={draw} geometryType={geometryType} />

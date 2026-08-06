@@ -1,4 +1,5 @@
 import { createAddressCommand } from '@simmer-mosquito/domain';
+import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -26,7 +27,6 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { MapCanvas } from '../../../components/map';
 import { GeometryControl, POINT_DRAW_TYPES } from '../../../components/map/geometry-control';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
-import { RequiredMark } from '../../../components/required-mark';
 import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../../forms/domain-validation';
 
 export type AddressPointGeometry = {

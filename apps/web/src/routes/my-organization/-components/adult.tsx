@@ -4,6 +4,7 @@ import type {
 	CollectionMethodRow,
 	OrganizationRow,
 } from '@simmer-mosquito/sync';
+import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -31,7 +32,6 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { EmptyValue } from '../../../components/empty-value';
-import { useAppForm } from '../../../forms';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
 import { AddIcon, ArrowRightIcon, CloseIcon, EditIcon } from './constants';
 import {

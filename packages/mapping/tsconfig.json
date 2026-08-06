@@ -1,6 +1,19 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
+		/*
+		 * `DOM` is here for one function. `parseKmlGroups` in `geometry-import.ts`
+		 * reads KML through the browser's built-in `DOMParser` rather than pulling
+		 * in an XML dependency; every other module in this package is pure and would
+		 * typecheck on `ES2022` alone.
+		 *
+		 * This stays honest as long as the consumers are browsers — today `apps/web`
+		 * and `apps/admin`. `apps/server` deliberately does not depend on this
+		 * package. If that changes, the KML path needs its own entry point or a
+		 * runtime guard, because `DOMParser` does not exist in Node and the type
+		 * system will no longer be the thing that says so.
+		 */
+		"lib": ["ES2022", "DOM"],
 		"outDir": "dist",
 		"rootDir": "src",
 		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"

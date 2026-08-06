@@ -1,5 +1,6 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import {
 	Empty,
 	EmptyDescription,
@@ -13,7 +14,6 @@ import { useCallback } from 'react';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { type DrawGeometry, noLureValue, TrapFormPage, type TrapFormValues } from './-trap-form';
 

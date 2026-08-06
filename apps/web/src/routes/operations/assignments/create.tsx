@@ -1,4 +1,5 @@
 import type { AssignmentRow, RouteRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -11,7 +12,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { isBelowRole } from '../../../lib/write-access';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayDateValue } from '../../control-operations/-control-display';
 import { useRouteStopCounts } from '../../larval-surveillance/habitats/-route-data';

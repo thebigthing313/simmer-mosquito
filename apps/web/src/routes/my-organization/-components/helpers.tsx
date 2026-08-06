@@ -20,10 +20,10 @@ import type {
 	TagRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import type { Collection } from '@tanstack/react-db';
 import { toast } from 'sonner';
 import type { AuthMe } from '../../../auth';
-import { settleWrite } from '../../../sync/settle-write';
 import { collections, defaultDensityRangeValues } from './constants';
 import type {
 	AdultCollectionLureFormValues,

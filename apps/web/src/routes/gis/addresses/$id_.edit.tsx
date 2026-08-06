@@ -1,5 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import {
 	Empty,
 	EmptyDescription,
@@ -13,7 +14,6 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
 import {

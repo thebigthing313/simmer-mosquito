@@ -6,6 +6,7 @@ import type {
 	UnitRow,
 } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Collapsible,
@@ -22,7 +23,6 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
-import { Panel, PanelMessage, RowSkeleton } from '../../components/overview-panel';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
 import { formatActionDate, formatAmount } from './-control-display';

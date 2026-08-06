@@ -1,3 +1,7 @@
+import {
+	customFieldEntries,
+	formatCustomFieldValue,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Card,
@@ -5,7 +9,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { customFieldEntries, formatCustomFieldValue } from '../forms/field-components';
 
 /**
  * Read-only view of the custom fields an agency attached to a record's method or

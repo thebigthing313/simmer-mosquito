@@ -1,4 +1,5 @@
 import type { SampleSpeciesRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useCallback, useEffect, useRef } from 'react';
 import {
@@ -13,7 +14,6 @@ import {
 	type TallyEntry,
 } from '../../components/key-entry/use-key-entry-tally';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
-import { settleWrite } from '../../sync/settle-write';
 import { webCollections } from '../../sync/webCollections';
 import { todayInTimeZone } from './-overview-data';
 

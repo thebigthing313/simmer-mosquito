@@ -60,12 +60,28 @@ offline persistence, offline command queues, or offline conflict resolution.
 All agency roles use the web app for the workflows their role permits.
 
 `apps/admin` is a Vite React SPA using TanStack Router. It is the SIMMER
-operator control plane, not an agency administration surface. Its current scope
-is WorkOS-backed operator auth, organization creation/support metadata,
-organization-scoped user invitation and membership support, global mosquito
-taxonomy management, and global unit management. Agency-owned operational
-catalogs and workflows remain in `apps/web` unless a future support/repair tool
-is explicitly operator-owned.
+operator control plane, not an agency administration surface. Its scope is
+in-app operator auth, agency creation and support metadata, agency-scoped user
+invitation and membership support, agency foundation bootstrapping (regions,
+addresses, method/lure/habitat lookups, enabled species, and first traps),
+global mosquito taxonomy management, and global unit management. Agency-owned
+operational catalogs and workflows remain in `apps/web` unless a future
+support/repair tool is explicitly operator-owned.
+
+It is built on the same platform as `apps/web` rather than beside it: the
+two-rail app shell, the TanStack Form field kit, the browser auth client, and
+the panel/search primitives are all shared packages, and each app supplies only
+its own navigation model, identity wiring, and routes. Reads follow the same
+split as the web app — `useLiveQuery` over Electric-backed collections for the
+global catalogs, `useQuery` for the operator-scoped `/admin/*` JSON endpoints,
+which are not tenant-scoped and so have no shape to authorize. The console
+deliberately carries no map: geometry for the foundation endpoints comes from
+KML/GeoJSON files and typed coordinates, keeping `mapbox-gl` out of its bundle.
+
+Access is all-or-nothing, unlike the web app's role ladder: the server's
+`SIMMER_OPERATOR_EMAILS` allowlist admits an account to every `/admin/*`
+endpoint or to none, and the console renders that refusal as an explanation
+rather than an error.
 
 `apps/preview` is an internal Vite React/TanStack Router application for
 component preview, design-token inspection, visual-regression surfaces, and

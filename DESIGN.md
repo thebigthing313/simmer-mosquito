@@ -209,6 +209,20 @@ failures lived here while body copy sat comfortably at 15:1. Prove state colours
 with a number, not an eye: `packages/ui-web/src/styles.contrast.test.ts` reads
 the real stylesheets and fails the build on a regression.
 
+**The Registered Token Rule.** A colour role is only usable if Tailwind knows
+about it. `--success`, `--warning`, `--attention`, `--info`, `--catalog`,
+`--danger`, and `--quiet` lived in `:root` for a long time without matching
+`--color-*` entries in `@theme`, which meant `text-warning` compiled to *nothing
+at all* — no error, no fallback, just uncoloured text that looked deliberate in
+review. A stray `text-warning` in `apps/web/src/routes/-components.tsx` was inert
+for exactly this reason, and the `text-[var(--success)]` spellings elsewhere were
+people routing around the omission without naming it.
+
+They are registered now, so the short form works. When a new role joins the
+palette, it goes in **both** places, and the check is empirical: build, then grep
+the emitted CSS for the class. A utility that generates no rule is invisible in
+the source and invisible on screen.
+
 **The Solid Indicator Rule.** A focus ring is never drawn at partial alpha. An
 alpha ring composites toward the surface it is supposed to contrast against, so
 it gets *less* visible exactly where it needs to be more. SIMMER's ring sat at
@@ -374,9 +388,13 @@ tiles — and nowhere else.
 
 ### Navigation
 
-The admin control plane uses a left sidebar with muted surface, compact links,
-and active state through tonal contrast. Topbars stay low and structural:
-brand, section navigation, and auth entry points only.
+Both front ends wear the same two-rail shell from
+`@simmer-mosquito/ui-web/components/app-shell`: a primary rail of domains, a
+secondary panel of that domain's navigation, and a breadcrumb header. The
+operator console no longer has chrome of its own — it supplies a navigation
+model and identity, and the shell does the rest. Its rail carries three domains
+(Agencies, Mosquito Taxonomy, Units) and its switcher names the control plane
+rather than an agency, because every page there spans all of them.
 
 **The Desktop Floor Rule.** SIMMER web is a desktop application. The two-rail
 shell spends 304px on fixed chrome, and both rails stay visible at every width —
@@ -391,10 +409,22 @@ narrow-width branch that only pays off in a shell we do not ship.
 
 ### Drawers
 
-Drawers are the preferred committed-interruption pattern for long create flows
-such as new organizations. They slide the task into focus while preserving the
-page underneath. Use full-height right-side geometry, no decorative shadow, and
-a scrim only when the drawer blocks the main workflow.
+Drawers are for committed interruption that must preserve the page underneath.
+Use full-height right-side geometry, no decorative shadow, and a scrim only when
+the drawer blocks the main workflow.
+
+**The One Create Shape Rule.** Creating a record is a full page when the record
+is long, and a dialog when it is short — and the same choice holds for editing
+it. Both apps use `RecordFormPage` for the long ones (a dozen forms in the
+agency workspace; creating an agency in the console) and a dialog for the short
+catalog rows. Creating an organization used to be a 520px sheet, which put the
+one decision worth deliberating — whether the operator links themselves as the
+agency's first owner — below the fold; that is the shape this rule exists to
+prevent.
+
+A create form pinned permanently above its own list is not a third option. It
+spends vertical space on every visit to serve the rarest action, and it makes
+adding and editing two different experiences of one operation.
 
 ### Record Lists
 

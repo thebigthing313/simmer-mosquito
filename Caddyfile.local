@@ -1,6 +1,26 @@
+# Local HTTPS/HTTP2 front for the dev servers.
+#
+# HTTP/2 is the point, not the TLS: Electric sync opens many concurrent shape
+# requests, and HTTP/1.1 caps a browser at ~6 per origin, so streams queue behind
+# each other and the workspace stalls. Every browser-facing origin therefore goes
+# through here rather than straight at the Vite/Hono port.
+#
+#   https://localhost:5175  ->  web    (vite  5173)
+#   https://localhost:5176  ->  admin  (vite  5174)
+#   https://localhost:3002  ->  server (hono  3000)
+#
+# `header_up Host` rewrites to the upstream's own origin so Vite's host check
+# passes without an allowlist entry.
+
 localhost:5175 {
 	reverse_proxy localhost:5173 {
 		header_up Host localhost:5173
+	}
+}
+
+localhost:5176 {
+	reverse_proxy localhost:5174 {
+		header_up Host localhost:5174
 	}
 }
 

@@ -1,8 +1,8 @@
 import type { ApplicationBatchRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import { reconcileLinks } from '../../../sync/reconcile-links';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 
 /**

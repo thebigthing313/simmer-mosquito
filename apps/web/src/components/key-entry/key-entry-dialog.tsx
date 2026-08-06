@@ -21,6 +21,7 @@ import { Kbd } from '@simmer-mosquito/ui-web/components/ui/kbd';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
+import { usePersistentFlag } from '@simmer-mosquito/ui-web/hooks/use-persistent-flag';
 import {
 	iconRegistry,
 	KeyboardIcon,
@@ -29,7 +30,6 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { usePersistentFlag } from '../../hooks/use-persistent-flag';
 import type {
 	ResolvedSpeciesKeyBinding,
 	SpeciesKeyBindingsView,

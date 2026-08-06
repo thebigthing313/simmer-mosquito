@@ -180,11 +180,3 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 		units,
 	};
 }
-
-export async function preloadAdminCollections(collections: AdminCollections): Promise<void> {
-	await Promise.all([
-		collections.genera.preload(),
-		collections.species.preload(),
-		collections.units.preload(),
-	]);
-}

@@ -1,8 +1,47 @@
+import type {
+	ShellAccountLink,
+	ShellDomain,
+	ShellNavGroup,
+	ShellNavItem,
+	ShellStandalonePage,
+} from '@simmer-mosquito/ui-web/components/app-shell';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import type { LinkProps } from '@tanstack/react-router';
 import type { AuthMe } from '../../auth';
-import { hasAtLeastRole } from '../../lib/write-access';
-import type { ShellCrumb, ShellDomain, ShellNavGroup, ShellNavItem } from './types';
+import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
+
+/**
+ * The role floor a navigation item carries in this app.
+ *
+ * The shared shell knows nothing about roles — it draws whatever navigation it
+ * is handed. Web's navigation is role-filtered before it gets there, and this is
+ * the field that filter reads, so the floor lives on web's own item type rather
+ * than in the package.
+ */
+interface WebShellNavItem extends ShellNavItem {
+	/**
+	 * The destination is a form, and this is the role it needs.
+	 *
+	 * Dropped from the navigation below that floor, because the route guard would
+	 * bounce the click straight back off it. It has to match the guard in the
+	 * route's own `beforeLoad` — `'collector'` for recording field work,
+	 * `'manager'` for the catalogs and planning — which in turn matches the
+	 * server's floor for the command the form sends.
+	 */
+	readonly write?: MinimumRole;
+}
+
+interface WebShellNavGroup extends ShellNavGroup {
+	readonly items: readonly WebShellNavItem[];
+}
+
+/**
+ * Web's domain type. Assignable to the shared {@link ShellDomain} — readonly
+ * arrays are covariant, so the extra `write` rides along untouched into a shell
+ * that never reads it.
+ */
+export interface WebShellDomain extends ShellDomain {
+	readonly groups: readonly WebShellNavGroup[];
+}
 
 /**
  * The product's operational domains, expressed fresh from the SIMMER domain
@@ -14,7 +53,7 @@ import type { ShellCrumb, ShellDomain, ShellNavGroup, ShellNavItem } from './typ
  * professional, so a summary states what is here, never why it matters or how
  * the work should be done.
  */
-const shellDomains: readonly ShellDomain[] = [
+export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'overview',
 		label: 'Overview',
@@ -634,16 +673,6 @@ const shellDomains: readonly ShellDomain[] = [
 	},
 ];
 
-/** Longest-prefix active match, so nested record paths still light their item. */
-function pathMatches(activePath: string, target: string): boolean {
-	if (target === '/') {
-		return activePath === '/';
-	}
-
-	return activePath === target || activePath.startsWith(`${target}/`);
-}
-
-/** Flat list of every item across all domains, paired with its owning domain + group. */
 /**
  * The navigation as one role sees it: forms above their floor removed.
  *
@@ -655,9 +684,14 @@ function pathMatches(activePath: string, target: string): boolean {
  * are what actually stop someone reaching a form; this stops the sidebar
  * offering a door that would close in their face. Both read the same floors,
  * which are the server's.
+ *
+ * What this returns is what the shell *draws*. `AppShellRoot` hands the
+ * unfiltered `webShellDomains` to the shell separately, as `resolutionDomains`,
+ * so "where am I" still answers truthfully on a path this filter hid — see
+ * `ShellContextValue.resolutionDomains`.
  */
-export function shellDomainsForRole(auth: AuthMe | null): readonly ShellDomain[] {
-	return shellDomains
+export function shellDomainsForRole(auth: AuthMe | null): readonly WebShellDomain[] {
+	return webShellDomains
 		.map((domain) => ({
 			...domain,
 			groups: domain.groups
@@ -672,119 +706,16 @@ export function shellDomainsForRole(auth: AuthMe | null): readonly ShellDomain[]
 		.filter((domain) => domain.groups.length > 0);
 }
 
-// Built from the full navigation on purpose: `resolveActive` answers "where am
-// I", and a viewer who lands on a form path before the guard redirects them
-// still needs the breadcrumb and rail to say something true.
-const flatItems: readonly {
-	readonly domain: ShellDomain;
-	readonly group: ShellNavGroup;
-	readonly item: ShellNavItem;
-}[] = shellDomains.flatMap((domain) =>
-	domain.groups.flatMap((group) => group.items.map((item) => ({ domain, group, item }))),
-);
-
-/** Resolve the active domain + group + item for a path, falling back to the first domain. */
-export function resolveActive(activePath: string): {
-	readonly domain: ShellDomain;
-	readonly group: ShellNavGroup | null;
-	readonly item: ShellNavItem | null;
-} {
-	let best: {
-		readonly domain: ShellDomain;
-		readonly group: ShellNavGroup;
-		readonly item: ShellNavItem;
-	} | null = null;
-	let bestLength = -1;
-
-	for (const candidate of flatItems) {
-		const target = candidate.item.to;
-		if (target !== undefined && pathMatches(activePath, target) && target.length > bestLength) {
-			best = candidate;
-			bestLength = target.length;
-		}
-	}
-
-	if (best !== null) {
-		return best;
-	}
-
-	const [first] = shellDomains;
-	if (first === undefined) {
-		throw new Error('shellDomains must not be empty.');
-	}
-
-	return { domain: first, group: null, item: null };
-}
-
-/** The first navigable destination of a domain (used when its icon is clicked). */
-export function firstDestination(domain: ShellDomain): LinkProps['to'] | null {
-	for (const group of domain.groups) {
-		const [item] = group.items;
-		if (item?.to !== undefined) {
-			return item.to;
-		}
-	}
-
-	return null;
-}
-
 /**
  * Destinations reached from the account menu rather than the domain rail. They
  * belong to no domain, so they carry their own trail instead of falling back to
  * whichever domain happens to sort first.
  */
-const standalonePages: readonly {
-	readonly path: string;
-	readonly crumbs: readonly ShellCrumb[];
-}[] = [{ path: '/profile', crumbs: [{ label: 'Account' }, { label: 'Profile' }] }];
+export const webStandalonePages: readonly ShellStandalonePage[] = [
+	{ path: '/profile', crumbs: [{ label: 'Account' }, { label: 'Profile' }] },
+];
 
-function titleCase(segment: string): string {
-	return segment.replace(/[-_]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function looksLikeRecordId(segment: string): boolean {
-	return /\d/.test(segment) || /^[0-9a-f]{8,}$/i.test(segment);
-}
-
-/**
- * Breadcrumb trail for a path: the active domain, the active item, and any
- * meaningful trailing segments. A trailing segment uses its registered label
- * when one is supplied (e.g. a record's name), otherwise a record id renders as
- * `#id` and any other segment is title-cased.
- */
-export function buildBreadcrumbs(
-	activePath: string,
-	labels?: ReadonlyMap<string, string>,
-): readonly ShellCrumb[] {
-	const standalone = standalonePages.find((page) => pathMatches(activePath, page.path));
-	if (standalone !== undefined) {
-		return standalone.crumbs;
-	}
-
-	const { domain, group, item } = resolveActive(activePath);
-	const crumbs: ShellCrumb[] = [{ label: domain.label }];
-
-	if (item === null) {
-		return crumbs;
-	}
-
-	if (group?.label !== undefined) {
-		crumbs.push({ label: group.label });
-	}
-
-	crumbs.push({ label: item.label, to: item.to });
-
-	const itemSegments = item.to?.split('/').filter(Boolean) ?? [];
-	const pathSegments = activePath.split('/').filter(Boolean);
-	const trailing = pathSegments.slice(itemSegments.length);
-	for (const segment of trailing) {
-		const override = labels?.get(segment);
-		if (override !== undefined && override !== '') {
-			crumbs.push({ label: override });
-			continue;
-		}
-		crumbs.push({ label: looksLikeRecordId(segment) ? `#${segment}` : titleCase(segment) });
-	}
-
-	return crumbs;
-}
+/** The account-menu entries for the agency workspace. */
+export const webAccountLinks: readonly ShellAccountLink[] = [
+	{ label: 'Profile', to: '/profile', icon: iconRegistry.actions.edit.icon },
+];

@@ -143,6 +143,12 @@ jobs:
             service_var: RAILWAY_SERVER_SERVICE
           - name: web
             service_var: RAILWAY_WEB_SERVICE
+          # The operator console. Deployed from the same commit as the others
+          # because it shares `packages/ui-web` with the web app — a shell or
+          # form-kit change that ships to one and not the other is how the two
+          # surfaces drift apart again.
+          - name: admin
+            service_var: RAILWAY_ADMIN_SERVICE
 
     steps:
       - name: Check out repository
@@ -170,6 +176,7 @@ jobs:
           RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT }}
           RAILWAY_SERVER_SERVICE: ${{ vars.RAILWAY_SERVER_SERVICE }}
           RAILWAY_WEB_SERVICE: ${{ vars.RAILWAY_WEB_SERVICE }}
+          RAILWAY_ADMIN_SERVICE: ${{ vars.RAILWAY_ADMIN_SERVICE }}
           SERVICE_VAR: ${{ matrix.service_var }}
         run: |
           test -n "$RAILWAY_TOKEN"

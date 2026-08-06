@@ -8,6 +8,10 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
+		"./browser": {
+			"types": "./src/browser.ts",
+			"import": "./src/browser.ts"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.js",

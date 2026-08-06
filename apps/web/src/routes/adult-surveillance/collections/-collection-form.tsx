@@ -12,6 +12,14 @@ import type {
 	TrapRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
+import {
+	customFieldCount,
+	customSchemaFor,
+	type MetadataValue,
+	RecordFormPage,
+	useAppForm,
+	validateSchemaMetadata,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -28,15 +36,7 @@ import {
 } from '../../../components/map/geometry-control';
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
-import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import {
-	customFieldCount,
-	customSchemaFor,
-	type MetadataValue,
-	validateSchemaMetadata,
-} from '../../../forms/field-components';
-import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
@@ -346,7 +346,7 @@ export function CollectionFormPage({
 					</>
 				}
 				header={header}
-				map={
+				aside={
 					<>
 						<MapCanvas
 							controls={{ layers: false }}

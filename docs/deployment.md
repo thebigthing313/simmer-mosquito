@@ -24,8 +24,12 @@ The current deployed domains are:
 
 | Environment | Web | Admin | Server |
 | --- | --- | --- | --- |
-| Production | `https://app.simmer-data.com` | TBD | `https://api.simmer-data.com` |
-| Staging | `https://staging.simmer-data.com` | TBD | `https://api-staging.simmer-data.com` |
+| Production | `https://app.simmer-data.com` | `https://admin.simmer-data.com` | `https://api.simmer-data.com` |
+| Staging | `https://staging.simmer-data.com` | `https://admin-staging.simmer-data.com` | `https://api-staging.simmer-data.com` |
+
+The admin service runs in **Serverless** mode in both environments; see "Admin
+service (Serverless)". Note its Railway service name differs per environment
+(`admin` in staging, `admin-prod` in production).
 
 In every environment, browsers never call Electric directly — they call the Hono
 server's authenticated `/sync/shapes/*` routes and the server proxies to Electric.
@@ -46,19 +50,29 @@ differs. `apps/server` reads env from `apps/server/.env`; Vite reads from the
 repo-root `.env` (its `envDir` is the workspace root). Keep the shared keys in
 sync across both files.
 
-Run the apps (either mode):
+Run the apps (either mode) with `pnpm dev`, which starts them all in an
+[mprocs](https://github.com/pvolok/mprocs) TUI (`mprocs.yaml`): `server`, `web`,
+`admin`, and `caddy`, each in its own pane. Tab switches panes, `r` restarts the
+focused process, `s` stops/starts it, `q` quits everything. Individual scripts
+(`pnpm dev:server`, `dev:web`, `dev:admin`, `dev:caddy`) still work when you want
+one on its own.
 
-```sh
-pnpm dev:server
-pnpm dev:web
-pnpm dev:admin   # optional (operator console)
-pnpm dev:caddy   # HTTPS/HTTP2 front for the web app + shape streams
-```
+Caddy (`Caddyfile.local`) is the browser-facing front for all three:
 
-Caddy (`Caddyfile.local`) serves the web app at `https://localhost:5175` and
-fronts the API server at `https://localhost:3002` (HTTP/2, needed because Electric
-sync opens many concurrent shape requests). `APP_ORIGIN`/`VITE_SERVER_URL`/
-`VITE_SHAPE_SERVER_URL` point at those Caddy origins in both modes.
+| Origin | Proxies | Serves |
+| --- | --- | --- |
+| `https://localhost:5175` | `5173` | web |
+| `https://localhost:5176` | `5174` | admin |
+| `https://localhost:3002` | `3000` | server + shape streams |
+
+HTTP/2 is the reason it exists: Electric sync opens many concurrent shape
+requests and HTTP/1.1 caps a browser at ~6 per origin, so without it streams
+queue and the workspace stalls. **Use the Caddy origins in the browser, not the
+Vite ports** — `APP_ORIGIN`, `ADMIN_APP_ORIGIN`, `VITE_SERVER_URL`, and
+`VITE_SHAPE_SERVER_URL` are all set to them, and the server matches the first two
+against the request origin for CORS. Hitting `http://localhost:5174` directly
+puts the console on an origin the server does not allow, and every `/admin/*`
+call fails CORS.
 
 ### Mode A — Railway-backed (recommended)
 
@@ -225,12 +239,66 @@ If using Caddy for browser HTTP/2 shape streams, run Caddy on another port such
 as `https://localhost:3002` and proxy it to the API server at
 `http://localhost:3000`.
 
-Set this on the Railway admin service:
+### Admin service (Serverless)
+
+The operator console is a static SPA served by `vite preview`. Set:
 
 ```sh
 VITE_SERVER_URL=https://<server-domain>
 VITE_PREVIEW_ALLOWED_HOSTS=<admin-domain>
+VITE_SIMMER_OPERATOR_ORG_ID=<the WorkOS org that is SIMMER, in this environment>
 ```
+
+Current organization ids: `org_01KRQEQBJJHF729PY0ED6P7875` (production),
+`org_01KZC6NB6PPMV9GKYVHS4VJAQF` (staging).
+
+`VITE_SIMMER_OPERATOR_ORG_ID` is how the console answers WorkOS's organization
+challenge without asking. WorkOS refuses to mint a session for an account in more
+than one organization until one is chosen, and operators are routinely in several
+— `createAdminAgency`'s `linkRequesterAsOwner` makes the operator the new
+agency's first owner. The console picks this one and refuses any account that is
+not a member of it: **being in the SIMMER organization is what operator access
+means.** There is no picker; a non-member is turned away rather than let in under
+some agency's identity.
+
+Note this is a build-time `VITE_` value like the others, so changing it needs a
+redeploy, and that it is deliberately *not* server-side — enforced in
+`/auth/sign-in` it would also strip the picker from `apps/web`, where an operator
+who genuinely holds an agency membership still needs to choose.
+
+It does **not** need a Mapbox token: the console has no maps by design (see
+`apps/admin/src/components/geometry-input.tsx` — geometry comes from KML/GeoJSON
+files and typed coordinates, so `mapbox-gl` stays out of a bundle that would
+otherwise pay 1.7 MB for it).
+
+Enable **Serverless** on this service (Railway Settings → Serverless; the API
+field is `sleepApplication`). It is a good fit and a poor one for the others:
+
+- the console is opened by a handful of operators a few times a week, so it is
+  idle almost always;
+- it holds no database connections and emits no telemetry, so it goes fully
+  quiet and Railway's 10-minute outbound-traffic check actually trips. The
+  `server` service can never sleep — Electric and Postgres connections keep it
+  talking — and `web` is customer-facing, where a cold start is not acceptable.
+
+Caveats worth knowing before someone reports them as bugs:
+
+- the first request after ~10 idle minutes is slow, and Railway may answer it
+  with a one-off `502` that resolves on reload;
+- sign-in is unaffected: the session cookie is set by the `server` service,
+  which is always warm.
+
+Set `ADMIN_APP_ORIGIN=https://<admin-domain>` on that environment's **server**
+service. The console signs in through the shared `POST /auth/*` endpoints, and
+`allowedCorsOrigins()` reads that variable — without it, sign-in fails CORS.
+
+**Include the scheme.** `readOptionalOrigin` in `apps/server/src/env.ts` runs the
+value through `new URL()`, so a bare hostname does not degrade to a
+same-but-unmatched origin — it throws `ADMIN_APP_ORIGIN must be a valid URL` at
+module load and the server never finishes booting. Staging sat with a schemeless
+value for a day; the running container was unaffected because Railway only
+injects env at container start, so it would have crash-looped on the next deploy
+with nothing in the diff to explain why. The same applies to `APP_ORIGIN`.
 
 ### Electric service
 
@@ -320,7 +388,11 @@ match the admin origin so authenticated browser requests and redirects line up.
 - push to `staging` deploys the Railway `staging` environment;
 - push to `main` deploys the Railway `production` environment.
 
-Each run is three sequential jobs: **verify → migrate → deploy** (server + web).
+Each run is three sequential jobs: **verify → migrate → deploy** (server + web +
+admin). `admin` joined the deploy matrix when the console was reworked onto the
+shared `packages/ui-web` shell and form kit: it now ships code the web app also
+ships, so deploying one without the other would put two versions of the same
+shell in production.
 `migrate` and `deploy` `need:` `verify`, so:
 
 - **`verify` runs `pnpm typecheck` and `pnpm test` — if either fails, nothing
@@ -352,9 +424,16 @@ GitHub production environment values:
 ```sh
 RAILWAY_ENVIRONMENT=production
 RAILWAY_SERVER_SERVICE=server
-RAILWAY_ADMIN_SERVICE=admin
+RAILWAY_ADMIN_SERVICE=admin-prod
 RAILWAY_WEB_SERVICE=web
 ```
+
+**The admin service is named differently per environment** — `admin` in staging,
+`admin-prod` in production — which is why the deploy workflow reads the name from
+a per-environment variable rather than hardcoding it. Everything else shares a
+name across both. Verify with `railway service list` (or the MCP
+`list_services`) before assuming; a wrong name fails the deploy step with an
+unhelpful error.
 
 ## Demo Bootstrap
 

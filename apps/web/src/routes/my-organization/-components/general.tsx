@@ -1,6 +1,7 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type { OrganizationRow, TagRow, UnitRow } from '@simmer-mosquito/sync';
 import { ColorPicker } from '@simmer-mosquito/ui-web/components/color-picker';
+import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -28,7 +29,6 @@ import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { EmptyValue } from '../../../components/empty-value';
-import { useAppForm } from '../../../forms';
 import { hexWithAlpha, validHexColor } from '../../../lib/hex-color';
 import {
 	AddIcon,

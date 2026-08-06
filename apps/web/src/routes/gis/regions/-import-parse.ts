@@ -2,7 +2,7 @@
  * The bulk region import's view of an uploaded KML or GeoJSON file: every polygon
  * in the file becomes one region, named after its Feature/Placemark.
  *
- * The parsing itself lives in `lib/geometry-import` (shared with the record forms'
+ * The parsing itself lives in `@simmer-mosquito/mapping` (shared with the record forms'
  * "fill geometry from a file" convenience); this module only adds the region-side
  * policy — polygons only, region naming, and the `MAX_POLYGONS` cap.
  */
@@ -15,9 +15,9 @@ import {
 	importCandidatesFrom,
 	POLYGON_KINDS,
 	parseGeoJsonGroups,
-} from '../../../lib/geometry-import';
+} from '@simmer-mosquito/mapping';
 
-export { declareMissingNamespaces, parseKmlCoordinates } from '../../../lib/geometry-import';
+export { declareMissingNamespaces, parseKmlCoordinates } from '@simmer-mosquito/mapping';
 
 export type ImportPolygon = ImportPolygonGeometry;
 

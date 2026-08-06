@@ -1,3 +1,4 @@
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { InputGroupButton } from '@simmer-mosquito/ui-web/components/ui/input-group';
 import {
 	Popover,
@@ -8,7 +9,6 @@ import { Loader2Icon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { SearchInput } from '../input/search-input';
 import { getMapboxToken } from './map-styles';
 import {
 	createSessionToken,

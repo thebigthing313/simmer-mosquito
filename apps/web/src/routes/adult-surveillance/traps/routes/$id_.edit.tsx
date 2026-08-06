@@ -1,4 +1,5 @@
 import type { RouteItemRow, TrapRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
@@ -45,7 +46,6 @@ import {
 import { useCollectionRows } from '../../../../hooks/use-collection-rows';
 import { isBelowRole } from '../../../../lib/write-access';
 import { moveRouteItems } from '../../../../sync/move-route-items';
-import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
 import { TrapPicker } from '../../-adult-pickers';
 import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';

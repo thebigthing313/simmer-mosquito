@@ -1,31 +1,43 @@
+import { createAuthClient } from '@simmer-mosquito/auth/browser';
+
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
-export interface AuthUser {
-	readonly workosUserId: string;
-	readonly email: string;
-	readonly displayName: string;
-	readonly profilePictureUrl: string | null;
+/**
+ * Identity and the in-app sign-in flow come from the shared browser client —
+ * the console signs in through the same public `/auth/*` endpoints the agency
+ * workspace does, and `/auth/*` CORS already admits `ADMIN_APP_ORIGIN`. What
+ * follows below is the operator control plane proper: the `/admin/*` endpoints
+ * only this app calls.
+ */
+export type { AuthMe, AuthOrganizationChoice } from '@simmer-mosquito/auth/browser';
+
+/**
+ * A failed `/admin/*` request, carrying the server's machine-readable `error`
+ * code alongside the human message.
+ *
+ * The code matters for exactly one case, but it is the case that decides whether
+ * the console works at all: `operator_required` is a 403 from
+ * `createOperatorAuthContextMiddleware` meaning "signed in, but not on
+ * `SIMMER_OPERATOR_EMAILS`". A plain `Error` flattens that into a string, and
+ * "operator_required" rendered in a red box is not an explanation. Pages read
+ * {@link isOperatorRequiredError} instead and say what happened.
+ */
+class AdminApiError extends Error {
+	readonly code: string | null;
+	readonly status: number;
+
+	constructor(message: string, options: { readonly code: string | null; readonly status: number }) {
+		super(message);
+		this.name = 'AdminApiError';
+		this.code = options.code;
+		this.status = options.status;
+	}
 }
 
-export interface AuthenticatedMe {
-	readonly authenticated: true;
-	readonly user: AuthUser;
-	readonly workosOrganizationId: string | null;
-	readonly localIdentity: {
-		readonly userId: string;
-		readonly organizationId: string | null;
-		readonly profileId: string | null;
-		readonly membershipId: string | null;
-		readonly role: string | null;
-	};
+/** True when the signed-in account is not on the server's operator allowlist. */
+export function isOperatorRequiredError(error: unknown): boolean {
+	return error instanceof AdminApiError && error.code === 'operator_required';
 }
-
-export interface UnauthenticatedMe {
-	readonly authenticated: false;
-	readonly reason: string;
-}
-
-export type AuthMe = AuthenticatedMe | UnauthenticatedMe;
 
 export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
@@ -180,23 +192,39 @@ export function getServerUrl(): string {
 	return trimTrailingSlash(import.meta.env.VITE_SERVER_URL ?? DEFAULT_SERVER_URL);
 }
 
-export function adminLoginUrl(serverUrl = getServerUrl()): string {
-	const returnTo = `${window.location.origin}/`;
-	return `${serverUrl}/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+/**
+ * The WorkOS organization that *is* SIMMER, for this environment.
+ *
+ * WorkOS will not mint a session for an account that belongs to more than one
+ * organization until one is chosen. Operators routinely belong to more than one
+ * — `createAdminAgency`'s `linkRequesterAsOwner` makes the operator the new
+ * agency's first owner — so the prompt is a designed-for case, not stale data,
+ * and it will keep coming back.
+ *
+ * The console answers it without asking, because the answer is always the same:
+ * an operator working in the control plane is acting as SIMMER. Nothing here
+ * reads the organization (the `SIMMER_OPERATOR_EMAILS` allowlist is the whole
+ * grant), so the choice was pure friction.
+ *
+ * Deliberately **not** server-side. Keyed off operator identity in
+ * `/auth/sign-in` it would strip the picker from `apps/web` too, and an operator
+ * who genuinely holds an agency membership needs that choice there — the agency
+ * workspace reads the organization for everything it shows.
+ *
+ * Unset, or set to an organization this account is not in, falls back to the
+ * picker rather than failing.
+ */
+export function getOperatorOrganizationId(): string | null {
+	const value = import.meta.env.VITE_SIMMER_OPERATOR_ORG_ID;
+	return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
-export async function getAuthMe(serverUrl = getServerUrl()): Promise<AuthMe> {
-	const response = await fetch(`${serverUrl}/auth/me`, {
-		credentials: 'include',
-		headers: { accept: 'application/json' },
-	});
+const authClient = createAuthClient({ serverUrl: getServerUrl() });
 
-	const body = await readResponseBody<AuthMe>(response);
-	if (response.ok || body.authenticated === false) {
-		return body;
-	}
+export const { getAuthMe, selectOrganization, signIn, verifyEmail } = authClient;
 
-	throw new Error('Unable to load auth state.');
+export function adminLogoutUrl(serverUrl = getServerUrl()): string {
+	return `${serverUrl}/auth/logout`;
 }
 
 export async function listAdminAgencies(serverUrl = getServerUrl()): Promise<AdminAgency[]> {
@@ -209,7 +237,7 @@ export async function listAdminAgencies(serverUrl = getServerUrl()): Promise<Adm
 	>(response);
 
 	if (!response.ok || !('organizations' in body)) {
-		throw new Error(responseErrorMessage(body, 'Unable to load agencies.'));
+		throw adminApiError(response, body, 'Unable to load agencies.');
 	}
 
 	return body.organizations;
@@ -238,7 +266,7 @@ export async function listAgencyMemberships(
 	>(response);
 
 	if (!response.ok || 'error' in body) {
-		throw new Error(responseErrorMessage(body, 'Unable to load memberships.'));
+		throw adminApiError(response, body, 'Unable to load memberships.');
 	}
 
 	return body;
@@ -394,7 +422,7 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 		response,
 	);
 	if (!response.ok || (isRecord(body) && 'error' in body)) {
-		throw new Error(responseErrorMessage(body, 'Request failed.'));
+		throw adminApiError(response, body, 'Request failed.');
 	}
 
 	return body as T;
@@ -412,6 +440,14 @@ async function readResponseBody<T>(response: Response): Promise<T> {
 			response.ok ? 'Received an unreadable server response.' : 'Server response was unreadable.',
 		);
 	}
+}
+
+function adminApiError(response: Response, body: unknown, fallback: string): AdminApiError {
+	const code = isRecord(body) && typeof body.error === 'string' ? body.error : null;
+	return new AdminApiError(responseErrorMessage(body, fallback), {
+		code,
+		status: response.status,
+	});
 }
 
 function responseErrorMessage(body: unknown, fallback: string): string {

@@ -50,6 +50,15 @@ importers:
 
   apps/admin:
     dependencies:
+      '@fontsource/poppins':
+        specifier: ^5.2.7
+        version: 5.2.7
+      '@simmer-mosquito/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@simmer-mosquito/mapping':
+        specifier: workspace:*
+        version: link:../../packages/mapping
       '@simmer-mosquito/sync':
         specifier: workspace:*
         version: link:../../packages/sync
@@ -59,6 +68,12 @@ importers:
       '@tanstack/db':
         specifier: ^0.6.17
         version: 0.6.17(typescript@7.0.2)
+      '@tanstack/react-db':
+        specifier: ^0.1.95
+        version: 0.1.95(react@19.2.6)(typescript@7.0.2)
+      '@tanstack/react-query':
+        specifier: ^5.100.14
+        version: 5.100.14(react@19.2.6)
       '@tanstack/react-router':
         specifier: ^1.170.4
         version: 1.170.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -68,6 +83,9 @@ importers:
       react-dom:
         specifier: ^19.2.6
         version: 19.2.6(react@19.2.6)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.0
@@ -154,6 +172,9 @@ importers:
       '@fontsource/poppins':
         specifier: ^5.2.7
         version: 5.2.7
+      '@simmer-mosquito/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@simmer-mosquito/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
@@ -175,9 +196,6 @@ importers:
       '@tanstack/react-db':
         specifier: ^0.1.95
         version: 0.1.95(react@19.2.6)(typescript@7.0.2)
-      '@tanstack/react-form':
-        specifier: ^1.32.0
-        version: 1.32.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@tanstack/react-query':
         specifier: ^5.100.14
         version: 5.100.14(react@19.2.6)
@@ -281,6 +299,12 @@ importers:
       '@simmer-mosquito/design-tokens':
         specifier: workspace:*
         version: link:../design-tokens
+      '@tanstack/react-form':
+        specifier: ^1.32.0
+        version: 1.32.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@tanstack/react-router':
+        specifier: ^1.170.4
+        version: 1.170.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1

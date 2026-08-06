@@ -1,3 +1,8 @@
+import {
+	OutletSimpleLayout,
+	useActiveShellLocation,
+	useShell,
+} from '@simmer-mosquito/ui-web/components/app-shell';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Item,
@@ -9,9 +14,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/item';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
-import { resolveActive } from './navigation';
-import { OutletSimpleLayout } from './outlet/simple-layout';
-import { useShell } from './shell-context';
 
 type RegistryIcon = typeof iconRegistry.generic.component.icon;
 
@@ -181,7 +183,7 @@ const WillLandIcon = iconRegistry.actions.check.icon;
  */
 export function UpcomingPage({ title }: { readonly title?: string }) {
 	const { activePath } = useShell();
-	const { domain, item } = resolveActive(activePath);
+	const { domain, item } = useActiveShellLocation();
 	const content = CONTENT[activePath];
 	const heading = content?.title ?? title ?? item?.label ?? domain.label;
 

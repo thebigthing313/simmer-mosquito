@@ -1,5 +1,6 @@
 import { type CommentTargetType, toDbEntityType } from '@simmer-mosquito/domain';
 import type { CommentRow, ProfileRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Avatar, AvatarFallback } from '@simmer-mosquito/ui-web/components/ui/avatar';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -26,7 +27,6 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, or, useLiveQuery } from '@tanstack/react-db';
 import { type KeyboardEvent, useCallback, useMemo, useState } from 'react';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
-import { settleWrite } from '../sync/settle-write';
 import { webCollections } from '../sync/webCollections';
 
 const CommentIcon = iconRegistry.actions.comment.icon;

@@ -1,5 +1,6 @@
 import type { HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -25,7 +26,6 @@ import {
 	LifeStageStrip,
 	WetnessBadge,
 } from '../../components/larval-display';
-import { Panel, PanelMessage, RowSkeleton } from '../../components/overview-panel';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { adhocLabel, formatCoordinates } from '../../lib/coordinate-label';
 import { webCollections } from '../../sync/webCollections';

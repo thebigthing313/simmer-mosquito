@@ -1,4 +1,6 @@
 import type { HabitatTypeRow, OrganizationRow } from '@simmer-mosquito/sync';
+import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
+import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -43,11 +45,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { getServerUrl } from '../../../auth';
-import { OutletSimpleLayout } from '../../../components/app-shell/outlet/simple-layout';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import { EmptyValue } from '../../../components/empty-value';
-import { useAppForm } from '../../../forms';
-import { validateJsonSchemaValue } from '../../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { webCollections } from '../../../sync/webCollections';

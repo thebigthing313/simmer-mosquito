@@ -5,6 +5,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow, ProfileRow } from '@simmer-mosquito/sync';
+import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -27,9 +28,7 @@ import {
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
-import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import {
 	CONTACT_FIELD_PATHS,
@@ -269,7 +268,7 @@ export function ServiceRequestFormPage({
 					</>
 				}
 				header={header}
-				map={
+				aside={
 					<>
 						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
 						<DrawToolbar

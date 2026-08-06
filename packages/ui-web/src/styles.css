@@ -160,6 +160,35 @@
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
+	/*
+	 * The status palette, registered so it is reachable the way everything else
+	 * is: `text-success`, `bg-attention/20`, `border-warning/30`.
+	 *
+	 * These tokens existed in `:root` from the start but were never declared
+	 * here, which meant `text-warning` compiled to *nothing at all* — no error,
+	 * no fallback, just uncoloured text. Tailwind only emits a utility for a
+	 * `--color-*` it knows about, so the class looked right in the source and
+	 * silently did not exist in the stylesheet. There is a stray `text-warning`
+	 * in `apps/web/src/routes/-components.tsx` that has been inert for exactly
+	 * this reason, and the workarounds elsewhere (`text-[var(--success)]`) are
+	 * people routing around the omission rather than preferring the long form.
+	 *
+	 * Registering them is the fix, not banning the short form: these are named
+	 * roles in DESIGN.md's palette, and a designer reaching for `text-success`
+	 * is reaching correctly.
+	 */
+	--color-success: var(--success);
+	--color-success-bg: var(--success-bg);
+	--color-warning: var(--warning);
+	--color-warning-bg: var(--warning-bg);
+	--color-attention: var(--attention);
+	--color-info: var(--info);
+	--color-info-bg: var(--info-bg);
+	--color-catalog: var(--catalog);
+	--color-catalog-bg: var(--catalog-bg);
+	--color-danger: var(--danger);
+	--color-danger-bg: var(--danger-bg);
+	--color-quiet: var(--quiet);
 	--radius-sm: calc(var(--radius) - 2px);
 	--radius-md: var(--radius);
 	--radius-lg: var(--radius);

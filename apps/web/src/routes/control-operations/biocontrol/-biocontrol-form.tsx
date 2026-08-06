@@ -1,6 +1,14 @@
 import { isBiocontrolUnitType, recordBiocontrolActionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { ControlMethodRow, HabitatRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
+import {
+	customFieldCount,
+	customSchemaFor,
+	type MetadataValue,
+	RecordFormPage,
+	useAppForm,
+	validateSchemaMetadata,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -19,15 +27,7 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import {
-	customFieldCount,
-	customSchemaFor,
-	type MetadataValue,
-	validateSchemaMetadata,
-} from '../../../forms/field-components';
-import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { todayDateValue } from '../-control-display';
@@ -314,7 +314,7 @@ export function BiocontrolFormPage({
 					</>
 				}
 				header={header}
-				map={
+				aside={
 					<>
 						<MapCanvas
 							controls={{ layers: false }}

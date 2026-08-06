@@ -4,6 +4,11 @@ import type {
 	OrganizationRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
+import {
+	useAppForm,
+	validateJsonSchemaValue,
+	validateMetadataValue,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Drawer,
@@ -28,8 +33,6 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
-import { useAppForm } from '../../../forms';
-import { validateJsonSchemaValue, validateMetadataValue } from '../../../forms/field-components';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
 import {
 	AddIcon,

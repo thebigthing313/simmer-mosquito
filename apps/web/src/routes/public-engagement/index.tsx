@@ -1,11 +1,11 @@
 import type { ControlMethodRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
+import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { OutletSimpleLayout } from '../../components/app-shell';
-import { Panel, PanelMessage, RowSkeleton } from '../../components/overview-panel';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { webCollections } from '../../sync/webCollections';
 import {

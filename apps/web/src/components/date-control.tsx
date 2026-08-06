@@ -1,6 +1,6 @@
+import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { formatLocalDate, parseLocalDate } from '../lib/local-date';
-import { RequiredMark } from './required-mark';
 
 /**
  * A labelled calendar-date field for the record forms.

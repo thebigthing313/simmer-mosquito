@@ -14,8 +14,8 @@ import type {
 	TagRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
+import type { JsonSchemaValue, MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import type React from 'react';
-import type { JsonSchemaValue, MetadataValue } from '../../../forms/field-components';
 
 export type OrgRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 export type OrganizationSectionId =

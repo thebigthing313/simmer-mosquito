@@ -1,4 +1,5 @@
 import type { RouteItemRow, RouteRow, TagRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -62,7 +63,6 @@ import {
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
 import { isBelowRole } from '../../../../lib/write-access';
 import { moveRouteItems } from '../../../../sync/move-route-items';
-import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {

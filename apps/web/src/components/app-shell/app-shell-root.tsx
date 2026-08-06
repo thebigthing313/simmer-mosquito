@@ -1,15 +1,24 @@
+import {
+	BreadcrumbLabelProvider,
+	OutletContentFallback,
+	OutletShell,
+	type ShellOrganization,
+	ShellProvider,
+	type ShellUser,
+} from '@simmer-mosquito/ui-web/components/app-shell';
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { Suspense } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
+import { getToday } from '../../lib/get-today';
 import { webCollections } from '../../sync/webCollections';
-import { BreadcrumbLabelProvider } from './breadcrumb-labels';
-import { shellDomainsForRole } from './navigation';
-import { OutletContentFallback } from './outlet/outlet-content-fallback';
-import { OutletShell } from './outlet/outlet-shell';
-import { ShellProvider } from './shell-context';
-import type { ShellOrganization, ShellUser } from './types';
+import {
+	shellDomainsForRole,
+	webAccountLinks,
+	webShellDomains,
+	webStandalonePages,
+} from './navigation';
 
 function formatRole(role: string | null | undefined): string {
 	if (role === null || role === undefined || role.trim() === '') {
@@ -72,6 +81,12 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				onSelectOrganization={() => undefined}
 				user={shellUser}
 				domains={shellDomainsForRole(auth)}
+				// Unfiltered, so a viewer who lands on a form path still gets a true
+				// rail and breadcrumb before the route guard redirects them.
+				resolutionDomains={webShellDomains}
+				standalonePages={webStandalonePages}
+				accountLinks={webAccountLinks}
+				getToday={getToday}
 				activePath={pathname}
 				onNavigate={(to) => {
 					// The shell models destinations as plain strings; the router's typed

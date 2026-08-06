@@ -13,6 +13,7 @@
 	},
 	"dependencies": {
 		"@fontsource/poppins": "^5.2.7",
+		"@simmer-mosquito/auth": "workspace:*",
 		"@simmer-mosquito/design-tokens": "workspace:*",
 		"@simmer-mosquito/domain": "workspace:*",
 		"@simmer-mosquito/mapping": "workspace:*",
@@ -20,7 +21,6 @@
 		"@simmer-mosquito/ui-web": "workspace:*",
 		"@tanstack/db": "^0.6.17",
 		"@tanstack/react-db": "^0.1.95",
-		"@tanstack/react-form": "^1.32.0",
 		"@tanstack/react-query": "^5.100.14",
 		"@tanstack/react-router": "^1.170.4",
 		"mapbox-gl": "^3.24.0",

@@ -1,6 +1,5 @@
+import { customFieldDescriptors, RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { customFieldDescriptors } from '../forms/field-components';
-import { RequiredMark } from './required-mark';
 
 /**
  * The custom fields a lookup row declares, named, for catalog tables.

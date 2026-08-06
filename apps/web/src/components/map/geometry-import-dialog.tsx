@@ -1,3 +1,13 @@
+import {
+	collectImportGroups,
+	type ImportCandidate,
+	type ImportGeometryKind,
+	importCandidatesFrom,
+	importVertexCount,
+	isWgs84Geometry,
+	LINE_KINDS,
+	POLYGON_KINDS,
+} from '@simmer-mosquito/mapping';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -12,16 +22,6 @@ import {
 import { CheckIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useRef, useState } from 'react';
-import {
-	collectImportGroups,
-	type ImportCandidate,
-	type ImportGeometryKind,
-	importCandidatesFrom,
-	importVertexCount,
-	isWgs84Geometry,
-	LINE_KINDS,
-	POLYGON_KINDS,
-} from '../../lib/geometry-import';
 import type { DrawGeometry } from './use-map-draw';
 
 /**
@@ -32,7 +32,8 @@ import type { DrawGeometry } from './use-map-draw';
  * capturing, and lets the user adopt one as the drawn geometry. Multi-part
  * geometries are split so each part can be picked separately.
  *
- * Parsing is the same module the bulk region import uses (`lib/geometry-import`);
+ * Parsing is the same module the bulk region import uses
+ * (`@simmer-mosquito/mapping`);
  * nothing is uploaded — the file is read in the browser.
  */
 

@@ -1,5 +1,7 @@
 import { createAddressCommand } from '@simmer-mosquito/domain';
 import type { AddressRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
+import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Dialog,
@@ -14,9 +16,7 @@ import { Loader2Icon, MapPinnedIcon, SearchIcon } from '@simmer-mosquito/ui-web/
 import { useId, useState } from 'react';
 import { getServerUrl } from '../../auth';
 import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../forms/domain-validation';
-import { settleWrite } from '../../sync/settle-write';
 import { webCollections } from '../../sync/webCollections';
-import { RequiredMark } from '../required-mark';
 
 /**
  * Create an address without leaving the form that needs it.

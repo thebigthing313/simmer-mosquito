@@ -1,5 +1,6 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type { ControlMethodRow, NotificationTypeRow, OrganizationRow } from '@simmer-mosquito/sync';
+import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Drawer,
@@ -22,7 +23,6 @@ import {
 import type { Collection } from '@tanstack/react-db';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useAppForm } from '../../../forms';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control';

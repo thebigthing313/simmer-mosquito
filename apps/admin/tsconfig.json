@@ -16,6 +16,12 @@
 		},
 		{
 			"path": "../../packages/sync"
+		},
+		{
+			"path": "../../packages/mapping"
+		},
+		{
+			"path": "../../packages/auth"
 		}
 	]
 }

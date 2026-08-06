@@ -1,4 +1,5 @@
 import type { RouteRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -15,7 +16,6 @@ import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
-import { settleWrite } from '../../sync/settle-write';
 import { webCollections } from '../../sync/webCollections';
 import type { RoutePlanningSurface } from './surface';
 

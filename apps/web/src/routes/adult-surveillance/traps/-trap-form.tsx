@@ -1,6 +1,7 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { CollectionLureRow, CollectionMethodRow } from '@simmer-mosquito/sync';
+import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -14,9 +15,7 @@ import {
 } from '../../../components/map/geometry-control';
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
-import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { AddressPicker } from '../-adult-pickers';
 
@@ -216,7 +215,7 @@ export function TrapFormPage({
 					</>
 				}
 				header={header}
-				map={
+				aside={
 					<>
 						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
 						<DrawToolbar

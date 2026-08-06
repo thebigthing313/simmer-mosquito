@@ -2,6 +2,14 @@ import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
 import { createHabitatCommand } from '@simmer-mosquito/domain';
 import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { HabitatTypeRow } from '@simmer-mosquito/sync';
+import {
+	customFieldCount,
+	customSchemaFor,
+	type MetadataValue,
+	RecordFormPage,
+	useAppForm,
+	validateSchemaMetadata,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -21,15 +29,7 @@ import {
 } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { WriteOnly } from '../../../components/write-only';
-import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import {
-	customFieldCount,
-	customSchemaFor,
-	type MetadataValue,
-	validateSchemaMetadata,
-} from '../../../forms/field-components';
-import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
 export const noHabitatTypeValue = 'none';
@@ -217,7 +217,7 @@ export function HabitatFormPage({
 				}
 				gap="tight"
 				header={header}
-				map={
+				aside={
 					<>
 						<MapCanvas
 							controls={{ layers: false }}

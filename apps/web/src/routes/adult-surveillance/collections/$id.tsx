@@ -10,6 +10,7 @@ import type {
 	SpeciesStatus,
 	TrapRow,
 } from '@simmer-mosquito/sync';
+import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import {
 	AlertDialog,
@@ -69,8 +70,6 @@ import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { WriteOnly } from '../../../components/write-only';
-import { useAppForm } from '../../../forms';
-import { customSchemaFor } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import {

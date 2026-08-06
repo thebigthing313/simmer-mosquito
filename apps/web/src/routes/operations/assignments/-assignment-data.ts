@@ -7,6 +7,7 @@ import type {
 	ServiceRequestRow,
 	TrapRow,
 } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { and, eq, gte, inArray, lte, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../components/map';
@@ -14,7 +15,6 @@ import type { StopTone } from '../../../components/stop-order';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { type LifecycleOption, lifecycleOptions } from '../../../lib/lifecycle-options';
 import { postCommand } from '../../../sync/post-command';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { trapDisplayName } from '../../adult-surveillance/-adult-display';
 

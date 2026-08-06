@@ -18,8 +18,8 @@ import '@fontsource/poppins/latin-700.css';
 import '@fontsource/poppins/latin-ext-700.css';
 import '@fontsource/poppins/latin-800.css';
 import '@fontsource/poppins/latin-ext-800.css';
+import { OutletContentFallback } from '@simmer-mosquito/ui-web/components/app-shell';
 import { appAuthController } from './app-auth';
-import { OutletContentFallback } from './components/app-shell/outlet/outlet-content-fallback';
 import { routeTree } from './routeTree.gen';
 import './styles.css';
 

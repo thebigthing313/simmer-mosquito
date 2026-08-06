@@ -5,6 +5,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito/sync';
+import { RecordFormPage, RequiredMark, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -44,10 +45,7 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { RequiredMark } from '../../../components/required-mark';
-import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import { RecordFormPage } from '../../../forms/form-components';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
 import { webCollections } from '../../../sync/webCollections';
@@ -410,7 +408,7 @@ export function InspectionFormPage({
 					</>
 				}
 				header={header}
-				map={
+				aside={
 					<>
 						<MapCanvas
 							controls={{ layers: false }}

@@ -1,4 +1,6 @@
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -33,7 +35,6 @@ import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import { SearchInput } from '../../../components/input/search-input';
 import { MapCanvas } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -45,7 +46,6 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { RegionFolderDialog } from './-folder-dialog';
 import { RegionMapCard } from './-region-map-card';

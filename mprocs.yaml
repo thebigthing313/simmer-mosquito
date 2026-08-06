@@ -1,10 +1,17 @@
 # mprocs dev orchestrator — run `pnpm dev` to launch.
 # Tab/arrows switch panes; `r` restarts the focused process,
 # `s` starts/stops it, `x` kills, `q` quits all. See https://github.com/pvolok/mprocs
+#
+# Browser-facing origins are the Caddy ones, not the Vite ports:
+#   web    https://localhost:5175
+#   admin  https://localhost:5176
+#   server https://localhost:3002
 procs:
   server:
     shell: pnpm.cmd dev:server
   web:
     shell: pnpm.cmd dev:web
+  admin:
+    shell: pnpm.cmd dev:admin
   caddy:
     shell: pnpm.cmd dev:caddy

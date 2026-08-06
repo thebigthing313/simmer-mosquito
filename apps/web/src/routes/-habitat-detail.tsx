@@ -8,6 +8,11 @@ import {
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
 import type { HabitatRow, LarvalDensity, TagRow } from '@simmer-mosquito/sync';
+import {
+	customFieldEntries,
+	customSchemaFor,
+	formatCustomFieldValue,
+} from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -65,11 +70,6 @@ import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { LinkedAddressValue } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import { WriteOnly } from '../components/write-only';
-import {
-	customFieldEntries,
-	customSchemaFor,
-	formatCustomFieldValue,
-} from '../forms/field-components';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import { webCollections } from '../sync/webCollections';

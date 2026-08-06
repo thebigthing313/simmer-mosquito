@@ -1,9 +1,8 @@
 import { createContactCommand } from '@simmer-mosquito/domain';
+import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { useState } from 'react';
-import { useAppForm } from '../../../forms';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import { RecordFormPage } from '../../../forms/form-components';
 import { type ContactFormValues, validateContactForm } from '../-contact-fields';
 import { ContactFieldsBlock } from '../-contact-fields-block';
 

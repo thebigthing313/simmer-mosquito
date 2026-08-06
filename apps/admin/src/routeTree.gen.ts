@@ -9,248 +9,303 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated._admin'
-import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated._admin.index'
-import { Route as AuthenticatedAdminUnitsRouteImport } from './routes/_authenticated._admin.units'
-import { Route as AuthenticatedAdminTaxonomyRouteImport } from './routes/_authenticated._admin.taxonomy'
-import { Route as AuthenticatedAdminOrganizationsRouteImport } from './routes/_authenticated._admin.organizations'
-import { Route as AuthenticatedAdminOrganizationsIndexRouteImport } from './routes/_authenticated._admin.organizations.index'
-import { Route as AuthenticatedAdminOrganizationsOrganizationIdUsersRouteImport } from './routes/_authenticated._admin.organizations.$organizationId.users'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as UnitsIndexRouteImport } from './routes/units/index'
+import { Route as TaxonomyIndexRouteImport } from './routes/taxonomy/index'
+import { Route as OrganizationsIndexRouteImport } from './routes/organizations/index'
+import { Route as TaxonomySpeciesRouteImport } from './routes/taxonomy/species'
+import { Route as TaxonomyGeneraRouteImport } from './routes/taxonomy/genera'
+import { Route as OrganizationsCreateRouteImport } from './routes/organizations/create'
+import { Route as OrganizationsOrganizationIdRouteImport } from './routes/organizations/$organizationId'
+import { Route as OrganizationsOrganizationIdIndexRouteImport } from './routes/organizations/$organizationId/index'
+import { Route as OrganizationsOrganizationIdMembersRouteImport } from './routes/organizations/$organizationId/members'
+import { Route as OrganizationsOrganizationIdFoundationsRouteImport } from './routes/organizations/$organizationId/foundations'
 
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/_admin',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthenticatedAdminRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminUnitsRoute = AuthenticatedAdminUnitsRouteImport.update({
-  id: '/units',
-  path: '/units',
-  getParentRoute: () => AuthenticatedAdminRoute,
+const UnitsIndexRoute = UnitsIndexRouteImport.update({
+  id: '/units/',
+  path: '/units/',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminTaxonomyRoute =
-  AuthenticatedAdminTaxonomyRouteImport.update({
-    id: '/taxonomy',
-    path: '/taxonomy',
-    getParentRoute: () => AuthenticatedAdminRoute,
+const TaxonomyIndexRoute = TaxonomyIndexRouteImport.update({
+  id: '/taxonomy/',
+  path: '/taxonomy/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrganizationsIndexRoute = OrganizationsIndexRouteImport.update({
+  id: '/organizations/',
+  path: '/organizations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TaxonomySpeciesRoute = TaxonomySpeciesRouteImport.update({
+  id: '/taxonomy/species',
+  path: '/taxonomy/species',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TaxonomyGeneraRoute = TaxonomyGeneraRouteImport.update({
+  id: '/taxonomy/genera',
+  path: '/taxonomy/genera',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrganizationsCreateRoute = OrganizationsCreateRouteImport.update({
+  id: '/organizations/create',
+  path: '/organizations/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrganizationsOrganizationIdRoute =
+  OrganizationsOrganizationIdRouteImport.update({
+    id: '/organizations/$organizationId',
+    path: '/organizations/$organizationId',
+    getParentRoute: () => rootRouteImport,
   } as any)
-const AuthenticatedAdminOrganizationsRoute =
-  AuthenticatedAdminOrganizationsRouteImport.update({
-    id: '/organizations',
-    path: '/organizations',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminOrganizationsIndexRoute =
-  AuthenticatedAdminOrganizationsIndexRouteImport.update({
+const OrganizationsOrganizationIdIndexRoute =
+  OrganizationsOrganizationIdIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedAdminOrganizationsRoute,
+    getParentRoute: () => OrganizationsOrganizationIdRoute,
   } as any)
-const AuthenticatedAdminOrganizationsOrganizationIdUsersRoute =
-  AuthenticatedAdminOrganizationsOrganizationIdUsersRouteImport.update({
-    id: '/$organizationId/users',
-    path: '/$organizationId/users',
-    getParentRoute: () => AuthenticatedAdminOrganizationsRoute,
+const OrganizationsOrganizationIdMembersRoute =
+  OrganizationsOrganizationIdMembersRouteImport.update({
+    id: '/members',
+    path: '/members',
+    getParentRoute: () => OrganizationsOrganizationIdRoute,
+  } as any)
+const OrganizationsOrganizationIdFoundationsRoute =
+  OrganizationsOrganizationIdFoundationsRouteImport.update({
+    id: '/foundations',
+    path: '/foundations',
+    getParentRoute: () => OrganizationsOrganizationIdRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedAdminIndexRoute
-  '/auth': typeof AuthRoute
-  '/organizations': typeof AuthenticatedAdminOrganizationsRouteWithChildren
-  '/taxonomy': typeof AuthenticatedAdminTaxonomyRoute
-  '/units': typeof AuthenticatedAdminUnitsRoute
-  '/organizations/': typeof AuthenticatedAdminOrganizationsIndexRoute
-  '/organizations/$organizationId/users': typeof AuthenticatedAdminOrganizationsOrganizationIdUsersRoute
+  '/': typeof IndexRoute
+  '/sign-in': typeof SignInRoute
+  '/organizations/$organizationId': typeof OrganizationsOrganizationIdRouteWithChildren
+  '/organizations/create': typeof OrganizationsCreateRoute
+  '/taxonomy/genera': typeof TaxonomyGeneraRoute
+  '/taxonomy/species': typeof TaxonomySpeciesRoute
+  '/organizations/': typeof OrganizationsIndexRoute
+  '/taxonomy/': typeof TaxonomyIndexRoute
+  '/units/': typeof UnitsIndexRoute
+  '/organizations/$organizationId/foundations': typeof OrganizationsOrganizationIdFoundationsRoute
+  '/organizations/$organizationId/members': typeof OrganizationsOrganizationIdMembersRoute
+  '/organizations/$organizationId/': typeof OrganizationsOrganizationIdIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AuthenticatedAdminIndexRoute
-  '/auth': typeof AuthRoute
-  '/taxonomy': typeof AuthenticatedAdminTaxonomyRoute
-  '/units': typeof AuthenticatedAdminUnitsRoute
-  '/organizations': typeof AuthenticatedAdminOrganizationsIndexRoute
-  '/organizations/$organizationId/users': typeof AuthenticatedAdminOrganizationsOrganizationIdUsersRoute
+  '/': typeof IndexRoute
+  '/sign-in': typeof SignInRoute
+  '/organizations/create': typeof OrganizationsCreateRoute
+  '/taxonomy/genera': typeof TaxonomyGeneraRoute
+  '/taxonomy/species': typeof TaxonomySpeciesRoute
+  '/organizations': typeof OrganizationsIndexRoute
+  '/taxonomy': typeof TaxonomyIndexRoute
+  '/units': typeof UnitsIndexRoute
+  '/organizations/$organizationId/foundations': typeof OrganizationsOrganizationIdFoundationsRoute
+  '/organizations/$organizationId/members': typeof OrganizationsOrganizationIdMembersRoute
+  '/organizations/$organizationId': typeof OrganizationsOrganizationIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/auth': typeof AuthRoute
-  '/_authenticated/_admin': typeof AuthenticatedAdminRouteWithChildren
-  '/_authenticated/_admin/organizations': typeof AuthenticatedAdminOrganizationsRouteWithChildren
-  '/_authenticated/_admin/taxonomy': typeof AuthenticatedAdminTaxonomyRoute
-  '/_authenticated/_admin/units': typeof AuthenticatedAdminUnitsRoute
-  '/_authenticated/_admin/': typeof AuthenticatedAdminIndexRoute
-  '/_authenticated/_admin/organizations/': typeof AuthenticatedAdminOrganizationsIndexRoute
-  '/_authenticated/_admin/organizations/$organizationId/users': typeof AuthenticatedAdminOrganizationsOrganizationIdUsersRoute
+  '/': typeof IndexRoute
+  '/sign-in': typeof SignInRoute
+  '/organizations/$organizationId': typeof OrganizationsOrganizationIdRouteWithChildren
+  '/organizations/create': typeof OrganizationsCreateRoute
+  '/taxonomy/genera': typeof TaxonomyGeneraRoute
+  '/taxonomy/species': typeof TaxonomySpeciesRoute
+  '/organizations/': typeof OrganizationsIndexRoute
+  '/taxonomy/': typeof TaxonomyIndexRoute
+  '/units/': typeof UnitsIndexRoute
+  '/organizations/$organizationId/foundations': typeof OrganizationsOrganizationIdFoundationsRoute
+  '/organizations/$organizationId/members': typeof OrganizationsOrganizationIdMembersRoute
+  '/organizations/$organizationId/': typeof OrganizationsOrganizationIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
-    | '/organizations'
-    | '/taxonomy'
-    | '/units'
+    | '/sign-in'
+    | '/organizations/$organizationId'
+    | '/organizations/create'
+    | '/taxonomy/genera'
+    | '/taxonomy/species'
     | '/organizations/'
-    | '/organizations/$organizationId/users'
+    | '/taxonomy/'
+    | '/units/'
+    | '/organizations/$organizationId/foundations'
+    | '/organizations/$organizationId/members'
+    | '/organizations/$organizationId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
+    | '/sign-in'
+    | '/organizations/create'
+    | '/taxonomy/genera'
+    | '/taxonomy/species'
+    | '/organizations'
     | '/taxonomy'
     | '/units'
-    | '/organizations'
-    | '/organizations/$organizationId/users'
+    | '/organizations/$organizationId/foundations'
+    | '/organizations/$organizationId/members'
+    | '/organizations/$organizationId'
   id:
     | '__root__'
-    | '/_authenticated'
-    | '/auth'
-    | '/_authenticated/_admin'
-    | '/_authenticated/_admin/organizations'
-    | '/_authenticated/_admin/taxonomy'
-    | '/_authenticated/_admin/units'
-    | '/_authenticated/_admin/'
-    | '/_authenticated/_admin/organizations/'
-    | '/_authenticated/_admin/organizations/$organizationId/users'
+    | '/'
+    | '/sign-in'
+    | '/organizations/$organizationId'
+    | '/organizations/create'
+    | '/taxonomy/genera'
+    | '/taxonomy/species'
+    | '/organizations/'
+    | '/taxonomy/'
+    | '/units/'
+    | '/organizations/$organizationId/foundations'
+    | '/organizations/$organizationId/members'
+    | '/organizations/$organizationId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
-  AuthRoute: typeof AuthRoute
+  IndexRoute: typeof IndexRoute
+  SignInRoute: typeof SignInRoute
+  OrganizationsOrganizationIdRoute: typeof OrganizationsOrganizationIdRouteWithChildren
+  OrganizationsCreateRoute: typeof OrganizationsCreateRoute
+  TaxonomyGeneraRoute: typeof TaxonomyGeneraRoute
+  TaxonomySpeciesRoute: typeof TaxonomySpeciesRoute
+  OrganizationsIndexRoute: typeof OrganizationsIndexRoute
+  TaxonomyIndexRoute: typeof TaxonomyIndexRoute
+  UnitsIndexRoute: typeof UnitsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/_admin': {
-      id: '/_authenticated/_admin'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/_admin/': {
-      id: '/_authenticated/_admin/'
+    '/': {
+      id: '/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/_admin/units': {
-      id: '/_authenticated/_admin/units'
+    '/units/': {
+      id: '/units/'
       path: '/units'
-      fullPath: '/units'
-      preLoaderRoute: typeof AuthenticatedAdminUnitsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      fullPath: '/units/'
+      preLoaderRoute: typeof UnitsIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/_admin/taxonomy': {
-      id: '/_authenticated/_admin/taxonomy'
+    '/taxonomy/': {
+      id: '/taxonomy/'
       path: '/taxonomy'
-      fullPath: '/taxonomy'
-      preLoaderRoute: typeof AuthenticatedAdminTaxonomyRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      fullPath: '/taxonomy/'
+      preLoaderRoute: typeof TaxonomyIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/_admin/organizations': {
-      id: '/_authenticated/_admin/organizations'
+    '/organizations/': {
+      id: '/organizations/'
       path: '/organizations'
-      fullPath: '/organizations'
-      preLoaderRoute: typeof AuthenticatedAdminOrganizationsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/_admin/organizations/': {
-      id: '/_authenticated/_admin/organizations/'
-      path: '/'
       fullPath: '/organizations/'
-      preLoaderRoute: typeof AuthenticatedAdminOrganizationsIndexRouteImport
-      parentRoute: typeof AuthenticatedAdminOrganizationsRoute
+      preLoaderRoute: typeof OrganizationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/_admin/organizations/$organizationId/users': {
-      id: '/_authenticated/_admin/organizations/$organizationId/users'
-      path: '/$organizationId/users'
-      fullPath: '/organizations/$organizationId/users'
-      preLoaderRoute: typeof AuthenticatedAdminOrganizationsOrganizationIdUsersRouteImport
-      parentRoute: typeof AuthenticatedAdminOrganizationsRoute
+    '/taxonomy/species': {
+      id: '/taxonomy/species'
+      path: '/taxonomy/species'
+      fullPath: '/taxonomy/species'
+      preLoaderRoute: typeof TaxonomySpeciesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/taxonomy/genera': {
+      id: '/taxonomy/genera'
+      path: '/taxonomy/genera'
+      fullPath: '/taxonomy/genera'
+      preLoaderRoute: typeof TaxonomyGeneraRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/organizations/create': {
+      id: '/organizations/create'
+      path: '/organizations/create'
+      fullPath: '/organizations/create'
+      preLoaderRoute: typeof OrganizationsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/organizations/$organizationId': {
+      id: '/organizations/$organizationId'
+      path: '/organizations/$organizationId'
+      fullPath: '/organizations/$organizationId'
+      preLoaderRoute: typeof OrganizationsOrganizationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/organizations/$organizationId/': {
+      id: '/organizations/$organizationId/'
+      path: '/'
+      fullPath: '/organizations/$organizationId/'
+      preLoaderRoute: typeof OrganizationsOrganizationIdIndexRouteImport
+      parentRoute: typeof OrganizationsOrganizationIdRoute
+    }
+    '/organizations/$organizationId/members': {
+      id: '/organizations/$organizationId/members'
+      path: '/members'
+      fullPath: '/organizations/$organizationId/members'
+      preLoaderRoute: typeof OrganizationsOrganizationIdMembersRouteImport
+      parentRoute: typeof OrganizationsOrganizationIdRoute
+    }
+    '/organizations/$organizationId/foundations': {
+      id: '/organizations/$organizationId/foundations'
+      path: '/foundations'
+      fullPath: '/organizations/$organizationId/foundations'
+      preLoaderRoute: typeof OrganizationsOrganizationIdFoundationsRouteImport
+      parentRoute: typeof OrganizationsOrganizationIdRoute
     }
   }
 }
 
-interface AuthenticatedAdminOrganizationsRouteChildren {
-  AuthenticatedAdminOrganizationsIndexRoute: typeof AuthenticatedAdminOrganizationsIndexRoute
-  AuthenticatedAdminOrganizationsOrganizationIdUsersRoute: typeof AuthenticatedAdminOrganizationsOrganizationIdUsersRoute
+interface OrganizationsOrganizationIdRouteChildren {
+  OrganizationsOrganizationIdFoundationsRoute: typeof OrganizationsOrganizationIdFoundationsRoute
+  OrganizationsOrganizationIdMembersRoute: typeof OrganizationsOrganizationIdMembersRoute
+  OrganizationsOrganizationIdIndexRoute: typeof OrganizationsOrganizationIdIndexRoute
 }
 
-const AuthenticatedAdminOrganizationsRouteChildren: AuthenticatedAdminOrganizationsRouteChildren =
+const OrganizationsOrganizationIdRouteChildren: OrganizationsOrganizationIdRouteChildren =
   {
-    AuthenticatedAdminOrganizationsIndexRoute:
-      AuthenticatedAdminOrganizationsIndexRoute,
-    AuthenticatedAdminOrganizationsOrganizationIdUsersRoute:
-      AuthenticatedAdminOrganizationsOrganizationIdUsersRoute,
+    OrganizationsOrganizationIdFoundationsRoute:
+      OrganizationsOrganizationIdFoundationsRoute,
+    OrganizationsOrganizationIdMembersRoute:
+      OrganizationsOrganizationIdMembersRoute,
+    OrganizationsOrganizationIdIndexRoute:
+      OrganizationsOrganizationIdIndexRoute,
   }
 
-const AuthenticatedAdminOrganizationsRouteWithChildren =
-  AuthenticatedAdminOrganizationsRoute._addFileChildren(
-    AuthenticatedAdminOrganizationsRouteChildren,
+const OrganizationsOrganizationIdRouteWithChildren =
+  OrganizationsOrganizationIdRoute._addFileChildren(
+    OrganizationsOrganizationIdRouteChildren,
   )
 
-interface AuthenticatedAdminRouteChildren {
-  AuthenticatedAdminOrganizationsRoute: typeof AuthenticatedAdminOrganizationsRouteWithChildren
-  AuthenticatedAdminTaxonomyRoute: typeof AuthenticatedAdminTaxonomyRoute
-  AuthenticatedAdminUnitsRoute: typeof AuthenticatedAdminUnitsRoute
-  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
-}
-
-const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
-  AuthenticatedAdminOrganizationsRoute:
-    AuthenticatedAdminOrganizationsRouteWithChildren,
-  AuthenticatedAdminTaxonomyRoute: AuthenticatedAdminTaxonomyRoute,
-  AuthenticatedAdminUnitsRoute: AuthenticatedAdminUnitsRoute,
-  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
-}
-
-const AuthenticatedAdminRouteWithChildren =
-  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
-
-interface AuthenticatedRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
-}
-
-const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
-}
-
-const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
-  AuthenticatedRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
-  AuthenticatedRoute: AuthenticatedRouteWithChildren,
-  AuthRoute: AuthRoute,
+  IndexRoute: IndexRoute,
+  SignInRoute: SignInRoute,
+  OrganizationsOrganizationIdRoute:
+    OrganizationsOrganizationIdRouteWithChildren,
+  OrganizationsCreateRoute: OrganizationsCreateRoute,
+  TaxonomyGeneraRoute: TaxonomyGeneraRoute,
+  TaxonomySpeciesRoute: TaxonomySpeciesRoute,
+  OrganizationsIndexRoute: OrganizationsIndexRoute,
+  TaxonomyIndexRoute: TaxonomyIndexRoute,
+  UnitsIndexRoute: UnitsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

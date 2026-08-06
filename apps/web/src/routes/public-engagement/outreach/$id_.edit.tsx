@@ -1,5 +1,7 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type { ControlMethodRow, OutreachActionRow, ProfileRow } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
+import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import {
 	Empty,
 	EmptyDescription,
@@ -15,12 +17,10 @@ import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
-import { asMetadataValue } from '../../../forms/field-components';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,

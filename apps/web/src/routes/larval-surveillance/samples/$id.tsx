@@ -5,6 +5,7 @@ import type {
 	SampleSpeciesRow,
 	SpeciesRow,
 } from '@simmer-mosquito/sync';
+import { settleWrite } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
@@ -48,7 +49,6 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
-import { settleWrite } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';

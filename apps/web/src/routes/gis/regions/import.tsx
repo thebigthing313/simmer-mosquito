@@ -1,4 +1,5 @@
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
+import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -29,7 +30,6 @@ import { MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
-import { isTxIdConfirmationTimeout } from '../../../sync/settle-write';
 import { webCollections } from '../../../sync/webCollections';
 import { RegionFolderDialog } from './-folder-dialog';
 import { type ImportPolygon, MAX_POLYGONS, parseRegionsFromFile } from './-import-parse';

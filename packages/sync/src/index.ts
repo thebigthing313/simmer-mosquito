@@ -5,6 +5,12 @@ import {
 import { decodeShapeColumnName } from './decode-shape-column-name.js';
 import { encodeShapeColumnName } from './encode-shape-column-name.js';
 
+export {
+	isTxIdConfirmationTimeout,
+	type PersistableTransaction,
+	settleWrite,
+} from './settle-write.js';
+
 export type WebSyncMode = 'eager' | 'on-demand';
 
 export interface SyncDescriptor<TRow extends { readonly id: string }> {
