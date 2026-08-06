@@ -3,6 +3,7 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
+import { readMapTile } from './map-tile.js';
 
 export interface HabitatMvtTileFilters {
 	readonly isActive?: boolean;
@@ -69,38 +70,23 @@ export async function getHabitatMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: HabitatMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses = habitatSpatialWhereClauses(input);
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		bounds as (
-			select
-				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
-				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
-		),
-		tile_rows as (
-			select
-				h.id,
-				h.habitat_name as "habitatName",
-				h.habitat_type_id as "habitatTypeId",
-				h.is_active as "isActive",
-				h.is_inaccessible as "isInaccessible",
-				h.geom_type as "geomType",
-				st_asmvtgeom(
-					st_transform(h.geom, 3857),
-					bounds.geom_3857,
-					extent => 4096,
-					buffer => 64
-				) as geom
-			from habitats h
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'habitats', 4096, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'habitats',
+		from: sql`habitats h`,
+		geom: sql`h.geom`,
+		properties: [
+			sql`h.id`,
+			sql`h.habitat_name as "habitatName"`,
+			sql`h.habitat_type_id as "habitatTypeId"`,
+			sql`h.is_active as "isActive"`,
+			sql`h.is_inaccessible as "isInaccessible"`,
+			sql`h.geom_type as "geomType"`,
+		],
+		where: habitatSpatialWhereClauses(input),
+	});
 }
 
 export async function listHabitatDisplayRowsByBounds(

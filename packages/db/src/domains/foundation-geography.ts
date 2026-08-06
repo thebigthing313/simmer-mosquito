@@ -3,6 +3,7 @@ import { type RawBuilder, sql } from 'kysely';
 import type { DbExecutor, GeoJsonGeometry, OwnedGeometryInfo } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
+import { readMapTile } from './map-tile.js';
 
 export interface CreateAddressInput {
 	readonly id?: string;
@@ -316,34 +317,16 @@ export async function getAddressMvtTile(
 	db: DbExecutor,
 	input: AddressMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses = addressSpatialWhereClauses(input);
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		bounds as (
-			select
-				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
-				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
-		),
-		tile_rows as (
-			select
-				a.id,
-				a.display_name as "displayName",
-				st_asmvtgeom(
-					st_transform(a.geom, 3857),
-					bounds.geom_3857,
-					extent => 4096,
-					buffer => 64
-				) as geom
-			from addresses a
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'addresses', 4096, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'addresses',
+		from: sql`addresses a`,
+		geom: sql`a.geom`,
+		properties: [sql`a.id`, sql`a.display_name as "displayName"`],
+		where: addressSpatialWhereClauses(input),
+	});
 }
 
 /**
@@ -426,35 +409,16 @@ export async function getRegionMvtTile(
 	db: DbExecutor,
 	input: RegionMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses = regionSpatialWhereClauses(input);
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		bounds as (
-			select
-				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
-				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
-		),
-		tile_rows as (
-			select
-				r.id,
-				r.name,
-				r.region_folder_id as "regionFolderId",
-				st_asmvtgeom(
-					st_transform(r.geom, 3857),
-					bounds.geom_3857,
-					extent => 4096,
-					buffer => 64
-				) as geom
-			from regions r
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'regions', 4096, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'regions',
+		from: sql`regions r`,
+		geom: sql`r.geom`,
+		properties: [sql`r.id`, sql`r.name`, sql`r.region_folder_id as "regionFolderId"`],
+		where: regionSpatialWhereClauses(input),
+	});
 }
 
 /**

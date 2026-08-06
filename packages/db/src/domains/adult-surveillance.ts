@@ -9,6 +9,7 @@ import type {
 } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
+import { readMapTile } from './map-tile.js';
 
 export interface CreateTrapInput {
 	readonly organizationId: string;
@@ -459,19 +460,6 @@ function toSafeCollection(row: {
 // list (no bbox) for the result rail. Both records carry their own owned point
 // geometry. Trap/lure/method names resolve client-side from the eager catalog.
 
-const mapMvtExtent = 4096;
-const mapMvtBuffer = 64;
-
-function mapTileEnvelopeCte(input: { readonly z: number; readonly x: number; readonly y: number }) {
-	return sql`
-		bounds as (
-			select
-				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
-				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
-		)
-	`;
-}
-
 // --- traps ------------------------------------------------------------------
 
 export interface TrapMapFilters {
@@ -562,36 +550,22 @@ export async function getTrapMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: TrapMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`t.organization_id = ${input.organizationId}`,
-		sql<boolean>`t.deleted_at is null`,
-		sql<boolean>`t.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(t.geom, bounds.geom_4326)`,
-		...trapFilterWhere(input.filters),
-	];
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		${mapTileEnvelopeCte(input)},
-		tile_rows as (
-			select
-				t.id,
-				t.is_active as "isActive",
-				st_asmvtgeom(
-					st_transform(t.geom, 3857),
-					bounds.geom_3857,
-					extent => ${mapMvtExtent},
-					buffer => ${mapMvtBuffer}
-				) as geom
-			from traps t
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'traps', ${mapMvtExtent}, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'traps',
+		from: sql`traps t`,
+		geom: sql`t.geom`,
+		properties: [sql`t.id`, sql`t.is_active as "isActive"`],
+		where: [
+			sql`t.organization_id = ${input.organizationId}`,
+			sql`t.deleted_at is null`,
+			sql`t.geom && bounds.geom_4326`,
+			sql`st_intersects(t.geom, bounds.geom_4326)`,
+			...trapFilterWhere(input.filters),
+		],
+	});
 }
 
 export async function listTrapDisplayRowsPage(
@@ -767,36 +741,22 @@ export async function getCollectionMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: CollectionMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`c.organization_id = ${input.organizationId}`,
-		sql<boolean>`c.deleted_at is null`,
-		sql<boolean>`c.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(c.geom, bounds.geom_4326)`,
-		...collectionFilterWhere(input.filters),
-	];
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		${mapTileEnvelopeCte(input)},
-		tile_rows as (
-			select
-				c.id,
-				c.has_problem as "hasProblem",
-				st_asmvtgeom(
-					st_transform(c.geom, 3857),
-					bounds.geom_3857,
-					extent => ${mapMvtExtent},
-					buffer => ${mapMvtBuffer}
-				) as geom
-			from collections c
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'collections', ${mapMvtExtent}, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'collections',
+		from: sql`collections c`,
+		geom: sql`c.geom`,
+		properties: [sql`c.id`, sql`c.has_problem as "hasProblem"`],
+		where: [
+			sql`c.organization_id = ${input.organizationId}`,
+			sql`c.deleted_at is null`,
+			sql`c.geom && bounds.geom_4326`,
+			sql`st_intersects(c.geom, bounds.geom_4326)`,
+			...collectionFilterWhere(input.filters),
+		],
+	});
 }
 
 export async function listCollectionDisplayRowsPage(

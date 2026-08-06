@@ -3,6 +3,7 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
+import { readMapTile } from './map-tile.js';
 
 // --- control-operations map surfaces ----------------------------------------
 //
@@ -13,20 +14,6 @@ import { regionMembershipClauses } from './map-region-filter.js';
 // reads a filtered, offset-paged window (no bbox) so the explorer's result rail
 // is never an unbounded query. Lookup names (insecticide, method, unit) resolve
 // client-side from the eager catalog, so only ids ride in the display rows.
-
-const mvtExtent = 4096;
-const mvtBuffer = 64;
-
-/** Standard tile envelope CTE shared by every point tile query below. */
-function tileEnvelopeCte(input: { readonly z: number; readonly x: number; readonly y: number }) {
-	return sql`
-		bounds as (
-			select
-				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
-				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
-		)
-	`;
-}
 
 // --- chemical applications --------------------------------------------------
 
@@ -130,35 +117,22 @@ export async function getApplicationMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: ApplicationMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`a.organization_id = ${input.organizationId}`,
-		sql<boolean>`a.deleted_at is null`,
-		sql<boolean>`a.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(a.geom, bounds.geom_4326)`,
-		...applicationFilterWhere(input.filters),
-	];
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		${tileEnvelopeCte(input)},
-		tile_rows as (
-			select
-				a.id,
-				st_asmvtgeom(
-					st_transform(a.geom, 3857),
-					bounds.geom_3857,
-					extent => ${mvtExtent},
-					buffer => ${mvtBuffer}
-				) as geom
-			from applications a
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'chemical', ${mvtExtent}, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'chemical',
+		from: sql`applications a`,
+		geom: sql`a.geom`,
+		properties: [sql`a.id`],
+		where: [
+			sql`a.organization_id = ${input.organizationId}`,
+			sql`a.deleted_at is null`,
+			sql`a.geom && bounds.geom_4326`,
+			sql`st_intersects(a.geom, bounds.geom_4326)`,
+			...applicationFilterWhere(input.filters),
+		],
+	});
 }
 
 export async function listApplicationDisplayRowsPage(
@@ -354,35 +328,22 @@ export async function getSourceReductionMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: SourceReductionMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`sr.organization_id = ${input.organizationId}`,
-		sql<boolean>`sr.deleted_at is null`,
-		sql<boolean>`sr.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(sr.geom, bounds.geom_4326)`,
-		...sourceReductionFilterWhere(input.filters),
-	];
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		${tileEnvelopeCte(input)},
-		tile_rows as (
-			select
-				sr.id,
-				st_asmvtgeom(
-					st_transform(sr.geom, 3857),
-					bounds.geom_3857,
-					extent => ${mvtExtent},
-					buffer => ${mvtBuffer}
-				) as geom
-			from source_reductions sr
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'source-reduction', ${mvtExtent}, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'source-reduction',
+		from: sql`source_reductions sr`,
+		geom: sql`sr.geom`,
+		properties: [sql`sr.id`],
+		where: [
+			sql`sr.organization_id = ${input.organizationId}`,
+			sql`sr.deleted_at is null`,
+			sql`sr.geom && bounds.geom_4326`,
+			sql`st_intersects(sr.geom, bounds.geom_4326)`,
+			...sourceReductionFilterWhere(input.filters),
+		],
+	});
 }
 
 export async function listSourceReductionDisplayRowsPage(
@@ -558,35 +519,22 @@ export async function getBiocontrolMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: BiocontrolMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`ba.organization_id = ${input.organizationId}`,
-		sql<boolean>`ba.deleted_at is null`,
-		sql<boolean>`ba.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(ba.geom, bounds.geom_4326)`,
-		...biocontrolFilterWhere(input.filters),
-	];
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		${tileEnvelopeCte(input)},
-		tile_rows as (
-			select
-				ba.id,
-				st_asmvtgeom(
-					st_transform(ba.geom, 3857),
-					bounds.geom_3857,
-					extent => ${mvtExtent},
-					buffer => ${mvtBuffer}
-				) as geom
-			from biocontrol_actions ba
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'biocontrol', ${mvtExtent}, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'biocontrol',
+		from: sql`biocontrol_actions ba`,
+		geom: sql`ba.geom`,
+		properties: [sql`ba.id`],
+		where: [
+			sql`ba.organization_id = ${input.organizationId}`,
+			sql`ba.deleted_at is null`,
+			sql`ba.geom && bounds.geom_4326`,
+			sql`st_intersects(ba.geom, bounds.geom_4326)`,
+			...biocontrolFilterWhere(input.filters),
+		],
+	});
 }
 
 export async function listBiocontrolDisplayRowsPage(
@@ -764,35 +712,22 @@ export async function getOutreachMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: OutreachMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`oa.organization_id = ${input.organizationId}`,
-		sql<boolean>`oa.deleted_at is null`,
-		sql<boolean>`oa.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(oa.geom, bounds.geom_4326)`,
-		...outreachFilterWhere(input.filters),
-	];
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		${tileEnvelopeCte(input)},
-		tile_rows as (
-			select
-				oa.id,
-				st_asmvtgeom(
-					st_transform(oa.geom, 3857),
-					bounds.geom_3857,
-					extent => ${mvtExtent},
-					buffer => ${mvtBuffer}
-				) as geom
-			from outreach_actions oa
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'outreach', ${mvtExtent}, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'outreach',
+		from: sql`outreach_actions oa`,
+		geom: sql`oa.geom`,
+		properties: [sql`oa.id`],
+		where: [
+			sql`oa.organization_id = ${input.organizationId}`,
+			sql`oa.deleted_at is null`,
+			sql`oa.geom && bounds.geom_4326`,
+			sql`st_intersects(oa.geom, bounds.geom_4326)`,
+			...outreachFilterWhere(input.filters),
+		],
+	});
 }
 
 export async function listOutreachDisplayRowsPage(

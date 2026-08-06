@@ -3,6 +3,7 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
+import { readMapTile } from './map-tile.js';
 
 /** One sample still awaiting species identification, with its inspection context. */
 export interface AwaitingSampleRow {
@@ -199,40 +200,25 @@ export async function getInspectionMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: InspectionMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses = inspectionSpatialWhereClauses(input);
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		bounds as (
-			select
-				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
-				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
-		),
-		tile_rows as (
-			select
-				i.id,
-				i.is_wet as "isWet",
-				i.density::text as "density",
-				i.habitat_type_id as "habitatTypeId",
-				(
-					i.has_eggs or i.has_first_instar or i.has_second_instar
-					or i.has_third_instar or i.has_fourth_instar or i.has_pupae
-				) as "positive",
-				st_asmvtgeom(
-					st_transform(i.geom, 3857),
-					bounds.geom_3857,
-					extent => 4096,
-					buffer => 64
-				) as geom
-			from inspections i
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'inspections', 4096, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'inspections',
+		from: sql`inspections i`,
+		geom: sql`i.geom`,
+		properties: [
+			sql`i.id`,
+			sql`i.is_wet as "isWet"`,
+			sql`i.density::text as "density"`,
+			sql`i.habitat_type_id as "habitatTypeId"`,
+			sql`(
+				i.has_eggs or i.has_first_instar or i.has_second_instar
+				or i.has_third_instar or i.has_fourth_instar or i.has_pupae
+			) as "positive"`,
+		],
+		where: inspectionSpatialWhereClauses(input),
+	});
 }
 
 export async function listInspectionDisplayRowsByBounds(
@@ -546,35 +532,17 @@ export async function getSampleMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: SampleMvtTileInput,
 ): Promise<Uint8Array> {
-	const whereClauses = sampleSpatialWhereClauses(input);
-
-	const result = await sql<{ readonly tile: Uint8Array | null }>`
-		with
-		bounds as (
-			select
-				st_tileenvelope(${input.z}, ${input.x}, ${input.y}) as geom_3857,
-				st_transform(st_tileenvelope(${input.z}, ${input.x}, ${input.y}), 4326) as geom_4326
-		),
-		tile_rows as (
-			select
-				s.id,
-				(${sampleStatusExpression}) as "status",
-				st_asmvtgeom(
-					st_transform(i.geom, 3857),
-					bounds.geom_3857,
-					extent => 4096,
-					buffer => 64
-				) as geom
-			from samples s
-			join inspections i on i.id = s.inspection_id
-			cross join bounds
-			where ${sql.join(whereClauses, sql` and `)}
-		)
-		select coalesce(st_asmvt(tile_rows, 'samples', 4096, 'geom'), ''::bytea) as tile
-		from tile_rows
-	`.execute(db);
-
-	return result.rows[0]?.tile ?? new Uint8Array();
+	return readMapTile(db, {
+		z: input.z,
+		x: input.x,
+		y: input.y,
+		layer: 'samples',
+		from: sql`samples s
+			join inspections i on i.id = s.inspection_id`,
+		geom: sql`i.geom`,
+		properties: [sql`s.id`, sql`(${sampleStatusExpression}) as "status"`],
+		where: sampleSpatialWhereClauses(input),
+	});
 }
 
 export async function listSampleDisplayRowsByBounds(
