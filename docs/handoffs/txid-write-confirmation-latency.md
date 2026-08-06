@@ -15,8 +15,8 @@ scaffolding is kept below for provenance; hypotheses are annotated with their ve
 
 **Root cause (H3, precise mechanism — confirmed from library + app code, no browser
 needed):** the `regions` collection is **on-demand**, so its Electric shape stream opens
-with `offset:'now'` + `log:'changes_only'` (`@tanstack/electric-db-collection@0.3.12`
-`electric.js` ~L659–662). A write confirms only when its txid is later observed on that
+with `offset:'now'` + `log:'changes_only'` (`@tanstack/electric-db-collection@0.3.15`
+`electric.js` ~L668–674). A write confirms only when its txid is later observed on that
 live stream (`awaitTxId` → `seenTxids`). The **only** place a `regions` live query is
 mounted is the regions **list** page, and it uses a **30s `gcTime`**
 (`apps/web/src/routes/gis/regions/index.tsx:54`, `regionsGcTimeMs = 30_000`). So:
@@ -143,7 +143,7 @@ browser  ──GET /sync/shapes/regions?live=true&offset=..&handle=..──▶  
   `apps/web/src/sync/foundationGeographyMutations.ts` → `createRegionMutationHandlers` / `createRecordHandlers.onInsert` (~L45). `writeRecord` does the `fetch` (~L182).
 - **Server txid generation:** `apps/server/src/foundation-geography-commands.ts` → `readCurrentTransactionId` (~L766): `select pg_current_xact_id()::xid::text`. Same pattern repeated across command files.
 - **Shape proxy / param forwarding / CORS expose:** `apps/server/src/sync-shapes.ts` — `buildElectricShapeRequest` (~L606), `proxyElectricShape` (~L667), `electricExposeHeaders` (~L744, exposes `electric-offset/handle/cursor` — **already correct**, so the browser *can* follow the log cursor; rule this out).
-- **Library timeout behavior:** `node_modules/.pnpm/@tanstack+electric-db-collection@0.3.12_*/dist/esm/electric.js` — `awaitTxId` (~L215, `timeout = 5e3`, rejects with `TimeoutWaitingForTxIdError`), `processMatchingStrategy` (~L341, `timeout = result.timeout` → undefined → default 5s), `hasTxids` (~L61, reads `message.headers.txids`).
+- **Library timeout behavior:** `node_modules/.pnpm/@tanstack+electric-db-collection@0.3.15_*/dist/esm/electric.js` — `awaitTxId` (~L227, `timeout = 5e3`, rejects with `TimeoutWaitingForTxIdError`), `processMatchingStrategy` (~L353, `timeout = result.timeout` → undefined → default 5s), `hasTxids` (~L62, reads `message.headers.txids`). Unchanged in substance since 0.3.12; only the line numbers moved.
 - **`regions` is on-demand:** `packages/sync/src/descriptors/regions-sync-descriptor.ts` (`syncMode: 'on-demand'`).
 - **Topology:** `docs/deployment.md` (prod: `electric.railway.internal:3000`, `ELECTRIC_INSECURE=true`; staging: public domain + `ELECTRIC_SECRET`; local server → staging Electric over the internet). Secret folding: `apps/server/src/env.ts` → `readElectricUrl` (~L118).
 
