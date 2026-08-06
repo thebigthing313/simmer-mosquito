@@ -43,15 +43,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.33.2
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.16.0
           cache: pnpm
@@ -98,15 +98,15 @@ jobs:
           fi
 
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.33.2
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.16.0
           cache: pnpm
@@ -146,10 +146,17 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
+      # The only `setup-node` in the repo with no `pnpm/action-setup` before it
+      # and no `cache:` input — this job installs the Railway CLI with npm and
+      # never runs a workspace command. `setup-node@v5` began caching
+      # automatically for whatever `packageManager` names, which would have meant
+      # reaching for a pnpm store with no pnpm on PATH; v6 narrowed that to npm
+      # only, and this workspace pins pnpm, so nothing is cached here. If that
+      # ever flips back, the fix is `package-manager-cache: false`.
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.16.0
 
