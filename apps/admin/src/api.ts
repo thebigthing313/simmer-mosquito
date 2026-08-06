@@ -223,8 +223,26 @@ const authClient = createAuthClient({ serverUrl: getServerUrl() });
 
 export const { getAuthMe, selectOrganization, signIn, verifyEmail } = authClient;
 
+/**
+ * Where "Sign out" goes.
+ *
+ * `/auth/logout` clears the cookie and then returns the browser to `APP_ORIGIN`
+ * — the *agency* workspace — unless the caller names somewhere else. Asked
+ * without a `returnTo`, the console signed the operator out and dropped them on
+ * `apps/web`'s sign-in page, on a different origin, with nothing on it pointing
+ * back here. That is worst on the screen that most often offers the button:
+ * "Not an Operator Account", where the operator's next move is to sign in as
+ * someone who *is* one, and the only page that lets them do that is this app's.
+ *
+ * The server honours `returnTo` only for origins it already trusts (`APP_ORIGIN`
+ * and `ADMIN_APP_ORIGIN`), so this reads the console's own origin rather than a
+ * `VITE_*` of its own: whichever host served this bundle is by definition the
+ * admin app, and the pair cannot drift apart.
+ */
 export function adminLogoutUrl(serverUrl = getServerUrl()): string {
-	return `${serverUrl}/auth/logout`;
+	const url = new URL(`${serverUrl}/auth/logout`);
+	url.searchParams.set('returnTo', `${window.location.origin}/sign-in`);
+	return url.toString();
 }
 
 export async function listAdminAgencies(serverUrl = getServerUrl()): Promise<AdminAgency[]> {
