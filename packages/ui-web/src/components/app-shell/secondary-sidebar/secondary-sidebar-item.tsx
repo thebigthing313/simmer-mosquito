@@ -39,7 +39,16 @@ export function SecondarySidebarItem({
 						className={cn('text-muted-foreground', active && 'text-primary')}
 					/>
 				) : null}
-				<span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+				{/*
+				 * Nav labels wrap rather than truncate. A destination's label is the only
+				 * thing identifying it — "Source Reduction Metho…" and "Source Reduction
+				 * Map" are the same row to a reader — so an extra line costs less than an
+				 * unreadable one. `items-center` above then centres the icon against the
+				 * wrapped block.
+				 */}
+				<span className="min-w-0 flex-1 wrap-anywhere text-left text-pretty leading-snug">
+					{item.label}
+				</span>
 				{/*
 				 * Placeholder sections are marked here rather than left to be discovered
 				 * on arrival — an operator planning their day should be able to see from

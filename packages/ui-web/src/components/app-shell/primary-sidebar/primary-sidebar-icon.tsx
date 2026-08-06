@@ -55,7 +55,15 @@ export function AppShellPrimarySidebarIcon({
 		>
 			<Icon aria-hidden="true" className="shrink-0" />
 			{collapsed ? null : (
-				<span className="min-w-0 truncate font-medium text-sm">{domain.label}</span>
+				// Wraps rather than truncates, for the same reason as the secondary
+				// sidebar's items: a clipped label does not name its destination. The
+				// row height is fixed by the active indicator's pitch, so the budget
+				// here is two lines of `text-sm`/`leading-tight` (~35px inside 44px) —
+				// enough for every domain name at the 240px rail width. A label that
+				// needs a third line wants a shorter label, not a taller row.
+				<span className="min-w-0 font-medium text-sm leading-tight text-pretty">
+					{domain.label}
+				</span>
 			)}
 		</button>
 	);
