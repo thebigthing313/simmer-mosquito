@@ -292,13 +292,13 @@ Set `ADMIN_APP_ORIGIN=https://<admin-domain>` on that environment's **server**
 service. The console signs in through the shared `POST /auth/*` endpoints, and
 `allowedCorsOrigins()` reads that variable — without it, sign-in fails CORS.
 
-**Include the scheme.** `readOptionalOrigin` in `apps/server/src/env.ts` runs the
-value through `new URL()`, so a bare hostname does not degrade to a
-same-but-unmatched origin — it throws `ADMIN_APP_ORIGIN must be a valid URL` at
-module load and the server never finishes booting. Staging sat with a schemeless
-value for a day; the running container was unaffected because Railway only
-injects env at container start, so it would have crash-looped on the next deploy
-with nothing in the diff to explain why. The same applies to `APP_ORIGIN`.
+**Write the scheme anyway, but a missing one is no longer fatal.** `parseOrigin`
+in `apps/server/src/env.ts` normalizes a schemeless value to `https://<host>`,
+because `readServerEnv` runs at module load and a throw there means the process
+never reaches `listen`. That exact slip took production down once and was caught
+on staging once — the whole API, over a variable whose only job is CORS for the
+operator console. Input that cannot be an http origin at all still throws. The
+same applies to `APP_ORIGIN`.
 
 ### Electric service
 

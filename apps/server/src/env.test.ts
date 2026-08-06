@@ -20,6 +20,40 @@ describe('readServerEnv', () => {
 		).toBe('http://localhost:5173');
 	});
 
+	it('normalizes a schemeless origin to https instead of failing to boot', () => {
+		expect(
+			readServerEnv({
+				...baseEnv,
+				ADMIN_APP_ORIGIN: 'admin.simmer-data.com',
+			}).appOrigins,
+		).toEqual(['http://localhost:5173', 'https://admin.simmer-data.com']);
+
+		expect(
+			readServerEnv({
+				...baseEnv,
+				APP_ORIGIN: 'app.simmer-data.com/',
+			}).appOrigin,
+		).toBe('https://app.simmer-data.com');
+	});
+
+	it('reads a schemeless host:port as a host and port, not as a scheme', () => {
+		expect(
+			readServerEnv({
+				...baseEnv,
+				APP_ORIGIN: 'localhost:5173',
+			}).appOrigin,
+		).toBe('https://localhost:5173');
+	});
+
+	it('still rejects an origin that cannot be an http origin at all', () => {
+		expect(() => readServerEnv({ ...baseEnv, APP_ORIGIN: 'not a host' })).toThrow(
+			/APP_ORIGIN must be a valid URL/,
+		);
+		expect(() => readServerEnv({ ...baseEnv, ADMIN_APP_ORIGIN: 'file:///etc/hosts' })).toThrow(
+			/ADMIN_APP_ORIGIN must be an http\(s\) URL/,
+		);
+	});
+
 	it('keeps ELECTRIC_URL optional for non-sync test/dev commands', () => {
 		expect(readServerEnv(baseEnv).electricUrl).toBeNull();
 		expect(
