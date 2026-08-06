@@ -8,15 +8,13 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
-	createCommand,
+	commandEndpoint,
 	handleCommandError,
 	insertRegistrationType,
 	type PublicEngagementDb,
 	type PublicEngagementTransaction,
 	type RouteOptions,
-	readJsonObject,
 	registrationTypeReturnColumns,
 	type SafeRegistrationType,
 	softDelete,
@@ -35,43 +33,30 @@ export function registerNotificationRegistrationTypeRoutes(
 	app.post(
 		'/public-engagement/notification-registration-types',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
 				subscribeNotificationRegistrationTypeCommand({
 					...ctx,
-					notificationRegistrationTypeId: readText(raw.payload.id) ?? '',
-					notificationRegistrationId: readText(raw.payload.notificationRegistrationId) ?? '',
-					notificationTypeId: readText(raw.payload.notificationTypeId) ?? '',
+					notificationRegistrationTypeId: readText(payload.id) ?? '',
+					notificationRegistrationId: readText(payload.notificationRegistrationId) ?? '',
+					notificationTypeId: readText(payload.notificationTypeId) ?? '',
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRegistrationTypeCommands(context, options.db, [result.command], 201);
-		},
+			run: (context, commands) => runRegistrationTypeCommands(context, options.db, commands, 201),
+		}),
 	);
 
 	app.delete(
 		'/public-engagement/notification-registration-types/:notificationRegistrationTypeId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				unsubscribeNotificationRegistrationTypeCommand({
 					...ctx,
-					notificationRegistrationTypeId: context.req.param('notificationRegistrationTypeId'),
+					notificationRegistrationTypeId: param('notificationRegistrationTypeId'),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRegistrationTypeCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runRegistrationTypeCommands(context, options.db, commands),
+		}),
 	);
 }
 

@@ -10,14 +10,12 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
-	agencyCommandContext,
-	createCommand,
+	commandEndpoint,
 	handleCommandError,
 	missionNotificationReturnColumns,
 	type PublicEngagementTransaction,
 	type RouteOptions,
 	readDate,
-	readJsonObject,
 	type SafeMissionNotification,
 	toSafeMissionNotification,
 	writeCommands,
@@ -34,22 +32,15 @@ export function registerMissionNotificationRoutes(
 	app.patch(
 		'/public-engagement/mission-notifications/:missionNotificationId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const missionNotificationId = context.req.param('missionNotificationId');
-			const status = readText(raw.payload.status);
-			const statusChangedAt = readDate(raw.payload.statusChangedAt);
-			const build = () => {
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) => {
+				const statusChangedAt = readDate(payload.statusChangedAt);
 				const base = {
 					...ctx,
-					missionNotificationId,
+					missionNotificationId: param('missionNotificationId'),
 					...(statusChangedAt === null ? {} : { statusChangedAt }),
 				};
-				switch (status) {
+				switch (readText(payload.status)) {
 					case 'completed':
 						return completeMissionNotificationCommand(base);
 					case 'failed':
@@ -59,25 +50,23 @@ export function registerMissionNotificationRoutes(
 					default:
 						return reopenMissionNotificationCommand(base);
 				}
-			};
-			const result = createCommand(build);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			try {
-				const writeResult = await writeCommands(
-					options.db,
-					[result.command],
-					writeMissionNotificationCommand,
-				);
-				if (writeResult.row === null) {
-					return context.json({ error: 'mission_notification_not_found' }, 404);
+			},
+			run: async (context, commands) => {
+				try {
+					const writeResult = await writeCommands(
+						options.db,
+						commands,
+						writeMissionNotificationCommand,
+					);
+					if (writeResult.row === null) {
+						return context.json({ error: 'mission_notification_not_found' }, 404);
+					}
+					return context.json({ missionNotification: writeResult.row, txid: writeResult.txid });
+				} catch (error) {
+					return handleCommandError(context, error);
 				}
-				return context.json({ missionNotification: writeResult.row, txid: writeResult.txid });
-			} catch (error) {
-				return handleCommandError(context, error);
-			}
-		},
+			},
+		}),
 	);
 }
 

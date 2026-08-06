@@ -10,15 +10,13 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
-	createCommand,
+	commandEndpoint,
 	handleCommandError,
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
 	localDateColumn,
 	readCurrentTransactionId,
-	readJsonObject,
 	type SafeSampleSpecies,
 	sampleSpeciesReturnColumns,
 	toSafeSampleSpecies,
@@ -38,47 +36,29 @@ export function registerSampleSpeciesRoutes(
 	app.post(
 		'/larval-surveillance/sample-species',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
 				addSampleSpeciesCountCommand({
 					...ctx,
-					sampleSpeciesId: readText(raw.payload.id) ?? '',
-					sampleId: readText(raw.payload.sampleId) ?? '',
-					speciesId: readText(raw.payload.speciesId) ?? '',
-					larvaeCount: readNumber(raw.payload.larvaeCount) ?? Number.NaN,
-					identifiedByProfileId: readNullableText(raw.payload.identifiedByProfileId),
-					identifiedAt: readText(raw.payload.identifiedAt) ?? '',
+					sampleSpeciesId: readText(payload.id) ?? '',
+					sampleId: readText(payload.sampleId) ?? '',
+					speciesId: readText(payload.speciesId) ?? '',
+					larvaeCount: readNumber(payload.larvaeCount) ?? Number.NaN,
+					identifiedByProfileId: readNullableText(payload.identifiedByProfileId),
+					identifiedAt: readText(payload.identifiedAt) ?? '',
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runSampleSpeciesCommands(context, options.db, [commandResult.command], 201);
-		},
+			run: (context, commands) => runSampleSpeciesCommands(context, options.db, commands, 201),
+		}),
 	);
 
 	app.patch(
 		'/larval-surveillance/sample-species/:sampleSpeciesId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const payload = raw.payload;
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				updateSampleSpeciesCountCommand({
 					...ctx,
-					sampleSpeciesId: context.req.param('sampleSpeciesId'),
+					sampleSpeciesId: param('sampleSpeciesId'),
 					...('speciesId' in payload ? { speciesId: readText(payload.speciesId) ?? '' } : {}),
 					...('larvaeCount' in payload
 						? { larvaeCount: readNumber(payload.larvaeCount) ?? Number.NaN }
@@ -90,32 +70,22 @@ export function registerSampleSpeciesRoutes(
 						? { identifiedAt: readText(payload.identifiedAt) ?? '' }
 						: {}),
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runSampleSpeciesCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runSampleSpeciesCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/larval-surveillance/sample-species/:sampleSpeciesId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				deleteSampleSpeciesCountCommand({
 					...ctx,
-					sampleSpeciesId: context.req.param('sampleSpeciesId'),
+					sampleSpeciesId: param('sampleSpeciesId'),
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runSampleSpeciesCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runSampleSpeciesCommands(context, options.db, commands),
+		}),
 	);
 }
 

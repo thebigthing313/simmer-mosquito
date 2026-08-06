@@ -18,6 +18,7 @@ import {
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
+	commandEndpoint,
 	createCommand,
 	type FormulationUpdateColumns,
 	formulationReturnColumns,
@@ -25,7 +26,6 @@ import {
 	invalidUpdate,
 	type RouteOptions,
 	readCurrentTransactionId,
-	readJsonObject,
 	type SafeFormulation,
 	softDelete,
 	toSafeFormulation,
@@ -39,65 +39,46 @@ export function registerFormulationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/control-operations/formulations', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			createFormulationCommand({
-				...ctx,
-				formulationId: readText(raw.payload.id) ?? '',
-				formulationName: readText(raw.payload.formulationName) ?? '',
-				description: readNullableText(raw.payload.description),
-				batchSize: readNumber(raw.payload.batchSize) ?? Number.NaN,
-				batchUnitId: readText(raw.payload.batchUnitId) ?? '',
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runFormulationCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/control-operations/formulations',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				createFormulationCommand({
+					...ctx,
+					formulationId: readText(payload.id) ?? '',
+					formulationName: readText(payload.formulationName) ?? '',
+					description: readNullableText(payload.description),
+					batchSize: readNumber(payload.batchSize) ?? Number.NaN,
+					batchUnitId: readText(payload.batchUnitId) ?? '',
+				}),
+			run: (context, commands) => runFormulationCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/control-operations/formulations/:formulationId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const commandsResult = buildFormulationUpdateCommands(
-				context.get('authContext'),
-				context.req.param('formulationId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-			return runFormulationCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildFormulationUpdateCommands(authContext, param('formulationId'), payload),
+			run: (context, commands) => runFormulationCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/control-operations/formulations/:formulationId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				deleteFormulationCommand({
 					...ctx,
-					formulationId: context.req.param('formulationId'),
+					formulationId: param('formulationId'),
 					acknowledgedComponentDeletion: true,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runFormulationCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runFormulationCommands(context, options.db, commands),
+		}),
 	);
 }
 

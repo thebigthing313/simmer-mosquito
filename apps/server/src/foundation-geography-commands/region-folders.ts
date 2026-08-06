@@ -9,14 +9,12 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
-	createCommand,
+	commandEndpoint,
 	type FoundationDb,
 	type FoundationTransaction,
 	handleCommandError,
 	type RouteOptions,
-	readJsonObject,
 	regionFolderReturnColumns,
 	type SafeRegionFolder,
 	softDelete,
@@ -33,70 +31,51 @@ export function registerRegionFolderRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/foundation/region-folders', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			createRegionFolderCommand({
-				...ctx,
-				regionFolderId: readText(raw.payload.id) ?? '',
-				name: readText(raw.payload.name) ?? '',
-				description: readNullableText(raw.payload.description),
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runRegionFolderCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/foundation/region-folders',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				createRegionFolderCommand({
+					...ctx,
+					regionFolderId: readText(payload.id) ?? '',
+					name: readText(payload.name) ?? '',
+					description: readNullableText(payload.description),
+				}),
+			run: (context, commands) => runRegionFolderCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/foundation/region-folders/:regionFolderId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const regionFolderId = context.req.param('regionFolderId');
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				updateRegionFolderCommand({
 					...ctx,
-					regionFolderId,
-					...('name' in raw.payload ? { name: readText(raw.payload.name) ?? '' } : {}),
-					...('description' in raw.payload
-						? { description: readNullableText(raw.payload.description) }
+					regionFolderId: param('regionFolderId'),
+					...('name' in payload ? { name: readText(payload.name) ?? '' } : {}),
+					...('description' in payload
+						? { description: readNullableText(payload.description) }
 						: {}),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRegionFolderCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runRegionFolderCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/foundation/region-folders/:regionFolderId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				deleteRegionFolderCommand({
 					...ctx,
-					regionFolderId: context.req.param('regionFolderId'),
+					regionFolderId: param('regionFolderId'),
 					acknowledgedRegionDetach: true,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRegionFolderCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runRegionFolderCommands(context, options.db, commands),
+		}),
 	);
 }
 

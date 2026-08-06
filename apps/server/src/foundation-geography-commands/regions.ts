@@ -16,6 +16,7 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
+	commandEndpoint,
 	createCommand,
 	type FoundationDb,
 	type FoundationTransaction,
@@ -23,7 +24,6 @@ import {
 	handleCommandError,
 	invalidUpdate,
 	type RouteOptions,
-	readJsonObject,
 	regionReturnColumns,
 	type SafeRegion,
 	softDelete,
@@ -40,60 +40,48 @@ export function registerRegionRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/foundation/regions', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const p = raw.payload;
-		const result = createCommand(() =>
-			createRegionCommand({
-				...ctx,
-				regionId: readText(p.id) ?? '',
-				regionFolderId: readNullableText(p.regionFolderId),
-				name: readText(p.name) ?? '',
-				description: readNullableText(p.description),
-				metadata: p.metadata ?? null,
-				geometry: p.geometry,
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runRegionCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/foundation/regions',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				createRegionCommand({
+					...ctx,
+					regionId: readText(payload.id) ?? '',
+					regionFolderId: readNullableText(payload.regionFolderId),
+					name: readText(payload.name) ?? '',
+					description: readNullableText(payload.description),
+					metadata: payload.metadata ?? null,
+					geometry: payload.geometry,
+				}),
+			run: (context, commands) => runRegionCommands(context, options.db, commands, 201),
+		}),
+	);
 
-	app.patch('/foundation/regions/:regionId', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const commandsResult = buildRegionUpdateCommands(
-			context.get('authContext'),
-			context.req.param('regionId'),
-			raw.payload,
-		);
-		if (!commandsResult.ok) {
-			return context.json(commandsResult.body, 400);
-		}
-		return runRegionCommands(context, options.db, commandsResult.commands);
-	});
+	app.patch(
+		'/foundation/regions/:regionId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildRegionUpdateCommands(authContext, param('regionId'), payload),
+			run: (context, commands) => runRegionCommands(context, options.db, commands),
+		}),
+	);
 
-	app.delete('/foundation/regions/:regionId', options.authContextMiddleware, async (context) => {
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			deleteRegionCommand({
-				...ctx,
-				regionId: context.req.param('regionId'),
-				acknowledgedRegionDelete: true,
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runRegionCommands(context, options.db, [result.command]);
-	});
+	app.delete(
+		'/foundation/regions/:regionId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
+				deleteRegionCommand({
+					...ctx,
+					regionId: param('regionId'),
+					acknowledgedRegionDelete: true,
+				}),
+			run: (context, commands) => runRegionCommands(context, options.db, commands),
+		}),
+	);
 }
 
 function buildRegionUpdateCommands(

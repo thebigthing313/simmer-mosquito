@@ -12,9 +12,8 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
-	createCommand,
+	commandEndpoint,
 	geojsonToGeom,
 	handleCommandError,
 	hasInspectionResultFields,
@@ -30,8 +29,6 @@ import {
 	type NormalizedInspectionResult,
 	readCurrentTransactionId,
 	readInspectionResult,
-	readJsonObject,
-	readOptionalJsonObject,
 	resolveLocationGeom,
 	type SafeInspection,
 	toSafeInspection,
@@ -48,121 +45,89 @@ export function registerInspectionRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.post('/larval-surveillance/inspections', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
+	app.post(
+		'/larval-surveillance/inspections',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: async ({ payload, agency: ctx, authContext }) => {
+				const policy = await loadInspectionPolicy(options.db, authContext.organization.id);
+				const result = readInspectionResult(payload);
+				const habitatId = readNullableText(payload.habitatId);
 
-		const authContext = context.get('authContext');
-		const ctx = agencyCommandContext(authContext);
-		const policy = await loadInspectionPolicy(options.db, authContext.organization.id);
-		const result = readInspectionResult(raw.payload);
-		const habitatId = readNullableText(raw.payload.habitatId);
-
-		const commandResult =
-			habitatId !== null
-				? createCommand(() =>
-						recordHabitatInspectionCommand({
+				return habitatId !== null
+					? recordHabitatInspectionCommand({
 							...ctx,
-							inspectionId: readText(raw.payload.id) ?? '',
+							inspectionId: readText(payload.id) ?? '',
 							habitatId,
 							policy,
 							...result,
-						}),
-					)
-				: createCommand(() =>
-						recordAdHocInspectionCommand({
+						})
+					: recordAdHocInspectionCommand({
 							...ctx,
-							inspectionId: readText(raw.payload.id) ?? '',
-							locationSource: raw.payload.locationSource as never,
-							addressId: readNullableText(raw.payload.addressId),
-							habitatTypeId: readNullableText(raw.payload.habitatTypeId),
+							inspectionId: readText(payload.id) ?? '',
+							locationSource: payload.locationSource as never,
+							addressId: readNullableText(payload.addressId),
+							habitatTypeId: readNullableText(payload.habitatTypeId),
 							policy,
 							...result,
-						}),
-					);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
-
-		return runInspectionCommands(context, options.db, [commandResult.command], 201);
-	});
+						});
+			},
+			run: (context, commands) => runInspectionCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/larval-surveillance/inspections/:inspectionId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
+		commandEndpoint({
+			build: async ({ payload, agency: ctx, authContext, param }) => {
+				const inspectionId = param('inspectionId');
+				const commands: LarvalSurveillanceCommand[] = [];
 
-			const authContext = context.get('authContext');
-			const ctx = agencyCommandContext(authContext);
-			const inspectionId = context.req.param('inspectionId');
-			const commands: LarvalSurveillanceCommand[] = [];
-
-			if (hasInspectionResultFields(raw.payload)) {
-				const policy = await loadInspectionPolicy(options.db, authContext.organization.id);
-				const result = readInspectionResult(raw.payload);
-				const fieldResult = createCommand(() =>
-					updateInspectionFieldDetailsCommand({ ...ctx, inspectionId, policy, ...result }),
-				);
-				if (!fieldResult.ok) {
-					return context.json(fieldResult.body, 400);
+				if (hasInspectionResultFields(payload)) {
+					const policy = await loadInspectionPolicy(options.db, authContext.organization.id);
+					const result = readInspectionResult(payload);
+					commands.push(
+						updateInspectionFieldDetailsCommand({ ...ctx, inspectionId, policy, ...result }),
+					);
 				}
-				commands.push(fieldResult.command);
-			}
 
-			const hasLocation = 'locationSource' in raw.payload;
-			const hasAddress = 'addressId' in raw.payload;
-			const hasType = 'habitatTypeId' in raw.payload;
-			if (hasLocation || hasAddress || hasType) {
-				const locationResult = createCommand(() =>
-					updateAdHocInspectionLocationCommand({
-						...ctx,
-						inspectionId,
-						...(hasLocation ? { locationSource: raw.payload.locationSource as never } : {}),
-						...(hasAddress ? { addressId: readNullableText(raw.payload.addressId) } : {}),
-						...(hasType ? { habitatTypeId: readNullableText(raw.payload.habitatTypeId) } : {}),
-					}),
-				);
-				if (!locationResult.ok) {
-					return context.json(locationResult.body, 400);
+				const hasLocation = 'locationSource' in payload;
+				const hasAddress = 'addressId' in payload;
+				const hasType = 'habitatTypeId' in payload;
+				if (hasLocation || hasAddress || hasType) {
+					commands.push(
+						updateAdHocInspectionLocationCommand({
+							...ctx,
+							inspectionId,
+							...(hasLocation ? { locationSource: payload.locationSource as never } : {}),
+							...(hasAddress ? { addressId: readNullableText(payload.addressId) } : {}),
+							...(hasType ? { habitatTypeId: readNullableText(payload.habitatTypeId) } : {}),
+						}),
+					);
 				}
-				commands.push(locationResult.command);
-			}
 
-			if (commands.length === 0) {
-				return context.json(invalidUpdate('inspection').body, 400);
-			}
-
-			return runInspectionCommands(context, options.db, commands);
-		},
+				return commands.length === 0 ? invalidUpdate('inspection') : { ok: true, commands };
+			},
+			run: (context, commands) => runInspectionCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/larval-surveillance/inspections/:inspectionId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readOptionalJsonObject(context.req);
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				deleteInspectionCommand({
 					...ctx,
-					inspectionId: context.req.param('inspectionId'),
+					inspectionId: param('inspectionId'),
 					acknowledgedAssociatedRecordsDeletion:
-						raw?.acknowledgedAssociatedRecordsDeletion !== false,
-					acknowledgedCrossDomainDetach: raw?.acknowledgedCrossDomainDetach !== false,
+						payload.acknowledgedAssociatedRecordsDeletion !== false,
+					acknowledgedCrossDomainDetach: payload.acknowledgedCrossDomainDetach !== false,
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runInspectionCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runInspectionCommands(context, options.db, commands),
+		}),
 	);
 }
 

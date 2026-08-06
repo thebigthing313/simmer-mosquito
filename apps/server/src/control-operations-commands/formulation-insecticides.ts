@@ -10,16 +10,14 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readNumber, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
-	createCommand,
+	commandEndpoint,
 	formulationInsecticideReturnColumns,
 	handleCommandError,
 	type RouteOptions,
 	readCurrentTransactionId,
-	readJsonObject,
 	type SafeFormulationInsecticide,
 	softDelete,
 	toSafeFormulationInsecticide,
@@ -36,43 +34,29 @@ export function registerFormulationInsecticideRoutes(
 	app.post(
 		'/control-operations/formulation-insecticides',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
 				addFormulationInsecticideCommand({
 					...ctx,
-					formulationInsecticideId: readText(raw.payload.id) ?? '',
-					formulationId: readText(raw.payload.formulationId) ?? '',
-					insecticideId: readText(raw.payload.insecticideId) ?? '',
-					amount: readNumber(raw.payload.amount) ?? Number.NaN,
-					unitId: readText(raw.payload.unitId) ?? '',
+					formulationInsecticideId: readText(payload.id) ?? '',
+					formulationId: readText(payload.formulationId) ?? '',
+					insecticideId: readText(payload.insecticideId) ?? '',
+					amount: readNumber(payload.amount) ?? Number.NaN,
+					unitId: readText(payload.unitId) ?? '',
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runFormulationInsecticideCommands(context, options.db, [result.command], 201);
-		},
+			run: (context, commands) =>
+				runFormulationInsecticideCommands(context, options.db, commands, 201),
+		}),
 	);
 
 	app.patch(
 		'/control-operations/formulation-insecticides/:formulationInsecticideId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const payload = raw.payload;
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				updateFormulationInsecticideCommand({
 					...ctx,
-					formulationInsecticideId: context.req.param('formulationInsecticideId'),
+					formulationInsecticideId: param('formulationInsecticideId'),
 					...('insecticideId' in payload
 						? { insecticideId: readText(payload.insecticideId) ?? '' }
 						: {}),
@@ -80,31 +64,23 @@ export function registerFormulationInsecticideRoutes(
 					...('unitId' in payload ? { unitId: readText(payload.unitId) ?? '' } : {}),
 					acknowledgedDeactivateEmptyFormulation: true,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runFormulationInsecticideCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runFormulationInsecticideCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/control-operations/formulation-insecticides/:formulationInsecticideId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				removeFormulationInsecticideCommand({
 					...ctx,
-					formulationInsecticideId: context.req.param('formulationInsecticideId'),
+					formulationInsecticideId: param('formulationInsecticideId'),
 					acknowledgedDeactivateEmptyFormulation: true,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runFormulationInsecticideCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runFormulationInsecticideCommands(context, options.db, commands),
+		}),
 	);
 }
 

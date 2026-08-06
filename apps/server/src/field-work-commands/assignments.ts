@@ -31,6 +31,7 @@ import {
 	type CommandContext,
 	type CommandsResult,
 	commandActor,
+	commandEndpoint,
 	createCommand,
 	denyUnauthorizedCommands,
 	type FieldWorkDb,
@@ -42,7 +43,6 @@ import {
 	type RouteOptions,
 	readDate,
 	readItemMappings,
-	readJsonObject,
 	readLifecycleTransition,
 	readStringArray,
 	reindexItems,
@@ -61,140 +61,95 @@ export function registerAssignmentRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/field-work/assignments', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const p = raw.payload;
-		const result = createCommand(() =>
-			createAssignmentCommand({
-				...ctx,
-				assignmentId: readText(p.id) ?? '',
-				assignmentDate: readText(p.assignmentDate) ?? '',
-				assignmentName: readNullableText(p.assignmentName),
-				assignedToProfileId: readNullableText(p.assignedToProfileId),
-				dueAt: readDate(p.dueAt),
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runAssignmentCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/field-work/assignments',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				createAssignmentCommand({
+					...ctx,
+					assignmentId: readText(payload.id) ?? '',
+					assignmentDate: readText(payload.assignmentDate) ?? '',
+					assignmentName: readNullableText(payload.assignmentName),
+					assignedToProfileId: readNullableText(payload.assignedToProfileId),
+					dueAt: readDate(payload.dueAt),
+				}),
+			run: (context, commands) => runAssignmentCommands(context, options.db, commands, 201),
+		}),
+	);
 
-	app.post('/field-work/assignments/from-route', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const p = raw.payload;
-		const result = createCommand(() =>
-			createAssignmentFromRouteCommand({
-				...ctx,
-				assignmentId: readText(p.id) ?? '',
-				routeId: readText(p.routeId) ?? '',
-				assignmentDate: readText(p.assignmentDate) ?? '',
-				assignmentName: readNullableText(p.assignmentName),
-				assignedToProfileId: readNullableText(p.assignedToProfileId),
-				dueAt: readDate(p.dueAt),
-				assignmentItemIds: readItemMappings(p.assignmentItemIds),
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runAssignmentCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/field-work/assignments/from-route',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				createAssignmentFromRouteCommand({
+					...ctx,
+					assignmentId: readText(payload.id) ?? '',
+					routeId: readText(payload.routeId) ?? '',
+					assignmentDate: readText(payload.assignmentDate) ?? '',
+					assignmentName: readNullableText(payload.assignmentName),
+					assignedToProfileId: readNullableText(payload.assignedToProfileId),
+					dueAt: readDate(payload.dueAt),
+					assignmentItemIds: readItemMappings(payload.assignmentItemIds),
+				}),
+			run: (context, commands) => runAssignmentCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.post(
 		'/field-work/assignments/self-assign-route',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const p = raw.payload;
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
 				selfAssignRouteCommand({
 					...ctx,
-					assignmentId: readText(p.id) ?? '',
-					routeId: readText(p.routeId) ?? '',
-					assignmentItemIds: readItemMappings(p.assignmentItemIds),
+					assignmentId: readText(payload.id) ?? '',
+					routeId: readText(payload.routeId) ?? '',
+					assignmentItemIds: readItemMappings(payload.assignmentItemIds),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runAssignmentCommands(context, options.db, [result.command], 201);
-		},
+			run: (context, commands) => runAssignmentCommands(context, options.db, commands, 201),
+		}),
 	);
 
 	app.patch(
 		'/field-work/assignments/:assignmentId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const commandsResult = buildAssignmentUpdateCommands(
-				context.get('authContext'),
-				context.req.param('assignmentId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-			return runAssignmentCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildAssignmentUpdateCommands(authContext, param('assignmentId'), payload),
+			run: (context, commands) => runAssignmentCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/field-work/assignments/:assignmentId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				deleteAssignmentCommand({
 					...ctx,
-					assignmentId: context.req.param('assignmentId'),
+					assignmentId: param('assignmentId'),
 					acknowledgedAssignmentItemDeletion: true,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runAssignmentCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runAssignmentCommands(context, options.db, commands),
+		}),
 	);
 
 	app.post(
 		'/field-work/assignments/:assignmentId/move-items',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				moveAssignmentItemsCommand({
 					...ctx,
-					assignmentId: context.req.param('assignmentId'),
-					assignmentItemIds: readStringArray(raw.payload.assignmentItemIds),
-					placement: raw.payload.placement as AssignmentItemPlacement,
+					assignmentId: param('assignmentId'),
+					assignmentItemIds: readStringArray(payload.assignmentItemIds),
+					placement: payload.placement as AssignmentItemPlacement,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runAssignmentCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runAssignmentCommands(context, options.db, commands),
+		}),
 	);
 }
 

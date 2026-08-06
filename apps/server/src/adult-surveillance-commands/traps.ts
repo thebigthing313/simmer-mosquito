@@ -19,13 +19,12 @@ import {
 	type AdultSurveillanceTransaction,
 	agencyCommandContext,
 	type CommandContext,
+	commandEndpoint,
 	createCommand,
 	handleCommandError,
 	type InvalidCommandBody,
 	invalidUpdate,
 	readCurrentTransactionId,
-	readJsonObject,
-	readOptionalJsonObject,
 	resolveLocationGeom,
 	type SafeTrap,
 	type TrapUpdateColumns,
@@ -44,68 +43,50 @@ export function registerTrapRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.post('/adult-surveillance/traps', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
+	app.post(
+		'/adult-surveillance/traps',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				createTrapCommand({
+					...ctx,
+					trapId: readText(payload.id) ?? '',
+					locationSource: payload.locationSource as TrapLocationSourceInput,
+					collectionMethodId: readText(payload.collectionMethodId) ?? '',
+					addressId: readNullableText(payload.addressId),
+					collectionLureId: readNullableText(payload.collectionLureId),
+					trapName: readNullableText(payload.trapName),
+					trapCode: readNullableText(payload.trapCode),
+					description: readNullableText(payload.description),
+					acknowledgedDuplicateTrapCode: payload.acknowledgedDuplicateTrapCode === true,
+				}),
+			run: (context, commands) => runTrapCommands(context, options.db, commands, 201),
+		}),
+	);
 
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const commandResult = createCommand(() =>
-			createTrapCommand({
-				...ctx,
-				trapId: readText(raw.payload.id) ?? '',
-				locationSource: raw.payload.locationSource as TrapLocationSourceInput,
-				collectionMethodId: readText(raw.payload.collectionMethodId) ?? '',
-				addressId: readNullableText(raw.payload.addressId),
-				collectionLureId: readNullableText(raw.payload.collectionLureId),
-				trapName: readNullableText(raw.payload.trapName),
-				trapCode: readNullableText(raw.payload.trapCode),
-				description: readNullableText(raw.payload.description),
-				acknowledgedDuplicateTrapCode: raw.payload.acknowledgedDuplicateTrapCode === true,
-			}),
-		);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
-
-		return runTrapCommands(context, options.db, [commandResult.command], 201);
-	});
-
-	app.patch('/adult-surveillance/traps/:trapId', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-
-		const trapId = context.req.param('trapId');
-		const commandsResult = buildTrapUpdateCommands(context.get('authContext'), trapId, raw.payload);
-		if (!commandsResult.ok) {
-			return context.json(commandsResult.body, 400);
-		}
-
-		return runTrapCommands(context, options.db, commandsResult.commands);
-	});
+	app.patch(
+		'/adult-surveillance/traps/:trapId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildTrapUpdateCommands(authContext, param('trapId'), payload),
+			run: (context, commands) => runTrapCommands(context, options.db, commands),
+		}),
+	);
 
 	app.delete(
 		'/adult-surveillance/traps/:trapId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readOptionalJsonObject(context.req);
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				deleteTrapCommand({
 					...ctx,
-					trapId: context.req.param('trapId'),
-					acknowledgedCascadeDelete: raw?.acknowledgedCascadeDelete !== false,
+					trapId: param('trapId'),
+					acknowledgedCascadeDelete: payload.acknowledgedCascadeDelete !== false,
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runTrapCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runTrapCommands(context, options.db, commands),
+		}),
 	);
 }
 

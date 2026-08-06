@@ -21,13 +21,13 @@ import { readNullableText, readNumber, readText } from '../command-payload.js';
 import { type CommandActor, denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type AgencyContext,
-	agencyCommandContext,
 	biocontrolActionReturnColumns,
 	type CommandContext,
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
 	commandActor,
+	commandEndpoint,
 	contextIds,
 	createCommand,
 	handleCommandError,
@@ -39,7 +39,6 @@ import {
 	outreachActionReturnColumns,
 	type RouteOptions,
 	readControlActionContext,
-	readJsonObject,
 	resolveGeom,
 	type SafeBiocontrolAction,
 	type SafeOutreachAction,
@@ -85,55 +84,33 @@ export function registerActionRoutes<TSafe>(
 	options: RouteOptions,
 	config: ActionConfig<TSafe>,
 ): void {
-	app.post(config.basePath, options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const result = createCommand(() =>
-			config.buildCreate(agencyCommandContext(context.get('authContext')), raw.payload),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runActionCommands(context, options.db, config, [result.command], 201);
-	});
+	app.post(
+		config.basePath,
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency }) => config.buildCreate(agency, payload),
+			run: (context, commands) => runActionCommands(context, options.db, config, commands, 201),
+		}),
+	);
 
 	app.patch(
 		`${config.basePath}/:${config.idParam}`,
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const commandsResult = config.buildUpdate(
-				agencyCommandContext(context.get('authContext')),
-				context.req.param(config.idParam),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-			return runActionCommands(context, options.db, config, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, agency, param }) =>
+				config.buildUpdate(agency, param(config.idParam), payload),
+			run: (context, commands) => runActionCommands(context, options.db, config, commands),
+		}),
 	);
 
 	app.delete(
 		`${config.basePath}/:${config.idParam}`,
 		options.authContextMiddleware,
-		async (context) => {
-			const result = createCommand(() =>
-				config.buildDelete(
-					agencyCommandContext(context.get('authContext')),
-					context.req.param(config.idParam),
-				),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runActionCommands(context, options.db, config, [result.command]);
-		},
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency, param }) => config.buildDelete(agency, param(config.idParam)),
+			run: (context, commands) => runActionCommands(context, options.db, config, commands),
+		}),
 	);
 }
 

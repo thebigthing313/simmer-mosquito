@@ -21,6 +21,7 @@ import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
+	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
 	type HabitatUpdateColumns,
@@ -31,8 +32,6 @@ import {
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
 	readCurrentTransactionId,
-	readJsonObject,
-	readOptionalJsonObject,
 	resolveLocationGeom,
 	type SafeHabitat,
 	toSafeHabitat,
@@ -49,88 +48,61 @@ export function registerHabitatRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.post('/larval-surveillance/habitats', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const inspectionId = readNullableText(raw.payload.inspectionId);
-		const commandResult =
-			inspectionId !== null && raw.payload.locationSource === undefined
-				? createCommand(() =>
-						createHabitatFromInspectionCommand({
+	app.post(
+		'/larval-surveillance/habitats',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) => {
+				const inspectionId = readNullableText(payload.inspectionId);
+				return inspectionId !== null && payload.locationSource === undefined
+					? createHabitatFromInspectionCommand({
 							...ctx,
-							habitatId: readText(raw.payload.id) ?? '',
+							habitatId: readText(payload.id) ?? '',
 							inspectionId,
-							habitatName: readNullableText(raw.payload.habitatName),
-							description: readText(raw.payload.description) ?? '',
-							metadata: raw.payload.metadata ?? null,
-						}),
-					)
-				: createCommand(() =>
-						createHabitatCommand({
+							habitatName: readNullableText(payload.habitatName),
+							description: readText(payload.description) ?? '',
+							metadata: payload.metadata ?? null,
+						})
+					: createHabitatCommand({
 							...ctx,
-							habitatId: readText(raw.payload.id) ?? '',
-							locationSource: raw.payload.locationSource as never,
-							addressId: readNullableText(raw.payload.addressId),
-							habitatTypeId: readNullableText(raw.payload.habitatTypeId),
-							habitatName: readNullableText(raw.payload.habitatName),
-							description: readText(raw.payload.description) ?? '',
-							metadata: raw.payload.metadata ?? null,
-						}),
-					);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
-
-		return runHabitatCommands(context, options.db, [commandResult.command], 201);
-	});
+							habitatId: readText(payload.id) ?? '',
+							locationSource: payload.locationSource as never,
+							addressId: readNullableText(payload.addressId),
+							habitatTypeId: readNullableText(payload.habitatTypeId),
+							habitatName: readNullableText(payload.habitatName),
+							description: readText(payload.description) ?? '',
+							metadata: payload.metadata ?? null,
+						});
+			},
+			run: (context, commands) => runHabitatCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/larval-surveillance/habitats/:habitatId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-
-			const commandsResult = buildHabitatUpdateCommands(
-				context.get('authContext'),
-				context.req.param('habitatId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-
-			return runHabitatCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildHabitatUpdateCommands(authContext, param('habitatId'), payload),
+			run: (context, commands) => runHabitatCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/larval-surveillance/habitats/:habitatId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readOptionalJsonObject(context.req);
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				deleteHabitatCommand({
 					...ctx,
-					habitatId: context.req.param('habitatId'),
-					acknowledgedHabitatDelete: raw?.acknowledgedHabitatDelete !== false,
-					acknowledgedInspectionDetach: raw?.acknowledgedInspectionDetach !== false,
-					acknowledgedCrossDomainDetach: raw?.acknowledgedCrossDomainDetach !== false,
+					habitatId: param('habitatId'),
+					acknowledgedHabitatDelete: payload.acknowledgedHabitatDelete !== false,
+					acknowledgedInspectionDetach: payload.acknowledgedInspectionDetach !== false,
+					acknowledgedCrossDomainDetach: payload.acknowledgedCrossDomainDetach !== false,
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runHabitatCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runHabitatCommands(context, options.db, commands),
+		}),
 	);
 }
 

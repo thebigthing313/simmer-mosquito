@@ -22,6 +22,7 @@ import {
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
 	commandActor,
+	commandEndpoint,
 	contextIds,
 	createCommand,
 	handleCommandError,
@@ -34,7 +35,6 @@ import {
 	type RouteOptions,
 	readControlActionContext,
 	readCurrentTransactionId,
-	readJsonObject,
 	resolveGeom,
 	type SafeApplication,
 	softDelete,
@@ -49,76 +49,56 @@ export function registerApplicationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/control-operations/applications', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const p = raw.payload;
-		const result = createCommand(() =>
-			recordChemicalApplicationCommand({
-				...ctx,
-				applicationId: readText(p.id) ?? '',
-				insecticideId: readText(p.insecticideId) ?? '',
-				amountApplied: readNumber(p.amountApplied) ?? Number.NaN,
-				applicationUnitId: readText(p.applicationUnitId) ?? '',
-				applicationDate: readText(p.applicationDate) ?? '',
-				applicatorProfileId: readNullableText(p.applicatorProfileId),
-				locationSource: p.locationSource as ControlActionLocationSourceInput,
-				addressId: readNullableText(p.addressId),
-				context: readControlActionContext(p),
-				requestedControlActionId: readNullableText(p.requestedControlActionId),
-				applicationMethodId: readNullableText(p.applicationMethodId),
-				vehicleId: readNullableText(p.vehicleId),
-				equipmentId: readNullableText(p.equipmentId),
-				metadata: p.metadata ?? null,
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runApplicationCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/control-operations/applications',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				recordChemicalApplicationCommand({
+					...ctx,
+					applicationId: readText(payload.id) ?? '',
+					insecticideId: readText(payload.insecticideId) ?? '',
+					amountApplied: readNumber(payload.amountApplied) ?? Number.NaN,
+					applicationUnitId: readText(payload.applicationUnitId) ?? '',
+					applicationDate: readText(payload.applicationDate) ?? '',
+					applicatorProfileId: readNullableText(payload.applicatorProfileId),
+					locationSource: payload.locationSource as ControlActionLocationSourceInput,
+					addressId: readNullableText(payload.addressId),
+					context: readControlActionContext(payload),
+					requestedControlActionId: readNullableText(payload.requestedControlActionId),
+					applicationMethodId: readNullableText(payload.applicationMethodId),
+					vehicleId: readNullableText(payload.vehicleId),
+					equipmentId: readNullableText(payload.equipmentId),
+					metadata: payload.metadata ?? null,
+				}),
+			run: (context, commands) => runApplicationCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/control-operations/applications/:applicationId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const commandsResult = buildApplicationUpdateCommands(
-				context.get('authContext'),
-				context.req.param('applicationId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-			return runApplicationCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildApplicationUpdateCommands(authContext, param('applicationId'), payload),
+			run: (context, commands) => runApplicationCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/control-operations/applications/:applicationId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				deleteChemicalApplicationCommand({
 					...ctx,
-					applicationId: context.req.param('applicationId'),
+					applicationId: param('applicationId'),
 					acknowledgedSupportRecordDeletion: true,
 					acknowledgedBatchDeletion: true,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runApplicationCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runApplicationCommands(context, options.db, commands),
+		}),
 	);
 }
 

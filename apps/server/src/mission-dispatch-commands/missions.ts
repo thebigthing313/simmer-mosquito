@@ -23,6 +23,7 @@ import {
 	type CommandContext,
 	type CommandsResult,
 	commandActor,
+	commandEndpoint,
 	createCommand,
 	denyUnauthorizedCommands,
 	handleCommandError,
@@ -34,7 +35,6 @@ import {
 	missionReturnColumns,
 	type RouteOptions,
 	readDate,
-	readJsonObject,
 	readLifecycleTransition,
 	resolveInitialItemGeom,
 	type SafeMission,
@@ -52,66 +52,46 @@ export function registerMissionRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/mission-dispatch/missions', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const p = raw.payload;
-		const result = createCommand(() =>
-			createMissionCommand({
-				...ctx,
-				missionId: readText(p.id) ?? '',
-				controlType: (readText(p.controlType) ?? '') as never,
-				scheduledStartAt: readDate(p.scheduledStartAt) ?? new Date(Number.NaN),
-				missionName: readNullableText(p.missionName),
-				plannedMethodId: readNullableText(p.plannedMethodId),
-				assignedToProfileId: readNullableText(p.assignedToProfileId),
-				scheduledEndAt: readDate(p.scheduledEndAt),
-				rainDate: readNullableText(p.rainDate),
-				notificationTypeId: readNullableText(p.notificationTypeId),
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runMissionCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/mission-dispatch/missions',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				createMissionCommand({
+					...ctx,
+					missionId: readText(payload.id) ?? '',
+					controlType: (readText(payload.controlType) ?? '') as never,
+					scheduledStartAt: readDate(payload.scheduledStartAt) ?? new Date(Number.NaN),
+					missionName: readNullableText(payload.missionName),
+					plannedMethodId: readNullableText(payload.plannedMethodId),
+					assignedToProfileId: readNullableText(payload.assignedToProfileId),
+					scheduledEndAt: readDate(payload.scheduledEndAt),
+					rainDate: readNullableText(payload.rainDate),
+					notificationTypeId: readNullableText(payload.notificationTypeId),
+				}),
+			run: (context, commands) => runMissionCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/mission-dispatch/missions/:missionId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const commandsResult = buildMissionUpdateCommands(
-				context.get('authContext'),
-				context.req.param('missionId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-			return runMissionCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildMissionUpdateCommands(authContext, param('missionId'), payload),
+			run: (context, commands) => runMissionCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/mission-dispatch/missions/:missionId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
-				deleteMissionCommand({ ...ctx, missionId: context.req.param('missionId') }),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runMissionCommands(context, options.db, [result.command]);
-		},
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
+				deleteMissionCommand({ ...ctx, missionId: param('missionId') }),
+			run: (context, commands) => runMissionCommands(context, options.db, commands),
+		}),
 	);
 }
 

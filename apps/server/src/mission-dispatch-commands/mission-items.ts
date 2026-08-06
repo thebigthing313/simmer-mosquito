@@ -22,6 +22,7 @@ import {
 	type CommandContext,
 	type CommandsResult,
 	commandActor,
+	commandEndpoint,
 	createCommand,
 	denyUnauthorizedCommands,
 	geojsonToGeom,
@@ -35,7 +36,6 @@ import {
 	type RouteOptions,
 	readDate,
 	readItemLifecycleTransition,
-	readJsonObject,
 	readStringArray,
 	resolveItemGeom,
 	type SafeMissionItem,
@@ -53,107 +53,76 @@ export function registerMissionItemRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/mission-dispatch/mission-items', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const p = raw.payload;
-		const fromRca = readNullableText(p.requestedControlActionId);
-		const hasLocation = p.locationSource !== undefined || p.geometry !== undefined;
-		const result =
-			fromRca !== null && !hasLocation
-				? createCommand(() =>
-						addMissionItemFromRequestedControlActionCommand({
+	app.post(
+		'/mission-dispatch/mission-items',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) => {
+				const fromRca = readNullableText(payload.requestedControlActionId);
+				const hasLocation = payload.locationSource !== undefined || payload.geometry !== undefined;
+				return fromRca !== null && !hasLocation
+					? addMissionItemFromRequestedControlActionCommand({
 							...ctx,
-							missionItemId: readText(p.id) ?? '',
-							missionId: readText(p.missionId) ?? '',
+							missionItemId: readText(payload.id) ?? '',
+							missionId: readText(payload.missionId) ?? '',
 							requestedControlActionId: fromRca,
-							...(p.placement === undefined
+							...(payload.placement === undefined
 								? {}
-								: { placement: p.placement as MissionItemPlacement }),
-						}),
-					)
-				: createCommand(() =>
-						addMissionItemCommand({
+								: { placement: payload.placement as MissionItemPlacement }),
+						})
+					: addMissionItemCommand({
 							...ctx,
-							missionItemId: readText(p.id) ?? '',
-							missionId: readText(p.missionId) ?? '',
-							...(p.geometry === undefined ? {} : { geometry: p.geometry }),
-							...(p.locationSource === undefined
+							missionItemId: readText(payload.id) ?? '',
+							missionId: readText(payload.missionId) ?? '',
+							...(payload.geometry === undefined ? {} : { geometry: payload.geometry }),
+							...(payload.locationSource === undefined
 								? {}
-								: { locationSource: p.locationSource as MissionItemLocationSourceInput }),
-							addressId: readNullableText(p.addressId),
+								: { locationSource: payload.locationSource as MissionItemLocationSourceInput }),
+							addressId: readNullableText(payload.addressId),
 							requestedControlActionId: fromRca,
-							...(p.placement === undefined
+							...(payload.placement === undefined
 								? {}
-								: { placement: p.placement as MissionItemPlacement }),
-						}),
-					);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runMissionItemCommands(context, options.db, [result.command], 201);
-	});
+								: { placement: payload.placement as MissionItemPlacement }),
+						});
+			},
+			run: (context, commands) => runMissionItemCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/mission-dispatch/mission-items/:missionItemId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const commandsResult = buildMissionItemUpdateCommands(
-				context.get('authContext'),
-				context.req.param('missionItemId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-			return runMissionItemCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildMissionItemUpdateCommands(authContext, param('missionItemId'), payload),
+			run: (context, commands) => runMissionItemCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/mission-dispatch/mission-items/:missionItemId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
-				removeMissionItemCommand({ ...ctx, missionItemId: context.req.param('missionItemId') }),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runMissionItemCommands(context, options.db, [result.command]);
-		},
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
+				removeMissionItemCommand({ ...ctx, missionItemId: param('missionItemId') }),
+			run: (context, commands) => runMissionItemCommands(context, options.db, commands),
+		}),
 	);
 
 	app.post(
 		'/mission-dispatch/missions/:missionId/move-items',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				moveMissionItemsCommand({
 					...ctx,
-					missionId: context.req.param('missionId'),
-					missionItemIds: readStringArray(raw.payload.missionItemIds),
-					placement: raw.payload.placement as MissionItemPlacement,
+					missionId: param('missionId'),
+					missionItemIds: readStringArray(payload.missionItemIds),
+					placement: payload.placement as MissionItemPlacement,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runMissionItemCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runMissionItemCommands(context, options.db, commands),
+		}),
 	);
 }
 

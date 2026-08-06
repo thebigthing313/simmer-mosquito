@@ -18,6 +18,7 @@ import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
+	commandEndpoint,
 	createCommand,
 	handleCommandError,
 	type InvalidCommandBody,
@@ -25,8 +26,6 @@ import {
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
 	readCurrentTransactionId,
-	readJsonObject,
-	readOptionalJsonObject,
 	type SafeSample,
 	type SampleUpdateColumns,
 	sampleReturnColumns,
@@ -44,80 +43,53 @@ export function registerSampleRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.post('/larval-surveillance/samples', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const displayName = readNullableText(raw.payload.displayName);
-		const commandResult =
-			displayName !== null
-				? createCommand(() =>
-						addInspectionSampleCommand({
+	app.post(
+		'/larval-surveillance/samples',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) => {
+				const displayName = readNullableText(payload.displayName);
+				return displayName !== null
+					? addInspectionSampleCommand({
 							...ctx,
-							sampleId: readText(raw.payload.id) ?? '',
-							inspectionId: readText(raw.payload.inspectionId) ?? '',
+							sampleId: readText(payload.id) ?? '',
+							inspectionId: readText(payload.inspectionId) ?? '',
 							displayName,
-						}),
-					)
-				: createCommand(() =>
-						addUnlabeledInspectionSampleCommand({
+						})
+					: addUnlabeledInspectionSampleCommand({
 							...ctx,
-							sampleId: readText(raw.payload.id) ?? '',
-							inspectionId: readText(raw.payload.inspectionId) ?? '',
-						}),
-					);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
-
-		return runSampleCommands(context, options.db, [commandResult.command], 201);
-	});
+							sampleId: readText(payload.id) ?? '',
+							inspectionId: readText(payload.inspectionId) ?? '',
+						});
+			},
+			run: (context, commands) => runSampleCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/larval-surveillance/samples/:sampleId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-
-			const commandsResult = buildSampleUpdateCommands(
-				context.get('authContext'),
-				context.req.param('sampleId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-
-			return runSampleCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildSampleUpdateCommands(authContext, param('sampleId'), payload),
+			run: (context, commands) => runSampleCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/larval-surveillance/samples/:sampleId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readOptionalJsonObject(context.req);
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				deleteInspectionSampleCommand({
 					...ctx,
-					sampleId: context.req.param('sampleId'),
+					sampleId: param('sampleId'),
 					acknowledgedAssociatedRecordsDeletion:
-						raw?.acknowledgedAssociatedRecordsDeletion !== false,
+						payload.acknowledgedAssociatedRecordsDeletion !== false,
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runSampleCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runSampleCommands(context, options.db, commands),
+		}),
 	);
 }
 

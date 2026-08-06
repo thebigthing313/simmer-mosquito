@@ -20,6 +20,7 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
+	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
 	handleCommandError,
@@ -28,7 +29,6 @@ import {
 	type PublicEngagementDb,
 	type PublicEngagementTransaction,
 	type RouteOptions,
-	readJsonObject,
 	readNumberOrNull,
 	readSubscriptions,
 	registrationReturnColumns,
@@ -52,115 +52,73 @@ export function registerNotificationRegistrationRoutes(
 	app.post(
 		'/public-engagement/notification-registrations',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const p = raw.payload;
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
 				createNotificationRegistrationCommand({
 					...ctx,
-					notificationRegistrationId: readText(p.id) ?? '',
-					contact: p.contact as ContactReferenceInput,
-					location: p.location as NotificationRegistrationLocationInput,
-					bufferDistance: readNumberOrNull(p.bufferDistance),
-					bufferUnitId: readNullableText(p.bufferUnitId),
-					hasBees: p.hasBees === true,
-					isNoSpray: p.isNoSpray === true,
-					subscriptions: readSubscriptions(p.subscriptions),
+					notificationRegistrationId: readText(payload.id) ?? '',
+					contact: payload.contact as ContactReferenceInput,
+					location: payload.location as NotificationRegistrationLocationInput,
+					bufferDistance: readNumberOrNull(payload.bufferDistance),
+					bufferUnitId: readNullableText(payload.bufferUnitId),
+					hasBees: payload.hasBees === true,
+					isNoSpray: payload.isNoSpray === true,
+					subscriptions: readSubscriptions(payload.subscriptions),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRegistrationCommands(context, options.db, [result.command], 201);
-		},
+			run: (context, commands) => runRegistrationCommands(context, options.db, commands, 201),
+		}),
 	);
 
 	app.patch(
 		'/public-engagement/notification-registrations/:notificationRegistrationId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const commandsResult = buildRegistrationUpdateCommands(
-				context.get('authContext'),
-				context.req.param('notificationRegistrationId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-			return runRegistrationCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildRegistrationUpdateCommands(authContext, param('notificationRegistrationId'), payload),
+			run: (context, commands) => runRegistrationCommands(context, options.db, commands),
+		}),
 	);
 
 	app.post(
 		'/public-engagement/notification-registrations/:notificationRegistrationId/contact',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				updateNotificationRegistrationContactCommand({
 					...ctx,
-					notificationRegistrationId: context.req.param('notificationRegistrationId'),
-					contact: raw.payload.contact as ContactReferenceInput,
+					notificationRegistrationId: param('notificationRegistrationId'),
+					contact: payload.contact as ContactReferenceInput,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRegistrationCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runRegistrationCommands(context, options.db, commands),
+		}),
 	);
 
 	app.post(
 		'/public-engagement/notification-registrations/:notificationRegistrationId/location',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				updateNotificationRegistrationLocationCommand({
 					...ctx,
-					notificationRegistrationId: context.req.param('notificationRegistrationId'),
-					location: raw.payload.location as NotificationRegistrationLocationInput,
+					notificationRegistrationId: param('notificationRegistrationId'),
+					location: payload.location as NotificationRegistrationLocationInput,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRegistrationCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runRegistrationCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/public-engagement/notification-registrations/:notificationRegistrationId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				deleteNotificationRegistrationCommand({
 					...ctx,
-					notificationRegistrationId: context.req.param('notificationRegistrationId'),
+					notificationRegistrationId: param('notificationRegistrationId'),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRegistrationCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runRegistrationCommands(context, options.db, commands),
+		}),
 	);
 }
 

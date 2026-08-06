@@ -12,14 +12,12 @@ import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
-	agencyCommandContext,
 	type CommandContext,
 	collectionSpeciesReturnColumns,
-	createCommand,
+	commandEndpoint,
 	handleCommandError,
 	localDateColumn,
 	readCurrentTransactionId,
-	readJsonObject,
 	readSpeciesSex,
 	readSpeciesStatus,
 	type SafeCollectionSpecies,
@@ -40,49 +38,31 @@ export function registerCollectionSpeciesRoutes(
 	app.post(
 		'/adult-surveillance/collection-species',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
 				addCollectionSpeciesCountCommand({
 					...ctx,
-					collectionSpeciesId: readText(raw.payload.id) ?? '',
-					collectionId: readText(raw.payload.collectionId) ?? '',
-					speciesId: readText(raw.payload.speciesId) ?? '',
-					count: readNumber(raw.payload.count) ?? Number.NaN,
-					sex: readSpeciesSex(raw.payload.sex),
-					status: readSpeciesStatus(raw.payload.status),
-					identifiedByProfileId: readNullableText(raw.payload.identifiedByProfileId),
-					identifiedDate: readText(raw.payload.identifiedDate) ?? '',
+					collectionSpeciesId: readText(payload.id) ?? '',
+					collectionId: readText(payload.collectionId) ?? '',
+					speciesId: readText(payload.speciesId) ?? '',
+					count: readNumber(payload.count) ?? Number.NaN,
+					sex: readSpeciesSex(payload.sex),
+					status: readSpeciesStatus(payload.status),
+					identifiedByProfileId: readNullableText(payload.identifiedByProfileId),
+					identifiedDate: readText(payload.identifiedDate) ?? '',
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runCollectionSpeciesCommands(context, options.db, [commandResult.command], 201);
-		},
+			run: (context, commands) => runCollectionSpeciesCommands(context, options.db, commands, 201),
+		}),
 	);
 
 	app.patch(
 		'/adult-surveillance/collection-species/:collectionSpeciesId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const payload = raw.payload;
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				updateCollectionSpeciesCountCommand({
 					...ctx,
-					collectionSpeciesId: context.req.param('collectionSpeciesId'),
+					collectionSpeciesId: param('collectionSpeciesId'),
 					...('count' in payload ? { count: readNumber(payload.count) ?? Number.NaN } : {}),
 					...('speciesId' in payload ? { speciesId: readText(payload.speciesId) ?? '' } : {}),
 					...('sex' in payload ? { sex: readSpeciesSex(payload.sex) } : {}),
@@ -94,32 +74,22 @@ export function registerCollectionSpeciesRoutes(
 						? { identifiedDate: readText(payload.identifiedDate) ?? '' }
 						: {}),
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runCollectionSpeciesCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runCollectionSpeciesCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/adult-surveillance/collection-species/:collectionSpeciesId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				deleteCollectionSpeciesCountCommand({
 					...ctx,
-					collectionSpeciesId: context.req.param('collectionSpeciesId'),
+					collectionSpeciesId: param('collectionSpeciesId'),
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runCollectionSpeciesCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runCollectionSpeciesCommands(context, options.db, commands),
+		}),
 	);
 }
 

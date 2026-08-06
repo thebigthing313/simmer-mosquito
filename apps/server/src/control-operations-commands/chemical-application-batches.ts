@@ -9,18 +9,16 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import { type CommandActor, denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
-	agencyCommandContext,
 	applicationBatchReturnColumns,
 	assertActionOwnership,
 	type CommandContext,
 	type ControlOperationsDb,
 	commandActor,
-	createCommand,
+	commandEndpoint,
 	handleCommandError,
 	insertApplicationBatch,
 	type RouteOptions,
 	readCurrentTransactionId,
-	readJsonObject,
 	type SafeApplicationBatch,
 	softDelete,
 	toSafeApplicationBatch,
@@ -37,43 +35,30 @@ export function registerApplicationBatchRoutes(
 	app.post(
 		'/control-operations/application-batches',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
 				addChemicalApplicationBatchCommand({
 					...ctx,
-					applicationBatchId: readText(raw.payload.id) ?? '',
-					applicationId: readText(raw.payload.applicationId) ?? '',
-					insecticideBatchId: readText(raw.payload.insecticideBatchId) ?? '',
+					applicationBatchId: readText(payload.id) ?? '',
+					applicationId: readText(payload.applicationId) ?? '',
+					insecticideBatchId: readText(payload.insecticideBatchId) ?? '',
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runApplicationBatchCommands(context, options.db, [result.command], 201);
-		},
+			run: (context, commands) => runApplicationBatchCommands(context, options.db, commands, 201),
+		}),
 	);
 
 	app.delete(
 		'/control-operations/application-batches/:applicationBatchId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				removeChemicalApplicationBatchCommand({
 					...ctx,
-					applicationBatchId: context.req.param('applicationBatchId'),
+					applicationBatchId: param('applicationBatchId'),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runApplicationBatchCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runApplicationBatchCommands(context, options.db, commands),
+		}),
 	);
 }
 

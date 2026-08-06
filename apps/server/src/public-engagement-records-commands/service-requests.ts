@@ -21,6 +21,7 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
+	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
 	handleCommandError,
@@ -30,7 +31,6 @@ import {
 	type PublicEngagementTransaction,
 	type RouteOptions,
 	readDate,
-	readJsonObject,
 	resolveContact,
 	resolveServiceRequestAddress,
 	type SafeServiceRequest,
@@ -52,114 +52,72 @@ export function registerServiceRequestRoutes(
 	app.post(
 		'/public-engagement/service-requests',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const p = raw.payload;
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
 				createServiceRequestCommand({
 					...ctx,
-					serviceRequestId: readText(p.id) ?? '',
-					contact: p.contact as ContactReferenceInput,
-					location: p.location as ServiceRequestLocationInput,
-					intakeType: (readText(p.intakeType) ?? '') as never,
-					requestDate: readText(p.requestDate) ?? '',
-					details: readText(p.details) ?? '',
-					receivedByProfileId: readNullableText(p.receivedByProfileId),
+					serviceRequestId: readText(payload.id) ?? '',
+					contact: payload.contact as ContactReferenceInput,
+					location: payload.location as ServiceRequestLocationInput,
+					intakeType: (readText(payload.intakeType) ?? '') as never,
+					requestDate: readText(payload.requestDate) ?? '',
+					details: readText(payload.details) ?? '',
+					receivedByProfileId: readNullableText(payload.receivedByProfileId),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runServiceRequestCommands(context, options.db, [result.command], 201);
-		},
+			run: (context, commands) => runServiceRequestCommands(context, options.db, commands, 201),
+		}),
 	);
 
 	app.patch(
 		'/public-engagement/service-requests/:serviceRequestId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const commandsResult = buildServiceRequestUpdateCommands(
-				context.get('authContext'),
-				context.req.param('serviceRequestId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-			return runServiceRequestCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildServiceRequestUpdateCommands(authContext, param('serviceRequestId'), payload),
+			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
+		}),
 	);
 
 	app.post(
 		'/public-engagement/service-requests/:serviceRequestId/contact',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				updateServiceRequestContactCommand({
 					...ctx,
-					serviceRequestId: context.req.param('serviceRequestId'),
-					contact: raw.payload.contact as ContactReferenceInput,
+					serviceRequestId: param('serviceRequestId'),
+					contact: payload.contact as ContactReferenceInput,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runServiceRequestCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
+		}),
 	);
 
 	app.post(
 		'/public-engagement/service-requests/:serviceRequestId/location',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				updateServiceRequestLocationCommand({
 					...ctx,
-					serviceRequestId: context.req.param('serviceRequestId'),
-					location: raw.payload.location as ServiceRequestLocationInput,
+					serviceRequestId: param('serviceRequestId'),
+					location: payload.location as ServiceRequestLocationInput,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runServiceRequestCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/public-engagement/service-requests/:serviceRequestId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				deleteServiceRequestCommand({
 					...ctx,
-					serviceRequestId: context.req.param('serviceRequestId'),
+					serviceRequestId: param('serviceRequestId'),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runServiceRequestCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
+		}),
 	);
 }
 

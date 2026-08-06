@@ -21,6 +21,7 @@ import {
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
 	commandActor,
+	commandEndpoint,
 	contextIds,
 	createCommand,
 	handleCommandError,
@@ -29,7 +30,6 @@ import {
 	type RouteOptions,
 	readControlActionContext,
 	readDate,
-	readJsonObject,
 	requestedControlActionReturnColumns,
 	resolveGeom,
 	type SafeRequestedControlAction,
@@ -50,72 +50,53 @@ export function registerRequestedControlActionRoutes(
 	app.post(
 		'/control-operations/requested-control-actions',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const p = raw.payload;
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
 				requestControlActionCommand({
 					...ctx,
-					requestedControlActionId: readText(p.id) ?? '',
-					controlType: (readText(p.controlType) ?? '') as never,
-					locationSource: p.locationSource as RequestedControlActionLocationSourceInput,
-					addressId: readNullableText(p.addressId),
-					context: readControlActionContext(p),
-					recommendedMethodId: readNullableText(p.recommendedMethodId),
-					summary: readNullableText(p.summary),
-					requestedByProfileId: readNullableText(p.requestedByProfileId),
-					requestedAt: readDate(p.requestedAt),
+					requestedControlActionId: readText(payload.id) ?? '',
+					controlType: (readText(payload.controlType) ?? '') as never,
+					locationSource: payload.locationSource as RequestedControlActionLocationSourceInput,
+					addressId: readNullableText(payload.addressId),
+					context: readControlActionContext(payload),
+					recommendedMethodId: readNullableText(payload.recommendedMethodId),
+					summary: readNullableText(payload.summary),
+					requestedByProfileId: readNullableText(payload.requestedByProfileId),
+					requestedAt: readDate(payload.requestedAt),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRequestedControlActionCommands(context, options.db, [result.command], 201);
-		},
+			run: (context, commands) =>
+				runRequestedControlActionCommands(context, options.db, commands, 201),
+		}),
 	);
 
 	app.patch(
 		'/control-operations/requested-control-actions/:requestedControlActionId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const commandsResult = buildRequestedControlActionUpdateCommands(
-				context.get('authContext'),
-				context.req.param('requestedControlActionId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-			return runRequestedControlActionCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildRequestedControlActionUpdateCommands(
+					authContext,
+					param('requestedControlActionId'),
+					payload,
+				),
+			run: (context, commands) => runRequestedControlActionCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/control-operations/requested-control-actions/:requestedControlActionId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				deleteRequestedControlActionCommand({
 					...ctx,
-					requestedControlActionId: context.req.param('requestedControlActionId'),
+					requestedControlActionId: param('requestedControlActionId'),
 					acknowledgedActionDetach: true,
 					acknowledgedMissionDetach: true,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRequestedControlActionCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runRequestedControlActionCommands(context, options.db, commands),
+		}),
 	);
 }
 

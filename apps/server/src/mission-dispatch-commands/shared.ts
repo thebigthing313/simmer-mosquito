@@ -5,18 +5,33 @@ import {
 	sql,
 	type Transaction,
 } from '@simmer-mosquito/db';
-import { DomainValidationError, type MissionDispatchCommand } from '@simmer-mosquito/domain';
+import type { MissionDispatchCommand } from '@simmer-mosquito/domain';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { type CommandContext, CommandError, handleCommandError } from '../command-endpoint.js';
+import {
+	agencyCommandContext,
+	type CommandContext,
+	CommandError,
+	commandEndpoint,
+	createCommand,
+	handleCommandError,
+	invalidUpdate,
+	type CommandsResult as SharedCommandsResult,
+} from '../command-endpoint.js';
 import { resolveCommandOwnership } from '../command-ownership.js';
-import { isRecord } from '../command-payload.js';
 import { authorizeCommands, type CommandActor } from '../command-permissions.js';
 
 export type MissionDispatchDb = Kysely<SimmerDatabase>;
 export type MissionDispatchTransaction = Transaction<SimmerDatabase>;
-export { type CommandContext, handleCommandError };
+export {
+	agencyCommandContext,
+	type CommandContext,
+	commandEndpoint,
+	createCommand,
+	handleCommandError,
+	invalidUpdate,
+};
 
 export async function insertMissionItem(
 	trx: MissionDispatchTransaction,
@@ -423,51 +438,7 @@ export interface RouteOptions {
 	readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 }
 
-export type CommandsResult =
-	| { readonly ok: true; readonly commands: readonly MissionDispatchCommand[] }
-	| { readonly ok: false; readonly body: InvalidCommandBody };
-
-export type InvalidCommandBody = {
-	readonly error: 'invalid_command';
-	readonly message: string;
-	readonly issues: readonly { readonly path: string; readonly message: string }[];
-};
-
-export function createCommand<TCommand extends MissionDispatchCommand>(
-	build: () => TCommand,
-):
-	| { readonly ok: true; readonly command: TCommand }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	try {
-		return { ok: true, command: build() };
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return {
-				ok: false,
-				body: { error: 'invalid_command', message: error.message, issues: error.issues },
-			};
-		}
-		throw error;
-	}
-}
-
-export function invalidUpdate(changeNoun: string): {
-	readonly ok: false;
-	readonly body: InvalidCommandBody;
-} {
-	const message = `At least one ${changeNoun} field must change.`;
-	return {
-		ok: false,
-		body: { error: 'invalid_command', message, issues: [{ path: 'changes', message }] },
-	};
-}
-
-export function agencyCommandContext(authContext: AuthContext) {
-	return {
-		organizationId: authContext.organization.id,
-		actorProfileId: authContext.profile.id,
-	};
-}
+export type CommandsResult = SharedCommandsResult<MissionDispatchCommand>;
 
 // ===========================================================================
 // Authorization
@@ -539,25 +510,6 @@ async function readCurrentTransactionId(trx: MissionDispatchTransaction): Promis
 		throw new Error('Unable to read current transaction id.');
 	}
 	return Number.parseInt(txid, 10);
-}
-
-export type JsonResult =
-	| { readonly ok: true; readonly payload: Record<string, unknown> }
-	| { readonly ok: false; readonly reason: string };
-
-export async function readJsonObject(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<JsonResult> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return { ok: false, reason: 'Request body must be JSON.' };
-	}
-	if (!isRecord(raw)) {
-		return { ok: false, reason: 'Request body must be an object.' };
-	}
-	return { ok: true, payload: raw };
 }
 
 export function readDate(value: unknown): Date | null {

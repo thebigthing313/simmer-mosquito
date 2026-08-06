@@ -1,18 +1,32 @@
 import { type Kysely, type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
 import {
-	DomainValidationError,
 	type LarvalDensity,
-	type LarvalSurveillanceCommand,
 	type ResolvedLarvalInspectionEntryPolicy,
 	resolveOrganizationSettings,
 } from '@simmer-mosquito/domain';
-import type { AuthContext } from '../auth-context.js';
-import { type CommandContext, CommandError, handleCommandError } from '../command-endpoint.js';
-import { isRecord, readNullableText, readText } from '../command-payload.js';
+import {
+	agencyCommandContext,
+	type CommandContext,
+	CommandError,
+	commandEndpoint,
+	createCommand,
+	handleCommandError,
+	type InvalidCommandBody,
+	invalidUpdate,
+} from '../command-endpoint.js';
+import { readNullableText, readText } from '../command-payload.js';
 
 export type LarvalSurveillanceDb = Kysely<SimmerDatabase>;
 export type LarvalSurveillanceTransaction = Transaction<SimmerDatabase>;
-export { type CommandContext, handleCommandError };
+export {
+	agencyCommandContext,
+	type CommandContext,
+	commandEndpoint,
+	createCommand,
+	handleCommandError,
+	type InvalidCommandBody,
+	invalidUpdate,
+};
 
 export async function loadHabitatSnapshot(
 	trx: LarvalSurveillanceTransaction,
@@ -501,48 +515,6 @@ export type SampleUpdateColumns = {
 	updated_by_profile_id: string;
 };
 
-export type InvalidCommandBody = {
-	readonly error: 'invalid_command';
-	readonly message: string;
-	readonly issues: readonly { readonly path: string; readonly message: string }[];
-};
-
-export function createCommand<TCommand extends LarvalSurveillanceCommand>(
-	build: () => TCommand,
-):
-	| { readonly ok: true; readonly command: TCommand }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	try {
-		return { ok: true, command: build() };
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return {
-				ok: false,
-				body: { error: 'invalid_command', message: error.message, issues: error.issues },
-			};
-		}
-		throw error;
-	}
-}
-
-export function invalidUpdate(changeNoun: string): {
-	readonly ok: false;
-	readonly body: InvalidCommandBody;
-} {
-	const message = `At least one ${changeNoun} field must change.`;
-	return {
-		ok: false,
-		body: { error: 'invalid_command', message, issues: [{ path: 'changes', message }] },
-	};
-}
-
-export function agencyCommandContext(authContext: AuthContext) {
-	return {
-		organizationId: authContext.organization.id,
-		actorProfileId: authContext.profile.id,
-	};
-}
-
 export async function readCurrentTransactionId(
 	trx: LarvalSurveillanceTransaction,
 ): Promise<number> {
@@ -554,36 +526,6 @@ export async function readCurrentTransactionId(
 		throw new Error('Unable to read current transaction id.');
 	}
 	return Number.parseInt(txid, 10);
-}
-
-export type JsonResult =
-	| { readonly ok: true; readonly payload: Record<string, unknown> }
-	| { readonly ok: false; readonly reason: string };
-
-export async function readJsonObject(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<JsonResult> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return { ok: false, reason: 'Request body must be JSON.' };
-	}
-	if (!isRecord(raw)) {
-		return { ok: false, reason: 'Request body must be an object.' };
-	}
-	return { ok: true, payload: raw };
-}
-
-export async function readOptionalJsonObject(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<Record<string, unknown> | undefined> {
-	try {
-		const raw = await request.json();
-		return isRecord(raw) ? raw : undefined;
-	} catch {
-		return undefined;
-	}
 }
 
 function readNumberOrNull(value: unknown): number | null {

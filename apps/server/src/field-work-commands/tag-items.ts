@@ -9,16 +9,14 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	commandActor,
-	createCommand,
+	commandEndpoint,
 	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	handleCommandError,
 	type RouteOptions,
-	readJsonObject,
 	readTarget,
 	type SafeTagItem,
 	softDelete,
@@ -35,36 +33,31 @@ export function registerTagItemRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/field-work/tag-items', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			assignTagCommand({
-				...ctx,
-				tagItemId: readText(raw.payload.id) ?? '',
-				tagId: readText(raw.payload.tagId) ?? '',
-				target: readTarget(raw.payload) as TagTarget,
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runTagItemCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/field-work/tag-items',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				assignTagCommand({
+					...ctx,
+					tagItemId: readText(payload.id) ?? '',
+					tagId: readText(payload.tagId) ?? '',
+					target: readTarget(payload) as TagTarget,
+				}),
+			run: (context, commands) => runTagItemCommands(context, options.db, commands, 201),
+		}),
+	);
 
-	app.delete('/field-work/tag-items/:tagItemId', options.authContextMiddleware, async (context) => {
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			unassignTagCommand({ ...ctx, tagItemId: context.req.param('tagItemId') }),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runTagItemCommands(context, options.db, [result.command]);
-	});
+	app.delete(
+		'/field-work/tag-items/:tagItemId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
+				unassignTagCommand({ ...ctx, tagItemId: param('tagItemId') }),
+			run: (context, commands) => runTagItemCommands(context, options.db, commands),
+		}),
+	);
 }
 
 async function runTagItemCommands(

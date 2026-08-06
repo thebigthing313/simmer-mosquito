@@ -31,6 +31,7 @@ import {
 	type CollectionUpdateColumns,
 	type CommandContext,
 	collectionReturnColumns,
+	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
 	handleCommandError,
@@ -44,8 +45,6 @@ import {
 	readCollectionTiming,
 	readCurrentTransactionId,
 	readDate,
-	readJsonObject,
-	readOptionalJsonObject,
 	resolveLocationGeom,
 	type SafeCollection,
 	toSafeCollection,
@@ -62,108 +61,69 @@ export function registerCollectionRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.post('/adult-surveillance/collections', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-
-		const commandResult = buildCollectionCreateCommand(context.get('authContext'), raw.payload);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
-
-		return runCollectionCommands(context, options.db, [commandResult.command], 201);
-	});
+	app.post(
+		'/adult-surveillance/collections',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, authContext }) => buildCollectionCreateCommand(authContext, payload),
+			run: (context, commands) => runCollectionCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/adult-surveillance/collections/:collectionId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-
-			const commandsResult = buildCollectionUpdateCommands(
-				context.get('authContext'),
-				context.req.param('collectionId'),
-				raw.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-
-			return runCollectionCommands(context, options.db, commandsResult.commands);
-		},
+		commandEndpoint({
+			build: ({ payload, authContext, param }) =>
+				buildCollectionUpdateCommands(authContext, param('collectionId'), payload),
+			run: (context, commands) => runCollectionCommands(context, options.db, commands),
+		}),
 	);
 
 	app.post(
 		'/adult-surveillance/collections/:collectionId/collect',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				collectCollectionCommand({
 					...ctx,
-					collectionId: context.req.param('collectionId'),
-					collectedAt: readDate(raw.payload.collectedAt) ?? new Date(Number.NaN),
-					collectedByProfileId: readNullableText(raw.payload.collectedByProfileId),
-					hasProblem: raw.payload.hasProblem === true,
-					metadata: raw.payload.metadata ?? null,
+					collectionId: param('collectionId'),
+					collectedAt: readDate(payload.collectedAt) ?? new Date(Number.NaN),
+					collectedByProfileId: readNullableText(payload.collectedByProfileId),
+					hasProblem: payload.hasProblem === true,
+					metadata: payload.metadata ?? null,
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runCollectionCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runCollectionCommands(context, options.db, commands),
+		}),
 	);
 
 	app.post(
 		'/adult-surveillance/collections/:collectionId/cancel',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				cancelPendingCollectionCommand({
 					...ctx,
-					collectionId: context.req.param('collectionId'),
+					collectionId: param('collectionId'),
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runCollectionCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runCollectionCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/adult-surveillance/collections/:collectionId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readOptionalJsonObject(context.req);
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				deleteCollectionCommand({
 					...ctx,
-					collectionId: context.req.param('collectionId'),
-					acknowledgedSpeciesCountDeletion: raw?.acknowledgedSpeciesCountDeletion !== false,
+					collectionId: param('collectionId'),
+					acknowledgedSpeciesCountDeletion: payload.acknowledgedSpeciesCountDeletion !== false,
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			return runCollectionCommands(context, options.db, [commandResult.command]);
-		},
+			run: (context, commands) => runCollectionCommands(context, options.db, commands),
+		}),
 	);
 }
 

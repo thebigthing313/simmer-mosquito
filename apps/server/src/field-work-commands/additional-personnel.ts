@@ -9,16 +9,14 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
 	additionalPersonnelReturnColumns,
-	agencyCommandContext,
 	type CommandContext,
 	commandActor,
-	createCommand,
+	commandEndpoint,
 	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	handleCommandError,
 	type RouteOptions,
-	readJsonObject,
 	readTarget,
 	type SafeAdditionalPersonnel,
 	softDelete,
@@ -34,42 +32,34 @@ export function registerAdditionalPersonnelRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/field-work/additional-personnel', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			addAdditionalPersonnelCommand({
-				...ctx,
-				additionalPersonnelId: readText(raw.payload.id) ?? '',
-				target: readTarget(raw.payload),
-				personnelProfileId: readText(raw.payload.personnelProfileId) ?? '',
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runAdditionalPersonnelCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/field-work/additional-personnel',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				addAdditionalPersonnelCommand({
+					...ctx,
+					additionalPersonnelId: readText(payload.id) ?? '',
+					target: readTarget(payload),
+					personnelProfileId: readText(payload.personnelProfileId) ?? '',
+				}),
+			run: (context, commands) =>
+				runAdditionalPersonnelCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.delete(
 		'/field-work/additional-personnel/:additionalPersonnelId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				removeAdditionalPersonnelCommand({
 					...ctx,
-					additionalPersonnelId: context.req.param('additionalPersonnelId'),
+					additionalPersonnelId: param('additionalPersonnelId'),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runAdditionalPersonnelCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runAdditionalPersonnelCommands(context, options.db, commands),
+		}),
 	);
 }
 

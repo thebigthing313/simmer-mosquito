@@ -11,11 +11,10 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	commandActor,
+	commandEndpoint,
 	commentReturnColumns,
-	createCommand,
 	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
@@ -23,7 +22,6 @@ import {
 	invalidUpdate,
 	type RouteOptions,
 	readDate,
-	readJsonObject,
 	readTarget,
 	type SafeComment,
 	softDelete,
@@ -40,75 +38,61 @@ export function registerCommentRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/field-work/comments', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			addCommentCommand({
-				...ctx,
-				commentId: readText(raw.payload.id) ?? '',
-				target: readTarget(raw.payload),
-				commentText: readText(raw.payload.commentText) ?? '',
-				commentedAt: readDate(raw.payload.commentedAt),
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runCommentCommands(context, options.db, [result.command], 201);
-	});
-
-	app.patch('/field-work/comments/:commentId', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const commentId = context.req.param('commentId');
-		const commands: FieldWorkCommand[] = [];
-		if ('commentText' in raw.payload) {
-			const result = createCommand(() =>
-				updateCommentCommand({
+	app.post(
+		'/field-work/comments',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				addCommentCommand({
 					...ctx,
-					commentId,
-					commentText: readText(raw.payload.commentText) ?? '',
+					commentId: readText(payload.id) ?? '',
+					target: readTarget(payload),
+					commentText: readText(payload.commentText) ?? '',
+					commentedAt: readDate(payload.commentedAt),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			commands.push(result.command);
-		}
-		if (typeof raw.payload.isPinned === 'boolean') {
-			const result = createCommand(() =>
-				raw.payload.isPinned
-					? pinCommentCommand({ ...ctx, commentId })
-					: unpinCommentCommand({ ...ctx, commentId }),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			commands.push(result.command);
-		}
-		if (commands.length === 0) {
-			return context.json(invalidUpdate('comment').body, 400);
-		}
-		return runCommentCommands(context, options.db, commands);
-	});
+			run: (context, commands) => runCommentCommands(context, options.db, commands, 201),
+		}),
+	);
 
-	app.delete('/field-work/comments/:commentId', options.authContextMiddleware, async (context) => {
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			deleteCommentCommand({ ...ctx, commentId: context.req.param('commentId') }),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runCommentCommands(context, options.db, [result.command]);
-	});
+	app.patch(
+		'/field-work/comments/:commentId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) => {
+				const commentId = param('commentId');
+				const commands: FieldWorkCommand[] = [];
+				if ('commentText' in payload) {
+					commands.push(
+						updateCommentCommand({
+							...ctx,
+							commentId,
+							commentText: readText(payload.commentText) ?? '',
+						}),
+					);
+				}
+				if (typeof payload.isPinned === 'boolean') {
+					commands.push(
+						payload.isPinned
+							? pinCommentCommand({ ...ctx, commentId })
+							: unpinCommentCommand({ ...ctx, commentId }),
+					);
+				}
+				return commands.length === 0 ? invalidUpdate('comment') : { ok: true, commands };
+			},
+			run: (context, commands) => runCommentCommands(context, options.db, commands),
+		}),
+	);
+
+	app.delete(
+		'/field-work/comments/:commentId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
+				deleteCommentCommand({ ...ctx, commentId: param('commentId') }),
+			run: (context, commands) => runCommentCommands(context, options.db, commands),
+		}),
+	);
 }
 
 async function runCommentCommands(

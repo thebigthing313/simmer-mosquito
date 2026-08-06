@@ -12,10 +12,9 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
+	commandEndpoint,
 	contactReturnColumns,
-	createCommand,
 	handleCommandError,
 	insertContact,
 	invalidUpdate,
@@ -23,7 +22,6 @@ import {
 	type PublicEngagementTransaction,
 	type RouteOptions,
 	readContactDetails,
-	readJsonObject,
 	readStringArray,
 	type SafeContact,
 	softDelete,
@@ -40,126 +38,102 @@ export function registerContactRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/public-engagement/contacts', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			createContactCommand({
-				...ctx,
-				contactId: readText(raw.payload.id) ?? '',
-				...readContactDetails(raw.payload),
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runContactCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/public-engagement/contacts',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				createContactCommand({
+					...ctx,
+					contactId: readText(payload.id) ?? '',
+					...readContactDetails(payload),
+				}),
+			run: (context, commands) => runContactCommands(context, options.db, commands, 201),
+		}),
+	);
 
-	app.post('/public-engagement/contacts/merge', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			mergeContactsCommand({
-				...ctx,
-				targetContactId: readText(raw.payload.targetContactId) ?? '',
-				sourceContactIds: readStringArray(raw.payload.sourceContactIds),
-				acknowledgedContactMerge: true,
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runContactCommands(context, options.db, [result.command]);
-	});
+	app.post(
+		'/public-engagement/contacts/merge',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				mergeContactsCommand({
+					...ctx,
+					targetContactId: readText(payload.targetContactId) ?? '',
+					sourceContactIds: readStringArray(payload.sourceContactIds),
+					acknowledgedContactMerge: true,
+				}),
+			run: (context, commands) => runContactCommands(context, options.db, commands),
+		}),
+	);
 
 	app.patch(
 		'/public-engagement/contacts/:contactId',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const contactId = context.req.param('contactId');
-			const payload = raw.payload;
-			const commands: PublicEngagementCommand[] = [];
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) => {
+				const contactId = param('contactId');
+				const commands: PublicEngagementCommand[] = [];
 
-			if (['contactName', 'company', 'department', 'title'].some((key) => key in payload)) {
-				const result = createCommand(() =>
-					updateContactDetailsCommand({
-						...ctx,
-						contactId,
-						...('contactName' in payload
-							? { contactName: readNullableText(payload.contactName) }
-							: {}),
-						...('company' in payload ? { company: readNullableText(payload.company) } : {}),
-						...('department' in payload
-							? { department: readNullableText(payload.department) }
-							: {}),
-						...('title' in payload ? { title: readNullableText(payload.title) } : {}),
-					}),
-				);
-				if (!result.ok) return context.json(result.body, 400);
-				commands.push(result.command);
-			}
+				if (['contactName', 'company', 'department', 'title'].some((key) => key in payload)) {
+					commands.push(
+						updateContactDetailsCommand({
+							...ctx,
+							contactId,
+							...('contactName' in payload
+								? { contactName: readNullableText(payload.contactName) }
+								: {}),
+							...('company' in payload ? { company: readNullableText(payload.company) } : {}),
+							...('department' in payload
+								? { department: readNullableText(payload.department) }
+								: {}),
+							...('title' in payload ? { title: readNullableText(payload.title) } : {}),
+						}),
+					);
+				}
 
-			const communicationKeys = [
-				'preferredPhone',
-				'alternatePhone',
-				'email',
-				'wantsEmail',
-				'wantsSms',
-				'wantsPhone',
-			];
-			if (communicationKeys.some((key) => key in payload)) {
-				const result = createCommand(() =>
-					updateContactCommunicationCommand({
-						...ctx,
-						contactId,
-						...('preferredPhone' in payload
-							? { preferredPhone: readNullableText(payload.preferredPhone) }
-							: {}),
-						...('alternatePhone' in payload
-							? { alternatePhone: readNullableText(payload.alternatePhone) }
-							: {}),
-						...('email' in payload ? { email: readNullableText(payload.email) } : {}),
-						...('wantsEmail' in payload ? { wantsEmail: payload.wantsEmail === true } : {}),
-						...('wantsSms' in payload ? { wantsSms: payload.wantsSms === true } : {}),
-						...('wantsPhone' in payload ? { wantsPhone: payload.wantsPhone === true } : {}),
-					}),
-				);
-				if (!result.ok) return context.json(result.body, 400);
-				commands.push(result.command);
-			}
+				const communicationKeys = [
+					'preferredPhone',
+					'alternatePhone',
+					'email',
+					'wantsEmail',
+					'wantsSms',
+					'wantsPhone',
+				];
+				if (communicationKeys.some((key) => key in payload)) {
+					commands.push(
+						updateContactCommunicationCommand({
+							...ctx,
+							contactId,
+							...('preferredPhone' in payload
+								? { preferredPhone: readNullableText(payload.preferredPhone) }
+								: {}),
+							...('alternatePhone' in payload
+								? { alternatePhone: readNullableText(payload.alternatePhone) }
+								: {}),
+							...('email' in payload ? { email: readNullableText(payload.email) } : {}),
+							...('wantsEmail' in payload ? { wantsEmail: payload.wantsEmail === true } : {}),
+							...('wantsSms' in payload ? { wantsSms: payload.wantsSms === true } : {}),
+							...('wantsPhone' in payload ? { wantsPhone: payload.wantsPhone === true } : {}),
+						}),
+					);
+				}
 
-			if (commands.length === 0) {
-				return context.json(invalidUpdate('contact').body, 400);
-			}
-			return runContactCommands(context, options.db, commands);
-		},
+				return commands.length === 0 ? invalidUpdate('contact') : { ok: true, commands };
+			},
+			run: (context, commands) => runContactCommands(context, options.db, commands),
+		}),
 	);
 
 	app.delete(
 		'/public-engagement/contacts/:contactId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
-				deleteContactCommand({ ...ctx, contactId: context.req.param('contactId') }),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runContactCommands(context, options.db, [result.command]);
-		},
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
+				deleteContactCommand({ ...ctx, contactId: param('contactId') }),
+			run: (context, commands) => runContactCommands(context, options.db, commands),
+		}),
 	);
 }
 

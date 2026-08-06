@@ -11,17 +11,15 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
-	agencyCommandContext,
 	applyPlacement,
 	type CommandContext,
 	commandActor,
-	createCommand,
+	commandEndpoint,
 	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	handleCommandError,
 	type RouteOptions,
-	readJsonObject,
 	readStringArray,
 	reindexItems,
 	routePlacementRef,
@@ -41,82 +39,63 @@ export function registerRouteRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/field-work/routes', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			createRouteCommand({
-				...ctx,
-				routeId: readText(raw.payload.id) ?? '',
-				routeName: readText(raw.payload.routeName) ?? '',
-				routeType: (readText(raw.payload.routeType) ?? '') as never,
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runRouteCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/field-work/routes',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				createRouteCommand({
+					...ctx,
+					routeId: readText(payload.id) ?? '',
+					routeName: readText(payload.routeName) ?? '',
+					routeType: (readText(payload.routeType) ?? '') as never,
+				}),
+			run: (context, commands) => runRouteCommands(context, options.db, commands, 201),
+		}),
+	);
 
-	app.patch('/field-work/routes/:routeId', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			updateRouteDetailsCommand({
-				...ctx,
-				routeId: context.req.param('routeId'),
-				routeName: readText(raw.payload.routeName) ?? '',
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runRouteCommands(context, options.db, [result.command]);
-	});
+	app.patch(
+		'/field-work/routes/:routeId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
+				updateRouteDetailsCommand({
+					...ctx,
+					routeId: param('routeId'),
+					routeName: readText(payload.routeName) ?? '',
+				}),
+			run: (context, commands) => runRouteCommands(context, options.db, commands),
+		}),
+	);
 
-	app.delete('/field-work/routes/:routeId', options.authContextMiddleware, async (context) => {
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			deleteRouteCommand({
-				...ctx,
-				routeId: context.req.param('routeId'),
-				acknowledgedRouteItemDeletion: true,
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runRouteCommands(context, options.db, [result.command]);
-	});
+	app.delete(
+		'/field-work/routes/:routeId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
+				deleteRouteCommand({
+					...ctx,
+					routeId: param('routeId'),
+					acknowledgedRouteItemDeletion: true,
+				}),
+			run: (context, commands) => runRouteCommands(context, options.db, commands),
+		}),
+	);
 
 	app.post(
 		'/field-work/routes/:routeId/move-items',
 		options.authContextMiddleware,
-		async (context) => {
-			const raw = await readJsonObject(context.req);
-			if (!raw.ok) {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-			}
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			build: ({ payload, agency: ctx, param }) =>
 				moveRouteItemsCommand({
 					...ctx,
-					routeId: context.req.param('routeId'),
-					routeItemIds: readStringArray(raw.payload.routeItemIds),
-					placement: raw.payload.placement as RouteItemPlacement,
+					routeId: param('routeId'),
+					routeItemIds: readStringArray(payload.routeItemIds),
+					placement: payload.placement as RouteItemPlacement,
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runRouteCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runRouteCommands(context, options.db, commands),
+		}),
 	);
 }
 

@@ -8,15 +8,13 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
-	createCommand,
+	commandEndpoint,
 	type FoundationDb,
 	type FoundationTransaction,
 	handleCommandError,
 	organizationSpeciesReturnColumns,
 	type RouteOptions,
-	readJsonObject,
 	type SafeOrganizationSpecies,
 	softDelete,
 	toSafeOrganizationSpecies,
@@ -31,41 +29,33 @@ export function registerOrganizationSpeciesRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post('/foundation/organization-species', options.authContextMiddleware, async (context) => {
-		const raw = await readJsonObject(context.req);
-		if (!raw.ok) {
-			return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
-		}
-		const ctx = agencyCommandContext(context.get('authContext'));
-		const result = createCommand(() =>
-			selectOrganizationSpeciesCommand({
-				...ctx,
-				organizationSpeciesId: readText(raw.payload.id) ?? '',
-				speciesId: readText(raw.payload.speciesId) ?? '',
-			}),
-		);
-		if (!result.ok) {
-			return context.json(result.body, 400);
-		}
-		return runOrganizationSpeciesCommands(context, options.db, [result.command], 201);
-	});
+	app.post(
+		'/foundation/organization-species',
+		options.authContextMiddleware,
+		commandEndpoint({
+			build: ({ payload, agency: ctx }) =>
+				selectOrganizationSpeciesCommand({
+					...ctx,
+					organizationSpeciesId: readText(payload.id) ?? '',
+					speciesId: readText(payload.speciesId) ?? '',
+				}),
+			run: (context, commands) =>
+				runOrganizationSpeciesCommands(context, options.db, commands, 201),
+		}),
+	);
 
 	app.delete(
 		'/foundation/organization-species/:organizationSpeciesId',
 		options.authContextMiddleware,
-		async (context) => {
-			const ctx = agencyCommandContext(context.get('authContext'));
-			const result = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency: ctx, param }) =>
 				unselectOrganizationSpeciesCommand({
 					...ctx,
-					organizationSpeciesId: context.req.param('organizationSpeciesId'),
+					organizationSpeciesId: param('organizationSpeciesId'),
 				}),
-			);
-			if (!result.ok) {
-				return context.json(result.body, 400);
-			}
-			return runOrganizationSpeciesCommands(context, options.db, [result.command]);
-		},
+			run: (context, commands) => runOrganizationSpeciesCommands(context, options.db, commands),
+		}),
 	);
 }
 
