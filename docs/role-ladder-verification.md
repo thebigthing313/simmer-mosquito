@@ -113,6 +113,32 @@ The two roles that matter most are **Collector** and **Manager**. Owner and
 Viewer are the two halves already verified (2026-08-04, #36), and Admin differs
 from Owner only where a command names the `admin` floor.
 
+## What has been run
+
+**The API half is a script.** `apps/server/src/check-role-ladder.ts` signs in as
+each rung and asserts 31 cases against the endpoints, including the reason text
+on every refusal. Run it instead of clicking through the list below:
+
+```sh
+SIMMER_CHECK_PASSWORD='…' pnpm --filter @simmer-mosquito/server check:role-ladder
+```
+
+Re-seed first — four of the allowed cases write, and later runs drift without it.
+
+**The browser half was walked on 2026-08-05** as Collector and Manager, which is
+the part no script can do: whether a refused control is *offered*. Everything
+below held, with one exception — see #65, where the organization workspace gates
+manager-floor catalogs (tags, vehicles, equipment, `update*Method`) at the admin
+floor, so a Manager is refused writes the server would accept.
+
+Two things worth knowing before repeating it:
+
+- Create controls live in the **secondary rail**, not the page header, and rail
+  items are `<button>`s rendered *outside* `<main>`. `navigation.ts` filters them
+  by `item.write`, separately from the `WriteOnly` wrappers on the pages.
+- Catalog pages stay visible to every role and go read-only. Absence of a control
+  is the check; absence of the page is not.
+
 ## What the fixtures are for
 
 Each row exists because a rule turns on it. Ids are printed by the seed and
@@ -183,3 +209,6 @@ whether they may use them depends on who the assignment is assigned to — an
 ownership question only the server can settle. A Collector opening
 `otherAssignmentId` will see both buttons and be refused on click. Fixing that
 properly needs an assignee-aware client check; noted in #49's closing comment.
+
+Confirmed still true on 2026-08-05: opening the assignment belonging to Quinn
+Collector offers **Start**, and the refusal arrives on the click.
