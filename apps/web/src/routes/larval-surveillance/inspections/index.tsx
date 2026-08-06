@@ -2,14 +2,12 @@ import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { HabitatTypeRow, LarvalDensity } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { CheckIcon, MapPinnedIcon, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
@@ -22,7 +20,9 @@ import {
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
-	RESULT_SKELETON_KEYS,
+	ResultList,
+	SegmentedFilter,
+	ToggleFilter,
 	toggle,
 	usePersonnelOptions,
 	useRegionOptions,
@@ -335,7 +335,11 @@ function InspectionsExplorerRoute() {
 					<DensityFilter onChange={setDensities} selected={densities} />
 
 					<div className="flex flex-wrap items-center gap-2">
-						<PositiveToggle onChange={setPositiveOnly} value={positiveOnly} />
+						<ToggleFilter
+							label="Larvae found only"
+							onChange={setPositiveOnly}
+							value={positiveOnly}
+						/>
 						<MultiSelectFilter
 							empty="No habitat types"
 							label="Habitat type"
@@ -418,48 +422,6 @@ function ResultMeta({ total, isLoading }: { readonly total: number; readonly isL
 	);
 }
 
-function SegmentedFilter<T extends string>({
-	label,
-	icon,
-	value,
-	onChange,
-	options,
-}: {
-	readonly label: string;
-	readonly icon?: ReactNode;
-	readonly value: T;
-	readonly onChange: (value: T) => void;
-	readonly options: readonly { readonly value: T; readonly label: string }[];
-}) {
-	return (
-		<div className="flex items-center gap-3">
-			<span className="flex w-14 shrink-0 items-center gap-1 font-medium text-muted-foreground text-xs">
-				{icon}
-				{label}
-			</span>
-			<ToggleGroup
-				aria-label={label}
-				className="flex-1"
-				onValueChange={(next) => {
-					if (next) {
-						onChange(next as T);
-					}
-				}}
-				size="sm"
-				type="single"
-				value={value}
-				variant="outline"
-			>
-				{options.map((option) => (
-					<ToggleGroupItem className="flex-1 text-xs" key={option.value} value={option.value}>
-						{option.label}
-					</ToggleGroupItem>
-				))}
-			</ToggleGroup>
-		</div>
-	);
-}
-
 /**
  * Larval-density multi-select rendered as a chip row, each chip carrying the heat
  * color it maps to on the map — so the filter doubles as the map's legend.
@@ -502,38 +464,6 @@ function DensityFilter({
 				})}
 			</fieldset>
 		</div>
-	);
-}
-
-function PositiveToggle({
-	value,
-	onChange,
-}: {
-	readonly value: boolean;
-	readonly onChange: (next: boolean) => void;
-}) {
-	return (
-		<button
-			aria-pressed={value}
-			className={cn(
-				'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-				value
-					? 'border-primary bg-primary/10 text-foreground'
-					: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-			)}
-			onClick={() => onChange(!value)}
-			type="button"
-		>
-			<span
-				className={cn(
-					'flex size-3.5 items-center justify-center rounded-[4px] border',
-					value ? 'border-primary bg-primary text-primary-foreground' : 'border-input',
-				)}
-			>
-				{value ? <CheckIcon aria-hidden="true" className="size-2.5" /> : null}
-			</span>
-			Larvae found only
-		</button>
 	);
 }
 
@@ -645,32 +575,15 @@ function InspectionResults({
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly onSelect: (id: string) => void;
 }) {
-	if (isLoading && rows.length === 0) {
-		return (
-			<div className="grid gap-px overflow-y-auto p-2">
-				{RESULT_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-[64px]" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (rows.length === 0) {
-		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-				<MapPinnedIcon aria-hidden="true" className="size-7 text-muted-foreground/60" />
-				<p className="font-medium text-foreground text-sm">No inspections in view</p>
-				<p className="max-w-[34ch] text-muted-foreground text-sm">
-					Pan or zoom the map, widen the time window, or loosen the filters to bring inspections
-					into range.
-				</p>
-			</div>
-		);
-	}
-
 	return (
-		<ul className="flex-1 divide-y divide-border/40 overflow-y-auto">
-			{rows.map((inspection) => (
+		<ResultList
+			emptyDescription="Pan or zoom the map, widen the time window, or loosen the filters to bring inspections into range."
+			emptyTitle="No inspections in view"
+			isLoading={isLoading}
+			rows={rows}
+			skeletonClassName="h-[64px]"
+		>
+			{(inspection) => (
 				<InspectionListItem
 					inspection={inspection}
 					isSelected={inspection.id === selectedId}
@@ -678,8 +591,8 @@ function InspectionResults({
 					onSelect={onSelect}
 					typeName={resolveTypeName(inspection, typeNameById)}
 				/>
-			))}
-		</ul>
+			)}
+		</ResultList>
 	);
 }
 

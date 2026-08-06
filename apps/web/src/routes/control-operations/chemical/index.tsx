@@ -1,8 +1,7 @@
 import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { MapPinnedIcon, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -20,7 +19,7 @@ import {
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
-	RESULT_SKELETON_KEYS,
+	ResultList,
 	toggle,
 	usePersonnelOptions,
 	useRegionOptions,
@@ -517,31 +516,14 @@ function ApplicationResults({
 	readonly unitById: ReadonlyMap<string, UnitRow>;
 	readonly onSelect: (id: string) => void;
 }) {
-	if (isLoading && rows.length === 0) {
-		return (
-			<div className="grid gap-px overflow-y-auto p-2">
-				{RESULT_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-[60px]" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (rows.length === 0) {
-		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-				<MapPinnedIcon aria-hidden="true" className="size-7 text-muted-foreground/60" />
-				<p className="font-medium text-foreground text-sm">No applications in range</p>
-				<p className="max-w-[34ch] text-muted-foreground text-sm">
-					Widen the time window or loosen the filters to bring treatments into range.
-				</p>
-			</div>
-		);
-	}
-
 	return (
-		<ul className="flex-1 divide-y divide-border/40 overflow-y-auto">
-			{rows.map((row) => (
+		<ResultList
+			emptyDescription="Widen the time window or loosen the filters to bring treatments into range."
+			emptyTitle="No applications in range"
+			isLoading={isLoading}
+			rows={rows}
+		>
+			{(row) => (
 				<ApplicationListItem
 					amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}
 					isSelected={row.id === selectedId}
@@ -555,8 +537,8 @@ function ApplicationResults({
 					productName={insecticideNameById.get(row.insecticideId) ?? 'Unknown product'}
 					row={row}
 				/>
-			))}
-		</ul>
+			)}
+		</ResultList>
 	);
 }
 

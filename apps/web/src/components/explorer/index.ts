@@ -11,7 +11,10 @@
 export { ExplorerRow } from './explorer-row';
 export { ActiveFilterBar, FilterChip } from './filter-chips';
 export { type FilterOption, MultiSelectFilter, toggle } from './multi-select-filter';
+export { ResultList } from './result-list';
 export { RESULT_SKELETON_KEYS } from './result-skeleton';
+export { SegmentedFilter } from './segmented-filter';
+export { ToggleFilter } from './toggle-filter';
 export { useEntityTags } from './use-entity-tags';
 export { usePersonnelOptions } from './use-personnel-options';
 export { useRegionMembership } from './use-region-membership';

@@ -1,9 +1,7 @@
 import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { CheckIcon, MapPinnedIcon, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -20,7 +18,8 @@ import {
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
-	RESULT_SKELETON_KEYS,
+	ResultList,
+	ToggleFilter,
 	toggle,
 	usePersonnelOptions,
 	useRegionOptions,
@@ -301,7 +300,11 @@ function BiocontrolExplorerRoute() {
 							options={regions.options}
 							selected={regionIds}
 						/>
-						<HabitatToggle onChange={setHabitatOnly} value={habitatOnly} />
+						<ToggleFilter
+							label="Habitat-linked only"
+							onChange={setHabitatOnly}
+							value={habitatOnly}
+						/>
 					</div>
 
 					{hasActiveFilters ? (
@@ -471,38 +474,6 @@ function ResultMeta({ total, isLoading }: { readonly total: number; readonly isL
 	);
 }
 
-function HabitatToggle({
-	value,
-	onChange,
-}: {
-	readonly value: boolean;
-	readonly onChange: (next: boolean) => void;
-}) {
-	return (
-		<button
-			aria-pressed={value}
-			className={cn(
-				'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-				value
-					? 'border-primary bg-primary/10 text-foreground'
-					: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-			)}
-			onClick={() => onChange(!value)}
-			type="button"
-		>
-			<span
-				className={cn(
-					'flex size-3.5 items-center justify-center rounded-[4px] border',
-					value ? 'border-primary bg-primary text-primary-foreground' : 'border-input',
-				)}
-			>
-				{value ? <CheckIcon aria-hidden="true" className="size-2.5" /> : null}
-			</span>
-			Habitat-linked only
-		</button>
-	);
-}
-
 // --- results ----------------------------------------------------------------
 
 function BiocontrolResults({
@@ -524,31 +495,14 @@ function BiocontrolResults({
 	readonly unitById: ReadonlyMap<string, UnitRow>;
 	readonly onSelect: (id: string) => void;
 }) {
-	if (isLoading && rows.length === 0) {
-		return (
-			<div className="grid gap-px overflow-y-auto p-2">
-				{RESULT_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-[60px]" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (rows.length === 0) {
-		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-				<MapPinnedIcon aria-hidden="true" className="size-7 text-muted-foreground/60" />
-				<p className="font-medium text-foreground text-sm">No releases in range</p>
-				<p className="max-w-[34ch] text-muted-foreground text-sm">
-					Widen the time window or loosen the filters to bring biocontrol releases into range.
-				</p>
-			</div>
-		);
-	}
-
 	return (
-		<ul className="flex-1 divide-y divide-border/40 overflow-y-auto">
-			{rows.map((row) => (
+		<ResultList
+			emptyDescription="Widen the time window or loosen the filters to bring biocontrol releases into range."
+			emptyTitle="No releases in range"
+			isLoading={isLoading}
+			rows={rows}
+		>
+			{(row) => (
 				<BiocontrolListItem
 					amount={formatAmount(row.amountReleased, unitById.get(row.releaseUnitId))}
 					habitatName={
@@ -567,8 +521,8 @@ function BiocontrolResults({
 							: (personnelNameById.get(row.technicianProfileId) ?? null)
 					}
 				/>
-			))}
-		</ul>
+			)}
+		</ResultList>
 	);
 }
 

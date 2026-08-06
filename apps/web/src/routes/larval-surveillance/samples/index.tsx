@@ -16,13 +16,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	CheckIcon,
-	ChevronDownIcon,
-	iconRegistry,
-	MapPinnedIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { CheckIcon, ChevronDownIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -34,7 +28,8 @@ import {
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
-	RESULT_SKELETON_KEYS,
+	ResultList,
+	ToggleFilter,
 	toggle,
 	useRegionOptions,
 } from '../../../components/explorer';
@@ -352,7 +347,11 @@ function SamplesExplorerRoute() {
 							options={regions.options}
 							selected={regionIds}
 						/>
-						<NonMosquitoToggle onChange={setNonMosquito} value={nonMosquito} />
+						<ToggleFilter
+							label="Non-mosquito material"
+							onChange={setNonMosquito}
+							value={nonMosquito}
+						/>
 					</div>
 
 					{hasActiveFilters ? (
@@ -628,38 +627,6 @@ function SpeciesFilter({
 	);
 }
 
-function NonMosquitoToggle({
-	value,
-	onChange,
-}: {
-	readonly value: boolean;
-	readonly onChange: (next: boolean) => void;
-}) {
-	return (
-		<button
-			aria-pressed={value}
-			className={cn(
-				'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-				value
-					? 'border-primary bg-primary/10 text-foreground'
-					: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-			)}
-			onClick={() => onChange(!value)}
-			type="button"
-		>
-			<span
-				className={cn(
-					'flex size-3.5 items-center justify-center rounded-[4px] border',
-					value ? 'border-primary bg-primary text-primary-foreground' : 'border-input',
-				)}
-			>
-				{value ? <CheckIcon aria-hidden="true" className="size-2.5" /> : null}
-			</span>
-			Non-mosquito material
-		</button>
-	);
-}
-
 function ActiveFilters({
 	from,
 	to,
@@ -749,32 +716,15 @@ function SampleResults({
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly onSelect: (id: string) => void;
 }) {
-	if (isLoading && rows.length === 0) {
-		return (
-			<div className="grid gap-px overflow-y-auto p-2">
-				{RESULT_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-[64px]" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (rows.length === 0) {
-		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-				<MapPinnedIcon aria-hidden="true" className="size-7 text-muted-foreground/60" />
-				<p className="font-medium text-foreground text-sm">No samples in view</p>
-				<p className="max-w-[34ch] text-muted-foreground text-sm">
-					Pan or zoom the map, widen the time window, or loosen the filters to bring samples into
-					range.
-				</p>
-			</div>
-		);
-	}
-
 	return (
-		<ul className="flex-1 divide-y divide-border/40 overflow-y-auto">
-			{rows.map((sample) => (
+		<ResultList
+			emptyDescription="Pan or zoom the map, widen the time window, or loosen the filters to bring samples into range."
+			emptyTitle="No samples in view"
+			isLoading={isLoading}
+			rows={rows}
+			skeletonClassName="h-[64px]"
+		>
+			{(sample) => (
 				<SampleListItem
 					isSelected={sample.id === selectedId}
 					key={sample.id}
@@ -782,8 +732,8 @@ function SampleResults({
 					onSelect={onSelect}
 					sample={sample}
 				/>
-			))}
-		</ul>
+			)}
+		</ResultList>
 	);
 }
 

@@ -3,12 +3,9 @@ import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
 	CheckCircle2Icon,
 	CircleIcon,
-	MapPinnedIcon,
 	PlusIcon,
 	SearchIcon,
 	XIcon,
@@ -24,7 +21,8 @@ import {
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
-	RESULT_SKELETON_KEYS,
+	ResultList,
+	SegmentedFilter,
 	toggle,
 	useRegionOptions,
 } from '../../../components/explorer';
@@ -437,43 +435,6 @@ function SearchField({
 	);
 }
 
-function SegmentedFilter<T extends string>({
-	label,
-	value,
-	onChange,
-	options,
-}: {
-	readonly label: string;
-	readonly value: T;
-	readonly onChange: (value: T) => void;
-	readonly options: readonly { readonly value: T; readonly label: string }[];
-}) {
-	return (
-		<div className="flex items-center gap-3">
-			<span className="w-12 shrink-0 font-medium text-muted-foreground text-xs">{label}</span>
-			<ToggleGroup
-				aria-label={label}
-				className="flex-1"
-				onValueChange={(next) => {
-					if (next) {
-						onChange(next as T);
-					}
-				}}
-				size="sm"
-				type="single"
-				value={value}
-				variant="outline"
-			>
-				{options.map((option) => (
-					<ToggleGroupItem className="flex-1 text-xs" key={option.value} value={option.value}>
-						{option.label}
-					</ToggleGroupItem>
-				))}
-			</ToggleGroup>
-		</div>
-	);
-}
-
 // --- results ----------------------------------------------------------------
 
 function TrapResults({
@@ -489,31 +450,14 @@ function TrapResults({
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly onSelect: (id: string) => void;
 }) {
-	if (isLoading && rows.length === 0) {
-		return (
-			<div className="grid gap-px overflow-y-auto p-2">
-				{RESULT_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-[60px]" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (rows.length === 0) {
-		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-				<MapPinnedIcon aria-hidden="true" className="size-7 text-muted-foreground/60" />
-				<p className="font-medium text-foreground text-sm">No traps match</p>
-				<p className="max-w-[34ch] text-muted-foreground text-sm">
-					Loosen the filters, or add a trap to start collecting.
-				</p>
-			</div>
-		);
-	}
-
 	return (
-		<ul className="flex-1 divide-y divide-border/40 overflow-y-auto">
-			{rows.map((trap) => (
+		<ResultList
+			emptyDescription="Loosen the filters, or add a trap to start collecting."
+			emptyTitle="No traps match"
+			isLoading={isLoading}
+			rows={rows}
+		>
+			{(trap) => (
 				<TrapListItem
 					isSelected={trap.id === selectedId}
 					key={trap.id}
@@ -521,8 +465,8 @@ function TrapResults({
 					onSelect={onSelect}
 					trap={trap}
 				/>
-			))}
-		</ul>
+			)}
+		</ResultList>
 	);
 }
 
