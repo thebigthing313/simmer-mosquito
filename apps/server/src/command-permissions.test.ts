@@ -200,25 +200,37 @@ describe('decideCommand across the other agency domains', () => {
 			expect(decideCommand('viewer', readCommandPermission(type))).toBe('deny');
 		}
 
-		// Recording is unconditional; deleting is supervisory.
+		// Recording is unconditional.
 		expect(
 			decideCommand(
 				'collector',
 				readCommandPermission('controlOperations.recordChemicalApplication'),
 			),
 		).toBe('allow');
-		expect(
-			decideCommand(
-				'collector',
-				readCommandPermission('controlOperations.deleteChemicalApplication'),
-			),
-		).toBe('deny');
+		// Resolution is supervisory outright — no row can make it a collector's.
 		expect(
 			decideCommand(
 				'collector',
 				readCommandPermission('controlOperations.resolveRequestedControlAction'),
 			),
 		).toBe('deny');
+	});
+
+	it('leaves the action deletes to the row, not to the role', () => {
+		// A collector's own recent standalone record is theirs to remove; the same
+		// command on one with support rows, batch links, or a linked request is a
+		// manager's. Neither answer is available from the role, so all five defer.
+		for (const type of [
+			'controlOperations.deleteChemicalApplication',
+			'controlOperations.deleteSourceReduction',
+			'controlOperations.deleteOutreachAction',
+			'controlOperations.deleteBiocontrolAction',
+			'controlOperations.deleteRequestedControlAction',
+		] as const) {
+			expect(decideCommand('collector', readCommandPermission(type))).toBe('ownership');
+			expect(decideCommand('manager', readCommandPermission(type))).toBe('allow');
+			expect(decideCommand('viewer', readCommandPermission(type))).toBe('deny');
+		}
 	});
 });
 

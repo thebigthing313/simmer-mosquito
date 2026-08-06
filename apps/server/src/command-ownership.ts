@@ -18,6 +18,7 @@ import { type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db'
 import {
 	type AgencyCommandType,
 	type CommandActor,
+	type DeletionEscalation,
 	type OwnedRecordRef,
 	type PerformedRecordRef,
 	readCommandPermission,
@@ -88,6 +89,7 @@ export async function resolveCommandOwnership(
 			return await resolvePerformerOwnership(
 				trx,
 				permission.performed,
+				permission.escalation,
 				payload,
 				organizationId,
 				actor,
@@ -174,13 +176,14 @@ async function resolveCommentOwnership(
 async function resolvePerformerOwnership(
 	trx: CommandTransaction,
 	performed: PerformedRecordRef,
+	escalation: DeletionEscalation | undefined,
 	payload: Record<string, unknown>,
 	organizationId: string,
 	actor: CommandActor,
 ): Promise<OwnershipOutcome> {
 	const namedId = readPayloadId(payload, performed.payloadKey);
 	if (namedId === null) {
-		return { kind: 'missing', entity: 'control_action' };
+		return MISSING_ACTION;
 	}
 
 	const recordId =
@@ -188,7 +191,7 @@ async function resolvePerformerOwnership(
 			? namedId
 			: await readLinkedParentId(trx, performed.through, namedId, organizationId);
 	if (recordId === null) {
-		return { kind: 'missing', entity: 'control_action' };
+		return MISSING_ACTION;
 	}
 
 	const verdict = await readPerformerOwnership(
@@ -198,9 +201,25 @@ async function resolvePerformerOwnership(
 		organizationId,
 		actor.profileId,
 	);
+	if (verdict !== 'owner') {
+		return performerRefusal(verdict);
+	}
+
+	// It is theirs, and recent. Correcting it stops here; removing it also has to
+	// answer for whatever depends on it.
+	if (escalation === undefined) {
+		return ALLOWED;
+	}
+	const escalated = await readDeletionEscalation(trx, escalation, recordId, organizationId);
+	return escalated === null ? ALLOWED : { kind: 'refused', reason: ESCALATION_REASONS[escalated] };
+}
+
+const MISSING_ACTION: OwnershipOutcome = { kind: 'missing', entity: 'control_action' };
+
+function performerRefusal(verdict: Exclude<PerformerVerdict, 'owner'>): OwnershipOutcome {
 	switch (verdict) {
 		case 'missing':
-			return { kind: 'missing', entity: 'control_action' };
+			return MISSING_ACTION;
 		case 'not_performer':
 			return {
 				kind: 'refused',
@@ -211,9 +230,172 @@ async function resolvePerformerOwnership(
 				kind: 'refused',
 				reason: `Control actions can only be corrected by their performer for ${ACTION_CORRECTION_WINDOW_DAYS} days.`,
 			};
-		case 'owner':
-			return ALLOWED;
 	}
+}
+
+/**
+ * Why a delete a collector otherwise owns has to go to a manager.
+ *
+ * Named individually rather than answered with one line, because "ask a manager"
+ * without a reason is the thing that makes a rule feel arbitrary — and every one
+ * of these has something the person can do about it: detach the batch, remove
+ * the assisting person, or accept that the record is no longer only theirs.
+ */
+const ESCALATION_REASONS: Record<EscalationCause, string> = {
+	support_rows: 'This record has comments or assisting personnel on it. A manager can delete it.',
+	batch_links: 'This application has insecticide batches linked to it. A manager can delete it.',
+	requested_action_link: 'This record answers a requested control action. A manager can delete it.',
+	referenced_request:
+		'This request is referenced by recorded work or a mission. A manager can delete it.',
+	resolved_request: 'This request has been resolved. A manager can delete it.',
+};
+
+type EscalationCause =
+	| 'support_rows'
+	| 'batch_links'
+	| 'requested_action_link'
+	| 'referenced_request'
+	| 'resolved_request';
+
+/**
+ * The first escalation that applies, or null when the record is standalone.
+ *
+ * Ordered the way the doc reads them, and short-circuiting: the first reason is
+ * enough to send someone to a manager, and listing all of them would not change
+ * what they do next.
+ */
+async function readDeletionEscalation(
+	trx: CommandTransaction,
+	escalation: DeletionEscalation,
+	recordId: string,
+	organizationId: string,
+): Promise<EscalationCause | null> {
+	if (escalation.kind === 'requestedAction') {
+		return await readRequestedActionEscalation(trx, recordId, organizationId);
+	}
+
+	if (await hasSupportRows(trx, escalation.entityType, recordId, organizationId)) {
+		return 'support_rows';
+	}
+	if (
+		escalation.hasBatchLinks &&
+		(await hasActiveRows(trx, 'application_batches', 'application_id', recordId, organizationId))
+	) {
+		return 'batch_links';
+	}
+	return (await hasRequestedActionLink(trx, escalation.entityType, recordId, organizationId))
+		? 'requested_action_link'
+		: null;
+}
+
+async function readRequestedActionEscalation(
+	trx: CommandTransaction,
+	requestId: string,
+	organizationId: string,
+): Promise<EscalationCause | null> {
+	for (const table of ACTION_TABLES) {
+		if (await hasActiveRows(trx, table, 'requested_control_action_id', requestId, organizationId)) {
+			return 'referenced_request';
+		}
+	}
+	if (
+		await hasActiveRows(
+			trx,
+			'mission_items',
+			'requested_control_action_id',
+			requestId,
+			organizationId,
+		)
+	) {
+		return 'referenced_request';
+	}
+
+	// Resolution is manager-and-above, so a collector deleting the row would undo
+	// a supervisory decision by removing what it was made about. The doc says
+	// collectors handle their own "unresolved, unreferenced" requests; this is the
+	// unresolved half of that sentence.
+	const row = await trx
+		.selectFrom('requested_control_actions')
+		.select(['resolved_at'])
+		.where('id', '=', requestId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	return row?.resolved_at == null ? null : 'resolved_request';
+}
+
+/** The four actual-action tables, as the doc's "actual actions" set. */
+const ACTION_TABLES = [
+	'applications',
+	'source_reductions',
+	'outreach_actions',
+	'biocontrol_actions',
+] as const;
+
+/** `entity_type` → the record's own table, for the requested-action link column. */
+const ACTION_TABLE_BY_ENTITY_TYPE = {
+	application: 'applications',
+	source_reduction: 'source_reductions',
+	outreach_action: 'outreach_actions',
+	biocontrol_action: 'biocontrol_actions',
+} as const;
+
+async function hasSupportRows(
+	trx: CommandTransaction,
+	entityType: string,
+	recordId: string,
+	organizationId: string,
+): Promise<boolean> {
+	for (const table of ['comments', 'additional_personnel'] as const) {
+		const row = await trx
+			.selectFrom(table)
+			.select(sql<number>`1`.as('present'))
+			.where('entity_type', '=', entityType)
+			.where('entity_id', '=', recordId)
+			.where('organization_id', '=', organizationId)
+			.where('deleted_at', 'is', null)
+			.limit(1)
+			.executeTakeFirst();
+		if (row !== undefined) {
+			return true;
+		}
+	}
+	return false;
+}
+
+async function hasRequestedActionLink(
+	trx: CommandTransaction,
+	entityType: keyof typeof ACTION_TABLE_BY_ENTITY_TYPE,
+	recordId: string,
+	organizationId: string,
+): Promise<boolean> {
+	const row = await trx
+		.selectFrom(ACTION_TABLE_BY_ENTITY_TYPE[entityType])
+		.select(['requested_control_action_id'])
+		.where('id', '=', recordId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	return row?.requested_control_action_id != null;
+}
+
+/** Whether any non-deleted row in `table` points at `id` through `column`. */
+async function hasActiveRows(
+	trx: CommandTransaction,
+	table: 'application_batches' | 'mission_items' | (typeof ACTION_TABLES)[number],
+	column: string,
+	id: string,
+	organizationId: string,
+): Promise<boolean> {
+	const row = await trx
+		.selectFrom(table)
+		.select(sql<number>`1`.as('present'))
+		.where(sql.ref(column), '=', id)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.limit(1)
+		.executeTakeFirst();
+	return row !== undefined;
 }
 
 async function readLinkedParentId(

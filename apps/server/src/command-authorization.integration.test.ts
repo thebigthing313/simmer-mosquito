@@ -1,4 +1,4 @@
-import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
+import { type Kysely, type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
 import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
 import { expect, it } from 'vitest';
 import {
@@ -8,6 +8,7 @@ import {
 	readCommentOwnership,
 	readItemParentId,
 	readPerformerOwnership,
+	resolveCommandOwnership,
 } from './command-ownership.js';
 import type { PerformedRecordRef } from './command-permissions.js';
 import {
@@ -302,7 +303,100 @@ describeDbIntegration('command authorization reads', () => {
 			expect(order).toEqual(['first-read:in_progress', 'first-write', 'second-read:completed']);
 		});
 	});
+
+	// -----------------------------------------------------------------------
+	// Deletion escalations
+	// -----------------------------------------------------------------------
+
+	/**
+	 * The unit tests prove which escalation fires; only a database proves the
+	 * reads find the rows at all. The polymorphic `entity_type` is the reason —
+	 * the support tables store `source_reduction`, the domain says
+	 * `sourceReduction`, and a mismatch there reads as "nothing depends on this"
+	 * and quietly hands a collector a delete the doc reserves for a manager.
+	 */
+	it('finds the rows that escalate a collector’s own delete', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'escalation');
+			const collector = await createProfile(db, org, 'Collector');
+			const helper = await createProfile(db, org, 'Helper');
+			const method = await createSourceReductionMethod(db, org);
+			const unit = await createUnit(db);
+			const actor = { role: 'collector' as const, profileId: collector };
+
+			const standalone = await createSourceReduction(db, org, method, unit, {
+				by: collector,
+				daysAgo: 1,
+			});
+			const withHelper = await createSourceReduction(db, org, method, unit, {
+				by: collector,
+				daysAgo: 1,
+			});
+			await db
+				.insertInto('additional_personnel')
+				.values({
+					organization_id: org,
+					personnel_profile_id: helper,
+					entity_type: 'source_reduction',
+					entity_id: withHelper,
+				})
+				.execute();
+
+			const request = await createRequestedControlAction(db, org, collector);
+			const answering = await createSourceReduction(db, org, method, unit, {
+				by: collector,
+				daysAgo: 1,
+			});
+			await db
+				.updateTable('source_reductions')
+				.set({ requested_control_action_id: request })
+				.where('id', '=', answering)
+				.execute();
+
+			await db.transaction().execute(async (trx) => {
+				expect(await deleteOwnership(trx, standalone, org, actor)).toEqual({ kind: 'allowed' });
+				expect(await deleteOwnership(trx, withHelper, org, actor)).toMatchObject({
+					kind: 'refused',
+					reason: expect.stringContaining('assisting personnel'),
+				});
+				expect(await deleteOwnership(trx, answering, org, actor)).toMatchObject({
+					kind: 'refused',
+					reason: expect.stringContaining('requested control action'),
+				});
+
+				// The request is now referenced by the action above, so its own delete
+				// escalates too — and that read crosses four action tables by a column
+				// name, which is the other thing a fake cannot check.
+				expect(
+					await resolveCommandOwnership(
+						trx,
+						{
+							type: 'controlOperations.deleteRequestedControlAction',
+							payload: { organizationId: org, requestedControlActionId: request },
+						},
+						actor,
+					),
+				).toMatchObject({ kind: 'refused', reason: expect.stringContaining('referenced') });
+			});
+		});
+	});
 });
+
+function deleteOwnership(
+	trx: Transaction<SimmerDatabase>,
+	sourceReductionId: string,
+	organizationId: string,
+	actor: { readonly role: 'collector'; readonly profileId: string },
+) {
+	return resolveCommandOwnership(
+		trx,
+		{
+			type: 'controlOperations.deleteSourceReduction',
+			payload: { organizationId, sourceReductionId },
+		},
+		actor,
+	);
+}
 
 // ===========================================================================
 // Fixtures
@@ -468,6 +562,25 @@ async function createSourceReduction(
 			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
 			sources_eliminated_amount: 3,
 			sources_eliminated_unit_id: unitId,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createRequestedControlAction(
+	db: Db,
+	organizationId: string,
+	requestedBy: string,
+): Promise<string> {
+	const row = await db
+		.insertInto('requested_control_actions')
+		.values({
+			organization_id: organizationId,
+			control_type: 'source_reduction',
+			summary: 'Clear the ditch behind the school.',
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+			requested_by_profile_id: requestedBy,
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();

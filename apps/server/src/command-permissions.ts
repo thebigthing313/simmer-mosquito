@@ -90,6 +90,36 @@ export interface PerformedRecordRef {
 	readonly through?: { readonly table: 'application_batches'; readonly parentColumn: string };
 }
 
+/**
+ * The associated-record rules that turn a collector's own recent record into a
+ * manager's job.
+ *
+ * `docs/control-operations-domain.md` grants a collector their own action record
+ * for 30 days "when no supervisory/associated-record rules require manager
+ * escalation", and then names what escalates. Those are conditions on the stored
+ * row and its dependants, so they are declared here beside the ownership rule
+ * and settled in the same write transaction.
+ *
+ * Deliberately not about the `acknowledged*` flags. Those are the manager's
+ * confirmation that a delete will take support rows with it; a collector cannot
+ * acknowledge their way past these at all, so the two are separate mechanisms
+ * that happen to name the same rows.
+ */
+export type DeletionEscalation =
+	| {
+			readonly kind: 'actionRecord';
+			/** The `entity_type` the polymorphic support tables store this row under. */
+			readonly entityType:
+				| 'application'
+				| 'source_reduction'
+				| 'outreach_action'
+				| 'biocontrol_action';
+			/** Applications alone also carry batch links. */
+			readonly hasBatchLinks: boolean;
+	  }
+	/** A request escalates once anything references it, or once it is resolved. */
+	| { readonly kind: 'requestedAction' };
+
 export type CommandPermission =
 	/** A role floor and nothing else. */
 	| { readonly kind: 'role'; readonly minimum: MinimumRole }
@@ -98,7 +128,16 @@ export type CommandPermission =
 	/** Manager-and-above, or the author inside the correction window. */
 	| { readonly kind: 'author' }
 	/** Manager-and-above, or the performer inside the correction window. */
-	| { readonly kind: 'performer'; readonly performed: PerformedRecordRef }
+	| {
+			readonly kind: 'performer';
+			readonly performed: PerformedRecordRef;
+			/**
+			 * Present on the `delete*` commands only. Correcting a record's fields is
+			 * the performer's for 30 days unconditionally; removing it is theirs only
+			 * while nothing else depends on it.
+			 */
+			readonly escalation?: DeletionEscalation;
+	  }
 	/** No entry in the map — see `readCommandPermission`. */
 	| { readonly kind: 'unmapped' };
 
@@ -160,6 +199,41 @@ const OWN_REQUESTED_ACTION = ownAction(
 	'requested_by_profile_id',
 	'requested_at',
 );
+
+/** The `delete*` twin of an `ownAction` rule, carrying what escalates it. */
+function ownActionDeletion(
+	base: CommandPermission,
+	escalation: DeletionEscalation,
+): CommandPermission {
+	if (base.kind !== 'performer') {
+		throw new Error('ownActionDeletion expects a performer rule.');
+	}
+	return { kind: 'performer', performed: base.performed, escalation };
+}
+
+const DELETE_OWN_APPLICATION = ownActionDeletion(OWN_APPLICATION, {
+	kind: 'actionRecord',
+	entityType: 'application',
+	hasBatchLinks: true,
+});
+const DELETE_OWN_SOURCE_REDUCTION = ownActionDeletion(OWN_SOURCE_REDUCTION, {
+	kind: 'actionRecord',
+	entityType: 'source_reduction',
+	hasBatchLinks: false,
+});
+const DELETE_OWN_OUTREACH_ACTION = ownActionDeletion(OWN_OUTREACH_ACTION, {
+	kind: 'actionRecord',
+	entityType: 'outreach_action',
+	hasBatchLinks: false,
+});
+const DELETE_OWN_BIOCONTROL_ACTION = ownActionDeletion(OWN_BIOCONTROL_ACTION, {
+	kind: 'actionRecord',
+	entityType: 'biocontrol_action',
+	hasBatchLinks: false,
+});
+const DELETE_OWN_REQUESTED_ACTION = ownActionDeletion(OWN_REQUESTED_ACTION, {
+	kind: 'requestedAction',
+});
 
 const OWN_ASSIGNMENT: CommandPermission = {
 	kind: 'assignedCollector',
@@ -415,12 +489,13 @@ const ADULT_SURVEILLANCE_PERMISSIONS: Record<AdultSurveillanceCommandType, Comma
  * records within 30 days of the stored action date". Those commands carry a
  * `performer` rule the write transaction settles.
  *
- * The four `delete*` action commands are **stricter here than the doc**. The
- * doc grants a collector their own recent record "only when no support rows or
- * batch links exist" and escalates to manager once a requested control action
- * is linked; those extra preconditions are not implemented, and the safe
- * direction to be wrong in is the restrictive one. See the follow-up issue
- * named in `docs/control-operations-domain.md`.
+ * The five `delete*` action commands carry a `performer` rule too, plus the
+ * `DeletionEscalation` the doc attaches to it: a collector's own recent record
+ * is theirs to remove only while nothing depends on it. Correcting a record is
+ * unconditional for the same 30 days — an `update*` cannot orphan anything,
+ * whereas a delete takes the comments, assisting people, and batch links with
+ * it, and a linked requested control action is somebody else's record of what
+ * was asked for.
  */
 const CONTROL_OPERATIONS_PERMISSIONS: Record<ControlOperationsCommandType, CommandPermission> = {
 	'controlOperations.createApplicationMethod': ADMIN,
@@ -479,31 +554,31 @@ const CONTROL_OPERATIONS_PERMISSIONS: Record<ControlOperationsCommandType, Comma
 	'controlOperations.recordChemicalApplication': COLLECTOR,
 	'controlOperations.updateChemicalApplicationFieldDetails': OWN_APPLICATION,
 	'controlOperations.updateChemicalApplicationLocationAndContext': OWN_APPLICATION,
-	'controlOperations.deleteChemicalApplication': MANAGER,
+	'controlOperations.deleteChemicalApplication': DELETE_OWN_APPLICATION,
 	'controlOperations.addChemicalApplicationBatch': OWN_APPLICATION,
 	'controlOperations.removeChemicalApplicationBatch': OWN_APPLICATION_VIA_BATCH,
 
 	'controlOperations.recordSourceReduction': COLLECTOR,
 	'controlOperations.updateSourceReductionFieldDetails': OWN_SOURCE_REDUCTION,
 	'controlOperations.updateSourceReductionLocationAndContext': OWN_SOURCE_REDUCTION,
-	'controlOperations.deleteSourceReduction': MANAGER,
+	'controlOperations.deleteSourceReduction': DELETE_OWN_SOURCE_REDUCTION,
 
 	'controlOperations.recordOutreachAction': COLLECTOR,
 	'controlOperations.updateOutreachActionFieldDetails': OWN_OUTREACH_ACTION,
 	'controlOperations.updateOutreachActionLocationAndContext': OWN_OUTREACH_ACTION,
-	'controlOperations.deleteOutreachAction': MANAGER,
+	'controlOperations.deleteOutreachAction': DELETE_OWN_OUTREACH_ACTION,
 
 	'controlOperations.recordBiocontrolAction': COLLECTOR,
 	'controlOperations.updateBiocontrolActionFieldDetails': OWN_BIOCONTROL_ACTION,
 	'controlOperations.updateBiocontrolActionLocationAndContext': OWN_BIOCONTROL_ACTION,
-	'controlOperations.deleteBiocontrolAction': MANAGER,
+	'controlOperations.deleteBiocontrolAction': DELETE_OWN_BIOCONTROL_ACTION,
 
 	'controlOperations.requestControlAction': COLLECTOR,
 	'controlOperations.updateRequestedControlActionDetails': OWN_REQUESTED_ACTION,
 	'controlOperations.updateRequestedControlActionLocationAndContext': OWN_REQUESTED_ACTION,
 	'controlOperations.resolveRequestedControlAction': MANAGER,
 	'controlOperations.reopenRequestedControlAction': MANAGER,
-	'controlOperations.deleteRequestedControlAction': MANAGER,
+	'controlOperations.deleteRequestedControlAction': DELETE_OWN_REQUESTED_ACTION,
 };
 
 /**

@@ -1056,14 +1056,30 @@ for applications, `technician_profile_id` for the rest,
 `requested_by_profile_id` for requests — and the action date must be within 30
 days, measured from the action date rather than from when the row was written.
 
-**Deletion is stricter in code than in this section.** `deleteChemicalApplication`,
-`deleteSourceReduction`, `deleteOutreachAction`, `deleteBiocontrolAction`, and
-`deleteRequestedControlAction` are manager-and-above outright. The rule above
-grants a collector their own recent record "when no supervisory/associated-record
-rules require manager escalation" — support rows, batch links, and a linked
-requested control action all escalate — and those preconditions are not
-implemented. Refusing a collector who should have been allowed is the recoverable
-direction to be wrong in; the reverse is not. See #63.
+Deletion carries the same performer rule plus the escalations this section names.
+`deleteChemicalApplication`, `deleteSourceReduction`, `deleteOutreachAction`,
+`deleteBiocontrolAction`, and `deleteRequestedControlAction` reach a collector's
+own record inside the window only while nothing depends on it. What escalates,
+checked in that order and reported by name so "ask a manager" always comes with a
+reason:
+
+- active comments or additional personnel on the record;
+- active batch links, for a chemical application;
+- a linked requested control action;
+- for a request: any non-deleted actual action or mission item referencing it,
+  or its own resolution.
+
+That last one is this document's "collectors may update their own **unresolved**,
+unreferenced requests" read across to deletion — resolving is manager-and-above,
+and a collector deleting a resolved request would undo that decision by removing
+what it was made about.
+
+The `acknowledged*` flags are a separate mechanism and are deliberately not part
+of this check. They are a manager's confirmation that a delete will take support
+rows with it; a collector cannot acknowledge past an escalation at all. The
+server-side command builders force them to `true`
+(`acknowledgedSupportRecordDeletion: true` in `performed-actions.ts`), so today
+they carry no confirmation — the client's confirm dialog is doing that job.
 
 Linked requested action deletion/escalation:
 
