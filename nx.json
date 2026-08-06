@@ -12,20 +12,9 @@
 			"inputs": ["production", "^production"],
 			"outputs": ["{projectRoot}/dist"]
 		},
-		"build:ts7": {
-			"cache": true,
-			"dependsOn": ["^build:ts7"],
-			"inputs": ["production", "^production"],
-			"outputs": ["{projectRoot}/dist"]
-		},
 		"typecheck": {
 			"cache": true,
 			"dependsOn": ["^build", "^typecheck"],
-			"inputs": ["default", "^production"]
-		},
-		"typecheck:ts7": {
-			"cache": true,
-			"dependsOn": ["^build:ts7", "^typecheck:ts7"],
 			"inputs": ["default", "^production"]
 		},
 		"test": {

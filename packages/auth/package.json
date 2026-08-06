@@ -12,15 +12,10 @@
 	},
 	"main": "./dist/index.js",
 	"scripts": {
-		"build": "tsgo -b",
-		"build:ts6": "tsc -b",
-		"build:ts7": "tsgo -b",
+		"build": "tsc -b",
 		"probe:reset-password": "tsx src/probe-reset-password.ts",
 		"test": "vitest run --passWithNoTests",
-		"typecheck": "tsgo -p tsconfig.json --noEmit --pretty false",
-		"typecheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
-		"typcheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
-		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
 		"@workos-inc/node": "^8.12.0"

@@ -12,8 +12,8 @@ Run from the workspace root. On Windows / from automation, prefer the `.cmd` shi
 
 ```sh
 pnpm install
-pnpm build          # nx run-many -t build (tsgo)
-pnpm typecheck      # nx run-many -t typecheck (tsgo)
+pnpm build          # nx run-many -t build (tsc)
+pnpm typecheck      # nx run-many -t typecheck (tsc)
 pnpm check          # biome check . (lint + format + import organize)
 pnpm check:write    # biome check --write . — apply fixes
 pnpm test           # nx run-many -t test (vitest)
@@ -43,9 +43,11 @@ pnpm --filter @simmer-mosquito/domain test
 nx test @simmer-mosquito/domain -- src/tests/some.test.ts   # single test file
 ```
 
-### Build toolchain (tsgo vs tsc)
+### Build toolchain
 
-`tsgo` (`@typescript/native-preview`) is the **default** for `build`/`typecheck`. Each project also defines `:ts6` (stable `tsc`) and `:ts7` (tsgo) fallback targets — use them when tsgo misbehaves: `pnpm build:ts6`, `pnpm typecheck:ts6`. (Note: a `typcheck:ts6` typo alias exists in scripts for compatibility; don't propagate it.)
+The workspace is on **TypeScript 7** (`typescript@7.0.2`, the native compiler), and `tsc` is the only compiler: every project's `build` is `tsc -b` and every `typecheck` is `tsc -p tsconfig.json --noEmit --pretty false`. There are no per-compiler fallback targets — the old `:ts6` (TypeScript 6 `tsc`) and `:ts7` (`tsgo` from `@typescript/native-preview`) variants, and the `typcheck:ts6` typo alias, are gone. Don't reintroduce a second compiler path; if `tsc` misbehaves, fix it or pin the version at the root.
+
+One deliberate exception, in `pnpm.packageExtensions` at the root: **Nx gets its own private `typescript@6.0.3`**. Nx's project-graph plugins (`@nx/js/typescript` and the built-in `nx/js/dependencies-and-lockfile`) `require('typescript')` and call the classic JS compiler API — `ts.readConfigFile`, `ts.Extension` — which TypeScript 7's package no longer exposes. Handed TS 7 they die with `tsModule.readConfigFile is not a function` and the whole graph fails to build, so nothing runs. This is still true on the latest Nx (23.x), so it is not fixed by upgrading. The extension pins TS 6 *inside* Nx's own `node_modules`, where Node's resolution finds it before walking up to the root — nothing the workspace compiles ever sees it. Drop the extension only once Nx stops needing the legacy API.
 
 ### Database
 

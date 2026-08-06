@@ -4,17 +4,12 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "tsgo -b",
-		"build:ts6": "tsc -b",
+		"build": "tsc -b",
 		"check:role-ladder": "tsx src/check-role-ladder.ts",
-		"build:ts7": "tsgo -b",
 		"dev": "node --import tsx scripts/dev.mjs",
 		"start": "node dist/main.js",
 		"test": "vitest run --passWithNoTests",
-		"typecheck": "tsgo -p tsconfig.json --noEmit --pretty false",
-		"typecheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
-		"typcheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
-		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.14.0",

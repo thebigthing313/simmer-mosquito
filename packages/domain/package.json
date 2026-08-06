@@ -12,14 +12,9 @@
 	},
 	"main": "./dist/index.js",
 	"scripts": {
-		"build": "tsgo -b",
-		"build:ts6": "tsc -b",
-		"build:ts7": "tsgo -b",
+		"build": "tsc -b",
 		"test": "vitest run src/tests --passWithNoTests",
-		"typecheck": "tsgo -p tsconfig.json --noEmit --pretty false",
-		"typecheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
-		"typcheck:ts6": "tsc -p tsconfig.json --noEmit --pretty false",
-		"typecheck:ts7": "tsgo -p tsconfig.json --noEmit --pretty false"
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"types": "./dist/index.d.ts"
 }
