@@ -8,11 +8,7 @@ import {
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
 import type { HabitatRow, LarvalDensity, TagRow } from '@simmer-mosquito/sync';
-import {
-	customFieldEntries,
-	customSchemaFor,
-	formatCustomFieldValue,
-} from '@simmer-mosquito/ui-web/components/form';
+import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -64,6 +60,7 @@ import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
+import { CustomFieldsList } from '../components/custom-fields-card';
 import { DangerZoneCard } from '../components/danger-zone-card';
 import { EmptyValue } from '../components/empty-value';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
@@ -380,13 +377,10 @@ function HabitatMetadata({
 	return (
 		<div className="grid gap-1.5">
 			<span className="text-xs font-semibold text-muted-foreground uppercase">Metadata</span>
-			<dl className="grid gap-1.5">
-				{entries.map((entry) => (
-					<DetailRow key={entry.key} label={entry.label}>
-						{formatCustomFieldValue(entry) ?? <EmptyValue />}
-					</DetailRow>
-				))}
-			</dl>
+			{/* The same list every other record's custom fields render through, so an
+			    agency-authored label wraps here too rather than being clipped by the
+			    curated-label column `DetailRow` above is sized for. */}
+			<CustomFieldsList entries={entries} />
 		</div>
 	);
 }
