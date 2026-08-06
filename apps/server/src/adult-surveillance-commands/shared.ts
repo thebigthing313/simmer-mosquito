@@ -1,20 +1,12 @@
-import {
-	type Kysely,
-	RecordDeleteBlockedError,
-	type SimmerDatabase,
-	sql,
-	type Transaction,
-} from '@simmer-mosquito/db';
+import { type Kysely, type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
 import {
 	type AdultSurveillanceCommand,
 	type CollectionTiming,
 	DomainValidationError,
 } from '@simmer-mosquito/domain';
-import type { Context } from 'hono';
 import type { AuthContext } from '../auth-context.js';
-import type { AuthVariables } from '../auth-middleware.js';
+import { type CommandContext, CommandError, handleCommandError } from '../command-endpoint.js';
 import { isRecord, readNumber, readText } from '../command-payload.js';
-import { deleteBlockedBody } from '../record-deletion.js';
 
 export type AdultSurveillanceDb = Kysely<SimmerDatabase>;
 export type AdultSurveillanceTransaction = Transaction<SimmerDatabase>;
@@ -372,7 +364,7 @@ export function toSafeCollectionSpecies(row: {
 // Shared command + request helpers
 // ---------------------------------------------------------------------------
 
-export type CommandContext = Context<{ Variables: AuthVariables }>;
+export { type CommandContext, handleCommandError };
 
 export type TrapUpdateColumns = {
 	geom?: ReturnType<typeof geojsonToGeom>;
@@ -424,25 +416,6 @@ export interface CollectionInsertInput {
 	readonly hasProblem: boolean;
 	readonly metadata: unknown | null;
 	readonly actorProfileId: string;
-}
-
-class CommandError extends Error {
-	constructor(
-		readonly status: 400 | 404,
-		readonly body: { readonly error: string },
-	) {
-		super(body.error);
-	}
-}
-
-export function handleCommandError(context: CommandContext, error: unknown) {
-	if (error instanceof CommandError) {
-		return context.json(error.body, error.status);
-	}
-	if (error instanceof RecordDeleteBlockedError) {
-		return context.json(deleteBlockedBody(error), 409);
-	}
-	throw error;
 }
 
 export type InvalidCommandBody = {

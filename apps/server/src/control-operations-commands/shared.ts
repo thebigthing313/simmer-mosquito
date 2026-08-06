@@ -1,7 +1,6 @@
 import {
 	type Kysely,
 	type MutationWriteResult,
-	RecordDeleteBlockedError,
 	type SimmerDatabase,
 	sql,
 	type Transaction,
@@ -12,17 +11,17 @@ import {
 	type ControlOperationsCommand,
 	DomainValidationError,
 } from '@simmer-mosquito/domain';
-import type { Context, MiddlewareHandler } from 'hono';
+import type { MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { type CommandContext, CommandError, handleCommandError } from '../command-endpoint.js';
 import { resolveCommandOwnership } from '../command-ownership.js';
 import { isRecord, readNullableText } from '../command-payload.js';
 import type { CommandActor } from '../command-permissions.js';
-import { deleteBlockedBody } from '../record-deletion.js';
 
 export type ControlOperationsDb = Kysely<SimmerDatabase>;
 export type ControlOperationsTransaction = Transaction<SimmerDatabase>;
-export type CommandContext = Context<{ Variables: AuthVariables }>;
+export { type CommandContext, handleCommandError };
 
 export async function insertApplicationBatch(
 	trx: ControlOperationsTransaction,
@@ -744,25 +743,6 @@ export type ApplicationUpdateColumns = {
 	metadata?: unknown | null;
 	updated_by_profile_id: string;
 };
-
-class CommandError extends Error {
-	constructor(
-		readonly status: 400 | 403 | 404,
-		readonly body: { readonly error: string; readonly reason?: string },
-	) {
-		super(body.error);
-	}
-}
-
-export function handleCommandError(context: CommandContext, error: unknown) {
-	if (error instanceof CommandError) {
-		return context.json(error.body, error.status);
-	}
-	if (error instanceof RecordDeleteBlockedError) {
-		return context.json(deleteBlockedBody(error), 409);
-	}
-	throw error;
-}
 
 export type InvalidCommandBody = {
 	readonly error: 'invalid_command';

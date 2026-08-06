@@ -15,8 +15,8 @@
  */
 
 import { CLOCK_SKEW_TOLERANCE_MS } from '@simmer-mosquito/domain';
+import { CommandError } from '../command-endpoint.js';
 import type { FieldWorkTransaction } from './shared.js';
-import { CommandError } from './shared.js';
 
 /** Assignment state, derived from timestamps — there is no status column by design. */
 export type AssignmentState = 'not_started' | 'in_progress' | 'completed' | 'cancelled';
