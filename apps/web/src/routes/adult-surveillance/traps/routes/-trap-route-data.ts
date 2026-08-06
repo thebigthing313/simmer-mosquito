@@ -152,33 +152,3 @@ export function useRouteStops(routeId: string | null): {
 
 	return { stops, features, itemCount: items.length, isLoading: !result.isReady };
 }
-
-/** Bounding box of a route's mapped stops, or null when none have a location. */
-export function boundsOfStops(
-	stops: readonly RouteStopView[],
-): [[number, number], [number, number]] | null {
-	let west = Number.POSITIVE_INFINITY;
-	let south = Number.POSITIVE_INFINITY;
-	let east = Number.NEGATIVE_INFINITY;
-	let north = Number.NEGATIVE_INFINITY;
-	let count = 0;
-
-	for (const stop of stops) {
-		if (stop.lat === null || stop.lng === null) {
-			continue;
-		}
-		west = Math.min(west, stop.lng);
-		south = Math.min(south, stop.lat);
-		east = Math.max(east, stop.lng);
-		north = Math.max(north, stop.lat);
-		count += 1;
-	}
-
-	if (count === 0) {
-		return null;
-	}
-	return [
-		[west, south],
-		[east, north],
-	];
-}

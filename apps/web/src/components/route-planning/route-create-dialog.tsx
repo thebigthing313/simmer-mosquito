@@ -14,19 +14,22 @@ import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
-import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { settleWrite } from '../../../sync/settle-write';
-import { webCollections } from '../../../sync/webCollections';
+import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
+import { settleWrite } from '../../sync/settle-write';
+import { webCollections } from '../../sync/webCollections';
+import type { RoutePlanningSurface } from './surface';
 
 /**
- * The name-only first step of route creation. Persists a habitat route, then
- * hands straight off to the edit surface where stops are curated — so a new
- * route never lingers as an empty shell the user has to find again.
+ * The name-only first step of route creation. Persists the route, then hands
+ * straight off to the edit surface where stops are curated — so a new route
+ * never lingers as an empty shell the user has to find again.
  */
 export function RouteCreateDialog({
+	surface,
 	open,
 	onOpenChange,
 }: {
+	readonly surface: RoutePlanningSurface;
 	readonly open: boolean;
 	readonly onOpenChange: (open: boolean) => void;
 }) {
@@ -58,18 +61,14 @@ export function RouteCreateDialog({
 				id: crypto.randomUUID(),
 				organizationId,
 				routeName: trimmed,
-				routeType: 'habitat',
+				routeType: surface.routeType,
 				createdAt: now,
 				updatedAt: now,
 			};
-			const transaction = webCollections.routes.insert(row);
-			await settleWrite(transaction);
+			await settleWrite(webCollections.routes.insert(row));
 			setName('');
 			onOpenChange(false);
-			await navigate({
-				to: '/larval-surveillance/habitats/routes/$id/edit',
-				params: { id: row.id },
-			});
+			await navigate(surface.editLink(row.id));
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to create the route.');
 		} finally {
@@ -92,7 +91,7 @@ export function RouteCreateDialog({
 					<DialogHeader>
 						<DialogTitle>New Route</DialogTitle>
 						<DialogDescription>
-							Name the route now; you'll add and order its habitat stops next.
+							Name the route now; you'll add and order its {surface.stopNounPlural} next.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -102,7 +101,7 @@ export function RouteCreateDialog({
 							autoFocus
 							id="route-name"
 							onChange={(event) => setName(event.target.value)}
-							placeholder="e.g. North catch basins — Monday"
+							placeholder={surface.namePlaceholder}
 							value={name}
 						/>
 						{error !== null ? (

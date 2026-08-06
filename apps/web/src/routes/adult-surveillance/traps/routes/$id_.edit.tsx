@@ -36,6 +36,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
+import { RouteMap } from '../../../../components/route-planning';
 import {
 	type MoveAction,
 	type OrderPlacement,
@@ -48,7 +49,6 @@ import { settleWrite } from '../../../../sync/settle-write';
 import { webCollections } from '../../../../sync/webCollections';
 import { TrapPicker } from '../../-adult-pickers';
 import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';
-import { TrapRouteMap } from './-trap-route-map';
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
@@ -204,7 +204,7 @@ function EditTrapRouteRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<TrapRouteMap
+					<RouteMap
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}

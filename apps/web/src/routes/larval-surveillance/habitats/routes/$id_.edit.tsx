@@ -51,6 +51,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
+import { RouteMap } from '../../../../components/route-planning';
 import {
 	InlineEditField,
 	type MoveAction,
@@ -73,7 +74,6 @@ import {
 	useHabitatSearch,
 	useRouteStops,
 } from '../-route-data';
-import { RouteMap } from '../-route-map';
 import { StopStatus, StopTagChips, StopTypePill, useStopMeta } from '../-route-stop-list';
 
 const RouteIcon = iconRegistry.entities.route.icon;

@@ -1,12 +1,12 @@
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { MapCanvas, type RouteStopFeature } from '../../../components/map';
-import { MapControlButton, MapControlGroup } from '../../../components/map/map-control';
-import { boundsOfStops, type RouteStopView } from './-route-data';
+import { MapCanvas, type RouteStopFeature } from '../map';
+import { MapControlButton, MapControlGroup } from '../map/map-control';
+import { boundsOfStops, type RouteStop } from './route-stop';
 
 interface RouteMapProps {
-	readonly stops: readonly RouteStopView[];
+	readonly stops: readonly RouteStop[];
 	readonly features: readonly RouteStopFeature[];
 	readonly selectedId?: string | null | undefined;
 	readonly highlightId?: string | null | undefined;

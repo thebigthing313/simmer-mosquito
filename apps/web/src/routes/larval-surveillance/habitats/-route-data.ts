@@ -326,37 +326,6 @@ function clusterByAddress(stops: readonly RouteStopView[]): RouteStopCluster[] {
 	return clusters;
 }
 
-/** SW/NE bounds covering every located stop, or null when none are mapped. */
-export function boundsOfStops(
-	stops: readonly RouteStopView[],
-): [[number, number], [number, number]] | null {
-	let west = Number.POSITIVE_INFINITY;
-	let south = Number.POSITIVE_INFINITY;
-	let east = Number.NEGATIVE_INFINITY;
-	let north = Number.NEGATIVE_INFINITY;
-	let count = 0;
-
-	for (const stop of stops) {
-		if (!stop.hasLocation) {
-			continue;
-		}
-		const lng = stop.lng as number;
-		const lat = stop.lat as number;
-		west = Math.min(west, lng);
-		east = Math.max(east, lng);
-		south = Math.min(south, lat);
-		north = Math.max(north, lat);
-		count += 1;
-	}
-
-	return count === 0
-		? null
-		: [
-				[west, south],
-				[east, north],
-			];
-}
-
 // --- editing helpers --------------------------------------------------------
 
 const minSearchLength = 2;
