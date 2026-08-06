@@ -12,6 +12,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { readNullableText, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
@@ -29,8 +30,6 @@ import {
 	readControlActionContext,
 	readDate,
 	readJsonObject,
-	readNullableText,
-	readText,
 	requestedControlActionReturnColumns,
 	resolveGeom,
 	type SafeRequestedControlAction,

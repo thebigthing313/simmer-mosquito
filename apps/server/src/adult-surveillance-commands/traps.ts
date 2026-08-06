@@ -12,6 +12,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { readNullableText, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type AdultSurveillanceDb,
@@ -24,9 +25,7 @@ import {
 	invalidUpdate,
 	readCurrentTransactionId,
 	readJsonObject,
-	readNullableText,
 	readOptionalJsonObject,
-	readText,
 	resolveLocationGeom,
 	type SafeTrap,
 	type TrapUpdateColumns,

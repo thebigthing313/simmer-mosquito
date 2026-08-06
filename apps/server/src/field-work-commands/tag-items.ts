@@ -7,6 +7,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { readText } from '../command-payload.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -19,7 +20,6 @@ import {
 	type RouteOptions,
 	readJsonObject,
 	readTarget,
-	readText,
 	type SafeTagItem,
 	softDelete,
 	tagItemReturnColumns,

@@ -10,6 +10,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { readNullableText, readNumber, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
@@ -25,9 +26,6 @@ import {
 	type RouteOptions,
 	readCurrentTransactionId,
 	readJsonObject,
-	readNullableText,
-	readNumber,
-	readText,
 	type SafeFormulation,
 	softDelete,
 	toSafeFormulation,

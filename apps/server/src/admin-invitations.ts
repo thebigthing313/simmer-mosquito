@@ -8,6 +8,7 @@ import {
 } from '@simmer-mosquito/db';
 import type { Context, Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
+import { isRecord } from './command-payload.js';
 
 type AdminInvitationDb = Parameters<typeof getOperatorOrganization>[0];
 
@@ -241,10 +242,6 @@ function readOptionalText(value: unknown): string | null {
 
 	const trimmed = value.trim();
 	return trimmed.length === 0 ? null : trimmed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function toAdminMembershipResponse(membership: SafeOrganizationMembership) {

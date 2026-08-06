@@ -9,6 +9,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { readNullableText, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
@@ -23,9 +24,7 @@ import {
 	type RouteOptions,
 	readContactDetails,
 	readJsonObject,
-	readNullableText,
 	readStringArray,
-	readText,
 	type SafeContact,
 	softDelete,
 	toSafeContact,

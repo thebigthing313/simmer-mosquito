@@ -13,6 +13,7 @@ import {
 import type { Context } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { isRecord, readNumber, readText } from '../command-payload.js';
 import { deleteBlockedBody } from '../record-deletion.js';
 
 export type AdultSurveillanceDb = Kysely<SimmerDatabase>;
@@ -527,22 +528,6 @@ export async function readOptionalJsonObject(request: {
 	}
 }
 
-export function readText(value: unknown): string | null {
-	if (typeof value !== 'string') {
-		return null;
-	}
-	const trimmed = value.trim();
-	return trimmed.length === 0 ? null : trimmed;
-}
-
-export function readNullableText(value: unknown): string | null {
-	return readText(value);
-}
-
-export function readNumber(value: unknown): number | undefined {
-	return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
 export function readDate(value: unknown): Date | undefined {
 	if (typeof value !== 'string' && !(value instanceof Date)) {
 		return undefined;
@@ -561,8 +546,4 @@ export function readSpeciesStatus(
 	return value === 'damaged' || value === 'unfed' || value === 'bloodfed' || value === 'gravid'
 		? value
 		: null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

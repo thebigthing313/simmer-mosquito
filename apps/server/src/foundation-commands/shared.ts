@@ -45,6 +45,7 @@ import {
 	updateHabitatTypeCommand,
 } from '@simmer-mosquito/domain';
 import type { AuthContext } from '../auth-context.js';
+import { isRecord } from '../command-payload.js';
 
 export type FoundationCommandDb = Parameters<typeof writeCollectionMethodLookupCommandsWithTxid>[0];
 export type CollectionMethodCommand =
@@ -644,10 +645,6 @@ function readGeoJson(value: unknown): GeoJsonGeometry | null {
 
 export function invalid(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function agencyCommandContext(authContext: AuthContext) {

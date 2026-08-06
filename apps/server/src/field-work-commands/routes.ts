@@ -9,6 +9,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
+import { readText } from '../command-payload.js';
 import {
 	agencyCommandContext,
 	applyPlacement,
@@ -22,7 +23,6 @@ import {
 	type RouteOptions,
 	readJsonObject,
 	readStringArray,
-	readText,
 	reindexItems,
 	routePlacementRef,
 	routeReturnColumns,

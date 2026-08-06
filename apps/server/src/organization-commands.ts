@@ -3,6 +3,7 @@ import { type OrganizationSettings, resolveOrganizationSettings } from '@simmer-
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import { isRecord } from './command-payload.js';
 
 type OrganizationCommandDb = Kysely<SimmerDatabase>;
 
@@ -193,10 +194,6 @@ function readOptionalDate(value: unknown): Date | null {
 
 function canManageOrganization(role: AuthContext['role']): boolean {
 	return role === 'owner' || role === 'admin';
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 const US_STATE_CODES = new Set([

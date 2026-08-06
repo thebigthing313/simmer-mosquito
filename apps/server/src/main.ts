@@ -35,6 +35,7 @@ import {
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
 import { registerAuthUserRoutes } from './auth-user-commands.js';
+import { isRecord } from './command-payload.js';
 import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
 import { registerControlMethodCommandRoutes } from './control-method-commands.js';
 import { registerControlOperationsCommandRoutes } from './control-operations-commands/index.js';
@@ -829,10 +830,6 @@ function readOptionalText(value: unknown): string | null {
 
 	const trimmed = value.trim();
 	return trimmed.length === 0 ? null : trimmed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function toAdminOrganizationResponse(organization: SafeOrganization) {

@@ -16,6 +16,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { readNullableText, readText } from '../command-payload.js';
 import {
 	assertAssignmentTransition,
 	checkCompleteAssignment,
@@ -43,9 +44,7 @@ import {
 	readItemMappings,
 	readJsonObject,
 	readLifecycleTransition,
-	readNullableText,
 	readStringArray,
-	readText,
 	reindexItems,
 	type SafeAssignment,
 	softDelete,

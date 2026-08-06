@@ -10,6 +10,7 @@ import { DomainValidationError, type FoundationCommand } from '@simmer-mosquito/
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { isRecord } from '../command-payload.js';
 import { deleteBlockedBody } from '../record-deletion.js';
 
 export type FoundationDb = Kysely<SimmerDatabase>;
@@ -310,20 +311,4 @@ export async function readJsonObject(request: {
 		return { ok: false, reason: 'Request body must be an object.' };
 	}
 	return { ok: true, payload: raw };
-}
-
-export function readText(value: unknown): string | null {
-	if (typeof value !== 'string') {
-		return null;
-	}
-	const trimmed = value.trim();
-	return trimmed.length === 0 ? null : trimmed;
-}
-
-export function readNullableText(value: unknown): string | null {
-	return readText(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

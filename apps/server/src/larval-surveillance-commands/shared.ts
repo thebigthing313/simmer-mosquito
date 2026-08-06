@@ -15,6 +15,7 @@ import {
 import type { Context } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { isRecord, readNullableText, readText } from '../command-payload.js';
 import { deleteBlockedBody } from '../record-deletion.js';
 
 export type LarvalSurveillanceDb = Kysely<SimmerDatabase>;
@@ -612,26 +613,6 @@ export async function readOptionalJsonObject(request: {
 	}
 }
 
-export function readText(value: unknown): string | null {
-	if (typeof value !== 'string') {
-		return null;
-	}
-	const trimmed = value.trim();
-	return trimmed.length === 0 ? null : trimmed;
-}
-
-export function readNullableText(value: unknown): string | null {
-	return readText(value);
-}
-
-export function readNumber(value: unknown): number | undefined {
-	return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
 function readNumberOrNull(value: unknown): number | null {
 	return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

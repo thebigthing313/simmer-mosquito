@@ -39,6 +39,7 @@ import {
 } from '@simmer-mosquito/db';
 import type { Context, Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
+import { isRecord } from './command-payload.js';
 
 type AdminFoundationDb = Parameters<typeof getOperatorOrganization>[0];
 
@@ -832,10 +833,6 @@ function readOptionalNonnegativeInteger(value: unknown): number | null | undefin
 
 function invalid(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function toAddressResponse(address: SafeAddress) {

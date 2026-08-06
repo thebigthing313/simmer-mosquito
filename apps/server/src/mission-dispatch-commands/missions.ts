@@ -17,6 +17,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
+import { readNullableText, readText } from '../command-payload.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -35,8 +36,6 @@ import {
 	readDate,
 	readJsonObject,
 	readLifecycleTransition,
-	readNullableText,
-	readText,
 	resolveInitialItemGeom,
 	type SafeMission,
 	softDelete,

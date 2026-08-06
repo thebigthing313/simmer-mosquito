@@ -1,5 +1,6 @@
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
+import { isRecord } from './command-payload.js';
 
 const geocodioBaseUrl = 'https://api.geocod.io/v1.12/geocode';
 const maxQueryLength = 500;
@@ -221,10 +222,6 @@ function readResults(body: unknown): unknown[] {
 	}
 
 	return body.results;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 const geocoderQueryParams = new Set(['q', 'country', 'fields', 'limit']);

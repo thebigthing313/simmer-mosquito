@@ -14,6 +14,7 @@ import {
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import { isRecord } from './command-payload.js';
 
 type ProfileCommandDb = Parameters<typeof createHistoricalProfileWithTxid>[0];
 
@@ -382,10 +383,6 @@ function readOptionalText(value: unknown): string | null {
 
 	const trimmed = value.trim();
 	return trimmed.length === 0 ? null : trimmed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function toMembershipResponse(membership: SafeOrganizationMembership) {

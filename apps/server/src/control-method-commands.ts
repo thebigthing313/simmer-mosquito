@@ -50,6 +50,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import { isRecord } from './command-payload.js';
 import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
 
 type ControlMethodCommandDb = Parameters<typeof writeCollectionMethodLookupCommandsWithTxid>[0];
@@ -816,10 +817,6 @@ function invalidUpdateCommand(changeNoun: string): {
 			issues: [{ path: 'changes', message }],
 		},
 	};
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function agencyCommandContext(authContext: AuthContext) {

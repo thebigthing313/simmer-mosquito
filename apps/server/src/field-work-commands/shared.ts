@@ -16,6 +16,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { resolveCommandOwnership } from '../command-ownership.js';
+import { isRecord, readText } from '../command-payload.js';
 import { authorizeCommands, type CommandActor } from '../command-permissions.js';
 import { deleteBlockedBody } from '../record-deletion.js';
 
@@ -717,26 +718,10 @@ export async function readJsonObject(request: {
 	return { ok: true, payload: raw };
 }
 
-export function readText(value: unknown): string | null {
-	if (typeof value !== 'string') {
-		return null;
-	}
-	const trimmed = value.trim();
-	return trimmed.length === 0 ? null : trimmed;
-}
-
-export function readNullableText(value: unknown): string | null {
-	return readText(value);
-}
-
 export function readDate(value: unknown): Date | null {
 	if (typeof value !== 'string' && !(value instanceof Date)) {
 		return null;
 	}
 	const date = value instanceof Date ? value : new Date(value);
 	return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
