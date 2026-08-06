@@ -38,6 +38,25 @@
 	// would report all three SPAs' routes as dead.
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
+	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
+	// what makes it a gate: 13.6% is where the workspace sits after #66–#70, and
+	// 13.7 leaves a tenth of a point of slack so an ordinary change does not fail
+	// on rounding.
+	//
+	// Read this as "did the branch make it worse", not "lower is better". A large
+	// clone group can be genuinely divergent code that merely shares a shape —
+	// the two domain overview panels are the standing example, and collapsing
+	// them would be wrong however good it looked here. Equally, a branch that
+	// adds a lot of non-duplicated code lowers the ratio and could hide copies it
+	// added; the number is a floor under regressions, not a measure of quality.
+	//
+	// Lower it when real duplication comes out (`pnpm fallow:baseline` re-reads
+	// both this and the complexity baseline). Raising it needs a reason in the
+	// commit message.
+	"duplicates": {
+		"threshold": 13.7
+	},
+
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and
 	// `@tanstack/electric-db-collection` each depend on an exact version of it, so
 	// apps/web and packages/sync list it to keep all three moving together — a

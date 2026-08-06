@@ -20,6 +20,8 @@
 		"dev:preview": "nx dev @simmer-mosquito/preview",
 		"dev:web": "nx dev @simmer-mosquito/web",
 		"fallow": "node scripts/fallow.mjs",
+		"fallow:baseline": "node scripts/fallow.mjs health --save-baseline .fallow-baseline/health.json",
+		"fallow:health": "node scripts/fallow.mjs health --baseline .fallow-baseline/health.json --fail-on-regression",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"graph": "nx graph",

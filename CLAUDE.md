@@ -22,6 +22,19 @@ pnpm graph          # nx project graph
 
 Per-app dev servers: `pnpm dev:server`, `pnpm dev:web`, `pnpm dev:admin`, `pnpm dev:preview`. `pnpm dev:caddy` runs the local reverse proxy (`Caddyfile.local`).
 
+### Rot gates
+
+CI's `verify` job runs three `fallow` checks, and all three are also runnable locally:
+
+```sh
+pnpm fallow dead-code   # unused code, cycles, unresolved imports — gated at zero
+pnpm fallow dupes       # duplication, ratcheted at the threshold in .fallowrc.jsonc
+pnpm fallow:health      # complexity, compared against .fallow-baseline/health.json
+pnpm fallow:baseline    # re-save the complexity baseline after real complexity comes out
+```
+
+Duplication and complexity are gated **against where the workspace already is**, not against zero: the backlog is thousands of lines and hundreds of units, so an absolute gate would fail every branch on history. Read both as "did this branch make it worse". Lowering the duplication threshold or re-saving the complexity baseline is normal after a cleanup — but a re-saved baseline can also bury a regression, so read the diff.
+
 Scope a task to one project with Nx or pnpm filters:
 
 ```sh

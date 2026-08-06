@@ -37,18 +37,33 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      # Structural rot only: unused files/exports/dependencies, circular
+      # Structural rot: unused files/exports/dependencies, circular
       # dependencies, unresolved imports. Those default to `error` in fallow and
-      # the workspace is currently at zero, so this fails on what a branch adds
-      # rather than on a pre-existing backlog. The softer cleanup rules stay at
-      # `warn` by choice (.fallowrc.jsonc), and duplication and complexity are
-      # not run here at all — `fallow dupes` reports the deliberate
-      # adult/larval domain mirroring, which is not a merge blocker.
+      # the workspace is at zero, so this fails on what a branch adds rather
+      # than on a pre-existing backlog. The softer cleanup rules stay at `warn`
+      # by choice (.fallowrc.jsonc).
       #
-      # Goes through the wrapper rather than `pnpm exec fallow` so a local run on
-      # Windows behaves identically; the wrapper is a no-op on this runner.
+      # These go through the wrapper rather than `pnpm exec fallow` so a local
+      # run on Windows behaves identically; it is a no-op on this runner.
       - name: Dead code
         run: pnpm fallow dead-code
+
+      # Duplication and complexity are gated against where the workspace already
+      # is, not against zero — the backlog is thousands of lines and hundreds of
+      # units, so an absolute gate would fail every branch on history rather than
+      # catch anything new.
+      #
+      # Duplication ratchets on the percentage in .fallowrc.jsonc. Complexity
+      # compares per file and category against a saved baseline, so a branch that
+      # adds a hotspot fails while the existing ones stay quiet. Re-save it with
+      # `pnpm fallow:baseline` after real complexity comes out — and read a diff
+      # to it in review, since a baseline can also be re-saved to bury a
+      # regression.
+      - name: Duplication
+        run: pnpm fallow dupes
+
+      - name: Complexity
+        run: pnpm fallow:health
 
       - name: Test
         run: pnpm test
