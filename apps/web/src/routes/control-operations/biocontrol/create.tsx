@@ -136,7 +136,7 @@ function CreateBiocontrolActionRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultBiocontrolFormValues()}
 			header={{
-				title: 'Record biocontrol',
+				title: 'Record Biocontrol',
 				description:
 					'Place the release point, then record the method, amount, and date of the release.',
 				backTo: '/control-operations/biocontrol',
@@ -145,7 +145,7 @@ function CreateBiocontrolActionRoute() {
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
 			profiles={profiles}
-			submitLabel="Record biocontrol"
+			submitLabel="Record Biocontrol"
 			units={units}
 		/>
 	);

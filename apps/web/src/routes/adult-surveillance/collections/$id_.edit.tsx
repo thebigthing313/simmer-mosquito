@@ -220,7 +220,7 @@ function EditCollectionLoader({
 			collectionMethods={collectionMethods}
 			defaultValues={defaultsFromCollection(collection, personnel)}
 			header={{
-				title: 'Edit collection',
+				title: 'Edit Collection',
 				description: 'Update this collection’s method, timing, personnel, location, or result.',
 				backTo: '/adult-surveillance/collections/$id',
 				backParams: { id: collection.id },

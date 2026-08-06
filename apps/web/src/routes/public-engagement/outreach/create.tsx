@@ -129,7 +129,7 @@ function CreateOutreachActionRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultOutreachFormValues()}
 			header={{
-				title: 'Record outreach',
+				title: 'Record Outreach',
 				description:
 					'Place where the outreach happened, then record the method, how many were reached, and the date.',
 				backTo: '/public-engagement/outreach',
@@ -139,7 +139,7 @@ function CreateOutreachActionRoute() {
 			organizationId={organization?.id ?? ''}
 			outreachMethods={methods}
 			profiles={profiles}
-			submitLabel="Record outreach"
+			submitLabel="Record Outreach"
 		/>
 	);
 }

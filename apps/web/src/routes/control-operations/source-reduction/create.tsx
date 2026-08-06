@@ -130,16 +130,16 @@ function CreateSourceReductionRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultSourceReductionFormValues()}
 			header={{
-				title: 'Record source reduction',
+				title: 'Record Source Reduction',
 				description: 'Place the point, then record what the crew eliminated, how much, and when.',
 				backTo: '/control-operations/source-reduction',
-				backLabel: 'Source reduction',
+				backLabel: 'Source Reduction',
 			}}
 			methods={methods}
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
 			profiles={profiles}
-			submitLabel="Record source reduction"
+			submitLabel="Record Source Reduction"
 			units={units}
 		/>
 	);

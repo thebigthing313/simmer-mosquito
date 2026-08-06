@@ -215,7 +215,7 @@ function EditBiocontrolActionLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromAction(action, personnel)}
 			header={{
-				title: 'Edit biocontrol',
+				title: 'Edit Biocontrol',
 				description: 'Update this release’s method, amount, date, context, or location.',
 				backTo: '/control-operations/biocontrol/$id',
 				backParams: { id: action.id },

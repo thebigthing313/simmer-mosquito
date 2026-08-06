@@ -150,7 +150,7 @@ function CreateInspectionRoute() {
 			habitatTypes={habitatTypes}
 			mode="create"
 			header={{
-				title: 'Record inspection',
+				title: 'Record Inspection',
 				description: 'Log a larval inspection against a habitat or an ad-hoc field location.',
 				backTo: '/larval-surveillance/inspections',
 				backLabel: 'Inspections',
@@ -159,7 +159,7 @@ function CreateInspectionRoute() {
 			organizationId={organization?.id ?? ''}
 			policy={policy}
 			profiles={profiles}
-			submitLabel="Record inspection"
+			submitLabel="Record Inspection"
 		/>
 	);
 }

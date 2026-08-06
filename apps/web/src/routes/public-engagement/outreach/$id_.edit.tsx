@@ -203,7 +203,7 @@ function EditOutreachActionLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromAction(action, personnel)}
 			header={{
-				title: 'Edit outreach',
+				title: 'Edit Outreach',
 				description: 'Update this action’s method, reach, date, or location.',
 				backTo: '/public-engagement/outreach/$id',
 				backParams: { id: action.id },

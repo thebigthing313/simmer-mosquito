@@ -216,7 +216,7 @@ function EditSourceReductionLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromSourceReduction(sourceReduction, personnel)}
 			header={{
-				title: 'Edit source reduction',
+				title: 'Edit Source Reduction',
 				description: 'Update what was eliminated, who did it, when, or where.',
 				backTo: '/control-operations/source-reduction/$id',
 				backParams: { id: sourceReduction.id },

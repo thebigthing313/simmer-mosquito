@@ -302,7 +302,7 @@ function EditInspectionLoader({
 			defaultValues={defaultsFromInspection(inspection, personnelProfileIds)}
 			habitatTypes={habitatTypes}
 			header={{
-				title: 'Edit inspection',
+				title: 'Edit Inspection',
 				description: 'Revise what this inspection found, or who recorded it.',
 				backTo: '/larval-surveillance/inspections/$id',
 				backParams: { id: inspection.id },

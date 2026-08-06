@@ -170,7 +170,7 @@ function CreateCollectionRoute() {
 				settings.adultSurveillance.collectionTimingMode,
 			)}
 			header={{
-				title: 'Record collection',
+				title: 'Record Collection',
 				description: 'Log a collection from a trap or a one-off field location.',
 				backTo: '/adult-surveillance/collections',
 				backLabel: 'Collections',
@@ -178,7 +178,7 @@ function CreateCollectionRoute() {
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
 			profiles={profiles}
-			submitLabel="Record collection"
+			submitLabel="Record Collection"
 			traps={traps}
 			units={units}
 		/>
