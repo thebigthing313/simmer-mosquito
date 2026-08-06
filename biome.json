@@ -13,6 +13,7 @@
 			"!**/coverage",
 			"!.nx",
 			"!**/routeTree.gen.ts",
+			"!.fallow-baseline",
 			"!packages/ui-web/src/components/ui",
 			"!.agents/skills/impeccable/scripts/modern-screenshot.umd.js"
 		]
