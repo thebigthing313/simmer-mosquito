@@ -207,11 +207,9 @@ const ROAD_CLASSES = ROADS.flatMap((tier) => tier.classes);
 /** Surface roads only. Bridges and tunnels are drawn by their own layers. */
 const SURFACE = ['match', ['get', 'structure'], ['none', 'ford'], true, false];
 
-export function buildLayers(variant) {
-	const { palette: p, weight: w, imagery, terrain, landcover, buildings, poiLandmarks } = variant;
+/** The flat wash everything else sits on, or the satellite raster in its place. */
+function ground({ palette: p, imagery }) {
 	const layers = [];
-
-	// ---------------------------------------------------------------- ground --
 
 	layers.push({
 		id: 'background',
@@ -228,10 +226,15 @@ export function buildLayers(variant) {
 		});
 	}
 
-	// ------------------------------------------------------------ land cover --
-	//
-	// Enters at z9, drops to a faint tint at z13, and is gone by z16 so it never
-	// competes with buildings and data marks at working zoom.
+	return layers;
+}
+
+/**
+ * Enters at z9, drops to a faint tint at z13, and is gone by z16 so it never
+ * competes with buildings and data marks at working zoom.
+ */
+function landCover({ palette: p, landcover }) {
+	const layers = [];
 
 	if (landcover) {
 		const coverOpacity = ramp([
@@ -322,7 +325,12 @@ export function buildLayers(variant) {
 		});
 	}
 
-	// --------------------------------------------------------------- terrain --
+	return layers;
+}
+
+/** Relief, peaking at z11 where it explains standing water. */
+function terrainShade({ palette: p, terrain }) {
+	const layers = [];
 
 	if (terrain) {
 		layers.push({
@@ -360,10 +368,15 @@ export function buildLayers(variant) {
 		});
 	}
 
-	// ----------------------------------------------------------------- water --
-	//
-	// The one group present at every zoom. Wetland is separated from open water
-	// because marsh and swamp are breeding sites, and a flat lake-blue hides them.
+	return layers;
+}
+
+/**
+ * The one group present at every zoom. Wetland is separated from open water
+ * because marsh and swamp are breeding sites, and a flat lake-blue hides them.
+ */
+function water({ palette: p, weight: w, imagery }) {
+	const layers = [];
 
 	if (!imagery) {
 		layers.push({
@@ -453,11 +466,16 @@ export function buildLayers(variant) {
 		},
 	});
 
-	// ------------------------------------------------------------- waterways --
-	//
-	// Streams, canals, drains, and ditches get a casing so a 1px line still reads
-	// over land cover and imagery. Stock Streets loses these at mid zoom, which is
-	// exactly where larval habitat lives.
+	return layers;
+}
+
+/**
+ * Streams, canals, drains, and ditches get a casing so a 1px line still reads
+ * over land cover and imagery. Stock Streets loses these at mid zoom, which is
+ * exactly where larval habitat lives.
+ */
+function waterways({ palette: p, weight: w, imagery }) {
+	const layers = [];
 
 	layers.push({
 		id: 'waterway-casing',
@@ -620,7 +638,12 @@ export function buildLayers(variant) {
 		},
 	});
 
-	// ----------------------------------------------------------------- roads --
+	return layers;
+}
+
+/** The road network: tunnels and paths below, surface tiers, then bridges above. */
+function roads({ palette: p, weight: w }) {
+	const layers = [];
 
 	layers.push({
 		id: 'road-tunnel',
@@ -777,7 +800,12 @@ export function buildLayers(variant) {
 		},
 	});
 
-	// ------------------------------------------------------------- buildings --
+	return layers;
+}
+
+/** Footprints, z15 and up, where an address is being found on the ground. */
+function buildingFootprints({ palette: p, buildings }) {
+	const layers = [];
 
 	if (buildings) {
 		layers.push({
@@ -798,12 +826,17 @@ export function buildLayers(variant) {
 		});
 	}
 
-	// ------------------------------------------------------------ boundaries --
-	//
-	// Neutral grey and clearly subordinate. A SIMMER Region is 2px solid #2d46b6
-	// with a fill wash; nothing drawn here can be mistaken for an agency object.
-	// Note admin_level 2 is counties in the US — municipal limits are not in this
-	// tileset.
+	return layers;
+}
+
+/**
+ * Neutral grey and clearly subordinate. A SIMMER Region is 2px solid #2d46b6
+ * with a fill wash; nothing drawn here can be mistaken for an agency object.
+ * Note admin_level 2 is counties in the US — municipal limits are not in this
+ * tileset.
+ */
+function boundaries({ palette: p, weight: w }) {
+	const layers = [];
 
 	const ADMIN = [
 		{
@@ -868,7 +901,12 @@ export function buildLayers(variant) {
 		});
 	}
 
-	// ---------------------------------------------------------------- labels --
+	return layers;
+}
+
+/** Everything typographic, drawn last so nothing paints over a name. */
+function labels({ palette: p, poiLandmarks }) {
+	const layers = [];
 
 	layers.push({
 		id: 'label-waterway',
@@ -1120,4 +1158,27 @@ export function buildLayers(variant) {
 	});
 
 	return layers;
+}
+
+/**
+ * Draw order, and the only place it is written down.
+ *
+ * A Mapbox style has no z-index — a layer paints over every layer before it in
+ * the array, so this list *is* the cartography. Ground under cover under water
+ * under roads under labels. Moving an entry moves what wins at a crossing.
+ */
+const GROUPS = [
+	ground,
+	landCover,
+	terrainShade,
+	water,
+	waterways,
+	roads,
+	buildingFootprints,
+	boundaries,
+	labels,
+];
+
+export function buildLayers(variant) {
+	return GROUPS.flatMap((group) => group(variant));
 }

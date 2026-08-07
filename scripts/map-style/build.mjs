@@ -122,14 +122,30 @@ function walkStrings(node, visit) {
 const HEX = /^#[0-9a-f]{6}$/;
 const RGBA = /^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(,\s*[\d.]+\s*)?\)$/;
 
-function checkStyle(style) {
-	const id = style.metadata['simmer:variant'];
-	const ids = new Set();
+/**
+ * A fontstack naming a font Mapbox does not serve falls back silently. These are
+ * the only faces the graph is allowed to ask for.
+ */
+const ALLOWED_FONTS = new Set([
+	'Roboto Condensed Regular',
+	'Roboto Condensed Bold',
+	'Roboto Condensed Light',
+	'Arial Unicode MS Regular',
+	'Arial Unicode MS Bold',
+]);
 
+/** Two layers sharing an id means the second silently replaces the first. */
+function checkLayerIds(style, id) {
+	const seen = new Set();
 	for (const layer of style.layers) {
-		if (ids.has(layer.id)) fail(id, `duplicate layer id "${layer.id}"`);
-		ids.add(layer.id);
+		if (seen.has(layer.id)) fail(id, `duplicate layer id "${layer.id}"`);
+		seen.add(layer.id);
+	}
+}
 
+/** Every layer is wired to a source and a source-layer that actually exist. */
+function checkLayerSources(style, id) {
+	for (const layer of style.layers) {
 		if (layer.source && !style.sources[layer.source]) {
 			fail(id, `layer "${layer.id}" references missing source "${layer.source}"`);
 		}
@@ -140,15 +156,24 @@ function checkStyle(style) {
 		if (layer.type !== 'background' && layer.type !== 'raster' && !sourceLayer) {
 			fail(id, `layer "${layer.id}" has no source-layer`);
 		}
-		if (layer.minzoom !== undefined && layer.maxzoom !== undefined) {
-			if (layer.minzoom >= layer.maxzoom) {
-				fail(id, `layer "${layer.id}" has minzoom >= maxzoom`);
-			}
+	}
+}
+
+/** An inverted zoom window renders nothing, and looks like a missing layer. */
+function checkLayerZoom(style, id) {
+	for (const layer of style.layers) {
+		if (layer.minzoom === undefined || layer.maxzoom === undefined) continue;
+		if (layer.minzoom >= layer.maxzoom) {
+			fail(id, `layer "${layer.id}" has minzoom >= maxzoom`);
 		}
 	}
+}
 
-	// The Map-Room Neutral Rule, enforced rather than trusted: neutrals are tinted
-	// toward green and blue, and pure white or black never appears.
+/**
+ * The Map-Room Neutral Rule, enforced rather than trusted: neutrals are tinted
+ * toward green and blue, and pure white or black never appears.
+ */
+function checkColours(style, id) {
 	walkStrings({ layers: style.layers }, (value) => {
 		if (!value.startsWith('#') && !value.startsWith('rgb')) return;
 		if (value.startsWith('#') && !HEX.test(value)) {
@@ -166,16 +191,10 @@ function checkStyle(style) {
 			);
 		}
 	});
+}
 
-	// A fontstack naming a font Mapbox does not serve falls back silently. These
-	// four are the only faces the graph is allowed to ask for.
-	const ALLOWED_FONTS = new Set([
-		'Roboto Condensed Regular',
-		'Roboto Condensed Bold',
-		'Roboto Condensed Light',
-		'Arial Unicode MS Regular',
-		'Arial Unicode MS Bold',
-	]);
+/** No layer asks for a face Mapbox does not host. */
+function checkFonts(style, id) {
 	for (const layer of style.layers) {
 		for (const font of layer.layout?.['text-font'] ?? []) {
 			if (!ALLOWED_FONTS.has(font)) {
@@ -183,6 +202,15 @@ function checkStyle(style) {
 			}
 		}
 	}
+}
+
+function checkStyle(style) {
+	const id = style.metadata['simmer:variant'];
+	checkLayerIds(style, id);
+	checkLayerSources(style, id);
+	checkLayerZoom(style, id);
+	checkColours(style, id);
+	checkFonts(style, id);
 }
 
 // -------------------------------------------------------------------- write --
