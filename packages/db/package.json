@@ -9,8 +9,8 @@
 			"import": "./dist/index.js"
 		},
 		"./test-support": {
-			"types": "./dist/test-support/db-integration.d.ts",
-			"import": "./dist/test-support/db-integration.js"
+			"types": "./dist/test-support/index.d.ts",
+			"import": "./dist/test-support/index.js"
 		},
 		"./package.json": "./package.json"
 	},

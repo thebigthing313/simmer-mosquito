@@ -32,6 +32,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import { type CommandContext, CommandError, handleCommandError } from './command-endpoint.js';
 import { isRecord } from './command-payload.js';
 import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
 
@@ -114,8 +115,7 @@ export function registerControlProductCommandRoutes(
 			return denial;
 		}
 
-		const result = await writeInsecticideCommands(options.db, [commandResult.command]);
-		return context.json({ insecticide: toInsecticideResponse(result.row), txid: result.txid }, 201);
+		return runProductCommands(context, insecticideRun(options.db), [commandResult.command], 201);
 	});
 
 	app.patch(
@@ -141,12 +141,7 @@ export function registerControlProductCommandRoutes(
 				return denial;
 			}
 
-			const result = await writeInsecticideCommands(options.db, commandsResult.commands);
-			if (result.row === null) {
-				return context.json({ error: 'insecticide_not_found' }, 404);
-			}
-
-			return context.json({ insecticide: toInsecticideResponse(result.row), txid: result.txid });
+			return runProductCommands(context, insecticideRun(options.db), commandsResult.commands);
 		},
 	);
 
@@ -169,12 +164,7 @@ export function registerControlProductCommandRoutes(
 				return denial;
 			}
 
-			const result = await writeInsecticideCommands(options.db, [commandResult.command]);
-			if (result.row === null) {
-				return context.json({ error: 'insecticide_not_found' }, 404);
-			}
-
-			return context.json({ insecticide: toInsecticideResponse(result.row), txid: result.txid });
+			return runProductCommands(context, insecticideRun(options.db), [commandResult.command]);
 		},
 	);
 
@@ -204,11 +194,7 @@ export function registerControlProductCommandRoutes(
 				return denial;
 			}
 
-			const result = await writeInsecticideBatchCommands(options.db, [commandResult.command]);
-			return context.json(
-				{ batch: toInsecticideBatchResponse(result.row), txid: result.txid },
-				201,
-			);
+			return runProductCommands(context, batchRun(options.db), [commandResult.command], 201);
 		},
 	);
 
@@ -235,12 +221,7 @@ export function registerControlProductCommandRoutes(
 				return denial;
 			}
 
-			const result = await writeInsecticideBatchCommands(options.db, commandsResult.commands);
-			if (result.row === null) {
-				return context.json({ error: 'insecticide_batch_not_found' }, 404);
-			}
-
-			return context.json({ batch: toInsecticideBatchResponse(result.row), txid: result.txid });
+			return runProductCommands(context, batchRun(options.db), commandsResult.commands);
 		},
 	);
 
@@ -263,14 +244,68 @@ export function registerControlProductCommandRoutes(
 				return denial;
 			}
 
-			const result = await writeInsecticideBatchCommands(options.db, [commandResult.command]);
-			if (result.row === null) {
-				return context.json({ error: 'insecticide_batch_not_found' }, 404);
-			}
-
-			return context.json({ batch: toInsecticideBatchResponse(result.row), txid: result.txid });
+			return runProductCommands(context, batchRun(options.db), [commandResult.command]);
 		},
 	);
+}
+
+/**
+ * What the tail of a route in this file varies by: which write loop to run,
+ * what a null row is called, and what key the row answers under.
+ */
+interface ProductRun<TCommand, TSafe> {
+	readonly write: (commands: readonly TCommand[]) => Promise<MutationWriteResult<TSafe | null>>;
+	readonly responseKey: string;
+	readonly toResponse: (row: TSafe | null) => unknown;
+	/** `null` on the creates, which cannot answer "not found". */
+	readonly notFoundError: string | null;
+}
+
+function insecticideRun(db: ControlProductDb): ProductRun<InsecticideCommand, SafeInsecticide> {
+	return {
+		write: (commands) => writeInsecticideCommands(db, commands),
+		responseKey: 'insecticide',
+		toResponse: toInsecticideResponse,
+		notFoundError: 'insecticide_not_found',
+	};
+}
+
+function batchRun(db: ControlProductDb): ProductRun<InsecticideBatchCommand, SafeInsecticideBatch> {
+	return {
+		write: (commands) => writeInsecticideBatchCommands(db, commands),
+		responseKey: 'batch',
+		toResponse: toInsecticideBatchResponse,
+		notFoundError: 'insecticide_batch_not_found',
+	};
+}
+
+/**
+ * Write the commands and answer, turning both kinds of absence into a 4xx.
+ *
+ * The `catch` is why this exists rather than eight inline copies. Refusals
+ * raised *inside* `db.transaction().execute` — `createInsecticideBatch` rejects
+ * an insecticide id that is not this agency's — had no handler on any route
+ * here, so a cross-tenant id left the server as an unhandled 500 (#119). Owning
+ * the tail once means the handler cannot be forgotten on the next route added.
+ */
+async function runProductCommands<TCommand, TSafe>(
+	context: CommandContext,
+	run: ProductRun<TCommand, TSafe>,
+	commands: readonly TCommand[],
+	createdStatus?: 201,
+): Promise<Response> {
+	try {
+		const result = await run.write(commands);
+		if (result.row === null && run.notFoundError !== null) {
+			return context.json({ error: run.notFoundError }, 404);
+		}
+		return context.json(
+			{ [run.responseKey]: run.toResponse(result.row), txid: result.txid },
+			createdStatus ?? 200,
+		);
+	} catch (error) {
+		return handleCommandError(context, error);
+	}
 }
 
 function buildInsecticideUpdateCommands(
@@ -745,7 +780,15 @@ async function assertInsecticideBelongsToOrganization(
 		.executeTakeFirst();
 
 	if (row === undefined) {
-		throw new Error('Insecticide batch must belong to an insecticide in this organization.');
+		// A `CommandError` rather than a bare `Error`: this is reached with an id
+		// that belongs to another agency, to a soft-deleted row, or to nothing at
+		// all, and all three are the caller's 404 rather than the server's 500.
+		// The three cases answer alike on purpose — a refusal that told them apart
+		// would let a caller probe for insecticide ids in other agencies.
+		throw new CommandError(404, {
+			error: 'insecticide_not_found',
+			reason: 'An insecticide batch must belong to an insecticide in this organization.',
+		});
 	}
 }
 
