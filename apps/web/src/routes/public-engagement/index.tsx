@@ -1,7 +1,8 @@
 import type { ControlMethodRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
@@ -11,13 +12,25 @@ import { webCollections } from '../../sync/webCollections';
 import {
 	addDaysToDateString,
 	formatMonthDay,
+	type OrganizationServiceRequests,
 	OUTREACH_ACTIVITY_WINDOW_DAYS,
 	type RecentOutreachAction,
+	type RequestParties,
+	SERVICE_REQUEST_FEED_WINDOW_DAYS,
+	type ServiceRequestEvent,
+	type ServiceRequestEventKind,
 	todayInTimeZone,
-	useOpenServiceRequests,
+	useOrganizationServiceRequests,
 	useRecentOutreachActions,
+	useRequestParties,
+	useServiceRequestFeed,
 } from './-overview-data';
-import { formatReach, serviceRequestTitle } from './-public-engagement-display';
+import {
+	contactDisplayName,
+	formatAddressLine,
+	formatReach,
+	serviceRequestTitle,
+} from './-public-engagement-display';
 
 export const Route = createFileRoute('/public-engagement/')({
 	component: PublicEngagementOverviewRoute,
@@ -26,10 +39,17 @@ export const Route = createFileRoute('/public-engagement/')({
 const PublicIcon = iconRegistry.domains.publicEngagement.icon;
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const OutreachIcon = iconRegistry.entities.outreachAction.icon;
+const ActivityIcon = iconRegistry.generic.calendar.icon;
 const MapIcon = iconRegistry.generic.map.icon;
 
 /** How many rows each panel previews before handing off to the explorer. */
 const PREVIEW_COUNT = 6;
+/**
+ * The feed previews further than the worklists above it. A week of activity on
+ * one busy request can be four rows on its own, and a chronology cut at six says
+ * less about the week than it does about the cut — so it shows more and scrolls.
+ */
+const FEED_PREVIEW_COUNT = 20;
 
 function PublicEngagementOverviewRoute() {
 	const { auth } = Route.useRouteContext();
@@ -41,8 +61,12 @@ function PublicEngagementOverviewRoute() {
 		() => addDaysToDateString(today, -(OUTREACH_ACTIVITY_WINDOW_DAYS - 1)),
 		[today],
 	);
+	const feedSince = useMemo(
+		() => addDaysToDateString(today, -(SERVICE_REQUEST_FEED_WINDOW_DAYS - 1)),
+		[today],
+	);
 
-	const requests = useOpenServiceRequests(organizationId);
+	const requests = useOrganizationServiceRequests(organizationId);
 
 	return (
 		<OutletSimpleLayout>
@@ -72,6 +96,13 @@ function PublicEngagementOverviewRoute() {
 					<OpenServiceRequestsPanel requests={requests} />
 					<RecentOutreachPanel since={since} />
 				</div>
+
+				{/*
+				 * Full width and below: the feed is a chronology across every request,
+				 * so it reads down rather than beside, and it is the one panel here
+				 * whose length is set by how busy the week was.
+				 */}
+				<ServiceRequestActivityPanel requests={requests} since={feedSince} />
 			</div>
 		</OutletSimpleLayout>
 	);
@@ -94,7 +125,14 @@ function ExplorerLinkButton({
 	);
 }
 
-/** One record's line in a panel: subject, a supporting line, and its date. */
+/**
+ * One record's line in a panel: subject, a supporting line, and its date.
+ *
+ * `icon` is optional because a leading icon only earns its column when it varies
+ * down the list. Repeated unchanged against every row — as the open requests
+ * panel did, stamping the same request glyph six times under a header already
+ * carrying it — it is a vertical rule pretending to be information.
+ */
 function PanelRow({
 	icon,
 	primary,
@@ -103,16 +141,18 @@ function PanelRow({
 	to,
 	params,
 }: {
-	readonly icon: ReactNode;
+	readonly icon?: ReactNode;
 	readonly primary: string;
-	readonly secondary: string;
+	readonly secondary: ReactNode;
 	readonly date: string;
 	readonly to: '/public-engagement/service-requests/$id' | '/public-engagement/outreach/$id';
 	readonly params: { readonly id: string };
 }) {
 	return (
-		<li className="flex items-center gap-3 px-4 py-2.5">
-			<span className="shrink-0 text-muted-foreground">{icon}</span>
+		<li className="flex items-start gap-3 px-4 py-2.5">
+			{icon === undefined ? null : (
+				<span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>
+			)}
 			<div className="grid min-w-0 flex-1">
 				<Link
 					className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -121,9 +161,9 @@ function PanelRow({
 				>
 					{primary}
 				</Link>
-				<span className="truncate text-muted-foreground text-xs">{secondary}</span>
+				<span className="min-w-0 text-muted-foreground text-xs">{secondary}</span>
 			</div>
-			<span className="w-14 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
+			<span className="w-14 shrink-0 pt-0.5 text-right text-muted-foreground text-xs tabular-nums">
 				{date}
 			</span>
 		</li>
@@ -142,14 +182,14 @@ function PanelRow({
 function OpenServiceRequestsPanel({
 	requests,
 }: {
-	readonly requests: {
-		readonly openRequests: readonly ServiceRequestRow[];
-		readonly openCount: number;
-		readonly isReady: boolean;
-		readonly isError: boolean;
-	};
+	readonly requests: OrganizationServiceRequests;
 }) {
-	const preview = requests.openRequests.slice(0, PREVIEW_COUNT);
+	const preview = useMemo(
+		() => requests.openRequests.slice(0, PREVIEW_COUNT),
+		[requests.openRequests],
+	);
+	// Only the previewed rows, so the two subsets stay the size of what is drawn.
+	const parties = useRequestParties(preview);
 
 	return (
 		<Panel
@@ -184,17 +224,164 @@ function OpenServiceRequestsPanel({
 					{preview.map((request) => (
 						<PanelRow
 							date={formatMonthDay(request.requestDate)}
-							icon={<RequestIcon aria-hidden="true" className="size-4" />}
 							key={request.id}
 							params={{ id: request.id }}
 							primary={serviceRequestTitle(request)}
-							secondary={request.details.trim() || 'No details recorded'}
+							secondary={<RequestParty parties={parties} request={request} />}
 							to="/public-engagement/service-requests/$id"
 						/>
 					))}
 				</ul>
 			)}
 		</Panel>
+	);
+}
+
+/**
+ * Who reported a request and where it is — the two things an operator picks up
+ * the phone knowing they need, and the two the row used to leave out in favour of
+ * the free-text details.
+ *
+ * Both are still resolving on the first paint (contacts and addresses are
+ * on-demand shapes), so each line holds its own space rather than reflowing the
+ * list as names arrive.
+ */
+function RequestParty({
+	request,
+	parties,
+}: {
+	readonly request: ServiceRequestRow;
+	readonly parties: RequestParties;
+}) {
+	const contact = parties.contactById.get(request.contactId);
+	const address = parties.addressById.get(request.addressId);
+
+	if (!parties.isReady && contact === undefined && address === undefined) {
+		return <Skeleton className="h-3.5 w-40" />;
+	}
+
+	return (
+		<span className="grid gap-0.5">
+			<span className="truncate">
+				{contact === undefined ? 'Contact unavailable' : contactDisplayName(contact)}
+			</span>
+			<span className="truncate">
+				{address === undefined ? 'Address unavailable' : formatAddressLine(address)}
+			</span>
+		</span>
+	);
+}
+
+// --- service request activity -----------------------------------------------
+
+/** How each kind of event reads and looks in the feed. */
+const EVENT_PRESENTATION: Readonly<
+	Record<ServiceRequestEventKind, { readonly verb: string; readonly icon: RegistryIcon }>
+> = {
+	created: { verb: 'opened', icon: iconRegistry.actions.add.icon },
+	commented: { verb: 'commented on', icon: iconRegistry.actions.comment.icon },
+	closed: { verb: 'closed', icon: iconRegistry.actions.check.icon },
+	edited: { verb: 'edited', icon: iconRegistry.actions.edit.icon },
+};
+
+/**
+ * What has happened to the agency's service requests lately, newest first.
+ *
+ * Unlike the panels above it this is a chronology rather than a worklist: the
+ * same request appears as often as it was touched, and an event is worth a row
+ * whether or not the request is still open. The kind icon leads each row because
+ * here it is the thing that varies — which is exactly when a repeated glyph
+ * stops being decoration and starts being the column you read.
+ */
+function ServiceRequestActivityPanel({
+	requests,
+	since,
+}: {
+	readonly requests: OrganizationServiceRequests;
+	readonly since: string;
+}) {
+	const feed = useServiceRequestFeed(requests.requests, since);
+	const profileNameById = useProfileNames();
+	const titleById = useMemo(
+		() =>
+			new Map(
+				requests.requests.map((request) => [request.id, serviceRequestTitle(request)] as const),
+			),
+		[requests.requests],
+	);
+	const preview = feed.events.slice(0, FEED_PREVIEW_COUNT);
+	const isError = requests.isError || feed.isError;
+	const isReady = requests.isReady && feed.isReady;
+
+	return (
+		<Panel
+			actions={
+				<ExplorerLinkButton
+					label="Open the service requests map"
+					to="/public-engagement/service-requests"
+				/>
+			}
+			count={isReady ? feed.events.length : undefined}
+			icon={<ActivityIcon className="size-4" />}
+			scrollBody
+			title={`Service Request Activity · Last ${SERVICE_REQUEST_FEED_WINDOW_DAYS} Days`}
+		>
+			{isError ? (
+				<PanelMessage>Service request activity is unavailable right now.</PanelMessage>
+			) : !isReady ? (
+				<RowSkeleton count={4} />
+			) : preview.length === 0 ? (
+				<PanelMessage>
+					No service request activity in the last {SERVICE_REQUEST_FEED_WINDOW_DAYS} days.
+				</PanelMessage>
+			) : (
+				<ul className="divide-y divide-border/60">
+					{preview.map((event) => (
+						<ActivityRow
+							actorName={
+								event.actorProfileId === null
+									? null
+									: (profileNameById.get(event.actorProfileId) ?? 'Unknown profile')
+							}
+							event={event}
+							key={event.key}
+							requestTitle={titleById.get(event.requestId) ?? 'a service request'}
+						/>
+					))}
+				</ul>
+			)}
+		</Panel>
+	);
+}
+
+function ActivityRow({
+	event,
+	requestTitle,
+	actorName,
+}: {
+	readonly event: ServiceRequestEvent;
+	readonly requestTitle: string;
+	readonly actorName: string | null;
+}) {
+	const { verb, icon: KindIcon } = EVENT_PRESENTATION[event.kind];
+
+	return (
+		<PanelRow
+			date={formatMonthDay(event.at.slice(0, 10))}
+			icon={<KindIcon aria-hidden="true" className="size-4" />}
+			params={{ id: event.requestId }}
+			primary={`${actorName ?? 'Someone'} ${verb} ${requestTitle}`}
+			secondary={
+				event.text === null ? (
+					<span className="text-muted-foreground/80">
+						{event.kind === 'edited' ? 'Details changed' : 'Service request'}
+					</span>
+				) : (
+					<span className="line-clamp-2">{event.text}</span>
+				)
+			}
+			to="/public-engagement/service-requests/$id"
+		/>
 	);
 }
 
@@ -264,10 +451,25 @@ function outreachSecondary(
 }
 
 /**
- * Method and personnel names for the outreach rows. Both catalogs sync eagerly,
- * so this is a local lookup — read through `useLiveQuery` rather than the
- * suspense variant so the panel resolves names without suspending the page.
+ * Who did it, by profile id. `profiles` syncs eagerly, so this is a local lookup
+ * — read through `useLiveQuery` rather than the suspense variant so a panel
+ * resolves names without suspending the page.
  */
+function useProfileNames(): ReadonlyMap<string, string> {
+	const profiles = useLiveQuery((query) => query.from({ profile: webCollections.profiles }), []);
+
+	return useMemo(
+		() =>
+			new Map(
+				((profiles.data ?? []) as readonly ProfileRow[]).map(
+					(profile) => [profile.id, profile.displayName] as const,
+				),
+			),
+		[profiles.data],
+	);
+}
+
+/** Method and personnel names for the outreach rows, both from eager catalogs. */
 function useOutreachLabels(): {
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly profileNameById: ReadonlyMap<string, string>;
@@ -276,7 +478,7 @@ function useOutreachLabels(): {
 		(query) => query.from({ method: webCollections.outreachMethods }),
 		[],
 	);
-	const profiles = useLiveQuery((query) => query.from({ profile: webCollections.profiles }), []);
+	const profileNameById = useProfileNames();
 
 	return useMemo(
 		() => ({
@@ -285,12 +487,8 @@ function useOutreachLabels(): {
 					(method) => [method.id, method.name] as const,
 				),
 			),
-			profileNameById: new Map(
-				((profiles.data ?? []) as readonly ProfileRow[]).map(
-					(profile) => [profile.id, profile.displayName] as const,
-				),
-			),
+			profileNameById,
 		}),
-		[methods.data, profiles.data],
+		[methods.data, profileNameById],
 	);
 }
