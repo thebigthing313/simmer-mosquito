@@ -3,7 +3,11 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { addressPrimaryLabel, addressSecondaryLabel } from '../lib/address-format';
+import {
+	addressPrimaryLabel,
+	addressSecondaryLabel,
+	addressSecondaryLines,
+} from '../lib/address-format';
 import { webCollections } from '../sync/webCollections';
 import { EmptyValue } from './empty-value';
 import { MapCardDetail } from './map/map-card';
@@ -66,7 +70,11 @@ export function LinkedAddressValue({ addressId }: { readonly addressId: string |
 		return isReady ? <EmptyValue /> : <Skeleton className="h-4 w-36" />;
 	}
 
-	const secondary = addressSecondaryLabel(address);
+	// Postal lines, not one comma-run: a detail row has the width, and a reader
+	// copying an address or reading it down a phone should not have to work out
+	// where the street ends. The map card below keeps the single line, where
+	// that is what fits.
+	const lines = addressSecondaryLines(address);
 	return (
 		<div className="grid gap-0.5">
 			<Link
@@ -76,9 +84,11 @@ export function LinkedAddressValue({ addressId }: { readonly addressId: string |
 			>
 				{addressPrimaryLabel(address)}
 			</Link>
-			{secondary === null ? null : (
-				<span className="text-muted-foreground text-xs">{secondary}</span>
-			)}
+			{lines.map((line) => (
+				<span className="text-muted-foreground text-xs" key={line}>
+					{line}
+				</span>
+			))}
 		</div>
 	);
 }

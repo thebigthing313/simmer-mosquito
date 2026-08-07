@@ -40,7 +40,7 @@ import { SourceReductionMapCard } from '../../control-operations/-source-reducti
 import { InspectionMapCard } from '../../larval-surveillance/-inspection-map-card';
 import {
 	contactDisplayName,
-	formatAddressLine,
+	formatAddressLines,
 	formatRequestDate,
 	intakeTypeLabel,
 	isServiceRequestOpen,
@@ -722,6 +722,7 @@ function RequestPartiesCard({
 		[addressId],
 	);
 	const address = addressResult.data as AddressRow | undefined;
+	const addressLines = address === undefined ? [] : formatAddressLines(address);
 
 	return (
 		<Card variant="surface">
@@ -789,9 +790,17 @@ function RequestPartiesCard({
 							>
 								{address.displayName}
 							</Link>
-							<p className="m-0 text-muted-foreground text-sm">
-								{formatAddressLine(address) || address.displayName}
-							</p>
+							{/* Postal lines, as an envelope carries them: staff read this
+							    address down a phone to a resident. */}
+							{addressLines.length === 0 ? (
+								<p className="m-0 text-muted-foreground text-sm">{address.displayName}</p>
+							) : (
+								addressLines.map((line) => (
+									<p className="m-0 text-muted-foreground text-sm" key={line}>
+										{line}
+									</p>
+								))
+							)}
 							<dl className="grid gap-1.5">
 								<PartyRow label="Coords" value={formatCoords(address.lat, address.lng)} />
 							</dl>

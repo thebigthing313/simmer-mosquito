@@ -5,6 +5,7 @@ import {
 	addressPrimaryLabel,
 	addressSecondaryLabel,
 	formatAddressLine,
+	formatAddressLines,
 } from './address-format';
 
 describe('address labels', () => {
@@ -49,6 +50,49 @@ describe('address labels', () => {
 			'123 Main St, Unit 4, Somewhere, WA',
 		);
 		expect(addressCardLabel(undefined)).toBeNull();
+	});
+});
+
+describe('formatAddressLines', () => {
+	// The street on its own line, everything that qualifies it on the next —
+	// what an envelope carries, and what a reader copying an address or saying
+	// it down a phone expects. The single-line form stays for map cards.
+	it('breaks after the street', () => {
+		expect(formatAddressLines(addressRow())).toEqual(['123 Main St', 'Somewhere, WA 98101']);
+	});
+
+	it('keeps a unit with the qualifiers, not the street', () => {
+		expect(formatAddressLines(addressRow({ addressLine2: 'Apt 4' }))).toEqual([
+			'123 Main St',
+			'Apt 4, Somewhere, WA 98101',
+		]);
+	});
+
+	// An address with only a street is one line, not a line and a blank.
+	it('drops the parts that are not there', () => {
+		expect(
+			formatAddressLines(
+				addressRow({ locality: null, region: null, postalCode: null, addressLine2: null }),
+			),
+		).toEqual(['123 Main St']);
+		expect(formatAddressLines(addressRow({ addressLine1: null }))).toEqual(['Somewhere, WA 98101']);
+		expect(
+			formatAddressLines(
+				addressRow({
+					addressLine1: null,
+					addressLine2: null,
+					locality: null,
+					region: null,
+					postalCode: null,
+				}),
+			),
+		).toEqual([]);
+	});
+
+	it('says the same thing the single line does, split', () => {
+		const address = addressRow({ addressLine2: 'Apt 4' });
+
+		expect(formatAddressLines(address).join(', ')).toBe(formatAddressLine(address));
 	});
 });
 

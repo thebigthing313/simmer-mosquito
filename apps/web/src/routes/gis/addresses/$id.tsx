@@ -19,6 +19,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { formatAddressLines } from '../../../lib/address-format';
 import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
 
@@ -74,6 +75,7 @@ function AddressDetail({ addressId }: { readonly addressId: string }) {
 function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 	useBreadcrumbLabel(address.id, address.displayName);
 	const geometryQuery = useAddressGeometry(address.id);
+	const addressLines = formatAddressLines(address);
 
 	return (
 		<>
@@ -86,9 +88,18 @@ function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
 						{address.displayName}
 					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{addressLine(address) || 'No street address'}
-					</p>
+					{/* Postal lines, as an envelope carries them — the header has the
+					    width, and a comma-run makes the reader find where the street
+					    ends before they can copy it. */}
+					{addressLines.length === 0 ? (
+						<p className="m-0 text-[0.95rem] text-muted-foreground">No street address</p>
+					) : (
+						addressLines.map((line) => (
+							<p className="m-0 text-[0.95rem] text-muted-foreground" key={line}>
+								{line}
+							</p>
+						))
+					)}
 				</div>
 				<WriteOnly minimum="manager">
 					<Button asChild size="sm" variant="outline">
@@ -184,12 +195,6 @@ function orDash(value: string | null): ReactNode {
 	) : (
 		<span className="text-muted-foreground">—</span>
 	);
-}
-
-function addressLine(address: AddressRow): string {
-	return [address.addressLine1, address.locality, address.region, address.postalCode]
-		.filter((part): part is string => part !== null && part.trim().length > 0)
-		.join(', ');
 }
 
 function AddressDetailSkeleton() {
