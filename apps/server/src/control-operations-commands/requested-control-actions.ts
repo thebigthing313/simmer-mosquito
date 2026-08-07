@@ -25,8 +25,10 @@ import {
 	contextIds,
 	createCommand,
 	handleCommandError,
+	hasLocationContextChange,
 	invalidUpdate,
 	locationContextColumns,
+	locationContextInput,
 	type RouteOptions,
 	readControlActionContext,
 	readDate,
@@ -139,19 +141,24 @@ function buildRequestedControlActionUpdateCommands(
 		commands.push(result.command);
 	}
 
-	const hasLocation = 'locationSource' in payload;
-	const hasAddress = 'addressId' in payload;
-	const hasContext = 'context' in payload;
-	if (hasLocation || hasAddress || hasContext) {
+	// The flat `habitatId`/`inspectionId`/`collectionId` keys count as a context
+	// change, not just a nested `context` object — that is the shape the client
+	// collections actually PATCH, and reading only the nested form meant an edit
+	// that moved a request to a different habitat and nothing else built no
+	// command at all and came back as an invalid update.
+	if (hasLocationContextChange(payload)) {
+		const input = locationContextInput(payload);
 		const result = createCommand(() =>
 			updateRequestedControlActionLocationAndContextCommand({
 				...ctx,
 				requestedControlActionId,
-				...(hasLocation
-					? { locationSource: payload.locationSource as RequestedControlActionLocationSourceInput }
+				...('locationSource' in payload
+					? {
+							locationSource: payload.locationSource as RequestedControlActionLocationSourceInput,
+						}
 					: {}),
-				...(hasAddress ? { addressId: readNullableText(payload.addressId) } : {}),
-				...(hasContext ? { context: readControlActionContext(payload) } : {}),
+				...(input.addressId === undefined ? {} : { addressId: input.addressId }),
+				...(input.context === undefined ? {} : { context: input.context }),
 			}),
 		);
 		if (!result.ok) {
