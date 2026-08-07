@@ -155,16 +155,24 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 		}
 	}, [navigate, noun, onDelete, queryClient, recordId, recordType, returnTo]);
 
+	// Quiet by default. This sits at the foot of a record the operator came to
+	// read, not to destroy, and a full-size destructive block there competes
+	// with the record for attention every visit while being wanted on almost
+	// none of them. The destructive colour is spent on the button — the thing
+	// that actually does it — and on the confirmation, rather than on the frame
+	// and the heading as well.
 	return (
-		<Card className="border-destructive/40" variant="panel">
-			<CardHeader className="px-4 py-4">
-				<CardTitle className="text-destructive">Delete This {titleCase(noun)}</CardTitle>
+		<Card className="border-destructive/20" variant="panel">
+			<CardHeader className="gap-1 px-3 pt-3 pb-0">
+				<CardTitle className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+					Delete This {titleCase(noun)}
+				</CardTitle>
 			</CardHeader>
-			<CardContent className="grid gap-4" padding="compact">
+			<CardContent className="grid gap-2 px-3 pt-2 pb-3">
 				{impactQuery.isPending ? (
 					<ImpactSkeleton />
 				) : impactQuery.isError ? (
-					<p className="m-0 text-muted-foreground text-sm">
+					<p className="m-0 text-muted-foreground text-xs">
 						Could not check what deleting this would affect.
 					</p>
 				) : isBlocked ? (
@@ -174,14 +182,14 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 				)}
 
 				{deleteError === null ? null : (
-					<p className="m-0 text-destructive text-sm">{deleteError}</p>
+					<p className="m-0 text-destructive text-xs">{deleteError}</p>
 				)}
 
 				<div>
 					<Button
 						disabled={isBlocked || isDeleting || impactQuery.isPending}
 						onClick={() => setConfirmOpen(true)}
-						size="sm"
+						size="xs"
 						variant="destructive"
 					>
 						<DeleteIcon aria-hidden="true" />
@@ -220,7 +228,7 @@ function DeleteEffects({
 }) {
 	if (impact === undefined || !impact.found) {
 		return (
-			<p className="m-0 text-muted-foreground text-sm">
+			<p className="m-0 text-muted-foreground text-xs">
 				This {noun} will be removed. This can't be undone.
 			</p>
 		);
@@ -228,13 +236,13 @@ function DeleteEffects({
 
 	if (!hasEffects(impact)) {
 		return (
-			<p className="m-0 text-muted-foreground text-sm">
+			<p className="m-0 text-muted-foreground text-xs">
 				Nothing else references this {noun}. This can't be undone.
 			</p>
 		);
 	}
 
-	return <EffectLists impact={impact} />;
+	return <EffectLists impact={impact} size="compact" />;
 }
 
 /** True when deleting this record would reach past the record itself. */
@@ -248,9 +256,17 @@ function hasEffects(impact: DeleteImpact): boolean {
  * Rendered twice — on the card, and again inside the confirmation, so the last
  * screen before the write repeats what the button was standing next to.
  */
-function EffectLists({ impact }: { readonly impact: DeleteImpact }) {
+function EffectLists({
+	impact,
+	size = 'default',
+}: {
+	readonly impact: DeleteImpact;
+	/** `compact` on the card, which is a footnote; `default` in the confirmation,
+	 *  where the reader has stopped to decide and the list is the decision. */
+	readonly size?: 'default' | 'compact';
+}) {
 	return (
-		<div className="grid gap-3 text-sm">
+		<div className={size === 'compact' ? 'grid gap-1.5 text-xs' : 'grid gap-3 text-sm'}>
 			<EffectGroup entries={impact.cascades} label="Also deleted" />
 			<EffectGroup entries={impact.detaches} label="Kept, no longer linked" />
 		</div>
@@ -289,7 +305,7 @@ function BlockedReasons({
 	readonly noun: string;
 }) {
 	return (
-		<div className="grid gap-1 text-sm">
+		<div className="grid gap-1 text-xs">
 			<span className="text-foreground">Still in use by:</span>
 			<ul className="m-0 grid list-none gap-0.5 p-0 text-foreground">
 				{blockers.map((entry) => (
@@ -303,9 +319,9 @@ function BlockedReasons({
 
 function ImpactSkeleton(): ReactNode {
 	return (
-		<div className="grid gap-2">
-			<Skeleton className="h-3.5 w-24" />
-			<Skeleton className="h-3.5 w-48" />
+		<div className="grid gap-1.5">
+			<Skeleton className="h-3 w-24" />
+			<Skeleton className="h-3 w-48" />
 		</div>
 	);
 }
