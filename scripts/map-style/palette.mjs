@@ -300,5 +300,3 @@ export const VARIANTS = [
 		weight: 1.3,
 	},
 ];
-
-export { day, dusk, hybrid, print };

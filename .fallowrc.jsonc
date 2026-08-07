@@ -21,6 +21,14 @@
 		"packages/db/src/seed-*.ts",
 		"packages/auth/src/probe-reset-password.ts",
 
+		// The basemap generator's two hand-run commands (`node
+		// scripts/map-style/build.mjs`, `… contrast.mjs`). They have no
+		// package.json script to be discovered from, and naming them here is what
+		// makes `layers.mjs`, `palette.mjs`, and `preview.mjs` reachable — those
+		// three are imports, not entry points, so they need nothing of their own.
+		"scripts/map-style/build.mjs",
+		"scripts/map-style/contrast.mjs",
+
 		// Second published entry point of @simmer-mosquito/db, imported by the
 		// server's integration suites via `@simmer-mosquito/db/test-support`.
 		"packages/db/src/test-support/db-integration.ts"
