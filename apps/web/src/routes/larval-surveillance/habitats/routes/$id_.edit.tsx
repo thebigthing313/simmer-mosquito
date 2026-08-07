@@ -13,11 +13,8 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
-	DropdownMenu,
-	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
-	DropdownMenuTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import {
 	Empty,
@@ -27,21 +24,12 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import {
 	ArrowLeftIcon,
-	ChevronDownIcon,
 	ChevronRightIcon,
-	ChevronUpIcon,
 	HomeIcon,
 	iconRegistry,
 	Loader2Icon,
-	MapPinnedIcon,
 	PlusIcon,
 	SearchIcon,
 	XIcon,
@@ -58,6 +46,8 @@ import {
 	type MoveAction,
 	type OrderPlacement,
 	OrdinalBadge,
+	StopList,
+	StopReorderControls,
 	useStopOrder,
 } from '../../../../components/stop-order';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
@@ -78,7 +68,7 @@ import { StopStatus, StopTagChips, StopTypePill, useStopMeta } from '../-route-s
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
-const MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
+const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 const NO_TAGS: readonly TagRow[] = [];
 
@@ -530,36 +520,16 @@ function EditStopList({
 }) {
 	const { typeNameById, tagsByHabitatId } = useStopMeta(stops);
 
-	if (isLoading && itemCount === 0) {
-		return (
-			<div className="grid gap-2 p-3">
-				{['sk-1', 'sk-2', 'sk-3', 'sk-4'].map((key) => (
-					<Skeleton className="h-[72px] rounded-lg" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (itemCount === 0) {
-		return (
-			<div className="flex flex-1 items-center justify-center p-6">
-				<Empty>
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<MapPinnedIcon aria-hidden="true" />
-						</EmptyMedia>
-						<EmptyTitle>No Stops Yet</EmptyTitle>
-						<EmptyDescription>
-							Search habitats above and add them in the order crews should visit.
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
-			</div>
-		);
-	}
-
 	return (
-		<ol className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+		<StopList
+			className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3"
+			empty={{
+				title: 'No Stops Yet',
+				description: 'Search habitats above and add them in the order crews should visit.',
+			}}
+			isEmpty={itemCount === 0}
+			isLoading={isLoading}
+		>
 			{stops.map((stop, index) => (
 				<EditStopRow
 					index={index}
@@ -586,7 +556,7 @@ function EditStopList({
 					}
 				/>
 			))}
-		</ol>
+		</StopList>
 	);
 }
 
@@ -664,56 +634,9 @@ function EditStopRow({
 						<StopTypePill typeName={typeName} />
 						<StopStatus stop={stop} />
 						<span aria-hidden="true" className="min-w-0 flex-1" />
-						<div className="pointer-events-auto flex shrink-0 items-center gap-0.5">
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										aria-label="Move up"
-										className="size-7"
-										disabled={isFirst}
-										onClick={() => onMove(index, 'up')}
-										size="icon"
-										variant="ghost"
-									>
-										<ChevronUpIcon aria-hidden="true" className="size-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Move up one stop</TooltipContent>
-							</Tooltip>
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										aria-label="Move down"
-										className="size-7"
-										disabled={isLast}
-										onClick={() => onMove(index, 'down')}
-										size="icon"
-										variant="ghost"
-									>
-										<ChevronDownIcon aria-hidden="true" className="size-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Move down one stop</TooltipContent>
-							</Tooltip>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button
-										aria-label="More stop actions"
-										className="size-7"
-										size="icon"
-										variant="ghost"
-									>
-										<MoreIcon aria-hidden="true" className="size-4" />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="end">
-									<DropdownMenuItem disabled={isFirst} onClick={() => onMove(index, 'top')}>
-										Move to top
-									</DropdownMenuItem>
-									<DropdownMenuItem disabled={isLast} onClick={() => onMove(index, 'bottom')}>
-										Move to bottom
-									</DropdownMenuItem>
-									<DropdownMenuSeparator />
+						<StopReorderControls
+							extraActions={
+								<>
 									<DropdownMenuItem onClick={() => onEditAddress(stop)}>
 										<HomeIcon aria-hidden="true" />
 										Edit linked address…
@@ -722,9 +645,13 @@ function EditStopRow({
 									<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
 										Remove from route
 									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</div>
+								</>
+							}
+							index={index}
+							isFirst={isFirst}
+							isLast={isLast}
+							onMove={onMove}
+						/>
 					</div>
 
 					{/* The home icon is the label; consecutive matching addresses read dimmed. */}

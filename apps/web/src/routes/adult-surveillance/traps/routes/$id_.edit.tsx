@@ -13,6 +13,7 @@ import {
 	AlertDialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import {
 	Empty,
 	EmptyDescription,
@@ -21,18 +22,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tooltip';
-import {
-	ArrowLeftIcon,
-	ChevronDownIcon,
-	ChevronUpIcon,
-	iconRegistry,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
@@ -41,6 +31,8 @@ import { RouteMap } from '../../../../components/route-planning';
 import {
 	type MoveAction,
 	type OrderPlacement,
+	OrdinalBadge,
+	StopReorderControls,
 	useStopOrder,
 } from '../../../../components/stop-order';
 import { useCollectionRows } from '../../../../hooks/use-collection-rows';
@@ -338,61 +330,21 @@ function StopEditor({
 					key={stop.routeItemId}
 				>
 					<div className="flex items-center gap-3">
-						<span
-							className={cn(
-								'flex size-7 shrink-0 items-center justify-center rounded-full font-semibold text-xs tabular-nums',
-								stop.isActive
-									? 'bg-primary text-primary-foreground'
-									: 'bg-muted text-muted-foreground',
-							)}
-						>
-							{index + 1}
-						</span>
+						<OrdinalBadge ordinal={index + 1} tone={stop.isActive ? 'default' : 'inactive'} />
 						<span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
 							{stop.name}
 						</span>
-						<div className="flex shrink-0 items-center gap-1">
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										aria-label="Move up"
-										disabled={index === 0}
-										onClick={() => onMove(index, 'up')}
-										size="icon-sm"
-										type="button"
-										variant="ghost"
-									>
-										<ChevronUpIcon aria-hidden="true" className="size-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Move up one stop</TooltipContent>
-							</Tooltip>
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										aria-label="Move down"
-										disabled={index === stops.length - 1}
-										onClick={() => onMove(index, 'down')}
-										size="icon-sm"
-										type="button"
-										variant="ghost"
-									>
-										<ChevronDownIcon aria-hidden="true" className="size-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Move down one stop</TooltipContent>
-							</Tooltip>
-							<Button
-								aria-label="Remove stop"
-								className="text-muted-foreground hover:text-destructive"
-								onClick={() => onRemove(stop.routeItemId)}
-								size="icon-sm"
-								type="button"
-								variant="ghost"
-							>
-								<DeleteIcon aria-hidden="true" className="size-4" />
-							</Button>
-						</div>
+						<StopReorderControls
+							extraActions={
+								<DropdownMenuItem onClick={() => onRemove(stop.routeItemId)} variant="destructive">
+									Remove from route
+								</DropdownMenuItem>
+							}
+							index={index}
+							isFirst={index === 0}
+							isLast={index === stops.length - 1}
+							onMove={onMove}
+						/>
 					</div>
 					{index < stops.length - 1 ? (
 						<Input

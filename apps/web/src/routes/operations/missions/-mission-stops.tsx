@@ -1,36 +1,17 @@
 import type { RequestedControlActionRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tooltip';
-import {
-	ChevronDownIcon,
-	ChevronUpIcon,
-	iconRegistry,
-	MapPinnedIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { useMemo, useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
-import { type MoveAction, OrdinalBadge } from '../../../components/stop-order';
+import {
+	type MoveAction,
+	OrdinalBadge,
+	StopList,
+	StopReorderControls,
+} from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import {
 	controlTypeLabel,
@@ -42,7 +23,7 @@ import {
 } from '../-operations-data';
 import { MissionItemProgressBadge, missionStopTone } from '../-operations-display';
 
-const MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
+const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 const ACTION_LABELS: Readonly<Record<MissionItemAction, string>> = {
 	complete: 'Done',
@@ -87,37 +68,17 @@ export function MissionStopList({
 	readonly onSelect: (id: string | null) => void;
 	readonly onHover: (id: string | null) => void;
 }) {
-	if (isLoading && stops.length === 0) {
-		return (
-			<div className="grid gap-2 p-3">
-				{['sk-1', 'sk-2', 'sk-3', 'sk-4'].map((key) => (
-					<Skeleton className="h-[76px] rounded-lg" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (stops.length === 0) {
-		return (
-			<div className="flex flex-1 items-center justify-center p-6">
-				<Empty>
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<MapPinnedIcon aria-hidden="true" />
-						</EmptyMedia>
-						<EmptyTitle>No Stops on This Mission</EmptyTitle>
-						<EmptyDescription>
-							A mission needs at least one stop before it can be started. Add them from the request
-							queue above.
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
-			</div>
-		);
-	}
-
 	return (
-		<ol className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3">
+		<StopList
+			className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3"
+			empty={{
+				title: 'No Stops on This Mission',
+				description:
+					'A mission needs at least one stop before it can be started. Add them from the request queue above.',
+			}}
+			isEmpty={stops.length === 0}
+			isLoading={isLoading}
+		>
 			{stops.map((stop, index) => (
 				<MissionStopRow
 					index={index}
@@ -137,7 +98,7 @@ export function MissionStopList({
 					stop={stop}
 				/>
 			))}
-		</ol>
+		</StopList>
 	);
 }
 
@@ -207,12 +168,16 @@ function MissionStopRow({
 						<MissionItemProgressBadge progress={stop.progress} />
 						<span aria-hidden="true" className="min-w-0 flex-1" />
 						{planEditable ? (
-							<StopPlanControls
+							<StopReorderControls
+								extraActions={
+									<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
+										Remove from mission
+									</DropdownMenuItem>
+								}
 								index={index}
 								isFirst={isFirst}
 								isLast={isLast}
 								onMove={onMove}
-								onRemove={() => onRemove(stop)}
 							/>
 						) : null}
 					</div>
@@ -241,75 +206,6 @@ function MissionStopRow({
 				</div>
 			</div>
 		</li>
-	);
-}
-
-/** Reorder and remove: the manager's half of a stop row. */
-function StopPlanControls({
-	index,
-	isFirst,
-	isLast,
-	onMove,
-	onRemove,
-}: {
-	readonly index: number;
-	readonly isFirst: boolean;
-	readonly isLast: boolean;
-	readonly onMove: (index: number, action: MoveAction) => void;
-	readonly onRemove: () => void;
-}) {
-	return (
-		<div className="pointer-events-auto flex shrink-0 items-center gap-0.5">
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						aria-label="Move up"
-						className="size-7"
-						disabled={isFirst}
-						onClick={() => onMove(index, 'up')}
-						size="icon"
-						variant="ghost"
-					>
-						<ChevronUpIcon aria-hidden="true" className="size-4" />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>Move up one stop</TooltipContent>
-			</Tooltip>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						aria-label="Move down"
-						className="size-7"
-						disabled={isLast}
-						onClick={() => onMove(index, 'down')}
-						size="icon"
-						variant="ghost"
-					>
-						<ChevronDownIcon aria-hidden="true" className="size-4" />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>Move down one stop</TooltipContent>
-			</Tooltip>
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button aria-label="More stop actions" className="size-7" size="icon" variant="ghost">
-						<MoreIcon aria-hidden="true" className="size-4" />
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end">
-					<DropdownMenuItem disabled={isFirst} onClick={() => onMove(index, 'top')}>
-						Move to top
-					</DropdownMenuItem>
-					<DropdownMenuItem disabled={isLast} onClick={() => onMove(index, 'bottom')}>
-						Move to bottom
-					</DropdownMenuItem>
-					<DropdownMenuSeparator />
-					<DropdownMenuItem onClick={onRemove} variant="destructive">
-						Remove from mission
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
-		</div>
 	);
 }
 
