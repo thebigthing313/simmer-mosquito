@@ -1,17 +1,7 @@
 import { createAddressCommand } from '@simmer-mosquito/domain';
-import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@simmer-mosquito/ui-web/components/ui/dialog';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	ArrowLeftIcon,
 	Loader2Icon,
@@ -21,18 +11,24 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import { GeometryControl, POINT_DRAW_TYPES } from '../../../components/map/geometry-control';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import {
+	GeocoderDialog,
+	type GeocoderPoint,
+	type GeocoderResponse,
+	type GeocoderResult,
+	LabeledInput,
+	pointFromGeocoderResult,
+} from '../../../components/pickers/geocoder-dialog';
 import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../../forms/domain-validation';
 
-export type AddressPointGeometry = {
-	readonly type: 'Point';
-	readonly coordinates: readonly [number, number];
-};
+/** The GIS form's public point type, and the one the geocoder helpers return. */
+export type AddressPointGeometry = GeocoderPoint;
 
 export interface AddressFormValues {
 	readonly displayName: string;
@@ -389,91 +385,6 @@ export function AddressFormPage({
 
 // --- geocoder dialog --------------------------------------------------------
 
-function GeocoderDialog({
-	open,
-	results,
-	onOpenChange,
-	onSelect,
-	onUseManualCoordinates,
-}: {
-	readonly open: boolean;
-	readonly results: readonly GeocoderResult[];
-	readonly onOpenChange: (open: boolean) => void;
-	readonly onSelect: (result: GeocoderResult) => void;
-	readonly onUseManualCoordinates: () => void;
-}) {
-	return (
-		<Dialog onOpenChange={onOpenChange} open={open}>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Choose Geocoder Result</DialogTitle>
-					<DialogDescription>
-						Select the best match or place the address point manually on the map.
-					</DialogDescription>
-				</DialogHeader>
-				<div className="grid max-h-80 gap-2 overflow-y-auto">
-					{results.length === 0 ? (
-						<p className="m-0 rounded-md bg-muted/50 p-3 text-muted-foreground text-sm">
-							No geocoder results returned.
-						</p>
-					) : (
-						results.map((result) => (
-							<button
-								className="grid gap-1 rounded-md border border-border/50 bg-background px-3 py-2 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
-								key={geocoderResultKey(result)}
-								onClick={() => onSelect(result)}
-								type="button"
-							>
-								<span className="font-medium">{result.formatted_address}</span>
-								<span className="text-muted-foreground text-xs">
-									{geocoderResultCoordinates(result)}
-								</span>
-							</button>
-						))
-					)}
-				</div>
-				<DialogFooter>
-					<Button onClick={onUseManualCoordinates} type="button" variant="outline">
-						<MapPinnedIcon aria-hidden="true" data-icon="inline-start" />
-						Use Manual Coordinates
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
-function LabeledInput({
-	label,
-	value,
-	onValueChange,
-	maxLength,
-	required = false,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly onValueChange: (value: string) => void;
-	readonly maxLength?: number;
-	readonly required?: boolean;
-}) {
-	const inputId = useId();
-	return (
-		<div className="grid gap-1.5">
-			<label className="font-medium text-foreground text-sm" htmlFor={inputId}>
-				{label}
-				{required ? <RequiredMark /> : null}
-			</label>
-			<Input
-				aria-required={required ? true : undefined}
-				id={inputId}
-				maxLength={maxLength}
-				onChange={(event) => onValueChange(event.target.value)}
-				value={value}
-			/>
-		</div>
-	);
-}
-
 function MapPrompt({ children }: { readonly children: React.ReactNode }) {
 	return (
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in">
@@ -485,18 +396,6 @@ function MapPrompt({ children }: { readonly children: React.ReactNode }) {
 }
 
 // --- helpers ----------------------------------------------------------------
-
-interface GeocoderResponse {
-	readonly results: readonly GeocoderResult[];
-}
-
-interface GeocoderResult {
-	readonly formatted_address?: string;
-	readonly location?: {
-		readonly lat?: number;
-		readonly lng?: number;
-	};
-}
 
 function useCenterOnPoint(map: MapboxMap | null, geometry: AddressPointGeometry | null): void {
 	const lastRef = useRef<string | null>(null);
@@ -515,28 +414,6 @@ function useCenterOnPoint(map: MapboxMap | null, geometry: AddressPointGeometry 
 			duration: 500,
 		});
 	}, [map, geometry]);
-}
-
-function pointFromGeocoderResult(result: GeocoderResult): AddressPointGeometry | null {
-	const lat = result.location?.lat;
-	const lng = result.location?.lng;
-	if (typeof lat !== 'number' || typeof lng !== 'number') {
-		return null;
-	}
-	return { type: 'Point', coordinates: [lng, lat] };
-}
-
-function geocoderResultCoordinates(result: GeocoderResult): string {
-	const point = pointFromGeocoderResult(result);
-	return point === null ? 'No coordinates' : pointSummary(point);
-}
-
-function geocoderResultKey(result: GeocoderResult): string {
-	return `${result.formatted_address ?? 'address'}-${geocoderResultCoordinates(result)}`;
-}
-
-function pointSummary(geometry: AddressPointGeometry): string {
-	return `${geometry.coordinates[1].toFixed(5)}, ${geometry.coordinates[0].toFixed(5)}`;
 }
 
 function addressQueryText(values: AddressFormValues): string {
