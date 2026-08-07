@@ -1,5 +1,6 @@
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -287,10 +288,7 @@ function ImportRegionsRoute() {
 		>
 			<div className="flex h-full min-h-0 flex-col">
 				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						to="/gis/regions"
-					>
+					<Link className={backLink()} to="/gis/regions">
 						<ArrowLeftIcon aria-hidden="true" />
 						Regions
 					</Link>

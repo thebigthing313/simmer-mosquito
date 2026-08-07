@@ -8,12 +8,6 @@ import type {
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
@@ -23,6 +17,7 @@ import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
+import { RecordUnavailable } from '../../../components/record';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isWriteBlocked } from '../../../lib/write-access';
@@ -78,15 +73,13 @@ function EditCollectionRoute() {
 	const collection = result.data as AdultCollectionRow | undefined;
 
 	if (result.isError) {
-		return <EditUnavailable description="This collection could not be loaded." />;
+		return <RecordUnavailable layout="centered" noun="collection" reason="error" />;
 	}
 	if (!result.isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (collection === undefined) {
-		return (
-			<EditUnavailable description="This collection could not be found, or you do not have access to it." />
-		);
+		return <RecordUnavailable layout="centered" noun="collection" reason="not-found" />;
 	}
 
 	const actorProfileId =
@@ -207,7 +200,14 @@ function EditCollectionLoader({
 	);
 
 	if (personnel.isError) {
-		return <EditUnavailable description="This collection's personnel could not be loaded." />;
+		return (
+			<RecordUnavailable
+				description="This collection's personnel could not be loaded."
+				layout="centered"
+				noun="collection"
+				reason="error"
+			/>
+		);
 	}
 	if (!personnel.isReady) {
 		return <EditFormSkeleton />;
@@ -292,19 +292,6 @@ function EditFormSkeleton() {
 				<Skeleton className="h-24 w-full" />
 			</div>
 			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<div className="flex h-full min-h-0 items-center justify-center p-8">
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Collection Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</div>
 	);
 }

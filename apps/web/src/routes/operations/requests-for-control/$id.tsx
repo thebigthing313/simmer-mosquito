@@ -1,4 +1,5 @@
 import type { ProfileRow } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -9,13 +10,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -27,6 +21,7 @@ import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -78,16 +73,13 @@ function RequestDetailRoute() {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/operations/requests-for-control"
-				>
+				<Link className={backLink()} to="/operations/requests-for-control">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to requests for control
 				</Link>
 				{request === null ? (
 					isReady ? (
-						<RequestUnavailable />
+						<RecordUnavailable noun="request" reason="not-found" />
 					) : (
 						<RequestDetailSkeleton />
 					)
@@ -474,21 +466,5 @@ function RequestDetailSkeleton() {
 				<Skeleton className="h-72" />
 			</div>
 		</>
-	);
-}
-
-function RequestUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<RequestIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>Request Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This request may have been deleted, or the link is out of date.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }

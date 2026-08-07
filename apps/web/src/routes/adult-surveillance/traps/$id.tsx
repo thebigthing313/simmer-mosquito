@@ -5,6 +5,7 @@ import type {
 	SpeciesRow,
 	TrapRow,
 } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -63,6 +64,7 @@ import {
 } from '../../../components/date-range-filter';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
@@ -107,17 +109,14 @@ function TrapDetail({ trapId }: { readonly trapId: string }) {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/adult-surveillance/traps"
-				>
+				<Link className={backLink()} to="/adult-surveillance/traps">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to traps
 				</Link>
 				{!result.isReady ? (
 					<TrapDetailSkeleton />
 				) : trap === undefined ? (
-					<TrapUnavailable />
+					<RecordUnavailable noun="trap" reason="not-found" />
 				) : (
 					<TrapDetailContent trap={trap} />
 				)}
@@ -697,19 +696,6 @@ function TrapDetailSkeleton() {
 				<Skeleton className="h-72" />
 			</div>
 		</>
-	);
-}
-
-function TrapUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Trap Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This trap could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }
 

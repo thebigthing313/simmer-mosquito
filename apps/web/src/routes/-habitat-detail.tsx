@@ -58,6 +58,7 @@ import { ExplorerPagination } from '../components/explorer-pagination';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { LinkedAddressValue } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
+import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
@@ -179,7 +180,7 @@ function HabitatDetailLoader({ habitatId }: { readonly habitatId: string }) {
 
 	const habitat = result.data;
 	if (habitat === undefined) {
-		return <HabitatDetailUnavailable />;
+		return <RecordUnavailable noun="habitat" reason="not-found" />;
 	}
 
 	return <HabitatDetailContent habitat={habitat} />;
@@ -1092,19 +1093,6 @@ function TableSkeleton({ rows }: { readonly rows: number }) {
 				<Skeleton className="h-9 w-full" key={index} />
 			))}
 		</div>
-	);
-}
-
-function HabitatDetailUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Habitat Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This habitat could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }
 

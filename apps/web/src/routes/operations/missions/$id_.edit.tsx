@@ -1,13 +1,8 @@
 import { createMissionCommand } from '@simmer-mosquito/domain';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
+import { RecordUnavailable } from '../../../components/record';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { isBelowRole } from '../../../lib/write-access';
@@ -38,7 +33,7 @@ function EditMissionRoute() {
 
 	if (mission === null) {
 		return isReady ? (
-			<EditUnavailable description="This mission may have been deleted, or the link is out of date." />
+			<RecordUnavailable layout="centered" noun="mission" reason="not-found" />
 		) : (
 			<EditFormSkeleton />
 		);
@@ -121,19 +116,6 @@ function EditFormSkeleton() {
 				<Skeleton className="h-9 w-full" />
 			</div>
 			<Skeleton className="h-24 w-full" />
-		</div>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<div className="flex h-full min-h-0 items-center justify-center p-8">
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Mission Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</div>
 	);
 }

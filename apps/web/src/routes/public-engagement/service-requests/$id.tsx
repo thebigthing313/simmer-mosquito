@@ -9,13 +9,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	ArrowLeftIcon,
@@ -34,6 +27,7 @@ import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { MapCanvas } from '../../../components/map';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
@@ -101,7 +95,17 @@ function ServiceRequestDetailRoute() {
 		return <ServiceRequestStatePage>{<ServiceRequestDetailSkeleton />}</ServiceRequestStatePage>;
 	}
 	if (request === undefined) {
-		return <ServiceRequestStatePage>{<ServiceRequestUnavailable />}</ServiceRequestStatePage>;
+		return (
+			<ServiceRequestStatePage>
+				{
+					<RecordUnavailable
+						noun="request"
+						reason="not-found"
+						title="Service Request Unavailable"
+					/>
+				}
+			</ServiceRequestStatePage>
+		);
 	}
 	return <ServiceRequestDetailContent actorProfileId={actorProfileId} request={request} />;
 }
@@ -923,21 +927,5 @@ function ServiceRequestDetailSkeleton() {
 			<Skeleton className="h-40" />
 			<Skeleton className="h-56" />
 		</>
-	);
-}
-
-function ServiceRequestUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<RequestIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>Service Request Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This request could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }

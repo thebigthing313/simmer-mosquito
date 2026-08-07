@@ -47,6 +47,7 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordUnavailable } from '../../../components/record';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
@@ -152,7 +153,7 @@ function SampleDetail({ sampleId }: { readonly sampleId: string }) {
 				{query.isPending ? (
 					<SampleDetailSkeleton />
 				) : query.isError || query.data == null ? (
-					<SampleUnavailable />
+					<RecordUnavailable noun="sample" reason="not-found" />
 				) : (
 					<SampleDetailContent geo={query.data} />
 				)}
@@ -1147,19 +1148,6 @@ function SampleDetailSkeleton() {
 				<Skeleton className="h-96" />
 			</div>
 		</>
-	);
-}
-
-function SampleUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Sample Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This sample could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }
 

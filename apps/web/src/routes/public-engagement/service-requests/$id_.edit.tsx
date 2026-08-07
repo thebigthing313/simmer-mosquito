@@ -1,15 +1,10 @@
 import type { ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { RecordUnavailable } from '../../../components/record';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
@@ -60,15 +55,13 @@ function EditServiceRequestRoute() {
 	const request = result.data as ServiceRequestRow | undefined;
 
 	if (result.isError) {
-		return <EditUnavailable description="This service request could not be loaded." />;
+		return <RecordUnavailable layout="centered" noun="service request" reason="error" />;
 	}
 	if (!result.isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (request === undefined) {
-		return (
-			<EditUnavailable description="This service request could not be found, or you do not have access to it." />
-		);
+		return <RecordUnavailable layout="centered" noun="service request" reason="not-found" />;
 	}
 
 	const actorProfileId =
@@ -173,19 +166,6 @@ function EditFormSkeleton() {
 				</div>
 			</div>
 			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<div className="flex h-full min-h-0 items-center justify-center p-8">
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Service Request Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</div>
 	);
 }

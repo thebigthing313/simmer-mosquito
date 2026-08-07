@@ -1,13 +1,8 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { RecordUnavailable } from '../../../components/record';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
@@ -49,7 +44,7 @@ function EditRequestRoute() {
 
 	if (request === null) {
 		return isReady ? (
-			<EditUnavailable description="This request may have been deleted, or the link is out of date." />
+			<RecordUnavailable layout="centered" noun="request" reason="not-found" />
 		) : (
 			<EditFormSkeleton />
 		);
@@ -97,7 +92,14 @@ function EditRequestLoader({ request }: { readonly request: RequestView }) {
 	);
 
 	if (geometryQuery.isError) {
-		return <EditUnavailable description="This request's geometry could not be loaded." />;
+		return (
+			<RecordUnavailable
+				description="This request's geometry could not be loaded."
+				layout="centered"
+				noun="request"
+				reason="error"
+			/>
+		);
 	}
 	if (geometryQuery.isPending) {
 		return <EditFormSkeleton />;
@@ -143,19 +145,6 @@ function EditFormSkeleton() {
 				<Skeleton className="h-24 w-full" />
 			</div>
 			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<div className="flex h-full min-h-0 items-center justify-center p-8">
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Request Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</div>
 	);
 }

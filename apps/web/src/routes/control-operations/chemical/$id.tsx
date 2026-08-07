@@ -9,6 +9,7 @@ import type {
 	UnitRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -54,6 +55,7 @@ import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
@@ -115,17 +117,14 @@ function ApplicationDetail({
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/control-operations/chemical"
-				>
+				<Link className={backLink()} to="/control-operations/chemical">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to applications
 				</Link>
 				{!result.isReady ? (
 					<ApplicationDetailSkeleton />
 				) : application === undefined ? (
-					<ApplicationUnavailable />
+					<RecordUnavailable noun="application" reason="not-found" />
 				) : (
 					<ApplicationDetailContent
 						actorProfileId={actorProfileId}
@@ -626,18 +625,5 @@ function ApplicationDetailSkeleton() {
 				<Skeleton className="h-72" />
 			</div>
 		</>
-	);
-}
-
-function ApplicationUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Application Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This application could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }

@@ -7,12 +7,6 @@ import type {
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
@@ -22,6 +16,7 @@ import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
+import { RecordUnavailable } from '../../../components/record';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import {
@@ -78,14 +73,26 @@ function EditSourceReductionRoute() {
 	const sourceReduction = result.data as SourceReductionRow | undefined;
 
 	if (result.isError) {
-		return <EditUnavailable description="This source reduction action could not be loaded." />;
+		return (
+			<RecordUnavailable
+				layout="centered"
+				noun="source reduction action"
+				reason="error"
+				title="Source Reduction Unavailable"
+			/>
+		);
 	}
 	if (!result.isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (sourceReduction === undefined) {
 		return (
-			<EditUnavailable description="This source reduction action could not be found, or you do not have access to it." />
+			<RecordUnavailable
+				layout="centered"
+				noun="source reduction action"
+				reason="not-found"
+				title="Source Reduction Unavailable"
+			/>
 		);
 	}
 
@@ -202,10 +209,26 @@ function EditSourceReductionLoader({
 	);
 
 	if (geometryQuery.isError) {
-		return <EditUnavailable description="This source reduction's geometry could not be loaded." />;
+		return (
+			<RecordUnavailable
+				description="This source reduction's geometry could not be loaded."
+				layout="centered"
+				noun="source reduction action"
+				reason="error"
+				title="Source Reduction Unavailable"
+			/>
+		);
 	}
 	if (personnel.isError) {
-		return <EditUnavailable description="This source reduction's personnel could not be loaded." />;
+		return (
+			<RecordUnavailable
+				description="This source reduction's personnel could not be loaded."
+				layout="centered"
+				noun="source reduction action"
+				reason="error"
+				title="Source Reduction Unavailable"
+			/>
+		);
 	}
 	if (geometryQuery.isPending || !personnel.isReady) {
 		return <EditFormSkeleton />;
@@ -264,19 +287,6 @@ function EditFormSkeleton() {
 				<Skeleton className="h-24 w-full" />
 			</div>
 			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<div className="flex h-full min-h-0 items-center justify-center p-8">
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Source Reduction Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</div>
 	);
 }

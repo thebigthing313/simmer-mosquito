@@ -1,17 +1,12 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { RecordUnavailable } from '../../../components/record';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { seedRegionGeometryCache, useRegionGeometry } from '../../../hooks/use-region-geometry';
@@ -58,15 +53,13 @@ function EditRegionRoute() {
 	const geometryQuery = useRegionGeometry(id);
 
 	if (regionResult.isError) {
-		return <EditUnavailable description="This region could not be loaded." />;
+		return <RecordUnavailable layout="centered" noun="region" reason="error" />;
 	}
 	if (!regionResult.isReady || geometryQuery.isLoading) {
 		return <EditFormSkeleton />;
 	}
 	if (region === undefined) {
-		return (
-			<EditUnavailable description="This region could not be found, or you do not have access to it." />
-		);
+		return <RecordUnavailable layout="centered" noun="region" reason="not-found" />;
 	}
 
 	const actorProfileId =
@@ -193,19 +186,6 @@ function EditFormSkeleton() {
 				<Skeleton className="h-24 w-full" />
 			</div>
 			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<div className="flex h-full min-h-0 items-center justify-center p-8">
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Region Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</div>
 	);
 }

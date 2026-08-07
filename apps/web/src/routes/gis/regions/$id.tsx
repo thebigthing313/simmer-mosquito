@@ -1,5 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -8,12 +9,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -22,6 +17,7 @@ import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useRegionGeometry } from '../../../hooks/use-region-geometry';
@@ -60,17 +56,14 @@ function RegionDetail({ regionId }: { readonly regionId: string }) {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/gis/regions"
-				>
+				<Link className={backLink()} to="/gis/regions">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to Regions
 				</Link>
 				{!result.isReady ? (
 					<RegionDetailSkeleton />
 				) : region === undefined ? (
-					<RegionUnavailable />
+					<RecordUnavailable noun="region" reason="not-found" />
 				) : (
 					<RegionDetailContent region={region} />
 				)}
@@ -206,18 +199,5 @@ function RegionDetailSkeleton() {
 				<Skeleton className="h-48" />
 			</div>
 		</>
-	);
-}
-
-function RegionUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Region Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This region could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }

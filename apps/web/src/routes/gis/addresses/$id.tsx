@@ -1,5 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -8,12 +9,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -22,6 +17,7 @@ import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
@@ -59,17 +55,14 @@ function AddressDetail({ addressId }: { readonly addressId: string }) {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/gis/addresses"
-				>
+				<Link className={backLink()} to="/gis/addresses">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to Address Book
 				</Link>
 				{!result.isReady ? (
 					<AddressDetailSkeleton />
 				) : address === undefined ? (
-					<AddressUnavailable />
+					<RecordUnavailable noun="address" reason="not-found" />
 				) : (
 					<AddressDetailContent address={address} />
 				)}
@@ -211,18 +204,5 @@ function AddressDetailSkeleton() {
 				<Skeleton className="h-64" />
 			</div>
 		</>
-	);
-}
-
-function AddressUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Address Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This address could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }

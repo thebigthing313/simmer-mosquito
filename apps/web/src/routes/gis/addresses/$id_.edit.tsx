@@ -1,17 +1,12 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { AddressRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { RecordUnavailable } from '../../../components/record';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
@@ -55,15 +50,13 @@ function EditAddressRoute() {
 	const geometryQuery = useAddressGeometry(id);
 
 	if (addressResult.isError) {
-		return <EditUnavailable description="This address could not be loaded." />;
+		return <RecordUnavailable layout="centered" noun="address" reason="error" />;
 	}
 	if (!addressResult.isReady || geometryQuery.isLoading) {
 		return <EditFormSkeleton />;
 	}
 	if (address === undefined) {
-		return (
-			<EditUnavailable description="This address could not be found, or you do not have access to it." />
-		);
+		return <RecordUnavailable layout="centered" noun="address" reason="not-found" />;
 	}
 
 	const actorProfileId =
@@ -189,19 +182,6 @@ function EditFormSkeleton() {
 				<Skeleton className="h-24 w-full" />
 			</div>
 			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<div className="flex h-full min-h-0 items-center justify-center p-8">
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Address Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</div>
 	);
 }

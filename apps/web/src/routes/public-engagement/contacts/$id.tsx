@@ -1,4 +1,5 @@
 import type { ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -8,12 +9,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -22,6 +17,7 @@ import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -59,17 +55,14 @@ function ContactDetailRoute() {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/public-engagement/contacts"
-				>
+				<Link className={backLink()} to="/public-engagement/contacts">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to Contacts
 				</Link>
 				{!result.isReady ? (
 					<ContactDetailSkeleton />
 				) : contact === undefined ? (
-					<ContactUnavailable />
+					<RecordUnavailable noun="contact" reason="not-found" />
 				) : (
 					<ContactDetailContent contact={contact} />
 				)}
@@ -288,18 +281,5 @@ function ContactDetailSkeleton() {
 				<Skeleton className="h-72" />
 			</div>
 		</>
-	);
-}
-
-function ContactUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Contact Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This contact could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }

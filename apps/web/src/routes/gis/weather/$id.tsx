@@ -1,4 +1,5 @@
 import type { WeatherSourceRow, WeatherSummaryRow } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Card,
@@ -26,6 +27,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { RecordUnavailable } from '../../../components/record';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	formatMeasure,
@@ -61,17 +63,14 @@ function WeatherSourceDetail({ sourceId }: { readonly sourceId: string }) {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className="mx-auto grid w-full max-w-[1000px] content-start gap-5 px-4 py-6 pb-10 md:px-8">
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/gis/weather"
-				>
+				<Link className={backLink()} to="/gis/weather">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to Weather
 				</Link>
 				{!result.isReady ? (
 					<DetailSkeleton />
 				) : source === undefined ? (
-					<SourceUnavailable />
+					<RecordUnavailable noun="weather source" reason="not-found" />
 				) : (
 					<WeatherSourceContent source={source} />
 				)}
@@ -245,18 +244,5 @@ function DetailSkeleton() {
 				<Skeleton className="h-48" />
 			</div>
 		</>
-	);
-}
-
-function SourceUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Weather Source Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This weather source could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }

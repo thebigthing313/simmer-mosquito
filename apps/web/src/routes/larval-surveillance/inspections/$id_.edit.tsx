@@ -10,12 +10,6 @@ import type {
 	SampleRow,
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +20,7 @@ import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
+import { RecordUnavailable } from '../../../components/record';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -94,15 +89,13 @@ function EditInspectionRoute() {
 	);
 
 	if (result.isError) {
-		return <EditUnavailable description="This inspection could not be loaded." />;
+		return <RecordUnavailable layout="centered" noun="inspection" reason="error" />;
 	}
 	if (!result.isReady || !personnel.isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (inspection === undefined) {
-		return (
-			<EditUnavailable description="This inspection could not be found, or you do not have access to it." />
-		);
+		return <RecordUnavailable layout="centered" noun="inspection" reason="not-found" />;
 	}
 
 	const actorProfileId =
@@ -290,7 +283,14 @@ function EditInspectionLoader({
 	);
 
 	if (geometryQuery.isError) {
-		return <EditUnavailable description="This inspection's location could not be loaded." />;
+		return (
+			<RecordUnavailable
+				description="This inspection's location could not be loaded."
+				layout="centered"
+				noun="inspection"
+				reason="error"
+			/>
+		);
 	}
 	if (geometryQuery.isPending) {
 		return <EditFormSkeleton />;
@@ -456,19 +456,6 @@ function EditFormSkeleton() {
 				</div>
 			</div>
 			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<div className="flex h-full min-h-0 items-center justify-center p-8">
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Inspection Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</div>
 	);
 }

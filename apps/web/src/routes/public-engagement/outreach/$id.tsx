@@ -1,4 +1,5 @@
 import type { ControlMethodRow, OutreachActionRow, ProfileRow } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -8,12 +9,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -27,6 +22,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -67,19 +63,16 @@ function OutreachDetail({ actionId }: { readonly actionId: string }) {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/public-engagement/outreach"
-				>
+				<Link className={backLink()} to="/public-engagement/outreach">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to outreach
 				</Link>
 				{result.isError ? (
-					<OutreachUnavailable description="This outreach action could not be loaded. Try again shortly." />
+					<RecordUnavailable noun="outreach action" reason="error" />
 				) : !result.isReady ? (
 					<OutreachDetailSkeleton />
 				) : action === undefined ? (
-					<OutreachUnavailable description="This outreach action could not be found, or you do not have access to it." />
+					<RecordUnavailable noun="outreach action" reason="not-found" />
 				) : (
 					<OutreachDetailContent action={action} />
 				)}
@@ -245,16 +238,5 @@ function OutreachDetailSkeleton() {
 				<Skeleton className="h-72" />
 			</div>
 		</>
-	);
-}
-
-function OutreachUnavailable({ description }: { readonly description: string }) {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Outreach Action Unavailable</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }

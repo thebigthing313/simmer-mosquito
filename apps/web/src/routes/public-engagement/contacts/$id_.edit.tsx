@@ -1,15 +1,10 @@
 import type { ContactRow } from '@simmer-mosquito/sync';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { RecordUnavailable } from '../../../components/record';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -57,15 +52,13 @@ function EditContactRoute() {
 	const contact = result.data as ContactRow | undefined;
 
 	if (result.isError) {
-		return <EditUnavailable description="This contact could not be loaded." />;
+		return <RecordUnavailable layout="centered" noun="contact" reason="error" />;
 	}
 	if (!result.isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (contact === undefined) {
-		return (
-			<EditUnavailable description="This contact could not be found, or you do not have access to it." />
-		);
+		return <RecordUnavailable layout="centered" noun="contact" reason="not-found" />;
 	}
 
 	const actorProfileId =
@@ -149,19 +142,6 @@ function EditFormSkeleton() {
 				<Skeleton className="h-9 w-full" />
 				<Skeleton className="h-24 w-full" />
 			</div>
-		</OutletSimpleLayout>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<OutletSimpleLayout>
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Contact Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</OutletSimpleLayout>
 	);
 }

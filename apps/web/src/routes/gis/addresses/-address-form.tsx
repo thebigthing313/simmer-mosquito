@@ -1,4 +1,5 @@
 import { createAddressCommand } from '@simmer-mosquito/domain';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -212,11 +213,7 @@ export function AddressFormPage({
 		>
 			<div className="flex h-full min-h-0 flex-col">
 				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link
-						className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						params={header.backParams ?? {}}
-						to={header.backTo}
-					>
+					<Link className={backLink()} params={header.backParams ?? {}} to={header.backTo}>
 						<ArrowLeftIcon aria-hidden="true" />
 						{header.backLabel}
 					</Link>

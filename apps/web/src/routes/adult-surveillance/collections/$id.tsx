@@ -10,6 +10,7 @@ import type {
 	SpeciesStatus,
 	TrapRow,
 } from '@simmer-mosquito/sync';
+import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import {
@@ -69,6 +70,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
@@ -140,17 +142,14 @@ function CollectionDetail({
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
 			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link
-					className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-					to="/adult-surveillance/collections"
-				>
+				<Link className={backLink()} to="/adult-surveillance/collections">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to collections
 				</Link>
 				{!result.isReady ? (
 					<CollectionDetailSkeleton />
 				) : collection === undefined ? (
-					<CollectionUnavailable />
+					<RecordUnavailable noun="collection" reason="not-found" />
 				) : (
 					<CollectionDetailContent
 						actorProfileId={actorProfileId}
@@ -973,18 +972,5 @@ function CollectionDetailSkeleton() {
 				<Skeleton className="h-72" />
 			</div>
 		</>
-	);
-}
-
-function CollectionUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Collection Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This collection could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }

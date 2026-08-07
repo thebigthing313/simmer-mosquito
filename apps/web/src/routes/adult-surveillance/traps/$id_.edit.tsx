@@ -1,16 +1,11 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { RecordUnavailable } from '../../../components/record';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
@@ -51,15 +46,13 @@ function EditTrapRoute() {
 	const trap = trapResult.data as TrapRow | undefined;
 
 	if (trapResult.isError) {
-		return <EditUnavailable description="This trap could not be loaded." />;
+		return <RecordUnavailable layout="centered" noun="trap" reason="error" />;
 	}
 	if (!trapResult.isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (trap === undefined) {
-		return (
-			<EditUnavailable description="This trap could not be found, or you do not have access to it." />
-		);
+		return <RecordUnavailable layout="centered" noun="trap" reason="not-found" />;
 	}
 
 	const actorProfileId =
@@ -206,19 +199,6 @@ function EditFormSkeleton() {
 				<Skeleton className="h-24 w-full" />
 			</div>
 			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
-}
-
-function EditUnavailable({ description }: { readonly description: string }) {
-	return (
-		<div className="flex h-full min-h-0 items-center justify-center p-8">
-			<Empty className="max-w-md border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyTitle>Trap Unavailable</EmptyTitle>
-					<EmptyDescription>{description}</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
 		</div>
 	);
 }

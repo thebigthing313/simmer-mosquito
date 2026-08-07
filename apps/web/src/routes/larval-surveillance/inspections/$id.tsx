@@ -36,6 +36,7 @@ import {
 } from '../../../components/larval-display';
 import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
@@ -123,7 +124,7 @@ function InspectionDetail({ inspectionId }: { readonly inspectionId: string }) {
 				{query.isPending ? (
 					<InspectionDetailSkeleton />
 				) : query.isError || query.data == null ? (
-					<InspectionUnavailable />
+					<RecordUnavailable noun="inspection" reason="not-found" />
 				) : (
 					<InspectionDetailContent inspection={query.data} />
 				)}
@@ -1043,19 +1044,6 @@ function InspectionDetailSkeleton() {
 				<Skeleton className="h-96" />
 			</div>
 		</>
-	);
-}
-
-function InspectionUnavailable() {
-	return (
-		<Empty className="min-h-[280px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>Inspection Unavailable</EmptyTitle>
-				<EmptyDescription>
-					This inspection could not be found, or you do not have access to it.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }
 
