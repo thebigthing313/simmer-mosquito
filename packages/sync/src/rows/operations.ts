@@ -344,6 +344,9 @@ export interface ServiceRequestRow extends AuditedOrganizationRowBase {
 }
 
 export interface RequestedControlActionRow extends AuditedOrganizationRowBase {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly controlType: ControlType;
 	readonly recommendedMethodId: string | null;
 	readonly summary: string | null;
@@ -374,6 +377,9 @@ export interface MissionRow extends AuditedOrganizationRowBase {
 }
 
 export interface MissionItemRow extends AuditedOrganizationRowBase {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
 	readonly missionId: string;
 	readonly requestedControlActionId: string | null;
 	readonly addressId: string | null;

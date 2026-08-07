@@ -9,6 +9,9 @@ export const missionItemsSyncDescriptor = createSyncDescriptor<MissionItemRow>({
 	columns: [
 		'id',
 		'organizationId',
+		'lat',
+		'lng',
+		'geomType',
 		'missionId',
 		'requestedControlActionId',
 		'addressId',

@@ -10,6 +10,9 @@ export const requestedControlActionsSyncDescriptor =
 		columns: [
 			'id',
 			'organizationId',
+			'lat',
+			'lng',
+			'geomType',
 			'controlType',
 			'recommendedMethodId',
 			'summary',
