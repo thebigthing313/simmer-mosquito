@@ -23,6 +23,7 @@ export function Panel({
 	footer,
 	children,
 	className,
+	scrollBody = false,
 }: {
 	readonly icon: ReactNode;
 	/** Title case — these read as headings, not sentences. */
@@ -33,6 +34,19 @@ export function Panel({
 	readonly children: ReactNode;
 	/** Placement only — where this panel sits in its parent grid. */
 	readonly className?: string | undefined;
+	/**
+	 * Cap the body and scroll it, for panels whose list has no natural bound.
+	 *
+	 * An overview is a page of panels read side by side, and a panel over an
+	 * unbounded list stops being one of several and becomes the page — a busy
+	 * week of source reductions pushed everything below it off the screen. The
+	 * cap is a little over five rows, so it always reads as "more below" rather
+	 * than as a list that happens to end.
+	 *
+	 * Off by default: a panel whose content is bounded by construction (a fixed
+	 * set of tiles, a summary) should size to what it holds.
+	 */
+	readonly scrollBody?: boolean;
 }) {
 	return (
 		<Card className={cn('overflow-hidden', className)} variant="panel">
@@ -56,7 +70,7 @@ export function Panel({
 				</div>
 				{actions ? <div className="shrink-0">{actions}</div> : null}
 			</div>
-			<div className="min-w-0">{children}</div>
+			<div className={cn('min-w-0', scrollBody && 'max-h-[19rem] overflow-y-auto')}>{children}</div>
 			{footer ? (
 				<div className="border-border/60 border-t px-4 py-2.5 text-sm">{footer}</div>
 			) : null}

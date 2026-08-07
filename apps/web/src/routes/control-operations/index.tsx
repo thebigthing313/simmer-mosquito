@@ -182,7 +182,12 @@ function ActionRow({
 	readonly secondary: string;
 	readonly amount: string;
 	readonly date: string;
-	readonly icon: ReactNode;
+	/**
+	 * Only where rows differ. A list where every row carries the same glyph is
+	 * a column of identical marks that says nothing the panel header has not
+	 * already said, and costs the primary label the width.
+	 */
+	readonly icon?: ReactNode;
 	readonly to:
 		| '/control-operations/chemical/$id'
 		| '/control-operations/source-reduction/$id'
@@ -191,7 +196,7 @@ function ActionRow({
 }) {
 	return (
 		<li className="flex items-center gap-3 px-4 py-2.5">
-			<span className="shrink-0 text-muted-foreground">{icon}</span>
+			{icon === undefined ? null : <span className="shrink-0 text-muted-foreground">{icon}</span>}
 			<div className="grid min-w-0 flex-1">
 				<Link
 					className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -621,6 +626,7 @@ function RecentSourceReductionsPanel({
 			}
 			count={isReady ? sourceReductions.length : undefined}
 			icon={<SourceReductionIcon className="size-4" />}
+			scrollBody
 			title="Source Reductions"
 		>
 			{isError ? (
@@ -640,7 +646,6 @@ function RecentSourceReductionsPanel({
 								labels.unitById.get(sourceReduction.sourcesEliminatedUnitId),
 							)}
 							date={formatActionDate(sourceReduction.sourceReductionDate)}
-							icon={<SourceReductionIcon aria-hidden="true" className="size-4" />}
 							key={sourceReduction.id}
 							params={{ id: sourceReduction.id }}
 							primary={
@@ -675,6 +680,7 @@ function RecentBiocontrolPanel({
 			}
 			count={isReady ? biocontrolActions.length : undefined}
 			icon={<BiocontrolIcon className="size-4" />}
+			scrollBody
 			title="Biocontrol Releases"
 		>
 			{isError ? (
@@ -694,7 +700,6 @@ function RecentBiocontrolPanel({
 								labels.unitById.get(action.releaseUnitId),
 							)}
 							date={formatActionDate(action.biocontrolDate)}
-							icon={<BiocontrolIcon aria-hidden="true" className="size-4" />}
 							key={action.id}
 							params={{ id: action.id }}
 							primary={
