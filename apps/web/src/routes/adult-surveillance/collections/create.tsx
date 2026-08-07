@@ -15,6 +15,7 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -23,6 +24,7 @@ import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
 import {
 	CollectionFormPage,
+	type CollectionFormValues,
 	type CollectionSaveInput,
 	defaultCollectionFormValues,
 	noLureValue,
@@ -38,6 +40,24 @@ const createCollectionSearchSchema = z.object({
 		.optional()
 		.catch(undefined),
 });
+
+/**
+ * A collection opened from a point on the map is a one-off, not a trap's.
+ *
+ * The source has to follow the coordinate: left on `trap`, the seeded geometry
+ * is held but its control is never rendered, and the point is silently lost on
+ * save. An explicit `trapId` still wins — arriving from a trap's "Record
+ * collection" says which trap this is, and that is the stronger signal.
+ */
+function seededDefaults(
+	base: CollectionFormValues,
+	seed: DrawGeometry | null,
+): CollectionFormValues {
+	if (seed === null || base.trapId !== null) {
+		return base;
+	}
+	return { ...base, sourceMode: 'adhoc' };
+}
 
 export const Route = createFileRoute('/adult-surveillance/collections/create')({
 	// After `validateSearch`: the options object is read in order, and a
@@ -168,10 +188,13 @@ function CreateCollectionRoute() {
 			canSubmit={canSubmit}
 			collectionLures={lures}
 			collectionMethods={methods}
-			defaultValues={defaultCollectionFormValues(
-				today,
-				trapId ?? null,
-				settings.adultSurveillance.collectionTimingMode,
+			defaultValues={seededDefaults(
+				defaultCollectionFormValues(
+					today,
+					trapId ?? null,
+					settings.adultSurveillance.collectionTimingMode,
+				),
+				initialGeometry,
 			)}
 			header={{
 				title: 'Record Collection',
