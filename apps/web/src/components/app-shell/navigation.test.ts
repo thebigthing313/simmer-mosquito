@@ -18,6 +18,9 @@ describe('shellDomainsForRole', () => {
 		expect(paths).toContain('/adult-surveillance/collections/create');
 		expect(paths).toContain('/control-operations/chemical/create');
 		expect(paths).toContain('/public-engagement/outreach/create');
+		// Raising a request is field entry — a collector who finds a site needing
+		// control says so. Planning what to do about it is not.
+		expect(paths).toContain('/operations/requests-for-control/create');
 
 		expect(paths).not.toContain('/larval-surveillance/habitats/create');
 		expect(paths).not.toContain('/adult-surveillance/traps/create');
@@ -25,6 +28,8 @@ describe('shellDomainsForRole', () => {
 		expect(paths).not.toContain('/public-engagement/service-requests/create');
 		expect(paths).not.toContain('/gis/regions/create');
 		expect(paths).not.toContain('/gis/regions/import');
+		expect(paths).not.toContain('/operations/assignments/create');
+		expect(paths).not.toContain('/operations/missions/create');
 	});
 
 	it('offers a manager every form', () => {
@@ -47,6 +52,26 @@ describe('shellDomainsForRole', () => {
 		expect(viewerItems).toContain('/larval-surveillance/habitats');
 		expect(viewerItems).toContain('/adult-surveillance/traps');
 		expect(viewerItems).toContain('/public-engagement/service-requests');
+		expect(viewerItems).toContain('/operations');
+		expect(viewerItems).toContain('/operations/requests-for-control');
+		expect(viewerItems).toContain('/operations/assignments');
+		expect(viewerItems).toContain('/operations/missions');
+	});
+
+	it('orders the operations groups the way the work moves through them', () => {
+		// A request is raised before anything is scheduled against it, so the
+		// sidebar reads requests → assignments → missions rather than alphabetically
+		// or by what happened to be built first.
+		const operations = shellDomainsForRole(authWithRole('owner')).find(
+			(domain) => domain.id === 'operations',
+		);
+
+		expect(operations?.groups.map((group) => group.label)).toEqual([
+			undefined,
+			'Requests for Control',
+			'Surveillance Assignments',
+			'Control Missions',
+		]);
 	});
 
 	it('drops no group or domain to an empty heading', () => {

@@ -2,14 +2,6 @@ import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@simmer-mosquito/ui-web/components/ui/dialog';
-import {
 	Empty,
 	EmptyContent,
 	EmptyDescription,
@@ -17,9 +9,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Progress } from '@simmer-mosquito/ui-web/components/ui/progress';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import {
 	ArrowLeftIcon,
 	ChevronRightIcon,
@@ -34,6 +24,10 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { useCommandRunner } from '../-command-runner';
+import { StopProgressSummary } from '../-operations-display';
+import { ReasonDialog } from '../-reason-dialog';
+import { WorklistMap } from '../-worklist-map';
 import {
 	type AssignmentStopView,
 	type AssignmentView,
@@ -65,7 +59,6 @@ import {
 	TargetLink,
 	TargetTypePill,
 } from './-assignment-display';
-import { AssignmentMap } from './-assignment-map';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -96,8 +89,7 @@ function AssignmentRunRoute() {
 	const [highlightId, setHighlightId] = useState<string | null>(null);
 	const [skipTarget, setSkipTarget] = useState<AssignmentStopView | null>(null);
 	const [cancelOpen, setCancelOpen] = useState(false);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { busy, error, run } = useCommandRunner();
 
 	const assigneeName =
 		assignment?.assignedToProfileId == null
@@ -105,25 +97,6 @@ function AssignmentRunRoute() {
 			: (nameById.get(assignment.assignedToProfileId) ?? null);
 	const displayName = assignment === null ? null : assignmentDisplayName(assignment, assigneeName);
 	useBreadcrumbLabel(id, displayName);
-
-	/**
-	 * One gate over every write on the page.
-	 *
-	 * These commands are refused server-side on their preconditions, and a refusal
-	 * arrives as prose worth showing rather than a fault — "Some stops are still
-	 * pending" is an answer, not an error.
-	 */
-	const run = useCallback(async (work: () => Promise<void>, fallback: string) => {
-		setBusy(true);
-		setError(null);
-		try {
-			await work();
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : fallback);
-		} finally {
-			setBusy(false);
-		}
-	}, []);
 
 	const itemAction = useCallback(
 		(stop: AssignmentStopView, action: ItemAction) => {
@@ -181,10 +154,11 @@ function AssignmentRunRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<AssignmentMap
+					<WorklistMap
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
+						noun="assignment"
 						onHoverStop={setHighlightId}
 						onSelectStop={setSelectedStopId}
 						selectedId={selectedStopId}
@@ -236,7 +210,10 @@ function AssignmentRunRoute() {
 									</div>
 								</div>
 
-								<ProgressSummary counts={counts} />
+								<StopProgressSummary
+									counts={counts}
+									emptyLabel="No stops on this assignment yet."
+								/>
 
 								<WriteOnly>
 									<LifecycleControls
@@ -307,24 +284,6 @@ function AssignmentRunRoute() {
 				title="Cancel This Assignment?"
 			/>
 		</>
-	);
-}
-
-function ProgressSummary({ counts }: { readonly counts: ProgressCounts }) {
-	if (counts.total === 0) {
-		return <p className="m-0 text-muted-foreground text-sm">No stops on this assignment yet.</p>;
-	}
-	return (
-		<div className="grid gap-1.5">
-			<Progress
-				aria-label={`${counts.handled} of ${counts.total} stops done`}
-				value={(counts.handled / counts.total) * 100}
-			/>
-			<p className="m-0 text-muted-foreground text-xs">
-				{counts.handled} of {counts.total} done
-				{counts.skipped === 0 ? '' : ` · ${counts.skipped} skipped`}
-			</p>
-		</div>
 	);
 }
 
@@ -573,77 +532,6 @@ function RunStopRow({
 				</div>
 			</div>
 		</li>
-	);
-}
-
-/**
- * A confirmation that collects prose.
- *
- * Skip reasons are required and cancellation reasons are not, so the same
- * dialog covers both rather than two near-identical ones drifting apart on
- * wording.
- */
-function ReasonDialog({
-	open,
-	title,
-	description,
-	placeholder,
-	confirmLabel,
-	required,
-	onConfirm,
-	onOpenChange,
-}: {
-	readonly open: boolean;
-	readonly title: string;
-	readonly description: string;
-	readonly placeholder: string;
-	readonly confirmLabel: string;
-	readonly required: boolean;
-	readonly onConfirm: (reason: string) => void;
-	readonly onOpenChange: (open: boolean) => void;
-}) {
-	const [reason, setReason] = useState('');
-
-	return (
-		<Dialog
-			onOpenChange={(next) => {
-				if (!next) {
-					setReason('');
-				}
-				onOpenChange(next);
-			}}
-			open={open}
-		>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>{title}</DialogTitle>
-					<DialogDescription>{description}</DialogDescription>
-				</DialogHeader>
-				<Textarea
-					aria-label="Reason"
-					className="min-h-[88px]"
-					maxLength={2_000}
-					onChange={(event) => setReason(event.target.value)}
-					placeholder={placeholder}
-					value={reason}
-				/>
-				<DialogFooter>
-					<Button onClick={() => onOpenChange(false)} type="button" variant="ghost">
-						Back
-					</Button>
-					<Button
-						disabled={required && reason.trim().length === 0}
-						onClick={() => {
-							onConfirm(reason);
-							setReason('');
-						}}
-						type="button"
-					>
-						{confirmLabel}
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
 	);
 }
 

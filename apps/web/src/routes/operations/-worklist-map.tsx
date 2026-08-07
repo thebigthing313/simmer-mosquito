@@ -1,20 +1,33 @@
+import {
+	type BoundingBox,
+	boundsFromGeoJson,
+	extendBounds,
+	type LngLat,
+} from '@simmer-mosquito/mapping';
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { MapCanvas, type RouteStopFeature } from '../../../components/map';
-import { MapControlButton, MapControlGroup } from '../../../components/map/map-control';
+import { MapCanvas, type RouteStopFeature } from '../../components/map';
+import { MapControlButton, MapControlGroup } from '../../components/map/map-control';
 
 /**
- * The worklist map: numbered stops in sequence, auto-framed when the assignment
+ * The worklist map: numbered stops in sequence, auto-framed when the worklist
  * changes, with a manual reframe control. Selection and hover flow both ways
  * between here and the stop list through the layer's feature-state.
  *
+ * Both ordered worklists in this section render through it. An assignment's
+ * stops are typed entity targets and a mission's are owned geometry, but by the
+ * time either reaches a map it is the same thing: a place in the order, a
+ * progress tone, and — where the stop owns one — a shape. `noun` is the only
+ * thing that differs, and it only ever reaches the operator-facing strings.
+ *
  * Bounds come straight off the features rather than a domain view model, because
- * a stop's pin only ever needs its coordinates and its place in the order.
+ * everything the frame needs is already on them.
  */
-export function AssignmentMap({
+export function WorklistMap({
 	features,
 	stopCount,
+	noun,
 	selectedId,
 	highlightId,
 	onSelectStop,
@@ -25,11 +38,13 @@ export function AssignmentMap({
 	readonly features: readonly RouteStopFeature[];
 	/** Total stops including unmapped ones, so "none mapped" can be told apart from "none". */
 	readonly stopCount: number;
+	/** What the worklist is called, lowercase — "assignment", "mission". */
+	readonly noun: string;
 	readonly selectedId?: string | null | undefined;
 	readonly highlightId?: string | null | undefined;
 	readonly onSelectStop?: ((id: string | null) => void) | undefined;
 	readonly onHoverStop?: ((id: string | null) => void) | undefined;
-	/** Auto-fit once per value (the assignment id); changing it reframes the map. */
+	/** Auto-fit once per value (the worklist id); changing it reframes the map. */
 	readonly fitKey?: string | undefined;
 	readonly children?: ReactNode;
 }) {
@@ -38,7 +53,7 @@ export function AssignmentMap({
 	featuresRef.current = features;
 	const lastFitRef = useRef<string | null>(null);
 
-	const fitToAssignment = useCallback((instance: MapboxMap, animate: boolean) => {
+	const fitToWorklist = useCallback((instance: MapboxMap, animate: boolean) => {
 		const bounds = boundsOfFeatures(featuresRef.current);
 		if (bounds === null) {
 			return;
@@ -58,7 +73,7 @@ export function AssignmentMap({
 		);
 	}, []);
 
-	// Fit once per assignment, and only once coordinates have actually resolved —
+	// Fit once per worklist, and only once coordinates have actually resolved —
 	// the targets stream in separately, so an early fit would frame an empty set.
 	useEffect(() => {
 		if (map === null || boundsOfFeatures(features) === null) {
@@ -69,14 +84,14 @@ export function AssignmentMap({
 			return;
 		}
 		lastFitRef.current = key;
-		fitToAssignment(map, true);
-	}, [map, fitKey, features, fitToAssignment]);
+		fitToWorklist(map, true);
+	}, [map, fitKey, features, fitToWorklist]);
 
 	const handleZoom = useCallback(() => {
 		if (map !== null) {
-			fitToAssignment(map, true);
+			fitToWorklist(map, true);
 		}
-	}, [map, fitToAssignment]);
+	}, [map, fitToWorklist]);
 
 	const hasMappedStops = features.length > 0;
 
@@ -99,7 +114,7 @@ export function AssignmentMap({
 			{hasMappedStops ? (
 				<div className="absolute bottom-4 left-4">
 					<MapControlGroup>
-						<MapControlButton label="Zoom to assignment" onClick={handleZoom} side="right">
+						<MapControlButton label={`Zoom to ${noun}`} onClick={handleZoom} side="right">
 							<LocateFixedIcon aria-hidden="true" className="size-4" />
 						</MapControlButton>
 					</MapControlGroup>
@@ -109,7 +124,7 @@ export function AssignmentMap({
 			{!hasMappedStops && stopCount > 0 ? (
 				<div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
 					<span className="rounded-full border border-border/70 bg-background/85 px-3 py-1 text-muted-foreground text-xs shadow-sm backdrop-blur-sm">
-						No mapped stops on this assignment yet
+						No mapped stops on this {noun} yet
 					</span>
 				</div>
 			) : null}
@@ -117,28 +132,39 @@ export function AssignmentMap({
 	);
 }
 
-/** SW/NE bounds across every located stop, or null when none has coordinates. */
+/**
+ * SW/NE bounds across every located stop, or null when none has coordinates.
+ *
+ * A stop that owns a shape is framed by the whole shape rather than by the pin
+ * at its centroid: fitting a treated block on its centre point zooms past three
+ * of its four edges.
+ */
 function boundsOfFeatures(
 	features: readonly RouteStopFeature[],
 ): [[number, number], [number, number]] | null {
-	let west = Number.POSITIVE_INFINITY;
-	let south = Number.POSITIVE_INFINITY;
-	let east = Number.NEGATIVE_INFINITY;
-	let north = Number.NEGATIVE_INFINITY;
-	let count = 0;
-
+	let box: BoundingBox | null = null;
 	for (const feature of features) {
-		west = Math.min(west, feature.lng);
-		east = Math.max(east, feature.lng);
-		south = Math.min(south, feature.lat);
-		north = Math.max(north, feature.lat);
-		count += 1;
+		for (const point of framingPoints(feature)) {
+			box = extendBounds(box, point);
+		}
 	}
 
-	return count === 0
+	return box === null
 		? null
 		: [
-				[west, south],
-				[east, north],
+				[box.west, box.south],
+				[box.east, box.north],
 			];
+}
+
+/** What a stop contributes to the frame: its shape's corners, or just its pin. */
+function framingPoints(feature: RouteStopFeature): readonly LngLat[] {
+	const shape = feature.geometry == null ? null : boundsFromGeoJson(feature.geometry);
+	if (shape === null) {
+		return [{ lng: feature.lng, lat: feature.lat }];
+	}
+	return [
+		{ lng: shape.west, lat: shape.south },
+		{ lng: shape.east, lat: shape.north },
+	];
 }

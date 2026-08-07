@@ -1,0 +1,477 @@
+import type { RequestedControlActionRow } from '@simmer-mosquito/sync';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from '@simmer-mosquito/ui-web/components/ui/empty';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/tooltip';
+import {
+	ChevronDownIcon,
+	ChevronUpIcon,
+	iconRegistry,
+	MapPinnedIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { Link } from '@tanstack/react-router';
+import { useMemo, useRef, useState } from 'react';
+import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
+import { type MoveAction, OrdinalBadge } from '../../../components/stop-order';
+import { WriteOnly } from '../../../components/write-only';
+import {
+	controlTypeLabel,
+	type MissionItemAction,
+	type MissionStopView,
+	missionItemActionsFor,
+	requestDisplayName,
+	useOpenRequestedControlActions,
+} from '../-operations-data';
+import { MissionItemProgressBadge, missionStopTone } from '../-operations-display';
+
+const MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
+
+const ACTION_LABELS: Readonly<Record<MissionItemAction, string>> = {
+	complete: 'Done',
+	skip: 'Skip',
+	unskip: 'Unskip',
+	reopen: 'Reopen',
+};
+
+/**
+ * A mission's stop list: what the crew works, in order.
+ *
+ * Two sets of controls sit on each row and they answer to different roles. The
+ * progress buttons are the assigned collector's — that is the mission being
+ * worked. The move and remove controls are a manager's, because they change what
+ * the mission *is*. Both are gated by the caller rather than here, so this
+ * component only decides what a stop looks like.
+ */
+export function MissionStopList({
+	stops,
+	isLoading,
+	progressEnabled,
+	planEditable,
+	selectedStopId,
+	highlightId,
+	onAction,
+	onMove,
+	onRemove,
+	onSelect,
+	onHover,
+}: {
+	readonly stops: readonly MissionStopView[];
+	readonly isLoading: boolean;
+	/** The mission is running and no write is in flight. */
+	readonly progressEnabled: boolean;
+	/** The mission is still open to plan changes. */
+	readonly planEditable: boolean;
+	readonly selectedStopId: string | null;
+	readonly highlightId: string | null;
+	readonly onAction: (stop: MissionStopView, action: MissionItemAction) => void;
+	readonly onMove: (index: number, action: MoveAction) => void;
+	readonly onRemove: (stop: MissionStopView) => void;
+	readonly onSelect: (id: string | null) => void;
+	readonly onHover: (id: string | null) => void;
+}) {
+	if (isLoading && stops.length === 0) {
+		return (
+			<div className="grid gap-2 p-3">
+				{['sk-1', 'sk-2', 'sk-3', 'sk-4'].map((key) => (
+					<Skeleton className="h-[76px] rounded-lg" key={key} />
+				))}
+			</div>
+		);
+	}
+
+	if (stops.length === 0) {
+		return (
+			<div className="flex flex-1 items-center justify-center p-6">
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<MapPinnedIcon aria-hidden="true" />
+						</EmptyMedia>
+						<EmptyTitle>No Stops on This Mission</EmptyTitle>
+						<EmptyDescription>
+							A mission needs at least one stop before it can be started. Add them from the request
+							queue above.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			</div>
+		);
+	}
+
+	return (
+		<ol className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3">
+			{stops.map((stop, index) => (
+				<MissionStopRow
+					index={index}
+					isFirst={index === 0}
+					isHighlighted={stop.missionItemId === highlightId}
+					isLast={index === stops.length - 1}
+					isSelected={stop.missionItemId === selectedStopId}
+					key={stop.missionItemId}
+					onAction={onAction}
+					onHover={onHover}
+					onMove={onMove}
+					onRemove={onRemove}
+					onSelect={onSelect}
+					ordinal={index + 1}
+					planEditable={planEditable}
+					progressEnabled={progressEnabled}
+					stop={stop}
+				/>
+			))}
+		</ol>
+	);
+}
+
+function MissionStopRow({
+	stop,
+	ordinal,
+	index,
+	isFirst,
+	isLast,
+	isSelected,
+	isHighlighted,
+	progressEnabled,
+	planEditable,
+	onAction,
+	onMove,
+	onRemove,
+	onSelect,
+	onHover,
+}: {
+	readonly stop: MissionStopView;
+	readonly ordinal: number;
+	readonly index: number;
+	readonly isFirst: boolean;
+	readonly isLast: boolean;
+	readonly isSelected: boolean;
+	readonly isHighlighted: boolean;
+	readonly progressEnabled: boolean;
+	readonly planEditable: boolean;
+	readonly onAction: (stop: MissionStopView, action: MissionItemAction) => void;
+	readonly onMove: (index: number, action: MoveAction) => void;
+	readonly onRemove: (stop: MissionStopView) => void;
+	readonly onSelect: (id: string | null) => void;
+	readonly onHover: (id: string | null) => void;
+}) {
+	const actions = missionItemActionsFor(stop.progress);
+
+	return (
+		<li
+			className={cn(
+				'relative rounded-lg border bg-card transition-colors',
+				isSelected || isHighlighted
+					? 'border-primary/40 ring-1 ring-primary/25'
+					: 'border-border/60',
+			)}
+			onMouseEnter={() => onHover(stop.missionItemId)}
+			onMouseLeave={() => onHover(null)}
+		>
+			{/* Full-card target selects the stop on the map; interactive bits opt back in. */}
+			<button
+				aria-label={`Show stop ${ordinal} on the map`}
+				aria-pressed={isSelected}
+				className={cn(
+					'absolute inset-0 size-full rounded-lg transition-colors',
+					isSelected ? 'bg-primary/5' : 'hover:bg-muted/40',
+				)}
+				onClick={() => onSelect(isSelected ? null : stop.missionItemId)}
+				type="button"
+			/>
+			<div className="pointer-events-none relative flex items-start gap-3 p-3">
+				<OrdinalBadge ordinal={ordinal} tone={missionStopTone(stop)} />
+
+				<div className="min-w-0 flex-1">
+					<div className="flex flex-wrap items-center gap-2">
+						<span className="pointer-events-auto min-w-0">
+							<StopName stop={stop} />
+						</span>
+						<MissionItemProgressBadge progress={stop.progress} />
+						<span aria-hidden="true" className="min-w-0 flex-1" />
+						{planEditable ? (
+							<StopPlanControls
+								index={index}
+								isFirst={isFirst}
+								isLast={isLast}
+								onMove={onMove}
+								onRemove={() => onRemove(stop)}
+							/>
+						) : null}
+					</div>
+
+					<StopSubtitle stop={stop} />
+
+					{stop.skipReason === null ? null : (
+						<p className="m-0 mt-1 text-muted-foreground text-xs">Skipped: {stop.skipReason}</p>
+					)}
+
+					<WriteOnly>
+						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
+							{actions.map((action) => (
+								<Button
+									disabled={!progressEnabled}
+									key={action}
+									onClick={() => onAction(stop, action)}
+									size="sm"
+									variant={action === 'complete' ? 'default' : 'outline'}
+								>
+									{ACTION_LABELS[action]}
+								</Button>
+							))}
+						</div>
+					</WriteOnly>
+				</div>
+			</div>
+		</li>
+	);
+}
+
+/** Reorder and remove: the manager's half of a stop row. */
+function StopPlanControls({
+	index,
+	isFirst,
+	isLast,
+	onMove,
+	onRemove,
+}: {
+	readonly index: number;
+	readonly isFirst: boolean;
+	readonly isLast: boolean;
+	readonly onMove: (index: number, action: MoveAction) => void;
+	readonly onRemove: () => void;
+}) {
+	return (
+		<div className="pointer-events-auto flex shrink-0 items-center gap-0.5">
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						aria-label="Move up"
+						className="size-7"
+						disabled={isFirst}
+						onClick={() => onMove(index, 'up')}
+						size="icon"
+						variant="ghost"
+					>
+						<ChevronUpIcon aria-hidden="true" className="size-4" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>Move up one stop</TooltipContent>
+			</Tooltip>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						aria-label="Move down"
+						className="size-7"
+						disabled={isLast}
+						onClick={() => onMove(index, 'down')}
+						size="icon"
+						variant="ghost"
+					>
+						<ChevronDownIcon aria-hidden="true" className="size-4" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>Move down one stop</TooltipContent>
+			</Tooltip>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button aria-label="More stop actions" className="size-7" size="icon" variant="ghost">
+						<MoreIcon aria-hidden="true" className="size-4" />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem disabled={isFirst} onClick={() => onMove(index, 'top')}>
+						Move to top
+					</DropdownMenuItem>
+					<DropdownMenuItem disabled={isLast} onClick={() => onMove(index, 'bottom')}>
+						Move to bottom
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onClick={onRemove} variant="destructive">
+						Remove from mission
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
+	);
+}
+
+/**
+ * What a stop is called.
+ *
+ * A stop owns its geometry, so it is never nameless in the way an assignment
+ * stop with a deleted target is — it is simply a place on the map. The request
+ * it came from names it when there is one, and links back so the reason for the
+ * visit is one click away.
+ */
+function StopName({ stop }: { readonly stop: MissionStopView }) {
+	if (stop.request !== null) {
+		return (
+			<Link
+				className="font-medium text-foreground text-sm hover:underline"
+				params={{ id: stop.request.id }}
+				to="/operations/requests-for-control/$id"
+			>
+				{requestDisplayName(stop.request)}
+			</Link>
+		);
+	}
+	if (stop.addressLabel !== null) {
+		return <span className="font-medium text-foreground text-sm">{stop.addressLabel}</span>;
+	}
+	return (
+		<span className="font-medium text-foreground text-sm">
+			{stop.isResolving ? 'Loading…' : 'Mapped stop'}
+		</span>
+	);
+}
+
+/** The second line: what kind of work the stop's request asked for, and where. */
+function StopSubtitle({ stop }: { readonly stop: MissionStopView }) {
+	const parts = [
+		stop.request === null ? null : controlTypeLabel(stop.request.controlType),
+		stop.request === null ? null : stop.addressLabel,
+	].filter((part): part is string => part !== null && part.length > 0);
+
+	if (parts.length === 0) {
+		return null;
+	}
+	return <p className="m-0 mt-1 truncate text-muted-foreground text-xs">{parts.join(' · ')}</p>;
+}
+
+/**
+ * The add-a-stop control: pick an open request, add it to the end.
+ *
+ * Requests are the only stop source offered because they are the only one the
+ * server can place without a drawn shape — it copies the request's own geometry.
+ * Requests already on this mission drop out of the list; one already on a
+ * *different* mission stays, because sending two crews to the same site is a
+ * legitimate plan the domain flags rather than forbids.
+ */
+export function RequestStopPicker({
+	organizationId,
+	existingRequestIds,
+	disabled = false,
+	onAdd,
+}: {
+	readonly organizationId: string;
+	readonly existingRequestIds: ReadonlySet<string>;
+	readonly disabled?: boolean;
+	readonly onAdd: (request: RequestedControlActionRow) => void;
+}) {
+	const [open, setOpen] = useState(false);
+	const [search, setSearch] = useState('');
+	const [selected, setSelected] = useState<RequestedControlActionRow | null>(null);
+	const anchorRef = useRef<HTMLDivElement>(null);
+
+	const { requests, isReady } = useOpenRequestedControlActions(organizationId);
+	const matches = useRequestMatches(requests, existingRequestIds, search);
+
+	return (
+		<div className="grid gap-2">
+			<PickerFrame
+				anchorRef={anchorRef}
+				label="Request for control"
+				onClear={() => {
+					setSelected(null);
+					setSearch('');
+				}}
+				onOpen={() => setOpen(true)}
+				onOpenChange={setOpen}
+				onSearchChange={(next) => {
+					setSearch(next);
+					setOpen(true);
+				}}
+				open={open}
+				placeholder="Search open requests"
+				search={search}
+				selectedLabel={selected === null ? '' : requestDisplayName(selected)}
+				value={selected?.id ?? null}
+			>
+				{matches.length === 0 ? (
+					<PickerFallback label={emptyPickerLabel(isReady, requests.length)} />
+				) : (
+					<div className="grid gap-1">
+						{matches.map((request) => (
+							<OptionRow
+								key={request.id}
+								onSelect={() => {
+									setSelected(request);
+									setSearch(requestDisplayName(request));
+									setOpen(false);
+								}}
+								primary={requestDisplayName(request)}
+								secondary={controlTypeLabel(request.controlType)}
+								selected={request.id === selected?.id}
+							/>
+						))}
+					</div>
+				)}
+			</PickerFrame>
+
+			<div>
+				<Button
+					disabled={disabled || selected === null}
+					onClick={() => {
+						if (selected !== null) {
+							onAdd(selected);
+							setSelected(null);
+							setSearch('');
+						}
+					}}
+					size="sm"
+					type="button"
+					variant="outline"
+				>
+					Add Stop
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+/** Open requests not already on this mission, narrowed by the search box. */
+function useRequestMatches(
+	requests: readonly RequestedControlActionRow[],
+	existingRequestIds: ReadonlySet<string>,
+	search: string,
+): readonly RequestedControlActionRow[] {
+	const normalized = search.trim().toLowerCase();
+	return useMemo(() => {
+		const available = requests.filter((request) => !existingRequestIds.has(request.id));
+		const filtered =
+			normalized.length === 0
+				? available
+				: available.filter((request) =>
+						requestDisplayName(request).toLowerCase().includes(normalized),
+					);
+		return filtered.slice(0, PICKER_RESULT_LIMIT);
+	}, [requests, existingRequestIds, normalized]);
+}
+
+const PICKER_RESULT_LIMIT = 8;
+
+/** Why the picker has nothing to show: still loading, none open, or none matching. */
+function emptyPickerLabel(isReady: boolean, openCount: number): string {
+	if (!isReady) {
+		return 'Loading requests';
+	}
+	return openCount === 0 ? 'No open requests' : 'No request matches';
+}

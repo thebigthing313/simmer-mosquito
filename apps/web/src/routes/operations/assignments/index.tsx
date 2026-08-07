@@ -38,6 +38,7 @@ import {
 } from '../../../lib/search-filters';
 import { todayDateValue } from '../../control-operations/-control-display';
 import { addDaysToDateString } from '../../larval-surveillance/-overview-data';
+import { WorklistMap } from '../-worklist-map';
 import {
 	type AssignmentStatus,
 	type AssignmentView,
@@ -47,7 +48,6 @@ import {
 	useAssignments,
 } from './-assignment-data';
 import { AssignmentStatusBadge, formatAssignmentDate, formatDueAt } from './-assignment-display';
-import { AssignmentMap } from './-assignment-map';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 
@@ -189,10 +189,11 @@ function AssignmentsIndexRoute() {
 	return (
 		<MapSplitPage
 			map={
-				<AssignmentMap
+				<WorklistMap
 					features={features}
 					fitKey={effectiveId ?? undefined}
 					highlightId={highlightId}
+					noun="assignment"
 					onHoverStop={setHighlightId}
 					onSelectStop={setSelectedStopId}
 					selectedId={selectedStopId}
@@ -209,7 +210,7 @@ function AssignmentsIndexRoute() {
 							counts={counts}
 						/>
 					)}
-				</AssignmentMap>
+				</WorklistMap>
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">

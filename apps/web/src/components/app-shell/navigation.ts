@@ -572,27 +572,78 @@ export const webShellDomains: readonly WebShellDomain[] = [
 		icon: iconRegistry.entities.vehicle.icon,
 		groups: [
 			{
-				id: 'operations-main',
+				id: 'operations-overview',
 				items: [
 					{
-						id: 'missions',
-						label: 'Missions',
-						to: '/operations/missions',
-						stub: true,
-						icon: iconRegistry.entities.route.icon,
+						id: 'operations-overview-link',
+						label: 'Overview',
+						to: '/operations',
+						icon: iconRegistry.generic.home.icon,
 					},
+				],
+			},
+			// Requests first, then assignments, then missions: a request is raised
+			// before anything is scheduled against it, so the group order follows the
+			// order the work actually moves through the section.
+			//
+			// The two worklists are qualified rather than left bare because they are
+			// the same shape — an ordered list of stops a crew works through — and
+			// differ only in what the crew does at each: an assignment sends someone
+			// to look, a mission sends them to treat.
+			{
+				id: 'operations-requests',
+				label: 'Requests for Control',
+				items: [
 					{
-						id: 'assignments',
-						label: 'Assignments',
-						to: '/operations/assignments',
-						icon: iconRegistry.entities.vehicle.icon,
-					},
-					{
-						id: 'requests-for-control',
-						label: 'Requests for Control',
+						id: 'requests-for-control-explorer',
+						label: 'Map',
 						to: '/operations/requests-for-control',
-						stub: true,
-						icon: iconRegistry.domains.controlOperations.icon,
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'requests-for-control-create',
+						label: 'New Request for Control',
+						to: '/operations/requests-for-control/create',
+						icon: iconRegistry.actions.add.icon,
+						write: 'collector',
+					},
+				],
+			},
+			{
+				id: 'operations-assignments',
+				label: 'Surveillance Assignments',
+				items: [
+					{
+						id: 'assignments-explorer',
+						label: 'Map',
+						to: '/operations/assignments',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'assignments-create',
+						label: 'New Assignment',
+						to: '/operations/assignments/create',
+						icon: iconRegistry.actions.add.icon,
+						write: 'manager',
+					},
+				],
+			},
+			{
+				id: 'operations-missions',
+				label: 'Control Missions',
+				items: [
+					{
+						id: 'missions-explorer',
+						label: 'Map',
+						to: '/operations/missions',
+						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'missions-create',
+						label: 'New Mission',
+						to: '/operations/missions/create',
+						icon: iconRegistry.actions.add.icon,
+						write: 'manager',
 					},
 				],
 			},

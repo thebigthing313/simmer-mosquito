@@ -380,12 +380,6 @@
       }
     },
     "apps/server/src/mission-dispatch-commands/shared.ts": {
-      "crap_critical": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 2
-      },
       "crap_moderate": {
         "count": 1
       }
@@ -659,14 +653,8 @@
       }
     },
     "apps/web/src/components/pickers/new-address-form.tsx": {
-      "complexity_high": {
+      "complexity_moderate": {
         "count": 1
-      },
-      "crap_high": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 4
       }
     },
     "apps/web/src/components/route-planning/route-create-dialog.tsx": {
@@ -1572,6 +1560,32 @@
         "count": 1
       }
     },
+    "apps/web/src/routes/operations/-draw-location.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/operations/-operations-data.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/src/routes/operations/-operations-display.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/operations/-worklist-map.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
     "apps/web/src/routes/operations/assignments/$id.tsx": {
       "complexity_critical": {
         "count": 1
@@ -1612,11 +1626,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/operations/assignments/-assignment-map.tsx": {
-      "crap_moderate": {
-        "count": 3
-      }
-    },
     "apps/web/src/routes/operations/assignments/-assignment-target-picker.tsx": {
       "complexity_critical": {
         "count": 1
@@ -1645,6 +1654,101 @@
       },
       "crap_moderate": {
         "count": 3
+      }
+    },
+    "apps/web/src/routes/operations/index.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/src/routes/operations/missions/$id.tsx": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/operations/missions/$id_.add-stop.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/operations/missions/-mission-form.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/src/routes/operations/missions/-mission-run.ts": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/operations/missions/-mission-stops.tsx": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/src/routes/operations/missions/create.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/operations/missions/index.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/src/routes/operations/requests-for-control/$id.tsx": {
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "apps/web/src/routes/operations/requests-for-control/$id_.edit.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/operations/requests-for-control/-request-form.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/operations/requests-for-control/create.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/operations/requests-for-control/index.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
       }
     },
     "apps/web/src/routes/profile.tsx": {
@@ -2032,10 +2136,10 @@
   },
   "runtime_coverage_findings": [],
   "target_keys": [
-    "apps/web/src/components/map/geometry-control.tsx:complexity",
     "apps/web/src/components/map/record-location-card.tsx:complexity",
     "apps/web/src/components/map/map-canvas.tsx:complexity",
     "apps/web/src/components/comments-section.tsx:complexity",
+    "apps/web/src/components/map/geometry-control.tsx:complexity",
     "apps/web/src/routes/operations/assignments/create.tsx:complexity",
     "apps/web/src/routes/operations/assignments/index.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/inspections/index.tsx:complexity",
@@ -2051,10 +2155,10 @@
     "apps/web/src/routes/larval-surveillance/samples/index.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
-    "apps/web/src/routes/larval-surveillance/inspections/-inspection-form.tsx:complexity",
-    "apps/web/src/routes/adult-surveillance/collections/-collection-form.tsx:complexity",
-    "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/server/src/mission-dispatch-commands/missions.ts:complexity",
+    "apps/web/src/routes/larval-surveillance/inspections/-inspection-form.tsx:complexity",
+    "apps/web/src/routes/gis/regions/import.tsx:complexity",
+    "apps/web/src/routes/adult-surveillance/collections/-collection-form.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
     "apps/web/src/routes/control-operations/biocontrol/-biocontrol-form.tsx:complexity",
     "apps/web/src/routes/control-operations/source-reduction/-source-reduction-form.tsx:complexity",
@@ -2062,9 +2166,9 @@
     "apps/web/src/routes/public-engagement/outreach/index.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",
-    "packages/ui-web/src/components/ui/autocomplete.tsx:complexity",
     "apps/web/src/routes/gis/addresses/-address-form.tsx:complexity",
-    "apps/web/src/routes/operations/assignments/$id.tsx:complexity",
+    "packages/ui-web/src/components/ui/autocomplete.tsx:complexity",
+    "apps/web/src/routes/operations/missions/index.tsx:complexity",
     "packages/domain/src/larval-surveillance/inspections.ts:complexity",
     "apps/server/src/map-tiles.ts:complexity",
     "packages/auth/src/index.ts:complexity"

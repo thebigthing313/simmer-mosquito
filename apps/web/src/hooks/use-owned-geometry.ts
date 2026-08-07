@@ -33,6 +33,10 @@ export const OUTREACH_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	segment: 'outreach',
 	bodyKey: 'outreachAction',
 };
+export const REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE: OwnedGeometrySource = {
+	segment: 'requested-control-actions',
+	bodyKey: 'requestedControlAction',
+};
 
 export interface OwnedGeometryQuery {
 	/**

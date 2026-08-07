@@ -64,16 +64,10 @@ const trapRoutes: Elsewhere = {
 	to: '/adult-surveillance/traps/routes',
 	icon: iconRegistry.entities.route.icon,
 };
-const habitatRoutes: Elsewhere = {
-	label: 'Habitat Routes',
-	description: 'Ordered habitat runs crews already work from',
-	to: '/larval-surveillance/habitats/routes',
-	icon: iconRegistry.entities.route.icon,
-};
-const assignments: Elsewhere = {
-	label: 'Assignments',
-	description: 'Ordered worklists crews already work from',
-	to: '/operations/assignments',
+const operations: Elsewhere = {
+	label: 'Operations',
+	description: 'Requested control work, crew assignments, and dispatched missions',
+	to: '/operations',
 	icon: iconRegistry.entities.vehicle.icon,
 };
 const collections: Elsewhere = {
@@ -118,29 +112,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 			'Open service requests awaiting triage',
 			'Field records logged since the last shift',
 		],
-		elsewhere: [serviceRequests, larvalOverview, adultOverview],
-	},
-	'/operations/missions': {
-		title: 'Missions',
-		summary:
-			'Planned dispatch work: an ordered set of stops, a responsible crew lead, and a lifecycle that runs from scheduled through completed.',
-		willLand: [
-			'Missions built from requested control actions or existing field records',
-			'Ordered mission items, each carrying its own progress',
-			'Provenance from a planned stop to the control action actually performed',
-		],
-		elsewhere: [assignments, habitatRoutes, controlOverview],
-	},
-	'/operations/requests-for-control': {
-		title: 'Requests for Control',
-		summary:
-			'Control work that has been requested but not yet performed — the queue missions draw their stops from.',
-		willLand: [
-			'Requests raised from a service request, inspection, or collection',
-			'Status tracked from raised, through scheduled, to performed',
-			'Sourcing mission items directly from an open request',
-		],
-		elsewhere: [serviceRequests, controlOverview, larvalOverview],
+		elsewhere: [operations, serviceRequests, larvalOverview],
 	},
 	'/adult-surveillance/arbovirus-surveillance': {
 		title: 'Arbovirus Surveillance',

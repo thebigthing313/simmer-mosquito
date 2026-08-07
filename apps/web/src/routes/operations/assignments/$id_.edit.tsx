@@ -57,6 +57,7 @@ import {
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
+import { WorklistMap } from '../-worklist-map';
 import {
 	type AssignmentStopView,
 	addAssignmentItem,
@@ -86,7 +87,6 @@ import {
 	toAssignmentDetails,
 	toDueAt,
 } from './-assignment-form';
-import { AssignmentMap } from './-assignment-map';
 import {
 	AssignmentTargetPicker,
 	type AssignmentTargetSelection,
@@ -279,10 +279,11 @@ function AssignmentPlanRoute() {
 		<>
 			<MapSplitPage
 				map={
-					<AssignmentMap
+					<WorklistMap
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
+						noun="assignment"
 						onHoverStop={setHighlightId}
 						onSelectStop={setSelectedStopId}
 						selectedId={selectedStopId}

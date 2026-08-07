@@ -1,7 +1,9 @@
 import { mapProgress } from '@simmer-mosquito/design-tokens';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
+	FillLayerSpecification,
 	GeoJSONSource,
 	LineLayerSpecification,
 	Map as MapboxMap,
@@ -21,6 +23,20 @@ export interface RouteStopFeature {
 	readonly lat: number;
 	/** 1-indexed position along the route; rendered inside the pin. */
 	readonly ordinal: number;
+	/**
+	 * The stop's real shape, when it owns one.
+	 *
+	 * A mission stop can be a whole ditch run or a treated block, not just a
+	 * dropped pin, and drawing it as a dot is a lie about where the crew is
+	 * going. Where this is set to a line or an area it is drawn beneath the
+	 * numbered pin, which stays as the ordinal marker — a polygon has nowhere to
+	 * put a number, and the sequence is the reason the map exists.
+	 *
+	 * Omit it for stops that point at another record (a route's traps, an
+	 * assignment's habitats): those are located *by* that record, and its own
+	 * shape belongs to its own layer.
+	 */
+	readonly geometry?: GeoJsonGeometry | null | undefined;
 	/**
 	 * Drives the pin fill so status reads without a legend.
 	 *
@@ -47,11 +63,29 @@ export interface RouteLayerConfig {
 
 const SOURCE_ID = 'route-sites';
 const PATH_LAYER_ID = 'route-sites-path';
+const SHAPE_FILL_LAYER_ID = 'route-sites-shape-fill';
+const SHAPE_LINE_LAYER_ID = 'route-sites-shape-line';
 const STOP_LAYER_ID = 'route-sites-stop';
 const LABEL_LAYER_ID = 'route-sites-label';
 const PATH_FEATURE_ID = '__route_path__';
 
-const LAYER_IDS = [PATH_LAYER_ID, STOP_LAYER_ID, LABEL_LAYER_ID] as const;
+/** A shape feature's own id — distinct from its stop's, which owns the pin. */
+function shapeFeatureId(stopId: string): string {
+	return `${stopId}__shape`;
+}
+
+// Order matters: the connecting path and the shapes sit under the pins, and the
+// label sits over everything.
+const LAYER_IDS = [
+	PATH_LAYER_ID,
+	SHAPE_FILL_LAYER_ID,
+	SHAPE_LINE_LAYER_ID,
+	STOP_LAYER_ID,
+	LABEL_LAYER_ID,
+] as const;
+
+/** Layers a click or hover may land on, pins first so a pin inside its own area wins. */
+const INTERACTIVE_LAYER_IDS = [STOP_LAYER_ID, SHAPE_FILL_LAYER_ID, SHAPE_LINE_LAYER_ID] as const;
 
 /** Field-room palette; kept in hex because GL paint can't read CSS tokens. */
 const colors = {
@@ -91,6 +125,8 @@ const toneColor: ExpressionSpecification = [
 
 function routeLayers(): [
 	LineLayerSpecification,
+	FillLayerSpecification,
+	LineLayerSpecification,
 	CircleLayerSpecification,
 	SymbolLayerSpecification,
 ] {
@@ -106,6 +142,30 @@ function routeLayers(): [
 				'line-width': 2.5,
 				'line-opacity': 0.55,
 				'line-dasharray': [1.5, 1.2],
+			},
+		},
+		{
+			id: SHAPE_FILL_LAYER_ID,
+			type: 'fill',
+			source: SOURCE_ID,
+			filter: ['==', ['get', 'kind'], 'shape'],
+			paint: {
+				'fill-color': toneColor,
+				// Light enough that overlapping stops on the same block stay legible,
+				// and that the basemap underneath still reads.
+				'fill-opacity': ['case', emphasized, 0.32, 0.16],
+			},
+		},
+		{
+			id: SHAPE_LINE_LAYER_ID,
+			type: 'line',
+			source: SOURCE_ID,
+			filter: ['==', ['get', 'kind'], 'shape'],
+			layout: { 'line-cap': 'round', 'line-join': 'round' },
+			paint: {
+				'line-color': toneColor,
+				'line-width': ['case', emphasized, 4, 2.5],
+				'line-opacity': 0.9,
 			},
 		},
 		{
@@ -138,13 +198,25 @@ function routeLayers(): [
 }
 
 function buildData(stops: readonly RouteStopFeature[]): GeoJSON.FeatureCollection {
-	const points: GeoJSON.Feature[] = stops
-		.filter((stop) => Number.isFinite(stop.lng) && Number.isFinite(stop.lat))
+	const located = stops.filter((stop) => Number.isFinite(stop.lng) && Number.isFinite(stop.lat));
+
+	const points: GeoJSON.Feature[] = located.map((stop) => ({
+		type: 'Feature',
+		id: stop.id,
+		geometry: { type: 'Point', coordinates: [stop.lng, stop.lat] },
+		properties: { id: stop.id, kind: 'stop', ordinal: stop.ordinal, tone: stop.tone },
+	}));
+
+	// A stop whose own shape is a point already has one — the pin. Only lines and
+	// areas add a feature, and they carry the *stop's* id in `properties` so a
+	// click on the area selects the stop, not the shape.
+	const shapes: GeoJSON.Feature[] = located
+		.filter((stop) => isDrawableShape(stop.geometry))
 		.map((stop) => ({
 			type: 'Feature',
-			id: stop.id,
-			geometry: { type: 'Point', coordinates: [stop.lng, stop.lat] },
-			properties: { id: stop.id, kind: 'stop', ordinal: stop.ordinal, tone: stop.tone },
+			id: shapeFeatureId(stop.id),
+			geometry: stop.geometry as unknown as GeoJSON.Geometry,
+			properties: { id: stop.id, kind: 'shape', ordinal: stop.ordinal, tone: stop.tone },
 		}));
 
 	const line =
@@ -162,7 +234,12 @@ function buildData(stops: readonly RouteStopFeature[]): GeoJSON.FeatureCollectio
 				]
 			: [];
 
-	return { type: 'FeatureCollection', features: [...line, ...points] };
+	return { type: 'FeatureCollection', features: [...line, ...shapes, ...points] };
+}
+
+/** Anything but a bare point, which the numbered pin already draws. */
+function isDrawableShape(geometry: GeoJsonGeometry | null | undefined): boolean {
+	return geometry != null && geometry.type !== 'Point';
 }
 
 /** A stable signature so we only re-push data when the ordered stop set changes. */
@@ -170,9 +247,51 @@ function stopsSignature(stops: readonly RouteStopFeature[]): string {
 	return stops
 		.map(
 			(stop) =>
-				`${stop.id}:${stop.ordinal}:${stop.tone}:${stop.lng.toFixed(6)},${stop.lat.toFixed(6)}`,
+				`${stop.id}:${stop.ordinal}:${stop.tone}:${stop.lng.toFixed(6)},${stop.lat.toFixed(6)}:${shapeSignature(stop.geometry)}`,
 		)
 		.join('|');
+}
+
+/**
+ * A shape's contribution to the signature.
+ *
+ * Its type and vertex count, not its coordinates: a stop's shape is replaced
+ * wholesale when it is redrawn, so two shapes of the same type and size at the
+ * same centroid are the same shape in practice — and stringifying every ring of
+ * every polygon on every render to find that out is not worth the certainty.
+ */
+function shapeSignature(geometry: GeoJsonGeometry | null | undefined): string {
+	if (!isDrawableShape(geometry)) {
+		return '-';
+	}
+	const shape = geometry as { readonly type: string; readonly coordinates?: unknown };
+	return `${shape.type}:${JSON.stringify(shape.coordinates).length}`;
+}
+
+/**
+ * Push selection and hover onto the pin and, where there is one, the shape.
+ *
+ * They are two features with two ids — the pin is keyed by the stop's id so the
+ * caller's selection maps straight onto it, and the shape needs its own or the
+ * source would hold two features under one key — so emphasis has to be written
+ * to both or an area would stay pale while its pin lit up.
+ */
+function emphasizeStops(
+	map: MapboxMap,
+	stops: readonly RouteStopFeature[],
+	selectedId: string | null,
+	highlightId: string | null,
+): void {
+	for (const stop of stops) {
+		const state = {
+			selected: stop.id === selectedId,
+			highlight: stop.id === highlightId,
+		};
+		map.setFeatureState({ source: SOURCE_ID, id: stop.id }, state);
+		if (isDrawableShape(stop.geometry)) {
+			map.setFeatureState({ source: SOURCE_ID, id: shapeFeatureId(stop.id) }, state);
+		}
+	}
 }
 
 /**
@@ -211,15 +330,7 @@ export function useRouteLayer(
 		const activeMap = map;
 
 		function applyFeatureStates() {
-			for (const stop of stopsRef.current) {
-				activeMap.setFeatureState(
-					{ source: SOURCE_ID, id: stop.id },
-					{
-						selected: stop.id === selectedRef.current,
-						highlight: stop.id === highlightRef.current,
-					},
-				);
-			}
+			emphasizeStops(activeMap, stopsRef.current, selectedRef.current, highlightRef.current);
 		}
 
 		function ensureLayers() {
@@ -243,11 +354,18 @@ export function useRouteLayer(
 		activeMap.on('style.load', ensureLayers);
 
 		function stopAt(event: MapMouseEvent): string | null {
-			if (activeMap.getLayer(STOP_LAYER_ID) === undefined) {
+			// A stop's own shape is as clickable as its pin: on a treated block the
+			// pin is a dot at the centroid and the area is what is under the cursor.
+			// The stop id rides in `properties`, because the shape feature carries a
+			// feature id of its own.
+			const layers = INTERACTIVE_LAYER_IDS.filter(
+				(layerId) => activeMap.getLayer(layerId) !== undefined,
+			);
+			if (layers.length === 0) {
 				return null;
 			}
-			const feature = activeMap.queryRenderedFeatures(event.point, { layers: [STOP_LAYER_ID] })[0];
-			return feature === undefined || feature.id === undefined ? null : String(feature.id);
+			const id = activeMap.queryRenderedFeatures(event.point, { layers })[0]?.properties?.id;
+			return typeof id === 'string' ? id : null;
 		}
 		function handleClick(event: MapMouseEvent) {
 			const id = stopAt(event);
@@ -301,11 +419,6 @@ export function useRouteLayer(
 		if (map === null || !isLoaded || !enabled || map.getSource(SOURCE_ID) === undefined) {
 			return;
 		}
-		for (const stop of stopsRef.current) {
-			map.setFeatureState(
-				{ source: SOURCE_ID, id: stop.id },
-				{ selected: stop.id === selectedId, highlight: stop.id === highlightId },
-			);
-		}
+		emphasizeStops(map, stopsRef.current, selectedId, highlightId);
 	}, [map, isLoaded, enabled, selectedId, highlightId, signature]);
 }
