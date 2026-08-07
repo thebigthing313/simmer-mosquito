@@ -7,6 +7,7 @@ import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
+import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -21,6 +22,10 @@ import {
 } from './-outreach-form';
 
 export const Route = createFileRoute('/public-engagement/outreach/create')({
+	// Ahead of `beforeLoad`: the options object is read in order, and a guard
+	// declared first is typed against a route whose search schema is not known
+	// yet — which erases lat/lng from `Route.useSearch()`.
+	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/public-engagement/outreach' });
@@ -31,6 +36,7 @@ export const Route = createFileRoute('/public-engagement/outreach/create')({
 
 function CreateOutreachActionRoute() {
 	const { auth } = Route.useRouteContext();
+	const initialGeometry = pointFromSearch(Route.useSearch());
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.outreachMethods);
@@ -135,6 +141,7 @@ function CreateOutreachActionRoute() {
 				backTo: '/public-engagement/outreach',
 				backLabel: 'Outreach',
 			}}
+			initialGeometry={initialGeometry}
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
 			outreachMethods={methods}

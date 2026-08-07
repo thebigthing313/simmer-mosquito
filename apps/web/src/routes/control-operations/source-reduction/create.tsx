@@ -12,6 +12,7 @@ import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
+import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -25,6 +26,10 @@ import {
 } from './-source-reduction-form';
 
 export const Route = createFileRoute('/control-operations/source-reduction/create')({
+	// Ahead of `beforeLoad`: the options object is read in order, and a guard
+	// declared first is typed against a route whose search schema is not known
+	// yet — which erases lat/lng from `Route.useSearch()`.
+	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/control-operations/source-reduction' });
@@ -35,6 +40,7 @@ export const Route = createFileRoute('/control-operations/source-reduction/creat
 
 function CreateSourceReductionRoute() {
 	const { auth } = Route.useRouteContext();
+	const initialGeometry = pointFromSearch(Route.useSearch());
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(
@@ -136,6 +142,7 @@ function CreateSourceReductionRoute() {
 				backLabel: 'Source Reduction',
 			}}
 			methods={methods}
+			initialGeometry={initialGeometry}
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
 			profiles={profiles}

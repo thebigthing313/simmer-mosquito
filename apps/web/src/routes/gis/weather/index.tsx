@@ -130,6 +130,7 @@ function WeatherStationsRoute() {
 			map={
 				<>
 					<MapCanvas
+						contextMenu={{}}
 						controls={{ layers: false, measure: true }}
 						fitToData={bounds}
 						geoJson={geoJson}

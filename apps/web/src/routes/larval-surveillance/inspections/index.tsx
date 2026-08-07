@@ -40,6 +40,7 @@ import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
 	type InspectionTileFilters,
+	MAP_CREATE_TARGETS,
 	MapCanvas,
 } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
@@ -288,6 +289,7 @@ function InspectionsExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
+						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
 						controls={{ layers: false, measure: true }}
 						fitToData
 						inspectionLayer={inspectionLayer}

@@ -7,6 +7,7 @@ import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
+import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -24,6 +25,10 @@ import {
 } from './-inspection-form';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/create')({
+	// Ahead of `beforeLoad`: the options object is read in order, and a guard
+	// declared first is typed against a route whose search schema is not known
+	// yet — which erases lat/lng from `Route.useSearch()`.
+	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/larval-surveillance/inspections' });
@@ -34,8 +39,22 @@ export const Route = createFileRoute('/larval-surveillance/inspections/create')(
 
 const warmGcTimeMs = 30_000;
 
+/**
+ * An inspection opened from a point on the map is an ad-hoc one.
+ *
+ * The mode has to follow the coordinate: left on `habitat`, the seeded geometry
+ * is held but never shown, and the operator draws the same spot a second time.
+ */
+function seededDefaults(
+	base: InspectionFormValues,
+	seed: DrawGeometry | null,
+): InspectionFormValues {
+	return seed === null ? base : { ...base, locationMode: 'adhoc' };
+}
+
 function CreateInspectionRoute() {
 	const { auth } = Route.useRouteContext();
+	const initialGeometry = pointFromSearch(Route.useSearch());
 	const navigate = useNavigate();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 	const { organization, settings } = workspace;
@@ -146,7 +165,10 @@ function CreateInspectionRoute() {
 	return (
 		<InspectionFormPage
 			canSubmit={canSubmit}
-			defaultValues={defaultInspectionFormValues(today, actorProfileId)}
+			defaultValues={seededDefaults(
+				defaultInspectionFormValues(today, actorProfileId),
+				initialGeometry,
+			)}
 			habitatTypes={habitatTypes}
 			mode="create"
 			header={{
@@ -155,6 +177,7 @@ function CreateInspectionRoute() {
 				backTo: '/larval-surveillance/inspections',
 				backLabel: 'Inspections',
 			}}
+			initialAdhocGeometry={initialGeometry}
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
 			policy={policy}

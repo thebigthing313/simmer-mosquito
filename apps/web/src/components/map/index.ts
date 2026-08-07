@@ -8,6 +8,8 @@ export {
 	type InspectionTileFilters,
 } from './inspection-tiles';
 export { MapCanvas } from './map-canvas';
+export { MAP_CREATE_TARGETS } from './map-create-targets';
+export { mapPointSearchSchema, pointFromSearch } from './map-point-search';
 export type { OutreachTileFilters } from './outreach-tiles';
 export { SAMPLE_STATUS_COLORS, type SampleTileFilters } from './sample-tiles';
 export type { SourceReductionTileFilters } from './source-reduction-tiles';

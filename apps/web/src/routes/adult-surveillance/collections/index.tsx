@@ -26,7 +26,7 @@ import {
 	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { type CollectionTileFilters, MapCanvas } from '../../../components/map';
+import { type CollectionTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import {
@@ -234,6 +234,7 @@ function CollectionsExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
+						contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
 						collectionLayer={collectionLayer}
 						controls={{ layers: false, measure: true }}
 						fitToData

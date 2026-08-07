@@ -11,6 +11,7 @@ import { buildCollectionExtentUrl } from './collection-tiles';
 import { GeolocateControl } from './geolocate-control';
 import { buildHabitatExtentUrl } from './habitat-tiles';
 import { buildInspectionExtentUrl } from './inspection-tiles';
+import { MapContextMenu, type MapContextMenuConfig } from './map-context-menu';
 import { MapFallback } from './map-fallback';
 import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
@@ -79,6 +80,7 @@ export function MapCanvas({
 	className,
 	camera,
 	controls,
+	contextMenu,
 	habitatLayer,
 	regionLayer,
 	addressLayer,
@@ -101,6 +103,13 @@ export function MapCanvas({
 	readonly className?: string;
 	readonly camera?: MapCamera;
 	readonly controls?: MapControlsConfig;
+	/**
+	 * Give the map a right-click menu — the clicked coordinate, and the records
+	 * this surface can start there. Omitted means no menu at all, which is what
+	 * the maps embedded in forms and cards want: they already have a draw tool,
+	 * and a second way to place a point would only compete with it.
+	 */
+	readonly contextMenu?: MapContextMenuConfig;
 	/** Mount the habitat vector-tile layer with these filters + selection wiring. */
 	readonly habitatLayer?: HabitatTileLayerConfig;
 	/** Mount the region (polygon) vector-tile layer with these filters + selection wiring. */
@@ -230,7 +239,13 @@ export function MapCanvas({
 			 * `.absolute` by load order. Without an explicit height the container then
 			 * collapses and the canvas renders but stays invisible.
 			 */}
-			<div className="absolute inset-0 size-full" ref={setContainer} />
+			{contextMenu === undefined ? (
+				<div className="absolute inset-0 size-full" ref={setContainer} />
+			) : (
+				<MapContextMenu config={contextMenu} map={map}>
+					<div className="absolute inset-0 size-full" ref={setContainer} />
+				</MapContextMenu>
+			)}
 
 			{!hasToken ? (
 				<MapFallback

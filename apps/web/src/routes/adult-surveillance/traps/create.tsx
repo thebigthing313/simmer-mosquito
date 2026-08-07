@@ -3,6 +3,7 @@ import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mo
 import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
@@ -16,6 +17,10 @@ import {
 } from './-trap-form';
 
 export const Route = createFileRoute('/adult-surveillance/traps/create')({
+	// Ahead of `beforeLoad`: the options object is read in order, and a guard
+	// declared first is typed against a route whose search schema is not known
+	// yet — which erases lat/lng from `Route.useSearch()`.
+	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowRole(context, 'manager')) {
 			throw redirect({ replace: true, to: '/adult-surveillance/traps' });
@@ -26,6 +31,7 @@ export const Route = createFileRoute('/adult-surveillance/traps/create')({
 
 function CreateTrapRoute() {
 	const { auth } = Route.useRouteContext();
+	const initialGeometry = pointFromSearch(Route.useSearch());
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
@@ -109,6 +115,7 @@ function CreateTrapRoute() {
 				backTo: '/adult-surveillance/traps',
 				backLabel: 'Traps',
 			}}
+			initialGeometry={initialGeometry}
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
 			submitLabel="Add Trap"

@@ -3,6 +3,7 @@ import type { ContactRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
+import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
@@ -16,6 +17,10 @@ import {
 } from './-service-request-form';
 
 export const Route = createFileRoute('/public-engagement/service-requests/create')({
+	// Ahead of `beforeLoad`: the options object is read in order, and a guard
+	// declared first is typed against a route whose search schema is not known
+	// yet — which erases lat/lng from `Route.useSearch()`.
+	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowRole(context, 'manager')) {
 			throw redirect({ replace: true, to: '/public-engagement/service-requests' });
@@ -28,6 +33,7 @@ const warmGcTimeMs = 30_000;
 
 function CreateServiceRequestRoute() {
 	const { auth } = Route.useRouteContext();
+	const initialGeometry = pointFromSearch(Route.useSearch());
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const organizationId = organization?.id ?? '';
@@ -157,6 +163,7 @@ function CreateServiceRequestRoute() {
 				backTo: '/public-engagement/service-requests',
 				backLabel: 'Service Requests',
 			}}
+			initialGeometry={initialGeometry}
 			onSave={onSave}
 			organizationId={organizationId}
 			profiles={profiles}

@@ -14,6 +14,7 @@ import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
+import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -29,6 +30,7 @@ import {
 } from './-collection-form';
 
 const createCollectionSearchSchema = z.object({
+	...mapPointSearchSchema.shape,
 	/** Optional trap to prefill the source, e.g. from a trap's "Record collection". */
 	trapId: z
 		.string()
@@ -52,7 +54,9 @@ export const Route = createFileRoute('/adult-surveillance/collections/create')({
 
 function CreateCollectionRoute() {
 	const { auth } = Route.useRouteContext();
-	const { trapId } = Route.useSearch();
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
+	const { trapId } = search;
 	const navigate = useNavigate();
 	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
@@ -175,6 +179,7 @@ function CreateCollectionRoute() {
 				backTo: '/adult-surveillance/collections',
 				backLabel: 'Collections',
 			}}
+			initialGeometry={initialGeometry}
 			onSave={onSave}
 			organizationId={organization?.id ?? ''}
 			profiles={profiles}

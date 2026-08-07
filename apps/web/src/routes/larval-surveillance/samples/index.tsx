@@ -40,7 +40,12 @@ import {
 	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { MapCanvas, SAMPLE_STATUS_COLORS, type SampleTileFilters } from '../../../components/map';
+import {
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+	SAMPLE_STATUS_COLORS,
+	type SampleTileFilters,
+} from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
@@ -283,6 +288,7 @@ function SamplesExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
+						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
 						controls={{ layers: false, measure: true }}
 						fitToData
 						onMapReady={handleMapReady}

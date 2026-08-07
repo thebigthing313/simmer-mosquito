@@ -30,7 +30,7 @@ import {
 	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { type HabitatTileFilters, MapCanvas } from '../../../components/map';
+import { type HabitatTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import {
 	choiceParam,
@@ -198,6 +198,7 @@ function HabitatsExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
+						contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
 						controls={{ layers: false, measure: true }}
 						fitToData
 						habitatLayer={habitatLayer}

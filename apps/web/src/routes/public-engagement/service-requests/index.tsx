@@ -58,7 +58,7 @@ import {
 	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { MapCanvas } from '../../../components/map';
+import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
 import { WriteOnly } from '../../../components/write-only';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -285,6 +285,9 @@ function ServiceRequestsExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
+						contextMenu={{
+							create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
+						}}
 						controls={{ layers: false, measure: true }}
 						fitToData={mappedBounds}
 						geoJson={geoJson}

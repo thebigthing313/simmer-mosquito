@@ -26,7 +26,7 @@ import {
 	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { type BiocontrolTileFilters, MapCanvas } from '../../../components/map';
+import { type BiocontrolTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import {
@@ -241,6 +241,7 @@ function BiocontrolExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
+						contextMenu={{ create: [MAP_CREATE_TARGETS.biocontrol] }}
 						biocontrolLayer={biocontrolLayer}
 						controls={{ layers: false, measure: true }}
 						fitToData

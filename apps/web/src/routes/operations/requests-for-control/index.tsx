@@ -197,6 +197,7 @@ function RequestsForControlRoute() {
 		<MapSplitPage
 			map={
 				<MapCanvas
+					contextMenu={{}}
 					controls={{ layers: false, measure: true }}
 					fitToData={bounds}
 					geoJson={geoJson}

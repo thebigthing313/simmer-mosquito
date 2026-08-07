@@ -4,6 +4,7 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
@@ -16,6 +17,10 @@ import {
 } from './-address-form';
 
 export const Route = createFileRoute('/gis/addresses/create')({
+	// Ahead of `beforeLoad`: the options object is read in order, and a guard
+	// declared first is typed against a route whose search schema is not known
+	// yet — which erases lat/lng from `Route.useSearch()`.
+	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/gis/addresses' });
@@ -26,6 +31,7 @@ export const Route = createFileRoute('/gis/addresses/create')({
 
 function CreateAddressRoute() {
 	const { auth } = Route.useRouteContext();
+	const initialGeometry = pointFromSearch(Route.useSearch());
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
@@ -91,7 +97,7 @@ function CreateAddressRoute() {
 				backTo: '/gis/addresses',
 				backLabel: 'Address Book',
 			}}
-			initialGeometry={null}
+			initialGeometry={initialGeometry}
 			onSave={onSave}
 			submitLabel="Create Address"
 		/>
