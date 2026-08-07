@@ -330,6 +330,11 @@ function HabitatDetailsCard({
 							<HabitatTags habitatId={habitat.id} />
 						</Suspense>
 					</DetailRow>
+					<DetailRow label="Routes">
+						<Suspense fallback={<span className="text-muted-foreground">Loading routes…</span>}>
+							<HabitatRoutes habitatId={habitat.id} />
+						</Suspense>
+					</DetailRow>
 					<DetailRow label="Geometry">{geometrySummary(geometry, isGeometryPending)}</DetailRow>
 					<DetailRow label="Coordinates">
 						{isGeometryPending ? 'Loading…' : coordinateLabel(geometry)}
@@ -450,6 +455,82 @@ function HabitatTags({ habitatId }: { readonly habitatId: string }) {
 				<TagBadge key={tag.id} tag={tag} />
 			))}
 		</div>
+	);
+}
+
+/**
+ * The routes this habitat is a stop on.
+ *
+ * `docs/sync.md` notes that "the same habitat may appear in multiple routes",
+ * which is exactly why the detail page should say so: a crew lead looking at a
+ * site needs to know whose run it is already on before adding it to another,
+ * and until now the only way to find out was to open every route.
+ *
+ * Same shape as `HabitatTags` and for the same reason: `route_items` is
+ * on-demand, so this is a non-suspense `useLiveQuery` gated on status rather
+ * than `useLiveSuspenseQuery`, which hangs permanently after unmount over an
+ * on-demand collection. `routes` is eager, so suspense is safe there.
+ */
+function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
+	const stops = useLiveQuery(
+		{
+			gcTime: tagsGcTimeMs,
+			query: (query) =>
+				query
+					.from({ routeItem: webCollections.routeItems })
+					.where(({ routeItem }) =>
+						and(eq(routeItem.entityType, 'habitat'), eq(routeItem.entityId, habitatId)),
+					)
+					.select(({ routeItem }) => ({
+						id: routeItem.id,
+						routeId: routeItem.routeId,
+						position: routeItem.position,
+					})),
+		},
+		[habitatId],
+	);
+
+	const catalog = useLiveSuspenseQuery((query) => query.from({ route: webCollections.routes }), []);
+
+	const routes = useMemo(() => {
+		const routesById = new Map(catalog.data.map((route) => [route.id, route]));
+		return (stops.data ?? [])
+			.flatMap((stop) => {
+				const route = routesById.get(stop.routeId);
+				// A stop whose route is not in the catalog is another agency's or a
+				// deleted one; either way there is nothing to link to.
+				return route === undefined ? [] : [{ position: stop.position, route }];
+			})
+			.sort((first, second) => first.route.routeName.localeCompare(second.route.routeName));
+	}, [stops.data, catalog.data]);
+
+	if (stops.isError) {
+		return <span className="text-muted-foreground">Routes unavailable</span>;
+	}
+	if (!stops.isReady) {
+		return <span className="text-muted-foreground">Loading routes…</span>;
+	}
+	if (routes.length === 0) {
+		return <span className="text-muted-foreground">Not on a route</span>;
+	}
+
+	return (
+		<ul className="m-0 grid list-none gap-1 p-0">
+			{routes.map(({ position, route }) => (
+				<li className="flex items-baseline gap-2" key={route.id}>
+					<Link
+						className="w-fit rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						params={{ id: route.id }}
+						to="/larval-surveillance/habitats/routes/$id"
+					>
+						{route.routeName}
+					</Link>
+					{/* Where in the run it falls — the thing a crew lead is actually
+					    asking when they ask which route a site is on. */}
+					<span className="text-muted-foreground text-xs tabular-nums">stop {position}</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 
