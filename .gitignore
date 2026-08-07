@@ -16,3 +16,8 @@ coverage/
 # Vendored design tooling (installed locally, not version-controlled)
 .agents/skills/impeccable/
 .codex/
+
+# Generated basemap preview harness — inlines the four committed style JSONs,
+# so tracking it would duplicate them and go stale silently. Rebuild with
+# `node scripts/map-style/build.mjs`.
+scripts/map-style/preview.html
