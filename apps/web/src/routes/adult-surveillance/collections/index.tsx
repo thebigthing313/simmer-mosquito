@@ -15,6 +15,7 @@ import {
 	datePresetRange,
 } from '../../../components/date-range-filter';
 import {
+	ActiveFilterBar,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
@@ -290,7 +291,7 @@ function CollectionsExplorerRoute() {
 					</div>
 
 					{hasActiveFilters ? (
-						<div className="flex flex-wrap items-center gap-1.5">
+						<ActiveFilterBar onClearAll={clearAll}>
 							{[...methodIds].map((id) => (
 								<FilterChip
 									key={id}
@@ -308,14 +309,7 @@ function CollectionsExplorerRoute() {
 							{problemOnly ? (
 								<FilterChip label="Problems only" onRemove={() => setProblemOnly(false)} />
 							) : null}
-							<button
-								className="ml-auto rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								onClick={clearAll}
-								type="button"
-							>
-								Clear all
-							</button>
-						</div>
+						</ActiveFilterBar>
 					) : null}
 				</div>
 

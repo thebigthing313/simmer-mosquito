@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
+	ActiveFilterBar,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
@@ -393,7 +394,7 @@ function ActiveFilters({
 	readonly onClearAll: () => void;
 }) {
 	return (
-		<div className="flex flex-wrap items-center gap-1.5">
+		<ActiveFilterBar onClearAll={onClearAll}>
 			{status !== 'active' ? (
 				<FilterChip
 					label={`Status: ${status === 'all' ? 'All' : 'Inactive'}`}
@@ -431,14 +432,7 @@ function ActiveFilters({
 					/>
 				);
 			})}
-			<button
-				className="ml-auto rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={onClearAll}
-				type="button"
-			>
-				Clear all
-			</button>
-		</div>
+		</ActiveFilterBar>
 	);
 }
 

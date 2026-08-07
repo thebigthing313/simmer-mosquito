@@ -15,6 +15,7 @@ import {
 	datePresetRange,
 } from '../../../components/date-range-filter';
 import {
+	ActiveFilterBar,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
@@ -279,7 +280,7 @@ function OutreachExplorerRoute() {
 					</div>
 
 					{hasActiveFilters ? (
-						<div className="flex flex-wrap items-center gap-1.5">
+						<ActiveFilterBar onClearAll={reset}>
 							{[...methodIds].map((id) => (
 								<FilterChip
 									key={id}
@@ -301,14 +302,7 @@ function OutreachExplorerRoute() {
 									onRemove={() => setRegionIds(toggle(regionIds, id))}
 								/>
 							))}
-							<button
-								className="ml-auto rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								onClick={reset}
-								type="button"
-							>
-								Clear all
-							</button>
-						</div>
+						</ActiveFilterBar>
 					) : null}
 				</div>
 

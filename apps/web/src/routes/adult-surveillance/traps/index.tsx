@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
+	ActiveFilterBar,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
@@ -246,7 +247,7 @@ function TrapsExplorerRoute() {
 					</div>
 
 					{hasActiveFilters ? (
-						<div className="flex flex-wrap items-center gap-1.5">
+						<ActiveFilterBar onClearAll={clearAll}>
 							{status !== 'active' ? (
 								<FilterChip
 									label={`Status: ${status === 'all' ? 'All' : 'Inactive'}`}
@@ -267,14 +268,7 @@ function TrapsExplorerRoute() {
 									onRemove={() => setRegionIds(toggle(regionIds, id))}
 								/>
 							))}
-							<button
-								className="ml-auto rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								onClick={clearAll}
-								type="button"
-							>
-								Clear all
-							</button>
-						</div>
+						</ActiveFilterBar>
 					) : null}
 				</div>
 

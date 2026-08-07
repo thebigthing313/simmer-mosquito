@@ -17,6 +17,7 @@ import {
 	datePresetRange,
 } from '../../../components/date-range-filter';
 import {
+	ActiveFilterBar,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
@@ -511,7 +512,7 @@ function ActiveFilters({
 	readonly onClearAll: () => void;
 }) {
 	return (
-		<div className="flex flex-wrap items-center gap-1.5">
+		<ActiveFilterBar onClearAll={onClearAll}>
 			{isDefaultRange ? null : (
 				<FilterChip label={`Dates: ${dateRangeLabel(from, to)}`} onRemove={onResetDates} />
 			)}
@@ -551,14 +552,7 @@ function ActiveFilters({
 					onRemove={() => onToggleRegion(id)}
 				/>
 			))}
-			<button
-				className="ml-auto rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={onClearAll}
-				type="button"
-			>
-				Clear all
-			</button>
-		</div>
+		</ActiveFilterBar>
 	);
 }
 

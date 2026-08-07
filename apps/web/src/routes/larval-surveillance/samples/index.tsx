@@ -10,7 +10,6 @@ import {
 	CommandItem,
 	CommandList,
 } from '@simmer-mosquito/ui-web/components/ui/command';
-import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import {
 	Popover,
 	PopoverContent,
@@ -25,6 +24,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
+	activeDatePresetId,
+	type DatePreset,
+	DateRangeFilter,
+	datePresetRange,
+} from '../../../components/date-range-filter';
+import {
+	ActiveFilterBar,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
@@ -37,7 +43,6 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MapCanvas, SAMPLE_STATUS_COLORS, type SampleTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { adhocLabel } from '../../../lib/coordinate-label';
-import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
 import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -113,21 +118,6 @@ const STATUS_ORDER: readonly SampleStatus[] = [
 	'identified',
 	'zero_larvae',
 	'unidentifiable',
-];
-
-interface DatePreset {
-	readonly id: string;
-	readonly label: string;
-	/** Days back from today the preset spans (inclusive), or null for no bound. */
-	readonly days: number | null;
-}
-
-const DATE_PRESETS: readonly DatePreset[] = [
-	{ id: '7d', label: 'Last 7 days', days: 7 },
-	{ id: '30d', label: 'Last 30 days', days: 30 },
-	{ id: '90d', label: 'Last 90 days', days: 90 },
-	{ id: '12mo', label: 'Last 12 months', days: 365 },
-	{ id: 'all', label: 'All time', days: null },
 ];
 
 /** The window the explorer opens with, and the reset target for "Clear all". */
@@ -266,29 +256,17 @@ function SamplesExplorerRoute() {
 	);
 	const applyPreset = useCallback(
 		(preset: DatePreset) => {
-			if (preset.days === null) {
-				setFilters({ from: '', to: '' });
-				return;
-			}
-			setFilters({ from: addDaysToDateString(today, -(preset.days - 1)), to: today });
+			const range = datePresetRange(preset, today);
+			setFilters({ from: range.from, to: range.to });
 		},
 		[setFilters, today],
 	);
 
-	const activePresetId = useMemo(() => {
-		for (const preset of DATE_PRESETS) {
-			if (preset.days === null) {
-				if (dateFrom === '' && dateTo === '') {
-					return preset.id;
-				}
-				continue;
-			}
-			if (dateTo === today && dateFrom === addDaysToDateString(today, -(preset.days - 1))) {
-				return preset.id;
-			}
-		}
-		return null;
-	}, [dateFrom, dateTo, today]);
+	// Which preset (if any) the current range exactly matches — drives chip highlight.
+	const activePresetId = useMemo(
+		() => activeDatePresetId(dateFrom, dateTo, today),
+		[dateFrom, dateTo, today],
+	);
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
 	const hasActiveFilters =
@@ -404,77 +382,6 @@ function SamplesExplorerRoute() {
  * presets. `today` bounds every selection so no future date — where there can be
  * no samples — is reachable.
  */
-function DateRangeFilter({
-	from,
-	to,
-	today,
-	activePresetId,
-	onFromChange,
-	onToChange,
-	onApplyPreset,
-}: {
-	readonly from: string;
-	readonly to: string;
-	readonly today: string;
-	readonly activePresetId: string | null;
-	readonly onFromChange: (value: string) => void;
-	readonly onToChange: (value: string) => void;
-	readonly onApplyPreset: (preset: DatePreset) => void;
-}) {
-	const todayDate = parseLocalDate(today);
-	const fromDate = parseLocalDate(from);
-	const toDate = parseLocalDate(to);
-
-	return (
-		<div className="grid gap-2">
-			<div className="flex items-center gap-3">
-				<span className="w-14 shrink-0 font-medium text-muted-foreground text-xs">Dates</span>
-				<div className="flex flex-1 items-center gap-2">
-					<DatePicker
-						ariaLabel="Start date"
-						className="h-8 flex-1 text-xs"
-						max={toDate ?? todayDate}
-						onChange={(date) => onFromChange(date === undefined ? '' : formatLocalDate(date))}
-						placeholder="Start"
-						value={fromDate}
-					/>
-					<span className="shrink-0 text-muted-foreground text-xs">to</span>
-					<DatePicker
-						ariaLabel="End date"
-						className="h-8 flex-1 text-xs"
-						max={todayDate}
-						min={fromDate}
-						onChange={(date) => onToChange(date === undefined ? '' : formatLocalDate(date))}
-						placeholder="End"
-						value={toDate}
-					/>
-				</div>
-			</div>
-			<div className="flex flex-wrap gap-1.5 pl-[4.25rem]">
-				{DATE_PRESETS.map((preset) => {
-					const isActive = preset.id === activePresetId;
-					return (
-						<button
-							aria-pressed={isActive}
-							className={cn(
-								'rounded-full border px-2 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-								isActive
-									? 'border-primary/50 bg-primary/10 text-foreground'
-									: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-							)}
-							key={preset.id}
-							onClick={() => onApplyPreset(preset)}
-							type="button"
-						>
-							{preset.label}
-						</button>
-					);
-				})}
-			</div>
-		</div>
-	);
-}
-
 function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
 	if (isLoading && total === 0) {
 		return <span className="text-muted-foreground text-sm">Loading…</span>;
@@ -661,7 +568,7 @@ function ActiveFilters({
 	readonly onClearAll: () => void;
 }) {
 	return (
-		<div className="flex flex-wrap items-center gap-1.5">
+		<ActiveFilterBar onClearAll={onClearAll}>
 			{isDefaultRange ? null : (
 				<FilterChip label={`Dates: ${dateRangeLabel(from, to)}`} onRemove={onResetDates} />
 			)}
@@ -690,14 +597,7 @@ function ActiveFilters({
 			{nonMosquito ? (
 				<FilterChip label="Non-mosquito material" onRemove={onClearNonMosquito} />
 			) : null}
-			<button
-				className="ml-auto rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={onClearAll}
-				type="button"
-			>
-				Clear all
-			</button>
-		</div>
+		</ActiveFilterBar>
 	);
 }
 
