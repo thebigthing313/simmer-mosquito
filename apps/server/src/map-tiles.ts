@@ -57,7 +57,6 @@ import {
 	type HabitatMvtTileInput,
 	type HabitatSearchInput,
 	type HabitatSiteDisplayRow,
-	type HabitatsByIdsInput,
 	type HabitatTypeUsageRow,
 	type InspectionByIdInput,
 	type InspectionDensity,
@@ -70,7 +69,6 @@ import {
 	listBiocontrolDisplayRowsPage,
 	listCollectionDisplayRowsPage,
 	listHabitatDisplayRowsByBounds,
-	listHabitatDisplayRowsByIds,
 	listInspectionDisplayRowsByBounds,
 	listMissionItemGeometry,
 	listOutreachDisplayRowsPage,
@@ -141,10 +139,6 @@ type HabitatDisplayByIdReader = (
 	db: TileDb,
 	input: HabitatByIdInput,
 ) => Promise<SafeHabitatDisplayRow | undefined>;
-type HabitatDisplayByIdsReader = (
-	db: TileDb,
-	input: HabitatsByIdsInput,
-) => Promise<HabitatSiteDisplayRow[]>;
 type HabitatSearchReader = (
 	db: TileDb,
 	input: HabitatSearchInput,
@@ -376,7 +370,6 @@ export function registerMapTileRoutes(
 		readonly getAddressTile?: AddressTileReader;
 		readonly listHabitatDisplayRows?: HabitatDisplayReader;
 		readonly getHabitatDisplayRow?: HabitatDisplayByIdReader;
-		readonly listHabitatDisplayRowsByIds?: HabitatDisplayByIdsReader;
 		readonly searchHabitatDisplayRows?: HabitatSearchReader;
 		readonly countHabitatTypeUsage?: HabitatTypeUsageReader;
 		readonly getInspectionTile?: InspectionTileReader;
@@ -442,7 +435,6 @@ export function registerMapTileRoutes(
 	});
 	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
 	const getDisplayRow = options.getHabitatDisplayRow ?? getHabitatDisplayRowById;
-	const listDisplayRowsByIds = options.listHabitatDisplayRowsByIds ?? listHabitatDisplayRowsByIds;
 	const searchDisplayRows = options.searchHabitatDisplayRows ?? searchHabitatSites;
 	const countTypeUsage = options.countHabitatTypeUsage ?? countActiveHabitatsByType;
 	const listInspectionRows = options.listInspectionDisplayRows ?? listInspectionDisplayRowsByBounds;
@@ -488,63 +480,6 @@ export function registerMapTileRoutes(
 		});
 
 		return context.json({ usage });
-	});
-
-	// Resolve an explicit habitat id set (e.g. a route's stops) in one round-trip.
-	// Registered before `/:id` so the literal segment wins over the UUID param.
-	app.get('/map/habitats/by-ids', options.authContextMiddleware, async (context) => {
-		const idsResult = parseHabitatIdsParam(new URL(context.req.url).searchParams);
-		if (!idsResult.ok) {
-			return context.json({ error: 'invalid_query', reason: idsResult.reason }, 400);
-		}
-
-		if (idsResult.ids.length === 0) {
-			return context.json({ habitats: [] });
-		}
-
-		const authContext = context.get('authContext');
-		const habitats = await listDisplayRowsByIds(options.db, {
-			organizationId: authContext.organization.id,
-			ids: idsResult.ids,
-		});
-
-		return context.json({ habitats });
-	});
-
-	// POST sibling of `by-ids` for callers resolving a large id set (e.g. every
-	// habitat behind a window of inspections). The same lookup as the GET route,
-	// but the ids ride in the body so the request never runs into URL/header
-	// length limits that reject a long `?ids=` query string.
-	app.post('/map/habitats/by-ids', options.authContextMiddleware, async (context) => {
-		const body = (await context.req.json().catch(() => null)) as { readonly ids?: unknown } | null;
-		const rawIds = body?.ids;
-		if (!Array.isArray(rawIds) || rawIds.some((id) => typeof id !== 'string')) {
-			return context.json(
-				{ error: 'invalid_body', reason: 'ids must be an array of strings.' },
-				400,
-			);
-		}
-
-		// Reuse the query-param validator (uuid shape + count cap) so both routes
-		// enforce identical rules from a single source of truth.
-		const params = new URLSearchParams();
-		params.set('ids', (rawIds as string[]).join(','));
-		const idsResult = parseHabitatIdsParam(params);
-		if (!idsResult.ok) {
-			return context.json({ error: 'invalid_body', reason: idsResult.reason }, 400);
-		}
-
-		if (idsResult.ids.length === 0) {
-			return context.json({ habitats: [] });
-		}
-
-		const authContext = context.get('authContext');
-		const habitats = await listDisplayRowsByIds(options.db, {
-			organizationId: authContext.organization.id,
-			ids: idsResult.ids,
-		});
-
-		return context.json({ habitats });
 	});
 
 	// Name/address search for pickers (e.g. adding a stop to a route). Non-spatial.
@@ -2275,7 +2210,6 @@ function parseOptionalSampleStatusFilter(
 	return { ok: true, value: trimmed as SampleStatus };
 }
 
-const maxHabitatIds = 500;
 const maxSearchResults = 25;
 
 function parseHabitatSearchQuery(
@@ -2297,22 +2231,6 @@ function parseHabitatSearchQuery(
 		return { ok: false, reason: `limit must be between 1 and ${maxSearchResults}.` };
 	}
 	return { ok: true, search: search.value ?? '', limit: parsed };
-}
-
-function parseHabitatIdsParam(
-	searchParams: URLSearchParams,
-):
-	| { readonly ok: true; readonly ids: readonly string[] }
-	| { readonly ok: false; readonly reason: string } {
-	const result = parseOptionalUuidListFilter(searchParams, 'ids');
-	if (!result.ok) {
-		return result;
-	}
-	const ids = result.value ?? [];
-	if (ids.length > maxHabitatIds) {
-		return { ok: false, reason: `ids must contain ${maxHabitatIds} or fewer values.` };
-	}
-	return { ok: true, ids };
 }
 
 const habitatFilterParams = new Set([

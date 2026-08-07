@@ -35,12 +35,13 @@ import {
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
 import { registerAuthUserRoutes } from './auth-user-commands.js';
+import { PRIVATE_READ_PREFIXES, privateNoStore } from './cache-headers.js';
 import { isRecord } from './command-payload.js';
 import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
 import { registerControlMethodCommandRoutes } from './control-method-commands.js';
 import { registerControlOperationsCommandRoutes } from './control-operations-commands/index.js';
 import { registerControlProductCommandRoutes } from './control-product-commands.js';
-import { ADMIN_CORS_ALLOW_METHODS } from './cors-options.js';
+import { CORS_SURFACES } from './cors-options.js';
 import { createDevSessionProvider } from './dev-impersonation.js';
 import { readServerEnv } from './env.js';
 import { registerFieldWorkCommandRoutes } from './field-work-commands/index.js';
@@ -116,169 +117,28 @@ const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
 	setAuthCookie,
 });
 
-app.use(
-	'/auth/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['GET', 'POST', 'OPTIONS'],
-	}),
-);
+// CORS is one table, applied in one loop. `cors-options.ts` explains why the
+// table lives there and what checks it against the routes; the short version is
+// that nineteen hand-maintained `app.use` blocks had already drifted from the
+// paths the route modules register.
+for (const surface of CORS_SURFACES) {
+	app.use(
+		surface.prefix,
+		cors({
+			origin: allowedCorsOrigins(),
+			credentials: true,
+			allowMethods: [...surface.methods],
+		}),
+	);
+}
 
-app.use(
-	'/admin/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ADMIN_CORS_ALLOW_METHODS,
-	}),
-);
-
-app.use(
-	'/sync/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		// POST carries Electric subset snapshot params in the body (on-demand
-		// collections); the live shape-log stream still rides GET.
-		allowMethods: ['GET', 'POST', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/map/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['GET', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/geocoder/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['GET', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/records/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['GET', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/foundation/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/control-methods/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/control-assets/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/control-products/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/organization-settings/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['PATCH', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/public-engagement/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/larval-surveillance/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/adult-surveillance/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/control-operations/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/field-work/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/mission-dispatch/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'],
-	}),
-);
-
-app.use(
-	'/organization/*',
-	cors({
-		origin: allowedCorsOrigins(),
-		credentials: true,
-		allowMethods: ['POST', 'PATCH', 'OPTIONS'],
-	}),
-);
+// Organization-scoped reads on URLs that are byte-identical across tenants.
+// `cache-headers.ts` explains why; the short version is that a tile URL carries
+// no organization id and one login can switch between agencies without the URL
+// changing. Registered before the routes so it wraps them.
+for (const prefix of PRIVATE_READ_PREFIXES) {
+	app.use(prefix, privateNoStore);
+}
 
 app.get('/health', (context) =>
 	context.json({
