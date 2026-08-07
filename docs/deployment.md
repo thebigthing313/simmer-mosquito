@@ -143,6 +143,26 @@ Notes:
 - A one-off Electric redeploy afterwards is optional but gives it a fully clean
   re-snapshot.
 
+### The WorkOS relink is part of the clone, not a follow-up
+
+The dump carries **production** WorkOS ids, and local dev authenticates against
+the WorkOS **staging** environment. `resolveActiveLocalAuthIdentity` looks
+organizations up by `workos_organization_id`, so an unrelinked row is invisible
+to a staging session — and worse than invisible: signing in against an org id
+that resolves to nothing provisions a *fresh* organization, leaving staging with
+two rows for the same agency.
+
+The script therefore rewrites the ids itself, from `$WorkosOrgRelinks` /
+`$WorkosUserRelinks` near the top of the file, and then **verifies** that no
+organization still carries a mapped prod id. That check is the point: a relink
+whose only verification is someone noticing a broken workspace is one clone away
+from being lost, which is exactly what #82 was.
+
+**When a new agency exists in both environments, add it to `$WorkosOrgRelinks`.**
+The script prints any organization whose id is outside the map after relinking —
+that list should be empty, and anything in it will duplicate on next sign-in.
+Pass `-SkipRelink` only when you intend to work through `DEV_IMPERSONATE_*`.
+
 `scripts/clone-prod-db.ps1` is the sibling that clones prod into **local Docker**
 Postgres (Mode B) instead.
 

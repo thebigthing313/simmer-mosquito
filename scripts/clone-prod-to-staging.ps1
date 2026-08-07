@@ -31,20 +31,38 @@ param(
 	[string]$PgBin,
 	# Skip the interactive "did you stop staging Electric?" pre-flight confirmation.
 	[switch]$Yes,
-	# WorkOS identity relink (runs after the clone): the cloned data carries PROD
-	# WorkOS ids, but local dev authenticates against the WorkOS STAGING environment.
-	# These map the prod org/user the dump brings over to the staging org/user you
-	# actually log in as, so `pnpm dev` + a normal WorkOS staging login lands you in
-	# the cloned org. Defaults match the current Middlesex owner setup; override to
-	# relink a different identity, or pass -SkipRelink to leave prod ids in place.
-	[string]$ProdWorkosOrgId = 'org_01KRY8C6XHQ030P2NNDMY1PRSS',
-	[string]$StagingWorkosOrgId = 'org_01KRXZWNNE28Q00672CA1CKT70',
-	[string]$ProdWorkosUserId = 'user_01KRY8CW0K380JPC7FRW81WPB4',
-	[string]$StagingWorkosUserId = 'user_01KQYXX9N212YZH59DXMH3Y6VV',
+	# Leave the cloned PROD WorkOS ids in place instead of relinking them.
 	[switch]$SkipRelink
 )
 
 $ErrorActionPreference = 'Stop'
+
+# ---------------------------------------------------------------------------
+# WorkOS identity relink map
+# ---------------------------------------------------------------------------
+# The dump carries PRODUCTION WorkOS ids. Local dev authenticates against the
+# WorkOS STAGING environment, and `resolveActiveLocalAuthIdentity` looks
+# organizations up by `workos_organization_id` — so an unrelinked row is
+# invisible to a staging session. `apps/admin` tolerates that (the operator
+# grant is `SIMMER_OPERATOR_EMAILS`, not the local identity), but `apps/web`
+# does not: `__root.tsx` throws when `localIdentity.organizationId` is null.
+#
+# Worse than invisible, actually. Signing in against an org id that resolves to
+# nothing gets a *fresh* organization row provisioned, so staging ends up with
+# two rows for the same agency — which is what happened to SIMMER (#82) while
+# only Middlesex was in this map.
+#
+# So this is a table, not a pair of parameters, and every org that exists in
+# both environments belongs in it. Add a row here rather than passing ids on the
+# command line: an id passed by hand is one clone away from being forgotten
+# again, which is the whole failure this issue was about.
+$WorkosOrgRelinks = @(
+	@{ Name = 'Middlesex'; Prod = 'org_01KRY8C6XHQ030P2NNDMY1PRSS'; Staging = 'org_01KRXZWNNE28Q00672CA1CKT70' }
+	@{ Name = 'SIMMER'; Prod = 'org_01KRQEQBJJHF729PY0ED6P7875'; Staging = 'org_01KZC6NB6PPMV9GKYVHS4VJAQF' }
+)
+$WorkosUserRelinks = @(
+	@{ Name = 'Middlesex owner'; Prod = 'user_01KRY8CW0K380JPC7FRW81WPB4'; Staging = 'user_01KQYXX9N212YZH59DXMH3Y6VV' }
+)
 
 if ([string]::IsNullOrWhiteSpace($ProdUrl)) {
 	throw 'PROD_DATABASE_URL is not set. Provide the prod PUBLIC proxy connection string (read-only role preferred).'
@@ -117,18 +135,51 @@ try {
 	if ($LASTEXITCODE -ne 0) { throw "verification query failed (exit $LASTEXITCODE)" }
 
 	if (-not $SkipRelink) {
-		Write-Host '==> Relinking cloned prod identity -> WorkOS STAGING (so you can log in normally) ...' -ForegroundColor Cyan
-		# Rewrite the org + owner user WorkOS ids from prod to staging, then flag that
-		# membership as the user's default org. Bulk data hangs off the internal org
-		# UUID (preserved by the dump), so only these identity rows need touching.
-		& $psql $StagingUrl -v ON_ERROR_STOP=1 `
-			-v prod_org=$ProdWorkosOrgId -v staging_org=$StagingWorkosOrgId `
-			-v prod_user=$ProdWorkosUserId -v staging_user=$StagingWorkosUserId `
-			-c "update organizations set workos_organization_id = :'staging_org', updated_at = now() where workos_organization_id = :'prod_org';" `
-			-c "update users set workos_user_id = :'staging_user', updated_at = now() where workos_user_id = :'prod_user';" `
-			-c "update memberships set is_default = true, updated_at = now() where user_id = (select id from users where workos_user_id = :'staging_user') and organization_id = (select id from organizations where workos_organization_id = :'staging_org');" `
-			-c "select o.name, o.workos_organization_id, u.email, u.workos_user_id, m.role, m.status, m.is_default from memberships m join organizations o on o.id = m.organization_id join users u on u.id = m.user_id where u.workos_user_id = :'staging_user' and o.workos_organization_id = :'staging_org';"
+		Write-Host '==> Relinking cloned prod identities -> WorkOS STAGING (so you can log in normally) ...' -ForegroundColor Cyan
+		# Bulk data hangs off the internal org UUID, which the dump preserves, so
+		# only these identity columns need rewriting.
+		$relinkSql = New-Object System.Collections.Generic.List[string]
+		foreach ($map in $WorkosOrgRelinks) {
+			Write-Host "    org  $($map.Name): $($map.Prod) -> $($map.Staging)" -ForegroundColor DarkGray
+			$relinkSql.Add("update organizations set workos_organization_id = '$($map.Staging)', updated_at = now() where workos_organization_id = '$($map.Prod)';")
+		}
+		foreach ($map in $WorkosUserRelinks) {
+			Write-Host "    user $($map.Name): $($map.Prod) -> $($map.Staging)" -ForegroundColor DarkGray
+			$relinkSql.Add("update users set workos_user_id = '$($map.Staging)', updated_at = now() where workos_user_id = '$($map.Prod)';")
+			$relinkSql.Add("update memberships set is_default = true, updated_at = now() where user_id = (select id from users where workos_user_id = '$($map.Staging)');")
+		}
+
+		$relinkArgs = @($StagingUrl, '-v', 'ON_ERROR_STOP=1')
+		foreach ($statement in $relinkSql) { $relinkArgs += @('-c', $statement) }
+		& $psql @relinkArgs
 		if ($LASTEXITCODE -ne 0) { throw "WorkOS staging relink failed (exit $LASTEXITCODE)" }
+
+		# The guard that makes the relink self-checking. A prod id still present
+		# after the rewrite means either an org is missing from $WorkosOrgRelinks
+		# or its id changed, and both fail the same silent way: the next staging
+		# login provisions a duplicate organization instead of finding this one.
+		# Failing here is the whole point — a relink that is only ever verified by
+		# someone noticing a broken workspace is the state #82 described.
+		Write-Host '==> Verifying no organization still carries a prod WorkOS id ...' -ForegroundColor Cyan
+		$prodOrgList = ($WorkosOrgRelinks | ForEach-Object { "'$($_.Prod)'" }) -join ','
+		$stagingOrgList = ($WorkosOrgRelinks | ForEach-Object { "'$($_.Staging)'" }) -join ','
+		# `organizations_workos_organization_id_key` is unique, so a relink that
+		# would collide with an existing staging row aborts the UPDATE above
+		# rather than reaching here. Both failures are loud, which is the only
+		# property that matters.
+		$stragglers = (& $psql $StagingUrl -X -A -t -v ON_ERROR_STOP=1 `
+			-c "select count(*) from organizations where workos_organization_id in ($prodOrgList);").Trim()
+		if ($LASTEXITCODE -ne 0) { throw "relink verification query failed (exit $LASTEXITCODE)" }
+		if ($stragglers -ne '0') {
+			throw "$stragglers organization row(s) still carry a PROD WorkOS id after relinking. Add them to `$WorkosOrgRelinks in this script."
+		}
+
+		# Not fatal, but worth saying: an org outside the map is one a staging
+		# login cannot find, and the symptom is a duplicate row rather than an
+		# error.
+		& $psql $StagingUrl -X -v ON_ERROR_STOP=1 `
+			-c "select name, workos_organization_id as unmapped_workos_org_id from organizations where workos_organization_id not in ($stagingOrgList);"
+
 		if ($env:DEV_IMPERSONATE_WORKOS_USER_ID -or $env:DEV_IMPERSONATE_WORKOS_ORG_ID) {
 			Write-Host '    WARNING: DEV_IMPERSONATE_* is set in your shell env - it overrides real login. Comment it out in .env to use WorkOS staging auth.' -ForegroundColor Yellow
 		}
