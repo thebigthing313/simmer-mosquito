@@ -37,9 +37,12 @@ function CreateContactRoute() {
 	// contacts syncs on demand; keep the org's stream warm so the insert's txid
 	// confirmation resolves instead of timing out against a cold shape.
 	//
-	// The row itself is never read, so there is no order to impose — and an
-	// ordered, limited query whose sort column has no index loads the entire
-	// collection to serve it.
+	// The row itself is never read, so there is no order worth imposing — but a
+	// limit without one is a compile error in TanStack DB, and an unordered
+	// `limit` is what crashed this page to "Unable to load workspace data". `id`
+	// is the ordering that costs nothing: it is the primary key, so it is already
+	// indexed, and an ordered limit on an unindexed column would load the whole
+	// collection to serve one row.
 	useLiveQuery(
 		{
 			gcTime: warmGcTimeMs,
@@ -47,6 +50,7 @@ function CreateContactRoute() {
 				query
 					.from({ contact: webCollections.contacts })
 					.where(({ contact }) => eq(contact.organizationId, organizationId))
+					.orderBy(({ contact }) => contact.id)
 					.limit(1),
 		},
 		[organizationId],
