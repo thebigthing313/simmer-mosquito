@@ -65,7 +65,7 @@ import type {
 export function ControlOperationsSettings({
 	applicationMethods,
 	biocontrolMethods,
-	canManage,
+	canManageAssets,
 	organization,
 	sourceReductionMethods,
 	vehicles,
@@ -73,7 +73,13 @@ export function ControlOperationsSettings({
 }: {
 	readonly applicationMethods: Collection<ControlMethodRow, string | number>;
 	readonly biocontrolMethods: Collection<ControlMethodRow, string | number>;
-	readonly canManage: boolean;
+	/**
+	 * Vehicles and equipment are `MANAGER` on the server, not `ADMIN` — every
+	 * one of `controlOperations.createVehicle` through `deleteEquipment`. The
+	 * method entries beside them are links rather than editors, so this is the
+	 * only floor this section needs.
+	 */
+	readonly canManageAssets: boolean;
 	readonly organization: OrganizationRow | null;
 	readonly sourceReductionMethods: Collection<ControlMethodRow, string | number>;
 	readonly vehicles: Collection<VehicleRow, string | number>;
@@ -101,13 +107,13 @@ export function ControlOperationsSettings({
 					/>
 					<ControlAssetLookupList
 						assets={vehicles}
-						canManage={canManage}
+						canManage={canManageAssets}
 						collectionKey="vehicles"
 						organization={organization}
 					/>
 					<ControlAssetLookupList
 						assets={equipment}
-						canManage={canManage}
+						canManage={canManageAssets}
 						collectionKey="equipment"
 						organization={organization}
 					/>
@@ -161,11 +167,19 @@ function ControlMethodLookupPointer({
 
 export function ControlMethodLookupList({
 	canManage,
+	canEditMethods,
 	collectionKey,
 	methods,
 	organization,
 }: {
+	/** Owner/admin: adding a method, and flipping one active or inactive. */
 	readonly canManage: boolean;
+	/**
+	 * Manager-and-above: renaming a method and editing its custom fields. The
+	 * server splits these two floors (`update*Method` is `MANAGER`, everything
+	 * else about a method is `ADMIN`), so this list needs both.
+	 */
+	readonly canEditMethods: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
 	readonly methods: Collection<ControlMethodRow, string | number>;
 	readonly organization: OrganizationRow | null;
@@ -181,20 +195,26 @@ export function ControlMethodLookupList({
 			detail={config.detail}
 			title={config.title}
 			action={
-				<ControlMethodDrawer
-					canManage={canManage}
-					collectionKey={collectionKey}
-					organization={organization}
-					trigger={
-						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
-							<AddIcon aria-hidden="true" />
-							{config.addLabel}
-						</Button>
-					}
-				/>
+				// Hidden rather than disabled, per `components/write-only.tsx`: a
+				// greyed-out Add asks the reader to work out why on every visit.
+				canManage ? (
+					<ControlMethodDrawer
+						canEdit={canEditMethods}
+						canManage={canManage}
+						collectionKey={collectionKey}
+						organization={organization}
+						trigger={
+							<Button type="button" variant="outline" size="sm">
+								<AddIcon aria-hidden="true" />
+								{config.addLabel}
+							</Button>
+						}
+					/>
+				) : null
 			}
 		>
 			<ControlMethodTable
+				canEditMethods={canEditMethods}
 				canManage={canManage}
 				collectionKey={collectionKey}
 				methods={activeMethods}
@@ -202,6 +222,7 @@ export function ControlMethodLookupList({
 			/>
 			{inactiveMethods.length > 0 ? (
 				<ControlMethodTable
+					canEditMethods={canEditMethods}
 					canManage={canManage}
 					collectionKey={collectionKey}
 					methods={inactiveMethods}
@@ -213,11 +234,13 @@ export function ControlMethodLookupList({
 }
 
 function ControlMethodTable({
+	canEditMethods,
 	canManage,
 	collectionKey,
 	methods,
 	organization,
 }: {
+	readonly canEditMethods: boolean;
 	readonly canManage: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
 	readonly methods: readonly ControlMethodRow[];
@@ -232,7 +255,7 @@ function ControlMethodTable({
 						<TableHead>{config.fieldLabel}</TableHead>
 						<TableHead className="w-28">Status</TableHead>
 						<TableHead className="w-[30%]">Custom Fields</TableHead>
-						{canManage ? <TableHead className="w-16 text-right">Edit</TableHead> : null}
+						{canEditMethods ? <TableHead className="w-16 text-right">Edit</TableHead> : null}
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -243,9 +266,10 @@ function ControlMethodTable({
 							<TableCell>
 								<CustomFieldsCell schema={method.customSchema} />
 							</TableCell>
-							{canManage ? (
+							{canEditMethods ? (
 								<TableCell className="text-right">
 									<ControlMethodDrawer
+										canEdit={canEditMethods}
 										canManage={canManage}
 										collectionKey={collectionKey}
 										method={method}
@@ -268,18 +292,24 @@ function ControlMethodTable({
 }
 
 function ControlMethodDrawer({
+	canEdit,
 	canManage,
 	collectionKey,
 	method,
 	organization,
 	trigger,
 }: {
+	/** Manager-and-above: the name and the custom fields. */
+	readonly canEdit: boolean;
+	/** Owner/admin: creating a method, and the Active switch. */
 	readonly canManage: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
 	readonly method?: ControlMethodRow | undefined;
 	readonly organization: OrganizationRow | null;
 	readonly trigger: React.ReactNode;
 }) {
+	// Creating is admin-only; editing an existing method is open to managers.
+	const canSubmit = method === undefined ? canManage : canEdit;
 	const [open, setOpen] = useState(false);
 	const config = controlMethodListConfigs[collectionKey];
 	const defaultValues = controlMethodFormValues(method);
@@ -346,20 +376,23 @@ function ControlMethodDrawer({
 							{(field) => (
 								<field.TextField
 									label={config.fieldLabel}
-									disabled={!canManage}
+									disabled={!canSubmit}
 									placeholder={config.placeholder}
 								/>
 							)}
 						</form.AppField>
+						{/* The lifecycle switch stays at the admin floor even inside an edit a
+						    manager may make: flipping it emits `deactivate*Method` /
+						    `reactivate*Method`, which the server holds at `ADMIN`. */}
 						<form.AppField name="isActive">
 							{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
 						</form.AppField>
 						<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-							{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canManage} />}
+							{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canSubmit} />}
 						</form.AppField>
 						<DrawerFooter className="px-0">
 							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || organization === null} />
+								<form.SubmitButton disabled={!canSubmit || organization === null} />
 								<DrawerClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />
@@ -470,17 +503,22 @@ function ControlAssetLookupContent({
 			detail={config.detail}
 			title={config.title}
 			action={
-				<ControlAssetDrawer
-					canManage={canManage}
-					collectionKey={collectionKey}
-					organization={organization}
-					trigger={
-						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
-							<AddIcon aria-hidden="true" />
-							{config.addLabel}
-						</Button>
-					}
-				/>
+				// Hidden rather than disabled, per `components/write-only.tsx`. A
+				// collector on this page used to see a greyed-out Add vehicle with
+				// nothing saying why, which every other catalog surface avoids.
+				canManage ? (
+					<ControlAssetDrawer
+						canManage={canManage}
+						collectionKey={collectionKey}
+						organization={organization}
+						trigger={
+							<Button type="button" variant="outline" size="sm">
+								<AddIcon aria-hidden="true" />
+								{config.addLabel}
+							</Button>
+						}
+					/>
+				) : null
 			}
 		>
 			<ControlAssetTable

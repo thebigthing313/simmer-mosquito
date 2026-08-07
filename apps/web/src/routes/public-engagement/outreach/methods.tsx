@@ -12,10 +12,11 @@ export const Route = createFileRoute('/public-engagement/outreach/methods')({
 
 function OutreachMethodsRoute() {
 	const { auth } = Route.useRouteContext();
-	const { canManage, organization } = useOrganizationWorkspace(auth.snapshot);
+	const { canManage, canManageOperational, organization } = useOrganizationWorkspace(auth.snapshot);
 
 	return (
 		<ControlMethodsPage
+			canEditMethods={canManageOperational}
 			canManage={canManage}
 			collection={webCollections.outreachMethods}
 			collectionKey="outreachMethods"

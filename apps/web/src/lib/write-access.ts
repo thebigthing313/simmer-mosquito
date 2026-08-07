@@ -91,6 +91,26 @@ export function canManageCatalogs(auth: AuthMe | null): boolean {
 }
 
 /**
+ * Whether this membership manages the catalogs that are part of running work
+ * rather than part of configuring the agency.
+ *
+ * Manager-and-above: tags, vehicles, equipment, and *editing* an existing
+ * control method (its name and its custom fields). Adding or retiring a method
+ * is still {@link canManageCatalogs} — the server splits those two floors
+ * apart, `create`/`deactivate`/`reactivate`/`delete` at `ADMIN` and `update` at
+ * `MANAGER`, so a page that offers both needs both flags.
+ *
+ * The same floor as {@link canPlanWork}, and deliberately not the same name:
+ * one reads as "may this person shape the work", the other as "may this person
+ * shape the lists the work is recorded against". #65 was a manager locked out
+ * of the second because the organization workspace only had a word for
+ * {@link canManageCatalogs}.
+ */
+export function canManageOperationalCatalogs(auth: AuthMe | null): boolean {
+	return canPlanWork(auth);
+}
+
+/**
  * The `beforeLoad` half of the check, for the create/edit routes.
  *
  * Awaits `context.auth.load()` rather than reading the snapshot: on a cold load

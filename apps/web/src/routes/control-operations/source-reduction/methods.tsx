@@ -12,10 +12,11 @@ const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
 
 function SourceReductionMethodsRoute() {
 	const { auth } = Route.useRouteContext();
-	const { canManage, organization } = useOrganizationWorkspace(auth.snapshot);
+	const { canManage, canManageOperational, organization } = useOrganizationWorkspace(auth.snapshot);
 
 	return (
 		<ControlMethodsPage
+			canEditMethods={canManageOperational}
 			canManage={canManage}
 			collection={webCollections.sourceReductionMethods}
 			collectionKey="sourceReductionMethods"

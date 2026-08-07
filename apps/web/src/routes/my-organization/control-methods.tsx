@@ -27,7 +27,7 @@ function MyOrganizationControlMethodsRoute() {
 				<ControlOperationsSettings
 					applicationMethods={collections.applicationMethods}
 					biocontrolMethods={collections.biocontrolMethods}
-					canManage={workspace.canManage}
+					canManageAssets={workspace.canManageOperational}
 					organization={workspace.organization}
 					sourceReductionMethods={collections.sourceReductionMethods}
 					vehicles={collections.vehicles}

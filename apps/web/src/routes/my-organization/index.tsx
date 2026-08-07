@@ -39,6 +39,7 @@ function MyOrganizationGeneralRoute() {
 			<GeneralOrganizationSection
 				agencyFields={agencyFields}
 				canManage={workspace.canManage}
+				canManageTags={workspace.canManageOperational}
 				organization={workspace.organization}
 				organizationName={workspace.organizationName}
 				settings={workspace.settings}

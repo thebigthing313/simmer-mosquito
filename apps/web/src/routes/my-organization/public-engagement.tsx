@@ -32,6 +32,7 @@ function MyOrganizationPublicEngagementRoute() {
 				title="Public Engagement"
 			>
 				<PublicEngagementSettings
+					canEditMethods={workspace.canManageOperational}
 					canManage={workspace.canManage}
 					notificationTypes={collections.notificationTypes}
 					organization={workspace.organization}

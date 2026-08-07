@@ -41,12 +41,26 @@ export function createControlMethodMutationHandlers<
 			const txids = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
 					const row = mutation.modified;
+					// `isActive` goes only when it actually changed. The server turns
+					// its presence into a `deactivate*Method` / `reactivate*Method`
+					// command, which sits at the `ADMIN` floor, while the name and
+					// custom-field edit beside it is `MANAGER`. Sending it
+					// unconditionally put an admin-floor command in every manager's
+					// rename, so the whole batch was refused and the manager floor the
+					// server grants was unreachable from the UI (#65).
+					//
+					// An `original` with no `isActive` compares unequal and so still
+					// sends it. That is the right way round: a collection update
+					// always carries the row it started from, so the absent case is
+					// defensive, and dropping a lifecycle change silently is worse
+					// than a 403 that says what happened.
+					const lifecycleChanged = mutation.original.isActive !== row.isActive;
 					const result = await writeControlMethod(
 						`${options.serverUrl}${options.endpointPath}/${row.id}`,
 						'PATCH',
 						{
 							...toControlMethodPayload(row),
-							isActive: row.isActive,
+							...(lifecycleChanged ? { isActive: row.isActive } : {}),
 						},
 						options.fallbackName,
 					);

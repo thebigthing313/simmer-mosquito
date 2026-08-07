@@ -66,6 +66,7 @@ import type {
 export function GeneralOrganizationSection({
 	agencyFields,
 	canManage,
+	canManageTags,
 	organization,
 	organizationName,
 	settings,
@@ -77,6 +78,12 @@ export function GeneralOrganizationSection({
 }: {
 	readonly agencyFields: readonly SettingField[];
 	readonly canManage: boolean;
+	/**
+	 * The tag catalog is `MANAGER` on the server (`fieldWork.createTag` and its
+	 * four siblings), not `ADMIN` like the agency profile and unit defaults
+	 * above it. Same page, two floors.
+	 */
+	readonly canManageTags: boolean;
 	readonly organization: OrganizationRow | null;
 	readonly organizationName: string;
 	readonly settings: OrganizationSettings;
@@ -134,7 +141,7 @@ export function GeneralOrganizationSection({
 			/>
 
 			<DomainSection
-				canManage={canManage}
+				canManage={canManageTags}
 				editDescription="Manage shared labels, display colors, and tag lifecycle state."
 				editAction={
 					<Button
@@ -155,7 +162,7 @@ export function GeneralOrganizationSection({
 				title="Tags"
 			>
 				<TagSections
-					canManage={canManage}
+					canManage={canManageTags}
 					isCreating={isCreatingTag}
 					onCancelCreate={() => setIsCreatingTag(false)}
 					organization={organization}

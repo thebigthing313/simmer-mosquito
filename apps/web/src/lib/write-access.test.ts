@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AuthMe } from '../auth';
 import {
 	canManageCatalogs,
+	canManageOperationalCatalogs,
 	canPlanWork,
 	canWriteRecords,
 	hasAtLeastRole,
@@ -70,11 +71,11 @@ describe('the role ladder', () => {
 	// planning screen in the product.
 	it('separates recording from planning from configuring', () => {
 		const floors = {
-			owner: { write: true, plan: true, catalogs: true },
-			admin: { write: true, plan: true, catalogs: true },
-			manager: { write: true, plan: true, catalogs: false },
-			collector: { write: true, plan: false, catalogs: false },
-			viewer: { write: false, plan: false, catalogs: false },
+			owner: { write: true, plan: true, catalogs: true, operational: true },
+			admin: { write: true, plan: true, catalogs: true, operational: true },
+			manager: { write: true, plan: true, catalogs: false, operational: true },
+			collector: { write: true, plan: false, catalogs: false, operational: false },
+			viewer: { write: false, plan: false, catalogs: false, operational: false },
 		} as const;
 
 		for (const [role, expected] of Object.entries(floors)) {
@@ -83,8 +84,21 @@ describe('the role ladder', () => {
 				write: canWriteRecords(auth),
 				plan: canPlanWork(auth),
 				catalogs: canManageCatalogs(auth),
+				operational: canManageOperationalCatalogs(auth),
 			}).toEqual(expected);
 		}
+	});
+
+	// The row that #65 is about. A manager is `false` for `catalogs` and `true`
+	// for `operational`, and the organization workspace used to read only the
+	// first — so tags, vehicles, equipment and method edits were all withheld
+	// from an account the server would have accepted.
+	it('admits a manager to the operational catalogs it refuses them for configuration', () => {
+		const manager = authWithRole('manager');
+
+		expect(canManageCatalogs(manager)).toBe(false);
+		expect(canManageOperationalCatalogs(manager)).toBe(true);
+		expect(canManageOperationalCatalogs(authWithRole('collector'))).toBe(false);
 	});
 
 	it('orders the ladder the same way the server does', () => {

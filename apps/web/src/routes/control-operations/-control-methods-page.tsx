@@ -69,7 +69,18 @@ const SEARCH_THRESHOLD = 6;
 export interface ControlMethodsPageProps {
 	readonly collectionKey: ControlMethodCollectionKey;
 	readonly collection: Collection<ControlMethodRow, string | number>;
+	/** Owner/admin: adding a method, and deactivating or reactivating one. */
 	readonly canManage: boolean;
+	/**
+	 * Manager-and-above: renaming a method and editing its custom fields.
+	 *
+	 * The server splits the catalog across two floors —
+	 * `controlOperations.update*Method` is `MANAGER` while `create*`,
+	 * `deactivate*`, `reactivate*` and `delete*` are `ADMIN` — so this page
+	 * needs both. Gating all of it at `canManage` was #65: a manager who may
+	 * rename a method saw no Edit control at all.
+	 */
+	readonly canEditMethods: boolean;
 	readonly organization: OrganizationRow | null;
 	/** e.g. "Application methods" */
 	readonly title: string;
@@ -86,6 +97,7 @@ export function ControlMethodsPage({
 	collectionKey,
 	collection,
 	canManage,
+	canEditMethods,
 	organization,
 	title,
 	description,
@@ -132,8 +144,8 @@ export function ControlMethodsPage({
 					</div>
 				</div>
 				<div className="flex shrink-0 items-center gap-2">
-					<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
-						{canManage ? 'Editor access' : 'View only'}
+					<Badge tone={canEditMethods ? 'success' : 'neutral'} variant="outline">
+						{canEditMethods ? 'Editor access' : 'View only'}
 					</Badge>
 					{canManage ? (
 						<ControlMethodDialog
@@ -210,6 +222,7 @@ export function ControlMethodsPage({
 						<div className="grid gap-6">
 							<ControlMethodSection
 								{...dialogProps}
+								canEditMethods={canEditMethods}
 								canManage={canManage}
 								emptyLabel={
 									query.length > 0
@@ -223,6 +236,7 @@ export function ControlMethodsPage({
 							{inactiveRows.length > 0 ? (
 								<ControlMethodSection
 									{...dialogProps}
+									canEditMethods={canEditMethods}
 									canManage={canManage}
 									emptyLabel={`No inactive ${singularLabel}s match your search.`}
 									rows={filteredInactive}
@@ -261,6 +275,7 @@ interface MethodDialogContext {
 }
 
 function ControlMethodSection({
+	canEditMethods,
 	canManage,
 	emptyLabel,
 	rows,
@@ -268,6 +283,7 @@ function ControlMethodSection({
 	tone,
 	...dialogContext
 }: MethodDialogContext & {
+	readonly canEditMethods: boolean;
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
 	readonly rows: readonly ControlMethodRow[];
@@ -293,7 +309,7 @@ function ControlMethodSection({
 							<TableRow className="bg-muted/40 hover:bg-muted/40">
 								<TableHead>Method</TableHead>
 								<TableHead className="w-[22%]">Custom Fields</TableHead>
-								{canManage ? (
+								{canEditMethods ? (
 									<TableHead className="w-[60px] text-right">
 										<span className="sr-only">Actions</span>
 									</TableHead>
@@ -316,9 +332,13 @@ function ControlMethodSection({
 									<TableCell className="align-top">
 										<CustomFieldsCell schema={method.customSchema} />
 									</TableCell>
-									{canManage ? (
+									{canEditMethods ? (
 										<TableCell className="align-top text-right">
-											<ControlMethodRowActions {...dialogContext} method={method} />
+											<ControlMethodRowActions
+												{...dialogContext}
+												canManage={canManage}
+												method={method}
+											/>
 										</TableCell>
 									) : null}
 								</TableRow>
@@ -332,9 +352,10 @@ function ControlMethodSection({
 }
 
 function ControlMethodRowActions({
+	canManage,
 	method,
 	...dialogContext
-}: MethodDialogContext & { readonly method: ControlMethodRow }) {
+}: MethodDialogContext & { readonly canManage: boolean; readonly method: ControlMethodRow }) {
 	const [editOpen, setEditOpen] = useState(false);
 
 	return (
@@ -351,22 +372,28 @@ function ControlMethodRowActions({
 						<EditIcon aria-hidden="true" />
 						Edit
 					</DropdownMenuItem>
-					<DropdownMenuSeparator />
-					<DropdownMenuItem
-						onSelect={() => toggleMethodActive(dialogContext.collectionKey, method)}
-					>
-						{method.isActive ? (
-							<>
-								<CloseIcon aria-hidden="true" />
-								Deactivate
-							</>
-						) : (
-							<>
-								<CheckIcon aria-hidden="true" />
-								Reactivate
-							</>
-						)}
-					</DropdownMenuItem>
+					{/* Deactivate and reactivate are `ADMIN`; the Edit above them is
+					    `MANAGER`. A manager sees the menu with only Edit in it. */}
+					{canManage ? (
+						<>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								onSelect={() => toggleMethodActive(dialogContext.collectionKey, method)}
+							>
+								{method.isActive ? (
+									<>
+										<CloseIcon aria-hidden="true" />
+										Deactivate
+									</>
+								) : (
+									<>
+										<CheckIcon aria-hidden="true" />
+										Reactivate
+									</>
+								)}
+							</DropdownMenuItem>
+						</>
+					) : null}
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<ControlMethodDialog

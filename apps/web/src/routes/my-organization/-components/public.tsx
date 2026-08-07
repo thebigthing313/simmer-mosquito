@@ -39,12 +39,15 @@ import type { NotificationTypeFormValues } from './types';
 
 export function PublicEngagementSettings({
 	canManage,
+	canEditMethods,
 	notificationTypes,
 	organization,
 	outreachMethods,
 	settings,
 }: {
 	readonly canManage: boolean;
+	/** Manager-and-above may rename an outreach method; only admin adds one. */
+	readonly canEditMethods: boolean;
 	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
 	readonly organization: OrganizationRow | null;
 	readonly outreachMethods: Collection<ControlMethodRow, string | number>;
@@ -57,6 +60,7 @@ export function PublicEngagementSettings({
 				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
 				<div className="grid gap-3">
 					<ControlMethodLookupList
+						canEditMethods={canEditMethods}
 						canManage={canManage}
 						collectionKey="outreachMethods"
 						methods={outreachMethods}
