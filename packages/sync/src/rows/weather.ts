@@ -4,6 +4,8 @@ export interface WeatherSourceRow {
 	readonly [key: string]: unknown;
 	readonly id: string;
 	readonly organizationId: string | null;
+	readonly lat?: number;
+	readonly lng?: number;
 	readonly sourceType: WeatherSourceType;
 	readonly sourceName: string;
 	readonly sourceCode: string | null;

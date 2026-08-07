@@ -77,11 +77,13 @@ import { Route as LarvalSurveillanceHabitatsTypesRouteImport } from './routes/la
 import { Route as LarvalSurveillanceHabitatsStatsRouteImport } from './routes/larval-surveillance/habitats/stats'
 import { Route as LarvalSurveillanceHabitatsCreateRouteImport } from './routes/larval-surveillance/habitats/create'
 import { Route as LarvalSurveillanceHabitatsIdRouteImport } from './routes/larval-surveillance/habitats/$id'
+import { Route as GisWeatherStatsRouteImport } from './routes/gis/weather/stats'
 import { Route as GisWeatherIdRouteImport } from './routes/gis/weather/$id'
 import { Route as GisRegionsImportRouteImport } from './routes/gis/regions/import'
 import { Route as GisRegionsCreateRouteImport } from './routes/gis/regions/create'
 import { Route as GisRegionsIdRouteImport } from './routes/gis/regions/$id'
 import { Route as GisAddressesCreateRouteImport } from './routes/gis/addresses/create'
+import { Route as GisAddressesCleanupRouteImport } from './routes/gis/addresses/cleanup'
 import { Route as GisAddressesIdRouteImport } from './routes/gis/addresses/$id'
 import { Route as ControlOperationsSourceReductionStatsRouteImport } from './routes/control-operations/source-reduction/stats'
 import { Route as ControlOperationsSourceReductionMethodsRouteImport } from './routes/control-operations/source-reduction/methods'
@@ -510,6 +512,11 @@ const LarvalSurveillanceHabitatsIdRoute =
     path: '/larval-surveillance/habitats/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const GisWeatherStatsRoute = GisWeatherStatsRouteImport.update({
+  id: '/gis/weather/stats',
+  path: '/gis/weather/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GisWeatherIdRoute = GisWeatherIdRouteImport.update({
   id: '/gis/weather/$id',
   path: '/gis/weather/$id',
@@ -533,6 +540,11 @@ const GisRegionsIdRoute = GisRegionsIdRouteImport.update({
 const GisAddressesCreateRoute = GisAddressesCreateRouteImport.update({
   id: '/gis/addresses/create',
   path: '/gis/addresses/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GisAddressesCleanupRoute = GisAddressesCleanupRouteImport.update({
+  id: '/gis/addresses/cleanup',
+  path: '/gis/addresses/cleanup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GisAddressesIdRoute = GisAddressesIdRouteImport.update({
@@ -848,11 +860,13 @@ export interface FileRoutesByFullPath {
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
   '/control-operations/source-reduction/stats': typeof ControlOperationsSourceReductionStatsRoute
   '/gis/addresses/$id': typeof GisAddressesIdRoute
+  '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
   '/gis/regions/$id': typeof GisRegionsIdRoute
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
   '/gis/weather/$id': typeof GisWeatherIdRoute
+  '/gis/weather/stats': typeof GisWeatherStatsRoute
   '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
   '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
@@ -966,11 +980,13 @@ export interface FileRoutesByTo {
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
   '/control-operations/source-reduction/stats': typeof ControlOperationsSourceReductionStatsRoute
   '/gis/addresses/$id': typeof GisAddressesIdRoute
+  '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
   '/gis/regions/$id': typeof GisRegionsIdRoute
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
   '/gis/weather/$id': typeof GisWeatherIdRoute
+  '/gis/weather/stats': typeof GisWeatherStatsRoute
   '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
   '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
@@ -1086,11 +1102,13 @@ export interface FileRoutesById {
   '/control-operations/source-reduction/methods': typeof ControlOperationsSourceReductionMethodsRoute
   '/control-operations/source-reduction/stats': typeof ControlOperationsSourceReductionStatsRoute
   '/gis/addresses/$id': typeof GisAddressesIdRoute
+  '/gis/addresses/cleanup': typeof GisAddressesCleanupRoute
   '/gis/addresses/create': typeof GisAddressesCreateRoute
   '/gis/regions/$id': typeof GisRegionsIdRoute
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
   '/gis/weather/$id': typeof GisWeatherIdRoute
+  '/gis/weather/stats': typeof GisWeatherStatsRoute
   '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
   '/larval-surveillance/habitats/stats': typeof LarvalSurveillanceHabitatsStatsRoute
@@ -1207,11 +1225,13 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/methods'
     | '/control-operations/source-reduction/stats'
     | '/gis/addresses/$id'
+    | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
     | '/gis/regions/$id'
     | '/gis/regions/create'
     | '/gis/regions/import'
     | '/gis/weather/$id'
+    | '/gis/weather/stats'
     | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
     | '/larval-surveillance/habitats/stats'
@@ -1325,11 +1345,13 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/methods'
     | '/control-operations/source-reduction/stats'
     | '/gis/addresses/$id'
+    | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
     | '/gis/regions/$id'
     | '/gis/regions/create'
     | '/gis/regions/import'
     | '/gis/weather/$id'
+    | '/gis/weather/stats'
     | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
     | '/larval-surveillance/habitats/stats'
@@ -1444,11 +1466,13 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/methods'
     | '/control-operations/source-reduction/stats'
     | '/gis/addresses/$id'
+    | '/gis/addresses/cleanup'
     | '/gis/addresses/create'
     | '/gis/regions/$id'
     | '/gis/regions/create'
     | '/gis/regions/import'
     | '/gis/weather/$id'
+    | '/gis/weather/stats'
     | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
     | '/larval-surveillance/habitats/stats'
@@ -1555,11 +1579,13 @@ export interface RootRouteChildren {
   ControlOperationsSourceReductionMethodsRoute: typeof ControlOperationsSourceReductionMethodsRoute
   ControlOperationsSourceReductionStatsRoute: typeof ControlOperationsSourceReductionStatsRoute
   GisAddressesIdRoute: typeof GisAddressesIdRoute
+  GisAddressesCleanupRoute: typeof GisAddressesCleanupRoute
   GisAddressesCreateRoute: typeof GisAddressesCreateRoute
   GisRegionsIdRoute: typeof GisRegionsIdRoute
   GisRegionsCreateRoute: typeof GisRegionsCreateRoute
   GisRegionsImportRoute: typeof GisRegionsImportRoute
   GisWeatherIdRoute: typeof GisWeatherIdRoute
+  GisWeatherStatsRoute: typeof GisWeatherStatsRoute
   LarvalSurveillanceHabitatsIdRoute: typeof LarvalSurveillanceHabitatsIdRoute
   LarvalSurveillanceHabitatsCreateRoute: typeof LarvalSurveillanceHabitatsCreateRoute
   LarvalSurveillanceHabitatsStatsRoute: typeof LarvalSurveillanceHabitatsStatsRoute
@@ -2102,6 +2128,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LarvalSurveillanceHabitatsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gis/weather/stats': {
+      id: '/gis/weather/stats'
+      path: '/gis/weather/stats'
+      fullPath: '/gis/weather/stats'
+      preLoaderRoute: typeof GisWeatherStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gis/weather/$id': {
       id: '/gis/weather/$id'
       path: '/gis/weather/$id'
@@ -2135,6 +2168,13 @@ declare module '@tanstack/react-router' {
       path: '/gis/addresses/create'
       fullPath: '/gis/addresses/create'
       preLoaderRoute: typeof GisAddressesCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gis/addresses/cleanup': {
+      id: '/gis/addresses/cleanup'
+      path: '/gis/addresses/cleanup'
+      fullPath: '/gis/addresses/cleanup'
+      preLoaderRoute: typeof GisAddressesCleanupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gis/addresses/$id': {
@@ -2540,11 +2580,13 @@ const rootRouteChildren: RootRouteChildren = {
   ControlOperationsSourceReductionStatsRoute:
     ControlOperationsSourceReductionStatsRoute,
   GisAddressesIdRoute: GisAddressesIdRoute,
+  GisAddressesCleanupRoute: GisAddressesCleanupRoute,
   GisAddressesCreateRoute: GisAddressesCreateRoute,
   GisRegionsIdRoute: GisRegionsIdRoute,
   GisRegionsCreateRoute: GisRegionsCreateRoute,
   GisRegionsImportRoute: GisRegionsImportRoute,
   GisWeatherIdRoute: GisWeatherIdRoute,
+  GisWeatherStatsRoute: GisWeatherStatsRoute,
   LarvalSurveillanceHabitatsIdRoute: LarvalSurveillanceHabitatsIdRoute,
   LarvalSurveillanceHabitatsCreateRoute: LarvalSurveillanceHabitatsCreateRoute,
   LarvalSurveillanceHabitatsStatsRoute: LarvalSurveillanceHabitatsStatsRoute,

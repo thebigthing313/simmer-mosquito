@@ -511,7 +511,11 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'gis',
 		label: 'GIS',
-		summary: 'Every record on the map — regions, addresses, and weather',
+		// The reference geography the rest of the product points at, not a second
+		// home for the records that carry it. Regions, addresses, and weather
+		// stations are created here and referenced everywhere; an inspection or a
+		// trap reached through the Data Map still belongs to its own domain.
+		summary: 'Reference geography: regions, addresses, and weather stations',
 		icon: iconRegistry.domains.gis.icon,
 		groups: [
 			{
@@ -522,18 +526,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Data Map',
 						to: '/gis/data-explorer',
 						icon: iconRegistry.generic.compass.icon,
-					},
-					{
-						id: 'addresses',
-						label: 'Address Book',
-						to: '/gis/addresses',
-						icon: iconRegistry.actions.searchCheck.icon,
-					},
-					{
-						id: 'weather',
-						label: 'Weather',
-						to: '/gis/weather',
-						icon: iconRegistry.domains.weather.icon,
 					},
 				],
 			},
@@ -560,6 +552,44 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/gis/regions/import',
 						icon: iconRegistry.actions.upload.icon,
 						write: 'manager',
+					},
+				],
+			},
+			{
+				id: 'gis-addresses',
+				label: 'Addresses',
+				items: [
+					{
+						id: 'addresses',
+						label: 'Address Book',
+						to: '/gis/addresses',
+						icon: iconRegistry.actions.searchCheck.icon,
+					},
+					{
+						id: 'addresses-cleanup',
+						label: 'Cleanup Tools',
+						to: '/gis/addresses/cleanup',
+						stub: true,
+						icon: iconRegistry.generic.hammer.icon,
+					},
+				],
+			},
+			{
+				id: 'gis-weather',
+				label: 'Weather',
+				items: [
+					{
+						id: 'weather',
+						label: 'Weather Stations',
+						to: '/gis/weather',
+						icon: iconRegistry.domains.weather.icon,
+					},
+					{
+						id: 'weather-stats',
+						label: 'Statistics',
+						to: '/gis/weather/stats',
+						stub: true,
+						icon: iconRegistry.generic.chart.icon,
 					},
 				],
 			},

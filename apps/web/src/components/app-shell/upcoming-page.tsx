@@ -82,6 +82,24 @@ const insecticides: Elsewhere = {
 	to: '/control-operations/chemical/insecticides',
 	icon: iconRegistry.entities.insecticide.icon,
 };
+const addressBook: Elsewhere = {
+	label: 'Address Book',
+	description: 'Geocoded addresses shared across surveillance and control work',
+	to: '/gis/addresses',
+	icon: iconRegistry.actions.searchCheck.icon,
+};
+const regions: Elsewhere = {
+	label: 'Regions',
+	description: 'The boundaries the agency works and reports by',
+	to: '/gis/regions',
+	icon: iconRegistry.entities.region.icon,
+};
+const weatherStations: Elsewhere = {
+	label: 'Weather Stations',
+	description: 'Stations on the map, with the summaries recorded against each',
+	to: '/gis/weather',
+	icon: iconRegistry.domains.weather.icon,
+};
 
 /**
  * Per-route copy for the sections that are wired but not built.
@@ -135,6 +153,28 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 			'Product rotation informed by which active ingredients still perform locally',
 		],
 		elsewhere: [insecticides, controlOverview, adultOverview],
+	},
+	'/gis/addresses/cleanup': {
+		title: 'Cleanup Tools',
+		summary:
+			'Resolving the duplicates an address book accumulates. Imports create rows rather than matching them, and a collector entering a record can add an address that already exists, so the same place ends up in the book more than once.',
+		willLand: [
+			'Addresses that share a display name or sit on the same spot, grouped for review',
+			'Merge that re-points every record onto the surviving address and carries its comments and tags across',
+			'Addresses no record references any more, listed so they can be removed',
+		],
+		elsewhere: [addressBook, regions, larvalOverview],
+	},
+	'/gis/weather/stats': {
+		title: 'Weather Statistics',
+		summary:
+			'What the summaries recorded against your stations add up to across a season, and how they line up with the surveillance recorded over the same weeks.',
+		willLand: [
+			'Temperature, precipitation, humidity, and wind trended across the season for a station',
+			'Stations compared over the same reporting periods',
+			'Weather beside the collections and inspections logged in those weeks',
+		],
+		elsewhere: [weatherStations, adultOverview, larvalOverview],
 	},
 };
 

@@ -74,6 +74,20 @@ describe('shellDomainsForRole', () => {
 		]);
 	});
 
+	it('groups GIS by the kind of reference data, not one flat list', () => {
+		// Addresses and weather each own a group because each has more than one
+		// screen. A flat list put "Address Book" and "Weather" beside "Data Map"
+		// and left nowhere for their second screens to go.
+		const gis = shellDomainsForRole(authWithRole('owner')).find((domain) => domain.id === 'gis');
+
+		expect(gis?.groups.map((group) => group.label)).toEqual([
+			undefined,
+			'Regions',
+			'Addresses',
+			'Weather',
+		]);
+	});
+
 	it('drops no group or domain to an empty heading', () => {
 		for (const role of ['owner', 'manager', 'collector', 'viewer'] as const) {
 			for (const domain of shellDomainsForRole(authWithRole(role))) {

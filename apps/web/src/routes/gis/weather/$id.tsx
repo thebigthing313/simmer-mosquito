@@ -1,6 +1,5 @@
 import type { WeatherSourceRow, WeatherSummaryRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Card,
 	CardContent,
@@ -35,6 +34,7 @@ import {
 	summaryPeriodLabel,
 	weatherSourceTypeLabel,
 } from './-weather-display';
+import { StationStatusBadge } from './-weather-ui';
 
 export const Route = createFileRoute('/gis/weather/$id')({
 	component: RouteComponent,
@@ -65,12 +65,12 @@ function WeatherSourceDetail({ sourceId }: { readonly sourceId: string }) {
 			<div className="mx-auto grid w-full max-w-[1000px] content-start gap-5 px-4 py-6 pb-10 md:px-8">
 				<Link className={backLink()} to="/gis/weather">
 					<ArrowLeftIcon aria-hidden="true" />
-					Back to Weather
+					Back to Weather Stations
 				</Link>
 				{!result.isReady ? (
 					<DetailSkeleton />
 				) : source === undefined ? (
-					<RecordUnavailable noun="weather source" reason="not-found" />
+					<RecordUnavailable noun="weather station" reason="not-found" />
 				) : (
 					<WeatherSourceContent source={source} />
 				)}
@@ -88,7 +88,7 @@ function WeatherSourceContent({ source }: { readonly source: WeatherSourceRow })
 				<div className="grid gap-1.5">
 					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 						<WeatherIcon aria-hidden="true" className="size-3.5" />
-						Weather source
+						Weather station
 					</span>
 					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
 						{source.sourceName}
@@ -97,9 +97,7 @@ function WeatherSourceContent({ source }: { readonly source: WeatherSourceRow })
 						{weatherSourceTypeLabel(source.sourceType)}
 					</p>
 				</div>
-				<Badge tone={source.isActive ? 'success' : 'neutral'} variant="outline">
-					{source.isActive ? 'Active' : 'Inactive'}
-				</Badge>
+				<StationStatusBadge isActive={source.isActive} />
 			</div>
 
 			<div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">

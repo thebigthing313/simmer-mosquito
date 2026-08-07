@@ -9,6 +9,12 @@ export const weatherSourcesSyncDescriptor = createSyncDescriptor<WeatherSourceRo
 	columns: [
 		'id',
 		'organizationId',
+		// `geom` is a non-null Point, so the trigger-maintained centroid is the
+		// station's own coordinate. Synced because the stations list draws them on
+		// a map from these rows rather than from a tile route — there are tens of
+		// stations, not thousands. Full geojson stays server-only.
+		'lat',
+		'lng',
 		'sourceType',
 		'sourceName',
 		'sourceCode',
