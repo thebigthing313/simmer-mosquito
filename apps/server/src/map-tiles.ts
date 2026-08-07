@@ -41,6 +41,7 @@ import {
 	getRegionById,
 	getRegionMapExtent,
 	getRegionMvtTile,
+	getRequestedControlActionDisplayRowById,
 	getSampleDisplayRowById,
 	getSampleMapExtent,
 	getSampleMvtTile,
@@ -71,6 +72,7 @@ import {
 	listHabitatDisplayRowsByBounds,
 	listHabitatDisplayRowsByIds,
 	listInspectionDisplayRowsByBounds,
+	listMissionItemGeometry,
 	listOutreachDisplayRowsPage,
 	listSampleDisplayRowsByBounds,
 	listSourceReductionDisplayRowsPage,
@@ -838,6 +840,53 @@ export function registerMapTileRoutes(
 		}
 
 		return context.json({ outreachAction });
+	});
+
+	// Geometry only — a request's other fields already stream on its Electric
+	// shape, and this endpoint exists because the shape carries the centroid
+	// rather than the drawn line or area (ADR 0009).
+	app.get('/map/requested-control-actions/:id', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json(
+				{ error: 'invalid_id', reason: 'Requested control action id must be a UUID.' },
+				400,
+			);
+		}
+
+		const authContext = context.get('authContext');
+		const requestedControlAction = await getRequestedControlActionDisplayRowById(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+		});
+
+		if (requestedControlAction === undefined) {
+			return context.json(
+				{ error: 'not_found', reason: 'Requested control action not found.' },
+				404,
+			);
+		}
+
+		return context.json({ requestedControlAction });
+	});
+
+	// Every stop's real shape, in dispatch order. The mission surfaces draw the
+	// ditch run and the treated block as they were placed rather than as the
+	// centroid the Electric shape carries (ADR 0009), and both draw a whole
+	// mission at once — so this is per mission, not per stop.
+	app.get('/map/missions/:id/items', options.authContextMiddleware, async (context) => {
+		const id = context.req.param('id');
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: 'Mission id must be a UUID.' }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const missionItems = await listMissionItemGeometry(options.db, {
+			missionId: id,
+			organizationId: authContext.organization.id,
+		});
+
+		return context.json({ missionItems });
 	});
 
 	app.get('/map/traps', options.authContextMiddleware, async (context) => {

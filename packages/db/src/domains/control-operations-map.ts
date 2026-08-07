@@ -809,3 +809,49 @@ const outreachDisplayColumns = sql`
 	oa.created_at as "createdAt",
 	oa.updated_at as "updatedAt"
 `;
+
+// --- requested control actions ----------------------------------------------
+//
+// Requests carry owned geometry like the performed actions above, but no map
+// explorer of their own: the queue is read from the Electric shape, which
+// streams the centroid and nothing else (ADR 0009). What is missing there is the
+// shape itself, so this is a by-id geometry read rather than the usual trio —
+// no tile, no paged list, and no filters to build them from.
+
+export interface RequestedControlActionByIdInput {
+	readonly organizationId: string;
+	readonly id: string;
+}
+
+export interface SafeRequestedControlActionDisplayRow {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geomType: string;
+	readonly updatedAt: Date;
+}
+
+export async function getRequestedControlActionDisplayRowById(
+	db: Kysely<SimmerDatabase>,
+	input: RequestedControlActionByIdInput,
+): Promise<SafeRequestedControlActionDisplayRow | undefined> {
+	const result = await sql<SafeRequestedControlActionDisplayRow>`
+		select
+			rca.id,
+			rca.organization_id as "organizationId",
+			rca.lat,
+			rca.lng,
+			rca.geojson,
+			rca.geom_type as "geomType",
+			rca.updated_at as "updatedAt"
+		from requested_control_actions rca
+		where rca.id = ${input.id}
+			and rca.organization_id = ${input.organizationId}
+			and rca.deleted_at is null
+		limit 1
+	`.execute(db);
+
+	return result.rows[0];
+}
