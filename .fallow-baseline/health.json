@@ -93,14 +93,6 @@
         "count": 2
       }
     },
-    "apps/server/src/admin-foundations.ts": {
-      "crap_high": {
-        "count": 4
-      },
-      "crap_moderate": {
-        "count": 2
-      }
-    },
     "apps/server/src/adult-surveillance-commands/collection-species-counts.ts": {
       "complexity_high": {
         "count": 1
@@ -148,14 +140,8 @@
       }
     },
     "apps/server/src/control-asset-commands.ts": {
-      "crap_critical": {
-        "count": 2
-      },
-      "crap_high": {
-        "count": 1
-      },
       "crap_moderate": {
-        "count": 4
+        "count": 2
       }
     },
     "apps/server/src/control-method-commands.ts": {
@@ -164,17 +150,6 @@
       },
       "crap_critical": {
         "count": 1
-      },
-      "crap_high": {
-        "count": 4
-      },
-      "crap_moderate": {
-        "count": 6
-      }
-    },
-    "apps/server/src/control-operations-commands/chemical-application-batches.ts": {
-      "crap_moderate": {
-        "count": 1
       }
     },
     "apps/server/src/control-operations-commands/chemical-applications.ts": {
@@ -182,71 +157,37 @@
         "count": 1
       },
       "crap_critical": {
-        "count": 2
+        "count": 1
       },
       "crap_high": {
         "count": 1
-      },
-      "crap_moderate": {
-        "count": 2
-      }
-    },
-    "apps/server/src/control-operations-commands/formulation-insecticides.ts": {
-      "crap_high": {
-        "count": 2
-      },
-      "crap_moderate": {
-        "count": 2
       }
     },
     "apps/server/src/control-operations-commands/formulations.ts": {
-      "crap_critical": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 2
-      },
       "crap_moderate": {
-        "count": 2
+        "count": 1
       }
     },
     "apps/server/src/control-operations-commands/performed-actions.ts": {
-      "complexity_critical": {
+      "complexity_high": {
         "count": 3
       },
-      "crap_critical": {
-        "count": 6
-      },
       "crap_high": {
-        "count": 2
+        "count": 3
       },
       "crap_moderate": {
-        "count": 5
+        "count": 3
       }
     },
     "apps/server/src/control-operations-commands/requested-control-actions.ts": {
-      "complexity_critical": {
+      "complexity_high": {
         "count": 1
-      },
-      "crap_critical": {
-        "count": 2
       },
       "crap_high": {
         "count": 1
       },
       "crap_moderate": {
         "count": 1
-      }
-    },
-    "apps/server/src/control-operations-commands/shared.ts": {
-      "crap_critical": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 4
-      },
-      "crap_moderate": {
-        "count": 2
       }
     },
     "apps/server/src/control-product-commands.ts": {
@@ -254,13 +195,13 @@
         "count": 1
       },
       "crap_critical": {
-        "count": 5
+        "count": 1
       },
       "crap_high": {
         "count": 1
       },
       "crap_moderate": {
-        "count": 6
+        "count": 3
       }
     },
     "apps/server/src/field-work-commands/assignment-items.ts": {
@@ -356,16 +297,19 @@
     },
     "apps/server/src/mission-dispatch-commands/mission-items.ts": {
       "complexity_critical": {
-        "count": 2
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
       },
       "crap_critical": {
-        "count": 3
+        "count": 1
       },
       "crap_high": {
         "count": 1
       },
       "crap_moderate": {
-        "count": 2
+        "count": 1
       }
     },
     "apps/server/src/mission-dispatch-commands/missions.ts": {
@@ -373,46 +317,6 @@
         "count": 2
       },
       "crap_critical": {
-        "count": 2
-      },
-      "crap_moderate": {
-        "count": 2
-      }
-    },
-    "apps/server/src/mission-dispatch-commands/shared.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/server/src/organization-commands.ts": {
-      "crap_high": {
-        "count": 2
-      },
-      "crap_moderate": {
-        "count": 3
-      }
-    },
-    "apps/server/src/organization-settings-commands.ts": {
-      "crap_high": {
-        "count": 3
-      },
-      "crap_moderate": {
-        "count": 2
-      }
-    },
-    "apps/server/src/profile-commands.ts": {
-      "crap_high": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 3
-      }
-    },
-    "apps/server/src/public-engagement-commands.ts": {
-      "crap_high": {
-        "count": 2
-      },
-      "crap_moderate": {
         "count": 2
       }
     },
@@ -439,11 +343,6 @@
       }
     },
     "apps/server/src/public-engagement-records-commands/service-requests.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/server/src/service-request-nearby.ts": {
       "crap_high": {
         "count": 1
       }
@@ -519,7 +418,7 @@
     },
     "apps/web/src/components/linked-address.tsx": {
       "crap_moderate": {
-        "count": 2
+        "count": 1
       }
     },
     "apps/web/src/components/map/biocontrol-tiles.ts": {
@@ -743,7 +642,7 @@
     },
     "apps/web/src/routes/-habitat-detail.tsx": {
       "crap_high": {
-        "count": 3
+        "count": 2
       },
       "crap_moderate": {
         "count": 6
@@ -1191,7 +1090,7 @@
         "count": 1
       },
       "crap_moderate": {
-        "count": 3
+        "count": 2
       }
     },
     "apps/web/src/routes/gis/addresses/-address-map-card.tsx": {
@@ -1274,15 +1173,15 @@
         "count": 2
       }
     },
-    "apps/web/src/routes/gis/weather/$id.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/gis/weather/-weather-display.ts": {
       "crap_high": {
         "count": 1
       },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/gis/weather/-weather-station-map-card.tsx": {
       "crap_moderate": {
         "count": 1
       }
@@ -1409,7 +1308,7 @@
         "count": 1
       },
       "crap_high": {
-        "count": 2
+        "count": 3
       },
       "crap_moderate": {
         "count": 3
@@ -1487,7 +1386,7 @@
         "count": 2
       },
       "crap_high": {
-        "count": 2
+        "count": 1
       },
       "crap_moderate": {
         "count": 3
@@ -1772,11 +1671,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/public-engagement/-public-engagement-display.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/public-engagement/-service-request-map-card.tsx": {
       "crap_high": {
         "count": 1
@@ -1803,8 +1697,11 @@
       }
     },
     "apps/web/src/routes/public-engagement/index.tsx": {
+      "crap_high": {
+        "count": 1
+      },
       "crap_moderate": {
-        "count": 2
+        "count": 3
       }
     },
     "apps/web/src/routes/public-engagement/outreach/$id.tsx": {
@@ -1855,10 +1752,10 @@
         "count": 1
       },
       "crap_high": {
-        "count": 2
+        "count": 3
       },
       "crap_moderate": {
-        "count": 5
+        "count": 4
       }
     },
     "apps/web/src/routes/public-engagement/service-requests/$id_.edit.tsx": {
@@ -2068,6 +1965,11 @@
         "count": 1
       }
     },
+    "packages/ui-web/src/components/panel.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
     "packages/ui-web/src/components/password-field.tsx": {
       "crap_moderate": {
         "count": 1
@@ -2132,6 +2034,27 @@
       "crap_high": {
         "count": 1
       }
+    },
+    "scripts/map-style/build.mjs": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "scripts/map-style/contrast.mjs": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "scripts/map-style/layers.mjs": {
+      "crap_moderate": {
+        "count": 2
+      }
     }
   },
   "runtime_coverage_findings": [],
@@ -2144,20 +2067,21 @@
     "apps/web/src/routes/operations/assignments/index.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/inspections/index.tsx:complexity",
     "apps/web/src/routes/control-operations/chemical/-application-form.tsx:complexity",
+    "apps/web/src/routes/gis/addresses/-address-form.tsx:complexity",
     "apps/web/src/routes/control-operations/biocontrol/index.tsx:complexity",
     "apps/web/src/routes/control-operations/chemical/index.tsx:complexity",
     "apps/web/src/routes/control-operations/source-reduction/index.tsx:complexity",
-    "apps/web/src/routes/public-engagement/service-requests/index.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/collections/index.tsx:complexity",
+    "apps/web/src/routes/public-engagement/service-requests/index.tsx:complexity",
     "apps/web/src/routes/public-engagement/outreach/-outreach-form.tsx:complexity",
     "apps/web/src/routes/gis/regions/index.tsx:complexity",
+    "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/traps/index.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/samples/index.tsx:complexity",
-    "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
+    "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/server/src/mission-dispatch-commands/missions.ts:complexity",
     "apps/web/src/routes/larval-surveillance/inspections/-inspection-form.tsx:complexity",
-    "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/collections/-collection-form.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
     "apps/web/src/routes/control-operations/biocontrol/-biocontrol-form.tsx:complexity",
@@ -2166,11 +2090,11 @@
     "apps/web/src/routes/public-engagement/outreach/index.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",
-    "apps/web/src/routes/gis/addresses/-address-form.tsx:complexity",
     "packages/ui-web/src/components/ui/autocomplete.tsx:complexity",
+    "apps/web/src/routes/control-operations/-control-methods-page.tsx:complexity",
     "apps/web/src/routes/operations/missions/index.tsx:complexity",
-    "packages/domain/src/larval-surveillance/inspections.ts:complexity",
     "apps/server/src/map-tiles.ts:complexity",
+    "packages/domain/src/larval-surveillance/inspections.ts:complexity",
     "packages/auth/src/index.ts:complexity"
   ]
 }
