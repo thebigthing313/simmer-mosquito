@@ -36,6 +36,24 @@ export function hasAnyLifeStage(stages: LifeStageFlags): boolean {
 }
 
 /**
+ * Larvae per dip — the measure an agency's density bands are ranges of.
+ *
+ * The bands under Organization → Larval Surveillance are literally "more than
+ * *n* and up to *m* larvae per dip", so this is the number a density badge was
+ * derived from rather than a statistic invented for display.
+ *
+ * `null` unless both numbers are present and at least one dip was taken. A count
+ * with no effort behind it is not a rate, and zero dips would print `Infinity`
+ * into a surveillance record.
+ */
+export function larvaePerDip(larvaeCount: number | null, dipCount: number | null): number | null {
+	if (larvaeCount === null || dipCount === null || dipCount <= 0) {
+		return null;
+	}
+	return larvaeCount / dipCount;
+}
+
+/**
  * A fixed six-cell "E1234P" strip: each life stage is a stable cell, filled when
  * present and dimmed when absent, so rows line up regardless of what was recorded.
  */

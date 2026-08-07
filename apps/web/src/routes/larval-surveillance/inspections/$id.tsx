@@ -32,6 +32,7 @@ import {
 	DensityBadge,
 	hasAnyLifeStage,
 	LifeStageStrip,
+	larvaePerDip,
 	WetnessBadge,
 } from '../../../components/larval-display';
 import { LinkedAddressValue } from '../../../components/linked-address';
@@ -164,10 +165,7 @@ function InspectionDetailContent({ inspection }: { readonly inspection: Inspecti
 			<InspectionHeader inspection={inspection} />
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid gap-5 lg:grid-cols-2">
-						<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
-						<FindingsCard inspection={inspection} />
-					</div>
+					<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
 					<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
 					<LinkedControlActionsCard inspectionId={inspection.id} />
 					<DangerZoneCard
@@ -204,23 +202,23 @@ function InspectionHeader({ inspection }: { readonly inspection: InspectionDetai
 					{formatFullDate(inspection.inspectionDate)}
 				</h1>
 				<InspectionSubtitle inspection={inspection} />
+				{/*
+				 * The result belongs to the record's identity — what this inspection
+				 * found is the last line of what it *is*, under the date and the site.
+				 * It sits in the header stack rather than in a band of its own so it
+				 * takes the width of what it holds; a full-page strip carrying six
+				 * cells and a short sentence was the same complaint turned sideways.
+				 */}
+				<FindingsLine inspection={inspection} />
 			</div>
-			<div className="flex flex-wrap items-center gap-2">
-				{inspection.isWet ? (
-					<DensityBadge density={inspection.density} />
-				) : (
-					<WetnessBadge isWet={false} />
-				)}
-				<PositivityBadge inspection={inspection} />
-				<WriteOnly>
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: inspection.id }} to="/larval-surveillance/inspections/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
-				</WriteOnly>
-			</div>
+			<WriteOnly>
+				<Button asChild size="sm" variant="outline">
+					<Link params={{ id: inspection.id }} to="/larval-surveillance/inspections/$id/edit">
+						<EditIcon aria-hidden="true" />
+						Edit
+					</Link>
+				</Button>
+			</WriteOnly>
 		</div>
 	);
 }
@@ -286,52 +284,90 @@ function InspectionLocationCard({
 }
 
 /**
- * The inspection's abundance result: whether water was present, the recorded
- * density, dip effort, larvae counted, and the life-stage strip — the core reason
- * a larval inspection exists. A dry inspection collapses to a single explanatory
- * line, since no larvae can be present without standing water.
+ * What the inspection found, in one line.
+ *
+ * This was a card beside the location map: four stat tiles over a life-stage
+ * section, stretched to a map's height. Two of those tiles said what the badges
+ * a few pixels above it already said — the density and whether larvae were
+ * present — so the card spent a column and 280 pixels carrying three facts, and
+ * the two it repeated were the two an operator had just read.
+ *
+ * What is left is what nothing else on the page says: which stages were there,
+ * how many larvae, and out of how much dipping. The rate closes the loop back to
+ * the badge in the header — an agency configures its density bands as ranges of
+ * larvae per dip, so printing the rate is what makes "Heavy" checkable instead of
+ * asserted.
+ *
+ * A dry inspection renders nothing. Its Dry badge is already in the header, and
+ * the sentence that used to fill this card — that larvae need standing water —
+ * explained the job back to the person doing it.
  */
-function FindingsCard({ inspection }: { readonly inspection: InspectionDetailRow }) {
+function FindingsLine({ inspection }: { readonly inspection: InspectionDetailRow }) {
+	// A dry inspection is one badge and nothing else. There is no density to band,
+	// no stages to strip, and no dipping to have done.
+	if (!inspection.isWet) {
+		return (
+			<div className={findingsRow}>
+				<WetnessBadge isWet={false} />
+			</div>
+		);
+	}
+
+	const rate = larvaePerDip(inspection.larvaeCount, inspection.dipCount);
+
 	return (
-		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Findings</CardTitle>
-			</CardHeader>
-			<CardContent className="grid gap-4" padding="compact">
-				{inspection.isWet ? (
-					<>
-						<dl className="grid grid-cols-2 gap-2.5">
-							<Stat label="Density">
-								<DensityBadge density={inspection.density} />
-							</Stat>
-							<Stat label="Result">
-								{hasAnyLifeStage(inspection) ? 'Larvae present' : 'No larvae found'}
-							</Stat>
-							<Stat label="Dips taken">{countLabel(inspection.dipCount)}</Stat>
-							<Stat label="Larvae counted">{countLabel(inspection.larvaeCount)}</Stat>
-						</dl>
-						<div className="grid gap-1.5">
-							<span className="font-semibold text-muted-foreground text-xs uppercase">
-								Life stages
-							</span>
-							{hasAnyLifeStage(inspection) ? (
-								<LifeStageStrip stages={inspection} />
-							) : (
-								<span className="text-muted-foreground text-sm">None recorded</span>
-							)}
-						</div>
-					</>
-				) : (
-					<div className="flex items-center gap-3 rounded-md border border-border/40 bg-muted/30 px-3 py-4">
-						<WetnessBadge isWet={false} />
-						<p className="m-0 text-muted-foreground text-sm">
-							The habitat was dry at inspection — no larvae are possible without standing water.
-						</p>
-					</div>
+		<div className={findingsRow}>
+			{/*
+			 * Verdict, then the evidence for it — and in that order because it is the
+			 * order the explorer list already reads in, where a row is a density badge
+			 * followed by its life-stage strip. Same two objects, same sequence, so the
+			 * row an operator clicked and the record they land on read alike.
+			 */}
+			<DensityBadge density={inspection.density} />
+			<PositivityBadge inspection={inspection} />
+			<LifeStageStrip size="sm" stages={inspection} />
+			<p className="m-0 flex flex-wrap items-baseline gap-x-2 text-sm">
+				<span className="font-medium text-foreground tabular-nums">
+					{effortLabel(inspection.larvaeCount, inspection.dipCount)}
+				</span>
+				{rate === null ? null : (
+					<span className="text-muted-foreground tabular-nums">· {formatRate(rate)} per dip</span>
 				)}
-			</CardContent>
-		</Card>
+			</p>
+		</div>
 	);
+}
+
+const findingsRow = 'mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-2';
+
+/**
+ * `34 larvae in 12 dips`, degrading to whichever half was recorded.
+ *
+ * Zero is a finding, not a blank: twelve dips that turned up nothing is the
+ * negative result surveillance is largely made of, and it has to read as
+ * deliberate rather than as a field nobody filled in.
+ */
+function effortLabel(larvaeCount: number | null, dipCount: number | null): string {
+	const larvae =
+		larvaeCount === null
+			? null
+			: `${larvaeCount.toLocaleString()} ${plural(larvaeCount, 'larva', 'larvae')}`;
+	const dips =
+		dipCount === null ? null : `${dipCount.toLocaleString()} ${plural(dipCount, 'dip', 'dips')}`;
+
+	if (larvae !== null && dips !== null) {
+		return `${larvae} in ${dips}`;
+	}
+	return larvae ?? dips ?? 'Counts not recorded';
+}
+
+function plural(count: number, one: string, many: string): string {
+	return count === 1 ? one : many;
+}
+
+/** One decimal at most: `2.8`, `3`, `0.5`. */
+function formatRate(rate: number): string {
+	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(rate);
 }
 
 function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow }) {
@@ -940,17 +976,6 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 	);
 }
 
-function Stat({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid gap-0.5 rounded-md border border-border/40 bg-background/60 px-2.5 py-1.5">
-			<dt className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-wide">
-				{label}
-			</dt>
-			<dd className="m-0 font-medium text-foreground text-sm">{children}</dd>
-		</div>
-	);
-}
-
 function HabitatTypeName({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
 	const result = useLiveSuspenseQuery(
 		(query) => query.from({ habitatType: webCollections.habitatTypes }),
@@ -1090,10 +1115,6 @@ function siteLabel(inspection: InspectionDetailRow): string {
 
 function breadcrumbLabel(inspection: InspectionDetailRow): string {
 	return `Inspection · ${formatMonthDayYear(inspection.inspectionDate)}`;
-}
-
-function countLabel(value: number | null): string {
-	return value == null ? '—' : value.toLocaleString();
 }
 
 // Trim trailing zeros from stored decimals (2.50 -> 2.5) while keeping whole
