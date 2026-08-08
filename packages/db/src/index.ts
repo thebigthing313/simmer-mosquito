@@ -5,7 +5,7 @@ import type { GeoJsonGeometry, SimmerDatabase } from './tables.js';
 
 const { Pool } = pg;
 
-export type { Kysely, Transaction } from 'kysely';
+export type { Kysely, RawBuilder, Transaction } from 'kysely';
 export { sql } from 'kysely';
 export * from './domains/adult-surveillance.js';
 export * from './domains/control-operations-map.js';

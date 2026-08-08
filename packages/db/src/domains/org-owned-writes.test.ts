@@ -68,10 +68,18 @@ type _HandWrittenUnionsAreCovered = Covers<
 	| 'sample_species'
 >;
 
-// The four location-source resolvers in `apps/server` name these between them.
+// Every table the nine location-source kinds resolve to. The four hand-written
+// resolvers named these between them; the shared one names all eight.
 type _LocationSourceTablesAreCovered = Covers<
 	GeomTable,
-	'addresses' | 'habitats' | 'inspections' | 'traps' | 'collections' | 'service_requests'
+	| 'addresses'
+	| 'habitats'
+	| 'inspections'
+	| 'traps'
+	| 'collections'
+	| 'service_requests'
+	| 'requested_control_actions'
+	| 'mission_items'
 >;
 
 const organizationId = '9a3d9e12-2a1c-4d5f-8f2b-6d0f47a03c31';
