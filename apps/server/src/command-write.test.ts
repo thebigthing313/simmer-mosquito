@@ -84,17 +84,17 @@ describe('writeCommands', () => {
 			kind: 'refused',
 			reason: 'This record is not yours.',
 		} satisfies OwnershipOutcome);
-		const refused = await writeCommands(compilingDatabase(), actor, commands, vi.fn()).catch(
-			(error: unknown) => error as CommandError,
-		);
+		const refused = (await writeCommands(compilingDatabase(), actor, commands, vi.fn()).catch(
+			(error: unknown) => error,
+		)) as CommandError;
 
 		resolveCommandOwnership.mockResolvedValue({
 			kind: 'missing',
 			entity: 'comment',
 		} satisfies OwnershipOutcome);
-		const missing = await writeCommands(compilingDatabase(), actor, commands, vi.fn()).catch(
-			(error: unknown) => error as CommandError,
-		);
+		const missing = (await writeCommands(compilingDatabase(), actor, commands, vi.fn()).catch(
+			(error: unknown) => error,
+		)) as CommandError;
 
 		expect(refused.status).toBe(403);
 		expect(refused.body).toEqual({ error: 'forbidden', reason: 'This record is not yours.' });
