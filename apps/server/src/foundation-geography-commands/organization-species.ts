@@ -9,6 +9,7 @@ import { readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	type FoundationDb,
 	type FoundationTransaction,
@@ -71,7 +72,12 @@ async function runOrganizationSpeciesCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeOrganizationSpeciesCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeOrganizationSpeciesCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'organization_species_not_found' }, 404);
 		}

@@ -16,6 +16,7 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
+	commandActor,
 	commandEndpoint,
 	createCommand,
 	type FoundationDb,
@@ -149,7 +150,12 @@ async function runRegionCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeRegionCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeRegionCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'region_not_found' }, 404);
 		}

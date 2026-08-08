@@ -10,6 +10,7 @@ import { readNullableText, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	type FoundationDb,
 	type FoundationTransaction,
@@ -91,7 +92,12 @@ async function runRegionFolderCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeRegionFolderCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeRegionFolderCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'region_folder_not_found' }, 404);
 		}
