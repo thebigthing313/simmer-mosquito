@@ -1,17 +1,11 @@
-import {
-	type Kysely,
-	type MutationWriteResult,
-	type SimmerDatabase,
-	sql,
-	type Transaction,
-} from '@simmer-mosquito/db';
+import { geojsonToGeom, localDateColumn, softDelete, updateRow } from '@simmer-mosquito/db';
 import type {
 	ControlActionContext,
 	ControlActionLocationSourceInput,
 	ControlOperationsCommand,
+	LocationSource,
 } from '@simmer-mosquito/domain';
 import type { MiddlewareHandler } from 'hono';
-import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
 	type AgencyContext,
@@ -24,21 +18,40 @@ import {
 	invalidUpdate,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
-import { resolveCommandOwnership } from '../command-ownership.js';
 import { isRecord, readNullableText } from '../command-payload.js';
-import type { CommandActor } from '../command-permissions.js';
+import {
+	type CommandDb,
+	type CommandTransaction,
+	commandActor,
+	readDate,
+	writeCommands,
+} from '../command-write.js';
+import { resolveLocationGeom } from '../location-source.js';
 
-export type ControlOperationsDb = Kysely<SimmerDatabase>;
-export type ControlOperationsTransaction = Transaction<SimmerDatabase>;
+export type ControlOperationsDb = CommandDb;
+export type ControlOperationsTransaction = CommandTransaction;
 export {
 	type AgencyContext,
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	createCommand,
+	geojsonToGeom,
 	handleCommandError,
 	invalidUpdate,
+	localDateColumn,
+	readDate,
+	softDelete,
+	updateRow,
+	writeCommands,
 };
+
+/** The action tables carry the same shape, so one updater serves them all. */
+export const updateActionRow = updateRow;
+
+/** This family's name for the shared resolver. */
+export const resolveGeom = resolveLocationGeom;
 
 export async function insertApplicationBatch(
 	trx: ControlOperationsTransaction,
@@ -66,145 +79,16 @@ export async function insertApplicationBatch(
 }
 
 /**
- * The row-level half of authorization, raised as this module's `CommandError`.
- *
- * Control operations are the only domain where a collector's reach depends on a
- * record they *performed* rather than one assigned to them, so the check needs
- * the stored row and runs inside the write transaction. It runs from the write
- * loop for every command rather than from the handlers, so a command whose
- * permission entry names an ownership rule is checked whether or not its `case`
- * arm remembered to ask.
+ * Control operations were the one family whose ownership rule turns on a record
+ * the collector *performed* rather than one assigned to them. That is still true
+ * of the rule; it is no longer true of the plumbing, which is `writeCommands`
+ * for every family now.
  */
-export async function assertActionOwnership(
-	trx: ControlOperationsTransaction,
-	command: ControlOperationsCommand,
-	actor: CommandActor,
-): Promise<void> {
-	const outcome = await resolveCommandOwnership(trx, command, actor);
-	if (outcome.kind === 'missing') {
-		throw new CommandError(404, { error: `${outcome.entity}_not_found` });
-	}
-	if (outcome.kind === 'refused') {
-		throw new CommandError(403, { error: 'forbidden', reason: outcome.reason });
-	}
-}
-
-export function commandActor(authContext: AuthContext): CommandActor {
-	return { role: authContext.role, profileId: authContext.profile.id };
-}
-
-/**
- * The write transaction the control-operations endpoints commit through.
- *
- * `actor` is required rather than optional so ownership cannot be skipped by
- * omission: a caller with no actor to pass cannot compile.
- */
-export async function writeActionCommands<TSafe>(
-	db: ControlOperationsDb,
-	actor: CommandActor,
-	commands: readonly ControlOperationsCommand[],
-	write: (
-		trx: ControlOperationsTransaction,
-		command: ControlOperationsCommand,
-	) => Promise<TSafe | null>,
-): Promise<MutationWriteResult<TSafe | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: TSafe | null = null;
-		for (const command of commands) {
-			await assertActionOwnership(trx, command, actor);
-			row = await write(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
-}
+export const writeActionCommands = writeCommands;
 
 // ===========================================================================
 // Location source / context resolution
 // ===========================================================================
-
-type GeomTable =
-	| 'addresses'
-	| 'habitats'
-	| 'inspections'
-	| 'traps'
-	| 'collections'
-	| 'service_requests'
-	| 'requested_control_actions'
-	| 'mission_items';
-
-export async function resolveGeom(
-	trx: ControlOperationsTransaction,
-	organizationId: string,
-	source: { readonly kind: string } & Record<string, unknown>,
-): Promise<ReturnType<typeof geojsonToGeom>> {
-	switch (source.kind) {
-		case 'geometry':
-			return geojsonToGeom(source.geometry);
-		case 'address':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'addresses', source.addressId as string, organizationId),
-			);
-		case 'habitat':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'habitats', source.habitatId as string, organizationId),
-			);
-		case 'inspection':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'inspections', source.inspectionId as string, organizationId),
-			);
-		case 'trap':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'traps', source.trapId as string, organizationId),
-			);
-		case 'collection':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'collections', source.collectionId as string, organizationId),
-			);
-		case 'serviceRequest':
-			return geojsonToGeom(
-				await loadGeojson(
-					trx,
-					'service_requests',
-					source.serviceRequestId as string,
-					organizationId,
-				),
-			);
-		case 'requestedControlAction':
-			return geojsonToGeom(
-				await loadGeojson(
-					trx,
-					'requested_control_actions',
-					source.requestedControlActionId as string,
-					organizationId,
-				),
-			);
-		case 'missionItem':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'mission_items', source.missionItemId as string, organizationId),
-			);
-		default:
-			throw new CommandError(400, { error: 'unsupported_location_source' });
-	}
-}
-
-async function loadGeojson(
-	trx: ControlOperationsTransaction,
-	table: GeomTable,
-	id: string,
-	organizationId: string,
-): Promise<unknown> {
-	const row = await trx
-		.selectFrom(table)
-		.select('geojson')
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.executeTakeFirst();
-	if (row === undefined) {
-		throw new CommandError(404, { error: `${table}_not_found` });
-	}
-	return row.geojson;
-}
 
 export function contextIds(context: ControlActionContext): {
 	readonly habitatId: string | null;
@@ -234,7 +118,11 @@ export async function locationContextColumns(
 	trx: ControlOperationsTransaction,
 	organizationId: string,
 	changes: {
-		readonly locationSource?: { readonly kind: string } & Record<string, unknown>;
+		// The whole union, not a workflow's slice: this builds columns for both
+		// performed actions and requested ones, and those two workflows permit
+		// different sources. Which sources each allows is settled in the domain
+		// builders before a command gets here.
+		readonly locationSource?: LocationSource;
 		readonly addressId?: string | null;
 		readonly context?: ControlActionContext;
 		readonly requestedControlActionId?: string | null;
@@ -243,7 +131,7 @@ export async function locationContextColumns(
 ): Promise<Record<string, unknown>> {
 	const columns: Record<string, unknown> = {};
 	if (changes.locationSource !== undefined) {
-		columns.geom = await resolveGeom(trx, organizationId, changes.locationSource);
+		columns.geom = await resolveLocationGeom(trx, organizationId, changes.locationSource);
 	}
 	if ('addressId' in changes) {
 		columns.address_id = changes.addressId ?? null;
@@ -317,68 +205,6 @@ export function locationContextInput(payload: Record<string, unknown>): {
 			? { requestedControlActionId: readNullableText(payload.requestedControlActionId) }
 			: {}),
 	};
-}
-
-// ===========================================================================
-// Generic row write helpers
-// ===========================================================================
-
-export async function updateActionRow<TRow, TSafe>(
-	trx: ControlOperationsTransaction,
-	table:
-		| 'applications'
-		| 'source_reductions'
-		| 'outreach_actions'
-		| 'biocontrol_actions'
-		| 'requested_control_actions',
-	id: string,
-	organizationId: string,
-	set: Record<string, unknown>,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
-	const row = await trx
-		.updateTable(table)
-		.set({ ...set, updated_at: sql`now()` } as never)
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(columns as never)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
-}
-
-export async function softDelete<TRow, TSafe>(
-	trx: ControlOperationsTransaction,
-	table:
-		| 'formulations'
-		| 'formulation_insecticides'
-		| 'applications'
-		| 'application_batches'
-		| 'source_reductions'
-		| 'outreach_actions'
-		| 'biocontrol_actions'
-		| 'requested_control_actions',
-	id: string,
-	organizationId: string,
-	actorProfileId: string,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
-	const row = await trx
-		.updateTable(table)
-		.set({
-			deleted_at: sql`now()`,
-			deleted_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-			updated_at: sql`now()`,
-		} as never)
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(columns as never)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
 }
 
 // ===========================================================================
@@ -756,37 +582,3 @@ export type ApplicationUpdateColumns = {
 	metadata?: unknown | null;
 	updated_by_profile_id: string;
 };
-
-function geojsonToGeom(geojson: unknown) {
-	const serialized = JSON.stringify(geojson);
-	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
-		case
-			when (${serialized}::jsonb -> 'geometry') is not null
-				then (${serialized}::jsonb -> 'geometry')::text
-			else ${serialized}
-		end
-	), 4326))`;
-}
-
-export function localDateColumn(value: string) {
-	return sql<Date>`${value}::date`;
-}
-
-export async function readCurrentTransactionId(trx: ControlOperationsTransaction): Promise<number> {
-	const result = await sql<{
-		txid: string;
-	}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
-	const txid = result.rows[0]?.txid;
-	if (txid === undefined) {
-		throw new Error('Unable to read current transaction id.');
-	}
-	return Number.parseInt(txid, 10);
-}
-
-export function readDate(value: unknown): Date | null {
-	if (typeof value !== 'string' && !(value instanceof Date)) {
-		return null;
-	}
-	const date = value instanceof Date ? value : new Date(value);
-	return Number.isNaN(date.getTime()) ? null : date;
-}

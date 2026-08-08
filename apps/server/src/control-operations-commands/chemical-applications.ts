@@ -16,7 +16,6 @@ import {
 	type ApplicationUpdateColumns,
 	agencyCommandContext,
 	applicationReturnColumns,
-	assertActionOwnership,
 	type CommandContext,
 	type CommandsResult,
 	type ControlOperationsDb,
@@ -34,11 +33,11 @@ import {
 	locationContextInput,
 	type RouteOptions,
 	readControlActionContext,
-	readCurrentTransactionId,
 	resolveGeom,
 	type SafeApplication,
 	softDelete,
 	toSafeApplication,
+	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -188,10 +187,11 @@ async function runApplicationCommands(
 	}
 
 	try {
-		const result = await writeApplicationCommands(
+		const result = await writeCommands(
 			db,
 			commandActor(context.get('authContext')),
 			commands,
+			writeApplicationCommand,
 		);
 		if (result.row === null) {
 			return context.json({ error: 'application_not_found' }, 404);
@@ -200,21 +200,6 @@ async function runApplicationCommands(
 	} catch (error) {
 		return handleCommandError(context, error);
 	}
-}
-
-async function writeApplicationCommands(
-	db: ControlOperationsDb,
-	actor: CommandActor,
-	commands: readonly ControlOperationsCommand[],
-): Promise<MutationWriteResult<SafeApplication | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeApplication | null = null;
-		for (const command of commands) {
-			await assertActionOwnership(trx, command, actor);
-			row = await writeApplicationCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 async function writeApplicationCommand(

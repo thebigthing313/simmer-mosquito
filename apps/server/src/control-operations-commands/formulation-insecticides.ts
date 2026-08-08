@@ -13,14 +13,15 @@ import {
 	type CommandContext,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
+	commandActor,
 	commandEndpoint,
 	formulationInsecticideReturnColumns,
 	handleCommandError,
 	type RouteOptions,
-	readCurrentTransactionId,
 	type SafeFormulationInsecticide,
 	softDelete,
 	toSafeFormulationInsecticide,
+	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -96,7 +97,12 @@ async function runFormulationInsecticideCommands(
 	}
 
 	try {
-		const result = await writeFormulationInsecticideCommands(db, commands);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeFormulationInsecticideCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'formulation_insecticide_not_found' }, 404);
 		}
@@ -107,19 +113,6 @@ async function runFormulationInsecticideCommands(
 	} catch (error) {
 		return handleCommandError(context, error);
 	}
-}
-
-async function writeFormulationInsecticideCommands(
-	db: ControlOperationsDb,
-	commands: readonly ControlOperationsCommand[],
-): Promise<MutationWriteResult<SafeFormulationInsecticide | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeFormulationInsecticide | null = null;
-		for (const command of commands) {
-			row = await writeFormulationInsecticideCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 async function writeFormulationInsecticideCommand(

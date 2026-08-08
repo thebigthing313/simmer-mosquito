@@ -18,6 +18,7 @@ import {
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
+	commandActor,
 	commandEndpoint,
 	createCommand,
 	type FormulationUpdateColumns,
@@ -25,10 +26,10 @@ import {
 	handleCommandError,
 	invalidUpdate,
 	type RouteOptions,
-	readCurrentTransactionId,
 	type SafeFormulation,
 	softDelete,
 	toSafeFormulation,
+	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -141,7 +142,12 @@ async function runFormulationCommands(
 	}
 
 	try {
-		const result = await writeFormulationCommands(db, commands);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeFormulationCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'formulation_not_found' }, 404);
 		}
@@ -149,19 +155,6 @@ async function runFormulationCommands(
 	} catch (error) {
 		return handleCommandError(context, error);
 	}
-}
-
-async function writeFormulationCommands(
-	db: ControlOperationsDb,
-	commands: readonly ControlOperationsCommand[],
-): Promise<MutationWriteResult<SafeFormulation | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeFormulation | null = null;
-		for (const command of commands) {
-			row = await writeFormulationCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 async function writeFormulationCommand(
