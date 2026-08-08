@@ -792,74 +792,116 @@ describe('registerMapTileRoutes — inspections', () => {
 	});
 });
 
-function createApp(options: {
-	readonly authenticated?: boolean;
-	readonly getHabitatTile: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['getHabitatTile']
-	>;
-	readonly listHabitatDisplayRows?: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['listHabitatDisplayRows']
-	>;
-	readonly getHabitatDisplayRow?: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['getHabitatDisplayRow']
-	>;
-	readonly countHabitatTypeUsage?: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['countHabitatTypeUsage']
-	>;
-	readonly getInspectionTile?: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['getInspectionTile']
-	>;
-	readonly listInspectionDisplayRows?: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['listInspectionDisplayRows']
-	>;
-	readonly getInspectionDisplayRow?: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['getInspectionDisplayRow']
-	>;
-	readonly getAddressTile?: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['getAddressTile']
-	>;
-	readonly getHabitatExtent?: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['getHabitatExtent']
-	>;
-	readonly getRegionExtent?: NonNullable<
-		Parameters<typeof registerMapTileRoutes>[1]['getRegionExtent']
-	>;
-}) {
+// The four routes whose readers were called directly rather than injected, so
+// none of them could be driven without a database until the readers became one
+// object. Three answer geometry the Electric shape does not carry (ADR 0009).
+describe('map geometry routes', () => {
+	it('answers a region with its geometry alone, scoped to the organization', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			getRegionRow: async (_db, input) => {
+				calls.push(input);
+				return { id: regionId, organizationId, geometry, name: 'North' } as never;
+			},
+		});
+
+		const response = await app.request(`/map/regions/${regionId}`);
+
+		expect(response.status).toBe(200);
+		// The name is deliberately absent: the row already streams on the region's
+		// Electric shape, and only the polygon is missing there.
+		await expect(response.json()).resolves.toEqual({ region: geometry });
+		expect(calls).toEqual([{ id: regionId, organizationId }]);
+	});
+
+	it('answers an address with its geometry alone', async () => {
+		const app = createApp({
+			getAddressRow: async () => ({ id: addressId, organizationId, geometry }) as never,
+		});
+
+		const response = await app.request(`/map/addresses/${addressId}`);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ address: geometry });
+	});
+
+	it('answers a requested control action, and 404s for another agency’s', async () => {
+		const app = createApp({
+			getRequestedControlActionRow: async (_db, input) =>
+				input.id === requestedControlActionId
+					? ({ id: input.id, organizationId, ...geometry } as never)
+					: undefined,
+		});
+
+		await expect(
+			app.request(`/map/requested-control-actions/${requestedControlActionId}`),
+		).resolves.toMatchObject({ status: 200 });
+
+		const missing = await app.request(`/map/requested-control-actions/${regionId}`);
+		expect(missing.status).toBe(404);
+		await expect(missing.json()).resolves.toMatchObject({ error: 'not_found' });
+	});
+
+	it('answers every stop of one mission, in dispatch order', async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			listMissionItems: async (_db, input) => {
+				calls.push(input);
+				return [
+					{ id: addressId, missionId, position: 1, ...geometry } as never,
+					{ id: regionId, missionId, position: 2, ...geometry } as never,
+				];
+			},
+		});
+
+		const response = await app.request(`/map/missions/${missionId}/items`);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({
+			missionItems: [{ position: 1 }, { position: 2 }],
+		});
+		// Per mission, not per stop — both mission surfaces draw a whole mission.
+		expect(calls).toEqual([{ missionId, organizationId }]);
+	});
+
+	it('rejects a non-UUID mission id before reading geometry', async () => {
+		const listMissionItems = vi.fn();
+		const app = createApp({ listMissionItems });
+
+		const response = await app.request('/map/missions/not-a-uuid/items');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
+		expect(listMissionItems).not.toHaveBeenCalled();
+	});
+});
+
+/**
+ * An app whose routes read from fakes.
+ *
+ * Every reader is nameable here, because `registerMapTileRoutes` takes one
+ * `readers` object rather than forty-five optional fields. This used to be
+ * seventy lines declaring ten of them by hand and spreading each conditionally,
+ * so testing a route meant first widening the helper.
+ */
+function createApp(
+	options: NonNullable<Parameters<typeof registerMapTileRoutes>[1]['readers']> & {
+		readonly authenticated?: boolean;
+	},
+) {
+	const { authenticated, ...readers } = options;
 	const app = new Hono<{ Variables: AuthVariables }>();
 	registerMapTileRoutes(app, {
 		db: {} as Parameters<typeof registerMapTileRoutes>[1]['db'],
 		authContextMiddleware: createMiddleware(async (context, next) => {
-			if (options.authenticated === false) {
+			if (authenticated === false) {
 				return context.json({ error: 'unauthenticated' }, 401);
 			}
 
 			context.set('authContext', authContext);
 			await next();
 		}),
-		getHabitatTile: options.getHabitatTile,
-		...(options.listHabitatDisplayRows === undefined
-			? {}
-			: { listHabitatDisplayRows: options.listHabitatDisplayRows }),
-		...(options.getHabitatDisplayRow === undefined
-			? {}
-			: { getHabitatDisplayRow: options.getHabitatDisplayRow }),
-		...(options.countHabitatTypeUsage === undefined
-			? {}
-			: { countHabitatTypeUsage: options.countHabitatTypeUsage }),
-		...(options.getInspectionTile === undefined
-			? {}
-			: { getInspectionTile: options.getInspectionTile }),
-		...(options.listInspectionDisplayRows === undefined
-			? {}
-			: { listInspectionDisplayRows: options.listInspectionDisplayRows }),
-		...(options.getInspectionDisplayRow === undefined
-			? {}
-			: { getInspectionDisplayRow: options.getInspectionDisplayRow }),
-		...(options.getAddressTile === undefined ? {} : { getAddressTile: options.getAddressTile }),
-		...(options.getHabitatExtent === undefined
-			? {}
-			: { getHabitatExtent: options.getHabitatExtent }),
-		...(options.getRegionExtent === undefined ? {} : { getRegionExtent: options.getRegionExtent }),
+		readers,
 	});
 	return app;
 }
@@ -869,6 +911,17 @@ const regionId = 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f';
 const habitatId = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const habitatTypeId = '4fe25a2d-925c-4d37-9d4e-07185ad19858';
 const inspectionId = 'b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e';
+const addressId = '2b8f4c1a-7d63-4e59-9a02-3c5b7e1d8f40';
+const requestedControlActionId = '6d1e9a37-4b28-4c5f-8e13-9f2a0b7c4d61';
+const missionId = 'e9c2f480-15a6-4d73-8b21-7c40d5e9a382';
+
+/** The owned geometry every geometry-only route answers with. */
+const geometry = {
+	lat: 35.5,
+	lng: -90.5,
+	geojson: { type: 'Point', coordinates: [-90.5, 35.5] },
+	geomType: 'st_point',
+} as const;
 
 const authContext = {
 	organization: { id: organizationId },

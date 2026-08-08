@@ -128,104 +128,78 @@ export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 const regionFilterParam = 'regionId';
 
 type TileDb = Kysely<SimmerDatabase>;
-type HabitatTileReader = (db: TileDb, input: HabitatMvtTileInput) => Promise<Uint8Array>;
-type RegionTileReader = (db: TileDb, input: RegionMvtTileInput) => Promise<Uint8Array>;
-type AddressTileReader = (db: TileDb, input: AddressMvtTileInput) => Promise<Uint8Array>;
-type HabitatDisplayReader = (
-	db: TileDb,
-	input: HabitatDisplayInput,
-) => Promise<HabitatDisplayPageResult>;
-type HabitatDisplayByIdReader = (
-	db: TileDb,
-	input: HabitatByIdInput,
-) => Promise<SafeHabitatDisplayRow | undefined>;
-type HabitatSearchReader = (
-	db: TileDb,
-	input: HabitatSearchInput,
-) => Promise<HabitatSiteDisplayRow[]>;
-type HabitatTypeUsageReader = (
-	db: TileDb,
-	input: { readonly organizationId: string },
-) => Promise<HabitatTypeUsageRow[]>;
-type InspectionTileReader = (db: TileDb, input: InspectionMvtTileInput) => Promise<Uint8Array>;
-type InspectionDisplayReader = (
-	db: TileDb,
-	input: InspectionDisplayInput,
-) => Promise<InspectionDisplayPageResult>;
-type InspectionDisplayByIdReader = (
-	db: TileDb,
-	input: InspectionByIdInput,
-) => Promise<SafeInspectionDisplayRow | undefined>;
-type SampleTileReader = (db: TileDb, input: SampleMvtTileInput) => Promise<Uint8Array>;
-type SampleDisplayReader = (
-	db: TileDb,
-	input: SampleDisplayInput,
-) => Promise<SampleDisplayPageResult>;
-type SampleDisplayByIdReader = (
-	db: TileDb,
-	input: SampleByIdInput,
-) => Promise<SafeSampleDisplayRow | undefined>;
-type ApplicationTileReader = (db: TileDb, input: ApplicationMvtTileInput) => Promise<Uint8Array>;
-type ApplicationPageReader = (
-	db: TileDb,
-	input: ApplicationPageInput,
-) => Promise<ApplicationPageResult>;
-type ApplicationDisplayByIdReader = (
-	db: TileDb,
-	input: ApplicationByIdInput,
-) => Promise<SafeApplicationDisplayRow | undefined>;
-type SourceReductionTileReader = (
-	db: TileDb,
-	input: SourceReductionMvtTileInput,
-) => Promise<Uint8Array>;
-type SourceReductionPageReader = (
-	db: TileDb,
-	input: SourceReductionPageInput,
-) => Promise<SourceReductionPageResult>;
-type SourceReductionDisplayByIdReader = (
-	db: TileDb,
-	input: SourceReductionByIdInput,
-) => Promise<SafeSourceReductionDisplayRow | undefined>;
-type BiocontrolTileReader = (db: TileDb, input: BiocontrolMvtTileInput) => Promise<Uint8Array>;
-type BiocontrolPageReader = (
-	db: TileDb,
-	input: BiocontrolPageInput,
-) => Promise<BiocontrolPageResult>;
-type BiocontrolDisplayByIdReader = (
-	db: TileDb,
-	input: BiocontrolByIdInput,
-) => Promise<SafeBiocontrolDisplayRow | undefined>;
-type OutreachTileReader = (db: TileDb, input: OutreachMvtTileInput) => Promise<Uint8Array>;
-type OutreachPageReader = (db: TileDb, input: OutreachPageInput) => Promise<OutreachPageResult>;
-type OutreachDisplayByIdReader = (
-	db: TileDb,
-	input: OutreachByIdInput,
-) => Promise<SafeOutreachDisplayRow | undefined>;
-type TrapTileReader = (db: TileDb, input: TrapMvtTileInput) => Promise<Uint8Array>;
-type TrapPageReader = (db: TileDb, input: TrapPageInput) => Promise<TrapPageResult>;
-type TrapDisplayByIdReader = (
-	db: TileDb,
-	input: TrapByIdInput,
-) => Promise<SafeTrapDisplayRow | undefined>;
-type CollectionTileReader = (db: TileDb, input: CollectionMvtTileInput) => Promise<Uint8Array>;
-type CollectionPageReader = (
-	db: TileDb,
-	input: CollectionPageInput,
-) => Promise<CollectionPageResult>;
-type CollectionDisplayByIdReader = (
-	db: TileDb,
-	input: CollectionByIdInput,
-) => Promise<SafeCollectionDisplayRow | undefined>;
 
 /**
- * Reads the extent of one tileset's filtered rows, viewport-free. Paired with a
- * tile reader in the registry below so a tileset can never frame one filter set
- * while drawing another.
+ * Every database read these routes make, in one place.
+ *
+ * This is the seam the tests substitute at: a route handler must be drivable
+ * without Postgres, so each reader has to be replaceable. That was previously
+ * done with forty-five optional fields on the registration options and
+ * forty-two `??` defaults behind them, plus thirty-two function-type aliases to
+ * declare the fields with — an interface as complicated as the thing it hid,
+ * and a test helper that spent seventy lines threading ten of the forty-five
+ * through conditional spreads.
+ *
+ * One object, one spread. A new route adds a line here and a line at its
+ * registration, and it is injectable from the moment it exists — which the old
+ * shape did not manage: `getRegionById`, `getAddressById` and
+ * `getRequestedControlActionDisplayRowById` were called directly, so three
+ * routes could not be driven without a database at all.
  */
-type MapExtentReader<F> = (
-	db: TileDb,
-	input: { readonly organizationId: string; readonly filters?: F },
-) => Promise<MapExtent | null>;
+const defaultMapReaders = {
+	getHabitatTile: getHabitatMvtTile,
+	getRegionTile: getRegionMvtTile,
+	getAddressTile: getAddressMvtTile,
+	getInspectionTile: getInspectionMvtTile,
+	getSampleTile: getSampleMvtTile,
+	getApplicationTile: getApplicationMvtTile,
+	getSourceReductionTile: getSourceReductionMvtTile,
+	getBiocontrolTile: getBiocontrolMvtTile,
+	getOutreachTile: getOutreachMvtTile,
+	getTrapTile: getTrapMvtTile,
+	getCollectionTile: getCollectionMvtTile,
+
+	getHabitatExtent: getHabitatMapExtent,
+	getRegionExtent: getRegionMapExtent,
+	getAddressExtent: getAddressMapExtent,
+	getInspectionExtent: getInspectionMapExtent,
+	getSampleExtent: getSampleMapExtent,
+	getApplicationExtent: getApplicationMapExtent,
+	getSourceReductionExtent: getSourceReductionMapExtent,
+	getBiocontrolExtent: getBiocontrolMapExtent,
+	getOutreachExtent: getOutreachMapExtent,
+	getTrapExtent: getTrapMapExtent,
+	getCollectionExtent: getCollectionMapExtent,
+
+	listHabitatDisplayRows: listHabitatDisplayRowsByBounds,
+	listInspectionDisplayRows: listInspectionDisplayRowsByBounds,
+	listSampleDisplayRows: listSampleDisplayRowsByBounds,
+	listApplicationDisplayRows: listApplicationDisplayRowsPage,
+	listSourceReductionDisplayRows: listSourceReductionDisplayRowsPage,
+	listBiocontrolDisplayRows: listBiocontrolDisplayRowsPage,
+	listOutreachDisplayRows: listOutreachDisplayRowsPage,
+	listTrapDisplayRows: listTrapDisplayRowsPage,
+	listCollectionDisplayRows: listCollectionDisplayRowsPage,
+
+	getHabitatDisplayRow: getHabitatDisplayRowById,
+	getRegionRow: getRegionById,
+	getAddressRow: getAddressById,
+	getInspectionDisplayRow: getInspectionDisplayRowById,
+	getSampleDisplayRow: getSampleDisplayRowById,
+	getApplicationDisplayRow: getApplicationDisplayRowById,
+	getSourceReductionDisplayRow: getSourceReductionDisplayRowById,
+	getBiocontrolDisplayRow: getBiocontrolDisplayRowById,
+	getOutreachDisplayRow: getOutreachDisplayRowById,
+	getRequestedControlActionRow: getRequestedControlActionDisplayRowById,
+	getTrapDisplayRow: getTrapDisplayRowById,
+	getCollectionDisplayRow: getCollectionDisplayRowById,
+
+	searchHabitatDisplayRows: searchHabitatSites,
+	countHabitatTypeUsage: countActiveHabitatsByType,
+	listMissionItems: listMissionItemGeometry,
+};
+
+type MapReaders = typeof defaultMapReaders;
 
 type TileCoordinateResult =
 	| {
@@ -243,34 +217,6 @@ interface TileCoordinate {
 	readonly y: number;
 }
 
-type HabitatFilterResult =
-	| {
-			readonly ok: true;
-			readonly filters: HabitatMvtTileFilters;
-	  }
-	| {
-			readonly ok: false;
-			readonly reason: string;
-	  };
-
-type HabitatDisplayQueryResult =
-	| {
-			readonly ok: true;
-			readonly input: HabitatDisplayInput;
-	  }
-	| {
-			readonly ok: false;
-			readonly reason: string;
-	  };
-
-interface HabitatDisplayInput {
-	readonly organizationId: string;
-	readonly bounds: MapBounds;
-	readonly filters?: HabitatMvtTileFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
 interface MapBounds {
 	readonly west: number;
 	readonly south: number;
@@ -278,83 +224,40 @@ interface MapBounds {
 	readonly north: number;
 }
 
-type InspectionFilterResult =
-	| { readonly ok: true; readonly filters: InspectionMvtTileFilters }
-	| { readonly ok: false; readonly reason: string };
-
-type InspectionDisplayQueryResult =
-	| { readonly ok: true; readonly input: InspectionDisplayInput }
-	| { readonly ok: false; readonly reason: string };
-
-interface InspectionDisplayInput {
-	readonly organizationId: string;
-	readonly bounds: MapBounds;
-	readonly filters?: InspectionMvtTileFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
-type SampleFilterResult =
-	| { readonly ok: true; readonly filters: SampleListFilters }
-	| { readonly ok: false; readonly reason: string };
-
-type SampleDisplayQueryResult =
-	| { readonly ok: true; readonly input: SampleDisplayInput }
-	| { readonly ok: false; readonly reason: string };
-
-interface SampleDisplayInput {
-	readonly organizationId: string;
-	readonly bounds: MapBounds;
-	readonly filters?: SampleListFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
+/** A paged read that also narrows to the viewport the client is looking at. */
+type BboxPageInput<TFilters> = PageInput<TFilters> & { readonly bounds: MapBounds };
 
 // The tileset registry is type-erased at the Map boundary so it can hold tilesets
 // with different filter shapes (habitats, inspections). `defineTileSet` keeps each
 // entry's parse/getTile pair internally type-safe; only the erasure to `unknown`
 // filters crosses the boundary, and the pair is defined together so they can't drift.
 interface TileSetDefinition {
-	readonly parseFilters: (
-		searchParams: URLSearchParams,
-	) =>
-		| { readonly ok: true; readonly filters: unknown }
-		| { readonly ok: false; readonly reason: string };
+	/** The `:tileset` path segment this entry answers to. */
+	readonly key: string;
+	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<unknown>;
 	readonly getTile: (
 		db: TileDb,
-		input: {
-			readonly coordinate: TileCoordinate;
+		input: TileCoordinate & {
 			readonly organizationId: string;
 			readonly filters: unknown;
 		},
 	) => Promise<Uint8Array>;
 	readonly getExtent: (
 		db: TileDb,
-		input: {
-			readonly organizationId: string;
-			readonly filters: unknown;
-		},
+		input: { readonly organizationId: string; readonly filters: unknown },
 	) => Promise<MapExtent | null>;
 }
 
 function defineTileSet<F>(def: {
-	readonly parseFilters: (
-		searchParams: URLSearchParams,
-	) => { readonly ok: true; readonly filters: F } | { readonly ok: false; readonly reason: string };
+	readonly key: string;
+	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<F>;
 	readonly getTile: (
 		db: TileDb,
-		input: {
-			readonly coordinate: TileCoordinate;
-			readonly organizationId: string;
-			readonly filters: F;
-		},
+		input: TileCoordinate & { readonly organizationId: string; readonly filters: F },
 	) => Promise<Uint8Array>;
 	readonly getExtent: (
 		db: TileDb,
-		input: {
-			readonly organizationId: string;
-			readonly filters: F;
-		},
+		input: { readonly organizationId: string; readonly filters: F },
 	) => Promise<MapExtent | null>;
 }): TileSetDefinition {
 	return def as unknown as TileSetDefinition;
@@ -365,108 +268,27 @@ export function registerMapTileRoutes(
 	options: {
 		readonly db: TileDb;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
-		readonly getHabitatTile?: HabitatTileReader;
-		readonly getRegionTile?: RegionTileReader;
-		readonly getAddressTile?: AddressTileReader;
-		readonly listHabitatDisplayRows?: HabitatDisplayReader;
-		readonly getHabitatDisplayRow?: HabitatDisplayByIdReader;
-		readonly searchHabitatDisplayRows?: HabitatSearchReader;
-		readonly countHabitatTypeUsage?: HabitatTypeUsageReader;
-		readonly getInspectionTile?: InspectionTileReader;
-		readonly listInspectionDisplayRows?: InspectionDisplayReader;
-		readonly getInspectionDisplayRow?: InspectionDisplayByIdReader;
-		readonly getSampleTile?: SampleTileReader;
-		readonly listSampleDisplayRows?: SampleDisplayReader;
-		readonly getSampleDisplayRow?: SampleDisplayByIdReader;
-		readonly getApplicationTile?: ApplicationTileReader;
-		readonly listApplicationDisplayRows?: ApplicationPageReader;
-		readonly getApplicationDisplayRow?: ApplicationDisplayByIdReader;
-		readonly getSourceReductionTile?: SourceReductionTileReader;
-		readonly listSourceReductionDisplayRows?: SourceReductionPageReader;
-		readonly getSourceReductionDisplayRow?: SourceReductionDisplayByIdReader;
-		readonly getBiocontrolTile?: BiocontrolTileReader;
-		readonly listBiocontrolDisplayRows?: BiocontrolPageReader;
-		readonly getBiocontrolDisplayRow?: BiocontrolDisplayByIdReader;
-		readonly getOutreachTile?: OutreachTileReader;
-		readonly listOutreachDisplayRows?: OutreachPageReader;
-		readonly getOutreachDisplayRow?: OutreachDisplayByIdReader;
-		readonly getTrapTile?: TrapTileReader;
-		readonly listTrapDisplayRows?: TrapPageReader;
-		readonly getTrapDisplayRow?: TrapDisplayByIdReader;
-		readonly getCollectionTile?: CollectionTileReader;
-		readonly listCollectionDisplayRows?: CollectionPageReader;
-		readonly getCollectionDisplayRow?: CollectionDisplayByIdReader;
-		readonly getHabitatExtent?: MapExtentReader<HabitatMvtTileFilters>;
-		readonly getRegionExtent?: MapExtentReader<RegionMvtTileFilters>;
-		readonly getAddressExtent?: MapExtentReader<AddressMvtTileFilters>;
-		readonly getInspectionExtent?: MapExtentReader<InspectionMvtTileFilters>;
-		readonly getSampleExtent?: MapExtentReader<SampleListFilters>;
-		readonly getApplicationExtent?: MapExtentReader<ApplicationMapFilters>;
-		readonly getSourceReductionExtent?: MapExtentReader<SourceReductionMapFilters>;
-		readonly getBiocontrolExtent?: MapExtentReader<BiocontrolMapFilters>;
-		readonly getOutreachExtent?: MapExtentReader<OutreachMapFilters>;
-		readonly getTrapExtent?: MapExtentReader<TrapMapFilters>;
-		readonly getCollectionExtent?: MapExtentReader<CollectionMapFilters>;
+		/**
+		 * Readers to use instead of the real ones. Anything omitted is the real
+		 * one, so a test names only what it drives.
+		 */
+		readonly readers?: Partial<MapReaders>;
 	},
 ): void {
-	const tileSets = createTileSetRegistry({
-		getHabitatTile: options.getHabitatTile ?? getHabitatMvtTile,
-		getRegionTile: options.getRegionTile ?? getRegionMvtTile,
-		getAddressTile: options.getAddressTile ?? getAddressMvtTile,
-		getInspectionTile: options.getInspectionTile ?? getInspectionMvtTile,
-		getSampleTile: options.getSampleTile ?? getSampleMvtTile,
-		getApplicationTile: options.getApplicationTile ?? getApplicationMvtTile,
-		getSourceReductionTile: options.getSourceReductionTile ?? getSourceReductionMvtTile,
-		getBiocontrolTile: options.getBiocontrolTile ?? getBiocontrolMvtTile,
-		getOutreachTile: options.getOutreachTile ?? getOutreachMvtTile,
-		getTrapTile: options.getTrapTile ?? getTrapMvtTile,
-		getCollectionTile: options.getCollectionTile ?? getCollectionMvtTile,
-		getHabitatExtent: options.getHabitatExtent ?? getHabitatMapExtent,
-		getRegionExtent: options.getRegionExtent ?? getRegionMapExtent,
-		getAddressExtent: options.getAddressExtent ?? getAddressMapExtent,
-		getInspectionExtent: options.getInspectionExtent ?? getInspectionMapExtent,
-		getSampleExtent: options.getSampleExtent ?? getSampleMapExtent,
-		getApplicationExtent: options.getApplicationExtent ?? getApplicationMapExtent,
-		getSourceReductionExtent: options.getSourceReductionExtent ?? getSourceReductionMapExtent,
-		getBiocontrolExtent: options.getBiocontrolExtent ?? getBiocontrolMapExtent,
-		getOutreachExtent: options.getOutreachExtent ?? getOutreachMapExtent,
-		getTrapExtent: options.getTrapExtent ?? getTrapMapExtent,
-		getCollectionExtent: options.getCollectionExtent ?? getCollectionMapExtent,
-	});
-	const listDisplayRows = options.listHabitatDisplayRows ?? listHabitatDisplayRowsByBounds;
-	const getDisplayRow = options.getHabitatDisplayRow ?? getHabitatDisplayRowById;
-	const searchDisplayRows = options.searchHabitatDisplayRows ?? searchHabitatSites;
-	const countTypeUsage = options.countHabitatTypeUsage ?? countActiveHabitatsByType;
-	const listInspectionRows = options.listInspectionDisplayRows ?? listInspectionDisplayRowsByBounds;
-	const getInspectionRow = options.getInspectionDisplayRow ?? getInspectionDisplayRowById;
-	const listSampleRows = options.listSampleDisplayRows ?? listSampleDisplayRowsByBounds;
-	const getSampleRow = options.getSampleDisplayRow ?? getSampleDisplayRowById;
-	const listApplicationRows = options.listApplicationDisplayRows ?? listApplicationDisplayRowsPage;
-	const getApplicationRow = options.getApplicationDisplayRow ?? getApplicationDisplayRowById;
-	const listSourceReductionRows =
-		options.listSourceReductionDisplayRows ?? listSourceReductionDisplayRowsPage;
-	const getSourceReductionRow =
-		options.getSourceReductionDisplayRow ?? getSourceReductionDisplayRowById;
-	const listBiocontrolRows = options.listBiocontrolDisplayRows ?? listBiocontrolDisplayRowsPage;
-	const getBiocontrolRow = options.getBiocontrolDisplayRow ?? getBiocontrolDisplayRowById;
-	const listOutreachRows = options.listOutreachDisplayRows ?? listOutreachDisplayRowsPage;
-	const getOutreachRow = options.getOutreachDisplayRow ?? getOutreachDisplayRowById;
-	const listTrapRows = options.listTrapDisplayRows ?? listTrapDisplayRowsPage;
-	const getTrapRow = options.getTrapDisplayRow ?? getTrapDisplayRowById;
-	const listCollectionRows = options.listCollectionDisplayRows ?? listCollectionDisplayRowsPage;
-	const getCollectionRow = options.getCollectionDisplayRow ?? getCollectionDisplayRowById;
+	const readers: MapReaders = { ...defaultMapReaders, ...options.readers };
+	const tileSets = createTileSetRegistry(readers);
 
 	registerPagedRoute(app, options, {
 		path: '/map/habitats',
 		key: 'habitats',
 		parseQuery: parseHabitatDisplayQuery,
-		list: listDisplayRows,
+		list: readers.listHabitatDisplayRows,
 	});
 
 	// Registered before `/:id` so the literal segment wins over the UUID param.
 	app.get('/map/habitats/type-usage', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const usage = await countTypeUsage(options.db, {
+		const usage = await readers.countHabitatTypeUsage(options.db, {
 			organizationId: authContext.organization.id,
 		});
 
@@ -486,7 +308,7 @@ export function registerMapTileRoutes(
 		}
 
 		const authContext = context.get('authContext');
-		const habitats = await searchDisplayRows(options.db, {
+		const habitats = await readers.searchHabitatDisplayRows(options.db, {
 			organizationId: authContext.organization.id,
 			search: searchResult.search,
 			limit: searchResult.limit,
@@ -499,7 +321,7 @@ export function registerMapTileRoutes(
 		path: '/map/habitats/:id',
 		key: 'habitat',
 		noun: 'Habitat',
-		get: getDisplayRow,
+		get: readers.getHabitatDisplayRow,
 	});
 
 	// Region + address geometry is deliberately excluded from the Electric sync
@@ -509,7 +331,7 @@ export function registerMapTileRoutes(
 		path: '/map/regions/:id',
 		key: 'region',
 		noun: 'Region',
-		get: getRegionById,
+		get: readers.getRegionRow,
 		toResponse: (row) => ({ ...row.geometry }),
 	});
 
@@ -517,7 +339,7 @@ export function registerMapTileRoutes(
 		path: '/map/addresses/:id',
 		key: 'address',
 		noun: 'Address',
-		get: getAddressById,
+		get: readers.getAddressRow,
 		toResponse: (row) => ({ ...row.geometry }),
 	});
 
@@ -525,28 +347,28 @@ export function registerMapTileRoutes(
 		path: '/map/inspections',
 		key: 'inspections',
 		parseQuery: parseInspectionDisplayQuery,
-		list: listInspectionRows,
+		list: readers.listInspectionDisplayRows,
 	});
 
 	registerByIdRoute(app, options, {
 		path: '/map/inspections/:id',
 		key: 'inspection',
 		noun: 'Inspection',
-		get: getInspectionRow,
+		get: readers.getInspectionDisplayRow,
 	});
 
 	registerPagedRoute(app, options, {
 		path: '/map/samples',
 		key: 'samples',
 		parseQuery: parseSampleDisplayQuery,
-		list: listSampleRows,
+		list: readers.listSampleDisplayRows,
 	});
 
 	registerByIdRoute(app, options, {
 		path: '/map/samples/:id',
 		key: 'sample',
 		noun: 'Sample',
-		get: getSampleRow,
+		get: readers.getSampleDisplayRow,
 	});
 
 	registerPagedRoute(app, options, {
@@ -554,14 +376,14 @@ export function registerMapTileRoutes(
 		key: 'applications',
 		parseQuery: (searchParams, organizationId) =>
 			parsePageQuery(searchParams, organizationId, parseApplicationMapFilters),
-		list: listApplicationRows,
+		list: readers.listApplicationDisplayRows,
 	});
 
 	registerByIdRoute(app, options, {
 		path: '/map/chemical/:id',
 		key: 'application',
 		noun: 'Application',
-		get: getApplicationRow,
+		get: readers.getApplicationDisplayRow,
 	});
 
 	registerPagedRoute(app, options, {
@@ -569,14 +391,14 @@ export function registerMapTileRoutes(
 		key: 'sourceReductions',
 		parseQuery: (searchParams, organizationId) =>
 			parsePageQuery(searchParams, organizationId, parseSourceReductionMapFilters),
-		list: listSourceReductionRows,
+		list: readers.listSourceReductionDisplayRows,
 	});
 
 	registerByIdRoute(app, options, {
 		path: '/map/source-reduction/:id',
 		key: 'sourceReduction',
 		noun: 'Source reduction',
-		get: getSourceReductionRow,
+		get: readers.getSourceReductionDisplayRow,
 	});
 
 	registerPagedRoute(app, options, {
@@ -584,7 +406,7 @@ export function registerMapTileRoutes(
 		key: 'biocontrolActions',
 		parseQuery: (searchParams, organizationId) =>
 			parsePageQuery(searchParams, organizationId, parseBiocontrolMapFilters),
-		list: listBiocontrolRows,
+		list: readers.listBiocontrolDisplayRows,
 	});
 
 	registerByIdRoute(app, options, {
@@ -592,7 +414,7 @@ export function registerMapTileRoutes(
 		key: 'biocontrolAction',
 		noun: 'Biocontrol',
 		foundNoun: 'Biocontrol action',
-		get: getBiocontrolRow,
+		get: readers.getBiocontrolDisplayRow,
 	});
 
 	registerPagedRoute(app, options, {
@@ -600,7 +422,7 @@ export function registerMapTileRoutes(
 		key: 'outreachActions',
 		parseQuery: (searchParams, organizationId) =>
 			parsePageQuery(searchParams, organizationId, parseOutreachMapFilters),
-		list: listOutreachRows,
+		list: readers.listOutreachDisplayRows,
 	});
 
 	registerByIdRoute(app, options, {
@@ -608,7 +430,7 @@ export function registerMapTileRoutes(
 		key: 'outreachAction',
 		noun: 'Outreach',
 		foundNoun: 'Outreach action',
-		get: getOutreachRow,
+		get: readers.getOutreachDisplayRow,
 	});
 
 	// Geometry only — a request's other fields already stream on its Electric
@@ -618,7 +440,7 @@ export function registerMapTileRoutes(
 		path: '/map/requested-control-actions/:id',
 		key: 'requestedControlAction',
 		noun: 'Requested control action',
-		get: getRequestedControlActionDisplayRowById,
+		get: readers.getRequestedControlActionRow,
 	});
 
 	// Every stop's real shape, in dispatch order. The mission surfaces draw the
@@ -632,7 +454,7 @@ export function registerMapTileRoutes(
 		}
 
 		const authContext = context.get('authContext');
-		const missionItems = await listMissionItemGeometry(options.db, {
+		const missionItems = await readers.listMissionItems(options.db, {
 			missionId: id,
 			organizationId: authContext.organization.id,
 		});
@@ -645,14 +467,14 @@ export function registerMapTileRoutes(
 		key: 'traps',
 		parseQuery: (searchParams, organizationId) =>
 			parsePageQuery(searchParams, organizationId, parseTrapMapFilters),
-		list: listTrapRows,
+		list: readers.listTrapDisplayRows,
 	});
 
 	registerByIdRoute(app, options, {
 		path: '/map/traps/:id',
 		key: 'trap',
 		noun: 'Trap',
-		get: getTrapRow,
+		get: readers.getTrapDisplayRow,
 	});
 
 	registerPagedRoute(app, options, {
@@ -660,14 +482,14 @@ export function registerMapTileRoutes(
 		key: 'collections',
 		parseQuery: (searchParams, organizationId) =>
 			parsePageQuery(searchParams, organizationId, parseCollectionMapFilters),
-		list: listCollectionRows,
+		list: readers.listCollectionDisplayRows,
 	});
 
 	registerByIdRoute(app, options, {
 		path: '/map/collections/:id',
 		key: 'collection',
 		noun: 'Collection',
-		get: getCollectionRow,
+		get: readers.getCollectionDisplayRow,
 	});
 
 	// The bounding box of everything the same filters would draw, viewport-free.
@@ -726,7 +548,7 @@ export function registerMapTileRoutes(
 
 			const authContext = context.get('authContext');
 			const tile = await tileSet.getTile(options.db, {
-				coordinate: coordinateResult.coordinate,
+				...coordinateResult.coordinate,
 				organizationId: authContext.organization.id,
 				filters: filterResult.filters,
 			});
@@ -841,175 +663,85 @@ function registerByIdRoute<TRow>(
 	});
 }
 
-function createTileSetRegistry(options: {
-	readonly getHabitatTile: HabitatTileReader;
-	readonly getRegionTile: RegionTileReader;
-	readonly getAddressTile: AddressTileReader;
-	readonly getInspectionTile: InspectionTileReader;
-	readonly getSampleTile: SampleTileReader;
-	readonly getApplicationTile: ApplicationTileReader;
-	readonly getSourceReductionTile: SourceReductionTileReader;
-	readonly getBiocontrolTile: BiocontrolTileReader;
-	readonly getOutreachTile: OutreachTileReader;
-	readonly getTrapTile: TrapTileReader;
-	readonly getCollectionTile: CollectionTileReader;
-	readonly getHabitatExtent: MapExtentReader<HabitatMvtTileFilters>;
-	readonly getRegionExtent: MapExtentReader<RegionMvtTileFilters>;
-	readonly getAddressExtent: MapExtentReader<AddressMvtTileFilters>;
-	readonly getInspectionExtent: MapExtentReader<InspectionMvtTileFilters>;
-	readonly getSampleExtent: MapExtentReader<SampleListFilters>;
-	readonly getApplicationExtent: MapExtentReader<ApplicationMapFilters>;
-	readonly getSourceReductionExtent: MapExtentReader<SourceReductionMapFilters>;
-	readonly getBiocontrolExtent: MapExtentReader<BiocontrolMapFilters>;
-	readonly getOutreachExtent: MapExtentReader<OutreachMapFilters>;
-	readonly getTrapExtent: MapExtentReader<TrapMapFilters>;
-	readonly getCollectionExtent: MapExtentReader<CollectionMapFilters>;
-}): ReadonlyMap<string, TileSetDefinition> {
-	return new Map<string, TileSetDefinition>([
-		[
-			'habitats',
-			defineTileSet<HabitatMvtTileFilters>({
-				parseFilters: parseHabitatTileFilters,
-				getTile: (db, input) =>
-					options.getHabitatTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getHabitatExtent(db, input),
-			}),
-		],
-		[
-			'regions',
-			defineTileSet<RegionMvtTileFilters>({
-				parseFilters: parseRegionTileFilters,
-				getTile: (db, input) =>
-					options.getRegionTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getRegionExtent(db, input),
-			}),
-		],
-		[
-			'addresses',
-			defineTileSet<AddressMvtTileFilters>({
-				parseFilters: parseAddressTileFilters,
-				getTile: (db, input) =>
-					options.getAddressTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getAddressExtent(db, input),
-			}),
-		],
-		[
-			'inspections',
-			defineTileSet<InspectionMvtTileFilters>({
-				parseFilters: parseInspectionTileFilters,
-				getTile: (db, input) =>
-					options.getInspectionTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getInspectionExtent(db, input),
-			}),
-		],
-		[
-			'samples',
-			defineTileSet<SampleListFilters>({
-				parseFilters: parseSampleTileFilters,
-				getTile: (db, input) =>
-					options.getSampleTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getSampleExtent(db, input),
-			}),
-		],
-		[
-			'chemical',
-			defineTileSet<ApplicationMapFilters>({
-				parseFilters: parseApplicationMapFilters,
-				getTile: (db, input) =>
-					options.getApplicationTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getApplicationExtent(db, input),
-			}),
-		],
-		[
-			'source-reduction',
-			defineTileSet<SourceReductionMapFilters>({
-				parseFilters: parseSourceReductionMapFilters,
-				getTile: (db, input) =>
-					options.getSourceReductionTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getSourceReductionExtent(db, input),
-			}),
-		],
-		[
-			'biocontrol',
-			defineTileSet<BiocontrolMapFilters>({
-				parseFilters: parseBiocontrolMapFilters,
-				getTile: (db, input) =>
-					options.getBiocontrolTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getBiocontrolExtent(db, input),
-			}),
-		],
-		[
-			'outreach',
-			defineTileSet<OutreachMapFilters>({
-				parseFilters: parseOutreachMapFilters,
-				getTile: (db, input) =>
-					options.getOutreachTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getOutreachExtent(db, input),
-			}),
-		],
-		[
-			'traps',
-			defineTileSet<TrapMapFilters>({
-				parseFilters: parseTrapMapFilters,
-				getTile: (db, input) =>
-					options.getTrapTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getTrapExtent(db, input),
-			}),
-		],
-		[
-			'collections',
-			defineTileSet<CollectionMapFilters>({
-				parseFilters: parseCollectionMapFilters,
-				getTile: (db, input) =>
-					options.getCollectionTile(db, {
-						...input.coordinate,
-						organizationId: input.organizationId,
-						filters: input.filters,
-					}),
-				getExtent: (db, input) => options.getCollectionExtent(db, input),
-			}),
-		],
-	]);
+/**
+ * The eleven tilesets `/map/tiles/:tileset/...` can name.
+ *
+ * Each is a filter parser and the two readers that must agree with it — the
+ * tile the map draws and the extent the camera frames. They are declared
+ * together because a tileset that framed one filter set while drawing another
+ * would look like a map bug and be a wiring bug.
+ */
+function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSetDefinition> {
+	const tileSets: readonly TileSetDefinition[] = [
+		defineTileSet({
+			key: 'habitats',
+			parseFilters: parseHabitatTileFilters,
+			getTile: readers.getHabitatTile,
+			getExtent: readers.getHabitatExtent,
+		}),
+		defineTileSet({
+			key: 'regions',
+			parseFilters: parseRegionTileFilters,
+			getTile: readers.getRegionTile,
+			getExtent: readers.getRegionExtent,
+		}),
+		defineTileSet({
+			key: 'addresses',
+			parseFilters: parseAddressTileFilters,
+			getTile: readers.getAddressTile,
+			getExtent: readers.getAddressExtent,
+		}),
+		defineTileSet({
+			key: 'inspections',
+			parseFilters: parseInspectionTileFilters,
+			getTile: readers.getInspectionTile,
+			getExtent: readers.getInspectionExtent,
+		}),
+		defineTileSet({
+			key: 'samples',
+			parseFilters: parseSampleTileFilters,
+			getTile: readers.getSampleTile,
+			getExtent: readers.getSampleExtent,
+		}),
+		defineTileSet({
+			key: 'chemical',
+			parseFilters: parseApplicationMapFilters,
+			getTile: readers.getApplicationTile,
+			getExtent: readers.getApplicationExtent,
+		}),
+		defineTileSet({
+			key: 'source-reduction',
+			parseFilters: parseSourceReductionMapFilters,
+			getTile: readers.getSourceReductionTile,
+			getExtent: readers.getSourceReductionExtent,
+		}),
+		defineTileSet({
+			key: 'biocontrol',
+			parseFilters: parseBiocontrolMapFilters,
+			getTile: readers.getBiocontrolTile,
+			getExtent: readers.getBiocontrolExtent,
+		}),
+		defineTileSet({
+			key: 'outreach',
+			parseFilters: parseOutreachMapFilters,
+			getTile: readers.getOutreachTile,
+			getExtent: readers.getOutreachExtent,
+		}),
+		defineTileSet({
+			key: 'traps',
+			parseFilters: parseTrapMapFilters,
+			getTile: readers.getTrapTile,
+			getExtent: readers.getTrapExtent,
+		}),
+		defineTileSet({
+			key: 'collections',
+			parseFilters: parseCollectionMapFilters,
+			getTile: readers.getCollectionTile,
+			getExtent: readers.getCollectionExtent,
+		}),
+	];
+
+	return new Map(tileSets.map((tileSet) => [tileSet.key, tileSet]));
 }
 
 /**
@@ -1326,25 +1058,17 @@ export function parseTileCoordinate(input: {
 	};
 }
 
-type AddressFilterResult =
-	| { readonly ok: true; readonly filters: AddressMvtTileFilters }
-	| { readonly ok: false; readonly reason: string };
-
-type RegionFilterResult =
-	| { readonly ok: true; readonly filters: RegionMvtTileFilters }
-	| { readonly ok: false; readonly reason: string };
-
 export function parseHabitatDisplayQuery(
 	searchParams: URLSearchParams,
 	organizationId: string,
-): HabitatDisplayQueryResult {
+): PageQueryResult<BboxPageInput<HabitatMvtTileFilters>> {
 	return parseBboxPageQuery(searchParams, organizationId, parseHabitatTileFilters);
 }
 
 export function parseInspectionDisplayQuery(
 	searchParams: URLSearchParams,
 	organizationId: string,
-): InspectionDisplayQueryResult {
+): PageQueryResult<BboxPageInput<InspectionMvtTileFilters>> {
 	return parseBboxPageQuery(searchParams, organizationId, parseInspectionTileFilters);
 }
 
@@ -1353,7 +1077,7 @@ const sampleStatusSet = new Set<string>(sampleStatusValues);
 function parseSampleDisplayQuery(
 	searchParams: URLSearchParams,
 	organizationId: string,
-): SampleDisplayQueryResult {
+): PageQueryResult<BboxPageInput<SampleListFilters>> {
 	return parseBboxPageQuery(searchParams, organizationId, parseSampleTileFilters);
 }
 
@@ -1362,46 +1086,6 @@ function parseSampleDisplayQuery(
 // These domains render their maps from unbounded MVT tiles, and their list from
 // a filtered, offset-paged window (no bbox). Filters fold identically into the
 // tile URL and the list query so the map and the paged rail stay in lockstep.
-
-type ApplicationFilterResult =
-	| { readonly ok: true; readonly filters: ApplicationMapFilters }
-	| { readonly ok: false; readonly reason: string };
-
-type ApplicationPageQueryResult =
-	| { readonly ok: true; readonly input: ApplicationPageInput }
-	| { readonly ok: false; readonly reason: string };
-
-type SourceReductionFilterResult =
-	| { readonly ok: true; readonly filters: SourceReductionMapFilters }
-	| { readonly ok: false; readonly reason: string };
-
-type SourceReductionPageQueryResult =
-	| { readonly ok: true; readonly input: SourceReductionPageInput }
-	| { readonly ok: false; readonly reason: string };
-
-type BiocontrolFilterResult =
-	| { readonly ok: true; readonly filters: BiocontrolMapFilters }
-	| { readonly ok: false; readonly reason: string };
-
-type BiocontrolPageQueryResult =
-	| { readonly ok: true; readonly input: BiocontrolPageInput }
-	| { readonly ok: false; readonly reason: string };
-
-type OutreachFilterResult =
-	| { readonly ok: true; readonly filters: OutreachMapFilters }
-	| { readonly ok: false; readonly reason: string };
-
-type OutreachPageQueryResult =
-	| { readonly ok: true; readonly input: OutreachPageInput }
-	| { readonly ok: false; readonly reason: string };
-
-type TrapFilterResult =
-	| { readonly ok: true; readonly filters: TrapMapFilters }
-	| { readonly ok: false; readonly reason: string };
-
-type TrapPageQueryResult =
-	| { readonly ok: true; readonly input: TrapPageInput }
-	| { readonly ok: false; readonly reason: string };
 
 function parseOptionalTrapStatusFilter(
 	searchParams: URLSearchParams,
@@ -1430,14 +1114,6 @@ function parseOptionalTrapStatusFilter(
 
 	return { ok: false, reason: `${param} must be active or inactive.` };
 }
-
-type CollectionFilterResult =
-	| { readonly ok: true; readonly filters: CollectionMapFilters }
-	| { readonly ok: false; readonly reason: string };
-
-type CollectionPageQueryResult =
-	| { readonly ok: true; readonly input: CollectionPageInput }
-	| { readonly ok: false; readonly reason: string };
 
 function parseOptionalSampleStatusFilter(
 	searchParams: URLSearchParams,
@@ -1657,7 +1333,7 @@ export function parseOptionalDateFilter(
 function parseBoundingBoxParam(value: string | null):
 	| {
 			readonly ok: true;
-			readonly bounds: HabitatDisplayInput['bounds'];
+			readonly bounds: MapBounds;
 	  }
 	| {
 			readonly ok: false;
