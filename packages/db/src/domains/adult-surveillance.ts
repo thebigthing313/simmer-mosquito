@@ -7,9 +7,16 @@ import type {
 	OwnedGeometryInfo,
 	SimmerDatabase,
 } from '../index.js';
-import { type MapExtent, readMapExtent } from './map-extent.js';
+import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
-import { readMapTile } from './map-tile.js';
+import {
+	type MapByIdInput,
+	type MapFilterInput,
+	type MapPageInput,
+	type MapPageResult,
+	type MapTileInput,
+	mapRecordSurface,
+} from './map-surface.js';
 
 export interface CreateTrapInput {
 	readonly organizationId: string;
@@ -472,25 +479,9 @@ export interface TrapMapFilters {
 	readonly regionIds?: readonly string[];
 }
 
-export interface TrapMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: TrapMapFilters;
-}
-
-export interface TrapPageInput {
-	readonly organizationId: string;
-	readonly filters?: TrapMapFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
-export interface TrapByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type TrapMvtTileInput = MapTileInput<TrapMapFilters>;
+export type TrapPageInput = MapPageInput<TrapMapFilters>;
+export type TrapByIdInput = MapByIdInput;
 
 export interface SafeTrapDisplayRow {
 	readonly id: string;
@@ -510,10 +501,40 @@ export interface SafeTrapDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export interface TrapPageResult {
-	readonly total: number;
-	readonly rows: SafeTrapDisplayRow[];
-}
+export type TrapPageResult = MapPageResult<SafeTrapDisplayRow>;
+
+const trapDisplayColumns = sql`
+	t.id,
+	t.organization_id as "organizationId",
+	t.lat,
+	t.lng,
+	t.geojson,
+	t.geom_type as "geomType",
+	t.collection_method_id as "collectionMethodId",
+	t.collection_lure_id as "collectionLureId",
+	t.address_id as "addressId",
+	t.trap_name as "trapName",
+	t.trap_code as "trapCode",
+	t.description,
+	t.is_active as "isActive",
+	t.created_at as "createdAt",
+	t.updated_at as "updatedAt"
+`;
+
+const trapSurface = mapRecordSurface<TrapMapFilters, SafeTrapDisplayRow>({
+	layer: 'traps',
+	from: sql`traps t`,
+	alias: 't',
+	geom: sql`t.geom`,
+	properties: [sql`t.id`, sql`t.is_active as "isActive"`],
+	filterWhere: trapFilterWhere,
+	display: {
+		columns: trapDisplayColumns,
+		// Sorted by what the client shows first ("code - name"), so the list reads
+		// in the order it is drawn.
+		orderBy: sql`coalesce(t.trap_code, t.trap_name) asc nulls last, t.created_at desc, t.id`,
+	},
+});
 
 function trapFilterWhere(filters: TrapMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
@@ -550,66 +571,21 @@ export async function getTrapMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: TrapMvtTileInput,
 ): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'traps',
-		from: sql`traps t`,
-		geom: sql`t.geom`,
-		properties: [sql`t.id`, sql`t.is_active as "isActive"`],
-		where: [
-			sql`t.organization_id = ${input.organizationId}`,
-			sql`t.deleted_at is null`,
-			sql`t.geom && bounds.geom_4326`,
-			sql`st_intersects(t.geom, bounds.geom_4326)`,
-			...trapFilterWhere(input.filters),
-		],
-	});
+	return trapSurface.getTile(db, input);
 }
 
 export async function listTrapDisplayRowsPage(
 	db: Kysely<SimmerDatabase>,
 	input: TrapPageInput,
 ): Promise<TrapPageResult> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`t.organization_id = ${input.organizationId}`,
-		sql<boolean>`t.deleted_at is null`,
-		...trapFilterWhere(input.filters),
-	];
-
-	const result = await sql<SafeTrapDisplayRow & { readonly total: number }>`
-		select
-			${trapDisplayColumns},
-			count(*) over()::int as "total"
-		from traps t
-		where ${sql.join(whereClauses, sql` and `)}
-		-- Sort by what the client shows first ("code - name"), so the list reads in order.
-		order by coalesce(t.trap_code, t.trap_name) asc nulls last, t.created_at desc, t.id
-		limit ${input.limit}
-		offset ${input.offset}
-	`.execute(db);
-
-	return {
-		total: result.rows[0]?.total ?? 0,
-		rows: result.rows,
-	};
+	return trapSurface.listPage(db, input);
 }
 
 export async function getTrapDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: TrapByIdInput,
 ): Promise<SafeTrapDisplayRow | undefined> {
-	const result = await sql<SafeTrapDisplayRow>`
-		select ${trapDisplayColumns}
-		from traps t
-		where t.id = ${input.id}
-			and t.organization_id = ${input.organizationId}
-			and t.deleted_at is null
-		limit 1
-	`.execute(db);
-
-	return result.rows[0];
+	return trapSurface.getById(db, input);
 }
 
 /**
@@ -618,36 +594,10 @@ export async function getTrapDisplayRowById(
  */
 export async function getTrapMapExtent(
 	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly filters?: TrapMapFilters },
+	input: MapFilterInput<TrapMapFilters>,
 ): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`t.geom`,
-		from: sql`traps t`,
-		where: [
-			sql<boolean>`t.organization_id = ${input.organizationId}`,
-			sql<boolean>`t.deleted_at is null`,
-			...trapFilterWhere(input.filters),
-		],
-	});
+	return trapSurface.getExtent(db, input);
 }
-
-const trapDisplayColumns = sql`
-	t.id,
-	t.organization_id as "organizationId",
-	t.lat,
-	t.lng,
-	t.geojson,
-	t.geom_type as "geomType",
-	t.collection_method_id as "collectionMethodId",
-	t.collection_lure_id as "collectionLureId",
-	t.address_id as "addressId",
-	t.trap_name as "trapName",
-	t.trap_code as "trapCode",
-	t.description,
-	t.is_active as "isActive",
-	t.created_at as "createdAt",
-	t.updated_at as "updatedAt"
-`;
 
 // --- collections ------------------------------------------------------------
 
@@ -663,25 +613,9 @@ export interface CollectionMapFilters {
 	readonly dateTo?: string;
 }
 
-export interface CollectionMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: CollectionMapFilters;
-}
-
-export interface CollectionPageInput {
-	readonly organizationId: string;
-	readonly filters?: CollectionMapFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
-export interface CollectionByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type CollectionMvtTileInput = MapTileInput<CollectionMapFilters>;
+export type CollectionPageInput = MapPageInput<CollectionMapFilters>;
+export type CollectionByIdInput = MapByIdInput;
 
 export interface SafeCollectionDisplayRow {
 	readonly id: string;
@@ -701,15 +635,45 @@ export interface SafeCollectionDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export interface CollectionPageResult {
-	readonly total: number;
-	readonly rows: SafeCollectionDisplayRow[];
-}
+export type CollectionPageResult = MapPageResult<SafeCollectionDisplayRow>;
 
 // The two timing modes store the date in different columns — an exact timestamp
 // in `collected_at`, a plain date in `collection_date` (with `collected_at`
 // null). Coalesce to a single effective date for filtering and ordering.
 const collectionEffectiveDateExpr = sql`coalesce(c.collected_at::date, c.collection_date)`;
+
+const collectionDisplayColumns = sql`
+	c.id,
+	c.organization_id as "organizationId",
+	c.trap_id as "trapId",
+	c.lat,
+	c.lng,
+	c.geojson,
+	c.geom_type as "geomType",
+	c.collection_method_id as "collectionMethodId",
+	c.collected_at::text as "collectedAt",
+	c.collection_date::text as "collectionDate",
+	c.has_problem as "hasProblem",
+	c.is_zero_result as "isZeroResult",
+	c.has_bycatch as "hasBycatch",
+	c.set_by_profile_id as "setByProfileId",
+	c.collected_by_profile_id as "collectedByProfileId",
+	c.created_at as "createdAt",
+	c.updated_at as "updatedAt"
+`;
+
+const collectionSurface = mapRecordSurface<CollectionMapFilters, SafeCollectionDisplayRow>({
+	layer: 'collections',
+	from: sql`collections c`,
+	alias: 'c',
+	geom: sql`c.geom`,
+	properties: [sql`c.id`, sql`c.has_problem as "hasProblem"`],
+	filterWhere: collectionFilterWhere,
+	display: {
+		columns: collectionDisplayColumns,
+		orderBy: sql`${collectionEffectiveDateExpr} desc nulls last, c.created_at desc, c.id`,
+	},
+});
 
 function collectionFilterWhere(filters: CollectionMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
@@ -741,65 +705,21 @@ export async function getCollectionMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: CollectionMvtTileInput,
 ): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'collections',
-		from: sql`collections c`,
-		geom: sql`c.geom`,
-		properties: [sql`c.id`, sql`c.has_problem as "hasProblem"`],
-		where: [
-			sql`c.organization_id = ${input.organizationId}`,
-			sql`c.deleted_at is null`,
-			sql`c.geom && bounds.geom_4326`,
-			sql`st_intersects(c.geom, bounds.geom_4326)`,
-			...collectionFilterWhere(input.filters),
-		],
-	});
+	return collectionSurface.getTile(db, input);
 }
 
 export async function listCollectionDisplayRowsPage(
 	db: Kysely<SimmerDatabase>,
 	input: CollectionPageInput,
 ): Promise<CollectionPageResult> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`c.organization_id = ${input.organizationId}`,
-		sql<boolean>`c.deleted_at is null`,
-		...collectionFilterWhere(input.filters),
-	];
-
-	const result = await sql<SafeCollectionDisplayRow & { readonly total: number }>`
-		select
-			${collectionDisplayColumns},
-			count(*) over()::int as "total"
-		from collections c
-		where ${sql.join(whereClauses, sql` and `)}
-		order by ${collectionEffectiveDateExpr} desc nulls last, c.created_at desc, c.id
-		limit ${input.limit}
-		offset ${input.offset}
-	`.execute(db);
-
-	return {
-		total: result.rows[0]?.total ?? 0,
-		rows: result.rows,
-	};
+	return collectionSurface.listPage(db, input);
 }
 
 export async function getCollectionDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: CollectionByIdInput,
 ): Promise<SafeCollectionDisplayRow | undefined> {
-	const result = await sql<SafeCollectionDisplayRow>`
-		select ${collectionDisplayColumns}
-		from collections c
-		where c.id = ${input.id}
-			and c.organization_id = ${input.organizationId}
-			and c.deleted_at is null
-		limit 1
-	`.execute(db);
-
-	return result.rows[0];
+	return collectionSurface.getById(db, input);
 }
 
 /**
@@ -808,35 +728,7 @@ export async function getCollectionDisplayRowById(
  */
 export async function getCollectionMapExtent(
 	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly filters?: CollectionMapFilters },
+	input: MapFilterInput<CollectionMapFilters>,
 ): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`c.geom`,
-		from: sql`collections c`,
-		where: [
-			sql<boolean>`c.organization_id = ${input.organizationId}`,
-			sql<boolean>`c.deleted_at is null`,
-			...collectionFilterWhere(input.filters),
-		],
-	});
+	return collectionSurface.getExtent(db, input);
 }
-
-const collectionDisplayColumns = sql`
-	c.id,
-	c.organization_id as "organizationId",
-	c.trap_id as "trapId",
-	c.lat,
-	c.lng,
-	c.geojson,
-	c.geom_type as "geomType",
-	c.collection_method_id as "collectionMethodId",
-	c.collected_at::text as "collectedAt",
-	c.collection_date::text as "collectionDate",
-	c.has_problem as "hasProblem",
-	c.is_zero_result as "isZeroResult",
-	c.has_bycatch as "hasBycatch",
-	c.set_by_profile_id as "setByProfileId",
-	c.collected_by_profile_id as "collectedByProfileId",
-	c.created_at as "createdAt",
-	c.updated_at as "updatedAt"
-`;

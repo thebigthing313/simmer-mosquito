@@ -1,9 +1,17 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
-import { type MapExtent, readMapExtent } from './map-extent.js';
+import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
-import { readMapTile } from './map-tile.js';
+import {
+	type MapBounds,
+	type MapBoundsPageInput,
+	type MapByIdInput,
+	type MapFilterInput,
+	type MapPageResult,
+	type MapTileInput,
+	mapRecordSurface,
+} from './map-surface.js';
 
 /** One sample still awaiting species identification, with its inspection context. */
 export interface AwaitingSampleRow {
@@ -127,39 +135,13 @@ export interface InspectionMvtTileFilters {
 	readonly dateTo?: string;
 }
 
-export interface InspectionMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: InspectionMvtTileFilters;
-}
-
-export interface InspectionBounds {
-	readonly west: number;
-	readonly south: number;
-	readonly east: number;
-	readonly north: number;
-}
-
-export interface InspectionBoundingBoxInput {
-	readonly organizationId: string;
-	readonly bounds: InspectionBounds;
-	readonly filters?: InspectionMvtTileFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
+export type InspectionMvtTileInput = MapTileInput<InspectionMvtTileFilters>;
+export type InspectionBounds = MapBounds;
+export type InspectionBoundingBoxInput = MapBoundsPageInput<InspectionMvtTileFilters>;
+export type InspectionByIdInput = MapByIdInput;
 
 /** A page of inspection display rows plus the full count for the viewport + filters. */
-export interface InspectionDisplayPageResult {
-	readonly total: number;
-	readonly rows: SafeInspectionDisplayRow[];
-}
-
-export interface InspectionByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type InspectionDisplayPageResult = MapPageResult<SafeInspectionDisplayRow>;
 
 /**
  * A server-safe inspection display row: the geometry projection plus the record
@@ -196,88 +178,14 @@ export interface SafeInspectionDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export async function getInspectionMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: InspectionMvtTileInput,
-): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'inspections',
-		from: sql`inspections i`,
-		geom: sql`i.geom`,
-		properties: [
-			sql`i.id`,
-			sql`i.is_wet as "isWet"`,
-			sql`i.density::text as "density"`,
-			sql`i.habitat_type_id as "habitatTypeId"`,
-			sql`(
-				i.has_eggs or i.has_first_instar or i.has_second_instar
-				or i.has_third_instar or i.has_fourth_instar or i.has_pupae
-			) as "positive"`,
-		],
-		where: inspectionSpatialWhereClauses(input),
-	});
-}
+// The habitat name, address label, and inspector name a row identifies itself
+// with, kept as one fragment so the bbox and by-id readers cannot drift.
+const inspectionDisplayJoins = sql`
+	left join habitats h on h.id = i.habitat_id
+	left join addresses a on a.id = i.address_id
+	left join profiles p on p.id = i.inspected_by_profile_id
+`;
 
-export async function listInspectionDisplayRowsByBounds(
-	db: Kysely<SimmerDatabase>,
-	input: InspectionBoundingBoxInput,
-): Promise<InspectionDisplayPageResult> {
-	const whereClauses = inspectionSpatialWhereClauses(input);
-
-	const result = await sql<SafeInspectionDisplayRow & { readonly total: number }>`
-		with bounds as (
-			select st_makeenvelope(
-				${input.bounds.west},
-				${input.bounds.south},
-				${input.bounds.east},
-				${input.bounds.north},
-				4326
-			) as geom_4326
-		)
-		select
-			${inspectionDisplayColumns},
-			count(*) over()::int as "total"
-		from inspections i
-		left join habitats h on h.id = i.habitat_id
-		left join addresses a on a.id = i.address_id
-		left join profiles p on p.id = i.inspected_by_profile_id
-		cross join bounds
-		where ${sql.join(whereClauses, sql` and `)}
-		order by i.inspection_date desc, i.created_at desc, i.id
-		limit ${input.limit}
-		offset ${input.offset}
-	`.execute(db);
-
-	return {
-		total: result.rows[0]?.total ?? 0,
-		rows: result.rows,
-	};
-}
-
-export async function getInspectionDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: InspectionByIdInput,
-): Promise<SafeInspectionDisplayRow | undefined> {
-	const result = await sql<SafeInspectionDisplayRow>`
-		select ${inspectionDisplayColumns}
-		from inspections i
-		left join habitats h on h.id = i.habitat_id
-		left join addresses a on a.id = i.address_id
-		left join profiles p on p.id = i.inspected_by_profile_id
-		where i.id = ${input.id}
-			and i.organization_id = ${input.organizationId}
-			and i.deleted_at is null
-		limit 1
-	`.execute(db);
-
-	return result.rows[0];
-}
-
-// Shared projection for the bbox list + by-id readers. Kept as one fragment so
-// the two paths can never drift in shape.
 const inspectionDisplayColumns = sql`
 	i.id,
 	i.organization_id as "organizationId",
@@ -307,54 +215,43 @@ const inspectionDisplayColumns = sql`
 	i.updated_at as "updatedAt"
 `;
 
-/**
- * Extent of every inspection matching the tile filters, ignoring the viewport —
- * what the explorer map frames on load and after a filter change.
- */
-export async function getInspectionMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly filters?: InspectionMvtTileFilters },
-): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`i.geom`,
-		from: sql`inspections i`,
-		where: inspectionFilterWhereClauses(input),
-	});
-}
+const inspectionSurface = mapRecordSurface<InspectionMvtTileFilters, SafeInspectionDisplayRow>({
+	layer: 'inspections',
+	from: sql`inspections i`,
+	alias: 'i',
+	geom: sql`i.geom`,
+	properties: [
+		sql`i.id`,
+		sql`i.is_wet as "isWet"`,
+		sql`i.density::text as "density"`,
+		sql`i.habitat_type_id as "habitatTypeId"`,
+		sql`(
+			i.has_eggs or i.has_first_instar or i.has_second_instar
+			or i.has_third_instar or i.has_fourth_instar or i.has_pupae
+		) as "positive"`,
+	],
+	filterWhere: inspectionFilterWhere,
+	display: {
+		columns: inspectionDisplayColumns,
+		joins: inspectionDisplayJoins,
+		orderBy: sql`i.inspection_date desc, i.created_at desc, i.id`,
+	},
+});
 
-/** Filter predicates narrowed to a `bounds` CTE — the tile + bbox reads. */
-function inspectionSpatialWhereClauses(input: {
-	readonly organizationId: string;
-	readonly filters?: InspectionMvtTileFilters;
-}): RawBuilder<boolean>[] {
-	return [
-		...inspectionFilterWhereClauses(input),
-		sql<boolean>`i.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(i.geom, bounds.geom_4326)`,
-	];
-}
+function inspectionFilterWhere(
+	filters: InspectionMvtTileFilters | undefined,
+): RawBuilder<boolean>[] {
+	const whereClauses: RawBuilder<boolean>[] = [];
 
-/** Tenancy + filter predicates, shared by the tile, bbox, and extent reads. */
-function inspectionFilterWhereClauses(input: {
-	readonly organizationId: string;
-	readonly filters?: InspectionMvtTileFilters;
-}): RawBuilder<boolean>[] {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`i.organization_id = ${input.organizationId}`,
-		sql<boolean>`i.deleted_at is null`,
-	];
-
-	if (input.filters?.isWet !== undefined) {
-		whereClauses.push(sql<boolean>`i.is_wet = ${input.filters.isWet}`);
+	if (filters?.isWet !== undefined) {
+		whereClauses.push(sql<boolean>`i.is_wet = ${filters.isWet}`);
 	}
 
-	if (input.filters?.densities !== undefined && input.filters.densities.length > 0) {
-		whereClauses.push(
-			sql<boolean>`i.density = any(${[...input.filters.densities]}::larval_density[])`,
-		);
+	if (filters?.densities !== undefined && filters.densities.length > 0) {
+		whereClauses.push(sql<boolean>`i.density = any(${[...filters.densities]}::larval_density[])`);
 	}
 
-	if (input.filters?.positiveOnly === true) {
+	if (filters?.positiveOnly === true) {
 		whereClauses.push(
 			sql<boolean>`(
 				i.has_eggs or i.has_first_instar or i.has_second_instar
@@ -363,38 +260,67 @@ function inspectionFilterWhereClauses(input: {
 		);
 	}
 
-	if (input.filters?.habitatTypeIds !== undefined && input.filters.habitatTypeIds.length > 0) {
+	if (filters?.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {
 		whereClauses.push(
-			sql<boolean>`i.habitat_type_id = any(${[...input.filters.habitatTypeIds]}::uuid[])`,
+			sql<boolean>`i.habitat_type_id = any(${[...filters.habitatTypeIds]}::uuid[])`,
 		);
 	}
 
-	if (
-		input.filters?.inspectedByProfileIds !== undefined &&
-		input.filters.inspectedByProfileIds.length > 0
-	) {
+	if (filters?.inspectedByProfileIds !== undefined && filters.inspectedByProfileIds.length > 0) {
 		whereClauses.push(
-			sql<boolean>`i.inspected_by_profile_id = any(${[...input.filters.inspectedByProfileIds]}::uuid[])`,
+			sql<boolean>`i.inspected_by_profile_id = any(${[...filters.inspectedByProfileIds]}::uuid[])`,
 		);
 	}
 
-	if (input.filters?.dateFrom !== undefined) {
-		whereClauses.push(sql<boolean>`i.inspection_date >= ${input.filters.dateFrom}`);
+	if (filters?.dateFrom !== undefined) {
+		whereClauses.push(sql<boolean>`i.inspection_date >= ${filters.dateFrom}`);
 	}
 
-	if (input.filters?.dateTo !== undefined) {
-		whereClauses.push(sql<boolean>`i.inspection_date <= ${input.filters.dateTo}`);
+	if (filters?.dateTo !== undefined) {
+		whereClauses.push(sql<boolean>`i.inspection_date <= ${filters.dateTo}`);
 	}
 
 	whereClauses.push(
 		...regionMembershipClauses({
 			geom: sql`i.geom`,
 			organizationId: sql`i.organization_id`,
-			regionIds: input.filters?.regionIds,
+			regionIds: filters?.regionIds,
 		}),
 	);
 
 	return whereClauses;
+}
+
+export async function getInspectionMvtTile(
+	db: Kysely<SimmerDatabase>,
+	input: InspectionMvtTileInput,
+): Promise<Uint8Array> {
+	return inspectionSurface.getTile(db, input);
+}
+
+export async function listInspectionDisplayRowsByBounds(
+	db: Kysely<SimmerDatabase>,
+	input: InspectionBoundingBoxInput,
+): Promise<InspectionDisplayPageResult> {
+	return inspectionSurface.listByBounds(db, input);
+}
+
+export async function getInspectionDisplayRowById(
+	db: Kysely<SimmerDatabase>,
+	input: InspectionByIdInput,
+): Promise<SafeInspectionDisplayRow | undefined> {
+	return inspectionSurface.getById(db, input);
+}
+
+/**
+ * Extent of every inspection matching the tile filters, ignoring the viewport —
+ * what the explorer map frames on load and after a filter change.
+ */
+export async function getInspectionMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: MapFilterInput<InspectionMvtTileFilters>,
+): Promise<MapExtent | null> {
+	return inspectionSurface.getExtent(db, input);
 }
 
 // --- sample map surface -----------------------------------------------------
@@ -480,39 +406,13 @@ export interface SafeSampleDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export interface SampleBounds {
-	readonly west: number;
-	readonly south: number;
-	readonly east: number;
-	readonly north: number;
-}
-
-export interface SampleMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: SampleListFilters;
-}
-
-export interface SampleBoundingBoxInput {
-	readonly organizationId: string;
-	readonly bounds: SampleBounds;
-	readonly filters?: SampleListFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
+export type SampleBounds = MapBounds;
+export type SampleMvtTileInput = MapTileInput<SampleListFilters>;
+export type SampleBoundingBoxInput = MapBoundsPageInput<SampleListFilters>;
+export type SampleByIdInput = MapByIdInput;
 
 /** A page of sample display rows plus the full count for the viewport + filters. */
-export interface SampleDisplayPageResult {
-	readonly total: number;
-	readonly rows: SafeSampleDisplayRow[];
-}
-
-export interface SampleByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type SampleDisplayPageResult = MapPageResult<SafeSampleDisplayRow>;
 
 // Resolves a single lifecycle status by precedence. Shared by the tile (feature
 // paint) and the display readers so the map color and the list badge can never
@@ -528,83 +428,10 @@ const sampleStatusExpression = sql`
 	end
 `;
 
-export async function getSampleMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: SampleMvtTileInput,
-): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'samples',
-		from: sql`samples s
-			join inspections i on i.id = s.inspection_id`,
-		geom: sql`i.geom`,
-		properties: [sql`s.id`, sql`(${sampleStatusExpression}) as "status"`],
-		where: sampleSpatialWhereClauses(input),
-	});
-}
-
-export async function listSampleDisplayRowsByBounds(
-	db: Kysely<SimmerDatabase>,
-	input: SampleBoundingBoxInput,
-): Promise<SampleDisplayPageResult> {
-	const whereClauses = sampleSpatialWhereClauses(input);
-
-	const result = await sql<SafeSampleDisplayRow & { readonly total: number }>`
-		with bounds as (
-			select st_makeenvelope(
-				${input.bounds.west},
-				${input.bounds.south},
-				${input.bounds.east},
-				${input.bounds.north},
-				4326
-			) as geom_4326
-		)
-		select
-			${sampleDisplayColumns},
-			count(*) over()::int as "total"
-		from samples s
-		join inspections i on i.id = s.inspection_id
-		left join habitats h on h.id = i.habitat_id
-		${sampleResultsLateral}
-		cross join bounds
-		where ${sql.join(whereClauses, sql` and `)}
-		order by i.inspection_date desc, s.created_at desc, s.id
-		limit ${input.limit}
-		offset ${input.offset}
-	`.execute(db);
-
-	return {
-		total: result.rows[0]?.total ?? 0,
-		rows: result.rows,
-	};
-}
-
-export async function getSampleDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: SampleByIdInput,
-): Promise<SafeSampleDisplayRow | undefined> {
-	const result = await sql<SafeSampleDisplayRow>`
-		select ${sampleDisplayColumns}
-		from samples s
-		join inspections i on i.id = s.inspection_id
-		left join habitats h on h.id = i.habitat_id
-		${sampleResultsLateral}
-		where s.id = ${input.id}
-			and s.organization_id = ${input.organizationId}
-			and s.deleted_at is null
-			and i.deleted_at is null
-			and i.geom is not null
-		limit 1
-	`.execute(db);
-
-	return result.rows[0];
-}
-
-// The per-sample species roll-up, kept as one fragment so the bbox and by-id
-// readers can never drift in shape.
-const sampleResultsLateral = sql`
+// The habitat name and the per-sample species roll-up, kept as one fragment so
+// the bbox and by-id readers can never drift in shape.
+const sampleDisplayJoins = sql`
+	left join habitats h on h.id = i.habitat_id
 	left join lateral (
 		select
 			max(ss.identified_at)::text as identified_at,
@@ -618,8 +445,8 @@ const sampleResultsLateral = sql`
 	) agg on true
 `;
 
-// Shared projection for the bbox list + by-id readers. Geometry comes from the
-// parent inspection; the roll-up columns come from the `agg` lateral above.
+// Geometry comes from the parent inspection; the roll-up columns come from the
+// `agg` lateral above.
 const sampleDisplayColumns = sql`
 	s.id,
 	s.organization_id as "organizationId",
@@ -644,51 +471,31 @@ const sampleDisplayColumns = sql`
 	s.updated_at as "updatedAt"
 `;
 
-/**
- * Extent of every sample matching the tile filters, ignoring the viewport. A
- * sample inherits its parent inspection's geometry, so the join mirrors the tile
- * read exactly.
- */
-export async function getSampleMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly filters?: SampleListFilters },
-): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`i.geom`,
-		from: sql`samples s join inspections i on i.id = s.inspection_id`,
-		where: sampleFilterWhereClauses(input),
-	});
-}
+const sampleSurface = mapRecordSurface<SampleListFilters, SafeSampleDisplayRow>({
+	layer: 'samples',
+	from: sql`samples s join inspections i on i.id = s.inspection_id`,
+	// Tenancy is the sample's; the geometry is its parent inspection's, which is
+	// why the two aliases differ here and nowhere else.
+	alias: 's',
+	geom: sql`i.geom`,
+	properties: [sql`s.id`, sql`(${sampleStatusExpression}) as "status"`],
+	// A sample whose inspection was deleted, or whose inspection never carried
+	// geometry, is not on the map at all.
+	alwaysWhere: [sql<boolean>`i.deleted_at is null`, sql<boolean>`i.geom is not null`],
+	filterWhere: sampleFilterWhere,
+	display: {
+		columns: sampleDisplayColumns,
+		joins: sampleDisplayJoins,
+		orderBy: sql`i.inspection_date desc, s.created_at desc, s.id`,
+	},
+});
 
-/** Filter predicates narrowed to a `bounds` CTE — the tile + bbox reads. */
-function sampleSpatialWhereClauses(input: {
-	readonly organizationId: string;
-	readonly filters?: SampleListFilters;
-}): RawBuilder<boolean>[] {
-	return [
-		...sampleFilterWhereClauses(input),
-		sql<boolean>`i.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(i.geom, bounds.geom_4326)`,
-	];
-}
-
-/** Tenancy + filter predicates, shared by the tile, bbox, and extent reads. */
-function sampleFilterWhereClauses(input: {
-	readonly organizationId: string;
-	readonly filters?: SampleListFilters;
-}): RawBuilder<boolean>[] {
-	const clauses: RawBuilder<boolean>[] = [
-		sql<boolean>`s.organization_id = ${input.organizationId}`,
-		sql<boolean>`s.deleted_at is null`,
-		sql<boolean>`i.deleted_at is null`,
-		sql<boolean>`i.geom is not null`,
-	];
-
-	const filters = input.filters;
+function sampleFilterWhere(filters: SampleListFilters | undefined): RawBuilder<boolean>[] {
 	if (filters === undefined) {
-		return clauses;
+		return [];
 	}
 
+	const clauses: RawBuilder<boolean>[] = [];
 	if (filters.dateFrom !== undefined) {
 		clauses.push(sql<boolean>`i.inspection_date >= ${filters.dateFrom}`);
 	}
@@ -746,4 +553,37 @@ function sampleStatusClause(status: SampleStatus): RawBuilder<boolean> {
 				)
 			)`;
 	}
+}
+
+export async function getSampleMvtTile(
+	db: Kysely<SimmerDatabase>,
+	input: SampleMvtTileInput,
+): Promise<Uint8Array> {
+	return sampleSurface.getTile(db, input);
+}
+
+export async function listSampleDisplayRowsByBounds(
+	db: Kysely<SimmerDatabase>,
+	input: SampleBoundingBoxInput,
+): Promise<SampleDisplayPageResult> {
+	return sampleSurface.listByBounds(db, input);
+}
+
+export async function getSampleDisplayRowById(
+	db: Kysely<SimmerDatabase>,
+	input: SampleByIdInput,
+): Promise<SafeSampleDisplayRow | undefined> {
+	return sampleSurface.getById(db, input);
+}
+
+/**
+ * Extent of every sample matching the tile filters, ignoring the viewport. A
+ * sample inherits its parent inspection's geometry, so the join mirrors the tile
+ * read exactly.
+ */
+export async function getSampleMapExtent(
+	db: Kysely<SimmerDatabase>,
+	input: MapFilterInput<SampleListFilters>,
+): Promise<MapExtent | null> {
+	return sampleSurface.getExtent(db, input);
 }
