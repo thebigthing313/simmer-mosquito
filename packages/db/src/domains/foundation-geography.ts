@@ -1,9 +1,9 @@
 import { type RawBuilder, sql } from 'kysely';
 
 import type { DbExecutor, GeoJsonGeometry, OwnedGeometryInfo } from '../index.js';
-import { type MapExtent, readMapExtent } from './map-extent.js';
+import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
-import { readMapTile } from './map-tile.js';
+import { type MapFilterInput, type MapTileInput, mapSurface } from './map-surface.js';
 
 export interface CreateAddressInput {
 	readonly id?: string;
@@ -299,13 +299,19 @@ export interface AddressMvtTileFilters {
 	readonly regionIds?: readonly string[];
 }
 
-export interface AddressMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: AddressMvtTileFilters;
-}
+export type AddressMvtTileInput = MapTileInput<AddressMvtTileFilters>;
+
+// Addresses are drawn, not listed, from here: the address book reads its rows
+// through the catalog above, so this surface is the tile and the framed extent
+// and nothing else.
+const addressSurface = mapSurface<AddressMvtTileFilters>({
+	layer: 'addresses',
+	from: sql`addresses a`,
+	alias: 'a',
+	geom: sql`a.geom`,
+	properties: [sql`a.id`, sql`a.display_name as "displayName"`],
+	filterWhere: addressFilterWhere,
+});
 
 /**
  * Address points as a Mapbox vector tile for the address-book explorer map.
@@ -317,16 +323,7 @@ export async function getAddressMvtTile(
 	db: DbExecutor,
 	input: AddressMvtTileInput,
 ): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'addresses',
-		from: sql`addresses a`,
-		geom: sql`a.geom`,
-		properties: [sql`a.id`, sql`a.display_name as "displayName"`],
-		where: addressSpatialWhereClauses(input),
-	});
+	return addressSurface.getTile(db, input);
 }
 
 /**
@@ -335,35 +332,15 @@ export async function getAddressMvtTile(
  */
 export async function getAddressMapExtent(
 	db: DbExecutor,
-	input: { readonly organizationId: string; readonly filters?: AddressMvtTileFilters },
+	input: MapFilterInput<AddressMvtTileFilters>,
 ): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`a.geom`,
-		from: sql`addresses a`,
-		where: addressFilterWhereClauses(input),
-	});
+	return addressSurface.getExtent(db, input);
 }
 
-/** Filter predicates narrowed to a `bounds` CTE — the tile read. */
-function addressSpatialWhereClauses(input: AddressMvtTileInput): RawBuilder<boolean>[] {
-	return [
-		...addressFilterWhereClauses(input),
-		sql<boolean>`a.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(a.geom, bounds.geom_4326)`,
-	];
-}
+function addressFilterWhere(filters: AddressMvtTileFilters | undefined): RawBuilder<boolean>[] {
+	const whereClauses: RawBuilder<boolean>[] = [];
 
-/** Tenancy + filter predicates, shared by the tile and extent reads. */
-function addressFilterWhereClauses(input: {
-	readonly organizationId: string;
-	readonly filters?: AddressMvtTileFilters;
-}): RawBuilder<boolean>[] {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`a.organization_id = ${input.organizationId}`,
-		sql<boolean>`a.deleted_at is null`,
-	];
-
-	const search = input.filters?.search?.trim();
+	const search = filters?.search?.trim();
 	if (search !== undefined && search.length > 0) {
 		// position()-based match keeps user input literal — no LIKE wildcard escaping.
 		whereClauses.push(sql<boolean>`position(lower(${search}) in lower(a.display_name)) > 0`);
@@ -373,7 +350,7 @@ function addressFilterWhereClauses(input: {
 		...regionMembershipClauses({
 			geom: sql`a.geom`,
 			organizationId: sql`a.organization_id`,
-			regionIds: input.filters?.regionIds,
+			regionIds: filters?.regionIds,
 		}),
 	);
 
@@ -393,13 +370,18 @@ export interface RegionMvtTileFilters {
 	readonly ids?: readonly string[];
 }
 
-export interface RegionMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: RegionMvtTileFilters;
-}
+export type RegionMvtTileInput = MapTileInput<RegionMvtTileFilters>;
+
+// Like addresses, regions are drawn from here and read as rows through the
+// catalog below, so this surface is the tile and the framed extent only.
+const regionSurface = mapSurface<RegionMvtTileFilters>({
+	layer: 'regions',
+	from: sql`regions r`,
+	alias: 'r',
+	geom: sql`r.geom`,
+	properties: [sql`r.id`, sql`r.name`, sql`r.region_folder_id as "regionFolderId"`],
+	filterWhere: regionFilterWhere,
+});
 
 /**
  * Region polygons as a Mapbox vector tile for the regions explorer map. Mirrors
@@ -409,16 +391,7 @@ export async function getRegionMvtTile(
 	db: DbExecutor,
 	input: RegionMvtTileInput,
 ): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'regions',
-		from: sql`regions r`,
-		geom: sql`r.geom`,
-		properties: [sql`r.id`, sql`r.name`, sql`r.region_folder_id as "regionFolderId"`],
-		where: regionSpatialWhereClauses(input),
-	});
+	return regionSurface.getTile(db, input);
 }
 
 /**
@@ -427,47 +400,27 @@ export async function getRegionMvtTile(
  */
 export async function getRegionMapExtent(
 	db: DbExecutor,
-	input: { readonly organizationId: string; readonly filters?: RegionMvtTileFilters },
+	input: MapFilterInput<RegionMvtTileFilters>,
 ): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`r.geom`,
-		from: sql`regions r`,
-		where: regionFilterWhereClauses(input),
-	});
+	return regionSurface.getExtent(db, input);
 }
 
-/** Filter predicates narrowed to a `bounds` CTE — the tile read. */
-function regionSpatialWhereClauses(input: RegionMvtTileInput): RawBuilder<boolean>[] {
-	return [
-		...regionFilterWhereClauses(input),
-		sql<boolean>`r.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(r.geom, bounds.geom_4326)`,
-	];
-}
+function regionFilterWhere(filters: RegionMvtTileFilters | undefined): RawBuilder<boolean>[] {
+	const whereClauses: RawBuilder<boolean>[] = [];
 
-/** Tenancy + filter predicates, shared by the tile and extent reads. */
-function regionFilterWhereClauses(input: {
-	readonly organizationId: string;
-	readonly filters?: RegionMvtTileFilters;
-}): RawBuilder<boolean>[] {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`r.organization_id = ${input.organizationId}`,
-		sql<boolean>`r.deleted_at is null`,
-	];
-
-	const ids = input.filters?.ids;
+	const ids = filters?.ids;
 	if (ids !== undefined && ids.length > 0) {
 		whereClauses.push(sql<boolean>`r.id = any(${[...ids]}::uuid[])`);
 	}
 
-	const folderId = input.filters?.regionFolderId;
+	const folderId = filters?.regionFolderId;
 	if (folderId === 'unfiled') {
 		whereClauses.push(sql<boolean>`r.region_folder_id is null`);
 	} else if (folderId !== undefined && folderId.length > 0) {
 		whereClauses.push(sql<boolean>`r.region_folder_id = ${folderId}`);
 	}
 
-	const search = input.filters?.search?.trim();
+	const search = filters?.search?.trim();
 	if (search !== undefined && search.length > 0) {
 		// position()-based match keeps user input literal — no LIKE wildcard escaping.
 		whereClauses.push(sql<boolean>`position(lower(${search}) in lower(r.name)) > 0`);

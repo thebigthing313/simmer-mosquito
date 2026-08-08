@@ -47,11 +47,12 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 12.1% is where the workspace sits after #111–#113
-	// pulled the command write primitives, the location-source resolver and the
-	// endpoint write tail into one home each, and 12.2 leaves a tenth of a point
-	// of slack so an ordinary change does not fail on rounding. It was 13.7
-	// against 12.6% before that.
+	// what makes it a gate: 10.9% is where the workspace sits after the eleven
+	// map surfaces in packages/db became declarations over one factory, and 11.0
+	// leaves a tenth of a point of slack so an ordinary change does not fail on
+	// rounding. It was 11.1 against 11.0% before that, and 13.7 against 12.6%
+	// before #111–#113 pulled the command write primitives, the location-source
+	// resolver and the endpoint write tail into one home each.
 	//
 	// Read this as "did the branch make it worse", not "lower is better". A large
 	// clone group can be genuinely divergent code that merely shares a shape —
@@ -64,7 +65,7 @@
 	// both this and the complexity baseline). Raising it needs a reason in the
 	// commit message.
 	"duplicates": {
-		"threshold": 11.1
+		"threshold": 11.0
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and

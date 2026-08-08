@@ -1,9 +1,17 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
-import { type MapExtent, readMapExtent } from './map-extent.js';
+import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
-import { readMapTile } from './map-tile.js';
+import {
+	type MapBounds,
+	type MapBoundsPageInput,
+	type MapByIdInput,
+	type MapFilterInput,
+	type MapPageResult,
+	type MapTileInput,
+	mapRecordSurface,
+} from './map-surface.js';
 
 export interface HabitatMvtTileFilters {
 	readonly isActive?: boolean;
@@ -17,34 +25,12 @@ export interface HabitatMvtTileFilters {
 	readonly search?: string;
 }
 
-export interface HabitatMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: HabitatMvtTileFilters;
-}
-
-export interface HabitatBounds {
-	readonly west: number;
-	readonly south: number;
-	readonly east: number;
-	readonly north: number;
-}
-
-export interface HabitatBoundingBoxInput {
-	readonly organizationId: string;
-	readonly bounds: HabitatBounds;
-	readonly filters?: HabitatMvtTileFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
+export type HabitatMvtTileInput = MapTileInput<HabitatMvtTileFilters>;
+export type HabitatBounds = MapBounds;
+export type HabitatBoundingBoxInput = MapBoundsPageInput<HabitatMvtTileFilters>;
 
 /** A page of habitat display rows plus the full count for the viewport + filters. */
-export interface HabitatDisplayPageResult {
-	readonly total: number;
-	readonly rows: SafeHabitatDisplayRow[];
-}
+export type HabitatDisplayPageResult = MapPageResult<SafeHabitatDisplayRow>;
 
 export interface SafeHabitatDisplayRow {
 	readonly id: string;
@@ -66,76 +52,60 @@ export interface SafeHabitatDisplayRow {
 	readonly updatedAt: Date;
 }
 
+// Shared projection for the bbox list + by-id readers. Kept as one fragment so
+// the two paths can never drift in shape.
+const habitatDisplayColumns = sql`
+	h.id,
+	h.organization_id as "organizationId",
+	h.lat,
+	h.lng,
+	h.geojson,
+	h.geom_type as "geomType",
+	h.address_id as "addressId",
+	h.habitat_type_id as "habitatTypeId",
+	h.habitat_name as "habitatName",
+	h.description,
+	h.is_active as "isActive",
+	h.is_inaccessible as "isInaccessible",
+	h.metadata,
+	h.created_by_profile_id as "createdByProfileId",
+	h.updated_by_profile_id as "updatedByProfileId",
+	h.created_at as "createdAt",
+	h.updated_at as "updatedAt"
+`;
+
+const habitatSurface = mapRecordSurface<HabitatMvtTileFilters, SafeHabitatDisplayRow>({
+	layer: 'habitats',
+	from: sql`habitats h`,
+	alias: 'h',
+	geom: sql`h.geom`,
+	properties: [
+		sql`h.id`,
+		sql`h.habitat_name as "habitatName"`,
+		sql`h.habitat_type_id as "habitatTypeId"`,
+		sql`h.is_active as "isActive"`,
+		sql`h.is_inaccessible as "isInaccessible"`,
+		sql`h.geom_type as "geomType"`,
+	],
+	filterWhere: habitatFilterWhere,
+	display: {
+		columns: habitatDisplayColumns,
+		orderBy: sql`coalesce(h.habitat_name, h.id::text), h.id`,
+	},
+});
+
 export async function getHabitatMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: HabitatMvtTileInput,
 ): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'habitats',
-		from: sql`habitats h`,
-		geom: sql`h.geom`,
-		properties: [
-			sql`h.id`,
-			sql`h.habitat_name as "habitatName"`,
-			sql`h.habitat_type_id as "habitatTypeId"`,
-			sql`h.is_active as "isActive"`,
-			sql`h.is_inaccessible as "isInaccessible"`,
-			sql`h.geom_type as "geomType"`,
-		],
-		where: habitatSpatialWhereClauses(input),
-	});
+	return habitatSurface.getTile(db, input);
 }
 
 export async function listHabitatDisplayRowsByBounds(
 	db: Kysely<SimmerDatabase>,
 	input: HabitatBoundingBoxInput,
 ): Promise<HabitatDisplayPageResult> {
-	const whereClauses = habitatSpatialWhereClauses(input);
-
-	const result = await sql<SafeHabitatDisplayRow & { readonly total: number }>`
-		with bounds as (
-			select st_makeenvelope(
-				${input.bounds.west},
-				${input.bounds.south},
-				${input.bounds.east},
-				${input.bounds.north},
-				4326
-			) as geom_4326
-		)
-		select
-			h.id,
-			h.organization_id as "organizationId",
-			h.lat,
-			h.lng,
-			h.geojson,
-			h.geom_type as "geomType",
-			h.address_id as "addressId",
-			h.habitat_type_id as "habitatTypeId",
-			h.habitat_name as "habitatName",
-			h.description,
-			h.is_active as "isActive",
-			h.is_inaccessible as "isInaccessible",
-			h.metadata,
-			h.created_by_profile_id as "createdByProfileId",
-			h.updated_by_profile_id as "updatedByProfileId",
-			h.created_at as "createdAt",
-			h.updated_at as "updatedAt",
-			count(*) over()::int as "total"
-		from habitats h
-		cross join bounds
-		where ${sql.join(whereClauses, sql` and `)}
-		order by coalesce(h.habitat_name, h.id::text), h.id
-		limit ${input.limit}
-		offset ${input.offset}
-	`.execute(db);
-
-	return {
-		total: result.rows[0]?.total ?? 0,
-		rows: result.rows,
-	};
+	return habitatSurface.listByBounds(db, input);
 }
 
 export interface HabitatTypeUsageRow {
@@ -175,10 +145,7 @@ export async function countActiveHabitatsByType(
 	}));
 }
 
-export interface HabitatByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type HabitatByIdInput = MapByIdInput;
 
 export interface HabitatsByIdsInput {
 	readonly organizationId: string;
@@ -243,33 +210,7 @@ export async function getHabitatDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: HabitatByIdInput,
 ): Promise<SafeHabitatDisplayRow | undefined> {
-	const result = await sql<SafeHabitatDisplayRow>`
-		select
-			h.id,
-			h.organization_id as "organizationId",
-			h.lat,
-			h.lng,
-			h.geojson,
-			h.geom_type as "geomType",
-			h.address_id as "addressId",
-			h.habitat_type_id as "habitatTypeId",
-			h.habitat_name as "habitatName",
-			h.description,
-			h.is_active as "isActive",
-			h.is_inaccessible as "isInaccessible",
-			h.metadata,
-			h.created_by_profile_id as "createdByProfileId",
-			h.updated_by_profile_id as "updatedByProfileId",
-			h.created_at as "createdAt",
-			h.updated_at as "updatedAt"
-		from habitats h
-		where h.id = ${input.id}
-			and h.organization_id = ${input.organizationId}
-			and h.deleted_at is null
-		limit 1
-	`.execute(db);
-
-	return result.rows[0];
+	return habitatSurface.getById(db, input);
 }
 
 export interface HabitatSearchInput {
@@ -335,52 +276,29 @@ export async function searchHabitatSites(
  */
 export async function getHabitatMapExtent(
 	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly filters?: HabitatMvtTileFilters },
+	input: MapFilterInput<HabitatMvtTileFilters>,
 ): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`h.geom`,
-		from: sql`habitats h`,
-		where: habitatFilterWhereClauses(input),
-	});
+	return habitatSurface.getExtent(db, input);
 }
 
-/** Filter predicates narrowed to a `bounds` CTE — the tile + bbox reads. */
-function habitatSpatialWhereClauses(input: {
-	readonly organizationId: string;
-	readonly filters?: HabitatMvtTileFilters;
-}): RawBuilder<boolean>[] {
-	return [
-		...habitatFilterWhereClauses(input),
-		sql<boolean>`h.geom && bounds.geom_4326`,
-		sql<boolean>`st_intersects(h.geom, bounds.geom_4326)`,
-	];
-}
+function habitatFilterWhere(filters: HabitatMvtTileFilters | undefined): RawBuilder<boolean>[] {
+	const whereClauses: RawBuilder<boolean>[] = [];
 
-/** Tenancy + filter predicates, shared by the tile, bbox, and extent reads. */
-function habitatFilterWhereClauses(input: {
-	readonly organizationId: string;
-	readonly filters?: HabitatMvtTileFilters;
-}): RawBuilder<boolean>[] {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`h.organization_id = ${input.organizationId}`,
-		sql<boolean>`h.deleted_at is null`,
-	];
-
-	if (input.filters?.isActive !== undefined) {
-		whereClauses.push(sql<boolean>`h.is_active = ${input.filters.isActive}`);
+	if (filters?.isActive !== undefined) {
+		whereClauses.push(sql<boolean>`h.is_active = ${filters.isActive}`);
 	}
 
-	if (input.filters?.isInaccessible !== undefined) {
-		whereClauses.push(sql<boolean>`h.is_inaccessible = ${input.filters.isInaccessible}`);
+	if (filters?.isInaccessible !== undefined) {
+		whereClauses.push(sql<boolean>`h.is_inaccessible = ${filters.isInaccessible}`);
 	}
 
-	if (input.filters?.habitatTypeIds !== undefined) {
+	if (filters?.habitatTypeIds !== undefined) {
 		whereClauses.push(
-			sql<boolean>`h.habitat_type_id = any(${[...input.filters.habitatTypeIds]}::uuid[])`,
+			sql<boolean>`h.habitat_type_id = any(${[...filters.habitatTypeIds]}::uuid[])`,
 		);
 	}
 
-	if (input.filters?.tagIds !== undefined) {
+	if (filters?.tagIds !== undefined) {
 		whereClauses.push(
 			sql<boolean>`exists (
 				select 1
@@ -388,7 +306,7 @@ function habitatFilterWhereClauses(input: {
 				where ti.entity_type = 'habitat'
 					and ti.entity_id = h.id
 					and ti.deleted_at is null
-					and ti.tag_id = any(${[...input.filters.tagIds]}::uuid[])
+					and ti.tag_id = any(${[...filters.tagIds]}::uuid[])
 			)`,
 		);
 	}
@@ -397,11 +315,11 @@ function habitatFilterWhereClauses(input: {
 		...regionMembershipClauses({
 			geom: sql`h.geom`,
 			organizationId: sql`h.organization_id`,
-			regionIds: input.filters?.regionIds,
+			regionIds: filters?.regionIds,
 		}),
 	);
 
-	const search = input.filters?.search?.trim();
+	const search = filters?.search?.trim();
 	if (search !== undefined && search.length > 0) {
 		// position()-based match keeps user input literal — no LIKE wildcard escaping.
 		whereClauses.push(
