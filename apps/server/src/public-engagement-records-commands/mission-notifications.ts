@@ -10,6 +10,7 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
+	commandActor,
 	commandEndpoint,
 	handleCommandError,
 	missionNotificationReturnColumns,
@@ -55,6 +56,7 @@ export function registerMissionNotificationRoutes(
 				try {
 					const writeResult = await writeCommands(
 						options.db,
+						commandActor(context.get('authContext')),
 						commands,
 						writeMissionNotificationCommand,
 					);

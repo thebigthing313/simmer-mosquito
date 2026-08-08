@@ -20,6 +20,7 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
+	commandActor,
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
@@ -196,7 +197,12 @@ async function runRegistrationCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeRegistrationCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeRegistrationCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'notification_registration_not_found' }, 404);
 		}

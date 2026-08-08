@@ -13,6 +13,7 @@ import { readNullableText, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	contactReturnColumns,
 	handleCommandError,
@@ -149,7 +150,12 @@ async function runContactCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeContactCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeContactCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'contact_not_found' }, 404);
 		}

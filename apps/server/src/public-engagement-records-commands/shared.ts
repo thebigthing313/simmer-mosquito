@@ -1,10 +1,4 @@
-import {
-	type Kysely,
-	type MutationWriteResult,
-	type SimmerDatabase,
-	sql,
-	type Transaction,
-} from '@simmer-mosquito/db';
+import { geojsonToGeom, localDateColumn, softDelete, updateRow } from '@simmer-mosquito/db';
 import type { PublicEngagementCommand } from '@simmer-mosquito/domain';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
@@ -19,16 +13,34 @@ import {
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
 import { isRecord, readNullableText, readText } from '../command-payload.js';
+import {
+	type CommandDb,
+	type CommandTransaction,
+	commandActor,
+	readDate,
+	readNumberOrNull,
+	readStringArray,
+	writeCommands,
+} from '../command-write.js';
 
-export type PublicEngagementDb = Kysely<SimmerDatabase>;
-export type PublicEngagementTransaction = Transaction<SimmerDatabase>;
+export type PublicEngagementDb = CommandDb;
+export type PublicEngagementTransaction = CommandTransaction;
 export {
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	createCommand,
+	geojsonToGeom,
 	handleCommandError,
 	invalidUpdate,
+	localDateColumn,
+	readDate,
+	readNumberOrNull,
+	readStringArray,
+	softDelete,
+	updateRow,
+	writeCommands,
 };
 
 export type ContactReference =
@@ -197,74 +209,6 @@ async function insertAddress(
 // ===========================================================================
 // Generic row helpers
 // ===========================================================================
-
-export type WriteTable =
-	| 'contacts'
-	| 'service_requests'
-	| 'notification_registrations'
-	| 'notification_registration_types';
-
-export async function updateRow<TRow, TSafe>(
-	trx: PublicEngagementTransaction,
-	table: WriteTable,
-	id: string,
-	organizationId: string,
-	set: Record<string, unknown>,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
-	const row = await trx
-		.updateTable(table)
-		.set({ ...set, updated_at: sql`now()` } as never)
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(columns as never)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
-}
-
-export async function softDelete<TRow, TSafe>(
-	trx: PublicEngagementTransaction,
-	table: WriteTable,
-	id: string,
-	organizationId: string,
-	actorProfileId: string,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
-	const row = await trx
-		.updateTable(table)
-		.set({
-			deleted_at: sql`now()`,
-			deleted_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-			updated_at: sql`now()`,
-		} as never)
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(columns as never)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
-}
-
-export async function writeCommands<TSafe>(
-	db: PublicEngagementDb,
-	commands: readonly PublicEngagementCommand[],
-	write: (
-		trx: PublicEngagementTransaction,
-		command: PublicEngagementCommand,
-	) => Promise<TSafe | null>,
-): Promise<MutationWriteResult<TSafe | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: TSafe | null = null;
-		for (const command of commands) {
-			row = await write(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
-}
 
 // ===========================================================================
 // Response shaping
@@ -511,48 +455,4 @@ export function readSubscriptions(value: unknown): readonly {
 			: '',
 		notificationTypeId: isRecord(entry) ? (readText(entry.notificationTypeId) ?? '') : '',
 	}));
-}
-
-export function geojsonToGeom(geojson: unknown) {
-	const serialized = JSON.stringify(geojson);
-	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
-		case
-			when (${serialized}::jsonb -> 'geometry') is not null
-				then (${serialized}::jsonb -> 'geometry')::text
-			else ${serialized}
-		end
-	), 4326))`;
-}
-
-export function localDateColumn(value: string) {
-	return sql<Date>`${value}::date`;
-}
-
-async function readCurrentTransactionId(trx: PublicEngagementTransaction): Promise<number> {
-	const result = await sql<{
-		txid: string;
-	}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
-	const txid = result.rows[0]?.txid;
-	if (txid === undefined) {
-		throw new Error('Unable to read current transaction id.');
-	}
-	return Number.parseInt(txid, 10);
-}
-
-export function readNumberOrNull(value: unknown): number | null {
-	return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-export function readDate(value: unknown): Date | null {
-	if (typeof value !== 'string' && !(value instanceof Date)) {
-		return null;
-	}
-	const date = value instanceof Date ? value : new Date(value);
-	return Number.isNaN(date.getTime()) ? null : date;
-}
-
-export function readStringArray(value: unknown): readonly string[] {
-	return Array.isArray(value)
-		? value.filter((entry): entry is string => typeof entry === 'string')
-		: [];
 }

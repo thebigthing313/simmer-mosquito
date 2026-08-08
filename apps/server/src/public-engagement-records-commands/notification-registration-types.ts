@@ -9,6 +9,7 @@ import { readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	handleCommandError,
 	insertRegistrationType,
@@ -72,7 +73,12 @@ async function runRegistrationTypeCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeRegistrationTypeCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeRegistrationTypeCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'notification_registration_type_not_found' }, 404);
 		}

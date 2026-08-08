@@ -21,6 +21,7 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
+	commandActor,
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
@@ -202,7 +203,12 @@ async function runServiceRequestCommands(
 	}
 
 	try {
-		const result = await writeCommands(db, commands, writeServiceRequestCommand);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeServiceRequestCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'service_request_not_found' }, 404);
 		}
