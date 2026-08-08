@@ -132,16 +132,24 @@ export type ControlActionLocationSource =
 const POINT_GEOMETRY_TYPES = ['Point'] as const;
 const LOCATABLE_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon'] as const;
 
-const TRAP_LOCATION_SOURCE_KINDS = ['geometry', 'address'] as const;
-const ADULT_COLLECTION_LOCATION_SOURCE_KINDS = ['geometry', 'address', 'trap'] as const;
-const HABITAT_LOCATION_SOURCE_KINDS = ['geometry', 'address', 'inspection'] as const;
-const AD_HOC_INSPECTION_LOCATION_SOURCE_KINDS = [
+/**
+ * Which sources each workflow permits.
+ *
+ * Exported because this is the only place the rule is allowed to live. The server
+ * resolves geometry over the whole `LocationSource` union and does not re-check the
+ * kind, so a list that disagreed with one of these would be a second, looser policy
+ * — which is exactly what four hand-written resolver switches had become.
+ */
+export const TRAP_LOCATION_SOURCE_KINDS = ['geometry', 'address'] as const;
+export const ADULT_COLLECTION_LOCATION_SOURCE_KINDS = ['geometry', 'address', 'trap'] as const;
+export const HABITAT_LOCATION_SOURCE_KINDS = ['geometry', 'address', 'inspection'] as const;
+export const AD_HOC_INSPECTION_LOCATION_SOURCE_KINDS = [
 	'geometry',
 	'address',
 	'habitat',
 	'serviceRequest',
 ] as const;
-const REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS = [
+export const REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS = [
 	'geometry',
 	'address',
 	'habitat',
@@ -150,11 +158,11 @@ const REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS = [
 	'inspection',
 	'serviceRequest',
 ] as const;
-const MISSION_ITEM_LOCATION_SOURCE_KINDS = [
+export const MISSION_ITEM_LOCATION_SOURCE_KINDS = [
 	...REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS,
 	'requestedControlAction',
 ] as const;
-const CONTROL_ACTION_LOCATION_SOURCE_KINDS = [
+export const CONTROL_ACTION_LOCATION_SOURCE_KINDS = [
 	'geometry',
 	'address',
 	'serviceRequest',
@@ -262,7 +270,7 @@ export function validateControlActionLocationSource(
 	);
 }
 
-type LocationSourceKind =
+export type LocationSourceKind =
 	| 'geometry'
 	| 'address'
 	| 'habitat'
@@ -272,6 +280,30 @@ type LocationSourceKind =
 	| 'serviceRequest'
 	| 'requestedControlAction'
 	| 'missionItem';
+
+/**
+ * Every location source, before a workflow narrows it.
+ *
+ * The per-workflow unions above are each a subset of this, so a `TrapLocationSource`
+ * or a `MissionItemLocationSource` is assignable without a cast. It exists for the
+ * server's geometry resolver, whose job is the lookup — which row does this id name,
+ * and what is its geometry — and not the whitelist, which the validators above have
+ * already applied by the time a command reaches a handler.
+ *
+ * Resolving over this union rather than over `{ kind: string }` is what makes a new
+ * source term a build error in the resolver instead of a 400 at run time.
+ */
+export type LocationSource =
+	| ManualPointGeometrySource
+	| ManualLocatableGeometrySource
+	| AddressGeometrySource
+	| HabitatGeometrySource
+	| InspectionGeometrySource
+	| TrapGeometrySource
+	| CollectionGeometrySource
+	| ServiceRequestGeometrySource
+	| RequestedControlActionGeometrySource
+	| MissionItemGeometrySource;
 
 function validateLocationSourceFlow<TOutput>(
 	input: unknown,

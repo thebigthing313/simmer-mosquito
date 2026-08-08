@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
+import type {
+	AdHocControlActionLocationSource,
+	AdHocInspectionLocationSource,
+	AdultCollectionLocationSource,
+	ControlActionLocationSource,
+	HabitatLocationSource,
+	MissionItemLocationSource,
+	RequestedControlActionLocationSource,
+	TrapLocationSource,
+} from '../location-intent.js';
 import {
+	AD_HOC_INSPECTION_LOCATION_SOURCE_KINDS,
+	ADULT_COLLECTION_LOCATION_SOURCE_KINDS,
+	CONTROL_ACTION_LOCATION_SOURCE_KINDS,
+	HABITAT_LOCATION_SOURCE_KINDS,
+	type LocationSource,
+	type LocationSourceKind,
+	MISSION_ITEM_LOCATION_SOURCE_KINDS,
+	REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS,
+	TRAP_LOCATION_SOURCE_KINDS,
 	validateAdHocInspectionLocationSource,
 	validateAdultCollectionLocationSource,
 	validateControlActionLocationSource,
@@ -136,6 +155,105 @@ describe('location source flows', () => {
 		).toHaveLength(1);
 	});
 });
+
+// The spot checks above take one accepted kind and one rejected kind per flow.
+// What the server now relies on is stronger: that these seven lists are the whole
+// policy, because the geometry resolver no longer re-checks the kind. So drive the
+// assertion off the exported lists and cover every kind, accepted and rejected.
+
+const ALL_KINDS: readonly LocationSourceKind[] = [
+	'geometry',
+	'address',
+	'habitat',
+	'inspection',
+	'trap',
+	'collection',
+	'serviceRequest',
+	'requestedControlAction',
+	'missionItem',
+];
+
+/** A well-formed source of each kind, so a rejection can only be about the kind. */
+const SOURCE_BY_KIND: { readonly [K in LocationSourceKind]: LocationSource } = {
+	geometry: { kind: 'geometry', geometry: pointGeometry },
+	address: { kind: 'address', addressId },
+	habitat: { kind: 'habitat', habitatId },
+	inspection: { kind: 'inspection', inspectionId },
+	trap: { kind: 'trap', trapId },
+	collection: { kind: 'collection', collectionId },
+	serviceRequest: { kind: 'serviceRequest', serviceRequestId },
+	requestedControlAction: { kind: 'requestedControlAction', requestedControlActionId },
+	missionItem: { kind: 'missionItem', missionItemId },
+};
+
+describe('location source whitelists are the whole policy', () => {
+	it.each([
+		['trap', validateTrapLocationSource, TRAP_LOCATION_SOURCE_KINDS],
+		[
+			'adult collection',
+			validateAdultCollectionLocationSource,
+			ADULT_COLLECTION_LOCATION_SOURCE_KINDS,
+		],
+		['habitat', validateHabitatLocationSource, HABITAT_LOCATION_SOURCE_KINDS],
+		[
+			'ad hoc inspection',
+			validateAdHocInspectionLocationSource,
+			AD_HOC_INSPECTION_LOCATION_SOURCE_KINDS,
+		],
+		[
+			'requested control action',
+			validateRequestedControlActionLocationSource,
+			REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS,
+		],
+		['mission item', validateMissionItemLocationSource, MISSION_ITEM_LOCATION_SOURCE_KINDS],
+		['control action', validateControlActionLocationSource, CONTROL_ACTION_LOCATION_SOURCE_KINDS],
+	])('the %s flow accepts exactly its listed kinds', (_flow, validate, allowedKinds) => {
+		const allowed = new Set<string>(allowedKinds);
+
+		for (const kind of ALL_KINDS) {
+			const issues = collectIssues((collected) =>
+				validate(SOURCE_BY_KIND[kind], 'locationSource', collected),
+			);
+
+			if (allowed.has(kind)) {
+				expect(issues, `${kind} should be accepted`).toEqual([]);
+			} else {
+				expect(issues, `${kind} should be rejected`).toContainEqual({
+					path: 'locationSource.kind',
+					message: 'locationSource.kind is not supported for this location source flow.',
+				});
+			}
+		}
+	});
+
+	it('lists no kind that is not a location source', () => {
+		const listed = new Set<string>([
+			...TRAP_LOCATION_SOURCE_KINDS,
+			...ADULT_COLLECTION_LOCATION_SOURCE_KINDS,
+			...HABITAT_LOCATION_SOURCE_KINDS,
+			...AD_HOC_INSPECTION_LOCATION_SOURCE_KINDS,
+			...REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS,
+			...MISSION_ITEM_LOCATION_SOURCE_KINDS,
+			...CONTROL_ACTION_LOCATION_SOURCE_KINDS,
+		]);
+
+		expect([...listed].sort()).toEqual([...ALL_KINDS].sort());
+	});
+});
+
+// The server's resolver switches over `LocationSource`. Every per-workflow union
+// has to be assignable to it, or a handler could hold a source the resolver has no
+// arm for — the property the four hand-written resolvers never had.
+type AssignableToLocationSource<T extends LocationSource> = T;
+type _PerWorkflowUnionsNarrowLocationSource =
+	| AssignableToLocationSource<TrapLocationSource>
+	| AssignableToLocationSource<AdultCollectionLocationSource>
+	| AssignableToLocationSource<HabitatLocationSource>
+	| AssignableToLocationSource<AdHocInspectionLocationSource>
+	| AssignableToLocationSource<RequestedControlActionLocationSource>
+	| AssignableToLocationSource<MissionItemLocationSource>
+	| AssignableToLocationSource<AdHocControlActionLocationSource>
+	| AssignableToLocationSource<ControlActionLocationSource>;
 
 describe('owned geometry policies', () => {
 	it('records geometry types by domain-owned geometry concept', () => {
