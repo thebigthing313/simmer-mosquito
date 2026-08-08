@@ -30,7 +30,7 @@ import {
 	handleCommandError,
 	insertMissionItem,
 	invalidUpdate,
-	loadGeojson,
+	loadOr404,
 	type MissionDispatchDb,
 	type MissionDispatchTransaction,
 	missionItemReturnColumns,
@@ -269,13 +269,11 @@ async function writeMissionItemCommand(
 				missionItemId: command.payload.missionItemId,
 				organizationId: command.payload.organizationId,
 				missionId: command.payload.missionId,
-				geom: geojsonToGeom(
-					await loadGeojson(
-						trx,
-						'requested_control_actions',
-						command.payload.requestedControlActionId,
-						command.payload.organizationId,
-					),
+				geom: await loadOr404(
+					trx,
+					'requested_control_actions',
+					command.payload.requestedControlActionId,
+					command.payload.organizationId,
 				),
 				addressId: null,
 				requestedControlActionId: command.payload.requestedControlActionId,

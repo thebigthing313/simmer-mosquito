@@ -81,7 +81,7 @@ export async function resolveLocationGeom(
  * another agency's, or deleted" is one fact at that layer and the HTTP status it
  * becomes is this one's to name.
  */
-async function loadOr404(
+export async function loadOr404(
 	trx: Transaction<SimmerDatabase>,
 	table: GeomTable,
 	id: string,

@@ -1,13 +1,12 @@
 import {
-	type Kysely,
-	type MutationWriteResult,
-	type SimmerDatabase,
-	sql,
-	type Transaction,
+	geojsonToGeom,
+	localDateColumn,
+	type RawBuilder,
+	softDelete,
+	updateRow,
 } from '@simmer-mosquito/db';
-import type { MissionDispatchCommand } from '@simmer-mosquito/domain';
+import type { MissionDispatchCommand, MissionItemLocationSource } from '@simmer-mosquito/domain';
 import type { MiddlewareHandler } from 'hono';
-import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
 	agencyCommandContext,
@@ -19,18 +18,35 @@ import {
 	invalidUpdate,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
-import { resolveCommandOwnership } from '../command-ownership.js';
 import { authorizeCommands, type CommandActor } from '../command-permissions.js';
+import {
+	type CommandDb,
+	type CommandTransaction,
+	commandActor,
+	readDate,
+	readStringArray,
+	writeCommands,
+} from '../command-write.js';
+import { loadOr404, resolveLocationGeom } from '../location-source.js';
 
-export type MissionDispatchDb = Kysely<SimmerDatabase>;
-export type MissionDispatchTransaction = Transaction<SimmerDatabase>;
+export type MissionDispatchDb = CommandDb;
+export type MissionDispatchTransaction = CommandTransaction;
 export {
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	createCommand,
+	geojsonToGeom,
 	handleCommandError,
 	invalidUpdate,
+	loadOr404,
+	localDateColumn,
+	readDate,
+	readStringArray,
+	softDelete,
+	updateRow,
+	writeCommands,
 };
 
 export async function insertMissionItem(
@@ -66,33 +82,29 @@ export async function insertMissionItem(
 // Geometry resolution
 // ===========================================================================
 
-export type GeomTable =
-	| 'addresses'
-	| 'habitats'
-	| 'inspections'
-	| 'traps'
-	| 'collections'
-	| 'service_requests'
-	| 'requested_control_actions';
-
+/**
+ * Where a mission item's geometry comes from when the mission is created.
+ *
+ * Mission-specific, and so still here: an item either carries its own location
+ * or inherits the requested control action's. Only the location-source arm is
+ * shared, because that part is not this family's policy.
+ */
 export async function resolveInitialItemGeom(
 	trx: MissionDispatchTransaction,
 	organizationId: string,
 	item: {
 		readonly kind: 'explicit' | 'fromRequestedControlAction';
 		readonly geometry?: unknown;
-		readonly locationSource?: { readonly kind: string } & Record<string, unknown>;
+		readonly locationSource?: MissionItemLocationSource;
 		readonly requestedControlActionId?: string | null;
 	},
-): Promise<ReturnType<typeof geojsonToGeom>> {
+): Promise<RawBuilder<string>> {
 	if (item.kind === 'fromRequestedControlAction') {
-		return geojsonToGeom(
-			await loadGeojson(
-				trx,
-				'requested_control_actions',
-				item.requestedControlActionId as string,
-				organizationId,
-			),
+		return loadOr404(
+			trx,
+			'requested_control_actions',
+			item.requestedControlActionId as string,
+			organizationId,
 		);
 	}
 	return resolveItemGeom(trx, organizationId, {
@@ -107,97 +119,25 @@ export async function resolveItemGeom(
 	organizationId: string,
 	input: {
 		readonly geometry?: unknown;
-		readonly locationSource?: ({ readonly kind: string } & Record<string, unknown>) | undefined;
+		readonly locationSource?: MissionItemLocationSource | undefined;
 		readonly requestedControlActionId?: string | null;
 	},
-): Promise<ReturnType<typeof geojsonToGeom>> {
+): Promise<RawBuilder<string>> {
 	if (input.geometry !== undefined) {
 		return geojsonToGeom(input.geometry);
 	}
 	if (input.locationSource !== undefined) {
-		return resolveLocationSourceGeom(trx, organizationId, input.locationSource);
+		return resolveLocationGeom(trx, organizationId, input.locationSource);
 	}
 	if (input.requestedControlActionId != null) {
-		return geojsonToGeom(
-			await loadGeojson(
-				trx,
-				'requested_control_actions',
-				input.requestedControlActionId,
-				organizationId,
-			),
+		return loadOr404(
+			trx,
+			'requested_control_actions',
+			input.requestedControlActionId,
+			organizationId,
 		);
 	}
 	throw new CommandError(400, { error: 'mission_item_location_required' });
-}
-
-async function resolveLocationSourceGeom(
-	trx: MissionDispatchTransaction,
-	organizationId: string,
-	source: { readonly kind: string } & Record<string, unknown>,
-): Promise<ReturnType<typeof geojsonToGeom>> {
-	switch (source.kind) {
-		case 'geometry':
-			return geojsonToGeom(source.geometry);
-		case 'address':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'addresses', source.addressId as string, organizationId),
-			);
-		case 'habitat':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'habitats', source.habitatId as string, organizationId),
-			);
-		case 'inspection':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'inspections', source.inspectionId as string, organizationId),
-			);
-		case 'trap':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'traps', source.trapId as string, organizationId),
-			);
-		case 'collection':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'collections', source.collectionId as string, organizationId),
-			);
-		case 'serviceRequest':
-			return geojsonToGeom(
-				await loadGeojson(
-					trx,
-					'service_requests',
-					source.serviceRequestId as string,
-					organizationId,
-				),
-			);
-		case 'requestedControlAction':
-			return geojsonToGeom(
-				await loadGeojson(
-					trx,
-					'requested_control_actions',
-					source.requestedControlActionId as string,
-					organizationId,
-				),
-			);
-		default:
-			throw new CommandError(400, { error: 'unsupported_location_source' });
-	}
-}
-
-export async function loadGeojson(
-	trx: MissionDispatchTransaction,
-	table: GeomTable,
-	id: string,
-	organizationId: string,
-): Promise<unknown> {
-	const row = await trx
-		.selectFrom(table)
-		.select('geojson')
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.executeTakeFirst();
-	if (row === undefined) {
-		throw new CommandError(404, { error: `${table}_not_found` });
-	}
-	return row.geojson;
 }
 
 // ===========================================================================
@@ -242,81 +182,6 @@ export function readItemLifecycleTransition(payload: Record<string, unknown>): I
 		return 'reopen';
 	}
 	return null;
-}
-
-// ===========================================================================
-// Generic row helpers
-// ===========================================================================
-
-export async function updateRow<TRow, TSafe>(
-	trx: MissionDispatchTransaction,
-	table: 'missions' | 'mission_items',
-	id: string,
-	organizationId: string,
-	set: Record<string, unknown>,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
-	const row = await trx
-		.updateTable(table)
-		.set({ ...set, updated_at: sql`now()` } as never)
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(columns as never)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
-}
-
-export async function softDelete<TRow, TSafe>(
-	trx: MissionDispatchTransaction,
-	table: 'missions' | 'mission_items',
-	id: string,
-	organizationId: string,
-	actorProfileId: string,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
-	const row = await trx
-		.updateTable(table)
-		.set({
-			deleted_at: sql`now()`,
-			deleted_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-			updated_at: sql`now()`,
-		} as never)
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(columns as never)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
-}
-
-/**
- * The write transaction every mission-dispatch endpoint commits through.
- *
- * `actor` is required rather than optional so ownership cannot be skipped by
- * omission: every command is checked against the permission map before its
- * handler runs, and a caller that has no actor to pass cannot compile.
- */
-export async function writeCommands<TSafe>(
-	db: MissionDispatchDb,
-	actor: CommandActor,
-	commands: readonly MissionDispatchCommand[],
-	write: (
-		trx: MissionDispatchTransaction,
-		command: MissionDispatchCommand,
-	) => Promise<TSafe | null>,
-): Promise<MutationWriteResult<TSafe | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: TSafe | null = null;
-		for (const command of commands) {
-			await assertCommandOwnership(trx, command, actor);
-			row = await write(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 // ===========================================================================
@@ -446,10 +311,6 @@ export type CommandsResult = SharedCommandsResult<MissionDispatchCommand>;
 
 export type { CommandActor };
 
-export function commandActor(authContext: AuthContext): CommandActor {
-	return { role: authContext.role, profileId: authContext.profile.id };
-}
-
 /**
  * The role check every mission-dispatch endpoint runs before writing.
  *
@@ -463,65 +324,4 @@ export function denyUnauthorizedCommands(
 ): Response | null {
 	const denial = authorizeCommands(context.get('authContext').role, commands);
 	return denial === null ? null : context.json(denial, 403);
-}
-
-/**
- * The row-level half, raised as this module's `CommandError`.
- *
- * Runs from `writeCommands` for every command rather than from the handlers, so
- * "who may touch this row" is answered by the command's entry in the permission
- * map and not by whether its `case` arm remembered to ask.
- */
-async function assertCommandOwnership(
-	trx: MissionDispatchTransaction,
-	command: MissionDispatchCommand,
-	actor: CommandActor,
-): Promise<void> {
-	const outcome = await resolveCommandOwnership(trx, command, actor);
-	if (outcome.kind === 'missing') {
-		throw new CommandError(404, { error: `${outcome.entity}_not_found` });
-	}
-	if (outcome.kind === 'refused') {
-		throw new CommandError(403, { error: 'forbidden', reason: outcome.reason });
-	}
-}
-
-export function geojsonToGeom(geojson: unknown) {
-	const serialized = JSON.stringify(geojson);
-	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
-		case
-			when (${serialized}::jsonb -> 'geometry') is not null
-				then (${serialized}::jsonb -> 'geometry')::text
-			else ${serialized}
-		end
-	), 4326))`;
-}
-
-export function localDateColumn(value: string) {
-	return sql<Date>`${value}::date`;
-}
-
-async function readCurrentTransactionId(trx: MissionDispatchTransaction): Promise<number> {
-	const result = await sql<{
-		txid: string;
-	}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
-	const txid = result.rows[0]?.txid;
-	if (txid === undefined) {
-		throw new Error('Unable to read current transaction id.');
-	}
-	return Number.parseInt(txid, 10);
-}
-
-export function readDate(value: unknown): Date | null {
-	if (typeof value !== 'string' && !(value instanceof Date)) {
-		return null;
-	}
-	const date = value instanceof Date ? value : new Date(value);
-	return Number.isNaN(date.getTime()) ? null : date;
-}
-
-export function readStringArray(value: unknown): readonly string[] {
-	return Array.isArray(value)
-		? value.filter((entry): entry is string => typeof entry === 'string')
-		: [];
 }

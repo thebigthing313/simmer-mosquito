@@ -1,17 +1,10 @@
-import {
-	type Kysely,
-	type MutationWriteResult,
-	type SimmerDatabase,
-	sql,
-	type Transaction,
-} from '@simmer-mosquito/db';
+import { localDateColumn, softDelete, sql, updateRow } from '@simmer-mosquito/db';
 import type {
 	AssignmentItemPlacement,
 	FieldWorkCommand,
 	RouteItemPlacement,
 } from '@simmer-mosquito/domain';
 import type { MiddlewareHandler } from 'hono';
-import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
 	agencyCommandContext,
@@ -23,19 +16,35 @@ import {
 	invalidUpdate,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
-import { resolveCommandOwnership } from '../command-ownership.js';
 import { isRecord, readText } from '../command-payload.js';
 import { authorizeCommands, type CommandActor } from '../command-permissions.js';
+import {
+	type CommandDb,
+	type CommandTransaction,
+	commandActor,
+	nowLocalDate,
+	readDate,
+	readStringArray,
+	writeCommands,
+} from '../command-write.js';
 
-export type FieldWorkDb = Kysely<SimmerDatabase>;
-export type FieldWorkTransaction = Transaction<SimmerDatabase>;
+export type FieldWorkDb = CommandDb;
+export type FieldWorkTransaction = CommandTransaction;
 export {
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	createCommand,
 	handleCommandError,
 	invalidUpdate,
+	localDateColumn,
+	nowLocalDate,
+	readDate,
+	readStringArray,
+	softDelete,
+	updateRow,
+	writeCommands,
 };
 
 // ===========================================================================
@@ -146,87 +155,6 @@ export function readItemLifecycleTransition(payload: Record<string, unknown>): I
 		return 'reopen';
 	}
 	return null;
-}
-
-// ===========================================================================
-// Generic row write helpers
-// ===========================================================================
-
-export type WriteTable =
-	| 'comments'
-	| 'tag_items'
-	| 'additional_personnel'
-	| 'routes'
-	| 'route_items'
-	| 'assignments'
-	| 'assignment_items';
-
-export async function updateRow<TRow, TSafe>(
-	trx: FieldWorkTransaction,
-	table: WriteTable,
-	id: string,
-	organizationId: string,
-	set: Record<string, unknown>,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
-	const row = await trx
-		.updateTable(table)
-		.set({ ...set, updated_at: sql`now()` } as never)
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(columns as never)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
-}
-
-export async function softDelete<TRow, TSafe>(
-	trx: FieldWorkTransaction,
-	table: WriteTable,
-	id: string,
-	organizationId: string,
-	actorProfileId: string,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
-	const row = await trx
-		.updateTable(table)
-		.set({
-			deleted_at: sql`now()`,
-			deleted_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-			updated_at: sql`now()`,
-		} as never)
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(columns as never)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
-}
-
-/**
- * The write transaction every field-work endpoint commits through.
- *
- * `actor` is required rather than optional so ownership cannot be skipped by
- * omission: every command is checked against the permission map before its
- * handler runs, and a caller that has no actor to pass cannot compile.
- */
-export async function writeCommands<TSafe>(
-	db: FieldWorkDb,
-	actor: CommandActor,
-	commands: readonly FieldWorkCommand[],
-	write: (trx: FieldWorkTransaction, command: FieldWorkCommand) => Promise<TSafe | null>,
-): Promise<MutationWriteResult<TSafe | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: TSafe | null = null;
-		for (const command of commands) {
-			await assertCommandOwnership(trx, command, actor);
-			row = await write(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 // ===========================================================================
@@ -563,10 +491,6 @@ export type CommandsResult = SharedCommandsResult<FieldWorkCommand>;
 
 export type { CommandActor };
 
-export function commandActor(authContext: AuthContext): CommandActor {
-	return { role: authContext.role, profileId: authContext.profile.id };
-}
-
 /**
  * The role check every field-work endpoint runs before writing anything.
  *
@@ -580,27 +504,6 @@ export function denyUnauthorizedCommands(
 ): Response | null {
 	const denial = authorizeCommands(context.get('authContext').role, commands);
 	return denial === null ? null : context.json(denial, 403);
-}
-
-/**
- * The row-level half, raised as this module's `CommandError`.
- *
- * Runs from `writeCommands` for every command rather than from the handlers, so
- * "who may touch this row" is answered by the command's entry in the permission
- * map and not by whether its `case` arm remembered to ask.
- */
-async function assertCommandOwnership(
-	trx: FieldWorkTransaction,
-	command: FieldWorkCommand,
-	actor: CommandActor,
-): Promise<void> {
-	const outcome = await resolveCommandOwnership(trx, command, actor);
-	if (outcome.kind === 'missing') {
-		throw new CommandError(404, { error: `${outcome.entity}_not_found` });
-	}
-	if (outcome.kind === 'refused') {
-		throw new CommandError(403, { error: 'forbidden', reason: outcome.reason });
-	}
 }
 
 export function readTarget(payload: Record<string, unknown>): {
@@ -623,37 +526,4 @@ export function readItemMappings(
 		routeItemId: isRecord(entry) ? (readText(entry.routeItemId) ?? '') : '',
 		assignmentItemId: isRecord(entry) ? (readText(entry.assignmentItemId) ?? '') : '',
 	}));
-}
-
-export function readStringArray(value: unknown): readonly string[] {
-	return Array.isArray(value)
-		? value.filter((entry): entry is string => typeof entry === 'string')
-		: [];
-}
-
-export function localDateColumn(value: string) {
-	return sql<Date>`${value}::date`;
-}
-
-export function nowLocalDate(): string {
-	return new Date().toISOString().slice(0, 10);
-}
-
-async function readCurrentTransactionId(trx: FieldWorkTransaction): Promise<number> {
-	const result = await sql<{
-		txid: string;
-	}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
-	const txid = result.rows[0]?.txid;
-	if (txid === undefined) {
-		throw new Error('Unable to read current transaction id.');
-	}
-	return Number.parseInt(txid, 10);
-}
-
-export function readDate(value: unknown): Date | null {
-	if (typeof value !== 'string' && !(value instanceof Date)) {
-		return null;
-	}
-	const date = value instanceof Date ? value : new Date(value);
-	return Number.isNaN(date.getTime()) ? null : date;
 }
