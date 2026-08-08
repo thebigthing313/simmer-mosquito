@@ -4,10 +4,10 @@ import {
 	deleteAddress,
 	type GeoJsonGeometry,
 	type MutationWriteResult,
+	readCurrentTransactionId,
 	type SafeAddress,
 	type SafeOrgLookup,
 	type SafeTag,
-	sql,
 	updateAddressDetails,
 	updateAddressLocation,
 	type writeCollectionMethodLookupCommandsWithTxid,
@@ -90,15 +90,7 @@ export async function writeAddressWithTxid(
 ): Promise<MutationWriteResult<SafeAddress>> {
 	return db.transaction().execute(async (trx) => {
 		const row = await createAddress(trx, input);
-		const result = await sql<{
-			txid: string;
-		}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
-		const txid = result.rows[0]?.txid;
-		if (txid === undefined) {
-			throw new Error('Unable to read current transaction id.');
-		}
-
-		return { row, txid: Number.parseInt(txid, 10) };
+		return { row, txid: await readCurrentTransactionId(trx) };
 	});
 }
 
@@ -124,14 +116,7 @@ export async function writeAddressUpdateWithTxid(
 				updatedByProfileId,
 			});
 		}
-		const result = await sql<{
-			txid: string;
-		}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
-		const txid = result.rows[0]?.txid;
-		if (txid === undefined) {
-			throw new Error('Unable to read current transaction id.');
-		}
-		return { row, txid: Number.parseInt(txid, 10) };
+		return { row, txid: await readCurrentTransactionId(trx) };
 	});
 }
 
@@ -148,14 +133,7 @@ export async function writeAddressDeleteWithTxid(
 			actorProfileId: input.actorProfileId,
 		});
 		const row = await deleteAddress(trx, addressId, input);
-		const result = await sql<{
-			txid: string;
-		}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
-		const txid = result.rows[0]?.txid;
-		if (txid === undefined) {
-			throw new Error('Unable to read current transaction id.');
-		}
-		return { row, txid: Number.parseInt(txid, 10) };
+		return { row, txid: await readCurrentTransactionId(trx) };
 	});
 }
 

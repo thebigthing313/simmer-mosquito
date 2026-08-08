@@ -1,4 +1,4 @@
-import { applyRecordDeletion, type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	clearHabitatInaccessibleCommand,
 	createHabitatCommand,
@@ -21,6 +21,7 @@ import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
@@ -31,10 +32,11 @@ import {
 	invalidUpdate,
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
-	readCurrentTransactionId,
 	resolveLocationGeom,
 	type SafeHabitat,
 	toSafeHabitat,
+	updateRow,
+	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -211,7 +213,12 @@ async function runHabitatCommands(
 	}
 
 	try {
-		const result = await writeHabitatCommands(db, commands);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeHabitatCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'habitat_not_found' }, 404);
 		}
@@ -219,19 +226,6 @@ async function runHabitatCommands(
 	} catch (error) {
 		return handleCommandError(context, error);
 	}
-}
-
-async function writeHabitatCommands(
-	db: LarvalSurveillanceDb,
-	commands: readonly LarvalSurveillanceCommand[],
-): Promise<MutationWriteResult<SafeHabitat | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeHabitat | null = null;
-		for (const command of commands) {
-			row = await writeHabitatCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 async function writeHabitatCommand(
@@ -382,15 +376,15 @@ async function updateHabitat(
 	organizationId: string,
 	set: HabitatUpdateColumns,
 ): Promise<SafeHabitat | null> {
-	const row = await trx
-		.updateTable('habitats')
-		.set({ ...set, updated_at: sql`now()` })
-		.where('id', '=', habitatId)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(habitatReturnColumns)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafeHabitat(row);
+	return updateRow(
+		trx,
+		'habitats',
+		habitatId,
+		organizationId,
+		set,
+		habitatReturnColumns,
+		toSafeHabitat,
+	);
 }
 
 async function loadInspectionSnapshot(

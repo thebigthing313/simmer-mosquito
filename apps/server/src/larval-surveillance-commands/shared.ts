@@ -1,4 +1,4 @@
-import { type Kysely, type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
+import { geojsonToGeom, localDateColumn, updateRow } from '@simmer-mosquito/db';
 import {
 	type LarvalDensity,
 	type ResolvedLarvalInspectionEntryPolicy,
@@ -15,17 +15,31 @@ import {
 	invalidUpdate,
 } from '../command-endpoint.js';
 import { readNullableText, readText } from '../command-payload.js';
+import {
+	type CommandDb,
+	type CommandTransaction,
+	commandActor,
+	readNumberOrNull,
+	writeCommands,
+} from '../command-write.js';
+import { resolveLocationGeom } from '../location-source.js';
 
-export type LarvalSurveillanceDb = Kysely<SimmerDatabase>;
-export type LarvalSurveillanceTransaction = Transaction<SimmerDatabase>;
+export type LarvalSurveillanceDb = CommandDb;
+export type LarvalSurveillanceTransaction = CommandTransaction;
 export {
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	createCommand,
+	geojsonToGeom,
 	handleCommandError,
 	type InvalidCommandBody,
 	invalidUpdate,
+	localDateColumn,
+	resolveLocationGeom,
+	updateRow,
+	writeCommands,
 };
 
 export async function loadHabitatSnapshot(
@@ -71,59 +85,6 @@ export interface NormalizedInspectionResult {
 // Geometry + policy resolution
 // ---------------------------------------------------------------------------
 
-export async function resolveLocationGeom(
-	trx: LarvalSurveillanceTransaction,
-	organizationId: string,
-	source: { readonly kind: string } & Record<string, unknown>,
-): Promise<ReturnType<typeof geojsonToGeom>> {
-	switch (source.kind) {
-		case 'geometry':
-			return geojsonToGeom(source.geometry);
-		case 'address':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'addresses', source.addressId as string, organizationId),
-			);
-		case 'habitat':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'habitats', source.habitatId as string, organizationId),
-			);
-		case 'inspection':
-			return geojsonToGeom(
-				await loadGeojson(trx, 'inspections', source.inspectionId as string, organizationId),
-			);
-		case 'serviceRequest':
-			return geojsonToGeom(
-				await loadGeojson(
-					trx,
-					'service_requests',
-					source.serviceRequestId as string,
-					organizationId,
-				),
-			);
-		default:
-			throw new CommandError(400, { error: 'unsupported_location_source' });
-	}
-}
-
-async function loadGeojson(
-	trx: LarvalSurveillanceTransaction,
-	table: 'addresses' | 'habitats' | 'inspections' | 'service_requests',
-	id: string,
-	organizationId: string,
-): Promise<unknown> {
-	const row = await trx
-		.selectFrom(table)
-		.select('geojson')
-		.where('id', '=', id)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.executeTakeFirst();
-	if (row === undefined) {
-		throw new CommandError(404, { error: `${table}_not_found` });
-	}
-	return row.geojson;
-}
-
 export async function loadInspectionPolicy(
 	db: LarvalSurveillanceDb,
 	organizationId: string,
@@ -136,21 +97,6 @@ export async function loadInspectionPolicy(
 		.executeTakeFirst();
 	return resolveOrganizationSettings(organization?.settings).settings.larvalSurveillance
 		.inspectionEntryPolicy;
-}
-
-export function geojsonToGeom(geojson: unknown) {
-	const serialized = JSON.stringify(geojson);
-	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
-		case
-			when (${serialized}::jsonb -> 'geometry') is not null
-				then (${serialized}::jsonb -> 'geometry')::text
-			else ${serialized}
-		end
-	), 4326))`;
-}
-
-export function localDateColumn(value: string) {
-	return sql<Date>`${value}::date`;
 }
 
 // ---------------------------------------------------------------------------
@@ -514,20 +460,3 @@ export type SampleUpdateColumns = {
 	unidentifiable_reason?: string | null;
 	updated_by_profile_id: string;
 };
-
-export async function readCurrentTransactionId(
-	trx: LarvalSurveillanceTransaction,
-): Promise<number> {
-	const result = await sql<{
-		txid: string;
-	}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
-	const txid = result.rows[0]?.txid;
-	if (txid === undefined) {
-		throw new Error('Unable to read current transaction id.');
-	}
-	return Number.parseInt(txid, 10);
-}
-
-function readNumberOrNull(value: unknown): number | null {
-	return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}

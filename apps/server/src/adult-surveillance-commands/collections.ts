@@ -1,4 +1,4 @@
-import { applyRecordDeletion, type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	type AdultCollectionLocationSourceInput,
 	type AdultSurveillanceCommand,
@@ -31,6 +31,7 @@ import {
 	type CollectionUpdateColumns,
 	type CommandContext,
 	collectionReturnColumns,
+	commandActor,
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
@@ -43,11 +44,11 @@ import {
 	localDateColumn,
 	pendingStartedAt,
 	readCollectionTiming,
-	readCurrentTransactionId,
 	readDate,
 	resolveLocationGeom,
 	type SafeCollection,
 	toSafeCollection,
+	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -314,7 +315,12 @@ async function runCollectionCommands(
 	}
 
 	try {
-		const result = await writeCollectionCommands(db, commands);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeCollectionCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'collection_not_found' }, 404);
 		}
@@ -322,19 +328,6 @@ async function runCollectionCommands(
 	} catch (error) {
 		return handleCommandError(context, error);
 	}
-}
-
-async function writeCollectionCommands(
-	db: AdultSurveillanceDb,
-	commands: readonly AdultSurveillanceCommand[],
-): Promise<MutationWriteResult<SafeCollection | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeCollection | null = null;
-		for (const command of commands) {
-			row = await writeCollectionCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 async function writeCollectionCommand(

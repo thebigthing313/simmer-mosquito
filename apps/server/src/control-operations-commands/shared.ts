@@ -1,4 +1,4 @@
-import { geojsonToGeom, localDateColumn, softDelete, updateRow } from '@simmer-mosquito/db';
+import { type geojsonToGeom, localDateColumn, softDelete, updateRow } from '@simmer-mosquito/db';
 import type {
 	ControlActionContext,
 	ControlActionLocationSourceInput,
@@ -11,7 +11,6 @@ import {
 	type AgencyContext,
 	agencyCommandContext,
 	type CommandContext,
-	CommandError,
 	commandEndpoint,
 	createCommand,
 	handleCommandError,
@@ -37,13 +36,11 @@ export {
 	commandActor,
 	commandEndpoint,
 	createCommand,
-	geojsonToGeom,
 	handleCommandError,
 	invalidUpdate,
 	localDateColumn,
 	readDate,
 	softDelete,
-	updateRow,
 	writeCommands,
 };
 

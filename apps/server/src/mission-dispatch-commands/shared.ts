@@ -18,7 +18,7 @@ import {
 	invalidUpdate,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
-import { authorizeCommands, type CommandActor } from '../command-permissions.js';
+import { authorizeCommands } from '../command-permissions.js';
 import {
 	type CommandDb,
 	type CommandTransaction,
@@ -37,7 +37,6 @@ export {
 	commandActor,
 	commandEndpoint,
 	createCommand,
-	geojsonToGeom,
 	handleCommandError,
 	invalidUpdate,
 	loadOr404,
@@ -308,8 +307,6 @@ export type CommandsResult = SharedCommandsResult<MissionDispatchCommand>;
 // ===========================================================================
 // Authorization
 // ===========================================================================
-
-export type { CommandActor };
 
 /**
  * The role check every mission-dispatch endpoint runs before writing.

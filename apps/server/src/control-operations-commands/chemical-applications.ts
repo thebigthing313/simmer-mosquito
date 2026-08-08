@@ -1,4 +1,4 @@
-import { applyRecordDeletion, type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	type ControlActionLocationSourceInput,
 	type ControlOperationsCommand,
@@ -11,7 +11,7 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
-import { type CommandActor, denyUnauthorizedAgencyCommands } from '../command-permissions.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type ApplicationUpdateColumns,
 	agencyCommandContext,

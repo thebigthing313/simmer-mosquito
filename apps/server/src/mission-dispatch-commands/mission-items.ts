@@ -26,7 +26,6 @@ import {
 	commandEndpoint,
 	createCommand,
 	denyUnauthorizedCommands,
-	geojsonToGeom,
 	handleCommandError,
 	insertMissionItem,
 	invalidUpdate,

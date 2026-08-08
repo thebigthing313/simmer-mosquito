@@ -9,7 +9,6 @@ import type { AuthVariables } from '../auth-middleware.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
-	CommandError,
 	commandEndpoint,
 	createCommand,
 	handleCommandError,
@@ -17,7 +16,7 @@ import {
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
 import { isRecord, readText } from '../command-payload.js';
-import { authorizeCommands, type CommandActor } from '../command-permissions.js';
+import { authorizeCommands } from '../command-permissions.js';
 import {
 	type CommandDb,
 	type CommandTransaction,
@@ -488,8 +487,6 @@ export type CommandsResult = SharedCommandsResult<FieldWorkCommand>;
 // ===========================================================================
 // Authorization
 // ===========================================================================
-
-export type { CommandActor };
 
 /**
  * The role check every field-work endpoint runs before writing anything.

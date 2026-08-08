@@ -1,4 +1,4 @@
-import { applyRecordDeletion, type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	deleteInspectionCommand,
 	type LarvalSurveillanceCommand,
@@ -13,6 +13,7 @@ import { readNullableText, readText } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	geojsonToGeom,
 	handleCommandError,
@@ -27,11 +28,11 @@ import {
 	loadInspectionPolicy,
 	localDateColumn,
 	type NormalizedInspectionResult,
-	readCurrentTransactionId,
 	readInspectionResult,
 	resolveLocationGeom,
 	type SafeInspection,
 	toSafeInspection,
+	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -143,7 +144,12 @@ async function runInspectionCommands(
 	}
 
 	try {
-		const result = await writeInspectionCommands(db, commands);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeInspectionCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'inspection_not_found' }, 404);
 		}
@@ -151,19 +157,6 @@ async function runInspectionCommands(
 	} catch (error) {
 		return handleCommandError(context, error);
 	}
-}
-
-async function writeInspectionCommands(
-	db: LarvalSurveillanceDb,
-	commands: readonly LarvalSurveillanceCommand[],
-): Promise<MutationWriteResult<SafeInspection | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeInspection | null = null;
-		for (const command of commands) {
-			row = await writeInspectionCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 async function writeInspectionCommand(

@@ -1,4 +1,4 @@
-import { type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { sql } from '@simmer-mosquito/db';
 import {
 	type AdultSurveillanceCommand,
 	addCollectionSpeciesCountCommand,
@@ -14,14 +14,15 @@ import {
 	type AdultSurveillanceTransaction,
 	type CommandContext,
 	collectionSpeciesReturnColumns,
+	commandActor,
 	commandEndpoint,
 	handleCommandError,
 	localDateColumn,
-	readCurrentTransactionId,
 	readSpeciesSex,
 	readSpeciesStatus,
 	type SafeCollectionSpecies,
 	toSafeCollectionSpecies,
+	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -105,7 +106,12 @@ async function runCollectionSpeciesCommands(
 	}
 
 	try {
-		const result = await writeCollectionSpeciesCommands(db, commands);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeCollectionSpeciesCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'collection_species_not_found' }, 404);
 		}
@@ -113,19 +119,6 @@ async function runCollectionSpeciesCommands(
 	} catch (error) {
 		return handleCommandError(context, error);
 	}
-}
-
-async function writeCollectionSpeciesCommands(
-	db: AdultSurveillanceDb,
-	commands: readonly AdultSurveillanceCommand[],
-): Promise<MutationWriteResult<SafeCollectionSpecies | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeCollectionSpecies | null = null;
-		for (const command of commands) {
-			row = await writeCollectionSpeciesCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 async function writeCollectionSpeciesCommand(

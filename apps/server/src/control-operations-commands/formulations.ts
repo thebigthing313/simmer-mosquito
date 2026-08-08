@@ -1,4 +1,4 @@
-import { type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { sql } from '@simmer-mosquito/db';
 import {
 	activateFormulationCommand,
 	type ControlOperationsCommand,

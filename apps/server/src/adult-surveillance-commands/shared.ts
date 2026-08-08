@@ -1,4 +1,4 @@
-import { type Kysely, type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
+import { geojsonToGeom, localDateColumn, updateRow } from '@simmer-mosquito/db';
 import type { CollectionTiming } from '@simmer-mosquito/domain';
 import {
 	agencyCommandContext,
@@ -11,44 +11,38 @@ import {
 	invalidUpdate,
 } from '../command-endpoint.js';
 import { readNumber, readText } from '../command-payload.js';
+import {
+	type CommandDb,
+	type CommandTransaction,
+	commandActor,
+	readDate,
+	writeCommands,
+} from '../command-write.js';
+import { resolveLocationGeom } from '../location-source.js';
 
-export type AdultSurveillanceDb = Kysely<SimmerDatabase>;
-export type AdultSurveillanceTransaction = Transaction<SimmerDatabase>;
+export type AdultSurveillanceDb = CommandDb;
+export type AdultSurveillanceTransaction = CommandTransaction;
+export {
+	commandActor,
+	geojsonToGeom,
+	localDateColumn,
+	readDate,
+	resolveLocationGeom,
+	updateRow,
+	writeCommands,
+};
 
 // ---------------------------------------------------------------------------
 // Geometry + location source resolution
 // ---------------------------------------------------------------------------
 
-export async function resolveLocationGeom(
-	trx: AdultSurveillanceTransaction,
-	organizationId: string,
-	source: { readonly kind: string } & Record<string, unknown>,
-): Promise<ReturnType<typeof geojsonToGeom>> {
-	switch (source.kind) {
-		case 'geometry':
-			return geojsonToGeom(source.geometry);
-		case 'address': {
-			const row = await trx
-				.selectFrom('addresses')
-				.select(['geojson'])
-				.where('id', '=', source.addressId as string)
-				.where('organization_id', '=', organizationId)
-				.where('deleted_at', 'is', null)
-				.executeTakeFirst();
-			if (row === undefined) {
-				throw new CommandError(404, { error: 'address_not_found' });
-			}
-			return geojsonToGeom(row.geojson);
-		}
-		case 'trap': {
-			const snapshot = await loadTrapSnapshot(trx, organizationId, source.trapId as string);
-			return geojsonToGeom(snapshot.geojson);
-		}
-		default:
-			throw new CommandError(400, { error: 'unsupported_location_source' });
-	}
-}
-
+/**
+ * A trap's geometry *and* the defaults a collection inherits from it.
+ *
+ * Stays here, unlike the resolver: this reads FK columns as well as geometry,
+ * so it is a per-caller shape rather than the shared "what is this row's
+ * geometry" question.
+ */
 export async function loadTrapSnapshot(
 	trx: AdultSurveillanceTransaction,
 	organizationId: string,
@@ -77,21 +71,6 @@ export async function loadTrapSnapshot(
 	};
 }
 
-export function geojsonToGeom(geojson: unknown) {
-	const serialized = JSON.stringify(geojson);
-	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
-		case
-			when (${serialized}::jsonb -> 'geometry') is not null
-				then (${serialized}::jsonb -> 'geometry')::text
-			else ${serialized}
-		end
-	), 4326))`;
-}
-
-export function localDateColumn(value: string) {
-	return sql<Date>`${value}::date`;
-}
-
 // ---------------------------------------------------------------------------
 // Timing helpers
 // ---------------------------------------------------------------------------
@@ -106,8 +85,11 @@ export function readCollectionTiming(payload: Record<string, unknown>): Collecti
 		};
 	}
 	const startedAt = readDate(payload.startedAt) ?? new Date(Number.NaN);
+	// The one place the shared `readDate`'s sentinel is load-bearing rather than
+	// cosmetic: absence here decides whether the timing carries `collectedAt` at
+	// all, which is what separates a pending collection from a collected one.
 	const collectedAt = readDate(payload.collectedAt);
-	if (collectedAt !== undefined) {
+	if (collectedAt !== null) {
 		return { mode: 'exact_timestamps', startedAt, collectedAt };
 	}
 	return { mode: 'exact_timestamps', startedAt };
@@ -428,25 +410,6 @@ export interface CollectionInsertInput {
 	readonly hasProblem: boolean;
 	readonly metadata: unknown | null;
 	readonly actorProfileId: string;
-}
-
-export async function readCurrentTransactionId(trx: AdultSurveillanceTransaction): Promise<number> {
-	const result = await sql<{
-		txid: string;
-	}>`select pg_current_xact_id()::xid::text as txid`.execute(trx);
-	const txid = result.rows[0]?.txid;
-	if (txid === undefined) {
-		throw new Error('Unable to read current transaction id.');
-	}
-	return Number.parseInt(txid, 10);
-}
-
-export function readDate(value: unknown): Date | undefined {
-	if (typeof value !== 'string' && !(value instanceof Date)) {
-		return undefined;
-	}
-	const date = value instanceof Date ? value : new Date(value);
-	return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
 export function readSpeciesSex(value: unknown): 'male' | 'female' | null {

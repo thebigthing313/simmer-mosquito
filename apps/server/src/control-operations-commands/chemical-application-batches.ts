@@ -1,4 +1,3 @@
-import type { MutationWriteResult } from '@simmer-mosquito/db';
 import {
 	addChemicalApplicationBatchCommand,
 	type ControlOperationsCommand,
@@ -7,7 +6,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
-import { type CommandActor, denyUnauthorizedAgencyCommands } from '../command-permissions.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	applicationBatchReturnColumns,
 	type CommandContext,

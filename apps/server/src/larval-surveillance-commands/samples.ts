@@ -1,4 +1,4 @@
-import { applyRecordDeletion, type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	addInspectionSampleCommand,
 	addUnlabeledInspectionSampleCommand,
@@ -18,6 +18,7 @@ import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	createCommand,
 	handleCommandError,
@@ -25,11 +26,11 @@ import {
 	invalidUpdate,
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
-	readCurrentTransactionId,
 	type SafeSample,
 	type SampleUpdateColumns,
 	sampleReturnColumns,
 	toSafeSample,
+	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -176,7 +177,12 @@ async function runSampleCommands(
 	}
 
 	try {
-		const result = await writeSampleCommands(db, commands);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeSampleCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'sample_not_found' }, 404);
 		}
@@ -184,19 +190,6 @@ async function runSampleCommands(
 	} catch (error) {
 		return handleCommandError(context, error);
 	}
-}
-
-async function writeSampleCommands(
-	db: LarvalSurveillanceDb,
-	commands: readonly LarvalSurveillanceCommand[],
-): Promise<MutationWriteResult<SafeSample | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeSample | null = null;
-		for (const command of commands) {
-			row = await writeSampleCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 async function writeSampleCommand(

@@ -1,4 +1,4 @@
-import { applyRecordDeletion, type MutationWriteResult, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	type AdultSurveillanceCommand,
 	createTrapCommand,
@@ -19,17 +19,19 @@ import {
 	type AdultSurveillanceTransaction,
 	agencyCommandContext,
 	type CommandContext,
+	commandActor,
 	commandEndpoint,
 	createCommand,
 	handleCommandError,
 	type InvalidCommandBody,
 	invalidUpdate,
-	readCurrentTransactionId,
 	resolveLocationGeom,
 	type SafeTrap,
 	type TrapUpdateColumns,
 	toSafeTrap,
 	trapReturnColumns,
+	updateRow,
+	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -176,7 +178,12 @@ async function runTrapCommands(
 	}
 
 	try {
-		const result = await writeTrapCommands(db, commands);
+		const result = await writeCommands(
+			db,
+			commandActor(context.get('authContext')),
+			commands,
+			writeTrapCommand,
+		);
 		if (result.row === null) {
 			return context.json({ error: 'trap_not_found' }, 404);
 		}
@@ -184,19 +191,6 @@ async function runTrapCommands(
 	} catch (error) {
 		return handleCommandError(context, error);
 	}
-}
-
-async function writeTrapCommands(
-	db: AdultSurveillanceDb,
-	commands: readonly AdultSurveillanceCommand[],
-): Promise<MutationWriteResult<SafeTrap | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeTrap | null = null;
-		for (const command of commands) {
-			row = await writeTrapCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
 }
 
 async function writeTrapCommand(
@@ -307,13 +301,5 @@ async function updateTrap(
 	organizationId: string,
 	set: TrapUpdateColumns,
 ): Promise<SafeTrap | null> {
-	const row = await trx
-		.updateTable('traps')
-		.set({ ...set, updated_at: sql`now()` })
-		.where('id', '=', trapId)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(trapReturnColumns)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafeTrap(row);
+	return updateRow(trx, 'traps', trapId, organizationId, set, trapReturnColumns, toSafeTrap);
 }
