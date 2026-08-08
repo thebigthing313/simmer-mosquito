@@ -117,7 +117,7 @@ import type { AuthVariables } from './auth-middleware.js';
 // Route site + search readers registered below the literal habitat map routes.
 const mvtContentType = 'application/vnd.mapbox-vector-tile';
 const maxSupportedZoom = 22;
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The region narrowing every map surface accepts. Regions are the agency's own
@@ -456,20 +456,11 @@ export function registerMapTileRoutes(
 	const listCollectionRows = options.listCollectionDisplayRows ?? listCollectionDisplayRowsPage;
 	const getCollectionRow = options.getCollectionDisplayRow ?? getCollectionDisplayRowById;
 
-	app.get('/map/habitats', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const queryResult = parseHabitatDisplayQuery(
-			new URL(context.req.url).searchParams,
-			authContext.organization.id,
-		);
-
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-
-		const page = await listDisplayRows(options.db, queryResult.input);
-
-		return context.json({ habitats: page.rows, total: page.total });
+	registerPagedRoute(app, options, {
+		path: '/map/habitats',
+		key: 'habitats',
+		parseQuery: parseHabitatDisplayQuery,
+		list: listDisplayRows,
 	});
 
 	// Registered before `/:id` so the literal segment wins over the UUID param.
@@ -504,309 +495,130 @@ export function registerMapTileRoutes(
 		return context.json({ habitats });
 	});
 
-	app.get('/map/habitats/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Habitat id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const habitat = await getDisplayRow(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (habitat === undefined) {
-			return context.json({ error: 'not_found', reason: 'Habitat not found.' }, 404);
-		}
-
-		return context.json({ habitat });
+	registerByIdRoute(app, options, {
+		path: '/map/habitats/:id',
+		key: 'habitat',
+		noun: 'Habitat',
+		get: getDisplayRow,
 	});
 
 	// Region + address geometry is deliberately excluded from the Electric sync
 	// shapes (the on-demand rows carry no geometry), so detail views read the
 	// polygon/point over HTTP the same way habitats do.
-	app.get('/map/regions/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Region id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const region = await getRegionById(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (region === undefined) {
-			return context.json({ error: 'not_found', reason: 'Region not found.' }, 404);
-		}
-
-		return context.json({ region: { ...region.geometry } });
+	registerByIdRoute(app, options, {
+		path: '/map/regions/:id',
+		key: 'region',
+		noun: 'Region',
+		get: getRegionById,
+		toResponse: (row) => ({ ...row.geometry }),
 	});
 
-	app.get('/map/addresses/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Address id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const address = await getAddressById(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (address === undefined) {
-			return context.json({ error: 'not_found', reason: 'Address not found.' }, 404);
-		}
-
-		return context.json({ address: { ...address.geometry } });
+	registerByIdRoute(app, options, {
+		path: '/map/addresses/:id',
+		key: 'address',
+		noun: 'Address',
+		get: getAddressById,
+		toResponse: (row) => ({ ...row.geometry }),
 	});
 
-	app.get('/map/inspections', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const queryResult = parseInspectionDisplayQuery(
-			new URL(context.req.url).searchParams,
-			authContext.organization.id,
-		);
-
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-
-		const page = await listInspectionRows(options.db, queryResult.input);
-
-		return context.json({ inspections: page.rows, total: page.total });
+	registerPagedRoute(app, options, {
+		path: '/map/inspections',
+		key: 'inspections',
+		parseQuery: parseInspectionDisplayQuery,
+		list: listInspectionRows,
 	});
 
-	app.get('/map/inspections/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Inspection id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const inspection = await getInspectionRow(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (inspection === undefined) {
-			return context.json({ error: 'not_found', reason: 'Inspection not found.' }, 404);
-		}
-
-		return context.json({ inspection });
+	registerByIdRoute(app, options, {
+		path: '/map/inspections/:id',
+		key: 'inspection',
+		noun: 'Inspection',
+		get: getInspectionRow,
 	});
 
-	app.get('/map/samples', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const queryResult = parseSampleDisplayQuery(
-			new URL(context.req.url).searchParams,
-			authContext.organization.id,
-		);
-
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-
-		const page = await listSampleRows(options.db, queryResult.input);
-
-		return context.json({ samples: page.rows, total: page.total });
+	registerPagedRoute(app, options, {
+		path: '/map/samples',
+		key: 'samples',
+		parseQuery: parseSampleDisplayQuery,
+		list: listSampleRows,
 	});
 
-	app.get('/map/samples/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Sample id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const sample = await getSampleRow(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (sample === undefined) {
-			return context.json({ error: 'not_found', reason: 'Sample not found.' }, 404);
-		}
-
-		return context.json({ sample });
+	registerByIdRoute(app, options, {
+		path: '/map/samples/:id',
+		key: 'sample',
+		noun: 'Sample',
+		get: getSampleRow,
 	});
 
-	app.get('/map/chemical', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const queryResult = parsePageQuery(
-			new URL(context.req.url).searchParams,
-			authContext.organization.id,
-			parseApplicationMapFilters,
-		);
-
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-
-		const page = await listApplicationRows(options.db, queryResult.input);
-
-		return context.json({ applications: page.rows, total: page.total });
+	registerPagedRoute(app, options, {
+		path: '/map/chemical',
+		key: 'applications',
+		parseQuery: (searchParams, organizationId) =>
+			parsePageQuery(searchParams, organizationId, parseApplicationMapFilters),
+		list: listApplicationRows,
 	});
 
-	app.get('/map/chemical/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Application id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const application = await getApplicationRow(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (application === undefined) {
-			return context.json({ error: 'not_found', reason: 'Application not found.' }, 404);
-		}
-
-		return context.json({ application });
+	registerByIdRoute(app, options, {
+		path: '/map/chemical/:id',
+		key: 'application',
+		noun: 'Application',
+		get: getApplicationRow,
 	});
 
-	app.get('/map/source-reduction', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const queryResult = parsePageQuery(
-			new URL(context.req.url).searchParams,
-			authContext.organization.id,
-			parseSourceReductionMapFilters,
-		);
-
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-
-		const page = await listSourceReductionRows(options.db, queryResult.input);
-
-		return context.json({ sourceReductions: page.rows, total: page.total });
+	registerPagedRoute(app, options, {
+		path: '/map/source-reduction',
+		key: 'sourceReductions',
+		parseQuery: (searchParams, organizationId) =>
+			parsePageQuery(searchParams, organizationId, parseSourceReductionMapFilters),
+		list: listSourceReductionRows,
 	});
 
-	app.get('/map/source-reduction/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json(
-				{ error: 'invalid_id', reason: 'Source reduction id must be a UUID.' },
-				400,
-			);
-		}
-
-		const authContext = context.get('authContext');
-		const sourceReduction = await getSourceReductionRow(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (sourceReduction === undefined) {
-			return context.json({ error: 'not_found', reason: 'Source reduction not found.' }, 404);
-		}
-
-		return context.json({ sourceReduction });
+	registerByIdRoute(app, options, {
+		path: '/map/source-reduction/:id',
+		key: 'sourceReduction',
+		noun: 'Source reduction',
+		get: getSourceReductionRow,
 	});
 
-	app.get('/map/biocontrol', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const queryResult = parsePageQuery(
-			new URL(context.req.url).searchParams,
-			authContext.organization.id,
-			parseBiocontrolMapFilters,
-		);
-
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-
-		const page = await listBiocontrolRows(options.db, queryResult.input);
-
-		return context.json({ biocontrolActions: page.rows, total: page.total });
+	registerPagedRoute(app, options, {
+		path: '/map/biocontrol',
+		key: 'biocontrolActions',
+		parseQuery: (searchParams, organizationId) =>
+			parsePageQuery(searchParams, organizationId, parseBiocontrolMapFilters),
+		list: listBiocontrolRows,
 	});
 
-	app.get('/map/biocontrol/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Biocontrol id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const biocontrolAction = await getBiocontrolRow(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (biocontrolAction === undefined) {
-			return context.json({ error: 'not_found', reason: 'Biocontrol action not found.' }, 404);
-		}
-
-		return context.json({ biocontrolAction });
+	registerByIdRoute(app, options, {
+		path: '/map/biocontrol/:id',
+		key: 'biocontrolAction',
+		noun: 'Biocontrol',
+		foundNoun: 'Biocontrol action',
+		get: getBiocontrolRow,
 	});
 
-	app.get('/map/outreach', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const queryResult = parsePageQuery(
-			new URL(context.req.url).searchParams,
-			authContext.organization.id,
-			parseOutreachMapFilters,
-		);
-
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-
-		const page = await listOutreachRows(options.db, queryResult.input);
-
-		return context.json({ outreachActions: page.rows, total: page.total });
+	registerPagedRoute(app, options, {
+		path: '/map/outreach',
+		key: 'outreachActions',
+		parseQuery: (searchParams, organizationId) =>
+			parsePageQuery(searchParams, organizationId, parseOutreachMapFilters),
+		list: listOutreachRows,
 	});
 
-	app.get('/map/outreach/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Outreach id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const outreachAction = await getOutreachRow(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (outreachAction === undefined) {
-			return context.json({ error: 'not_found', reason: 'Outreach action not found.' }, 404);
-		}
-
-		return context.json({ outreachAction });
+	registerByIdRoute(app, options, {
+		path: '/map/outreach/:id',
+		key: 'outreachAction',
+		noun: 'Outreach',
+		foundNoun: 'Outreach action',
+		get: getOutreachRow,
 	});
 
 	// Geometry only — a request's other fields already stream on its Electric
 	// shape, and this endpoint exists because the shape carries the centroid
 	// rather than the drawn line or area (ADR 0009).
-	app.get('/map/requested-control-actions/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json(
-				{ error: 'invalid_id', reason: 'Requested control action id must be a UUID.' },
-				400,
-			);
-		}
-
-		const authContext = context.get('authContext');
-		const requestedControlAction = await getRequestedControlActionDisplayRowById(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (requestedControlAction === undefined) {
-			return context.json(
-				{ error: 'not_found', reason: 'Requested control action not found.' },
-				404,
-			);
-		}
-
-		return context.json({ requestedControlAction });
+	registerByIdRoute(app, options, {
+		path: '/map/requested-control-actions/:id',
+		key: 'requestedControlAction',
+		noun: 'Requested control action',
+		get: getRequestedControlActionDisplayRowById,
 	});
 
 	// Every stop's real shape, in dispatch order. The mission surfaces draw the
@@ -828,76 +640,34 @@ export function registerMapTileRoutes(
 		return context.json({ missionItems });
 	});
 
-	app.get('/map/traps', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const queryResult = parsePageQuery(
-			new URL(context.req.url).searchParams,
-			authContext.organization.id,
-			parseTrapMapFilters,
-		);
-
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-
-		const page = await listTrapRows(options.db, queryResult.input);
-
-		return context.json({ traps: page.rows, total: page.total });
+	registerPagedRoute(app, options, {
+		path: '/map/traps',
+		key: 'traps',
+		parseQuery: (searchParams, organizationId) =>
+			parsePageQuery(searchParams, organizationId, parseTrapMapFilters),
+		list: listTrapRows,
 	});
 
-	app.get('/map/traps/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Trap id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const trap = await getTrapRow(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (trap === undefined) {
-			return context.json({ error: 'not_found', reason: 'Trap not found.' }, 404);
-		}
-
-		return context.json({ trap });
+	registerByIdRoute(app, options, {
+		path: '/map/traps/:id',
+		key: 'trap',
+		noun: 'Trap',
+		get: getTrapRow,
 	});
 
-	app.get('/map/collections', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const queryResult = parsePageQuery(
-			new URL(context.req.url).searchParams,
-			authContext.organization.id,
-			parseCollectionMapFilters,
-		);
-
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-
-		const page = await listCollectionRows(options.db, queryResult.input);
-
-		return context.json({ collections: page.rows, total: page.total });
+	registerPagedRoute(app, options, {
+		path: '/map/collections',
+		key: 'collections',
+		parseQuery: (searchParams, organizationId) =>
+			parsePageQuery(searchParams, organizationId, parseCollectionMapFilters),
+		list: listCollectionRows,
 	});
 
-	app.get('/map/collections/:id', options.authContextMiddleware, async (context) => {
-		const id = context.req.param('id');
-		if (!uuidPattern.test(id)) {
-			return context.json({ error: 'invalid_id', reason: 'Collection id must be a UUID.' }, 400);
-		}
-
-		const authContext = context.get('authContext');
-		const collection = await getCollectionRow(options.db, {
-			id,
-			organizationId: authContext.organization.id,
-		});
-
-		if (collection === undefined) {
-			return context.json({ error: 'not_found', reason: 'Collection not found.' }, 404);
-		}
-
-		return context.json({ collection });
+	registerByIdRoute(app, options, {
+		path: '/map/collections/:id',
+		key: 'collection',
+		noun: 'Collection',
+		get: getCollectionRow,
 	});
 
 	// The bounding box of everything the same filters would draw, viewport-free.
@@ -969,6 +739,106 @@ export function registerMapTileRoutes(
 			});
 		},
 	);
+}
+
+/**
+ * A paged read: parse the query, refuse it or run it, answer rows and a total.
+ *
+ * Nine copies of this body existed, differing in a path, a response key, a
+ * parser and a reader.
+ */
+function registerPagedRoute<TInput, TRow>(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: {
+		readonly db: TileDb;
+		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	},
+	route: {
+		readonly path: string;
+		/** The key the rows come back under, e.g. `biocontrolActions`. */
+		readonly key: string;
+		readonly parseQuery: (
+			searchParams: URLSearchParams,
+			organizationId: string,
+		) => PageQueryResult<TInput>;
+		readonly list: (
+			db: TileDb,
+			input: TInput,
+		) => Promise<{ readonly rows: readonly TRow[]; readonly total: number }>;
+	},
+): void {
+	app.get(route.path, options.authContextMiddleware, async (context) => {
+		const authContext = context.get('authContext');
+		const queryResult = route.parseQuery(
+			new URL(context.req.url).searchParams,
+			authContext.organization.id,
+		);
+
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+
+		const page = await route.list(options.db, queryResult.input);
+
+		return context.json({ [route.key]: page.rows, total: page.total });
+	});
+}
+
+/**
+ * A read of one row by id, tenant-scoped.
+ *
+ * Thirteen copies, differing in a noun and a reader. The most recently added one
+ * was written the same way, which is the argument for this existing: the copy
+ * was the path of least resistance.
+ *
+ * The 404 says "not found" for a row that is not there *and* for one that
+ * belongs to another agency — the reader scopes by `organizationId`, so the two
+ * are indistinguishable from here, deliberately.
+ */
+function registerByIdRoute<TRow>(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: {
+		readonly db: TileDb;
+		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	},
+	route: {
+		readonly path: string;
+		/** The key the row comes back under. */
+		readonly key: string;
+		/** The noun in `<noun> id must be a UUID.` */
+		readonly noun: string;
+		/** The noun in `<noun> not found.`, where it differs from `noun`. */
+		readonly foundNoun?: string;
+		readonly get: (
+			db: TileDb,
+			input: { readonly id: string; readonly organizationId: string },
+		) => Promise<TRow | undefined>;
+		/** For the two routes that answer geometry rather than the row. */
+		readonly toResponse?: (row: TRow) => unknown;
+	},
+): void {
+	app.get(route.path, options.authContextMiddleware, async (context) => {
+		// Every path registered here carries `:id`, so Hono's `string | undefined`
+		// widening cannot happen.
+		const id = context.req.param('id') as string;
+		if (!uuidPattern.test(id)) {
+			return context.json({ error: 'invalid_id', reason: `${route.noun} id must be a UUID.` }, 400);
+		}
+
+		const authContext = context.get('authContext');
+		const row = await route.get(options.db, { id, organizationId: authContext.organization.id });
+
+		if (row === undefined) {
+			return context.json(
+				{ error: 'not_found', reason: `${route.foundNoun ?? route.noun} not found.` },
+				404,
+			);
+		}
+
+		return context.json({
+			[route.key]: route.toResponse === undefined ? row : route.toResponse(row),
+		});
+	});
 }
 
 function createTileSetRegistry(options: {
@@ -1740,7 +1610,25 @@ function parseOptionalDensityListFilter(
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
-function parseOptionalDateFilter(
+/** A finite positive number, absent, or the reason it is neither. */
+export function parseOptionalPositiveNumber(
+	searchParams: URLSearchParams,
+	param: string,
+):
+	| { readonly ok: true; readonly value: number | undefined }
+	| { readonly ok: false; readonly reason: string } {
+	const raw = searchParams.get(param);
+	if (raw === null) {
+		return { ok: true, value: undefined };
+	}
+
+	const parsed = Number(raw);
+	return Number.isFinite(parsed) && parsed > 0
+		? { ok: true, value: parsed }
+		: { ok: false, reason: `${param} must be a positive number.` };
+}
+
+export function parseOptionalDateFilter(
 	searchParams: URLSearchParams,
 	param: string,
 ):

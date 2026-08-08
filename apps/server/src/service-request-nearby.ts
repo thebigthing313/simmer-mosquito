@@ -8,8 +8,7 @@ import {
 import { resolveOrganizationSettings, serviceRequestContextBounds } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
-
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+import { parseOptionalDateFilter, parseOptionalPositiveNumber, uuidPattern } from './map-tiles.js';
 
 /**
  * Reads the map-context view for a service request: the operational records
@@ -28,6 +27,14 @@ export function registerServiceRequestNearbyRoutes(
 	app.get('/map/service-requests/:id/nearby', options.authContextMiddleware, async (context) => {
 		const organizationId = context.get('authContext').organization.id;
 		const id = context.req.param('id');
+		// Every other `/map/*` by-id route refuses a non-UUID here. This one used to
+		// hand it to Postgres, which answered with a cast error and a 500.
+		if (!uuidPattern.test(id)) {
+			return context.json(
+				{ error: 'invalid_id', reason: 'Service request id must be a UUID.' },
+				400,
+			);
+		}
 
 		const request = await getServiceRequestCenter(options.db, { organizationId, id });
 		if (request === undefined) {
@@ -40,23 +47,14 @@ export function registerServiceRequestNearbyRoutes(
 		const requestContext = settings.publicEngagement.serviceRequestContext;
 		const defaults = serviceRequestContextBounds(request.requestDate, requestContext);
 
-		const url = new URL(context.req.url);
-		const radiusOverride = parsePositiveNumber(url.searchParams.get('radiusMeters'));
-		if (radiusOverride === 'invalid') {
-			return context.json(
-				{ error: 'invalid_query', reason: 'radiusMeters must be positive.' },
-				400,
-			);
-		}
-		const dateFromOverride = parseDate(url.searchParams.get('dateFrom'));
-		const dateToOverride = parseDate(url.searchParams.get('dateTo'));
-		if (dateFromOverride === 'invalid' || dateToOverride === 'invalid') {
-			return context.json({ error: 'invalid_query', reason: 'dates must be YYYY-MM-DD.' }, 400);
+		const overrides = readNearbyOverrides(new URL(context.req.url).searchParams);
+		if (!overrides.ok) {
+			return context.json({ error: 'invalid_query', reason: overrides.reason }, 400);
 		}
 
-		const radiusMeters = radiusOverride ?? defaults.radiusMeters;
-		const dateFrom = dateFromOverride ?? defaults.dateFrom;
-		const dateTo = dateToOverride ?? defaults.dateTo;
+		const radiusMeters = overrides.radiusMeters ?? defaults.radiusMeters;
+		const dateFrom = overrides.dateFrom ?? defaults.dateFrom;
+		const dateTo = overrides.dateTo ?? defaults.dateTo;
 
 		const items = await listNearbyRecords(options.db, {
 			organizationId,
@@ -81,19 +79,43 @@ export function registerServiceRequestNearbyRoutes(
 	});
 }
 
-/** A finite positive number, `undefined` when absent, or `'invalid'` when malformed. */
-function parsePositiveNumber(value: string | null): number | undefined | 'invalid' {
-	if (value === null) {
-		return undefined;
+/**
+ * The per-request overrides for the radius and time window.
+ *
+ * The defaults come from `settings.publicEngagement.serviceRequestContext`; the
+ * UI offers an "adjust" control, and these are what it sends. They go through
+ * the same parsers every other `/map/*` query uses — this module used to carry
+ * its own `DATE_PATTERN` and a pair of parsers that answered the string
+ * `'invalid'` instead of the `{ ok: false, reason }` union everything else
+ * returns, which is two protocols on one path prefix.
+ */
+function readNearbyOverrides(searchParams: URLSearchParams):
+	| {
+			readonly ok: true;
+			readonly radiusMeters: number | undefined;
+			readonly dateFrom: string | undefined;
+			readonly dateTo: string | undefined;
+	  }
+	| { readonly ok: false; readonly reason: string } {
+	const radiusMeters = parseOptionalPositiveNumber(searchParams, 'radiusMeters');
+	if (!radiusMeters.ok) {
+		return radiusMeters;
 	}
-	const parsed = Number(value);
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : 'invalid';
-}
 
-/** A `YYYY-MM-DD` string, `undefined` when absent, or `'invalid'` when malformed. */
-function parseDate(value: string | null): string | undefined | 'invalid' {
-	if (value === null) {
-		return undefined;
+	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
+	if (!dateFrom.ok) {
+		return dateFrom;
 	}
-	return DATE_PATTERN.test(value) ? value : 'invalid';
+
+	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
+	if (!dateTo.ok) {
+		return dateTo;
+	}
+
+	return {
+		ok: true,
+		radiusMeters: radiusMeters.value,
+		dateFrom: dateFrom.value,
+		dateTo: dateTo.value,
+	};
 }
