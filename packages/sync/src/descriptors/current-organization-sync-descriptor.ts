@@ -6,6 +6,7 @@ export const currentOrganizationSyncDescriptor = createSyncDescriptor<Organizati
 	table: 'organizations',
 	endpointPath: '/sync/shapes/organization',
 	syncMode: 'eager',
+	scope: 'organization-row',
 	columns: [
 		'id',
 		'workosOrganizationId',

@@ -3,6 +3,8 @@ import {
 	electricCollectionOptions,
 } from '@tanstack/electric-db-collection';
 import { decodeShapeColumnName } from './decode-shape-column-name.js';
+import type { SyncShapeScope } from './descriptor-factory.js';
+import * as syncDescriptors from './descriptors/index.js';
 import { encodeShapeColumnName } from './encode-shape-column-name.js';
 
 export {
@@ -18,13 +20,34 @@ export interface SyncDescriptor<TRow extends { readonly id: string }> {
 	readonly table: string;
 	readonly endpointPath: string;
 	readonly syncMode: WebSyncMode;
+	readonly scope: SyncShapeScope;
 	readonly columns: readonly (keyof TRow & string)[];
 	readonly getKey: (row: TRow) => string;
+}
+
+/**
+ * Everything the server needs to register a shape route, with the row type
+ * erased so one loop can carry all of them.
+ */
+export interface SyncShapeRoute {
+	readonly id: string;
+	readonly table: string;
+	readonly endpointPath: string;
+	readonly scope: SyncShapeScope;
+	readonly columns: readonly string[];
 }
 
 export * from './descriptor-factory.js';
 export * from './row-payload-mapper.js';
 export * from './rows/index.js';
+
+/**
+ * Every shape the server exposes, read off the descriptor barrel rather than
+ * listed again. Adding a descriptor file adds its route; there is no second
+ * place to remember, and no way for a path or scope to be typed twice and
+ * disagree.
+ */
+export const syncShapeDescriptors: readonly SyncShapeRoute[] = Object.values(syncDescriptors);
 
 import {
 	additionalPersonnelSyncDescriptor,
