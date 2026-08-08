@@ -1,9 +1,16 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
-import { type MapExtent, readMapExtent } from './map-extent.js';
+import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
-import { readMapTile } from './map-tile.js';
+import {
+	type MapByIdInput,
+	type MapFilterInput,
+	type MapPageInput,
+	type MapPageResult,
+	type MapTileInput,
+	mapRecordSurface,
+} from './map-surface.js';
 
 // --- control-operations map surfaces ----------------------------------------
 //
@@ -14,6 +21,9 @@ import { readMapTile } from './map-tile.js';
 // reads a filtered, offset-paged window (no bbox) so the explorer's result rail
 // is never an unbounded query. Lookup names (insecticide, method, unit) resolve
 // client-side from the eager catalog, so only ids ride in the display rows.
+//
+// The four surfaces differ only in their table, their projection, and their
+// filters; the tenancy scope and the four read shapes come from `mapSurface`.
 
 // --- chemical applications --------------------------------------------------
 
@@ -30,25 +40,9 @@ export interface ApplicationMapFilters {
 	readonly dateTo?: string;
 }
 
-export interface ApplicationMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: ApplicationMapFilters;
-}
-
-export interface ApplicationPageInput {
-	readonly organizationId: string;
-	readonly filters?: ApplicationMapFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
-export interface ApplicationByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type ApplicationMvtTileInput = MapTileInput<ApplicationMapFilters>;
+export type ApplicationPageInput = MapPageInput<ApplicationMapFilters>;
+export type ApplicationByIdInput = MapByIdInput;
 
 /**
  * A server-safe application display row: the geometry projection plus the record
@@ -77,10 +71,55 @@ export interface SafeApplicationDisplayRow {
 }
 
 /** A page of application rows plus the full count for the current filters. */
-export interface ApplicationPageResult {
-	readonly total: number;
-	readonly rows: SafeApplicationDisplayRow[];
-}
+export type ApplicationPageResult = MapPageResult<SafeApplicationDisplayRow>;
+
+// Applicator name + batch-name roll-up, kept as one fragment so the paged list
+// and by-id readers can never drift in their joins.
+const applicationDisplayJoins = sql`
+	left join profiles ap on ap.id = a.applicator_profile_id
+	left join lateral (
+		select json_agg(ib.batch_name order by ib.batch_name) as batch_names
+		from application_batches abx
+		join insecticide_batches ib on ib.id = abx.insecticide_batch_id
+		where abx.application_id = a.id
+			and abx.deleted_at is null
+			and ib.deleted_at is null
+	) batches on true
+`;
+
+const applicationDisplayColumns = sql`
+	a.id,
+	a.organization_id as "organizationId",
+	a.lat,
+	a.lng,
+	a.geojson,
+	a.geom_type as "geomType",
+	a.insecticide_id as "insecticideId",
+	a.application_method_id as "applicationMethodId",
+	a.application_date::text as "applicationDate",
+	a.amount_applied as "amountApplied",
+	a.application_unit_id as "applicationUnitId",
+	a.habitat_id as "habitatId",
+	a.applicator_profile_id as "applicatorProfileId",
+	ap.display_name as "applicatorName",
+	coalesce(batches.batch_names, '[]'::json) as "batchNames",
+	a.created_at as "createdAt",
+	a.updated_at as "updatedAt"
+`;
+
+const applicationSurface = mapRecordSurface<ApplicationMapFilters, SafeApplicationDisplayRow>({
+	layer: 'chemical',
+	from: sql`applications a`,
+	alias: 'a',
+	geom: sql`a.geom`,
+	properties: [sql`a.id`],
+	filterWhere: applicationFilterWhere,
+	display: {
+		columns: applicationDisplayColumns,
+		joins: applicationDisplayJoins,
+		orderBy: sql`a.application_date desc, a.created_at desc, a.id`,
+	},
+});
 
 function applicationFilterWhere(filters: ApplicationMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
@@ -117,67 +156,21 @@ export async function getApplicationMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: ApplicationMvtTileInput,
 ): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'chemical',
-		from: sql`applications a`,
-		geom: sql`a.geom`,
-		properties: [sql`a.id`],
-		where: [
-			sql`a.organization_id = ${input.organizationId}`,
-			sql`a.deleted_at is null`,
-			sql`a.geom && bounds.geom_4326`,
-			sql`st_intersects(a.geom, bounds.geom_4326)`,
-			...applicationFilterWhere(input.filters),
-		],
-	});
+	return applicationSurface.getTile(db, input);
 }
 
 export async function listApplicationDisplayRowsPage(
 	db: Kysely<SimmerDatabase>,
 	input: ApplicationPageInput,
 ): Promise<ApplicationPageResult> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`a.organization_id = ${input.organizationId}`,
-		sql<boolean>`a.deleted_at is null`,
-		...applicationFilterWhere(input.filters),
-	];
-
-	const result = await sql<SafeApplicationDisplayRow & { readonly total: number }>`
-		select
-			${applicationDisplayColumns},
-			count(*) over()::int as "total"
-		from applications a
-		${applicationDisplayJoins}
-		where ${sql.join(whereClauses, sql` and `)}
-		order by a.application_date desc, a.created_at desc, a.id
-		limit ${input.limit}
-		offset ${input.offset}
-	`.execute(db);
-
-	return {
-		total: result.rows[0]?.total ?? 0,
-		rows: result.rows,
-	};
+	return applicationSurface.listPage(db, input);
 }
 
 export async function getApplicationDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: ApplicationByIdInput,
 ): Promise<SafeApplicationDisplayRow | undefined> {
-	const result = await sql<SafeApplicationDisplayRow>`
-		select ${applicationDisplayColumns}
-		from applications a
-		${applicationDisplayJoins}
-		where a.id = ${input.id}
-			and a.organization_id = ${input.organizationId}
-			and a.deleted_at is null
-		limit 1
-	`.execute(db);
-
-	return result.rows[0];
+	return applicationSurface.getById(db, input);
 }
 
 /**
@@ -186,54 +179,10 @@ export async function getApplicationDisplayRowById(
  */
 export async function getApplicationMapExtent(
 	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly filters?: ApplicationMapFilters },
+	input: MapFilterInput<ApplicationMapFilters>,
 ): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`a.geom`,
-		from: sql`applications a`,
-		where: [
-			sql<boolean>`a.organization_id = ${input.organizationId}`,
-			sql<boolean>`a.deleted_at is null`,
-			...applicationFilterWhere(input.filters),
-		],
-	});
+	return applicationSurface.getExtent(db, input);
 }
-
-// Applicator name + batch-name roll-up, kept as one fragment so the paged list
-// and by-id readers can never drift in their joins.
-const applicationDisplayJoins = sql`
-	left join profiles ap on ap.id = a.applicator_profile_id
-	left join lateral (
-		select json_agg(ib.batch_name order by ib.batch_name) as batch_names
-		from application_batches abx
-		join insecticide_batches ib on ib.id = abx.insecticide_batch_id
-		where abx.application_id = a.id
-			and abx.deleted_at is null
-			and ib.deleted_at is null
-	) batches on true
-`;
-
-// Shared projection for the paged list + by-id readers. Kept as one fragment so
-// the two paths can never drift in shape.
-const applicationDisplayColumns = sql`
-	a.id,
-	a.organization_id as "organizationId",
-	a.lat,
-	a.lng,
-	a.geojson,
-	a.geom_type as "geomType",
-	a.insecticide_id as "insecticideId",
-	a.application_method_id as "applicationMethodId",
-	a.application_date::text as "applicationDate",
-	a.amount_applied as "amountApplied",
-	a.application_unit_id as "applicationUnitId",
-	a.habitat_id as "habitatId",
-	a.applicator_profile_id as "applicatorProfileId",
-	ap.display_name as "applicatorName",
-	coalesce(batches.batch_names, '[]'::json) as "batchNames",
-	a.created_at as "createdAt",
-	a.updated_at as "updatedAt"
-`;
 
 // --- source reduction -------------------------------------------------------
 
@@ -249,25 +198,9 @@ export interface SourceReductionMapFilters {
 	readonly dateTo?: string;
 }
 
-export interface SourceReductionMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: SourceReductionMapFilters;
-}
-
-export interface SourceReductionPageInput {
-	readonly organizationId: string;
-	readonly filters?: SourceReductionMapFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
-export interface SourceReductionByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type SourceReductionMvtTileInput = MapTileInput<SourceReductionMapFilters>;
+export type SourceReductionPageInput = MapPageInput<SourceReductionMapFilters>;
+export type SourceReductionByIdInput = MapByIdInput;
 
 export interface SafeSourceReductionDisplayRow {
 	readonly id: string;
@@ -286,10 +219,41 @@ export interface SafeSourceReductionDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export interface SourceReductionPageResult {
-	readonly total: number;
-	readonly rows: SafeSourceReductionDisplayRow[];
-}
+export type SourceReductionPageResult = MapPageResult<SafeSourceReductionDisplayRow>;
+
+const sourceReductionDisplayColumns = sql`
+	sr.id,
+	sr.organization_id as "organizationId",
+	sr.lat,
+	sr.lng,
+	sr.geojson,
+	sr.geom_type as "geomType",
+	sr.source_reduction_method_id as "sourceReductionMethodId",
+	sr.source_reduction_date::text as "sourceReductionDate",
+	sr.sources_eliminated_amount as "sourcesEliminatedAmount",
+	sr.sources_eliminated_unit_id as "sourcesEliminatedUnitId",
+	sr.technician_profile_id as "technicianProfileId",
+	sr.habitat_id as "habitatId",
+	sr.inspection_id as "inspectionId",
+	sr.created_at as "createdAt",
+	sr.updated_at as "updatedAt"
+`;
+
+const sourceReductionSurface = mapRecordSurface<
+	SourceReductionMapFilters,
+	SafeSourceReductionDisplayRow
+>({
+	layer: 'source-reduction',
+	from: sql`source_reductions sr`,
+	alias: 'sr',
+	geom: sql`sr.geom`,
+	properties: [sql`sr.id`],
+	filterWhere: sourceReductionFilterWhere,
+	display: {
+		columns: sourceReductionDisplayColumns,
+		orderBy: sql`sr.source_reduction_date desc, sr.created_at desc, sr.id`,
+	},
+});
 
 function sourceReductionFilterWhere(
 	filters: SourceReductionMapFilters | undefined,
@@ -328,65 +292,21 @@ export async function getSourceReductionMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: SourceReductionMvtTileInput,
 ): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'source-reduction',
-		from: sql`source_reductions sr`,
-		geom: sql`sr.geom`,
-		properties: [sql`sr.id`],
-		where: [
-			sql`sr.organization_id = ${input.organizationId}`,
-			sql`sr.deleted_at is null`,
-			sql`sr.geom && bounds.geom_4326`,
-			sql`st_intersects(sr.geom, bounds.geom_4326)`,
-			...sourceReductionFilterWhere(input.filters),
-		],
-	});
+	return sourceReductionSurface.getTile(db, input);
 }
 
 export async function listSourceReductionDisplayRowsPage(
 	db: Kysely<SimmerDatabase>,
 	input: SourceReductionPageInput,
 ): Promise<SourceReductionPageResult> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`sr.organization_id = ${input.organizationId}`,
-		sql<boolean>`sr.deleted_at is null`,
-		...sourceReductionFilterWhere(input.filters),
-	];
-
-	const result = await sql<SafeSourceReductionDisplayRow & { readonly total: number }>`
-		select
-			${sourceReductionDisplayColumns},
-			count(*) over()::int as "total"
-		from source_reductions sr
-		where ${sql.join(whereClauses, sql` and `)}
-		order by sr.source_reduction_date desc, sr.created_at desc, sr.id
-		limit ${input.limit}
-		offset ${input.offset}
-	`.execute(db);
-
-	return {
-		total: result.rows[0]?.total ?? 0,
-		rows: result.rows,
-	};
+	return sourceReductionSurface.listPage(db, input);
 }
 
 export async function getSourceReductionDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: SourceReductionByIdInput,
 ): Promise<SafeSourceReductionDisplayRow | undefined> {
-	const result = await sql<SafeSourceReductionDisplayRow>`
-		select ${sourceReductionDisplayColumns}
-		from source_reductions sr
-		where sr.id = ${input.id}
-			and sr.organization_id = ${input.organizationId}
-			and sr.deleted_at is null
-		limit 1
-	`.execute(db);
-
-	return result.rows[0];
+	return sourceReductionSurface.getById(db, input);
 }
 
 /**
@@ -395,36 +315,10 @@ export async function getSourceReductionDisplayRowById(
  */
 export async function getSourceReductionMapExtent(
 	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly filters?: SourceReductionMapFilters },
+	input: MapFilterInput<SourceReductionMapFilters>,
 ): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`sr.geom`,
-		from: sql`source_reductions sr`,
-		where: [
-			sql<boolean>`sr.organization_id = ${input.organizationId}`,
-			sql<boolean>`sr.deleted_at is null`,
-			...sourceReductionFilterWhere(input.filters),
-		],
-	});
+	return sourceReductionSurface.getExtent(db, input);
 }
-
-const sourceReductionDisplayColumns = sql`
-	sr.id,
-	sr.organization_id as "organizationId",
-	sr.lat,
-	sr.lng,
-	sr.geojson,
-	sr.geom_type as "geomType",
-	sr.source_reduction_method_id as "sourceReductionMethodId",
-	sr.source_reduction_date::text as "sourceReductionDate",
-	sr.sources_eliminated_amount as "sourcesEliminatedAmount",
-	sr.sources_eliminated_unit_id as "sourcesEliminatedUnitId",
-	sr.technician_profile_id as "technicianProfileId",
-	sr.habitat_id as "habitatId",
-	sr.inspection_id as "inspectionId",
-	sr.created_at as "createdAt",
-	sr.updated_at as "updatedAt"
-`;
 
 // --- biocontrol -------------------------------------------------------------
 
@@ -442,25 +336,9 @@ export interface BiocontrolMapFilters {
 	readonly dateTo?: string;
 }
 
-export interface BiocontrolMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: BiocontrolMapFilters;
-}
-
-export interface BiocontrolPageInput {
-	readonly organizationId: string;
-	readonly filters?: BiocontrolMapFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
-export interface BiocontrolByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type BiocontrolMvtTileInput = MapTileInput<BiocontrolMapFilters>;
+export type BiocontrolPageInput = MapPageInput<BiocontrolMapFilters>;
+export type BiocontrolByIdInput = MapByIdInput;
 
 export interface SafeBiocontrolDisplayRow {
 	readonly id: string;
@@ -479,10 +357,38 @@ export interface SafeBiocontrolDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export interface BiocontrolPageResult {
-	readonly total: number;
-	readonly rows: SafeBiocontrolDisplayRow[];
-}
+export type BiocontrolPageResult = MapPageResult<SafeBiocontrolDisplayRow>;
+
+const biocontrolDisplayColumns = sql`
+	ba.id,
+	ba.organization_id as "organizationId",
+	ba.lat,
+	ba.lng,
+	ba.geojson,
+	ba.geom_type as "geomType",
+	ba.biocontrol_method_id as "biocontrolMethodId",
+	ba.biocontrol_date::text as "biocontrolDate",
+	ba.amount_released as "amountReleased",
+	ba.release_unit_id as "releaseUnitId",
+	ba.technician_profile_id as "technicianProfileId",
+	ba.habitat_id as "habitatId",
+	ba.inspection_id as "inspectionId",
+	ba.created_at as "createdAt",
+	ba.updated_at as "updatedAt"
+`;
+
+const biocontrolSurface = mapRecordSurface<BiocontrolMapFilters, SafeBiocontrolDisplayRow>({
+	layer: 'biocontrol',
+	from: sql`biocontrol_actions ba`,
+	alias: 'ba',
+	geom: sql`ba.geom`,
+	properties: [sql`ba.id`],
+	filterWhere: biocontrolFilterWhere,
+	display: {
+		columns: biocontrolDisplayColumns,
+		orderBy: sql`ba.biocontrol_date desc, ba.created_at desc, ba.id`,
+	},
+});
 
 function biocontrolFilterWhere(filters: BiocontrolMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
@@ -519,65 +425,21 @@ export async function getBiocontrolMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: BiocontrolMvtTileInput,
 ): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'biocontrol',
-		from: sql`biocontrol_actions ba`,
-		geom: sql`ba.geom`,
-		properties: [sql`ba.id`],
-		where: [
-			sql`ba.organization_id = ${input.organizationId}`,
-			sql`ba.deleted_at is null`,
-			sql`ba.geom && bounds.geom_4326`,
-			sql`st_intersects(ba.geom, bounds.geom_4326)`,
-			...biocontrolFilterWhere(input.filters),
-		],
-	});
+	return biocontrolSurface.getTile(db, input);
 }
 
 export async function listBiocontrolDisplayRowsPage(
 	db: Kysely<SimmerDatabase>,
 	input: BiocontrolPageInput,
 ): Promise<BiocontrolPageResult> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`ba.organization_id = ${input.organizationId}`,
-		sql<boolean>`ba.deleted_at is null`,
-		...biocontrolFilterWhere(input.filters),
-	];
-
-	const result = await sql<SafeBiocontrolDisplayRow & { readonly total: number }>`
-		select
-			${biocontrolDisplayColumns},
-			count(*) over()::int as "total"
-		from biocontrol_actions ba
-		where ${sql.join(whereClauses, sql` and `)}
-		order by ba.biocontrol_date desc, ba.created_at desc, ba.id
-		limit ${input.limit}
-		offset ${input.offset}
-	`.execute(db);
-
-	return {
-		total: result.rows[0]?.total ?? 0,
-		rows: result.rows,
-	};
+	return biocontrolSurface.listPage(db, input);
 }
 
 export async function getBiocontrolDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: BiocontrolByIdInput,
 ): Promise<SafeBiocontrolDisplayRow | undefined> {
-	const result = await sql<SafeBiocontrolDisplayRow>`
-		select ${biocontrolDisplayColumns}
-		from biocontrol_actions ba
-		where ba.id = ${input.id}
-			and ba.organization_id = ${input.organizationId}
-			and ba.deleted_at is null
-		limit 1
-	`.execute(db);
-
-	return result.rows[0];
+	return biocontrolSurface.getById(db, input);
 }
 
 /**
@@ -586,36 +448,10 @@ export async function getBiocontrolDisplayRowById(
  */
 export async function getBiocontrolMapExtent(
 	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly filters?: BiocontrolMapFilters },
+	input: MapFilterInput<BiocontrolMapFilters>,
 ): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`ba.geom`,
-		from: sql`biocontrol_actions ba`,
-		where: [
-			sql<boolean>`ba.organization_id = ${input.organizationId}`,
-			sql<boolean>`ba.deleted_at is null`,
-			...biocontrolFilterWhere(input.filters),
-		],
-	});
+	return biocontrolSurface.getExtent(db, input);
 }
-
-const biocontrolDisplayColumns = sql`
-	ba.id,
-	ba.organization_id as "organizationId",
-	ba.lat,
-	ba.lng,
-	ba.geojson,
-	ba.geom_type as "geomType",
-	ba.biocontrol_method_id as "biocontrolMethodId",
-	ba.biocontrol_date::text as "biocontrolDate",
-	ba.amount_released as "amountReleased",
-	ba.release_unit_id as "releaseUnitId",
-	ba.technician_profile_id as "technicianProfileId",
-	ba.habitat_id as "habitatId",
-	ba.inspection_id as "inspectionId",
-	ba.created_at as "createdAt",
-	ba.updated_at as "updatedAt"
-`;
 
 // --- outreach ---------------------------------------------------------------
 //
@@ -637,25 +473,9 @@ export interface OutreachMapFilters {
 	readonly dateTo?: string;
 }
 
-export interface OutreachMvtTileInput {
-	readonly z: number;
-	readonly x: number;
-	readonly y: number;
-	readonly organizationId: string;
-	readonly filters?: OutreachMapFilters;
-}
-
-export interface OutreachPageInput {
-	readonly organizationId: string;
-	readonly filters?: OutreachMapFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
-export interface OutreachByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type OutreachMvtTileInput = MapTileInput<OutreachMapFilters>;
+export type OutreachPageInput = MapPageInput<OutreachMapFilters>;
+export type OutreachByIdInput = MapByIdInput;
 
 export interface SafeOutreachDisplayRow {
 	readonly id: string;
@@ -675,10 +495,38 @@ export interface SafeOutreachDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export interface OutreachPageResult {
-	readonly total: number;
-	readonly rows: SafeOutreachDisplayRow[];
-}
+export type OutreachPageResult = MapPageResult<SafeOutreachDisplayRow>;
+
+const outreachDisplayColumns = sql`
+	oa.id,
+	oa.organization_id as "organizationId",
+	oa.lat,
+	oa.lng,
+	oa.geojson,
+	oa.geom_type as "geomType",
+	oa.outreach_method_id as "outreachMethodId",
+	oa.outreach_date::text as "outreachDate",
+	oa.reach,
+	oa.reach_description as "reachDescription",
+	oa.technician_profile_id as "technicianProfileId",
+	oa.address_id as "addressId",
+	oa.inspection_id as "inspectionId",
+	oa.created_at as "createdAt",
+	oa.updated_at as "updatedAt"
+`;
+
+const outreachSurface = mapRecordSurface<OutreachMapFilters, SafeOutreachDisplayRow>({
+	layer: 'outreach',
+	from: sql`outreach_actions oa`,
+	alias: 'oa',
+	geom: sql`oa.geom`,
+	properties: [sql`oa.id`],
+	filterWhere: outreachFilterWhere,
+	display: {
+		columns: outreachDisplayColumns,
+		orderBy: sql`oa.outreach_date desc, oa.created_at desc, oa.id`,
+	},
+});
 
 function outreachFilterWhere(filters: OutreachMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
@@ -712,65 +560,21 @@ export async function getOutreachMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: OutreachMvtTileInput,
 ): Promise<Uint8Array> {
-	return readMapTile(db, {
-		z: input.z,
-		x: input.x,
-		y: input.y,
-		layer: 'outreach',
-		from: sql`outreach_actions oa`,
-		geom: sql`oa.geom`,
-		properties: [sql`oa.id`],
-		where: [
-			sql`oa.organization_id = ${input.organizationId}`,
-			sql`oa.deleted_at is null`,
-			sql`oa.geom && bounds.geom_4326`,
-			sql`st_intersects(oa.geom, bounds.geom_4326)`,
-			...outreachFilterWhere(input.filters),
-		],
-	});
+	return outreachSurface.getTile(db, input);
 }
 
 export async function listOutreachDisplayRowsPage(
 	db: Kysely<SimmerDatabase>,
 	input: OutreachPageInput,
 ): Promise<OutreachPageResult> {
-	const whereClauses: RawBuilder<boolean>[] = [
-		sql<boolean>`oa.organization_id = ${input.organizationId}`,
-		sql<boolean>`oa.deleted_at is null`,
-		...outreachFilterWhere(input.filters),
-	];
-
-	const result = await sql<SafeOutreachDisplayRow & { readonly total: number }>`
-		select
-			${outreachDisplayColumns},
-			count(*) over()::int as "total"
-		from outreach_actions oa
-		where ${sql.join(whereClauses, sql` and `)}
-		order by oa.outreach_date desc, oa.created_at desc, oa.id
-		limit ${input.limit}
-		offset ${input.offset}
-	`.execute(db);
-
-	return {
-		total: result.rows[0]?.total ?? 0,
-		rows: result.rows,
-	};
+	return outreachSurface.listPage(db, input);
 }
 
 export async function getOutreachDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: OutreachByIdInput,
 ): Promise<SafeOutreachDisplayRow | undefined> {
-	const result = await sql<SafeOutreachDisplayRow>`
-		select ${outreachDisplayColumns}
-		from outreach_actions oa
-		where oa.id = ${input.id}
-			and oa.organization_id = ${input.organizationId}
-			and oa.deleted_at is null
-		limit 1
-	`.execute(db);
-
-	return result.rows[0];
+	return outreachSurface.getById(db, input);
 }
 
 /**
@@ -779,36 +583,10 @@ export async function getOutreachDisplayRowById(
  */
 export async function getOutreachMapExtent(
 	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly filters?: OutreachMapFilters },
+	input: MapFilterInput<OutreachMapFilters>,
 ): Promise<MapExtent | null> {
-	return readMapExtent(db, {
-		geom: sql`oa.geom`,
-		from: sql`outreach_actions oa`,
-		where: [
-			sql<boolean>`oa.organization_id = ${input.organizationId}`,
-			sql<boolean>`oa.deleted_at is null`,
-			...outreachFilterWhere(input.filters),
-		],
-	});
+	return outreachSurface.getExtent(db, input);
 }
-
-const outreachDisplayColumns = sql`
-	oa.id,
-	oa.organization_id as "organizationId",
-	oa.lat,
-	oa.lng,
-	oa.geojson,
-	oa.geom_type as "geomType",
-	oa.outreach_method_id as "outreachMethodId",
-	oa.outreach_date::text as "outreachDate",
-	oa.reach,
-	oa.reach_description as "reachDescription",
-	oa.technician_profile_id as "technicianProfileId",
-	oa.address_id as "addressId",
-	oa.inspection_id as "inspectionId",
-	oa.created_at as "createdAt",
-	oa.updated_at as "updatedAt"
-`;
 
 // --- requested control actions ----------------------------------------------
 //
@@ -818,10 +596,7 @@ const outreachDisplayColumns = sql`
 // shape itself, so this is a by-id geometry read rather than the usual trio —
 // no tile, no paged list, and no filters to build them from.
 
-export interface RequestedControlActionByIdInput {
-	readonly organizationId: string;
-	readonly id: string;
-}
+export type RequestedControlActionByIdInput = MapByIdInput;
 
 export interface SafeRequestedControlActionDisplayRow {
 	readonly id: string;
