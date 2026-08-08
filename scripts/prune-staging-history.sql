@@ -24,29 +24,95 @@
 
 \set ON_ERROR_STOP on
 
+-- A statement that outlives its client is worse than a slow one. psql killed by
+-- its own timeout leaves the server-side DELETE running, holding row locks,
+-- visible only to someone who thinks to read pg_stat_activity — which is how an
+-- early version of this file left an 18-minute delete churning on staging after
+-- everyone believed it had stopped. A server-side ceiling ends it without
+-- anyone having to notice.
+set statement_timeout = '30min';
+
 -- ---------------------------------------------------------------------------
 -- 0. Indexes the delete cannot run without
 -- ---------------------------------------------------------------------------
--- Seven columns referencing `inspections` and `collections` are ON DELETE SET
--- NULL with **no index** on the referencing side. Postgres enforces that by
--- looking up the children of each deleted parent, so without an index every one
--- of ~400,000 deleted inspections sequentially scans `applications` (218,000
--- rows) and four smaller tables. The first attempt at this prune ran past ten
--- minutes and was killed; with these indexes it is a couple of minutes.
+-- Postgres enforces every foreign key pointing AT a row it deletes by looking
+-- up that row's children. With no index the lookup is a sequential scan of the
+-- whole child table, once per deleted parent — and this prune deletes hundreds
+-- of thousands of parents.
+--
+-- Two things make the list of missing indexes impossible to write down by hand,
+-- and both were got wrong before this became generated:
+--
+--   * **A partial index does not count.** Nearly every FK column here is
+--     indexed `WHERE deleted_at IS NULL`, which serves the app's soft-delete
+--     queries perfectly. Referential integrity's lookup carries no such
+--     predicate, so the planner cannot use those indexes at all. Sixteen
+--     columns are in this state and every one of them *looks* indexed. On
+--     `application_batches (application_id)` it cost 11ms per deleted
+--     application — 3358ms of a 3362ms delete — and a plain non-partial index
+--     took the same work to 3.4ms.
+--   * **ON DELETE CASCADE widens the target set.** Deleting an application
+--     deletes its batches, so anything referencing `application_batches` is
+--     also consulted. The set of tables that lose rows is the cascade closure
+--     of the dated roots, not the roots themselves.
+--
+-- So this introspects rather than enumerates: walk the cascade closure, then
+-- index every FK column into it that has no index referential integrity can
+-- actually use. A schema change cannot silently fall out of this list.
 --
 -- Built here and dropped at the end rather than added to the schema: staging is
 -- meant to mirror prod, and this file must not be the thing that quietly makes
--- it stop doing so. The gap is real in production too — deleting an inspection
--- through the app pays the same scans — but that is a migration and a decision
--- about write patterns, not a side effect of a clone script.
+-- it stop doing so. The gap is real in production too, but whether it matters
+-- there is a question about hard-delete write patterns — see issue #126 — not
+-- something a clone script gets to decide.
 
-create index if not exists tmp_prune_applications_inspection_id on applications (inspection_id);
-create index if not exists tmp_prune_applications_collection_id on applications (collection_id);
-create index if not exists tmp_prune_biocontrol_inspection_id on biocontrol_actions (inspection_id);
-create index if not exists tmp_prune_outreach_inspection_id on outreach_actions (inspection_id);
-create index if not exists tmp_prune_rca_inspection_id on requested_control_actions (inspection_id);
-create index if not exists tmp_prune_rca_collection_id on requested_control_actions (collection_id);
-create index if not exists tmp_prune_source_reduction_inspection_id on source_reductions (inspection_id);
+do $indexes$
+declare
+	fk record;
+	index_name text;
+	built int := 0;
+begin
+	for fk in
+		with recursive doomed(relid) as (
+			-- The dated roots this file deletes from.
+			select oid from pg_class
+			where relkind = 'r' and relname = any (array[
+				'applications', 'biocontrol_actions', 'source_reductions', 'outreach_actions',
+				'requested_control_actions', 'collections', 'inspections', 'service_requests',
+				'assignments', 'missions', 'weather_summaries', 'samples', 'sample_species'
+			])
+			union
+			-- ...plus everything ON DELETE CASCADE drags down with them.
+			select con.conrelid
+			from pg_constraint con
+			join doomed d on d.relid = con.confrelid
+			where con.contype = 'f' and con.confdeltype = 'c'
+		)
+		select distinct src.relname as child_table, a.attname as child_column
+		from pg_constraint con
+		join doomed d on d.relid = con.confrelid
+		join pg_class src on src.oid = con.conrelid
+		-- conkey[1] is the FK's leading column, which is the one an index must
+		-- start with to serve the lookup.
+		join pg_attribute a on a.attrelid = con.conrelid and a.attnum = con.conkey[1]
+		where con.contype = 'f'
+		  and not exists (
+			select 1 from pg_index i
+			where i.indrelid = con.conrelid
+			  and i.indkey[0] = a.attnum
+			  and i.indpred is null   -- partial: unusable for referential integrity
+			  and i.indisvalid
+		  )
+	loop
+		index_name := left(format('tmp_prune_%s_%s', fk.child_table, fk.child_column), 63);
+		execute format(
+			'create index if not exists %I on %I (%I)',
+			index_name, fk.child_table, fk.child_column
+		);
+		built := built + 1;
+	end loop;
+	raise notice 'transient indexes built: %', built;
+end $indexes$;
 
 begin;
 
@@ -116,32 +182,64 @@ delete from weather_summaries where end_date < :'cutoff';
 -- cheap anti-join each and mean this loop is the full map of the polymorphic
 -- graph rather than a subset someone has to re-derive when a new type appears.
 
-do $$
+do $polymorphic$
 declare
 	link record;
 	removed bigint;
+	uncovered text;
 begin
-	for link in
-		select * from (values
-			('comments', 'inspection', 'inspections'),
-			('comments', 'collection', 'collections'),
-			('comments', 'sample', 'samples'),
-			('comments', 'service_request', 'service_requests'),
-			('comments', 'assignment', 'assignments'),
-			('comments', 'habitat', 'habitats'),
-			('comments', 'contact', 'contacts'),
-			('additional_personnel', 'inspection', 'inspections'),
-			('additional_personnel', 'application', 'applications'),
-			('additional_personnel', 'collection', 'collections'),
-			('tag_items', 'service_request', 'service_requests'),
-			('tag_items', 'habitat', 'habitats'),
-			('tag_items', 'trap', 'traps'),
-			('assignment_items', 'service_request', 'service_requests'),
-			('assignment_items', 'habitat', 'habitats'),
-			('route_items', 'habitat', 'habitats'),
-			('route_items', 'trap', 'traps')
-		) as t(child_table, entity_type, parent_table)
-	loop
+	create temporary table prune_polymorphic_links (
+		child_table text, entity_type text, parent_table text
+	) on commit drop;
+
+	insert into prune_polymorphic_links values
+		('comments', 'inspection', 'inspections'),
+		('comments', 'collection', 'collections'),
+		('comments', 'sample', 'samples'),
+		('comments', 'service_request', 'service_requests'),
+		('comments', 'assignment', 'assignments'),
+		('comments', 'habitat', 'habitats'),
+		('comments', 'contact', 'contacts'),
+		('additional_personnel', 'inspection', 'inspections'),
+		('additional_personnel', 'application', 'applications'),
+		('additional_personnel', 'collection', 'collections'),
+		('tag_items', 'service_request', 'service_requests'),
+		('tag_items', 'habitat', 'habitats'),
+		('tag_items', 'trap', 'traps'),
+		('assignment_items', 'service_request', 'service_requests'),
+		('assignment_items', 'habitat', 'habitats'),
+		('route_items', 'habitat', 'habitats'),
+		('route_items', 'trap', 'traps');
+
+	-- A list like the one above is only as good as its coverage, and the way it
+	-- fails is invisible: an entity_type nobody added just keeps its orphans,
+	-- and they resurface as a comment attached to whatever later reuses that id.
+	-- So ask the data which types exist and refuse to continue on one this file
+	-- does not know about. Aborting a clone is a cheap way to find out; a
+	-- mystery comment on an unrelated record is not.
+	select string_agg(format('%s -> %s', present.child_table, present.entity_type), ', ')
+	into uncovered
+	from (
+		select 'comments' as child_table, entity_type from comments
+		union select 'additional_personnel', entity_type from additional_personnel
+		union select 'tag_items', entity_type from tag_items
+		union select 'assignment_items', entity_type from assignment_items
+		union select 'route_items', entity_type from route_items
+	) as present
+	-- Aliased `known`, not `link`: PL/pgSQL resolves an identifier matching a
+	-- declared variable to that variable, so a `link` alias here silently
+	-- becomes the loop's record and the query fails at run time.
+	where not exists (
+		select 1 from prune_polymorphic_links known
+		where known.child_table = present.child_table
+		  and known.entity_type = present.entity_type
+	);
+
+	if uncovered is not null then
+		raise exception 'polymorphic entity_type not covered by this prune: %', uncovered;
+	end if;
+
+	for link in select * from prune_polymorphic_links loop
 		execute format(
 			'delete from %I c where c.entity_type = %L
 			   and not exists (select 1 from %I p where p.id = c.entity_id)',
@@ -152,25 +250,38 @@ begin
 			raise notice 'orphans removed: % % -> %', removed, link.child_table, link.entity_type;
 		end if;
 	end loop;
-end $$;
+end $polymorphic$;
 
 commit;
 
--- Staging goes back to mirroring the prod schema.
-drop index if exists tmp_prune_applications_inspection_id;
-drop index if exists tmp_prune_applications_collection_id;
-drop index if exists tmp_prune_biocontrol_inspection_id;
-drop index if exists tmp_prune_outreach_inspection_id;
-drop index if exists tmp_prune_rca_inspection_id;
-drop index if exists tmp_prune_rca_collection_id;
-drop index if exists tmp_prune_source_reduction_inspection_id;
+-- Staging goes back to mirroring the prod schema. Dropping by prefix rather
+-- than by name means this removes whatever the block above decided to build,
+-- including indexes left behind by an earlier run that died partway.
+do $cleanup$
+declare
+	idx text;
+	dropped int := 0;
+begin
+	for idx in
+		select indexname from pg_indexes
+		where schemaname = 'public' and indexname like 'tmp\_prune\_%'
+	loop
+		execute format('drop index if exists %I', idx);
+		dropped := dropped + 1;
+	end loop;
+	raise notice 'transient indexes dropped: %', dropped;
+end $cleanup$;
 
 -- Half a million dead tuples otherwise sit in the table until autovacuum
 -- notices, and the point of this file is a staging database that is actually
 -- smaller rather than one that merely hides its history.
 vacuum (analyze) inspections;
 vacuum (analyze) applications;
+vacuum (analyze) application_batches;
 vacuum (analyze) collections;
+vacuum (analyze) collection_species;
+vacuum (analyze) samples;
+vacuum (analyze) sample_species;
 vacuum (analyze) comments;
 
 \echo '--> remaining operational rows:'

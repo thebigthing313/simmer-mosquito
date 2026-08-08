@@ -159,7 +159,7 @@ psql $env:STAGING_DATABASE_URL -v ON_ERROR_STOP=1 -v cutoff=2023-08-07 `
   -f scripts/prune-staging-history.sql
 ```
 
-Two things that file handles and a hand-written `DELETE` would not:
+Three things that file handles and a hand-written `DELETE` would not:
 
 - `inspections -> samples` and `samples -> sample_species` are `ON DELETE
   RESTRICT`, unlike every other child in the schema, so samples must be removed
@@ -167,11 +167,38 @@ Two things that file handles and a hand-written `DELETE` would not:
 - `comments`, `additional_personnel`, `tag_items`, `assignment_items`, and
   `route_items` reference their parent as `(entity_type, entity_id)` with no
   foreign key, so nothing cascades to them. Left behind, a stale comment
-  reattaches itself to whatever later reuses that id.
+  reattaches itself to whatever later reuses that id. The file carries the full
+  map of those pairs and **aborts** on an `entity_type` missing from it, because
+  the alternative is orphans nobody sees.
+- Referential integrity needs indexes the schema does not have, so the file
+  builds them for the duration and drops them afterwards.
 
-It also builds seven indexes on unindexed `SET NULL` foreign-key columns for the
-duration and drops them afterwards; without them the delete sequentially scans
-`applications` once per deleted inspection and does not finish in ten minutes.
+That last one is worth understanding before touching this, because it is not
+what it looks like. Nearly every foreign-key column here *is* indexed — but
+indexed `WHERE deleted_at IS NULL`, for the app's soft-delete queries.
+Referential integrity's own lookup carries no such predicate, so **the planner
+cannot use a partial index for it at all**, and the column behaves as though it
+were never indexed. Sixteen columns are in that state and every one of them
+looks covered.
+
+The cost is not subtle. On `application_batches (application_id)` — 217k rows,
+`ON DELETE CASCADE` from `applications` — it was 11ms per deleted application:
+3358ms of a 3362ms delete, and an extrapolated 34 minutes for `applications`
+alone. A plain non-partial index took the same work to 3.4ms, and the whole
+prune to **under 30 seconds**.
+
+The file therefore *introspects* the missing indexes rather than listing them:
+it walks the `ON DELETE CASCADE` closure of the dated roots, then indexes every
+foreign-key column into that closure with no index referential integrity can
+use. Two hand-written lists were wrong before this became generated — the first
+missed partial indexes, the second missed cascade children — so if you find
+yourself adding a table name here, add it to the roots array and let the query
+find the rest. The transient indexes are named `tmp_prune_*` and dropped by
+prefix, so a run that dies partway is cleaned up by the next one.
+
+Whether production wants these indexes permanently is a separate question about
+hard-delete write patterns — see issue #126. The app soft-deletes, so it may
+never pay this cost; a clone script does not get to decide that.
 
 Notes:
 - Both URLs must be the **public** `*.proxy.rlwy.net:PORT` form, never

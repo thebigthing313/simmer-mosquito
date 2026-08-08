@@ -169,7 +169,7 @@ try {
 		# records it performs. See the header of prune-staging-history.sql.
 		$cutoff = (Get-Date).AddYears(-$YearsOfHistory).ToString('yyyy-MM-dd')
 		Write-Host "==> Pruning dated records older than $cutoff (keeping $YearsOfHistory year(s)) ..." -ForegroundColor Cyan
-		Write-Host '    Deleting several hundred thousand rows over the proxy takes a few minutes.' -ForegroundColor DarkGray
+		Write-Host '    Around half a million rows; roughly 30 seconds.' -ForegroundColor DarkGray
 		& $psql $StagingUrl -X -v ON_ERROR_STOP=1 -v "cutoff=$cutoff" -f $pruneSqlPath
 		if ($LASTEXITCODE -ne 0) { throw "history prune failed (exit $LASTEXITCODE)" }
 	}
