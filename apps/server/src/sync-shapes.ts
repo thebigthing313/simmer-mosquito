@@ -1,556 +1,125 @@
 import {
-	additionalPersonnelSyncDescriptor,
-	addressesSyncDescriptor,
-	applicationBatchesSyncDescriptor,
-	applicationMethodsSyncDescriptor,
-	applicationsSyncDescriptor,
-	assignmentItemsSyncDescriptor,
-	assignmentsSyncDescriptor,
-	biocontrolActionsSyncDescriptor,
-	biocontrolMethodsSyncDescriptor,
-	collectionLuresSyncDescriptor,
-	collectionMethodsSyncDescriptor,
-	collectionSpeciesSyncDescriptor,
-	collectionsSyncDescriptor,
-	commentsSyncDescriptor,
-	contactsSyncDescriptor,
-	currentOrganizationSyncDescriptor,
-	equipmentSyncDescriptor,
-	formulationInsecticidesSyncDescriptor,
-	formulationsSyncDescriptor,
 	generaSyncDescriptor,
-	habitatsSyncDescriptor,
-	habitatTypesSyncDescriptor,
-	insecticideBatchesSyncDescriptor,
-	insecticidesSyncDescriptor,
-	inspectionsSyncDescriptor,
-	membershipsSyncDescriptor,
-	missionItemsSyncDescriptor,
-	missionNotificationsSyncDescriptor,
-	missionsSyncDescriptor,
-	notificationRegistrationsSyncDescriptor,
-	notificationRegistrationTypesSyncDescriptor,
-	notificationTypesSyncDescriptor,
-	organizationSpeciesSyncDescriptor,
-	outreachActionsSyncDescriptor,
-	outreachMethodsSyncDescriptor,
-	profilesSyncDescriptor,
-	regionFoldersSyncDescriptor,
-	regionsSyncDescriptor,
-	requestedControlActionsSyncDescriptor,
-	routeItemsSyncDescriptor,
-	routesSyncDescriptor,
-	sampleSpeciesSyncDescriptor,
-	samplesSyncDescriptor,
-	serviceRequestsSyncDescriptor,
-	sourceReductionMethodsSyncDescriptor,
-	sourceReductionsSyncDescriptor,
+	type SyncShapeRoute,
+	type SyncShapeScope,
 	speciesSyncDescriptor,
-	tagItemsSyncDescriptor,
-	tagsSyncDescriptor,
-	trapsSyncDescriptor,
+	syncShapeDescriptors,
 	unitsSyncDescriptor,
-	vehiclesSyncDescriptor,
-	weatherSourceSubscriptionsSyncDescriptor,
-	weatherSourcesSyncDescriptor,
-	weatherSummariesSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
-export function registerSyncShapeRoutes(
-	app: Hono<{ Variables: AuthVariables }>,
-	options: {
-		readonly electricUrl: string | null;
-		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
-		readonly operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
-		readonly fetch?: typeof fetch;
-	},
-): void {
-	app.get('/sync/shapes/units', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: unitsSyncDescriptor.columns.map(camelToSnake),
-				table: unitsSyncDescriptor.table,
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/profiles', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: profilesSyncDescriptor.columns.map(camelToSnake),
-				table: profilesSyncDescriptor.table,
-				where: selectedOrganizationWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/memberships', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: membershipsSyncDescriptor.columns.map(camelToSnake),
-				table: membershipsSyncDescriptor.table,
-				where: selectedOrganizationOnlyWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/genera', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: generaSyncDescriptor.columns.map(camelToSnake),
-				table: generaSyncDescriptor.table,
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/species', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: speciesSyncDescriptor.columns.map(camelToSnake),
-				table: speciesSyncDescriptor.table,
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/organization-species', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: organizationSpeciesSyncDescriptor.columns.map(camelToSnake),
-				table: organizationSpeciesSyncDescriptor.table,
-				where: selectedOrganizationWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/organization', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: currentOrganizationSyncDescriptor.columns.map(camelToSnake),
-				table: currentOrganizationSyncDescriptor.table,
-				where: selectedOrganizationByIdWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/collection-methods', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: collectionMethodsSyncDescriptor.columns.map(camelToSnake),
-				table: collectionMethodsSyncDescriptor.table,
-				where: selectedOrganizationWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/collection-lures', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: collectionLuresSyncDescriptor.columns.map(camelToSnake),
-				table: collectionLuresSyncDescriptor.table,
-				where: selectedOrganizationWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/habitat-types', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: habitatTypesSyncDescriptor.columns.map(camelToSnake),
-				table: habitatTypesSyncDescriptor.table,
-				where: selectedOrganizationWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
-
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/application-methods',
-		descriptor: applicationMethodsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/source-reduction-methods',
-		descriptor: sourceReductionMethodsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/outreach-methods',
-		descriptor: outreachMethodsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/biocontrol-methods',
-		descriptor: biocontrolMethodsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/vehicles',
-		descriptor: vehiclesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/equipment',
-		descriptor: equipmentSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/insecticides',
-		descriptor: insecticidesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/insecticide-batches',
-		descriptor: insecticideBatchesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/notification-types',
-		descriptor: notificationTypesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/addresses',
-		descriptor: addressesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/habitats',
-		descriptor: habitatsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/inspections',
-		descriptor: inspectionsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/samples',
-		descriptor: samplesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/sample-species',
-		descriptor: sampleSpeciesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/region-folders',
-		descriptor: regionFoldersSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/regions',
-		descriptor: regionsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/traps',
-		descriptor: trapsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/collections',
-		descriptor: collectionsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/collection-species',
-		descriptor: collectionSpeciesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/comments',
-		descriptor: commentsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/tag-items',
-		descriptor: tagItemsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/additional-personnel',
-		descriptor: additionalPersonnelSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/route-items',
-		descriptor: routeItemsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/assignments',
-		descriptor: assignmentsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/assignment-items',
-		descriptor: assignmentItemsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/formulations',
-		descriptor: formulationsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/formulation-insecticides',
-		descriptor: formulationInsecticidesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/applications',
-		descriptor: applicationsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/application-batches',
-		descriptor: applicationBatchesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/source-reductions',
-		descriptor: sourceReductionsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/outreach-actions',
-		descriptor: outreachActionsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/biocontrol-actions',
-		descriptor: biocontrolActionsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/contacts',
-		descriptor: contactsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/service-requests',
-		descriptor: serviceRequestsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/requested-control-actions',
-		descriptor: requestedControlActionsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/missions',
-		descriptor: missionsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/mission-items',
-		descriptor: missionItemsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/notification-registrations',
-		descriptor: notificationRegistrationsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/notification-registration-types',
-		descriptor: notificationRegistrationTypesSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/mission-notifications',
-		descriptor: missionNotificationsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/weather-sources',
-		descriptor: weatherSourcesSyncDescriptor,
-		where: selectedOrganizationOrGlobalWhere,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/weather-source-subscriptions',
-		descriptor: weatherSourceSubscriptionsSyncDescriptor,
-	});
-	registerSelectedOrganizationShapeRoute(app, options, {
-		path: '/sync/shapes/weather-summaries',
-		descriptor: weatherSummariesSyncDescriptor,
-		where: selectedOrganizationOrGlobalOnlyWhere,
-	});
-
-	app.get('/sync/shapes/tags', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: tagsSyncDescriptor.columns.map(camelToSnake),
-				table: tagsSyncDescriptor.table,
-				where: selectedOrganizationWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
-
-	app.get('/sync/shapes/routes', options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: routesSyncDescriptor.columns.map(camelToSnake),
-				table: routesSyncDescriptor.table,
-				where: selectedOrganizationWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
-
-	app.get('/admin/sync/shapes/units', options.operatorAuthContextMiddleware, async (context) =>
-		proxyGlobalShape(context, options, {
-			columns: unitsSyncDescriptor.columns.map(camelToSnake),
-			table: unitsSyncDescriptor.table,
-		}),
-	);
-
-	app.get('/admin/sync/shapes/genera', options.operatorAuthContextMiddleware, async (context) =>
-		proxyGlobalShape(context, options, {
-			columns: generaSyncDescriptor.columns.map(camelToSnake),
-			table: generaSyncDescriptor.table,
-		}),
-	);
-
-	app.get('/admin/sync/shapes/species', options.operatorAuthContextMiddleware, async (context) =>
-		proxyGlobalShape(context, options, {
-			columns: speciesSyncDescriptor.columns.map(camelToSnake),
-			table: speciesSyncDescriptor.table,
-		}),
-	);
+interface ShapeRouteOptions {
+	readonly electricUrl: string | null;
+	readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	readonly operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+	readonly fetch?: typeof fetch;
 }
 
-function registerSelectedOrganizationShapeRoute(
+// The operator console reads the global taxonomy through its own path prefix and
+// its own middleware. Same descriptors, same forced shape — a different door.
+const operatorShapeDescriptors = [
+	unitsSyncDescriptor,
+	generaSyncDescriptor,
+	speciesSyncDescriptor,
+] as const;
+
+export function registerSyncShapeRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
-	options: {
-		readonly electricUrl: string | null;
-		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
-		readonly fetch?: typeof fetch;
-	},
+	options: ShapeRouteOptions,
+): void {
+	for (const descriptor of syncShapeDescriptors) {
+		registerShapeRoute(app, options, {
+			path: descriptor.endpointPath,
+			middleware: options.authContextMiddleware,
+			descriptor,
+		});
+	}
+
+	for (const descriptor of operatorShapeDescriptors) {
+		registerShapeRoute(app, options, {
+			path: `/admin${descriptor.endpointPath}`,
+			middleware: options.operatorAuthContextMiddleware,
+			descriptor,
+		});
+	}
+}
+
+function registerShapeRoute(
+	app: Hono<{ Variables: AuthVariables }>,
+	options: ShapeRouteOptions,
 	shape: {
 		readonly path: string;
-		readonly descriptor: {
-			readonly columns: readonly string[];
-			readonly table: string;
-		};
-		readonly where?: string;
+		readonly middleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+		readonly descriptor: SyncShapeRoute;
 	},
 ): void {
-	app.get(shape.path, options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
-
-		const authContext = context.get('authContext');
-
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: shape.descriptor.columns.map(camelToSnake),
-				table: shape.descriptor.table,
-				where: shape.where ?? selectedOrganizationWhere,
-				params: [authContext.organization.id],
-			}),
-		});
-	});
+	app.get(shape.path, shape.middleware, async (context) =>
+		proxyShapeRoute(context, options, shape.descriptor, undefined),
+	);
 
 	// POST carries subset snapshot params in the body (on-demand collections). The
 	// forced table/columns/where/params are identical to the GET path; the body is
-	// sanitized to subset-only keys so it can only narrow within the org shape.
-	app.post(shape.path, options.authContextMiddleware, async (context) => {
-		if (options.electricUrl === null) {
-			return context.json({ error: 'electric_url_required' }, 503);
-		}
+	// sanitized to subset-only keys so it can only narrow within the forced shape.
+	app.post(shape.path, shape.middleware, async (context) =>
+		proxyShapeRoute(context, options, shape.descriptor, await readSubsetBody(context)),
+	);
+}
 
-		const authContext = context.get('authContext');
+function proxyShapeRoute(
+	context: Context<{ Variables: AuthVariables }>,
+	options: ShapeRouteOptions,
+	descriptor: SyncShapeRoute,
+	subsetBody: Record<string, unknown> | undefined,
+): Promise<Response> | Response {
+	if (options.electricUrl === null) {
+		return context.json({ error: 'electric_url_required' }, 503);
+	}
 
-		return proxyElectricShape(context, {
-			fetch: options.fetch,
-			upstreamRequest: buildElectricShapeRequest({
-				electricUrl: options.electricUrl,
-				incomingUrl: context.req.url,
-				columns: shape.descriptor.columns.map(camelToSnake),
-				table: shape.descriptor.table,
-				where: shape.where ?? selectedOrganizationWhere,
-				params: [authContext.organization.id],
-				subsetBody: await readSubsetBody(context),
-			}),
-		});
+	return proxyElectricShape(context, {
+		fetch: options.fetch,
+		upstreamRequest: buildElectricShapeRequest({
+			electricUrl: options.electricUrl,
+			incomingUrl: context.req.url,
+			columns: descriptor.columns.map(camelToSnake),
+			table: descriptor.table,
+			...shapeScopeFilter(descriptor.scope, context),
+			...(subsetBody === undefined ? {} : { subsetBody }),
+		}),
 	});
+}
+
+/**
+ * The tenant predicate for a shape, derived from the descriptor's declared scope
+ * — never from anything the caller sent. A new scope is a compile error here
+ * rather than a route that silently streams unscoped rows.
+ */
+function shapeScopeFilter(
+	scope: SyncShapeScope,
+	context: Context<{ Variables: AuthVariables }>,
+): { readonly where?: string; readonly params?: readonly string[] } {
+	if (scope === 'global') {
+		return {};
+	}
+
+	const params = [context.get('authContext').organization.id];
+
+	switch (scope) {
+		case 'organization':
+			return { where: selectedOrganizationWhere, params };
+		case 'organization-no-soft-delete':
+			return { where: selectedOrganizationOnlyWhere, params };
+		case 'organization-or-global':
+			return { where: selectedOrganizationOrGlobalWhere, params };
+		case 'organization-or-global-no-soft-delete':
+			return { where: selectedOrganizationOrGlobalOnlyWhere, params };
+		case 'organization-row':
+			return { where: selectedOrganizationByIdWhere, params };
+		default: {
+			const unhandled: never = scope;
+			throw new Error(`Unhandled sync shape scope ${String(unhandled)}.`);
+		}
+	}
 }
 
 async function readSubsetBody(
@@ -564,32 +133,6 @@ async function readSubsetBody(
 	} catch {
 		return {};
 	}
-}
-
-function proxyGlobalShape(
-	context: Context<{ Variables: AuthVariables }>,
-	options: {
-		readonly electricUrl: string | null;
-		readonly fetch?: typeof fetch;
-	},
-	shape: {
-		readonly columns: readonly string[];
-		readonly table: string;
-	},
-): Promise<Response> | Response {
-	if (options.electricUrl === null) {
-		return context.json({ error: 'electric_url_required' }, 503);
-	}
-
-	return proxyElectricShape(context, {
-		fetch: options.fetch,
-		upstreamRequest: buildElectricShapeRequest({
-			electricUrl: options.electricUrl,
-			incomingUrl: context.req.url,
-			columns: shape.columns,
-			table: shape.table,
-		}),
-	});
 }
 
 export function buildElectricShapeUrl(input: {
