@@ -636,9 +636,10 @@ export function registerMapTileRoutes(
 
 	app.get('/map/chemical', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const queryResult = parseApplicationPageQuery(
+		const queryResult = parsePageQuery(
 			new URL(context.req.url).searchParams,
 			authContext.organization.id,
+			parseApplicationMapFilters,
 		);
 
 		if (!queryResult.ok) {
@@ -671,9 +672,10 @@ export function registerMapTileRoutes(
 
 	app.get('/map/source-reduction', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const queryResult = parseSourceReductionPageQuery(
+		const queryResult = parsePageQuery(
 			new URL(context.req.url).searchParams,
 			authContext.organization.id,
+			parseSourceReductionMapFilters,
 		);
 
 		if (!queryResult.ok) {
@@ -709,9 +711,10 @@ export function registerMapTileRoutes(
 
 	app.get('/map/biocontrol', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const queryResult = parseBiocontrolPageQuery(
+		const queryResult = parsePageQuery(
 			new URL(context.req.url).searchParams,
 			authContext.organization.id,
+			parseBiocontrolMapFilters,
 		);
 
 		if (!queryResult.ok) {
@@ -744,9 +747,10 @@ export function registerMapTileRoutes(
 
 	app.get('/map/outreach', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const queryResult = parseOutreachPageQuery(
+		const queryResult = parsePageQuery(
 			new URL(context.req.url).searchParams,
 			authContext.organization.id,
+			parseOutreachMapFilters,
 		);
 
 		if (!queryResult.ok) {
@@ -826,9 +830,10 @@ export function registerMapTileRoutes(
 
 	app.get('/map/traps', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const queryResult = parseTrapPageQuery(
+		const queryResult = parsePageQuery(
 			new URL(context.req.url).searchParams,
 			authContext.organization.id,
+			parseTrapMapFilters,
 		);
 
 		if (!queryResult.ok) {
@@ -861,9 +866,10 @@ export function registerMapTileRoutes(
 
 	app.get('/map/collections', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const queryResult = parseCollectionPageQuery(
+		const queryResult = parsePageQuery(
 			new URL(context.req.url).searchParams,
 			authContext.organization.id,
+			parseCollectionMapFilters,
 		);
 
 		if (!queryResult.ok) {
@@ -1136,6 +1142,283 @@ function createTileSetRegistry(options: {
 	]);
 }
 
+/**
+ * `limit`, `offset` and the surface's own filters, in that order.
+ *
+ * Nine copies of this existed, six of them byte-identical but for the name of
+ * the filter parser they called and three of them the same plus `bbox`. The
+ * `delete` calls are the reason it has to be one function rather than a
+ * convention: every filter parser refuses a param it does not recognise, so
+ * forgetting to strip `limit` from what it is handed turns a paging request
+ * into a 400.
+ */
+function parsePageQuery<TFilters>(
+	searchParams: URLSearchParams,
+	organizationId: string,
+	parseFilters: (params: URLSearchParams) => FilterResult<TFilters>,
+): PageQueryResult<PageInput<TFilters>> {
+	const limit = parseLimitParam(searchParams.get('limit'));
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const offset = parseOffsetParam(searchParams.get('offset'));
+	if (!offset.ok) {
+		return offset;
+	}
+
+	const filterResult = parseFilters(withoutPageParams(searchParams));
+	if (!filterResult.ok) {
+		return filterResult;
+	}
+
+	return {
+		ok: true,
+		input: {
+			organizationId,
+			filters: filterResult.filters,
+			limit: limit.value,
+			offset: offset.value,
+		},
+	};
+}
+
+/** The same, for the surfaces that page within a viewport. */
+function parseBboxPageQuery<TFilters>(
+	searchParams: URLSearchParams,
+	organizationId: string,
+	parseFilters: (params: URLSearchParams) => FilterResult<TFilters>,
+): PageQueryResult<PageInput<TFilters> & { readonly bounds: MapBounds }> {
+	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
+	if (!bbox.ok) {
+		return bbox;
+	}
+
+	const page = parsePageQuery(searchParams, organizationId, (params) => {
+		params.delete('bbox');
+		return parseFilters(params);
+	});
+	if (!page.ok) {
+		return page;
+	}
+
+	return { ok: true, input: { ...page.input, bounds: bbox.bounds } };
+}
+
+function withoutPageParams(searchParams: URLSearchParams): URLSearchParams {
+	const filterParams = new URLSearchParams(searchParams);
+	filterParams.delete('limit');
+	filterParams.delete('offset');
+	return filterParams;
+}
+
+type FilterResult<TFilters> =
+	| { readonly ok: true; readonly filters: TFilters }
+	| { readonly ok: false; readonly reason: string };
+
+type PageQueryResult<TInput> =
+	| { readonly ok: true; readonly input: TInput }
+	| { readonly ok: false; readonly reason: string };
+
+interface PageInput<TFilters> {
+	readonly organizationId: string;
+	readonly filters: TFilters;
+	readonly limit: number;
+	readonly offset: number;
+}
+
+// ===========================================================================
+// Filter parsers
+// ===========================================================================
+
+/**
+ * How one query param becomes one filter field.
+ *
+ * Every surface used to write this out twice: a `Set` of admitted params, and a
+ * parse body naming the same params again. Two lists that had to agree, with
+ * nothing checking that they did — a param in the `Set` but not the body was
+ * silently ignored, and one in the body but not the `Set` was a 400 nobody could
+ * explain. Here they are the same list.
+ *
+ * `trueOnly` is its own kind rather than a boolean because three surfaces had
+ * written the rule out longhand: `nonMosquito=false` is the same as omitting
+ * it, so only `true` reaches the reader.
+ */
+interface FilterField {
+	/** The query param, as the client sends it. */
+	readonly param: string;
+	/** The filter key the reader expects, when it differs from the param. */
+	readonly as?: string;
+	readonly kind:
+		| 'boolean'
+		| 'trueOnly'
+		| 'uuidList'
+		| 'text'
+		| 'date'
+		| 'density'
+		| 'sampleStatus'
+		| 'trapStatus';
+}
+
+/** The region filter is spatial, not an FK, and every surface carries it. */
+const regionField = { param: regionFilterParam, as: 'regionIds', kind: 'uuidList' } as const;
+const dateFields = [
+	{ param: 'dateFrom', kind: 'date' },
+	{ param: 'dateTo', kind: 'date' },
+] as const satisfies readonly FilterField[];
+
+function defineFilters<TFilters>(
+	/** The noun in `Unsupported <noun> filter: x.` */
+	noun: string,
+	fields: readonly FilterField[],
+): (searchParams: URLSearchParams) => FilterResult<TFilters> {
+	const admitted = new Set(fields.map((field) => field.param));
+
+	return (searchParams) => {
+		const unknownParams = [...searchParams.keys()].filter((param) => !admitted.has(param));
+		if (unknownParams.length > 0) {
+			return { ok: false, reason: `Unsupported ${noun} filter: ${unknownParams[0]}.` };
+		}
+
+		const filters: Record<string, unknown> = {};
+		for (const field of fields) {
+			const parsed = parseFilterField(searchParams, field);
+			if (!parsed.ok) {
+				return parsed;
+			}
+			// `trueOnly` has already dropped `false`; every kind leaves an absent
+			// param absent rather than sending an explicit `undefined` down.
+			if (parsed.value !== undefined) {
+				filters[field.as ?? field.param] = parsed.value;
+			}
+		}
+
+		return { ok: true, filters: filters as TFilters };
+	};
+}
+
+function parseFilterField(
+	searchParams: URLSearchParams,
+	field: FilterField,
+):
+	| { readonly ok: true; readonly value: unknown }
+	| { readonly ok: false; readonly reason: string } {
+	switch (field.kind) {
+		case 'boolean':
+			return parseOptionalBooleanFilter(searchParams, field.param);
+		case 'trueOnly': {
+			const parsed = parseOptionalBooleanFilter(searchParams, field.param);
+			return parsed.ok && parsed.value !== true ? { ok: true, value: undefined } : parsed;
+		}
+		case 'uuidList':
+			return parseOptionalUuidListFilter(searchParams, field.param);
+		case 'text':
+			return parseOptionalTextFilter(searchParams, field.param);
+		case 'date':
+			return parseOptionalDateFilter(searchParams, field.param);
+		case 'density':
+			return parseOptionalDensityListFilter(searchParams, field.param);
+		case 'sampleStatus':
+			return parseOptionalSampleStatusFilter(searchParams, field.param);
+		case 'trapStatus':
+			return parseOptionalTrapStatusFilter(searchParams, field.param);
+		default: {
+			const unhandled: never = field.kind;
+			throw new Error(`Unhandled map filter kind ${String(unhandled)}.`);
+		}
+	}
+}
+
+export const parseHabitatTileFilters = defineFilters<HabitatMvtTileFilters>('habitat tile', [
+	{ param: 'isActive', kind: 'boolean' },
+	{ param: 'isInaccessible', kind: 'boolean' },
+	{ param: 'habitatTypeId', as: 'habitatTypeIds', kind: 'uuidList' },
+	{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
+	regionField,
+	{ param: 'search', kind: 'text' },
+]);
+
+export const parseAddressTileFilters = defineFilters<AddressMvtTileFilters>('address tile', [
+	{ param: 'search', kind: 'text' },
+	regionField,
+]);
+
+export const parseRegionTileFilters = defineFilters<RegionMvtTileFilters>('region tile', [
+	{ param: 'regionFolderId', kind: 'text' },
+	{ param: 'search', kind: 'text' },
+	// The regions explorer draws one checkbox-picked set rather than every region
+	// its other filters allow, so its extent request names the ids outright.
+	{ param: 'id', as: 'ids', kind: 'uuidList' },
+]);
+
+export const parseInspectionTileFilters = defineFilters<InspectionMvtTileFilters>(
+	'inspection tile',
+	[
+		{ param: 'isWet', kind: 'boolean' },
+		{ param: 'density', as: 'densities', kind: 'density' },
+		{ param: 'positive', as: 'positiveOnly', kind: 'boolean' },
+		{ param: 'habitatTypeId', as: 'habitatTypeIds', kind: 'uuidList' },
+		{ param: 'inspectedBy', as: 'inspectedByProfileIds', kind: 'uuidList' },
+		regionField,
+		...dateFields,
+	],
+);
+
+export const parseSampleTileFilters = defineFilters<SampleListFilters>('sample tile', [
+	{ param: 'species', as: 'speciesIds', kind: 'uuidList' },
+	{ param: 'status', kind: 'sampleStatus' },
+	{ param: 'nonMosquito', as: 'nonMosquitoOnly', kind: 'trueOnly' },
+	regionField,
+	...dateFields,
+]);
+
+export const parseApplicationMapFilters = defineFilters<ApplicationMapFilters>('chemical', [
+	{ param: 'insecticideId', as: 'insecticideIds', kind: 'uuidList' },
+	{ param: 'applicationMethodId', as: 'applicationMethodIds', kind: 'uuidList' },
+	{ param: 'applicator', as: 'applicatorProfileIds', kind: 'uuidList' },
+	regionField,
+	...dateFields,
+]);
+
+export const parseSourceReductionMapFilters = defineFilters<SourceReductionMapFilters>(
+	'source-reduction',
+	[
+		{ param: 'sourceReductionMethodId', as: 'sourceReductionMethodIds', kind: 'uuidList' },
+		{ param: 'technician', as: 'technicianProfileIds', kind: 'uuidList' },
+		regionField,
+		...dateFields,
+	],
+);
+
+export const parseBiocontrolMapFilters = defineFilters<BiocontrolMapFilters>('biocontrol', [
+	{ param: 'biocontrolMethodId', as: 'biocontrolMethodIds', kind: 'uuidList' },
+	{ param: 'habitatLinked', as: 'habitatLinkedOnly', kind: 'trueOnly' },
+	{ param: 'technician', as: 'technicianProfileIds', kind: 'uuidList' },
+	regionField,
+	...dateFields,
+]);
+
+export const parseOutreachMapFilters = defineFilters<OutreachMapFilters>('outreach', [
+	{ param: 'outreachMethodId', as: 'outreachMethodIds', kind: 'uuidList' },
+	{ param: 'technician', as: 'technicianProfileIds', kind: 'uuidList' },
+	regionField,
+	...dateFields,
+]);
+
+export const parseTrapMapFilters = defineFilters<TrapMapFilters>('traps', [
+	{ param: 'collectionMethodId', as: 'collectionMethodIds', kind: 'uuidList' },
+	{ param: 'status', as: 'isActive', kind: 'trapStatus' },
+	{ param: 'search', kind: 'text' },
+	regionField,
+]);
+
+export const parseCollectionMapFilters = defineFilters<CollectionMapFilters>('collections', [
+	{ param: 'collectionMethodId', as: 'collectionMethodIds', kind: 'uuidList' },
+	{ param: 'problem', as: 'problemOnly', kind: 'trueOnly' },
+	regionField,
+	...dateFields,
+]);
+
 export function parseTileCoordinate(input: {
 	readonly z: string;
 	readonly x: string;
@@ -1173,385 +1456,35 @@ export function parseTileCoordinate(input: {
 	};
 }
 
-export function parseHabitatTileFilters(searchParams: URLSearchParams): HabitatFilterResult {
-	const unknownParams = [...searchParams.keys()].filter((param) => !habitatFilterParams.has(param));
-	if (unknownParams.length > 0) {
-		return {
-			ok: false,
-			reason: `Unsupported habitat tile filter: ${unknownParams[0]}.`,
-		};
-	}
-
-	const isActive = parseOptionalBooleanFilter(searchParams, 'isActive');
-	if (!isActive.ok) {
-		return isActive;
-	}
-
-	const isInaccessible = parseOptionalBooleanFilter(searchParams, 'isInaccessible');
-	if (!isInaccessible.ok) {
-		return isInaccessible;
-	}
-
-	const habitatTypeIds = parseOptionalUuidListFilter(searchParams, 'habitatTypeId');
-	if (!habitatTypeIds.ok) {
-		return habitatTypeIds;
-	}
-
-	const tagIds = parseOptionalUuidListFilter(searchParams, 'tagId');
-	if (!tagIds.ok) {
-		return tagIds;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	const search = parseOptionalTextFilter(searchParams, 'search');
-	if (!search.ok) {
-		return search;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(isActive.value === undefined ? {} : { isActive: isActive.value }),
-			...(isInaccessible.value === undefined ? {} : { isInaccessible: isInaccessible.value }),
-			...(habitatTypeIds.value === undefined ? {} : { habitatTypeIds: habitatTypeIds.value }),
-			...(tagIds.value === undefined ? {} : { tagIds: tagIds.value }),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-			...(search.value === undefined ? {} : { search: search.value }),
-		},
-	};
-}
-
 type AddressFilterResult =
 	| { readonly ok: true; readonly filters: AddressMvtTileFilters }
 	| { readonly ok: false; readonly reason: string };
-
-const addressFilterParams = new Set(['search', regionFilterParam]);
-
-export function parseAddressTileFilters(searchParams: URLSearchParams): AddressFilterResult {
-	const unknownParams = [...searchParams.keys()].filter((param) => !addressFilterParams.has(param));
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported address tile filter: ${unknownParams[0]}.` };
-	}
-
-	const search = parseOptionalTextFilter(searchParams, 'search');
-	if (!search.ok) {
-		return search;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(search.value === undefined ? {} : { search: search.value }),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-		},
-	};
-}
 
 type RegionFilterResult =
 	| { readonly ok: true; readonly filters: RegionMvtTileFilters }
 	| { readonly ok: false; readonly reason: string };
 
-const regionFilterParams = new Set(['regionFolderId', 'search', 'id']);
-
-function parseRegionTileFilters(searchParams: URLSearchParams): RegionFilterResult {
-	const unknownParams = [...searchParams.keys()].filter((param) => !regionFilterParams.has(param));
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported region tile filter: ${unknownParams[0]}.` };
-	}
-
-	const regionFolderId = parseOptionalTextFilter(searchParams, 'regionFolderId');
-	if (!regionFolderId.ok) {
-		return regionFolderId;
-	}
-
-	const search = parseOptionalTextFilter(searchParams, 'search');
-	if (!search.ok) {
-		return search;
-	}
-
-	// The regions explorer draws one checkbox-picked set rather than every region
-	// its other filters allow, so its extent request names the ids outright.
-	const ids = parseOptionalUuidListFilter(searchParams, 'id');
-	if (!ids.ok) {
-		return ids;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(regionFolderId.value === undefined ? {} : { regionFolderId: regionFolderId.value }),
-			...(search.value === undefined ? {} : { search: search.value }),
-			...(ids.value === undefined ? {} : { ids: ids.value }),
-		},
-	};
-}
-
 export function parseHabitatDisplayQuery(
 	searchParams: URLSearchParams,
 	organizationId: string,
 ): HabitatDisplayQueryResult {
-	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
-	if (!bbox.ok) {
-		return bbox;
-	}
-
-	const limit = parseLimitParam(searchParams.get('limit'));
-	if (!limit.ok) {
-		return limit;
-	}
-
-	const offset = parseOffsetParam(searchParams.get('offset'));
-	if (!offset.ok) {
-		return offset;
-	}
-
-	const filterParams = new URLSearchParams(searchParams);
-	filterParams.delete('bbox');
-	filterParams.delete('limit');
-	filterParams.delete('offset');
-
-	const filterResult = parseHabitatTileFilters(filterParams);
-	if (!filterResult.ok) {
-		return filterResult;
-	}
-
-	return {
-		ok: true,
-		input: {
-			organizationId,
-			bounds: bbox.bounds,
-			filters: filterResult.filters,
-			limit: limit.value,
-			offset: offset.value,
-		},
-	};
-}
-
-const inspectionFilterParams = new Set([
-	'isWet',
-	'density',
-	'positive',
-	'habitatTypeId',
-	'inspectedBy',
-	'dateFrom',
-	'dateTo',
-	regionFilterParam,
-]);
-
-export function parseInspectionTileFilters(searchParams: URLSearchParams): InspectionFilterResult {
-	const unknownParams = [...searchParams.keys()].filter(
-		(param) => !inspectionFilterParams.has(param),
-	);
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported inspection tile filter: ${unknownParams[0]}.` };
-	}
-
-	const isWet = parseOptionalBooleanFilter(searchParams, 'isWet');
-	if (!isWet.ok) {
-		return isWet;
-	}
-
-	const positive = parseOptionalBooleanFilter(searchParams, 'positive');
-	if (!positive.ok) {
-		return positive;
-	}
-
-	const densities = parseOptionalDensityListFilter(searchParams, 'density');
-	if (!densities.ok) {
-		return densities;
-	}
-
-	const habitatTypeIds = parseOptionalUuidListFilter(searchParams, 'habitatTypeId');
-	if (!habitatTypeIds.ok) {
-		return habitatTypeIds;
-	}
-
-	const inspectedByProfileIds = parseOptionalUuidListFilter(searchParams, 'inspectedBy');
-	if (!inspectedByProfileIds.ok) {
-		return inspectedByProfileIds;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
-	if (!dateFrom.ok) {
-		return dateFrom;
-	}
-
-	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
-	if (!dateTo.ok) {
-		return dateTo;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(isWet.value === undefined ? {} : { isWet: isWet.value }),
-			...(densities.value === undefined ? {} : { densities: densities.value }),
-			...(positive.value === undefined ? {} : { positiveOnly: positive.value }),
-			...(habitatTypeIds.value === undefined ? {} : { habitatTypeIds: habitatTypeIds.value }),
-			...(inspectedByProfileIds.value === undefined
-				? {}
-				: { inspectedByProfileIds: inspectedByProfileIds.value }),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
-			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
-		},
-	};
+	return parseBboxPageQuery(searchParams, organizationId, parseHabitatTileFilters);
 }
 
 export function parseInspectionDisplayQuery(
 	searchParams: URLSearchParams,
 	organizationId: string,
 ): InspectionDisplayQueryResult {
-	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
-	if (!bbox.ok) {
-		return bbox;
-	}
-
-	const limit = parseLimitParam(searchParams.get('limit'));
-	if (!limit.ok) {
-		return limit;
-	}
-
-	const offset = parseOffsetParam(searchParams.get('offset'));
-	if (!offset.ok) {
-		return offset;
-	}
-
-	const filterParams = new URLSearchParams(searchParams);
-	filterParams.delete('bbox');
-	filterParams.delete('limit');
-	filterParams.delete('offset');
-
-	const filterResult = parseInspectionTileFilters(filterParams);
-	if (!filterResult.ok) {
-		return filterResult;
-	}
-
-	return {
-		ok: true,
-		input: {
-			organizationId,
-			bounds: bbox.bounds,
-			filters: filterResult.filters,
-			limit: limit.value,
-			offset: offset.value,
-		},
-	};
+	return parseBboxPageQuery(searchParams, organizationId, parseInspectionTileFilters);
 }
 
-const sampleFilterParams = new Set([
-	'species',
-	'status',
-	'nonMosquito',
-	'dateFrom',
-	'dateTo',
-	regionFilterParam,
-]);
 const sampleStatusSet = new Set<string>(sampleStatusValues);
-
-function parseSampleTileFilters(searchParams: URLSearchParams): SampleFilterResult {
-	const unknownParams = [...searchParams.keys()].filter((param) => !sampleFilterParams.has(param));
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported sample tile filter: ${unknownParams[0]}.` };
-	}
-
-	const speciesIds = parseOptionalUuidListFilter(searchParams, 'species');
-	if (!speciesIds.ok) {
-		return speciesIds;
-	}
-
-	const status = parseOptionalSampleStatusFilter(searchParams, 'status');
-	if (!status.ok) {
-		return status;
-	}
-
-	const nonMosquito = parseOptionalBooleanFilter(searchParams, 'nonMosquito');
-	if (!nonMosquito.ok) {
-		return nonMosquito;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
-	if (!dateFrom.ok) {
-		return dateFrom;
-	}
-
-	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
-	if (!dateTo.ok) {
-		return dateTo;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(speciesIds.value === undefined ? {} : { speciesIds: speciesIds.value }),
-			...(status.value === undefined ? {} : { status: status.value }),
-			// Only `true` narrows; `nonMosquito=false` is the same as omitting it.
-			...(nonMosquito.value === true ? { nonMosquitoOnly: true } : {}),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
-			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
-		},
-	};
-}
 
 function parseSampleDisplayQuery(
 	searchParams: URLSearchParams,
 	organizationId: string,
 ): SampleDisplayQueryResult {
-	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
-	if (!bbox.ok) {
-		return bbox;
-	}
-
-	const limit = parseLimitParam(searchParams.get('limit'));
-	if (!limit.ok) {
-		return limit;
-	}
-
-	const offset = parseOffsetParam(searchParams.get('offset'));
-	if (!offset.ok) {
-		return offset;
-	}
-
-	const filterParams = new URLSearchParams(searchParams);
-	filterParams.delete('bbox');
-	filterParams.delete('limit');
-	filterParams.delete('offset');
-
-	const filterResult = parseSampleTileFilters(filterParams);
-	if (!filterResult.ok) {
-		return filterResult;
-	}
-
-	return {
-		ok: true,
-		input: {
-			organizationId,
-			bounds: bbox.bounds,
-			filters: filterResult.filters,
-			limit: limit.value,
-			offset: offset.value,
-		},
-	};
+	return parseBboxPageQuery(searchParams, organizationId, parseSampleTileFilters);
 }
 
 // --- control-operations map queries -----------------------------------------
@@ -1568,104 +1501,6 @@ type ApplicationPageQueryResult =
 	| { readonly ok: true; readonly input: ApplicationPageInput }
 	| { readonly ok: false; readonly reason: string };
 
-const applicationFilterParams = new Set([
-	'insecticideId',
-	'applicationMethodId',
-	'applicator',
-	'dateFrom',
-	'dateTo',
-	regionFilterParam,
-]);
-
-function parseApplicationMapFilters(searchParams: URLSearchParams): ApplicationFilterResult {
-	const unknownParams = [...searchParams.keys()].filter(
-		(param) => !applicationFilterParams.has(param),
-	);
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported chemical filter: ${unknownParams[0]}.` };
-	}
-
-	const insecticideIds = parseOptionalUuidListFilter(searchParams, 'insecticideId');
-	if (!insecticideIds.ok) {
-		return insecticideIds;
-	}
-
-	const applicationMethodIds = parseOptionalUuidListFilter(searchParams, 'applicationMethodId');
-	if (!applicationMethodIds.ok) {
-		return applicationMethodIds;
-	}
-
-	const applicatorProfileIds = parseOptionalUuidListFilter(searchParams, 'applicator');
-	if (!applicatorProfileIds.ok) {
-		return applicatorProfileIds;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
-	if (!dateFrom.ok) {
-		return dateFrom;
-	}
-
-	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
-	if (!dateTo.ok) {
-		return dateTo;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(insecticideIds.value === undefined ? {} : { insecticideIds: insecticideIds.value }),
-			...(applicationMethodIds.value === undefined
-				? {}
-				: { applicationMethodIds: applicationMethodIds.value }),
-			...(applicatorProfileIds.value === undefined
-				? {}
-				: { applicatorProfileIds: applicatorProfileIds.value }),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
-			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
-		},
-	};
-}
-
-function parseApplicationPageQuery(
-	searchParams: URLSearchParams,
-	organizationId: string,
-): ApplicationPageQueryResult {
-	const limit = parseLimitParam(searchParams.get('limit'));
-	if (!limit.ok) {
-		return limit;
-	}
-
-	const offset = parseOffsetParam(searchParams.get('offset'));
-	if (!offset.ok) {
-		return offset;
-	}
-
-	const filterParams = new URLSearchParams(searchParams);
-	filterParams.delete('limit');
-	filterParams.delete('offset');
-
-	const filterResult = parseApplicationMapFilters(filterParams);
-	if (!filterResult.ok) {
-		return filterResult;
-	}
-
-	return {
-		ok: true,
-		input: {
-			organizationId,
-			filters: filterResult.filters,
-			limit: limit.value,
-			offset: offset.value,
-		},
-	};
-}
-
 type SourceReductionFilterResult =
 	| { readonly ok: true; readonly filters: SourceReductionMapFilters }
 	| { readonly ok: false; readonly reason: string };
@@ -1673,102 +1508,6 @@ type SourceReductionFilterResult =
 type SourceReductionPageQueryResult =
 	| { readonly ok: true; readonly input: SourceReductionPageInput }
 	| { readonly ok: false; readonly reason: string };
-
-const sourceReductionFilterParams = new Set([
-	'sourceReductionMethodId',
-	'technician',
-	'dateFrom',
-	'dateTo',
-	regionFilterParam,
-]);
-
-function parseSourceReductionMapFilters(
-	searchParams: URLSearchParams,
-): SourceReductionFilterResult {
-	const unknownParams = [...searchParams.keys()].filter(
-		(param) => !sourceReductionFilterParams.has(param),
-	);
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported source-reduction filter: ${unknownParams[0]}.` };
-	}
-
-	const sourceReductionMethodIds = parseOptionalUuidListFilter(
-		searchParams,
-		'sourceReductionMethodId',
-	);
-	if (!sourceReductionMethodIds.ok) {
-		return sourceReductionMethodIds;
-	}
-
-	const technicianProfileIds = parseOptionalUuidListFilter(searchParams, 'technician');
-	if (!technicianProfileIds.ok) {
-		return technicianProfileIds;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
-	if (!dateFrom.ok) {
-		return dateFrom;
-	}
-
-	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
-	if (!dateTo.ok) {
-		return dateTo;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(sourceReductionMethodIds.value === undefined
-				? {}
-				: { sourceReductionMethodIds: sourceReductionMethodIds.value }),
-			...(technicianProfileIds.value === undefined
-				? {}
-				: { technicianProfileIds: technicianProfileIds.value }),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
-			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
-		},
-	};
-}
-
-function parseSourceReductionPageQuery(
-	searchParams: URLSearchParams,
-	organizationId: string,
-): SourceReductionPageQueryResult {
-	const limit = parseLimitParam(searchParams.get('limit'));
-	if (!limit.ok) {
-		return limit;
-	}
-
-	const offset = parseOffsetParam(searchParams.get('offset'));
-	if (!offset.ok) {
-		return offset;
-	}
-
-	const filterParams = new URLSearchParams(searchParams);
-	filterParams.delete('limit');
-	filterParams.delete('offset');
-
-	const filterResult = parseSourceReductionMapFilters(filterParams);
-	if (!filterResult.ok) {
-		return filterResult;
-	}
-
-	return {
-		ok: true,
-		input: {
-			organizationId,
-			filters: filterResult.filters,
-			limit: limit.value,
-			offset: offset.value,
-		},
-	};
-}
 
 type BiocontrolFilterResult =
 	| { readonly ok: true; readonly filters: BiocontrolMapFilters }
@@ -1778,105 +1517,6 @@ type BiocontrolPageQueryResult =
 	| { readonly ok: true; readonly input: BiocontrolPageInput }
 	| { readonly ok: false; readonly reason: string };
 
-const biocontrolFilterParams = new Set([
-	'biocontrolMethodId',
-	'habitatLinked',
-	'technician',
-	'dateFrom',
-	'dateTo',
-	regionFilterParam,
-]);
-
-function parseBiocontrolMapFilters(searchParams: URLSearchParams): BiocontrolFilterResult {
-	const unknownParams = [...searchParams.keys()].filter(
-		(param) => !biocontrolFilterParams.has(param),
-	);
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported biocontrol filter: ${unknownParams[0]}.` };
-	}
-
-	const biocontrolMethodIds = parseOptionalUuidListFilter(searchParams, 'biocontrolMethodId');
-	if (!biocontrolMethodIds.ok) {
-		return biocontrolMethodIds;
-	}
-
-	const habitatLinked = parseOptionalBooleanFilter(searchParams, 'habitatLinked');
-	if (!habitatLinked.ok) {
-		return habitatLinked;
-	}
-
-	const biocontrolTechnicianProfileIds = parseOptionalUuidListFilter(searchParams, 'technician');
-	if (!biocontrolTechnicianProfileIds.ok) {
-		return biocontrolTechnicianProfileIds;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
-	if (!dateFrom.ok) {
-		return dateFrom;
-	}
-
-	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
-	if (!dateTo.ok) {
-		return dateTo;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(biocontrolMethodIds.value === undefined
-				? {}
-				: { biocontrolMethodIds: biocontrolMethodIds.value }),
-			...(biocontrolTechnicianProfileIds.value === undefined
-				? {}
-				: { technicianProfileIds: biocontrolTechnicianProfileIds.value }),
-			// Only `true` narrows; `habitatLinked=false` is the same as omitting it.
-			...(habitatLinked.value === true ? { habitatLinkedOnly: true } : {}),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
-			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
-		},
-	};
-}
-
-function parseBiocontrolPageQuery(
-	searchParams: URLSearchParams,
-	organizationId: string,
-): BiocontrolPageQueryResult {
-	const limit = parseLimitParam(searchParams.get('limit'));
-	if (!limit.ok) {
-		return limit;
-	}
-
-	const offset = parseOffsetParam(searchParams.get('offset'));
-	if (!offset.ok) {
-		return offset;
-	}
-
-	const filterParams = new URLSearchParams(searchParams);
-	filterParams.delete('limit');
-	filterParams.delete('offset');
-
-	const filterResult = parseBiocontrolMapFilters(filterParams);
-	if (!filterResult.ok) {
-		return filterResult;
-	}
-
-	return {
-		ok: true,
-		input: {
-			organizationId,
-			filters: filterResult.filters,
-			limit: limit.value,
-			offset: offset.value,
-		},
-	};
-}
-
 type OutreachFilterResult =
 	| { readonly ok: true; readonly filters: OutreachMapFilters }
 	| { readonly ok: false; readonly reason: string };
@@ -1885,97 +1525,6 @@ type OutreachPageQueryResult =
 	| { readonly ok: true; readonly input: OutreachPageInput }
 	| { readonly ok: false; readonly reason: string };
 
-const outreachFilterParams = new Set([
-	'outreachMethodId',
-	'technician',
-	'dateFrom',
-	'dateTo',
-	regionFilterParam,
-]);
-
-function parseOutreachMapFilters(searchParams: URLSearchParams): OutreachFilterResult {
-	const unknownParams = [...searchParams.keys()].filter(
-		(param) => !outreachFilterParams.has(param),
-	);
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported outreach filter: ${unknownParams[0]}.` };
-	}
-
-	const outreachMethodIds = parseOptionalUuidListFilter(searchParams, 'outreachMethodId');
-	if (!outreachMethodIds.ok) {
-		return outreachMethodIds;
-	}
-
-	const technicianProfileIds = parseOptionalUuidListFilter(searchParams, 'technician');
-	if (!technicianProfileIds.ok) {
-		return technicianProfileIds;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
-	if (!dateFrom.ok) {
-		return dateFrom;
-	}
-
-	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
-	if (!dateTo.ok) {
-		return dateTo;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(outreachMethodIds.value === undefined
-				? {}
-				: { outreachMethodIds: outreachMethodIds.value }),
-			...(technicianProfileIds.value === undefined
-				? {}
-				: { technicianProfileIds: technicianProfileIds.value }),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
-			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
-		},
-	};
-}
-
-function parseOutreachPageQuery(
-	searchParams: URLSearchParams,
-	organizationId: string,
-): OutreachPageQueryResult {
-	const limit = parseLimitParam(searchParams.get('limit'));
-	if (!limit.ok) {
-		return limit;
-	}
-
-	const offset = parseOffsetParam(searchParams.get('offset'));
-	if (!offset.ok) {
-		return offset;
-	}
-
-	const filterParams = new URLSearchParams(searchParams);
-	filterParams.delete('limit');
-	filterParams.delete('offset');
-
-	const filterResult = parseOutreachMapFilters(filterParams);
-	if (!filterResult.ok) {
-		return filterResult;
-	}
-
-	return {
-		ok: true,
-		input: {
-			organizationId,
-			filters: filterResult.filters,
-			limit: limit.value,
-			offset: offset.value,
-		},
-	};
-}
-
 type TrapFilterResult =
 	| { readonly ok: true; readonly filters: TrapMapFilters }
 	| { readonly ok: false; readonly reason: string };
@@ -1983,81 +1532,6 @@ type TrapFilterResult =
 type TrapPageQueryResult =
 	| { readonly ok: true; readonly input: TrapPageInput }
 	| { readonly ok: false; readonly reason: string };
-
-const trapFilterParams = new Set(['collectionMethodId', 'status', 'search', regionFilterParam]);
-
-export function parseTrapMapFilters(searchParams: URLSearchParams): TrapFilterResult {
-	const unknownParams = [...searchParams.keys()].filter((param) => !trapFilterParams.has(param));
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported traps filter: ${unknownParams[0]}.` };
-	}
-
-	const collectionMethodIds = parseOptionalUuidListFilter(searchParams, 'collectionMethodId');
-	if (!collectionMethodIds.ok) {
-		return collectionMethodIds;
-	}
-
-	const isActive = parseOptionalTrapStatusFilter(searchParams, 'status');
-	if (!isActive.ok) {
-		return isActive;
-	}
-
-	const search = parseOptionalTextFilter(searchParams, 'search');
-	if (!search.ok) {
-		return search;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(collectionMethodIds.value === undefined
-				? {}
-				: { collectionMethodIds: collectionMethodIds.value }),
-			...(isActive.value === undefined ? {} : { isActive: isActive.value }),
-			...(search.value === undefined ? {} : { search: search.value }),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-		},
-	};
-}
-
-function parseTrapPageQuery(
-	searchParams: URLSearchParams,
-	organizationId: string,
-): TrapPageQueryResult {
-	const limit = parseLimitParam(searchParams.get('limit'));
-	if (!limit.ok) {
-		return limit;
-	}
-
-	const offset = parseOffsetParam(searchParams.get('offset'));
-	if (!offset.ok) {
-		return offset;
-	}
-
-	const filterParams = new URLSearchParams(searchParams);
-	filterParams.delete('limit');
-	filterParams.delete('offset');
-
-	const filterResult = parseTrapMapFilters(filterParams);
-	if (!filterResult.ok) {
-		return filterResult;
-	}
-
-	return {
-		ok: true,
-		input: {
-			organizationId,
-			filters: filterResult.filters,
-			limit: limit.value,
-			offset: offset.value,
-		},
-	};
-}
 
 function parseOptionalTrapStatusFilter(
 	searchParams: URLSearchParams,
@@ -2094,96 +1568,6 @@ type CollectionFilterResult =
 type CollectionPageQueryResult =
 	| { readonly ok: true; readonly input: CollectionPageInput }
 	| { readonly ok: false; readonly reason: string };
-
-const collectionFilterParams = new Set([
-	'collectionMethodId',
-	'problem',
-	'dateFrom',
-	'dateTo',
-	regionFilterParam,
-]);
-
-export function parseCollectionMapFilters(searchParams: URLSearchParams): CollectionFilterResult {
-	const unknownParams = [...searchParams.keys()].filter(
-		(param) => !collectionFilterParams.has(param),
-	);
-	if (unknownParams.length > 0) {
-		return { ok: false, reason: `Unsupported collections filter: ${unknownParams[0]}.` };
-	}
-
-	const collectionMethodIds = parseOptionalUuidListFilter(searchParams, 'collectionMethodId');
-	if (!collectionMethodIds.ok) {
-		return collectionMethodIds;
-	}
-
-	const problem = parseOptionalBooleanFilter(searchParams, 'problem');
-	if (!problem.ok) {
-		return problem;
-	}
-
-	const regionIds = parseOptionalUuidListFilter(searchParams, regionFilterParam);
-	if (!regionIds.ok) {
-		return regionIds;
-	}
-
-	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
-	if (!dateFrom.ok) {
-		return dateFrom;
-	}
-
-	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
-	if (!dateTo.ok) {
-		return dateTo;
-	}
-
-	return {
-		ok: true,
-		filters: {
-			...(collectionMethodIds.value === undefined
-				? {}
-				: { collectionMethodIds: collectionMethodIds.value }),
-			// Only `true` narrows; `problem=false` is the same as omitting it.
-			...(problem.value === true ? { problemOnly: true } : {}),
-			...(regionIds.value === undefined ? {} : { regionIds: regionIds.value }),
-			...(dateFrom.value === undefined ? {} : { dateFrom: dateFrom.value }),
-			...(dateTo.value === undefined ? {} : { dateTo: dateTo.value }),
-		},
-	};
-}
-
-function parseCollectionPageQuery(
-	searchParams: URLSearchParams,
-	organizationId: string,
-): CollectionPageQueryResult {
-	const limit = parseLimitParam(searchParams.get('limit'));
-	if (!limit.ok) {
-		return limit;
-	}
-
-	const offset = parseOffsetParam(searchParams.get('offset'));
-	if (!offset.ok) {
-		return offset;
-	}
-
-	const filterParams = new URLSearchParams(searchParams);
-	filterParams.delete('limit');
-	filterParams.delete('offset');
-
-	const filterResult = parseCollectionMapFilters(filterParams);
-	if (!filterResult.ok) {
-		return filterResult;
-	}
-
-	return {
-		ok: true,
-		input: {
-			organizationId,
-			filters: filterResult.filters,
-			limit: limit.value,
-			offset: offset.value,
-		},
-	};
-}
 
 function parseOptionalSampleStatusFilter(
 	searchParams: URLSearchParams,
@@ -2233,14 +1617,6 @@ function parseHabitatSearchQuery(
 	return { ok: true, search: search.value ?? '', limit: parsed };
 }
 
-const habitatFilterParams = new Set([
-	'isActive',
-	'isInaccessible',
-	'habitatTypeId',
-	'tagId',
-	'search',
-	regionFilterParam,
-]);
 const maxDisplayLimit = 50;
 const maxSearchLength = 200;
 

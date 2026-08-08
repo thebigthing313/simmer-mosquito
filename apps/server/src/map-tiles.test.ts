@@ -5,11 +5,17 @@ import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
 	parseAddressTileFilters,
+	parseApplicationMapFilters,
+	parseBiocontrolMapFilters,
 	parseCollectionMapFilters,
 	parseHabitatDisplayQuery,
 	parseHabitatTileFilters,
 	parseInspectionDisplayQuery,
 	parseInspectionTileFilters,
+	parseOutreachMapFilters,
+	parseRegionTileFilters,
+	parseSampleTileFilters,
+	parseSourceReductionMapFilters,
 	parseTileCoordinate,
 	parseTrapMapFilters,
 	registerMapTileRoutes,
@@ -1002,5 +1008,129 @@ describe('map read route registration', () => {
 
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toEqual({ habitats: [] });
+	});
+});
+
+/**
+ * Every query param, mapped to the filter key the reader reads.
+ *
+ * The eleven parsers used to name each param twice — once in a whitelist `Set`,
+ * once in the parse body — and are now one declarative table per surface. That
+ * removed the drift between the two lists and introduced a different risk: the
+ * table asserts its result type rather than deriving it, so a `param`/`as` pair
+ * that names the wrong key still compiles. This is the assertion that catches
+ * it, and it is why the table lists a value for every field rather than a
+ * representative one.
+ */
+describe('map filter fields', () => {
+	function filtersOf(
+		parse: (params: URLSearchParams) => { ok: boolean },
+		query: string,
+	): Record<string, unknown> {
+		const result = parse(new URLSearchParams(query)) as
+			| { ok: true; filters: Record<string, unknown> }
+			| { ok: false; reason: string };
+
+		if (!result.ok) {
+			throw new Error(result.reason);
+		}
+		return result.filters;
+	}
+
+	const idA = 'a1e0f1c7-d278-441e-82b4-9292d390ce72';
+	const idB = 'b2e0f1c7-d278-441e-82b4-9292d390ce72';
+
+	it('maps the region tile params', () => {
+		expect(
+			filtersOf(parseRegionTileFilters, `regionFolderId=folder&search=creek&id=${idA}`),
+		).toEqual({ regionFolderId: 'folder', search: 'creek', ids: [idA] });
+	});
+
+	it('maps the sample tile params', () => {
+		expect(
+			filtersOf(
+				parseSampleTileFilters,
+				`species=${idA}&status=identified&nonMosquito=true&regionId=${idB}&dateFrom=2026-01-01&dateTo=2026-02-01`,
+			),
+		).toEqual({
+			speciesIds: [idA],
+			status: 'identified',
+			nonMosquitoOnly: true,
+			regionIds: [idB],
+			dateFrom: '2026-01-01',
+			dateTo: '2026-02-01',
+		});
+	});
+
+	it('maps the chemical params', () => {
+		expect(
+			filtersOf(
+				parseApplicationMapFilters,
+				`insecticideId=${idA}&applicationMethodId=${idB}&applicator=${idA}&regionId=${idB}&dateFrom=2026-01-01&dateTo=2026-02-01`,
+			),
+		).toEqual({
+			insecticideIds: [idA],
+			applicationMethodIds: [idB],
+			applicatorProfileIds: [idA],
+			regionIds: [idB],
+			dateFrom: '2026-01-01',
+			dateTo: '2026-02-01',
+		});
+	});
+
+	it('maps the source-reduction params', () => {
+		expect(
+			filtersOf(
+				parseSourceReductionMapFilters,
+				`sourceReductionMethodId=${idA}&technician=${idB}&regionId=${idA}`,
+			),
+		).toEqual({
+			sourceReductionMethodIds: [idA],
+			technicianProfileIds: [idB],
+			regionIds: [idA],
+		});
+	});
+
+	it('maps the biocontrol params', () => {
+		expect(
+			filtersOf(
+				parseBiocontrolMapFilters,
+				`biocontrolMethodId=${idA}&habitatLinked=true&technician=${idB}`,
+			),
+		).toEqual({
+			biocontrolMethodIds: [idA],
+			habitatLinkedOnly: true,
+			technicianProfileIds: [idB],
+		});
+	});
+
+	it('maps the outreach params', () => {
+		expect(filtersOf(parseOutreachMapFilters, `outreachMethodId=${idA}&technician=${idB}`)).toEqual(
+			{ outreachMethodIds: [idA], technicianProfileIds: [idB] },
+		);
+	});
+
+	it('maps the trap params', () => {
+		expect(
+			filtersOf(parseTrapMapFilters, `collectionMethodId=${idA}&status=active&search=park`),
+		).toEqual({ collectionMethodIds: [idA], isActive: true, search: 'park' });
+	});
+
+	it('maps the collection params', () => {
+		expect(filtersOf(parseCollectionMapFilters, `collectionMethodId=${idA}&problem=true`)).toEqual({
+			collectionMethodIds: [idA],
+			problemOnly: true,
+		});
+	});
+
+	// Three surfaces wrote this rule out longhand; it is one field kind now, so
+	// one assertion covers all three.
+	it.each([
+		[parseSampleTileFilters, 'nonMosquito'],
+		[parseBiocontrolMapFilters, 'habitatLinked'],
+		[parseCollectionMapFilters, 'problem'],
+	] as const)('drops %#: only true narrows', (parse, param) => {
+		expect(filtersOf(parse, `${param}=false`)).toEqual({});
+		expect(Object.values(filtersOf(parse, `${param}=true`))).toEqual([true]);
 	});
 });
