@@ -177,73 +177,45 @@ delete from weather_summaries where end_date < :'cutoff';
 -- comment thread on a habitat detail page reads its rows by entity id, so a
 -- stale row surfaces as a comment attached to whatever later reuses that id.
 --
--- entity_type is stored snake_case and singular. Pairs whose parent is
--- reference data (habitat, trap, contact) are listed anyway — they cost one
--- cheap anti-join each and mean this loop is the full map of the polymorphic
--- graph rather than a subset someone has to re-derive when a new type appears.
+-- The pairs are read out of the data rather than written down here. A list was
+-- tried first and was wrong on its first contact with production: staging
+-- carried 16 (child, entity_type) pairs and prod carried four the list had
+-- never seen — `comments -> application`, `comments -> source_reduction`,
+-- `additional_personnel -> outreach_action`, `-> source_reduction`. A list
+-- validated against one database is not validated, and this one is only ever
+-- read on a database that was somewhere else an hour ago.
+--
+-- `entity_type` is stored snake_case singular and its table is the plural,
+-- which holds for all 15 pairs prod contains. Deriving the parent that way and
+-- refusing to continue when the derived table does not exist keeps the
+-- fail-loud property without keeping the list: a new entity_type is handled,
+-- and an irregular plural stops the clone instead of silently skipping rows.
 
 do $polymorphic$
 declare
 	link record;
+	parent_table text;
 	removed bigint;
-	uncovered text;
 begin
-	create temporary table prune_polymorphic_links (
-		child_table text, entity_type text, parent_table text
-	) on commit drop;
+	for link in
+		select 'comments' as child_table, entity_type from comments where entity_type is not null
+		union select 'additional_personnel', entity_type from additional_personnel where entity_type is not null
+		union select 'tag_items', entity_type from tag_items where entity_type is not null
+		union select 'assignment_items', entity_type from assignment_items where entity_type is not null
+		union select 'route_items', entity_type from route_items where entity_type is not null
+	loop
+		parent_table := link.entity_type || 's';
 
-	insert into prune_polymorphic_links values
-		('comments', 'inspection', 'inspections'),
-		('comments', 'collection', 'collections'),
-		('comments', 'sample', 'samples'),
-		('comments', 'service_request', 'service_requests'),
-		('comments', 'assignment', 'assignments'),
-		('comments', 'habitat', 'habitats'),
-		('comments', 'contact', 'contacts'),
-		('additional_personnel', 'inspection', 'inspections'),
-		('additional_personnel', 'application', 'applications'),
-		('additional_personnel', 'collection', 'collections'),
-		('tag_items', 'service_request', 'service_requests'),
-		('tag_items', 'habitat', 'habitats'),
-		('tag_items', 'trap', 'traps'),
-		('assignment_items', 'service_request', 'service_requests'),
-		('assignment_items', 'habitat', 'habitats'),
-		('route_items', 'habitat', 'habitats'),
-		('route_items', 'trap', 'traps');
+		if to_regclass('public.' || parent_table) is null then
+			raise exception
+				'polymorphic entity_type % (on %) does not pluralise to a table: no %',
+				link.entity_type, link.child_table, parent_table;
+		end if;
 
-	-- A list like the one above is only as good as its coverage, and the way it
-	-- fails is invisible: an entity_type nobody added just keeps its orphans,
-	-- and they resurface as a comment attached to whatever later reuses that id.
-	-- So ask the data which types exist and refuse to continue on one this file
-	-- does not know about. Aborting a clone is a cheap way to find out; a
-	-- mystery comment on an unrelated record is not.
-	select string_agg(format('%s -> %s', present.child_table, present.entity_type), ', ')
-	into uncovered
-	from (
-		select 'comments' as child_table, entity_type from comments
-		union select 'additional_personnel', entity_type from additional_personnel
-		union select 'tag_items', entity_type from tag_items
-		union select 'assignment_items', entity_type from assignment_items
-		union select 'route_items', entity_type from route_items
-	) as present
-	-- Aliased `known`, not `link`: PL/pgSQL resolves an identifier matching a
-	-- declared variable to that variable, so a `link` alias here silently
-	-- becomes the loop's record and the query fails at run time.
-	where not exists (
-		select 1 from prune_polymorphic_links known
-		where known.child_table = present.child_table
-		  and known.entity_type = present.entity_type
-	);
-
-	if uncovered is not null then
-		raise exception 'polymorphic entity_type not covered by this prune: %', uncovered;
-	end if;
-
-	for link in select * from prune_polymorphic_links loop
 		execute format(
 			'delete from %I c where c.entity_type = %L
 			   and not exists (select 1 from %I p where p.id = c.entity_id)',
-			link.child_table, link.entity_type, link.parent_table
+			link.child_table, link.entity_type, parent_table
 		);
 		get diagnostics removed = row_count;
 		if removed > 0 then
