@@ -1,3 +1,4 @@
+import { syncShapeDescriptors } from '@simmer-mosquito/sync';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
@@ -183,44 +184,70 @@ describe('buildElectricShapeUrl', () => {
 	});
 });
 
+/**
+ * The `where` each shape must reach Electric with. Every shape defaults to the
+ * org-scoped, soft-delete-aware predicate; the exceptions are listed, so a
+ * descriptor that quietly acquires the wrong scope fails here rather than
+ * streaming another agency's rows.
+ *
+ * The two `organization_id = $1`-only entries are not a decision to expose
+ * deleted rows: `memberships` and `weather_summaries` have no `deleted_at`
+ * column, and naming `deleted_at` in their shape is an Electric error.
+ */
+const orgScopedWhere = 'organization_id = $1 and deleted_at is null';
+const shapeWhereByPath: Readonly<Record<string, string | null>> = {
+	// Global reference data every agency reads — no tenant predicate at all.
+	'/sync/shapes/units': null,
+	'/sync/shapes/genera': null,
+	'/sync/shapes/species': null,
+	'/sync/shapes/memberships': 'organization_id = $1',
+	'/sync/shapes/organization': 'id = $1 and deleted_at is null',
+	'/sync/shapes/weather-sources':
+		'(organization_id = $1 or organization_id is null) and deleted_at is null',
+	'/sync/shapes/weather-summaries': '(organization_id = $1 or organization_id is null)',
+};
+
+function recordingApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
+	const app = new Hono<{ Variables: AuthVariables }>();
+
+	registerSyncShapeRoutes(app, {
+		electricUrl: 'http://localhost:3001/v1/shape',
+		authContextMiddleware: createMiddleware(async (context, next) => {
+			context.set('authContext', { organization: { id: 'org-1' } } as never);
+			await next();
+		}),
+		operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+		fetch: ((request) => {
+			requests.push(String(request));
+			return Promise.resolve(new Response('[]'));
+		}) as typeof fetch,
+	});
+
+	return app;
+}
+
 describe('registerSyncShapeRoutes', () => {
-	it.each([
-		['/sync/shapes/insecticides'],
-		['/sync/shapes/insecticide-batches'],
-		['/sync/shapes/habitats'],
-		['/sync/shapes/inspections'],
-		['/sync/shapes/samples'],
-		['/sync/shapes/sample-species'],
-		['/sync/shapes/region-folders'],
-		['/sync/shapes/regions'],
-		['/sync/shapes/traps'],
-		['/sync/shapes/collections'],
-		['/sync/shapes/collection-species'],
-		['/sync/shapes/comments'],
-		['/sync/shapes/tag-items'],
-		['/sync/shapes/additional-personnel'],
-		['/sync/shapes/route-items'],
-		['/sync/shapes/assignments'],
-		['/sync/shapes/assignment-items'],
-		['/sync/shapes/formulations'],
-		['/sync/shapes/formulation-insecticides'],
-		['/sync/shapes/applications'],
-		['/sync/shapes/application-batches'],
-		['/sync/shapes/source-reductions'],
-		['/sync/shapes/outreach-actions'],
-		['/sync/shapes/biocontrol-actions'],
-		['/sync/shapes/contacts'],
-		['/sync/shapes/service-requests'],
-		['/sync/shapes/requested-control-actions'],
-		['/sync/shapes/missions'],
-		['/sync/shapes/mission-items'],
-		['/sync/shapes/notification-registrations'],
-		['/sync/shapes/notification-registration-types'],
-		['/sync/shapes/mission-notifications'],
-		['/sync/shapes/weather-sources'],
-		['/sync/shapes/weather-source-subscriptions'],
-		['/sync/shapes/weather-summaries'],
-	])('registers %s', async (path) => {
+	it.each(
+		syncShapeDescriptors.map((descriptor) => [descriptor.id, descriptor] as const),
+	)('forces the table, columns and tenant scope of the %s shape', async (_id, descriptor) => {
+		const requests: string[] = [];
+		const response = await recordingApp(requests).request(descriptor.endpointPath);
+		const upstream = new URL(requests[0] ?? '');
+		const declared = shapeWhereByPath[descriptor.endpointPath];
+		const expectedWhere = declared === undefined ? orgScopedWhere : declared;
+
+		expect(response.status).toBe(200);
+		expect(upstream.searchParams.get('table')).toBe(descriptor.table);
+		expect(upstream.searchParams.get('columns')?.split(',')).toHaveLength(
+			descriptor.columns.length,
+		);
+		expect(upstream.searchParams.get('where')).toBe(expectedWhere);
+		expect(upstream.searchParams.get('params[1]')).toBe(expectedWhere === null ? null : 'org-1');
+	});
+
+	it.each(
+		syncShapeDescriptors.map((descriptor) => [descriptor.endpointPath] as const),
+	)('registers %s for both GET and the POST subset transport', async (path) => {
 		const app = new Hono<{ Variables: AuthVariables }>();
 
 		registerSyncShapeRoutes(app, {
@@ -229,10 +256,47 @@ describe('registerSyncShapeRoutes', () => {
 			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
 		});
 
-		const response = await app.request(path);
+		for (const method of ['GET', 'POST']) {
+			const response = await app.request(path, {
+				method,
+				...(method === 'POST'
+					? { headers: { 'content-type': 'application/json' }, body: '{}' }
+					: {}),
+			});
 
-		expect(response.status).toBe(503);
-		expect(await response.json()).toEqual({ error: 'electric_url_required' });
+			expect(response.status).toBe(503);
+			expect(await response.json()).toEqual({ error: 'electric_url_required' });
+		}
+	});
+
+	it.each([
+		['/admin/sync/shapes/units', 'units'],
+		['/admin/sync/shapes/genera', 'genera'],
+		['/admin/sync/shapes/species', 'species'],
+	])('serves %s to operators with no tenant predicate', async (path, table) => {
+		const requests: string[] = [];
+		const response = await recordingApp(requests).request(path);
+		const upstream = new URL(requests[0] ?? '');
+
+		expect(response.status).toBe(200);
+		expect(upstream.searchParams.get('table')).toBe(table);
+		// The highest-privilege path in the file: global taxonomy, no `where`. The
+		// operator middleware is the only thing standing in front of it.
+		expect(upstream.searchParams.get('where')).toBeNull();
+		expect(upstream.searchParams.get('params[1]')).toBeNull();
+	});
+
+	it('translates camelCase descriptor columns to their snake_case DB names', async () => {
+		const requests: string[] = [];
+		await recordingApp(requests).request('/sync/shapes/organization');
+		const columns = new URL(requests[0] ?? '').searchParams.get('columns')?.split(',') ?? [];
+
+		expect(columns).toContain('workos_organization_id');
+		expect(columns).toContain('updated_by_profile_id');
+		// The numbered address columns are the four hand-coded exceptions: a plain
+		// camel→snake pass would produce `mailing_address_line1`, which is not a column.
+		expect(columns).toContain('mailing_address_line_1');
+		expect(columns).toContain('mailing_address_line_2');
 	});
 
 	it('registers org-scoped insecticide batch shapes', async () => {
@@ -483,6 +547,39 @@ describe('shape response caching', () => {
 		const response = await appWithElectric().request('/sync/shapes/units');
 
 		expect(response.headers.get('vary')).toBe('cookie');
+	});
+
+	it('drops hop-by-hop headers rather than describing a body it no longer has', async () => {
+		const app = new Hono<{ Variables: AuthVariables }>();
+		registerSyncShapeRoutes(app, {
+			electricUrl: 'http://localhost:3001/v1/shape',
+			authContextMiddleware: createMiddleware(async (context, next) => {
+				context.set('authContext', { organization: { id: 'org-1' } } as never);
+				await next();
+			}),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+			fetch: (() =>
+				Promise.resolve(
+					new Response('{"data":[]}', {
+						headers: {
+							// Electric's framing of *its* response body. Forwarded verbatim they
+							// describe a body this proxy has already re-framed, and the browser
+							// fails the stream rather than the request.
+							'content-encoding': 'gzip',
+							'transfer-encoding': 'chunked',
+							connection: 'keep-alive',
+							'electric-offset': '0_0',
+						},
+					}),
+				)) as typeof fetch,
+		});
+
+		const response = await app.request('/sync/shapes/units');
+
+		expect(response.headers.get('content-encoding')).toBeNull();
+		expect(response.headers.get('transfer-encoding')).toBeNull();
+		expect(response.headers.get('connection')).toBeNull();
+		expect(response.headers.get('electric-offset')).toBe('0_0');
 	});
 
 	it('still forwards the Electric stream headers the client needs', async () => {

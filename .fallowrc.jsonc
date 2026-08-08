@@ -64,7 +64,7 @@
 	// both this and the complexity baseline). Raising it needs a reason in the
 	// commit message.
 	"duplicates": {
-		"threshold": 12.2
+		"threshold": 12.1
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and
