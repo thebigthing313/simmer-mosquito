@@ -272,17 +272,35 @@ begin
 	raise notice 'transient indexes dropped: %', dropped;
 end $cleanup$;
 
--- Half a million dead tuples otherwise sit in the table until autovacuum
--- notices, and the point of this file is a staging database that is actually
--- smaller rather than one that merely hides its history.
-vacuum (analyze) inspections;
-vacuum (analyze) applications;
-vacuum (analyze) application_batches;
-vacuum (analyze) collections;
-vacuum (analyze) collection_species;
-vacuum (analyze) samples;
-vacuum (analyze) sample_species;
-vacuum (analyze) comments;
+-- FULL, not plain. A plain `vacuum` marks dead tuples reusable *inside* the
+-- table and hands nothing back to the filesystem, so after deleting 80% of
+-- these rows the database would occupy exactly as much Railway volume as
+-- before — history hidden rather than removed, which is the opposite of why
+-- this file exists. `vacuum full` rewrites each table and its indexes and
+-- returns the space.
+--
+-- The usual objection to `vacuum full` is that it needs room for a second copy
+-- of the table while it runs. Here it does not really apply: the copy is made
+-- *after* the prune, so it is the ~20% that survived, and peak usage is about
+-- 1.2x the old table rather than 2x. It takes an ACCESS EXCLUSIVE lock, which
+-- is free on a database this script has just finished wiping and reloading.
+--
+-- Run after the transient indexes are dropped, so none of them get rewritten
+-- on the way out.
+vacuum (full, analyze) inspections;
+vacuum (full, analyze) applications;
+vacuum (full, analyze) application_batches;
+vacuum (full, analyze) collections;
+vacuum (full, analyze) collection_species;
+vacuum (full, analyze) samples;
+vacuum (full, analyze) sample_species;
+vacuum (full, analyze) comments;
+vacuum (full, analyze) additional_personnel;
+vacuum (full, analyze) tag_items;
+vacuum (full, analyze) service_requests;
+
+\echo '--> database size after prune:'
+select pg_size_pretty(pg_database_size(current_database())) as db_size;
 
 \echo '--> remaining operational rows:'
 select 'inspections' as table_name, count(*) as rows, min(inspection_date) as oldest from inspections
