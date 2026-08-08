@@ -896,3 +896,111 @@ const sampleInspectionRow = {
 	createdAt: new Date('2026-05-27T00:00:00.000Z'),
 	updatedAt: new Date('2026-05-27T00:00:00.000Z'),
 } as const;
+
+/**
+ * Registration, for every tileset key and every route.
+ *
+ * The model is `sync-shapes.test.ts`: one table, one assertion per entry, no
+ * fixture. It exists because a typo in a registry key — `'source-reduction'` is
+ * the one with a hyphen, and `apps/web` has to spell it the same way — ships as
+ * a 400 `invalid_tileset` with nothing failing, and because seven of the eleven
+ * tilesets and nineteen of the twenty-seven routes were reached by no test at
+ * all.
+ *
+ * Every case here is answered before the database is touched, which is what
+ * makes the table cheap: an unknown tileset, a malformed tile coordinate, an
+ * unknown filter param and a non-UUID id are all refusals the route makes on
+ * its own. A registered route therefore answers 400; an unregistered one
+ * answers 404, and that is the whole signal.
+ */
+describe('map read route registration', () => {
+	const tileSets = [
+		'habitats',
+		'regions',
+		'addresses',
+		'inspections',
+		'samples',
+		'chemical',
+		'source-reduction',
+		'biocontrol',
+		'outreach',
+		'traps',
+		'collections',
+	] as const;
+
+	function registrationApp() {
+		return createApp({ getHabitatTile: () => Promise.resolve(new Uint8Array()) });
+	}
+
+	it.each(tileSets)('resolves the %s tileset for tiles', async (tileset) => {
+		// Zoom 99 is past `maxSupportedZoom`, so the coordinate is refused — but
+		// only after the registry has answered, which is what this asserts. An
+		// unregistered key answers `invalid_tileset` here instead.
+		const response = await registrationApp().request(`/map/tiles/${tileset}/99/0/0.mvt`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_tile_coordinate' });
+	});
+
+	it.each(tileSets)('resolves the %s tileset for extents', async (tileset) => {
+		const response = await registrationApp().request(`/map/tiles/${tileset}/extent?notAFilter=1`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_filter' });
+	});
+
+	it('refuses a tileset key nothing registered', async () => {
+		const response = await registrationApp().request('/map/tiles/nonexistent/99/0/0.mvt');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_tileset' });
+	});
+
+	it.each([
+		'/map/habitats',
+		'/map/inspections',
+		'/map/samples',
+		'/map/chemical',
+		'/map/source-reduction',
+		'/map/biocontrol',
+		'/map/outreach',
+		'/map/traps',
+		'/map/collections',
+	])('registers %s and refuses a param its filters do not admit', async (path) => {
+		const response = await registrationApp().request(`${path}?notAFilter=1`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+	});
+
+	it.each([
+		'/map/habitats/not-a-uuid',
+		'/map/regions/not-a-uuid',
+		'/map/addresses/not-a-uuid',
+		'/map/inspections/not-a-uuid',
+		'/map/samples/not-a-uuid',
+		'/map/chemical/not-a-uuid',
+		'/map/source-reduction/not-a-uuid',
+		'/map/biocontrol/not-a-uuid',
+		'/map/outreach/not-a-uuid',
+		'/map/requested-control-actions/not-a-uuid',
+		'/map/missions/not-a-uuid/items',
+		'/map/traps/not-a-uuid',
+		'/map/collections/not-a-uuid',
+	])('registers %s and refuses an id that is not a UUID', async (path) => {
+		const response = await registrationApp().request(path);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
+	});
+
+	// The one read route with no unknown-param whitelist: it takes `search` and
+	// `limit` and ignores the rest. An empty search short-circuits to no rows
+	// without a query, which is what makes it assertable here.
+	it('registers /map/habitats/search', async () => {
+		const response = await registrationApp().request('/map/habitats/search?search=');
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ habitats: [] });
+	});
+});
