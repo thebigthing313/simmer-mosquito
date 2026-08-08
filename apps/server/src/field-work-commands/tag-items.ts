@@ -10,19 +10,16 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
-	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
-	handleCommandError,
 	type RouteOptions,
 	readTarget,
+	runCommands,
 	type SafeTagItem,
 	softDelete,
 	tagItemReturnColumns,
 	toSafeTagItem,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -66,25 +63,12 @@ async function runTagItemCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeTagItemCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'tag_item_not_found' }, 404);
-		}
-		return context.json({ tagItem: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeTagItemCommand, notFound: 'tag_item_not_found', key: 'tagItem' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeTagItemCommand(

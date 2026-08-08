@@ -8,19 +8,16 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
-	handleCommandError,
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
 	localDateColumn,
+	runCommands,
 	type SafeSampleSpecies,
 	sampleSpeciesReturnColumns,
 	toSafeSampleSpecies,
-	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -96,25 +93,17 @@ async function runSampleSpeciesCommands(
 	commands: readonly LarvalSurveillanceCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
+	return runCommands(
+		context,
+		{
 			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeSampleSpeciesCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'sample_species_not_found' }, 404);
-		}
-		return context.json({ sampleSpecies: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+			write: writeSampleSpeciesCommand,
+			notFound: 'sample_species_not_found',
+			key: 'sampleSpecies',
+		},
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeSampleSpeciesCommand(

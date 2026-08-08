@@ -6,7 +6,6 @@ import {
 	CommandError,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	type InvalidCommandBody,
 	invalidUpdate,
 } from '../command-endpoint.js';
@@ -14,23 +13,14 @@ import { readNumber, readText } from '../command-payload.js';
 import {
 	type CommandDb,
 	type CommandTransaction,
-	commandActor,
 	readDate,
-	writeCommands,
+	runCommands,
 } from '../command-write.js';
 import { resolveLocationGeom } from '../location-source.js';
 
 export type AdultSurveillanceDb = CommandDb;
 export type AdultSurveillanceTransaction = CommandTransaction;
-export {
-	commandActor,
-	geojsonToGeom,
-	localDateColumn,
-	readDate,
-	resolveLocationGeom,
-	updateRow,
-	writeCommands,
-};
+export { geojsonToGeom, localDateColumn, readDate, resolveLocationGeom, runCommands, updateRow };
 
 // ---------------------------------------------------------------------------
 // Geometry + location source resolution
@@ -355,7 +345,6 @@ export {
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	type InvalidCommandBody,
 	invalidUpdate,
 };

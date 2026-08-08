@@ -30,13 +30,10 @@ import {
 	assignmentReturnColumns,
 	type CommandContext,
 	type CommandsResult,
-	commandActor,
 	commandEndpoint,
 	createCommand,
-	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
-	handleCommandError,
 	invalidUpdate,
 	localDateColumn,
 	nowLocalDate,
@@ -46,11 +43,11 @@ import {
 	readLifecycleTransition,
 	readStringArray,
 	reindexItems,
+	runCommands,
 	type SafeAssignment,
 	softDelete,
 	toSafeAssignment,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -231,25 +228,12 @@ async function runAssignmentCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeAssignmentCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'assignment_not_found' }, 404);
-		}
-		return context.json({ assignment: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeAssignmentCommand, notFound: 'assignment_not_found', key: 'assignment' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeAssignmentCommand(

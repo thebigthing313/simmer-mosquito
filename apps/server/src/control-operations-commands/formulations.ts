@@ -11,25 +11,22 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
-	commandActor,
 	commandEndpoint,
 	createCommand,
 	type FormulationUpdateColumns,
 	formulationReturnColumns,
-	handleCommandError,
 	invalidUpdate,
 	type RouteOptions,
+	runCommands,
 	type SafeFormulation,
 	softDelete,
 	toSafeFormulation,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -136,25 +133,12 @@ async function runFormulationCommands(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeFormulationCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'formulation_not_found' }, 404);
-		}
-		return context.json({ formulation: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeFormulationCommand, notFound: 'formulation_not_found', key: 'formulation' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeFormulationCommand(

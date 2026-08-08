@@ -11,26 +11,23 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
-	commandActor,
 	commandEndpoint,
 	createCommand,
 	type FoundationDb,
 	type FoundationTransaction,
 	geojsonToGeom,
-	handleCommandError,
 	invalidUpdate,
 	type RouteOptions,
 	regionReturnColumns,
+	runCommands,
 	type SafeRegion,
 	softDelete,
 	toSafeRegion,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -144,25 +141,12 @@ async function runRegionCommands(
 	commands: readonly FoundationCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeRegionCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'region_not_found' }, 404);
-		}
-		return context.json({ region: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeRegionCommand, notFound: 'region_not_found', key: 'region' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeRegionCommand(

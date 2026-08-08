@@ -11,7 +11,6 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type ApplicationUpdateColumns,
 	agencyCommandContext,
@@ -20,11 +19,9 @@ import {
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
-	commandActor,
 	commandEndpoint,
 	contextIds,
 	createCommand,
-	handleCommandError,
 	hasLocationContextChange,
 	insertApplicationBatch,
 	invalidUpdate,
@@ -34,10 +31,10 @@ import {
 	type RouteOptions,
 	readControlActionContext,
 	resolveGeom,
+	runCommands,
 	type SafeApplication,
 	softDelete,
 	toSafeApplication,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -181,25 +178,12 @@ async function runApplicationCommands(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeApplicationCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'application_not_found' }, 404);
-		}
-		return context.json({ application: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeApplicationCommand, notFound: 'application_not_found', key: 'application' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeApplicationCommand(

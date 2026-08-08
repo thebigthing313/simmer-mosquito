@@ -20,6 +20,7 @@ import {
 	readDate,
 	readNumberOrNull,
 	readStringArray,
+	runCommands,
 	writeCommands,
 } from '../command-write.js';
 
@@ -38,6 +39,7 @@ export {
 	readDate,
 	readNumberOrNull,
 	readStringArray,
+	runCommands,
 	softDelete,
 	updateRow,
 	writeCommands,

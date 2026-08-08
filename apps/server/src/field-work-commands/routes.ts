@@ -13,22 +13,19 @@ import { readText } from '../command-payload.js';
 import {
 	applyPlacement,
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
-	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
-	handleCommandError,
 	type RouteOptions,
 	readStringArray,
 	reindexItems,
 	routePlacementRef,
 	routeReturnColumns,
+	runCommands,
 	type SafeRoute,
 	softDelete,
 	toSafeRoute,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -105,25 +102,12 @@ async function runRouteCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeRouteCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'route_not_found' }, 404);
-		}
-		return context.json({ route: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeRouteCommand, notFound: 'route_not_found', key: 'route' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeRouteCommand(

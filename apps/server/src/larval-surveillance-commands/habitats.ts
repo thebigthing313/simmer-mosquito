@@ -17,26 +17,23 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { CommandError } from '../command-endpoint.js';
 import { readNullableText, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
 	type HabitatUpdateColumns,
 	habitatReturnColumns,
-	handleCommandError,
 	type InvalidCommandBody,
 	invalidUpdate,
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
 	resolveLocationGeom,
+	runCommands,
 	type SafeHabitat,
 	toSafeHabitat,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -207,25 +204,12 @@ async function runHabitatCommands(
 	commands: readonly LarvalSurveillanceCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeHabitatCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'habitat_not_found' }, 404);
-		}
-		return context.json({ habitat: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeHabitatCommand, notFound: 'habitat_not_found', key: 'habitat' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeHabitatCommand(

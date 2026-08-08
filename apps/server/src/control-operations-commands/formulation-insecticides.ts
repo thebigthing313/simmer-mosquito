@@ -8,20 +8,17 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNumber, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
-	commandActor,
 	commandEndpoint,
 	formulationInsecticideReturnColumns,
-	handleCommandError,
 	type RouteOptions,
+	runCommands,
 	type SafeFormulationInsecticide,
 	softDelete,
 	toSafeFormulationInsecticide,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -91,28 +88,17 @@ async function runFormulationInsecticideCommands(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
+	return runCommands(
+		context,
+		{
 			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeFormulationInsecticideCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'formulation_insecticide_not_found' }, 404);
-		}
-		return context.json(
-			{ formulationInsecticide: result.row, txid: result.txid },
-			createdStatus ?? 200,
-		);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+			write: writeFormulationInsecticideCommand,
+			notFound: 'formulation_insecticide_not_found',
+			key: 'formulationInsecticide',
+		},
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeFormulationInsecticideCommand(

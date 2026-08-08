@@ -13,18 +13,15 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
-	commandActor,
 	commandEndpoint,
 	contextIds,
 	createCommand,
-	handleCommandError,
 	hasLocationContextChange,
 	invalidUpdate,
 	locationContextColumns,
@@ -34,11 +31,11 @@ import {
 	readDate,
 	requestedControlActionReturnColumns,
 	resolveGeom,
+	runCommands,
 	type SafeRequestedControlAction,
 	softDelete,
 	toSafeRequestedControlAction,
 	updateActionRow,
-	writeActionCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -196,28 +193,17 @@ async function runRequestedControlActionCommands(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeActionCommands(
+	return runCommands(
+		context,
+		{
 			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeRequestedControlActionCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'requested_control_action_not_found' }, 404);
-		}
-		return context.json(
-			{ requestedControlAction: result.row, txid: result.txid },
-			createdStatus ?? 200,
-		);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+			write: writeRequestedControlActionCommand,
+			notFound: 'requested_control_action_not_found',
+			key: 'requestedControlAction',
+		},
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeRequestedControlActionCommand(

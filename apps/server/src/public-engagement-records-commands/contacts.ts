@@ -10,13 +10,10 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	contactReturnColumns,
-	handleCommandError,
 	insertContact,
 	invalidUpdate,
 	type PublicEngagementDb,
@@ -24,11 +21,11 @@ import {
 	type RouteOptions,
 	readContactDetails,
 	readStringArray,
+	runCommands,
 	type SafeContact,
 	softDelete,
 	toSafeContact,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -144,25 +141,12 @@ async function runContactCommands(
 	commands: readonly PublicEngagementCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeContactCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'contact_not_found' }, 404);
-		}
-		return context.json({ contact: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeContactCommand, notFound: 'contact_not_found', key: 'contact' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeContactCommand(

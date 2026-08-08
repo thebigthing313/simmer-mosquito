@@ -29,9 +29,13 @@ import {
 } from '@simmer-mosquito/db';
 
 import type { AuthContext } from './auth-context.js';
-import { CommandError } from './command-endpoint.js';
+import { type CommandContext, CommandError, handleCommandError } from './command-endpoint.js';
 import { resolveCommandOwnership } from './command-ownership.js';
-import type { AgencyCommandType, CommandActor } from './command-permissions.js';
+import {
+	type AgencyCommandType,
+	type CommandActor,
+	denyUnauthorizedAgencyCommands,
+} from './command-permissions.js';
 
 export type CommandDb = Kysely<SimmerDatabase>;
 export type CommandTransaction = Transaction<SimmerDatabase>;
@@ -124,4 +128,62 @@ export function readNumberOrNull(value: unknown): number | null {
 /** Today, as the calendar date the operational columns are keyed by. */
 export function nowLocalDate(): string {
 	return new Date().toISOString().slice(0, 10);
+}
+
+// ===========================================================================
+// The write tail
+// ===========================================================================
+
+/**
+ * What varies between one command endpoint's write tail and another's.
+ *
+ * Three values: which writer commits the batch, what to call the row when there
+ * isn't one, and what key to return it under.
+ */
+export interface RunCommandsConfig<TCommand extends WritableCommand, TSafe> {
+	readonly db: CommandDb;
+	readonly write: (trx: CommandTransaction, command: TCommand) => Promise<TSafe | null>;
+	/** The 404 body's `error`, e.g. `region_folder_not_found`. */
+	readonly notFound: string;
+	/** The response key the row is returned under, e.g. `regionFolder`. */
+	readonly key: string;
+}
+
+/**
+ * Authorize, commit, and answer — the seven lines that sat at 28 call sites.
+ *
+ * The rule worth having in one place is the 404: a write loop that answers
+ * `row === null` means "not yours or not there", and both become a 404 named
+ * after the entity. Written out per endpoint, that was 28 chances to name the
+ * wrong noun — and no way to notice that two of the copies were calling a
+ * `writeCommands` which took no actor and so checked no ownership at all.
+ *
+ * Generalized from `runActionCommands`, which had done exactly this for three
+ * of the 28 and never left the file it was written in.
+ */
+export async function runCommands<TCommand extends WritableCommand, TSafe>(
+	context: CommandContext,
+	config: RunCommandsConfig<TCommand, TSafe>,
+	commands: readonly TCommand[],
+	createdStatus?: 201,
+): Promise<Response> {
+	const denial = denyUnauthorizedAgencyCommands(context, commands);
+	if (denial !== null) {
+		return denial;
+	}
+
+	try {
+		const result = await writeCommands(
+			config.db,
+			commandActor(context.get('authContext')),
+			commands,
+			config.write,
+		);
+		if (result.row === null) {
+			return context.json({ error: config.notFound }, 404);
+		}
+		return context.json({ [config.key]: result.row, txid: result.txid }, createdStatus ?? 200);
+	} catch (error) {
+		return handleCommandError(context, error);
+	}
 }

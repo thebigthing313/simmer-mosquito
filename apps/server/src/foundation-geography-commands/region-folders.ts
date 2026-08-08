@@ -7,21 +7,18 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	type FoundationDb,
 	type FoundationTransaction,
-	handleCommandError,
 	type RouteOptions,
 	regionFolderReturnColumns,
+	runCommands,
 	type SafeRegionFolder,
 	softDelete,
 	toSafeRegionFolder,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -86,25 +83,17 @@ async function runRegionFolderCommands(
 	commands: readonly FoundationCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
+	return runCommands(
+		context,
+		{
 			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeRegionFolderCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'region_folder_not_found' }, 404);
-		}
-		return context.json({ regionFolder: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+			write: writeRegionFolderCommand,
+			notFound: 'region_folder_not_found',
+			key: 'regionFolder',
+		},
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeRegionFolderCommand(

@@ -22,11 +22,8 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
-	commandActor,
 	commandEndpoint,
 	createCommand,
-	denyUnauthorizedCommands,
-	handleCommandError,
 	insertMissionItem,
 	invalidUpdate,
 	loadOr404,
@@ -38,11 +35,11 @@ import {
 	readItemLifecycleTransition,
 	readStringArray,
 	resolveItemGeom,
+	runCommands,
 	type SafeMissionItem,
 	softDelete,
 	toSafeMissionItem,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -207,25 +204,12 @@ async function runMissionItemCommands(
 	commands: readonly MissionDispatchCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeMissionItemCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'mission_item_not_found' }, 404);
-		}
-		return context.json({ missionItem: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeMissionItemCommand, notFound: 'mission_item_not_found', key: 'missionItem' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeMissionItemCommand(

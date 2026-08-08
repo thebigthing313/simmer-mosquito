@@ -6,21 +6,18 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
-	handleCommandError,
 	insertRegistrationType,
 	type PublicEngagementDb,
 	type PublicEngagementTransaction,
 	type RouteOptions,
 	registrationTypeReturnColumns,
+	runCommands,
 	type SafeRegistrationType,
 	softDelete,
 	toSafeRegistrationType,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -67,28 +64,17 @@ async function runRegistrationTypeCommands(
 	commands: readonly PublicEngagementCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
+	return runCommands(
+		context,
+		{
 			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeRegistrationTypeCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'notification_registration_type_not_found' }, 404);
-		}
-		return context.json(
-			{ notificationRegistrationType: result.row, txid: result.txid },
-			createdStatus ?? 200,
-		);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+			write: writeRegistrationTypeCommand,
+			notFound: 'notification_registration_type_not_found',
+			key: 'notificationRegistrationType',
+		},
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeRegistrationTypeCommand(

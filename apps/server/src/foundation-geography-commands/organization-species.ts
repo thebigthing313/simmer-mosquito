@@ -6,20 +6,17 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	type FoundationDb,
 	type FoundationTransaction,
-	handleCommandError,
 	organizationSpeciesReturnColumns,
 	type RouteOptions,
+	runCommands,
 	type SafeOrganizationSpecies,
 	softDelete,
 	toSafeOrganizationSpecies,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -66,28 +63,17 @@ async function runOrganizationSpeciesCommands(
 	commands: readonly FoundationCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
+	return runCommands(
+		context,
+		{
 			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeOrganizationSpeciesCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'organization_species_not_found' }, 404);
-		}
-		return context.json(
-			{ organizationSpecies: result.row, txid: result.txid },
-			createdStatus ?? 200,
-		);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+			write: writeOrganizationSpeciesCommand,
+			notFound: 'organization_species_not_found',
+			key: 'organizationSpecies',
+		},
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeOrganizationSpeciesCommand(

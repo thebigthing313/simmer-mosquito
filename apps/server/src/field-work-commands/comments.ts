@@ -12,22 +12,19 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	commentReturnColumns,
-	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
-	handleCommandError,
 	invalidUpdate,
 	type RouteOptions,
 	readDate,
 	readTarget,
+	runCommands,
 	type SafeComment,
 	softDelete,
 	toSafeComment,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -101,25 +98,12 @@ async function runCommentCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeCommentCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'comment_not_found' }, 404);
-		}
-		return context.json({ comment: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeCommentCommand, notFound: 'comment_not_found', key: 'comment' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeCommentCommand(

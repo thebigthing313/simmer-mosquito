@@ -1,4 +1,4 @@
-import { applyRecordDeletion, type MutationWriteResult } from '@simmer-mosquito/db';
+import { applyRecordDeletion } from '@simmer-mosquito/db';
 import {
 	type ControlActionLocationSourceInput,
 	type ControlOperationsCommand,
@@ -18,7 +18,6 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
-import { type CommandActor, denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type AgencyContext,
 	biocontrolActionReturnColumns,
@@ -26,11 +25,9 @@ import {
 	type CommandsResult,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
-	commandActor,
 	commandEndpoint,
 	contextIds,
 	createCommand,
-	handleCommandError,
 	hasLocationContextChange,
 	invalidUpdate,
 	localDateColumn,
@@ -40,6 +37,7 @@ import {
 	type RouteOptions,
 	readControlActionContext,
 	resolveGeom,
+	runCommands,
 	type SafeBiocontrolAction,
 	type SafeOutreachAction,
 	type SafeSourceReduction,
@@ -49,7 +47,6 @@ import {
 	toSafeOutreachAction,
 	toSafeSourceReduction,
 	updateActionRow,
-	writeActionCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -72,10 +69,9 @@ interface ActionConfig<TSafe> {
 	) => CommandsResult;
 	readonly buildDelete: (ctx: AgencyContext, id: string) => ControlOperationsCommand;
 	readonly write: (
-		db: ControlOperationsDb,
-		actor: CommandActor,
-		commands: readonly ControlOperationsCommand[],
-	) => Promise<MutationWriteResult<TSafe | null>>;
+		trx: ControlOperationsTransaction,
+		command: ControlOperationsCommand,
+	) => Promise<TSafe | null>;
 	readonly responseKey: string;
 }
 
@@ -114,6 +110,11 @@ export function registerActionRoutes<TSafe>(
 	);
 }
 
+/**
+ * The three performed-action families still share a route *shape* as well as a
+ * write tail, which is what `ActionConfig` is for. The tail itself is no longer
+ * theirs — this generalized out of here and now serves all 28 endpoints.
+ */
 async function runActionCommands<TSafe>(
 	context: CommandContext,
 	db: ControlOperationsDb,
@@ -121,23 +122,12 @@ async function runActionCommands<TSafe>(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await config.write(db, commandActor(context.get('authContext')), commands);
-		if (result.row === null) {
-			return context.json({ error: config.notFoundError }, 404);
-		}
-		return context.json(
-			{ [config.responseKey]: result.row, txid: result.txid },
-			createdStatus ?? 200,
-		);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: config.write, notFound: config.notFoundError, key: config.responseKey },
+		commands,
+		createdStatus,
+	);
 }
 
 // --- Source reductions ---
@@ -222,8 +212,7 @@ export const sourceReductionConfig: ActionConfig<SafeSourceReduction> = {
 			sourceReductionId: id,
 			acknowledgedSupportRecordDeletion: true,
 		}),
-	write: (db, actor, commands) =>
-		writeActionCommands(db, actor, commands, writeSourceReductionCommand),
+	write: writeSourceReductionCommand,
 };
 
 async function writeSourceReductionCommand(
@@ -409,8 +398,7 @@ export const outreachActionConfig: ActionConfig<SafeOutreachAction> = {
 			outreachActionId: id,
 			acknowledgedSupportRecordDeletion: true,
 		}),
-	write: (db, actor, commands) =>
-		writeActionCommands(db, actor, commands, writeOutreachActionCommand),
+	write: writeOutreachActionCommand,
 };
 
 async function writeOutreachActionCommand(
@@ -595,8 +583,7 @@ export const biocontrolActionConfig: ActionConfig<SafeBiocontrolAction> = {
 			biocontrolActionId: id,
 			acknowledgedSupportRecordDeletion: true,
 		}),
-	write: (db, actor, commands) =>
-		writeActionCommands(db, actor, commands, writeBiocontrolActionCommand),
+	write: writeBiocontrolActionCommand,
 };
 
 async function writeBiocontrolActionCommand(

@@ -6,21 +6,18 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	applicationBatchReturnColumns,
 	type CommandContext,
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
-	commandActor,
 	commandEndpoint,
-	handleCommandError,
 	insertApplicationBatch,
 	type RouteOptions,
+	runCommands,
 	type SafeApplicationBatch,
 	softDelete,
 	toSafeApplicationBatch,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -67,25 +64,17 @@ async function runApplicationBatchCommands(
 	commands: readonly ControlOperationsCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
+	return runCommands(
+		context,
+		{
 			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeApplicationBatchCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'application_batch_not_found' }, 404);
-		}
-		return context.json({ applicationBatch: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+			write: writeApplicationBatchCommand,
+			notFound: 'application_batch_not_found',
+			key: 'applicationBatch',
+		},
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeApplicationBatchCommand(

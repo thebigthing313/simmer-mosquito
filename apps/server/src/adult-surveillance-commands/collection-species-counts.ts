@@ -8,21 +8,18 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
 	type CommandContext,
 	collectionSpeciesReturnColumns,
-	commandActor,
 	commandEndpoint,
-	handleCommandError,
 	localDateColumn,
 	readSpeciesSex,
 	readSpeciesStatus,
+	runCommands,
 	type SafeCollectionSpecies,
 	toSafeCollectionSpecies,
-	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -100,25 +97,17 @@ async function runCollectionSpeciesCommands(
 	commands: readonly AdultSurveillanceCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
+	return runCommands(
+		context,
+		{
 			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeCollectionSpeciesCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'collection_species_not_found' }, 404);
-		}
-		return context.json({ collectionSpecies: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+			write: writeCollectionSpeciesCommand,
+			notFound: 'collection_species_not_found',
+			key: 'collectionSpecies',
+		},
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeCollectionSpeciesCommand(

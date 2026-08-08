@@ -13,7 +13,6 @@ import {
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	invalidUpdate,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
@@ -21,9 +20,8 @@ import { isRecord, readNullableText } from '../command-payload.js';
 import {
 	type CommandDb,
 	type CommandTransaction,
-	commandActor,
 	readDate,
-	writeCommands,
+	runCommands,
 } from '../command-write.js';
 import { resolveLocationGeom } from '../location-source.js';
 
@@ -33,15 +31,13 @@ export {
 	type AgencyContext,
 	agencyCommandContext,
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	invalidUpdate,
 	localDateColumn,
 	readDate,
+	runCommands,
 	softDelete,
-	writeCommands,
 };
 
 /** The action tables carry the same shape, so one updater serves them all. */
@@ -74,14 +70,6 @@ export async function insertApplicationBatch(
 		.executeTakeFirstOrThrow();
 	return toSafeApplicationBatch(row);
 }
-
-/**
- * Control operations were the one family whose ownership rule turns on a record
- * the collector *performed* rather than one assigned to them. That is still true
- * of the rule; it is no longer true of the plumbing, which is `writeCommands`
- * for every family now.
- */
-export const writeActionCommands = writeCommands;
 
 // ===========================================================================
 // Location source / context resolution

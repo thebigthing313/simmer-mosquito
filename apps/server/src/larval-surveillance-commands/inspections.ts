@@ -10,13 +10,10 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	geojsonToGeom,
-	handleCommandError,
 	hasInspectionResultFields,
 	type InspectionResultColumns,
 	type InspectionUpdateColumns,
@@ -30,9 +27,9 @@ import {
 	type NormalizedInspectionResult,
 	readInspectionResult,
 	resolveLocationGeom,
+	runCommands,
 	type SafeInspection,
 	toSafeInspection,
-	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -138,25 +135,12 @@ async function runInspectionCommands(
 	commands: readonly LarvalSurveillanceCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeInspectionCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'inspection_not_found' }, 404);
-		}
-		return context.json({ inspection: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeInspectionCommand, notFound: 'inspection_not_found', key: 'inspection' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeInspectionCommand(

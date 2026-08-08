@@ -10,18 +10,15 @@ import { readText } from '../command-payload.js';
 import {
 	additionalPersonnelReturnColumns,
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
-	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
-	handleCommandError,
 	type RouteOptions,
 	readTarget,
+	runCommands,
 	type SafeAdditionalPersonnel,
 	softDelete,
 	toSafeAdditionalPersonnel,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -69,28 +66,17 @@ async function runAdditionalPersonnelCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
+	return runCommands(
+		context,
+		{
 			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeAdditionalPersonnelCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'additional_personnel_not_found' }, 404);
-		}
-		return context.json(
-			{ additionalPersonnel: result.row, txid: result.txid },
-			createdStatus ?? 200,
-		);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+			write: writeAdditionalPersonnelCommand,
+			notFound: 'additional_personnel_not_found',
+			key: 'additionalPersonnel',
+		},
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeAdditionalPersonnelCommand(

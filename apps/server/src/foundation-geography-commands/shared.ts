@@ -7,31 +7,23 @@ import {
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	invalidUpdate,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
-import {
-	type CommandDb,
-	type CommandTransaction,
-	commandActor,
-	writeCommands,
-} from '../command-write.js';
+import { type CommandDb, type CommandTransaction, runCommands } from '../command-write.js';
 
 export type FoundationDb = CommandDb;
 export type FoundationTransaction = CommandTransaction;
 export {
 	agencyCommandContext,
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
-	handleCommandError,
 	invalidUpdate,
+	runCommands,
 	softDelete,
 	updateRow,
-	writeCommands,
 };
 
 // ===========================================================================

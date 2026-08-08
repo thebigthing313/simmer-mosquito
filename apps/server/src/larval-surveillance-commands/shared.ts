@@ -10,7 +10,6 @@ import {
 	CommandError,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	type InvalidCommandBody,
 	invalidUpdate,
 } from '../command-endpoint.js';
@@ -18,9 +17,8 @@ import { readNullableText, readText } from '../command-payload.js';
 import {
 	type CommandDb,
 	type CommandTransaction,
-	commandActor,
 	readNumberOrNull,
-	writeCommands,
+	runCommands,
 } from '../command-write.js';
 import { resolveLocationGeom } from '../location-source.js';
 
@@ -29,17 +27,15 @@ export type LarvalSurveillanceTransaction = CommandTransaction;
 export {
 	agencyCommandContext,
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
-	handleCommandError,
 	type InvalidCommandBody,
 	invalidUpdate,
 	localDateColumn,
 	resolveLocationGeom,
+	runCommands,
 	updateRow,
-	writeCommands,
 };
 
 export async function loadHabitatSnapshot(

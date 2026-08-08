@@ -29,11 +29,8 @@ import {
 	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
-	commandActor,
 	commandEndpoint,
 	createCommand,
-	denyUnauthorizedCommands,
-	handleCommandError,
 	insertMissionItem,
 	invalidUpdate,
 	localDateColumn,
@@ -44,11 +41,11 @@ import {
 	readDate,
 	readLifecycleTransition,
 	resolveInitialItemGeom,
+	runCommands,
 	type SafeMission,
 	softDelete,
 	toSafeMission,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -239,25 +236,12 @@ async function runMissionCommands(
 	commands: readonly MissionDispatchCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeMissionCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'mission_not_found' }, 404);
-		}
-		return context.json({ mission: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeMissionCommand, notFound: 'mission_not_found', key: 'mission' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeMissionCommand(

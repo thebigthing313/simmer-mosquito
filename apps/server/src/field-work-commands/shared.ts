@@ -11,20 +11,17 @@ import {
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	invalidUpdate,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
 import { isRecord, readText } from '../command-payload.js';
-import { authorizeCommands } from '../command-permissions.js';
 import {
 	type CommandDb,
 	type CommandTransaction,
-	commandActor,
 	nowLocalDate,
 	readDate,
 	readStringArray,
-	writeCommands,
+	runCommands,
 } from '../command-write.js';
 
 export type FieldWorkDb = CommandDb;
@@ -32,18 +29,16 @@ export type FieldWorkTransaction = CommandTransaction;
 export {
 	agencyCommandContext,
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	invalidUpdate,
 	localDateColumn,
 	nowLocalDate,
 	readDate,
 	readStringArray,
+	runCommands,
 	softDelete,
 	updateRow,
-	writeCommands,
 };
 
 // ===========================================================================
@@ -487,21 +482,6 @@ export type CommandsResult = SharedCommandsResult<FieldWorkCommand>;
 // ===========================================================================
 // Authorization
 // ===========================================================================
-
-/**
- * The role check every field-work endpoint runs before writing anything.
- *
- * Returns the 403 response to send, or null to continue — either because the
- * role is sufficient outright or because the rule is an ownership one the write
- * transaction settles against the stored row.
- */
-export function denyUnauthorizedCommands(
-	context: CommandContext,
-	commands: readonly FieldWorkCommand[],
-): Response | null {
-	const denial = authorizeCommands(context.get('authContext').role, commands);
-	return denial === null ? null : context.json(denial, 403);
-}
 
 export function readTarget(payload: Record<string, unknown>): {
 	readonly type: never;

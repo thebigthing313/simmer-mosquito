@@ -13,22 +13,19 @@ import { readNullableText, readText } from '../command-payload.js';
 import {
 	applyPlacement,
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
-	denyUnauthorizedCommands,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
-	handleCommandError,
 	type RouteOptions,
 	readTarget,
 	reindexItems,
 	routeItemReturnColumns,
 	routePlacementRef,
+	runCommands,
 	type SafeRouteItem,
 	softDelete,
 	toSafeRouteItem,
 	updateRow,
-	writeCommands,
 } from './shared.js';
 
 // ===========================================================================
@@ -90,25 +87,12 @@ async function runRouteItemCommands(
 	commands: readonly FieldWorkCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeRouteItemCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'route_item_not_found' }, 404);
-		}
-		return context.json({ routeItem: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeRouteItemCommand, notFound: 'route_item_not_found', key: 'routeItem' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeRouteItemCommand(

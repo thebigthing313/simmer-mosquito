@@ -21,7 +21,6 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
@@ -31,11 +30,9 @@ import {
 	type CollectionUpdateColumns,
 	type CommandContext,
 	collectionReturnColumns,
-	commandActor,
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
-	handleCommandError,
 	hasTimingFields,
 	type InvalidCommandBody,
 	invalidUpdate,
@@ -46,9 +43,9 @@ import {
 	readCollectionTiming,
 	readDate,
 	resolveLocationGeom,
+	runCommands,
 	type SafeCollection,
 	toSafeCollection,
-	writeCommands,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -309,25 +306,12 @@ async function runCollectionCommands(
 	commands: readonly AdultSurveillanceCommand[],
 	createdStatus?: 201,
 ) {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
-	if (denial !== null) {
-		return denial;
-	}
-
-	try {
-		const result = await writeCommands(
-			db,
-			commandActor(context.get('authContext')),
-			commands,
-			writeCollectionCommand,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'collection_not_found' }, 404);
-		}
-		return context.json({ collection: result.row, txid: result.txid }, createdStatus ?? 200);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
+	return runCommands(
+		context,
+		{ db, write: writeCollectionCommand, notFound: 'collection_not_found', key: 'collection' },
+		commands,
+		createdStatus,
+	);
 }
 
 async function writeCollectionCommand(

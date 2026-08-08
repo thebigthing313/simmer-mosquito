@@ -14,18 +14,15 @@ import {
 	CommandError,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	invalidUpdate,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
-import { authorizeCommands } from '../command-permissions.js';
 import {
 	type CommandDb,
 	type CommandTransaction,
-	commandActor,
 	readDate,
 	readStringArray,
-	writeCommands,
+	runCommands,
 } from '../command-write.js';
 import { loadOr404, resolveLocationGeom } from '../location-source.js';
 
@@ -34,18 +31,16 @@ export type MissionDispatchTransaction = CommandTransaction;
 export {
 	agencyCommandContext,
 	type CommandContext,
-	commandActor,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	invalidUpdate,
 	loadOr404,
 	localDateColumn,
 	readDate,
 	readStringArray,
+	runCommands,
 	softDelete,
 	updateRow,
-	writeCommands,
 };
 
 export async function insertMissionItem(
@@ -307,18 +302,3 @@ export type CommandsResult = SharedCommandsResult<MissionDispatchCommand>;
 // ===========================================================================
 // Authorization
 // ===========================================================================
-
-/**
- * The role check every mission-dispatch endpoint runs before writing.
- *
- * Collectors execute missions; they do not create, edit, cancel, reopen, or
- * delete them, and viewers are read-only. Ownership rules — "their assigned
- * mission" — are settled in the write transaction.
- */
-export function denyUnauthorizedCommands(
-	context: CommandContext,
-	commands: readonly MissionDispatchCommand[],
-): Response | null {
-	const denial = authorizeCommands(context.get('authContext').role, commands);
-	return denial === null ? null : context.json(denial, 403);
-}
