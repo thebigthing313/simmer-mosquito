@@ -21,8 +21,17 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import {
+	agencyCommandContext,
+	type CommandContext,
+	type CommandsResult,
+	commandEndpoint,
+	createCommand,
+	invalidUpdate,
+	type PayloadResult,
+} from './command-endpoint.js';
 import { isRecord } from './command-payload.js';
-import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
+import { runCommands } from './command-write.js';
 
 type PublicEngagementDb = Kysely<SimmerDatabase>;
 type PublicEngagementTransaction = Transaction<SimmerDatabase>;
@@ -50,121 +59,64 @@ export function registerPublicEngagementCommandRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
+	const run = (
+		context: CommandContext,
+		commands: readonly NotificationTypeCommand[],
+		createdStatus?: 201,
+	) =>
+		runCommands(
+			context,
+			{
+				db: options.db,
+				write: async (trx, command) =>
+					toNotificationTypeResponse(await writeNotificationTypeCommand(trx, command)),
+				notFound: 'notification_type_not_found',
+				key: 'notificationType',
+			},
+			commands,
+			createdStatus,
+		);
+
 	app.post(
 		'/public-engagement/notification-types',
 		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readNotificationTypePayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			readPayload: readNotificationTypePayload,
+			build: ({ payload, agency }) =>
 				createNotificationTypeCommand({
-					...agencyCommandContext(context.get('authContext')),
-					notificationTypeId: payloadResult.payload.id,
-					name: payloadResult.payload.name ?? '',
-					...(payloadResult.payload.description === undefined
-						? {}
-						: { description: payloadResult.payload.description }),
+					...agency,
+					notificationTypeId: payload.id,
+					name: payload.name ?? '',
+					...(payload.description === undefined ? {} : { description: payload.description }),
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-			if (denial !== null) {
-				return denial;
-			}
-
-			const result = await writeNotificationTypeCommands(options.db, [commandResult.command]);
-			return context.json(
-				{ notificationType: toNotificationTypeResponse(result.row), txid: result.txid },
-				201,
-			);
-		},
+			run: (context, commands) => run(context, commands, 201),
+		}),
 	);
 
 	app.patch(
 		'/public-engagement/notification-types/:notificationTypeId',
 		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readNotificationTypePayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const commandsResult = buildUpdateCommands(
-				context.get('authContext'),
-				context.req.param('notificationTypeId'),
-				payloadResult.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-
-			const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
-			if (denial !== null) {
-				return denial;
-			}
-
-			const result = await writeNotificationTypeCommands(options.db, commandsResult.commands);
-			if (result.row === null) {
-				return context.json({ error: 'notification_type_not_found' }, 404);
-			}
-
-			return context.json({
-				notificationType: toNotificationTypeResponse(result.row),
-				txid: result.txid,
-			});
-		},
+		commandEndpoint({
+			readPayload: readNotificationTypePayload,
+			build: ({ payload, authContext, param }) =>
+				buildUpdateCommands(authContext, param('notificationTypeId'), payload),
+			run,
+		}),
 	);
 
 	app.delete(
 		'/public-engagement/notification-types/:notificationTypeId',
 		options.authContextMiddleware,
-		async (context) => {
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency, param }) =>
 				deleteNotificationTypeCommand({
-					...agencyCommandContext(context.get('authContext')),
-					notificationTypeId: context.req.param('notificationTypeId'),
+					...agency,
+					notificationTypeId: param('notificationTypeId'),
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-			if (denial !== null) {
-				return denial;
-			}
-
-			const result = await writeNotificationTypeCommands(options.db, [commandResult.command]);
-			if (result.row === null) {
-				return context.json({ error: 'notification_type_not_found' }, 404);
-			}
-
-			return context.json({
-				notificationType: toNotificationTypeResponse(result.row),
-				txid: result.txid,
-			});
-		},
+			run,
+		}),
 	);
-}
-
-async function writeNotificationTypeCommands(
-	db: PublicEngagementDb,
-	commands: readonly NotificationTypeCommand[],
-): Promise<MutationWriteResult<SafeNotificationType | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeNotificationType | null = null;
-		for (const command of commands) {
-			row = await writeNotificationTypeCommand(trx, command);
-		}
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
 }
 
 async function writeNotificationTypeCommand(
@@ -318,9 +270,7 @@ function buildUpdateCommands(
 	authContext: AuthContext,
 	notificationTypeId: string,
 	payload: NotificationTypePayload,
-):
-	| { readonly ok: true; readonly commands: readonly NotificationTypeCommand[] }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
+): CommandsResult<NotificationTypeCommand> {
 	const commands: NotificationTypeCommand[] = [];
 	const context = agencyCommandContext(authContext);
 	const hasDetailChange = payload.name !== undefined || payload.description !== undefined;
@@ -358,40 +308,11 @@ function buildUpdateCommands(
 	}
 
 	if (commands.length === 0) {
-		return invalidUpdateCommand('notification type');
+		return invalidUpdate('notification type');
 	}
 
 	return { ok: true, commands };
 }
-
-function createCommand<TCommand extends NotificationTypeCommand>(
-	build: () => TCommand,
-):
-	| { readonly ok: true; readonly command: TCommand }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	try {
-		return { ok: true, command: build() };
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return {
-				ok: false,
-				body: {
-					error: 'invalid_command',
-					message: error.message,
-					issues: error.issues,
-				},
-			};
-		}
-
-		throw error;
-	}
-}
-
-type InvalidCommandBody = {
-	readonly error: 'invalid_command';
-	readonly message: string;
-	readonly issues: readonly { readonly path: string; readonly message: string }[];
-};
 
 interface NotificationTypePayload {
 	readonly id: string;
@@ -400,20 +321,11 @@ interface NotificationTypePayload {
 	readonly isActive?: boolean;
 }
 
-type PayloadResult<T> =
-	| { readonly ok: true; readonly payload: T }
-	| { readonly ok: false; readonly reason: string };
-
-async function readNotificationTypePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<NotificationTypePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+function readNotificationTypePayload(
+	raw: Record<string, unknown>,
+): PayloadResult<NotificationTypePayload> {
 	if (raw.isActive !== undefined && typeof raw.isActive !== 'boolean') {
-		return invalid('isActive must be a boolean.');
+		return invalidPayload('isActive must be a boolean.');
 	}
 
 	return {
@@ -425,23 +337,6 @@ async function readNotificationTypePayload(request: {
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
 		},
 	};
-}
-
-async function readJsonObject(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<Record<string, unknown>>> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return invalid('Request body must be JSON.');
-	}
-
-	if (!isRecord(raw)) {
-		return invalid('Request body must be an object.');
-	}
-
-	return { ok: true, payload: raw };
 }
 
 function readRequiredText(value: unknown): string | null {
@@ -457,42 +352,8 @@ function readOptionalText(value: unknown): string | null {
 	return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
-function invalid(reason: string): PayloadResult<never> {
+function invalidPayload(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
-}
-
-function invalidUpdateCommand(changeNoun: string): {
-	readonly ok: false;
-	readonly body: InvalidCommandBody;
-} {
-	const message = `At least one ${changeNoun} field must change.`;
-	return {
-		ok: false,
-		body: {
-			error: 'invalid_command',
-			message,
-			issues: [{ path: 'changes', message }],
-		},
-	};
-}
-
-function agencyCommandContext(authContext: AuthContext) {
-	return {
-		organizationId: authContext.organization.id,
-		actorProfileId: authContext.profile.id,
-	};
-}
-
-async function readCurrentTransactionId(db: PublicEngagementTransaction): Promise<number> {
-	const result = await sql<{
-		txid: string;
-	}>`select pg_current_xact_id()::xid::text as txid`.execute(db);
-	const txid = result.rows[0]?.txid;
-	if (txid === undefined) {
-		throw new Error('Unable to read current transaction id.');
-	}
-
-	return Number.parseInt(txid, 10);
 }
 
 const notificationTypeReturnColumns = [

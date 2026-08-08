@@ -1,9 +1,4 @@
-import {
-	type MutationWriteResult,
-	type SafeOrgLookup,
-	sql,
-	writeCollectionMethodLookupCommandsWithTxid,
-} from '@simmer-mosquito/db';
+import { type SafeOrgLookup, sql } from '@simmer-mosquito/db';
 import {
 	type CreateApplicationMethodCommand,
 	type CreateBiocontrolMethodCommand,
@@ -50,13 +45,19 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
-import { isRecord } from './command-payload.js';
-import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
+import {
+	agencyCommandContext,
+	type CommandContext,
+	type CommandsResult,
+	commandEndpoint,
+	createCommand,
+	invalidUpdate,
+	type PayloadResult,
+} from './command-endpoint.js';
+import { type CommandDb, type CommandTransaction, runCommands } from './command-write.js';
 
-type ControlMethodCommandDb = Parameters<typeof writeCollectionMethodLookupCommandsWithTxid>[0];
-type ControlMethodTransaction = Parameters<
-	Parameters<typeof writeCollectionMethodLookupCommandsWithTxid>[1]
->[0];
+type ControlMethodCommandDb = CommandDb;
+type ControlMethodTransaction = CommandTransaction;
 
 type ApplicationMethodCommand =
 	| CreateApplicationMethodCommand
@@ -101,109 +102,77 @@ export function registerControlMethodCommandRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.post('/control-methods/:kind', options.authContextMiddleware, async (context) => {
-		const kindResult = readKind(context.req.param('kind'));
-		if (!kindResult.ok) {
+	// The kind is checked before the body is read, so an unknown catalog answers
+	// 404 whatever the payload looks like.
+	const requireKind: MiddlewareHandler<{ Variables: AuthVariables }> = async (context, next) => {
+		if (!readKind(context.req.param('kind') ?? '').ok) {
 			return context.json({ error: 'method_kind_not_found' }, 404);
 		}
+		await next();
+	};
 
-		const payloadResult = await readCreatePayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const commandResult = createCommand(() =>
-			buildCreateCommand(kindResult.kind, context.get('authContext'), payloadResult.payload),
+	const run = (
+		context: CommandContext,
+		commands: readonly ControlMethodCommand[],
+		createdStatus?: 201,
+	) =>
+		runCommands(
+			context,
+			{
+				db: options.db,
+				write: async (trx, command) =>
+					toControlMethodResponse(await writeControlMethodCommand(trx, command)),
+				notFound: 'control_method_not_found',
+				key: 'method',
+			},
+			commands,
+			createdStatus,
 		);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
 
-		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-		if (denial !== null) {
-			return denial;
-		}
+	app.post(
+		'/control-methods/:kind',
+		options.authContextMiddleware,
+		requireKind,
+		commandEndpoint({
+			readPayload: readCreatePayload,
+			build: ({ payload, authContext, param }) =>
+				buildCreateCommand(requiredKind(param('kind')), authContext, payload),
+			run: (context, commands) => run(context, commands, 201),
+		}),
+	);
 
-		const result = await writeControlMethodCommands(options.db, [commandResult.command]);
-		return context.json({ method: toControlMethodResponse(result.row), txid: result.txid }, 201);
-	});
+	app.patch(
+		'/control-methods/:kind/:methodId',
+		options.authContextMiddleware,
+		requireKind,
+		commandEndpoint({
+			readPayload: readUpdatePayload,
+			build: ({ payload, authContext, param }) =>
+				buildUpdateCommands(requiredKind(param('kind')), authContext, param('methodId'), payload),
+			run,
+		}),
+	);
 
-	app.patch('/control-methods/:kind/:methodId', options.authContextMiddleware, async (context) => {
-		const kindResult = readKind(context.req.param('kind'));
-		if (!kindResult.ok) {
-			return context.json({ error: 'method_kind_not_found' }, 404);
-		}
-
-		const payloadResult = await readUpdatePayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const commandsResult = buildUpdateCommands(
-			kindResult.kind,
-			context.get('authContext'),
-			context.req.param('methodId'),
-			payloadResult.payload,
-		);
-		if (!commandsResult.ok) {
-			return context.json(commandsResult.body, 400);
-		}
-
-		const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
-		if (denial !== null) {
-			return denial;
-		}
-
-		const result = await writeControlMethodCommands(options.db, commandsResult.commands);
-		if (result.row === null) {
-			return context.json({ error: 'control_method_not_found' }, 404);
-		}
-
-		return context.json({ method: toControlMethodResponse(result.row), txid: result.txid });
-	});
-
-	app.delete('/control-methods/:kind/:methodId', options.authContextMiddleware, async (context) => {
-		const kindResult = readKind(context.req.param('kind'));
-		if (!kindResult.ok) {
-			return context.json({ error: 'method_kind_not_found' }, 404);
-		}
-
-		const commandResult = createCommand(() =>
-			buildDeleteCommand(
-				kindResult.kind,
-				context.get('authContext'),
-				context.req.param('methodId'),
-			),
-		);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
-
-		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-		if (denial !== null) {
-			return denial;
-		}
-
-		const result = await writeControlMethodCommands(options.db, [commandResult.command]);
-		if (result.row === null) {
-			return context.json({ error: 'control_method_not_found' }, 404);
-		}
-
-		return context.json({ method: toControlMethodResponse(result.row), txid: result.txid });
-	});
+	app.delete(
+		'/control-methods/:kind/:methodId',
+		options.authContextMiddleware,
+		requireKind,
+		commandEndpoint({
+			body: 'none',
+			build: ({ authContext, param }) =>
+				buildDeleteCommand(requiredKind(param('kind')), authContext, param('methodId')),
+			run,
+		}),
+	);
 }
 
-async function writeControlMethodCommands(
-	db: ControlMethodCommandDb,
-	commands: readonly ControlMethodCommand[],
-): Promise<MutationWriteResult<SafeOrgLookup | null>> {
-	return writeCollectionMethodLookupCommandsWithTxid(db, async (trx) => {
-		let row: SafeOrgLookup | null = null;
-		for (const command of commands) {
-			row = await writeControlMethodCommand(trx, command);
-		}
-		return row;
-	});
+/** Past `requireKind`, the path segment is one of the four. */
+function requiredKind(value: string): ControlMethodKind {
+	const kind = readKind(value);
+	if (!kind.ok) {
+		throw new Error(`Unhandled control method kind ${value}.`);
+	}
+	return kind.kind;
 }
 
 async function writeControlMethodCommand(
@@ -564,9 +533,7 @@ function buildUpdateCommands(
 	authContext: AuthContext,
 	methodId: string,
 	payload: ControlMethodUpdatePayload,
-):
-	| { readonly ok: true; readonly commands: readonly ControlMethodCommand[] }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
+): CommandsResult<ControlMethodCommand> {
 	const commands: ControlMethodCommand[] = [];
 	const hasDetailChange = payload.name !== undefined || payload.customSchema !== undefined;
 	const context = agencyCommandContext(authContext);
@@ -592,7 +559,7 @@ function buildUpdateCommands(
 	}
 
 	if (commands.length === 0) {
-		return invalidUpdateCommand('control method');
+		return invalidUpdate('control method');
 	}
 
 	return { ok: true, commands };
@@ -666,35 +633,6 @@ function buildDeleteCommand(
 	}
 }
 
-function createCommand<TCommand extends ControlMethodCommand>(
-	build: () => TCommand,
-):
-	| { readonly ok: true; readonly command: TCommand }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	try {
-		return { ok: true, command: build() };
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return {
-				ok: false,
-				body: {
-					error: 'invalid_command',
-					message: error.message,
-					issues: error.issues,
-				},
-			};
-		}
-
-		throw error;
-	}
-}
-
-type InvalidCommandBody = {
-	readonly error: 'invalid_command';
-	readonly message: string;
-	readonly issues: readonly { readonly path: string; readonly message: string }[];
-};
-
 interface ControlMethodCreatePayload {
 	readonly id: string;
 	readonly name: string;
@@ -707,22 +645,13 @@ interface ControlMethodUpdatePayload {
 	readonly isActive?: boolean;
 }
 
-type PayloadResult<T> =
-	| { readonly ok: true; readonly payload: T }
-	| { readonly ok: false; readonly reason: string };
-
-async function readCreatePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<ControlMethodCreatePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+function readCreatePayload(
+	raw: Record<string, unknown>,
+): PayloadResult<ControlMethodCreatePayload> {
 	const id = readRequiredText(raw.id);
 	const name = readRequiredText(raw.name);
 	if (id === null || name === null) {
-		return invalid('id and name are required.');
+		return invalidPayload('id and name are required.');
 	}
 
 	return {
@@ -735,16 +664,11 @@ async function readCreatePayload(request: {
 	};
 }
 
-async function readUpdatePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<ControlMethodUpdatePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+function readUpdatePayload(
+	raw: Record<string, unknown>,
+): PayloadResult<ControlMethodUpdatePayload> {
 	if (raw.isActive !== undefined && typeof raw.isActive !== 'boolean') {
-		return invalid('isActive must be a boolean.');
+		return invalidPayload('isActive must be a boolean.');
 	}
 
 	return {
@@ -757,23 +681,6 @@ async function readUpdatePayload(request: {
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
 		},
 	};
-}
-
-async function readJsonObject(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<Record<string, unknown>>> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return invalid('Request body must be JSON.');
-	}
-
-	if (!isRecord(raw)) {
-		return invalid('Request body must be an object.');
-	}
-
-	return { ok: true, payload: raw };
 }
 
 function readKind(
@@ -800,30 +707,8 @@ function readOptionalJson(value: unknown): unknown | null {
 	return value === undefined ? null : value;
 }
 
-function invalid(reason: string): PayloadResult<never> {
+function invalidPayload(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
-}
-
-function invalidUpdateCommand(changeNoun: string): {
-	readonly ok: false;
-	readonly body: InvalidCommandBody;
-} {
-	const message = `At least one ${changeNoun} field must change.`;
-	return {
-		ok: false,
-		body: {
-			error: 'invalid_command',
-			message,
-			issues: [{ path: 'changes', message }],
-		},
-	};
-}
-
-function agencyCommandContext(authContext: AuthContext) {
-	return {
-		organizationId: authContext.organization.id,
-		actorProfileId: authContext.profile.id,
-	};
 }
 
 function toSafeControlMethod(row: {

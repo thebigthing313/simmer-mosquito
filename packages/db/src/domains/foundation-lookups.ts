@@ -362,17 +362,6 @@ export async function deleteCollectionMethodLookup(
 	return row === undefined ? null : toSafeOrgLookup(row);
 }
 
-export async function writeCollectionMethodLookupCommandsWithTxid(
-	db: Kysely<SimmerDatabase>,
-	write: (trx: Transaction<SimmerDatabase>) => Promise<SafeOrgLookup | null>,
-): Promise<MutationWriteResult<SafeOrgLookup | null>> {
-	return db.transaction().execute(async (trx) => {
-		const row = await write(trx);
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
-}
-
 export async function updateCollectionLureLookup(
 	db: DbExecutor,
 	collectionLureId: string,

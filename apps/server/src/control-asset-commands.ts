@@ -1,10 +1,4 @@
-import {
-	type Kysely,
-	type MutationWriteResult,
-	type SimmerDatabase,
-	sql,
-	type Transaction,
-} from '@simmer-mosquito/db';
+import { sql } from '@simmer-mosquito/db';
 import {
 	type CreateEquipmentCommand,
 	type CreateVehicleCommand,
@@ -31,11 +25,20 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
+import {
+	agencyCommandContext,
+	type CommandContext,
+	type CommandsResult,
+	commandEndpoint,
+	createCommand,
+	invalidUpdate,
+	type PayloadResult,
+} from './command-endpoint.js';
 import { isRecord } from './command-payload.js';
-import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
+import { type CommandDb, type CommandTransaction, runCommands } from './command-write.js';
 
-type ControlAssetDb = Kysely<SimmerDatabase>;
-type ControlAssetTransaction = Transaction<SimmerDatabase>;
+type ControlAssetDb = CommandDb;
+type ControlAssetTransaction = CommandTransaction;
 type ControlAssetKind = 'vehicles' | 'equipment';
 type ControlAssetCommand =
 	| CreateVehicleCommand
@@ -67,106 +70,77 @@ export function registerControlAssetCommandRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.post('/control-assets/:kind', options.authContextMiddleware, async (context) => {
-		const kindResult = readKind(context.req.param('kind'));
-		if (!kindResult.ok) {
+	// The kind is checked before the body is read, so an unknown catalog answers
+	// 404 whatever the payload looks like.
+	const requireKind: MiddlewareHandler<{ Variables: AuthVariables }> = async (context, next) => {
+		if (!readKind(context.req.param('kind') ?? '').ok) {
 			return context.json({ error: 'asset_kind_not_found' }, 404);
 		}
+		await next();
+	};
 
-		const payloadResult = await readAssetPayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const commandResult = createCommand(() =>
-			buildCreateCommand(kindResult.kind, context.get('authContext'), payloadResult.payload),
+	const run = (
+		context: CommandContext,
+		commands: readonly ControlAssetCommand[],
+		createdStatus?: 201,
+	) =>
+		runCommands(
+			context,
+			{
+				db: options.db,
+				write: async (trx, command) =>
+					toControlAssetResponse(await writeControlAssetCommand(trx, command)),
+				notFound: 'control_asset_not_found',
+				key: 'asset',
+			},
+			commands,
+			createdStatus,
 		);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
 
-		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-		if (denial !== null) {
-			return denial;
-		}
+	app.post(
+		'/control-assets/:kind',
+		options.authContextMiddleware,
+		requireKind,
+		commandEndpoint({
+			readPayload: readAssetPayload,
+			build: ({ payload, authContext, param }) =>
+				buildCreateCommand(requiredKind(param('kind')), authContext, payload),
+			run: (context, commands) => run(context, commands, 201),
+		}),
+	);
 
-		const result = await writeControlAssetCommands(options.db, [commandResult.command]);
-		return context.json({ asset: toControlAssetResponse(result.row), txid: result.txid }, 201);
-	});
+	app.patch(
+		'/control-assets/:kind/:assetId',
+		options.authContextMiddleware,
+		requireKind,
+		commandEndpoint({
+			readPayload: readAssetPayload,
+			build: ({ payload, authContext, param }) =>
+				buildUpdateCommands(requiredKind(param('kind')), authContext, param('assetId'), payload),
+			run,
+		}),
+	);
 
-	app.patch('/control-assets/:kind/:assetId', options.authContextMiddleware, async (context) => {
-		const kindResult = readKind(context.req.param('kind'));
-		if (!kindResult.ok) {
-			return context.json({ error: 'asset_kind_not_found' }, 404);
-		}
-
-		const payloadResult = await readAssetPayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const commandsResult = buildUpdateCommands(
-			kindResult.kind,
-			context.get('authContext'),
-			context.req.param('assetId'),
-			payloadResult.payload,
-		);
-		if (!commandsResult.ok) {
-			return context.json(commandsResult.body, 400);
-		}
-
-		const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
-		if (denial !== null) {
-			return denial;
-		}
-
-		const result = await writeControlAssetCommands(options.db, commandsResult.commands);
-		if (result.row === null) {
-			return context.json({ error: 'control_asset_not_found' }, 404);
-		}
-
-		return context.json({ asset: toControlAssetResponse(result.row), txid: result.txid });
-	});
-
-	app.delete('/control-assets/:kind/:assetId', options.authContextMiddleware, async (context) => {
-		const kindResult = readKind(context.req.param('kind'));
-		if (!kindResult.ok) {
-			return context.json({ error: 'asset_kind_not_found' }, 404);
-		}
-
-		const commandResult = createCommand(() =>
-			buildDeleteCommand(kindResult.kind, context.get('authContext'), context.req.param('assetId')),
-		);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
-
-		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-		if (denial !== null) {
-			return denial;
-		}
-
-		const result = await writeControlAssetCommands(options.db, [commandResult.command]);
-		if (result.row === null) {
-			return context.json({ error: 'control_asset_not_found' }, 404);
-		}
-
-		return context.json({ asset: toControlAssetResponse(result.row), txid: result.txid });
-	});
+	app.delete(
+		'/control-assets/:kind/:assetId',
+		options.authContextMiddleware,
+		requireKind,
+		commandEndpoint({
+			body: 'none',
+			build: ({ authContext, param }) =>
+				buildDeleteCommand(requiredKind(param('kind')), authContext, param('assetId')),
+			run,
+		}),
+	);
 }
 
-async function writeControlAssetCommands(
-	db: ControlAssetDb,
-	commands: readonly ControlAssetCommand[],
-): Promise<MutationWriteResult<SafeControlAsset | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeControlAsset | null = null;
-		for (const command of commands) {
-			row = await writeControlAssetCommand(trx, command);
-		}
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
+/** Past `requireKind`, the path segment is one of the two. */
+function requiredKind(value: string): ControlAssetKind {
+	const kind = readKind(value);
+	if (!kind.ok) {
+		throw new Error(`Unhandled control asset kind ${value}.`);
+	}
+	return kind.kind;
 }
 
 async function writeControlAssetCommand(
@@ -469,9 +443,7 @@ function buildUpdateCommands(
 	authContext: AuthContext,
 	assetId: string,
 	payload: ControlAssetPayload,
-):
-	| { readonly ok: true; readonly commands: readonly ControlAssetCommand[] }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
+): CommandsResult<ControlAssetCommand> {
 	const commands: ControlAssetCommand[] = [];
 	const context = agencyCommandContext(authContext);
 	const hasDetailChange =
@@ -522,7 +494,7 @@ function buildUpdateCommands(
 	}
 
 	if (commands.length === 0) {
-		return invalidUpdateCommand('control asset');
+		return invalidUpdate('control asset');
 	}
 
 	return { ok: true, commands };
@@ -539,35 +511,6 @@ function buildDeleteCommand(
 		: deleteEquipmentCommand({ ...context, equipmentId: assetId });
 }
 
-function createCommand<TCommand extends ControlAssetCommand>(
-	build: () => TCommand,
-):
-	| { readonly ok: true; readonly command: TCommand }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	try {
-		return { ok: true, command: build() };
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return {
-				ok: false,
-				body: {
-					error: 'invalid_command',
-					message: error.message,
-					issues: error.issues,
-				},
-			};
-		}
-
-		throw error;
-	}
-}
-
-type InvalidCommandBody = {
-	readonly error: 'invalid_command';
-	readonly message: string;
-	readonly issues: readonly { readonly path: string; readonly message: string }[];
-};
-
 interface ControlAssetPayload {
 	readonly id: string;
 	readonly vehicleName: string;
@@ -577,20 +520,9 @@ interface ControlAssetPayload {
 	readonly isActive?: boolean;
 }
 
-type PayloadResult<T> =
-	| { readonly ok: true; readonly payload: T }
-	| { readonly ok: false; readonly reason: string };
-
-async function readAssetPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<ControlAssetPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+function readAssetPayload(raw: Record<string, unknown>): PayloadResult<ControlAssetPayload> {
 	if (raw.isActive !== undefined && typeof raw.isActive !== 'boolean') {
-		return invalid('isActive must be a boolean.');
+		return invalidPayload('isActive must be a boolean.');
 	}
 
 	return {
@@ -606,23 +538,6 @@ async function readAssetPayload(request: {
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
 		},
 	};
-}
-
-async function readJsonObject(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<Record<string, unknown>>> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return invalid('Request body must be JSON.');
-	}
-
-	if (!isRecord(raw)) {
-		return invalid('Request body must be an object.');
-	}
-
-	return { ok: true, payload: raw };
 }
 
 function readKind(
@@ -648,30 +563,8 @@ function readOptionalJson(value: unknown): unknown | null {
 	return value === undefined ? null : value;
 }
 
-function invalid(reason: string): PayloadResult<never> {
+function invalidPayload(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
-}
-
-function invalidUpdateCommand(changeNoun: string): {
-	readonly ok: false;
-	readonly body: InvalidCommandBody;
-} {
-	const message = `At least one ${changeNoun} field must change.`;
-	return {
-		ok: false,
-		body: {
-			error: 'invalid_command',
-			message,
-			issues: [{ path: 'changes', message }],
-		},
-	};
-}
-
-function agencyCommandContext(authContext: AuthContext) {
-	return {
-		organizationId: authContext.organization.id,
-		actorProfileId: authContext.profile.id,
-	};
 }
 
 async function readCurrentTransactionId(db: ControlAssetTransaction): Promise<number> {

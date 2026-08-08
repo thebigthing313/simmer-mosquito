@@ -32,9 +32,20 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
-import { type CommandContext, CommandError, handleCommandError } from './command-endpoint.js';
+import {
+	agencyCommandContext,
+	type CommandContext,
+	CommandError,
+	type CommandsResult,
+	commandEndpoint,
+	createCommand,
+	handleCommandError,
+	invalidUpdate,
+	type PayloadResult,
+} from './command-endpoint.js';
 import { isRecord } from './command-payload.js';
 import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
+import { runCommands } from './command-write.js';
 
 type ControlProductDb = Kysely<SimmerDatabase>;
 type ControlProductTransaction = Transaction<SimmerDatabase>;
@@ -85,236 +96,131 @@ export function registerControlProductCommandRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.post('/control-products/insecticides', options.authContextMiddleware, async (context) => {
-		const payloadResult = await readInsecticidePayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const commandResult = createCommand(() =>
-			createInsecticideCommand({
-				...agencyCommandContext(context.get('authContext')),
-				insecticideId: payloadResult.payload.id,
-				tradeName: payloadResult.payload.tradeName ?? '',
-				activeIngredient: payloadResult.payload.activeIngredient ?? '',
-				type: payloadResult.payload.type ?? 'adulticide',
-				registrationNumber: payloadResult.payload.registrationNumber ?? '',
-				defaultUnitId: payloadResult.payload.defaultUnitId ?? '',
-				labelUrl: payloadResult.payload.labelUrl ?? null,
-				msdsUrl: payloadResult.payload.msdsUrl ?? null,
-				shorthand: payloadResult.payload.shorthand ?? null,
-				metadata: payloadResult.payload.metadata ?? null,
-			}),
+	const runInsecticide = (
+		context: CommandContext,
+		commands: readonly InsecticideCommand[],
+		createdStatus?: 201,
+	) =>
+		runCommands(
+			context,
+			{
+				db: options.db,
+				write: async (trx, command) =>
+					toInsecticideResponse(await writeInsecticideCommand(trx, command)),
+				notFound: 'insecticide_not_found',
+				key: 'insecticide',
+			},
+			commands,
+			createdStatus,
 		);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
 
-		const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-		if (denial !== null) {
-			return denial;
-		}
+	const runBatch = (
+		context: CommandContext,
+		commands: readonly InsecticideBatchCommand[],
+		createdStatus?: 201,
+	) =>
+		runCommands(
+			context,
+			{
+				db: options.db,
+				write: async (trx, command) =>
+					toInsecticideBatchResponse(await writeInsecticideBatchCommand(trx, command)),
+				notFound: 'insecticide_batch_not_found',
+				key: 'batch',
+			},
+			commands,
+			createdStatus,
+		);
 
-		return runProductCommands(context, insecticideRun(options.db), [commandResult.command], 201);
-	});
+	app.post(
+		'/control-products/insecticides',
+		options.authContextMiddleware,
+		commandEndpoint({
+			readPayload: readInsecticidePayload,
+			build: ({ payload, agency }) =>
+				createInsecticideCommand({
+					...agency,
+					insecticideId: payload.id,
+					tradeName: payload.tradeName ?? '',
+					activeIngredient: payload.activeIngredient ?? '',
+					type: payload.type ?? 'adulticide',
+					registrationNumber: payload.registrationNumber ?? '',
+					defaultUnitId: payload.defaultUnitId ?? '',
+					labelUrl: payload.labelUrl ?? null,
+					msdsUrl: payload.msdsUrl ?? null,
+					shorthand: payload.shorthand ?? null,
+					metadata: payload.metadata ?? null,
+				}),
+			run: (context, commands) => runInsecticide(context, commands, 201),
+		}),
+	);
 
 	app.patch(
 		'/control-products/insecticides/:insecticideId',
 		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readInsecticidePayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const commandsResult = buildInsecticideUpdateCommands(
-				context.get('authContext'),
-				context.req.param('insecticideId'),
-				payloadResult.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-
-			const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
-			if (denial !== null) {
-				return denial;
-			}
-
-			return runProductCommands(context, insecticideRun(options.db), commandsResult.commands);
-		},
+		commandEndpoint({
+			readPayload: readInsecticidePayload,
+			build: ({ payload, authContext, param }) =>
+				buildInsecticideUpdateCommands(authContext, param('insecticideId'), payload),
+			run: runInsecticide,
+		}),
 	);
 
 	app.delete(
 		'/control-products/insecticides/:insecticideId',
 		options.authContextMiddleware,
-		async (context) => {
-			const commandResult = createCommand(() =>
-				deleteInsecticideCommand({
-					...agencyCommandContext(context.get('authContext')),
-					insecticideId: context.req.param('insecticideId'),
-				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-			if (denial !== null) {
-				return denial;
-			}
-
-			return runProductCommands(context, insecticideRun(options.db), [commandResult.command]);
-		},
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency, param }) =>
+				deleteInsecticideCommand({ ...agency, insecticideId: param('insecticideId') }),
+			run: runInsecticide,
+		}),
 	);
 
 	app.post(
 		'/control-products/insecticide-batches',
 		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readInsecticideBatchPayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const commandResult = createCommand(() =>
+		commandEndpoint({
+			readPayload: readInsecticideBatchPayload,
+			build: ({ payload, agency }) =>
 				createInsecticideBatchCommand({
-					...agencyCommandContext(context.get('authContext')),
-					insecticideBatchId: payloadResult.payload.id,
-					insecticideId: payloadResult.payload.insecticideId,
-					batchName: payloadResult.payload.batchName ?? '',
+					...agency,
+					insecticideBatchId: payload.id,
+					insecticideId: payload.insecticideId,
+					batchName: payload.batchName ?? '',
 				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-			if (denial !== null) {
-				return denial;
-			}
-
-			return runProductCommands(context, batchRun(options.db), [commandResult.command], 201);
-		},
+			run: (context, commands) => runBatch(context, commands, 201),
+		}),
 	);
 
 	app.patch(
 		'/control-products/insecticide-batches/:batchId',
 		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readInsecticideBatchPayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const commandsResult = buildInsecticideBatchUpdateCommands(
-				context.get('authContext'),
-				context.req.param('batchId'),
-				payloadResult.payload,
-			);
-			if (!commandsResult.ok) {
-				return context.json(commandsResult.body, 400);
-			}
-
-			const denial = denyUnauthorizedAgencyCommands(context, commandsResult.commands);
-			if (denial !== null) {
-				return denial;
-			}
-
-			return runProductCommands(context, batchRun(options.db), commandsResult.commands);
-		},
+		commandEndpoint({
+			readPayload: readInsecticideBatchPayload,
+			build: ({ payload, authContext, param }) =>
+				buildInsecticideBatchUpdateCommands(authContext, param('batchId'), payload),
+			run: runBatch,
+		}),
 	);
 
 	app.delete(
 		'/control-products/insecticide-batches/:batchId',
 		options.authContextMiddleware,
-		async (context) => {
-			const commandResult = createCommand(() =>
-				deleteInsecticideBatchCommand({
-					...agencyCommandContext(context.get('authContext')),
-					insecticideBatchId: context.req.param('batchId'),
-				}),
-			);
-			if (!commandResult.ok) {
-				return context.json(commandResult.body, 400);
-			}
-
-			const denial = denyUnauthorizedAgencyCommands(context, [commandResult.command]);
-			if (denial !== null) {
-				return denial;
-			}
-
-			return runProductCommands(context, batchRun(options.db), [commandResult.command]);
-		},
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency, param }) =>
+				deleteInsecticideBatchCommand({ ...agency, insecticideBatchId: param('batchId') }),
+			run: runBatch,
+		}),
 	);
-}
-
-/**
- * What the tail of a route in this file varies by: which write loop to run,
- * what a null row is called, and what key the row answers under.
- */
-interface ProductRun<TCommand, TSafe> {
-	readonly write: (commands: readonly TCommand[]) => Promise<MutationWriteResult<TSafe | null>>;
-	readonly responseKey: string;
-	readonly toResponse: (row: TSafe | null) => unknown;
-	/** `null` on the creates, which cannot answer "not found". */
-	readonly notFoundError: string | null;
-}
-
-function insecticideRun(db: ControlProductDb): ProductRun<InsecticideCommand, SafeInsecticide> {
-	return {
-		write: (commands) => writeInsecticideCommands(db, commands),
-		responseKey: 'insecticide',
-		toResponse: toInsecticideResponse,
-		notFoundError: 'insecticide_not_found',
-	};
-}
-
-function batchRun(db: ControlProductDb): ProductRun<InsecticideBatchCommand, SafeInsecticideBatch> {
-	return {
-		write: (commands) => writeInsecticideBatchCommands(db, commands),
-		responseKey: 'batch',
-		toResponse: toInsecticideBatchResponse,
-		notFoundError: 'insecticide_batch_not_found',
-	};
-}
-
-/**
- * Write the commands and answer, turning both kinds of absence into a 4xx.
- *
- * The `catch` is why this exists rather than eight inline copies. Refusals
- * raised *inside* `db.transaction().execute` — `createInsecticideBatch` rejects
- * an insecticide id that is not this agency's — had no handler on any route
- * here, so a cross-tenant id left the server as an unhandled 500 (#119). Owning
- * the tail once means the handler cannot be forgotten on the next route added.
- */
-async function runProductCommands<TCommand, TSafe>(
-	context: CommandContext,
-	run: ProductRun<TCommand, TSafe>,
-	commands: readonly TCommand[],
-	createdStatus?: 201,
-): Promise<Response> {
-	try {
-		const result = await run.write(commands);
-		if (result.row === null && run.notFoundError !== null) {
-			return context.json({ error: run.notFoundError }, 404);
-		}
-		return context.json(
-			{ [run.responseKey]: run.toResponse(result.row), txid: result.txid },
-			createdStatus ?? 200,
-		);
-	} catch (error) {
-		return handleCommandError(context, error);
-	}
 }
 
 function buildInsecticideUpdateCommands(
 	authContext: AuthContext,
 	insecticideId: string,
 	payload: InsecticidePayload,
-):
-	| { readonly ok: true; readonly commands: readonly InsecticideCommand[] }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
+): CommandsResult<InsecticideCommand> {
 	const commands: InsecticideCommand[] = [];
 	const context = agencyCommandContext(authContext);
 	const hasDetailChange =
@@ -371,16 +277,14 @@ function buildInsecticideUpdateCommands(
 		commands.push(commandResult.command);
 	}
 
-	return commands.length === 0 ? invalidUpdateCommand('insecticide') : { ok: true, commands };
+	return commands.length === 0 ? invalidUpdate('insecticide') : { ok: true, commands };
 }
 
 function buildInsecticideBatchUpdateCommands(
 	authContext: AuthContext,
 	batchId: string,
 	payload: InsecticideBatchPayload,
-):
-	| { readonly ok: true; readonly commands: readonly InsecticideBatchCommand[] }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
+): CommandsResult<InsecticideBatchCommand> {
 	const commands: InsecticideBatchCommand[] = [];
 	const context = agencyCommandContext(authContext);
 
@@ -411,33 +315,7 @@ function buildInsecticideBatchUpdateCommands(
 		commands.push(commandResult.command);
 	}
 
-	return commands.length === 0 ? invalidUpdateCommand('insecticide batch') : { ok: true, commands };
-}
-
-async function writeInsecticideCommands(
-	db: ControlProductDb,
-	commands: readonly InsecticideCommand[],
-): Promise<MutationWriteResult<SafeInsecticide | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeInsecticide | null = null;
-		for (const command of commands) {
-			row = await writeInsecticideCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
-}
-
-async function writeInsecticideBatchCommands(
-	db: ControlProductDb,
-	commands: readonly InsecticideBatchCommand[],
-): Promise<MutationWriteResult<SafeInsecticideBatch | null>> {
-	return db.transaction().execute(async (trx) => {
-		let row: SafeInsecticideBatch | null = null;
-		for (const command of commands) {
-			row = await writeInsecticideBatchCommand(trx, command);
-		}
-		return { row, txid: await readCurrentTransactionId(trx) };
-	});
+	return commands.length === 0 ? invalidUpdate('insecticide batch') : { ok: true, commands };
 }
 
 async function writeInsecticideCommand(
@@ -792,35 +670,6 @@ async function assertInsecticideBelongsToOrganization(
 	}
 }
 
-function createCommand<TCommand extends InsecticideCommand | InsecticideBatchCommand>(
-	build: () => TCommand,
-):
-	| { readonly ok: true; readonly command: TCommand }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	try {
-		return { ok: true, command: build() };
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return {
-				ok: false,
-				body: {
-					error: 'invalid_command',
-					message: error.message,
-					issues: error.issues,
-				},
-			};
-		}
-
-		throw error;
-	}
-}
-
-type InvalidCommandBody = {
-	readonly error: 'invalid_command';
-	readonly message: string;
-	readonly issues: readonly { readonly path: string; readonly message: string }[];
-};
-
 interface InsecticidePayload {
 	readonly id: string;
 	readonly tradeName?: string;
@@ -842,24 +691,13 @@ interface InsecticideBatchPayload {
 	readonly isActive?: boolean;
 }
 
-type PayloadResult<T> =
-	| { readonly ok: true; readonly payload: T }
-	| { readonly ok: false; readonly reason: string };
-
-async function readInsecticidePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<InsecticidePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+function readInsecticidePayload(raw: Record<string, unknown>): PayloadResult<InsecticidePayload> {
 	if (raw.isActive !== undefined && typeof raw.isActive !== 'boolean') {
-		return invalid('isActive must be a boolean.');
+		return invalidPayload('isActive must be a boolean.');
 	}
 	const type = readInsecticideType(raw.type);
 	if (raw.type !== undefined && type === null) {
-		return invalid('type must be larvicide, adulticide, pupicide, or other.');
+		return invalidPayload('type must be larvicide, adulticide, pupicide, or other.');
 	}
 
 	return {
@@ -886,16 +724,11 @@ async function readInsecticidePayload(request: {
 	};
 }
 
-async function readInsecticideBatchPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<InsecticideBatchPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+function readInsecticideBatchPayload(
+	raw: Record<string, unknown>,
+): PayloadResult<InsecticideBatchPayload> {
 	if (raw.isActive !== undefined && typeof raw.isActive !== 'boolean') {
-		return invalid('isActive must be a boolean.');
+		return invalidPayload('isActive must be a boolean.');
 	}
 
 	return {
@@ -907,23 +740,6 @@ async function readInsecticideBatchPayload(request: {
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
 		},
 	};
-}
-
-async function readJsonObject(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<Record<string, unknown>>> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return invalid('Request body must be JSON.');
-	}
-
-	if (!isRecord(raw)) {
-		return invalid('Request body must be an object.');
-	}
-
-	return { ok: true, payload: raw };
 }
 
 function readInsecticideType(value: unknown): InsecticideType | null {
@@ -952,42 +768,8 @@ function readOptionalJson(value: unknown): unknown | null {
 	return value === undefined ? null : value;
 }
 
-function invalid(reason: string): PayloadResult<never> {
+function invalidPayload(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
-}
-
-function invalidUpdateCommand(changeNoun: string): {
-	readonly ok: false;
-	readonly body: InvalidCommandBody;
-} {
-	const message = `At least one ${changeNoun} field must change.`;
-	return {
-		ok: false,
-		body: {
-			error: 'invalid_command',
-			message,
-			issues: [{ path: 'changes', message }],
-		},
-	};
-}
-
-function agencyCommandContext(authContext: AuthContext) {
-	return {
-		organizationId: authContext.organization.id,
-		actorProfileId: authContext.profile.id,
-	};
-}
-
-async function readCurrentTransactionId(db: ControlProductTransaction): Promise<number> {
-	const result = await sql<{
-		txid: string;
-	}>`select pg_current_xact_id()::xid::text as txid`.execute(db);
-	const txid = result.rows[0]?.txid;
-	if (txid === undefined) {
-		throw new Error('Unable to read current transaction id.');
-	}
-
-	return Number.parseInt(txid, 10);
 }
 
 const insecticideReturnColumns = [

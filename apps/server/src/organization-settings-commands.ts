@@ -1,6 +1,5 @@
 import { type Kysely, type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
 import {
-	DomainValidationError,
 	mergeOrganizationSettingsChange,
 	type OrganizationSettingsCommand,
 	updateAdultCollectionTimingModeCommand,
@@ -14,7 +13,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
-import { isRecord } from './command-payload.js';
+import { type AgencyContext, commandEndpoint, type PayloadResult } from './command-endpoint.js';
 
 type OrganizationSettingsDb = Kysely<SimmerDatabase>;
 type OrganizationSettingsTransaction = Transaction<SimmerDatabase>;
@@ -26,173 +25,133 @@ export function registerOrganizationSettingsCommandRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.patch('/organization-settings/timezone', options.authContextMiddleware, async (context) => {
-		const payloadResult = await readJsonObject(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+	/**
+	 * "Only organization owners and admins can manage settings." Checked before
+	 * the body is read so an unauthorized caller learns nothing about which
+	 * fields a valid payload would have had.
+	 */
+	const requireSettingsManager: MiddlewareHandler<{ Variables: AuthVariables }> = async (
+		context,
+		next,
+	) => {
+		if (!canManageOrganizationSettings(context.get('authContext').role)) {
+			return context.json(
+				{ error: 'forbidden', reason: 'Only organization owners and admins can manage settings.' },
+				403,
+			);
 		}
+		await next();
+	};
 
-		return writeSettingsCommandResponse(options.db, context.get('authContext'), () =>
-			updateTimezoneCommand({
-				...agencyCommandContext(context.get('authContext')),
-				timezone: readRequiredText(payloadResult.payload.timezone) ?? '',
-				expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
-			}),
+	const settingsEndpoint = (
+		build: (request: {
+			readonly payload: Record<string, unknown>;
+			readonly agency: AgencyContext;
+		}) => OrganizationSettingsCommand,
+	) =>
+		commandEndpoint<OrganizationSettingsCommand>({
+			build,
+			run: (context, commands) =>
+				writeSettingsCommandResponse(
+					options.db,
+					context.get('authContext'),
+					commands[0] as OrganizationSettingsCommand,
+				),
+		});
+
+	const settingsRoute = (
+		path: string,
+		build: Parameters<typeof settingsEndpoint>[0],
+		readPayload?: (raw: Record<string, unknown>) => PayloadResult<Record<string, unknown>>,
+	) =>
+		app.patch(
+			`/organization-settings/${path}`,
+			options.authContextMiddleware,
+			requireSettingsManager,
+			readPayload === undefined
+				? settingsEndpoint(build)
+				: commandEndpoint<OrganizationSettingsCommand, Record<string, unknown>>({
+						readPayload,
+						build,
+						run: (context, commands) =>
+							writeSettingsCommandResponse(
+								options.db,
+								context.get('authContext'),
+								commands[0] as OrganizationSettingsCommand,
+							),
+					}),
 		);
-	});
 
-	app.patch(
-		'/organization-settings/unit-defaults',
-		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readJsonObject(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			return writeSettingsCommandResponse(options.db, context.get('authContext'), () =>
-				updateUnitDefaultsCommand({
-					...agencyCommandContext(context.get('authContext')),
-					unitDefaults: payloadResult.payload.unitDefaults as never,
-					expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
-				}),
-			);
-		},
+	settingsRoute('timezone', ({ payload, agency }) =>
+		updateTimezoneCommand({
+			...agency,
+			timezone: readRequiredText(payload.timezone) ?? '',
+			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+		}),
 	);
 
-	app.patch(
-		'/organization-settings/adult-collection-timing-mode',
-		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readJsonObject(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			return writeSettingsCommandResponse(options.db, context.get('authContext'), () =>
-				updateAdultCollectionTimingModeCommand({
-					...agencyCommandContext(context.get('authContext')),
-					collectionTimingMode: readRequiredText(
-						payloadResult.payload.collectionTimingMode,
-					) as never,
-					expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
-				}),
-			);
-		},
+	settingsRoute('unit-defaults', ({ payload, agency }) =>
+		updateUnitDefaultsCommand({
+			...agency,
+			unitDefaults: payload.unitDefaults as never,
+			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+		}),
 	);
 
-	app.patch(
-		'/organization-settings/larval-inspection-entry-policy',
-		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readJsonObject(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			return writeSettingsCommandResponse(options.db, context.get('authContext'), () =>
-				updateLarvalInspectionEntryPolicyCommand({
-					...agencyCommandContext(context.get('authContext')),
-					policy: payloadResult.payload.policy as never,
-					expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
-				}),
-			);
-		},
+	settingsRoute('adult-collection-timing-mode', ({ payload, agency }) =>
+		updateAdultCollectionTimingModeCommand({
+			...agency,
+			collectionTimingMode: readRequiredText(payload.collectionTimingMode) as never,
+			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+		}),
 	);
 
-	app.patch(
-		'/organization-settings/insecticide-batch-tracking',
-		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readJsonObject(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-			if (typeof payloadResult.payload.trackInsecticideBatches !== 'boolean') {
-				return context.json(
-					{
-						error: 'invalid_payload',
-						reason: 'trackInsecticideBatches must be a boolean.',
-					},
-					400,
-				);
-			}
-			const trackInsecticideBatches = payloadResult.payload.trackInsecticideBatches;
-
-			return writeSettingsCommandResponse(options.db, context.get('authContext'), () =>
-				updateInsecticideBatchTrackingCommand({
-					...agencyCommandContext(context.get('authContext')),
-					trackInsecticideBatches,
-					expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
-				}),
-			);
-		},
+	settingsRoute('larval-inspection-entry-policy', ({ payload, agency }) =>
+		updateLarvalInspectionEntryPolicyCommand({
+			...agency,
+			policy: payload.policy as never,
+			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+		}),
 	);
 
-	app.patch(
-		'/organization-settings/service-request-context',
-		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readJsonObject(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			return writeSettingsCommandResponse(options.db, context.get('authContext'), () =>
-				updateServiceRequestContextCommand({
-					...agencyCommandContext(context.get('authContext')),
-					serviceRequestContext: payloadResult.payload.serviceRequestContext as never,
-					expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
-				}),
-			);
-		},
+	settingsRoute(
+		'insecticide-batch-tracking',
+		({ payload, agency }) =>
+			updateInsecticideBatchTrackingCommand({
+				...agency,
+				trackInsecticideBatches: payload.trackInsecticideBatches as boolean,
+				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+			}),
+		// The only setting whose type the domain builder cannot infer from a
+		// missing value: `false` and absent are both falsy.
+		(raw) =>
+			typeof raw.trackInsecticideBatches === 'boolean'
+				? { ok: true, payload: raw }
+				: { ok: false, reason: 'trackInsecticideBatches must be a boolean.' },
 	);
 
-	app.patch(
-		'/organization-settings/species-key-bindings',
-		options.authContextMiddleware,
-		async (context) => {
-			const payloadResult = await readJsonObject(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
+	settingsRoute('service-request-context', ({ payload, agency }) =>
+		updateServiceRequestContextCommand({
+			...agency,
+			serviceRequestContext: payload.serviceRequestContext as never,
+			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+		}),
+	);
 
-			return writeSettingsCommandResponse(options.db, context.get('authContext'), () =>
-				updateSpeciesKeyBindingsCommand({
-					...agencyCommandContext(context.get('authContext')),
-					speciesKeyBindings: payloadResult.payload.speciesKeyBindings as never,
-					expectedUpdatedAt: readOptionalDate(payloadResult.payload.expectedUpdatedAt),
-				}),
-			);
-		},
+	settingsRoute('species-key-bindings', ({ payload, agency }) =>
+		updateSpeciesKeyBindingsCommand({
+			...agency,
+			speciesKeyBindings: payload.speciesKeyBindings as never,
+			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+		}),
 	);
 }
 
 async function writeSettingsCommandResponse(
 	db: OrganizationSettingsDb,
 	authContext: AuthContext,
-	buildCommand: () => OrganizationSettingsCommand,
+	command: OrganizationSettingsCommand,
 ): Promise<Response> {
-	if (!canManageOrganizationSettings(authContext.role)) {
-		return Response.json(
-			{ error: 'forbidden', reason: 'Only organization owners and admins can manage settings.' },
-			{ status: 403 },
-		);
-	}
-
-	let command: OrganizationSettingsCommand;
-	try {
-		command = buildCommand();
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return Response.json(
-				{ error: 'invalid_command', message: error.message, issues: error.issues },
-				{ status: 400 },
-			);
-		}
-		throw error;
-	}
-
 	const validationError = await validateDbReferences(db, command);
 	if (validationError !== null) {
 		return Response.json(validationError, { status: 400 });
@@ -362,27 +321,6 @@ function settingsChangeForCommand(command: OrganizationSettingsCommand) {
 	}
 }
 
-type PayloadResult =
-	| { readonly ok: true; readonly payload: Record<string, unknown> }
-	| { readonly ok: false; readonly reason: string };
-
-async function readJsonObject(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return { ok: false, reason: 'Request body must be JSON.' };
-	}
-
-	if (!isRecord(raw)) {
-		return { ok: false, reason: 'Request body must be an object.' };
-	}
-
-	return { ok: true, payload: raw };
-}
-
 function readRequiredText(value: unknown): string | null {
 	if (typeof value !== 'string') {
 		return null;
@@ -399,13 +337,6 @@ function readOptionalDate(value: unknown): Date | null {
 		return new Date(Number.NaN);
 	}
 	return new Date(value);
-}
-
-function agencyCommandContext(authContext: AuthContext) {
-	return {
-		organizationId: authContext.organization.id,
-		actorProfileId: authContext.profile.id,
-	};
 }
 
 function canManageOrganizationSettings(role: AuthContext['role']): boolean {

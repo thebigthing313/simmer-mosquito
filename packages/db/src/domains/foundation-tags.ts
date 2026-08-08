@@ -168,17 +168,6 @@ export async function deleteTag(
 	return row === undefined ? null : toSafeTag(row);
 }
 
-export async function writeTagCommandsWithTxid(
-	db: Kysely<SimmerDatabase>,
-	write: (trx: Transaction<SimmerDatabase>) => Promise<SafeTag | null>,
-): Promise<MutationWriteResult<SafeTag | null>> {
-	return db.transaction().execute(async (trx) => {
-		const row = await write(trx);
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
-}
-
 async function readCurrentTransactionId(db: DbExecutor): Promise<number> {
 	const result = await sql<{
 		txid: string;
