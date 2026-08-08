@@ -130,7 +130,48 @@ stopped**. Electric re-snapshots each shape on demand after the reload.
 $env:PROD_DATABASE_URL    = '<prod public proxy URL>'      # *.proxy.rlwy.net, read-only role preferred
 $env:STAGING_DATABASE_URL = '<staging public proxy URL>?sslmode=disable'
 ./scripts/clone-prod-to-staging.ps1
+./scripts/clone-prod-to-staging.ps1 -YearsOfHistory 5      # keep more
+./scripts/clone-prod-to-staging.ps1 -AllHistory            # keep everything
 ```
+
+### How much history staging keeps
+
+Prod carries operational records back to 2011 — roughly half a million
+inspections and two hundred thousand applications. Staging exists to make local
+dev realistic, which three years of history does as well as fifteen, against a
+database that syncs, re-snapshots, and restores in a fraction of the time.
+
+So the clone keeps the **last 3 years of dated records** by default and **all
+reference data**. Dated means the things an agency performs — inspections,
+applications, collections, biocontrol and source-reduction actions, outreach,
+service requests, requests for control, assignments, missions, weather
+summaries. Reference data is what it accumulates: habitats, traps, addresses,
+regions, contacts, routes, taxonomy, methods, products, units, profiles,
+memberships. A habitat is still the habitat it was in 2011, and deleting those
+would change what the app *is* rather than how much history it holds.
+
+The dump itself is always whole — prod is only ever read — and the trim runs on
+staging afterwards via `scripts/prune-staging-history.sql`, which is also
+runnable on its own:
+
+```powershell
+psql $env:STAGING_DATABASE_URL -v ON_ERROR_STOP=1 -v cutoff=2023-08-07 `
+  -f scripts/prune-staging-history.sql
+```
+
+Two things that file handles and a hand-written `DELETE` would not:
+
+- `inspections -> samples` and `samples -> sample_species` are `ON DELETE
+  RESTRICT`, unlike every other child in the schema, so samples must be removed
+  before their inspections or the whole transaction aborts.
+- `comments`, `additional_personnel`, `tag_items`, `assignment_items`, and
+  `route_items` reference their parent as `(entity_type, entity_id)` with no
+  foreign key, so nothing cascades to them. Left behind, a stale comment
+  reattaches itself to whatever later reuses that id.
+
+It also builds seven indexes on unindexed `SET NULL` foreign-key columns for the
+duration and drops them afterwards; without them the delete sequentially scans
+`applications` once per deleted inspection and does not finish in ten minutes.
 
 Notes:
 - Both URLs must be the **public** `*.proxy.rlwy.net:PORT` form, never

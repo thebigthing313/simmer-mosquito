@@ -23,6 +23,14 @@
 #   $env:PROD_DATABASE_URL    = 'postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'   # prod public proxy
 #   $env:STAGING_DATABASE_URL = 'postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'   # staging public proxy
 #   ./scripts/clone-prod-to-staging.ps1
+#   ./scripts/clone-prod-to-staging.ps1 -YearsOfHistory 5   # keep more
+#   ./scripts/clone-prod-to-staging.ps1 -AllHistory         # keep everything
+#
+# Staging keeps the last 3 years of DATED records by default (inspections,
+# applications, collections, service requests, …) and all reference data
+# (habitats, traps, addresses, contacts, routes, taxonomy). The dump is still
+# whole — prod is only ever read — and the trim happens on the target afterwards;
+# see scripts/prune-staging-history.sql.
 
 [CmdletBinding()]
 param(
@@ -32,7 +40,14 @@ param(
 	# Skip the interactive "did you stop staging Electric?" pre-flight confirmation.
 	[switch]$Yes,
 	# Leave the cloned PROD WorkOS ids in place instead of relinking them.
-	[switch]$SkipRelink
+	[switch]$SkipRelink,
+	# How much operational history staging keeps. Prod runs back to 2011 — half a
+	# million inspections — and three years makes local dev just as realistic
+	# against a database that syncs and re-snapshots in a fraction of the time.
+	[int]$YearsOfHistory = 3,
+	# Keep every dated record, as this script did before. Reach for it when you
+	# are chasing something that only reproduces against the full history.
+	[switch]$AllHistory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -79,6 +94,14 @@ foreach ($pair in @(@('PROD_DATABASE_URL', $ProdUrl), @('STAGING_DATABASE_URL', 
 if ($ProdUrl -eq $StagingUrl) {
 	throw 'PROD_DATABASE_URL and STAGING_DATABASE_URL are identical. Refusing to wipe prod.'
 }
+if (-not $AllHistory -and $YearsOfHistory -lt 1) {
+	throw "-YearsOfHistory must be at least 1 (got $YearsOfHistory). Pass -AllHistory to keep everything."
+}
+
+$pruneSqlPath = Join-Path $PSScriptRoot 'prune-staging-history.sql'
+if (-not $AllHistory -and -not (Test-Path $pruneSqlPath)) {
+	throw "Missing $pruneSqlPath, which the history prune runs. Pass -AllHistory to skip pruning."
+}
 
 # Locate pg client tools.
 if ([string]::IsNullOrWhiteSpace($PgBin)) {
@@ -105,6 +128,12 @@ Write-Host '==> This will WIPE the staging database and reload it from prod.' -F
 Write-Host "    pg tools:           $PgBin" -ForegroundColor DarkGray
 Write-Host "    Source (read-only): $(Mask $ProdUrl)" -ForegroundColor DarkGray
 Write-Host "    Target (WIPED):     $(Mask $StagingUrl)  (db: $stagingDbName)" -ForegroundColor DarkGray
+if ($AllHistory) {
+	Write-Host '    History:            ALL (-AllHistory)' -ForegroundColor DarkGray
+}
+else {
+	Write-Host "    History:            last $YearsOfHistory year(s) of dated records" -ForegroundColor DarkGray
+}
 if (-not $Yes) {
 	Write-Host ''
 	Write-Host '    Type "yes" to wipe + reload the staging database.' -ForegroundColor Yellow
@@ -133,6 +162,20 @@ try {
 	& $psql $StagingUrl -v ON_ERROR_STOP=1 `
 		-c "select 'organizations' as t, count(*) from organizations union all select 'memberships', count(*) from memberships;"
 	if ($LASTEXITCODE -ne 0) { throw "verification query failed (exit $LASTEXITCODE)" }
+
+	if (-not $AllHistory) {
+		# Reference data an agency accumulates — habitats, traps, addresses,
+		# contacts, routes, taxonomy, products — is never pruned; only the dated
+		# records it performs. See the header of prune-staging-history.sql.
+		$cutoff = (Get-Date).AddYears(-$YearsOfHistory).ToString('yyyy-MM-dd')
+		Write-Host "==> Pruning dated records older than $cutoff (keeping $YearsOfHistory year(s)) ..." -ForegroundColor Cyan
+		Write-Host '    Deleting several hundred thousand rows over the proxy takes a few minutes.' -ForegroundColor DarkGray
+		& $psql $StagingUrl -X -v ON_ERROR_STOP=1 -v "cutoff=$cutoff" -f $pruneSqlPath
+		if ($LASTEXITCODE -ne 0) { throw "history prune failed (exit $LASTEXITCODE)" }
+	}
+	else {
+		Write-Host '==> -AllHistory set; staging keeps every dated record prod has.' -ForegroundColor DarkGray
+	}
 
 	if (-not $SkipRelink) {
 		Write-Host '==> Relinking cloned prod identities -> WorkOS STAGING (so you can log in normally) ...' -ForegroundColor Cyan
