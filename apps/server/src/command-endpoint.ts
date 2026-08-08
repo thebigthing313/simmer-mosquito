@@ -161,10 +161,29 @@ async function readJsonObject(request: {
 	return { ok: true, payload: raw };
 }
 
+/**
+ * A hand-written payload reader's verdict: the typed shape, or why the body
+ * could not be read as one.
+ *
+ * Distinct from {@link CommandResult}, and the distinction is the response the
+ * client gets. A `PayloadResult` failure is `invalid_payload` — the request was
+ * not shaped like a request. A `CommandResult` failure is `invalid_command` —
+ * the request was well-formed and the domain refused it, with an issue list
+ * naming the fields. Collapsing the two would have told a client with a typo in
+ * `country` that its command was invalid, and given it no path to look at.
+ */
+export type PayloadResult<TPayload> =
+	| { readonly ok: true; readonly payload: TPayload }
+	| { readonly ok: false; readonly reason: string };
+
 /** Everything a payload-to-command mapping is handed. */
-export interface CommandRequest {
-	/** The parsed JSON body. `{}` for the endpoints that take none. */
-	readonly payload: Record<string, unknown>;
+export interface CommandRequest<TPayload = Record<string, unknown>> {
+	/**
+	 * The request body. The raw JSON object by default — `{}` for the endpoints
+	 * that take none — or whatever {@link CommandEndpoint.readPayload} narrowed
+	 * it to.
+	 */
+	readonly payload: TPayload;
 	/** `organizationId` and `actorProfileId`, ready to spread into a builder. */
 	readonly agency: AgencyContext;
 	/** The whole resolved session, for the builders that need more than the two ids. */
@@ -185,8 +204,18 @@ export type CommandBody = 'required' | 'optional' | 'none';
 /** What a mapping may hand back. */
 export type Built<TCommand> = TCommand | CommandResult<TCommand> | CommandsResult<TCommand>;
 
-export interface CommandEndpoint<TCommand> {
+export interface CommandEndpoint<TCommand, TPayload = Record<string, unknown>> {
 	readonly body?: CommandBody;
+	/**
+	 * Narrow the JSON object into the shape `build` wants, or say why it could
+	 * not be. A refusal is the endpoint's `invalid_payload` 400.
+	 *
+	 * Omit it and `build` is handed the raw object, which is what most endpoints
+	 * want: they read fields straight into a domain builder and let the builder
+	 * be the judge. The catalog endpoints read their payloads first because
+	 * their builders take already-typed values.
+	 */
+	readonly readPayload?: (raw: Record<string, unknown>) => PayloadResult<TPayload>;
 	/**
 	 * Map the request onto the command(s) to run.
 	 *
@@ -195,7 +224,7 @@ export interface CommandEndpoint<TCommand> {
 	 * a {@link CommandsResult} where the mapping decides for itself, as the
 	 * multi-field PATCH builders do.
 	 */
-	readonly build: (request: CommandRequest) => Built<TCommand> | Promise<Built<TCommand>>;
+	readonly build: (request: CommandRequest<TPayload>) => Built<TCommand> | Promise<Built<TCommand>>;
 	/** Authorize the commands, write them, and answer. */
 	readonly run: (
 		context: CommandContext,
@@ -211,19 +240,30 @@ export interface CommandEndpoint<TCommand> {
  * site. The verb, the path, and `authContextMiddleware` stay in the route
  * registration; the mapping and the runner stay in {@link CommandEndpoint}.
  */
-export function commandEndpoint<TCommand>(
-	endpoint: CommandEndpoint<TCommand>,
+export function commandEndpoint<TCommand, TPayload = Record<string, unknown>>(
+	endpoint: CommandEndpoint<TCommand, TPayload>,
 ): (context: CommandContext) => Promise<Response> {
 	const body = endpoint.body ?? 'required';
 	return async (context) => {
-		let payload: Record<string, unknown> = {};
+		let raw: Record<string, unknown> = {};
 		if (body !== 'none') {
-			const raw = await readJsonObject(context.req);
-			if (raw.ok) {
-				payload = raw.payload;
+			const parsed = await readJsonObject(context.req);
+			if (parsed.ok) {
+				raw = parsed.payload;
 			} else if (body === 'required') {
-				return context.json({ error: 'invalid_payload', reason: raw.reason }, 400);
+				return context.json({ error: 'invalid_payload', reason: parsed.reason }, 400);
 			}
+		}
+
+		// Without a reader the two are the same type; the default type parameter
+		// is what makes that true, and the cast is what tells the compiler so.
+		let payload = raw as TPayload;
+		if (endpoint.readPayload !== undefined) {
+			const read = endpoint.readPayload(raw);
+			if (!read.ok) {
+				return context.json({ error: 'invalid_payload', reason: read.reason }, 400);
+			}
+			payload = read.payload;
 		}
 
 		const authContext = context.get('authContext');

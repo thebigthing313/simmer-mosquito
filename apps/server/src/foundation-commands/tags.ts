@@ -5,7 +5,6 @@ import {
 	deleteCollectionMethodLookup,
 	deleteHabitatTypeLookup,
 	deleteTag,
-	type MutationWriteResult,
 	type SafeOrgLookup,
 	type SafeTag,
 	setCollectionLureLookupActive,
@@ -16,8 +15,6 @@ import {
 	updateCollectionMethodLookup,
 	updateHabitatTypeLookup,
 	updateTag,
-	writeCollectionMethodLookupCommandsWithTxid,
-	writeTagCommandsWithTxid,
 } from '@simmer-mosquito/db';
 import {
 	activateTagCommand,
@@ -41,20 +38,22 @@ import {
 	type UpdateHabitatTypeCommand,
 	updateTagCommand,
 } from '@simmer-mosquito/domain';
-import type { Context, Hono, MiddlewareHandler } from 'hono';
+import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { authorizeCommands } from '../command-permissions.js';
 import {
 	agencyCommandContext,
+	type CommandContext,
+	type CommandsResult,
+	commandEndpoint,
 	createCommand,
-	type FoundationCommandDb,
-	type InvalidCommandBody,
-	invalid,
-	invalidUpdateCommand,
-	type LookupCommand,
+	invalidUpdate,
 	type PayloadResult,
-	readJsonObject,
+} from '../command-endpoint.js';
+import { type CommandTransaction, runCommands } from '../command-write.js';
+import {
+	type FoundationCommandDb,
+	type LookupCommand,
 	readOptionalText,
 	readRequiredText,
 	type TagCommand,
@@ -66,141 +65,74 @@ import {
 // --------------------------------------------------------------------------
 
 /**
- * The role check the tag catalog runs before writing.
- *
  * `fieldWork.createTag` and friends are field-work commands answered by a
  * foundation endpoint, so they are named in the same permission map the
- * `/field-work/*` routes read — but this module funnels through its own writer
- * and would otherwise never consult it. "Tag catalog management is
- * manager-and-above" (`docs/field-work-support-domain.md`).
+ * `/field-work/*` routes read. "Tag catalog management is manager-and-above"
+ * (`docs/field-work-support-domain.md`) — the role check inside `runCommands`
+ * reads that entry, so this module does not need one of its own.
  */
-function denyUnauthorizedTagCommands(
-	context: Context<{ Variables: AuthVariables }>,
-	commands: readonly TagCommand[],
-): Response | null {
-	const denial = authorizeCommands(context.get('authContext').role, commands);
-	return denial === null ? null : context.json(denial, 403);
-}
-
 export function registerTagRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
 		readonly db: FoundationCommandDb;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
-	writeTagCommands: TagCommandWriter,
+	writeTagCommand: TagCommandWriter,
 ): void {
-	app.post('/foundation/tags', options.authContextMiddleware, async (context) => {
-		const payloadResult = await readTagCreatePayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const commandResult = createCommand(() =>
-			createTagCommand({
-				...agencyCommandContext(context.get('authContext')),
-				tagId: payloadResult.payload.id,
-				tagName: payloadResult.payload.tagName,
-				description: payloadResult.payload.description,
-				color: payloadResult.payload.color,
-			}),
+	const run = (context: CommandContext, commands: readonly TagCommand[], createdStatus?: 201) =>
+		runCommands(
+			context,
+			{
+				db: options.db,
+				write: async (trx, command) => toTagResponse(await writeTagCommand(trx, command)),
+				notFound: 'tag_not_found',
+				key: 'tag',
+			},
+			commands,
+			createdStatus,
 		);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
 
-		const denial = denyUnauthorizedTagCommands(context, [commandResult.command]);
-		if (denial !== null) {
-			return denial;
-		}
+	app.post(
+		'/foundation/tags',
+		options.authContextMiddleware,
+		commandEndpoint({
+			readPayload: readTagCreatePayload,
+			build: ({ payload, agency }) =>
+				createTagCommand({
+					...agency,
+					tagId: payload.id,
+					tagName: payload.tagName,
+					description: payload.description,
+					color: payload.color,
+				}),
+			run: (context, commands) => run(context, commands, 201),
+		}),
+	);
 
-		const result = await writeTagCommands(options.db, [commandResult.command]);
-		return context.json({ tag: toTagResponse(result.row), txid: result.txid }, 201);
-	});
+	app.patch(
+		'/foundation/tags/:tagId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			readPayload: readTagUpdatePayload,
+			build: ({ payload, authContext, param }) =>
+				buildTagUpdateCommands(authContext, param('tagId'), payload),
+			run,
+		}),
+	);
 
-	app.patch('/foundation/tags/:tagId', options.authContextMiddleware, async (context) => {
-		const payloadResult = await readTagUpdatePayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const commandsResult = buildTagUpdateCommands(
-			context.get('authContext'),
-			context.req.param('tagId'),
-			payloadResult.payload,
-		);
-		if (!commandsResult.ok) {
-			return context.json(commandsResult.body, 400);
-		}
-
-		const denial = denyUnauthorizedTagCommands(context, commandsResult.commands);
-		if (denial !== null) {
-			return denial;
-		}
-
-		const result = await writeTagCommands(options.db, commandsResult.commands);
-		if (result.row === null) {
-			return context.json({ error: 'tag_not_found' }, 404);
-		}
-
-		return context.json({ tag: toTagResponse(result.row), txid: result.txid });
-	});
-
-	app.delete('/foundation/tags/:tagId', options.authContextMiddleware, async (context) => {
-		const commandResult = createCommand(() =>
-			deleteTagCommand({
-				...agencyCommandContext(context.get('authContext')),
-				tagId: context.req.param('tagId'),
-			}),
-		);
-		if (!commandResult.ok) {
-			return context.json(commandResult.body, 400);
-		}
-
-		const denial = denyUnauthorizedTagCommands(context, [commandResult.command]);
-		if (denial !== null) {
-			return denial;
-		}
-
-		const result = await writeTagCommands(options.db, [commandResult.command]);
-		if (result.row === null) {
-			return context.json({ error: 'tag_not_found' }, 404);
-		}
-
-		return context.json({ tag: toTagResponse(result.row), txid: result.txid });
-	});
+	app.delete(
+		'/foundation/tags/:tagId',
+		options.authContextMiddleware,
+		commandEndpoint({
+			body: 'none',
+			build: ({ agency, param }) => deleteTagCommand({ ...agency, tagId: param('tagId') }),
+			run,
+		}),
+	);
 }
 
-export async function writeFoundationLookupCommands(
-	db: FoundationCommandDb,
-	commands: readonly LookupCommand[],
-): Promise<MutationWriteResult<SafeOrgLookup | null>> {
-	return writeCollectionMethodLookupCommandsWithTxid(db, async (trx) => {
-		let row: SafeOrgLookup | null = null;
-		for (const command of commands) {
-			row = await writeFoundationLookupCommand(trx, command);
-		}
-
-		return row;
-	});
-}
-
-export async function writeFoundationTagCommands(
-	db: FoundationCommandDb,
-	commands: readonly TagCommand[],
-): Promise<MutationWriteResult<SafeTag | null>> {
-	return writeTagCommandsWithTxid(db, async (trx) => {
-		let row: SafeTag | null = null;
-		for (const command of commands) {
-			row = await writeFoundationTagCommand(trx, command);
-		}
-
-		return row;
-	});
-}
-
-async function writeFoundationLookupCommand(
-	db: Parameters<Parameters<typeof writeCollectionMethodLookupCommandsWithTxid>[1]>[0],
+export async function writeFoundationLookupCommand(
+	db: CommandTransaction,
 	command: LookupCommand,
 ): Promise<SafeOrgLookup | null> {
 	switch (command.type) {
@@ -339,8 +271,8 @@ async function writeFoundationLookupCommand(
 	}
 }
 
-async function writeFoundationTagCommand(
-	db: Parameters<Parameters<typeof writeTagCommandsWithTxid>[1]>[0],
+export async function writeFoundationTagCommand(
+	db: CommandTransaction,
 	command: TagCommand,
 ): Promise<SafeTag | null> {
 	switch (command.type) {
@@ -395,9 +327,7 @@ function buildTagUpdateCommands(
 	authContext: AuthContext,
 	tagId: string,
 	payload: TagUpdatePayload,
-):
-	| { readonly ok: true; readonly commands: readonly TagCommand[] }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
+): CommandsResult<TagCommand> {
 	const commands: TagCommand[] = [];
 	const hasDetailChange =
 		payload.tagName !== undefined ||
@@ -439,7 +369,7 @@ function buildTagUpdateCommands(
 	}
 
 	if (commands.length === 0) {
-		return invalidUpdateCommand('tag');
+		return invalidUpdate('tag');
 	}
 
 	return { ok: true, commands };
@@ -459,18 +389,11 @@ interface TagUpdatePayload {
 	readonly isActive?: boolean;
 }
 
-async function readTagCreatePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<TagCreatePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+function readTagCreatePayload(raw: Record<string, unknown>): PayloadResult<TagCreatePayload> {
 	const id = readRequiredText(raw.id);
 	const tagName = readRequiredText(raw.tagName);
 	if (id === null || tagName === null) {
-		return invalid('id and tagName are required.');
+		return { ok: false, reason: 'id and tagName are required.' };
 	}
 
 	return {
@@ -484,16 +407,9 @@ async function readTagCreatePayload(request: {
 	};
 }
 
-async function readTagUpdatePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<TagUpdatePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+function readTagUpdatePayload(raw: Record<string, unknown>): PayloadResult<TagUpdatePayload> {
 	if (raw.isActive !== undefined && typeof raw.isActive !== 'boolean') {
-		return invalid('isActive must be a boolean.');
+		return { ok: false, reason: 'isActive must be a boolean.' };
 	}
 
 	return {

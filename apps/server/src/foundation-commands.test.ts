@@ -11,9 +11,9 @@ describe('registerFoundationCommandRoutes', () => {
 		const calls: unknown[] = [];
 		const app = createApp(
 			{
-				writeCollectionMethodCommands: async (_db, commands) => {
-					calls.push(commands);
-					return { row: collectionMethodRow, txid: 42 };
+				writeLookupCommand: async (_trx, command) => {
+					calls.push(command);
+					return collectionMethodRow;
 				},
 			},
 			'admin',
@@ -31,30 +31,28 @@ describe('registerFoundationCommandRoutes', () => {
 			}),
 		});
 
-		await expect(response.json()).resolves.toMatchObject({ txid: 42 });
+		await expect(response.json()).resolves.toMatchObject({ txid: transactionId });
 		expect(response.status).toBe(201);
 		expect(calls).toMatchObject([
-			[
-				{
-					type: 'foundation.createCollectionMethod',
-					payload: {
-						organizationId: organizationId,
-						actorProfileId: profileId,
-						collectionMethodId: '4fe25a2d-925c-4d37-9d4e-07185ad19858',
-						name: 'CDC light trap',
-						actionThreshold: 12,
-					},
+			{
+				type: 'foundation.createCollectionMethod',
+				payload: {
+					organizationId: organizationId,
+					actorProfileId: profileId,
+					collectionMethodId: '4fe25a2d-925c-4d37-9d4e-07185ad19858',
+					name: 'CDC light trap',
+					actionThreshold: 12,
 				},
-			],
+			},
 		]);
 	});
 
 	it('returns domain validation errors before writing invalid payloads', async () => {
 		let wrote = false;
 		const app = createApp({
-			writeCollectionMethodCommands: async () => {
+			writeLookupCommand: async () => {
 				wrote = true;
-				return { row: collectionMethodRow, txid: 42 };
+				return collectionMethodRow;
 			},
 		});
 
@@ -76,9 +74,9 @@ describe('registerFoundationCommandRoutes', () => {
 		const calls: unknown[] = [];
 		const app = createApp(
 			{
-				writeCollectionMethodCommands: async (_db, commands) => {
-					calls.push(commands);
-					return { row: { ...collectionMethodRow, isActive: false }, txid: 43 };
+				writeLookupCommand: async (_trx, command) => {
+					calls.push(command);
+					return { ...collectionMethodRow, isActive: false };
 				},
 			},
 			'admin',
@@ -96,12 +94,10 @@ describe('registerFoundationCommandRoutes', () => {
 			},
 		);
 
-		await expect(response.json()).resolves.toMatchObject({ txid: 43 });
+		await expect(response.json()).resolves.toMatchObject({ txid: transactionId });
 		expect(calls).toMatchObject([
-			[
-				{ type: 'foundation.updateCollectionMethod' },
-				{ type: 'foundation.deactivateCollectionMethod' },
-			],
+			{ type: 'foundation.updateCollectionMethod' },
+			{ type: 'foundation.deactivateCollectionMethod' },
 		]);
 	});
 
@@ -109,9 +105,9 @@ describe('registerFoundationCommandRoutes', () => {
 		const calls: unknown[] = [];
 		const app = createApp(
 			{
-				writeCollectionMethodCommands: async (_db, commands) => {
-					calls.push(commands);
-					return { row: { ...collectionMethodRow, name: 'Dry ice' }, txid: 44 };
+				writeLookupCommand: async (_trx, command) => {
+					calls.push(command);
+					return { ...collectionMethodRow, name: 'Dry ice' };
 				},
 			},
 			'admin',
@@ -127,20 +123,18 @@ describe('registerFoundationCommandRoutes', () => {
 			}),
 		});
 
-		await expect(response.json()).resolves.toMatchObject({ txid: 44 });
+		await expect(response.json()).resolves.toMatchObject({ txid: transactionId });
 		expect(response.status).toBe(201);
 		expect(calls).toMatchObject([
-			[
-				{
-					type: 'foundation.createCollectionLure',
-					payload: {
-						organizationId: organizationId,
-						actorProfileId: profileId,
-						collectionLureId: 'e6d99dd0-9dcb-4dab-a47d-11e74cd46be1',
-						name: 'Dry ice',
-					},
+			{
+				type: 'foundation.createCollectionLure',
+				payload: {
+					organizationId: organizationId,
+					actorProfileId: profileId,
+					collectionLureId: 'e6d99dd0-9dcb-4dab-a47d-11e74cd46be1',
+					name: 'Dry ice',
 				},
-			],
+			},
 		]);
 	});
 
@@ -148,12 +142,9 @@ describe('registerFoundationCommandRoutes', () => {
 		const calls: unknown[] = [];
 		const app = createApp(
 			{
-				writeCollectionMethodCommands: async (_db, commands) => {
-					calls.push(commands);
-					return {
-						row: { ...collectionMethodRow, name: 'Catch basin', isActive: false },
-						txid: 45,
-					};
+				writeLookupCommand: async (_trx, command) => {
+					calls.push(command);
+					return { ...collectionMethodRow, name: 'Catch basin', isActive: false };
 				},
 			},
 			'admin',
@@ -172,18 +163,19 @@ describe('registerFoundationCommandRoutes', () => {
 			},
 		);
 
-		await expect(response.json()).resolves.toMatchObject({ txid: 45 });
+		await expect(response.json()).resolves.toMatchObject({ txid: transactionId });
 		expect(calls).toMatchObject([
-			[{ type: 'foundation.updateHabitatType' }, { type: 'foundation.deactivateHabitatType' }],
+			{ type: 'foundation.updateHabitatType' },
+			{ type: 'foundation.deactivateHabitatType' },
 		]);
 	});
 
 	it('creates tags through agency-scoped domain commands', async () => {
 		const calls: unknown[] = [];
 		const app = createApp({
-			writeTagCommands: async (_db, commands) => {
-				calls.push(commands);
-				return { row: tagRow, txid: 46 };
+			writeTagCommand: async (_trx, command) => {
+				calls.push(command);
+				return tagRow;
 			},
 		});
 
@@ -198,31 +190,29 @@ describe('registerFoundationCommandRoutes', () => {
 			}),
 		});
 
-		await expect(response.json()).resolves.toMatchObject({ txid: 46 });
+		await expect(response.json()).resolves.toMatchObject({ txid: transactionId });
 		expect(response.status).toBe(201);
 		expect(calls).toMatchObject([
-			[
-				{
-					type: 'fieldWork.createTag',
-					payload: {
-						organizationId,
-						actorProfileId: profileId,
-						tagId: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
-						tagName: 'High priority',
-						description: 'Needs attention',
-						color: '#dc2626',
-					},
+			{
+				type: 'fieldWork.createTag',
+				payload: {
+					organizationId,
+					actorProfileId: profileId,
+					tagId: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
+					tagName: 'High priority',
+					description: 'Needs attention',
+					color: '#dc2626',
 				},
-			],
+			},
 		]);
 	});
 
 	it('updates tag details and lifecycle in one txid-returning write', async () => {
 		const calls: unknown[] = [];
 		const app = createApp({
-			writeTagCommands: async (_db, commands) => {
-				calls.push(commands);
-				return { row: { ...tagRow, isActive: false }, txid: 47 };
+			writeTagCommand: async (_trx, command) => {
+				calls.push(command);
+				return { ...tagRow, isActive: false };
 			},
 		});
 
@@ -236,18 +226,19 @@ describe('registerFoundationCommandRoutes', () => {
 			}),
 		});
 
-		await expect(response.json()).resolves.toMatchObject({ txid: 47 });
+		await expect(response.json()).resolves.toMatchObject({ txid: transactionId });
 		expect(calls).toMatchObject([
-			[{ type: 'fieldWork.updateTag' }, { type: 'fieldWork.deactivateTag' }],
+			{ type: 'fieldWork.updateTag' },
+			{ type: 'fieldWork.deactivateTag' },
 		]);
 	});
 
 	it('deletes tags through the agency-scoped delete command', async () => {
 		const calls: unknown[] = [];
 		const app = createApp({
-			writeTagCommands: async (_db, commands) => {
-				calls.push(commands);
-				return { row: tagRow, txid: 48 };
+			writeTagCommand: async (_trx, command) => {
+				calls.push(command);
+				return tagRow;
 			},
 		});
 
@@ -255,18 +246,16 @@ describe('registerFoundationCommandRoutes', () => {
 			method: 'DELETE',
 		});
 
-		await expect(response.json()).resolves.toMatchObject({ txid: 48 });
+		await expect(response.json()).resolves.toMatchObject({ txid: transactionId });
 		expect(calls).toMatchObject([
-			[
-				{
-					type: 'fieldWork.deleteTag',
-					payload: {
-						organizationId,
-						actorProfileId: profileId,
-						tagId: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
-					},
+			{
+				type: 'fieldWork.deleteTag',
+				payload: {
+					organizationId,
+					actorProfileId: profileId,
+					tagId: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
 				},
-			],
+			},
 		]);
 	});
 
@@ -290,13 +279,13 @@ describe('registerFoundationCommandRoutes', () => {
 		const calls: unknown[] = [];
 		const app = createApp(
 			{
-				writeTagCommands: async (_db, commands) => {
-					calls.push(commands);
-					return { row: tagRow, txid: 49 };
+				writeTagCommand: async (_trx, command) => {
+					calls.push(command);
+					return tagRow;
 				},
-				writeCollectionMethodCommands: async (_db, commands) => {
-					calls.push(commands);
-					return { row: collectionMethodRow, txid: 49 };
+				writeLookupCommand: async (_trx, command) => {
+					calls.push(command);
+					return collectionMethodRow;
 				},
 			},
 			role,
@@ -329,13 +318,13 @@ describe('registerFoundationCommandRoutes', () => {
 function createApp(
 	options: Pick<
 		Parameters<typeof registerFoundationCommandRoutes>[1],
-		'writeCollectionMethodCommands' | 'writeTagCommands'
+		'writeLookupCommand' | 'writeTagCommand'
 	>,
 	role: SimmerRole = 'manager',
 ) {
 	const app = new Hono<{ Variables: AuthVariables }>();
 	registerFoundationCommandRoutes(app, {
-		db: {} as Parameters<typeof registerFoundationCommandRoutes>[1]['db'],
+		db: transactionOnlyDatabase(),
 		authContextMiddleware: createMiddleware(async (context, next) => {
 			context.set('authContext', { ...authContext, role });
 			await next();
@@ -343,6 +332,35 @@ function createApp(
 		...options,
 	});
 	return app;
+}
+
+/**
+ * The txid every write in this file answers with. It is the transaction's now,
+ * not the writer's: `runCommands` reads `pg_current_xact_id()` after the batch,
+ * so a stubbed writer has nothing to return it from.
+ */
+const transactionId = 42;
+
+/**
+ * All these handlers ask of a database is a transaction to run their writer in,
+ * and one `select pg_current_xact_id()` at the end of it.
+ */
+function transactionOnlyDatabase(): Parameters<typeof registerFoundationCommandRoutes>[1]['db'] {
+	// `readCurrentTransactionId` goes through Kysely's raw-SQL builder, which asks
+	// its argument for an executor and then compiles through it. Standing in for
+	// that is three methods, and answering one row is the whole of it.
+	const executor = {
+		transformQuery: (node: unknown) => node,
+		compileQuery: () => ({ sql: '', parameters: [] }),
+		executeQuery: () => Promise.resolve({ rows: [{ txid: String(transactionId) }] }),
+	};
+
+	return {
+		transaction: () => ({
+			execute: async <T>(run: (trx: never) => Promise<T>): Promise<T> =>
+				run({ getExecutor: () => executor } as never),
+		}),
+	} as unknown as Parameters<typeof registerFoundationCommandRoutes>[1]['db'];
 }
 
 const organizationId = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';

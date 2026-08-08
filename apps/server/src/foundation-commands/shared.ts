@@ -10,7 +10,6 @@ import {
 	type SafeTag,
 	updateAddressDetails,
 	updateAddressLocation,
-	type writeCollectionMethodLookupCommandsWithTxid,
 } from '@simmer-mosquito/db';
 import {
 	type ActivateTagCommand,
@@ -45,9 +44,17 @@ import {
 	updateHabitatTypeCommand,
 } from '@simmer-mosquito/domain';
 import type { AuthContext } from '../auth-context.js';
+import {
+	agencyCommandContext,
+	createCommand,
+	type InvalidCommandBody,
+	invalidUpdate,
+	type PayloadResult,
+} from '../command-endpoint.js';
 import { isRecord } from '../command-payload.js';
+import type { CommandDb, CommandTransaction } from '../command-write.js';
 
-export type FoundationCommandDb = Parameters<typeof writeCollectionMethodLookupCommandsWithTxid>[0];
+export type FoundationCommandDb = CommandDb;
 export type CollectionMethodCommand =
 	| CreateCollectionMethodCommand
 	| UpdateCollectionMethodCommand
@@ -73,16 +80,24 @@ export type TagCommand =
 	| ActivateTagCommand
 	| DeleteTagCommand;
 export type LookupCommand = CollectionMethodCommand | CollectionLureCommand | HabitatTypeCommand;
-export type FoundationCommand = LookupCommand | TagCommand;
 
-export type CollectionMethodCommandWriter = (
-	db: FoundationCommandDb,
-	commands: readonly LookupCommand[],
-) => Promise<MutationWriteResult<SafeOrgLookup | null>>;
+/**
+ * One command's worth of work inside the shared write transaction.
+ *
+ * These were batch writers taking `(db, commands)` and opening their own
+ * transaction, which is also why they never asserted ownership — `writeCommands`
+ * owns the loop now, and it requires an actor. What stays injectable is the
+ * single-command write, which is all a test driving these handlers needs to
+ * stand in for.
+ */
+export type LookupCommandWriter = (
+	trx: CommandTransaction,
+	command: LookupCommand,
+) => Promise<SafeOrgLookup | null>;
 export type TagCommandWriter = (
-	db: FoundationCommandDb,
-	commands: readonly TagCommand[],
-) => Promise<MutationWriteResult<SafeTag | null>>;
+	trx: CommandTransaction,
+	command: TagCommand,
+) => Promise<SafeTag | null>;
 
 export async function writeAddressWithTxid(
 	db: FoundationCommandDb,
@@ -248,7 +263,7 @@ export function buildCollectionLureUpdateCommands(
 	}
 
 	if (commands.length === 0) {
-		return invalidUpdateCommand('collection lure');
+		return invalidUpdate('collection lure');
 	}
 
 	return { ok: true, commands };
@@ -303,54 +318,10 @@ export function buildHabitatTypeUpdateCommands(
 	}
 
 	if (commands.length === 0) {
-		return invalidUpdateCommand('habitat type');
+		return invalidUpdate('habitat type');
 	}
 
 	return { ok: true, commands };
-}
-
-export function invalidUpdateCommand(changeNoun: string): {
-	readonly ok: false;
-	readonly body: InvalidCommandBody;
-} {
-	const message = `At least one ${changeNoun} field must change.`;
-	return {
-		ok: false,
-		body: {
-			error: 'invalid_command',
-			message,
-			issues: [{ path: 'changes', message }],
-		},
-	};
-}
-
-export type InvalidCommandBody = {
-	readonly error: 'invalid_command';
-	readonly message: string;
-	readonly issues: readonly { readonly path: string; readonly message: string }[];
-};
-
-export function createCommand<TCommand extends FoundationCommand>(
-	build: () => TCommand,
-):
-	| { readonly ok: true; readonly command: TCommand }
-	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	try {
-		return { ok: true, command: build() };
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return {
-				ok: false,
-				body: {
-					error: 'invalid_command',
-					message: error.message,
-					issues: error.issues,
-				},
-			};
-		}
-
-		throw error;
-	}
 }
 
 export interface CollectionMethodCreatePayload {
@@ -404,31 +375,22 @@ export interface CollectionMethodUpdatePayload {
 	readonly isActive?: boolean;
 }
 
-export type PayloadResult<T> =
-	| { readonly ok: true; readonly payload: T }
-	| { readonly ok: false; readonly reason: string };
-
-export async function readAddressCreatePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<AddressCreatePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+export function readAddressCreatePayload(
+	raw: Record<string, unknown>,
+): PayloadResult<AddressCreatePayload> {
 	const id = readRequiredText(raw.id);
 	const displayName = readRequiredText(raw.displayName);
 	const country = readRequiredText(raw.country)?.toUpperCase() ?? null;
 	const geojson = readGeoJson(raw.geojson);
 
 	if (id === null || displayName === null) {
-		return invalid('id and displayName are required.');
+		return invalidPayload('id and displayName are required.');
 	}
 	if (country === null || country.length !== 2) {
-		return invalid('country must be a two-letter country code.');
+		return invalidPayload('country must be a two-letter country code.');
 	}
 	if (geojson === null) {
-		return invalid('geojson must be a GeoJSON geometry object.');
+		return invalidPayload('geojson must be a GeoJSON geometry object.');
 	}
 
 	return {
@@ -448,14 +410,9 @@ export async function readAddressCreatePayload(request: {
 	};
 }
 
-export async function readAddressUpdatePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<AddressUpdatePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+export function readAddressUpdatePayload(
+	raw: Record<string, unknown>,
+): PayloadResult<AddressUpdatePayload> {
 	const payload: {
 		displayName?: string;
 		addressLine1?: string | null;
@@ -470,7 +427,7 @@ export async function readAddressUpdatePayload(request: {
 	if (raw.displayName !== undefined) {
 		const displayName = readRequiredText(raw.displayName);
 		if (displayName === null) {
-			return invalid('displayName must be a non-empty string.');
+			return invalidPayload('displayName must be a non-empty string.');
 		}
 		payload.displayName = displayName;
 	}
@@ -495,34 +452,29 @@ export async function readAddressUpdatePayload(request: {
 	if (raw.geojson !== undefined) {
 		const geojson = readGeoJson(raw.geojson);
 		if (geojson === null) {
-			return invalid('geojson must be a GeoJSON geometry object.');
+			return invalidPayload('geojson must be a GeoJSON geometry object.');
 		}
 		payload.geojson = geojson;
 	}
 
 	if (Object.keys(payload).length === 0) {
-		return invalid('At least one address field must change.');
+		return invalidPayload('At least one address field must change.');
 	}
 
 	return { ok: true, payload };
 }
 
-export async function readCollectionMethodCreatePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<CollectionMethodCreatePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+export function readCollectionMethodCreatePayload(
+	raw: Record<string, unknown>,
+): PayloadResult<CollectionMethodCreatePayload> {
 	const id = readRequiredText(raw.id);
 	const name = readRequiredText(raw.name);
 	const actionThreshold = readOptionalNonnegativeInteger(raw.actionThreshold);
 	if (id === null || name === null) {
-		return invalid('id and name are required.');
+		return invalidPayload('id and name are required.');
 	}
 	if (actionThreshold === undefined) {
-		return invalid('actionThreshold must be a nonnegative integer.');
+		return invalidPayload('actionThreshold must be a nonnegative integer.');
 	}
 
 	return {
@@ -537,20 +489,15 @@ export async function readCollectionMethodCreatePayload(request: {
 	};
 }
 
-export async function readCollectionMethodUpdatePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<CollectionMethodUpdatePayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
+export function readCollectionMethodUpdatePayload(
+	raw: Record<string, unknown>,
+): PayloadResult<CollectionMethodUpdatePayload> {
 	const actionThreshold = readOptionalNonnegativeInteger(raw.actionThreshold);
 	if (actionThreshold === undefined) {
-		return invalid('actionThreshold must be a nonnegative integer.');
+		return invalidPayload('actionThreshold must be a nonnegative integer.');
 	}
 	if (raw.isActive !== undefined && typeof raw.isActive !== 'boolean') {
-		return invalid('isActive must be a boolean.');
+		return invalidPayload('isActive must be a boolean.');
 	}
 
 	return {
@@ -567,21 +514,8 @@ export async function readCollectionMethodUpdatePayload(request: {
 	};
 }
 
-export async function readJsonObject(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<Record<string, unknown>>> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return invalid('Request body must be JSON.');
-	}
-
-	if (!isRecord(raw)) {
-		return invalid('Request body must be an object.');
-	}
-
-	return { ok: true, payload: raw };
+function invalidPayload(reason: string): PayloadResult<never> {
+	return { ok: false, reason };
 }
 
 export function readRequiredText(value: unknown): string | null {
@@ -619,17 +553,6 @@ function readGeoJson(value: unknown): GeoJsonGeometry | null {
 	}
 
 	return value;
-}
-
-export function invalid(reason: string): PayloadResult<never> {
-	return { ok: false, reason };
-}
-
-export function agencyCommandContext(authContext: AuthContext) {
-	return {
-		organizationId: authContext.organization.id,
-		actorProfileId: authContext.profile.id,
-	};
 }
 
 export function toAddressResponse(row: SafeAddress) {
