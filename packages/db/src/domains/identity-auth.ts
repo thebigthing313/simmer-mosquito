@@ -121,7 +121,7 @@ export async function upsertWorkOsIdentity(
 
 		const existingMembership = await trx
 			.selectFrom('memberships')
-			.select(['id', 'profile_id', 'role'])
+			.select(['id', 'profile_id', 'role', 'status'])
 			.where('organization_id', '=', organization.id)
 			.where('user_id', '=', user.id)
 			.executeTakeFirst();
@@ -154,6 +154,7 @@ export async function upsertWorkOsIdentity(
 							id: existingMembership.id,
 							profileId: existingMembership.profile_id,
 							role: existingMembership.role,
+							status: existingMembership.status,
 						},
 			invitedMembership:
 				invitedMembership === undefined
@@ -162,10 +163,23 @@ export async function upsertWorkOsIdentity(
 							id: invitedMembership.id,
 							profileId: invitedMembership.profile_id,
 							role: invitedMembership.role,
+							status: 'invited',
 						},
 			existingMembershipCount: Number(existingMembershipCount.count),
 			userHasDefaultMembership: userDefaultMembership !== undefined,
 		});
+
+		// Their membership here was ended. Same answer as a user who was never in
+		// this organization at all: a local identity with no organization on it.
+		if (provisioning.source === 'revoked') {
+			return {
+				userId: user.id,
+				organizationId: null,
+				profileId: null,
+				membershipId: null,
+				role: null,
+			};
+		}
 
 		if (provisioning.source === 'existing' || provisioning.source === 'invited') {
 			await trx

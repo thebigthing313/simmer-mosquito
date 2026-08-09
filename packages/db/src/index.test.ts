@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolveMembershipProvisioning, validateExistingProfileInvitationTarget } from './index.js';
+import {
+	resolveMembershipProvisioning,
+	validateExistingProfileInvitationTarget,
+	validateMembershipRemoval,
+} from './index.js';
 
 describe('resolveMembershipProvisioning', () => {
 	it('reuses invited membership and preserves invited role', () => {
@@ -9,6 +13,7 @@ describe('resolveMembershipProvisioning', () => {
 				id: 'membership-invited',
 				profileId: 'profile-invited',
 				role: 'manager',
+				status: 'invited',
 			},
 			existingMembershipCount: 0,
 			userHasDefaultMembership: false,
@@ -29,11 +34,13 @@ describe('resolveMembershipProvisioning', () => {
 				id: 'membership-existing',
 				profileId: 'profile-existing',
 				role: 'collector',
+				status: 'active',
 			},
 			invitedMembership: {
 				id: 'membership-invited',
 				profileId: 'profile-invited',
 				role: 'owner',
+				status: 'invited',
 			},
 			existingMembershipCount: 2,
 			userHasDefaultMembership: true,
@@ -91,6 +98,107 @@ describe('resolveMembershipProvisioning', () => {
 			role: 'owner',
 			isDefault: false,
 		});
+	});
+});
+
+describe('resolveMembershipProvisioning, on an ended membership', () => {
+	// The reason ending a membership needed a change here at all: this function
+	// runs on every sign-in and every organization switch, and the `existing`
+	// branch writes `status: 'active'`. Without the refusal, revoking somebody's
+	// access lasted until they next signed in, and their old role came back with
+	// them.
+	it('does not resume a membership that was ended', () => {
+		expect(
+			resolveMembershipProvisioning({
+				existingMembership: {
+					id: 'membership-ended',
+					profileId: 'profile-ended',
+					role: 'admin',
+					status: 'inactive',
+				},
+				invitedMembership: null,
+				existingMembershipCount: 3,
+				userHasDefaultMembership: true,
+			}),
+		).toEqual({ source: 'revoked' });
+	});
+
+	// A fresh invitation is how somebody comes back, and it stages an `invited`
+	// row of its own. Refusing on the ended row would make the invitation
+	// unacceptable.
+	it('still honours a new invitation for somebody previously ended', () => {
+		expect(
+			resolveMembershipProvisioning({
+				existingMembership: null,
+				invitedMembership: {
+					id: 'membership-reinvited',
+					profileId: 'profile-ended',
+					role: 'viewer',
+					status: 'invited',
+				},
+				existingMembershipCount: 3,
+				userHasDefaultMembership: true,
+			}),
+		).toMatchObject({ source: 'invited', role: 'viewer' });
+	});
+});
+
+describe('validateMembershipRemoval', () => {
+	const active = { role: 'manager', status: 'active' } as const;
+
+	it('allows ending an ordinary membership', () => {
+		expect(
+			validateMembershipRemoval({ membership: active, isSelf: false, activeOwnerCount: 1 }),
+		).toBeNull();
+	});
+
+	it('refuses a membership that is not this agency’s', () => {
+		expect(
+			validateMembershipRemoval({ membership: null, isSelf: false, activeOwnerCount: 2 }),
+		).toBe('membership_not_found');
+	});
+
+	// The actor is standing on the page they would lose. Leaving is a different
+	// act, with a different confirmation, and nobody has asked for it.
+	it('refuses removing yourself', () => {
+		expect(
+			validateMembershipRemoval({ membership: active, isSelf: true, activeOwnerCount: 2 }),
+		).toBe('membership_is_self');
+	});
+
+	// A one-way door: an agency with no active owner cannot hand out a role or
+	// invite anyone, including a replacement owner.
+	it('refuses the last active owner', () => {
+		expect(
+			validateMembershipRemoval({
+				membership: { role: 'owner', status: 'active' },
+				isSelf: false,
+				activeOwnerCount: 1,
+			}),
+		).toBe('last_active_owner');
+	});
+
+	it('allows an owner while another active owner remains', () => {
+		expect(
+			validateMembershipRemoval({
+				membership: { role: 'owner', status: 'active' },
+				isSelf: false,
+				activeOwnerCount: 2,
+			}),
+		).toBeNull();
+	});
+
+	// An owner who is already inactive is not holding the last seat, and running
+	// the removal again is how a SIMMER row and a WorkOS membership that drifted
+	// apart are brought back together.
+	it('allows re-ending an owner who is already inactive', () => {
+		expect(
+			validateMembershipRemoval({
+				membership: { role: 'owner', status: 'inactive' },
+				isSelf: false,
+				activeOwnerCount: 0,
+			}),
+		).toBeNull();
 	});
 });
 

@@ -1,5 +1,7 @@
 import { expect, it } from 'vitest';
 import {
+	deactivateOrganizationMembershipWithTxid,
+	readMembershipRemovalTarget,
 	resolveActiveLocalAuthIdentity,
 	stageOrganizationInvitation,
 	upsertWorkOsIdentity,
@@ -99,6 +101,147 @@ describeDbIntegration('identity profile invitation lifecycle', () => {
 			expect(activeIdentity?.profile.id).toBe(historicalProfile.id);
 			expect(activeIdentity?.membership.id).toBe(invitedMembership.id);
 			expect(activeIdentity?.membership.role).toBe('manager');
+		});
+	});
+});
+
+describeDbIntegration('ending an organization membership', () => {
+	it('revokes access, and does not hand it back at the next sign-in', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({
+					workos_organization_id: 'workos_org_offboarding',
+					name: 'Offboarding District',
+				})
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			// The owner exists so the departing member is not the last active one;
+			// that refusal is asserted separately, as a pure rule.
+			await upsertWorkOsIdentity(db, {
+				workosUserId: 'workos_user_offboarding_owner',
+				email: 'owner@example.test',
+				displayName: 'Robin Owner',
+				firstName: 'Robin',
+				lastName: 'Owner',
+				emailVerified: true,
+				workosOrganizationId: 'workos_org_offboarding',
+				workosOrganizationName: 'Offboarding District',
+				workosRole: null,
+			});
+
+			const staged = await stageOrganizationInvitation(db, {
+				organizationId: organization.id,
+				email: 'operator@simmer-data.test',
+				displayName: 'Sam Operator',
+				role: 'admin',
+				workosInvitationId: 'inv_offboarding',
+			});
+
+			const signIn = async () =>
+				upsertWorkOsIdentity(db, {
+					workosUserId: 'workos_user_offboarding_operator',
+					email: 'operator@simmer-data.test',
+					displayName: 'Sam Operator',
+					firstName: 'Sam',
+					lastName: 'Operator',
+					emailVerified: true,
+					workosOrganizationId: 'workos_org_offboarding',
+					workosOrganizationName: 'Offboarding District',
+					workosRole: null,
+				});
+
+			const joined = await signIn();
+			expect(joined).toMatchObject({ organizationId: organization.id, role: 'admin' });
+
+			// The WorkOS id is the whole reason this read exists: WorkOS is where
+			// the grant actually lives, and the membership row is the only place
+			// the two systems are tied together.
+			const target = await readMembershipRemovalTarget(db, {
+				id: staged.id,
+				organizationId: organization.id,
+			});
+			expect(target.membership).toMatchObject({
+				role: 'admin',
+				status: 'active',
+				workosUserId: 'workos_user_offboarding_operator',
+			});
+			expect(target.activeOwnerCount).toBe(1);
+
+			const ended = await deactivateOrganizationMembershipWithTxid(db, {
+				id: staged.id,
+				organizationId: organization.id,
+			});
+			expect(ended.row).toMatchObject({ status: 'inactive', isDefault: false });
+
+			// The profile is untouched: it is what every row they created still
+			// points at, and deleting it would take the attribution with it.
+			const profile = await db
+				.selectFrom('profiles')
+				.select(['id', 'is_active', 'deleted_at'])
+				.where('id', '=', staged.profileId)
+				.executeTakeFirstOrThrow();
+			expect(profile).toMatchObject({ is_active: true, deleted_at: null });
+
+			await expect(
+				resolveActiveLocalAuthIdentity(db, {
+					workosUserId: 'workos_user_offboarding_operator',
+					workosOrganizationId: 'workos_org_offboarding',
+				}),
+			).resolves.toBeNull();
+
+			// The defect this lifecycle would otherwise have shipped with: sign-in
+			// provisioning reused any existing membership and set it back to
+			// `active`, so being removed lasted until the next sign-in.
+			const afterRemoval = await signIn();
+			expect(afterRemoval).toMatchObject({
+				organizationId: null,
+				membershipId: null,
+				role: null,
+			});
+
+			const membership = await db
+				.selectFrom('memberships')
+				.select(['status', 'role', 'is_default'])
+				.where('id', '=', staged.id)
+				.executeTakeFirstOrThrow();
+			expect(membership).toMatchObject({ status: 'inactive', role: 'admin', is_default: false });
+		});
+	});
+
+	it('leaves another agency’s membership alone', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_scope_a', name: 'Scope A' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			const other = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_scope_b', name: 'Scope B' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const staged = await stageOrganizationInvitation(db, {
+				organizationId: organization.id,
+				email: 'scoped@example.test',
+				displayName: 'Scoped Member',
+				role: 'viewer',
+				workosInvitationId: 'inv_scope',
+			});
+
+			const result = await deactivateOrganizationMembershipWithTxid(db, {
+				id: staged.id,
+				organizationId: other.id,
+			});
+
+			expect(result.row).toBeNull();
+			const untouched = await readMembershipRemovalTarget(db, {
+				id: staged.id,
+				organizationId: organization.id,
+			});
+			expect(untouched.membership).toMatchObject({ status: 'invited' });
 		});
 	});
 });

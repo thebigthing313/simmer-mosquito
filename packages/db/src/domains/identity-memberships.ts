@@ -86,6 +86,7 @@ export interface MembershipProvisioningCandidate {
 	readonly id: string;
 	readonly profileId: string;
 	readonly role: SimmerRole;
+	readonly status: MembershipStatus;
 }
 
 export interface InviteProfileCandidate {
@@ -113,7 +114,17 @@ export function resolveMembershipProvisioning(input: {
 			readonly source: 'new';
 			readonly role: SimmerRole;
 			readonly isDefault: boolean;
-	  } {
+	  }
+	| { readonly source: 'revoked' } {
+	// A membership that was ended is not a membership to resume. Provisioning
+	// runs on every sign-in and every organization switch, and the `existing`
+	// branch below writes `status: 'active'` — so without this, ending someone's
+	// access lasted exactly until they signed in again, and the row came back
+	// silently with its old role.
+	if (input.existingMembership?.status === 'inactive') {
+		return { source: 'revoked' };
+	}
+
 	if (input.existingMembership !== null) {
 		return {
 			source: 'existing',
@@ -213,6 +224,151 @@ export async function assertOrganizationProfileCanBeInvited(
 			throw new StageOrganizationInvitationError('invited_email_already_used');
 		}
 	}
+}
+
+// --- ending a membership ------------------------------------------------------
+//
+// ADR 0011 names this and does not build it: a membership granted for a support
+// engagement has to be endable, or operator memberships accumulate silently.
+// Nothing in the workspace ended a membership of any kind — there was no writer
+// that set `inactive` and no delete — so this is the whole lifecycle, for
+// operators and ordinary members alike.
+//
+// The row survives, deactivated. Attribution survives either way
+// (`created_by_profile_id` points at the profile, which outlives the
+// membership), but the row is the only record that access was ever held, and
+// "who could see this agency's data last March" is a question worth being able
+// to answer.
+
+export type MembershipRemovalIssue =
+	| 'membership_not_found'
+	| 'membership_is_self'
+	| 'last_active_owner';
+
+export interface MembershipRemovalTarget {
+	readonly id: string;
+	readonly role: SimmerRole;
+	readonly status: MembershipStatus;
+	readonly userId: string | null;
+	/** Needed to end the WorkOS side, which is what actually revokes reach. */
+	readonly workosUserId: string | null;
+}
+
+/**
+ * Whether this membership may be ended, given who is asking.
+ *
+ * Two refusals, both about locking an agency out of itself rather than about
+ * rank — the ladder question ("may this actor reach this person at all") is the
+ * caller's, and is answered before this runs.
+ */
+export function validateMembershipRemoval(input: {
+	readonly membership: { readonly role: SimmerRole; readonly status: MembershipStatus } | null;
+	readonly isSelf: boolean;
+	readonly activeOwnerCount: number;
+}): MembershipRemovalIssue | null {
+	if (input.membership === null) {
+		return 'membership_not_found';
+	}
+
+	// Self-removal is a foot-gun with no upside: the actor is an owner or admin
+	// standing on the page they would lose. Leaving is a different act with a
+	// different confirmation, and no agency has asked for it.
+	if (input.isSelf) {
+		return 'membership_is_self';
+	}
+
+	// An agency with no active owner cannot hand out roles or invite anyone —
+	// including a replacement owner — so this is a one-way door.
+	if (
+		input.membership.role === 'owner' &&
+		input.membership.status === 'active' &&
+		input.activeOwnerCount <= 1
+	) {
+		return 'last_active_owner';
+	}
+
+	return null;
+}
+
+/**
+ * The membership to be ended, and the one fact the rule needs about its
+ * neighbours.
+ *
+ * Read before the write rather than inside it because the WorkOS side has to go
+ * first: WorkOS is what refuses the session, so a run that ends the SIMMER row
+ * and then fails leaves somebody who reads as removed and can still sign in.
+ */
+export async function readMembershipRemovalTarget(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly id: string; readonly organizationId: string },
+): Promise<{
+	readonly membership: MembershipRemovalTarget | null;
+	readonly activeOwnerCount: number;
+}> {
+	const row = await db
+		.selectFrom('memberships')
+		.leftJoin('users', 'users.id', 'memberships.user_id')
+		.select([
+			'memberships.id',
+			'memberships.role',
+			'memberships.status',
+			'memberships.user_id',
+			'users.workos_user_id',
+		])
+		.where('memberships.id', '=', input.id)
+		.where('memberships.organization_id', '=', input.organizationId)
+		.executeTakeFirst();
+
+	const activeOwners = await db
+		.selectFrom('memberships')
+		.select(({ fn }) => fn.countAll<number>().as('count'))
+		.where('organization_id', '=', input.organizationId)
+		.where('role', '=', 'owner')
+		.where('status', '=', 'active')
+		.executeTakeFirstOrThrow();
+
+	return {
+		membership:
+			row === undefined
+				? null
+				: {
+						id: row.id,
+						role: row.role,
+						status: row.status,
+						userId: row.user_id,
+						workosUserId: row.workos_user_id,
+					},
+		activeOwnerCount: Number(activeOwners.count),
+	};
+}
+
+export async function deactivateOrganizationMembershipWithTxid(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly id: string; readonly organizationId: string },
+): Promise<MutationWriteResult<SafeOrganizationMembership | null>> {
+	return db.transaction().execute(async (trx) => {
+		const updated =
+			(await trx
+				.updateTable('memberships')
+				.set({
+					status: 'inactive',
+					// `is_default` names where a user lands when they sign in. Left set,
+					// it points at the one organization they can no longer enter, and
+					// the next sign-in has nowhere to go.
+					is_default: false,
+					updated_at: sql`now()`,
+				})
+				.where('id', '=', input.id)
+				.where('organization_id', '=', input.organizationId)
+				.returning(['id'])
+				.executeTakeFirst()) ?? null;
+		const txid = await readCurrentTransactionId(trx);
+		if (updated === null) {
+			return { row: null, txid };
+		}
+
+		return { row: await selectSafeOrganizationMembership(trx, updated.id), txid };
+	});
 }
 
 export async function listOrganizationMemberships(
