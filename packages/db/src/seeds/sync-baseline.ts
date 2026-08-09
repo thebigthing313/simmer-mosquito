@@ -67,7 +67,7 @@ export const syncBaselineUnits = [
 	},
 	{
 		id: '00000000-0000-4000-8000-000000002006',
-		code: 'fluid_ounce_us',
+		code: 'fluid_ounce',
 		unitName: 'Fluid ounce',
 		abbreviation: 'fl oz',
 		unitType: 'volume',

@@ -1,3 +1,4 @@
+import { lookupUnitConversion, totalInUnit, type UnitDefaults } from '@simmer-mosquito/domain';
 import type { HabitatRow, InsecticideRow, UnitRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 
@@ -91,4 +92,75 @@ export function ContextBadge({
 			Standalone
 		</Badge>
 	);
+}
+
+/**
+ * One product's usage, as one number where that is honest and several where it
+ * is not.
+ *
+ * The same product can be recorded in gallons on one job and fluid ounces on
+ * the next, and `12 gal · 128 fl oz` is a true answer to a question nobody
+ * asked. Where the units convert, they are totalled into whichever the agency
+ * has chosen for that kind of quantity (`settings.unitDefaults`) and the
+ * originals are named, so an operator who recorded ounces can tell why the
+ * screen says gallons.
+ *
+ * Where they do not convert — a larvicide applied both as pouches and by
+ * weight — the separated list stands. Nothing is lost and nothing is invented.
+ */
+export function usageTotal({
+	totalsByUnitId,
+	unitById,
+	unitByCode,
+	unitDefaults,
+}: {
+	readonly totalsByUnitId: ReadonlyMap<string, number>;
+	readonly unitById: ReadonlyMap<string, UnitRow>;
+	readonly unitByCode: ReadonlyMap<string, UnitRow>;
+	readonly unitDefaults: UnitDefaults;
+}): { readonly text: string; readonly convertedFrom: string | null } {
+	const entries = [...totalsByUnitId.entries()].map(([unitId, amount]) => ({
+		unit: unitById.get(unitId),
+		amount,
+	}));
+
+	const separated = entries.map(({ unit, amount }) => formatAmount(amount, unit)).join(' · ');
+	if (entries.length < 2) {
+		return { text: separated, convertedFrom: null };
+	}
+
+	const measured = entries.filter(
+		(entry): entry is { unit: UnitRow; amount: number } => entry.unit !== undefined,
+	);
+	if (measured.length !== entries.length) {
+		return { text: separated, convertedFrom: null };
+	}
+
+	const firstUnit = measured[0]?.unit;
+	const lookup =
+		firstUnit === undefined ? { kind: 'unknown' as const } : lookupUnitConversion(firstUnit.code);
+	if (lookup.kind !== 'convertible') {
+		return { text: separated, convertedFrom: null };
+	}
+
+	const targetCode = unitDefaults[lookup.unitType];
+	const total = totalInUnit(
+		measured.map(({ unit, amount }) => ({ unitCode: unit.code, amount })),
+		targetCode,
+	);
+	const targetUnit = unitByCode.get(targetCode);
+	if (total === null || targetUnit === undefined) {
+		return { text: separated, convertedFrom: null };
+	}
+
+	return {
+		// Converting introduces drift a reader should never see: twelve gallons
+		// plus a hundred and twenty-eight fluid ounces is exactly thirteen
+		// gallons, and doubles make it 12.999999999999998, which then formats as
+		// "13.00 gal" and looks like a measurement rather than a total. Six places
+		// is far finer than any amount anybody applies, so this only ever removes
+		// the arithmetic's own noise.
+		text: formatAmount(Number.parseFloat(total.toFixed(6)), targetUnit),
+		convertedFrom: `Totalled from ${separated}`,
+	};
 }

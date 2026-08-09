@@ -1,3 +1,4 @@
+import { resolveOrganizationSettings, type UnitDefaults } from '@simmer-mosquito/domain';
 import type {
 	ControlMethodRow,
 	FormulationRow,
@@ -25,7 +26,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
-import { formatActionDate, formatAmount } from './-control-display';
+import { formatActionDate, formatAmount, usageTotal } from './-control-display';
 import {
 	addDaysToDateString,
 	buildWeek,
@@ -76,6 +77,15 @@ function ControlOperationsOverviewRoute() {
 	const { rows: formulations } = useCollectionRows<FormulationRow>(webCollections.formulations);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const { rows: organizationRows } = useCollectionRows(webCollections.currentOrganization);
+
+	// Which unit the agency wants each kind of quantity reported in. Falls back
+	// to the domain defaults while the organization row is still syncing, so the
+	// widget renders a total rather than waiting on a setting.
+	const unitDefaults = useMemo(
+		() => resolveOrganizationSettings(organizationRows[0]?.settings).settings.unitDefaults,
+		[organizationRows],
+	);
 
 	const labels = useMemo<Labels>(
 		() => ({
@@ -92,6 +102,7 @@ function ControlOperationsOverviewRoute() {
 				insecticides.map((insecticide) => [insecticide.id, insecticide.tradeName] as const),
 			),
 			unitById: new Map(units.map((unit) => [unit.id, unit] as const)),
+			unitByCode: new Map(units.map((unit) => [unit.code, unit] as const)),
 			profileNameById: new Map(
 				profiles.map((profile) => [profile.id, profile.displayName] as const),
 			),
@@ -120,7 +131,7 @@ function ControlOperationsOverviewRoute() {
 			<div className="grid gap-5 xl:grid-cols-12">
 				<div className="grid content-start gap-5 xl:col-span-7">
 					<DailyControlActionsPanel labels={labels} today={today} />
-					<InsecticideUsagePanel labels={labels} today={today} />
+					<InsecticideUsagePanel labels={labels} today={today} unitDefaults={unitDefaults} />
 				</div>
 				<div className="grid content-start gap-5 xl:col-span-5">
 					<RecentSourceReductionsPanel labels={labels} since={since} />
@@ -146,6 +157,7 @@ interface Labels {
 	readonly biocontrolMethodNameById: ReadonlyMap<string, string>;
 	readonly insecticideNameById: ReadonlyMap<string, string>;
 	readonly unitById: ReadonlyMap<string, UnitRow>;
+	readonly unitByCode: ReadonlyMap<string, UnitRow>;
 	readonly profileNameById: ReadonlyMap<string, string>;
 }
 
@@ -520,9 +532,11 @@ function actionSecondary(action: DailyControlAction, labels: Labels): string {
 function InsecticideUsagePanel({
 	labels,
 	today,
+	unitDefaults,
 }: {
 	readonly labels: Labels;
 	readonly today: string;
+	readonly unitDefaults: UnitDefaults;
 }) {
 	const [windowDays, setWindowDays] = useState<UsageWindowDays>(USAGE_WINDOW_DAYS[0]);
 	const since = useMemo(() => addDaysToDateString(today, -(windowDays - 1)), [today, windowDays]);
@@ -534,9 +548,15 @@ function InsecticideUsagePanel({
 				.map((entry) => ({
 					...entry,
 					name: labels.insecticideNameById.get(entry.insecticideId) ?? 'Unknown insecticide',
+					total: usageTotal({
+						totalsByUnitId: entry.totalsByUnitId,
+						unitById: labels.unitById,
+						unitByCode: labels.unitByCode,
+						unitDefaults,
+					}),
 				}))
 				.sort((first, second) => first.name.localeCompare(second.name)),
-		[usage, labels.insecticideNameById],
+		[usage, labels, unitDefaults],
 	);
 
 	return (
@@ -588,8 +608,11 @@ function InsecticideUsagePanel({
 									{row.applicationCount} application{row.applicationCount === 1 ? '' : 's'}
 								</span>
 							</div>
-							<span className="shrink-0 text-right text-foreground text-sm tabular-nums">
-								{formatUsageTotals(row.totalsByUnitId, labels)}
+							<span
+								className="shrink-0 text-right text-foreground text-sm tabular-nums"
+								title={row.total.convertedFrom ?? undefined}
+							>
+								{row.total.text}
 							</span>
 						</li>
 					))}
@@ -597,12 +620,6 @@ function InsecticideUsagePanel({
 			)}
 		</Panel>
 	);
-}
-
-function formatUsageTotals(totalsByUnitId: ReadonlyMap<string, number>, labels: Labels): string {
-	return [...totalsByUnitId.entries()]
-		.map(([unitId, total]) => formatAmount(total, labels.unitById.get(unitId)))
-		.join(' · ');
 }
 
 // --- source reductions ------------------------------------------------------
