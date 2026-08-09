@@ -2,6 +2,7 @@ import { type Kysely, type SimmerDatabase, sql, type Transaction } from '@simmer
 import {
 	mergeOrganizationSettingsChange,
 	type OrganizationSettingsCommand,
+	type OrganizationSettingsCommandType,
 	updateAdultCollectionTimingModeCommand,
 	updateInsecticideBatchTrackingCommand,
 	updateLarvalInspectionEntryPolicyCommand,
@@ -14,7 +15,7 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import { type AgencyContext, commandEndpoint, type PayloadResult } from './command-endpoint.js';
-import { forbidden, hasAtLeastRole } from './roles.js';
+import { denyUnauthorizedCommandType } from './command-permissions.js';
 
 type OrganizationSettingsDb = Kysely<SimmerDatabase>;
 type OrganizationSettingsTransaction = Transaction<SimmerDatabase>;
@@ -27,22 +28,22 @@ export function registerOrganizationSettingsCommandRoutes(
 	},
 ): void {
 	/**
-	 * "Only organization owners and admins can manage settings." Checked before
-	 * the body is read so an unauthorized caller learns nothing about which
-	 * fields a valid payload would have had.
+	 * The floor for this route's command, read from `COMMAND_PERMISSIONS` and
+	 * still applied before the body is read — so an unauthorized caller learns
+	 * nothing about which fields a valid payload would have had.
+	 *
+	 * The floor used to be written out here as `hasAtLeastRole(role, 'admin')`.
+	 * It is the map's to state now (#130); this only asks.
 	 */
-	const requireSettingsManager: MiddlewareHandler<{ Variables: AuthVariables }> = async (
-		context,
-		next,
-	) => {
-		if (!hasAtLeastRole(context.get('authContext').role, 'admin')) {
-			return context.json(
-				forbidden('Only organization owners and admins can manage settings.'),
-				403,
-			);
-		}
-		await next();
-	};
+	const requireSettingsFloor =
+		(type: OrganizationSettingsCommandType): MiddlewareHandler<{ Variables: AuthVariables }> =>
+		async (context, next) => {
+			const refusal = denyUnauthorizedCommandType(context, type);
+			if (refusal !== null) {
+				return refusal;
+			}
+			await next();
+		};
 
 	const settingsEndpoint = (
 		build: (request: {
@@ -60,15 +61,25 @@ export function registerOrganizationSettingsCommandRoutes(
 				),
 		});
 
-	const settingsRoute = (
+	/**
+	 * `type` is not a label. Binding the build function's return to
+	 * `Extract<…, { type: TType }>` makes the declared type and the built command
+	 * the same thing to the compiler, so a route cannot be gated on one command's
+	 * floor while sending another's.
+	 */
+	const settingsRoute = <TType extends OrganizationSettingsCommandType>(
 		path: string,
-		build: Parameters<typeof settingsEndpoint>[0],
+		type: TType,
+		build: (request: {
+			readonly payload: Record<string, unknown>;
+			readonly agency: AgencyContext;
+		}) => Extract<OrganizationSettingsCommand, { readonly type: NoInfer<TType> }>,
 		readPayload?: (raw: Record<string, unknown>) => PayloadResult<Record<string, unknown>>,
 	) =>
 		app.patch(
 			`/organization-settings/${path}`,
 			options.authContextMiddleware,
-			requireSettingsManager,
+			requireSettingsFloor(type),
 			readPayload === undefined
 				? settingsEndpoint(build)
 				: commandEndpoint<OrganizationSettingsCommand, Record<string, unknown>>({
@@ -83,7 +94,7 @@ export function registerOrganizationSettingsCommandRoutes(
 					}),
 		);
 
-	settingsRoute('timezone', ({ payload, agency }) =>
+	settingsRoute('timezone', 'organizationSettings.updateTimezone', ({ payload, agency }) =>
 		updateTimezoneCommand({
 			...agency,
 			timezone: readRequiredText(payload.timezone) ?? '',
@@ -91,7 +102,7 @@ export function registerOrganizationSettingsCommandRoutes(
 		}),
 	);
 
-	settingsRoute('unit-defaults', ({ payload, agency }) =>
+	settingsRoute('unit-defaults', 'organizationSettings.updateUnitDefaults', ({ payload, agency }) =>
 		updateUnitDefaultsCommand({
 			...agency,
 			unitDefaults: payload.unitDefaults as never,
@@ -99,24 +110,31 @@ export function registerOrganizationSettingsCommandRoutes(
 		}),
 	);
 
-	settingsRoute('adult-collection-timing-mode', ({ payload, agency }) =>
-		updateAdultCollectionTimingModeCommand({
-			...agency,
-			collectionTimingMode: readRequiredText(payload.collectionTimingMode) as never,
-			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
-		}),
+	settingsRoute(
+		'adult-collection-timing-mode',
+		'organizationSettings.updateAdultCollectionTimingMode',
+		({ payload, agency }) =>
+			updateAdultCollectionTimingModeCommand({
+				...agency,
+				collectionTimingMode: readRequiredText(payload.collectionTimingMode) as never,
+				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+			}),
 	);
 
-	settingsRoute('larval-inspection-entry-policy', ({ payload, agency }) =>
-		updateLarvalInspectionEntryPolicyCommand({
-			...agency,
-			policy: payload.policy as never,
-			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
-		}),
+	settingsRoute(
+		'larval-inspection-entry-policy',
+		'organizationSettings.updateLarvalInspectionEntryPolicy',
+		({ payload, agency }) =>
+			updateLarvalInspectionEntryPolicyCommand({
+				...agency,
+				policy: payload.policy as never,
+				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+			}),
 	);
 
 	settingsRoute(
 		'insecticide-batch-tracking',
+		'organizationSettings.updateInsecticideBatchTracking',
 		({ payload, agency }) =>
 			updateInsecticideBatchTrackingCommand({
 				...agency,
@@ -131,20 +149,26 @@ export function registerOrganizationSettingsCommandRoutes(
 				: { ok: false, reason: 'trackInsecticideBatches must be a boolean.' },
 	);
 
-	settingsRoute('service-request-context', ({ payload, agency }) =>
-		updateServiceRequestContextCommand({
-			...agency,
-			serviceRequestContext: payload.serviceRequestContext as never,
-			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
-		}),
+	settingsRoute(
+		'service-request-context',
+		'organizationSettings.updateServiceRequestContext',
+		({ payload, agency }) =>
+			updateServiceRequestContextCommand({
+				...agency,
+				serviceRequestContext: payload.serviceRequestContext as never,
+				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+			}),
 	);
 
-	settingsRoute('species-key-bindings', ({ payload, agency }) =>
-		updateSpeciesKeyBindingsCommand({
-			...agency,
-			speciesKeyBindings: payload.speciesKeyBindings as never,
-			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
-		}),
+	settingsRoute(
+		'species-key-bindings',
+		'organizationSettings.updateSpeciesKeyBindings',
+		({ payload, agency }) =>
+			updateSpeciesKeyBindingsCommand({
+				...agency,
+				speciesKeyBindings: payload.speciesKeyBindings as never,
+				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+			}),
 	);
 }
 

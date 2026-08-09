@@ -23,6 +23,7 @@ import type {
 	FoundationCommandType,
 	LarvalSurveillanceCommandType,
 	MissionDispatchCommandType,
+	OrganizationSettingsCommandType,
 	PublicEngagementCommandType,
 } from '@simmer-mosquito/domain';
 import { type ForbiddenBody, forbidden, hasAtLeastRole, type MinimumRole } from './roles.js';
@@ -40,6 +41,7 @@ export type AgencyCommandType =
 	| FoundationCommandType
 	| LarvalSurveillanceCommandType
 	| MissionDispatchCommandType
+	| OrganizationSettingsCommandType
 	| PublicEngagementCommandType;
 
 export interface CommandActor {
@@ -631,6 +633,35 @@ const PUBLIC_ENGAGEMENT_PERMISSIONS: Record<PublicEngagementCommandType, Command
 };
 
 /**
+ * `docs/organization-settings-domain.md`: "Only organization owners and admins
+ * can manage settings." One floor across all seven, so the interesting part is
+ * not the value but that the map now holds it.
+ *
+ * These joined late (#130). They had been checked by a hand-written predicate
+ * in `organization-settings-commands.ts` instead — which is what being outside
+ * an exhaustive map produces, every time, and #121 found the same drift in all
+ * three modules that sat outside it.
+ *
+ * The route reads its floor from here *before* it reads the body, so an
+ * unauthorized caller still learns nothing about the payload's shape. That
+ * ordering is why {@link readCommandPermission} takes a type rather than a
+ * built command: a floor never needed the payload, only the name of the thing
+ * being asked for.
+ */
+const ORGANIZATION_SETTINGS_PERMISSIONS: Record<
+	OrganizationSettingsCommandType,
+	CommandPermission
+> = {
+	'organizationSettings.updateTimezone': ADMIN,
+	'organizationSettings.updateUnitDefaults': ADMIN,
+	'organizationSettings.updateAdultCollectionTimingMode': ADMIN,
+	'organizationSettings.updateLarvalInspectionEntryPolicy': ADMIN,
+	'organizationSettings.updateInsecticideBatchTracking': ADMIN,
+	'organizationSettings.updateServiceRequestContext': ADMIN,
+	'organizationSettings.updateSpeciesKeyBindings': ADMIN,
+};
+
+/**
  * Every per-domain map, merged.
  *
  * The merge is what routes a lookup; the per-domain annotations above are what
@@ -644,6 +675,7 @@ const COMMAND_PERMISSIONS: Record<AgencyCommandType, CommandPermission> = {
 	...LARVAL_SURVEILLANCE_PERMISSIONS,
 	...ADULT_SURVEILLANCE_PERMISSIONS,
 	...CONTROL_OPERATIONS_PERMISSIONS,
+	...ORGANIZATION_SETTINGS_PERMISSIONS,
 	...PUBLIC_ENGAGEMENT_PERMISSIONS,
 };
 
@@ -717,6 +749,34 @@ function deniedReason(role: SimmerRole, type: AgencyCommandType): string {
  * function the gated ones already use, instead of each growing its own copy to
  * drift from.
  */
+/**
+ * The same check, for a route that knows its command type before it has a
+ * command.
+ *
+ * A floor is settled by the actor's role and the command's name, so a route
+ * whose type is fixed can refuse before reading the body — which is what the
+ * settings routes want, so that an unauthorized caller cannot learn the shape
+ * of a valid payload by watching 400s. `denyUnauthorizedAgencyCommands` above
+ * cannot do that, because it takes commands that have already been built.
+ *
+ * Refuses only an outright `deny`. An `ownership` rule needs a stored row and
+ * so belongs in the write transaction, not at the door.
+ */
+export function denyUnauthorizedCommandType(
+	context: {
+		readonly get: (key: 'authContext') => { readonly role: SimmerRole };
+		readonly json: (body: ForbiddenBody, status: 403) => Response;
+	},
+	type: AgencyCommandType,
+): Response | null {
+	const role = context.get('authContext').role;
+	if (decideCommand(role, readCommandPermission(type)) !== 'deny') {
+		return null;
+	}
+
+	return context.json(forbidden(deniedReason(role, type)), 403);
+}
+
 export function denyUnauthorizedAgencyCommands(
 	context: {
 		readonly get: (key: 'authContext') => { readonly role: SimmerRole };

@@ -105,6 +105,11 @@ policy and density-range shape, adult collection timing mode, boolean
 batch-tracking setting, positive service request radius, and nonnegative service
 request day windows.
 
+The owner/admin floor is declared in `apps/server/src/command-permissions.ts`
+alongside every other agency command, and read from there before the request
+body is parsed — so an unauthorized caller cannot learn a payload's shape from
+the validation errors (#130).
+
 Settings-specific server checks include owner/admin permissions, optional
 `expectedUpdatedAt` optimistic concurrency, unit code existence and matching
 `unit_type`, and full-document merge/persistence.
