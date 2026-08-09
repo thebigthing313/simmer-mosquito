@@ -6,7 +6,12 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { type AdminMembership, type InviteAdminUserInput, inviteAdminUser } from '../../../api';
+import {
+	type AdminMembership,
+	type InviteAdminUserInput,
+	type InviteAdminUserResult,
+	inviteAdminUser,
+} from '../../../api';
 import { AdminEmpty, AdminError, AdminLoading, AdminPage } from '../../../components/admin-page';
 import { membershipStatusTone, roleTone } from '../../../lib/tones';
 import { useAgencyMemberships, useInvalidateAgencies } from '../-agency-data';
@@ -51,12 +56,7 @@ function AgencyMembersRoute() {
 				});
 				await invalidateAgencies();
 				formApi.reset();
-				const email = result.membership.invitedEmail ?? value.email.trim();
-				toast.success(
-					result.invitation === null
-						? `${email} already has access. The ${value.role} role applies next time they enter this agency.`
-						: `Invitation sent to ${email}.`,
-				);
+				toast.success(inviteOutcome(result, value));
 			} catch (caught) {
 				setInviteError(caught instanceof Error ? caught.message : 'Unable to send the invitation.');
 			}
@@ -153,6 +153,18 @@ function AgencyMembersRoute() {
 			)}
 		</AdminPage>
 	);
+}
+
+/**
+ * Two outcomes wear the same 201, and the difference matters to the reader: an
+ * invitation is waiting in somebody's inbox, or it is not because they can
+ * already get in and only the role was new.
+ */
+function inviteOutcome(result: InviteAdminUserResult, sent: InviteAdminUserInput): string {
+	const email = result.membership.invitedEmail ?? sent.email.trim();
+	return result.invitation === null
+		? `${email} already has access. The ${sent.role} role applies next time they enter this agency.`
+		: `Invitation sent to ${email}.`;
 }
 
 function memberLabel(membership: AdminMembership): string {

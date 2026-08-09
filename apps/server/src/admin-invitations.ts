@@ -6,7 +6,7 @@ import {
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
 } from '@simmer-mosquito/db';
-import type { Context, Hono } from 'hono';
+import type { Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
 
@@ -62,97 +62,39 @@ export function registerAdminInvitationRoutes(
 			}
 
 			const organizationId = context.req.param('organizationId');
-			const organization = await getOperatorOrganization(options.db, organizationId);
-			if (organization === null) {
-				return context.json({ error: 'organization_not_found' }, 404);
+			const target = await resolveInviteTarget(options.db, organizationId, payloadResult.payload);
+			if (!target.ok) {
+				return context.json({ error: target.code }, target.status);
 			}
 
-			if (organization.workosOrganizationId === null) {
-				return context.json({ error: 'workos_organization_required' }, 409);
-			}
-
-			if (payloadResult.payload.profileId !== null) {
-				const errorResponse = await validateProfileInviteTarget(context, options.db, {
-					organizationId,
-					profileId: payloadResult.payload.profileId,
-					email: payloadResult.payload.email,
-				});
-				if (errorResponse !== null) {
-					return errorResponse;
-				}
-			}
-
-			// Somebody who already reaches this organization through WorkOS cannot be
-			// invited to it — `sendInvitation` throws on an existing member — and does
-			// not need to be. What they are missing is the SIMMER role, which is
-			// staged below and claimed by provisioning the next time they enter the
-			// agency. This is the ordinary shape of an operator support grant
-			// (ADR 0011), not an edge case.
-			const existingMember = await options.auth.findOrganizationMember({
+			const invitationResult = await inviteUnlessAlreadyReached(options.auth, {
 				email: payloadResult.payload.email,
-				workosOrganizationId: organization.workosOrganizationId,
+				workosOrganizationId: target.workosOrganizationId,
+				inviterWorkosUserId: operatorContext.workosUser.workosUserId,
 			});
-
-			let invitation: Awaited<
-				ReturnType<AdminInvitationAuth['sendOrganizationInvitation']>
-			> | null = null;
-			if (existingMember?.status !== 'active') {
-				try {
-					invitation = await options.auth.sendOrganizationInvitation({
-						email: payloadResult.payload.email,
-						workosOrganizationId: organization.workosOrganizationId,
-						inviterWorkosUserId: operatorContext.workosUser.workosUserId,
-					});
-				} catch (error) {
-					// WorkOS refusals used to leave this route throwing, which reached the
-					// console as an unreadable 500 with no cause named.
-					return context.json(
-						{
-							error: 'invitation_send_failed',
-							reason: error instanceof Error ? error.message : 'WorkOS rejected the invitation.',
-						},
-						502,
-					);
-				}
+			if (!invitationResult.ok) {
+				return context.json(
+					{ error: 'invitation_send_failed', reason: invitationResult.reason },
+					502,
+				);
 			}
 
-			let membership: SafeOrganizationMembership;
-			try {
-				membership = await stageOrganizationInvitation(options.db, {
-					organizationId,
-					...(payloadResult.payload.profileId === null
-						? {}
-						: { profileId: payloadResult.payload.profileId }),
-					email: invitation?.email ?? payloadResult.payload.email,
-					displayName: payloadResult.payload.displayName,
-					role: payloadResult.payload.role,
-					workosInvitationId: invitation?.id ?? null,
-				});
-			} catch (error) {
-				const errorResponse = invitationErrorResponse(context, error);
-				if (errorResponse !== null) {
-					return errorResponse;
-				}
+			const invitation = invitationResult.invitation;
 
-				throw error;
+			const staged = await stageMembership(
+				options.db,
+				organizationId,
+				payloadResult.payload,
+				invitation,
+			);
+			if (!staged.ok) {
+				return context.json({ error: staged.code }, staged.status);
 			}
 
 			return context.json(
 				{
-					invitation:
-						invitation === null
-							? null
-							: {
-									id: invitation.id,
-									email: invitation.email,
-									state: invitation.state,
-									organizationId: invitation.organizationId,
-									acceptedUserId: invitation.acceptedUserId,
-									expiresAt: invitation.expiresAt,
-									createdAt: invitation.createdAt,
-									updatedAt: invitation.updatedAt,
-								},
-					membership: toAdminMembershipResponse(membership),
+					invitation: toInvitationResponse(invitation),
+					membership: toAdminMembershipResponse(staged.membership),
 				},
 				201,
 			);
@@ -160,30 +102,156 @@ export function registerAdminInvitationRoutes(
 	);
 }
 
-async function validateProfileInviteTarget(
-	context: Context<{ Variables: AuthVariables }>,
+/**
+ * Staging, with the errors that are answers separated from the errors that are
+ * bugs. A `StageOrganizationInvitationError` names something the caller did —
+ * an unknown profile, an address already spoken for — and comes back as a
+ * status. Anything else is left to throw.
+ */
+async function stageMembership(
 	db: AdminInvitationDb,
-	input: {
-		readonly organizationId: string;
-		readonly profileId: string;
-		readonly email: string;
-	},
-) {
+	organizationId: string,
+	payload: InvitePayload,
+	invitation: SentInvitation | null,
+): Promise<
+	| { readonly ok: true; readonly membership: SafeOrganizationMembership }
+	| { readonly ok: false; readonly code: string; readonly status: 404 | 409 }
+> {
+	const input = {
+		organizationId,
+		...(payload.profileId === null ? {} : { profileId: payload.profileId }),
+		// WorkOS normalizes the address it accepted, so prefer its copy when there
+		// is one; with no invitation there is only what the operator typed.
+		email: invitation?.email ?? payload.email,
+		displayName: payload.displayName,
+		role: payload.role,
+		workosInvitationId: invitation?.id ?? null,
+	};
+
 	try {
-		await assertOrganizationProfileCanBeInvited(db, input);
-		return null;
+		return { ok: true, membership: await stageOrganizationInvitation(db, input) };
 	} catch (error) {
-		return invitationErrorResponse(context, error);
+		if (error instanceof StageOrganizationInvitationError) {
+			return {
+				ok: false,
+				code: error.code,
+				status: error.code === 'profile_not_found' ? 404 : 409,
+			};
+		}
+
+		throw error;
 	}
 }
 
-function invitationErrorResponse(context: Context<{ Variables: AuthVariables }>, error: unknown) {
-	if (error instanceof StageOrganizationInvitationError) {
-		const status = error.code === 'profile_not_found' ? 404 : 409;
-		return context.json({ error: error.code }, status);
+/** `null` when no invitation was sent, which is a success — see above. */
+function toInvitationResponse(invitation: SentInvitation | null) {
+	return invitation === null
+		? null
+		: {
+				id: invitation.id,
+				email: invitation.email,
+				state: invitation.state,
+				organizationId: invitation.organizationId,
+				acceptedUserId: invitation.acceptedUserId,
+				expiresAt: invitation.expiresAt,
+				createdAt: invitation.createdAt,
+				updatedAt: invitation.updatedAt,
+			};
+}
+
+type SentInvitation = Awaited<ReturnType<AdminInvitationAuth['sendOrganizationInvitation']>>;
+
+/**
+ * The WorkOS half, which is sometimes nothing to do.
+ *
+ * Somebody who already reaches this organization through WorkOS cannot be
+ * invited to it — `sendInvitation` throws on an existing member — and does not
+ * need to be. What they are missing is the SIMMER role, which the caller stages
+ * either way, to be claimed by provisioning the next time they enter the
+ * agency. This is the ordinary shape of an operator support grant (ADR 0011),
+ * not an edge case.
+ *
+ * A `null` invitation is therefore success, not absence. Any other WorkOS
+ * refusal comes back named: it used to leave the route throwing, which reached
+ * the console as an unreadable 500.
+ */
+async function inviteUnlessAlreadyReached(
+	auth: AdminInvitationAuth,
+	input: {
+		readonly email: string;
+		readonly workosOrganizationId: string;
+		readonly inviterWorkosUserId: string;
+	},
+): Promise<
+	| { readonly ok: true; readonly invitation: SentInvitation | null }
+	| { readonly ok: false; readonly reason: string }
+> {
+	const existingMember = await auth.findOrganizationMember({
+		email: input.email,
+		workosOrganizationId: input.workosOrganizationId,
+	});
+	if (existingMember?.status === 'active') {
+		return { ok: true, invitation: null };
 	}
 
-	return null;
+	try {
+		return { ok: true, invitation: await auth.sendOrganizationInvitation(input) };
+	} catch (error) {
+		return {
+			ok: false,
+			reason: error instanceof Error ? error.message : 'WorkOS rejected the invitation.',
+		};
+	}
+}
+
+/**
+ * Everything that must be true of the agency and the named profile before
+ * WorkOS is touched at all.
+ *
+ * Grouped because they share a consequence: each is a refusal the caller can
+ * act on, and none of them should happen after an invitation has gone out. A
+ * profile rejected here is why the WorkOS call is not made — sending first and
+ * validating second would leave an invitation nobody can accept into a
+ * membership.
+ */
+async function resolveInviteTarget(
+	db: AdminInvitationDb,
+	organizationId: string,
+	payload: InvitePayload,
+): Promise<
+	| { readonly ok: true; readonly workosOrganizationId: string }
+	| { readonly ok: false; readonly code: string; readonly status: 404 | 409 }
+> {
+	const organization = await getOperatorOrganization(db, organizationId);
+	if (organization === null) {
+		return { ok: false, code: 'organization_not_found', status: 404 };
+	}
+
+	if (organization.workosOrganizationId === null) {
+		return { ok: false, code: 'workos_organization_required', status: 409 };
+	}
+
+	if (payload.profileId !== null) {
+		try {
+			await assertOrganizationProfileCanBeInvited(db, {
+				organizationId,
+				profileId: payload.profileId,
+				email: payload.email,
+			});
+		} catch (error) {
+			if (error instanceof StageOrganizationInvitationError) {
+				return {
+					ok: false,
+					code: error.code,
+					status: error.code === 'profile_not_found' ? 404 : 409,
+				};
+			}
+
+			throw error;
+		}
+	}
+
+	return { ok: true, workosOrganizationId: organization.workosOrganizationId };
 }
 
 interface InvitePayload {
