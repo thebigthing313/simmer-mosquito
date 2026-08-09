@@ -1,10 +1,9 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
 import { type OrganizationSettings, resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
-import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
-import { forbidden, hasAtLeastRole } from './roles.js';
+import { denyIdentityWrite } from './roles.js';
 
 type OrganizationCommandDb = Kysely<SimmerDatabase>;
 
@@ -22,11 +21,9 @@ export function registerOrganizationCommandRoutes(
 		}
 
 		const authContext = context.get('authContext');
-		if (!hasAtLeastRole(authContext.role, 'admin')) {
-			return context.json(
-				forbidden('Only organization owners and admins can manage details.'),
-				403,
-			);
+		const refusal = denyIdentityWrite(context, 'organization.updateDetails');
+		if (refusal !== null) {
+			return refusal;
 		}
 
 		const result = await options.db.transaction().execute(async (trx) => {

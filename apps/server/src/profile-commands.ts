@@ -16,10 +16,9 @@ import {
 	validateMembershipRemoval,
 } from '@simmer-mosquito/db';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
-import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
-import { canGrantRole, forbidden, hasAtLeastRole } from './roles.js';
+import { canGrantRole, denyIdentityWrite, forbidden } from './roles.js';
 
 type ProfileCommandDb = Parameters<typeof createHistoricalProfileWithTxid>[0];
 
@@ -48,7 +47,7 @@ export function registerProfileCommandRoutes(
 ): void {
 	app.post('/organization/profiles', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const refusal = requirePeopleManager(context, authContext);
+		const refusal = denyIdentityWrite(context, 'people.createProfile');
 		if (refusal !== null) {
 			return refusal;
 		}
@@ -70,7 +69,7 @@ export function registerProfileCommandRoutes(
 
 	app.patch('/organization/profiles/:profileId', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const refusal = requirePeopleManager(context, authContext);
+		const refusal = denyIdentityWrite(context, 'people.updateProfile');
 		if (refusal !== null) {
 			return refusal;
 		}
@@ -95,7 +94,7 @@ export function registerProfileCommandRoutes(
 
 	app.post('/organization/memberships/list', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const refusal = requirePeopleManager(context, authContext);
+		const refusal = denyIdentityWrite(context, 'people.listMemberships');
 		if (refusal !== null) {
 			return refusal;
 		}
@@ -110,7 +109,7 @@ export function registerProfileCommandRoutes(
 		options.authContextMiddleware,
 		async (context) => {
 			const authContext = context.get('authContext');
-			const refusal = requireRoleManager(context, authContext);
+			const refusal = denyIdentityWrite(context, 'people.changeRole');
 			if (refusal !== null) {
 				return refusal;
 			}
@@ -154,7 +153,7 @@ export function registerProfileCommandRoutes(
 		options.authContextMiddleware,
 		async (context) => {
 			const authContext = context.get('authContext');
-			const refusal = requirePeopleManager(context, authContext);
+			const refusal = denyIdentityWrite(context, 'people.endMembership');
 			if (refusal !== null) {
 				return refusal;
 			}
@@ -205,7 +204,7 @@ export function registerProfileCommandRoutes(
 
 	app.post('/organization/invitations', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const refusal = requirePeopleManager(context, authContext);
+		const refusal = denyIdentityWrite(context, 'people.invite');
 		if (refusal !== null) {
 			return refusal;
 		}
@@ -262,23 +261,6 @@ export function registerProfileCommandRoutes(
 	});
 }
 
-/**
- * The people floor: admin.
- *
- * An agency delegates onboarding — an office manager adding a seasonal crew is
- * the ordinary case, and making the owner the only person who can do it makes
- * the owner a bottleneck rather than a safeguard. What stays owner-only is
- * handing out a role, which is a different question and is refused separately.
- */
-function requirePeopleManager(
-	context: Context<{ Variables: AuthVariables }>,
-	authContext: AuthContext,
-) {
-	return hasAtLeastRole(authContext.role, 'admin')
-		? null
-		: context.json(forbidden('Only organization owners and admins can manage people.'), 403);
-}
-
 function removalStatus(issue: MembershipRemovalIssue): 404 | 409 {
 	return issue === 'membership_not_found' ? 404 : 409;
 }
@@ -292,16 +274,6 @@ function removalReason(issue: MembershipRemovalIssue): string {
 		case 'last_active_owner':
 			return 'An organization needs at least one active owner.';
 	}
-}
-
-/** The role floor: owner, because a settable role is a self-promotable one. */
-function requireRoleManager(
-	context: Context<{ Variables: AuthVariables }>,
-	authContext: AuthContext,
-) {
-	return hasAtLeastRole(authContext.role, 'owner')
-		? null
-		: context.json(forbidden('Only organization owners can change a role.'), 403);
 }
 
 function toProfileWriteResponse(result: MutationWriteResult<SafeProfile>) {

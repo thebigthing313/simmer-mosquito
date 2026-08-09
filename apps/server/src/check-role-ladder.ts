@@ -48,6 +48,9 @@ const FIXTURES = {
 	otherAction: '00000000-0000-4000-8000-000000002405',
 } as const;
 
+/** One settings route stands in for all seven: they share a floor. */
+const SETTINGS_TIMEZONE = '/organization-settings/timezone';
+
 type Role = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 
 interface Expectation {
@@ -72,6 +75,7 @@ const CHECKS: Readonly<Record<Role, readonly Expectation[]>> = {
 		deny('create a tag', 'POST', '/foundation/tags', tag(), 'Viewers have read-only'),
 		deny('create a route', 'POST', '/field-work/routes', route(), 'Viewers have read-only'),
 		deny('start their own assignment', 'PATCH', assignment(FIXTURES.ownAssignment), started()),
+		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
 	],
 
 	collector: [
@@ -141,6 +145,12 @@ const CHECKS: Readonly<Record<Role, readonly Expectation[]>> = {
 			reach(),
 			'performed',
 		),
+
+		// The surfaces that have no commands: settings are checked in middleware
+		// before the body is read, people in the handler. Both floors are admin,
+		// so a collector is refused by either route (#130).
+		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
+		deny('add a profile', 'POST', '/organization/profiles', profile(), 'manage people'),
 	],
 
 	manager: [
@@ -162,14 +172,48 @@ const CHECKS: Readonly<Record<Role, readonly Expectation[]>> = {
 		deny('create a collection method', 'POST', '/foundation/collection-methods', lookup()),
 		deny('create a habitat type', 'POST', '/foundation/habitat-types', lookup()),
 		deny('delete an insecticide', 'DELETE', `/control-products/insecticides/${uuid()}`),
+		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
+		deny(
+			'edit the agency’s details',
+			'PATCH',
+			'/organization/current',
+			details(),
+			'manage details',
+		),
+		deny('add a profile', 'POST', '/organization/profiles', profile(), 'manage people'),
 	],
 
 	admin: [
 		allow('create a collection method', 'POST', '/foundation/collection-methods', lookup()),
 		allow('create a habitat type', 'POST', '/foundation/habitat-types', lookup()),
+
+		// Deliberately payload-less: `allow` means "not refused", so a 400 for a
+		// malformed body proves the floor let it through. That keeps the check from
+		// writing anything — a real timezone or profile would be a live edit to
+		// whichever agency the fixtures point at.
+		allow('reach settings', 'PATCH', SETTINGS_TIMEZONE, {}),
+		allow('reach the agency’s details', 'PATCH', '/organization/current', {}),
+		allow('reach the people surface', 'POST', '/organization/profiles', {}),
+
+		// The one rung above them, and the reason it exists: a settable role is a
+		// self-promotable one.
+		deny(
+			'change somebody’s role',
+			'PATCH',
+			`/organization/memberships/${uuid()}/role`,
+			{ role: 'owner' },
+			'owners can change a role',
+		),
 	],
 
-	owner: [allow('create a collection method', 'POST', '/foundation/collection-methods', lookup())],
+	owner: [
+		allow('create a collection method', 'POST', '/foundation/collection-methods', lookup()),
+		// A membership id that does not exist: a 404 proves the floor passed
+		// without promoting anybody.
+		allow('change somebody’s role', 'PATCH', `/organization/memberships/${uuid()}/role`, {
+			role: 'manager',
+		}),
+	],
 };
 
 // ---------------------------------------------------------------------------
@@ -331,6 +375,15 @@ function route(): unknown {
 }
 function newAssignment(): unknown {
 	return { id: uuid(), assignmentDate: new Date().toISOString().slice(0, 10) };
+}
+function timezone(): unknown {
+	return { timezone: 'America/New_York' };
+}
+function details(): unknown {
+	return { name: 'Role Ladder Check' };
+}
+function profile(): unknown {
+	return { id: uuid(), displayName: 'Role Ladder Check', isActive: true };
 }
 function lookup(): unknown {
 	return { id: uuid(), name: `Role ladder ${Date.now()}` };

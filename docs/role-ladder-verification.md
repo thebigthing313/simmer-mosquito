@@ -3,7 +3,9 @@
 How to check, by hand, that SIMMER refuses what it says it refuses.
 
 The ladder is enforced in `apps/server/src/command-permissions.ts` and mirrored
-in `apps/web/src/lib/write-access.ts`. Both are unit-tested, and the reads the
+in `apps/web/src/lib/write-access.ts`. The writes that are not commands — the
+agency's own details, and the people surface — declare their floors in
+`apps/server/src/roles.ts` instead, which says why they cannot join the map. Both are unit-tested, and the reads the
 ownership rules depend on are covered against Postgres in
 `apps/server/src/command-authorization.integration.test.ts`. None of that
 exercises the thing a person does: sign in, click, and be refused — which is how
@@ -182,6 +184,8 @@ Refused, with a reason:
   types, insecticides, formulations, notification types)
 - delete any control action — manager-and-above in code, stricter than the
   domain doc, pending #63
+- change a setting, edit the agency's details, or add a profile — the three
+  surfaces that have no commands, all admin-and-above (#130)
 
 Worth checking in the browser as well as through the API: after #49 the UI
 should not *offer* any of the refused ones. A 403 that only appears on save is
@@ -196,11 +200,23 @@ accident: a Manager acting on `otherAssignmentId` and on `expiredCommentId` both
 succeed.
 
 Refused: the owner/admin catalogs above. This is the rung that did not exist
-before #50, so it is the one most worth checking.
+before #50, so it is the one most worth checking. Also refused: settings, the
+agency's details, and the people surface.
 
 ### As an Admin
 
-As Manager, plus the owner/admin catalogs.
+As Manager, plus the owner/admin catalogs, settings, the agency's details, and
+the people surface — adding a profile, inviting somebody, ending an access.
+
+Refused, and the only thing an Admin is refused: **changing somebody's role**.
+That is owner-only, because an Admin who could set a role could set their own to
+`owner`. Check it two ways, because they are separate rules in separate places:
+the role endpoint refuses outright, and an invitation naming `owner` is refused
+by `canGrantRole` even though inviting itself is allowed.
+
+### As an Owner
+
+As Admin, plus changing a role. An Owner may grant any role, `owner` included.
 
 ## The one gap the fixtures cannot close
 

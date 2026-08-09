@@ -5,11 +5,18 @@ import { describe, expect, it } from 'vitest';
 import { registerAdultSurveillanceCommandRoutes } from './adult-surveillance-commands/index.js';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
-import { authorizeCommands, decideCommand, readCommandPermission } from './command-permissions.js';
+import {
+	type AgencyCommandType,
+	authorizeCommands,
+	decideCommand,
+	denyUnauthorizedCommandType,
+	readCommandPermission,
+} from './command-permissions.js';
 import { registerFieldWorkCommandRoutes } from './field-work-commands/index.js';
 import { registerFoundationGeographyCommandRoutes } from './foundation-geography-commands/index.js';
 import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands/index.js';
 import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands/index.js';
+import { denyIdentityWrite, type ForbiddenBody, type IdentityWriteSurface } from './roles.js';
 
 describe('decideCommand', () => {
 	it('lets manager-and-above through every command', () => {
@@ -252,6 +259,56 @@ describe('authorizeCommands', () => {
 		});
 	});
 });
+
+describe('denyUnauthorizedCommandType', () => {
+	// The settings routes refuse before reading the body, so they ask by type
+	// rather than by built command (#130).
+	it('applies the floor the map declares for a settings command', () => {
+		expect(denyFor('admin', 'organizationSettings.updateTimezone')).toBeNull();
+		expect(denyFor('owner', 'organizationSettings.updateTimezone')).toBeNull();
+		expect(denyFor('manager', 'organizationSettings.updateTimezone')).not.toBeNull();
+		expect(denyFor('viewer', 'organizationSettings.updateSpeciesKeyBindings')).not.toBeNull();
+	});
+
+	// An ownership rule needs a stored row, so the door is the wrong place to
+	// settle it — a collector must reach the transaction that can.
+	it('does not refuse a collector an ownership rule would let through', () => {
+		expect(denyFor('collector', 'fieldWork.startAssignment')).toBeNull();
+		expect(denyFor('viewer', 'fieldWork.startAssignment')).not.toBeNull();
+	});
+});
+
+describe('denyIdentityWrite', () => {
+	it('holds the people floor at admin and the role floor at owner', () => {
+		expect(identityDenyFor('admin', 'people.invite')).toBeNull();
+		expect(identityDenyFor('manager', 'people.invite')).not.toBeNull();
+
+		expect(identityDenyFor('owner', 'people.changeRole')).toBeNull();
+		expect(identityDenyFor('admin', 'people.changeRole')).not.toBeNull();
+	});
+
+	it('refuses a manager the agency details surface', () => {
+		expect(identityDenyFor('admin', 'organization.updateDetails')).toBeNull();
+		expect(identityDenyFor('manager', 'organization.updateDetails')).not.toBeNull();
+	});
+});
+
+function denyFor(role: SimmerRole, type: AgencyCommandType): Response | null {
+	return denyUnauthorizedCommandType(refusalContext(role), type);
+}
+
+function identityDenyFor(role: SimmerRole, surface: IdentityWriteSurface): Response | null {
+	return denyIdentityWrite(refusalContext(role), surface);
+}
+
+/** The two guards take only what they need: the role, and a way to say no. */
+function refusalContext(role: SimmerRole) {
+	return {
+		get: (_key: 'authContext') => ({ role }),
+		json: (body: ForbiddenBody, status: 403) =>
+			new Response(JSON.stringify(body), { status }) as Response,
+	};
+}
 
 describe('field-work endpoints', () => {
 	// The reported bug: a signed-in Viewer reordered a habitat route's stops and
