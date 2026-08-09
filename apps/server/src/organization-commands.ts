@@ -4,6 +4,7 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
+import { forbidden, hasAtLeastRole } from './roles.js';
 
 type OrganizationCommandDb = Kysely<SimmerDatabase>;
 
@@ -21,9 +22,9 @@ export function registerOrganizationCommandRoutes(
 		}
 
 		const authContext = context.get('authContext');
-		if (!canManageOrganization(authContext.role)) {
+		if (!hasAtLeastRole(authContext.role, 'admin')) {
 			return context.json(
-				{ error: 'forbidden', reason: 'Only organization owners and admins can manage details.' },
+				forbidden('Only organization owners and admins can manage details.'),
 				403,
 			);
 		}
@@ -190,10 +191,6 @@ function readOptionalDate(value: unknown): Date | null {
 		return new Date(Number.NaN);
 	}
 	return new Date(value);
-}
-
-function canManageOrganization(role: AuthContext['role']): boolean {
-	return role === 'owner' || role === 'admin';
 }
 
 const US_STATE_CODES = new Set([

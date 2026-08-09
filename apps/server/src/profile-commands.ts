@@ -15,6 +15,7 @@ import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
+import { canGrantRole, forbidden, hasAtLeastRole } from './roles.js';
 
 type ProfileCommandDb = Parameters<typeof createHistoricalProfileWithTxid>[0];
 
@@ -39,9 +40,9 @@ export function registerProfileCommandRoutes(
 ): void {
 	app.post('/organization/profiles', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const ownerResponse = requireOwner(context, authContext);
-		if (ownerResponse !== null) {
-			return ownerResponse;
+		const refusal = requirePeopleManager(context, authContext);
+		if (refusal !== null) {
+			return refusal;
 		}
 
 		const payloadResult = await readProfilePayload(context.req);
@@ -61,9 +62,9 @@ export function registerProfileCommandRoutes(
 
 	app.patch('/organization/profiles/:profileId', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const ownerResponse = requireOwner(context, authContext);
-		if (ownerResponse !== null) {
-			return ownerResponse;
+		const refusal = requirePeopleManager(context, authContext);
+		if (refusal !== null) {
+			return refusal;
 		}
 
 		const payloadResult = await readProfilePayload(context.req);
@@ -86,9 +87,9 @@ export function registerProfileCommandRoutes(
 
 	app.post('/organization/memberships/list', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const ownerResponse = requireOwner(context, authContext);
-		if (ownerResponse !== null) {
-			return ownerResponse;
+		const refusal = requirePeopleManager(context, authContext);
+		if (refusal !== null) {
+			return refusal;
 		}
 
 		const memberships = await listOrganizationMemberships(options.db, authContext.organization.id);
@@ -101,9 +102,9 @@ export function registerProfileCommandRoutes(
 		options.authContextMiddleware,
 		async (context) => {
 			const authContext = context.get('authContext');
-			const ownerResponse = requireOwner(context, authContext);
-			if (ownerResponse !== null) {
-				return ownerResponse;
+			const refusal = requireRoleManager(context, authContext);
+			if (refusal !== null) {
+				return refusal;
 			}
 
 			const payloadResult = await readMembershipRolePayload(context.req);
@@ -129,14 +130,20 @@ export function registerProfileCommandRoutes(
 
 	app.post('/organization/invitations', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		const ownerResponse = requireOwner(context, authContext);
-		if (ownerResponse !== null) {
-			return ownerResponse;
+		const refusal = requirePeopleManager(context, authContext);
+		if (refusal !== null) {
+			return refusal;
 		}
 
 		const payloadResult = await readInvitePayload(context.req);
 		if (!payloadResult.ok) {
 			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
+		}
+
+		// An invitation names a role, so without this an admin refused at the
+		// role-change endpoint could mint an owner account and sign in as it.
+		if (!canGrantRole(authContext.role, payloadResult.payload.role)) {
+			return context.json(forbidden('You cannot invite somebody above your own role.'), 403);
 		}
 
 		if (payloadResult.payload.profileId !== null) {
@@ -180,13 +187,31 @@ export function registerProfileCommandRoutes(
 	});
 }
 
-function requireOwner(context: Context<{ Variables: AuthVariables }>, authContext: AuthContext) {
-	return authContext.role === 'owner'
+/**
+ * The people floor: admin.
+ *
+ * An agency delegates onboarding — an office manager adding a seasonal crew is
+ * the ordinary case, and making the owner the only person who can do it makes
+ * the owner a bottleneck rather than a safeguard. What stays owner-only is
+ * handing out a role, which is a different question and is refused separately.
+ */
+function requirePeopleManager(
+	context: Context<{ Variables: AuthVariables }>,
+	authContext: AuthContext,
+) {
+	return hasAtLeastRole(authContext.role, 'admin')
 		? null
-		: context.json(
-				{ error: 'forbidden', reason: 'Only organization owners can manage people.' },
-				403,
-			);
+		: context.json(forbidden('Only organization owners and admins can manage people.'), 403);
+}
+
+/** The role floor: owner, because a settable role is a self-promotable one. */
+function requireRoleManager(
+	context: Context<{ Variables: AuthVariables }>,
+	authContext: AuthContext,
+) {
+	return hasAtLeastRole(authContext.role, 'owner')
+		? null
+		: context.json(forbidden('Only organization owners can change a role.'), 403);
 }
 
 function toProfileWriteResponse(result: MutationWriteResult<SafeProfile>) {

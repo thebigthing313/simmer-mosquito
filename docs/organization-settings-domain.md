@@ -131,7 +131,27 @@ Server AuthContext is authoritative. Command context exists for command
 metadata, optimistic UI, and replay consistency, and must match AuthContext.
 
 All organization settings are owner/admin only. Managers, collectors, and
-viewers do not manage organization settings.
+viewers do not manage organization settings. The same floor covers organization
+details (name, contact, mailing address).
+
+### People
+
+Managing people — inviting somebody, and creating or editing the profiles the
+agency attributes work to — is **owner/admin**, the same floor as everything
+else at the top of the ladder. An agency delegates onboarding; making the owner
+the only person who can add a seasonal crew member makes the owner a bottleneck
+rather than a safeguard.
+
+**Changing somebody's role is owner only**, and it is the one thing that is. An
+admin who could set a role could set their own to `owner`, and a rung anyone
+below it can award themselves is not a rung. The same reasoning covers
+invitations, which name a role too: nobody may invite above their own role, so
+an admin refused at the role endpoint cannot reach the same place by inviting a
+second account instead.
+
+This was undocumented until #121 — the server enforced owner-only for all five
+people endpoints while no domain doc said so, and `roles.ts` simultaneously
+claimed nothing was owner-only.
 
 ## Merge Behavior
 

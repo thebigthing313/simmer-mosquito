@@ -20,16 +20,35 @@ const ROLE_RANK: Record<SimmerRole, number> = {
 /**
  * The floors commands are written against.
  *
- * Three of the five roles are floors. `owner` is not, because nothing is owner-
- * only — the domain docs say "owner/admin" wherever they mean the top, and
- * `admin` is the lower of that pair. `viewer` is not, because a floor of
+ * Four of the five roles are floors. `viewer` is not, because a floor of
  * "viewer-and-above" would be every signed-in membership, which is what the
  * absence of a check already meant.
+ *
+ * `owner` is a floor, for one thing: **changing somebody's role**. Every other
+ * top-of-ladder rule in the domain docs is written "owner/admin", and `admin` is
+ * the lower of that pair — settings, catalogs, enabled species all sit there. A
+ * role change cannot, because an admin who could set a role could set their own
+ * to `owner`, and a rung anyone below it can award themselves is not a rung.
+ * That is the whole of what `owner` gates; see {@link canGrantRole} for the same
+ * reasoning applied to invitations, which name a role too.
  */
-export type MinimumRole = 'admin' | 'manager' | 'collector';
+export type MinimumRole = 'owner' | 'admin' | 'manager' | 'collector';
 
 export function hasAtLeastRole(role: SimmerRole, minimum: MinimumRole): boolean {
 	return ROLE_RANK[role] >= ROLE_RANK[minimum];
+}
+
+/**
+ * Whether an actor may hand out a role.
+ *
+ * An invitation names the role the invitee will hold, so "an admin may invite"
+ * would otherwise be "an admin may mint an owner" — the same self-promotion
+ * `hasAtLeastRole(role, 'owner')` closes on the role-change endpoint, reached by
+ * inviting a second account instead. Nobody grants above their own rung; owners
+ * can grant anything, including `owner`.
+ */
+export function canGrantRole(actor: SimmerRole, granted: SimmerRole): boolean {
+	return ROLE_RANK[actor] >= ROLE_RANK[granted];
 }
 
 export interface ForbiddenBody {

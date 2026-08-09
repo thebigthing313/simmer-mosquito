@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
+import { canManagePeople } from '../../lib/write-access';
 import { collections } from './-components/constants';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
 import { PeopleSection } from './-components/people';
@@ -16,7 +17,7 @@ function MyOrganizationPeopleRoute() {
 		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<PeopleSection
 				auth={auth.snapshot}
-				canManage={workspace.role === 'owner'}
+				canManage={canManagePeople(auth.snapshot)}
 				organization={workspace.organization}
 				memberships={collections.memberships}
 				profiles={collections.profiles}

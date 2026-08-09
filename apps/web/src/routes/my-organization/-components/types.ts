@@ -17,7 +17,10 @@ import type {
 import type { JsonSchemaValue, MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import type React from 'react';
 
-export type OrgRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
+// Re-exported rather than re-declared: two identical unions under one name are
+// what `fallow dead-code` calls a duplicate export, and the ladder's names have
+// exactly one home (`lib/write-access.ts`).
+export type { OrgRole } from '../../../lib/write-access';
 export type OrganizationSectionId =
 	| 'general'
 	| 'people'

@@ -56,7 +56,7 @@ const ROLE_RANK: Record<OrgRole, number> = {
 };
 
 /** The floors commands are written against, mirroring the server's `MinimumRole`. */
-export type MinimumRole = 'admin' | 'manager' | 'collector';
+export type MinimumRole = 'owner' | 'admin' | 'manager' | 'collector';
 
 export function hasAtLeastRole(auth: AuthMe | null, minimum: MinimumRole): boolean {
 	return ROLE_RANK[readOrgRole(auth)] >= ROLE_RANK[minimum];
@@ -89,6 +89,46 @@ export function canPlanWork(auth: AuthMe | null): boolean {
 export function canManageCatalogs(auth: AuthMe | null): boolean {
 	return hasAtLeastRole(auth, 'admin');
 }
+
+/**
+ * Whether this membership manages people: invitations, and the profiles the
+ * agency attributes work to.
+ *
+ * Owner/admin, so an agency can delegate onboarding rather than routing every
+ * new crew member through one person. Handing out a *role* is a different
+ * question — see {@link canManageRoles}.
+ */
+export function canManagePeople(auth: AuthMe | null): boolean {
+	return hasAtLeastRole(auth, 'admin');
+}
+
+/**
+ * Whether this membership can change somebody's role.
+ *
+ * Owner only, and the one thing that is. An admin who could set a role could
+ * set their own to `owner`, so the server refuses it (`roles.ts`) and the UI
+ * must not offer it — an admin shown a role control would fill it in and be
+ * 403'd on save.
+ */
+export function canManageRoles(auth: AuthMe | null): boolean {
+	return hasAtLeastRole(auth, 'owner');
+}
+
+/**
+ * The roles this membership may hand out in an invitation, highest first.
+ *
+ * Nobody invites above their own rung — an invitation names a role, so offering
+ * `owner` to an admin would be offering the self-promotion the role-change
+ * endpoint refuses, reached by inviting a second account instead. The server
+ * enforces it (`canGrantRole` in `roles.ts`); this keeps the picker from showing
+ * a choice that would 403 on send.
+ */
+export function grantableRoles(auth: AuthMe | null): readonly OrgRole[] {
+	const rank = ROLE_RANK[readOrgRole(auth)];
+	return ORG_ROLE_ORDER.filter((role) => ROLE_RANK[role] <= rank);
+}
+
+const ORG_ROLE_ORDER: readonly OrgRole[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
 
 /**
  * Whether this membership manages the catalogs that are part of running work

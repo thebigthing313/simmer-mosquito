@@ -26,6 +26,7 @@ import { type Collection, eq, isNull, not, useLiveSuspenseQuery } from '@tanstac
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { type AuthMe, getServerUrl } from '../../../auth';
+import { canManageRoles, grantableRoles } from '../../../lib/write-access';
 import {
 	inviteOrganizationProfile,
 	updateOrganizationMembershipRole,
@@ -72,6 +73,10 @@ export function PeopleSection({
 	const email = user?.email ?? null;
 	const [isAddingHistorical, setIsAddingHistorical] = useState(false);
 	const [isInviting, setIsInviting] = useState(false);
+	// Managing people and handing out a role are two floors, not one: an admin
+	// onboards, an owner promotes. Offering the control to an admin would mean a
+	// form filled in and then 403'd on save.
+	const canEditRole = canManageRoles(auth);
 
 	return (
 		<OrgSection id="people">
@@ -121,18 +126,21 @@ export function PeopleSection({
 						</Badge>
 					</article>
 					<ProfileGroup
+						canEditRole={canEditRole}
 						canManage={canManage}
 						emptyLabel="No active linked profiles"
 						rows={activeLinkedRows}
 						title="Active Linked Profiles"
 					/>
 					<ProfileGroup
+						canEditRole={canEditRole}
 						canManage={canManage}
 						emptyLabel="No inactive linked profiles"
 						rows={inactiveLinkedRows}
 						title="Inactive Linked Profiles"
 					/>
 					<ProfileGroup
+						canEditRole={canEditRole}
 						canManage={canManage}
 						emptyLabel="No historical profiles"
 						rows={historicalRows}
@@ -147,6 +155,7 @@ export function PeopleSection({
 							organization={organization}
 						/>
 						<InviteProfileSheet
+							auth={auth}
 							open={isInviting}
 							onOpenChange={setIsInviting}
 							profiles={historicalRows
@@ -210,11 +219,13 @@ function useProfileMembershipRows(
 }
 
 function ProfileGroup({
+	canEditRole,
 	canManage,
 	emptyLabel,
 	rows,
 	title,
 }: {
+	readonly canEditRole: boolean;
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
 	readonly rows: readonly ProfileMembershipRow[];
@@ -236,6 +247,7 @@ function ProfileGroup({
 				<div className="grid gap-2">
 					{rows.map(({ membership, profile }) => (
 						<ProfileRowItem
+							canEditRole={canEditRole}
 							canManage={canManage}
 							key={profile.id}
 							membership={membership ?? null}
@@ -249,10 +261,12 @@ function ProfileGroup({
 }
 
 function ProfileRowItem({
+	canEditRole,
 	canManage,
 	membership,
 	profile,
 }: {
+	readonly canEditRole: boolean;
 	readonly canManage: boolean;
 	readonly membership: MembershipRow | null;
 	readonly profile: ProfileRow;
@@ -280,7 +294,9 @@ function ProfileRowItem({
 					{profile.email ?? 'No login link'}
 				</p>
 			</div>
-			{canManage ? <EditProfileSheet membership={membership} profile={profile} /> : null}
+			{canManage ? (
+				<EditProfileSheet canEditRole={canEditRole} membership={membership} profile={profile} />
+			) : null}
 		</article>
 	);
 }
@@ -368,14 +384,17 @@ function HistoricalProfileSheet({
 }
 
 function InviteProfileSheet({
+	auth,
 	onOpenChange,
 	open,
 	profiles,
 }: {
+	readonly auth: AuthMe | null;
 	readonly onOpenChange: (open: boolean) => void;
 	readonly open: boolean;
 	readonly profiles: readonly ProfileRow[];
 }) {
+	const roleOptions = grantableRoles(auth);
 	const [displayName, setDisplayName] = useState('');
 	const [email, setEmail] = useState('');
 	const [role, setRole] = useState<OrgRole>('viewer');
@@ -465,7 +484,7 @@ function InviteProfileSheet({
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									{ORG_ROLE_OPTIONS.map((option) => (
+									{roleOptions.map((option) => (
 										<SelectItem key={option} value={option}>
 											{formatRole(option)}
 										</SelectItem>
@@ -496,9 +515,11 @@ function InviteProfileSheet({
 }
 
 function EditProfileSheet({
+	canEditRole,
 	membership,
 	profile,
 }: {
+	readonly canEditRole: boolean;
 	readonly membership: MembershipRow | null;
 	readonly profile: ProfileRow;
 }) {
@@ -566,7 +587,7 @@ function EditProfileSheet({
 								{profile.userId === null ? 'Historical profile' : 'Linked profile'}
 							</Badge>
 						</div>
-						{membership === null ? null : (
+						{membership === null || !canEditRole ? null : (
 							<Field className="gap-1">
 								<FieldLabel>Role</FieldLabel>
 								<Select value={role} onValueChange={(value) => setRole(value as OrgRole)}>
