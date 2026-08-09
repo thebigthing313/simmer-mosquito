@@ -35,6 +35,40 @@ import { isRecord } from './command-payload.js';
 
 type AdminFoundationDb = Parameters<typeof getOperatorOrganization>[0];
 
+/** Postgres refusing to orphan a row: `foreign_key_violation`. */
+const FOREIGN_KEY_VIOLATION = '23503';
+
+/**
+ * A delete the database may refuse, separated from one that failed.
+ *
+ * The global catalogs are deliberately restrictive — a genus with species, a
+ * unit an agency still measures in — and the console *says so* before asking
+ * for confirmation. But nothing caught the refusal, so Postgres's error left as
+ * an unhandled 500 with a plain-text body, and the console could only report
+ * "Server response was unreadable" about a rule it had just explained.
+ *
+ * Only `23503` is answered. Anything else still throws, because a delete that
+ * failed for some other reason is not a rule being enforced.
+ */
+async function deleteOrExplain<TResult>(
+	run: () => Promise<TResult>,
+): Promise<{ readonly ok: true; readonly result: TResult } | { readonly ok: false }> {
+	try {
+		return { ok: true, result: await run() };
+	} catch (error) {
+		if (
+			typeof error === 'object' &&
+			error !== null &&
+			'code' in error &&
+			(error as { readonly code: unknown }).code === FOREIGN_KEY_VIOLATION
+		) {
+			return { ok: false };
+		}
+
+		throw error;
+	}
+}
+
 // --- what the operator control plane still owns ------------------------------
 //
 // Two kinds of thing, and the difference is the whole of ADR 0011.
@@ -143,12 +177,24 @@ export function registerAdminFoundationRoutes(
 	});
 
 	app.delete('/admin/genera/:genusId', options.operatorAuthContextMiddleware, async (context) => {
-		const result = await deleteGenusWithTxid(options.db, context.req.param('genusId'));
-		if (result.row === null) {
+		const outcome = await deleteOrExplain(() =>
+			deleteGenusWithTxid(options.db, context.req.param('genusId')),
+		);
+		if (!outcome.ok) {
+			return context.json(
+				{
+					error: 'genus_in_use',
+					reason: 'This genus still has species recorded against it.',
+				},
+				409,
+			);
+		}
+
+		if (outcome.result.row === null) {
 			return context.json({ error: 'genus_not_found' }, 404);
 		}
 
-		return context.json({ genus: toGenusResponse(result.row), txid: result.txid });
+		return context.json({ genus: toGenusResponse(outcome.result.row), txid: outcome.result.txid });
 	});
 
 	app.post('/admin/species', options.operatorAuthContextMiddleware, async (context) => {
@@ -183,12 +229,28 @@ export function registerAdminFoundationRoutes(
 		'/admin/species/:speciesId',
 		options.operatorAuthContextMiddleware,
 		async (context) => {
-			const result = await deleteSpeciesWithTxid(options.db, context.req.param('speciesId'));
-			if (result.row === null) {
+			const outcome = await deleteOrExplain(() =>
+				deleteSpeciesWithTxid(options.db, context.req.param('speciesId')),
+			);
+			if (!outcome.ok) {
+				return context.json(
+					{
+						error: 'species_in_use',
+						reason:
+							'This species is still enabled for an agency, or recorded in a count. Remove those first.',
+					},
+					409,
+				);
+			}
+
+			if (outcome.result.row === null) {
 				return context.json({ error: 'species_not_found' }, 404);
 			}
 
-			return context.json({ species: toSpeciesResponse(result.row), txid: result.txid });
+			return context.json({
+				species: toSpeciesResponse(outcome.result.row),
+				txid: outcome.result.txid,
+			});
 		},
 	);
 
@@ -221,12 +283,24 @@ export function registerAdminFoundationRoutes(
 	});
 
 	app.delete('/admin/units/:unitId', options.operatorAuthContextMiddleware, async (context) => {
-		const result = await deleteUnitWithTxid(options.db, context.req.param('unitId'));
-		if (result.row === null) {
+		const outcome = await deleteOrExplain(() =>
+			deleteUnitWithTxid(options.db, context.req.param('unitId')),
+		);
+		if (!outcome.ok) {
+			return context.json(
+				{
+					error: 'unit_in_use',
+					reason: 'This unit is still referenced by an agency’s records or settings.',
+				},
+				409,
+			);
+		}
+
+		if (outcome.result.row === null) {
 			return context.json({ error: 'unit_not_found' }, 404);
 		}
 
-		return context.json({ unit: toUnitResponse(result.row), txid: result.txid });
+		return context.json({ unit: toUnitResponse(outcome.result.row), txid: outcome.result.txid });
 	});
 
 	app.get(
