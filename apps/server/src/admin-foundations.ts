@@ -1,17 +1,10 @@
 import {
-	createAddress,
 	createGenusWithTxid,
-	createOrgLookup,
-	createRegion,
-	createRegionFolder,
 	createSpeciesWithTxid,
-	createTrap,
 	createUnitWithTxid,
 	deleteGenusWithTxid,
 	deleteSpeciesWithTxid,
 	deleteUnitWithTxid,
-	enableOrganizationSpecies,
-	type GeoJsonGeometry,
 	getOperatorOrganization,
 	listAddresses,
 	listGenera,
@@ -21,7 +14,6 @@ import {
 	listRegions,
 	listSpecies,
 	listTraps,
-	type OrgLookupKind,
 	type SafeAddress,
 	type SafeGenus,
 	type SafeOrganizationSpecies,
@@ -42,6 +34,27 @@ import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-
 import { isRecord } from './command-payload.js';
 
 type AdminFoundationDb = Parameters<typeof getOperatorOrganization>[0];
+
+// --- what the operator control plane still owns ------------------------------
+//
+// Two kinds of thing, and the difference is the whole of ADR 0011.
+//
+// **Global catalogs** — genera, species, units. SIMMER controls these; no agency
+// route writes them and no agency membership is relevant to them. They are
+// operator-owned by nature and stay here.
+//
+// **Reads of one agency's foundations**, so an operator can see whether an
+// agency is ready to work without joining it. Reading is not the problem #120
+// found; writing behind a second set of rules was.
+//
+// The writes are gone. Six tables — addresses, region folders, regions, the
+// organization lookups, organization species, traps — were created here without
+// a domain builder in sight, which meant a region created by an operator and a
+// region created by an agency were validated differently and only one of them
+// could say who made it. An operator who is going to write those rows now joins
+// the agency and posts to `/foundation/*` and `/adult-surveillance/*` like
+// anyone else. Nine payload interfaces, twelve payload readers, and the
+// primitive readers only they used went with them.
 
 export function registerAdminFoundationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -98,75 +111,6 @@ export function registerAdminFoundationRoutes(
 				},
 				traps: traps.map(toTrapResponse),
 			});
-		},
-	);
-
-	app.post(
-		'/admin/organizations/:organizationId/addresses',
-		options.operatorAuthContextMiddleware,
-		async (context) => {
-			const guard = await assertOperatorOrganization(context, options);
-			if (!guard.ok) {
-				return context.json({ error: guard.error }, guard.status);
-			}
-
-			const payloadResult = await readAddressPayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const address = await createAddress(options.db, {
-				organizationId: guard.organizationId,
-				...payloadResult.payload,
-			});
-
-			return context.json(toAddressResponse(address), 201);
-		},
-	);
-
-	app.post(
-		'/admin/organizations/:organizationId/region-folders',
-		options.operatorAuthContextMiddleware,
-		async (context) => {
-			const guard = await assertOperatorOrganization(context, options);
-			if (!guard.ok) {
-				return context.json({ error: guard.error }, guard.status);
-			}
-
-			const payloadResult = await readRegionFolderPayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const folder = await createRegionFolder(options.db, {
-				organizationId: guard.organizationId,
-				...payloadResult.payload,
-			});
-
-			return context.json(toRegionFolderResponse(folder), 201);
-		},
-	);
-
-	app.post(
-		'/admin/organizations/:organizationId/regions',
-		options.operatorAuthContextMiddleware,
-		async (context) => {
-			const guard = await assertOperatorOrganization(context, options);
-			if (!guard.ok) {
-				return context.json({ error: guard.error }, guard.status);
-			}
-
-			const payloadResult = await readRegionPayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const region = await createRegion(options.db, {
-				organizationId: guard.organizationId,
-				...payloadResult.payload,
-			});
-
-			return context.json(toRegionResponse(region), 201);
 		},
 	);
 
@@ -285,57 +229,6 @@ export function registerAdminFoundationRoutes(
 		return context.json({ unit: toUnitResponse(result.row), txid: result.txid });
 	});
 
-	app.post(
-		'/admin/organizations/:organizationId/species',
-		options.operatorAuthContextMiddleware,
-		async (context) => {
-			const guard = await assertOperatorOrganization(context, options);
-			if (!guard.ok) {
-				return context.json({ error: guard.error }, guard.status);
-			}
-
-			const payloadResult = await readOrganizationSpeciesPayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const row = await enableOrganizationSpecies(options.db, {
-				organizationId: guard.organizationId,
-				...payloadResult.payload,
-			});
-
-			return context.json(toOrganizationSpeciesResponse(row), 201);
-		},
-	);
-
-	app.post(
-		'/admin/organizations/:organizationId/lookups/:kind',
-		options.operatorAuthContextMiddleware,
-		async (context) => {
-			const guard = await assertOperatorOrganization(context, options);
-			if (!guard.ok) {
-				return context.json({ error: guard.error }, guard.status);
-			}
-
-			const kind = readLookupKind(context.req.param('kind'));
-			if (kind === null) {
-				return context.json({ error: 'lookup_not_found' }, 404);
-			}
-
-			const payloadResult = await readLookupPayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const row = await createOrgLookup(options.db, kind, {
-				organizationId: guard.organizationId,
-				...payloadResult.payload,
-			});
-
-			return context.json(toOrgLookupResponse(row), 201);
-		},
-	);
-
 	app.get(
 		'/admin/organizations/:organizationId/traps',
 		options.operatorAuthContextMiddleware,
@@ -347,29 +240,6 @@ export function registerAdminFoundationRoutes(
 
 			const traps = await listTraps(options.db, guard.organizationId);
 			return context.json({ traps: traps.map(toTrapResponse) });
-		},
-	);
-
-	app.post(
-		'/admin/organizations/:organizationId/traps',
-		options.operatorAuthContextMiddleware,
-		async (context) => {
-			const guard = await assertOperatorOrganization(context, options);
-			if (!guard.ok) {
-				return context.json({ error: guard.error }, guard.status);
-			}
-
-			const payloadResult = await readTrapPayload(context.req);
-			if (!payloadResult.ok) {
-				return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-			}
-
-			const trap = await createTrap(options.db, {
-				organizationId: guard.organizationId,
-				...payloadResult.payload,
-			});
-
-			return context.json(toTrapResponse(trap), 201);
 		},
 	);
 }
@@ -395,31 +265,6 @@ async function assertOperatorOrganization(
 	return { ok: true, organizationId };
 }
 
-interface AddressPayload {
-	readonly displayName: string;
-	readonly country: string;
-	readonly addressLine1: string | null;
-	readonly addressLine2: string | null;
-	readonly locality: string | null;
-	readonly region: string | null;
-	readonly postalCode: string | null;
-	readonly geocoderResponse: unknown | null;
-	readonly geojson: GeoJsonGeometry;
-}
-
-interface RegionFolderPayload {
-	readonly name: string;
-	readonly description: string | null;
-}
-
-interface RegionPayload {
-	readonly name: string;
-	readonly regionFolderId: string | null;
-	readonly description: string | null;
-	readonly metadata: unknown | null;
-	readonly geojson: GeoJsonGeometry;
-}
-
 interface GenusPayload {
 	readonly id?: string;
 	readonly abbreviation: string;
@@ -443,121 +288,9 @@ interface UnitPayload {
 	readonly unitSystem: UnitSystem;
 }
 
-interface OrganizationSpeciesPayload {
-	readonly speciesId: string;
-}
-
-interface LookupPayload {
-	readonly name: string;
-	readonly description: string | null;
-	readonly customSchema: unknown | null;
-	readonly actionThreshold: number | null;
-	readonly isActive: boolean;
-}
-
-interface TrapPayload {
-	readonly collectionMethodId: string;
-	readonly addressId: string | null;
-	readonly collectionLureId: string | null;
-	readonly trapName: string | null;
-	readonly trapCode: string | null;
-	readonly description: string | null;
-	readonly isActive: boolean;
-	readonly geojson: GeoJsonGeometry;
-}
-
 type PayloadResult<T> =
 	| { readonly ok: true; readonly payload: T }
 	| { readonly ok: false; readonly reason: string };
-
-async function readAddressPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<AddressPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
-	const displayName = readRequiredText(raw.displayName);
-	const country = readRequiredText(raw.country)?.toUpperCase() ?? null;
-	const geojson = readGeoJson(raw.geojson);
-
-	if (displayName === null) {
-		return invalid('displayName is required.');
-	}
-	if (country === null || country.length !== 2) {
-		return invalid('country must be a two-letter country code.');
-	}
-	if (geojson === null) {
-		return invalid('geojson must be a GeoJSON geometry object.');
-	}
-
-	return {
-		ok: true,
-		payload: {
-			displayName,
-			country,
-			addressLine1: readOptionalText(raw.addressLine1),
-			addressLine2: readOptionalText(raw.addressLine2),
-			locality: readOptionalText(raw.locality),
-			region: readOptionalText(raw.region),
-			postalCode: readOptionalText(raw.postalCode),
-			geocoderResponse: readOptionalJson(raw.geocoderResponse),
-			geojson,
-		},
-	};
-}
-
-async function readRegionFolderPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<RegionFolderPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
-	const name = readRequiredText(raw.name);
-	if (name === null) {
-		return invalid('name is required.');
-	}
-
-	return {
-		ok: true,
-		payload: {
-			name,
-			description: readOptionalText(raw.description),
-		},
-	};
-}
-
-async function readRegionPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<RegionPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
-	const name = readRequiredText(raw.name);
-	const geojson = readGeoJson(raw.geojson);
-	if (name === null) {
-		return invalid('name is required.');
-	}
-	if (geojson === null) {
-		return invalid('geojson must be a GeoJSON geometry object.');
-	}
-
-	return {
-		ok: true,
-		payload: {
-			name,
-			regionFolderId: readOptionalText(raw.regionFolderId),
-			description: readOptionalText(raw.description),
-			metadata: readOptionalJson(raw.metadata),
-			geojson,
-		},
-	};
-}
 
 async function readGenusPayload(request: {
 	readonly json: () => Promise<unknown>;
@@ -676,88 +409,6 @@ function readUnitSystem(value: unknown): UnitSystem | null {
 	return null;
 }
 
-async function readOrganizationSpeciesPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<OrganizationSpeciesPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
-	const speciesId = readRequiredText(raw.speciesId);
-	if (speciesId === null) {
-		return invalid('speciesId is required.');
-	}
-
-	return {
-		ok: true,
-		payload: {
-			speciesId,
-		},
-	};
-}
-
-async function readLookupPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<LookupPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
-	const name = readRequiredText(raw.name);
-	const actionThreshold = readOptionalNonnegativeInteger(raw.actionThreshold);
-	if (name === null) {
-		return invalid('name is required.');
-	}
-	if (actionThreshold === undefined) {
-		return invalid('actionThreshold must be a nonnegative integer.');
-	}
-
-	return {
-		ok: true,
-		payload: {
-			name,
-			description: readOptionalText(raw.description),
-			customSchema: readOptionalJson(raw.customSchema),
-			actionThreshold,
-			isActive: raw.isActive !== false,
-		},
-	};
-}
-
-async function readTrapPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<TrapPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
-	const collectionMethodId = readRequiredText(raw.collectionMethodId);
-	const geojson = readGeoJson(raw.geojson);
-	if (collectionMethodId === null) {
-		return invalid('collectionMethodId is required.');
-	}
-	if (geojson === null) {
-		return invalid('geojson must be a GeoJSON geometry object.');
-	}
-
-	return {
-		ok: true,
-		payload: {
-			collectionMethodId,
-			addressId: readOptionalText(raw.addressId),
-			collectionLureId: readOptionalText(raw.collectionLureId),
-			trapName: readOptionalText(raw.trapName),
-			trapCode: readOptionalText(raw.trapCode),
-			description: readOptionalText(raw.description),
-			isActive: raw.isActive !== false,
-			geojson,
-		},
-	};
-}
-
 async function readJsonObject(request: {
 	readonly json: () => Promise<unknown>;
 }): Promise<PayloadResult<Record<string, unknown>>> {
@@ -773,22 +424,6 @@ async function readJsonObject(request: {
 	}
 
 	return { ok: true, payload: raw };
-}
-
-function readGeoJson(value: unknown): GeoJsonGeometry | null {
-	if (!isRecord(value) || typeof value.type !== 'string') {
-		return null;
-	}
-
-	return value;
-}
-
-function readLookupKind(value: string): OrgLookupKind | null {
-	if (value === 'collection_methods' || value === 'collection_lures' || value === 'habitat_types') {
-		return value;
-	}
-
-	return null;
 }
 
 function readRequiredText(value: unknown): string | null {
@@ -813,22 +448,6 @@ function readOptionalUuid(value: unknown): string | null | undefined {
 	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)
 		? text
 		: undefined;
-}
-
-function readOptionalJson(value: unknown): unknown | null {
-	return value === undefined ? null : value;
-}
-
-function readOptionalNonnegativeInteger(value: unknown): number | null | undefined {
-	if (value === undefined || value === null || value === '') {
-		return null;
-	}
-
-	if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
-		return undefined;
-	}
-
-	return value;
 }
 
 function invalid(reason: string): PayloadResult<never> {

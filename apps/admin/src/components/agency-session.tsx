@@ -28,25 +28,17 @@ import { appAuthController } from '../app-auth';
 
 const EnterIcon = iconRegistry.entities.organization.icon;
 
-/** Which agency this operator session is currently inside, and as what. */
-export function useAgencySession(organizationId: string): {
-	readonly inside: boolean;
-	readonly role: string | null;
-} {
+/** Whether this operator session is currently inside the given agency. */
+function useInsideAgency(organizationId: string): boolean {
 	const snapshot = useSyncExternalStore(
 		appAuthController.subscribe,
 		() => appAuthController.snapshot,
 		() => appAuthController.snapshot,
 	);
 
-	if (snapshot === null || !snapshot.authenticated) {
-		return { inside: false, role: null };
-	}
-
-	return {
-		inside: snapshot.localIdentity.organizationId === organizationId,
-		role: snapshot.localIdentity.role,
-	};
+	return snapshot?.authenticated === true
+		? snapshot.localIdentity.organizationId === organizationId
+		: false;
 }
 
 /**
@@ -69,22 +61,61 @@ export function AgencySessionGate({
 	readonly agencyName: string | undefined;
 	readonly children: ReactNode;
 }) {
+	const inside = useInsideAgency(organizationId);
+
+	return inside ? (
+		<>{children}</>
+	) : (
+		<AgencyEntry name={agencyName ?? 'this agency'} workosOrganizationId={workosOrganizationId} />
+	);
+}
+
+function AgencyEntry({
+	name,
+	workosOrganizationId,
+}: {
+	readonly name: string;
+	readonly workosOrganizationId: string | null;
+}) {
+	const enter = useEnterAgency(workosOrganizationId);
+	const unlinked = workosOrganizationId === null;
+
+	return (
+		<Empty>
+			<EmptyHeader>
+				<EmptyMedia variant="icon">
+					<EnterIcon />
+				</EmptyMedia>
+				<EmptyTitle>Enter {name} to make changes</EmptyTitle>
+				<EmptyDescription>
+					{unlinked
+						? `${name} has no WorkOS organization yet, so there is nothing to enter. Link it first.`
+						: `Records are written as a member of the agency that owns them, so this page needs your session to be inside ${name}. You need an admin membership there.`}
+				</EmptyDescription>
+			</EmptyHeader>
+			<EmptyContent>
+				<Button disabled={enter.pending || unlinked} onClick={enter.run}>
+					{enter.pending ? 'Entering…' : `Enter ${name}`}
+				</Button>
+			</EmptyContent>
+		</Empty>
+	);
+}
+
+/** Re-seal the session against the agency, then forget everything read as who we were. */
+function useEnterAgency(workosOrganizationId: string | null): {
+	readonly pending: boolean;
+	readonly run: () => Promise<void>;
+} {
 	const queryClient = useQueryClient();
-	const { inside } = useAgencySession(organizationId);
-	const [entering, setEntering] = useState(false);
+	const [pending, setPending] = useState(false);
 
-	if (inside) {
-		return <>{children}</>;
-	}
-
-	const name = agencyName ?? 'this agency';
-
-	async function enter() {
+	async function run() {
 		if (workosOrganizationId === null) {
 			return;
 		}
 
-		setEntering(true);
+		setPending(true);
 		try {
 			const outcome = await switchOrganization({ organizationId: workosOrganizationId });
 			if (outcome.status !== 'switched') {
@@ -97,28 +128,9 @@ export function AgencySessionGate({
 			// agency. None of it describes where this session now is.
 			await queryClient.invalidateQueries();
 		} finally {
-			setEntering(false);
+			setPending(false);
 		}
 	}
 
-	return (
-		<Empty>
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<EnterIcon />
-				</EmptyMedia>
-				<EmptyTitle>Enter {name} to make changes</EmptyTitle>
-				<EmptyDescription>
-					{workosOrganizationId === null
-						? `${name} has no WorkOS organization yet, so there is nothing to enter. Link it first.`
-						: `Records are written as a member of the agency that owns them, so this page needs your session to be inside ${name}. You need an admin membership there.`}
-				</EmptyDescription>
-			</EmptyHeader>
-			<EmptyContent>
-				<Button onClick={enter} disabled={entering || workosOrganizationId === null}>
-					{entering ? 'Entering…' : `Enter ${name}`}
-				</Button>
-			</EmptyContent>
-		</Empty>
-	);
+	return { pending, run };
 }

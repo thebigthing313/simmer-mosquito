@@ -38,12 +38,15 @@ export const Route = createFileRoute('/organizations/$organizationId/foundations
 /**
  * The agency-bootstrap page.
  *
- * Everything here is **create-only**, because that is all the server offers on
- * these seven endpoints. That is a deliberate shape rather than an omission: an
- * operator's job is to get a new agency to the point where its own people can
- * work, and from then on the agency maintains its catalogs in the web app, where
- * editing and deleting exist. The copy says so rather than leaving an operator
- * hunting for an edit control that was never built.
+ * Everything here is **create-only**. That is a deliberate shape rather than an
+ * omission: an operator's job is to get a new agency to the point where its own
+ * people can work, and from then on the agency maintains its catalogs in the web
+ * app, where editing and deleting exist. The copy says so rather than leaving an
+ * operator hunting for an edit control that was never built.
+ *
+ * The writes are the agency's own endpoints, which means this page only works
+ * from inside the agency (ADR 0011) — `AgencySessionGate` is what puts the
+ * session there, and what explains the way in when it is not.
  *
  * The layout is a **sequence, not a grid**. These eight things are not eight
  * peers to compare — they have a dependency order (a trap needs a collection
@@ -61,29 +64,76 @@ export const Route = createFileRoute('/organizations/$organizationId/foundations
  */
 function AgencyFoundationsRoute() {
 	const { organizationId } = Route.useParams();
-	// The directory's cache, already warm from the list the operator arrived
-	// through. Read here for the WorkOS organization id the session switch needs.
-	const { data: agencies } = useAgencies();
-	const agency = (agencies ?? []).find((row) => row.id === organizationId);
+	const agency = useAgencyIdentity(organizationId);
 	const { data, isPending, error } = useAgencyFoundations(organizationId);
-	const create = useCreateFoundation(organizationId);
-	const [dialog, setDialog] = useState<DialogKind | null>(null);
 
 	if (error !== null) {
-		return (
-			<AdminPage icon={FoundationsIcon} title="Foundations">
-				<AdminError error={error} />
-			</AdminPage>
-		);
+		return <FoundationsFrame>{<AdminError error={error} />}</FoundationsFrame>;
 	}
 
 	if (isPending || data === undefined) {
-		return (
-			<AdminPage icon={FoundationsIcon} title="Foundations">
-				<AdminLoading rows={4} />
-			</AdminPage>
-		);
+		return <FoundationsFrame>{<AdminLoading rows={4} />}</FoundationsFrame>;
 	}
+
+	return (
+		<FoundationsFrame>
+			<AgencySessionGate
+				agencyName={agency.name}
+				organizationId={organizationId}
+				workosOrganizationId={agency.workosOrganizationId}
+			>
+				<FoundationPanels data={data} organizationId={organizationId} />
+			</AgencySessionGate>
+		</FoundationsFrame>
+	);
+}
+
+/**
+ * The agency's name and WorkOS organization, from the directory's cache.
+ *
+ * Read rather than fetched: the operator arrived through that list, so it is
+ * already warm. The WorkOS id is what entering the agency switches the session
+ * to.
+ */
+function useAgencyIdentity(organizationId: string): {
+	readonly name: string | undefined;
+	readonly workosOrganizationId: string | null;
+} {
+	const { data } = useAgencies();
+	const agency = data?.find((row) => row.id === organizationId);
+	return { name: agency?.name, workosOrganizationId: agency?.workosOrganizationId ?? null };
+}
+
+function FoundationsFrame({ children }: { readonly children: ReactNode }) {
+	return (
+		<AdminPage
+			description="Reference data this agency needs before its crews can record anything. These can only be added here — the agency edits and removes them from the SIMMER web app."
+			icon={FoundationsIcon}
+			title="Foundations"
+		>
+			{children}
+		</AdminPage>
+	);
+}
+
+/**
+ * Everything the page shows once there is data and the session is inside the
+ * agency.
+ *
+ * Split from the route because the route's job is now three questions — did the
+ * read fail, has it arrived, are we in the agency — and answering them inline
+ * around two hundred lines of panels made the whole thing one function nobody
+ * could see the shape of.
+ */
+function FoundationPanels({
+	data,
+	organizationId,
+}: {
+	readonly data: AgencyFoundations;
+	readonly organizationId: string;
+}) {
+	const create = useCreateFoundation(organizationId);
+	const [dialog, setDialog] = useState<DialogKind | null>(null);
 
 	const enabledSpeciesIds = new Set(data.organizationSpecies.map((row) => row.speciesId));
 	const availableSpecies = data.species.filter((row) => !enabledSpeciesIds.has(row.id));
@@ -101,155 +151,140 @@ function AgencyFoundationsRoute() {
 	}
 
 	return (
-		<AdminPage
-			description="Reference data this agency needs before its crews can record anything. These can only be added here — the agency edits and removes them from the SIMMER web app."
-			icon={FoundationsIcon}
-			title="Foundations"
-		>
-			<AgencySessionGate
-				agencyName={agency?.name}
-				organizationId={organizationId}
-				workosOrganizationId={agency?.workosOrganizationId ?? null}
+		<>
+			<Readiness steps={steps} />
+
+			<FoundationGroup
+				description="What this agency's forms offer when crews record work. A trap records against a collection method, so methods come before traps."
+				title="Field vocabulary"
 			>
-				<Readiness steps={steps} />
+				<ChipSection
+					addLabel="Add method"
+					emptyMessage="None yet. A trap cannot be added until there is at least one."
+					names={data.lookups.collectionMethods.map(lookupName)}
+					onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_methods' })}
+					title="Collection methods"
+				/>
+				<ChipSection
+					addLabel="Add lure"
+					emptyMessage="None yet. Optional — traps can run unbaited."
+					names={data.lookups.collectionLures.map(lookupName)}
+					onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_lures' })}
+					title="Collection lures"
+				/>
+				<ChipSection
+					addLabel="Add habitat type"
+					emptyMessage="None yet. Larval habitats are classified with these."
+					names={data.lookups.habitatTypes.map(lookupName)}
+					onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'habitat_types' })}
+					title="Habitat types"
+				/>
+			</FoundationGroup>
 
-				<FoundationGroup
-					description="What this agency's forms offer when crews record work. A trap records against a collection method, so methods come before traps."
-					title="Field vocabulary"
-				>
-					<ChipSection
-						addLabel="Add method"
-						emptyMessage="None yet. A trap cannot be added until there is at least one."
-						names={data.lookups.collectionMethods.map(lookupName)}
-						onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_methods' })}
-						title="Collection methods"
-					/>
-					<ChipSection
-						addLabel="Add lure"
-						emptyMessage="None yet. Optional — traps can run unbaited."
-						names={data.lookups.collectionLures.map(lookupName)}
-						onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_lures' })}
-						title="Collection lures"
-					/>
-					<ChipSection
-						addLabel="Add habitat type"
-						emptyMessage="None yet. Larval habitats are classified with these."
-						names={data.lookups.habitatTypes.map(lookupName)}
-						onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'habitat_types' })}
-						title="Habitat types"
-					/>
-				</FoundationGroup>
+			<FoundationGroup
+				description="Where the agency works. Regions are the districts crews are assigned across; addresses are the fixed places traps and service requests reference."
+				title="Geography"
+			>
+				<RecordSection
+					addLabel="Add region"
+					emptyMessage="No regions. Load the agency's district boundaries from the KML or GeoJSON they sent."
+					icon={RegionIcon}
+					items={data.regions.map((region) => ({
+						id: region.id,
+						title: region.name,
+						subtitle:
+							data.regionFolders.find((folder) => folder.id === region.regionFolderId)?.name ??
+							'Unfiled',
+					}))}
+					onAdd={() => setDialog({ kind: 'region' })}
+					secondaryAction={
+						<Button onClick={() => setDialog({ kind: 'region-folder' })} size="sm" variant="ghost">
+							Add folder
+						</Button>
+					}
+					title="Regions"
+				/>
+				<RecordSection
+					addLabel="Add address"
+					emptyMessage="No addresses yet."
+					icon={AddressIcon}
+					items={data.addresses.map((address) => ({
+						id: address.id,
+						title: address.displayName,
+						subtitle: [address.locality, address.region, address.postalCode]
+							.filter((part) => part !== null && part !== '')
+							.join(', '),
+					}))}
+					onAdd={() => setDialog({ kind: 'address' })}
+					title="Addresses"
+				/>
+			</FoundationGroup>
 
-				<FoundationGroup
-					description="Where the agency works. Regions are the districts crews are assigned across; addresses are the fixed places traps and service requests reference."
-					title="Geography"
-				>
-					<RecordSection
-						addLabel="Add region"
-						emptyMessage="No regions. Load the agency's district boundaries from the KML or GeoJSON they sent."
-						icon={RegionIcon}
-						items={data.regions.map((region) => ({
-							id: region.id,
-							title: region.name,
-							subtitle:
-								data.regionFolders.find((folder) => folder.id === region.regionFolderId)?.name ??
-								'Unfiled',
-						}))}
-						onAdd={() => setDialog({ kind: 'region' })}
-						secondaryAction={
-							<Button
-								onClick={() => setDialog({ kind: 'region-folder' })}
-								size="sm"
-								variant="ghost"
-							>
-								Add folder
-							</Button>
-						}
-						title="Regions"
-					/>
-					<RecordSection
-						addLabel="Add address"
-						emptyMessage="No addresses yet."
-						icon={AddressIcon}
-						items={data.addresses.map((address) => ({
-							id: address.id,
-							title: address.displayName,
-							subtitle: [address.locality, address.region, address.postalCode]
-								.filter((part) => part !== null && part !== '')
-								.join(', '),
-						}))}
-						onAdd={() => setDialog({ kind: 'address' })}
-						title="Addresses"
-					/>
-				</FoundationGroup>
+			<FoundationGroup
+				description="Narrowing the global species list to what actually occurs locally is what keeps identification screens usable in the field."
+				title="Species"
+			>
+				<ChipSection
+					addLabel="Enable species"
+					disabledReason={
+						availableSpecies.length === 0 && enabledSpecies.length > 0
+							? 'Every species in the global list is already enabled.'
+							: undefined
+					}
+					emptyMessage="None enabled. Crews will see the entire global list until one is."
+					names={enabledSpecies.map((species) => species.displayName)}
+					onAdd={() => setDialog({ kind: 'species' })}
+					title="Enabled species"
+				/>
+			</FoundationGroup>
 
-				<FoundationGroup
-					description="Narrowing the global species list to what actually occurs locally is what keeps identification screens usable in the field."
-					title="Species"
-				>
-					<ChipSection
-						addLabel="Enable species"
-						disabledReason={
-							availableSpecies.length === 0 && enabledSpecies.length > 0
-								? 'Every species in the global list is already enabled.'
-								: undefined
-						}
-						emptyMessage="None enabled. Crews will see the entire global list until one is."
-						names={enabledSpecies.map((species) => species.displayName)}
-						onAdd={() => setDialog({ kind: 'species' })}
-						title="Enabled species"
-					/>
-				</FoundationGroup>
-
-				<FoundationGroup
-					description="The agency's first traps. Crews add the rest themselves once they can sign in."
+			<FoundationGroup
+				description="The agency's first traps. Crews add the rest themselves once they can sign in."
+				title="Traps"
+			>
+				<RecordSection
+					addLabel="Add trap"
+					disabledReason={
+						data.lookups.collectionMethods.length === 0
+							? 'Add a collection method first — a trap records against one.'
+							: undefined
+					}
+					emptyMessage="No traps yet."
+					icon={TrapIcon}
+					items={data.traps.map((trap) => ({
+						id: trap.id,
+						title: trap.trapName ?? trap.trapCode ?? 'Unnamed trap',
+						subtitle:
+							data.lookups.collectionMethods.find((method) => method.id === trap.collectionMethodId)
+								?.name ?? 'Unknown method',
+						badge: trap.isActive ? undefined : 'Inactive',
+					}))}
+					onAdd={() => setDialog({ kind: 'trap' })}
 					title="Traps"
-				>
-					<RecordSection
-						addLabel="Add trap"
-						disabledReason={
-							data.lookups.collectionMethods.length === 0
-								? 'Add a collection method first — a trap records against one.'
-								: undefined
-						}
-						emptyMessage="No traps yet."
-						icon={TrapIcon}
-						items={data.traps.map((trap) => ({
-							id: trap.id,
-							title: trap.trapName ?? trap.trapCode ?? 'Unnamed trap',
-							subtitle:
-								data.lookups.collectionMethods.find(
-									(method) => method.id === trap.collectionMethodId,
-								)?.name ?? 'Unknown method',
-							badge: trap.isActive ? undefined : 'Inactive',
-						}))}
-						onAdd={() => setDialog({ kind: 'trap' })}
-						title="Traps"
-					/>
-				</FoundationGroup>
+				/>
+			</FoundationGroup>
 
-				<RecordDialog
-					description={dialogDescription(dialog)}
-					onOpenChange={(open) => {
-						if (!open) {
-							setDialog(null);
-						}
-					}}
-					open={dialog !== null}
-					title={dialogTitle(dialog)}
-				>
-					{dialog === null ? null : (
-						<FoundationForm
-							availableSpecies={availableSpecies}
-							create={create}
-							dialog={dialog}
-							foundations={data}
-							onSubmit={run}
-						/>
-					)}
-				</RecordDialog>
-			</AgencySessionGate>
-		</AdminPage>
+			<RecordDialog
+				description={dialogDescription(dialog)}
+				onOpenChange={(open) => {
+					if (!open) {
+						setDialog(null);
+					}
+				}}
+				open={dialog !== null}
+				title={dialogTitle(dialog)}
+			>
+				{dialog === null ? null : (
+					<FoundationForm
+						availableSpecies={availableSpecies}
+						create={create}
+						dialog={dialog}
+						foundations={data}
+						onSubmit={run}
+					/>
+				)}
+			</RecordDialog>
+		</>
 	);
 }
 
