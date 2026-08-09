@@ -279,9 +279,26 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 				cookiePassword: config.cookiePassword,
 			});
 
-			const refreshResult = await session.refresh({
-				organizationId: input.workosOrganizationId,
-			});
+			let refreshResult: Awaited<ReturnType<typeof session.refresh>>;
+			try {
+				refreshResult = await session.refresh({
+					organizationId: input.workosOrganizationId,
+				});
+			} catch (error) {
+				// The SDK returns a refusal for exactly three OAuth errors
+				// (`invalid_grant`, `mfa_enrollment`, `sso_required`) and rethrows
+				// everything else — and "not a member of that organization", the
+				// refusal this endpoint exists to produce, is not one of the three. So
+				// the ordinary case arrived here as a throw and left as a 500, and an
+				// operator asking to enter an agency they have no membership in was
+				// told "unable to switch" rather than what was wrong.
+				const refusal = asSwitchRefusal(error);
+				if (refusal === null) {
+					throw error;
+				}
+
+				return refusal;
+			}
 
 			if (!refreshResult.authenticated) {
 				return {
@@ -1048,6 +1065,49 @@ function readErrorMessage(error: unknown): string {
 	}
 
 	return 'Password does not meet the requirements.';
+}
+
+/**
+ * Whether a thrown WorkOS error is that organization saying no.
+ *
+ * WorkOS answers a refused refresh with a 4xx, and its exceptions carry the
+ * status. Reading it is what separates "asked, and was told no" from "could not
+ * ask" — a timeout, a 5xx, or a rate limit is not a membership decision, and
+ * returning it as one would tell an operator they lack access they may well
+ * have. Those are rethrown, so they surface as the failures they are.
+ *
+ * 429 sits on the wrong side of the 4xx line for this purpose: it means ask
+ * again later, not no.
+ */
+function asSwitchRefusal(error: unknown): UnauthenticatedSession | null {
+	const status = readWorkOsErrorStatus(error);
+	if (status === null || status < 400 || status >= 500 || status === 429) {
+		return null;
+	}
+
+	return {
+		authenticated: false,
+		reason: readWorkOsErrorCode(error) ?? 'organization_switch_refused',
+	};
+}
+
+function readWorkOsErrorStatus(error: unknown): number | null {
+	if (typeof error !== 'object' || error === null || !('status' in error)) {
+		return null;
+	}
+
+	const status = (error as { readonly status: unknown }).status;
+	return typeof status === 'number' ? status : null;
+}
+
+/** `OauthException` names the reason in `error`; other exceptions do not. */
+function readWorkOsErrorCode(error: unknown): string | null {
+	if (typeof error !== 'object' || error === null || !('error' in error)) {
+		return null;
+	}
+
+	const code = (error as { readonly error: unknown }).error;
+	return typeof code === 'string' && code.trim() !== '' ? code : null;
 }
 
 function toAuthUser(user: WorkOsUserLike): AuthUser {

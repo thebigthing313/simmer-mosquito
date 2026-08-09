@@ -95,18 +95,37 @@ describe('AgencySessionGate', () => {
 	// A refusal means the operator holds no membership in the agency, which is
 	// somebody's deliberate act to fix. Reloading the session would only confirm
 	// it is still the session it was.
-	it('surfaces a refusal and does not reload the session', async () => {
+	//
+	// The words are the fix, not the code WorkOS refused with: `invalid_grant`
+	// tells an operator nothing about what to do next.
+	it('surfaces a refusal as the membership it needs, and does not reload the session', async () => {
+		authSnapshot = signedInTo(null);
+		switchOrganization.mockResolvedValue({ status: 'refused', reason: 'invalid_grant' });
+
+		renderGate();
+		screen.getByRole('button', { name: 'Enter Kern County MVCD' }).click();
+
+		await waitFor(() => {
+			expect(toastError).toHaveBeenCalledWith(
+				'You need an admin membership in Kern County MVCD before you can enter it.',
+			);
+		});
+		expect(refresh).not.toHaveBeenCalled();
+	});
+
+	// Anything that is not a refusal still says what went wrong in its own words.
+	it('passes a genuine failure through', async () => {
 		authSnapshot = signedInTo(null);
 		switchOrganization.mockResolvedValue({
-			status: 'refused',
-			reason: 'That organization is not available.',
+			status: 'error',
+			reason: 'Unable to switch organization.',
 		});
 
 		renderGate();
 		screen.getByRole('button', { name: 'Enter Kern County MVCD' }).click();
 
 		await waitFor(() => {
-			expect(toastError).toHaveBeenCalledWith('That organization is not available.');
+			expect(toastError).toHaveBeenCalledWith('Unable to switch organization.');
 		});
 		expect(refresh).not.toHaveBeenCalled();
 	});

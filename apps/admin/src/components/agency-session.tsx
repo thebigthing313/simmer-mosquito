@@ -77,7 +77,7 @@ function AgencyEntry({
 	readonly name: string;
 	readonly workosOrganizationId: string | null;
 }) {
-	const enter = useEnterAgency(workosOrganizationId);
+	const enter = useEnterAgency(workosOrganizationId, name);
 	const unlinked = workosOrganizationId === null;
 
 	return (
@@ -103,7 +103,10 @@ function AgencyEntry({
 }
 
 /** Re-seal the session against the agency, then forget everything read as who we were. */
-function useEnterAgency(workosOrganizationId: string | null): {
+function useEnterAgency(
+	workosOrganizationId: string | null,
+	name: string,
+): {
 	readonly pending: boolean;
 	readonly run: () => Promise<void>;
 } {
@@ -119,7 +122,15 @@ function useEnterAgency(workosOrganizationId: string | null): {
 		try {
 			const outcome = await switchOrganization({ organizationId: workosOrganizationId });
 			if (outcome.status !== 'switched') {
-				toast.error(outcome.reason);
+				// A refusal is not a malfunction, and the two want different words. The
+				// refusal has a fix — somebody grants the membership — and saying so is
+				// the point of the gate; the reason WorkOS returns for it is a code
+				// like `invalid_grant`, which is not that.
+				toast.error(
+					outcome.status === 'refused'
+						? `You need an admin membership in ${name} before you can enter it.`
+						: outcome.reason,
+				);
 				return;
 			}
 
