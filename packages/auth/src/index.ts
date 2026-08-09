@@ -252,6 +252,58 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 			};
 		},
 
+		/**
+		 * Re-seal the session against a different organization the user belongs to.
+		 *
+		 * Organization selection already happens at sign-in, but only there — a
+		 * session is bound to one organization for its whole life, and a user in
+		 * more than one agency could otherwise only reach the second by signing out.
+		 * WorkOS models the move as a refresh carrying an explicit organization, so
+		 * the switch costs one round-trip and yields a session indistinguishable
+		 * from one that had been signed into that organization directly.
+		 *
+		 * A refusal here is WorkOS's: the refresh fails when the user has no
+		 * membership in the organization asked for. That is the authorization, not
+		 * a check the caller is trusted to have done first.
+		 */
+		async switchOrganization(input: {
+			readonly sealedSession: string | undefined;
+			readonly workosOrganizationId: string;
+		}): Promise<SessionAuthenticationResult> {
+			if (input.sealedSession === undefined || input.sealedSession.trim() === '') {
+				return { authenticated: false, reason: 'no_session_cookie_provided' };
+			}
+
+			const session = workos.userManagement.loadSealedSession({
+				sessionData: input.sealedSession,
+				cookiePassword: config.cookiePassword,
+			});
+
+			const refreshResult = await session.refresh({
+				organizationId: input.workosOrganizationId,
+			});
+
+			if (!refreshResult.authenticated) {
+				return {
+					authenticated: false,
+					reason: refreshResult.reason ?? 'organization_switch_refused',
+				};
+			}
+
+			const switched: AuthenticatedSession = {
+				authenticated: true,
+				user: toAuthUser(refreshResult.user),
+				workosOrganizationId: refreshResult.organizationId ?? null,
+				sessionId: refreshResult.sessionId,
+				role: refreshResult.role ?? null,
+			};
+
+			// The caller has to re-set the cookie or the switch lasts one request.
+			return refreshResult.sealedSession === undefined
+				? switched
+				: { ...switched, sealedSession: refreshResult.sealedSession };
+		},
+
 		async signInWithPassword(input: PasswordSignInInput): Promise<PasswordAuthResult> {
 			try {
 				const response = await workos.userManagement.authenticateWithPassword({

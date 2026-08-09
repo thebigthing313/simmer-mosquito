@@ -9,10 +9,13 @@ import type {
 	PasswordSignUpInput,
 	ResetPasswordResult,
 	SelectOrganizationResult,
+	SessionAuthenticationResult,
 	SignUpResult,
 	VerifyEmailResult,
 } from '@simmer-mosquito/auth';
+import { WORKOS_SESSION_COOKIE_NAME } from '@simmer-mosquito/auth';
 import type { Context, Hono } from 'hono';
+import { getCookie } from 'hono/cookie';
 import type { AuthMailer } from './auth-email.js';
 import type { AuthVariables } from './auth-middleware.js';
 
@@ -44,6 +47,10 @@ export interface AuthUserFlows {
 		readonly ipAddress?: string;
 		readonly userAgent?: string;
 	}): Promise<SelectOrganizationResult>;
+	switchOrganization(input: {
+		readonly sealedSession: string | undefined;
+		readonly workosOrganizationId: string;
+	}): Promise<SessionAuthenticationResult>;
 }
 
 /**
@@ -182,6 +189,42 @@ export function registerAuthUserRoutes(
 		}
 
 		return context.json({ ok: false, status: 'invalid_selection' }, 400);
+	});
+
+	/**
+	 * Move an existing session into another organization the user belongs to.
+	 *
+	 * Unlike `/auth/select-organization`, which resolves a pending sign-in, this
+	 * takes a session that is already good and re-seals it against a different
+	 * agency (ADR 0011). It is what lets a SIMMER Operator holding an `admin`
+	 * membership do an agency's foundation work through the ordinary agency
+	 * routes instead of a second write path.
+	 *
+	 * Deliberately not behind `authContextMiddleware`: the caller may currently be
+	 * in an organization with no SIMMER identity at all, which that middleware
+	 * refuses. The sealed cookie is the credential, and the membership check is
+	 * WorkOS's — a refresh against an organization the user does not belong to
+	 * fails there, before SIMMER sees it.
+	 */
+	app.post('/auth/switch-organization', async (context) => {
+		const payload = await readSwitchOrganizationPayload(context.req);
+		if (!payload.ok) {
+			return context.json({ ok: false, status: 'invalid_payload', reason: payload.reason }, 400);
+		}
+
+		const result = await auth.switchOrganization({
+			sealedSession: getCookie(context, WORKOS_SESSION_COOKIE_NAME),
+			workosOrganizationId: payload.value.organizationId,
+		});
+
+		if (!result.authenticated) {
+			return context.json(
+				{ ok: false, status: 'organization_switch_refused', reason: result.reason },
+				403,
+			);
+		}
+
+		return respondAuthenticated(context, finalizeSession, result);
 	});
 
 	app.post('/auth/forgot-password', async (context) => {
@@ -455,6 +498,24 @@ async function readSelectOrganizationPayload(request: {
 	}
 
 	return { ok: true, value: { organizationId, pendingAuthenticationToken } };
+}
+
+async function readSwitchOrganizationPayload(request: {
+	readonly json: () => Promise<unknown>;
+}): Promise<Parsed<{ readonly organizationId: string }>> {
+	const raw = await readJsonObject(request);
+	if (!raw.ok) {
+		return raw;
+	}
+
+	// The WorkOS organization id, not the SIMMER one: this re-seals a WorkOS
+	// session, and the SIMMER organization is resolved from it afterwards.
+	const organizationId = readNonEmptyString(raw.value.organizationId);
+	if (organizationId === null) {
+		return { ok: false, reason: 'organizationId is required.' };
+	}
+
+	return { ok: true, value: { organizationId } };
 }
 
 async function readResetPasswordPayload(request: {

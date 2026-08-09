@@ -38,6 +38,7 @@ function createApp(overrides: Partial<AuthUserFlows> = {}, mailer?: AuthMailer) 
 			status: 'authenticated' as const,
 			session,
 		})),
+		switchOrganization: vi.fn(async () => session),
 		...overrides,
 	};
 
@@ -334,5 +335,61 @@ describe('registerAuthUserRoutes', () => {
 			expect.objectContaining({ organizationId: 'org_b', pendingAuthenticationToken: 'pat_org' }),
 		);
 		expect(finalizeSession).toHaveBeenCalledWith(expect.anything(), session);
+	});
+
+	// ADR 0011: how a SIMMER Operator holding an agency membership comes to hold
+	// an ordinary agency session, so their foundation writes go through the same
+	// routes and the same domain builders an agency member's do.
+	it('re-seals the session against another organization and finalizes it', async () => {
+		const switchOrganization = vi.fn(async () => session);
+		const { app, finalizeSession } = createApp({ switchOrganization });
+
+		const response = await app.request('/auth/switch-organization', {
+			method: 'POST',
+			body: JSON.stringify({ organizationId: 'workos_org_2' }),
+			headers: { 'content-type': 'application/json', cookie: 'wos-session=sealed-cookie' },
+		});
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ ok: true, organizationRequired: false });
+		expect(switchOrganization).toHaveBeenCalledWith({
+			sealedSession: 'sealed-cookie',
+			workosOrganizationId: 'workos_org_2',
+		});
+		// Without this the switch would last exactly one request: the cookie is
+		// re-set here and nowhere else.
+		expect(finalizeSession).toHaveBeenCalledWith(expect.anything(), session);
+	});
+
+	it('refuses a switch into an organization the session cannot reach', async () => {
+		// WorkOS refuses the refresh when the user has no membership there. That
+		// refusal is the authorization — the rule ADR 0011 turns on is enforced
+		// before SIMMER sees the request, not by a check here.
+		const switchOrganization = vi.fn(async () => ({
+			authenticated: false as const,
+			reason: 'organization_not_authorized',
+		}));
+		const { app, finalizeSession } = createApp({ switchOrganization });
+
+		const response = await postJson(app, '/auth/switch-organization', {
+			organizationId: 'workos_org_someone_elses',
+		});
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toEqual({
+			ok: false,
+			status: 'organization_switch_refused',
+			reason: 'organization_not_authorized',
+		});
+		expect(finalizeSession).not.toHaveBeenCalled();
+	});
+
+	it('rejects a switch with no organization to switch to', async () => {
+		const { app, auth } = createApp();
+
+		const response = await postJson(app, '/auth/switch-organization', {});
+
+		expect(response.status).toBe(400);
+		expect(auth.switchOrganization).not.toHaveBeenCalled();
 	});
 });
