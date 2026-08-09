@@ -300,25 +300,7 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 				return refusal;
 			}
 
-			if (!refreshResult.authenticated) {
-				return {
-					authenticated: false,
-					reason: refreshResult.reason ?? 'organization_switch_refused',
-				};
-			}
-
-			const switched: AuthenticatedSession = {
-				authenticated: true,
-				user: toAuthUser(refreshResult.user),
-				workosOrganizationId: refreshResult.organizationId ?? null,
-				sessionId: refreshResult.sessionId,
-				role: refreshResult.role ?? null,
-			};
-
-			// The caller has to re-set the cookie or the switch lasts one request.
-			return refreshResult.sealedSession === undefined
-				? switched
-				: { ...switched, sealedSession: refreshResult.sealedSession };
+			return toSwitchedSession(refreshResult);
 		},
 
 		async signInWithPassword(input: PasswordSignInInput): Promise<PasswordAuthResult> {
@@ -1068,46 +1050,59 @@ function readErrorMessage(error: unknown): string {
 }
 
 /**
+ * A completed refresh, read as a session.
+ *
+ * The sealed cookie is the part that matters: the caller has to re-set it or
+ * the switch lasts exactly one request.
+ */
+function toSwitchedSession(
+	refreshResult: Awaited<
+		ReturnType<ReturnType<WorkOS['userManagement']['loadSealedSession']>['refresh']>
+	>,
+): SessionAuthenticationResult {
+	if (!refreshResult.authenticated) {
+		return {
+			authenticated: false,
+			reason: refreshResult.reason ?? 'organization_switch_refused',
+		};
+	}
+
+	const switched: AuthenticatedSession = {
+		authenticated: true,
+		user: toAuthUser(refreshResult.user),
+		workosOrganizationId: refreshResult.organizationId ?? null,
+		sessionId: refreshResult.sessionId,
+		role: refreshResult.role ?? null,
+	};
+
+	return refreshResult.sealedSession === undefined
+		? switched
+		: { ...switched, sealedSession: refreshResult.sealedSession };
+}
+
+/**
  * Whether a thrown WorkOS error is that organization saying no.
  *
  * WorkOS answers a refused refresh with a 4xx, and its exceptions carry the
- * status. Reading it is what separates "asked, and was told no" from "could not
- * ask" — a timeout, a 5xx, or a rate limit is not a membership decision, and
- * returning it as one would tell an operator they lack access they may well
- * have. Those are rethrown, so they surface as the failures they are.
- *
- * 429 sits on the wrong side of the 4xx line for this purpose: it means ask
- * again later, not no.
+ * status — `OauthException` also names the reason in `error`. Reading the
+ * status is what separates "asked, and was told no" from "could not ask": a
+ * timeout, a 5xx, or a rate limit is not a membership decision, and returning
+ * one as a refusal would tell an operator they lack access they may well have.
+ * Those are rethrown, so they surface as the failures they are. 429 sits on the
+ * wrong side of the line for this purpose — it means ask again, not no.
  */
 function asSwitchRefusal(error: unknown): UnauthenticatedSession | null {
-	const status = readWorkOsErrorStatus(error);
-	if (status === null || status < 400 || status >= 500 || status === 429) {
+	const failure = error as { readonly status?: unknown; readonly error?: unknown } | null;
+	const status = typeof failure?.status === 'number' ? failure.status : 0;
+	if (status < 400 || status >= 500 || status === 429) {
 		return null;
 	}
 
+	const code = failure?.error;
 	return {
 		authenticated: false,
-		reason: readWorkOsErrorCode(error) ?? 'organization_switch_refused',
+		reason: typeof code === 'string' && code.trim() !== '' ? code : 'organization_switch_refused',
 	};
-}
-
-function readWorkOsErrorStatus(error: unknown): number | null {
-	if (typeof error !== 'object' || error === null || !('status' in error)) {
-		return null;
-	}
-
-	const status = (error as { readonly status: unknown }).status;
-	return typeof status === 'number' ? status : null;
-}
-
-/** `OauthException` names the reason in `error`; other exceptions do not. */
-function readWorkOsErrorCode(error: unknown): string | null {
-	if (typeof error !== 'object' || error === null || !('error' in error)) {
-		return null;
-	}
-
-	const code = (error as { readonly error: unknown }).error;
-	return typeof code === 'string' && code.trim() !== '' ? code : null;
 }
 
 function toAuthUser(user: WorkOsUserLike): AuthUser {
