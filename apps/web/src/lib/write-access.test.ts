@@ -4,6 +4,7 @@ import {
 	canManageCatalogs,
 	canManageOperationalCatalogs,
 	canPlanWork,
+	canRemoveMember,
 	canWriteRecords,
 	hasAtLeastRole,
 	isBelowRole,
@@ -160,5 +161,35 @@ describe('isWriteBlocked', () => {
 	it('blocks a viewer', async () => {
 		const context = { auth: { load: () => Promise.resolve(authWithRole('viewer')) } };
 		expect(await isWriteBlocked(context)).toBe(true);
+	});
+});
+
+describe('canRemoveMember', () => {
+	const other = { id: 'membership_2', role: 'manager' } as const;
+
+	it('is the people floor, not the role floor', () => {
+		expect(canRemoveMember(authWithRole('admin'), other)).toBe(true);
+		expect(canRemoveMember(authWithRole('manager'), other)).toBe(false);
+		expect(canRemoveMember(authWithRole('viewer'), other)).toBe(false);
+	});
+
+	// The bound the server applies too: "admins may remove" without it would be
+	// "admins may remove every owner", and an agency with no owner cannot
+	// appoint one.
+	it('does not offer removing somebody above your own role', () => {
+		expect(canRemoveMember(authWithRole('admin'), { id: 'membership_2', role: 'owner' })).toBe(
+			false,
+		);
+		expect(canRemoveMember(authWithRole('owner'), { id: 'membership_2', role: 'owner' })).toBe(
+			true,
+		);
+	});
+
+	// `authWithRole` is membership_1. Leaving is a different act with a different
+	// confirmation, and this control is not it.
+	it('never offers removing yourself', () => {
+		expect(canRemoveMember(authWithRole('owner'), { id: 'membership_1', role: 'owner' })).toBe(
+			false,
+		);
 	});
 });

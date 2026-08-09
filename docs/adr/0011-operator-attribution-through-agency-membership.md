@@ -99,14 +99,45 @@ memberships come from, including the operator's own.
 
 ### Offboarding
 
-A membership granted for a support engagement is removed, or set `inactive`,
-when the engagement ends. Nothing does this today because no such memberships
-exist today; the lifecycle has to exist before the first one is granted, or they
-accumulate silently and invisibly.
+A membership granted for a support engagement ends when the engagement ends. The
+lifecycle had to exist before the first one was granted, or they would
+accumulate silently and invisibly (#129).
+
+Building it found that nothing in SIMMER ended a membership of *any* kind: no
+writer set `inactive`, no delete existed, and the "the agency can already remove
+them" this ADR relied on was not true. So the lifecycle below is the whole of
+it, for operators and ordinary members alike.
+
+**The agency ends it.** An owner or admin removes the member from their own
+people list — the same place they invited them from. Not a SIMMER-side "leave
+agency" action and not an expiry: the agency is who knows the engagement is
+over, and it is their people list the membership is cluttering. An expiry
+default remains worth having and needs a scheduler this workspace does not have.
+
+**Deactivated, in both systems.** The SIMMER membership goes to `inactive` and
+the WorkOS organization membership is deactivated with it. WorkOS is what
+actually revokes reach — a session is refreshed against a WorkOS membership, so
+a SIMMER row alone stops nothing — and it goes first, because ending the SIMMER
+row and then failing would leave somebody who reads as removed and can still
+sign in. Keeping both rows keeps the record that access was held, which is the
+only place that history lives.
+
+**The floor is the people floor, with the invitation's bound.** Removal is
+onboarding in reverse, so an admin may do it; nobody may remove above their own
+role, or "admins may remove" would be "admins may remove every owner". Two
+further refusals: nobody removes themselves, and the last active owner stays —
+an agency with no active owner cannot hand out a role or invite a replacement.
 
 Attribution survives offboarding: `created_by_profile_id` points at the profile,
 which is not deleted with the membership. A row bootstrapped by an operator who
-has since left still names them.
+has since left still names them. The profile also stays assignable as field
+history; what ends is the login's reach, not the person.
+
+One defect came with this. Sign-in provisioning reused any existing membership
+and set it back to `active` with its old role, so a removal would have lasted
+exactly until the next sign-in. `resolveMembershipProvisioning` now answers
+`revoked` and the caller returns the same no-organization identity a user who
+was never a member gets.
 
 ## Consequences
 

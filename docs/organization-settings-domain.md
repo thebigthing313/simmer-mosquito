@@ -153,6 +153,18 @@ This was undocumented until #121 — the server enforced owner-only for all five
 people endpoints while no domain doc said so, and `roles.ts` simultaneously
 claimed nothing was owner-only.
 
+**Removing somebody** — ending their access to the agency — is **owner/admin**
+with the invitation's bound: nobody removes above their own role. Removal is
+onboarding in reverse, so it sits on the same floor as inviting; without the
+bound, "admins may remove" would be "admins may remove every owner", and an
+agency with no owner cannot appoint one. Two further refusals: nobody removes
+themselves, and the last active owner stays.
+
+The membership is deactivated rather than deleted, in SIMMER and in WorkOS
+alike, and the profile is untouched — it stays assignable as field history and
+goes on naming whoever recorded the work. Reinstating somebody is a new
+invitation. ADR 0011 has the reasoning; #129 built it.
+
 ## Merge Behavior
 
 Settings commands carry only the specific setting being changed. The server

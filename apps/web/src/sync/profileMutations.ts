@@ -94,6 +94,34 @@ export async function updateOrganizationMembershipRole(
 	return result.membership;
 }
 
+/**
+ * End somebody's access to this organization (ADR 0011's offboarding lifecycle).
+ *
+ * Not a collection mutation: the server has two systems to settle — the WorkOS
+ * grant and the SIMMER row — and the membership sync stream reflects the result
+ * once it has. An optimistic local edit would be guessing at the half it cannot
+ * see.
+ */
+export async function removeOrganizationMembership(
+	serverUrl: string,
+	membershipId: string,
+): Promise<AdminMembership> {
+	const response = await fetch(`${serverUrl}/organization/memberships/${membershipId}`, {
+		method: 'DELETE',
+		credentials: 'include',
+		headers: { accept: 'application/json' },
+	});
+	const result = (await readResponseBody(response)) as
+		| { readonly membership: AdminMembership; readonly txid: number }
+		| { readonly error: string; readonly reason?: string; readonly message?: string };
+
+	if (!response.ok || !('membership' in result)) {
+		throw commandErrorFrom(response, result, 'Unable to remove this member.');
+	}
+
+	return result.membership;
+}
+
 interface CollectionMutationHandlerInput<TRow> {
 	readonly transaction: {
 		readonly mutations: readonly {

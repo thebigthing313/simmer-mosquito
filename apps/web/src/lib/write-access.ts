@@ -128,6 +128,34 @@ export function grantableRoles(auth: AuthMe | null): readonly OrgRole[] {
 	return ORG_ROLE_ORDER.filter((role) => ROLE_RANK[role] <= rank);
 }
 
+/**
+ * Whether this membership may end somebody else's access.
+ *
+ * The people floor, plus the invitation's bound: nobody removes above their own
+ * rung, or "admins may remove" would be "admins may remove every owner". The
+ * server refuses both halves (`profile-commands.ts`); this keeps the control off
+ * a row it would 403 on.
+ *
+ * Self-removal is refused server-side too, and hidden here for the same reason
+ * — leaving is a different act, and this control is not it.
+ */
+export function canRemoveMember(auth: AuthMe | null, membership: MembershipTarget): boolean {
+	if (!canManagePeople(auth) || membership.id === readMembershipId(auth)) {
+		return false;
+	}
+
+	return ROLE_RANK[readOrgRole(auth)] >= ROLE_RANK[membership.role];
+}
+
+interface MembershipTarget {
+	readonly id: string;
+	readonly role: OrgRole;
+}
+
+function readMembershipId(auth: AuthMe | null): string | null {
+	return auth?.authenticated === true ? auth.localIdentity.membershipId : null;
+}
+
 const ORG_ROLE_ORDER: readonly OrgRole[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
 
 /**

@@ -1,4 +1,14 @@
 import type { MembershipRow, OrganizationRow, ProfileRow } from '@simmer-mosquito/sync';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -26,12 +36,13 @@ import { type Collection, eq, isNull, not, useLiveSuspenseQuery } from '@tanstac
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { type AuthMe, getServerUrl } from '../../../auth';
-import { canManageRoles, grantableRoles } from '../../../lib/write-access';
+import { canManageRoles, canRemoveMember, grantableRoles } from '../../../lib/write-access';
 import {
 	inviteOrganizationProfile,
+	removeOrganizationMembership,
 	updateOrganizationMembershipRole,
 } from '../../../sync/profileMutations';
-import { AddIcon, CloseIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
+import { AddIcon, CloseIcon, DeleteIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
 import {
 	createHistoricalProfile,
 	errorMessageForSave,
@@ -126,6 +137,7 @@ export function PeopleSection({
 						</Badge>
 					</article>
 					<ProfileGroup
+						auth={auth}
 						canEditRole={canEditRole}
 						canManage={canManage}
 						emptyLabel="No active linked profiles"
@@ -133,6 +145,7 @@ export function PeopleSection({
 						title="Active Linked Profiles"
 					/>
 					<ProfileGroup
+						auth={auth}
 						canEditRole={canEditRole}
 						canManage={canManage}
 						emptyLabel="No inactive linked profiles"
@@ -140,6 +153,7 @@ export function PeopleSection({
 						title="Inactive Linked Profiles"
 					/>
 					<ProfileGroup
+						auth={auth}
 						canEditRole={canEditRole}
 						canManage={canManage}
 						emptyLabel="No historical profiles"
@@ -219,12 +233,14 @@ function useProfileMembershipRows(
 }
 
 function ProfileGroup({
+	auth,
 	canEditRole,
 	canManage,
 	emptyLabel,
 	rows,
 	title,
 }: {
+	readonly auth: AuthMe | null;
 	readonly canEditRole: boolean;
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
@@ -247,6 +263,7 @@ function ProfileGroup({
 				<div className="grid gap-2">
 					{rows.map(({ membership, profile }) => (
 						<ProfileRowItem
+							auth={auth}
 							canEditRole={canEditRole}
 							canManage={canManage}
 							key={profile.id}
@@ -261,11 +278,13 @@ function ProfileGroup({
 }
 
 function ProfileRowItem({
+	auth,
 	canEditRole,
 	canManage,
 	membership,
 	profile,
 }: {
+	readonly auth: AuthMe | null;
 	readonly canEditRole: boolean;
 	readonly canManage: boolean;
 	readonly membership: MembershipRow | null;
@@ -295,7 +314,12 @@ function ProfileRowItem({
 				</p>
 			</div>
 			{canManage ? (
-				<EditProfileSheet canEditRole={canEditRole} membership={membership} profile={profile} />
+				<EditProfileSheet
+					auth={auth}
+					canEditRole={canEditRole}
+					membership={membership}
+					profile={profile}
+				/>
 			) : null}
 		</article>
 	);
@@ -515,10 +539,12 @@ function InviteProfileSheet({
 }
 
 function EditProfileSheet({
+	auth,
 	canEditRole,
 	membership,
 	profile,
 }: {
+	readonly auth: AuthMe | null;
 	readonly canEditRole: boolean;
 	readonly membership: MembershipRow | null;
 	readonly profile: ProfileRow;
@@ -587,25 +613,11 @@ function EditProfileSheet({
 								{profile.userId === null ? 'Historical profile' : 'Linked profile'}
 							</Badge>
 						</div>
-						{membership === null || !canEditRole ? null : (
-							<Field className="gap-1">
-								<FieldLabel>Role</FieldLabel>
-								<Select value={role} onValueChange={(value) => setRole(value as OrgRole)}>
-									<SelectTrigger size="sm" className="w-full">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											{ORG_ROLE_OPTIONS.map((option) => (
-												<SelectItem key={option} value={option}>
-													{formatRole(option)}
-												</SelectItem>
-											))}
-										</SelectGroup>
-									</SelectContent>
-								</Select>
-							</Field>
-						)}
+						<RoleField
+							editable={membership !== null && canEditRole}
+							onChange={setRole}
+							value={role}
+						/>
 						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 font-medium text-sm">
 							<span>Active</span>
 							<Switch checked={isActive} onCheckedChange={setIsActive} />
@@ -627,7 +639,140 @@ function EditProfileSheet({
 						</SheetClose>
 					</SheetFooter>
 				</form>
+				<RemoveMemberControl
+					auth={auth}
+					membership={membership}
+					name={profile.displayName}
+					onRemoved={() => setOpen(false)}
+				/>
 			</SheetContent>
 		</Sheet>
+	);
+}
+
+/** The role picker, shown only to somebody who may actually set one. */
+function RoleField({
+	editable,
+	onChange,
+	value,
+}: {
+	readonly editable: boolean;
+	readonly onChange: (role: OrgRole) => void;
+	readonly value: OrgRole;
+}) {
+	if (!editable) {
+		return null;
+	}
+
+	return (
+		<Field className="gap-1">
+			<FieldLabel>Role</FieldLabel>
+			<Select value={value} onValueChange={(next) => onChange(next as OrgRole)}>
+				<SelectTrigger size="sm" className="w-full">
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
+					<SelectGroup>
+						{ORG_ROLE_OPTIONS.map((option) => (
+							<SelectItem key={option} value={option}>
+								{formatRole(option)}
+							</SelectItem>
+						))}
+					</SelectGroup>
+				</SelectContent>
+			</Select>
+		</Field>
+	);
+}
+
+/**
+ * Ending somebody's access (ADR 0011).
+ *
+ * Below the form rather than in it: saving a display name and revoking a login
+ * are not the same act, and one submit button for both would make the second
+ * one an accident waiting to happen.
+ *
+ * The profile is deliberately left alone. It is what every record this person
+ * created still points at, and it goes on being assignable field history — what
+ * ends is the login's reach into this agency, not the person.
+ */
+function RemoveMemberControl({
+	auth,
+	membership,
+	name,
+	onRemoved,
+}: {
+	readonly auth: AuthMe | null;
+	readonly membership: MembershipRow | null;
+	readonly name: string;
+	readonly onRemoved: () => void;
+}) {
+	if (membership === null || !canRemoveMember(auth, membership)) {
+		return null;
+	}
+
+	return <RemoveMemberAction membership={membership} name={name} onRemoved={onRemoved} />;
+}
+
+function RemoveMemberAction({
+	membership,
+	name,
+	onRemoved,
+}: {
+	readonly membership: MembershipRow;
+	readonly name: string;
+	readonly onRemoved: () => void;
+}) {
+	const [confirmOpen, setConfirmOpen] = useState(false);
+	const [isRemoving, setIsRemoving] = useState(false);
+
+	async function confirm() {
+		setConfirmOpen(false);
+		setIsRemoving(true);
+		try {
+			await removeOrganizationMembership(getServerUrl(), membership.id);
+			toast.success(`${name} no longer has access.`);
+			onRemoved();
+		} catch (removeError) {
+			toast.error(errorMessageForSave(removeError));
+		} finally {
+			setIsRemoving(false);
+		}
+	}
+
+	return (
+		<div className="grid gap-1.5 border-border/50 border-t px-4 pt-3">
+			<span className="text-muted-foreground text-xs">
+				Removing {name} ends their access to this organization. Their profile and everything
+				recorded under it stay.
+			</span>
+			<div>
+				<Button
+					disabled={isRemoving}
+					onClick={() => setConfirmOpen(true)}
+					size="xs"
+					type="button"
+					variant="destructive"
+				>
+					<DeleteIcon aria-hidden="true" />
+					Remove Access
+				</Button>
+			</div>
+			<AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Remove {name}'s access?</AlertDialogTitle>
+						<AlertDialogDescription>
+							They will not be able to sign in to this organization. Their profile, and every record
+							attributed to it, stay as they are. Reinstating them means a new invitation.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={confirm}>Remove Access</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</div>
 	);
 }

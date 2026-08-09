@@ -1,8 +1,11 @@
 import {
 	assertOrganizationProfileCanBeInvited,
 	createHistoricalProfileWithTxid,
+	deactivateOrganizationMembershipWithTxid,
 	listOrganizationMemberships,
+	type MembershipRemovalIssue,
 	type MutationWriteResult,
+	readMembershipRemovalTarget,
 	type SafeOrganizationMembership,
 	type SafeProfile,
 	type SimmerRole,
@@ -10,6 +13,7 @@ import {
 	stageOrganizationInvitation,
 	updateOrganizationMembershipRoleWithTxid,
 	updateProfileWithTxid,
+	validateMembershipRemoval,
 } from '@simmer-mosquito/db';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
@@ -28,6 +32,10 @@ export interface ProfileInvitationAuth {
 		readonly id: string;
 		readonly email: string;
 	}>;
+	deactivateOrganizationMembership(input: {
+		readonly workosUserId: string;
+		readonly workosOrganizationId: string;
+	}): Promise<{ readonly status: 'deactivated' | 'not_a_member' }>;
 }
 
 export function registerProfileCommandRoutes(
@@ -128,6 +136,73 @@ export function registerProfileCommandRoutes(
 		},
 	);
 
+	/**
+	 * End somebody's access to this agency (ADR 0011's offboarding lifecycle).
+	 *
+	 * `DELETE` because "remove this person from the agency" is what the caller
+	 * means; the row surviving as `inactive` is how that is stored, the same way
+	 * every other delete in this API is a soft one.
+	 *
+	 * Two systems, in this order. WorkOS holds the grant a session is refreshed
+	 * against, so it goes first — ending the SIMMER row and then failing would
+	 * leave somebody who reads as removed and can still sign in. WorkOS answering
+	 * `not_a_member` is not a failure: the two can already disagree, and this is
+	 * how they are brought back together.
+	 */
+	app.delete(
+		'/organization/memberships/:membershipId',
+		options.authContextMiddleware,
+		async (context) => {
+			const authContext = context.get('authContext');
+			const refusal = requirePeopleManager(context, authContext);
+			if (refusal !== null) {
+				return refusal;
+			}
+
+			const membershipId = context.req.param('membershipId');
+			const target = await readMembershipRemovalTarget(options.db, {
+				id: membershipId,
+				organizationId: authContext.organization.id,
+			});
+
+			// The same bound as an invitation, for the same reason: an admin who
+			// could remove an owner could remove every owner, and an agency with no
+			// owner cannot appoint one.
+			if (target.membership !== null && !canGrantRole(authContext.role, target.membership.role)) {
+				return context.json(forbidden('You cannot remove somebody above your own role.'), 403);
+			}
+
+			const issue = validateMembershipRemoval({
+				membership: target.membership,
+				isSelf: membershipId === authContext.membership.id,
+				activeOwnerCount: target.activeOwnerCount,
+			});
+			if (issue !== null) {
+				return context.json({ error: issue, reason: removalReason(issue) }, removalStatus(issue));
+			}
+
+			// A membership still at `invited` has no user behind it yet, in either
+			// system; there is nothing in WorkOS to end.
+			const workosUserId = target.membership?.workosUserId ?? null;
+			if (workosUserId !== null) {
+				await options.auth.deactivateOrganizationMembership({
+					workosUserId,
+					workosOrganizationId: authContext.organization.workosOrganizationId,
+				});
+			}
+
+			const result = await deactivateOrganizationMembershipWithTxid(options.db, {
+				id: membershipId,
+				organizationId: authContext.organization.id,
+			});
+			if (result.row === null) {
+				return context.json({ error: 'membership_not_found' }, 404);
+			}
+
+			return context.json({ membership: toMembershipResponse(result.row), txid: result.txid });
+		},
+	);
+
 	app.post('/organization/invitations', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
 		const refusal = requirePeopleManager(context, authContext);
@@ -202,6 +277,21 @@ function requirePeopleManager(
 	return hasAtLeastRole(authContext.role, 'admin')
 		? null
 		: context.json(forbidden('Only organization owners and admins can manage people.'), 403);
+}
+
+function removalStatus(issue: MembershipRemovalIssue): 404 | 409 {
+	return issue === 'membership_not_found' ? 404 : 409;
+}
+
+function removalReason(issue: MembershipRemovalIssue): string {
+	switch (issue) {
+		case 'membership_not_found':
+			return 'That membership is not in this organization.';
+		case 'membership_is_self':
+			return 'You cannot remove your own access.';
+		case 'last_active_owner':
+			return 'An organization needs at least one active owner.';
+	}
 }
 
 /** The role floor: owner, because a settable role is a self-promotable one. */

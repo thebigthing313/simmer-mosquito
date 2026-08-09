@@ -641,6 +641,41 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 			};
 		},
 
+		/**
+		 * End a user's membership in a WorkOS organization.
+		 *
+		 * The other half of ending a SIMMER membership, and the half that actually
+		 * revokes anything: identity lives in WorkOS, so a session can still be
+		 * refreshed into an organization the SIMMER row has marked `inactive`
+		 * (`switchOrganization` above is exactly that refresh). Deactivated rather
+		 * than deleted, to mirror what SIMMER does with its own row — the grant
+		 * stops working, the record that it existed does not disappear, and
+		 * reinstating somebody is a reactivation rather than a re-invitation.
+		 *
+		 * `not_a_member` is not a failure. The two systems can already disagree —
+		 * a membership removed in the WorkOS dashboard leaves the SIMMER row
+		 * standing — and running this against that state is how they are brought
+		 * back together.
+		 */
+		async deactivateOrganizationMembership(input: {
+			readonly workosUserId: string;
+			readonly workosOrganizationId: string;
+		}): Promise<{ readonly status: 'deactivated' | 'not_a_member' }> {
+			const memberships = await workos.userManagement.listOrganizationMemberships({
+				userId: input.workosUserId,
+				organizationId: input.workosOrganizationId,
+				limit: 1,
+			});
+
+			const membership = memberships.data[0];
+			if (membership === undefined) {
+				return { status: 'not_a_member' };
+			}
+
+			await workos.userManagement.deactivateOrganizationMembership(membership.id);
+			return { status: 'deactivated' };
+		},
+
 		async sendOrganizationInvitation(input: {
 			readonly email: string;
 			readonly workosOrganizationId: string;

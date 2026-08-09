@@ -142,6 +142,57 @@ describe('people', () => {
 		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
 	});
 
+	// ADR 0011's offboarding lifecycle. Removal sits on the people floor rather
+	// than the role floor — an office manager offboards a seasonal crew member —
+	// but it carries the invitation's bound, so the floor alone is not the whole
+	// rule.
+	it.each([
+		'manager',
+		'collector',
+		'viewer',
+	] as const)('refuses a %s removing a member', async (role) => {
+		const response = await remove(role, `/organization/memberships/${membershipId}`);
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
+	});
+
+	it('admits an admin removing a member', async () => {
+		const response = await remove('admin', `/organization/memberships/${membershipId}`);
+
+		expect(response.status).toBe(500);
+	});
+
+	// Without the bound, "admins may remove" is "admins may remove every owner",
+	// and an agency with no owner cannot appoint one.
+	it('refuses an admin removing an owner', async () => {
+		const response = await remove(
+			'admin',
+			`/organization/memberships/${membershipId}`,
+			membershipDb({ role: 'owner', status: 'active' }),
+		);
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toMatchObject({
+			error: 'forbidden',
+			reason: 'You cannot remove somebody above your own role.',
+		});
+	});
+
+	// The membership the request carries is the actor's own, so this is the
+	// self-removal refusal — asserted here because only the route knows which
+	// membership is the caller's.
+	it('refuses removing your own membership', async () => {
+		const response = await remove(
+			'owner',
+			`/organization/memberships/${ACTOR_MEMBERSHIP_ID}`,
+			membershipDb({ role: 'owner', status: 'active' }),
+		);
+
+		expect(response.status).toBe(409);
+		await expect(response.json()).resolves.toMatchObject({ error: 'membership_is_self' });
+	});
+
 	// The escalation the two floors exist to close: refused at the role endpoint,
 	// an admin must not reach the same place by inviting an owner instead.
 	it('refuses an admin inviting an owner', async () => {
@@ -159,7 +210,7 @@ describe('people', () => {
 	});
 });
 
-function createApp(role: SimmerRole): Hono<{ Variables: AuthVariables }> {
+function createApp(role: SimmerRole, db: unknown = unusableDb): Hono<{ Variables: AuthVariables }> {
 	const app = new Hono<{ Variables: AuthVariables }>();
 	const authContextMiddleware = createMiddleware<{ Variables: AuthVariables }>(
 		async (context, next) => {
@@ -174,12 +225,16 @@ function createApp(role: SimmerRole): Hono<{ Variables: AuthVariables }> {
 		authContextMiddleware,
 	});
 	registerProfileCommandRoutes(app, {
-		db: unusableDb as never,
+		db: db as never,
 		auth: unusableAuth as never,
 		authContextMiddleware,
 	});
 
 	return app;
+}
+
+async function remove(role: SimmerRole, path: string, db?: unknown): Promise<Response> {
+	return createApp(role, db ?? unusableDb).request(path, { method: 'DELETE' });
 }
 
 async function patch(role: SimmerRole, path: string, body: unknown): Promise<Response> {
@@ -204,12 +259,56 @@ const unusableDb = {
 	},
 };
 
-/** Sending an invitation is a side effect on WorkOS; a refusal must not reach it. */
+/** Invitations and removals are side effects on WorkOS; a refusal must not reach either. */
 const unusableAuth = {
 	sendOrganizationInvitation: () => {
 		throw new Error('WorkOS must not be reached for an unauthorized invitation.');
 	},
+	deactivateOrganizationMembership: () => {
+		throw new Error('WorkOS must not be reached for an unauthorized removal.');
+	},
 };
+
+/**
+ * A database that answers `readMembershipRemovalTarget` and nothing else.
+ *
+ * The rank bound on removal is the one refusal that cannot be reached with
+ * `unusableDb`: it needs to know the target's role, which is a read. Every
+ * builder method returns the same object, so the two queries differ only in how
+ * they finish — `executeTakeFirst` for the membership, `executeTakeFirstOrThrow`
+ * for the active-owner count.
+ */
+function membershipDb(target: { readonly role: SimmerRole; readonly status: string }) {
+	const builder: Record<string, unknown> = new Proxy(
+		{},
+		{
+			get(_unused, property) {
+				if (property === 'executeTakeFirst') {
+					return async () => ({
+						id: 'b2e1d3c4-5f6a-4b7c-8d9e-0f1a2b3c4d5e',
+						role: target.role,
+						status: target.status,
+						user_id: null,
+						workos_user_id: null,
+					});
+				}
+				if (property === 'executeTakeFirstOrThrow') {
+					return async () => ({ count: 2 });
+				}
+				return () => builder;
+			},
+		},
+	);
+
+	return {
+		selectFrom: () => builder,
+		transaction: () => {
+			throw new Error('The database must not be written to for a refused removal.');
+		},
+	};
+}
+
+const ACTOR_MEMBERSHIP_ID = 'c3d2e1f0-6a5b-4c7d-8e9f-1a2b3c4d5e6f';
 
 function authContextFor(role: SimmerRole): AuthContext {
 	return {
@@ -218,6 +317,7 @@ function authContextFor(role: SimmerRole): AuthContext {
 			workosOrganizationId: 'org_test',
 		},
 		profile: { id: '0105b111-e0be-46b0-b5e9-a87507889b51' },
+		membership: { id: ACTOR_MEMBERSHIP_ID },
 		workosUser: { workosUserId: 'user_test' },
 		role,
 	} as AuthContext;

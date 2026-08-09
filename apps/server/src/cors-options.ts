@@ -57,7 +57,9 @@ export const CORS_SURFACES: readonly CorsSurface[] = [
 	{ prefix: '/control-operations/*', methods: WRITE_METHODS },
 	{ prefix: '/field-work/*', methods: WRITE_METHODS },
 	{ prefix: '/mission-dispatch/*', methods: WRITE_METHODS },
-	{ prefix: '/organization/*', methods: ['POST', 'PATCH', 'OPTIONS'] },
+	// DELETE joined when a membership became endable (ADR 0011's offboarding
+	// lifecycle); it is the only delete under this prefix.
+	{ prefix: '/organization/*', methods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'] },
 ];
 
 /**
