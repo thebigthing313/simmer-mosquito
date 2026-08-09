@@ -48,14 +48,31 @@ function load(): Promise<AuthMe> {
 
 async function refresh(): Promise<AuthMe> {
 	try {
-		const nextSnapshot = await getAuthMe().catch(
-			(error): AuthMe => ({
+		const answer = await getAuthMe();
+		snapshot = answer;
+		return answer;
+	} catch (error) {
+		/*
+		 * Could not ask, which is not the same as being told no.
+		 *
+		 * `getAuthMe` already draws that line — a 401 carries
+		 * `authenticated: false` and is returned, and only an unreadable response
+		 * throws — so reaching here means the round trip broke, not that the
+		 * session did. Caching a refusal for it *latched*: `load()` short-circuits
+		 * on any non-null snapshot, so one failed request signed the user out for
+		 * the life of the page while every later `/auth/me` answered 200 and went
+		 * unread.
+		 *
+		 * So leave the snapshot alone. A known session survives a blip and the
+		 * next guard retries; with nothing known yet, answer "no" for this caller
+		 * without recording it.
+		 */
+		return (
+			snapshot ?? {
 				authenticated: false,
 				reason: error instanceof Error ? error.message : 'Unable to load auth state.',
-			}),
+			}
 		);
-		snapshot = nextSnapshot;
-		return nextSnapshot;
 	} finally {
 		pending = null;
 		emit();
