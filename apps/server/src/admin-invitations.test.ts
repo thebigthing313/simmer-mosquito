@@ -36,6 +36,25 @@ const operatorUser: AuthUser = {
 	profilePictureUrl: null,
 };
 
+const invitedMembership = {
+	id: 'membership-1',
+	organizationId: 'org-1',
+	userId: null,
+	profileId: 'profile-existing',
+	role: 'manager',
+	status: 'invited',
+	isDefault: false,
+	invitedEmail: 'casey@example.test',
+	workosInvitationId: 'inv_1',
+	profile: {
+		displayName: 'Casey Historical',
+		email: 'casey@example.test',
+		isActive: true,
+	},
+	createdAt: new Date('2026-05-01T00:00:00.000Z'),
+	updatedAt: new Date('2026-05-01T00:00:00.000Z'),
+};
+
 describe('registerAdminInvitationRoutes', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -65,24 +84,7 @@ describe('registerAdminInvitationRoutes', () => {
 			createdAt: new Date('2026-05-01T00:00:00.000Z'),
 			updatedAt: new Date('2026-05-01T00:00:00.000Z'),
 		});
-		dbMock.stageOrganizationInvitation.mockResolvedValue({
-			id: 'membership-1',
-			organizationId: 'org-1',
-			userId: null,
-			profileId: 'profile-existing',
-			role: 'manager',
-			status: 'invited',
-			isDefault: false,
-			invitedEmail: 'casey@example.test',
-			workosInvitationId: 'inv_1',
-			profile: {
-				displayName: 'Casey Historical',
-				email: 'casey@example.test',
-				isActive: true,
-			},
-			createdAt: new Date('2026-05-01T00:00:00.000Z'),
-			updatedAt: new Date('2026-05-01T00:00:00.000Z'),
-		});
+		dbMock.stageOrganizationInvitation.mockResolvedValue(invitedMembership);
 	});
 
 	it('passes profileId through existing-profile invitation flow', async () => {
@@ -157,6 +159,81 @@ describe('registerAdminInvitationRoutes', () => {
 		expect(auth.sendOrganizationInvitation).not.toHaveBeenCalled();
 		expect(dbMock.stageOrganizationInvitation).not.toHaveBeenCalled();
 	});
+
+	it('stages the role without an invitation when the email already reaches the organization', async () => {
+		const auth = createFakeInvitationAuth({
+			workosUserId: 'workos_user_casey',
+			status: 'active',
+		});
+		dbMock.stageOrganizationInvitation.mockResolvedValue({
+			...invitedMembership,
+			role: 'admin',
+			workosInvitationId: null,
+		});
+		const app = createInvitationApp(auth);
+
+		const response = await app.request('/admin/organizations/org-1/invitations', {
+			method: 'POST',
+			body: JSON.stringify({ email: 'casey@example.test', role: 'admin' }),
+			headers: { 'content-type': 'application/json' },
+		});
+
+		expect(response.status).toBe(201);
+		await expect(response.json()).resolves.toMatchObject({
+			invitation: null,
+			membership: { id: 'membership-1', workosInvitationId: null },
+		});
+		expect(auth.findOrganizationMember).toHaveBeenCalledWith({
+			email: 'casey@example.test',
+			workosOrganizationId: 'workos_org_1',
+		});
+		expect(auth.sendOrganizationInvitation).not.toHaveBeenCalled();
+		expect(dbMock.stageOrganizationInvitation).toHaveBeenCalledWith(expect.anything(), {
+			organizationId: 'org-1',
+			email: 'casey@example.test',
+			displayName: null,
+			role: 'admin',
+			workosInvitationId: null,
+		});
+	});
+
+	it('still invites an email whose WorkOS membership is not active', async () => {
+		const auth = createFakeInvitationAuth({
+			workosUserId: 'workos_user_casey',
+			status: 'inactive',
+		});
+		const app = createInvitationApp(auth);
+
+		const response = await app.request('/admin/organizations/org-1/invitations', {
+			method: 'POST',
+			body: JSON.stringify({ email: 'casey@example.test', role: 'manager' }),
+			headers: { 'content-type': 'application/json' },
+		});
+
+		expect(response.status).toBe(201);
+		expect(auth.sendOrganizationInvitation).toHaveBeenCalledOnce();
+	});
+
+	it('names the cause when WorkOS refuses the invitation', async () => {
+		const auth = createFakeInvitationAuth();
+		auth.sendOrganizationInvitation = vi.fn(async () => {
+			throw new Error('User is already a member of the organization.');
+		});
+		const app = createInvitationApp(auth);
+
+		const response = await app.request('/admin/organizations/org-1/invitations', {
+			method: 'POST',
+			body: JSON.stringify({ email: 'casey@example.test', role: 'manager' }),
+			headers: { 'content-type': 'application/json' },
+		});
+
+		expect(response.status).toBe(502);
+		await expect(response.json()).resolves.toEqual({
+			error: 'invitation_send_failed',
+			reason: 'User is already a member of the organization.',
+		});
+		expect(dbMock.stageOrganizationInvitation).not.toHaveBeenCalled();
+	});
 });
 
 function createInvitationApp(auth: AdminInvitationAuth) {
@@ -177,8 +254,11 @@ function createInvitationApp(auth: AdminInvitationAuth) {
 	return app;
 }
 
-function createFakeInvitationAuth(): AdminInvitationAuth {
+function createFakeInvitationAuth(
+	existingMember: Awaited<ReturnType<AdminInvitationAuth['findOrganizationMember']>> = null,
+): AdminInvitationAuth {
 	return {
+		findOrganizationMember: vi.fn(async () => existingMember),
 		sendOrganizationInvitation: vi.fn(async (input) => ({
 			id: 'inv_1',
 			email: input.email,

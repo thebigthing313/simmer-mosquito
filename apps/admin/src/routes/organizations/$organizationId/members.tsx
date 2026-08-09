@@ -44,14 +44,19 @@ function AgencyMembersRoute() {
 		onSubmit: async ({ value, formApi }) => {
 			setInviteError(null);
 			try {
-				const membership = await inviteAdminUser(organizationId, {
+				const result = await inviteAdminUser(organizationId, {
 					email: value.email.trim(),
 					displayName: value.displayName.trim(),
 					role: value.role,
 				});
 				await invalidateAgencies();
 				formApi.reset();
-				toast.success(`Invitation sent to ${membership.invitedEmail ?? value.email.trim()}.`);
+				const email = result.membership.invitedEmail ?? value.email.trim();
+				toast.success(
+					result.invitation === null
+						? `${email} already has access. The ${value.role} role applies next time they enter this agency.`
+						: `Invitation sent to ${email}.`,
+				);
 			} catch (caught) {
 				setInviteError(caught instanceof Error ? caught.message : 'Unable to send the invitation.');
 			}

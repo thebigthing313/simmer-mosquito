@@ -43,7 +43,12 @@ export interface StageOrganizationInvitationInput {
 	readonly email: string;
 	readonly displayName: string | null;
 	readonly role: SimmerRole;
-	readonly workosInvitationId: string;
+	/**
+	 * `null` when no invitation was sent because the address already reaches the
+	 * organization through WorkOS. The role is still staged and still claimed by
+	 * provisioning on next entry — there is simply no WorkOS invitation to name.
+	 */
+	readonly workosInvitationId: string | null;
 }
 
 export interface CreateHistoricalProfileInput {

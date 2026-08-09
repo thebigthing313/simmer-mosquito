@@ -676,6 +676,45 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 			return { status: 'deactivated' };
 		},
 
+		/**
+		 * The WorkOS membership this email already holds in the organization.
+		 *
+		 * Asked before an invitation is sent, because `sendInvitation` refuses an
+		 * address that is already a member and does so by throwing — so without
+		 * this, the one case ADR 0011 makes routine (an operator who is already
+		 * inside the agency's WorkOS organization, needing only the SIMMER role)
+		 * is the one case the invitation route cannot serve.
+		 *
+		 * Two calls rather than one: WorkOS lists memberships by user id, and an
+		 * invitation names an email.
+		 */
+		async findOrganizationMember(input: {
+			readonly email: string;
+			readonly workosOrganizationId: string;
+		}): Promise<{
+			readonly workosUserId: string;
+			readonly status: 'active' | 'inactive' | 'pending';
+		} | null> {
+			const users = await workos.userManagement.listUsers({ email: input.email, limit: 1 });
+			const user = users.data[0];
+			if (user === undefined) {
+				return null;
+			}
+
+			const memberships = await workos.userManagement.listOrganizationMemberships({
+				userId: user.id,
+				organizationId: input.workosOrganizationId,
+				limit: 1,
+			});
+
+			const membership = memberships.data[0];
+			if (membership === undefined) {
+				return null;
+			}
+
+			return { workosUserId: user.id, status: membership.status };
+		},
+
 		async sendOrganizationInvitation(input: {
 			readonly email: string;
 			readonly workosOrganizationId: string;

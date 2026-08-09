@@ -291,16 +291,24 @@ export async function listAgencyMemberships(
 	return body;
 }
 
+export interface InviteAdminUserResult {
+	/**
+	 * `null` when the address already reaches the agency through WorkOS, so no
+	 * invitation was sent. The role is staged either way.
+	 */
+	readonly invitation: { readonly id: string; readonly email: string } | null;
+	readonly membership: AdminMembership;
+}
+
 export async function inviteAdminUser(
 	agencyId: string,
 	input: InviteAdminUserInput,
 	serverUrl = getServerUrl(),
-): Promise<AdminMembership> {
-	const body = await postJson<{ readonly membership: AdminMembership }>(
+): Promise<InviteAdminUserResult> {
+	return postJson<InviteAdminUserResult>(
 		`${serverUrl}/admin/organizations/${agencyId}/invitations`,
 		input,
 	);
-	return body.membership;
 }
 
 export async function createAdminGenus(

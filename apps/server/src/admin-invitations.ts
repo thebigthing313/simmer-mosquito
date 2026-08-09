@@ -13,6 +13,13 @@ import { isRecord } from './command-payload.js';
 type AdminInvitationDb = Parameters<typeof getOperatorOrganization>[0];
 
 export interface AdminInvitationAuth {
+	findOrganizationMember(input: {
+		readonly email: string;
+		readonly workosOrganizationId: string;
+	}): Promise<{
+		readonly workosUserId: string;
+		readonly status: 'active' | 'inactive' | 'pending';
+	} | null>;
 	sendOrganizationInvitation(input: {
 		readonly email: string;
 		readonly workosOrganizationId: string;
@@ -75,11 +82,39 @@ export function registerAdminInvitationRoutes(
 				}
 			}
 
-			const invitation = await options.auth.sendOrganizationInvitation({
+			// Somebody who already reaches this organization through WorkOS cannot be
+			// invited to it — `sendInvitation` throws on an existing member — and does
+			// not need to be. What they are missing is the SIMMER role, which is
+			// staged below and claimed by provisioning the next time they enter the
+			// agency. This is the ordinary shape of an operator support grant
+			// (ADR 0011), not an edge case.
+			const existingMember = await options.auth.findOrganizationMember({
 				email: payloadResult.payload.email,
 				workosOrganizationId: organization.workosOrganizationId,
-				inviterWorkosUserId: operatorContext.workosUser.workosUserId,
 			});
+
+			let invitation: Awaited<
+				ReturnType<AdminInvitationAuth['sendOrganizationInvitation']>
+			> | null = null;
+			if (existingMember?.status !== 'active') {
+				try {
+					invitation = await options.auth.sendOrganizationInvitation({
+						email: payloadResult.payload.email,
+						workosOrganizationId: organization.workosOrganizationId,
+						inviterWorkosUserId: operatorContext.workosUser.workosUserId,
+					});
+				} catch (error) {
+					// WorkOS refusals used to leave this route throwing, which reached the
+					// console as an unreadable 500 with no cause named.
+					return context.json(
+						{
+							error: 'invitation_send_failed',
+							reason: error instanceof Error ? error.message : 'WorkOS rejected the invitation.',
+						},
+						502,
+					);
+				}
+			}
 
 			let membership: SafeOrganizationMembership;
 			try {
@@ -88,10 +123,10 @@ export function registerAdminInvitationRoutes(
 					...(payloadResult.payload.profileId === null
 						? {}
 						: { profileId: payloadResult.payload.profileId }),
-					email: invitation.email,
+					email: invitation?.email ?? payloadResult.payload.email,
 					displayName: payloadResult.payload.displayName,
 					role: payloadResult.payload.role,
-					workosInvitationId: invitation.id,
+					workosInvitationId: invitation?.id ?? null,
 				});
 			} catch (error) {
 				const errorResponse = invitationErrorResponse(context, error);
@@ -104,16 +139,19 @@ export function registerAdminInvitationRoutes(
 
 			return context.json(
 				{
-					invitation: {
-						id: invitation.id,
-						email: invitation.email,
-						state: invitation.state,
-						organizationId: invitation.organizationId,
-						acceptedUserId: invitation.acceptedUserId,
-						expiresAt: invitation.expiresAt,
-						createdAt: invitation.createdAt,
-						updatedAt: invitation.updatedAt,
-					},
+					invitation:
+						invitation === null
+							? null
+							: {
+									id: invitation.id,
+									email: invitation.email,
+									state: invitation.state,
+									organizationId: invitation.organizationId,
+									acceptedUserId: invitation.acceptedUserId,
+									expiresAt: invitation.expiresAt,
+									createdAt: invitation.createdAt,
+									updatedAt: invitation.updatedAt,
+								},
 					membership: toAdminMembershipResponse(membership),
 				},
 				201,
