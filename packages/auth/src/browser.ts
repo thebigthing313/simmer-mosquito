@@ -65,6 +65,18 @@ export interface VerificationRequiredOutcome {
 	readonly email: string;
 }
 
+/**
+ * The result of moving a live session to another organization.
+ *
+ * `refused` is its own outcome rather than an error because it is the expected
+ * answer, not a fault: the membership check is WorkOS's, and "you are not in
+ * that agency" is exactly what the caller needs to show.
+ */
+export type SwitchOrganizationOutcome =
+	| { readonly status: 'switched' }
+	| { readonly status: 'refused'; readonly reason: string }
+	| { readonly status: 'error'; readonly reason: string };
+
 export interface AuthOrganizationChoice {
 	readonly id: string;
 	readonly name: string;
@@ -148,6 +160,9 @@ export interface AuthClient {
 		readonly organizationId: string;
 		readonly pendingAuthenticationToken: string;
 	}) => Promise<SelectOrganizationOutcome>;
+	readonly switchOrganization: (input: {
+		readonly organizationId: string;
+	}) => Promise<SwitchOrganizationOutcome>;
 	readonly requestPasswordReset: (input: { readonly email: string }) => Promise<void>;
 	readonly resetPassword: (input: {
 		readonly token: string;
@@ -271,6 +286,30 @@ export function createAuthClient(options: { readonly serverUrl: string }): AuthC
 		}
 
 		return { status: 'error', reason: readReason(data, 'Unable to select organization.') };
+	}
+
+	/**
+	 * Move an already-good session into another organization the user belongs to.
+	 *
+	 * Not the same thing as {@link selectOrganization}, which resolves a sign-in
+	 * that has not finished yet. This one has nothing pending: the caller is
+	 * signed in and wants to be somewhere else, which is how a SIMMER Operator
+	 * holding an agency membership comes to hold an ordinary agency session
+	 * (ADR 0011).
+	 */
+	async function switchOrganization(input: {
+		readonly organizationId: string;
+	}): Promise<SwitchOrganizationOutcome> {
+		const { data } = await postAuthJson('/auth/switch-organization', input);
+		if (data.ok === true) {
+			return { status: 'switched' };
+		}
+
+		if (data.status === 'organization_switch_refused') {
+			return { status: 'refused', reason: readReason(data, 'That organization is not available.') };
+		}
+
+		return { status: 'error', reason: readReason(data, 'Unable to switch organization.') };
 	}
 
 	async function requestPasswordReset(input: { readonly email: string }): Promise<void> {
@@ -422,6 +461,7 @@ export function createAuthClient(options: { readonly serverUrl: string }): AuthC
 		selectOrganization,
 		signIn,
 		signUp,
+		switchOrganization,
 		verifyEmail,
 	};
 }

@@ -3,18 +3,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getServerUrl } from '../../../api';
 
 /**
- * The agency-bootstrap endpoints — the seven `/admin/organizations/:id/*` routes
- * the console has never called.
+ * Standing a new agency up: its regions and addresses, the method/lure/habitat
+ * lookups its forms read from, the species it sees locally, and its first traps.
  *
- * They exist to stand a new agency up: give it its regions and addresses, the
- * method/lure/habitat lookups its forms read from, the species it actually sees
- * locally, and its first traps. Every one of them is **create-only** — there is
- * no PATCH or DELETE on the server for any of these — so this is a page for
- * seeding an agency, not for maintaining it. Once the agency has people, they
- * maintain their own catalogs in the web app, where update and delete exist.
+ * The **read** is an operator read — one `GET /admin/organizations/:id/foundations`
+ * returns all of it at once, which is why this is a single query rather than
+ * eight, and it answers for an agency the operator is merely looking at.
  *
- * One `GET .../foundations` returns all of it at once, which is why this is a
- * single query rather than eight.
+ * The **writes are agency writes** (ADR 0011). They go to the same
+ * `/foundation/*` and `/adult-surveillance/*` endpoints `apps/web` posts to, as
+ * a member of the agency, through the same domain command builders — so a region
+ * created here and a region created there are validated by one set of rules and
+ * attributed to a real person. They require the session to be inside the agency;
+ * `AgencySessionGate` is what puts it there.
+ *
+ * Commands carry client-generated ids, so every create mints one here rather
+ * than reading one back.
  */
 
 export interface FoundationAddress {
@@ -130,7 +134,6 @@ interface LookupInput {
 	readonly name: string;
 	readonly description: string;
 	readonly actionThreshold: number | null;
-	readonly isActive: boolean;
 }
 
 interface TrapInput {
@@ -140,7 +143,6 @@ interface TrapInput {
 	readonly trapName: string;
 	readonly trapCode: string;
 	readonly description: string;
-	readonly isActive: boolean;
 	readonly geojson: GeoJsonGeometry;
 }
 
@@ -156,7 +158,8 @@ export function useCreateFoundation(organizationId: string) {
 
 	const regionFolder = useMutation({
 		mutationFn: (input: RegionFolderInput) =>
-			postJson(`${foundationsBase(organizationId)}/region-folders`, {
+			postJson(agencyPath('/foundation/region-folders'), {
+				id: newId(),
 				name: input.name,
 				description: nullable(input.description),
 			}),
@@ -165,18 +168,20 @@ export function useCreateFoundation(organizationId: string) {
 
 	const region = useMutation({
 		mutationFn: (input: RegionInput) =>
-			postJson(`${foundationsBase(organizationId)}/regions`, {
+			postJson(agencyPath('/foundation/regions'), {
+				id: newId(),
 				name: input.name,
 				regionFolderId: input.regionFolderId,
 				description: nullable(input.description),
-				geojson: input.geojson,
+				geometry: input.geojson,
 			}),
 		onSuccess: invalidate,
 	});
 
 	const address = useMutation({
 		mutationFn: (input: AddressInput) =>
-			postJson(`${foundationsBase(organizationId)}/addresses`, {
+			postJson(agencyPath('/foundation/addresses'), {
+				id: newId(),
 				displayName: input.displayName,
 				country: input.country.toUpperCase(),
 				addressLine1: nullable(input.addressLine1),
@@ -191,32 +196,37 @@ export function useCreateFoundation(organizationId: string) {
 
 	const species = useMutation({
 		mutationFn: (speciesId: string) =>
-			postJson(`${foundationsBase(organizationId)}/species`, { speciesId }),
+			postJson(agencyPath('/foundation/organization-species'), { id: newId(), speciesId }),
 		onSuccess: invalidate,
 	});
 
 	const lookup = useMutation({
 		mutationFn: ({ kind, input }: { readonly kind: LookupKind; readonly input: LookupInput }) =>
-			postJson(`${foundationsBase(organizationId)}/lookups/${kind}`, {
+			// The agency create takes no `isActive`: a catalog entry is created live
+			// and retired later, which is an update. The form's toggle is honoured by
+			// simply not offering the create path a way to be born inactive.
+			postJson(agencyPath(`/foundation/${lookupPaths[kind]}`), {
+				id: newId(),
 				name: input.name,
 				description: nullable(input.description),
 				actionThreshold: input.actionThreshold,
-				isActive: input.isActive,
 			}),
 		onSuccess: invalidate,
 	});
 
 	const trap = useMutation({
 		mutationFn: (input: TrapInput) =>
-			postJson(`${foundationsBase(organizationId)}/traps`, {
+			postJson(agencyPath('/adult-surveillance/traps'), {
+				id: newId(),
+				// A trap carries a domain location source, never a raw geometry
+				// column: the server snapshots the point inside its own transaction.
+				locationSource: { kind: 'geometry', geometry: input.geojson },
 				collectionMethodId: input.collectionMethodId,
 				addressId: input.addressId,
 				collectionLureId: input.collectionLureId,
 				trapName: nullable(input.trapName),
 				trapCode: nullable(input.trapCode),
 				description: nullable(input.description),
-				isActive: input.isActive,
-				geojson: input.geojson,
 			}),
 		onSuccess: invalidate,
 	});
@@ -230,12 +240,28 @@ function nullable(value: string): string | null {
 	return trimmed === '' ? null : trimmed;
 }
 
-function foundationsBase(organizationId: string): string {
-	return `${getServerUrl()}/admin/organizations/${organizationId}`;
+/** The path segment each lookup catalog is registered under agency-side. */
+const lookupPaths: Record<LookupKind, string> = {
+	collection_methods: 'collection-methods',
+	collection_lures: 'collection-lures',
+	habitat_types: 'habitat-types',
+};
+
+/** Commands carry client-generated ids so they are replay- and audit-safe. */
+function newId(): string {
+	return crypto.randomUUID();
+}
+
+/**
+ * An agency endpoint. It takes no organization in its path — the organization is
+ * the session's, which is the whole point of entering the agency first.
+ */
+function agencyPath(path: string): string {
+	return `${getServerUrl()}${path}`;
 }
 
 function foundationsPath(organizationId: string): string {
-	return `${foundationsBase(organizationId)}/foundations`;
+	return `${getServerUrl()}/admin/organizations/${organizationId}/foundations`;
 }
 
 async function getJson<T>(url: string): Promise<T> {

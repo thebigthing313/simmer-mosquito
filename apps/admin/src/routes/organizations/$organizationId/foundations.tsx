@@ -1,7 +1,6 @@
 import type { GeoJsonGeometry, GeoJsonPoint, ImportGeometryKind } from '@simmer-mosquito/mapping';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
@@ -11,8 +10,10 @@ import { createFileRoute } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import { AdminError, AdminLoading, AdminPage } from '../../../components/admin-page';
+import { AgencySessionGate } from '../../../components/agency-session';
 import { CatalogList, CatalogRow, RecordDialog } from '../../../components/catalog';
 import { GeometryFileInput, PointInput } from '../../../components/geometry-input';
+import { useAgencies } from '../-agency-data';
 import {
 	type AgencyFoundations,
 	type LookupKind,
@@ -60,6 +61,10 @@ export const Route = createFileRoute('/organizations/$organizationId/foundations
  */
 function AgencyFoundationsRoute() {
 	const { organizationId } = Route.useParams();
+	// The directory's cache, already warm from the list the operator arrived
+	// through. Read here for the WorkOS organization id the session switch needs.
+	const { data: agencies } = useAgencies();
+	const agency = (agencies ?? []).find((row) => row.id === organizationId);
 	const { data, isPending, error } = useAgencyFoundations(organizationId);
 	const create = useCreateFoundation(organizationId);
 	const [dialog, setDialog] = useState<DialogKind | null>(null);
@@ -101,138 +106,149 @@ function AgencyFoundationsRoute() {
 			icon={FoundationsIcon}
 			title="Foundations"
 		>
-			<Readiness steps={steps} />
-
-			<FoundationGroup
-				description="What this agency's forms offer when crews record work. A trap records against a collection method, so methods come before traps."
-				title="Field vocabulary"
+			<AgencySessionGate
+				agencyName={agency?.name}
+				organizationId={organizationId}
+				workosOrganizationId={agency?.workosOrganizationId ?? null}
 			>
-				<ChipSection
-					addLabel="Add method"
-					emptyMessage="None yet. A trap cannot be added until there is at least one."
-					names={data.lookups.collectionMethods.map(lookupName)}
-					onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_methods' })}
-					title="Collection methods"
-				/>
-				<ChipSection
-					addLabel="Add lure"
-					emptyMessage="None yet. Optional — traps can run unbaited."
-					names={data.lookups.collectionLures.map(lookupName)}
-					onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_lures' })}
-					title="Collection lures"
-				/>
-				<ChipSection
-					addLabel="Add habitat type"
-					emptyMessage="None yet. Larval habitats are classified with these."
-					names={data.lookups.habitatTypes.map(lookupName)}
-					onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'habitat_types' })}
-					title="Habitat types"
-				/>
-			</FoundationGroup>
+				<Readiness steps={steps} />
 
-			<FoundationGroup
-				description="Where the agency works. Regions are the districts crews are assigned across; addresses are the fixed places traps and service requests reference."
-				title="Geography"
-			>
-				<RecordSection
-					addLabel="Add region"
-					emptyMessage="No regions. Load the agency's district boundaries from the KML or GeoJSON they sent."
-					icon={RegionIcon}
-					items={data.regions.map((region) => ({
-						id: region.id,
-						title: region.name,
-						subtitle:
-							data.regionFolders.find((folder) => folder.id === region.regionFolderId)?.name ??
-							'Unfiled',
-					}))}
-					onAdd={() => setDialog({ kind: 'region' })}
-					secondaryAction={
-						<Button onClick={() => setDialog({ kind: 'region-folder' })} size="sm" variant="ghost">
-							Add folder
-						</Button>
-					}
-					title="Regions"
-				/>
-				<RecordSection
-					addLabel="Add address"
-					emptyMessage="No addresses yet."
-					icon={AddressIcon}
-					items={data.addresses.map((address) => ({
-						id: address.id,
-						title: address.displayName,
-						subtitle: [address.locality, address.region, address.postalCode]
-							.filter((part) => part !== null && part !== '')
-							.join(', '),
-					}))}
-					onAdd={() => setDialog({ kind: 'address' })}
-					title="Addresses"
-				/>
-			</FoundationGroup>
-
-			<FoundationGroup
-				description="Narrowing the global species list to what actually occurs locally is what keeps identification screens usable in the field."
-				title="Species"
-			>
-				<ChipSection
-					addLabel="Enable species"
-					disabledReason={
-						availableSpecies.length === 0 && enabledSpecies.length > 0
-							? 'Every species in the global list is already enabled.'
-							: undefined
-					}
-					emptyMessage="None enabled. Crews will see the entire global list until one is."
-					names={enabledSpecies.map((species) => species.displayName)}
-					onAdd={() => setDialog({ kind: 'species' })}
-					title="Enabled species"
-				/>
-			</FoundationGroup>
-
-			<FoundationGroup
-				description="The agency's first traps. Crews add the rest themselves once they can sign in."
-				title="Traps"
-			>
-				<RecordSection
-					addLabel="Add trap"
-					disabledReason={
-						data.lookups.collectionMethods.length === 0
-							? 'Add a collection method first — a trap records against one.'
-							: undefined
-					}
-					emptyMessage="No traps yet."
-					icon={TrapIcon}
-					items={data.traps.map((trap) => ({
-						id: trap.id,
-						title: trap.trapName ?? trap.trapCode ?? 'Unnamed trap',
-						subtitle:
-							data.lookups.collectionMethods.find((method) => method.id === trap.collectionMethodId)
-								?.name ?? 'Unknown method',
-						badge: trap.isActive ? undefined : 'Inactive',
-					}))}
-					onAdd={() => setDialog({ kind: 'trap' })}
-					title="Traps"
-				/>
-			</FoundationGroup>
-
-			<RecordDialog
-				description={dialogDescription(dialog)}
-				onOpenChange={(open) => {
-					if (!open) {
-						setDialog(null);
-					}
-				}}
-				open={dialog !== null}
-				title={dialogTitle(dialog)}
-			>
-				{dialog === null ? null : (
-					<FoundationForm
-						availableSpecies={availableSpecies}
-						create={create}
-						dialog={dialog}
-						foundations={data}
-						onSubmit={run}
+				<FoundationGroup
+					description="What this agency's forms offer when crews record work. A trap records against a collection method, so methods come before traps."
+					title="Field vocabulary"
+				>
+					<ChipSection
+						addLabel="Add method"
+						emptyMessage="None yet. A trap cannot be added until there is at least one."
+						names={data.lookups.collectionMethods.map(lookupName)}
+						onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_methods' })}
+						title="Collection methods"
 					/>
-				)}
-			</RecordDialog>
+					<ChipSection
+						addLabel="Add lure"
+						emptyMessage="None yet. Optional — traps can run unbaited."
+						names={data.lookups.collectionLures.map(lookupName)}
+						onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_lures' })}
+						title="Collection lures"
+					/>
+					<ChipSection
+						addLabel="Add habitat type"
+						emptyMessage="None yet. Larval habitats are classified with these."
+						names={data.lookups.habitatTypes.map(lookupName)}
+						onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'habitat_types' })}
+						title="Habitat types"
+					/>
+				</FoundationGroup>
+
+				<FoundationGroup
+					description="Where the agency works. Regions are the districts crews are assigned across; addresses are the fixed places traps and service requests reference."
+					title="Geography"
+				>
+					<RecordSection
+						addLabel="Add region"
+						emptyMessage="No regions. Load the agency's district boundaries from the KML or GeoJSON they sent."
+						icon={RegionIcon}
+						items={data.regions.map((region) => ({
+							id: region.id,
+							title: region.name,
+							subtitle:
+								data.regionFolders.find((folder) => folder.id === region.regionFolderId)?.name ??
+								'Unfiled',
+						}))}
+						onAdd={() => setDialog({ kind: 'region' })}
+						secondaryAction={
+							<Button
+								onClick={() => setDialog({ kind: 'region-folder' })}
+								size="sm"
+								variant="ghost"
+							>
+								Add folder
+							</Button>
+						}
+						title="Regions"
+					/>
+					<RecordSection
+						addLabel="Add address"
+						emptyMessage="No addresses yet."
+						icon={AddressIcon}
+						items={data.addresses.map((address) => ({
+							id: address.id,
+							title: address.displayName,
+							subtitle: [address.locality, address.region, address.postalCode]
+								.filter((part) => part !== null && part !== '')
+								.join(', '),
+						}))}
+						onAdd={() => setDialog({ kind: 'address' })}
+						title="Addresses"
+					/>
+				</FoundationGroup>
+
+				<FoundationGroup
+					description="Narrowing the global species list to what actually occurs locally is what keeps identification screens usable in the field."
+					title="Species"
+				>
+					<ChipSection
+						addLabel="Enable species"
+						disabledReason={
+							availableSpecies.length === 0 && enabledSpecies.length > 0
+								? 'Every species in the global list is already enabled.'
+								: undefined
+						}
+						emptyMessage="None enabled. Crews will see the entire global list until one is."
+						names={enabledSpecies.map((species) => species.displayName)}
+						onAdd={() => setDialog({ kind: 'species' })}
+						title="Enabled species"
+					/>
+				</FoundationGroup>
+
+				<FoundationGroup
+					description="The agency's first traps. Crews add the rest themselves once they can sign in."
+					title="Traps"
+				>
+					<RecordSection
+						addLabel="Add trap"
+						disabledReason={
+							data.lookups.collectionMethods.length === 0
+								? 'Add a collection method first — a trap records against one.'
+								: undefined
+						}
+						emptyMessage="No traps yet."
+						icon={TrapIcon}
+						items={data.traps.map((trap) => ({
+							id: trap.id,
+							title: trap.trapName ?? trap.trapCode ?? 'Unnamed trap',
+							subtitle:
+								data.lookups.collectionMethods.find(
+									(method) => method.id === trap.collectionMethodId,
+								)?.name ?? 'Unknown method',
+							badge: trap.isActive ? undefined : 'Inactive',
+						}))}
+						onAdd={() => setDialog({ kind: 'trap' })}
+						title="Traps"
+					/>
+				</FoundationGroup>
+
+				<RecordDialog
+					description={dialogDescription(dialog)}
+					onOpenChange={(open) => {
+						if (!open) {
+							setDialog(null);
+						}
+					}}
+					open={dialog !== null}
+					title={dialogTitle(dialog)}
+				>
+					{dialog === null ? null : (
+						<FoundationForm
+							availableSpecies={availableSpecies}
+							create={create}
+							dialog={dialog}
+							foundations={data}
+							onSubmit={run}
+						/>
+					)}
+				</RecordDialog>
+			</AgencySessionGate>
 		</AdminPage>
 	);
 }
@@ -843,7 +859,6 @@ function LookupForm({
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');
 	const [actionThreshold, setActionThreshold] = useState('');
-	const [isActive, setIsActive] = useState(true);
 
 	return (
 		<form
@@ -858,7 +873,6 @@ function LookupForm({
 							name: name.trim(),
 							description,
 							actionThreshold: Number.isFinite(threshold) && threshold >= 0 ? threshold : null,
-							isActive,
 						},
 					}),
 				);
@@ -866,26 +880,18 @@ function LookupForm({
 		>
 			<TextRow label="Name" onChange={setName} required value={name} />
 			<TextAreaRow label="Description" onChange={setDescription} value={description} />
-			<div className="grid gap-4 sm:grid-cols-2">
-				<Field>
-					<FieldLabel htmlFor="lookup-threshold">Action threshold</FieldLabel>
-					<Input
-						id="lookup-threshold"
-						inputMode="numeric"
-						onChange={(event) => setActionThreshold(event.target.value)}
-						placeholder="Optional"
-						value={actionThreshold}
-					/>
-				</Field>
-				<Field orientation="horizontal">
-					<Checkbox
-						checked={isActive}
-						id="lookup-active"
-						onCheckedChange={(checked) => setIsActive(checked === true)}
-					/>
-					<FieldLabel htmlFor="lookup-active">Active</FieldLabel>
-				</Field>
-			</div>
+			{/* No "Active" toggle: a catalog entry is created live and retired
+			    later, which is an update the agency makes in its own workspace. */}
+			<Field>
+				<FieldLabel htmlFor="lookup-threshold">Action threshold</FieldLabel>
+				<Input
+					id="lookup-threshold"
+					inputMode="numeric"
+					onChange={(event) => setActionThreshold(event.target.value)}
+					placeholder="Optional"
+					value={actionThreshold}
+				/>
+			</Field>
 			<FormFooter disabled={name.trim() === ''} pending={create.lookup.isPending} />
 		</form>
 	);
@@ -923,7 +929,6 @@ function TrapForm({
 						trapName,
 						trapCode,
 						description: '',
-						isActive: true,
 						geojson: point,
 					}),
 				);

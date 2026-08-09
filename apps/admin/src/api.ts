@@ -221,7 +221,8 @@ export function getOperatorOrganizationId(): string | null {
 
 const authClient = createAuthClient({ serverUrl: getServerUrl() });
 
-export const { getAuthMe, selectOrganization, signIn, verifyEmail } = authClient;
+export const { getAuthMe, selectOrganization, signIn, switchOrganization, verifyEmail } =
+	authClient;
 
 /**
  * Where "Sign out" goes.
