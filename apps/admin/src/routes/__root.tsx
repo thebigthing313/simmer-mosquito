@@ -1,5 +1,5 @@
+import type { AppAuthController } from '@simmer-mosquito/auth/browser';
 import { createRootRouteWithContext, Outlet, redirect, useLocation } from '@tanstack/react-router';
-import type { AppAuthController } from '../app-auth';
 import { AdminShellRoot } from '../components/app-shell/admin-shell-root';
 
 // Exported because the generated route tree names this type in its inferred

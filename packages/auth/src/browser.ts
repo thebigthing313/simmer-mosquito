@@ -465,3 +465,102 @@ export function createAuthClient(options: { readonly serverUrl: string }): AuthC
 		verifyEmail,
 	};
 }
+
+// --- The session, cached for the page ---
+
+/**
+ * The signed-in session as one value the router and the shell both read.
+ *
+ * `/auth/me` is a network round trip, route `beforeLoad` guards run before any
+ * component does, and several of them run per navigation. A shared snapshot with
+ * a single in-flight promise means the session is fetched once, not once per
+ * guard.
+ */
+export interface AppAuthController {
+	readonly snapshot: AuthMe | null;
+	readonly load: () => Promise<AuthMe>;
+	readonly refresh: () => Promise<AuthMe>;
+	readonly subscribe: (listener: () => void) => () => void;
+}
+
+/**
+ * Build the controller over one app's `/auth/me`.
+ *
+ * A factory rather than a module-level singleton because the two front ends
+ * reach the endpoint through their own clients — but each app calls this once at
+ * module scope, so the singleton the guards depend on is still exactly one.
+ */
+export function createAppAuthController(options: {
+	readonly getAuthMe: () => Promise<AuthMe>;
+}): AppAuthController {
+	const { getAuthMe } = options;
+
+	let snapshot: AuthMe | null = null;
+	let pending: Promise<AuthMe> | null = null;
+	const listeners = new Set<() => void>();
+
+	function load(): Promise<AuthMe> {
+		if (snapshot !== null) {
+			return Promise.resolve(snapshot);
+		}
+
+		if (pending === null) {
+			pending = refresh();
+		}
+
+		return pending;
+	}
+
+	async function refresh(): Promise<AuthMe> {
+		try {
+			const answer = await getAuthMe();
+			snapshot = answer;
+			return answer;
+		} catch (error) {
+			/*
+			 * Could not ask, which is not the same as being told no.
+			 *
+			 * `getAuthMe` already draws that line — a 401 carries
+			 * `authenticated: false` and is returned, and only an unreadable response
+			 * throws — so reaching here means the round trip broke, not that the
+			 * session did. Caching a refusal for it *latched*: `load()` short-circuits
+			 * on any non-null snapshot, so one failed request signed the user out for
+			 * the life of the page while every later `/auth/me` answered 200 and went
+			 * unread.
+			 *
+			 * So leave the snapshot alone. A known session survives a blip and the
+			 * next guard retries; with nothing known yet, answer "no" for this caller
+			 * without recording it.
+			 */
+			return (
+				snapshot ?? {
+					authenticated: false,
+					reason: error instanceof Error ? error.message : 'Unable to load auth state.',
+				}
+			);
+		} finally {
+			pending = null;
+			emit();
+		}
+	}
+
+	function emit(): void {
+		for (const listener of listeners) {
+			listener();
+		}
+	}
+
+	return {
+		get snapshot() {
+			return snapshot;
+		},
+		load,
+		refresh,
+		subscribe(listener) {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+	};
+}

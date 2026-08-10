@@ -1,5 +1,5 @@
+import type { AppAuthController } from '@simmer-mosquito/auth/browser';
 import { createRootRouteWithContext, Outlet, redirect, useLocation } from '@tanstack/react-router';
-import type { AppAuthController } from '../app-auth';
 import { AppShellRoot } from '../components/app-shell/app-shell-root';
 import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
 import { WorkspaceChromeError, WorkspaceChromeFallback } from './-components';

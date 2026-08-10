@@ -1,34 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const getAuthMe = vi.hoisted(() => vi.fn());
-
-vi.mock('../../api', () => ({ getAuthMe }));
+import { describe, expect, it, vi } from 'vitest';
+import { type AuthMe, createAppAuthController } from '../../browser.js';
 
 const SIGNED_IN = {
-	authenticated: true as const,
+	authenticated: true,
 	user: { email: 'operator@example.test' },
-};
+} as unknown as AuthMe;
 
-/**
- * A fresh module per test, because the controller is a module-level singleton —
- * its whole point is that one snapshot is shared by every route guard, which
- * also means one test's snapshot would otherwise be the next test's starting
- * state.
- */
-async function loadController() {
-	vi.resetModules();
-	const { appAuthController } = await import('../../app-auth');
-	return appAuthController;
-}
+const REFUSED: AuthMe = { authenticated: false, reason: 'no session' };
 
-describe('appAuthController', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
+describe('createAppAuthController', () => {
 	it('asks once and serves the answer from the snapshot', async () => {
-		getAuthMe.mockResolvedValue(SIGNED_IN);
-		const controller = await loadController();
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe });
 
 		await expect(controller.load()).resolves.toMatchObject({ authenticated: true });
 		await expect(controller.load()).resolves.toMatchObject({ authenticated: true });
@@ -38,21 +21,23 @@ describe('appAuthController', () => {
 	it('caches a real refusal', async () => {
 		// A 401 comes back as a value, not a throw — that is an answer, and
 		// re-asking on every guard would be a round trip per navigation.
-		getAuthMe.mockResolvedValue({ authenticated: false, reason: 'no session' });
-		const controller = await loadController();
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(REFUSED);
+		const controller = createAppAuthController({ getAuthMe });
 
 		await expect(controller.load()).resolves.toMatchObject({ authenticated: false });
 		await expect(controller.load()).resolves.toMatchObject({ authenticated: false });
 		expect(getAuthMe).toHaveBeenCalledOnce();
 	});
 
-	// The bug: one failed request signed an operator out for the life of the
-	// page. The snapshot held `authenticated: false`, `load()` short-circuits on
-	// any non-null snapshot, and every later `/auth/me` answered 200 unread.
+	// The bug: one failed request signed a user out for the life of the page. The
+	// snapshot held `authenticated: false`, `load()` short-circuits on any
+	// non-null snapshot, and every later `/auth/me` answered 200 unread.
 	it('does not let a broken round trip stand in for a refusal', async () => {
-		getAuthMe.mockRejectedValueOnce(new Error('Failed to fetch'));
-		getAuthMe.mockResolvedValue(SIGNED_IN);
-		const controller = await loadController();
+		const getAuthMe = vi
+			.fn<() => Promise<AuthMe>>()
+			.mockRejectedValueOnce(new Error('Failed to fetch'))
+			.mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe });
 
 		await expect(controller.load()).resolves.toMatchObject({ authenticated: false });
 
@@ -63,8 +48,8 @@ describe('appAuthController', () => {
 	});
 
 	it('keeps a known session through a blip rather than reporting it signed out', async () => {
-		getAuthMe.mockResolvedValueOnce(SIGNED_IN);
-		const controller = await loadController();
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValueOnce(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe });
 		await controller.load();
 
 		getAuthMe.mockRejectedValueOnce(new Error('Failed to fetch'));
@@ -73,5 +58,20 @@ describe('appAuthController', () => {
 		// A blip there must not read as "signed out" when we already know better.
 		await expect(controller.refresh()).resolves.toMatchObject({ authenticated: true });
 		await expect(controller.load()).resolves.toMatchObject({ authenticated: true });
+	});
+
+	it('tells subscribers each time it has an answer, until they leave', async () => {
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe });
+		const listener = vi.fn();
+
+		const unsubscribe = controller.subscribe(listener);
+		await controller.load();
+		expect(listener).toHaveBeenCalledOnce();
+		expect(controller.snapshot).toMatchObject({ authenticated: true });
+
+		unsubscribe();
+		await controller.refresh();
+		expect(listener).toHaveBeenCalledOnce();
 	});
 });

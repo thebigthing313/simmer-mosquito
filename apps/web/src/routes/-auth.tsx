@@ -5,8 +5,13 @@ import type {
 	SignInOutcome,
 	SignUpOutcome,
 } from '@simmer-mosquito/auth/browser';
+import {
+	AuthFormError,
+	AuthSubmitButton,
+	CredentialsFields,
+	VerificationCodeFields,
+} from '@simmer-mosquito/ui-web/components/auth';
 import { PasswordField } from '@simmer-mosquito/ui-web/components/password-field';
-import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
@@ -77,23 +82,6 @@ function AuthShell({
 				</div>
 			</section>
 		</div>
-	);
-}
-
-/** Primary submit action, sized and stretched to match the landing entry CTAs. */
-function SubmitButton({
-	pending,
-	children,
-	pendingLabel,
-}: {
-	readonly pending: boolean;
-	readonly children: ReactNode;
-	readonly pendingLabel: string;
-}) {
-	return (
-		<Button type="submit" size="lg" className="w-full" disabled={pending}>
-			{pending ? pendingLabel : children}
-		</Button>
 	);
 }
 
@@ -194,18 +182,6 @@ function Requirement({
 	);
 }
 
-function FormError({ message }: { readonly message: string | null }) {
-	if (message === null) {
-		return null;
-	}
-
-	return (
-		<Alert variant="destructive">
-			<AlertDescription>{message}</AlertDescription>
-		</Alert>
-	);
-}
-
 /**
  * Shared "we authenticated" handoff: refresh the cached auth snapshot, then send
  * the user to their intended route — or to the org-required landing when their
@@ -300,30 +276,16 @@ export function SignInPage({ redirectTo }: { readonly redirectTo: string }) {
 			}
 		>
 			<form onSubmit={handleCredentials}>
-				<FieldGroup>
-					<FormError message={error} />
-					<Field>
-						<FieldLabel htmlFor="signin-email">Email</FieldLabel>
-						<Input
-							id="signin-email"
-							type="email"
-							autoComplete="email"
-							required
-							value={email}
-							onChange={(event) => setEmail(event.target.value)}
-						/>
-					</Field>
-					<PasswordField
-						id="signin-password"
-						label="Password"
-						autoComplete="current-password"
-						value={password}
-						onChange={setPassword}
-					/>
-					<SubmitButton pending={pending} pendingLabel="Signing in…">
-						Sign In
-					</SubmitButton>
-				</FieldGroup>
+				<CredentialsFields
+					email={email}
+					error={error}
+					onEmailChange={setEmail}
+					onPasswordChange={setPassword}
+					password={password}
+					pending={pending}
+					pendingLabel="Signing in…"
+					submitLabel="Sign In"
+				/>
 			</form>
 		</AuthShell>
 	);
@@ -412,7 +374,7 @@ export function SignUpPage({ redirectTo }: { readonly redirectTo: string }) {
 		>
 			<form onSubmit={handleSubmit}>
 				<FieldGroup>
-					<FormError message={error} />
+					<AuthFormError message={error} />
 					<div className="grid grid-cols-2 gap-3">
 						<Field>
 							<FieldLabel htmlFor="signup-first">First name</FieldLabel>
@@ -452,9 +414,9 @@ export function SignUpPage({ redirectTo }: { readonly redirectTo: string }) {
 						onPasswordChange={setPassword}
 						password={password}
 					/>
-					<SubmitButton pending={pending} pendingLabel="Creating account…">
+					<AuthSubmitButton pending={pending} pendingLabel="Creating account…">
 						Create Account
-					</SubmitButton>
+					</AuthSubmitButton>
 				</FieldGroup>
 			</form>
 		</AuthShell>
@@ -590,24 +552,14 @@ function VerifyEmailStep({
 			}
 		>
 			<form onSubmit={handleSubmit}>
-				<FieldGroup>
-					<FormError message={error} />
-					<Field>
-						<FieldLabel htmlFor="verify-code">Verification code</FieldLabel>
-						<Input
-							id="verify-code"
-							inputMode="numeric"
-							autoComplete="one-time-code"
-							autoFocus
-							required
-							value={code}
-							onChange={(event) => setCode(event.target.value)}
-						/>
-					</Field>
-					<SubmitButton pending={pending} pendingLabel="Verifying…">
-						Verify and Continue
-					</SubmitButton>
-				</FieldGroup>
+				<VerificationCodeFields
+					code={code}
+					error={error}
+					onCodeChange={setCode}
+					pending={pending}
+					pendingLabel="Verifying…"
+					submitLabel="Verify and Continue"
+				/>
 			</form>
 		</AuthShell>
 	);
@@ -652,7 +604,7 @@ function OrgSelectStep({
 			description="Your account has access to more than one organization. Pick one to continue."
 		>
 			<FieldGroup>
-				<FormError message={error} />
+				<AuthFormError message={error} />
 				<div className="grid gap-2">
 					{organizations.map((organization) => (
 						<Button
@@ -733,9 +685,9 @@ export function ForgotPasswordPage() {
 							onChange={(event) => setEmail(event.target.value)}
 						/>
 					</Field>
-					<SubmitButton pending={pending} pendingLabel="Sending…">
+					<AuthSubmitButton pending={pending} pendingLabel="Sending…">
 						Send Reset Link
-					</SubmitButton>
+					</AuthSubmitButton>
 				</FieldGroup>
 			</form>
 		</AuthShell>
@@ -820,7 +772,7 @@ export function ResetPasswordPage({ token }: { readonly token: string }) {
 		>
 			<form onSubmit={handleSubmit}>
 				<FieldGroup>
-					<FormError message={error} />
+					<AuthFormError message={error} />
 					<NewPasswordFields
 						confirm={confirm}
 						idPrefix="reset"
@@ -829,9 +781,9 @@ export function ResetPasswordPage({ token }: { readonly token: string }) {
 						onPasswordChange={setPassword}
 						password={password}
 					/>
-					<SubmitButton pending={pending} pendingLabel="Updating…">
+					<AuthSubmitButton pending={pending} pendingLabel="Updating…">
 						Update Password
-					</SubmitButton>
+					</AuthSubmitButton>
 				</FieldGroup>
 			</form>
 		</AuthShell>
@@ -983,7 +935,7 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 		>
 			<form onSubmit={handleSubmit}>
 				<FieldGroup>
-					<FormError message={error} />
+					<AuthFormError message={error} />
 					<div className="grid grid-cols-2 gap-3">
 						<Field>
 							<FieldLabel htmlFor="invite-first">First name</FieldLabel>
@@ -1012,9 +964,9 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 						onPasswordChange={setPassword}
 						password={password}
 					/>
-					<SubmitButton pending={pending} pendingLabel="Setting up…">
+					<AuthSubmitButton pending={pending} pendingLabel="Setting up…">
 						Accept Invitation
-					</SubmitButton>
+					</AuthSubmitButton>
 				</FieldGroup>
 			</form>
 		</AuthShell>

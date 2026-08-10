@@ -1,8 +1,5 @@
-import { PasswordField } from '@simmer-mosquito/ui-web/components/password-field';
-import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
+import { CredentialsFields, VerificationCodeFields } from '@simmer-mosquito/ui-web/components/auth';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Field, FieldGroup, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import {
@@ -19,7 +16,9 @@ import { appAuthController } from '../app-auth';
  *
  * The same in-app email + password flow `apps/web` uses (ADR 0010), posting to
  * the same public `/auth/*` endpoints — `/auth/*` CORS already admits
- * `ADMIN_APP_ORIGIN`, so this needed no server change.
+ * `ADMIN_APP_ORIGIN`, so this needed no server change. Same flow, so the fields
+ * are the workspace's: `@simmer-mosquito/ui-web/components/auth`. What is here
+ * is the console's own front door and its own answers.
  *
  * What is deliberately *not* here: sign-up, and a link to it. Operator accounts
  * are provisioned, not self-served — a stranger who reaches this page cannot
@@ -77,18 +76,6 @@ function AuthShell({
 				</div>
 			</div>
 		</div>
-	);
-}
-
-function FormError({ message }: { readonly message: string | null }) {
-	if (message === null) {
-		return null;
-	}
-
-	return (
-		<Alert variant="destructive">
-			<AlertDescription>{message}</AlertDescription>
-		</Alert>
 	);
 }
 
@@ -220,30 +207,16 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 			title="Operator Sign In"
 		>
 			<form onSubmit={handleCredentials}>
-				<FieldGroup>
-					<FormError message={error} />
-					<Field>
-						<FieldLabel htmlFor="signin-email">Email</FieldLabel>
-						<Input
-							autoComplete="email"
-							id="signin-email"
-							onChange={(event) => setEmail(event.target.value)}
-							required
-							type="email"
-							value={email}
-						/>
-					</Field>
-					<PasswordField
-						autoComplete="current-password"
-						id="signin-password"
-						label="Password"
-						onChange={setPassword}
-						value={password}
-					/>
-					<Button className="w-full" disabled={pending} size="lg" type="submit">
-						{pending ? 'Signing in…' : 'Sign In'}
-					</Button>
-				</FieldGroup>
+				<CredentialsFields
+					email={email}
+					error={error}
+					onEmailChange={setEmail}
+					onPasswordChange={setPassword}
+					password={password}
+					pending={pending}
+					pendingLabel="Signing in…"
+					submitLabel="Sign In"
+				/>
 			</form>
 		</AuthShell>
 	);
@@ -289,23 +262,14 @@ function VerifyStep({
 	return (
 		<AuthShell description={`Enter the code sent to ${email}.`} title="Verify Your Email">
 			<form onSubmit={submit}>
-				<FieldGroup>
-					<FormError message={error} />
-					<Field>
-						<FieldLabel htmlFor="verify-code">Verification code</FieldLabel>
-						<Input
-							autoComplete="one-time-code"
-							id="verify-code"
-							inputMode="numeric"
-							onChange={(event) => setCode(event.target.value)}
-							required
-							value={code}
-						/>
-					</Field>
-					<Button className="w-full" disabled={pending} size="lg" type="submit">
-						{pending ? 'Verifying…' : 'Verify'}
-					</Button>
-				</FieldGroup>
+				<VerificationCodeFields
+					code={code}
+					error={error}
+					onCodeChange={setCode}
+					pending={pending}
+					pendingLabel="Verifying…"
+					submitLabel="Verify"
+				/>
 			</form>
 		</AuthShell>
 	);
