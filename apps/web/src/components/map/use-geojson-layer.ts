@@ -2,12 +2,11 @@ import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	FillLayerSpecification,
-	GeoJSONSource,
 	LineLayerSpecification,
 	Map as MapboxMap,
-	MapMouseEvent,
 } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import { useGeoJsonSource } from './use-geojson-source';
 
 /**
  * A single GeoJSON overlay rendered on top of the basemap — the new-stack
@@ -37,14 +36,6 @@ const POLYGON_OUTLINE_LAYER_ID = `${GEOJSON_SOURCE_ID}-polygon-outline`;
 const LINE_LAYER_ID = `${GEOJSON_SOURCE_ID}-lines`;
 const POINT_LAYER_ID = `${GEOJSON_SOURCE_ID}-points`;
 const POINT_SELECTED_LAYER_ID = `${GEOJSON_SOURCE_ID}-points-selected`;
-
-const GEOJSON_LAYER_IDS = [
-	POLYGON_FILL_LAYER_ID,
-	POLYGON_OUTLINE_LAYER_ID,
-	LINE_LAYER_ID,
-	POINT_LAYER_ID,
-	POINT_SELECTED_LAYER_ID,
-] as const;
 
 /** Layers a click/hover query targets to resolve the feature under the cursor. */
 const INTERACTIVE_LAYER_IDS = [POINT_LAYER_ID, LINE_LAYER_ID, POLYGON_FILL_LAYER_ID] as const;
@@ -128,12 +119,11 @@ function geoJsonLayers(
 }
 
 /**
- * Binds a single GeoJSON source + layers to a live Mapbox map. Mirrors
- * {@link useHabitatTileLayer}: re-adds on basemap restyle (`style.load`), pushes
- * data updates through `setData` without re-adding layers, and guards teardown
- * against an already-removed map. A no-op while `data` is null. When
- * `interaction` is supplied, routes clicks/hover on features back out through
- * `onSelectFeature` and keeps the selected-point highlight in sync.
+ * Binds a single GeoJSON overlay to a live Mapbox map.
+ *
+ * The source lifecycle is {@link useGeoJsonSource}'s. What is here is what makes
+ * this overlay itself: its layer specs, and the highlight that follows the
+ * selected feature without the layers being re-added underneath it.
  */
 export function useGeoJsonLayer(
 	map: MapboxMap | null,
@@ -142,124 +132,34 @@ export function useGeoJsonLayer(
 	interaction?: GeoJsonLayerInteraction,
 ): void {
 	const enabled = data !== null;
-	const interactive = interaction?.onSelectFeature !== undefined;
 	const selectedId = interaction?.selectedId ?? null;
 
-	const dataRef = useRef(data);
-	dataRef.current = data;
+	// The layer builder reads the selection at ensure time, so a new selection
+	// re-filters the highlight (below) instead of re-adding every layer.
 	const selectedRef = useRef(selectedId);
 	selectedRef.current = selectedId;
-	const onSelectRef = useRef(interaction?.onSelectFeature);
-	onSelectRef.current = interaction?.onSelectFeature;
 
-	// Source + layers + interaction. Re-runs only on map identity / load / enable
-	// / interactivity — never on selection or data changes (handled below).
-	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
-			return;
-		}
-		const activeMap = map;
+	useGeoJsonSource({
+		map,
+		isLoaded,
+		sourceId: GEOJSON_SOURCE_ID,
+		data,
+		layers: () => geoJsonLayers(selectedRef.current),
+		interactive: {
+			layerIds: INTERACTIVE_LAYER_IDS,
+			...(interaction?.onSelectFeature === undefined
+				? {}
+				: { onSelectFeature: interaction.onSelectFeature }),
+		},
+	});
 
-		function ensureLayers() {
-			const current = dataRef.current;
-			if (current === null) {
-				return;
-			}
-			const source = activeMap.getSource(GEOJSON_SOURCE_ID) as GeoJSONSource | undefined;
-			if (source === undefined) {
-				activeMap.addSource(GEOJSON_SOURCE_ID, { type: 'geojson', data: current });
-			} else {
-				source.setData(current);
-			}
-			for (const layer of geoJsonLayers(selectedRef.current)) {
-				if (activeMap.getLayer(layer.id) === undefined) {
-					activeMap.addLayer(layer);
-				}
-			}
-		}
-
-		ensureLayers();
-		// setStyle (basemap switch) wipes custom sources/layers — re-add when ready.
-		activeMap.on('style.load', ensureLayers);
-
-		function presentInteractiveLayers(): string[] {
-			return INTERACTIVE_LAYER_IDS.filter((id) => activeMap.getLayer(id) !== undefined);
-		}
-		function handleClick(event: MapMouseEvent) {
-			const layers = presentInteractiveLayers();
-			if (layers.length === 0) {
-				return;
-			}
-			const feature = activeMap.queryRenderedFeatures(event.point, { layers })[0];
-			// Prefer the `id` property (domain UUID); Mapbox does not preserve string
-			// feature ids for GeoJSON sources, so `feature.id` may be undefined. Fall
-			// back to the native id for sources that key on a numeric feature id.
-			const rawId = feature?.properties?.id ?? feature?.id;
-			const id = rawId === undefined || rawId === null ? null : String(rawId);
-			onSelectRef.current?.(id);
-		}
-		function handleMove(event: MapMouseEvent) {
-			const layers = presentInteractiveLayers();
-			if (layers.length === 0) {
-				return;
-			}
-			const hovering = activeMap.queryRenderedFeatures(event.point, { layers }).length > 0;
-			activeMap.getCanvas().style.cursor = hovering ? 'pointer' : '';
-		}
-		if (interactive) {
-			activeMap.on('click', handleClick);
-			activeMap.on('mousemove', handleMove);
-		}
-
-		return () => {
-			activeMap.off('style.load', ensureLayers);
-			if (interactive) {
-				activeMap.off('click', handleClick);
-				activeMap.off('mousemove', handleMove);
-			}
-			// useMapboxMap's create-effect cleanup calls map.remove() and, on unmount,
-			// runs before this hook's cleanup — touching the canvas/style/sources/layers
-			// afterward throws. Guard the teardown.
-			try {
-				if (interactive) {
-					activeMap.getCanvas().style.cursor = '';
-				}
-				for (const id of GEOJSON_LAYER_IDS) {
-					if (activeMap.getLayer(id) !== undefined) {
-						activeMap.removeLayer(id);
-					}
-				}
-				if (activeMap.getSource(GEOJSON_SOURCE_ID) !== undefined) {
-					activeMap.removeSource(GEOJSON_SOURCE_ID);
-				}
-			} catch {
-				// Map already removed; nothing left to clean up.
-			}
-		};
-	}, [map, isLoaded, enabled, interactive]);
-
-	// Push data changes onto the existing source without re-adding layers.
-	useEffect(() => {
-		if (map === null || !isLoaded || data === null || !enabled) {
-			return;
-		}
-		// A reconnect or restyle can re-run this against a torn-down style, where
-		// getSource throws; the setup effect re-seeds the source on `style.load`.
-		try {
-			const source = map.getSource(GEOJSON_SOURCE_ID) as GeoJSONSource | undefined;
-			source?.setData(data);
-		} catch {
-			// Map style not available; nothing to update.
-		}
-	}, [map, isLoaded, enabled, data]);
-
-	// Re-scope the highlight layer to the selected feature without re-adding it.
+	// Re-scope the highlight to the selected feature without re-adding it.
 	useEffect(() => {
 		if (map === null || !isLoaded || !enabled) {
 			return;
 		}
 		// getLayer/setFilter throw if the style was torn down under a reconnect or
-		// restyle; the setup effect re-applies the selection on `style.load`.
+		// restyle; the source hook re-applies the selection on `style.load`.
 		try {
 			if (map.getLayer(POINT_SELECTED_LAYER_ID) !== undefined) {
 				map.setFilter(POINT_SELECTED_LAYER_ID, selectedPointFilter(selectedId));
