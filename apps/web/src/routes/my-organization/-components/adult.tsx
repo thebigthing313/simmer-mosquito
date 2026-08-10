@@ -5,7 +5,6 @@ import type {
 	OrganizationRow,
 } from '@simmer-mosquito/sync';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Drawer,
@@ -42,7 +41,7 @@ import {
 	updateAdultCollectionLureFromValues,
 	watchPersistence,
 } from './helpers';
-import { LookupListFrame } from './layout/layout';
+import { LookupListFrame, SettingChoiceCard } from './layout/layout';
 import type { SettingField } from './types';
 
 export function AdultSurveillanceSettings({
@@ -88,7 +87,7 @@ function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingM
 				</p>
 			</div>
 			<div className="grid gap-2 md:grid-cols-2">
-				<CollectionTimingExample
+				<SettingChoiceCard
 					active={mode === 'exact_timestamps'}
 					description="Use when crews record the exact set and pickup times."
 					title="Exact Timestamps"
@@ -101,8 +100,8 @@ function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingM
 						<FieldLabel>Pickup time</FieldLabel>
 						<Input disabled value="May 22, 2026 7:30 AM" readOnly />
 					</Field>
-				</CollectionTimingExample>
-				<CollectionTimingExample
+				</SettingChoiceCard>
+				<SettingChoiceCard
 					active={mode === 'collection_date_duration'}
 					description="Use when crews record the collection date and duration."
 					title="Collection Date and Duration"
@@ -115,41 +114,9 @@ function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingM
 						<FieldLabel>Duration</FieldLabel>
 						<Input disabled value="13.5 hours" readOnly />
 					</Field>
-				</CollectionTimingExample>
+				</SettingChoiceCard>
 			</div>
 		</section>
-	);
-}
-
-function CollectionTimingExample({
-	active,
-	children,
-	description,
-	title,
-}: {
-	readonly active: boolean;
-	readonly children: React.ReactNode;
-	readonly description: string;
-	readonly title: string;
-}) {
-	return (
-		<div
-			className="grid content-start gap-2 rounded-md border border-border/30 bg-background p-2.5 data-[active=true]:border-primary/35 data-[active=true]:bg-[color-mix(in_oklch,var(--simmer-green-100)_36%,var(--card))]"
-			data-active={active}
-		>
-			<div className="flex flex-wrap items-start justify-between gap-2">
-				<div className="grid gap-1">
-					<span className="font-medium text-sm text-foreground">{title}</span>
-					<p className="m-0 text-xs leading-snug text-muted-foreground">{description}</p>
-				</div>
-				{active ? (
-					<Badge tone="success" variant="outline">
-						Current
-					</Badge>
-				) : null}
-			</div>
-			<div className="grid gap-2">{children}</div>
-		</div>
 	);
 }
 

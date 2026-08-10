@@ -76,7 +76,7 @@ import {
 	updateHabitatTypeFromValues,
 	watchPersistence,
 } from './helpers';
-import { LookupListFrame } from './layout/layout';
+import { LookupListFrame, SettingChoiceCard } from './layout/layout';
 import type {
 	DensityRangeFormValue,
 	DensityRangeFormValues,
@@ -127,7 +127,7 @@ function LarvalEntryPolicyGuide({
 				</p>
 			</div>
 			<div className="grid gap-2 md:grid-cols-3">
-				<LarvalEntryModeExample
+				<SettingChoiceCard
 					active={policy.mode === 'density_only'}
 					description="Crews choose a density category without entering larvae counts."
 					title="Density Only"
@@ -136,8 +136,8 @@ function LarvalEntryPolicyGuide({
 						<FieldLabel>Density</FieldLabel>
 						<Input disabled readOnly value="Medium" />
 					</Field>
-				</LarvalEntryModeExample>
-				<LarvalEntryModeExample
+				</SettingChoiceCard>
+				<SettingChoiceCard
 					active={policy.mode === 'count_and_dips_required'}
 					description="Crews enter larvae counts and dip counts; density can be inferred."
 					title="Count and Dips Required"
@@ -152,8 +152,8 @@ function LarvalEntryPolicyGuide({
 							<Input disabled readOnly value="6" />
 						</Field>
 					</div>
-				</LarvalEntryModeExample>
-				<LarvalEntryModeExample
+				</SettingChoiceCard>
+				<SettingChoiceCard
 					active={policy.mode === 'hybrid'}
 					description="Crews can record density, counts and dips, or both depending on the inspection."
 					title="Hybrid"
@@ -164,52 +164,17 @@ function LarvalEntryPolicyGuide({
 	);
 }
 
-function LarvalEntryModeExample({
-	active,
-	children,
-	description,
-	title,
-}: {
-	readonly active: boolean;
-	readonly children?: React.ReactNode;
-	readonly description: string;
-	readonly title: string;
-}) {
-	return (
-		<div
-			className="grid content-start gap-2 rounded-md border border-border/30 bg-background p-2.5 data-[active=true]:border-primary/35 data-[active=true]:bg-[color-mix(in_oklch,var(--simmer-green-100)_36%,var(--card))]"
-			data-active={active}
-		>
-			<div className="flex flex-wrap items-start justify-between gap-2">
-				<div className="grid gap-1">
-					<span className="font-medium text-sm text-foreground">{title}</span>
-					<p className="m-0 text-xs leading-snug text-muted-foreground">{description}</p>
-				</div>
-				{active ? (
-					<Badge tone="success" variant="outline">
-						Current
-					</Badge>
-				) : null}
-			</div>
-			<div className="grid gap-2">{children}</div>
-		</div>
-	);
-}
-
 function DensityRangesDisplay({ ranges }: { readonly ranges: LarvalDensityRanges | null }) {
 	return (
-		<div className="grid gap-2 rounded-md border border-border/30 bg-background p-2.5">
-			<div className="flex flex-wrap items-start justify-between gap-2">
-				<div className="grid gap-1">
-					<span className="font-medium text-sm text-foreground">Density inference</span>
-					<p className="m-0 text-xs leading-snug text-muted-foreground">
-						The app uses larvae per dip to infer density. Zero larvae is always None.
-					</p>
-				</div>
+		<SettingChoiceCard
+			badge={
 				<Badge tone={ranges === null ? 'neutral' : 'info'} variant="outline">
 					{ranges === null ? 'Disabled' : 'Configured'}
 				</Badge>
-			</div>
+			}
+			description="The app uses larvae per dip to infer density. Zero larvae is always None."
+			title="Density inference"
+		>
 			<div className="grid gap-2 md:grid-cols-5">
 				<DensityRangeTile density="none" range={null} />
 				{densityRangeKeys.map((density) => (
@@ -220,7 +185,7 @@ function DensityRangesDisplay({ ranges }: { readonly ranges: LarvalDensityRanges
 					/>
 				))}
 			</div>
-		</div>
+		</SettingChoiceCard>
 	);
 }
 
