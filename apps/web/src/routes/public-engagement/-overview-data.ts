@@ -153,10 +153,10 @@ export function useRequestParties(requests: readonly ServiceRequestRow[]): Reque
 /**
  * What happened to a service request, as one line in the activity feed.
  *
- * `closed` and `edited` are both writes to the same row, so read the derivation
- * in {@link useServiceRequestFeed} before trusting either.
+ * Every kind is read off a column that records it. Edits are deliberately not a
+ * kind — see {@link useServiceRequestFeed}.
  */
-export type ServiceRequestEventKind = 'created' | 'commented' | 'closed' | 'edited';
+export type ServiceRequestEventKind = 'created' | 'commented' | 'closed';
 
 export interface ServiceRequestEvent {
 	/** Stable across re-renders: one row can produce several events. */
@@ -173,21 +173,18 @@ export interface ServiceRequestEvent {
 /**
  * The organization's service request activity over a window, newest first.
  *
- * Three of the four kinds come off columns that mean exactly what they say:
- * `createdAt`, `closedAt`, and a comment's own `commentedAt`. **`edited` is
- * inferred**, because nothing records edits — there is no audit table, and
- * `updatedAt` holds only the most recent write. So:
+ * Each kind comes off a column that means exactly what it says: `createdAt`,
+ * `closedAt`, and a comment's own `commentedAt`.
  *
- * - `updatedAt === createdAt` — the insert takes both from the same statement's
- *   default, so they are equal to the character until something writes again.
- *   Nothing has. No edit.
- * - `updatedAt` all but coincides with `closedAt` — the last write was that
- *   close, which is already its own row. No edit. See {@link CLOSE_WRITE_SKEW_MS}
- *   for why this one cannot be an equality.
- * - otherwise — something else wrote to the row, and that is the edit.
- *
- * The standing limit: only the *latest* edit of a request can ever appear.
- * Earlier ones are overwritten in place and are simply not recorded anywhere.
+ * **Edits are absent, on purpose.** Nothing in the schema records one. The feed
+ * once inferred them from `updatedAt`, and that inference could not be made
+ * right: `updatedAt` holds only the most recent write, so a request edited three
+ * times showed one edit; a close writes `closed_at` from the browser and
+ * `updated_at` from Postgres, so telling a close from an edit meant a tolerance
+ * rather than an equality; and a back-dated close was indistinguishable from an
+ * edit made today. A chronology that is right about what it lists is worth more
+ * than one that lists a fourth thing it is guessing at, so the guess is gone.
+ * Showing edits needs something that records them — see issue #125.
  */
 export function useServiceRequestFeed(
 	requests: readonly ServiceRequestRow[],
@@ -235,55 +232,13 @@ export function useServiceRequestFeed(
 	};
 }
 
-/**
- * How far apart `closedAt` and `updatedAt` may sit and still be the same write.
- *
- * They ought to be identical, and are not. Closing a request in this app writes
- * an optimistic `closedAt` from `Date.now()` in the browser, and the command
- * stores exactly that instant; `updated_at` is set by Postgres `now()` when the
- * transaction commits. Two clocks, so two values — usually milliseconds apart,
- * and further on a machine whose clock has drifted.
- *
- * Two minutes is chosen against that skew, not against user behaviour. The cost
- * of it being too wide is a genuine edit made moments after a close going
- * unlisted; the cost of it being too narrow is every close on the feed twice,
- * once as itself and once as a phantom edit. The second is the worse screen.
- */
-const CLOSE_WRITE_SKEW_MS = 2 * 60 * 1000;
-
-/**
- * Whether two recorded instants are near enough to be one write.
- *
- * Timestamps arrive in whichever of two shapes their row is in: Electric streams
- * `2026-08-05 13:22:01.481+00`, while a row still carrying an optimistic local
- * write holds an ISO `…T13:22:01.481Z`. Both are normalized before comparison
- * rather than assuming the synced form.
- */
-function isSameWrite(left: string, right: string | null): boolean {
-	if (right === null) {
-		return false;
-	}
-	const leftMs = toEpochMs(left);
-	const rightMs = toEpochMs(right);
-	if (Number.isNaN(leftMs) || Number.isNaN(rightMs)) {
-		// Unparseable means unknown, and an unknown must not silently swallow an
-		// event — fall back to the exact comparison.
-		return left === right;
-	}
-	return Math.abs(leftMs - rightMs) <= CLOSE_WRITE_SKEW_MS;
-}
-
-function toEpochMs(value: string): number {
-	// `2026-08-05 13:22:01.481+00` → `2026-08-05T13:22:01.481+00:00`. An already
-	// ISO value passes through both replacements untouched.
-	return Date.parse(value.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00'));
-}
-
 /** The rows an event feed is folded out of, narrowed to what the fold reads. */
 type FeedRequest = Pick<
 	ServiceRequestRow,
-	'id' | 'createdAt' | 'updatedAt' | 'closedAt' | 'createdByProfileId' | 'updatedByProfileId'
-> & { readonly closedByProfileId: string | null };
+	'id' | 'createdAt' | 'closedAt' | 'createdByProfileId'
+> & {
+	readonly closedByProfileId: string | null;
+};
 
 type FeedComment = Pick<
 	CommentRow,
@@ -293,9 +248,8 @@ type FeedComment = Pick<
 /**
  * Fold requests and their comments into one chronology, newest first.
  *
- * Pure and exported for its tests — the `edited` rules documented on
- * {@link useServiceRequestFeed} are inference over three timestamps, and getting
- * one of them backwards produces a feed that looks entirely plausible.
+ * Pure and exported for its tests — a window boundary or an unresolvable comment
+ * handled the wrong way produces a feed that looks entirely plausible.
  *
  * `since` is compared as a string. Electric streams timestamps in a single
  * fixed format (`2026-08-05 13:22:01.481+00`), and `localDayStartAsTimestamp`
@@ -327,18 +281,6 @@ export function deriveServiceRequestEvents(
 				at: request.closedAt,
 				requestId: request.id,
 				actorProfileId: request.closedByProfileId,
-				text: null,
-			});
-		}
-		const isCreateWrite = request.updatedAt === request.createdAt;
-		const isCloseWrite = isSameWrite(request.updatedAt, request.closedAt);
-		if (!(isCreateWrite || isCloseWrite) && request.updatedAt >= since) {
-			events.push({
-				key: `${request.id}:edited`,
-				kind: 'edited',
-				at: request.updatedAt,
-				requestId: request.id,
-				actorProfileId: request.updatedByProfileId,
 				text: null,
 			});
 		}

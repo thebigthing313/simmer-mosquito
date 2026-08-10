@@ -281,7 +281,6 @@ const EVENT_PRESENTATION: Readonly<
 	created: { verb: 'opened', icon: iconRegistry.actions.add.icon },
 	commented: { verb: 'commented on', icon: iconRegistry.actions.comment.icon },
 	closed: { verb: 'closed', icon: iconRegistry.actions.check.icon },
-	edited: { verb: 'edited', icon: iconRegistry.actions.edit.icon },
 };
 
 /**
@@ -373,9 +372,7 @@ function ActivityRow({
 			primary={`${actorName ?? 'Someone'} ${verb} ${requestTitle}`}
 			secondary={
 				event.text === null ? (
-					<span className="text-muted-foreground/80">
-						{event.kind === 'edited' ? 'Details changed' : 'Service request'}
-					</span>
+					<span className="text-muted-foreground/80">Service request</span>
 				) : (
 					<span className="line-clamp-2">{event.text}</span>
 				)
