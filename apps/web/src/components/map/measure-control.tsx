@@ -9,7 +9,12 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { MapControlButton, MapControlGroup } from './map-control';
-import type { MapMeasureController, Measurement, MeasureTool } from './use-map-measure';
+import {
+	type MapMeasureController,
+	type Measurement,
+	type MeasureTool,
+	useMeasureDraft,
+} from './use-map-measure';
 
 /**
  * The measurement session's controls and readout.
@@ -33,7 +38,10 @@ export function MeasureControl({
 	readonly system?: MeasurementSystem;
 	readonly onClose: () => void;
 }) {
-	const { tool, measurements, draft, draftPointCount } = controller;
+	const { tool, measurements, draftPointCount } = controller;
+	// Subscribed rather than read off the controller, so the number beside the
+	// shape keeps up with the shape while it is being dragged out.
+	const draft = useMeasureDraft(controller);
 	const hasResults = measurements.length > 0 || draft !== null;
 
 	return (

@@ -18,7 +18,7 @@ import type {
 	Map as MapboxMap,
 	MapMouseEvent,
 } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -43,13 +43,30 @@ export interface Measurement {
 	readonly radiusMeters: number | null;
 }
 
+/**
+ * A value that changes faster than the map can afford to re-render for.
+ *
+ * The cursor moves every frame and a re-render of the map subtree that often is
+ * visible, which is why the cursor is a ref. Anything derived from it is in the
+ * same bind: computing it during render means it only refreshes when something
+ * else re-renders, and a mousemove is not that. Publishing it here instead lets
+ * the one component that wants the number subscribe to it on its own.
+ */
+export interface LiveValue<T> {
+	readonly subscribe: (listener: () => void) => () => void;
+	readonly get: () => T;
+}
+
 export interface MapMeasureController {
 	readonly isMeasuring: boolean;
 	readonly tool: MeasureTool | null;
 	/** Finished shapes, oldest first. */
 	readonly measurements: readonly Measurement[];
-	/** The shape being drawn right now, so the readout can update as it moves. */
-	readonly draft: Measurement | null;
+	/**
+	 * The shape being drawn right now, updating as it moves. Read it with
+	 * {@link useMeasureDraft}, which re-renders the reader and nothing else.
+	 */
+	readonly draft: LiveValue<Measurement | null>;
 	/** How many points the current line has, for the undo affordance. */
 	readonly draftPointCount: number;
 	readonly selectTool: (tool: MeasureTool) => void;
@@ -156,6 +173,10 @@ export function useMapMeasure({
 	const [shapes, setShapes] = useState<readonly Shape[]>([]);
 	const [draft, setDraft] = useState<Draft | null>(null);
 
+	// The measurement in progress is published rather than returned by value, so
+	// that the readout can follow the cursor without the map re-rendering with it.
+	const [draftStore] = useState(() => createLiveStore<Measurement | null>(null, sameMeasurement));
+
 	// The cursor drives the live preview and moves every frame, so it stays out
 	// of React state — a re-render per mousemove would be visible on a big map.
 	const cursorRef = useRef<LngLat | null>(null);
@@ -173,6 +194,22 @@ export function useMapMeasure({
 		const collection = buildFeatures(shapesRef.current, draftRef.current, cursorRef.current);
 		(map.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(collection);
 	}, [map]);
+
+	const publishDraft = useCallback(
+		(current: Draft | null) => {
+			const shape = current === null ? null : shapeFrom(current, cursorRef.current);
+			// The draft row is never keyed against the finished list, so it carries a
+			// fixed id rather than a fresh one per frame.
+			draftStore.set(shape === null ? null : { ...shape.measurement, id: DRAFT_ID });
+		},
+		[draftStore],
+	);
+
+	// A click, an undo, or an Escape changes the draft in state, and the readout
+	// has to follow it there too — not only when the cursor moves.
+	useEffect(() => {
+		publishDraft(draft);
+	}, [draft, publishDraft]);
 
 	// What the source holds after a real state change — a shape finished, a draft
 	// started or abandoned. The cursor is deliberately not a dependency: it moves
@@ -250,6 +287,7 @@ export function useMapMeasure({
 
 		function handleMove(event: MapMouseEvent) {
 			cursorRef.current = { lng: event.lngLat.lng, lat: event.lngLat.lat };
+			publishDraft(draftRef.current);
 			repaint();
 		}
 
@@ -284,7 +322,7 @@ export function useMapMeasure({
 				activeMap.doubleClickZoom.enable();
 			}
 		};
-	}, [map, isLoaded, tool, repaint]);
+	}, [map, isLoaded, tool, publishDraft, repaint]);
 
 	const selectTool = useCallback((next: MeasureTool) => {
 		// Switching tools abandons a half-drawn shape rather than trying to
@@ -315,13 +353,76 @@ export function useMapMeasure({
 		isMeasuring: tool !== null,
 		tool,
 		measurements: shapes.map((shape) => shape.measurement),
-		draft: draft === null ? null : (shapeFrom(draft, cursorRef.current)?.measurement ?? null),
+		draft: draftStore,
 		draftPointCount: draft?.tool === 'distance' ? draft.points.length : draft === null ? 0 : 1,
 		selectTool,
 		finish: commitDraft,
 		undo,
 		clear,
 	};
+}
+
+/**
+ * Subscribes to the measurement in progress.
+ *
+ * Call this from the readout rather than reading the value through the
+ * controller: the point of {@link LiveValue} is that a mousemove re-renders the
+ * panel that shows the number and leaves the map alone. The panel is a handful
+ * of nodes, so a render per move costs nothing worth throttling.
+ */
+export function useMeasureDraft(controller: MapMeasureController): Measurement | null {
+	const { subscribe, get } = controller.draft;
+	return useSyncExternalStore(subscribe, get, get);
+}
+
+// ---------------------------------------------------------------------------
+// Live values
+// ---------------------------------------------------------------------------
+
+const DRAFT_ID = 'measure-draft';
+
+interface LiveStore<T> extends LiveValue<T> {
+	/** Notifies subscribers, but only when the value has actually changed. */
+	readonly set: (next: T) => void;
+}
+
+function createLiveStore<T>(initial: T, isSame: (a: T, b: T) => boolean): LiveStore<T> {
+	let value = initial;
+	const listeners = new Set<() => void>();
+	return {
+		subscribe(listener: () => void) {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+		get: () => value,
+		set(next: T) {
+			// `useSyncExternalStore` re-reads on every notification and compares by
+			// identity, and a measurement is rebuilt from scratch each time, so
+			// without this every frame of a still cursor would be a render.
+			if (isSame(value, next)) {
+				return;
+			}
+			value = next;
+			for (const listener of [...listeners]) {
+				listener();
+			}
+		},
+	};
+}
+
+/** Ids are excluded: a draft's is fixed, so only the numbers can differ. */
+function sameMeasurement(a: Measurement | null, b: Measurement | null): boolean {
+	if (a === null || b === null) {
+		return a === b;
+	}
+	return (
+		a.tool === b.tool &&
+		a.lengthMeters === b.lengthMeters &&
+		a.areaMeters === b.areaMeters &&
+		a.radiusMeters === b.radiusMeters
+	);
 }
 
 // ---------------------------------------------------------------------------

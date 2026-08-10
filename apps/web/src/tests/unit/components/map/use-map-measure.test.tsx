@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { Map as MapboxMap } from 'mapbox-gl';
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useMapMeasure } from '../../../../components/map/use-map-measure';
@@ -17,8 +18,15 @@ afterEach(cleanupRenderedHooks);
 
 function mount() {
 	const fake = createFakeMap();
-	const harness = renderHook(useMapMeasure, { map: fake.map, isLoaded: true });
-	return { fake, ...harness };
+	let renders = 0;
+	const harness = renderHook(
+		(props: { readonly map: MapboxMap | null; readonly isLoaded: boolean }) => {
+			renders += 1;
+			return useMapMeasure(props);
+		},
+		{ map: fake.map, isLoaded: true },
+	);
+	return { fake, renders: () => renders, ...harness };
 }
 
 /** Roles carried by the features the measure source is holding, in order. */
@@ -125,9 +133,7 @@ describe('useMapMeasure', () => {
 			fake.move(-90, 36);
 		});
 
-		// The rubber-band line plus the one placed point. The preview is painted
-		// straight onto the source from refs, without a React render — that is what
-		// keeps a mousemove from re-rendering the whole panel per frame.
+		// The rubber-band line plus the one placed point.
 		expect(roles(fake)).toEqual(['draft', 'vertex']);
 		const [line] = fake.featuresOf(SOURCE_ID);
 		expect(line?.geometry).toEqual({
@@ -137,6 +143,106 @@ describe('useMapMeasure', () => {
 				[-90, 36],
 			],
 		});
+	});
+
+	// The readout is the whole point of dragging a circle out, and it used to sit
+	// at zero for the entire drag: it was derived at render time from a cursor
+	// that deliberately does not cause renders.
+	it('measures the shape in progress as it moves', () => {
+		const { fake, result } = mount();
+
+		act(() => {
+			result.current.selectTool('circle');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+
+		expect(result.current.draft.get()?.radiusMeters).toBe(0);
+
+		act(() => {
+			fake.move(-90, 35.5);
+		});
+		const halfway = result.current.draft.get()?.radiusMeters ?? 0;
+		act(() => {
+			fake.move(-90, 36);
+		});
+
+		expect(halfway).toBeGreaterThan(50_000);
+		expect(result.current.draft.get()?.radiusMeters).toBeGreaterThan(halfway);
+	});
+
+	it('grows a line in progress towards the cursor', () => {
+		const { fake, result } = mount();
+
+		act(() => {
+			result.current.selectTool('distance');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+
+		// One point and no cursor is not yet a distance.
+		expect(result.current.draft.get()).toBeNull();
+
+		act(() => {
+			fake.move(-90, 36);
+		});
+
+		expect(result.current.draft.get()?.lengthMeters).toBeGreaterThan(110_000);
+	});
+
+	// The cursor stays out of state so that the map does not re-render per frame.
+	// The readout subscribes instead, which is what lets it move without dragging
+	// everything else along.
+	it('tells the readout about a move without re-rendering the map', () => {
+		const { fake, result, renders } = mount();
+
+		act(() => {
+			result.current.selectTool('rectangle');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+
+		const seen: number[] = [];
+		const unsubscribe = result.current.draft.subscribe(() => {
+			seen.push(result.current.draft.get()?.areaMeters ?? 0);
+		});
+		const before = renders();
+		act(() => {
+			fake.move(-89.5, 35.5);
+			fake.move(-89, 36);
+			// A move that lands nowhere new is not news.
+			fake.move(-89, 36);
+		});
+		unsubscribe();
+
+		expect(seen).toHaveLength(2);
+		expect(seen[1]).toBeGreaterThan(seen[0] ?? 0);
+		expect(renders()).toBe(before);
+	});
+
+	it('clears the readout when the shape is committed', () => {
+		const { fake, result } = mount();
+
+		act(() => {
+			result.current.selectTool('rectangle');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+		act(() => {
+			fake.move(-89, 36);
+		});
+		expect(result.current.draft.get()).not.toBeNull();
+
+		act(() => {
+			fake.click(-89, 36);
+		});
+
+		expect(result.current.draft.get()).toBeNull();
+		expect(result.current.measurements).toHaveLength(1);
 	});
 
 	it('drops the shape in progress on Escape and keeps the finished ones', () => {
