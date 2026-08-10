@@ -28,6 +28,7 @@ import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
+import { WorklistTabs } from '../-worklist-tabs';
 import {
 	type AssignmentStopView,
 	type AssignmentView,
@@ -248,17 +249,23 @@ function AssignmentRunRoute() {
 						)}
 					</div>
 
-					<RunStopList
-						assignmentId={id}
-						enabled={itemsEnabled}
-						highlightId={highlightId}
-						isLoading={isLoading}
-						onAction={itemAction}
-						onHover={setHighlightId}
-						onSelect={setSelectedStopId}
-						selectedStopId={selectedStopId}
-						stops={stops}
-					/>
+					<WorklistTabs
+						commentsDescription="Field notes and follow-up for this assignment."
+						stopCount={stops.length}
+						target={{ type: 'assignment', id }}
+					>
+						<RunStopList
+							assignmentId={id}
+							enabled={itemsEnabled}
+							highlightId={highlightId}
+							isLoading={isLoading}
+							onAction={itemAction}
+							onHover={setHighlightId}
+							onSelect={setSelectedStopId}
+							selectedStopId={selectedStopId}
+							stops={stops}
+						/>
+					</WorklistTabs>
 				</div>
 			</MapSplitPage>
 

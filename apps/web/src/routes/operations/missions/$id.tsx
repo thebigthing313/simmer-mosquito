@@ -36,6 +36,7 @@ import {
 } from '../-operations-data';
 import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
+import { WorklistTabs } from '../-worklist-tabs';
 import { type MissionRun, useMissionRun } from './-mission-run';
 import { MissionStopList, RequestStopPicker } from './-mission-stops';
 
@@ -116,24 +117,6 @@ function MissionPanel({
 					<MissionHeader mission={run.mission} run={run} />
 				)}
 
-				{run.canAddStops ? (
-					<div className="grid gap-2">
-						<RequestStopPicker
-							disabled={run.busy}
-							existingRequestIds={run.existingRequestIds}
-							onAdd={run.addStop}
-							organizationId={run.organizationId ?? ''}
-						/>
-						{/* The picker covers the queue; this covers everywhere else. */}
-						<Button asChild size="sm" variant="ghost">
-							<Link params={{ id: missionId }} to="/operations/missions/$id/add-stop">
-								<MapPinnedIcon aria-hidden="true" />
-								Add a stop by map
-							</Link>
-						</Button>
-					</div>
-				) : null}
-
 				{run.error === null ? null : (
 					<Alert variant="destructive">
 						<AlertDescription>{run.error}</AlertDescription>
@@ -141,19 +124,26 @@ function MissionPanel({
 				)}
 			</div>
 
-			<MissionStopList
-				highlightId={run.highlightId}
-				isLoading={run.isLoadingStops}
-				onAction={run.itemAction}
-				onHover={run.setHighlightId}
-				onMove={run.move}
-				onRemove={run.setRemoveTarget}
-				onSelect={run.setSelectedStopId}
-				planEditable={run.planEditable && !run.busy}
-				progressEnabled={run.progressEnabled}
-				selectedStopId={run.selectedStopId}
-				stops={run.stops}
-			/>
+			<WorklistTabs
+				commentsDescription="Cancellations, reopens, and field notes for this mission."
+				stopControls={run.canAddStops ? <AddStopControls missionId={missionId} run={run} /> : null}
+				stopCount={run.stops.length}
+				target={{ type: 'mission', id: missionId }}
+			>
+				<MissionStopList
+					highlightId={run.highlightId}
+					isLoading={run.isLoadingStops}
+					onAction={run.itemAction}
+					onHover={run.setHighlightId}
+					onMove={run.move}
+					onRemove={run.setRemoveTarget}
+					onSelect={run.setSelectedStopId}
+					planEditable={run.planEditable && !run.busy}
+					progressEnabled={run.progressEnabled}
+					selectedStopId={run.selectedStopId}
+					stops={run.stops}
+				/>
+			</WorklistTabs>
 
 			{run.mission === null ? null : (
 				<div className="shrink-0 border-border/40 border-t p-3">
@@ -167,6 +157,39 @@ function MissionPanel({
 					/>
 				</div>
 			)}
+		</div>
+	);
+}
+
+/**
+ * Adding stops, above the list they land in.
+ *
+ * These are plan controls rather than page controls, so they sit inside the
+ * Stops tab and not in the header — a comment thread has nothing to do with the
+ * request queue.
+ */
+function AddStopControls({
+	missionId,
+	run,
+}: {
+	readonly missionId: string;
+	readonly run: MissionRun;
+}) {
+	return (
+		<div className="grid shrink-0 gap-2 border-border/40 border-b p-3">
+			<RequestStopPicker
+				disabled={run.busy}
+				existingRequestIds={run.existingRequestIds}
+				onAdd={run.addStop}
+				organizationId={run.organizationId ?? ''}
+			/>
+			{/* The picker covers the queue; this covers everywhere else. */}
+			<Button asChild size="sm" variant="ghost">
+				<Link params={{ id: missionId }} to="/operations/missions/$id/add-stop">
+					<MapPinnedIcon aria-hidden="true" />
+					Add a stop by map
+				</Link>
+			</Button>
 		</div>
 	);
 }
