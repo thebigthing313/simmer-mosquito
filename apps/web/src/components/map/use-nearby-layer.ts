@@ -7,6 +7,7 @@ import type {
 } from 'mapbox-gl';
 import { useEffect } from 'react';
 import { useGeoJsonSource } from './use-geojson-source';
+import { isMapLive } from './use-mapbox-map';
 
 /**
  * The service-request context overlay: a proximity ring, the request's own
@@ -156,7 +157,7 @@ export function useNearbyLayer(
 
 	// Re-scope the selection highlight without re-adding the layer.
 	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
+		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		try {

@@ -19,6 +19,7 @@ import type {
 	MapMouseEvent,
 } from 'mapbox-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isMapLive } from './use-mapbox-map';
 
 /**
  * The three shapes a measurement session can put on the map.
@@ -173,7 +174,7 @@ export function useMapMeasure({
 	shapesRef.current = shapes;
 
 	const repaint = useCallback(() => {
-		if (map === null) {
+		if (!isMapLive(map)) {
 			return;
 		}
 		const collection = buildFeatures(shapesRef.current, draftRef.current, cursorRef.current);
@@ -182,7 +183,7 @@ export function useMapMeasure({
 
 	// Source + layers, re-added across basemap restyles like the sibling overlays.
 	useEffect(() => {
-		if (map === null || !isLoaded) {
+		if (!isMapLive(map) || !isLoaded) {
 			return;
 		}
 		const activeMap = map;
@@ -221,7 +222,7 @@ export function useMapMeasure({
 	// Repaint on every real state change. Reads state rather than the refs so the
 	// dependency list says what it means.
 	useEffect(() => {
-		if (map === null) {
+		if (!isMapLive(map)) {
 			return;
 		}
 		(map.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(
@@ -246,7 +247,7 @@ export function useMapMeasure({
 	// Interaction is wired only while a tool is selected, so a map with the
 	// measure panel closed carries no extra listeners and keeps its own cursor.
 	useEffect(() => {
-		if (map === null || !isLoaded || tool === null) {
+		if (!isMapLive(map) || !isLoaded || tool === null) {
 			return;
 		}
 		const activeMap = map;

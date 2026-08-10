@@ -12,7 +12,7 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, Suspense, useState } from 'react';
 import { webCollections } from '../../sync/webCollections';
 import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
@@ -117,19 +117,27 @@ export function RouteDetailPage({
 				</div>
 
 				{isLoading && itemCount === 0 ? (
-					<div className="grid gap-2 p-3">
-						{['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5'].map((key) => (
-							<Skeleton className="h-[64px] rounded-lg" key={key} />
-						))}
-					</div>
+					<StopListSkeleton />
 				) : itemCount === 0 ? (
 					<NoStops routeId={routeId} surface={surface} />
 				) : (
-					stopList({
-						selectedStopId,
-						onSelect: (stopId) => setSelectedStopId(stopId === selectedStopId ? null : stopId),
-						onHover: setHighlightId,
-					})
+					/*
+					 * The stop list reads its catalogs with a suspending query, and it
+					 * only mounts once the route items resolve — after the map is
+					 * already up. Without a boundary of its own it suspends into the
+					 * route's, which hides this whole page including the map: React
+					 * disconnects the hidden subtree's effects (destroying the GL
+					 * instance) and reconnects them when the catalogs land, rebuilding
+					 * the map and re-framing the camera for a catalog read. Issue #132
+					 * was the crash that came out of that; this is the thrash.
+					 */
+					<Suspense fallback={<StopListSkeleton />}>
+						{stopList({
+							selectedStopId,
+							onSelect: (stopId) => setSelectedStopId(stopId === selectedStopId ? null : stopId),
+							onHover: setHighlightId,
+						})}
+					</Suspense>
 				)}
 
 				{/* The divider belongs to the card, not the panel — outside `WriteOnly`
@@ -150,6 +158,16 @@ export function RouteDetailPage({
 				)}
 			</div>
 		</MapSplitPage>
+	);
+}
+
+function StopListSkeleton() {
+	return (
+		<div className="grid gap-2 p-3">
+			{['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5'].map((key) => (
+				<Skeleton className="h-[64px] rounded-lg" key={key} />
+			))}
+		</div>
 	);
 }
 

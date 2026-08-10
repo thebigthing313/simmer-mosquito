@@ -42,6 +42,30 @@ export interface UseMapboxMapResult {
 	readonly error: string | null;
 }
 
+/** Every instance this hook has destroyed. See {@link isMapLive}. */
+const removedMaps = new WeakSet<MapboxMap>();
+
+/**
+ * Whether a map handed out by {@link useMapboxMap} still exists.
+ *
+ * `map === null` is not the same question, and on its own it is not enough.
+ * When a Suspense boundary hides a subtree, React *disconnects* that subtree's
+ * effects — running every cleanup, which is where the GL instance is destroyed
+ * — and later *reconnects* them by re-running every setup, with no render in
+ * between. So a reconnected effect is handed back exactly the `map` it had
+ * before the hide: not null, and already emptied by `remove()`. The first style
+ * read on it (`getSource` -> `style.getOwnSource`) throws, and the whole map
+ * surface lands in the error boundary (issue #132).
+ *
+ * The `try` blocks around the teardown paths cannot cover this: the crash is in
+ * an effect's *setup*, not its cleanup. Skipping is the right answer — the
+ * create effect reconnects too, builds a replacement, and the re-render that
+ * publishes it re-runs every layer effect against a live map.
+ */
+export function isMapLive(map: MapboxMap | null): map is MapboxMap {
+	return map !== null && !removedMaps.has(map);
+}
+
 /**
  * Owns the Mapbox GL instance lifecycle for a single map surface: creation,
  * load/error state, container resize, and live basemap switching. Keeping all of
@@ -138,6 +162,7 @@ export function useMapboxMap({
 			teardown = () => {
 				instance.off('load', handleLoad);
 				instance.off('error', handleError);
+				removedMaps.add(instance);
 				instance.remove();
 				setMap(null);
 				setIsLoaded(false);
@@ -156,10 +181,14 @@ export function useMapboxMap({
 	// React StrictMode's mount/unmount cycle, where a one-shot observer inside the
 	// create effect would miss the final layout and leave a zero-sized canvas.
 	useEffect(() => {
-		if (map === null || container === null) {
+		if (!isMapLive(map) || container === null) {
 			return;
 		}
-		const resize = () => map.resize();
+		const resize = () => {
+			if (isMapLive(map)) {
+				map.resize();
+			}
+		};
 		const frames = [
 			requestAnimationFrame(resize),
 			requestAnimationFrame(() => requestAnimationFrame(resize)),
@@ -176,7 +205,7 @@ export function useMapboxMap({
 
 	// Restyle in place when the basemap changes. setStyle preserves the camera.
 	useEffect(() => {
-		if (map === null || appliedBasemap.current === basemapId) {
+		if (!isMapLive(map) || appliedBasemap.current === basemapId) {
 			return;
 		}
 		map.setStyle(basemapStyle(basemapId).styleUrl);

@@ -9,6 +9,7 @@ import type {
 	MapMouseEvent,
 } from 'mapbox-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isMapLive } from './use-mapbox-map';
 
 /**
  * A geometry the habitat draw flow can produce. Mirrors the GeoJSON shape the
@@ -187,7 +188,7 @@ export function useMapDraw({
 	onChangeRef.current = onChange;
 
 	const repaint = useCallback(() => {
-		if (map === null) {
+		if (!isMapLive(map)) {
 			return;
 		}
 		const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
@@ -203,7 +204,7 @@ export function useMapDraw({
 
 	// Source + layers, re-added across basemap restyles like the sibling overlays.
 	useEffect(() => {
-		if (map === null || !isLoaded) {
+		if (!isMapLive(map) || !isLoaded) {
 			return;
 		}
 		const activeMap = map;
@@ -242,7 +243,7 @@ export function useMapDraw({
 	// Repaint whenever the committed value, placed vertices, or mode change. Reads
 	// the state directly (not the ref-based repaint) so the deps are genuine.
 	useEffect(() => {
-		if (map === null) {
+		if (!isMapLive(map)) {
 			return;
 		}
 		const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
@@ -255,7 +256,7 @@ export function useMapDraw({
 	// its own effect (keyed on the mode kind/type) means idle maps carry no extra
 	// click/move/key listeners and the cursor is always restored on exit.
 	useEffect(() => {
-		if (map === null || !isLoaded || mode.kind === 'idle') {
+		if (!isMapLive(map) || !isLoaded || mode.kind === 'idle') {
 			return;
 		}
 		const activeMap = map;
@@ -385,7 +386,7 @@ export function useMapDraw({
 	const requestPoint = useCallback(
 		(_prompt?: string) =>
 			new Promise<DrawGeometry & { readonly type: 'Point' }>((resolve, reject) => {
-				if (map === null) {
+				if (!isMapLive(map)) {
 					reject(new Error('The map is not ready yet.'));
 					return;
 				}

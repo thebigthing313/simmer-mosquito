@@ -1,5 +1,6 @@
 import type { GeoJSONSource, LayerSpecification, Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import { isMapLive } from './use-mapbox-map';
 
 /**
  * One GeoJSON source and its layers, bound to a live Mapbox map.
@@ -18,7 +19,9 @@ import { useEffect, useRef } from 'react';
  * because nothing looks wrong until somebody switches basemap. Step 5's `try`
  * is not defensive noise: `useMapboxMap`'s create-effect cleanup calls
  * `map.remove()` and, on unmount, runs *before* this hook's cleanup, so
- * touching the style afterwards throws.
+ * touching the style afterwards throws. The `isMapLive` guard on the way in is
+ * the same hazard from the other side — a map that was destroyed while this
+ * subtree was hidden, handed straight back to the setup that follows.
  *
  * What stays with the caller is everything that makes a layer worth having —
  * its specs, its colour expressions, its feature model — and any effect that
@@ -89,7 +92,7 @@ export function useGeoJsonSource({
 	const addedLayerIdsRef = useRef<readonly string[]>([]);
 
 	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
+		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		const activeMap = map;
@@ -185,7 +188,7 @@ export function useGeoJsonSource({
 	// against a torn-down style, where `getSource` throws; the setup effect
 	// re-seeds on `style.load`.
 	useEffect(() => {
-		if (map === null || !isLoaded || data === null) {
+		if (!isMapLive(map) || !isLoaded || data === null) {
 			return;
 		}
 		try {

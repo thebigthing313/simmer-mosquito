@@ -42,7 +42,7 @@ import {
 } from './use-inspection-tile-layer';
 import { type MapExtentFitSource, useMapExtentFit } from './use-map-extent-fit';
 import { useMapMeasure } from './use-map-measure';
-import { useMapboxMap } from './use-mapbox-map';
+import { isMapLive, useMapboxMap } from './use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from './use-nearby-layer';
 import { type OutreachTileLayerConfig, useOutreachTileLayer } from './use-outreach-tile-layer';
 import { type RegionTileLayerConfig, useRegionTileLayer } from './use-region-tile-layer';
@@ -219,11 +219,14 @@ export function MapCanvas({
 	onMapReadyRef.current = onMapReady;
 	const readySignaledFor = useRef<MapboxMap | null>(null);
 	useEffect(() => {
-		if (map !== null && isLoaded && readySignaledFor.current !== map) {
+		// `isMapLive`, not `!== null`: a reconnect after a Suspense hide re-runs
+		// this with the map it had before the hide, which no longer exists. Handing
+		// that to a caller pushes the crash out into route code.
+		if (isMapLive(map) && isLoaded && readySignaledFor.current !== map) {
 			readySignaledFor.current = map;
 			onMapReadyRef.current?.(map);
 		}
-		if (map === null) {
+		if (!isMapLive(map)) {
 			readySignaledFor.current = null;
 		}
 	}, [map, isLoaded]);

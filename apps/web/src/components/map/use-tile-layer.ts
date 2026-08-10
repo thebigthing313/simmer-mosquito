@@ -5,6 +5,7 @@ import type {
 	VectorTileSource,
 } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import { isMapLive } from './use-mapbox-map';
 
 /**
  * Binding one vector tileset to a live Mapbox map.
@@ -68,7 +69,7 @@ export function useTileLayer<TFilters>(
 
 	// Source + layers + interaction. Re-runs only on map identity / load / enable.
 	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
+		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		const activeMap = map;
@@ -145,7 +146,7 @@ export function useTileLayer<TFilters>(
 
 	// Push filter changes onto the existing source without re-adding layers.
 	useEffect(() => {
-		if (map === null || !isLoaded || url === null) {
+		if (!isMapLive(map) || !isLoaded || url === null) {
 			return;
 		}
 		const source = map.getSource(bindingRef.current.sourceId) as VectorTileSource | undefined;
@@ -155,7 +156,7 @@ export function useTileLayer<TFilters>(
 	// Re-scope the highlight layers to the selected feature. Guarded by `enabled`
 	// so maps without a config for this tileset never touch layers never added.
 	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
+		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		const { buildLayers, selectedLayerIds } = bindingRef.current;

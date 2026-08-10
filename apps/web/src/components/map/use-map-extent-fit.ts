@@ -2,6 +2,7 @@ import { type BoundingBox, formatBoundingBox, isBoundingBox } from '@simmer-mosq
 import { useQuery } from '@tanstack/react-query';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import { isMapLive } from './use-mapbox-map';
 
 /**
  * Where a canvas's frame comes from: a tileset extent endpoint the server answers
@@ -53,7 +54,7 @@ export function useMapExtentFit(
 	const fittedMapRef = useRef<MapboxMap | null>(null);
 
 	useEffect(() => {
-		if (map === null || !isLoaded || bounds === null || fitKey === null) {
+		if (!isMapLive(map) || !isLoaded || bounds === null || fitKey === null) {
 			return;
 		}
 		// A fresh GL instance always re-frames, even for a key it already fitted.

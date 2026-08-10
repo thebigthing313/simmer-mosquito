@@ -11,6 +11,7 @@ import type {
 } from 'mapbox-gl';
 import { useEffect, useMemo, useRef } from 'react';
 import { useGeoJsonSource } from './use-geojson-source';
+import { isMapLive } from './use-mapbox-map';
 
 /**
  * One ordered stop on a route map — a numbered pin the layer draws and, in
@@ -342,7 +343,7 @@ export function useRouteLayer(
 	// pin, a miss must not clear the selection, and the hover id is reported back
 	// so the list and the map can highlight together.
 	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
+		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		const activeMap = map;
@@ -392,7 +393,7 @@ export function useRouteLayer(
 	useEffect(() => {
 		selectedRef.current = selectedId;
 		highlightRef.current = highlightId;
-		if (map === null || !isLoaded || !enabled || map.getSource(SOURCE_ID) === undefined) {
+		if (!isMapLive(map) || !isLoaded || !enabled || map.getSource(SOURCE_ID) === undefined) {
 			return;
 		}
 		emphasizeStops(map, stopsRef.current, selectedId, highlightId);

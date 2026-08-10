@@ -7,6 +7,7 @@ import type {
 } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
 import { useGeoJsonSource } from './use-geojson-source';
+import { isMapLive } from './use-mapbox-map';
 
 /**
  * A single GeoJSON overlay rendered on top of the basemap — the new-stack
@@ -155,7 +156,7 @@ export function useGeoJsonLayer(
 
 	// Re-scope the highlight to the selected feature without re-adding it.
 	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
+		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		// getLayer/setFilter throw if the style was torn down under a reconnect or

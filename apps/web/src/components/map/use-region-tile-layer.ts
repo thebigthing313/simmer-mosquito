@@ -8,6 +8,7 @@ import {
 	type RegionTileFilters,
 	regionTileLayers,
 } from './region-tiles';
+import { isMapLive } from './use-mapbox-map';
 
 export interface RegionTileLayerConfig {
 	/** Base server URL the tile template is built against. */
@@ -53,7 +54,7 @@ export function useRegionTileLayer(
 	onSelectRef.current = config?.onSelectFeature;
 
 	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
+		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		const activeMap = map;
@@ -125,7 +126,7 @@ export function useRegionTileLayer(
 
 	// Push filter changes onto the existing source without re-adding layers.
 	useEffect(() => {
-		if (map === null || !isLoaded || url === null) {
+		if (!isMapLive(map) || !isLoaded || url === null) {
 			return;
 		}
 		const source = map.getSource(REGION_SOURCE_ID) as VectorTileSource | undefined;
@@ -135,7 +136,7 @@ export function useRegionTileLayer(
 	// Re-apply every layer's filter when the visible set or selection changes, so
 	// toggling a checkbox reveals/hides its region without re-adding layers.
 	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
+		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
 		const ids = visibleKey.length === 0 ? [] : visibleKey.split(',');
