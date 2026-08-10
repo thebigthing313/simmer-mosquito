@@ -25,6 +25,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { ReasonDialog } from '../../../components/reason-dialog';
 import { WriteOnly } from '../../../components/write-only';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -34,7 +35,6 @@ import {
 	type MissionView,
 } from '../-operations-data';
 import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../-operations-display';
-import { ReasonDialog } from '../-reason-dialog';
 import { WorklistMap } from '../-worklist-map';
 import { type MissionRun, useMissionRun } from './-mission-run';
 import { MissionStopList, RequestStopPicker } from './-mission-stops';
@@ -171,7 +171,15 @@ function MissionPanel({
 	);
 }
 
-/** The three confirmations: skip a stop, remove a stop, call the mission off. */
+/**
+ * The four confirmations: skip a stop, remove a stop, call the mission off, pick
+ * it back up.
+ *
+ * Three of them collect prose because the answer is written onto the record — a
+ * skip reason onto the stop, a cancellation and a reopen onto the mission as
+ * comments. Removing a stop takes it off the mission entirely, so there is
+ * nothing left to write a reason on.
+ */
 function MissionDialogs({ run }: { readonly run: MissionRun }) {
 	return (
 		<>
@@ -195,6 +203,17 @@ function MissionDialogs({ run }: { readonly run: MissionRun }) {
 				placeholder="e.g. Called off for wind."
 				required={false}
 				title="Cancel This Mission?"
+			/>
+
+			<ReasonDialog
+				confirmLabel="Reopen Mission"
+				description="The mission returns to in progress, keeping its stops and everything already recorded on them. Say what brought it back."
+				onConfirm={run.confirmReopen}
+				onOpenChange={run.setReopenOpen}
+				open={run.reopenOpen}
+				placeholder="e.g. Weather cleared; finishing the block."
+				required={false}
+				title="Reopen This Mission?"
 			/>
 
 			<AlertDialog

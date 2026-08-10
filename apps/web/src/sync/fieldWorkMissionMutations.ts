@@ -45,6 +45,16 @@ interface RecordHandlerConfig<TRow extends { readonly id: string }> {
 	readonly insertKeys: readonly (keyof TRow)[];
 	readonly patchKeys: readonly (keyof TRow)[];
 	readonly hasLocation?: boolean;
+	/**
+	 * Whether a reopen on this record carries the operator's reason.
+	 *
+	 * Reopening writes a comment server-side, and the reason is its text — but it
+	 * is not a column on the row, so it rides as metadata the way geometry does
+	 * rather than through the diff. Sent whenever it is present: the endpoint reads
+	 * it only on the reopen branch, so an edit that somehow carried one is ignored
+	 * rather than misfiled.
+	 */
+	readonly hasReopenReason?: boolean;
 	readonly noUpdate?: boolean;
 }
 
@@ -102,6 +112,12 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 						const locationSource = readOptionalLocationSource(mutation.metadata);
 						if (locationSource !== undefined) {
 							body.locationSource = locationSource;
+						}
+					}
+					if (config.hasReopenReason) {
+						const reopenReason = readOptionalReopenReason(mutation.metadata);
+						if (reopenReason !== undefined) {
+							body.reopenReason = reopenReason;
 						}
 					}
 					if (isNoOpUpdate(body)) {
@@ -209,6 +225,7 @@ export function createMissionMutationHandlers(options: { readonly serverUrl: str
 		serverUrl: options.serverUrl,
 		path: '/mission-dispatch/missions',
 		noun: 'mission',
+		hasReopenReason: true,
 		insertKeys: [
 			'controlType',
 			'scheduledStartAt',
@@ -254,6 +271,13 @@ export function createMissionItemMutationHandlers(options: { readonly serverUrl:
 function readOptionalLocationSource(metadata: unknown): unknown {
 	if (isRecord(metadata) && metadata.locationSource !== undefined) {
 		return metadata.locationSource;
+	}
+	return undefined;
+}
+
+function readOptionalReopenReason(metadata: unknown): string | undefined {
+	if (isRecord(metadata) && typeof metadata.reopenReason === 'string') {
+		return metadata.reopenReason.length === 0 ? undefined : metadata.reopenReason;
 	}
 	return undefined;
 }

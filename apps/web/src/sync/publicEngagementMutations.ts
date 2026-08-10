@@ -192,6 +192,14 @@ export function createServiceRequestMutationHandlers(options: { readonly serverU
 						SERVICE_REQUEST_PATCH_KEYS,
 						'serviceRequests.update',
 					);
+					// A close or reopen records a comment server-side, and its text is the
+					// operator's, so it rides beside the timestamp that selects which of
+					// the two commands runs. Only when `closedAt` actually changed: the
+					// reason is meaningless on any other edit, and adding a key here would
+					// turn a genuine no-op into a PATCH.
+					if ('closedAt' in body) {
+						Object.assign(body, readLifecycleReason(mutation.metadata, body.closedAt === null));
+					}
 					if (isNoOpUpdate(body)) {
 						return null;
 					}
@@ -344,6 +352,23 @@ function readGeometry(metadata: unknown): unknown {
 		return metadata.geometry;
 	}
 	throw new Error('A location is required.');
+}
+
+/**
+ * The reason a close or reopen carries, as the field the endpoint reads it under.
+ *
+ * Two names for what is one box on screen, because they reach two different
+ * commands. Nothing is returned when the caller supplied no reason — a close made
+ * from somewhere without a dialog still closes, and the server falls back to its
+ * own plain wording rather than the write failing.
+ */
+function readLifecycleReason(metadata: unknown, isReopen: boolean): Record<string, string> {
+	if (!isRecord(metadata)) {
+		return {};
+	}
+	const key = isReopen ? 'reopenReason' : 'resolutionSummary';
+	const reason = metadata[key];
+	return typeof reason === 'string' && reason.length > 0 ? { [key]: reason } : {};
 }
 
 function requireId(id: string | undefined, noun: string): string {

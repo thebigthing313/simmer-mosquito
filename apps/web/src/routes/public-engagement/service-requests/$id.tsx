@@ -27,6 +27,7 @@ import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { MapCanvas } from '../../../components/map';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
+import { ReasonDialog } from '../../../components/reason-dialog';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -870,6 +871,19 @@ function formatCoords(
 	return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
+/**
+ * Close or reopen, with the reason that goes on the record.
+ *
+ * Both write a comment on the request in the same transaction, so the dialog is
+ * not a confirmation step bolted on — it is where the comment's text comes from.
+ * The reason travels as mutation metadata rather than on the draft: it is not a
+ * column on the row, and the optimistic row must not pretend it is.
+ *
+ * Neither is required. The command insists on non-empty text, so an empty box
+ * falls back to the plain fact — the same bargain the mission cancel dialog
+ * strikes. A close nobody explained is still a close, and refusing to record it
+ * over a blank field would be the worse failure.
+ */
 function CloseReopenButton({
 	requestId,
 	open,
@@ -881,38 +895,66 @@ function CloseReopenButton({
 }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [dialogOpen, setDialogOpen] = useState(false);
 
-	const handleToggle = useCallback(async () => {
-		setBusy(true);
-		setError(null);
-		try {
-			await settleWrite(
-				webCollections.serviceRequests.update(requestId, (draft) => {
-					const writable = draft as {
-						-readonly [K in keyof ServiceRequestRow]: ServiceRequestRow[K];
-					};
-					if (open) {
-						writable.closedAt = new Date().toISOString();
-						writable.closedByProfileId = actorProfileId;
-					} else {
-						writable.closedAt = null;
-						writable.closedByProfileId = null;
-					}
-				}),
-			);
-		} catch (thrown) {
-			setError(thrown instanceof Error ? thrown.message : 'Unable to update the request.');
-		} finally {
-			setBusy(false);
-		}
-	}, [requestId, open, actorProfileId]);
+	const confirm = useCallback(
+		async (reason: string) => {
+			setDialogOpen(false);
+			setBusy(true);
+			setError(null);
+			const trimmed = reason.trim();
+			try {
+				await settleWrite(
+					webCollections.serviceRequests.update(
+						requestId,
+						{
+							metadata: open
+								? { resolutionSummary: trimmed.length === 0 ? 'Closed' : trimmed }
+								: { reopenReason: trimmed.length === 0 ? 'Reopened' : trimmed },
+						},
+						(draft) => {
+							const writable = draft as {
+								-readonly [K in keyof ServiceRequestRow]: ServiceRequestRow[K];
+							};
+							if (open) {
+								writable.closedAt = new Date().toISOString();
+								writable.closedByProfileId = actorProfileId;
+							} else {
+								writable.closedAt = null;
+								writable.closedByProfileId = null;
+							}
+						},
+					),
+				);
+			} catch (thrown) {
+				setError(thrown instanceof Error ? thrown.message : 'Unable to update the request.');
+			} finally {
+				setBusy(false);
+			}
+		},
+		[requestId, open, actorProfileId],
+	);
 
 	return (
 		<div className="grid justify-items-end gap-1">
-			<Button disabled={busy} onClick={handleToggle} size="sm" variant="outline">
+			<Button disabled={busy} onClick={() => setDialogOpen(true)} size="sm" variant="outline">
 				{open ? 'Close Request' : 'Reopen Request'}
 			</Button>
 			{error === null ? null : <span className="text-destructive text-xs">{error}</span>}
+			<ReasonDialog
+				confirmLabel={open ? 'Close Request' : 'Reopen Request'}
+				description={
+					open
+						? 'What was found, and what was done about it. This goes on the request as a comment.'
+						: 'Why this request is being picked back up. This goes on the request as a comment.'
+				}
+				onConfirm={(reason) => void confirm(reason)}
+				onOpenChange={setDialogOpen}
+				open={dialogOpen}
+				placeholder={open ? 'No standing water found on site.' : 'Caller reported it again.'}
+				required={false}
+				title={open ? 'Close this request' : 'Reopen this request'}
+			/>
 		</div>
 	);
 }

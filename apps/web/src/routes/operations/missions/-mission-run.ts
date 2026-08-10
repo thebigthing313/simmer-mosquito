@@ -230,6 +230,8 @@ interface MissionSelection {
 	readonly setRemoveTarget: (stop: MissionStopView | null) => void;
 	readonly cancelOpen: boolean;
 	readonly setCancelOpen: (open: boolean) => void;
+	readonly reopenOpen: boolean;
+	readonly setReopenOpen: (open: boolean) => void;
 }
 
 function useMissionSelection(): MissionSelection {
@@ -238,6 +240,7 @@ function useMissionSelection(): MissionSelection {
 	const [skipTarget, setSkipTarget] = useState<MissionStopView | null>(null);
 	const [removeTarget, setRemoveTarget] = useState<MissionStopView | null>(null);
 	const [cancelOpen, setCancelOpen] = useState(false);
+	const [reopenOpen, setReopenOpen] = useState(false);
 
 	return {
 		selectedStopId,
@@ -250,6 +253,8 @@ function useMissionSelection(): MissionSelection {
 		setRemoveTarget,
 		cancelOpen,
 		setCancelOpen,
+		reopenOpen,
+		setReopenOpen,
 	};
 }
 
@@ -260,6 +265,7 @@ interface MissionActions {
 	readonly complete: () => void;
 	readonly reopen: () => void;
 	readonly confirmCancel: (reason: string) => void;
+	readonly confirmReopen: (reason: string) => void;
 	readonly itemAction: (stop: MissionStopView, action: MissionItemAction) => void;
 	readonly confirmSkip: (reason: string) => void;
 	readonly confirmRemove: () => void;
@@ -285,7 +291,8 @@ function useMissionActions({
 	readonly runner: CommandRunner;
 }): MissionActions {
 	const { run } = runner;
-	const { skipTarget, setSkipTarget, removeTarget, setRemoveTarget, setCancelOpen } = selection;
+	const { skipTarget, setSkipTarget, removeTarget, setRemoveTarget, setCancelOpen, setReopenOpen } =
+		selection;
 
 	const itemAction = useCallback(
 		(stop: MissionStopView, action: MissionItemAction) => {
@@ -339,6 +346,20 @@ function useMissionActions({
 		[missionId, setCancelOpen, run],
 	);
 
+	const confirmReopen = useCallback(
+		(reason: string) => {
+			setReopenOpen(false);
+			// Same bargain as cancelling: the command requires text and the dialog does
+			// not, so an empty box becomes the plain fact rather than a refused reopen.
+			const trimmed = reason.trim();
+			void run(
+				() => reopenMission(missionId, trimmed.length === 0 ? 'Reopened' : trimmed),
+				'Unable to reopen this mission.',
+			);
+		},
+		[missionId, setReopenOpen, run],
+	);
+
 	const addStop = useCallback(
 		(request: RequestedControlActionRow) => {
 			if (organizationId === null) {
@@ -369,11 +390,9 @@ function useMissionActions({
 			() => void run(() => completeMission(missionId), 'Unable to complete this mission.'),
 			[missionId, run],
 		),
-		reopen: useCallback(
-			() => void run(() => reopenMission(missionId), 'Unable to reopen this mission.'),
-			[missionId, run],
-		),
+		reopen: useCallback(() => setReopenOpen(true), [setReopenOpen]),
 		confirmCancel,
+		confirmReopen,
 		itemAction,
 		confirmSkip,
 		confirmRemove,

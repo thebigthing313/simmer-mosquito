@@ -13,11 +13,16 @@ import { useState } from 'react';
 /**
  * A confirmation that collects prose.
  *
- * Both worklists in this section ask the same two questions — why was this stop
- * passed over, and why was the whole thing called off — and the answers are
- * written into the record rather than thrown away. Skip reasons are required and
- * cancellation reasons are not, so `required` is a prop instead of there being
- * two near-identical dialogs drifting apart on wording.
+ * Every lifecycle action that closes something off asks a version of the same
+ * question — why was this stop passed over, why was the whole thing called off,
+ * how was this request resolved — and the answer is written into the record
+ * rather than thrown away. Some of those answers are required and some are not,
+ * so `required` is a prop instead of there being near-identical dialogs drifting
+ * apart on wording.
+ *
+ * Shared rather than route-local because the two callers are now in different
+ * domains: mission and assignment worklists under `routes/operations`, and
+ * service request closure under `routes/public-engagement`.
  */
 export function ReasonDialog({
 	open,

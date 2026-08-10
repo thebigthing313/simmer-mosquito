@@ -16,6 +16,7 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
+import { insertLifecycleComment } from '../lifecycle-comment.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -175,7 +176,7 @@ function buildServiceRequestUpdateCommands(
 						...ctx,
 						serviceRequestId,
 						reopenCommentId: randomUUID(),
-						reopenReason: 'Reopened',
+						reopenReason: readText(payload.reopenReason) ?? 'Reopened',
 					}),
 		);
 		if (!result.ok) return result;
@@ -301,8 +302,8 @@ async function writeServiceRequestCommand(
 				},
 			);
 		}
-		case 'publicEngagement.closeServiceRequest':
-			return updateServiceRequest(
+		case 'publicEngagement.closeServiceRequest': {
+			const closed = await updateServiceRequest(
 				trx,
 				command.payload.serviceRequestId,
 				command.payload.organizationId,
@@ -312,8 +313,22 @@ async function writeServiceRequestCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 			);
-		case 'publicEngagement.reopenServiceRequest':
-			return updateServiceRequest(
+			if (closed === null) {
+				return null;
+			}
+			await insertLifecycleComment(trx, {
+				commentId: command.payload.resolutionCommentId,
+				organizationId: command.payload.organizationId,
+				entityType: 'serviceRequest',
+				entityId: command.payload.serviceRequestId,
+				commentText: command.payload.resolutionSummary,
+				commentedAt: command.payload.closedAt,
+				actorProfileId: command.payload.actorProfileId,
+			});
+			return closed;
+		}
+		case 'publicEngagement.reopenServiceRequest': {
+			const reopened = await updateServiceRequest(
 				trx,
 				command.payload.serviceRequestId,
 				command.payload.organizationId,
@@ -323,6 +338,23 @@ async function writeServiceRequestCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 			);
+			if (reopened === null) {
+				return null;
+			}
+			// There is no `reopened_at` column in v1, so this comment is the only
+			// record that the reopen happened at all, and the only place its reason
+			// can live.
+			await insertLifecycleComment(trx, {
+				commentId: command.payload.reopenCommentId,
+				organizationId: command.payload.organizationId,
+				entityType: 'serviceRequest',
+				entityId: command.payload.serviceRequestId,
+				commentText: command.payload.reopenReason,
+				commentedAt: command.payload.reopenedAt,
+				actorProfileId: command.payload.actorProfileId,
+			});
+			return reopened;
+		}
 		case 'publicEngagement.deleteServiceRequest':
 			await applyRecordDeletion(trx, {
 				recordType: 'serviceRequest',

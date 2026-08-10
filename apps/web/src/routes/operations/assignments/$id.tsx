@@ -21,12 +21,12 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
-import { ReasonDialog } from '../-reason-dialog';
 import { WorklistMap } from '../-worklist-map';
 import {
 	type AssignmentStopView,

@@ -1071,15 +1071,20 @@ export async function cancelMission(missionId: string, cancellationReason: strin
 }
 
 /**
- * Reopen a closed mission.
+ * Reopen a closed mission, recording why.
  *
  * `startedAt` is deliberately left alone: the server keeps it, since reopening
  * resumes work rather than resetting it and nothing else on the row records when
  * the crew actually started.
+ *
+ * The reason travels as metadata rather than on the draft. It is not a column —
+ * the server writes it as a comment — and this update *clears* the terminal
+ * fields, so without that comment a reopened mission would carry no trace of
+ * having been closed or why it was picked back up.
  */
-export async function reopenMission(missionId: string): Promise<void> {
+export async function reopenMission(missionId: string, reopenReason: string): Promise<void> {
 	await settleWrite(
-		webCollections.missions.update(missionId, (draft) => {
+		webCollections.missions.update(missionId, { metadata: { reopenReason } }, (draft) => {
 			const mutable = draft as MutableMissionRow;
 			mutable.completedAt = null;
 			mutable.cancelledAt = null;

@@ -18,6 +18,7 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
+import { insertLifecycleComment } from '../lifecycle-comment.js';
 import {
 	assertMissionTransition,
 	checkCancelMission,
@@ -217,7 +218,7 @@ function buildMissionUpdateCommands(
 				...ctx,
 				missionId,
 				reopenCommentId: randomUUID(),
-				reopenReason: 'Reopened',
+				reopenReason: readText(payload.reopenReason) ?? 'Reopened',
 			}),
 		);
 		if (!result.ok) return result;
@@ -370,20 +371,42 @@ async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		}
-		case 'missionDispatch.cancelMission':
+		case 'missionDispatch.cancelMission': {
 			await assertMissionTransition(
 				trx,
 				command.payload.missionId,
 				command.payload.organizationId,
 				checkCancelMission,
 			);
-			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
-				cancelled_at:
-					command.payload.cancelledAt === null ? sql`now()` : command.payload.cancelledAt,
-				cancellation_reason: command.payload.cancellationReason,
-				updated_by_profile_id: command.payload.actorProfileId,
+			const cancelled = await updateMission(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				{
+					cancelled_at:
+						command.payload.cancelledAt === null ? sql`now()` : command.payload.cancelledAt,
+					cancellation_reason: command.payload.cancellationReason,
+					updated_by_profile_id: command.payload.actorProfileId,
+				},
+			);
+			if (cancelled === null) {
+				return null;
+			}
+			// The same text twice, deliberately: `missions.cancellation_reason` is the
+			// current reason a mission is cancelled and is cleared on reopen, while the
+			// comment is the record that it once was, which survives the reopen.
+			await insertLifecycleComment(trx, {
+				commentId: command.payload.cancellationCommentId,
+				organizationId: command.payload.organizationId,
+				entityType: 'mission',
+				entityId: command.payload.missionId,
+				commentText: command.payload.cancellationReason,
+				commentedAt: command.payload.cancelledAt,
+				actorProfileId: command.payload.actorProfileId,
 			});
-		case 'missionDispatch.reopenMission':
+			return cancelled;
+		}
+		case 'missionDispatch.reopenMission': {
 			await assertMissionTransition(
 				trx,
 				command.payload.missionId,
@@ -393,12 +416,33 @@ async function writeMissionCommand(
 			// Preserves `started_at` for the same reason assignment reopen does: the
 			// mission returns to in progress, and the original start time is not
 			// recoverable from anywhere else.
-			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
-				completed_at: null,
-				cancelled_at: null,
-				cancellation_reason: null,
-				updated_by_profile_id: command.payload.actorProfileId,
+			const reopened = await updateMission(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				{
+					completed_at: null,
+					cancelled_at: null,
+					cancellation_reason: null,
+					updated_by_profile_id: command.payload.actorProfileId,
+				},
+			);
+			if (reopened === null) {
+				return null;
+			}
+			// This write clears the terminal fields outright, so without the comment a
+			// reopened mission would carry no trace of having been closed or why.
+			await insertLifecycleComment(trx, {
+				commentId: command.payload.reopenCommentId,
+				organizationId: command.payload.organizationId,
+				entityType: 'mission',
+				entityId: command.payload.missionId,
+				commentText: command.payload.reopenReason,
+				commentedAt: command.payload.reopenedAt,
+				actorProfileId: command.payload.actorProfileId,
 			});
+			return reopened;
+		}
 		case 'missionDispatch.deleteMission':
 			await applyRecordDeletion(trx, {
 				recordType: 'mission',
