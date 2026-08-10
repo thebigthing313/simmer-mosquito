@@ -16,6 +16,10 @@
 			"types": "./src/components/form/index.ts",
 			"import": "./src/components/form/index.ts"
 		},
+		"./components/page": {
+			"types": "./src/components/page/index.ts",
+			"import": "./src/components/page/index.ts"
+		},
 		"./components/*": {
 			"types": "./src/components/*.tsx",
 			"import": "./src/components/*.tsx"

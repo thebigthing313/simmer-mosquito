@@ -1,5 +1,6 @@
 import type { UnitRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
+import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -11,7 +12,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { UnitSystem, UnitType } from '../../api';
-import { AdminEmpty, AdminPage } from '../../components/admin-page';
+import { AdminPage } from '../../components/admin-page';
 import {
 	CatalogBody,
 	CatalogDialog,
@@ -158,7 +159,7 @@ function UnitsRoute() {
 		>
 			<CatalogBody
 				empty={
-					<AdminEmpty
+					<ListEmpty
 						action={
 							<Button onClick={() => setDialog('new')} type="button">
 								<AddIcon aria-hidden="true" />

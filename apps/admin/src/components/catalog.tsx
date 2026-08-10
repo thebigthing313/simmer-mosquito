@@ -1,3 +1,4 @@
+import { ListLoading, ListNoMatches } from '@simmer-mosquito/ui-web/components/page';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import {
 	AlertDialog,
@@ -21,7 +22,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { type FormEvent, type ReactNode, useState } from 'react';
-import { AdminLoading, AdminNoMatches } from './admin-page';
 
 /**
  * The chrome the three global catalogs share.
@@ -168,7 +168,7 @@ export function CatalogBody({
 	readonly children: ReactNode;
 }) {
 	if (!isReady) {
-		return <AdminLoading />;
+		return <ListLoading />;
 	}
 
 	if (total === 0) {
@@ -185,7 +185,7 @@ export function CatalogBody({
 				shown={shown}
 				total={total}
 			/>
-			{shown === 0 ? <AdminNoMatches query={search.trim()} /> : children}
+			{shown === 0 ? <ListNoMatches noun={noun} query={search.trim()} /> : children}
 		</div>
 	);
 }

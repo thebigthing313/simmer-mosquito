@@ -1,4 +1,5 @@
 import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
@@ -8,21 +9,19 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 import { adminLogoutUrl, isOperatorRequiredError } from '../api';
 
 /**
- * The console's page frame and its three not-the-happy-path states.
+ * The console's page frame, and the one failure state that is its own.
  *
- * The header is deliberately the same shape as the agency workspace's catalog
- * pages (`apps/web/src/routes/control-operations/-control-methods-page.tsx`):
- * a tinted icon tile, an `xl` title, a measured description, actions on the
- * right. Two consoles from one product should not disagree about what a page
- * heading looks like — and `xl` rather than `2xl` is the product register's
- * answer, because these are work surfaces, not announcements.
+ * The frame is a mount point: the shared {@link PageHeader} inside the outlet
+ * this app renders into. The heading itself, and the waiting/empty/no-matches
+ * states pages compose under it, live in `@simmer-mosquito/ui-web` — the agency
+ * workspace wears the same ones, which is what keeps two consoles from one
+ * product from disagreeing about what a page looks like.
  */
 
 const WarningIcon = iconRegistry.actions.warning.icon;
@@ -31,7 +30,7 @@ const LockIcon = iconRegistry.generic.settings.icon;
 export function AdminPage({
 	title,
 	description,
-	icon: PageIcon,
+	icon,
 	actions,
 	children,
 	className,
@@ -47,81 +46,9 @@ export function AdminPage({
 }) {
 	return (
 		<OutletSimpleLayout className={cn('grid content-start gap-5', className)}>
-			<header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-				<div className="flex min-w-0 items-start gap-3">
-					<span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-						<PageIcon aria-hidden="true" className="size-5" />
-					</span>
-					<div className="grid min-w-0 gap-1">
-						<h1 className="text-pretty font-semibold text-foreground text-xl leading-tight">
-							{title}
-						</h1>
-						{description === undefined ? null : (
-							<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
-								{description}
-							</p>
-						)}
-					</div>
-				</div>
-				{actions === undefined ? null : (
-					<div className="flex shrink-0 items-center gap-2">{actions}</div>
-				)}
-			</header>
+			<PageHeader actions={actions} description={description} icon={icon} title={title} />
 			{children}
 		</OutletSimpleLayout>
-	);
-}
-
-/**
- * Placeholder rows while a page's first read settles.
- *
- * Skeletons rather than a spinner, per the product register: the operator sees
- * the shape of what is arriving instead of an unplaced circle.
- */
-export function AdminLoading({ rows = 5 }: { readonly rows?: number }) {
-	return (
-		<div aria-busy="true" aria-label="Loading" className="grid gap-2" role="status">
-			{Array.from({ length: rows }, (_, index) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: fixed-length placeholder list with no identity
-				<Skeleton className="h-14 w-full rounded-md" key={index} />
-			))}
-		</div>
-	);
-}
-
-export function AdminEmpty({
-	title,
-	description,
-	icon: EmptyIcon,
-	action,
-}: {
-	readonly title: string;
-	readonly description: string;
-	readonly icon?: RegistryIcon | undefined;
-	readonly action?: ReactNode | undefined;
-}) {
-	return (
-		<Empty className="border-border/60">
-			<EmptyHeader>
-				{EmptyIcon === undefined ? null : (
-					<EmptyMedia variant="icon">
-						<EmptyIcon aria-hidden="true" />
-					</EmptyMedia>
-				)}
-				<EmptyTitle>{title}</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-			{action === undefined ? null : <EmptyContent>{action}</EmptyContent>}
-		</Empty>
-	);
-}
-
-/** No rows matched the current filter. Quieter than an empty state — the data exists. */
-export function AdminNoMatches({ query }: { readonly query: string }) {
-	return (
-		<p className="rounded-md border border-border/40 border-dashed bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
-			Nothing matches “{query}”.
-		</p>
 	);
 }
 

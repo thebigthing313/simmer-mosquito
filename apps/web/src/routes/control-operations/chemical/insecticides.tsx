@@ -6,6 +6,7 @@ import type {
 } from '@simmer-mosquito/sync';
 import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm, validateMetadataValue } from '@simmer-mosquito/ui-web/components/form';
+import { ListEmpty, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import {
 	AlertDialog,
@@ -35,14 +36,6 @@ import {
 	DrawerTitle,
 	DrawerTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/drawer';
-import {
-	Empty,
-	EmptyContent,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	Table,
@@ -133,73 +126,52 @@ function InsecticidesRoute() {
 	const inactiveInsecticides = insecticides.filter((row) => !row.isActive);
 	const batchTrackingEnabled = settings.controlOperations.trackInsecticideBatches;
 
+	// The header and the empty state offer the same way in, so they mount the
+	// same drawer rather than each spelling out its own trigger.
+	const addInsecticideDrawer = (
+		<InsecticideDrawer
+			canManage={canManage}
+			organization={organization}
+			trigger={
+				<Button type="button">
+					<AddIcon aria-hidden="true" />
+					Add Insecticide
+				</Button>
+			}
+			units={units}
+		/>
+	);
+
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5">
-			<header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-				<div className="flex min-w-0 items-start gap-3">
-					<span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-						<InsecticideIcon aria-hidden="true" className="size-5" />
-					</span>
-					<div className="grid min-w-0 gap-1">
-						<h1 className="text-pretty font-semibold text-foreground text-xl leading-tight">
-							Insecticides
-						</h1>
-						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
-							The products your agency applies — active ingredient, EPA registration number, default
-							usage unit, and the lots crews draw from.
-						</p>
-					</div>
-				</div>
-				<div className="flex shrink-0 items-center gap-2">
-					<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
-						{canManage ? 'Editor access' : 'View only'}
-					</Badge>
-					{canManage ? (
-						<InsecticideDrawer
-							canManage={canManage}
-							organization={organization}
-							trigger={
-								<Button type="button">
-									<AddIcon aria-hidden="true" />
-									Add Insecticide
-								</Button>
-							}
-							units={units}
-						/>
-					) : null}
-				</div>
-			</header>
+			<PageHeader
+				actions={
+					<>
+						<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
+							{canManage ? 'Editor access' : 'View only'}
+						</Badge>
+						{canManage ? addInsecticideDrawer : null}
+					</>
+				}
+				description="The products your agency applies — active ingredient, EPA registration number, default usage unit, and the lots crews draw from."
+				icon={InsecticideIcon}
+				title="Insecticides"
+			/>
 
 			{insecticides.length === 0 ? (
-				<Empty className="border-border/60">
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<InsecticideIcon aria-hidden="true" />
-						</EmptyMedia>
-						<EmptyTitle>No Insecticides Yet</EmptyTitle>
-						<EmptyDescription>
+				<ListEmpty
+					action={canManage ? addInsecticideDrawer : undefined}
+					description={
+						<>
 							Insecticides are the products behind every chemical application record.
 							{canManage
 								? ' Add your first product to get started.'
 								: ' An owner or admin can add products for your agency.'}
-						</EmptyDescription>
-					</EmptyHeader>
-					{canManage ? (
-						<EmptyContent>
-							<InsecticideDrawer
-								canManage={canManage}
-								organization={organization}
-								trigger={
-									<Button type="button">
-										<AddIcon aria-hidden="true" />
-										Add Insecticide
-									</Button>
-								}
-								units={units}
-							/>
-						</EmptyContent>
-					) : null}
-				</Empty>
+						</>
+					}
+					icon={InsecticideIcon}
+					title="No Insecticides Yet"
+				/>
 			) : (
 				<section className="grid gap-2">
 					<div className="flex flex-wrap items-center justify-between gap-2">

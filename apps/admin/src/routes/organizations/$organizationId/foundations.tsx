@@ -1,4 +1,5 @@
 import type { GeoJsonGeometry, GeoJsonPoint, ImportGeometryKind } from '@simmer-mosquito/mapping';
+import { ListLoading } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -9,7 +10,7 @@ import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/r
 import { createFileRoute } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
-import { AdminError, AdminLoading, AdminPage } from '../../../components/admin-page';
+import { AdminError, AdminPage } from '../../../components/admin-page';
 import { AgencySessionGate } from '../../../components/agency-session';
 import { CatalogList, CatalogRow, RecordDialog } from '../../../components/catalog';
 import { GeometryFileInput, PointInput } from '../../../components/geometry-input';
@@ -72,7 +73,7 @@ function AgencyFoundationsRoute() {
 	}
 
 	if (isPending || data === undefined) {
-		return <FoundationsFrame>{<AdminLoading rows={4} />}</FoundationsFrame>;
+		return <FoundationsFrame>{<ListLoading rows={4} />}</FoundationsFrame>;
 	}
 
 	return (

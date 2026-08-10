@@ -1,10 +1,11 @@
+import { ListLoading } from '@simmer-mosquito/ui-web/components/page';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { AdminAgency } from '../../../api';
-import { AdminError, AdminLoading, AdminPage } from '../../../components/admin-page';
+import { AdminError, AdminPage } from '../../../components/admin-page';
 import { subscriptionTone } from '../../../lib/tones';
 import { useAgencies } from '../-agency-data';
 
@@ -32,7 +33,7 @@ function AgencyDetailRoute() {
 	if (isPending) {
 		return (
 			<AdminPage icon={OrganizationIcon} title="Agency">
-				<AdminLoading rows={3} />
+				<ListLoading rows={3} />
 			</AdminPage>
 		);
 	}

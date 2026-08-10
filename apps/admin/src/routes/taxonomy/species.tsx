@@ -1,5 +1,6 @@
 import type { GenusRow, SpeciesRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
+import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -10,7 +11,7 @@ import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { AdminEmpty, AdminPage } from '../../components/admin-page';
+import { AdminPage } from '../../components/admin-page';
 import {
 	CatalogBody,
 	CatalogDialog,
@@ -174,7 +175,7 @@ function SpeciesRoute() {
 					 * all, and "add a species" would open a form whose first field has
 					 * nothing in it — so that case sends them to the list that comes first.
 					 */
-					<AdminEmpty
+					<ListEmpty
 						action={
 							canAdd ? (
 								<Button onClick={() => setDialog('new')} type="button">

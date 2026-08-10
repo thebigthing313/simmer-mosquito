@@ -1,4 +1,5 @@
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -12,7 +13,7 @@ import {
 	type InviteAdminUserResult,
 	inviteAdminUser,
 } from '../../../api';
-import { AdminEmpty, AdminError, AdminLoading, AdminPage } from '../../../components/admin-page';
+import { AdminError, AdminPage } from '../../../components/admin-page';
 import { membershipStatusTone, roleTone } from '../../../lib/tones';
 import { useAgencyMemberships, useInvalidateAgencies } from '../-agency-data';
 
@@ -84,11 +85,11 @@ function AgencyMembersRoute() {
 					>
 						{isPending ? (
 							<div className="p-4">
-								<AdminLoading rows={3} />
+								<ListLoading rows={3} />
 							</div>
 						) : memberships.length === 0 ? (
 							<div className="p-4">
-								<AdminEmpty
+								<ListEmpty
 									description="Invite the agency's first owner or admin below."
 									title="Nobody Connected Yet"
 								/>

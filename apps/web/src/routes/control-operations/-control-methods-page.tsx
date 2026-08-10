@@ -1,6 +1,7 @@
 import type { ControlMethodRow, OrganizationRow } from '@simmer-mosquito/sync';
 import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
+import { ListEmpty, ListNoMatches, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -20,14 +21,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Empty,
-	EmptyContent,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	Table,
@@ -127,68 +120,50 @@ export function ControlMethodsPage({
 		customFieldsDescription,
 	};
 
+	// The header and the empty state offer the same way in, so they mount the
+	// same dialog rather than each spelling out its own trigger.
+	const addMethodDialog = (
+		<ControlMethodDialog
+			{...dialogProps}
+			trigger={
+				<Button type="button">
+					<AddIcon aria-hidden="true" />
+					Add Method
+				</Button>
+			}
+		/>
+	);
+
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5">
-			<header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-				<div className="flex min-w-0 items-start gap-3">
-					<span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-						<MethodIcon aria-hidden="true" className="size-5" />
-					</span>
-					<div className="grid min-w-0 gap-1">
-						<h1 className="text-pretty font-semibold text-foreground text-xl leading-tight">
-							{title}
-						</h1>
-						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
-							{description}
-						</p>
-					</div>
-				</div>
-				<div className="flex shrink-0 items-center gap-2">
-					<Badge tone={canEditMethods ? 'success' : 'neutral'} variant="outline">
-						{canEditMethods ? 'Editor access' : 'View only'}
-					</Badge>
-					{canManage ? (
-						<ControlMethodDialog
-							{...dialogProps}
-							trigger={
-								<Button type="button">
-									<AddIcon aria-hidden="true" />
-									Add Method
-								</Button>
-							}
-						/>
-					) : null}
-				</div>
-			</header>
+			<PageHeader
+				actions={
+					<>
+						<Badge tone={canEditMethods ? 'success' : 'neutral'} variant="outline">
+							{canEditMethods ? 'Editor access' : 'View only'}
+						</Badge>
+						{canManage ? addMethodDialog : null}
+					</>
+				}
+				description={description}
+				icon={MethodIcon}
+				title={title}
+			/>
 
 			{total === 0 ? (
-				<Empty className="border-border/60">
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<MethodIcon aria-hidden="true" />
-						</EmptyMedia>
-						<EmptyTitle>No {singularLabel}s yet</EmptyTitle>
-						<EmptyDescription>
+				<ListEmpty
+					action={canManage ? addMethodDialog : undefined}
+					description={
+						<>
 							{emptyDescription}
 							{canManage
 								? ' Add your first method to get started.'
 								: ' An owner or admin can add methods for your agency.'}
-						</EmptyDescription>
-					</EmptyHeader>
-					{canManage ? (
-						<EmptyContent>
-							<ControlMethodDialog
-								{...dialogProps}
-								trigger={
-									<Button type="button">
-										<AddIcon aria-hidden="true" />
-										Add Method
-									</Button>
-								}
-							/>
-						</EmptyContent>
-					) : null}
-				</Empty>
+						</>
+					}
+					icon={MethodIcon}
+					title={`No ${singularLabel}s yet`}
+				/>
 			) : (
 				<div className="grid gap-4">
 					<div className="flex flex-wrap items-center justify-between gap-3">
@@ -246,9 +221,7 @@ export function ControlMethodsPage({
 							) : null}
 						</div>
 					) : (
-						<p className="rounded-md border border-border/40 border-dashed bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
-							No methods match “{search.trim()}”.
-						</p>
+						<ListNoMatches noun="methods" query={search.trim()} />
 					)}
 				</div>
 			)}

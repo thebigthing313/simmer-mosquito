@@ -1,10 +1,11 @@
+import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import type { AdminAgency } from '../../api';
-import { AdminEmpty, AdminError, AdminPage } from '../../components/admin-page';
+import { AdminError, AdminPage } from '../../components/admin-page';
 import { CatalogBody } from '../../components/catalog';
 import { subscriptionTone } from '../../lib/tones';
 import { useAgencies } from './-agency-data';
@@ -74,7 +75,7 @@ function AgencyDirectoryRoute() {
 						)
 					}
 					empty={
-						<AdminEmpty
+						<ListEmpty
 							action={
 								<Button asChild>
 									<Link to="/organizations/create">

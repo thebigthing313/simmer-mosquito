@@ -7,6 +7,7 @@ import type {
 } from '@simmer-mosquito/sync';
 import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { ListEmpty, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import {
 	AlertDialog,
@@ -36,14 +37,6 @@ import {
 	DrawerTitle,
 	DrawerTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/drawer';
-import {
-	Empty,
-	EmptyContent,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import {
 	Table,
 	TableBody,
@@ -170,73 +163,54 @@ function FormulationsRoute() {
 		/>
 	);
 
-	const addTrigger = (
-		<Button type="button">
-			<AddIcon aria-hidden="true" />
-			Add Formulation
-		</Button>
+	// The header and the empty state offer the same way in, so they mount the
+	// same drawer rather than each spelling out its own trigger.
+	const addFormulationDrawer = (
+		<FormulationDrawer
+			actorProfileId={actorProfileId}
+			canManage={canManage}
+			organization={organization}
+			trigger={
+				<Button type="button">
+					<AddIcon aria-hidden="true" />
+					Add Formulation
+				</Button>
+			}
+			units={unitRows}
+		/>
 	);
 
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5">
-			<header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-				<div className="flex min-w-0 items-start gap-3">
-					<span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-						<FormulationIcon aria-hidden="true" className="size-5" />
-					</span>
-					<div className="grid min-w-0 gap-1">
-						<h1 className="text-pretty font-semibold text-foreground text-xl leading-tight">
-							Formulations
-						</h1>
-						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
-							Tank mixes your crews apply — what one batch makes, and how much of each product goes
-							into it.
-						</p>
-					</div>
-				</div>
-				<div className="flex shrink-0 items-center gap-2">
-					<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
-						{canManage ? 'Editor access' : 'View only'}
-					</Badge>
-					{canManage ? (
-						<FormulationDrawer
-							actorProfileId={actorProfileId}
-							canManage={canManage}
-							organization={organization}
-							trigger={addTrigger}
-							units={unitRows}
-						/>
-					) : null}
-				</div>
-			</header>
+			<PageHeader
+				actions={
+					<>
+						<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
+							{canManage ? 'Editor access' : 'View only'}
+						</Badge>
+						{canManage ? addFormulationDrawer : null}
+					</>
+				}
+				description="Tank mixes your crews apply — what one batch makes, and how much of each product goes into it."
+				icon={FormulationIcon}
+				title="Formulations"
+			/>
 
 			{formulations.length === 0 ? (
-				<Empty className="border-border/60">
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<FormulationIcon aria-hidden="true" />
-						</EmptyMedia>
-						<EmptyTitle>No Formulations Yet</EmptyTitle>
-						<EmptyDescription>
+				<ListEmpty
+					action={canManage ? addFormulationDrawer : undefined}
+					description={
+						<>
 							A formulation records a mix once — 0.5 lb of product into 26 gallons of water — so an
 							application can be entered as the amount of mix that went out.
 							{canManage
 								? ' Add your first mix to get started.'
 								: ' An owner or admin can add mixes for your agency.'}
-						</EmptyDescription>
-					</EmptyHeader>
-					{canManage ? (
-						<EmptyContent>
-							<FormulationDrawer
-								actorProfileId={actorProfileId}
-								canManage={canManage}
-								organization={organization}
-								trigger={addTrigger}
-								units={unitRows}
-							/>
-						</EmptyContent>
-					) : null}
-				</Empty>
+						</>
+					}
+					icon={FormulationIcon}
+					title="No Formulations Yet"
+				/>
 			) : (
 				<section className="grid gap-2">
 					<div className="flex flex-wrap items-center justify-between gap-2">

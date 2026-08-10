@@ -1,6 +1,7 @@
 import type { HabitatTypeRow, OrganizationRow } from '@simmer-mosquito/sync';
 import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
+import { ListEmpty, ListNoMatches, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -20,14 +21,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Empty,
-	EmptyContent,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
@@ -121,37 +114,17 @@ function HabitatTypesRoute() {
 
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5">
-			<header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-				<div className="flex min-w-0 items-start gap-3">
-					<span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-						<TaxonomyIcon aria-hidden="true" className="size-5" />
-					</span>
-					<div className="min-w-0 grid gap-1">
-						<h1 className="text-pretty font-semibold text-foreground text-xl leading-tight">
-							Habitat Types
-						</h1>
-						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
-							Habitat types classify the larval sites your crews inspect — catch basins, storm
-							drains, ditches, tire piles, and the rest. Manage the labels and any custom fields
-							your agency records against them.
-						</p>
-					</div>
-				</div>
-				<div className="flex shrink-0 items-center gap-2">
-					<AccessBadge canManage={canManage} />
-					{canManage ? (
-						<HabitatTypeDialog
-							organization={organization}
-							trigger={
-								<Button type="button">
-									<AddIcon aria-hidden="true" />
-									Add Habitat Type
-								</Button>
-							}
-						/>
-					) : null}
-				</div>
-			</header>
+			<PageHeader
+				actions={
+					<>
+						<AccessBadge canManage={canManage} />
+						{canManage ? <AddHabitatTypeDialog organization={organization} /> : null}
+					</>
+				}
+				description="Habitat types classify the larval sites your crews inspect — catch basins, storm drains, ditches, tire piles, and the rest. Manage the labels and any custom fields your agency records against them."
+				icon={TaxonomyIcon}
+				title="Habitat Types"
+			/>
 
 			{total === 0 ? (
 				<HabitatTypesEmpty canManage={canManage} organization={organization} />
@@ -199,9 +172,7 @@ function HabitatTypesRoute() {
 							) : null}
 						</div>
 					) : (
-						<p className="rounded-md border border-border/40 border-dashed bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
-							No habitat types match “{search.trim()}”.
-						</p>
+						<ListNoMatches noun="habitat types" query={search.trim()} />
 					)}
 				</div>
 			)}
@@ -428,6 +399,21 @@ function toggleHabitatTypeActive(habitatType: HabitatTypeRow): void {
 	}
 }
 
+/** The way in, offered from both the page header and the empty state. */
+function AddHabitatTypeDialog({ organization }: { readonly organization: OrganizationRow | null }) {
+	return (
+		<HabitatTypeDialog
+			organization={organization}
+			trigger={
+				<Button type="button">
+					<AddIcon aria-hidden="true" />
+					Add Habitat Type
+				</Button>
+			}
+		/>
+	);
+}
+
 function HabitatTypesEmpty({
 	canManage,
 	organization,
@@ -436,33 +422,19 @@ function HabitatTypesEmpty({
 	readonly organization: OrganizationRow | null;
 }) {
 	return (
-		<Empty className="border-border/60">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<TaxonomyIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>No Habitat Types Yet</EmptyTitle>
-				<EmptyDescription>
+		<ListEmpty
+			action={canManage ? <AddHabitatTypeDialog organization={organization} /> : undefined}
+			description={
+				<>
 					Habitat types are the classification labels crews pick when recording a larval habitat.
 					{canManage
 						? ' Add your first type to start classifying inspections.'
 						: ' An owner or admin can add habitat types for your agency.'}
-				</EmptyDescription>
-			</EmptyHeader>
-			{canManage ? (
-				<EmptyContent>
-					<HabitatTypeDialog
-						organization={organization}
-						trigger={
-							<Button type="button">
-								<AddIcon aria-hidden="true" />
-								Add Habitat Type
-							</Button>
-						}
-					/>
-				</EmptyContent>
-			) : null}
-		</Empty>
+				</>
+			}
+			icon={TaxonomyIcon}
+			title="No Habitat Types Yet"
+		/>
 	);
 }
 

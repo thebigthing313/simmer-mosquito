@@ -1,6 +1,7 @@
 import type { CollectionMethodRow, OrganizationRow, TrapRow } from '@simmer-mosquito/sync';
 import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
+import { ListEmpty, ListNoMatches, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -20,14 +21,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Empty,
-	EmptyContent,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	Table,
@@ -112,37 +105,17 @@ function CollectionMethodsRoute() {
 
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5">
-			<header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-				<div className="flex min-w-0 items-start gap-3">
-					<span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-						<MethodIcon aria-hidden="true" className="size-5" />
-					</span>
-					<div className="grid min-w-0 gap-1">
-						<h1 className="text-pretty font-semibold text-foreground text-xl leading-tight">
-							Collection Methods
-						</h1>
-						<p className="max-w-[60ch] text-pretty text-muted-foreground text-sm leading-snug">
-							Collection methods describe how your crews catch adult mosquitoes — light traps with
-							and without attractant, gravid traps, resting traps, and emergence traps. Manage the
-							labels, action thresholds, and any custom fields recorded against them.
-						</p>
-					</div>
-				</div>
-				<div className="flex shrink-0 items-center gap-2">
-					<AccessBadge canManage={canManage} />
-					{canManage ? (
-						<CollectionMethodDialog
-							organization={organization}
-							trigger={
-								<Button type="button">
-									<AddIcon aria-hidden="true" />
-									Add Method
-								</Button>
-							}
-						/>
-					) : null}
-				</div>
-			</header>
+			<PageHeader
+				actions={
+					<>
+						<AccessBadge canManage={canManage} />
+						{canManage ? <AddMethodDialog organization={organization} /> : null}
+					</>
+				}
+				description="Collection methods describe how your crews catch adult mosquitoes — light traps with and without attractant, gravid traps, resting traps, and emergence traps. Manage the labels, action thresholds, and any custom fields recorded against them."
+				icon={MethodIcon}
+				title="Collection Methods"
+			/>
 
 			{total === 0 ? (
 				<CollectionMethodsEmpty canManage={canManage} organization={organization} />
@@ -188,9 +161,7 @@ function CollectionMethodsRoute() {
 							) : null}
 						</div>
 					) : (
-						<p className="rounded-md border border-border/40 border-dashed bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
-							No collection methods match “{search.trim()}”.
-						</p>
+						<ListNoMatches noun="collection methods" query={search.trim()} />
 					)}
 				</div>
 			)}
@@ -435,6 +406,21 @@ function toggleCollectionMethodActive(method: CollectionMethodRow): void {
 	}
 }
 
+/** The way in, offered from both the page header and the empty state. */
+function AddMethodDialog({ organization }: { readonly organization: OrganizationRow | null }) {
+	return (
+		<CollectionMethodDialog
+			organization={organization}
+			trigger={
+				<Button type="button">
+					<AddIcon aria-hidden="true" />
+					Add Method
+				</Button>
+			}
+		/>
+	);
+}
+
 function CollectionMethodsEmpty({
 	canManage,
 	organization,
@@ -443,34 +429,20 @@ function CollectionMethodsEmpty({
 	readonly organization: OrganizationRow | null;
 }) {
 	return (
-		<Empty className="border-border/60">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<MethodIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>No Collection Methods Yet</EmptyTitle>
-				<EmptyDescription>
+		<ListEmpty
+			action={canManage ? <AddMethodDialog organization={organization} /> : undefined}
+			description={
+				<>
 					Every trap records the method that caught its mosquitoes, so your agency needs at least
 					one before crews can add traps.
 					{canManage
 						? ' Add your first method to get started.'
 						: ' An owner or admin can add collection methods for your agency.'}
-				</EmptyDescription>
-			</EmptyHeader>
-			{canManage ? (
-				<EmptyContent>
-					<CollectionMethodDialog
-						organization={organization}
-						trigger={
-							<Button type="button">
-								<AddIcon aria-hidden="true" />
-								Add Method
-							</Button>
-						}
-					/>
-				</EmptyContent>
-			) : null}
-		</Empty>
+				</>
+			}
+			icon={MethodIcon}
+			title="No Collection Methods Yet"
+		/>
 	);
 }
 
