@@ -2,19 +2,18 @@ import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	FillLayerSpecification,
-	GeoJSONSource,
 	LineLayerSpecification,
 	Map as MapboxMap,
-	MapMouseEvent,
 } from 'mapbox-gl';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
+import { useGeoJsonSource } from './use-geojson-source';
 
 /**
  * The service-request context overlay: a proximity ring, the request's own
- * marker, and the nearby operational records colored by family. Mirrors
- * {@link useGeoJsonLayer}'s lifecycle (re-add on restyle, `setData` for updates,
- * guarded teardown) but renders a bespoke, role-discriminated feature set the
- * generic overlay can't express.
+ * marker, and the nearby operational records colored by family. It renders a
+ * bespoke, role-discriminated feature set the generic overlay cannot express,
+ * which is why it is its own hook; the source lifecycle underneath it is
+ * {@link useGeoJsonSource}'s, shared with every other overlay.
  *
  * The caller supplies one FeatureCollection whose features carry a `role`
  * (`ring` | `center` | `nearby`); nearby points additionally carry `family`
@@ -27,14 +26,6 @@ const RING_LINE_LAYER_ID = `${SOURCE_ID}-ring-line`;
 const POINTS_LAYER_ID = `${SOURCE_ID}-points`;
 const SELECTED_LAYER_ID = `${SOURCE_ID}-selected`;
 const CENTER_LAYER_ID = `${SOURCE_ID}-center`;
-
-const LAYER_IDS = [
-	RING_FILL_LAYER_ID,
-	RING_LINE_LAYER_ID,
-	POINTS_LAYER_ID,
-	SELECTED_LAYER_ID,
-	CENTER_LAYER_ID,
-] as const;
 
 /** Family colors (hex approximations of the field-green / survey-purple / operations-blue tokens). */
 export const NEARBY_FAMILY_COLORS = {
@@ -145,102 +136,23 @@ export function useNearbyLayer(
 	isLoaded: boolean,
 	config?: NearbyLayerConfig,
 ): void {
-	const enabled = config?.data != null;
-	const interactive = config?.onSelectFeature !== undefined;
+	const data = config?.data ?? null;
+	const enabled = data !== null;
 	const selectedId = config?.selectedId ?? null;
 
-	const dataRef = useRef(config?.data ?? null);
-	dataRef.current = config?.data ?? null;
-	const onSelectRef = useRef(config?.onSelectFeature);
-	onSelectRef.current = config?.onSelectFeature;
-
-	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
-			return;
-		}
-		const activeMap = map;
-
-		function ensureLayers() {
-			const current = dataRef.current;
-			if (current === null) {
-				return;
-			}
-			const source = activeMap.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-			if (source === undefined) {
-				activeMap.addSource(SOURCE_ID, { type: 'geojson', data: current });
-			} else {
-				source.setData(current);
-			}
-			for (const layer of nearbyLayers()) {
-				if (activeMap.getLayer(layer.id) === undefined) {
-					activeMap.addLayer(layer);
-				}
-			}
-		}
-
-		ensureLayers();
-		activeMap.on('style.load', ensureLayers);
-
-		function handleClick(event: MapMouseEvent) {
-			if (activeMap.getLayer(POINTS_LAYER_ID) === undefined) {
-				return;
-			}
-			const feature = activeMap.queryRenderedFeatures(event.point, {
-				layers: [POINTS_LAYER_ID],
-			})[0];
-			const rawId = feature?.properties?.id;
-			onSelectRef.current?.(typeof rawId === 'string' ? rawId : null);
-		}
-		function handleMove(event: MapMouseEvent) {
-			if (activeMap.getLayer(POINTS_LAYER_ID) === undefined) {
-				return;
-			}
-			const hovering =
-				activeMap.queryRenderedFeatures(event.point, { layers: [POINTS_LAYER_ID] }).length > 0;
-			activeMap.getCanvas().style.cursor = hovering ? 'pointer' : '';
-		}
-		if (interactive) {
-			activeMap.on('click', handleClick);
-			activeMap.on('mousemove', handleMove);
-		}
-
-		return () => {
-			activeMap.off('style.load', ensureLayers);
-			if (interactive) {
-				activeMap.off('click', handleClick);
-				activeMap.off('mousemove', handleMove);
-			}
-			try {
-				if (interactive) {
-					activeMap.getCanvas().style.cursor = '';
-				}
-				for (const id of LAYER_IDS) {
-					if (activeMap.getLayer(id) !== undefined) {
-						activeMap.removeLayer(id);
-					}
-				}
-				if (activeMap.getSource(SOURCE_ID) !== undefined) {
-					activeMap.removeSource(SOURCE_ID);
-				}
-			} catch {
-				// Map already removed; nothing left to clean up.
-			}
-		};
-	}, [map, isLoaded, enabled, interactive]);
-
-	// Push data changes onto the existing source without re-adding layers.
-	const data = config?.data ?? null;
-	useEffect(() => {
-		if (map === null || !isLoaded || !enabled || data === null) {
-			return;
-		}
-		try {
-			const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-			source?.setData(data);
-		} catch {
-			// Map style not available; the setup effect re-seeds on style.load.
-		}
-	}, [map, isLoaded, enabled, data]);
+	useGeoJsonSource({
+		map,
+		isLoaded,
+		sourceId: SOURCE_ID,
+		data,
+		layers: nearbyLayers,
+		// Only the points answer to a pointer: the ring is context and the centre
+		// is the record the ring is drawn around.
+		interactive: {
+			layerIds: [POINTS_LAYER_ID],
+			...(config?.onSelectFeature === undefined ? {} : { onSelectFeature: config.onSelectFeature }),
+		},
+	});
 
 	// Re-scope the selection highlight without re-adding the layer.
 	useEffect(() => {

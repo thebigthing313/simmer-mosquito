@@ -4,13 +4,13 @@ import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
 	FillLayerSpecification,
-	GeoJSONSource,
 	LineLayerSpecification,
 	Map as MapboxMap,
 	MapMouseEvent,
 	SymbolLayerSpecification,
 } from 'mapbox-gl';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { useGeoJsonSource } from './use-geojson-source';
 
 /**
  * One ordered stop on a route map — a numbered pin the layer draws and, in
@@ -76,14 +76,6 @@ function shapeFeatureId(stopId: string): string {
 
 // Order matters: the connecting path and the shapes sit under the pins, and the
 // label sits over everything.
-const LAYER_IDS = [
-	PATH_LAYER_ID,
-	SHAPE_FILL_LAYER_ID,
-	SHAPE_LINE_LAYER_ID,
-	STOP_LAYER_ID,
-	LABEL_LAYER_ID,
-] as const;
-
 /** Layers a click or hover may land on, pins first so a pin inside its own area wins. */
 const INTERACTIVE_LAYER_IDS = [STOP_LAYER_ID, SHAPE_FILL_LAYER_ID, SHAPE_LINE_LAYER_ID] as const;
 
@@ -299,8 +291,8 @@ function emphasizeStops(
  * numbered stop pins, with click and hover routed back out and a two-way
  * selected/highlight emphasis driven through feature-state (so selection and
  * cursor sync between the list and the map without rebuilding the source).
- * Mirrors {@link useHabitatTileLayer}: re-adds on basemap restyle, guards
- * teardown against an already-removed map, and no-ops when `config` is undefined.
+ * No-ops when `config` is undefined. The source lifetime — including putting
+ * feature-state back after a basemap switch — is {@link useGeoJsonSource}'s.
  */
 export function useRouteLayer(
 	map: MapboxMap | null,
@@ -322,40 +314,40 @@ export function useRouteLayer(
 	const selectedRef = useRef(selectedId);
 	const highlightRef = useRef(highlightId);
 
-	// Source + layers + interaction. Re-runs only on map identity / load / enable.
+	// The stop set as one value, rebuilt only when the signature says the stops
+	// actually changed — the primitive pushes a new `data` identity through
+	// `setData`, and an unmemoized build would do that on every render.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: signature is the change key for the ref-read stops.
+	const data = useMemo(() => (enabled ? buildData(stopsRef.current) : null), [enabled, signature]);
+
+	useGeoJsonSource({
+		map,
+		isLoaded,
+		sourceId: SOURCE_ID,
+		data,
+		layers: routeLayers,
+		// Feature-state needs a stable feature id, which Mapbox will not take from
+		// a GeoJSON string id on its own.
+		sourceOptions: { promoteId: 'id' },
+		// A restyle wipes feature-state along with the layers, so the emphasis has
+		// to be re-applied every time the source is re-established.
+		onEnsure: () => {
+			if (map !== null) {
+				emphasizeStops(map, stopsRef.current, selectedRef.current, highlightRef.current);
+			}
+		},
+	});
+
+	// Click and hover are this hook's own: a stop's shape is as clickable as its
+	// pin, a miss must not clear the selection, and the hover id is reported back
+	// so the list and the map can highlight together.
 	useEffect(() => {
 		if (map === null || !isLoaded || !enabled) {
 			return;
 		}
 		const activeMap = map;
 
-		function applyFeatureStates() {
-			emphasizeStops(activeMap, stopsRef.current, selectedRef.current, highlightRef.current);
-		}
-
-		function ensureLayers() {
-			if (activeMap.getSource(SOURCE_ID) === undefined) {
-				activeMap.addSource(SOURCE_ID, {
-					type: 'geojson',
-					data: buildData(stopsRef.current),
-					promoteId: 'id',
-				});
-			}
-			for (const layer of routeLayers()) {
-				if (activeMap.getLayer(layer.id) === undefined) {
-					activeMap.addLayer(layer);
-				}
-			}
-			applyFeatureStates();
-		}
-
-		ensureLayers();
-		// setStyle (basemap switch) wipes custom sources/layers + feature-state.
-		activeMap.on('style.load', ensureLayers);
-
 		function stopAt(event: MapMouseEvent): string | null {
-			// A stop's own shape is as clickable as its pin: on a treated block the
-			// pin is a dot at the centroid and the area is what is under the cursor.
 			// The stop id rides in `properties`, because the shape feature carries a
 			// feature id of its own.
 			const layers = INTERACTIVE_LAYER_IDS.filter(
@@ -367,49 +359,33 @@ export function useRouteLayer(
 			const id = activeMap.queryRenderedFeatures(event.point, { layers })[0]?.properties?.id;
 			return typeof id === 'string' ? id : null;
 		}
+
 		function handleClick(event: MapMouseEvent) {
 			const id = stopAt(event);
 			if (id !== null) {
 				onSelectRef.current?.(id);
 			}
 		}
+
 		function handleMove(event: MapMouseEvent) {
 			const id = stopAt(event);
 			activeMap.getCanvas().style.cursor = id === null ? '' : 'pointer';
 			onHoverRef.current?.(id);
 		}
+
 		activeMap.on('click', handleClick);
 		activeMap.on('mousemove', handleMove);
 
 		return () => {
-			activeMap.off('style.load', ensureLayers);
 			activeMap.off('click', handleClick);
 			activeMap.off('mousemove', handleMove);
 			try {
 				activeMap.getCanvas().style.cursor = '';
-				for (const id of LAYER_IDS) {
-					if (activeMap.getLayer(id) !== undefined) {
-						activeMap.removeLayer(id);
-					}
-				}
-				if (activeMap.getSource(SOURCE_ID) !== undefined) {
-					activeMap.removeSource(SOURCE_ID);
-				}
 			} catch {
-				// Map already removed; nothing left to clean up.
+				// Map already removed; nothing left to reset.
 			}
 		};
 	}, [map, isLoaded, enabled]);
-
-	// Push the ordered stop set onto the existing source when it changes.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: signature is the change key for the ref-read stops.
-	useEffect(() => {
-		if (map === null || !isLoaded || !enabled) {
-			return;
-		}
-		const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-		source?.setData(buildData(stopsRef.current));
-	}, [map, isLoaded, enabled, signature]);
 
 	// Keep the selected + highlighted pins in sync via feature-state only.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: signature re-applies state to a changed stop set.

@@ -12,6 +12,7 @@ import { useGeoJsonSource } from './use-geojson-source';
  */
 function createFakeMap() {
 	const sources = new Map<string, { data: GeoJSON.GeoJSON }>();
+	const sourceSpecs = new Map<string, Record<string, unknown>>();
 	const layers = new Map<string, LayerSpecification>();
 	const handlers = new Map<string, Set<(event: unknown) => void>>();
 	const canvas = { style: { cursor: '' } };
@@ -38,6 +39,7 @@ function createFakeMap() {
 		addSource(id: string, spec: { data: GeoJSON.GeoJSON }) {
 			assertLive();
 			sources.set(id, { data: spec.data });
+			sourceSpecs.set(id, spec as Record<string, unknown>);
 		},
 		removeSource(id: string) {
 			assertLive();
@@ -70,6 +72,7 @@ function createFakeMap() {
 	return {
 		map: map as unknown as MapboxMap,
 		sources,
+		sourceSpecs,
 		layers,
 		canvas,
 		queryRenderedFeatures: map.queryRenderedFeatures,
@@ -268,6 +271,46 @@ describe('useGeoJsonSource', () => {
 		expect(() => {
 			harness.unmount();
 		}).not.toThrow();
+	});
+
+	it('passes source options through when it creates the source', () => {
+		const fake = createFakeMap();
+
+		renderHook({
+			map: fake.map,
+			isLoaded: true,
+			sourceId: 'test-source',
+			data: POINT,
+			layers: () => [fillLayer('only')],
+			sourceOptions: { promoteId: 'id' },
+		});
+
+		expect(fake.sourceSpecs.get('test-source')).toMatchObject({ promoteId: 'id' });
+	});
+
+	// Feature-state goes the same way the layers do on a restyle, so whatever
+	// holds it has to be re-applied every time, not just on first add.
+	it('runs onEnsure on the first add and again after a basemap switch', () => {
+		const fake = createFakeMap();
+		const onEnsure = vi.fn();
+
+		renderHook({
+			map: fake.map,
+			isLoaded: true,
+			sourceId: 'test-source',
+			data: POINT,
+			layers: () => [fillLayer('only')],
+			onEnsure,
+		});
+
+		expect(onEnsure).toHaveBeenCalledTimes(1);
+
+		fake.wipeStyle();
+		act(() => {
+			fake.emit('style.load');
+		});
+
+		expect(onEnsure).toHaveBeenCalledTimes(2);
 	});
 
 	describe('interaction', () => {

@@ -30,7 +30,9 @@ export function useGeoJsonSource({
 	sourceId,
 	data,
 	layers,
+	sourceOptions,
 	interactive,
+	onEnsure,
 }: {
 	readonly map: MapboxMap | null;
 	readonly isLoaded: boolean;
@@ -43,6 +45,18 @@ export function useGeoJsonSource({
 	 * being re-added when they change.
 	 */
 	readonly layers: () => readonly LayerSpecification[];
+	/**
+	 * Extra options for the source itself, applied only when it is created.
+	 * `promoteId` is the one that matters: feature-state needs a stable feature
+	 * id, and Mapbox will not take one from a GeoJSON string id.
+	 */
+	readonly sourceOptions?: { readonly promoteId?: string };
+	/**
+	 * Run after the source and layers are in place, on first add *and* on every
+	 * restyle. A basemap switch wipes feature-state along with the layers, so
+	 * anything held there has to be re-applied here or it silently disappears.
+	 */
+	readonly onEnsure?: () => void;
 	/**
 	 * Click and hover, for the layers that answer to a pointer. Omitting
 	 * `onSelectFeature` leaves the map's own handlers untouched.
@@ -61,6 +75,10 @@ export function useGeoJsonSource({
 	dataRef.current = data;
 	const layersRef = useRef(layers);
 	layersRef.current = layers;
+	const onEnsureRef = useRef(onEnsure);
+	onEnsureRef.current = onEnsure;
+	const sourceOptionsRef = useRef(sourceOptions);
+	sourceOptionsRef.current = sourceOptions;
 	const onSelectRef = useRef(interactive?.onSelectFeature);
 	onSelectRef.current = interactive?.onSelectFeature;
 	const interactiveLayerIdsRef = useRef(interactive?.layerIds ?? []);
@@ -84,7 +102,11 @@ export function useGeoJsonSource({
 
 			const source = activeMap.getSource(sourceId) as GeoJSONSource | undefined;
 			if (source === undefined) {
-				activeMap.addSource(sourceId, { type: 'geojson', data: current });
+				activeMap.addSource(sourceId, {
+					type: 'geojson',
+					data: current,
+					...sourceOptionsRef.current,
+				});
 			} else {
 				source.setData(current);
 			}
@@ -96,6 +118,7 @@ export function useGeoJsonSource({
 				}
 			}
 			addedLayerIdsRef.current = specs.map((layer) => layer.id);
+			onEnsureRef.current?.();
 		}
 
 		ensureLayers();
