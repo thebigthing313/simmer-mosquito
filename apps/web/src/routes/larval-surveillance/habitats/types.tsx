@@ -1,43 +1,29 @@
 import type { HabitatTypeRow, OrganizationRow } from '@simmer-mosquito/sync';
-import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
-import { ListEmpty, ListNoMatches, PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/dialog';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@simmer-mosquito/ui-web/components/ui/table';
+import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import {
+	CatalogActionsHead,
+	CatalogDialogCancel,
+	CatalogFilteredList,
+	CatalogNameCell,
+	CatalogPage,
+	CatalogRecordDialog,
+	CatalogRowActions,
+	CatalogSection,
+	commitCatalogWrite,
+	toggleCatalogLifecycle,
+	useCatalogDialogOpen,
+	useCatalogSearch,
+	useResetOnOpen,
+} from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import { EmptyValue } from '../../../components/empty-value';
 import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
@@ -45,10 +31,8 @@ import { useOrganizationWorkspace } from '../../../hooks/use-organization-worksp
 import { webCollections } from '../../../sync/webCollections';
 import {
 	createHabitatTypeFromValues,
-	errorMessageForSave,
 	habitatTypeFormValues,
 	updateHabitatTypeFromValues,
-	watchPersistence,
 } from '../../my-organization/-components/helpers';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/types')({
@@ -57,15 +41,7 @@ export const Route = createFileRoute('/larval-surveillance/habitats/types')({
 
 const TaxonomyIcon = iconRegistry.entities.taxonomy.icon;
 const AddIcon = iconRegistry.actions.add.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
-const CloseIcon = iconRegistry.actions.close.icon;
-const CheckIcon = iconRegistry.actions.check.icon;
-const SearchIcon = iconRegistry.actions.search.icon;
-const MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 const HabitatIcon = iconRegistry.domains.larvalSurveillance.icon;
-
-/** Show the filter only once the list is large enough to be worth scanning. */
-const SEARCH_THRESHOLD = 6;
 
 type UsageById = ReadonlyMap<string, number>;
 const EMPTY_USAGE: UsageById = new Map();
@@ -94,6 +70,12 @@ async function fetchHabitatTypeUsage(signal: AbortSignal): Promise<UsageById> {
 	return new Map((body.usage ?? []).map((row) => [row.habitatTypeId, row.activeCount]));
 }
 
+function matchesHabitatType(row: HabitatTypeRow, query: string): boolean {
+	return (
+		row.name.toLowerCase().includes(query) || (row.description ?? '').toLowerCase().includes(query)
+	);
+}
+
 function HabitatTypesRoute() {
 	const { auth } = Route.useRouteContext();
 	const { canManage, organization } = useOrganizationWorkspace(auth.snapshot);
@@ -101,126 +83,74 @@ function HabitatTypesRoute() {
 		webCollections.habitatTypes,
 	);
 	const { usageById, isLoading: usageLoading } = useHabitatTypeUsage();
+	const search = useCatalogSearch(activeRows, inactiveRows, matchesHabitatType);
 
-	const [search, setSearch] = useState('');
-	const query = search.trim().toLowerCase();
-
-	const filteredActive = useMemo(() => filterTypes(activeRows, query), [activeRows, query]);
-	const filteredInactive = useMemo(() => filterTypes(inactiveRows, query), [inactiveRows, query]);
-
-	const total = activeRows.length + inactiveRows.length;
-	const showSearch = total > SEARCH_THRESHOLD;
-	const hasMatches = filteredActive.length + filteredInactive.length > 0;
+	// The header and the empty state offer the same way in, so they mount the
+	// same dialog rather than each spelling out its own trigger.
+	const addHabitatTypeDialog = (
+		<HabitatTypeDialog
+			organization={organization}
+			trigger={
+				<Button type="button">
+					<AddIcon aria-hidden="true" />
+					Add Habitat Type
+				</Button>
+			}
+		/>
+	);
 
 	return (
-		<OutletSimpleLayout className="grid content-start gap-5">
-			<PageHeader
-				actions={
-					<>
-						<AccessBadge canManage={canManage} />
-						{canManage ? <AddHabitatTypeDialog organization={organization} /> : null}
-					</>
-				}
-				description="Habitat types classify the larval sites your crews inspect — catch basins, storm drains, ditches, tire piles, and the rest. Manage the labels and any custom fields your agency records against them."
-				icon={TaxonomyIcon}
-				title="Habitat Types"
-			/>
-
-			{total === 0 ? (
-				<HabitatTypesEmpty canManage={canManage} organization={organization} />
-			) : (
-				<div className="grid gap-4">
-					<div className="flex flex-wrap items-center justify-between gap-3">
-						<div className="flex items-center gap-2">
-							<Badge tone="success" variant="outline">
-								{activeRows.length} active
-							</Badge>
-							<Badge tone="neutral" variant="outline">
-								{inactiveRows.length} inactive
-							</Badge>
-						</div>
-						{showSearch ? <SearchField value={search} onChange={setSearch} /> : null}
-					</div>
-
-					{hasMatches ? (
-						<div className="grid gap-6">
-							<HabitatTypeSection
-								canManage={canManage}
-								emptyLabel={
-									query.length > 0
-										? 'No active habitat types match your search.'
-										: 'No active habitat types. Add one to start classifying larval sites.'
-								}
-								organization={organization}
-								rows={filteredActive}
-								title="Active"
-								tone="active"
-								usageById={usageById}
-								usageLoading={usageLoading}
-							/>
-							{inactiveRows.length > 0 ? (
-								<HabitatTypeSection
-									canManage={canManage}
-									emptyLabel="No inactive habitat types match your search."
-									organization={organization}
-									rows={filteredInactive}
-									title="Inactive"
-									tone="inactive"
-									usageById={usageById}
-									usageLoading={usageLoading}
-								/>
-							) : null}
-						</div>
-					) : (
-						<ListNoMatches noun="habitat types" query={search.trim()} />
-					)}
-				</div>
-			)}
-		</OutletSimpleLayout>
-	);
-}
-
-function filterTypes(rows: readonly HabitatTypeRow[], query: string): readonly HabitatTypeRow[] {
-	if (query.length === 0) {
-		return rows;
-	}
-	return rows.filter(
-		(row) =>
-			row.name.toLowerCase().includes(query) ||
-			(row.description ?? '').toLowerCase().includes(query),
-	);
-}
-
-function AccessBadge({ canManage }: { readonly canManage: boolean }) {
-	return (
-		<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
-			{canManage ? 'Editor access' : 'View only'}
-		</Badge>
-	);
-}
-
-function SearchField({
-	value,
-	onChange,
-}: {
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="relative w-full max-w-[260px]">
-			<SearchIcon
-				aria-hidden="true"
-				className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-			/>
-			<Input
-				aria-label="Search habitat types by name or description"
-				className="h-9 pl-9"
-				onChange={(event) => onChange(event.target.value)}
-				placeholder="Search habitat types…"
-				type="search"
-				value={value}
-			/>
-		</div>
+		<CatalogPage
+			action={canManage ? addHabitatTypeDialog : undefined}
+			canEdit={canManage}
+			description="Habitat types classify the larval sites your crews inspect — catch basins, storm drains, ditches, tire piles, and the rest. Manage the labels and any custom fields your agency records against them."
+			emptyDescription={
+				<>
+					Habitat types are the classification labels crews pick when recording a larval habitat.
+					{canManage
+						? ' Add your first type to start classifying inspections.'
+						: ' An owner or admin can add habitat types for your agency.'}
+				</>
+			}
+			emptyTitle="No Habitat Types Yet"
+			icon={TaxonomyIcon}
+			isEmpty={search.total === 0}
+			title="Habitat Types"
+		>
+			<CatalogFilteredList
+				noun="habitat types"
+				search={search}
+				searchLabel="Search habitat types by name or description"
+				searchPlaceholder="Search habitat types…"
+			>
+				<HabitatTypeSection
+					canManage={canManage}
+					emptyLabel={
+						search.query.length > 0
+							? 'No active habitat types match your search.'
+							: 'No active habitat types. Add one to start classifying larval sites.'
+					}
+					organization={organization}
+					rows={search.filteredActive}
+					title="Active"
+					tone="active"
+					usageById={usageById}
+					usageLoading={usageLoading}
+				/>
+				{search.inactiveCount > 0 ? (
+					<HabitatTypeSection
+						canManage={canManage}
+						emptyLabel="No inactive habitat types match your search."
+						organization={organization}
+						rows={search.filteredInactive}
+						title="Inactive"
+						tone="inactive"
+						usageById={usageById}
+						usageLoading={usageLoading}
+					/>
+				) : null}
+			</CatalogFilteredList>
+		</CatalogPage>
 	);
 }
 
@@ -244,73 +174,40 @@ function HabitatTypeSection({
 	readonly usageLoading: boolean;
 }) {
 	return (
-		<section className="grid gap-2">
-			<div className="flex items-baseline justify-between gap-2">
-				<h2 className="font-bold text-[0.78rem] text-muted-foreground uppercase tracking-wide">
-					{title}
-				</h2>
-				<span className="text-muted-foreground text-xs tabular-nums">{rows.length}</span>
-			</div>
-			{rows.length === 0 ? (
-				<p className="rounded-md bg-muted/40 px-3 py-2.5 text-muted-foreground text-sm">
-					{emptyLabel}
-				</p>
-			) : (
-				<div className="overflow-hidden rounded-md border border-border/50">
-					<Table className="table-fixed">
-						<TableHeader>
-							<TableRow className="bg-muted/40 hover:bg-muted/40">
-								<TableHead className="w-[28%]">Habitat Type</TableHead>
-								<TableHead>Description</TableHead>
-								<TableHead className="w-[22%]">Custom Fields</TableHead>
-								<TableHead className="w-[104px] text-right">Active Sites</TableHead>
-								{canManage ? (
-									<TableHead className="w-[60px] text-right">
-										<span className="sr-only">Actions</span>
-									</TableHead>
-								) : null}
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{rows.map((habitatType) => (
-								<TableRow key={habitatType.id}>
-									<TableCell className="align-top font-medium">
-										<div className="flex items-start gap-2">
-											<span className="wrap-anywhere">{habitatType.name}</span>
-											{tone === 'inactive' ? (
-												<Badge className="mt-0.5 shrink-0" tone="neutral" variant="outline">
-													Inactive
-												</Badge>
-											) : null}
-										</div>
-									</TableCell>
-									<TableCell className="align-top whitespace-normal text-muted-foreground wrap-anywhere">
-										{habitatType.description ?? <EmptyValue />}
-									</TableCell>
-									<TableCell className="align-top">
-										<CustomFieldsCell schema={habitatType.customSchema} />
-									</TableCell>
-									<TableCell className="align-top text-right">
-										<SitesCount
-											count={usageById.get(habitatType.id) ?? 0}
-											isLoading={usageLoading}
-										/>
-									</TableCell>
-									{canManage ? (
-										<TableCell className="align-top text-right">
-											<HabitatTypeRowActions
-												habitatType={habitatType}
-												organization={organization}
-											/>
-										</TableCell>
-									) : null}
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
-			)}
-		</section>
+		<CatalogSection
+			columns={
+				<TableRow className="bg-muted/40 hover:bg-muted/40">
+					<TableHead className="w-[28%]">Habitat Type</TableHead>
+					<TableHead>Description</TableHead>
+					<TableHead className="w-[22%]">Custom Fields</TableHead>
+					<TableHead className="w-[104px] text-right">Active Sites</TableHead>
+					{canManage ? <CatalogActionsHead /> : null}
+				</TableRow>
+			}
+			count={rows.length}
+			emptyLabel={emptyLabel}
+			title={title}
+		>
+			{rows.map((habitatType) => (
+				<TableRow key={habitatType.id}>
+					<CatalogNameCell isInactive={tone === 'inactive'} name={habitatType.name} />
+					<TableCell className="align-top whitespace-normal text-muted-foreground wrap-anywhere">
+						{habitatType.description ?? <EmptyValue />}
+					</TableCell>
+					<TableCell className="align-top">
+						<CustomFieldsCell schema={habitatType.customSchema} />
+					</TableCell>
+					<TableCell className="align-top text-right">
+						<SitesCount count={usageById.get(habitatType.id) ?? 0} isLoading={usageLoading} />
+					</TableCell>
+					{canManage ? (
+						<TableCell className="align-top text-right">
+							<HabitatTypeRowActions habitatType={habitatType} organization={organization} />
+						</TableCell>
+					) : null}
+				</TableRow>
+			))}
+		</CatalogSection>
 	);
 }
 
@@ -342,34 +239,12 @@ function HabitatTypeRowActions({
 
 	return (
 		<>
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button size="icon" type="button" variant="ghost">
-						<MoreIcon aria-hidden="true" />
-						<span className="sr-only">Actions for {habitatType.name}</span>
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-44">
-					<DropdownMenuItem onSelect={() => setEditOpen(true)}>
-						<EditIcon aria-hidden="true" />
-						Edit
-					</DropdownMenuItem>
-					<DropdownMenuSeparator />
-					<DropdownMenuItem onSelect={() => toggleHabitatTypeActive(habitatType)}>
-						{habitatType.isActive ? (
-							<>
-								<CloseIcon aria-hidden="true" />
-								Deactivate
-							</>
-						) : (
-							<>
-								<CheckIcon aria-hidden="true" />
-								Reactivate
-							</>
-						)}
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
+			<CatalogRowActions
+				isActive={habitatType.isActive}
+				name={habitatType.name}
+				onEdit={() => setEditOpen(true)}
+				onToggle={() => toggleHabitatTypeActive(habitatType)}
+			/>
 			<HabitatTypeDialog
 				habitatType={habitatType}
 				onOpenChange={setEditOpen}
@@ -380,62 +255,16 @@ function HabitatTypeRowActions({
 	);
 }
 
-/** Flip a habitat type's lifecycle in place — reversible, so no confirm step. */
 function toggleHabitatTypeActive(habitatType: HabitatTypeRow): void {
-	const nextActive = !habitatType.isActive;
-	try {
-		const transaction = updateHabitatTypeFromValues(habitatType, {
-			...habitatTypeFormValues(habitatType),
-			isActive: nextActive,
-		});
-		watchPersistence(
-			transaction,
-			nextActive
-				? `Unable to reactivate ${habitatType.name}.`
-				: `Unable to deactivate ${habitatType.name}.`,
-		);
-	} catch (saveError) {
-		toast.error(errorMessageForSave(saveError));
-	}
-}
-
-/** The way in, offered from both the page header and the empty state. */
-function AddHabitatTypeDialog({ organization }: { readonly organization: OrganizationRow | null }) {
-	return (
-		<HabitatTypeDialog
-			organization={organization}
-			trigger={
-				<Button type="button">
-					<AddIcon aria-hidden="true" />
-					Add Habitat Type
-				</Button>
-			}
-		/>
-	);
-}
-
-function HabitatTypesEmpty({
-	canManage,
-	organization,
-}: {
-	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
-}) {
-	return (
-		<ListEmpty
-			action={canManage ? <AddHabitatTypeDialog organization={organization} /> : undefined}
-			description={
-				<>
-					Habitat types are the classification labels crews pick when recording a larval habitat.
-					{canManage
-						? ' Add your first type to start classifying inspections.'
-						: ' An owner or admin can add habitat types for your agency.'}
-				</>
-			}
-			icon={TaxonomyIcon}
-			title="No Habitat Types Yet"
-		/>
-	);
+	toggleCatalogLifecycle({
+		apply: (isActive) =>
+			updateHabitatTypeFromValues(habitatType, {
+				...habitatTypeFormValues(habitatType),
+				isActive,
+			}),
+		isActive: habitatType.isActive,
+		name: habitatType.name,
+	});
 }
 
 function HabitatTypeDialog({
@@ -453,9 +282,7 @@ function HabitatTypeDialog({
 	/** Uncontrolled mode: the element that opens the dialog (Add button, empty-state CTA). */
 	readonly trigger?: React.ReactNode;
 }) {
-	const [internalOpen, setInternalOpen] = useState(false);
-	const isControlled = controlledOpen !== undefined;
-	const open = isControlled ? controlledOpen : internalOpen;
+	const [open, setOpen] = useCatalogDialogOpen(controlledOpen, onOpenChange);
 	const isEditing = habitatType !== undefined;
 
 	const form = useAppForm({
@@ -465,98 +292,62 @@ function HabitatTypeDialog({
 				organization === null ? 'Organization details are still loading.' : undefined,
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction = isEditing
-					? updateHabitatTypeFromValues(habitatType, value)
-					: createHabitatTypeFromValues(organization, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
-					isEditing ? `Unable to save ${habitatType.name}.` : 'Unable to create habitat type.',
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+			commitCatalogWrite({
+				failureMessage: isEditing
+					? `Unable to save ${habitatType.name}.`
+					: 'Unable to create habitat type.',
+				onWritten: () => setOpen(false),
+				write: () =>
+					isEditing
+						? updateHabitatTypeFromValues(habitatType, value)
+						: createHabitatTypeFromValues(organization, value),
+			});
 		},
 	});
 
-	function setOpen(nextOpen: boolean) {
-		if (isControlled) {
-			onOpenChange?.(nextOpen);
-		} else {
-			setInternalOpen(nextOpen);
-		}
-	}
-
-	// Reset to the current row's values whenever the dialog opens, whether opened by
-	// its own trigger or programmatically from the row actions menu.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: form is stable; reset keyed on open.
-	useEffect(() => {
-		if (open) {
-			form.reset(habitatTypeFormValues(habitatType));
-		}
-	}, [open, habitatType]);
+	useResetOnOpen(open, habitatType, () => form.reset(habitatTypeFormValues(habitatType)));
 
 	return (
-		<Dialog onOpenChange={setOpen} open={open}>
-			{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-			<DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
-				<DialogHeader className="border-border/60 border-b px-6 py-4 pr-10 text-left">
-					<DialogTitle>{isEditing ? `Edit ${habitatType.name}` : 'Add Habitat Type'}</DialogTitle>
-					<DialogDescription>
-						Manage the label, lifecycle state, and optional custom fields.
-					</DialogDescription>
-				</DialogHeader>
-				<form.AppForm>
-					<form
-						className="flex min-h-0 flex-1 flex-col"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<div className="grid min-h-0 flex-1 gap-3.5 overflow-y-auto px-6 py-4">
-							<form.FormErrorAlert />
-							<form.AppField
-								name="name"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Habitat type name is required.' : undefined,
-								}}
-							>
-								{(field) => (
-									<field.TextField label="Habitat type name" placeholder="e.g. Catch basin" />
-								)}
-							</form.AppField>
-							<form.AppField name="description">
-								{(field) => <field.TextareaField className="min-h-24" label="Description" />}
-							</form.AppField>
-							<form.AppField name="isActive">
-								{(field) => <field.SwitchField label="Active" />}
-							</form.AppField>
-							<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-								{(field) => (
-									<field.JsonSchemaField
-										description="Optional fields crews fill in when recording this habitat type."
-										label="Custom fields"
-									/>
-								)}
-							</form.AppField>
-						</div>
-						<DialogFooter className="border-border/60 border-t px-6 py-4">
-							<form.FormActions>
-								<form.SubmitButton disabled={organization === null} />
-								<DialogClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
-										Cancel
-									</Button>
-								</DialogClose>
-							</form.FormActions>
-						</DialogFooter>
-					</form>
-				</form.AppForm>
-			</DialogContent>
-		</Dialog>
+		<form.AppForm>
+			<CatalogRecordDialog
+				actions={
+					<form.FormActions>
+						<form.SubmitButton disabled={organization === null} />
+						<CatalogDialogCancel />
+					</form.FormActions>
+				}
+				description="Manage the label, lifecycle state, and optional custom fields."
+				onOpenChange={setOpen}
+				onSubmit={() => void form.handleSubmit()}
+				open={open}
+				title={isEditing ? `Edit ${habitatType.name}` : 'Add Habitat Type'}
+				trigger={trigger}
+			>
+				<form.FormErrorAlert />
+				<form.AppField
+					name="name"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Habitat type name is required.' : undefined,
+					}}
+				>
+					{(field) => <field.TextField label="Habitat type name" placeholder="e.g. Catch basin" />}
+				</form.AppField>
+				<form.AppField name="description">
+					{(field) => <field.TextareaField className="min-h-24" label="Description" />}
+				</form.AppField>
+				<form.AppField name="isActive">
+					{(field) => <field.SwitchField label="Active" />}
+				</form.AppField>
+				<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
+					{(field) => (
+						<field.JsonSchemaField
+							description="Optional fields crews fill in when recording this habitat type."
+							label="Custom fields"
+						/>
+					)}
+				</form.AppField>
+			</CatalogRecordDialog>
+		</form.AppForm>
 	);
 }

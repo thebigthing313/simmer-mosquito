@@ -4,38 +4,9 @@ import type {
 	OrganizationRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
-import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm, validateMetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { ListEmpty, PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/collapsible';
-import {
-	Drawer,
-	DrawerClose,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerTitle,
-	DrawerTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/drawer';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	Table,
@@ -45,17 +16,25 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import type React from 'react';
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import {
+	CatalogDeleteDialog,
+	CatalogDetailPanel,
+	CatalogDrawerCancel,
+	CatalogExpandButton,
+	CatalogGroupHeader,
+	CatalogInactiveDisclosure,
+	CatalogLifecycleButton,
+	CatalogNote,
+	CatalogPage,
+	CatalogRecordDrawer,
+	commitCatalogWrite,
+	toggleCatalogLifecycle,
+} from '../../../components/catalog';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { webCollections } from '../../../sync/webCollections';
@@ -65,14 +44,12 @@ import {
 	createInsecticideFromValues,
 	deleteInsecticide,
 	deleteInsecticideBatch,
-	errorMessageForSave,
 	formatMode,
 	hasMetadata,
 	insecticideBatchFormValues,
 	insecticideFormValues,
 	updateInsecticideBatchFromValues,
 	updateInsecticideFromValues,
-	watchPersistence,
 } from '../../my-organization/-components/helpers';
 import { insecticideDisplayName } from '../-control-display';
 
@@ -82,11 +59,8 @@ export const Route = createFileRoute('/control-operations/chemical/insecticides'
 
 const InsecticideIcon = iconRegistry.entities.insecticide.icon;
 const AddIcon = iconRegistry.actions.add.icon;
-const CheckIcon = iconRegistry.actions.check.icon;
-const CloseIcon = iconRegistry.actions.close.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-const ChevronIcon = iconRegistry.arrows.chevronRight.icon;
 
 const batchesGcTimeMs = 30_000;
 
@@ -143,72 +117,46 @@ function InsecticidesRoute() {
 	);
 
 	return (
-		<OutletSimpleLayout className="grid content-start gap-5">
-			<PageHeader
-				actions={
-					<>
-						<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
-							{canManage ? 'Editor access' : 'View only'}
-						</Badge>
-						{canManage ? addInsecticideDrawer : null}
-					</>
-				}
-				description="The products your agency applies — active ingredient, EPA registration number, default usage unit, and the lots crews draw from."
-				icon={InsecticideIcon}
-				title="Insecticides"
-			/>
-
-			{insecticides.length === 0 ? (
-				<ListEmpty
-					action={canManage ? addInsecticideDrawer : undefined}
-					description={
-						<>
-							Insecticides are the products behind every chemical application record.
-							{canManage
-								? ' Add your first product to get started.'
-								: ' An owner or admin can add products for your agency.'}
-						</>
-					}
-					icon={InsecticideIcon}
-					title="No Insecticides Yet"
+		<CatalogPage
+			action={canManage ? addInsecticideDrawer : undefined}
+			canEdit={canManage}
+			description="The products your agency applies — active ingredient, EPA registration number, default usage unit, and the lots crews draw from."
+			emptyDescription={
+				<>
+					Insecticides are the products behind every chemical application record.
+					{canManage
+						? ' Add your first product to get started.'
+						: ' An owner or admin can add products for your agency.'}
+				</>
+			}
+			emptyTitle="No Insecticides Yet"
+			icon={InsecticideIcon}
+			isEmpty={insecticides.length === 0}
+			title="Insecticides"
+		>
+			<section className="grid gap-2">
+				<CatalogGroupHeader
+					active={activeInsecticides.length}
+					description="Expand a product to manage the lots or batches crews draw from."
+					inactive={inactiveInsecticides.length}
+					title="Products"
 				/>
-			) : (
-				<section className="grid gap-2">
-					<div className="flex flex-wrap items-center justify-between gap-2">
-						<div className="grid gap-1">
-							<h2 className="m-0 font-bold text-[0.78rem] text-muted-foreground uppercase tracking-wide">
-								Products
-							</h2>
-							<p className="m-0 max-w-[60ch] text-muted-foreground text-sm leading-snug">
-								Expand a product to manage the lots or batches crews draw from.
-							</p>
-						</div>
-						<div className="flex items-center gap-2">
-							<Badge tone="success" variant="outline">
-								{activeInsecticides.length} active
-							</Badge>
-							<Badge tone="neutral" variant="outline">
-								{inactiveInsecticides.length} inactive
-							</Badge>
-						</div>
-					</div>
-					{batchTrackingEnabled ? null : <BatchTrackingDisabledNotice />}
-					{activeInsecticides.length === 0 ? (
-						<p className="m-0 rounded-md border border-border/50 border-dashed px-3 py-3 text-muted-foreground text-sm">
-							No active insecticides.
-						</p>
-					) : (
+				{batchTrackingEnabled ? null : <BatchTrackingDisabledNotice />}
+				{activeInsecticides.length === 0 ? (
+					<CatalogNote>No active insecticides.</CatalogNote>
+				) : (
+					<InsecticideTable
+						allInsecticides={insecticides}
+						batchTrackingEnabled={batchTrackingEnabled}
+						canManage={canManage}
+						insecticides={activeInsecticides}
+						organization={organization}
+						units={units}
+					/>
+				)}
+				{inactiveInsecticides.length > 0 ? (
+					<CatalogInactiveDisclosure count={inactiveInsecticides.length}>
 						<InsecticideTable
-							allInsecticides={insecticides}
-							batchTrackingEnabled={batchTrackingEnabled}
-							canManage={canManage}
-							insecticides={activeInsecticides}
-							organization={organization}
-							units={units}
-						/>
-					)}
-					{inactiveInsecticides.length > 0 ? (
-						<InactiveInsecticidesCollapsible
 							allInsecticides={insecticides}
 							batchTrackingEnabled={batchTrackingEnabled}
 							canManage={canManage}
@@ -216,10 +164,10 @@ function InsecticidesRoute() {
 							organization={organization}
 							units={units}
 						/>
-					) : null}
-				</section>
-			)}
-		</OutletSimpleLayout>
+					</CatalogInactiveDisclosure>
+				) : null}
+			</section>
+		</CatalogPage>
 	);
 }
 
@@ -302,54 +250,6 @@ function InsecticideTable({
 	);
 }
 
-/**
- * Inactive products, tucked behind a collapsed disclosure so the active list
- * stays the focus. Mirrors {@link InactiveBatchesCollapsible} for batches.
- */
-function InactiveInsecticidesCollapsible({
-	allInsecticides,
-	batchTrackingEnabled,
-	canManage,
-	insecticides,
-	organization,
-	units,
-}: {
-	readonly allInsecticides: readonly InsecticideRow[];
-	readonly batchTrackingEnabled: boolean;
-	readonly canManage: boolean;
-	readonly insecticides: readonly InsecticideRow[];
-	readonly organization: OrganizationRow | null;
-	readonly units: readonly UnitRow[];
-}) {
-	const [open, setOpen] = useState(false);
-
-	return (
-		<Collapsible onOpenChange={setOpen} open={open}>
-			<CollapsibleTrigger asChild>
-				<Button className="w-fit" size="sm" type="button" variant="ghost">
-					<ChevronIcon
-						aria-hidden="true"
-						className="transition-transform data-[open=true]:rotate-90"
-						data-icon="inline-start"
-						data-open={open}
-					/>
-					{open ? 'Hide' : 'Show'} {insecticides.length} inactive
-				</Button>
-			</CollapsibleTrigger>
-			<CollapsibleContent className="pt-2">
-				<InsecticideTable
-					allInsecticides={allInsecticides}
-					batchTrackingEnabled={batchTrackingEnabled}
-					canManage={canManage}
-					insecticides={insecticides}
-					organization={organization}
-					units={units}
-				/>
-			</CollapsibleContent>
-		</Collapsible>
-	);
-}
-
 function InsecticideTableRow({
 	batchTrackingEnabled,
 	canManage,
@@ -374,22 +274,13 @@ function InsecticideTableRow({
 		<>
 			<TableRow className="border-b-0">
 				<TableCell className="align-middle">
-					<Button
-						aria-expanded={expanded}
-						aria-label={
+					<CatalogExpandButton
+						expanded={expanded}
+						label={
 							expanded ? `Hide batches for ${productLabel}` : `Show batches for ${productLabel}`
 						}
-						onClick={() => setExpanded((previous) => !previous)}
-						size="icon"
-						type="button"
-						variant="ghost"
-					>
-						<ChevronIcon
-							aria-hidden="true"
-							className="transition-transform data-[open=true]:rotate-90"
-							data-open={expanded}
-						/>
-					</Button>
+						onToggle={() => setExpanded((previous) => !previous)}
+					/>
 				</TableCell>
 				<TableCell className="font-medium">{productLabel}</TableCell>
 				<TableCell>{insecticide.activeIngredient}</TableCell>
@@ -421,7 +312,12 @@ function InsecticideTableRow({
 								}
 								units={units}
 							/>
-							<ToggleInsecticideActiveButton insecticide={insecticide} />
+							{/* No confirm step; the server rejects a deactivation it disallows. */}
+							<CatalogLifecycleButton
+								isActive={insecticide.isActive}
+								name={insecticide.tradeName}
+								onToggle={() => toggleInsecticideActive(insecticide)}
+							/>
 						</div>
 					</TableCell>
 				) : null}
@@ -443,56 +339,16 @@ function InsecticideTableRow({
 	);
 }
 
-/**
- * Reversible lifecycle toggle — the common per-row action. No confirm step; the
- * server rejects a deactivation it disallows and surfaces that error.
- */
-function ToggleInsecticideActiveButton({ insecticide }: { readonly insecticide: InsecticideRow }) {
-	const label = insecticide.isActive ? 'Deactivate' : 'Reactivate';
-	const ToggleIcon = insecticide.isActive ? CloseIcon : CheckIcon;
-
-	return (
-		<Tooltip>
-			<TooltipTrigger asChild>
-				<Button
-					onClick={(event) => {
-						// Drop focus before the row re-sorts into the inactive group: a focused
-						// button that travels with the row would scroll the viewport away from
-						// where the user was working.
-						event.currentTarget.blur();
-						toggleInsecticideActive(insecticide);
-					}}
-					size="icon"
-					type="button"
-					variant="outline"
-				>
-					<ToggleIcon aria-hidden="true" />
-					<span className="sr-only">
-						{label} {insecticide.tradeName}
-					</span>
-				</Button>
-			</TooltipTrigger>
-			<TooltipContent>{label}</TooltipContent>
-		</Tooltip>
-	);
-}
-
 function toggleInsecticideActive(insecticide: InsecticideRow): void {
-	const nextActive = !insecticide.isActive;
-	try {
-		const transaction = updateInsecticideFromValues(insecticide, {
-			...insecticideFormValues(insecticide, insecticide.defaultUnitId),
-			isActive: nextActive,
-		});
-		watchPersistence(
-			transaction,
-			nextActive
-				? `Unable to reactivate ${insecticide.tradeName}.`
-				: `Unable to deactivate ${insecticide.tradeName}.`,
-		);
-	} catch (saveError) {
-		toast.error(errorMessageForSave(saveError));
-	}
+	toggleCatalogLifecycle({
+		apply: (isActive) =>
+			updateInsecticideFromValues(insecticide, {
+				...insecticideFormValues(insecticide, insecticide.defaultUnitId),
+				isActive,
+			}),
+		isActive: insecticide.isActive,
+		name: insecticide.tradeName,
+	});
 }
 
 function InsecticideDrawer({
@@ -521,21 +377,17 @@ function InsecticideDrawer({
 				organization === null ? 'Organization details are still loading.' : undefined,
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
-					insecticide === undefined
-						? createInsecticideFromValues(organization, value)
-						: updateInsecticideFromValues(insecticide, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
+			commitCatalogWrite({
+				failureMessage:
 					insecticide === undefined
 						? 'Unable to create insecticide.'
 						: `Unable to save ${insecticide.tradeName}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+				onWritten: () => setOpen(false),
+				write: () =>
+					insecticide === undefined
+						? createInsecticideFromValues(organization, value)
+						: updateInsecticideFromValues(insecticide, value),
+			});
 		},
 	});
 
@@ -547,213 +399,163 @@ function InsecticideDrawer({
 	}
 
 	return (
-		<Drawer direction="right" onOpenChange={updateOpen} open={open}>
-			{tooltip === undefined ? (
-				<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			) : (
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-					</TooltipTrigger>
-					<TooltipContent>{tooltip}</TooltipContent>
-				</Tooltip>
-			)}
-			<DrawerContent className="w-[min(720px,100%)] overflow-hidden sm:max-w-[720px]">
-				<DrawerHeader className={stickyHeader({ padding: 'none' })}>
-					<DrawerTitle>
-						{insecticide === undefined ? 'Add Insecticide' : `Edit ${insecticide.tradeName}`}
-					</DrawerTitle>
-					<DrawerDescription>
-						Manage product identity, label references, lifecycle state, and optional metadata.
-					</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="flex min-h-0 flex-1 flex-col"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<div className="grid min-h-0 gap-3.5 overflow-y-auto px-4 py-3.5">
-							<form.FormErrorAlert />
-							<form.AppField name="isActive">
-								{(field) => <field.SwitchField disabled={!canManage} label="Active" />}
-							</form.AppField>
-							<form.AppField
-								name="tradeName"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Trade name is required.' : undefined,
-								}}
-							>
-								{(field) => (
-									<field.TextField
-										disabled={!canManage}
-										label="Trade name"
-										placeholder="e.g. VectoBac 12AS"
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="shorthand">
-								{(field) => (
-									<field.TextField
-										disabled={!canManage}
-										label="Shorthand"
-										placeholder="e.g. VectoBac"
-									/>
-								)}
-							</form.AppField>
-							<form.AppField
-								name="activeIngredient"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Active ingredient is required.' : undefined,
-								}}
-							>
-								{(field) => (
-									<field.TextField
-										disabled={!canManage}
-										label="Active ingredient"
-										placeholder="e.g. Bacillus thuringiensis israelensis"
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="type">
-								{(field) => (
-									<field.SelectField
-										disabled={!canManage}
-										label="Type"
-										options={insecticideTypeOptions}
-									/>
-								)}
-							</form.AppField>
-							<form.AppField
-								name="registrationNumber"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Registration number is required.' : undefined,
-								}}
-							>
-								{(field) => (
-									<field.TextField
-										disabled={!canManage}
-										label="Registration"
-										placeholder="e.g. EPA Reg. No. 73049-38"
-									/>
-								)}
-							</form.AppField>
-							<form.AppField
-								name="defaultUnitId"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Default usage unit is required.' : undefined,
-								}}
-							>
-								{(field) => (
-									<field.SelectField
-										description="Pre-fills the unit on every application of this product."
-										disabled={!canManage || unitChoices.length === 0}
-										label="Default usage unit"
-										options={unitChoices}
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="labelUrl">
-								{(field) => (
-									<field.UrlField
-										disabled={!canManage}
-										label="Label URL"
-										placeholder="https://..."
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="msdsUrl">
-								{(field) => (
-									<field.UrlField disabled={!canManage} label="SDS URL" placeholder="https://..." />
-								)}
-							</form.AppField>
-							<form.AppField name="metadata" validators={{ onSubmit: validateMetadataValue }}>
-								{(field) => (
-									<field.MetadataField
-										description="Add product-specific details such as signal word, storage notes, or restricted-use flags."
-										disabled={!canManage}
-										label="Metadata"
-										mode={{ kind: 'manual' }}
-									/>
-								)}
-							</form.AppField>
-						</div>
-						<DrawerFooter>
-							<div className="flex flex-wrap items-center justify-end gap-2">
-								{insecticide === undefined ? null : (
-									<DeleteInsecticideDialog className="mr-auto" insecticide={insecticide} />
-								)}
-								<form.FormActions>
-									<form.SubmitButton
-										disabled={!canManage || organization === null || unitChoices.length === 0}
-									/>
-									<DrawerClose asChild>
-										<Button type="button" variant="outline">
-											<CloseIcon aria-hidden="true" data-icon="inline-start" />
-											Cancel
-										</Button>
-									</DrawerClose>
-								</form.FormActions>
-							</div>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
+		<form.AppForm>
+			<CatalogRecordDrawer
+				actions={
+					<form.FormActions>
+						<form.SubmitButton
+							disabled={!canManage || organization === null || unitChoices.length === 0}
+						/>
+						<CatalogDrawerCancel />
+					</form.FormActions>
+				}
+				description="Manage product identity, label references, lifecycle state, and optional metadata."
+				destructiveAction={
+					insecticide === undefined ? undefined : (
+						<DeleteInsecticideDialog insecticide={insecticide} />
+					)
+				}
+				onOpenChange={updateOpen}
+				onSubmit={() => void form.handleSubmit()}
+				open={open}
+				title={insecticide === undefined ? 'Add Insecticide' : `Edit ${insecticide.tradeName}`}
+				tooltip={tooltip}
+				trigger={trigger}
+				width="xl"
+			>
+				<form.FormErrorAlert />
+				<form.AppField name="isActive">
+					{(field) => <field.SwitchField disabled={!canManage} label="Active" />}
+				</form.AppField>
+				<form.AppField
+					name="tradeName"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Trade name is required.' : undefined,
+					}}
+				>
+					{(field) => (
+						<field.TextField
+							disabled={!canManage}
+							label="Trade name"
+							placeholder="e.g. VectoBac 12AS"
+						/>
+					)}
+				</form.AppField>
+				<form.AppField name="shorthand">
+					{(field) => (
+						<field.TextField disabled={!canManage} label="Shorthand" placeholder="e.g. VectoBac" />
+					)}
+				</form.AppField>
+				<form.AppField
+					name="activeIngredient"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Active ingredient is required.' : undefined,
+					}}
+				>
+					{(field) => (
+						<field.TextField
+							disabled={!canManage}
+							label="Active ingredient"
+							placeholder="e.g. Bacillus thuringiensis israelensis"
+						/>
+					)}
+				</form.AppField>
+				<form.AppField name="type">
+					{(field) => (
+						<field.SelectField
+							disabled={!canManage}
+							label="Type"
+							options={insecticideTypeOptions}
+						/>
+					)}
+				</form.AppField>
+				<form.AppField
+					name="registrationNumber"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Registration number is required.' : undefined,
+					}}
+				>
+					{(field) => (
+						<field.TextField
+							disabled={!canManage}
+							label="Registration"
+							placeholder="e.g. EPA Reg. No. 73049-38"
+						/>
+					)}
+				</form.AppField>
+				<form.AppField
+					name="defaultUnitId"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Default usage unit is required.' : undefined,
+					}}
+				>
+					{(field) => (
+						<field.SelectField
+							description="Pre-fills the unit on every application of this product."
+							disabled={!canManage || unitChoices.length === 0}
+							label="Default usage unit"
+							options={unitChoices}
+						/>
+					)}
+				</form.AppField>
+				<form.AppField name="labelUrl">
+					{(field) => (
+						<field.UrlField disabled={!canManage} label="Label URL" placeholder="https://..." />
+					)}
+				</form.AppField>
+				<form.AppField name="msdsUrl">
+					{(field) => (
+						<field.UrlField disabled={!canManage} label="SDS URL" placeholder="https://..." />
+					)}
+				</form.AppField>
+				<form.AppField name="metadata" validators={{ onSubmit: validateMetadataValue }}>
+					{(field) => (
+						<field.MetadataField
+							description="Add product-specific details such as signal word, storage notes, or restricted-use flags."
+							disabled={!canManage}
+							label="Metadata"
+							mode={{ kind: 'manual' }}
+						/>
+					)}
+				</form.AppField>
+			</CatalogRecordDrawer>
+		</form.AppForm>
 	);
 }
 
 /**
  * Deletion is a rare, destructive action, so it lives inside the edit drawer
- * rather than as a per-row control. Reversible lifecycle changes belong to
- * {@link ToggleInsecticideActiveButton} instead.
+ * rather than as a per-row control. Reversible lifecycle changes belong to the
+ * row's own {@link CatalogLifecycleButton} instead.
  */
-function DeleteInsecticideDialog({
-	className,
-	insecticide,
-}: {
-	readonly className?: string | undefined;
-	readonly insecticide: InsecticideRow;
-}) {
-	function removeInsecticide() {
-		try {
-			const transaction = deleteInsecticide(insecticide);
-			watchPersistence(transaction, `Unable to delete ${insecticide.tradeName}.`);
-		} catch (deleteError) {
-			toast.error(errorMessageForSave(deleteError));
-		}
-	}
-
+function DeleteInsecticideDialog({ insecticide }: { readonly insecticide: InsecticideRow }) {
 	return (
-		<AlertDialog>
-			<AlertDialogTrigger asChild>
-				<Button className={className} type="button" variant="destructive">
+		<CatalogDeleteDialog
+			confirmLabel="Delete"
+			description={
+				<>
+					This removes {insecticide.tradeName} from the product list. If a server rule blocks the
+					delete — an application already used it — the record will stay in place.
+				</>
+			}
+			onConfirm={() =>
+				commitCatalogWrite({
+					failureMessage: `Unable to delete ${insecticide.tradeName}.`,
+					write: () => deleteInsecticide(insecticide),
+				})
+			}
+			title="Delete Insecticide?"
+			trigger={
+				<Button type="button" variant="destructive">
 					<DeleteIcon aria-hidden="true" data-icon="inline-start" />
 					Delete Insecticide
 				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent size="sm">
-				<AlertDialogHeader>
-					<AlertDialogTitle>Delete Insecticide?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This removes {insecticide.tradeName} from the product list. If a server rule blocks the
-						delete — an application already used it — the record will stay in place.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Cancel</AlertDialogCancel>
-					<AlertDialogAction onClick={removeInsecticide} variant="destructive">
-						Delete
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
+			}
+		/>
 	);
 }
 
@@ -783,14 +585,8 @@ function InsecticideBatchPanel({
 	const inactiveBatches = batches.filter((batch) => !batch.isActive);
 
 	return (
-		<div className="grid gap-2 border-border/40 border-t bg-muted/20 px-4 py-3">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div className="flex flex-wrap items-baseline gap-2">
-					<span className="font-semibold text-foreground text-sm">Batches</span>
-					<span className="text-muted-foreground text-xs">
-						{isError ? 'Unavailable' : !isReady ? 'Loading…' : batchGroupSummary(batches)}
-					</span>
-				</div>
+		<CatalogDetailPanel
+			action={
 				<InsecticideBatchDrawer
 					canManage={canManageBatches}
 					defaultInsecticideId={insecticide.id}
@@ -804,11 +600,12 @@ function InsecticideBatchPanel({
 						</Button>
 					}
 				/>
-			</div>
+			}
+			summary={isError ? 'Unavailable' : !isReady ? 'Loading…' : batchGroupSummary(batches)}
+			title="Batches"
+		>
 			{isError ? (
-				<p className="m-0 rounded-md border border-border/50 border-dashed px-3 py-2 text-muted-foreground text-xs">
-					Batches could not be loaded. Try again shortly.
-				</p>
+				<CatalogNote compact>Batches could not be loaded. Try again shortly.</CatalogNote>
 			) : !isReady ? (
 				<Skeleton className="h-16 w-full" />
 			) : (
@@ -822,59 +619,20 @@ function InsecticideBatchPanel({
 						organization={organization}
 					/>
 					{inactiveBatches.length > 0 ? (
-						<InactiveBatchesCollapsible
-							batches={inactiveBatches}
-							canManage={canManageBatches}
-							disabled={!batchTrackingEnabled}
-							insecticides={insecticides}
-							organization={organization}
-						/>
+						<CatalogInactiveDisclosure count={inactiveBatches.length}>
+							<InsecticideBatchList
+								batches={inactiveBatches}
+								canManage={canManageBatches}
+								disabled={!batchTrackingEnabled}
+								emptyLabel="No inactive batches."
+								insecticides={insecticides}
+								organization={organization}
+							/>
+						</CatalogInactiveDisclosure>
 					) : null}
 				</>
 			)}
-		</div>
-	);
-}
-
-function InactiveBatchesCollapsible({
-	batches,
-	canManage,
-	disabled,
-	insecticides,
-	organization,
-}: {
-	readonly batches: readonly InsecticideBatchRow[];
-	readonly canManage: boolean;
-	readonly disabled: boolean;
-	readonly insecticides: readonly InsecticideRow[];
-	readonly organization: OrganizationRow | null;
-}) {
-	const [open, setOpen] = useState(false);
-
-	return (
-		<Collapsible onOpenChange={setOpen} open={open}>
-			<CollapsibleTrigger asChild>
-				<Button className="w-fit" size="sm" type="button" variant="ghost">
-					<ChevronIcon
-						aria-hidden="true"
-						className="transition-transform data-[open=true]:rotate-90"
-						data-icon="inline-start"
-						data-open={open}
-					/>
-					{open ? 'Hide' : 'Show'} {batches.length} inactive
-				</Button>
-			</CollapsibleTrigger>
-			<CollapsibleContent className="pt-2">
-				<InsecticideBatchList
-					batches={batches}
-					canManage={canManage}
-					disabled={disabled}
-					emptyLabel="No inactive batches."
-					insecticides={insecticides}
-					organization={organization}
-				/>
-			</CollapsibleContent>
-		</Collapsible>
+		</CatalogDetailPanel>
 	);
 }
 
@@ -924,11 +682,7 @@ function InsecticideBatchList({
 	readonly organization: OrganizationRow | null;
 }) {
 	if (batches.length === 0) {
-		return (
-			<p className="m-0 rounded-md border border-border/50 border-dashed px-3 py-2 text-muted-foreground text-xs">
-				{emptyLabel}
-			</p>
-		);
+		return <CatalogNote compact>{emptyLabel}</CatalogNote>;
 	}
 
 	return (
@@ -1009,23 +763,19 @@ function InsecticideBatchDrawer({
 				organization === null ? 'Organization details are still loading.' : undefined,
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
+			commitCatalogWrite({
+				failureMessage:
+					batch === undefined ? 'Unable to create batch.' : `Unable to save ${batch.batchName}.`,
+				onWritten: () => setOpen(false),
+				write: () =>
 					batch === undefined
 						? createInsecticideBatchFromValues(
 								webCollections.insecticideBatches,
 								organization,
 								value,
 							)
-						: updateInsecticideBatchFromValues(webCollections.insecticideBatches, batch, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
-					batch === undefined ? 'Unable to create batch.' : `Unable to save ${batch.batchName}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+						: updateInsecticideBatchFromValues(webCollections.insecticideBatches, batch, value),
+			});
 		},
 	});
 
@@ -1037,118 +787,92 @@ function InsecticideBatchDrawer({
 	}
 
 	return (
-		<Drawer direction="right" onOpenChange={updateOpen} open={open}>
-			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			<DrawerContent className="w-[min(560px,100%)] overflow-hidden sm:max-w-[560px]">
-				<DrawerHeader className={stickyHeader({ padding: 'none' })}>
-					<DrawerTitle>{batch === undefined ? 'Add Batch' : `Edit ${batch.batchName}`}</DrawerTitle>
-					<DrawerDescription>
-						Manage lot or batch labels for an active insecticide product.
-					</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="flex min-h-0 flex-1 flex-col"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<div className="grid min-h-0 gap-3.5 overflow-y-auto px-4 py-3.5">
-							<form.FormErrorAlert />
-							<form.AppField name="isActive">
-								{(field) => <field.SwitchField disabled={!canManage} label="Active" />}
-							</form.AppField>
-							<form.AppField
-								name="insecticideId"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Insecticide is required.' : undefined,
-								}}
-							>
-								{(field) => (
-									<field.SelectField
-										disabled={
-											!canManage ||
-											batch !== undefined ||
-											lockInsecticide ||
-											insecticideChoices.length === 0
-										}
-										label="Insecticide"
-										options={insecticideChoices}
-									/>
-								)}
-							</form.AppField>
-							<form.AppField
-								name="batchName"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Batch name is required.' : undefined,
-								}}
-							>
-								{(field) => (
-									<field.TextField
-										disabled={!canManage}
-										label="Batch name"
-										placeholder="e.g. Lot 24-018"
-									/>
-								)}
-							</form.AppField>
-						</div>
-						<DrawerFooter>
-							<form.FormActions>
-								<form.SubmitButton
-									disabled={!canManage || organization === null || insecticideChoices.length === 0}
-								/>
-								<DrawerClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon aria-hidden="true" data-icon="inline-start" />
-										Cancel
-									</Button>
-								</DrawerClose>
-							</form.FormActions>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
+		<form.AppForm>
+			<CatalogRecordDrawer
+				actions={
+					<form.FormActions>
+						<form.SubmitButton
+							disabled={!canManage || organization === null || insecticideChoices.length === 0}
+						/>
+						<CatalogDrawerCancel />
+					</form.FormActions>
+				}
+				description="Manage lot or batch labels for an active insecticide product."
+				onOpenChange={updateOpen}
+				onSubmit={() => void form.handleSubmit()}
+				open={open}
+				title={batch === undefined ? 'Add Batch' : `Edit ${batch.batchName}`}
+				trigger={trigger}
+				width="md"
+			>
+				<form.FormErrorAlert />
+				<form.AppField name="isActive">
+					{(field) => <field.SwitchField disabled={!canManage} label="Active" />}
+				</form.AppField>
+				<form.AppField
+					name="insecticideId"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Insecticide is required.' : undefined,
+					}}
+				>
+					{(field) => (
+						<field.SelectField
+							disabled={
+								!canManage ||
+								batch !== undefined ||
+								lockInsecticide ||
+								insecticideChoices.length === 0
+							}
+							label="Insecticide"
+							options={insecticideChoices}
+						/>
+					)}
+				</form.AppField>
+				<form.AppField
+					name="batchName"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Batch name is required.' : undefined,
+					}}
+				>
+					{(field) => (
+						<field.TextField
+							disabled={!canManage}
+							label="Batch name"
+							placeholder="e.g. Lot 24-018"
+						/>
+					)}
+				</form.AppField>
+			</CatalogRecordDrawer>
+		</form.AppForm>
 	);
 }
 
 function DeleteInsecticideBatchDialog({ batch }: { readonly batch: InsecticideBatchRow }) {
-	function removeBatch() {
-		try {
-			const transaction = deleteInsecticideBatch(webCollections.insecticideBatches, batch);
-			watchPersistence(transaction, `Unable to delete ${batch.batchName}.`);
-		} catch (deleteError) {
-			toast.error(errorMessageForSave(deleteError));
-		}
-	}
-
 	return (
-		<AlertDialog>
-			<AlertDialogTrigger asChild>
+		<CatalogDeleteDialog
+			confirmLabel="Delete"
+			description={
+				<>
+					This removes {batch.batchName} from batch choices. If a server rule blocks the delete, the
+					record will stay in place.
+				</>
+			}
+			onConfirm={() =>
+				commitCatalogWrite({
+					failureMessage: `Unable to delete ${batch.batchName}.`,
+					write: () => deleteInsecticideBatch(webCollections.insecticideBatches, batch),
+				})
+			}
+			title="Delete Batch?"
+			trigger={
 				<Button size="icon" type="button" variant="destructive">
 					<DeleteIcon aria-hidden="true" />
 					<span className="sr-only">Delete {batch.batchName}</span>
 				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent size="sm">
-				<AlertDialogHeader>
-					<AlertDialogTitle>Delete Batch?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This removes {batch.batchName} from batch choices. If a server rule blocks the delete,
-						the record will stay in place.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Cancel</AlertDialogCancel>
-					<AlertDialogAction onClick={removeBatch} variant="destructive">
-						Delete
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
+			}
+		/>
 	);
 }
 

@@ -5,38 +5,9 @@ import type {
 	OrganizationRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
-import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
-import { ListEmpty, PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/collapsible';
-import {
-	Drawer,
-	DrawerClose,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerTitle,
-	DrawerTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/drawer';
 import {
 	Table,
 	TableBody,
@@ -45,27 +16,30 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type React from 'react';
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import {
+	CatalogDeleteDialog,
+	CatalogDetailPanel,
+	CatalogDrawerCancel,
+	CatalogExpandButton,
+	CatalogGroupHeader,
+	CatalogInactiveDisclosure,
+	CatalogLifecycleButton,
+	CatalogNote,
+	CatalogPage,
+	CatalogRecordDrawer,
+	commitCatalogWrite,
+	toggleCatalogLifecycle,
+} from '../../../components/catalog';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { webCollections } from '../../../sync/webCollections';
-import {
-	errorMessageForSave,
-	nullableTextValue,
-	requiredTextValue,
-	watchPersistence,
-} from '../../my-organization/-components/helpers';
+import { nullableTextValue, requiredTextValue } from '../../my-organization/-components/helpers';
 import type { PersistenceTransaction } from '../../my-organization/-components/types';
 import { insecticideDisplayName } from '../-control-display';
 import { formatAmountValue, formatAmountWithUnit, sortedComponents } from './-formulation-math';
@@ -76,11 +50,8 @@ export const Route = createFileRoute('/control-operations/chemical/formulations'
 
 const FormulationIcon = iconRegistry.entities.formulation.icon;
 const AddIcon = iconRegistry.actions.add.icon;
-const CheckIcon = iconRegistry.actions.check.icon;
-const CloseIcon = iconRegistry.actions.close.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-const ChevronIcon = iconRegistry.arrows.chevronRight.icon;
 
 /** A mix and its products are measured the way a treatment is measured. */
 function isRecipeUnitType(unitType: UnitRow['unitType']): boolean {
@@ -181,71 +152,43 @@ function FormulationsRoute() {
 	);
 
 	return (
-		<OutletSimpleLayout className="grid content-start gap-5">
-			<PageHeader
-				actions={
-					<>
-						<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
-							{canManage ? 'Editor access' : 'View only'}
-						</Badge>
-						{canManage ? addFormulationDrawer : null}
-					</>
-				}
-				description="Tank mixes your crews apply — what one batch makes, and how much of each product goes into it."
-				icon={FormulationIcon}
-				title="Formulations"
-			/>
-
-			{formulations.length === 0 ? (
-				<ListEmpty
-					action={canManage ? addFormulationDrawer : undefined}
-					description={
-						<>
-							A formulation records a mix once — 0.5 lb of product into 26 gallons of water — so an
-							application can be entered as the amount of mix that went out.
-							{canManage
-								? ' Add your first mix to get started.'
-								: ' An owner or admin can add mixes for your agency.'}
-						</>
-					}
-					icon={FormulationIcon}
-					title="No Formulations Yet"
+		<CatalogPage
+			action={canManage ? addFormulationDrawer : undefined}
+			canEdit={canManage}
+			description="Tank mixes your crews apply — what one batch makes, and how much of each product goes into it."
+			emptyDescription={
+				<>
+					A formulation records a mix once — 0.5 lb of product into 26 gallons of water — so an
+					application can be entered as the amount of mix that went out.
+					{canManage
+						? ' Add your first mix to get started.'
+						: ' An owner or admin can add mixes for your agency.'}
+				</>
+			}
+			emptyTitle="No Formulations Yet"
+			icon={FormulationIcon}
+			isEmpty={formulations.length === 0}
+			title="Formulations"
+		>
+			<section className="grid gap-2">
+				<CatalogGroupHeader
+					active={activeFormulations.length}
+					description="Expand a mix to manage the products in it."
+					inactive={inactiveFormulations.length}
+					title="Mixes"
 				/>
-			) : (
-				<section className="grid gap-2">
-					<div className="flex flex-wrap items-center justify-between gap-2">
-						<div className="grid gap-1">
-							<h2 className="m-0 font-bold text-[0.78rem] text-muted-foreground uppercase tracking-wide">
-								Mixes
-							</h2>
-							<p className="m-0 max-w-[60ch] text-muted-foreground text-sm leading-snug">
-								Expand a mix to manage the products in it.
-							</p>
-						</div>
-						<div className="flex items-center gap-2">
-							<Badge tone="success" variant="outline">
-								{activeFormulations.length} active
-							</Badge>
-							<Badge tone="neutral" variant="outline">
-								{inactiveFormulations.length} inactive
-							</Badge>
-						</div>
-					</div>
-					{activeFormulations.length === 0 ? (
-						<p className="m-0 rounded-md border border-border/50 border-dashed px-3 py-3 text-muted-foreground text-sm">
-							No active formulations.
-						</p>
-					) : (
-						table(activeFormulations)
-					)}
-					{inactiveFormulations.length > 0 ? (
-						<InactiveFormulationsCollapsible count={inactiveFormulations.length}>
-							{table(inactiveFormulations)}
-						</InactiveFormulationsCollapsible>
-					) : null}
-				</section>
-			)}
-		</OutletSimpleLayout>
+				{activeFormulations.length === 0 ? (
+					<CatalogNote>No active formulations.</CatalogNote>
+				) : (
+					table(activeFormulations)
+				)}
+				{inactiveFormulations.length > 0 ? (
+					<CatalogInactiveDisclosure count={inactiveFormulations.length}>
+						{table(inactiveFormulations)}
+					</CatalogInactiveDisclosure>
+				) : null}
+			</section>
+		</CatalogPage>
 	);
 }
 
@@ -307,33 +250,6 @@ function FormulationTable({
 	);
 }
 
-function InactiveFormulationsCollapsible({
-	count,
-	children,
-}: {
-	readonly count: number;
-	readonly children: React.ReactNode;
-}) {
-	const [open, setOpen] = useState(false);
-
-	return (
-		<Collapsible onOpenChange={setOpen} open={open}>
-			<CollapsibleTrigger asChild>
-				<Button className="w-fit" size="sm" type="button" variant="ghost">
-					<ChevronIcon
-						aria-hidden="true"
-						className="transition-transform data-[open=true]:rotate-90"
-						data-icon="inline-start"
-						data-open={open}
-					/>
-					{open ? 'Hide' : 'Show'} {count} inactive
-				</Button>
-			</CollapsibleTrigger>
-			<CollapsibleContent className="pt-2">{children}</CollapsibleContent>
-		</Collapsible>
-	);
-}
-
 function FormulationTableRow({
 	columnCount,
 	components,
@@ -350,24 +266,15 @@ function FormulationTableRow({
 		<>
 			<TableRow className="border-b-0">
 				<TableCell className="align-middle">
-					<Button
-						aria-expanded={expanded}
-						aria-label={
+					<CatalogExpandButton
+						expanded={expanded}
+						label={
 							expanded
 								? `Hide products in ${formulation.formulationName}`
 								: `Show products in ${formulation.formulationName}`
 						}
-						onClick={() => setExpanded((previous) => !previous)}
-						size="icon"
-						type="button"
-						variant="ghost"
-					>
-						<ChevronIcon
-							aria-hidden="true"
-							className="transition-transform data-[open=true]:rotate-90"
-							data-open={expanded}
-						/>
-					</Button>
+						onToggle={() => setExpanded((previous) => !previous)}
+					/>
 				</TableCell>
 				<TableCell className="font-medium">{formulation.formulationName}</TableCell>
 				<TableCell className="text-muted-foreground">
@@ -405,9 +312,17 @@ function FormulationTableRow({
 								}
 								units={catalog.units}
 							/>
-							<ToggleFormulationActiveButton
-								componentCount={components.length}
-								formulation={formulation}
+							{/*
+							 * An empty mix cannot be activated: a formulation with no products
+							 * has nothing to expand into applications.
+							 */}
+							<CatalogLifecycleButton
+								activateLabel="Activate"
+								disabled={!formulation.isActive && components.length === 0}
+								disabledHint="Add a product first"
+								isActive={formulation.isActive}
+								name={formulation.formulationName}
+								onToggle={() => toggleFormulationActive(formulation)}
 							/>
 						</div>
 					</TableCell>
@@ -428,65 +343,20 @@ function FormulationTableRow({
 	);
 }
 
-/**
- * Reversible lifecycle toggle. An empty mix cannot be activated: a formulation
- * with no products has nothing to expand into applications.
- */
-function ToggleFormulationActiveButton({
-	componentCount,
-	formulation,
-}: {
-	readonly componentCount: number;
-	readonly formulation: FormulationRow;
-}) {
-	const label = formulation.isActive ? 'Deactivate' : 'Activate';
-	const ToggleIcon = formulation.isActive ? CloseIcon : CheckIcon;
-	const blocked = !formulation.isActive && componentCount === 0;
-
-	return (
-		<Tooltip>
-			<TooltipTrigger asChild>
-				<Button
-					disabled={blocked}
-					onClick={(event) => {
-						// Drop focus before the row re-sorts into the inactive group.
-						event.currentTarget.blur();
-						toggleFormulationActive(formulation);
-					}}
-					size="icon"
-					type="button"
-					variant="outline"
-				>
-					<ToggleIcon aria-hidden="true" />
-					<span className="sr-only">
-						{label} {formulation.formulationName}
-					</span>
-				</Button>
-			</TooltipTrigger>
-			<TooltipContent>{blocked ? 'Add a product first' : label}</TooltipContent>
-		</Tooltip>
-	);
-}
-
 function toggleFormulationActive(formulation: FormulationRow): void {
-	const nextActive = !formulation.isActive;
-	try {
-		const transaction = updateFormulation(formulation, {
-			formulationName: formulation.formulationName,
-			description: formulation.description ?? '',
-			batchSize: formulation.batchSize,
-			batchUnitId: formulation.batchUnitId,
-			isActive: nextActive,
-		});
-		watchPersistence(
-			transaction,
-			nextActive
-				? `Unable to activate ${formulation.formulationName}.`
-				: `Unable to deactivate ${formulation.formulationName}.`,
-		);
-	} catch (saveError) {
-		toast.error(errorMessageForSave(saveError));
-	}
+	toggleCatalogLifecycle({
+		activateVerb: 'activate',
+		apply: (isActive) =>
+			updateFormulation(formulation, {
+				formulationName: formulation.formulationName,
+				description: formulation.description ?? '',
+				batchSize: formulation.batchSize,
+				batchUnitId: formulation.batchUnitId,
+				isActive,
+			}),
+		isActive: formulation.isActive,
+		name: formulation.formulationName,
+	});
 }
 
 function FormulationDrawer({
@@ -517,21 +387,17 @@ function FormulationDrawer({
 				organization === null ? 'Organization details are still loading.' : undefined,
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
-					formulation === undefined
-						? createFormulation(organization, actorProfileId, value)
-						: updateFormulation(formulation, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
+			commitCatalogWrite({
+				failureMessage:
 					formulation === undefined
 						? 'Unable to create formulation.'
 						: `Unable to save ${formulation.formulationName}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+				onWritten: () => setOpen(false),
+				write: () =>
+					formulation === undefined
+						? createFormulation(organization, actorProfileId, value)
+						: updateFormulation(formulation, value),
+			});
 		},
 	});
 
@@ -543,173 +409,132 @@ function FormulationDrawer({
 	}
 
 	return (
-		<Drawer direction="right" onOpenChange={updateOpen} open={open}>
-			{tooltip === undefined ? (
-				<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			) : (
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-					</TooltipTrigger>
-					<TooltipContent>{tooltip}</TooltipContent>
-				</Tooltip>
-			)}
-			<DrawerContent className="w-[min(640px,100%)] overflow-hidden sm:max-w-[640px]">
-				<DrawerHeader className={stickyHeader({ padding: 'none' })}>
-					<DrawerTitle>
-						{formulation === undefined ? 'Add Formulation' : `Edit ${formulation.formulationName}`}
-					</DrawerTitle>
-					<DrawerDescription>
-						Name the mix and set what one batch of it makes. Products are managed on the row itself.
-					</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="flex min-h-0 flex-1 flex-col"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
+		<form.AppForm>
+			<CatalogRecordDrawer
+				actions={
+					<form.FormActions>
+						<form.SubmitButton
+							disabled={!canManage || organization === null || unitChoices.length === 0}
+						/>
+						<CatalogDrawerCancel />
+					</form.FormActions>
+				}
+				description="Name the mix and set what one batch of it makes. Products are managed on the row itself."
+				destructiveAction={
+					formulation === undefined ? undefined : (
+						<DeleteFormulationDialog formulation={formulation} />
+					)
+				}
+				onOpenChange={updateOpen}
+				onSubmit={() => void form.handleSubmit()}
+				open={open}
+				title={
+					formulation === undefined ? 'Add Formulation' : `Edit ${formulation.formulationName}`
+				}
+				tooltip={tooltip}
+				trigger={trigger}
+				width="lg"
+			>
+				<form.FormErrorAlert />
+				{/* A new mix is created active by the server, and it has no products
+				    to apply yet — lifecycle is a decision for the row afterwards. */}
+				{formulation === undefined ? null : (
+					<form.AppField name="isActive">
+						{(field) => <field.SwitchField disabled={!canManage} label="Active" />}
+					</form.AppField>
+				)}
+				<form.AppField
+					name="formulationName"
+					validators={{
+						onSubmit: ({ value }) => (value.trim().length === 0 ? 'Name is required.' : undefined),
+					}}
+				>
+					{(field) => (
+						<field.TextField
+							disabled={!canManage}
+							label="Name"
+							placeholder="e.g. Adulticide tank mix"
+						/>
+					)}
+				</form.AppField>
+				<form.AppField name="description">
+					{(field) => (
+						<field.TextareaField
+							disabled={!canManage}
+							label="Description"
+							placeholder="Optional notes for the crew"
+							rows={3}
+						/>
+					)}
+				</form.AppField>
+				<div className="grid gap-3.5 sm:grid-cols-2">
+					<form.AppField
+						name="batchSize"
+						validators={{
+							onSubmit: ({ value }) =>
+								value === null || !Number.isFinite(value) || value <= 0
+									? 'Batch size must be greater than zero.'
+									: undefined,
 						}}
 					>
-						<div className="grid min-h-0 gap-3.5 overflow-y-auto px-4 py-3.5">
-							<form.FormErrorAlert />
-							{/* A new mix is created active by the server, and it has no products
-							    to apply yet — lifecycle is a decision for the row afterwards. */}
-							{formulation === undefined ? null : (
-								<form.AppField name="isActive">
-									{(field) => <field.SwitchField disabled={!canManage} label="Active" />}
-								</form.AppField>
-							)}
-							<form.AppField
-								name="formulationName"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Name is required.' : undefined,
-								}}
-							>
-								{(field) => (
-									<field.TextField
-										disabled={!canManage}
-										label="Name"
-										placeholder="e.g. Adulticide tank mix"
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="description">
-								{(field) => (
-									<field.TextareaField
-										disabled={!canManage}
-										label="Description"
-										placeholder="Optional notes for the crew"
-										rows={3}
-									/>
-								)}
-							</form.AppField>
-							<div className="grid gap-3.5 sm:grid-cols-2">
-								<form.AppField
-									name="batchSize"
-									validators={{
-										onSubmit: ({ value }) =>
-											value === null || !Number.isFinite(value) || value <= 0
-												? 'Batch size must be greater than zero.'
-												: undefined,
-									}}
-								>
-									{(field) => (
-										<field.NumberField
-											description="How much finished mix one batch makes."
-											disabled={!canManage}
-											label="One batch makes"
-											min={0}
-											placeholder="e.g. 26"
-											required
-										/>
-									)}
-								</form.AppField>
-								<form.AppField
-									name="batchUnitId"
-									validators={{
-										onSubmit: ({ value }) =>
-											value.trim().length === 0 ? 'Batch unit is required.' : undefined,
-									}}
-								>
-									{(field) => (
-										<field.SelectField
-											disabled={!canManage || unitChoices.length === 0}
-											label="Batch unit"
-											options={unitChoices}
-											placeholder="Select unit"
-											required
-										/>
-									)}
-								</form.AppField>
-							</div>
-						</div>
-						<DrawerFooter>
-							<div className="flex flex-wrap items-center justify-end gap-2">
-								{formulation === undefined ? null : (
-									<DeleteFormulationDialog className="mr-auto" formulation={formulation} />
-								)}
-								<form.FormActions>
-									<form.SubmitButton
-										disabled={!canManage || organization === null || unitChoices.length === 0}
-									/>
-									<DrawerClose asChild>
-										<Button type="button" variant="outline">
-											<CloseIcon aria-hidden="true" data-icon="inline-start" />
-											Cancel
-										</Button>
-									</DrawerClose>
-								</form.FormActions>
-							</div>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
+						{(field) => (
+							<field.NumberField
+								description="How much finished mix one batch makes."
+								disabled={!canManage}
+								label="One batch makes"
+								min={0}
+								placeholder="e.g. 26"
+								required
+							/>
+						)}
+					</form.AppField>
+					<form.AppField
+						name="batchUnitId"
+						validators={{
+							onSubmit: ({ value }) =>
+								value.trim().length === 0 ? 'Batch unit is required.' : undefined,
+						}}
+					>
+						{(field) => (
+							<field.SelectField
+								disabled={!canManage || unitChoices.length === 0}
+								label="Batch unit"
+								options={unitChoices}
+								placeholder="Select unit"
+								required
+							/>
+						)}
+					</form.AppField>
+				</div>
+			</CatalogRecordDrawer>
+		</form.AppForm>
 	);
 }
 
-function DeleteFormulationDialog({
-	className,
-	formulation,
-}: {
-	readonly className?: string | undefined;
-	readonly formulation: FormulationRow;
-}) {
-	function removeFormulation() {
-		try {
-			const transaction = webCollections.formulations.delete(formulation.id);
-			watchPersistence(transaction, `Unable to delete ${formulation.formulationName}.`);
-		} catch (deleteError) {
-			toast.error(errorMessageForSave(deleteError));
-		}
-	}
-
+function DeleteFormulationDialog({ formulation }: { readonly formulation: FormulationRow }) {
 	return (
-		<AlertDialog>
-			<AlertDialogTrigger asChild>
-				<Button className={className} type="button" variant="destructive">
+		<CatalogDeleteDialog
+			confirmLabel="Delete"
+			description={
+				<>
+					This removes {formulation.formulationName} and the products in it. Applications already
+					recorded from this mix are unaffected — they store their own product and amount.
+				</>
+			}
+			onConfirm={() =>
+				commitCatalogWrite({
+					failureMessage: `Unable to delete ${formulation.formulationName}.`,
+					write: () => webCollections.formulations.delete(formulation.id),
+				})
+			}
+			title="Delete Formulation?"
+			trigger={
+				<Button type="button" variant="destructive">
 					<DeleteIcon aria-hidden="true" data-icon="inline-start" />
 					Delete Formulation
 				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent size="sm">
-				<AlertDialogHeader>
-					<AlertDialogTitle>Delete Formulation?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This removes {formulation.formulationName} and the products in it. Applications already
-						recorded from this mix are unaffected — they store their own product and amount.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Cancel</AlertDialogCancel>
-					<AlertDialogAction onClick={removeFormulation} variant="destructive">
-						Delete
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
+			}
+		/>
 	);
 }
 
@@ -731,14 +556,8 @@ function FormulationComponentPanel({
 	);
 
 	return (
-		<div className="grid gap-2 border-border/40 border-t bg-muted/20 px-4 py-3">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div className="flex flex-wrap items-baseline gap-2">
-					<span className="font-semibold text-foreground text-sm">Products</span>
-					<span className="text-muted-foreground text-xs">
-						{ordered.length === 0 ? 'No products yet' : `Per ${batchLabel} of finished mix`}
-					</span>
-				</div>
+		<CatalogDetailPanel
+			action={
 				<FormulationComponentDrawer
 					{...catalog}
 					formulation={formulation}
@@ -750,11 +569,14 @@ function FormulationComponentPanel({
 					}
 					usedInsecticideIds={ordered.map((component) => component.insecticideId)}
 				/>
-			</div>
+			}
+			summary={ordered.length === 0 ? 'No products yet' : `Per ${batchLabel} of finished mix`}
+			title="Products"
+		>
 			{ordered.length === 0 ? (
-				<p className="m-0 rounded-md border border-border/50 border-dashed px-3 py-2 text-muted-foreground text-xs">
+				<CatalogNote compact>
 					A mix needs at least one product before it can be applied.
-				</p>
+				</CatalogNote>
 			) : (
 				<div className="overflow-x-auto rounded-md border border-border/40">
 					<Table>
@@ -820,7 +642,7 @@ function FormulationComponentPanel({
 					</Table>
 				</div>
 			)}
-		</div>
+		</CatalogDetailPanel>
 	);
 }
 
@@ -884,16 +706,14 @@ function FormulationComponentDrawer({
 				organization === null ? 'Organization details are still loading.' : undefined,
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
+			commitCatalogWrite({
+				failureMessage: 'Unable to save the product.',
+				onWritten: () => setOpen(false),
+				write: () =>
 					component === undefined
 						? addFormulationComponent(organization, actorProfileId, formulation.id, value)
-						: updateFormulationComponent(component, value);
-				setOpen(false);
-				watchPersistence(transaction, 'Unable to save the product.');
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+						: updateFormulationComponent(component, value),
+			});
 		},
 	});
 
@@ -905,119 +725,98 @@ function FormulationComponentDrawer({
 	}
 
 	return (
-		<Drawer direction="right" onOpenChange={updateOpen} open={open}>
-			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			<DrawerContent className="w-[min(560px,100%)] overflow-hidden sm:max-w-[560px]">
-				<DrawerHeader className={stickyHeader({ padding: 'none' })}>
-					<DrawerTitle>{component === undefined ? 'Add Product' : 'Edit Product'}</DrawerTitle>
-					<DrawerDescription>
-						How much of this product goes into one batch of {formulation.formulationName}.
-					</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="flex min-h-0 flex-1 flex-col"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
+		<form.AppForm>
+			<CatalogRecordDrawer
+				actions={
+					<form.FormActions>
+						<form.SubmitButton
+							disabled={!canManage || organization === null || choices.length === 0}
+						/>
+						<CatalogDrawerCancel />
+					</form.FormActions>
+				}
+				description={`How much of this product goes into one batch of ${formulation.formulationName}.`}
+				onOpenChange={updateOpen}
+				onSubmit={() => void form.handleSubmit()}
+				open={open}
+				title={component === undefined ? 'Add Product' : 'Edit Product'}
+				trigger={trigger}
+				width="md"
+			>
+				<form.FormErrorAlert />
+				<form.AppField
+					name="insecticideId"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Insecticide is required.' : undefined,
+					}}
+				>
+					{(field) => (
+						<field.AutocompleteField
+							disabled={!canManage || choices.length === 0}
+							emptyValue=""
+							label="Insecticide"
+							onValueChange={(next, previousValue) => {
+								if (next === previousValue) {
+									return;
+								}
+								// The unit follows the product's own default usage unit —
+								// the list it is offered from narrows to that kind anyway.
+								form.setFieldValue('unitId', insecticideById.get(next ?? '')?.defaultUnitId ?? '');
+							}}
+							options={choices}
+							placeholder="Search insecticides"
+							required
+						/>
+					)}
+				</form.AppField>
+				<div className="grid gap-3.5 sm:grid-cols-2">
+					<form.AppField
+						name="amount"
+						validators={{
+							onSubmit: ({ value }) =>
+								value === null || !Number.isFinite(value) || value <= 0
+									? 'Amount must be greater than zero.'
+									: undefined,
 						}}
 					>
-						<div className="grid min-h-0 gap-3.5 overflow-y-auto px-4 py-3.5">
-							<form.FormErrorAlert />
+						{(field) => (
+							<field.NumberField
+								disabled={!canManage}
+								label="Amount per batch"
+								min={0}
+								placeholder="e.g. 0.5"
+								required
+							/>
+						)}
+					</form.AppField>
+					<form.Subscribe selector={(state) => state.values.insecticideId}>
+						{(insecticideId) => (
 							<form.AppField
-								name="insecticideId"
+								name="unitId"
 								validators={{
 									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Insecticide is required.' : undefined,
+										value.trim().length === 0 ? 'Unit is required.' : undefined,
 								}}
 							>
 								{(field) => (
-									<field.AutocompleteField
-										disabled={!canManage || choices.length === 0}
-										emptyValue=""
-										label="Insecticide"
-										onValueChange={(next, previousValue) => {
-											if (next === previousValue) {
-												return;
-											}
-											// The unit follows the product's own default usage unit —
-											// the list it is offered from narrows to that kind anyway.
-											form.setFieldValue(
-												'unitId',
-												insecticideById.get(next ?? '')?.defaultUnitId ?? '',
-											);
-										}}
-										options={choices}
-										placeholder="Search insecticides"
+									<field.SelectField
+										disabled={!canManage}
+										label="Unit"
+										options={unitChoicesFor(insecticideId)}
+										placeholder="Select unit"
 										required
 									/>
 								)}
 							</form.AppField>
-							<div className="grid gap-3.5 sm:grid-cols-2">
-								<form.AppField
-									name="amount"
-									validators={{
-										onSubmit: ({ value }) =>
-											value === null || !Number.isFinite(value) || value <= 0
-												? 'Amount must be greater than zero.'
-												: undefined,
-									}}
-								>
-									{(field) => (
-										<field.NumberField
-											disabled={!canManage}
-											label="Amount per batch"
-											min={0}
-											placeholder="e.g. 0.5"
-											required
-										/>
-									)}
-								</form.AppField>
-								<form.Subscribe selector={(state) => state.values.insecticideId}>
-									{(insecticideId) => (
-										<form.AppField
-											name="unitId"
-											validators={{
-												onSubmit: ({ value }) =>
-													value.trim().length === 0 ? 'Unit is required.' : undefined,
-											}}
-										>
-											{(field) => (
-												<field.SelectField
-													disabled={!canManage}
-													label="Unit"
-													options={unitChoicesFor(insecticideId)}
-													placeholder="Select unit"
-													required
-												/>
-											)}
-										</form.AppField>
-									)}
-								</form.Subscribe>
-							</div>
-							{choices.length === 0 ? (
-								<p className="m-0 rounded-md border border-border/50 border-dashed px-3 py-2 text-muted-foreground text-xs">
-									Every active insecticide is already in this mix.
-								</p>
-							) : null}
-						</div>
-						<DrawerFooter>
-							<form.FormActions>
-								<form.SubmitButton
-									disabled={!canManage || organization === null || choices.length === 0}
-								/>
-								<DrawerClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon aria-hidden="true" data-icon="inline-start" />
-										Cancel
-									</Button>
-								</DrawerClose>
-							</form.FormActions>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
+						)}
+					</form.Subscribe>
+				</div>
+				{choices.length === 0 ? (
+					<CatalogNote compact>Every active insecticide is already in this mix.</CatalogNote>
+				) : null}
+			</CatalogRecordDrawer>
+		</form.AppForm>
 	);
 }
 
@@ -1028,39 +827,28 @@ function RemoveComponentDialog({
 	readonly component: FormulationInsecticideRow;
 	readonly label: string;
 }) {
-	function removeComponent() {
-		try {
-			const transaction = webCollections.formulationInsecticides.delete(component.id);
-			watchPersistence(transaction, `Unable to remove ${label}.`);
-		} catch (deleteError) {
-			toast.error(errorMessageForSave(deleteError));
-		}
-	}
-
 	return (
-		<AlertDialog>
-			<AlertDialogTrigger asChild>
+		<CatalogDeleteDialog
+			confirmLabel="Remove"
+			description={
+				<>
+					This takes {label} out of the mix. Removing the last product deactivates the formulation.
+				</>
+			}
+			onConfirm={() =>
+				commitCatalogWrite({
+					failureMessage: `Unable to remove ${label}.`,
+					write: () => webCollections.formulationInsecticides.delete(component.id),
+				})
+			}
+			title="Remove Product?"
+			trigger={
 				<Button size="icon" type="button" variant="destructive">
 					<DeleteIcon aria-hidden="true" />
 					<span className="sr-only">Remove {label}</span>
 				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent size="sm">
-				<AlertDialogHeader>
-					<AlertDialogTitle>Remove Product?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This takes {label} out of the mix. Removing the last product deactivates the
-						formulation.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Cancel</AlertDialogCancel>
-					<AlertDialogAction onClick={removeComponent} variant="destructive">
-						Remove
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
+			}
+		/>
 	);
 }
 

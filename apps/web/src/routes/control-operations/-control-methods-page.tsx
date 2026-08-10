@@ -1,47 +1,31 @@
 import type { ControlMethodRow, OrganizationRow } from '@simmer-mosquito/sync';
-import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
-import { ListEmpty, ListNoMatches, PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/dialog';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@simmer-mosquito/ui-web/components/ui/table';
+import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Collection } from '@tanstack/react-db';
-import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { useState } from 'react';
+import {
+	CatalogActionsHead,
+	CatalogDialogCancel,
+	CatalogFilteredList,
+	CatalogNameCell,
+	CatalogPage,
+	CatalogRecordDialog,
+	CatalogRowActions,
+	CatalogSection,
+	commitCatalogWrite,
+	toggleCatalogLifecycle,
+	useCatalogDialogOpen,
+	useCatalogSearch,
+	useResetOnOpen,
+} from '../../components/catalog';
 import { CustomFieldsCell } from '../../components/custom-fields-cell';
 import { useActiveNamedCollectionRows } from '../../hooks/use-active-named-collection-rows';
 import {
 	controlMethodFormValues,
 	createControlMethodFromValues,
-	errorMessageForSave,
 	updateControlMethodFromValues,
-	watchPersistence,
 } from '../my-organization/-components/helpers';
 import type { ControlMethodCollectionKey } from '../my-organization/-components/types';
 
@@ -50,14 +34,10 @@ import type { ControlMethodCollectionKey } from '../my-organization/-components/
 // the three routes render this page with their own copy and collection key.
 
 const AddIcon = iconRegistry.actions.add.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
-const CloseIcon = iconRegistry.actions.close.icon;
-const CheckIcon = iconRegistry.actions.check.icon;
-const SearchIcon = iconRegistry.actions.search.icon;
-const MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
-/** Show the filter only once the list is large enough to be worth scanning. */
-const SEARCH_THRESHOLD = 6;
+function matchesMethod(row: ControlMethodRow, query: string): boolean {
+	return row.name.toLowerCase().includes(query);
+}
 
 export interface ControlMethodsPageProps {
 	readonly collectionKey: ControlMethodCollectionKey;
@@ -101,16 +81,7 @@ export function ControlMethodsPage({
 	icon: MethodIcon,
 }: ControlMethodsPageProps) {
 	const { activeRows, inactiveRows } = useActiveNamedCollectionRows<ControlMethodRow>(collection);
-
-	const [search, setSearch] = useState('');
-	const query = search.trim().toLowerCase();
-
-	const filteredActive = useMemo(() => filterMethods(activeRows, query), [activeRows, query]);
-	const filteredInactive = useMemo(() => filterMethods(inactiveRows, query), [inactiveRows, query]);
-
-	const total = activeRows.length + inactiveRows.length;
-	const showSearch = total > SEARCH_THRESHOLD;
-	const hasMatches = filteredActive.length + filteredInactive.length > 0;
+	const search = useCatalogSearch(activeRows, inactiveRows, matchesMethod);
 
 	const dialogProps = {
 		collectionKey,
@@ -135,108 +106,56 @@ export function ControlMethodsPage({
 	);
 
 	return (
-		<OutletSimpleLayout className="grid content-start gap-5">
-			<PageHeader
-				actions={
-					<>
-						<Badge tone={canEditMethods ? 'success' : 'neutral'} variant="outline">
-							{canEditMethods ? 'Editor access' : 'View only'}
-						</Badge>
-						{canManage ? addMethodDialog : null}
-					</>
-				}
-				description={description}
-				icon={MethodIcon}
-				title={title}
-			/>
-
-			{total === 0 ? (
-				<ListEmpty
-					action={canManage ? addMethodDialog : undefined}
-					description={
-						<>
-							{emptyDescription}
-							{canManage
-								? ' Add your first method to get started.'
-								: ' An owner or admin can add methods for your agency.'}
-						</>
+		<CatalogPage
+			action={canManage ? addMethodDialog : undefined}
+			canEdit={canEditMethods}
+			description={description}
+			emptyDescription={
+				<>
+					{emptyDescription}
+					{canManage
+						? ' Add your first method to get started.'
+						: ' An owner or admin can add methods for your agency.'}
+				</>
+			}
+			emptyTitle={`No ${singularLabel}s yet`}
+			icon={MethodIcon}
+			isEmpty={search.total === 0}
+			title={title}
+		>
+			<CatalogFilteredList
+				noun="methods"
+				search={search}
+				searchLabel={`Search ${title.toLowerCase()} by name`}
+				searchPlaceholder="Search methods…"
+			>
+				<ControlMethodSection
+					{...dialogProps}
+					canEditMethods={canEditMethods}
+					canManage={canManage}
+					emptyLabel={
+						search.query.length > 0
+							? `No active ${singularLabel}s match your search.`
+							: `No active ${singularLabel}s. Add one to start recording work.`
 					}
-					icon={MethodIcon}
-					title={`No ${singularLabel}s yet`}
+					rows={search.filteredActive}
+					title="Active"
+					tone="active"
 				/>
-			) : (
-				<div className="grid gap-4">
-					<div className="flex flex-wrap items-center justify-between gap-3">
-						<div className="flex items-center gap-2">
-							<Badge tone="success" variant="outline">
-								{activeRows.length} active
-							</Badge>
-							<Badge tone="neutral" variant="outline">
-								{inactiveRows.length} inactive
-							</Badge>
-						</div>
-						{showSearch ? (
-							<div className="relative w-full max-w-[260px]">
-								<SearchIcon
-									aria-hidden="true"
-									className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-								/>
-								<Input
-									aria-label={`Search ${title.toLowerCase()} by name`}
-									className="h-9 pl-9"
-									onChange={(event) => setSearch(event.target.value)}
-									placeholder="Search methods…"
-									type="search"
-									value={search}
-								/>
-							</div>
-						) : null}
-					</div>
-
-					{hasMatches ? (
-						<div className="grid gap-6">
-							<ControlMethodSection
-								{...dialogProps}
-								canEditMethods={canEditMethods}
-								canManage={canManage}
-								emptyLabel={
-									query.length > 0
-										? `No active ${singularLabel}s match your search.`
-										: `No active ${singularLabel}s. Add one to start recording work.`
-								}
-								rows={filteredActive}
-								title="Active"
-								tone="active"
-							/>
-							{inactiveRows.length > 0 ? (
-								<ControlMethodSection
-									{...dialogProps}
-									canEditMethods={canEditMethods}
-									canManage={canManage}
-									emptyLabel={`No inactive ${singularLabel}s match your search.`}
-									rows={filteredInactive}
-									title="Inactive"
-									tone="inactive"
-								/>
-							) : null}
-						</div>
-					) : (
-						<ListNoMatches noun="methods" query={search.trim()} />
-					)}
-				</div>
-			)}
-		</OutletSimpleLayout>
+				{search.inactiveCount > 0 ? (
+					<ControlMethodSection
+						{...dialogProps}
+						canEditMethods={canEditMethods}
+						canManage={canManage}
+						emptyLabel={`No inactive ${singularLabel}s match your search.`}
+						rows={search.filteredInactive}
+						title="Inactive"
+						tone="inactive"
+					/>
+				) : null}
+			</CatalogFilteredList>
+		</CatalogPage>
 	);
-}
-
-function filterMethods(
-	rows: readonly ControlMethodRow[],
-	query: string,
-): readonly ControlMethodRow[] {
-	if (query.length === 0) {
-		return rows;
-	}
-	return rows.filter((row) => row.name.toLowerCase().includes(query));
 }
 
 interface MethodDialogContext {
@@ -264,63 +183,32 @@ function ControlMethodSection({
 	readonly tone: 'active' | 'inactive';
 }) {
 	return (
-		<section className="grid gap-2">
-			<div className="flex items-baseline justify-between gap-2">
-				<h2 className="font-bold text-[0.78rem] text-muted-foreground uppercase tracking-wide">
-					{title}
-				</h2>
-				<span className="text-muted-foreground text-xs tabular-nums">{rows.length}</span>
-			</div>
-			{rows.length === 0 ? (
-				<p className="rounded-md bg-muted/40 px-3 py-2.5 text-muted-foreground text-sm">
-					{emptyLabel}
-				</p>
-			) : (
-				<div className="overflow-x-auto rounded-md border border-border/50">
-					<Table className="table-fixed">
-						<TableHeader>
-							<TableRow className="bg-muted/40 hover:bg-muted/40">
-								<TableHead>Method</TableHead>
-								<TableHead className="w-[22%]">Custom Fields</TableHead>
-								{canEditMethods ? (
-									<TableHead className="w-[60px] text-right">
-										<span className="sr-only">Actions</span>
-									</TableHead>
-								) : null}
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{rows.map((method) => (
-								<TableRow key={method.id}>
-									<TableCell className="align-top font-medium">
-										<div className="flex items-start gap-2">
-											<span className="wrap-anywhere">{method.name}</span>
-											{tone === 'inactive' ? (
-												<Badge className="mt-0.5 shrink-0" tone="neutral" variant="outline">
-													Inactive
-												</Badge>
-											) : null}
-										</div>
-									</TableCell>
-									<TableCell className="align-top">
-										<CustomFieldsCell schema={method.customSchema} />
-									</TableCell>
-									{canEditMethods ? (
-										<TableCell className="align-top text-right">
-											<ControlMethodRowActions
-												{...dialogContext}
-												canManage={canManage}
-												method={method}
-											/>
-										</TableCell>
-									) : null}
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
-			)}
-		</section>
+		<CatalogSection
+			columns={
+				<TableRow className="bg-muted/40 hover:bg-muted/40">
+					<TableHead>Method</TableHead>
+					<TableHead className="w-[22%]">Custom Fields</TableHead>
+					{canEditMethods ? <CatalogActionsHead /> : null}
+				</TableRow>
+			}
+			count={rows.length}
+			emptyLabel={emptyLabel}
+			title={title}
+		>
+			{rows.map((method) => (
+				<TableRow key={method.id}>
+					<CatalogNameCell isInactive={tone === 'inactive'} name={method.name} />
+					<TableCell className="align-top">
+						<CustomFieldsCell schema={method.customSchema} />
+					</TableCell>
+					{canEditMethods ? (
+						<TableCell className="align-top text-right">
+							<ControlMethodRowActions {...dialogContext} canManage={canManage} method={method} />
+						</TableCell>
+					) : null}
+				</TableRow>
+			))}
+		</CatalogSection>
 	);
 }
 
@@ -333,42 +221,23 @@ function ControlMethodRowActions({
 
 	return (
 		<>
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button size="icon" type="button" variant="ghost">
-						<MoreIcon aria-hidden="true" />
-						<span className="sr-only">Actions for {method.name}</span>
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-52">
-					<DropdownMenuItem onSelect={() => setEditOpen(true)}>
-						<EditIcon aria-hidden="true" />
-						Edit
-					</DropdownMenuItem>
-					{/* Deactivate and reactivate are `ADMIN`; the Edit above them is
-					    `MANAGER`. A manager sees the menu with only Edit in it. */}
-					{canManage ? (
-						<>
-							<DropdownMenuSeparator />
-							<DropdownMenuItem
-								onSelect={() => toggleMethodActive(dialogContext.collectionKey, method)}
-							>
-								{method.isActive ? (
-									<>
-										<CloseIcon aria-hidden="true" />
-										Deactivate
-									</>
-								) : (
-									<>
-										<CheckIcon aria-hidden="true" />
-										Reactivate
-									</>
-								)}
-							</DropdownMenuItem>
-						</>
-					) : null}
-				</DropdownMenuContent>
-			</DropdownMenu>
+			{/*
+			 * Deactivate and reactivate are `ADMIN`; the Edit above them is `MANAGER`.
+			 * A manager sees the menu with only Edit in it.
+			 *
+			 * The toggle is never pre-emptively disabled here, unlike collection
+			 * methods: control actions sync on demand, so a local "still in use"
+			 * count would undercount. The server rejects a deactivation it disallows
+			 * and that error is what surfaces.
+			 */}
+			<CatalogRowActions
+				isActive={method.isActive}
+				name={method.name}
+				onEdit={() => setEditOpen(true)}
+				onToggle={
+					canManage ? () => toggleMethodActive(dialogContext.collectionKey, method) : undefined
+				}
+			/>
 			<ControlMethodDialog
 				{...dialogContext}
 				method={method}
@@ -379,28 +248,19 @@ function ControlMethodRowActions({
 	);
 }
 
-/**
- * Flip a method's lifecycle in place — reversible, so no confirm step. Control
- * actions sync on demand, so a local "still in use" count would undercount; let the
- * server reject a deactivation it disallows and surface that error.
- */
 function toggleMethodActive(
 	collectionKey: ControlMethodCollectionKey,
 	method: ControlMethodRow,
 ): void {
-	const nextActive = !method.isActive;
-	try {
-		const transaction = updateControlMethodFromValues(collectionKey, method, {
-			...controlMethodFormValues(method),
-			isActive: nextActive,
-		});
-		watchPersistence(
-			transaction,
-			nextActive ? `Unable to reactivate ${method.name}.` : `Unable to deactivate ${method.name}.`,
-		);
-	} catch (saveError) {
-		toast.error(errorMessageForSave(saveError));
-	}
+	toggleCatalogLifecycle({
+		apply: (isActive) =>
+			updateControlMethodFromValues(collectionKey, method, {
+				...controlMethodFormValues(method),
+				isActive,
+			}),
+		isActive: method.isActive,
+		name: method.name,
+	});
 }
 
 function ControlMethodDialog({
@@ -421,9 +281,7 @@ function ControlMethodDialog({
 	/** Uncontrolled mode: the element that opens the dialog (Add button, empty-state CTA). */
 	readonly trigger?: React.ReactNode;
 }) {
-	const [internalOpen, setInternalOpen] = useState(false);
-	const isControlled = controlledOpen !== undefined;
-	const open = isControlled ? controlledOpen : internalOpen;
+	const [open, setOpen] = useCatalogDialogOpen(controlledOpen, onOpenChange);
 	const isEditing = method !== undefined;
 
 	const form = useAppForm({
@@ -433,93 +291,56 @@ function ControlMethodDialog({
 				organization === null ? 'Organization details are still loading.' : undefined,
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction = isEditing
-					? updateControlMethodFromValues(collectionKey, method, value)
-					: createControlMethodFromValues(collectionKey, organization, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
-					isEditing ? `Unable to save ${method.name}.` : `Unable to create ${singularLabel}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+			commitCatalogWrite({
+				failureMessage: isEditing
+					? `Unable to save ${method.name}.`
+					: `Unable to create ${singularLabel}.`,
+				onWritten: () => setOpen(false),
+				write: () =>
+					isEditing
+						? updateControlMethodFromValues(collectionKey, method, value)
+						: createControlMethodFromValues(collectionKey, organization, value),
+			});
 		},
 	});
 
-	function setOpen(nextOpen: boolean) {
-		if (isControlled) {
-			onOpenChange?.(nextOpen);
-		} else {
-			setInternalOpen(nextOpen);
-		}
-	}
-
-	// Reset to the current row's values whenever the dialog opens, whether opened by
-	// its own trigger or programmatically from the row actions menu.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: form is stable; reset keyed on open.
-	useEffect(() => {
-		if (open) {
-			form.reset(controlMethodFormValues(method));
-		}
-	}, [open, method]);
+	useResetOnOpen(open, method, () => form.reset(controlMethodFormValues(method)));
 
 	return (
-		<Dialog onOpenChange={setOpen} open={open}>
-			{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-			<DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
-				<DialogHeader className="border-border/60 border-b px-6 py-4 pr-10 text-left">
-					<DialogTitle>{isEditing ? `Edit ${method.name}` : `Add ${singularLabel}`}</DialogTitle>
-					<DialogDescription>
-						Manage the label, lifecycle state, and optional custom fields.
-					</DialogDescription>
-				</DialogHeader>
-				<form.AppForm>
-					<form
-						className="flex min-h-0 flex-1 flex-col"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<div className="grid min-h-0 flex-1 gap-3.5 overflow-y-auto px-6 py-4">
-							<form.FormErrorAlert />
-							<form.AppField
-								name="name"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Method name is required.' : undefined,
-								}}
-							>
-								{(field) => <field.TextField label="Method name" placeholder={namePlaceholder} />}
-							</form.AppField>
-							<form.AppField name="isActive">
-								{(field) => <field.SwitchField label="Active" />}
-							</form.AppField>
-							<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-								{(field) => (
-									<field.JsonSchemaField
-										description={customFieldsDescription}
-										label="Custom fields"
-									/>
-								)}
-							</form.AppField>
-						</div>
-						<DialogFooter className="border-border/60 border-t px-6 py-4">
-							<form.FormActions>
-								<form.SubmitButton disabled={organization === null} />
-								<DialogClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
-										Cancel
-									</Button>
-								</DialogClose>
-							</form.FormActions>
-						</DialogFooter>
-					</form>
-				</form.AppForm>
-			</DialogContent>
-		</Dialog>
+		<form.AppForm>
+			<CatalogRecordDialog
+				actions={
+					<form.FormActions>
+						<form.SubmitButton disabled={organization === null} />
+						<CatalogDialogCancel />
+					</form.FormActions>
+				}
+				description="Manage the label, lifecycle state, and optional custom fields."
+				onOpenChange={setOpen}
+				onSubmit={() => void form.handleSubmit()}
+				open={open}
+				title={isEditing ? `Edit ${method.name}` : `Add ${singularLabel}`}
+				trigger={trigger}
+			>
+				<form.FormErrorAlert />
+				<form.AppField
+					name="name"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Method name is required.' : undefined,
+					}}
+				>
+					{(field) => <field.TextField label="Method name" placeholder={namePlaceholder} />}
+				</form.AppField>
+				<form.AppField name="isActive">
+					{(field) => <field.SwitchField label="Active" />}
+				</form.AppField>
+				<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
+					{(field) => (
+						<field.JsonSchemaField description={customFieldsDescription} label="Custom fields" />
+					)}
+				</form.AppField>
+			</CatalogRecordDialog>
+		</form.AppForm>
 	);
 }

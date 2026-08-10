@@ -1,40 +1,26 @@
 import type { CollectionMethodRow, OrganizationRow, TrapRow } from '@simmer-mosquito/sync';
-import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
-import { ListEmpty, ListNoMatches, PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/dialog';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@simmer-mosquito/ui-web/components/ui/table';
+import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
-import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { useMemo, useState } from 'react';
+import {
+	CatalogActionsHead,
+	CatalogDialogCancel,
+	CatalogFilteredList,
+	CatalogNameCell,
+	CatalogPage,
+	CatalogRecordDialog,
+	CatalogRowActions,
+	CatalogSection,
+	commitCatalogWrite,
+	toggleCatalogLifecycle,
+	useCatalogDialogOpen,
+	useCatalogSearch,
+	useResetOnOpen,
+} from '../../components/catalog';
 import { CustomFieldsCell } from '../../components/custom-fields-cell';
 import { EmptyValue } from '../../components/empty-value';
 import { useActiveNamedCollectionRows } from '../../hooks/use-active-named-collection-rows';
@@ -44,9 +30,7 @@ import { webCollections } from '../../sync/webCollections';
 import {
 	collectionMethodFormValues,
 	createAdultCollectionMethodFromValues,
-	errorMessageForSave,
 	updateAdultCollectionMethodFromValues,
-	watchPersistence,
 } from '../my-organization/-components/helpers';
 
 export const Route = createFileRoute('/adult-surveillance/collection-methods')({
@@ -55,15 +39,7 @@ export const Route = createFileRoute('/adult-surveillance/collection-methods')({
 
 const MethodIcon = iconRegistry.generic.component.icon;
 const AddIcon = iconRegistry.actions.add.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
-const CloseIcon = iconRegistry.actions.close.icon;
-const CheckIcon = iconRegistry.actions.check.icon;
-const SearchIcon = iconRegistry.actions.search.icon;
-const MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 const TrapIcon = iconRegistry.entities.trap.icon;
-
-/** Show the filter only once the list is large enough to be worth scanning. */
-const SEARCH_THRESHOLD = 6;
 
 type UsageById = ReadonlyMap<string, number>;
 
@@ -85,6 +61,12 @@ function useMethodTrapUsage(): UsageById {
 	}, [traps]);
 }
 
+function matchesMethod(row: CollectionMethodRow, query: string): boolean {
+	return (
+		row.name.toLowerCase().includes(query) || (row.description ?? '').toLowerCase().includes(query)
+	);
+}
+
 function CollectionMethodsRoute() {
 	const { auth } = Route.useRouteContext();
 	const { canManage, organization } = useOrganizationWorkspace(auth.snapshot);
@@ -92,127 +74,73 @@ function CollectionMethodsRoute() {
 		webCollections.collectionMethods,
 	);
 	const usageById = useMethodTrapUsage();
+	const search = useCatalogSearch(activeRows, inactiveRows, matchesMethod);
 
-	const [search, setSearch] = useState('');
-	const query = search.trim().toLowerCase();
-
-	const filteredActive = useMemo(() => filterMethods(activeRows, query), [activeRows, query]);
-	const filteredInactive = useMemo(() => filterMethods(inactiveRows, query), [inactiveRows, query]);
-
-	const total = activeRows.length + inactiveRows.length;
-	const showSearch = total > SEARCH_THRESHOLD;
-	const hasMatches = filteredActive.length + filteredInactive.length > 0;
+	// The header and the empty state offer the same way in, so they mount the
+	// same dialog rather than each spelling out its own trigger.
+	const addMethodDialog = (
+		<CollectionMethodDialog
+			organization={organization}
+			trigger={
+				<Button type="button">
+					<AddIcon aria-hidden="true" />
+					Add Method
+				</Button>
+			}
+		/>
+	);
 
 	return (
-		<OutletSimpleLayout className="grid content-start gap-5">
-			<PageHeader
-				actions={
-					<>
-						<AccessBadge canManage={canManage} />
-						{canManage ? <AddMethodDialog organization={organization} /> : null}
-					</>
-				}
-				description="Collection methods describe how your crews catch adult mosquitoes — light traps with and without attractant, gravid traps, resting traps, and emergence traps. Manage the labels, action thresholds, and any custom fields recorded against them."
-				icon={MethodIcon}
-				title="Collection Methods"
-			/>
-
-			{total === 0 ? (
-				<CollectionMethodsEmpty canManage={canManage} organization={organization} />
-			) : (
-				<div className="grid gap-4">
-					<div className="flex flex-wrap items-center justify-between gap-3">
-						<div className="flex items-center gap-2">
-							<Badge tone="success" variant="outline">
-								{activeRows.length} active
-							</Badge>
-							<Badge tone="neutral" variant="outline">
-								{inactiveRows.length} inactive
-							</Badge>
-						</div>
-						{showSearch ? <SearchField value={search} onChange={setSearch} /> : null}
-					</div>
-
-					{hasMatches ? (
-						<div className="grid gap-6">
-							<CollectionMethodSection
-								canManage={canManage}
-								emptyLabel={
-									query.length > 0
-										? 'No active collection methods match your search.'
-										: 'No active collection methods. Add one to start recording traps.'
-								}
-								organization={organization}
-								rows={filteredActive}
-								title="Active"
-								tone="active"
-								usageById={usageById}
-							/>
-							{inactiveRows.length > 0 ? (
-								<CollectionMethodSection
-									canManage={canManage}
-									emptyLabel="No inactive collection methods match your search."
-									organization={organization}
-									rows={filteredInactive}
-									title="Inactive"
-									tone="inactive"
-									usageById={usageById}
-								/>
-							) : null}
-						</div>
-					) : (
-						<ListNoMatches noun="collection methods" query={search.trim()} />
-					)}
-				</div>
-			)}
-		</OutletSimpleLayout>
-	);
-}
-
-function filterMethods(
-	rows: readonly CollectionMethodRow[],
-	query: string,
-): readonly CollectionMethodRow[] {
-	if (query.length === 0) {
-		return rows;
-	}
-	return rows.filter(
-		(row) =>
-			row.name.toLowerCase().includes(query) ||
-			(row.description ?? '').toLowerCase().includes(query),
-	);
-}
-
-function AccessBadge({ canManage }: { readonly canManage: boolean }) {
-	return (
-		<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
-			{canManage ? 'Editor access' : 'View only'}
-		</Badge>
-	);
-}
-
-function SearchField({
-	value,
-	onChange,
-}: {
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="relative w-full max-w-[260px]">
-			<SearchIcon
-				aria-hidden="true"
-				className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-			/>
-			<Input
-				aria-label="Search collection methods by name or description"
-				className="h-9 pl-9"
-				onChange={(event) => onChange(event.target.value)}
-				placeholder="Search methods…"
-				type="search"
-				value={value}
-			/>
-		</div>
+		<CatalogPage
+			action={canManage ? addMethodDialog : undefined}
+			canEdit={canManage}
+			description="Collection methods describe how your crews catch adult mosquitoes — light traps with and without attractant, gravid traps, resting traps, and emergence traps. Manage the labels, action thresholds, and any custom fields recorded against them."
+			emptyDescription={
+				<>
+					Every trap records the method that caught its mosquitoes, so your agency needs at least
+					one before crews can add traps.
+					{canManage
+						? ' Add your first method to get started.'
+						: ' An owner or admin can add collection methods for your agency.'}
+				</>
+			}
+			emptyTitle="No Collection Methods Yet"
+			icon={MethodIcon}
+			isEmpty={search.total === 0}
+			title="Collection Methods"
+		>
+			<CatalogFilteredList
+				noun="collection methods"
+				search={search}
+				searchLabel="Search collection methods by name or description"
+				searchPlaceholder="Search methods…"
+			>
+				<CollectionMethodSection
+					canManage={canManage}
+					emptyLabel={
+						search.query.length > 0
+							? 'No active collection methods match your search.'
+							: 'No active collection methods. Add one to start recording traps.'
+					}
+					organization={organization}
+					rows={search.filteredActive}
+					title="Active"
+					tone="active"
+					usageById={usageById}
+				/>
+				{search.inactiveCount > 0 ? (
+					<CollectionMethodSection
+						canManage={canManage}
+						emptyLabel="No inactive collection methods match your search."
+						organization={organization}
+						rows={search.filteredInactive}
+						title="Inactive"
+						tone="inactive"
+						usageById={usageById}
+					/>
+				) : null}
+			</CatalogFilteredList>
+		</CatalogPage>
 	);
 }
 
@@ -234,75 +162,48 @@ function CollectionMethodSection({
 	readonly usageById: UsageById;
 }) {
 	return (
-		<section className="grid gap-2">
-			<div className="flex items-baseline justify-between gap-2">
-				<h2 className="font-bold text-[0.78rem] text-muted-foreground uppercase tracking-wide">
-					{title}
-				</h2>
-				<span className="text-muted-foreground text-xs tabular-nums">{rows.length}</span>
-			</div>
-			{rows.length === 0 ? (
-				<p className="rounded-md bg-muted/40 px-3 py-2.5 text-muted-foreground text-sm">
-					{emptyLabel}
-				</p>
-			) : (
-				<div className="overflow-x-auto rounded-md border border-border/50">
-					<Table className="table-fixed">
-						<TableHeader>
-							<TableRow className="bg-muted/40 hover:bg-muted/40">
-								<TableHead className="w-[26%]">Method</TableHead>
-								<TableHead>Description</TableHead>
-								<TableHead className="w-[96px] text-right">Threshold</TableHead>
-								<TableHead className="w-[22%]">Custom Fields</TableHead>
-								<TableHead className="w-[104px] text-right">Active Traps</TableHead>
-								{canManage ? (
-									<TableHead className="w-[60px] text-right">
-										<span className="sr-only">Actions</span>
-									</TableHead>
-								) : null}
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{rows.map((method) => (
-								<TableRow key={method.id}>
-									<TableCell className="align-top font-medium">
-										<div className="flex items-start gap-2">
-											<span className="wrap-anywhere">{method.name}</span>
-											{tone === 'inactive' ? (
-												<Badge className="mt-0.5 shrink-0" tone="neutral" variant="outline">
-													Inactive
-												</Badge>
-											) : null}
-										</div>
-									</TableCell>
-									<TableCell className="align-top whitespace-normal text-muted-foreground wrap-anywhere">
-										{method.description ?? <EmptyValue />}
-									</TableCell>
-									<TableCell className="align-top text-right">
-										<ThresholdValue threshold={method.actionThreshold} />
-									</TableCell>
-									<TableCell className="align-top">
-										<CustomFieldsCell schema={method.customSchema} />
-									</TableCell>
-									<TableCell className="align-top text-right">
-										<TrapsCount count={usageById.get(method.id) ?? 0} />
-									</TableCell>
-									{canManage ? (
-										<TableCell className="align-top text-right">
-											<CollectionMethodRowActions
-												activeTrapCount={usageById.get(method.id) ?? 0}
-												method={method}
-												organization={organization}
-											/>
-										</TableCell>
-									) : null}
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
-			)}
-		</section>
+		<CatalogSection
+			columns={
+				<TableRow className="bg-muted/40 hover:bg-muted/40">
+					<TableHead className="w-[26%]">Method</TableHead>
+					<TableHead>Description</TableHead>
+					<TableHead className="w-[96px] text-right">Threshold</TableHead>
+					<TableHead className="w-[22%]">Custom Fields</TableHead>
+					<TableHead className="w-[104px] text-right">Active Traps</TableHead>
+					{canManage ? <CatalogActionsHead /> : null}
+				</TableRow>
+			}
+			count={rows.length}
+			emptyLabel={emptyLabel}
+			title={title}
+		>
+			{rows.map((method) => (
+				<TableRow key={method.id}>
+					<CatalogNameCell isInactive={tone === 'inactive'} name={method.name} />
+					<TableCell className="align-top whitespace-normal text-muted-foreground wrap-anywhere">
+						{method.description ?? <EmptyValue />}
+					</TableCell>
+					<TableCell className="align-top text-right">
+						<ThresholdValue threshold={method.actionThreshold} />
+					</TableCell>
+					<TableCell className="align-top">
+						<CustomFieldsCell schema={method.customSchema} />
+					</TableCell>
+					<TableCell className="align-top text-right">
+						<TrapsCount count={usageById.get(method.id) ?? 0} />
+					</TableCell>
+					{canManage ? (
+						<TableCell className="align-top text-right">
+							<CollectionMethodRowActions
+								activeTrapCount={usageById.get(method.id) ?? 0}
+								method={method}
+								organization={organization}
+							/>
+						</TableCell>
+					) : null}
+				</TableRow>
+			))}
+		</CatalogSection>
 	);
 }
 
@@ -343,42 +244,14 @@ function CollectionMethodRowActions({
 
 	return (
 		<>
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button size="icon" type="button" variant="ghost">
-						<MoreIcon aria-hidden="true" />
-						<span className="sr-only">Actions for {method.name}</span>
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-52">
-					<DropdownMenuItem onSelect={() => setEditOpen(true)}>
-						<EditIcon aria-hidden="true" />
-						Edit
-					</DropdownMenuItem>
-					<DropdownMenuSeparator />
-					<DropdownMenuItem
-						disabled={deactivateBlocked}
-						onSelect={() => toggleCollectionMethodActive(method)}
-					>
-						{method.isActive ? (
-							<>
-								<CloseIcon aria-hidden="true" />
-								Deactivate
-							</>
-						) : (
-							<>
-								<CheckIcon aria-hidden="true" />
-								Reactivate
-							</>
-						)}
-					</DropdownMenuItem>
-					{deactivateBlocked ? (
-						<p className="px-2 pt-0.5 pb-1.5 text-muted-foreground text-xs leading-snug">
-							In use by {activeTrapCount} active {activeTrapCount === 1 ? 'trap' : 'traps'}.
-						</p>
-					) : null}
-				</DropdownMenuContent>
-			</DropdownMenu>
+			<CatalogRowActions
+				isActive={method.isActive}
+				name={method.name}
+				onEdit={() => setEditOpen(true)}
+				onToggle={() => toggleCollectionMethodActive(method)}
+				toggleDisabled={deactivateBlocked}
+				toggleHint={`In use by ${activeTrapCount} active ${activeTrapCount === 1 ? 'trap' : 'traps'}.`}
+			/>
 			<CollectionMethodDialog
 				method={method}
 				onOpenChange={setEditOpen}
@@ -389,61 +262,16 @@ function CollectionMethodRowActions({
 	);
 }
 
-/** Flip a method's lifecycle in place — reversible, so no confirm step. */
 function toggleCollectionMethodActive(method: CollectionMethodRow): void {
-	const nextActive = !method.isActive;
-	try {
-		const transaction = updateAdultCollectionMethodFromValues(method, {
-			...collectionMethodFormValues(method),
-			isActive: nextActive,
-		});
-		watchPersistence(
-			transaction,
-			nextActive ? `Unable to reactivate ${method.name}.` : `Unable to deactivate ${method.name}.`,
-		);
-	} catch (saveError) {
-		toast.error(errorMessageForSave(saveError));
-	}
-}
-
-/** The way in, offered from both the page header and the empty state. */
-function AddMethodDialog({ organization }: { readonly organization: OrganizationRow | null }) {
-	return (
-		<CollectionMethodDialog
-			organization={organization}
-			trigger={
-				<Button type="button">
-					<AddIcon aria-hidden="true" />
-					Add Method
-				</Button>
-			}
-		/>
-	);
-}
-
-function CollectionMethodsEmpty({
-	canManage,
-	organization,
-}: {
-	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
-}) {
-	return (
-		<ListEmpty
-			action={canManage ? <AddMethodDialog organization={organization} /> : undefined}
-			description={
-				<>
-					Every trap records the method that caught its mosquitoes, so your agency needs at least
-					one before crews can add traps.
-					{canManage
-						? ' Add your first method to get started.'
-						: ' An owner or admin can add collection methods for your agency.'}
-				</>
-			}
-			icon={MethodIcon}
-			title="No Collection Methods Yet"
-		/>
-	);
+	toggleCatalogLifecycle({
+		apply: (isActive) =>
+			updateAdultCollectionMethodFromValues(method, {
+				...collectionMethodFormValues(method),
+				isActive,
+			}),
+		isActive: method.isActive,
+		name: method.name,
+	});
 }
 
 function CollectionMethodDialog({
@@ -461,9 +289,7 @@ function CollectionMethodDialog({
 	/** Uncontrolled mode: the element that opens the dialog (Add button, empty-state CTA). */
 	readonly trigger?: React.ReactNode;
 }) {
-	const [internalOpen, setInternalOpen] = useState(false);
-	const isControlled = controlledOpen !== undefined;
-	const open = isControlled ? controlledOpen : internalOpen;
+	const [open, setOpen] = useCatalogDialogOpen(controlledOpen, onOpenChange);
 	const isEditing = method !== undefined;
 
 	const form = useAppForm({
@@ -473,109 +299,73 @@ function CollectionMethodDialog({
 				organization === null ? 'Organization details are still loading.' : undefined,
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction = isEditing
-					? updateAdultCollectionMethodFromValues(method, value)
-					: createAdultCollectionMethodFromValues(organization, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
-					isEditing ? `Unable to save ${method.name}.` : 'Unable to create collection method.',
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+			commitCatalogWrite({
+				failureMessage: isEditing
+					? `Unable to save ${method.name}.`
+					: 'Unable to create collection method.',
+				onWritten: () => setOpen(false),
+				write: () =>
+					isEditing
+						? updateAdultCollectionMethodFromValues(method, value)
+						: createAdultCollectionMethodFromValues(organization, value),
+			});
 		},
 	});
 
-	function setOpen(nextOpen: boolean) {
-		if (isControlled) {
-			onOpenChange?.(nextOpen);
-		} else {
-			setInternalOpen(nextOpen);
-		}
-	}
-
-	// Reset to the current row's values whenever the dialog opens, whether opened by
-	// its own trigger or programmatically from the row actions menu.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: form is stable; reset keyed on open.
-	useEffect(() => {
-		if (open) {
-			form.reset(collectionMethodFormValues(method));
-		}
-	}, [open, method]);
+	useResetOnOpen(open, method, () => form.reset(collectionMethodFormValues(method)));
 
 	return (
-		<Dialog onOpenChange={setOpen} open={open}>
-			{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-			<DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
-				<DialogHeader className="border-border/60 border-b px-6 py-4 pr-10 text-left">
-					<DialogTitle>{isEditing ? `Edit ${method.name}` : 'Add collection method'}</DialogTitle>
-					<DialogDescription>
-						Manage the label, action threshold, lifecycle state, and optional custom fields.
-					</DialogDescription>
-				</DialogHeader>
-				<form.AppForm>
-					<form
-						className="flex min-h-0 flex-1 flex-col"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<div className="grid min-h-0 flex-1 gap-3.5 overflow-y-auto px-6 py-4">
-							<form.FormErrorAlert />
-							<form.AppField
-								name="name"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? 'Method name is required.' : undefined,
-								}}
-							>
-								{(field) => (
-									<field.TextField label="Method name" placeholder="e.g. CDC light trap" />
-								)}
-							</form.AppField>
-							<form.AppField name="description">
-								{(field) => <field.TextareaField className="min-h-24" label="Description" />}
-							</form.AppField>
-							<form.AppField name="actionThreshold">
-								{(field) => (
-									<field.NumberField
-										description="The count at or above which collections made this way warrant a response. Leave blank when the method has no count trigger."
-										emptyValue={null}
-										label="Action threshold"
-										min={0}
-										step={1}
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="isActive">
-								{(field) => <field.SwitchField label="Active" />}
-							</form.AppField>
-							<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-								{(field) => (
-									<field.JsonSchemaField
-										description="Optional fields crews fill in when recording a collection with this method."
-										label="Custom fields"
-									/>
-								)}
-							</form.AppField>
-						</div>
-						<DialogFooter className="border-border/60 border-t px-6 py-4">
-							<form.FormActions>
-								<form.SubmitButton disabled={organization === null} />
-								<DialogClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
-										Cancel
-									</Button>
-								</DialogClose>
-							</form.FormActions>
-						</DialogFooter>
-					</form>
-				</form.AppForm>
-			</DialogContent>
-		</Dialog>
+		<form.AppForm>
+			<CatalogRecordDialog
+				actions={
+					<form.FormActions>
+						<form.SubmitButton disabled={organization === null} />
+						<CatalogDialogCancel />
+					</form.FormActions>
+				}
+				description="Manage the label, action threshold, lifecycle state, and optional custom fields."
+				onOpenChange={setOpen}
+				onSubmit={() => void form.handleSubmit()}
+				open={open}
+				title={isEditing ? `Edit ${method.name}` : 'Add collection method'}
+				trigger={trigger}
+			>
+				<form.FormErrorAlert />
+				<form.AppField
+					name="name"
+					validators={{
+						onSubmit: ({ value }) =>
+							value.trim().length === 0 ? 'Method name is required.' : undefined,
+					}}
+				>
+					{(field) => <field.TextField label="Method name" placeholder="e.g. CDC light trap" />}
+				</form.AppField>
+				<form.AppField name="description">
+					{(field) => <field.TextareaField className="min-h-24" label="Description" />}
+				</form.AppField>
+				<form.AppField name="actionThreshold">
+					{(field) => (
+						<field.NumberField
+							description="The count at or above which collections made this way warrant a response. Leave blank when the method has no count trigger."
+							emptyValue={null}
+							label="Action threshold"
+							min={0}
+							step={1}
+						/>
+					)}
+				</form.AppField>
+				<form.AppField name="isActive">
+					{(field) => <field.SwitchField label="Active" />}
+				</form.AppField>
+				<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
+					{(field) => (
+						<field.JsonSchemaField
+							description="Optional fields crews fill in when recording a collection with this method."
+							label="Custom fields"
+						/>
+					)}
+				</form.AppField>
+			</CatalogRecordDialog>
+		</form.AppForm>
 	);
 }
