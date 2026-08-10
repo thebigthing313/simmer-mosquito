@@ -6,7 +6,8 @@
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
 		"noEmit": true,
-		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+		// Outside `dist` — see apps/web/tsconfig.json for why.
+		"tsBuildInfoFile": "node_modules/.cache/tsconfig.tsbuildinfo",
 		"types": ["vite/client"]
 	},
 	"include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
