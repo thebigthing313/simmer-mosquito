@@ -1075,6 +1075,112 @@ describe('map read route registration', () => {
  * it, and it is why the table lists a value for every field rather than a
  * representative one.
  */
+/**
+ * Paging, for every surface that pages.
+ *
+ * `limit` and `offset` are not filters, and the filter parsers refuse a param
+ * they do not admit — so the only thing standing between a paged request and a
+ * 400 is `withoutPageParams` stripping them first. Nothing exercised that on
+ * seven of the nine surfaces, and a regression there would not be subtle: every
+ * paged read would answer `Unsupported <noun> filter: limit.`
+ *
+ * The reader is asserted on rather than the response, because `limit` reaching
+ * the response body proves nothing — it is the value handed to the query that
+ * decides what comes back.
+ */
+describe('paged map surfaces', () => {
+	// Samples page *within a viewport*, so a bbox is required there and refused
+	// as an unknown filter everywhere else — the control-operations surfaces draw
+	// unbounded tiles and page the rail separately.
+	const pagedSurfaces = [
+		['/map/samples', 'listSampleDisplayRows', 'bbox=-91,35,-90,36&'],
+		['/map/chemical', 'listApplicationDisplayRows', ''],
+		['/map/source-reduction', 'listSourceReductionDisplayRows', ''],
+		['/map/biocontrol', 'listBiocontrolDisplayRows', ''],
+		['/map/outreach', 'listOutreachDisplayRows', ''],
+		['/map/traps', 'listTrapDisplayRows', ''],
+		['/map/collections', 'listCollectionDisplayRows', ''],
+	] as const;
+
+	function pagedApp(reader: (typeof pagedSurfaces)[number][1]) {
+		const list = vi.fn(async () => ({ rows: [], total: 0 }));
+		return { app: createApp({ [reader]: list } as never), list };
+	}
+
+	it.each(pagedSurfaces)('carries limit and offset through %s', async (path, reader, prefix) => {
+		const { app, list } = pagedApp(reader);
+
+		const response = await app.request(`${path}?${prefix}limit=5&offset=10`);
+
+		expect(response.status).toBe(200);
+		expect(list).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ organizationId, limit: 5, offset: 10 }),
+		);
+	});
+
+	it.each(pagedSurfaces)('refuses an oversized limit on %s', async (path, reader, prefix) => {
+		const { app, list } = pagedApp(reader);
+
+		const response = await app.request(`${path}?${prefix}limit=100000`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		// Refused before the query, not after it came back too large.
+		expect(list).not.toHaveBeenCalled();
+	});
+
+	// The date fields every one of these surfaces carries, and the one shape of
+	// bad input a caller is most likely to send.
+	it.each(pagedSurfaces)('refuses a malformed date on %s', async (path, reader, prefix) => {
+		const { app, list } = pagedApp(reader);
+
+		const response = await app.request(`${path}?${prefix}dateFrom=last-tuesday`);
+
+		expect(response.status).toBe(400);
+		expect(list).not.toHaveBeenCalled();
+	});
+});
+
+/**
+ * The two enum filters, whose rejection paths nothing reached.
+ *
+ * Both answer with the permitted values rather than a bare refusal, because the
+ * caller is a URL somebody typed or a link somebody built, and neither can be
+ * fixed from "invalid".
+ */
+describe('enum map filters', () => {
+	it('refuses a sample status that is not one of the four, and names them', async () => {
+		const app = createApp({ listSampleDisplayRows: async () => ({ rows: [], total: 0 }) });
+
+		const response = await app.request('/map/samples?bbox=-91,35,-90,36&status=maybe');
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { readonly reason: string };
+		expect(body.reason).toContain('status must be one of');
+	});
+
+	it('refuses a trap status that is not active or retired', async () => {
+		const app = createApp({ listTrapDisplayRows: async () => ({ rows: [], total: 0 }) });
+
+		const response = await app.request('/map/traps?status=broken');
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { readonly reason: string };
+		expect(body.reason).toContain('status must be');
+	});
+
+	it('refuses an id that is not a UUID inside a list filter', async () => {
+		const app = createApp({ listApplicationDisplayRows: async () => ({ rows: [], total: 0 }) });
+
+		const response = await app.request('/map/chemical?insecticideId=not-a-uuid');
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { readonly reason: string };
+		expect(body.reason).toContain('UUID');
+	});
+});
+
 describe('map filter fields', () => {
 	function filtersOf(
 		parse: (params: URLSearchParams) => { ok: boolean },
