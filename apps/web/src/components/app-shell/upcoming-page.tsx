@@ -100,6 +100,66 @@ const weatherStations: Elsewhere = {
 	to: '/gis/weather',
 	icon: iconRegistry.domains.weather.icon,
 };
+const habitats: Elsewhere = {
+	label: 'Habitats',
+	description: 'The sites your agency inspects, on the map',
+	to: '/larval-surveillance/habitats',
+	icon: iconRegistry.generic.droplet.icon,
+};
+const inspections: Elsewhere = {
+	label: 'Inspections',
+	description: 'What crews found at a habitat, by date and density',
+	to: '/larval-surveillance/inspections',
+	icon: iconRegistry.entities.inspection.icon,
+};
+const samples: Elsewhere = {
+	label: 'Samples',
+	description: 'Larvae taken for identification, and what came back',
+	to: '/larval-surveillance/samples',
+	icon: iconRegistry.entities.sample.icon,
+};
+const traps: Elsewhere = {
+	label: 'Traps',
+	description: 'Trap sites and their collection methods, on the map',
+	to: '/adult-surveillance/traps',
+	icon: iconRegistry.entities.trap.icon,
+};
+const applications: Elsewhere = {
+	label: 'Applications',
+	description: 'Product, amount, and method for every treatment logged',
+	to: '/control-operations/chemical',
+	icon: iconRegistry.entities.application.icon,
+};
+const sourceReduction: Elsewhere = {
+	label: 'Source Reduction',
+	description: 'Sources eliminated, by method and technician',
+	to: '/control-operations/source-reduction',
+	icon: iconRegistry.entities.sourceReductionAction.icon,
+};
+const biocontrol: Elsewhere = {
+	label: 'Biocontrol',
+	description: 'Releases logged by method, amount, and site',
+	to: '/control-operations/biocontrol',
+	icon: iconRegistry.entities.biocontrolAction.icon,
+};
+const outreach: Elsewhere = {
+	label: 'Outreach',
+	description: 'Outreach actions and the reach recorded against each',
+	to: '/public-engagement/outreach',
+	icon: iconRegistry.entities.outreachAction.icon,
+};
+const habitatTypes: Elsewhere = {
+	label: 'Habitat Types',
+	description: 'The types habitats are classified under',
+	to: '/larval-surveillance/habitats/types',
+	icon: iconRegistry.generic.component.icon,
+};
+const collectionMethods: Elsewhere = {
+	label: 'Collection Methods',
+	description: 'The trap types your agency runs',
+	to: '/adult-surveillance/collection-methods',
+	icon: iconRegistry.generic.component.icon,
+};
 
 /**
  * Per-route copy for the sections that are wired but not built.
@@ -164,6 +224,102 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 			'Addresses no record references any more, listed so they can be removed',
 		],
 		elsewhere: [addressBook, regions, larvalOverview],
+	},
+	'/larval-surveillance/habitats/stats': {
+		title: 'Habitat Statistics',
+		summary:
+			'What your habitats have produced across a season: which sites come back positive, which types they belong to, and how often each has been visited.',
+		willLand: [
+			'Breeding frequency per habitat and per habitat type across a season',
+			'Inspection coverage, including sites nothing has been logged against',
+			'Habitats ranked by how often larvae were found, with the map beside the list',
+		],
+		elsewhere: [habitats, inspections, habitatTypes],
+	},
+	'/larval-surveillance/inspections/stats': {
+		title: 'Inspection Statistics',
+		summary:
+			'Inspection effort and what it turned up: how many were logged, how many held water, and how many found larvae.',
+		willLand: [
+			'Wet, dry, and larvae-positive counts trended across the season',
+			'Density mix per habitat type and per region',
+			'Inspections logged per inspector over a reporting period',
+		],
+		elsewhere: [inspections, habitats, samples],
+	},
+	'/larval-surveillance/samples/stats': {
+		title: 'Sample Statistics',
+		summary:
+			'What identification returned: which species your samples held, and how long the results took to come back.',
+		willLand: [
+			'Species composition across identified samples, by region and season',
+			'Samples still awaiting identification, and how long they have waited',
+			'Non-mosquito findings separated from the species counts',
+		],
+		elsewhere: [samples, inspections, habitats],
+	},
+	'/adult-surveillance/traps/stats': {
+		title: 'Trap Statistics',
+		summary:
+			'Trap effort and yield: how many nights each trap ran, what it caught, and which sites are carrying the program.',
+		willLand: [
+			'Catch per trap night, per trap and per collection method',
+			'Trap nights and problem collections over a reporting period',
+			'Traps compared across regions and across seasons',
+		],
+		elsewhere: [traps, collections, trapRoutes],
+	},
+	'/adult-surveillance/collections/stats': {
+		title: 'Collection Statistics',
+		summary:
+			'Species abundance across your collections: what came out of the traps, in what numbers, and when.',
+		willLand: [
+			'Species composition and abundance trended by week and by season',
+			'Abundance per trap night, so effort and catch are read together',
+			'Regions and collection methods compared over the same period',
+		],
+		elsewhere: [collections, traps, collectionMethods],
+	},
+	'/control-operations/chemical/stats': {
+		title: 'Chemical Application Statistics',
+		summary:
+			'What was applied and where: product usage, method mix, and treated area across a season.',
+		willLand: [
+			'Product usage by active ingredient, in a single unit across the season',
+			'Method mix — larvicide, adulticide, barrier — over a reporting period',
+			'Applications per region, beside the surveillance that prompted them',
+		],
+		elsewhere: [applications, insecticides, controlOverview],
+	},
+	'/control-operations/source-reduction/stats': {
+		title: 'Source Reduction Statistics',
+		summary: 'Sources eliminated over a season, by method, by technician, and by region.',
+		willLand: [
+			'Sources eliminated trended across the season, in a single unit',
+			'Method mix and crew effort over a reporting period',
+			'Habitats worked most often, and what inspections found afterwards',
+		],
+		elsewhere: [sourceReduction, habitats, controlOverview],
+	},
+	'/control-operations/biocontrol/stats': {
+		title: 'Biocontrol Statistics',
+		summary: 'Releases logged over a season: how much went out, by which method, and where.',
+		willLand: [
+			'Release volumes trended across the season, in a single unit',
+			'Method mix and the sites released into',
+			'Releases beside the inspections logged at the same habitats afterwards',
+		],
+		elsewhere: [biocontrol, habitats, controlOverview],
+	},
+	'/public-engagement/outreach/stats': {
+		title: 'Outreach Statistics',
+		summary: 'Outreach effort and the reach recorded against it, across a season.',
+		willLand: [
+			'Reach trended by week and by season, per outreach method',
+			'Actions and reach per region over a reporting period',
+			'Outreach beside the service requests logged in the same areas',
+		],
+		elsewhere: [outreach, serviceRequests, regions],
 	},
 	'/gis/weather/stats': {
 		title: 'Weather Statistics',
