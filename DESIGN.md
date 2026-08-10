@@ -206,7 +206,7 @@ focus, error, invalid, inactive, selected — is the one that will ship broken.
 Base colours get looked at constantly; state colours have to be triggered to be
 seen at all, so visual review never catches them. Every one of SIMMER's contrast
 failures lived here while body copy sat comfortably at 15:1. Prove state colours
-with a number, not an eye: `packages/ui-web/src/styles.contrast.test.ts` reads
+with a number, not an eye: `packages/ui-web/src/tests/unit/styles.contrast.test.ts` reads
 the real stylesheets and fails the build on a regression.
 
 **The Registered Token Rule.** A colour role is only usable if Tailwind knows

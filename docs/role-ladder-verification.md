@@ -7,7 +7,7 @@ in `apps/web/src/lib/write-access.ts`. The writes that are not commands — the
 agency's own details, and the people surface — declare their floors in
 `apps/server/src/roles.ts` instead, which says why they cannot join the map. Both are unit-tested, and the reads the
 ownership rules depend on are covered against Postgres in
-`apps/server/src/command-authorization.integration.test.ts`. None of that
+`apps/server/src/tests/integration/command-authorization.integration.test.ts`. None of that
 exercises the thing a person does: sign in, click, and be refused — which is how
 the reordering bug in #36 was found in the first place.
 

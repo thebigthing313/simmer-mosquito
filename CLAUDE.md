@@ -40,8 +40,22 @@ Scope a task to one project with Nx or pnpm filters:
 ```sh
 nx test @simmer-mosquito/domain
 pnpm --filter @simmer-mosquito/domain test
-nx test @simmer-mosquito/domain -- src/tests/some.test.ts   # single test file
+nx test @simmer-mosquito/domain -- src/tests/unit/foundation.test.ts   # single test file
 ```
+
+### Where tests live
+
+Every app and package keeps its suites in `<project>/src/tests/`, split by kind
+into `unit/` and `integration/` (`e2e/` when one exists), and mirroring the `src`
+tree below that — `apps/web/src/lib/local-date.ts` is covered by
+`apps/web/src/tests/unit/lib/local-date.test.ts`. Nothing is colocated with the
+code it covers. Assets a test owns, such as a `__snapshots__` folder, sit beside
+the test in its new home.
+
+They stay under `src` rather than beside it because every project compiles
+`src/**/*` and a test that is not typechecked is where a wrong enum member
+hides; `vitest.shared.ts` is what keeps the compiled copy in `dist` from being
+collected a second time.
 
 ### Build toolchain
 
@@ -59,7 +73,7 @@ pnpm db:rollback
 pnpm db:status
 ```
 
-Fast tests are pure (no DB). Postgres-backed integration tests (`*.integration.test.ts`) are **opt-in** and require an explicit test DB. They live in `packages/db` and in `apps/server` — the latter for the ownership and lifecycle reads that decide whether a write happens, which take a plain `Transaction` and no server context. `apps/server` imports the harness from `@simmer-mosquito/db/test-support`, so `packages/db` must be built first.
+Fast tests are pure (no DB). Postgres-backed integration tests (`*.integration.test.ts`) are **opt-in** and require an explicit test DB. They live in `packages/db/src/tests/integration` and `apps/server/src/tests/integration` — the latter for the ownership and lifecycle reads that decide whether a write happens, which take a plain `Transaction` and no server context. `apps/server` imports the harness from `@simmer-mosquito/db/test-support`, so `packages/db` must be built first.
 
 ```sh
 # PowerShell — point at the Railway staging Postgres in .env:
@@ -87,7 +101,7 @@ Authoritative docs (read before non-trivial work):
 - `apps/web` — agency-facing Vite + React + TanStack Router SPA. Online-only in v1.
 - `apps/admin` — SIMMER **operator** (platform-side) control plane, not agency administration. Org creation/support, invitations, global taxonomy, global units.
 - `apps/preview` — internal design-system / component preview app (not a product surface).
-- `packages/domain` — framework-agnostic domain types, command builders, validators. Stable public seams are top-level barrel modules (e.g. `control-operations.ts`); large domains split into matching folders behind them. Tests live in `packages/domain/src/tests`.
+- `packages/domain` — framework-agnostic domain types, command builders, validators. Stable public seams are top-level barrel modules (e.g. `control-operations.ts`); large domains split into matching folders behind them. Tests live in `packages/domain/src/tests/unit`.
 - `packages/db` — dbmate migrations, Kysely/Postgres helpers, generated DB types.
 - `packages/sync` — framework-agnostic TanStack DB collection factories, Electric shape descriptors, row schemas, optimistic command adapters.
 - `packages/mapping` — provider-neutral geometry/GeoJSON/viewport helpers.

@@ -273,11 +273,6 @@
         "count": 2
       }
     },
-    "apps/server/src/map-tiles.test.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/server/src/map-tiles.ts": {
       "complexity_critical": {
         "count": 1
@@ -2027,7 +2022,7 @@
         "count": 1
       }
     },
-    "packages/ui-web/src/styles.contrast.test.ts": {
+    "packages/ui-web/src/tests/unit/styles.contrast.test.ts": {
       "complexity_high": {
         "count": 1
       },

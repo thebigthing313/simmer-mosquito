@@ -128,9 +128,12 @@ catalogs, assets, products/formulations, performed actions, and requested
 actions, while `public-engagement/` is split by contacts, service requests,
 notification types, registrations, and mission notifications.
 
-Domain tests live under `packages/domain/src/tests`. The package test script
-targets that folder directly so compiled output under `dist` is not discovered
-as a second test source.
+Domain tests live under `packages/domain/src/tests/unit`, which is the layout
+every app and package follows: each one keeps its suites in `src/tests/`, split
+into `unit/` and `integration/` (and `e2e/` when there is one), mirroring the
+`src` tree below that. Nothing is colocated with the code it covers, so a
+directory listing of a domain folder is the implementation and only the
+implementation.
 
 Planned:
 
