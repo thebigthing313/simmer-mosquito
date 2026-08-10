@@ -1,0 +1,20 @@
+# The build context for `apps/web/Dockerfile` and `apps/admin/Dockerfile` is the
+# workspace root — both compile against the shared packages, so neither can be
+# built from its own directory.
+#
+# Everything here is either regenerated inside the image or must never enter it.
+
+**/node_modules
+**/dist
+.git
+.nx
+.fallow
+
+# Vite's `envDir` is the workspace root, so a `.env` copied in would be read at
+# build time and baked into the bundle.
+.env
+.env.*
+!.env.example
+
+**/*.log
+**/coverage

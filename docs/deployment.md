@@ -258,7 +258,7 @@ Each environment needs these variables:
 
 Configure each deployable service from the repository root.
 
-Server:
+**Server** — Railpack, with install/build/start commands:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -266,21 +266,50 @@ pnpm --filter @simmer-mosquito/server build
 pnpm --filter @simmer-mosquito/server start
 ```
 
-Web:
+**Web** and **admin** — Dockerfile, with no commands at all. Both are static
+sites and neither runs Node in production; see "Static site images" below. On
+each of those two services:
 
-```sh
-pnpm install --frozen-lockfile
-pnpm --filter @simmer-mosquito/web build
-pnpm --filter @simmer-mosquito/web start
-```
+- set `RAILWAY_DOCKERFILE_PATH` (a service *variable*, not a setting) to
+  `apps/web/Dockerfile` or `apps/admin/Dockerfile`. Railway looks for a
+  `Dockerfile` at the root of the source directory otherwise, and there isn't
+  one there;
+- **clear the Build Command and Start Command fields.** A leftover start
+  command overrides the image's `CMD`, and `pnpm --filter … start` is a script
+  that no longer exists — the deploy would build cleanly and then crash-loop.
 
-Admin:
+### Static site images
 
-```sh
-pnpm install --frozen-lockfile
-pnpm --filter @simmer-mosquito/admin build
-pnpm --filter @simmer-mosquito/admin start
-```
+`apps/web/Dockerfile` and `apps/admin/Dockerfile` build the workspace on
+`node:22.16.0-slim` and copy only `dist/` into a `caddy:2-alpine` runtime, so
+production serves the two SPAs with no Node process. Both stages are the same
+in the two files; what differs is the `--filter` and which `VITE_*` values are
+declared.
+
+Three things worth knowing before editing either:
+
+- **the build context is the workspace root**, not the app directory. Each app
+  compiles against the shared packages through TypeScript project references, so
+  a context scoped to `apps/web` could not resolve any of them. `.dockerignore`
+  at the root is what keeps `node_modules` and `.env` out.
+- **`VITE_*` values must be declared as `ARG`.** Railway injects service
+  variables into a Docker build only for names the Dockerfile declares. An
+  undeclared one does not fail the build — Vite inlines an empty string and the
+  app ships pointed at nothing. Adding a `VITE_*` variable to a service means
+  adding an `ARG`/`ENV` pair to that app's Dockerfile in the same change.
+- **the Caddy config is shared** (`Caddyfile.static` at the workspace root, one
+  file for both images). It sets `Cache-Control: immutable` for a year on
+  `/assets/*`, which Vite content-hashes, and `no-cache` on everything else so a
+  deploy actually reaches a tab holding an old `index.html`. It also does the
+  SPA fallback, `zstd`/`gzip` compression, and the security headers. The
+  `Permissions-Policy` there deliberately omits `geolocation`, because the web
+  app's map has a locate-me control.
+
+This replaced `vite preview`, which Vite documents as a way to check a
+production build locally rather than as a production server (issue #85). The
+`preview.allowedHosts` plumbing in the Vite configs and the
+`VITE_PREVIEW_ALLOWED_HOSTS` variable existed only to satisfy its host check and
+are both gone; the `preview` npm scripts remain for their documented local use.
 
 ## Runtime Variables
 
@@ -309,13 +338,14 @@ Set these on the Railway web service (all `VITE_*` are baked in at build time, s
 a change requires a rebuild/redeploy of the service):
 
 ```sh
+RAILWAY_DOCKERFILE_PATH=apps/web/Dockerfile
 VITE_SERVER_URL=https://<server-domain>
 VITE_MAPBOX_ACCESS_TOKEN=pk.<mapbox-public-token>
-VITE_PREVIEW_ALLOWED_HOSTS=<web-domain>
 ```
 
-`VITE_MAPBOX_ACCESS_TOKEN` is required for map views to render. `RAILWAY_PUBLIC_DOMAIN`
-is injected by Railway and also feeds `preview.allowedHosts`.
+`VITE_MAPBOX_ACCESS_TOKEN` is required for map views to render. Each `VITE_*`
+name here has a matching `ARG` in `apps/web/Dockerfile`, and only declared names
+reach the build — see "Static site images".
 
 `VITE_SHAPE_SERVER_URL` is optional. Leave it unset unless a deployment has a
 separate browser-facing HTTPS/HTTP2 proxy for shape streams; when unset, the web
@@ -329,11 +359,12 @@ as `https://localhost:3002` and proxy it to the API server at
 
 ### Admin service (Serverless)
 
-The operator console is a static SPA served by `vite preview`. Set:
+The operator console is a static SPA served by Caddy out of the image
+`apps/admin/Dockerfile` builds. Set:
 
 ```sh
+RAILWAY_DOCKERFILE_PATH=apps/admin/Dockerfile
 VITE_SERVER_URL=https://<server-domain>
-VITE_PREVIEW_ALLOWED_HOSTS=<admin-domain>
 VITE_SIMMER_OPERATOR_ORG_ID=<the WorkOS org that is SIMMER, in this environment>
 ```
 
@@ -372,7 +403,9 @@ field is `sleepApplication`). It is a good fit and a poor one for the others:
 Caveats worth knowing before someone reports them as bugs:
 
 - the first request after ~10 idle minutes is slow, and Railway may answer it
-  with a one-off `502` that resolves on reload;
+  with a one-off `502` that resolves on reload. What wakes now is Caddy reading
+  a config file, not Node booting a Vite server, so the container's own share of
+  that is small — the wait is Railway restoring the instance;
 - sign-in is unaffected: the session cookie is set by the `server` service,
   which is always warm.
 
