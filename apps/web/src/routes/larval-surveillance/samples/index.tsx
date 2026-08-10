@@ -1,6 +1,4 @@
-import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { OrganizationSpeciesRow, SpeciesRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Command,
@@ -17,27 +15,28 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { CheckIcon, ChevronDownIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import {
-	activeDatePresetId,
-	type DatePreset,
-	DateRangeFilter,
-	datePresetRange,
-} from '../../../components/date-range-filter';
+import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
+	ExplorerHeader,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
+	mapQueryParams,
 	ResultList,
 	ToggleFilter,
 	toggle,
+	useDateRangeFilters,
+	useFlyToSelection,
+	useMapBoundsParam,
+	usePagedMapResource,
 	useRegionOptions,
+	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -131,7 +130,7 @@ const DEFAULT_WINDOW_DAYS = 30;
 /** How many species result chips a narrow list row shows before collapsing to "+N". */
 const RESULT_CHIP_LIMIT = 1;
 
-const PAGE_SIZE = 50;
+const PATH = '/map/samples';
 
 function SamplesExplorerRoute() {
 	const today = useMemo(() => todayInTimeZone(undefined), []);
@@ -182,7 +181,7 @@ function SamplesExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const [page, setPage] = useState(0);
+	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
 	const { nameById, options } = useSpeciesCatalog();
 	const regions = useRegionOptions();
@@ -199,78 +198,41 @@ function SamplesExplorerRoute() {
 		[speciesIds, status, nonMosquito, regionIds, dateFrom, dateTo],
 	);
 
-	const bounds = useMapBounds(map);
-	const { rows, total, isLoading } = useVisibleSamples(bounds, filters, page);
-	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+	const bbox = useMapBoundsParam(map);
+	const params = useMemo(
+		() =>
+			mapQueryParams({
+				bbox,
+				species: filters.speciesIds,
+				status: filters.status,
+				nonMosquito: filters.nonMosquitoOnly,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			}),
+		[bbox, filters],
+	);
+	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<SampleFeature>({
+		path: PATH,
+		rowsKey: 'samples',
+		label: 'Samples',
+		params,
+		enabled: bbox !== null,
+	});
 
-	// A new viewport or filter set always starts back at the first page.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the viewport + filters.
-	useEffect(() => {
-		setPage(0);
-	}, [bounds, filters]);
+	const selected = useSelectedMapRecord<SampleFeature>({
+		path: PATH,
+		rowKey: 'sample',
+		rows,
+		selectedId,
+	});
 
-	// Clamp if the row count shrinks under the current page.
-	useEffect(() => {
-		if (page > pageCount - 1) {
-			setPage(pageCount - 1);
-		}
-	}, [page, pageCount]);
-
-	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
-	const fallbackSelected = useSelectedSample(selectedId, visibleById);
-	const selected =
-		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
-
-	// Fly to the selected sample whenever the resolved selection changes.
-	useEffect(() => {
-		if (map === null || selected?.lat == null || selected.lng == null) {
-			return;
-		}
-		map.flyTo({
-			center: [selected.lng, selected.lat],
-			zoom: Math.max(map.getZoom(), 14),
-			duration: 700,
-		});
-	}, [map, selected?.lat, selected?.lng]);
+	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const sampleLayer = useMemo(
 		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
 		[filters, selectedId],
-	);
-
-	// Editing one bound past the other drags the other along so the range never
-	// inverts into an empty query.
-	const handleFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && dateTo !== '' && next > dateTo ? { to: next } : {}),
-			});
-		},
-		[setFilters, dateTo],
-	);
-	const handleToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && dateFrom !== '' && next < dateFrom ? { from: next } : {}),
-			});
-		},
-		[setFilters, dateFrom],
-	);
-	const applyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
-
-	// Which preset (if any) the current range exactly matches — drives chip highlight.
-	const activePresetId = useMemo(
-		() => activeDatePresetId(dateFrom, dateTo, today),
-		[dateFrom, dateTo, today],
 	);
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
@@ -301,24 +263,8 @@ function SamplesExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex items-center justify-between gap-3">
-						<div className="flex items-center gap-2">
-							<SampleIcon aria-hidden="true" className="size-5 text-muted-foreground" />
-							<h1 className="font-semibold text-foreground text-lg leading-none">Samples</h1>
-						</div>
-						<ResultMeta isLoading={isLoading} total={total} />
-					</div>
-
-					<DateRangeFilter
-						activePresetId={activePresetId}
-						from={dateFrom}
-						onApplyPreset={applyPreset}
-						onFromChange={handleFromChange}
-						onToChange={handleToChange}
-						to={dateTo}
-						today={today}
-					/>
+				<ExplorerHeader icon={SampleIcon} isLoading={isLoading} title="Samples" total={total}>
+					<DateRangeFilter {...dateRange} />
 
 					<StatusFilter onChange={setStatus} value={status} />
 
@@ -357,7 +303,7 @@ function SamplesExplorerRoute() {
 							to={dateTo}
 						/>
 					) : null}
-				</div>
+				</ExplorerHeader>
 
 				<SampleResults
 					isLoading={isLoading}
@@ -382,22 +328,6 @@ function SamplesExplorerRoute() {
 }
 
 // --- filter chrome ----------------------------------------------------------
-
-/**
- * Start/end date pickers over the parent-inspection window, with convenience
- * presets. `today` bounds every selection so no future date — where there can be
- * no samples — is reachable.
- */
-function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
-	if (isLoading && total === 0) {
-		return <span className="text-muted-foreground text-sm">Loading…</span>;
-	}
-	return (
-		<span className="text-muted-foreground text-sm">
-			{total === 0 ? 'None in view' : `${total} in view`}
-		</span>
-	);
-}
 
 /**
  * Lifecycle-status filter as a single-select chip row. Each status chip carries
@@ -794,143 +724,6 @@ function useSpeciesCatalog(): {
 	return { nameById, options };
 }
 
-function useVisibleSamples(
-	bounds: BoundingBox | null,
-	filters: SampleTileFilters,
-	page: number,
-): {
-	readonly rows: readonly SampleFeature[];
-	readonly total: number;
-	readonly isLoading: boolean;
-} {
-	const bbox = bounds === null ? null : formatBoundingBox(bounds);
-	const query = useQuery({
-		enabled: bbox !== null,
-		queryKey: ['samples', 'visible', bbox, filters, page],
-		queryFn: ({ signal }) => fetchVisibleSamples(bounds, filters, page, signal),
-		placeholderData: (previous) => previous,
-	});
-
-	return {
-		rows: query.data?.rows ?? [],
-		total: query.data?.total ?? 0,
-		isLoading: query.isLoading,
-	};
-}
-
-function useSelectedSample(
-	selectedId: string | null,
-	visibleById: ReadonlyMap<string, SampleFeature>,
-): SampleFeature | null {
-	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
-	const query = useQuery({
-		enabled: needsFetch,
-		queryKey: ['samples', 'detail', selectedId],
-		queryFn: ({ signal }) => fetchSampleById(selectedId ?? '', signal),
-	});
-	return needsFetch ? (query.data ?? null) : null;
-}
-
-async function fetchVisibleSamples(
-	bounds: BoundingBox | null,
-	filters: SampleTileFilters,
-	page: number,
-	signal: AbortSignal,
-): Promise<{ readonly rows: SampleFeature[]; readonly total: number }> {
-	if (bounds === null) {
-		return { rows: [], total: 0 };
-	}
-	const url = new URL('/map/samples', getServerUrl());
-	url.searchParams.set('bbox', formatBoundingBox(normalizeBounds(bounds)));
-	url.searchParams.set('limit', String(PAGE_SIZE));
-	url.searchParams.set('offset', String(page * PAGE_SIZE));
-	if (filters.speciesIds !== undefined && filters.speciesIds.length > 0) {
-		url.searchParams.set('species', [...filters.speciesIds].join(','));
-	}
-	if (filters.status !== undefined) {
-		url.searchParams.set('status', filters.status);
-	}
-	if (filters.nonMosquitoOnly === true) {
-		url.searchParams.set('nonMosquito', 'true');
-	}
-	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
-		url.searchParams.set('regionId', [...filters.regionIds].join(','));
-	}
-	if (filters.dateFrom !== undefined) {
-		url.searchParams.set('dateFrom', filters.dateFrom);
-	}
-	if (filters.dateTo !== undefined) {
-		url.searchParams.set('dateTo', filters.dateTo);
-	}
-
-	const response = await fetch(url, { credentials: 'include', signal });
-	if (!response.ok) {
-		throw new Error(`Samples request failed (${response.status}).`);
-	}
-	const body = (await response.json()) as {
-		readonly samples?: SampleFeature[];
-		readonly total?: number;
-	};
-	return { rows: body.samples ?? [], total: body.total ?? 0 };
-}
-
-async function fetchSampleById(id: string, signal: AbortSignal): Promise<SampleFeature | null> {
-	if (id.length === 0) {
-		return null;
-	}
-	const response = await fetch(new URL(`/map/samples/${id}`, getServerUrl()), {
-		credentials: 'include',
-		signal,
-	});
-	if (!response.ok) {
-		return null;
-	}
-	const body = (await response.json()) as { readonly sample?: SampleFeature };
-	return body.sample ?? null;
-}
-
-function useMapBounds(map: MapboxMap | null): BoundingBox | null {
-	const [bounds, setBounds] = useState<BoundingBox | null>(null);
-
-	useEffect(() => {
-		if (map === null) {
-			setBounds(null);
-			return;
-		}
-		const update = () => {
-			const next = map.getBounds();
-			if (next === null) {
-				return;
-			}
-			const candidate: BoundingBox = {
-				east: next.getEast(),
-				north: next.getNorth(),
-				south: next.getSouth(),
-				west: next.getWest(),
-			};
-			setBounds((current) =>
-				current !== null &&
-				formatBoundingBox(normalizeBounds(current)) ===
-					formatBoundingBox(normalizeBounds(candidate))
-					? current
-					: candidate,
-			);
-		};
-
-		update();
-		map.on('moveend', update);
-		map.on('zoomend', update);
-		map.on('resize', update);
-		return () => {
-			map.off('moveend', update);
-			map.off('zoomend', update);
-			map.off('resize', update);
-		};
-	}, [map]);
-
-	return bounds;
-}
-
 // --- helpers ----------------------------------------------------------------
 
 function sampleName(sample: SampleFeature): string {
@@ -949,24 +742,4 @@ function dateRangeLabel(from: string, to: string): string {
 		return `From ${formatMonthDay(from)}`;
 	}
 	return `${formatMonthDay(from)} – ${formatMonthDay(to)}`;
-}
-
-/** Clamp to valid lng/lat and collapse a world-spanning view to a single box. */
-function normalizeBounds(bounds: BoundingBox): BoundingBox {
-	const south = clamp(bounds.south, -90, 90);
-	const north = clamp(bounds.north, -90, 90);
-	const span = bounds.east - bounds.west;
-	if (!Number.isFinite(span) || span >= 360) {
-		return { east: 180, north, south, west: -180 };
-	}
-	const west = clamp(bounds.west, -180, 180);
-	const east = clamp(bounds.east, -180, 180);
-	if (west > east) {
-		return { east: 180, north, south, west: -180 };
-	}
-	return { east, north, south, west };
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(Math.max(value, min), max);
 }

@@ -1,33 +1,29 @@
 import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import {
-	activeDatePresetId,
-	type DatePreset,
-	DateRangeFilter,
-	datePresetRange,
-} from '../../../components/date-range-filter';
+import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
+	ExplorerHeader,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
+	mapQueryParams,
 	ResultList,
 	toggle,
+	useDateRangeFilters,
+	useFlyToSelection,
+	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
+	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type ChemicalTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
-import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import {
 	dateParam,
@@ -81,7 +77,8 @@ export const Route = createFileRoute('/control-operations/chemical/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const PAGE_SIZE = 50;
+const RESULT_NOUN = { one: 'application', many: 'applications' };
+const PATH = '/map/chemical';
 
 function ApplicationsExplorerRoute() {
 	const today = useMemo(() => todayInTimeZone(undefined), []);
@@ -125,40 +122,9 @@ function ApplicationsExplorerRoute() {
 		(next: ReadonlySet<string>) => setFilters({ regions: next }),
 		[setFilters],
 	);
-	const [page, setPage] = useState(0);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-
-	// Editing one bound past the other drags the other along, so the range never inverts.
-	const handleFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && dateTo !== '' && next > dateTo ? { to: next } : {}),
-			});
-		},
-		[setFilters, dateTo],
-	);
-	const handleToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && dateFrom !== '' && next < dateFrom ? { from: next } : {}),
-			});
-		},
-		[setFilters, dateFrom],
-	);
-	const applyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
-	const activePresetId = useMemo(
-		() => activeDatePresetId(dateFrom, dateTo, today),
-		[dateFrom, dateTo, today],
-	);
+	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
@@ -196,38 +162,37 @@ function ApplicationsExplorerRoute() {
 		}),
 		[insecticideIds, methodIds, personIds, regionIds, dateFrom, dateTo],
 	);
+	const params = useMemo(
+		() =>
+			mapQueryParams({
+				insecticideId: filters.insecticideIds,
+				applicationMethodId: filters.applicationMethodIds,
+				applicator: filters.applicatorProfileIds,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			}),
+		[filters],
+	);
 
-	// A new filter set always starts at the first page.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the filter set.
-	useEffect(() => {
-		setPage(0);
-	}, [filters]);
+	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<ApplicationSite>(
+		{
+			path: PATH,
+			rowsKey: 'applications',
+			label: 'Applications',
+			params,
+			normalizeRow: normalizeApplication,
+		},
+	);
 
-	const { rows, total, isLoading } = useApplicationsPage(filters, page);
-	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-	// Clamp if the row count shrinks under the current page (e.g. after a delete).
-	useEffect(() => {
-		if (page > pageCount - 1) {
-			setPage(pageCount - 1);
-		}
-	}, [page, pageCount]);
-
-	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
-	const fallbackSelected = useSelectedApplication(selectedId, visibleById);
-	const selected =
-		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
-
-	// Fly to the selected application whenever the resolved selection changes.
-	useEffect(() => {
-		if (map === null || selected == null) {
-			return;
-		}
-		map.flyTo({
-			center: [selected.lng, selected.lat],
-			zoom: Math.max(map.getZoom(), 14),
-			duration: 700,
-		});
-	}, [map, selected]);
+	const selected = useSelectedMapRecord<ApplicationSite>({
+		path: PATH,
+		rowKey: 'application',
+		rows,
+		selectedId,
+		normalizeRow: normalizeApplication,
+	});
+	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const chemicalLayer = useMemo(
@@ -262,31 +227,14 @@ function ApplicationsExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex items-center justify-between gap-3">
-						<h1 className="font-semibold text-foreground text-lg leading-none">Applications</h1>
-						<div className="flex items-center gap-2.5">
-							<ResultMeta isLoading={isLoading} total={total} />
-							<WriteOnly>
-								<Button asChild size="sm">
-									<Link to="/control-operations/chemical/create">
-										<PlusIcon aria-hidden="true" data-icon="inline-start" />
-										Record
-									</Link>
-								</Button>
-							</WriteOnly>
-						</div>
-					</div>
-
-					<DateRangeFilter
-						activePresetId={activePresetId}
-						from={dateFrom}
-						onApplyPreset={applyPreset}
-						onFromChange={handleFromChange}
-						onToChange={handleToChange}
-						to={dateTo}
-						today={today}
-					/>
+				<ExplorerHeader
+					create={{ to: '/control-operations/chemical/create', label: 'Record' }}
+					isLoading={isLoading}
+					noun={RESULT_NOUN}
+					title="Applications"
+					total={total}
+				>
+					<DateRangeFilter {...dateRange} />
 
 					<div className="grid grid-cols-2 gap-2">
 						<MultiSelectFilter
@@ -351,7 +299,7 @@ function ApplicationsExplorerRoute() {
 							))}
 						</ActiveFilterBar>
 					) : null}
-				</div>
+				</ExplorerHeader>
 
 				<ApplicationResults
 					insecticideNameById={insecticideNameById}
@@ -377,98 +325,6 @@ function ApplicationsExplorerRoute() {
 	);
 }
 
-// --- data hooks -------------------------------------------------------------
-
-function useApplicationsPage(
-	filters: ChemicalTileFilters,
-	page: number,
-): {
-	readonly rows: readonly ApplicationSite[];
-	readonly total: number;
-	readonly isLoading: boolean;
-} {
-	const query = useQuery({
-		queryKey: ['chemical', 'page', filters, page],
-		queryFn: ({ signal }) => fetchApplicationsPage(filters, page, signal),
-		placeholderData: (previous) => previous,
-	});
-
-	return {
-		rows: query.data?.rows ?? [],
-		total: query.data?.total ?? 0,
-		isLoading: query.isLoading,
-	};
-}
-
-function useSelectedApplication(
-	selectedId: string | null,
-	visibleById: ReadonlyMap<string, ApplicationSite>,
-): ApplicationSite | null {
-	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
-	const query = useQuery({
-		enabled: needsFetch,
-		queryKey: ['chemical', 'detail', selectedId],
-		queryFn: ({ signal }) => fetchApplicationById(selectedId ?? '', signal),
-	});
-	return needsFetch ? (query.data ?? null) : null;
-}
-
-async function fetchApplicationsPage(
-	filters: ChemicalTileFilters,
-	page: number,
-	signal: AbortSignal,
-): Promise<{ readonly rows: ApplicationSite[]; readonly total: number }> {
-	const url = new URL('/map/chemical', getServerUrl());
-	url.searchParams.set('limit', String(PAGE_SIZE));
-	url.searchParams.set('offset', String(page * PAGE_SIZE));
-	if (filters.insecticideIds !== undefined && filters.insecticideIds.length > 0) {
-		url.searchParams.set('insecticideId', filters.insecticideIds.join(','));
-	}
-	if (filters.applicationMethodIds !== undefined && filters.applicationMethodIds.length > 0) {
-		url.searchParams.set('applicationMethodId', filters.applicationMethodIds.join(','));
-	}
-	if (filters.applicatorProfileIds !== undefined && filters.applicatorProfileIds.length > 0) {
-		url.searchParams.set('applicator', filters.applicatorProfileIds.join(','));
-	}
-	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
-		url.searchParams.set('regionId', filters.regionIds.join(','));
-	}
-	if (filters.dateFrom !== undefined) {
-		url.searchParams.set('dateFrom', filters.dateFrom);
-	}
-	if (filters.dateTo !== undefined) {
-		url.searchParams.set('dateTo', filters.dateTo);
-	}
-
-	const response = await fetch(url, { credentials: 'include', signal });
-	if (!response.ok) {
-		throw new Error(`Applications request failed (${response.status}).`);
-	}
-	const body = (await response.json()) as {
-		readonly applications?: ApplicationSite[];
-		readonly total?: number;
-	};
-	return { rows: (body.applications ?? []).map(normalizeApplication), total: body.total ?? 0 };
-}
-
-async function fetchApplicationById(
-	id: string,
-	signal: AbortSignal,
-): Promise<ApplicationSite | null> {
-	if (id.length === 0) {
-		return null;
-	}
-	const response = await fetch(new URL(`/map/chemical/${id}`, getServerUrl()), {
-		credentials: 'include',
-		signal,
-	});
-	if (!response.ok) {
-		return null;
-	}
-	const body = (await response.json()) as { readonly application?: ApplicationSite };
-	return body.application === undefined ? null : normalizeApplication(body.application);
-}
-
 // The applicator + batch fields are newer than some deployed servers; default
 // them so a row that predates them can never crash the list/card render.
 function normalizeApplication(row: ApplicationSite): ApplicationSite {
@@ -477,19 +333,6 @@ function normalizeApplication(row: ApplicationSite): ApplicationSite {
 		applicatorName: row.applicatorName ?? null,
 		batchNames: row.batchNames ?? [],
 	};
-}
-
-// --- filter controls --------------------------------------------------------
-
-function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
-	if (isLoading && total === 0) {
-		return <span className="text-muted-foreground text-sm">Loading…</span>;
-	}
-	return (
-		<span className="text-muted-foreground text-sm">
-			{total === 0 ? 'None' : total === 1 ? '1 application' : `${total} applications`}
-		</span>
-	);
 }
 
 // --- results ----------------------------------------------------------------
@@ -568,5 +411,3 @@ function ApplicationListItem({
 		/>
 	);
 }
-
-// --- helpers ----------------------------------------------------------------

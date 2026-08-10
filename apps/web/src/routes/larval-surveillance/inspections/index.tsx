@@ -1,32 +1,29 @@
-import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { HabitatTypeRow, LarvalDensity } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import {
-	activeDatePresetId,
-	type DatePreset,
-	DateRangeFilter,
-	datePresetRange,
-} from '../../../components/date-range-filter';
+import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
+	ExplorerHeader,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
+	mapQueryParams,
 	ResultList,
 	SegmentedFilter,
 	ToggleFilter,
 	toggle,
+	useDateRangeFilters,
+	useFlyToSelection,
+	useMapBoundsParam,
+	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
+	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -97,7 +94,7 @@ type WetFilter = 'all' | 'wet' | 'dry';
 /** The window the explorer opens with, and the reset target for "Clear all". */
 const DEFAULT_WINDOW_DAYS = 30;
 
-const PAGE_SIZE = 50;
+const PATH = '/map/inspections';
 
 const WETNESS_OPTIONS: readonly { readonly value: WetFilter; readonly label: string }[] = [
 	{ value: 'all', label: 'All' },
@@ -169,7 +166,6 @@ function InspectionsExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const [page, setPage] = useState(0);
 
 	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
 	const typeNameById = useMemo(
@@ -191,75 +187,41 @@ function InspectionsExplorerRoute() {
 		[wetness, densities, positiveOnly, typeIds, inspectorIds, regionIds, dateFrom, dateTo],
 	);
 
-	// Editing one bound past the other drags the other along, so the range never
-	// inverts into an empty query.
-	const handleFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && dateTo !== '' && next > dateTo ? { to: next } : {}),
-			});
-		},
-		[setFilters, dateTo],
-	);
-	const handleToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && dateFrom !== '' && next < dateFrom ? { from: next } : {}),
-			});
-		},
-		[setFilters, dateFrom],
-	);
-	const applyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
-
-	// Which preset (if any) the current range exactly matches — drives chip highlight.
-	const activePresetId = useMemo(
-		() => activeDatePresetId(dateFrom, dateTo, today),
-		[dateFrom, dateTo, today],
-	);
+	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
-	const bounds = useMapBounds(map);
-	const { rows, total, isLoading } = useVisibleInspections(bounds, filters, page);
-	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+	const bbox = useMapBoundsParam(map);
+	const params = useMemo(
+		() =>
+			mapQueryParams({
+				bbox,
+				isWet: filters.isWet,
+				density: filters.densities,
+				positive: filters.positiveOnly,
+				habitatTypeId: filters.habitatTypeIds,
+				inspectedBy: filters.inspectedByProfileIds,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			}),
+		[bbox, filters],
+	);
+	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<InspectionSite>({
+		path: PATH,
+		rowsKey: 'inspections',
+		label: 'Inspections',
+		params,
+		enabled: bbox !== null,
+	});
 
-	// A new viewport or filter set always starts back at the first page.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the viewport + filters.
-	useEffect(() => {
-		setPage(0);
-	}, [bounds, filters]);
-
-	// Clamp if the row count shrinks under the current page.
-	useEffect(() => {
-		if (page > pageCount - 1) {
-			setPage(pageCount - 1);
-		}
-	}, [page, pageCount]);
-
-	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
-	const fallbackSelected = useSelectedInspection(selectedId, visibleById);
-	const selected =
-		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
-
-	// Fly to the selected inspection whenever the resolved selection changes.
-	useEffect(() => {
-		if (map === null || selected?.lat == null || selected.lng == null) {
-			return;
-		}
-		map.flyTo({
-			center: [selected.lng, selected.lat],
-			zoom: Math.max(map.getZoom(), 14),
-			duration: 700,
-		});
-	}, [map, selected?.lat, selected?.lng]);
+	const selected = useSelectedMapRecord<InspectionSite>({
+		path: PATH,
+		rowKey: 'inspection',
+		rows,
+		selectedId,
+	});
+	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const inspectionLayer = useMemo(
@@ -302,31 +264,13 @@ function InspectionsExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex items-center justify-between gap-3">
-						<h1 className="font-semibold text-foreground text-lg leading-none">Inspections</h1>
-						<div className="flex items-center gap-2.5">
-							<ResultMeta isLoading={isLoading} total={total} />
-							<WriteOnly>
-								<Button asChild size="sm">
-									<Link to="/larval-surveillance/inspections/create">
-										<PlusIcon aria-hidden="true" data-icon="inline-start" />
-										Record
-									</Link>
-								</Button>
-							</WriteOnly>
-						</div>
-					</div>
-
-					<DateRangeFilter
-						activePresetId={activePresetId}
-						from={dateFrom}
-						onApplyPreset={applyPreset}
-						onFromChange={handleFromChange}
-						onToChange={handleToChange}
-						to={dateTo}
-						today={today}
-					/>
+				<ExplorerHeader
+					create={{ to: '/larval-surveillance/inspections/create', label: 'Record' }}
+					isLoading={isLoading}
+					title="Inspections"
+					total={total}
+				>
+					<DateRangeFilter {...dateRange} />
 
 					<SegmentedFilter
 						label="Water"
@@ -390,7 +334,7 @@ function InspectionsExplorerRoute() {
 							wetness={wetness}
 						/>
 					) : null}
-				</div>
+				</ExplorerHeader>
 
 				<InspectionResults
 					isLoading={isLoading}
@@ -411,17 +355,6 @@ function InspectionsExplorerRoute() {
 				</div>
 			</div>
 		</MapSplitPage>
-	);
-}
-
-function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
-	if (isLoading && total === 0) {
-		return <span className="text-muted-foreground text-sm">Loading…</span>;
-	}
-	return (
-		<span className="text-muted-foreground text-sm">
-			{total === 0 ? 'None in view' : `${total} in view`}
-		</span>
 	);
 }
 
@@ -657,154 +590,6 @@ function inspectionSwatch(inspection: InspectionSite): {
 	return { color, label: densityLabel(inspection.density) };
 }
 
-// --- data hooks -------------------------------------------------------------
-
-function useVisibleInspections(
-	bounds: BoundingBox | null,
-	filters: InspectionTileFilters,
-	page: number,
-): {
-	readonly rows: readonly InspectionSite[];
-	readonly total: number;
-	readonly isLoading: boolean;
-} {
-	const bbox = bounds === null ? null : formatBoundingBox(bounds);
-	const query = useQuery({
-		enabled: bbox !== null,
-		queryKey: ['inspections', 'visible', bbox, filters, page],
-		queryFn: ({ signal }) => fetchVisibleInspections(bounds, filters, page, signal),
-		placeholderData: (previous) => previous,
-	});
-
-	return {
-		rows: query.data?.rows ?? [],
-		total: query.data?.total ?? 0,
-		isLoading: query.isLoading,
-	};
-}
-
-function useSelectedInspection(
-	selectedId: string | null,
-	visibleById: ReadonlyMap<string, InspectionSite>,
-): InspectionSite | null {
-	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
-	const query = useQuery({
-		enabled: needsFetch,
-		queryKey: ['inspections', 'detail', selectedId],
-		queryFn: ({ signal }) => fetchInspectionById(selectedId ?? '', signal),
-	});
-	return needsFetch ? (query.data ?? null) : null;
-}
-
-async function fetchVisibleInspections(
-	bounds: BoundingBox | null,
-	filters: InspectionTileFilters,
-	page: number,
-	signal: AbortSignal,
-): Promise<{ readonly rows: InspectionSite[]; readonly total: number }> {
-	if (bounds === null) {
-		return { rows: [], total: 0 };
-	}
-	const url = new URL('/map/inspections', getServerUrl());
-	url.searchParams.set('bbox', formatBoundingBox(normalizeBounds(bounds)));
-	url.searchParams.set('limit', String(PAGE_SIZE));
-	url.searchParams.set('offset', String(page * PAGE_SIZE));
-	if (filters.isWet !== undefined) {
-		url.searchParams.set('isWet', String(filters.isWet));
-	}
-	if (filters.densities !== undefined && filters.densities.length > 0) {
-		url.searchParams.set('density', [...filters.densities].join(','));
-	}
-	if (filters.positiveOnly === true) {
-		url.searchParams.set('positive', 'true');
-	}
-	if (filters.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {
-		url.searchParams.set('habitatTypeId', filters.habitatTypeIds.join(','));
-	}
-	if (filters.inspectedByProfileIds !== undefined && filters.inspectedByProfileIds.length > 0) {
-		url.searchParams.set('inspectedBy', filters.inspectedByProfileIds.join(','));
-	}
-	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
-		url.searchParams.set('regionId', filters.regionIds.join(','));
-	}
-	if (filters.dateFrom !== undefined) {
-		url.searchParams.set('dateFrom', filters.dateFrom);
-	}
-	if (filters.dateTo !== undefined) {
-		url.searchParams.set('dateTo', filters.dateTo);
-	}
-
-	const response = await fetch(url, { credentials: 'include', signal });
-	if (!response.ok) {
-		throw new Error(`Inspections request failed (${response.status}).`);
-	}
-	const body = (await response.json()) as {
-		readonly inspections?: InspectionSite[];
-		readonly total?: number;
-	};
-	return { rows: body.inspections ?? [], total: body.total ?? 0 };
-}
-
-async function fetchInspectionById(
-	id: string,
-	signal: AbortSignal,
-): Promise<InspectionSite | null> {
-	if (id.length === 0) {
-		return null;
-	}
-	const response = await fetch(new URL(`/map/inspections/${id}`, getServerUrl()), {
-		credentials: 'include',
-		signal,
-	});
-	if (!response.ok) {
-		return null;
-	}
-	const body = (await response.json()) as { readonly inspection?: InspectionSite };
-	return body.inspection ?? null;
-}
-
-function useMapBounds(map: MapboxMap | null): BoundingBox | null {
-	const [bounds, setBounds] = useState<BoundingBox | null>(null);
-
-	useEffect(() => {
-		if (map === null) {
-			setBounds(null);
-			return;
-		}
-		const update = () => {
-			const next = map.getBounds();
-			if (next === null) {
-				return;
-			}
-			const candidate: BoundingBox = {
-				east: next.getEast(),
-				north: next.getNorth(),
-				south: next.getSouth(),
-				west: next.getWest(),
-			};
-			setBounds((current) =>
-				current !== null &&
-				formatBoundingBox(normalizeBounds(current)) ===
-					formatBoundingBox(normalizeBounds(candidate))
-					? current
-					: candidate,
-			);
-		};
-
-		update();
-		map.on('moveend', update);
-		map.on('zoomend', update);
-		map.on('resize', update);
-		return () => {
-			map.off('moveend', update);
-			map.off('zoomend', update);
-			map.off('resize', update);
-		};
-	}, [map]);
-
-	return bounds;
-}
-
 // --- helpers ----------------------------------------------------------------
 
 /** Human label for the active range chip, tolerating open-ended bounds. */
@@ -839,24 +624,4 @@ function siteLabel(inspection: InspectionSite): string {
 			? adhocLabel(inspection.lat, inspection.lng)
 			: `Habitat ${inspection.habitatId.slice(0, 8)}`)
 	);
-}
-
-/** Clamp to valid lng/lat and collapse a world-spanning view to a single box. */
-function normalizeBounds(bounds: BoundingBox): BoundingBox {
-	const south = clamp(bounds.south, -90, 90);
-	const north = clamp(bounds.north, -90, 90);
-	const span = bounds.east - bounds.west;
-	if (!Number.isFinite(span) || span >= 360) {
-		return { east: 180, north, south, west: -180 };
-	}
-	const west = clamp(bounds.west, -180, 180);
-	const east = clamp(bounds.east, -180, 180);
-	if (west > east) {
-		return { east: 180, north, south, west: -180 };
-	}
-	return { east, north, south, west };
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(Math.max(value, min), max);
 }

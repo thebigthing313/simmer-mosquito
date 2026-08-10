@@ -1,33 +1,29 @@
 import type { CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import {
-	activeDatePresetId,
-	type DatePreset,
-	DateRangeFilter,
-	datePresetRange,
-} from '../../../components/date-range-filter';
+import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
+	ExplorerHeader,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
+	mapQueryParams,
 	ResultList,
 	ToggleFilter,
 	toggle,
+	useDateRangeFilters,
+	useFlyToSelection,
+	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
+	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type CollectionTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
-import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import {
 	dateParam,
@@ -80,7 +76,8 @@ export const Route = createFileRoute('/adult-surveillance/collections/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const PAGE_SIZE = 50;
+const RESULT_NOUN = { one: 'collection', many: 'collections' };
+const PATH = '/map/collections';
 
 function CollectionsExplorerRoute() {
 	const today = useMemo(() => todayInTimeZone(undefined), []);
@@ -122,40 +119,9 @@ function CollectionsExplorerRoute() {
 		(next: ReadonlySet<string>) => setFilters({ regions: next }),
 		[setFilters],
 	);
-	const [page, setPage] = useState(0);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-
-	// Editing one bound past the other drags the other along, so the range never inverts.
-	const handleFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && dateTo !== '' && next > dateTo ? { to: next } : {}),
-			});
-		},
-		[setFilters, dateTo],
-	);
-	const handleToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && dateFrom !== '' && next < dateFrom ? { from: next } : {}),
-			});
-		},
-		[setFilters, dateFrom],
-	);
-	const applyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
-	const activePresetId = useMemo(
-		() => activeDatePresetId(dateFrom, dateTo, today),
-		[dateFrom, dateTo, today],
-	);
+	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
 	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
@@ -182,38 +148,32 @@ function CollectionsExplorerRoute() {
 		}),
 		[methodIds, problemOnly, regionIds, dateFrom, dateTo],
 	);
+	const params = useMemo(
+		() =>
+			mapQueryParams({
+				collectionMethodId: filters.collectionMethodIds,
+				problem: filters.problemOnly,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			}),
+		[filters],
+	);
 
-	// A new filter set always starts at the first page.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the filter set.
-	useEffect(() => {
-		setPage(0);
-	}, [filters]);
+	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<CollectionSite>({
+		path: PATH,
+		rowsKey: 'collections',
+		label: 'Collections',
+		params,
+	});
 
-	const { rows, total, isLoading } = useCollectionsPage(filters, page);
-	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-	// Clamp if the row count shrinks under the current page (e.g. after a delete).
-	useEffect(() => {
-		if (page > pageCount - 1) {
-			setPage(pageCount - 1);
-		}
-	}, [page, pageCount]);
-
-	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
-	const fallbackSelected = useSelectedCollection(selectedId, visibleById);
-	const selected =
-		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
-
-	// Fly to the selected collection whenever the resolved selection changes.
-	useEffect(() => {
-		if (map === null || selected == null) {
-			return;
-		}
-		map.flyTo({
-			center: [selected.lng, selected.lat],
-			zoom: Math.max(map.getZoom(), 14),
-			duration: 700,
-		});
-	}, [map, selected]);
+	const selected = useSelectedMapRecord<CollectionSite>({
+		path: PATH,
+		rowKey: 'collection',
+		rows,
+		selectedId,
+	});
+	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const collectionLayer = useMemo(
@@ -247,31 +207,14 @@ function CollectionsExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex items-center justify-between gap-3">
-						<h1 className="font-semibold text-foreground text-lg leading-none">Collections</h1>
-						<div className="flex items-center gap-2.5">
-							<ResultMeta isLoading={isLoading} total={total} />
-							<WriteOnly>
-								<Button asChild size="sm">
-									<Link to="/adult-surveillance/collections/create">
-										<PlusIcon aria-hidden="true" data-icon="inline-start" />
-										Record
-									</Link>
-								</Button>
-							</WriteOnly>
-						</div>
-					</div>
-
-					<DateRangeFilter
-						activePresetId={activePresetId}
-						from={dateFrom}
-						onApplyPreset={applyPreset}
-						onFromChange={handleFromChange}
-						onToChange={handleToChange}
-						to={dateTo}
-						today={today}
-					/>
+				<ExplorerHeader
+					create={{ to: '/adult-surveillance/collections/create', label: 'Record' }}
+					isLoading={isLoading}
+					noun={RESULT_NOUN}
+					title="Collections"
+					total={total}
+				>
+					<DateRangeFilter {...dateRange} />
 
 					<div className="flex flex-wrap items-center gap-2">
 						<MultiSelectFilter
@@ -312,7 +255,7 @@ function CollectionsExplorerRoute() {
 							) : null}
 						</ActiveFilterBar>
 					) : null}
-				</div>
+				</ExplorerHeader>
 
 				<CollectionResults
 					isLoading={isLoading}
@@ -335,108 +278,6 @@ function CollectionsExplorerRoute() {
 				</div>
 			</div>
 		</MapSplitPage>
-	);
-}
-
-// --- data hooks -------------------------------------------------------------
-
-function useCollectionsPage(
-	filters: CollectionTileFilters,
-	page: number,
-): {
-	readonly rows: readonly CollectionSite[];
-	readonly total: number;
-	readonly isLoading: boolean;
-} {
-	const query = useQuery({
-		queryKey: ['collections', 'page', filters, page],
-		queryFn: ({ signal }) => fetchCollectionsPage(filters, page, signal),
-		placeholderData: (previous) => previous,
-	});
-
-	return {
-		rows: query.data?.rows ?? [],
-		total: query.data?.total ?? 0,
-		isLoading: query.isLoading,
-	};
-}
-
-function useSelectedCollection(
-	selectedId: string | null,
-	visibleById: ReadonlyMap<string, CollectionSite>,
-): CollectionSite | null {
-	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
-	const query = useQuery({
-		enabled: needsFetch,
-		queryKey: ['collections', 'detail', selectedId],
-		queryFn: ({ signal }) => fetchCollectionById(selectedId ?? '', signal),
-	});
-	return needsFetch ? (query.data ?? null) : null;
-}
-
-async function fetchCollectionsPage(
-	filters: CollectionTileFilters,
-	page: number,
-	signal: AbortSignal,
-): Promise<{ readonly rows: CollectionSite[]; readonly total: number }> {
-	const url = new URL('/map/collections', getServerUrl());
-	url.searchParams.set('limit', String(PAGE_SIZE));
-	url.searchParams.set('offset', String(page * PAGE_SIZE));
-	if (filters.collectionMethodIds !== undefined && filters.collectionMethodIds.length > 0) {
-		url.searchParams.set('collectionMethodId', filters.collectionMethodIds.join(','));
-	}
-	if (filters.problemOnly === true) {
-		url.searchParams.set('problem', 'true');
-	}
-	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
-		url.searchParams.set('regionId', filters.regionIds.join(','));
-	}
-	if (filters.dateFrom !== undefined) {
-		url.searchParams.set('dateFrom', filters.dateFrom);
-	}
-	if (filters.dateTo !== undefined) {
-		url.searchParams.set('dateTo', filters.dateTo);
-	}
-
-	const response = await fetch(url, { credentials: 'include', signal });
-	if (!response.ok) {
-		throw new Error(`Collections request failed (${response.status}).`);
-	}
-	const body = (await response.json()) as {
-		readonly collections?: CollectionSite[];
-		readonly total?: number;
-	};
-	return { rows: body.collections ?? [], total: body.total ?? 0 };
-}
-
-async function fetchCollectionById(
-	id: string,
-	signal: AbortSignal,
-): Promise<CollectionSite | null> {
-	if (id.length === 0) {
-		return null;
-	}
-	const response = await fetch(new URL(`/map/collections/${id}`, getServerUrl()), {
-		credentials: 'include',
-		signal,
-	});
-	if (!response.ok) {
-		return null;
-	}
-	const body = (await response.json()) as { readonly collection?: CollectionSite };
-	return body.collection ?? null;
-}
-
-// --- filter controls --------------------------------------------------------
-
-function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
-	if (isLoading && total === 0) {
-		return <span className="text-muted-foreground text-sm">Loading…</span>;
-	}
-	return (
-		<span className="text-muted-foreground text-sm">
-			{total === 0 ? 'None' : total === 1 ? '1 collection' : `${total} collections`}
-		</span>
 	);
 }
 

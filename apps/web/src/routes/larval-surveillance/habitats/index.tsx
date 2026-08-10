@@ -1,6 +1,4 @@
-import { type BoundingBox, formatBoundingBox } from '@simmer-mosquito/mapping';
 import type { HabitatRow, HabitatTypeRow, TagRow } from '@simmer-mosquito/sync';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
@@ -12,21 +10,25 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	ActiveFilterBar,
+	ExplorerHeader,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
+	mapQueryParams,
 	ResultList,
 	SegmentedFilter,
 	toggle,
 	useEntityTags,
+	useFlyToSelection,
+	useMapBoundsParam,
+	usePagedMapResource,
 	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
@@ -82,7 +84,7 @@ export const Route = createFileRoute('/larval-surveillance/habitats/')({
 	validateSearch: searchValidator(HABITAT_FILTER_CODECS),
 });
 
-const PAGE_SIZE = 50;
+const PATH = '/map/habitats';
 
 const NO_TAGS: readonly TagRow[] = [];
 
@@ -115,7 +117,6 @@ function HabitatsExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const [page, setPage] = useState(0);
 
 	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
 	const { rows: tags } = useCollectionRows<TagRow>(webCollections.tags);
@@ -139,42 +140,36 @@ function HabitatsExplorerRoute() {
 		[status, access, typeIds, tagIds, regionIds, search],
 	);
 
-	const bounds = useMapBounds(map);
-	const { rows, total, isLoading } = useVisibleHabitats(bounds, filters, page);
+	const bbox = useMapBoundsParam(map);
+	const params = useMemo(
+		() =>
+			mapQueryParams({
+				bbox,
+				isActive: filters.isActive,
+				isInaccessible: filters.isInaccessible,
+				habitatTypeId: filters.habitatTypeIds,
+				tagId: filters.tagIds,
+				regionId: filters.regionIds,
+				search: filters.search,
+			}),
+		[bbox, filters],
+	);
+	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<HabitatRow>({
+		path: PATH,
+		rowsKey: 'habitats',
+		label: 'Habitats',
+		params,
+		enabled: bbox !== null,
+	});
 	// Tags for the rows actually on screen, so the subset request stays small.
 	const pageHabitatIds = useMemo(() => rows.map((habitat) => habitat.id), [rows]);
 	const tagsByHabitatId = useEntityTags('habitat', pageHabitatIds);
-	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-	// A new viewport or filter set always starts back at the first page.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the viewport + filters.
-	useEffect(() => {
-		setPage(0);
-	}, [bounds, filters]);
-
-	// Clamp if the row count shrinks under the current page.
-	useEffect(() => {
-		if (page > pageCount - 1) {
-			setPage(pageCount - 1);
-		}
-	}, [page, pageCount]);
 
 	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
 	const fallbackSelected = useSelectedHabitat(selectedId, visibleById);
 	const selectedHabitat =
 		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
-
-	// Fly to the selected habitat whenever the resolved selection changes.
-	useEffect(() => {
-		if (map === null || selectedHabitat?.lat == null || selectedHabitat.lng == null) {
-			return;
-		}
-		map.flyTo({
-			center: [selectedHabitat.lng, selectedHabitat.lat],
-			zoom: Math.max(map.getZoom(), 14),
-			duration: 700,
-		});
-	}, [map, selectedHabitat?.lat, selectedHabitat?.lng]);
+	useFlyToSelection(map, selectedHabitat);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const habitatLayer = useMemo(
@@ -215,12 +210,7 @@ function HabitatsExplorerRoute() {
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex items-baseline justify-between gap-3">
-						<h1 className="font-semibold text-foreground text-lg leading-none">Habitats</h1>
-						<ResultMeta isLoading={isLoading} total={total} />
-					</div>
-
+				<ExplorerHeader isLoading={isLoading} title="Habitats" total={total}>
 					<SearchField value={searchInput} onChange={setSearchInput} />
 
 					<div className="grid gap-2">
@@ -280,7 +270,7 @@ function HabitatsExplorerRoute() {
 							onClearAll={clearAll}
 						/>
 					) : null}
-				</div>
+				</ExplorerHeader>
 
 				<HabitatResults
 					isLoading={isLoading}
@@ -316,17 +306,6 @@ const ACCESS_OPTIONS: readonly { readonly value: AccessFilter; readonly label: s
 	{ value: 'accessible', label: 'Accessible' },
 	{ value: 'inaccessible', label: 'Inaccessible' },
 ];
-
-function ResultMeta({ total, isLoading }: { readonly total: number; readonly isLoading: boolean }) {
-	if (isLoading && total === 0) {
-		return <span className="text-muted-foreground text-sm">Loading…</span>;
-	}
-	return (
-		<span className="text-muted-foreground text-sm">
-			{total === 0 ? 'None in view' : `${total} in view`}
-		</span>
-	);
-}
 
 function SearchField({
 	value,
@@ -556,26 +535,6 @@ const selectedHabitatGcTimeMs = 30_000;
 // (and empty) when nothing needs the fallback fetch.
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
-function useVisibleHabitats(
-	bounds: BoundingBox | null,
-	filters: HabitatTileFilters,
-	page: number,
-): { readonly rows: readonly HabitatRow[]; readonly total: number; readonly isLoading: boolean } {
-	const bbox = bounds === null ? null : formatBoundingBox(bounds);
-	const query = useQuery({
-		enabled: bbox !== null,
-		queryKey: ['habitats', 'visible', bbox, filters, page],
-		queryFn: ({ signal }) => fetchVisibleHabitats(bounds, filters, page, signal),
-		placeholderData: (previous) => previous,
-	});
-
-	return {
-		rows: query.data?.rows ?? [],
-		total: query.data?.total ?? 0,
-		isLoading: query.isLoading,
-	};
-}
-
 // Fallback for a selection outside the current bbox list: the habitat's non-geometry
 // fields (all this page shows) live on the synced `habitats` row, so resolve it from
 // a single-id on-demand subset instead of a `/map/habitats/{id}` fetch. Geometry
@@ -605,91 +564,6 @@ function useSelectedHabitat(
 	return rows[0] ?? null;
 }
 
-async function fetchVisibleHabitats(
-	bounds: BoundingBox | null,
-	filters: HabitatTileFilters,
-	page: number,
-	signal: AbortSignal,
-): Promise<{ readonly rows: HabitatRow[]; readonly total: number }> {
-	if (bounds === null) {
-		return { rows: [], total: 0 };
-	}
-	const url = new URL('/map/habitats', getServerUrl());
-	url.searchParams.set('bbox', formatBoundingBox(normalizeBounds(bounds)));
-	url.searchParams.set('limit', String(PAGE_SIZE));
-	url.searchParams.set('offset', String(page * PAGE_SIZE));
-	if (filters.isActive !== undefined) {
-		url.searchParams.set('isActive', String(filters.isActive));
-	}
-	if (filters.isInaccessible !== undefined) {
-		url.searchParams.set('isInaccessible', String(filters.isInaccessible));
-	}
-	if (filters.habitatTypeIds !== undefined && filters.habitatTypeIds.length > 0) {
-		url.searchParams.set('habitatTypeId', filters.habitatTypeIds.join(','));
-	}
-	if (filters.tagIds !== undefined && filters.tagIds.length > 0) {
-		url.searchParams.set('tagId', filters.tagIds.join(','));
-	}
-	if (filters.regionIds !== undefined && filters.regionIds.length > 0) {
-		url.searchParams.set('regionId', filters.regionIds.join(','));
-	}
-	if (filters.search !== undefined && filters.search.length > 0) {
-		url.searchParams.set('search', filters.search);
-	}
-
-	const response = await fetch(url, { credentials: 'include', signal });
-	if (!response.ok) {
-		throw new Error(`Habitats request failed (${response.status}).`);
-	}
-	const body = (await response.json()) as {
-		readonly habitats?: HabitatRow[];
-		readonly total?: number;
-	};
-	return { rows: body.habitats ?? [], total: body.total ?? 0 };
-}
-
-function useMapBounds(map: MapboxMap | null): BoundingBox | null {
-	const [bounds, setBounds] = useState<BoundingBox | null>(null);
-
-	useEffect(() => {
-		if (map === null) {
-			setBounds(null);
-			return;
-		}
-		const update = () => {
-			const next = map.getBounds();
-			if (next === null) {
-				return;
-			}
-			const candidate: BoundingBox = {
-				east: next.getEast(),
-				north: next.getNorth(),
-				south: next.getSouth(),
-				west: next.getWest(),
-			};
-			setBounds((current) =>
-				current !== null &&
-				formatBoundingBox(normalizeBounds(current)) ===
-					formatBoundingBox(normalizeBounds(candidate))
-					? current
-					: candidate,
-			);
-		};
-
-		update();
-		map.on('moveend', update);
-		map.on('zoomend', update);
-		map.on('resize', update);
-		return () => {
-			map.off('moveend', update);
-			map.off('zoomend', update);
-			map.off('resize', update);
-		};
-	}, [map]);
-
-	return bounds;
-}
-
 // --- helpers ----------------------------------------------------------------
 
 function resolveTypeName(habitat: HabitatRow, typeNameById: ReadonlyMap<string, string>): string {
@@ -701,24 +575,4 @@ function resolveTypeName(habitat: HabitatRow, typeNameById: ReadonlyMap<string, 
 
 function habitatName(habitat: HabitatRow): string {
 	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
-}
-
-/** Clamp to valid lng/lat and collapse a world-spanning view to a single box. */
-function normalizeBounds(bounds: BoundingBox): BoundingBox {
-	const south = clamp(bounds.south, -90, 90);
-	const north = clamp(bounds.north, -90, 90);
-	const span = bounds.east - bounds.west;
-	if (!Number.isFinite(span) || span >= 360) {
-		return { east: 180, north, south, west: -180 };
-	}
-	const west = clamp(bounds.west, -180, 180);
-	const east = clamp(bounds.east, -180, 180);
-	if (west > east) {
-		return { east: 180, north, south, west: -180 };
-	}
-	return { east, north, south, west };
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(Math.max(value, min), max);
 }

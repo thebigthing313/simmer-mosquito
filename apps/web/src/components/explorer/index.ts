@@ -8,6 +8,7 @@
  * second explorer needs belongs here.
  */
 
+export { ExplorerHeader } from './explorer-header';
 export { ExplorerRow } from './explorer-row';
 export { ActiveFilterBar, FilterChip } from './filter-chips';
 export { type FilterOption, MultiSelectFilter, toggle } from './multi-select-filter';
@@ -15,7 +16,15 @@ export { ResultList } from './result-list';
 export { RESULT_SKELETON_KEYS } from './result-skeleton';
 export { SegmentedFilter } from './segmented-filter';
 export { ToggleFilter } from './toggle-filter';
+export { useDateRangeFilters } from './use-date-range-filters';
 export { useEntityTags } from './use-entity-tags';
+export { useFlyToSelection } from './use-fly-to-selection';
+export { useMapBoundsParam } from './use-map-bounds';
+export {
+	mapQueryParams,
+	usePagedMapResource,
+	useSelectedMapRecord,
+} from './use-paged-map-resource';
 export { usePersonnelOptions } from './use-personnel-options';
 export { useRegionMembership } from './use-region-membership';
 export { useRegionOptions } from './use-region-options';
