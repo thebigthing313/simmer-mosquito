@@ -18,7 +18,8 @@ import type {
 	Map as MapboxMap,
 	MapMouseEvent,
 } from 'mapbox-gl';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
 /**
@@ -61,12 +62,6 @@ export interface MapMeasureController {
 }
 
 const SOURCE_ID = 'map-measure';
-const LAYER_IDS = [
-	`${SOURCE_ID}-fill`,
-	`${SOURCE_ID}-outline`,
-	`${SOURCE_ID}-line`,
-	`${SOURCE_ID}-vertex`,
-] as const;
 
 /**
  * Measurement styling, deliberately distinct from the amber draft geometry.
@@ -129,8 +124,6 @@ function measureLayers(): (
 	];
 }
 
-const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-
 /** A shape while it is still being placed. */
 type Draft =
 	| { readonly tool: 'distance'; readonly points: readonly LngLat[] }
@@ -181,54 +174,24 @@ export function useMapMeasure({
 		(map.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(collection);
 	}, [map]);
 
-	// Source + layers, re-added across basemap restyles like the sibling overlays.
-	useEffect(() => {
-		if (!isMapLive(map) || !isLoaded) {
-			return;
-		}
-		const activeMap = map;
-		function ensureLayers() {
-			if (activeMap.getSource(SOURCE_ID) === undefined) {
-				activeMap.addSource(SOURCE_ID, { type: 'geojson', data: EMPTY });
-			}
-			for (const layer of measureLayers()) {
-				if (activeMap.getLayer(layer.id) === undefined) {
-					activeMap.addLayer(layer);
-				}
-			}
-			repaint();
-		}
+	// What the source holds after a real state change — a shape finished, a draft
+	// started or abandoned. The cursor is deliberately not a dependency: it moves
+	// every frame and rides `repaint` instead, so dragging out a rectangle costs
+	// no renders.
+	const features = useMemo(() => buildFeatures(shapes, draft, cursorRef.current), [shapes, draft]);
 
-		ensureLayers();
-		activeMap.on('style.load', ensureLayers);
-
-		return () => {
-			activeMap.off('style.load', ensureLayers);
-			try {
-				for (const id of LAYER_IDS) {
-					if (activeMap.getLayer(id) !== undefined) {
-						activeMap.removeLayer(id);
-					}
-				}
-				if (activeMap.getSource(SOURCE_ID) !== undefined) {
-					activeMap.removeSource(SOURCE_ID);
-				}
-			} catch {
-				// Map already torn down; nothing to clean up.
-			}
-		};
-	}, [map, isLoaded, repaint]);
-
-	// Repaint on every real state change. Reads state rather than the refs so the
-	// dependency list says what it means.
-	useEffect(() => {
-		if (!isMapLive(map)) {
-			return;
-		}
-		(map.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(
-			buildFeatures(shapes, draft, cursorRef.current),
-		);
-	}, [map, shapes, draft]);
+	// The source lifecycle — add, re-add on restyle, setData for updates, guarded
+	// teardown — is {@link useGeoJsonSource}'s. `onEnsure` repaints from the refs
+	// so a basemap switch mid-measurement brings the shapes back as they stand
+	// now, cursor included, rather than as of the last render.
+	useGeoJsonSource({
+		map,
+		isLoaded,
+		sourceId: SOURCE_ID,
+		data: features,
+		layers: measureLayers,
+		onEnsure: repaint,
+	});
 
 	const commitDraft = useCallback(() => {
 		const current = draftRef.current;

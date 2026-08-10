@@ -8,7 +8,8 @@ import type {
 	Map as MapboxMap,
 	MapMouseEvent,
 } from 'mapbox-gl';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
 /**
@@ -57,13 +58,6 @@ export interface MapDrawController {
 }
 
 const SOURCE_ID = 'habitat-draw';
-const LAYER_IDS = [
-	`${SOURCE_ID}-fill`,
-	`${SOURCE_ID}-outline`,
-	`${SOURCE_ID}-line`,
-	`${SOURCE_ID}-vertex`,
-	`${SOURCE_ID}-point`,
-] as const;
 
 // Amber draft styling, deliberately distinct from the green reference habitats
 // (vector tiles) and the blue detail overlay, so "the new/edited site" reads as
@@ -202,53 +196,27 @@ export function useMapDraw({
 		);
 	}, [map]);
 
-	// Source + layers, re-added across basemap restyles like the sibling overlays.
-	useEffect(() => {
-		if (!isMapLive(map) || !isLoaded) {
-			return;
-		}
-		const activeMap = map;
-		function ensureLayers() {
-			if (activeMap.getSource(SOURCE_ID) === undefined) {
-				activeMap.addSource(SOURCE_ID, { type: 'geojson', data: EMPTY });
-			}
-			for (const layer of drawLayers()) {
-				if (activeMap.getLayer(layer.id) === undefined) {
-					activeMap.addLayer(layer);
-				}
-			}
-			repaint();
-		}
+	// What the draft source holds after a real state change — a new committed
+	// value, another vertex, a mode switch. The cursor is deliberately not a
+	// dependency: it moves every frame and rides `repaint` instead, so a
+	// mousemove repaints the rubber band without re-rendering anything.
+	const features = useMemo(
+		() => buildFeatures({ committed: value, mode, vertices, cursor: cursorRef.current }),
+		[value, mode, vertices],
+	);
 
-		ensureLayers();
-		activeMap.on('style.load', ensureLayers);
-
-		return () => {
-			activeMap.off('style.load', ensureLayers);
-			try {
-				for (const id of LAYER_IDS) {
-					if (activeMap.getLayer(id) !== undefined) {
-						activeMap.removeLayer(id);
-					}
-				}
-				if (activeMap.getSource(SOURCE_ID) !== undefined) {
-					activeMap.removeSource(SOURCE_ID);
-				}
-			} catch {
-				// Map already torn down; nothing to clean up.
-			}
-		};
-	}, [map, isLoaded, repaint]);
-
-	// Repaint whenever the committed value, placed vertices, or mode change. Reads
-	// the state directly (not the ref-based repaint) so the deps are genuine.
-	useEffect(() => {
-		if (!isMapLive(map)) {
-			return;
-		}
-		const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-		source?.setData(buildFeatures({ committed: value, mode, vertices, cursor: cursorRef.current }));
-	}, [map, value, vertices, mode]);
+	// The source lifecycle — add, re-add on restyle, setData for updates, guarded
+	// teardown — is {@link useGeoJsonSource}'s. `onEnsure` repaints from the refs
+	// so a basemap switch mid-draw brings back the shape as it stands now, cursor
+	// included, rather than as of the last render.
+	useGeoJsonSource({
+		map,
+		isLoaded,
+		sourceId: SOURCE_ID,
+		data: features,
+		layers: drawLayers,
+		onEnsure: repaint,
+	});
 
 	const finishRef = useRef<() => void>(() => {});
 

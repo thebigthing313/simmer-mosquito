@@ -26,6 +26,13 @@ import { isMapLive } from './use-mapbox-map';
  * What stays with the caller is everything that makes a layer worth having —
  * its specs, its colour expressions, its feature model — and any effect that
  * re-scopes a layer without re-adding it, like a selection filter.
+ *
+ * The two editing sessions, `useMapDraw` and `useMapMeasure`, keep their own
+ * state on top of this: vertices, keyboard handling, the shape in progress. What
+ * they hand over is only the lifecycle. Their live cursor never enters `data` —
+ * it moves every frame and would cost a render per frame — so they repaint it
+ * imperatively and pass that same repaint as `onEnsure`, which is what puts a
+ * half-drawn shape back after a restyle.
  */
 export function useGeoJsonSource({
 	map,

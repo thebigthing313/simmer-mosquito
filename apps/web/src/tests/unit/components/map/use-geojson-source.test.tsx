@@ -1,97 +1,9 @@
 // @vitest-environment jsdom
-import type { LayerSpecification, Map as MapboxMap } from 'mapbox-gl';
+import type { LayerSpecification } from 'mapbox-gl';
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useGeoJsonSource } from '../../../../components/map/use-geojson-source';
-
-/**
- * Enough of a Mapbox map to hold sources and layers, and to replay the one
- * event that matters: `style.load`, which a basemap switch fires after wiping
- * every custom source and layer the map had.
- */
-function createFakeMap() {
-	const sources = new Map<string, { data: GeoJSON.GeoJSON }>();
-	const sourceSpecs = new Map<string, Record<string, unknown>>();
-	const layers = new Map<string, LayerSpecification>();
-	const handlers = new Map<string, Set<(event: unknown) => void>>();
-	const canvas = { style: { cursor: '' } };
-	let removed = false;
-
-	function assertLive() {
-		if (removed) {
-			throw new Error('Map has been removed.');
-		}
-	}
-
-	const map = {
-		getSource(id: string) {
-			assertLive();
-			const source = sources.get(id);
-			return source === undefined
-				? undefined
-				: {
-						setData(data: GeoJSON.GeoJSON) {
-							source.data = data;
-						},
-					};
-		},
-		addSource(id: string, spec: { data: GeoJSON.GeoJSON }) {
-			assertLive();
-			sources.set(id, { data: spec.data });
-			sourceSpecs.set(id, spec as Record<string, unknown>);
-		},
-		removeSource(id: string) {
-			assertLive();
-			sources.delete(id);
-		},
-		getLayer(id: string) {
-			assertLive();
-			return layers.get(id);
-		},
-		addLayer(layer: LayerSpecification) {
-			assertLive();
-			layers.set(layer.id, layer);
-		},
-		removeLayer(id: string) {
-			assertLive();
-			layers.delete(id);
-		},
-		getCanvas: () => canvas,
-		queryRenderedFeatures: vi.fn(() => [] as unknown[]),
-		on(event: string, handler: (event: unknown) => void) {
-			const set = handlers.get(event) ?? new Set();
-			set.add(handler);
-			handlers.set(event, set);
-		},
-		off(event: string, handler: (event: unknown) => void) {
-			handlers.get(event)?.delete(handler);
-		},
-	};
-
-	return {
-		map: map as unknown as MapboxMap,
-		sources,
-		sourceSpecs,
-		layers,
-		canvas,
-		queryRenderedFeatures: map.queryRenderedFeatures,
-		listenerCount: (event: string) => handlers.get(event)?.size ?? 0,
-		emit(event: string, payload?: unknown) {
-			for (const handler of [...(handlers.get(event) ?? [])]) {
-				handler(payload);
-			}
-		},
-		/** What a basemap switch does before it fires `style.load`. */
-		wipeStyle() {
-			sources.clear();
-			layers.clear();
-		},
-		remove() {
-			removed = true;
-		},
-	};
-}
+import { cleanupRenderedHooks, createFakeMap, renderHook } from './fake-map';
 
 const POINT: GeoJSON.GeoJSON = { type: 'Point', coordinates: [-90.5, 35.5] };
 const OTHER_POINT: GeoJSON.GeoJSON = { type: 'Point', coordinates: [-91.5, 36.5] };
@@ -100,53 +12,13 @@ function fillLayer(id: string, sourceId = 'test-source'): LayerSpecification {
 	return { id, type: 'fill', source: sourceId, paint: {} } as LayerSpecification;
 }
 
-const containers: HTMLElement[] = [];
-
-/** Mount a component that only calls the hook, and hand back a rerender/unmount pair. */
-function renderHook(initial: Parameters<typeof useGeoJsonSource>[0]) {
-	const container = document.createElement('div');
-	containers.push(container);
-	const root = createRoot(container);
-	let props = initial;
-
-	function Probe() {
-		useGeoJsonSource(props);
-		return null;
-	}
-
-	act(() => {
-		root.render(<Probe />);
-	});
-
-	return {
-		// Same element type and no key, so React updates in place. A changing key
-		// would remount, re-run the setup effect, and quietly defeat the very
-		// assertion this harness exists to make.
-		rerender(next: Parameters<typeof useGeoJsonSource>[0]) {
-			props = next;
-			act(() => {
-				root.render(<Probe />);
-			});
-		},
-		unmount() {
-			act(() => {
-				root.unmount();
-			});
-		},
-	};
-}
-
-afterEach(() => {
-	for (const container of containers.splice(0)) {
-		container.remove();
-	}
-});
+afterEach(cleanupRenderedHooks);
 
 describe('useGeoJsonSource', () => {
 	it('adds the source and its layers in order', () => {
 		const fake = createFakeMap();
 
-		renderHook({
+		renderHook(useGeoJsonSource, {
 			map: fake.map,
 			isLoaded: true,
 			sourceId: 'test-source',
@@ -161,7 +33,7 @@ describe('useGeoJsonSource', () => {
 	it('does nothing at all while the data is null', () => {
 		const fake = createFakeMap();
 
-		renderHook({
+		renderHook(useGeoJsonSource, {
 			map: fake.map,
 			isLoaded: true,
 			sourceId: 'test-source',
@@ -176,7 +48,7 @@ describe('useGeoJsonSource', () => {
 	it('waits for the map to report itself loaded', () => {
 		const fake = createFakeMap();
 
-		renderHook({
+		renderHook(useGeoJsonSource, {
 			map: fake.map,
 			isLoaded: false,
 			sourceId: 'test-source',
@@ -191,7 +63,7 @@ describe('useGeoJsonSource', () => {
 	// switches basemap, which wipes every custom source and layer.
 	it('puts the source and layers back after a basemap switch', () => {
 		const fake = createFakeMap();
-		renderHook({
+		renderHook(useGeoJsonSource, {
 			map: fake.map,
 			isLoaded: true,
 			sourceId: 'test-source',
@@ -213,7 +85,7 @@ describe('useGeoJsonSource', () => {
 	it('pushes new data through setData rather than re-adding the layers', () => {
 		const fake = createFakeMap();
 		const layers = vi.fn(() => [fillLayer('only')]);
-		const harness = renderHook({
+		const harness = renderHook(useGeoJsonSource, {
 			map: fake.map,
 			isLoaded: true,
 			sourceId: 'test-source',
@@ -239,7 +111,7 @@ describe('useGeoJsonSource', () => {
 
 	it('removes its layers and source on unmount', () => {
 		const fake = createFakeMap();
-		const harness = renderHook({
+		const harness = renderHook(useGeoJsonSource, {
 			map: fake.map,
 			isLoaded: true,
 			sourceId: 'test-source',
@@ -258,7 +130,7 @@ describe('useGeoJsonSource', () => {
 	// teardown runs against a map that throws on every call.
 	it('survives a map that was already removed', () => {
 		const fake = createFakeMap();
-		const harness = renderHook({
+		const harness = renderHook(useGeoJsonSource, {
 			map: fake.map,
 			isLoaded: true,
 			sourceId: 'test-source',
@@ -276,7 +148,7 @@ describe('useGeoJsonSource', () => {
 	it('passes source options through when it creates the source', () => {
 		const fake = createFakeMap();
 
-		renderHook({
+		renderHook(useGeoJsonSource, {
 			map: fake.map,
 			isLoaded: true,
 			sourceId: 'test-source',
@@ -294,7 +166,7 @@ describe('useGeoJsonSource', () => {
 		const fake = createFakeMap();
 		const onEnsure = vi.fn();
 
-		renderHook({
+		renderHook(useGeoJsonSource, {
 			map: fake.map,
 			isLoaded: true,
 			sourceId: 'test-source',
@@ -317,7 +189,7 @@ describe('useGeoJsonSource', () => {
 		it('reports the clicked feature by its id property', () => {
 			const fake = createFakeMap();
 			const onSelectFeature = vi.fn();
-			renderHook({
+			renderHook(useGeoJsonSource, {
 				map: fake.map,
 				isLoaded: true,
 				sourceId: 'test-source',
@@ -337,7 +209,7 @@ describe('useGeoJsonSource', () => {
 		it('reports null when the click found nothing', () => {
 			const fake = createFakeMap();
 			const onSelectFeature = vi.fn();
-			renderHook({
+			renderHook(useGeoJsonSource, {
 				map: fake.map,
 				isLoaded: true,
 				sourceId: 'test-source',
@@ -356,7 +228,7 @@ describe('useGeoJsonSource', () => {
 		it('only queries layers the style actually has', () => {
 			const fake = createFakeMap();
 			const onSelectFeature = vi.fn();
-			renderHook({
+			renderHook(useGeoJsonSource, {
 				map: fake.map,
 				isLoaded: true,
 				sourceId: 'test-source',
@@ -376,7 +248,7 @@ describe('useGeoJsonSource', () => {
 
 		it('shows a pointer only while over a feature', () => {
 			const fake = createFakeMap();
-			renderHook({
+			renderHook(useGeoJsonSource, {
 				map: fake.map,
 				isLoaded: true,
 				sourceId: 'test-source',
@@ -399,7 +271,7 @@ describe('useGeoJsonSource', () => {
 
 		it('leaves the map handlers alone when nothing wants clicks', () => {
 			const fake = createFakeMap();
-			renderHook({
+			renderHook(useGeoJsonSource, {
 				map: fake.map,
 				isLoaded: true,
 				sourceId: 'test-source',
