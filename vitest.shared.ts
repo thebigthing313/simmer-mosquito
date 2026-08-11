@@ -1,3 +1,4 @@
+import { availableParallelism } from 'node:os';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -16,8 +17,28 @@ import { defineConfig } from 'vitest/config';
  */
 const sharedTestExclude = ['**/node_modules/**', '**/dist/**', '**/.nx/**', '**/build/**'];
 
+/**
+ * How many test files may run at once.
+ *
+ * Vitest's default is `availableParallelism() - 1`, which is one fork on the
+ * two-vCPU runner CI gets — that is why the database integration files were
+ * measured running strictly one after another, 220.4s of file time against a
+ * 221.4s wall clock. Those files spend nearly all of that waiting on Postgres,
+ * not on a core, so the core count is the wrong thing to size them by.
+ *
+ * So this raises the floor to four rather than replacing the default outright:
+ * four is chosen against the six integration files in `packages/db` — enough
+ * that the slowest of them overlap, low enough that four concurrent migration
+ * sets do not swamp a service container sharing those two vCPUs — and a
+ * developer's larger machine keeps the wider default it already had. Per-test
+ * schema names are already unique, so nothing here changes what a test can see.
+ */
+const TEST_FILE_WORKERS = Math.max(4, availableParallelism() - 1);
+
 export default defineConfig({
 	test: {
 		exclude: sharedTestExclude,
+		fileParallelism: true,
+		maxWorkers: TEST_FILE_WORKERS,
 	},
 });

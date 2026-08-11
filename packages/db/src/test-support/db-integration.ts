@@ -1,10 +1,8 @@
-import { readdir, readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
 import { describe } from 'vitest';
 import type { SimmerDatabase } from '../index.js';
+import { buildMigrationSql, readUpMigrations, type UpMigration } from './migration-sql.js';
 
 const { Pool } = pg;
 
@@ -13,13 +11,18 @@ const testDatabaseUrl =
 
 /**
  * Every test in an integration suite applies the full migration set into a
- * throwaway schema, and the test database is remote — a Railway environment
- * rather than a container on the loopback. That is roughly ten seconds per
- * test, so the suite carries its own timeout; vitest's five-second default
- * fails these on latency alone and leaks the schema it was mid-way through
- * building.
+ * throwaway schema, so setup dominates the clock and vitest's five-second
+ * default would fail these on setup alone, leaking the schema it was mid-way
+ * through building.
+ *
+ * The set now goes out as one query rather than twenty-six, which took a test
+ * against Railway staging from 12.4s to 8.8s and costs about a second against
+ * the CI service container. One constant serves both paths, so it is sized for
+ * the remote one: five times the measured remote cost, so a developer on a
+ * slower link is never failed on latency alone, and still tight enough that a
+ * hung test is caught inside a minute rather than after three.
  */
-const INTEGRATION_TIMEOUT_MS = 180_000;
+const INTEGRATION_TIMEOUT_MS = 45_000;
 
 export function describeDbIntegration(name: string, suite: () => void): void {
 	if (testDatabaseUrl === null) {
@@ -51,11 +54,7 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
 		await sweepAbandonedSchemasOnce(setupPool);
 		await setupPool.query(`create schema ${schemaName}`);
 		schemaCreated = true;
-		await setupPool.query(`set search_path to ${schemaName}, public`);
-
-		for (const migration of await readUpMigrations()) {
-			await setupPool.query(migration);
-		}
+		await applyMigrations(setupPool, schemaName);
 		setupComplete = true;
 	} finally {
 		if (schemaCreated && !setupComplete) {
@@ -104,7 +103,21 @@ const ABANDONED_SCHEMA_AGE_MS = 2 * 60 * 60 * 1000;
  */
 let abandonedSchemaSweep: Promise<void> | null = null;
 
+/**
+ * A database that dies with the run cannot accumulate litter.
+ *
+ * CI runs against a service container that is destroyed with the job, so the
+ * sweep there is a round-trip that can never find anything. Every other path —
+ * a laptop pointed at Railway staging, a local container a developer keeps —
+ * outlives its runs and still needs it.
+ */
+const databaseIsEphemeral = process.env.SIMMER_TEST_DATABASE_EPHEMERAL === 'true';
+
 function sweepAbandonedSchemasOnce(pool: InstanceType<typeof Pool>): Promise<void> {
+	if (databaseIsEphemeral) {
+		return Promise.resolve();
+	}
+
 	// Each caller brings its own pool and closes it afterwards, so a cached
 	// rejection would strand every later test on a connection that no longer
 	// exists. Clear it on failure and let the next test retry with a live pool.
@@ -119,9 +132,9 @@ function sweepAbandonedSchemasOnce(pool: InstanceType<typeof Pool>): Promise<voi
  * Sweep schemas left behind by killed runs.
  *
  * `withTestDb` drops its schema in a `finally`, which covers a failing test but
- * not the process being killed — a cancelled CI job, a Ctrl-C, a timeout that
- * takes the worker with it. The database is shared now, so that litter
- * accumulates where everyone can see it.
+ * not the process being killed — a Ctrl-C, a timeout that takes the worker with
+ * it. On a database that outlives its runs, that litter accumulates where
+ * everyone can see it.
  *
  * The name carries the creation time, so age is readable without a catalog
  * column. Only schemas older than the cutoff go, which keeps concurrent runs —
@@ -142,21 +155,76 @@ async function dropAbandonedSchemas(pool: InstanceType<typeof Pool>): Promise<vo
 	}
 }
 
-async function readUpMigrations(): Promise<string[]> {
-	const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'migrations');
-	const migrationFiles = (await readdir(migrationsDir))
-		.filter((file) => file.endsWith('.sql'))
-		.sort((left, right) => left.localeCompare(right));
+/**
+ * Apply the whole migration set to the throwaway schema in one round-trip.
+ *
+ * Twenty-six separate queries per test was the single largest cost in these
+ * suites: forty-seven harness entries times twenty-six migrations is thirteen
+ * hundred sequential round-trips a run, each of them paying the connection's
+ * latency whatever it is. A multi-statement simple query pays it once.
+ *
+ * The set is read from disk on every entry rather than cached: the read is
+ * local and cheap beside the query, and caching would hide a migration added
+ * mid-run behind a stale copy.
+ */
+async function applyMigrations(pool: InstanceType<typeof Pool>, schemaName: string): Promise<void> {
+	const migrations = await readUpMigrations();
 
-	return Promise.all(
-		migrationFiles.map(async (file) => {
-			const migration = await readFile(join(migrationsDir, file), 'utf8');
-			const up = migration.match(/-- migrate:up\s*([\s\S]*?)\s*-- migrate:down/);
-			if (up?.[1] === undefined) {
-				throw new Error(`Migration ${file} is missing migrate:up or migrate:down markers.`);
+	try {
+		await pool.query(buildMigrationSql(migrations, schemaName));
+	} catch (error) {
+		throw await attributeMigrationFailure(pool, schemaName, migrations, error);
+	}
+}
+
+/**
+ * Work out which migration a failed set failed on.
+ *
+ * One query for twenty-six migrations means Postgres reports one error with no
+ * file attached to it, which is not a debuggable failure. The set ran in an
+ * implicit transaction, so the failure rolled the whole thing back and left the
+ * schema empty — replaying the migrations one at a time reaches the same
+ * statement and names the file it came from.
+ *
+ * The replay is only ever paid on the way to a failure.
+ */
+async function attributeMigrationFailure(
+	pool: InstanceType<typeof Pool>,
+	schemaName: string,
+	migrations: readonly UpMigration[],
+	original: unknown,
+): Promise<Error> {
+	const client = await pool.connect();
+	try {
+		await client.query(`set search_path to ${schemaName}, public`);
+		for (const migration of migrations) {
+			try {
+				await client.query(migration.sql);
+			} catch (error) {
+				return new Error(`Migration ${migration.name} failed to apply: ${messageOf(error)}`, {
+					cause: error,
+				});
 			}
+		}
+	} catch (replayError) {
+		return new Error(
+			`The migration set failed to apply and the replay that would name the migration ` +
+				`failed too: ${messageOf(replayError)}. Original failure: ${messageOf(original)}`,
+			{ cause: original },
+		);
+	} finally {
+		client.release();
+	}
 
-			return up[1].trim();
-		}),
+	// The set failed but every migration applied on its own — the failure is in
+	// how they combine, so the original error is the only truthful report.
+	return new Error(
+		`The migration set failed to apply, but every migration applied individually on ` +
+			`replay: ${messageOf(original)}`,
+		{ cause: original },
 	);
+}
+
+function messageOf(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }

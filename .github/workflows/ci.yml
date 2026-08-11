@@ -131,35 +131,56 @@ jobs:
           printf '%s\n' "$visible" | sed 's/^/  /'
           exit 1
 
-  # Split from `verify` on purpose. These suites need a real Postgres, so they
-  # are the only checks that can go red because a database is unreachable rather
-  # than because the code is wrong — keeping them separate means that failure
-  # mode never hides the typecheck, build, and pure-test signal.
+  # Split from `verify` on purpose: these suites are the only checks that need a
+  # database at all, and they carry a build and a container the others do not.
+  # Keeping them separate means the typecheck, build, and pure-test signal is not
+  # waiting behind them.
+  #
+  # The database is a service container rather than the Railway staging Postgres.
+  # That is what makes the job fast — every round-trip the harness makes is a
+  # loopback one — and it also means the job cannot go red because a shared
+  # database was unreachable, cannot churn migrations through the database a
+  # developer's dev server is talking to, and needs no secret, so a fork PR gets
+  # the same signal as any other.
   database-integration:
-    name: Database integration tests (same-repo only)
-    # A fork PR's workflow run receives no secrets, so `TEST_DATABASE_URL` would
-    # be empty and the guard below would fail a check no outside contributor can
-    # fix. Skipping the job outright makes absence the skip and leaves
-    # presence-but-broken the failure. `github.event_name` has to be checked
-    # first: on a push there is no `pull_request` payload, and comparing against
-    # it would skip the job on `main` and `staging` too.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+    name: Database integration tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # The staging connection string lives as an environment secret; this is the
-    # only way a job can read it. Each test builds and drops its own schema, so
-    # nothing here touches the data staging serves.
-    environment: staging
-    # Superseded runs are cancelled rather than left to pile up: three pushes in
-    # a minute would otherwise mean three suites opening connections and churning
-    # migrations through the same staging Postgres that serves local development.
-    # A cancelled run leaves its `simmer_test_*` schema behind, which is what the
-    # sweeper in `packages/db/src/test-support/db-integration.ts` cleans up.
+    # Superseded runs are cancelled for cost: three pushes in a minute would
+    # otherwise pay for three full runs of a job nobody is going to read. The
+    # database is no longer a reason — a container belongs to one run and dies
+    # with it, so a cancelled run can neither pile up against a shared Postgres
+    # nor leave a `simmer_test_*` schema behind.
     concurrency:
       group: db-integration-${{ github.ref }}
       cancel-in-progress: true
+
+    services:
+      # Matches Railway staging exactly (PostgreSQL 17.5, PostGIS 3.5.2), so the
+      # job cannot be green on a version no environment actually runs, and the
+      # same image the local compose file uses.
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simmer_test
+        ports:
+          - 5432:5432
+        # The suites skip themselves when they cannot reach a database, so the
+        # job waits for the container to accept connections rather than racing it.
+        options: >-
+          --health-cmd "pg_isready -U postgres -d simmer_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/simmer_test?sslmode=disable
+      # The container is destroyed with the job, so no `simmer_test_*` schema can
+      # outlive the run and the harness skips its abandoned-schema sweep. The
+      # sweep stays on for local and staging runs, where a Ctrl-C still litters.
+      SIMMER_TEST_DATABASE_EPHEMERAL: 'true'
 
     steps:
       - name: Check out repository
@@ -185,17 +206,28 @@ jobs:
       - name: Build workspace
         run: pnpm build
 
+      # The migration set creates both extensions `if not exists`, which against
+      # a fresh database would create them inside whichever throwaway schema got
+      # there first — and take them with it when that schema is dropped. Staging
+      # has them in `public` already; the container is given the same starting
+      # point, so the migrations are the no-op they are everywhere else.
+      - name: Prepare the database
+        run: |
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -c 'create extension if not exists postgis' \
+            -c 'create extension if not exists pgcrypto'
+
       # Runs the package scripts directly rather than through nx: these suites
       # skip themselves when the URL is missing, so a cached "pass" from a run
-      # without it would be indistinguishable from a real one.
+      # without it would be indistinguishable from a real one. The guard on the
+      # URL stays for the same reason — it is what stops a silently skipped suite
+      # from reporting as a pass.
       #
       # `@simmer-mosquito/server` is here as well as `db` because the reads that
       # decide whether a write happens — ownership and assignment lifecycle —
       # live in the server and take a plain `Transaction`. Its pure tests run
       # again as a side effect, which costs seconds.
       - name: Run integration suites
-        env:
-          TEST_DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           test -n "$TEST_DATABASE_URL"
           pnpm --filter @simmer-mosquito/db test
