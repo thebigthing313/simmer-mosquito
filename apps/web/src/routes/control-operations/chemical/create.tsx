@@ -23,6 +23,7 @@ import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import { saveApplicationBatches, useApplicationBatches } from './-application-batches';
@@ -38,7 +39,10 @@ export const Route = createFileRoute('/control-operations/chemical/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...missionStopSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/control-operations/chemical' });
@@ -49,7 +53,12 @@ export const Route = createFileRoute('/control-operations/chemical/create')({
 
 function CreateApplicationRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
+	// Recorded off a mission stop: the server links the action to the stop and
+	// completes it in the same transaction.
+	const missionItemId = search.missionItemId ?? null;
+	const missionId = search.missionId ?? null;
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
@@ -142,7 +151,7 @@ function CreateApplicationRoute() {
 					collectionId: null,
 					inspectionId: null,
 					requestedControlActionId: null,
-					missionItemId: null,
+					missionItemId,
 					metadata: values.metadata,
 					createdByProfileId: actorProfileId,
 					updatedByProfileId: actorProfileId,
@@ -209,9 +218,24 @@ function CreateApplicationRoute() {
 				await navigate({ to: '/control-operations/chemical' });
 				return;
 			}
+			// Back to the worklist the stop came from; the crew's next move is the
+			// next stop, not this record.
+			if (missionId !== null) {
+				await navigate({ to: '/operations/missions/$id', params: { id: missionId } });
+				return;
+			}
 			await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
 		},
-		[organization, actorProfileId, applicationId, formulations, formulationComponents, navigate],
+		[
+			organization,
+			actorProfileId,
+			applicationId,
+			formulations,
+			formulationComponents,
+			navigate,
+			missionItemId,
+			missionId,
+		],
 	);
 
 	return (

@@ -20,6 +20,8 @@ export const collectionsSyncDescriptor = createSyncDescriptor<AdultCollectionRow
 		'collectedByProfileId',
 		'startedAt',
 		'setByProfileId',
+		'setAssignmentItemId',
+		'collectedAssignmentItemId',
 		'collectionTimingMode',
 		'collectionDate',
 		'durationAmount',

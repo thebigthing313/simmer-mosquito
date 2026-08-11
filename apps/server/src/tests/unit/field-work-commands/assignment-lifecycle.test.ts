@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	type AssignmentSnapshot,
 	checkCompleteAssignment,
+	checkExecution,
+	checkExecutionTarget,
 	checkItemProgress,
 	checkReopenAssignment,
 	checkStartAssignment,
@@ -170,6 +172,74 @@ describe('isProgressBeforeStart', () => {
 		expect(isProgressBeforeStart(null, startedAt)).toBe(false);
 		expect(isProgressBeforeStart(new Date('2020-01-01T00:00:00.000Z'), null)).toBe(false);
 		expect(isProgressBeforeStart(null, null)).toBe(false);
+	});
+});
+
+describe('checkExecution', () => {
+	const open = { autoStart: true, acknowledgedCompletedItemAdditionalRecord: false };
+
+	it('allows an unstarted assignment when the caller will auto-start it', () => {
+		expect(checkExecution('not_started', 'pending', open)).toBeNull();
+	});
+
+	it('refuses an unstarted assignment when it will not', () => {
+		expect(checkExecution('not_started', 'pending', { ...open, autoStart: false })).toBe(
+			'assignment_not_started',
+		);
+	});
+
+	it('refuses a closed assignment either way', () => {
+		expect(checkExecution('completed', 'pending', open)).toBe('assignment_not_in_progress');
+		expect(checkExecution('cancelled', 'pending', open)).toBe('assignment_not_in_progress');
+	});
+
+	it('sends a skipped stop through unskip rather than silently clearing it', () => {
+		expect(checkExecution('in_progress', 'skipped', open)).toBe('assignment_item_skipped');
+	});
+
+	it('asks before adding a second record to a completed stop', () => {
+		// The ordinary cause of this is a double submit, so it is a question
+		// rather than a refusal.
+		expect(checkExecution('in_progress', 'completed', open)).toBe(
+			'assignment_item_already_completed',
+		);
+		expect(
+			checkExecution('in_progress', 'completed', {
+				...open,
+				acknowledgedCompletedItemAdditionalRecord: true,
+			}),
+		).toBeNull();
+	});
+});
+
+describe('checkExecutionTarget', () => {
+	const stop = { entityType: 'habitat', entityId: 'habitat-1' };
+
+	it('passes when the record is for the place the stop names', () => {
+		expect(
+			checkExecutionTarget(stop, { entityType: 'habitat', entityId: 'habitat-1' }, false),
+		).toBeNull();
+	});
+
+	it('passes when the record names no target, because the stop supplies it', () => {
+		expect(checkExecutionTarget(stop, { entityType: 'habitat', entityId: null }, false)).toBeNull();
+	});
+
+	it('always refuses the wrong kind of stop', () => {
+		// A trap collection filed against a habitat stop is a bug, not a choice,
+		// so no acknowledgement clears it.
+		expect(checkExecutionTarget(stop, { entityType: 'trap', entityId: null }, true)).toBe(
+			'assignment_item_wrong_target_type',
+		);
+	});
+
+	it('asks before recording against a different target of the same kind', () => {
+		expect(
+			checkExecutionTarget(stop, { entityType: 'habitat', entityId: 'habitat-2' }, false),
+		).toBe('assignment_item_target_mismatch');
+		expect(
+			checkExecutionTarget(stop, { entityType: 'habitat', entityId: 'habitat-2' }, true),
+		).toBeNull();
 	});
 });
 

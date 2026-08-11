@@ -14,6 +14,7 @@
  * half.
  */
 
+import { sql } from '@simmer-mosquito/db';
 import { CommandError } from '../command-endpoint.js';
 import { isProgressBeforeStart, type ProgressTiming } from '../progress-timing.js';
 import type { FieldWorkTransaction } from './shared.js';
@@ -47,7 +48,10 @@ export type LifecycleRejection =
 	| 'assignment_item_skipped'
 	| 'assignment_item_not_completed'
 	| 'assignment_item_not_skipped'
-	| 'assignment_item_progress_before_start';
+	| 'assignment_item_progress_before_start'
+	| 'assignment_item_wrong_target_type'
+	| 'assignment_item_target_mismatch'
+	| 'assignment_item_already_completed';
 
 /**
  * What to tell the person who tried.
@@ -71,6 +75,9 @@ const REJECTION_REASONS: Record<LifecycleRejection, string> = {
 	assignment_item_not_skipped: 'This stop was not skipped.',
 	assignment_item_progress_before_start:
 		'This stop is dated before the assignment started. Check the assignment start time.',
+	assignment_item_wrong_target_type: 'This stop is not the kind of work you are recording.',
+	assignment_item_target_mismatch: 'This record is not for the place this stop names.',
+	assignment_item_already_completed: 'This stop is already completed.',
 };
 
 export function readAssignmentState(row: {
@@ -167,6 +174,67 @@ export function checkItemProgress(
 	return null;
 }
 
+/**
+ * Recording the work a stop was created for.
+ *
+ * Unlike the progress commands this may legally run against a not-yet-started
+ * assignment: a technician who opens the first stop of the day and records an
+ * inspection has started the assignment by doing so, and refusing them in order
+ * to demand a separate "start" tap would be theatre. The caller says whether it
+ * wants that (`autoStart`); without it, an unstarted assignment is refused
+ * exactly as a progress command would be.
+ *
+ * A second record against an already-completed stop is allowed but must be
+ * asked for, because the ordinary cause is a double submit.
+ */
+export function checkExecution(
+	parent: AssignmentState,
+	item: AssignmentItemState,
+	options: {
+		readonly autoStart: boolean;
+		readonly acknowledgedCompletedItemAdditionalRecord: boolean;
+	},
+): LifecycleRejection | null {
+	if (parent === 'not_started' && !options.autoStart) {
+		return 'assignment_not_started';
+	}
+	if (parent === 'completed' || parent === 'cancelled') {
+		return 'assignment_not_in_progress';
+	}
+	if (item === 'skipped') {
+		return 'assignment_item_skipped';
+	}
+	if (item === 'completed' && !options.acknowledgedCompletedItemAdditionalRecord) {
+		return 'assignment_item_already_completed';
+	}
+	return null;
+}
+
+/**
+ * The stop has to be the kind of stop the record is for, and — unless the
+ * caller says otherwise — about the same place. A trap collection filed against
+ * a habitat stop is always a bug; the same trap's collection filed against a
+ * *different* trap's stop is occasionally legitimate, so that one is an
+ * acknowledgement rather than a refusal.
+ */
+export function checkExecutionTarget(
+	item: { readonly entityType: string; readonly entityId: string },
+	expected: { readonly entityType: string; readonly entityId: string | null },
+	acknowledgedTargetMismatch: boolean,
+): LifecycleRejection | null {
+	if (item.entityType !== expected.entityType) {
+		return 'assignment_item_wrong_target_type';
+	}
+	if (
+		expected.entityId !== null &&
+		expected.entityId !== item.entityId &&
+		!acknowledgedTargetMismatch
+	) {
+		return 'assignment_item_target_mismatch';
+	}
+	return null;
+}
+
 // ===========================================================================
 // Transaction reads
 // ===========================================================================
@@ -228,6 +296,134 @@ export async function assertAssignmentTransition(
 	}
 
 	const rejection = check(snapshot);
+	if (rejection !== null) {
+		throw new CommandError(400, { error: rejection, reason: REJECTION_REASONS[rejection] });
+	}
+}
+
+export interface ExecutionStop {
+	readonly assignmentItemId: string;
+	readonly assignmentId: string;
+	readonly entityType: string;
+	readonly entityId: string;
+	/** Set when the assignment was auto-started by this command. */
+	readonly startedNow: boolean;
+}
+
+/**
+ * Validate a stop for execution, auto-starting its assignment when asked, and
+ * return what the caller needs to write the record.
+ *
+ * Everything here runs inside the caller's transaction, and the assignment row
+ * is locked before it is read, so two devices recording against the same
+ * assignment cannot both decide it was unstarted and both stamp a start time.
+ */
+export async function beginExecution(
+	trx: FieldWorkTransaction,
+	assignmentItemId: string,
+	organizationId: string,
+	actorProfileId: string,
+	expected: { readonly entityType: string; readonly entityId: string | null },
+	options: {
+		readonly autoStart: boolean;
+		readonly acknowledgedCompletedItemAdditionalRecord: boolean;
+		readonly acknowledgedTargetMismatch: boolean;
+	},
+): Promise<ExecutionStop> {
+	const item = await trx
+		.selectFrom('assignment_items')
+		.select(['assignment_id', 'entity_type', 'entity_id', 'completed_at', 'skipped_at'])
+		.where('id', '=', assignmentItemId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	if (item === undefined) {
+		throw new CommandError(404, { error: 'assignment_item_not_found' });
+	}
+
+	const assignment = await trx
+		.selectFrom('assignments')
+		.select(['started_at', 'completed_at', 'cancelled_at'])
+		.where('id', '=', item.assignment_id)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.forUpdate()
+		.executeTakeFirst();
+	if (assignment === undefined) {
+		throw new CommandError(404, { error: 'assignment_not_found' });
+	}
+
+	const state = readAssignmentState(assignment);
+	reject(
+		checkExecution(state, readAssignmentItemState(item), {
+			autoStart: options.autoStart,
+			acknowledgedCompletedItemAdditionalRecord: options.acknowledgedCompletedItemAdditionalRecord,
+		}),
+	);
+	reject(
+		checkExecutionTarget(
+			{ entityType: item.entity_type, entityId: item.entity_id },
+			expected,
+			options.acknowledgedTargetMismatch,
+		),
+	);
+
+	const startedNow = state === 'not_started';
+	if (startedNow) {
+		await trx
+			.updateTable('assignments')
+			.set({
+				started_at: sql`now()`,
+				updated_by_profile_id: actorProfileId,
+				updated_at: sql`now()`,
+			})
+			.where('id', '=', item.assignment_id)
+			.where('organization_id', '=', organizationId)
+			.execute();
+	}
+
+	return {
+		assignmentItemId,
+		assignmentId: item.assignment_id,
+		entityType: item.entity_type,
+		entityId: item.entity_id,
+		startedNow,
+	};
+}
+
+/**
+ * Complete the stop the record was just written for.
+ *
+ * Deliberately does not re-run `assertItemProgress`: `beginExecution` already
+ * locked the assignment and judged this transition, and the record written
+ * between them is what the completion is *for*. Re-checking would refuse the
+ * ordinary second-record-on-a-completed-stop case that was just acknowledged.
+ */
+export async function completeExecutedStop(
+	trx: FieldWorkTransaction,
+	assignmentItemId: string,
+	organizationId: string,
+	actorProfileId: string,
+	completedAt: Date | null,
+): Promise<void> {
+	await trx
+		.updateTable('assignment_items')
+		.set({
+			completed_at: completedAt === null ? sql`now()` : completedAt,
+			completed_by_profile_id: actorProfileId,
+			skipped_at: null,
+			skipped_by_profile_id: null,
+			skip_reason: null,
+			updated_by_profile_id: actorProfileId,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', assignmentItemId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.execute();
+}
+
+function reject(rejection: LifecycleRejection | null): void {
 	if (rejection !== null) {
 		throw new CommandError(400, { error: rejection, reason: REJECTION_REASONS[rejection] });
 	}

@@ -73,7 +73,10 @@ export type MissionRejection =
 	| 'mission_item_completed'
 	| 'mission_item_not_completed'
 	| 'mission_item_not_skipped'
-	| 'mission_item_progress_before_start';
+	| 'mission_item_progress_before_start'
+	| 'mission_item_wrong_control_type'
+	| 'mission_item_requested_action_mismatch'
+	| 'mission_geometry_not_covered';
 
 /**
  * What to tell the person who tried.
@@ -103,7 +106,18 @@ const REJECTION_REASONS: Record<MissionRejection, string> = {
 	mission_item_not_skipped: 'This stop was not skipped.',
 	mission_item_progress_before_start:
 		'This stop is dated before the mission started. Check the mission start time.',
+	mission_item_wrong_control_type: 'This mission is not for the kind of work you are recording.',
+	mission_item_requested_action_mismatch:
+		'This record cites a different requested action than the stop does.',
+	mission_geometry_not_covered: 'The work recorded does not cover the area this stop names.',
 };
+
+/** Throw the documented refusal, or return. Shared by the execution helpers. */
+export function rejectMission(rejection: MissionRejection | null): void {
+	if (rejection !== null) {
+		throw new CommandError(400, { error: rejection, reason: REJECTION_REASONS[rejection] });
+	}
+}
 
 export function readMissionState(row: {
 	readonly started_at: Date | null;

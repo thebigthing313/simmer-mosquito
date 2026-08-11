@@ -515,11 +515,32 @@ Helper commands include:
 - `autoStartMission`, default `true`
 - acknowledgement flags for method/requested-action/schedule/coverage issues
 
+Implemented in `apps/server/src/mission-dispatch-commands/mission-execution.ts`
+and reached through the action's own endpoint (`POST
+/control-operations/applications`, `/source-reductions`, `/biocontrol-actions`,
+`POST /public-engagement/outreach-actions`) by including `missionItemId` in the
+body. The endpoint follows the table; the command follows the unit of work. A
+body without `missionItemId` builds the ordinary `controlOperations.*` command,
+unchanged.
+
+Defaults the server fills when the command omits them:
+
+- geometry — the mission item's own geometry, so the ordinary call cannot
+  disagree with the stop it came from
+- `requested_control_action_id` — the stop's
+- method — `missions.planned_method_id`. A mission planned without one, executed
+  without one, is refused (`mission_method_required`) rather than invented.
+
+The mission row is locked before it is read, so the auto-start that may follow
+cannot race a concurrent one.
+
 Geometry mismatch acknowledgement is required only when actual action geometry
 does not fully cover/encompass the mission item geometry. For point mission
 items, coverage means the point lies on/within the action geometry or equals the
-action point. Server handlers use PostGIS predicates and may require
-acknowledgement when coverage is uncertain.
+action point. This is `ST_Covers(action.geom, mission_item.geom)`, checked after
+the action row is written and inside the same transaction, so a refusal rolls
+the write back. A null answer — one of the geometries missing — is not "does not
+cover" and is not refused.
 
 Address mismatch is warning-only because geometry is authoritative.
 

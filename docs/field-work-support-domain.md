@@ -878,8 +878,23 @@ requested change. No public v1 normalization command is required.
 
 ## Assignment Item Progress
 
-Assignment items have first-class progress in v1. Progress is not explicitly
-linked to proof rows in other tables.
+Assignment items have first-class progress in v1, and that progress is linked
+to the record that produced it. See ADR 0012.
+
+An assignment item names a place someone was sent. The record they made there
+carries the stop's id, so a completed stop can say what completed it and an
+inspection can say which stop produced it:
+
+- `inspections.assignment_item_id`
+- `collections.set_assignment_item_id`
+- `collections.collected_assignment_item_id`
+
+`collections` carries two because setting and emptying a trap are separate
+visits, routinely on separate days and therefore separate assignments. One
+column would let the collect visit overwrite the set visit's provenance.
+
+Service request stops have no such link, because there is no single record a
+service request visit produces. They stay UI-orchestrated until there is one.
 
 Schema backlog for `assignment_items`:
 
@@ -952,19 +967,55 @@ Completing or skipping all items does not automatically complete the assignment.
 The UI may prompt the user to complete the assignment when all active items are
 handled.
 
-Product UI orchestrates item completion with target workflows:
+## Assignment Item Execution
 
-- habitat item: open the inspection form; after
-  `larvalSurveillance.recordHabitatInspection` succeeds, send
-  `fieldWork.completeAssignmentItem`
-- trap item: set or collect through adult surveillance commands, then send
-  `fieldWork.completeAssignmentItem`
-- service request item: record the required request follow-up, such as a
-  service request comment, then send `fieldWork.completeAssignmentItem`
+Recording the work a stop was created for is **one command**, not two. The
+record and the completion are written in the same transaction, so there is no
+state where the work exists and the stop is still pending:
 
-If the target workflow succeeds and item completion fails, the UI should show
-that the work was recorded but the assignment item remains pending, and allow
-retrying item completion.
+- habitat item: `fieldWork.recordHabitatInspectionForAssignmentItem`
+- trap item, setting: `fieldWork.setTrapCollectionForAssignmentItem`
+- trap item, emptying: `fieldWork.collectTrapCollectionForAssignmentItem`
+- trap item, both in one visit:
+  `fieldWork.recordCollectedTrapCollectionForAssignmentItem`
+
+These are `fieldWork.*` rather than `larvalSurveillance.*`/`adultSurveillance.*`
+for the reason the mission helpers are `missionDispatch.*`: what makes them a
+unit is the assignment lifecycle, not the record. Field validation is shared
+through `packages/domain/src/surveillance-records.ts` so neither domain imports
+the other — the same seam `performed-control-actions.ts` provides for control
+actions.
+
+They are reached through the record's own endpoint (`POST
+/larval-surveillance/inspections`, `POST /adult-surveillance/collections`,
+`POST /adult-surveillance/collections/:id/collect`) by including
+`assignmentItemId` in the body. The endpoint follows the table; the command
+follows the unit of work. A body without `assignmentItemId` builds the ordinary
+surveillance command, unchanged.
+
+Options, matching `MissionExecutionOptions`:
+
+- `completeAssignmentItem`, default **true**
+- `autoStartAssignment`, default **true** — a technician who records the first
+  stop of the day has started the assignment by doing so
+- `acknowledgedCompletedItemAdditionalRecord` — required to add a second record
+  to an already-completed stop, because the ordinary cause is a double submit
+- `acknowledgedTargetMismatch` — required when the record's target is not the
+  one the stop names. A wrong *type* (a collection against a habitat stop) is
+  always refused; a different trap is only acknowledged.
+
+Server checks, in `apps/server/src/field-work-commands/assignment-lifecycle.ts`:
+the assignment row is locked before it is read, so two devices cannot both
+decide it was unstarted and both stamp a start time. A skipped stop is refused —
+unskip first.
+
+Service request items have no execution command. Record the follow-up, then send
+`fieldWork.completeAssignmentItem`; if the follow-up succeeds and completion
+fails, the UI should show that the work was recorded but the stop remains
+pending, and allow retrying.
+
+`fieldWork.completeAssignmentItem` remains for correction and for stops with no
+record to point at.
 
 ## Assignment Permissions
 

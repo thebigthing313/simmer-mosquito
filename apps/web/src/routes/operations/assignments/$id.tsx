@@ -427,6 +427,7 @@ function RunStopList({
 		<ol className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3">
 			{stops.map((stop) => (
 				<RunStopRow
+					assignmentId={assignmentId}
 					enabled={enabled}
 					isHighlighted={stop.assignmentItemId === highlightId}
 					isSelected={stop.assignmentItemId === selectedStopId}
@@ -448,8 +449,61 @@ const ACTION_LABELS: Readonly<Record<ItemAction, string>> = {
 	reopen: 'Reopen',
 };
 
+/**
+ * The record a stop exists to produce.
+ *
+ * Recording it is the ordinary way to finish a stop — the server writes the
+ * record, links it, and completes the stop in one transaction. "Done" stays
+ * beside it for the corrections and for the stops that produce nothing
+ * linkable, which is every service request stop today.
+ */
+function RecordStopWorkButton({
+	stop,
+	assignmentId,
+	enabled,
+}: {
+	readonly stop: AssignmentStopView;
+	readonly assignmentId: string;
+	readonly enabled: boolean;
+}) {
+	const search = { assignmentItemId: stop.assignmentItemId, assignmentId };
+
+	if (stop.entityType === 'habitat') {
+		return (
+			<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
+				{enabled ? (
+					<Link search={search} to="/larval-surveillance/inspections/create">
+						Record inspection
+					</Link>
+				) : (
+					<span>Record inspection</span>
+				)}
+			</Button>
+		);
+	}
+
+	if (stop.entityType === 'trap') {
+		return (
+			<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
+				{enabled ? (
+					<Link search={search} to="/adult-surveillance/collections/create">
+						Record collection
+					</Link>
+				) : (
+					<span>Record collection</span>
+				)}
+			</Button>
+		);
+	}
+
+	// Service request stops have no single record to point at, so they keep the
+	// two-step flow: handle the request, then mark the stop done.
+	return null;
+}
+
 function RunStopRow({
 	stop,
+	assignmentId,
 	enabled,
 	isSelected,
 	isHighlighted,
@@ -458,6 +512,7 @@ function RunStopRow({
 	onHover,
 }: {
 	readonly stop: AssignmentStopView;
+	readonly assignmentId: string;
 	readonly enabled: boolean;
 	readonly isSelected: boolean;
 	readonly isHighlighted: boolean;
@@ -523,13 +578,16 @@ function RunStopRow({
 
 					<WriteOnly>
 						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
+							{stop.progress === 'pending' ? (
+								<RecordStopWorkButton assignmentId={assignmentId} enabled={enabled} stop={stop} />
+							) : null}
 							{actions.map((action) => (
 								<Button
 									disabled={!enabled}
 									key={action}
 									onClick={() => onAction(stop, action)}
 									size="sm"
-									variant={action === 'complete' ? 'default' : 'outline'}
+									variant="outline"
 								>
 									{ACTION_LABELS[action]}
 								</Button>

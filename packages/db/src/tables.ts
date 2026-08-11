@@ -267,6 +267,8 @@ export interface CollectionsTable {
 	collected_by_profile_id: string | null;
 	started_at: NullableTimestampWithDefault;
 	set_by_profile_id: string | null;
+	set_assignment_item_id: string | null;
+	collected_assignment_item_id: string | null;
 	collection_timing_mode: ColumnType<
 		CollectionTimingMode,
 		CollectionTimingMode | undefined,
@@ -340,6 +342,7 @@ export interface InspectionsTable {
 	habitat_type_id: string | null;
 	address_id: string | null;
 	inspected_by_profile_id: string | null;
+	assignment_item_id: string | null;
 	inspection_date: DateColumn;
 	is_wet: BooleanWithDefault;
 	dip_count: number | null;

@@ -84,7 +84,11 @@ export type FieldWorkCommandType =
 	| 'fieldWork.completeAssignmentItem'
 	| 'fieldWork.reopenAssignmentItem'
 	| 'fieldWork.skipAssignmentItem'
-	| 'fieldWork.unskipAssignmentItem';
+	| 'fieldWork.unskipAssignmentItem'
+	| 'fieldWork.recordHabitatInspectionForAssignmentItem'
+	| 'fieldWork.setTrapCollectionForAssignmentItem'
+	| 'fieldWork.collectTrapCollectionForAssignmentItem'
+	| 'fieldWork.recordCollectedTrapCollectionForAssignmentItem';
 
 export interface FieldWorkDomainCommand<TType extends FieldWorkCommandType, TPayload> {
 	readonly type: TType;

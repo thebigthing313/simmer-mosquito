@@ -8,6 +8,7 @@ import {
 	type MissionSnapshot,
 	readMissionItemState,
 	readMissionState,
+	rejectMission,
 } from '../../../mission-dispatch-commands/mission-lifecycle.js';
 
 const at = new Date('2026-08-05T12:00:00.000Z');
@@ -228,3 +229,33 @@ function snapshot(
 		pendingItemCount,
 	};
 }
+
+describe('rejectMission', () => {
+	it('passes null through and throws a worded refusal otherwise', () => {
+		expect(() => rejectMission(null)).not.toThrow();
+		// Every rejection has to carry a sentence, or a refusal the crew could
+		// have acted on reaches them as a bare error code.
+		try {
+			rejectMission('mission_item_wrong_control_type');
+			expect.unreachable('should have thrown');
+		} catch (error) {
+			const body = (error as { readonly body: { readonly reason?: string } }).body;
+			expect(body.reason).toBe('This mission is not for the kind of work you are recording.');
+		}
+	});
+
+	it('words the two execution refusals it introduced', () => {
+		for (const rejection of [
+			'mission_item_requested_action_mismatch',
+			'mission_geometry_not_covered',
+		] as const) {
+			try {
+				rejectMission(rejection);
+				expect.unreachable('should have thrown');
+			} catch (error) {
+				const body = (error as { readonly body: { readonly reason?: string } }).body;
+				expect(body.reason).toBeTruthy();
+			}
+		}
+	});
+});

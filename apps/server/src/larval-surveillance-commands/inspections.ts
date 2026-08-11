@@ -2,14 +2,21 @@ import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
 import {
 	deleteInspectionCommand,
 	type LarvalSurveillanceCommand,
+	type RecordHabitatInspectionForAssignmentItemCommand,
 	recordAdHocInspectionCommand,
 	recordHabitatInspectionCommand,
+	recordHabitatInspectionForAssignmentItemCommand,
 	updateAdHocInspectionLocationCommand,
 	updateInspectionFieldDetailsCommand,
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { readExecutionOptions, readNullableText, readText } from '../command-payload.js';
+import { readDate } from '../command-write.js';
+import {
+	beginExecution,
+	completeExecutedStop,
+} from '../field-work-commands/assignment-lifecycle.js';
 import {
 	type CommandContext,
 	commandEndpoint,
@@ -36,6 +43,18 @@ import {
 // Inspections
 // ---------------------------------------------------------------------------
 
+/**
+ * What this endpoint can be asked to do.
+ *
+ * The assignment-execution command is a `fieldWork.*` command handled here
+ * rather than a larval one, because the endpoint is per-row and the row being
+ * written is an inspection. The command vocabulary follows the *unit of work*
+ * (a stop, closed by a record); the endpoint follows the table.
+ */
+type InspectionCommand =
+	| LarvalSurveillanceCommand
+	| RecordHabitatInspectionForAssignmentItemCommand;
+
 export function registerInspectionRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
@@ -51,6 +70,23 @@ export function registerInspectionRoutes(
 				const policy = await loadInspectionPolicy(options.db, authContext.organization.id);
 				const result = readInspectionResult(payload);
 				const habitatId = readNullableText(payload.habitatId);
+				const assignmentItemId = readNullableText(payload.assignmentItemId);
+
+				// An inspection recorded off an assignment stop is one write, not two:
+				// the stop is what sent the inspector here and the record is what closes
+				// it. See docs/field-work-support-domain.md, "Assignment Item Execution".
+				if (assignmentItemId !== null) {
+					return recordHabitatInspectionForAssignmentItemCommand({
+						...ctx,
+						assignmentItemId,
+						inspectionId: readText(payload.id) ?? '',
+						habitatId,
+						policy,
+						completedAt: readDate(payload.completedAt),
+						...readExecutionOptions(payload),
+						...result,
+					});
+				}
 
 				return habitatId !== null
 					? recordHabitatInspectionCommand({
@@ -80,7 +116,7 @@ export function registerInspectionRoutes(
 		commandEndpoint({
 			build: async ({ payload, agency: ctx, authContext, param }) => {
 				const inspectionId = param('inspectionId');
-				const commands: LarvalSurveillanceCommand[] = [];
+				const commands: InspectionCommand[] = [];
 
 				if (hasInspectionResultFields(payload)) {
 					const policy = await loadInspectionPolicy(options.db, authContext.organization.id);
@@ -132,7 +168,7 @@ export function registerInspectionRoutes(
 async function runInspectionCommands(
 	context: CommandContext,
 	db: LarvalSurveillanceDb,
-	commands: readonly LarvalSurveillanceCommand[],
+	commands: readonly InspectionCommand[],
 	createdStatus?: 201,
 ) {
 	return runCommands(
@@ -145,7 +181,7 @@ async function runInspectionCommands(
 
 async function writeInspectionCommand(
 	trx: LarvalSurveillanceTransaction,
-	command: LarvalSurveillanceCommand,
+	command: InspectionCommand,
 ): Promise<SafeInspection | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.recordHabitatInspection': {
@@ -173,6 +209,8 @@ async function writeInspectionCommand(
 				.executeTakeFirstOrThrow();
 			return toSafeInspection(row);
 		}
+		case 'fieldWork.recordHabitatInspectionForAssignmentItem':
+			return recordInspectionForStop(trx, command.payload);
 		case 'larvalSurveillance.recordAdHocInspection': {
 			const row = await trx
 				.insertInto('inspections')
@@ -248,6 +286,64 @@ async function writeInspectionCommand(
 		default:
 			throw new Error(`Unsupported inspection command: ${command.type}`);
 	}
+}
+
+/**
+ * An inspection recorded off an assignment stop: the record and the stop's
+ * completion are one transaction, so the work can never exist with the stop
+ * still pending.
+ */
+async function recordInspectionForStop(
+	trx: LarvalSurveillanceTransaction,
+	payload: RecordHabitatInspectionForAssignmentItemCommand['payload'],
+): Promise<SafeInspection | null> {
+	// Locks the assignment, judges the transition, auto-starts if asked, and
+	// tells us which habitat the stop actually names. Throws the refusal
+	// before anything is written.
+	const stop = await beginExecution(
+		trx,
+		payload.assignmentItemId,
+		payload.organizationId,
+		payload.actorProfileId,
+		{ entityType: 'habitat', entityId: payload.habitatId },
+		{
+			autoStart: payload.autoStartAssignment,
+			acknowledgedCompletedItemAdditionalRecord: payload.acknowledgedCompletedItemAdditionalRecord,
+			acknowledgedTargetMismatch: payload.acknowledgedTargetMismatch,
+		},
+	);
+	// The stop's own habitat is the default, so the ordinary call carries no
+	// habitatId at all and cannot disagree with the stop.
+	const habitatId = payload.habitatId ?? stop.entityId;
+	const snapshot = await loadHabitatSnapshot(trx, payload.organizationId, habitatId);
+	const row = await trx
+		.insertInto('inspections')
+		.values({
+			id: payload.inspectionId,
+			organization_id: payload.organizationId,
+			geom: geojsonToGeom(snapshot.geojson),
+			habitat_id: habitatId,
+			habitat_type_id: snapshot.habitatTypeId,
+			address_id: snapshot.addressId,
+			inspected_by_profile_id: payload.inspectedByProfileId,
+			inspection_date: localDateColumn(payload.inspectionDate),
+			assignment_item_id: payload.assignmentItemId,
+			...inspectionResultColumns(payload),
+			created_by_profile_id: payload.actorProfileId,
+			updated_by_profile_id: payload.actorProfileId,
+		})
+		.returning(inspectionReturnColumns)
+		.executeTakeFirstOrThrow();
+	if (payload.completeAssignmentItem) {
+		await completeExecutedStop(
+			trx,
+			payload.assignmentItemId,
+			payload.organizationId,
+			payload.actorProfileId,
+			payload.completedAt,
+		);
+	}
+	return toSafeInspection(row);
 }
 
 async function updateInspection(

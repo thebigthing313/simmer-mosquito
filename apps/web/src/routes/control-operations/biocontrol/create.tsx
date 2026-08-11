@@ -16,6 +16,7 @@ import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -30,7 +31,10 @@ export const Route = createFileRoute('/control-operations/biocontrol/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...missionStopSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/control-operations/biocontrol' });
@@ -41,7 +45,12 @@ export const Route = createFileRoute('/control-operations/biocontrol/create')({
 
 function CreateBiocontrolActionRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
+	// Recorded off a mission stop: the server links the action to the stop and
+	// completes it in the same transaction.
+	const missionItemId = search.missionItemId ?? null;
+	const missionId = search.missionId ?? null;
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
@@ -104,7 +113,7 @@ function CreateBiocontrolActionRoute() {
 				amountReleased: values.amountReleased,
 				releaseUnitId: values.releaseUnitId,
 				requestedControlActionId: null,
-				missionItemId: null,
+				missionItemId,
 				metadata: values.metadata,
 				createdByProfileId: actorProfileId,
 				updatedByProfileId: actorProfileId,
@@ -131,9 +140,15 @@ function CreateBiocontrolActionRoute() {
 					profileIds: values.additionalPersonnelIds,
 				}),
 			);
+			// Back to the worklist the stop came from; the crew's next move is the
+			// next stop, not this record.
+			if (missionId !== null) {
+				await navigate({ to: '/operations/missions/$id', params: { id: missionId } });
+				return;
+			}
 			await navigate({ to: '/control-operations/biocontrol/$id', params: { id: row.id } });
 		},
-		[organization, actorProfileId, biocontrolActionId, navigate],
+		[organization, actorProfileId, biocontrolActionId, navigate, missionItemId, missionId],
 	);
 
 	return (

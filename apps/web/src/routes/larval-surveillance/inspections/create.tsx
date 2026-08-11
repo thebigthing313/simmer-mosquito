@@ -10,6 +10,7 @@ import {
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
@@ -28,7 +29,10 @@ export const Route = createFileRoute('/larval-surveillance/inspections/create')(
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...assignmentStopSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/larval-surveillance/inspections' });
@@ -54,7 +58,12 @@ function seededDefaults(
 
 function CreateInspectionRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
+	// Recording off a stop makes this one write, not two: the server links the
+	// inspection to the stop and completes it in the same transaction.
+	const assignmentItemId = search.assignmentItemId ?? null;
+	const assignmentId = search.assignmentId ?? null;
 	const navigate = useNavigate();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 	const { organization, settings } = workspace;
@@ -106,6 +115,7 @@ function CreateInspectionRoute() {
 				organizationId: organization.id,
 				actorProfileId,
 				now,
+				assignmentItemId,
 			});
 
 			const transaction =
@@ -154,12 +164,22 @@ function CreateInspectionRoute() {
 				});
 			}
 
+			// Back to the worklist the stop came from, not to the inspection: the
+			// crew's next move is the next stop.
+			if (assignmentId !== null) {
+				await navigate({
+					to: '/operations/assignments/$id',
+					params: { id: assignmentId },
+				});
+				return;
+			}
+
 			await navigate({
 				to: '/larval-surveillance/inspections/$id',
 				params: { id: row.id },
 			});
 		},
-		[organization, actorProfileId, inspectionId, navigate],
+		[organization, actorProfileId, inspectionId, navigate, assignmentItemId, assignmentId],
 	);
 
 	return (
@@ -194,6 +214,7 @@ function buildInspectionRow(
 		readonly organizationId: string;
 		readonly actorProfileId: string;
 		readonly now: string;
+		readonly assignmentItemId: string | null;
 	},
 ): InspectionRow {
 	const wet = values.isWet;
@@ -209,6 +230,7 @@ function buildInspectionRow(
 			isAdhoc && values.habitatTypeId !== noHabitatTypeValue ? values.habitatTypeId : null,
 		addressId: isAdhoc ? values.addressId : null,
 		inspectedByProfileId: values.inspectedByProfileId,
+		assignmentItemId: context.assignmentItemId,
 		inspectionDate: values.inspectionDate,
 		isWet: wet,
 		dipCount: wet ? values.dipCount : null,

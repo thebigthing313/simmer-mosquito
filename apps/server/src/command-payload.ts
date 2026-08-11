@@ -45,3 +45,54 @@ export function readNullableText(value: unknown): string | null {
 export function readNumber(value: unknown): number | undefined {
 	return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
+
+/**
+ * The flags an assignment-execution write carries alongside the record.
+ *
+ * Read as a group because they travel as a group, and because the two defaults
+ * that matter are defaults the *domain* sets, not this layer: omitting
+ * `completeAssignmentItem` means "yes, close the stop". Only an explicit
+ * `false` turns it off, so a client that has never heard of these flags gets
+ * the behaviour the field wants.
+ */
+export function readExecutionOptions(payload: Record<string, unknown>): {
+	readonly completeAssignmentItem?: boolean;
+	readonly autoStartAssignment?: boolean;
+	readonly acknowledgedCompletedItemAdditionalRecord?: boolean;
+	readonly acknowledgedTargetMismatch?: boolean;
+} {
+	return {
+		...(payload.completeAssignmentItem === false ? { completeAssignmentItem: false } : {}),
+		...(payload.autoStartAssignment === false ? { autoStartAssignment: false } : {}),
+		...(payload.acknowledgedCompletedItemAdditionalRecord === true
+			? { acknowledgedCompletedItemAdditionalRecord: true }
+			: {}),
+		...(payload.acknowledgedTargetMismatch === true ? { acknowledgedTargetMismatch: true } : {}),
+	};
+}
+
+/**
+ * The same group for a mission stop.
+ *
+ * Separate from {@link readExecutionOptions} rather than shared with it because
+ * the two carry different acknowledgements — a mission stop has ground to cover
+ * and a requested action to agree with, an assignment stop has a typed target —
+ * and folding them together would offer each side flags it cannot honour.
+ */
+export function readMissionExecutionOptions(payload: Record<string, unknown>): {
+	readonly completeMissionItem?: boolean;
+	readonly autoStartMission?: boolean;
+	readonly acknowledgedMissionGeometryNotCovered?: boolean;
+	readonly acknowledgedRequestedActionMismatch?: boolean;
+} {
+	return {
+		...(payload.completeMissionItem === false ? { completeMissionItem: false } : {}),
+		...(payload.autoStartMission === false ? { autoStartMission: false } : {}),
+		...(payload.acknowledgedMissionGeometryNotCovered === true
+			? { acknowledgedMissionGeometryNotCovered: true }
+			: {}),
+		...(payload.acknowledgedRequestedActionMismatch === true
+			? { acknowledgedRequestedActionMismatch: true }
+			: {}),
+	};
+}

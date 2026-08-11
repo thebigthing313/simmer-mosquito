@@ -131,8 +131,10 @@ function MissionPanel({
 				target={{ type: 'mission', id: missionId }}
 			>
 				<MissionStopList
+					controlType={run.mission?.controlType ?? null}
 					highlightId={run.highlightId}
 					isLoading={run.isLoadingStops}
+					missionId={missionId}
 					onAction={run.itemAction}
 					onHover={run.setHighlightId}
 					onMove={run.move}
