@@ -29,7 +29,7 @@ Per-app dev servers: `pnpm dev:server`, `pnpm dev:web`, `pnpm dev:admin`, `pnpm 
 **All work happens on a branch**, merged to `staging`, and `staging` is promoted to `main` to release. A branch that changes what a user can do carries a changeset; refactors, tests, tooling, and docs do not.
 
 ```sh
-pnpm changeset          # write one — body starts with Added:/Changed:/Fixed:/Removed:
+pnpm changeset          # write one — body starts with Added:, Changed:, or Fixed:
 pnpm changeset:status   # what is pending on this branch
 pnpm release:version    # promotion only: consume changesets, bump versions, stamp dates
 ```

@@ -53,12 +53,16 @@ because a change felt large.
 Added: Region filters on every map page, so you can scope a view to one district.
 ```
 
-The tokens are `Added:`, `Changed:`, `Fixed:`, `Removed:`. They are what the
-changelog page groups by — changesets' own headings are the semver bump
-("Minor Changes"), which is developer vocabulary and is dropped before the page
-draws. An entry with no token lands under "Other changes", which is worth
-treating as a signal that the change was not described in terms of what someone
-can now do differently.
+The tokens are `Added:`, `Changed:`, and `Fixed:` — those three and no others.
+They are what the changelog page groups by: changesets' own headings are the
+semver bump ("Minor Changes"), which is developer vocabulary and is dropped
+before the page draws.
+
+An entry with no token still appears, above the grouped ones and under no
+heading. That is deliberate on both counts. Losing it would silently drop a
+change a user was told about; inventing a category for it would make a badly
+written changeset look like a decision. A release drawing ungrouped entries is
+a review miss, and reads like one.
 
 The audience is agency staff, so `DESIGN.md`'s copy rules apply: say what the
 thing does, don't explain the domain back to them, don't cite best practice.

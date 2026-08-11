@@ -5,7 +5,7 @@
  * always the semver bump ("Minor Changes", "Patch Changes") and there is no
  * hook to replace them. Those words mean nothing to an agency reading what
  * changed this week, so the category a reader actually wants travels *inside*
- * the line as a leading `Added:` / `Changed:` / `Fixed:` / `Removed:` token,
+ * the line as a leading `Added:` / `Changed:` / `Fixed:` token,
  * and the in-app changelog page regroups by that token and ignores the semver
  * headings entirely. The markdown file stays the developer artifact; the page
  * is the product one.

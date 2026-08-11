@@ -43,8 +43,6 @@ export interface ShellContextValue {
 	 * placeholder that would be a lie in a screenshot.
 	 */
 	readonly version?: string;
-	/** Where the version link goes. Defaults to `/changelog`. */
-	readonly changelogPath?: string;
 	/** Current location, router-agnostic. Drives active nav + breadcrumbs. */
 	readonly activePath: string;
 	readonly onNavigate: (to: string) => void;
@@ -75,7 +73,6 @@ export function ShellProvider({
 	standalonePages,
 	accountLinks,
 	version,
-	changelogPath,
 	activePath,
 	onNavigate,
 	onSignOut,
@@ -94,7 +91,6 @@ export function ShellProvider({
 			...(standalonePages ? { standalonePages } : {}),
 			...(accountLinks ? { accountLinks } : {}),
 			...(version ? { version } : {}),
-			...(changelogPath ? { changelogPath } : {}),
 			...(onSignOut ? { onSignOut } : {}),
 			...(getToday ? { getToday } : {}),
 		}),
@@ -108,7 +104,6 @@ export function ShellProvider({
 			standalonePages,
 			accountLinks,
 			version,
-			changelogPath,
 			activePath,
 			onNavigate,
 			onSignOut,

@@ -90,6 +90,24 @@ describe('ChangelogPage', () => {
 		);
 	});
 
+	it('draws an untokenized entry above the groups, under no heading of its own', () => {
+		render(
+			<ChangelogPage
+				currentVersion="1.0.0"
+				description="What has changed in SIMMER, newest first."
+				markdown={'# app\n\n## 1.0.0\n\n- Something happened.\n- Fixed: A crash.\n'}
+				title="What's New"
+			/>,
+		);
+
+		expect(screen.getByText('Something happened.')).toBeTruthy();
+		// The invented "Other changes" bucket is gone; only the three real
+		// categories get a heading.
+		expect(screen.getAllByRole('heading', { level: 3 }).map((node) => node.textContent)).toEqual([
+			'Fixed',
+		]);
+	});
+
 	it('says so plainly when there are no releases yet', () => {
 		render(
 			<ChangelogPage

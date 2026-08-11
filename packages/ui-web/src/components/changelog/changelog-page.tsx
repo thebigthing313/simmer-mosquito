@@ -71,25 +71,36 @@ function ReleaseSection({
 					</Badge>
 				) : null}
 			</div>
-			{release.groups.length === 0 ? (
+			{release.groups.length === 0 && release.uncategorized.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
 					Maintenance release with no user-facing changes.
 				</p>
 			) : (
-				release.groups.map((group) => (
-					<section className="grid gap-2" key={group.label}>
-						<h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-							{group.label}
-						</h3>
-						<ul className="grid list-disc gap-1.5 pl-5 text-foreground text-sm leading-relaxed marker:text-muted-foreground">
-							{group.entries.map((entry) => (
-								<li key={entry}>{entry}</li>
-							))}
-						</ul>
-					</section>
-				))
+				<>
+					{release.uncategorized.length === 0 ? null : (
+						<EntryList entries={release.uncategorized} />
+					)}
+					{release.groups.map((group) => (
+						<section className="grid gap-2" key={group.label}>
+							<h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+								{group.label}
+							</h3>
+							<EntryList entries={group.entries} />
+						</section>
+					))}
+				</>
 			)}
 		</li>
+	);
+}
+
+function EntryList({ entries }: { readonly entries: readonly string[] }) {
+	return (
+		<ul className="grid list-disc gap-1.5 pl-5 text-foreground text-sm leading-relaxed marker:text-muted-foreground">
+			{entries.map((entry) => (
+				<li key={entry}>{entry}</li>
+			))}
+		</ul>
 	);
 }
 

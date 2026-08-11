@@ -24,7 +24,7 @@ Two rules the formatter depends on:
 - **Only the two apps are versioned.** Every other workspace package is in
   `ignore`. A change to `packages/ui-web` or `apps/server` is filed against the
   app whose surface it changes — often both, in one changeset.
-- **The body starts with `Added:`, `Changed:`, `Fixed:`, or `Removed:`.** That
-  token becomes the heading on the changelog page. Without it the entry lands
-  under "Other changes", which is a sign the change was not described in terms
-  of what a user can now do differently.
+- **The body starts with `Added:`, `Changed:`, or `Fixed:`.** That token becomes
+  the heading on the changelog page. Without it the entry still appears, but
+  ungrouped and above the rest — a sign the change was not described in terms of
+  what a user can now do differently.

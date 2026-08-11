@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseChangelog, UNCATEGORIZED_LABEL } from '../../../lib/changelog';
+import { parseChangelog } from '../../../lib/changelog';
 
 /**
  * The parser reads a file nobody writes by hand, so what is worth pinning is
@@ -58,25 +58,19 @@ describe('parseChangelog', () => {
 		]);
 	});
 
-	it('orders groups Added, Changed, Fixed, Removed regardless of file order', () => {
+	it('orders groups Added, Changed, Fixed regardless of file order', () => {
 		const releases = parseChangelog(`# app
 
 ## 1.0.0
 
 ### Minor Changes
 
-- Removed: The old export button.
 - Fixed: A crash on empty results.
 - Added: A new export dialog.
 - Changed: The default date range.
 `);
 
-		expect(releases[0]?.groups.map((group) => group.label)).toEqual([
-			'Added',
-			'Changed',
-			'Fixed',
-			'Removed',
-		]);
+		expect(releases[0]?.groups.map((group) => group.label)).toEqual(['Added', 'Changed', 'Fixed']);
 	});
 
 	it('drops the token from the entry text', () => {
@@ -85,12 +79,21 @@ describe('parseChangelog', () => {
 		expect(releases[0]?.groups[0]?.entries).toEqual(['The thing.']);
 	});
 
-	it('collects an untokenized entry under a visible fallback heading', () => {
+	// Losing it would silently drop a change a user was told about; filing it
+	// under an invented category would make a badly written changeset look
+	// deliberate. It stays visible, and stays outside the three real groups.
+	it('keeps an untokenized entry, ungrouped rather than under an invented heading', () => {
 		const releases = parseChangelog('# app\n\n## 1.0.0\n\n- Something happened.\n');
 
-		expect(releases[0]?.groups).toEqual([
-			{ label: UNCATEGORIZED_LABEL, entries: ['Something happened.'] },
-		]);
+		expect(releases[0]?.uncategorized).toEqual(['Something happened.']);
+		expect(releases[0]?.groups).toEqual([]);
+	});
+
+	it('does not treat Removed: as a category — it is not one of the three', () => {
+		const releases = parseChangelog('# app\n\n## 1.0.0\n\n- Removed: The old export button.\n');
+
+		expect(releases[0]?.groups).toEqual([]);
+		expect(releases[0]?.uncategorized).toEqual(['Removed: The old export button.']);
 	});
 
 	it('folds an indented continuation line into the bullet above it', () => {
@@ -106,7 +109,9 @@ describe('parseChangelog', () => {
 			'# app\n\n## 1.0.0 — 2026-01-02\n\n### Patch Changes\n\n- Fixed:\n',
 		);
 
-		expect(releases).toEqual([{ version: '1.0.0', date: '2026-01-02', groups: [] }]);
+		expect(releases).toEqual([
+			{ version: '1.0.0', date: '2026-01-02', uncategorized: [], groups: [] },
+		]);
 	});
 
 	it('returns nothing for a changelog with no releases in it yet', () => {

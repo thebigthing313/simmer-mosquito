@@ -9,8 +9,8 @@
  * It deliberately **ignores the `###` headings**. Changesets can only ever name
  * them after the semver bump, and "Minor Changes" is developer vocabulary; the
  * category a reader wants travels as a leading `Added:` / `Changed:` / `Fixed:`
- * / `Removed:` token on each bullet instead (see `.changeset/README.md`). So
- * every bullet in a release is collected flat and regrouped by its own token.
+ * token on each bullet instead (see `.changeset/README.md`). So every bullet in
+ * a release is collected flat and regrouped by its own token.
  *
  * Pure and string-in/data-out: the page imports the markdown with Vite's `?raw`
  * and calls this at module load, so there is no fetch, no markdown renderer,
@@ -18,16 +18,12 @@
  */
 
 /** The categories a changeset may declare, in the order they are drawn. */
-export const CHANGELOG_CATEGORIES = ['Added', 'Changed', 'Fixed', 'Removed'] as const;
+export const CHANGELOG_CATEGORIES = ['Added', 'Changed', 'Fixed'] as const;
 
 export type ChangelogCategory = (typeof CHANGELOG_CATEGORIES)[number];
 
-/** Where an entry lands when its changeset declared no category. */
-export const UNCATEGORIZED_LABEL = 'Other changes';
-
 export interface ChangelogGroup {
-	/** A category name, or {@link UNCATEGORIZED_LABEL}. */
-	readonly label: string;
+	readonly label: ChangelogCategory;
 	readonly entries: readonly string[];
 }
 
@@ -35,26 +31,36 @@ export interface ChangelogRelease {
 	readonly version: string;
 	/** `YYYY-MM-DD`, stamped by `scripts/release-version.mjs`. Absent on old or hand-written entries. */
 	readonly date: string | null;
+	/**
+	 * Entries whose changeset declared no category.
+	 *
+	 * They are drawn above the groups rather than under an invented heading. An
+	 * untokenized entry is a changeset that was written badly, and inventing a
+	 * category for it would both add a heading nobody chose and make the mistake
+	 * look deliberate — but dropping it would silently lose a change a user was
+	 * told about, which is worse than either.
+	 */
+	readonly uncategorized: readonly string[];
 	readonly groups: readonly ChangelogGroup[];
 }
 
 const RELEASE_HEADING = /^##\s+(\d+\.\d+\.\d+[^\s—-]*)\s*(?:[—-]\s*(\d{4}-\d{2}-\d{2}))?\s*$/;
 const SECTION_HEADING = /^###\s+/;
 const BULLET = /^[-*]\s+(.*)$/;
-const CATEGORY_TOKEN = /^(Added|Changed|Fixed|Removed)\s*:\s*(.*)$/;
+const CATEGORY_TOKEN = /^(Added|Changed|Fixed)\s*:\s*(.*)$/;
 
-/** Draw order for groups: the known categories first, then anything else. */
-function categoryRank(label: string): number {
-	const index = (CHANGELOG_CATEGORIES as readonly string[]).indexOf(label);
-	return index === -1 ? CHANGELOG_CATEGORIES.length : index;
+interface SortedEntries {
+	readonly uncategorized: readonly string[];
+	readonly groups: readonly ChangelogGroup[];
 }
 
-function groupEntries(entries: readonly string[]): readonly ChangelogGroup[] {
-	const byLabel = new Map<string, string[]>();
+function sortEntries(entries: readonly string[]): SortedEntries {
+	const byCategory = new Map<ChangelogCategory, string[]>();
+	const uncategorized: string[] = [];
 
 	for (const entry of entries) {
 		const match = CATEGORY_TOKEN.exec(entry);
-		const label = match?.[1] ?? UNCATEGORIZED_LABEL;
+		const category = match?.[1] as ChangelogCategory | undefined;
 		const text = match?.[2]?.trim() ?? entry;
 
 		// A token with nothing after it describes no change; drop it rather than
@@ -63,17 +69,29 @@ function groupEntries(entries: readonly string[]): readonly ChangelogGroup[] {
 			continue;
 		}
 
-		const bucket = byLabel.get(label);
+		if (category === undefined) {
+			uncategorized.push(text);
+			continue;
+		}
+
+		const bucket = byCategory.get(category);
 		if (bucket === undefined) {
-			byLabel.set(label, [text]);
+			byCategory.set(category, [text]);
 		} else {
 			bucket.push(text);
 		}
 	}
 
-	return [...byLabel.entries()]
-		.map(([label, groupEntriesList]) => ({ label, entries: groupEntriesList }))
-		.sort((left, right) => categoryRank(left.label) - categoryRank(right.label));
+	// Draw order is the declared category order, not the order the file happened
+	// to list them in — two releases should not disagree about where "Fixed" sits.
+	const groups = CHANGELOG_CATEGORIES.flatMap((category) => {
+		const entriesForCategory = byCategory.get(category);
+		return entriesForCategory === undefined
+			? []
+			: [{ label: category, entries: entriesForCategory }];
+	});
+
+	return { uncategorized, groups };
 }
 
 /**
@@ -92,10 +110,9 @@ export function parseChangelog(markdown: string): readonly ChangelogRelease[] {
 			return;
 		}
 
-		const groups = groupEntries(entries);
 		// A release whose every bullet was empty still shipped, and saying so is
 		// more honest than hiding the version the sidebar is displaying.
-		releases.push({ version, date, groups });
+		releases.push({ version, date, ...sortEntries(entries) });
 	};
 
 	for (const rawLine of markdown.split('\n')) {
