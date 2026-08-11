@@ -28,7 +28,7 @@
     },
     "apps/admin/src/routes/-auth.tsx": {
       "crap_moderate": {
-        "count": 3
+        "count": 2
       }
     },
     "apps/admin/src/routes/organizations/$organizationId/foundations.tsx": {
@@ -316,6 +316,9 @@
       }
     },
     "apps/server/src/public-engagement-records-commands/service-requests.ts": {
+      "complexity_high": {
+        "count": 1
+      },
       "crap_high": {
         "count": 1
       }
@@ -355,11 +358,6 @@
         "count": 1
       }
     },
-    "apps/web/src/components/date-range-filter.tsx": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/explorer-pagination.tsx": {
       "crap_high": {
         "count": 1
@@ -373,11 +371,6 @@
         "count": 1
       }
     },
-    "apps/web/src/components/explorer/result-meta.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/explorer/use-entity-tags.ts": {
       "crap_high": {
         "count": 1
@@ -386,14 +379,6 @@
     "apps/web/src/components/explorer/use-fly-to-selection.ts": {
       "crap_moderate": {
         "count": 1
-      }
-    },
-    "apps/web/src/components/explorer/use-paged-map-resource.ts": {
-      "crap_high": {
-        "count": 2
-      },
-      "crap_moderate": {
-        "count": 2
       }
     },
     "apps/web/src/components/key-entry/key-entry-dialog.tsx": {
@@ -1695,10 +1680,10 @@
         "count": 1
       },
       "crap_high": {
-        "count": 3
+        "count": 4
       },
       "crap_moderate": {
-        "count": 4
+        "count": 5
       }
     },
     "apps/web/src/routes/public-engagement/service-requests/$id_.edit.tsx": {
@@ -1939,11 +1924,6 @@
         "count": 1
       },
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "packages/ui-web/src/components/ui/date-picker.tsx": {
-      "crap_high": {
         "count": 1
       }
     },
