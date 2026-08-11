@@ -31,7 +31,6 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
@@ -48,7 +47,16 @@ import {
 } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { RegionFolderDialog } from './-folder-dialog';
+import {
+	isHoveredDropTarget,
+	REGION_DND_TYPE,
+	type RegionDnd,
+	type RegionDropTarget,
+	regionDropZoneProps,
+	useRegionDnd,
+} from './-region-dnd';
 import { RegionMapCard } from './-region-map-card';
+import { type RegionRename, useRegionRename } from './-region-rename';
 
 interface RegionFilters {
 	readonly search: string;
@@ -66,28 +74,6 @@ const RegionIcon = iconRegistry.entities.region.icon;
 const ImportIcon = iconRegistry.actions.upload.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const regionsGcTimeMs = 30_000;
-
-/** Drag payload type + a sentinel drop key for the "move out of any folder" zone. */
-const REGION_DND_TYPE = 'application/x-simmer-region';
-const UNFILED_DROP_KEY = '__unfiled__';
-
-/** Shared drag-and-drop wiring threaded down to rows (sources) and folders (targets). */
-interface RegionDnd {
-	readonly draggingId: string | null;
-	readonly dropTargetKey: string | null;
-	readonly onDragStart: (id: string) => void;
-	readonly onDragEnd: () => void;
-	readonly onDragOverTarget: (key: string) => void;
-	readonly onDropRegion: (regionId: string, folderId: string | null) => void;
-}
-
-/** Shared inline-rename state + actions threaded down to every region row. */
-interface RegionRename {
-	readonly renamingId: string | null;
-	readonly start: (id: string) => void;
-	readonly commit: (id: string, name: string) => void;
-	readonly cancel: () => void;
-}
 
 function RegionsExplorerRoute() {
 	const { auth } = Route.useRouteContext();
@@ -134,10 +120,6 @@ function RegionsExplorerRoute() {
 	);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
-	// Inline rename + drag-and-drop transient state.
-	const [renamingId, setRenamingId] = useState<string | null>(null);
-	const [draggingId, setDraggingId] = useState<string | null>(null);
-	const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
 	// `null` = closed; a folder row = edit it; `'new'` = create one.
 	const [folderDialog, setFolderDialog] = useState<RegionFolderRow | 'new' | null>(null);
 
@@ -257,7 +239,6 @@ function RegionsExplorerRoute() {
 		async (id: string, rawName: string) => {
 			const name = rawName.trim();
 			const current = regionsRef.current.find((region) => region.id === id);
-			setRenamingId(null);
 			if (current === undefined || name.length === 0 || name === current.name) {
 				return;
 			}
@@ -306,33 +287,8 @@ function RegionsExplorerRoute() {
 		[actorProfileId],
 	);
 
-	const dnd = useMemo<RegionDnd>(
-		() => ({
-			draggingId,
-			dropTargetKey,
-			onDragStart: (id) => setDraggingId(id),
-			onDragEnd: () => {
-				setDraggingId(null);
-				setDropTargetKey(null);
-			},
-			onDragOverTarget: (key) => setDropTargetKey(key),
-			onDropRegion: (regionId, folderId) => {
-				setDropTargetKey(null);
-				void moveRegion(regionId, folderId);
-			},
-		}),
-		[draggingId, dropTargetKey, moveRegion],
-	);
-
-	const rename = useMemo<RegionRename>(
-		() => ({
-			renamingId,
-			start: (id) => setRenamingId(id),
-			commit: (id, name) => void renameRegion(id, name),
-			cancel: () => setRenamingId(null),
-		}),
-		[renamingId, renameRegion],
-	);
+	const dnd = useRegionDnd(moveRegion);
+	const rename = useRegionRename(renameRegion);
 
 	return (
 		<MapSplitPage
@@ -444,22 +400,8 @@ function RegionsExplorerRoute() {
 	);
 }
 
-/** dragover guard: accept only region drags, and signal a "move" cursor. */
-function allowRegionDrop(event: React.DragEvent<HTMLElement>): boolean {
-	if (!event.dataTransfer.types.includes(REGION_DND_TYPE)) {
-		return false;
-	}
-	event.preventDefault();
-	event.dataTransfer.dropEffect = 'move';
-	return true;
-}
-
-function readDraggedRegionId(event: React.DragEvent<HTMLElement>): string | null {
-	const id = event.dataTransfer.getData(REGION_DND_TYPE);
-	return id.length > 0 ? id : null;
-}
-
-function FolderNode({
+/** Exported for the drop-zone test: the zone has to reach the rows, not just the header. */
+export function FolderNode({
 	folder,
 	regions,
 	expanded,
@@ -493,91 +435,86 @@ function FolderNode({
 			: visibleCount === 0
 				? false
 				: 'indeterminate';
-	const isDropTarget = dnd.draggingId !== null && dnd.dropTargetKey === folder.id;
+	const dropTarget: RegionDropTarget = { kind: 'folder', folderId: folder.id };
+	const isDropTarget = isHoveredDropTarget(dnd, dropTarget);
 
 	return (
-		<Collapsible onOpenChange={onToggleExpand} open={expanded}>
-			{/* biome-ignore lint/a11y/noStaticElementInteractions: native drag-and-drop drop zone; the region edit form's folder select is the keyboard-accessible path */}
-			<div
-				className={cn(
-					'group flex items-center gap-1.5 rounded-md px-1.5 py-1',
-					isDropTarget ? 'bg-primary/10 ring-1 ring-primary/40' : 'hover:bg-muted/50',
-				)}
-				onDragOver={(event) => {
-					if (allowRegionDrop(event)) {
-						dnd.onDragOverTarget(folder.id);
-					}
-				}}
-				onDrop={(event) => {
-					if (!allowRegionDrop(event)) {
-						return;
-					}
-					const id = readDraggedRegionId(event);
-					if (id !== null) {
-						dnd.onDropRegion(id, folder.id);
-					}
-				}}
-			>
-				<CollapsibleTrigger
-					aria-label={expanded ? 'Collapse folder' : 'Expand folder'}
-					className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-					disabled={regions.length === 0}
+		// The drop zone wraps the folder's rows as well as its header: dropping
+		// onto a region already in the folder is the same gesture, and the empty
+		// folder's "drop to add" hint renders down there. Native drag-and-drop is
+		// mouse-only; the region edit form's folder select is the keyboard path.
+		<div
+			className={cn('rounded-md', isDropTarget ? 'bg-primary/10 ring-1 ring-primary/40' : null)}
+			{...regionDropZoneProps(dnd, dropTarget)}
+		>
+			<Collapsible onOpenChange={onToggleExpand} open={expanded}>
+				<div
+					className={cn(
+						'group flex items-center gap-1.5 rounded-md px-1.5 py-1',
+						isDropTarget ? null : 'hover:bg-muted/50',
+					)}
 				>
-					{expanded ? (
-						<ChevronDownIcon aria-hidden="true" className="size-4" />
-					) : (
-						<ChevronRightIcon aria-hidden="true" className="size-4" />
-					)}
-				</CollapsibleTrigger>
-				<Checkbox
-					aria-label={`Toggle all regions in ${folder.name}`}
-					checked={checkState}
-					disabled={regions.length === 0}
-					onCheckedChange={(value) => onToggleFolder(value === true)}
-				/>
-				<div className="min-w-0 flex-1">
-					<p className="m-0 truncate font-medium text-foreground text-sm">{folder.name}</p>
-					{folder.description === null || folder.description.length === 0 ? null : (
-						<p className="m-0 truncate text-muted-foreground text-xs">{folder.description}</p>
-					)}
+					<CollapsibleTrigger
+						aria-label={expanded ? 'Collapse folder' : 'Expand folder'}
+						className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+						disabled={regions.length === 0}
+					>
+						{expanded ? (
+							<ChevronDownIcon aria-hidden="true" className="size-4" />
+						) : (
+							<ChevronRightIcon aria-hidden="true" className="size-4" />
+						)}
+					</CollapsibleTrigger>
+					<Checkbox
+						aria-label={`Toggle all regions in ${folder.name}`}
+						checked={checkState}
+						disabled={regions.length === 0}
+						onCheckedChange={(value) => onToggleFolder(value === true)}
+					/>
+					<div className="min-w-0 flex-1">
+						<p className="m-0 truncate font-medium text-foreground text-sm">{folder.name}</p>
+						{folder.description === null || folder.description.length === 0 ? null : (
+							<p className="m-0 truncate text-muted-foreground text-xs">{folder.description}</p>
+						)}
+					</div>
+					<Badge className="shrink-0" tone="neutral" variant="outline">
+						{regions.length}
+					</Badge>
+					<button
+						aria-label={`Edit ${folder.name}`}
+						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+						onClick={onEdit}
+						title="Edit Folder"
+						type="button"
+					>
+						<EditIcon aria-hidden="true" className="size-4" />
+					</button>
 				</div>
-				<Badge className="shrink-0" tone="neutral" variant="outline">
-					{regions.length}
-				</Badge>
-				<button
-					aria-label={`Edit ${folder.name}`}
-					className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
-					onClick={onEdit}
-					title="Edit Folder"
-					type="button"
-				>
-					<EditIcon aria-hidden="true" className="size-4" />
-				</button>
-			</div>
-			<CollapsibleContent>
-				<div className="ml-3 border-border/50 border-l pl-1.5">
-					{regions.length === 0 ? (
-						<p className="px-2 py-1 text-muted-foreground text-xs">
-							{isDropTarget ? 'Drop to add to this folder.' : 'No regions in this folder.'}
-						</p>
-					) : (
-						regions.map((region) => (
-							<RegionTreeRow
-								depth={1}
-								dnd={dnd}
-								isFocused={region.id === focusedId}
-								isVisible={visibleIds.has(region.id)}
-								key={region.id}
-								onFocus={() => onFocusRegion(region.id)}
-								onToggle={(on) => onToggleRegion(region.id, on)}
-								region={region}
-								rename={rename}
-							/>
-						))
-					)}
-				</div>
-			</CollapsibleContent>
-		</Collapsible>
+				<CollapsibleContent>
+					<div className="ml-3 border-border/50 border-l pl-1.5">
+						{regions.length === 0 ? (
+							<p className="px-2 py-1 text-muted-foreground text-xs">
+								{isDropTarget ? 'Drop to add to this folder.' : 'No regions in this folder.'}
+							</p>
+						) : (
+							regions.map((region) => (
+								<RegionTreeRow
+									depth={1}
+									dnd={dnd}
+									isFocused={region.id === focusedId}
+									isVisible={visibleIds.has(region.id)}
+									key={region.id}
+									onFocus={() => onFocusRegion(region.id)}
+									onToggle={(on) => onToggleRegion(region.id, on)}
+									region={region}
+									rename={rename}
+								/>
+							))
+						)}
+					</div>
+				</CollapsibleContent>
+			</Collapsible>
+		</div>
 	);
 }
 
@@ -627,31 +564,21 @@ function UnfiledGroup({
 		return <>{rows}</>;
 	}
 
-	const isDropTarget = dnd.draggingId !== null && dnd.dropTargetKey === UNFILED_DROP_KEY;
+	const dropTarget: RegionDropTarget = { kind: 'unfiled' };
+	const isDropTarget = isHoveredDropTarget(dnd, dropTarget);
 
 	return (
-		<div className="mt-1">
-			{/* biome-ignore lint/a11y/noStaticElementInteractions: native drag-and-drop drop zone; the region edit form's folder select is the keyboard-accessible path */}
-			<div
-				className={cn(
-					'flex items-center gap-1.5 rounded-md px-1.5 py-1',
-					isDropTarget ? 'bg-primary/10 ring-1 ring-primary/40' : null,
-				)}
-				onDragOver={(event) => {
-					if (allowRegionDrop(event)) {
-						dnd.onDragOverTarget(UNFILED_DROP_KEY);
-					}
-				}}
-				onDrop={(event) => {
-					if (!allowRegionDrop(event)) {
-						return;
-					}
-					const id = readDraggedRegionId(event);
-					if (id !== null) {
-						dnd.onDropRegion(id, null);
-					}
-				}}
-			>
+		// The rows are inside the drop zone with the header, so dropping onto an
+		// already-unfiled region is the same gesture as dropping onto "Unfiled".
+		// Keyboard path is the region edit form's folder select, as above.
+		<div
+			className={cn(
+				'mt-1 rounded-md',
+				isDropTarget ? 'bg-primary/10 ring-1 ring-primary/40' : null,
+			)}
+			{...regionDropZoneProps(dnd, dropTarget)}
+		>
+			<div className="flex items-center gap-1.5 rounded-md px-1.5 py-1">
 				<span className="min-w-0 flex-1 truncate font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					Unfiled
 				</span>
