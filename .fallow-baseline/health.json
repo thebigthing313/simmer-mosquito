@@ -315,14 +315,6 @@
         "count": 1
       }
     },
-    "apps/server/src/public-engagement-records-commands/service-requests.ts": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/app-shell/app-shell-root.tsx": {
       "complexity_critical": {
         "count": 1
@@ -1673,17 +1665,8 @@
       }
     },
     "apps/web/src/routes/public-engagement/service-requests/$id.tsx": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 4
-      },
       "crap_moderate": {
-        "count": 5
+        "count": 6
       }
     },
     "apps/web/src/routes/public-engagement/service-requests/$id_.edit.tsx": {
@@ -1703,8 +1686,8 @@
       }
     },
     "apps/web/src/routes/public-engagement/service-requests/-service-request-nearby.ts": {
-      "crap_critical": {
-        "count": 2
+      "crap_moderate": {
+        "count": 1
       }
     },
     "apps/web/src/routes/public-engagement/service-requests/create.tsx": {

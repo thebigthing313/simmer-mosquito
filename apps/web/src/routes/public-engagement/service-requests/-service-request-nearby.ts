@@ -77,6 +77,31 @@ export const NEARBY_CATEGORY_LABEL: Readonly<Record<NearbyCategory, string>> = {
 	biocontrol: 'Biocontrol',
 };
 
+/** How many nearby records fell in each family, for the toggle counts. */
+export function countNearbyByFamily(
+	items: readonly NearbyItem[],
+): Readonly<Record<NearbyFamily, number>> {
+	const counts: Record<NearbyFamily, number> = {
+		infrastructure: 0,
+		surveillance: 0,
+		control: 0,
+	};
+	for (const item of items) {
+		counts[NEARBY_FAMILY_OF[item.category]] += 1;
+	}
+	return counts;
+}
+
+/** The records the visible-family toggles let through, nearest first. */
+export function visibleNearbyItems(
+	items: readonly NearbyItem[],
+	visibleFamilies: ReadonlySet<NearbyFamily>,
+): readonly NearbyItem[] {
+	return items
+		.filter((item) => visibleFamilies.has(NEARBY_FAMILY_OF[item.category]))
+		.sort((first, second) => first.distanceMeters - second.distanceMeters);
+}
+
 /** Fetch the nearby operational records around a service request (server-scoped by radius + window). */
 export function useServiceRequestNearby(id: string) {
 	return useQuery({

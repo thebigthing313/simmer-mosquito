@@ -208,172 +208,201 @@ async function runServiceRequestCommands(
 	);
 }
 
+/** The payload of one command in the union, by its `type`. */
+type ServiceRequestPayload<T extends PublicEngagementCommand['type']> = Extract<
+	PublicEngagementCommand,
+	{ type: T }
+>['payload'];
+
+/**
+ * Which command runs which write. Every arm is a named function below, so this
+ * switch stays a routing table rather than the place the work happens.
+ */
 async function writeServiceRequestCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
 ): Promise<SafeServiceRequest | null> {
 	switch (command.type) {
-		case 'publicEngagement.createServiceRequest': {
-			const contactId = await resolveContact(
-				trx,
-				command.payload.organizationId,
-				command.payload.contact,
-				command.payload.actorProfileId,
-			);
-			const addressId = await resolveServiceRequestAddress(
-				trx,
-				command.payload.organizationId,
-				command.payload.location.address,
-				command.payload.actorProfileId,
-			);
-			const row = await trx
-				.insertInto('service_requests')
-				.values({
-					id: command.payload.serviceRequestId,
-					organization_id: command.payload.organizationId,
-					intake_type: command.payload.intakeType,
-					request_date: localDateColumn(command.payload.requestDate),
-					geom: geojsonToGeom(command.payload.location.geometry),
-					address_id: addressId,
-					contact_id: contactId,
-					received_by_profile_id: command.payload.receivedByProfileId,
-					details: command.payload.details,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
-				.returning(serviceRequestReturnColumns)
-				.executeTakeFirstOrThrow();
-			return toSafeServiceRequest(row);
-		}
+		case 'publicEngagement.createServiceRequest':
+			return insertServiceRequest(trx, command.payload);
 		case 'publicEngagement.updateServiceRequestDetails':
-			return updateServiceRequest(
-				trx,
-				command.payload.serviceRequestId,
-				command.payload.organizationId,
-				{
-					...('requestDate' in command.payload.changes &&
-					command.payload.changes.requestDate !== undefined
-						? { request_date: localDateColumn(command.payload.changes.requestDate) }
-						: {}),
-					...('intakeType' in command.payload.changes
-						? { intake_type: command.payload.changes.intakeType }
-						: {}),
-					...('receivedByProfileId' in command.payload.changes
-						? { received_by_profile_id: command.payload.changes.receivedByProfileId ?? null }
-						: {}),
-					...('details' in command.payload.changes
-						? { details: command.payload.changes.details }
-						: {}),
-					updated_by_profile_id: command.payload.actorProfileId,
-				},
-			);
-		case 'publicEngagement.updateServiceRequestContact': {
-			const contactId = await resolveContact(
-				trx,
-				command.payload.organizationId,
-				command.payload.contact,
-				command.payload.actorProfileId,
-			);
-			return updateServiceRequest(
-				trx,
-				command.payload.serviceRequestId,
-				command.payload.organizationId,
-				{
-					contact_id: contactId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				},
-			);
-		}
-		case 'publicEngagement.updateServiceRequestLocation': {
-			const addressId = await resolveServiceRequestAddress(
-				trx,
-				command.payload.organizationId,
-				command.payload.location.address,
-				command.payload.actorProfileId,
-			);
-			return updateServiceRequest(
-				trx,
-				command.payload.serviceRequestId,
-				command.payload.organizationId,
-				{
-					geom: geojsonToGeom(command.payload.location.geometry),
-					address_id: addressId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				},
-			);
-		}
-		case 'publicEngagement.closeServiceRequest': {
-			const closed = await updateServiceRequest(
-				trx,
-				command.payload.serviceRequestId,
-				command.payload.organizationId,
-				{
-					closed_at: command.payload.closedAt === null ? sql`now()` : command.payload.closedAt,
-					closed_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				},
-			);
-			if (closed === null) {
-				return null;
-			}
-			await insertLifecycleComment(trx, {
-				commentId: command.payload.resolutionCommentId,
-				organizationId: command.payload.organizationId,
-				entityType: 'serviceRequest',
-				entityId: command.payload.serviceRequestId,
-				commentText: command.payload.resolutionSummary,
-				commentedAt: command.payload.closedAt,
-				actorProfileId: command.payload.actorProfileId,
-			});
-			return closed;
-		}
-		case 'publicEngagement.reopenServiceRequest': {
-			const reopened = await updateServiceRequest(
-				trx,
-				command.payload.serviceRequestId,
-				command.payload.organizationId,
-				{
-					closed_at: null,
-					closed_by_profile_id: null,
-					updated_by_profile_id: command.payload.actorProfileId,
-				},
-			);
-			if (reopened === null) {
-				return null;
-			}
-			// There is no `reopened_at` column in v1, so this comment is the only
-			// record that the reopen happened at all, and the only place its reason
-			// can live.
-			await insertLifecycleComment(trx, {
-				commentId: command.payload.reopenCommentId,
-				organizationId: command.payload.organizationId,
-				entityType: 'serviceRequest',
-				entityId: command.payload.serviceRequestId,
-				commentText: command.payload.reopenReason,
-				commentedAt: command.payload.reopenedAt,
-				actorProfileId: command.payload.actorProfileId,
-			});
-			return reopened;
-		}
+			return updateServiceRequestDetails(trx, command.payload);
+		case 'publicEngagement.updateServiceRequestContact':
+			return reassignServiceRequestContact(trx, command.payload);
+		case 'publicEngagement.updateServiceRequestLocation':
+			return moveServiceRequest(trx, command.payload);
+		case 'publicEngagement.closeServiceRequest':
+			return closeServiceRequest(trx, command.payload);
+		case 'publicEngagement.reopenServiceRequest':
+			return reopenServiceRequest(trx, command.payload);
 		case 'publicEngagement.deleteServiceRequest':
-			await applyRecordDeletion(trx, {
-				recordType: 'serviceRequest',
-				recordId: command.payload.serviceRequestId,
-				organizationId: command.payload.organizationId,
-				actorProfileId: command.payload.actorProfileId,
-			});
-			return softDelete(
-				trx,
-				'service_requests',
-				command.payload.serviceRequestId,
-				command.payload.organizationId,
-				command.payload.actorProfileId,
-				serviceRequestReturnColumns,
-				toSafeServiceRequest,
-			);
+			return deleteServiceRequest(trx, command.payload);
 		default:
 			throw new Error(`Unsupported service request command: ${command.type}`);
 	}
+}
+
+async function insertServiceRequest(
+	trx: PublicEngagementTransaction,
+	payload: ServiceRequestPayload<'publicEngagement.createServiceRequest'>,
+): Promise<SafeServiceRequest> {
+	const contactId = await resolveContact(
+		trx,
+		payload.organizationId,
+		payload.contact,
+		payload.actorProfileId,
+	);
+	const addressId = await resolveServiceRequestAddress(
+		trx,
+		payload.organizationId,
+		payload.location.address,
+		payload.actorProfileId,
+	);
+	const row = await trx
+		.insertInto('service_requests')
+		.values({
+			id: payload.serviceRequestId,
+			organization_id: payload.organizationId,
+			intake_type: payload.intakeType,
+			request_date: localDateColumn(payload.requestDate),
+			geom: geojsonToGeom(payload.location.geometry),
+			address_id: addressId,
+			contact_id: contactId,
+			received_by_profile_id: payload.receivedByProfileId,
+			details: payload.details,
+			created_by_profile_id: payload.actorProfileId,
+			updated_by_profile_id: payload.actorProfileId,
+		})
+		.returning(serviceRequestReturnColumns)
+		.executeTakeFirstOrThrow();
+	return toSafeServiceRequest(row);
+}
+
+async function updateServiceRequestDetails(
+	trx: PublicEngagementTransaction,
+	payload: ServiceRequestPayload<'publicEngagement.updateServiceRequestDetails'>,
+): Promise<SafeServiceRequest | null> {
+	const { changes } = payload;
+	return updateServiceRequest(trx, payload.serviceRequestId, payload.organizationId, {
+		...('requestDate' in changes && changes.requestDate !== undefined
+			? { request_date: localDateColumn(changes.requestDate) }
+			: {}),
+		...('intakeType' in changes ? { intake_type: changes.intakeType } : {}),
+		...('receivedByProfileId' in changes
+			? { received_by_profile_id: changes.receivedByProfileId ?? null }
+			: {}),
+		...('details' in changes ? { details: changes.details } : {}),
+		updated_by_profile_id: payload.actorProfileId,
+	});
+}
+
+async function reassignServiceRequestContact(
+	trx: PublicEngagementTransaction,
+	payload: ServiceRequestPayload<'publicEngagement.updateServiceRequestContact'>,
+): Promise<SafeServiceRequest | null> {
+	const contactId = await resolveContact(
+		trx,
+		payload.organizationId,
+		payload.contact,
+		payload.actorProfileId,
+	);
+	return updateServiceRequest(trx, payload.serviceRequestId, payload.organizationId, {
+		contact_id: contactId,
+		updated_by_profile_id: payload.actorProfileId,
+	});
+}
+
+async function moveServiceRequest(
+	trx: PublicEngagementTransaction,
+	payload: ServiceRequestPayload<'publicEngagement.updateServiceRequestLocation'>,
+): Promise<SafeServiceRequest | null> {
+	const addressId = await resolveServiceRequestAddress(
+		trx,
+		payload.organizationId,
+		payload.location.address,
+		payload.actorProfileId,
+	);
+	return updateServiceRequest(trx, payload.serviceRequestId, payload.organizationId, {
+		geom: geojsonToGeom(payload.location.geometry),
+		address_id: addressId,
+		updated_by_profile_id: payload.actorProfileId,
+	});
+}
+
+async function closeServiceRequest(
+	trx: PublicEngagementTransaction,
+	payload: ServiceRequestPayload<'publicEngagement.closeServiceRequest'>,
+): Promise<SafeServiceRequest | null> {
+	const closed = await updateServiceRequest(trx, payload.serviceRequestId, payload.organizationId, {
+		closed_at: payload.closedAt === null ? sql`now()` : payload.closedAt,
+		closed_by_profile_id: payload.actorProfileId,
+		updated_by_profile_id: payload.actorProfileId,
+	});
+	if (closed === null) {
+		return null;
+	}
+	await insertLifecycleComment(trx, {
+		commentId: payload.resolutionCommentId,
+		organizationId: payload.organizationId,
+		entityType: 'serviceRequest',
+		entityId: payload.serviceRequestId,
+		commentText: payload.resolutionSummary,
+		commentedAt: payload.closedAt,
+		actorProfileId: payload.actorProfileId,
+	});
+	return closed;
+}
+
+async function reopenServiceRequest(
+	trx: PublicEngagementTransaction,
+	payload: ServiceRequestPayload<'publicEngagement.reopenServiceRequest'>,
+): Promise<SafeServiceRequest | null> {
+	const reopened = await updateServiceRequest(
+		trx,
+		payload.serviceRequestId,
+		payload.organizationId,
+		{
+			closed_at: null,
+			closed_by_profile_id: null,
+			updated_by_profile_id: payload.actorProfileId,
+		},
+	);
+	if (reopened === null) {
+		return null;
+	}
+	// There is no `reopened_at` column in v1, so this comment is the only record
+	// that the reopen happened at all, and the only place its reason can live.
+	await insertLifecycleComment(trx, {
+		commentId: payload.reopenCommentId,
+		organizationId: payload.organizationId,
+		entityType: 'serviceRequest',
+		entityId: payload.serviceRequestId,
+		commentText: payload.reopenReason,
+		commentedAt: payload.reopenedAt,
+		actorProfileId: payload.actorProfileId,
+	});
+	return reopened;
+}
+
+async function deleteServiceRequest(
+	trx: PublicEngagementTransaction,
+	payload: ServiceRequestPayload<'publicEngagement.deleteServiceRequest'>,
+): Promise<SafeServiceRequest | null> {
+	await applyRecordDeletion(trx, {
+		recordType: 'serviceRequest',
+		recordId: payload.serviceRequestId,
+		organizationId: payload.organizationId,
+		actorProfileId: payload.actorProfileId,
+	});
+	return softDelete(
+		trx,
+		'service_requests',
+		payload.serviceRequestId,
+		payload.organizationId,
+		payload.actorProfileId,
+		serviceRequestReturnColumns,
+		toSafeServiceRequest,
+	);
 }
 
 async function updateServiceRequest(
