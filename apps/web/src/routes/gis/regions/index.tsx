@@ -31,7 +31,6 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
@@ -48,6 +47,14 @@ import {
 } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { RegionFolderDialog } from './-folder-dialog';
+import {
+	allowRegionDrop,
+	REGION_DND_TYPE,
+	type RegionDnd,
+	readDraggedRegionId,
+	UNFILED_DROP_KEY,
+	useRegionDnd,
+} from './-region-dnd';
 import { RegionMapCard } from './-region-map-card';
 
 interface RegionFilters {
@@ -66,20 +73,6 @@ const RegionIcon = iconRegistry.entities.region.icon;
 const ImportIcon = iconRegistry.actions.upload.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const regionsGcTimeMs = 30_000;
-
-/** Drag payload type + a sentinel drop key for the "move out of any folder" zone. */
-const REGION_DND_TYPE = 'application/x-simmer-region';
-const UNFILED_DROP_KEY = '__unfiled__';
-
-/** Shared drag-and-drop wiring threaded down to rows (sources) and folders (targets). */
-interface RegionDnd {
-	readonly draggingId: string | null;
-	readonly dropTargetKey: string | null;
-	readonly onDragStart: (id: string) => void;
-	readonly onDragEnd: () => void;
-	readonly onDragOverTarget: (key: string) => void;
-	readonly onDropRegion: (regionId: string, folderId: string | null) => void;
-}
 
 /** Shared inline-rename state + actions threaded down to every region row. */
 interface RegionRename {
@@ -134,10 +127,8 @@ function RegionsExplorerRoute() {
 	);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
-	// Inline rename + drag-and-drop transient state.
+	// Inline rename transient state; the drag state lives in useRegionDnd below.
 	const [renamingId, setRenamingId] = useState<string | null>(null);
-	const [draggingId, setDraggingId] = useState<string | null>(null);
-	const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
 	// `null` = closed; a folder row = edit it; `'new'` = create one.
 	const [folderDialog, setFolderDialog] = useState<RegionFolderRow | 'new' | null>(null);
 
@@ -306,23 +297,11 @@ function RegionsExplorerRoute() {
 		[actorProfileId],
 	);
 
-	const dnd = useMemo<RegionDnd>(
-		() => ({
-			draggingId,
-			dropTargetKey,
-			onDragStart: (id) => setDraggingId(id),
-			onDragEnd: () => {
-				setDraggingId(null);
-				setDropTargetKey(null);
-			},
-			onDragOverTarget: (key) => setDropTargetKey(key),
-			onDropRegion: (regionId, folderId) => {
-				setDropTargetKey(null);
-				void moveRegion(regionId, folderId);
-			},
-		}),
-		[draggingId, dropTargetKey, moveRegion],
+	const onMove = useCallback(
+		(regionId: string, folderId: string | null) => void moveRegion(regionId, folderId),
+		[moveRegion],
 	);
+	const dnd = useRegionDnd(onMove);
 
 	const rename = useMemo<RegionRename>(
 		() => ({
@@ -442,21 +421,6 @@ function RegionsExplorerRoute() {
 			)}
 		</MapSplitPage>
 	);
-}
-
-/** dragover guard: accept only region drags, and signal a "move" cursor. */
-function allowRegionDrop(event: React.DragEvent<HTMLElement>): boolean {
-	if (!event.dataTransfer.types.includes(REGION_DND_TYPE)) {
-		return false;
-	}
-	event.preventDefault();
-	event.dataTransfer.dropEffect = 'move';
-	return true;
-}
-
-function readDraggedRegionId(event: React.DragEvent<HTMLElement>): string | null {
-	const id = event.dataTransfer.getData(REGION_DND_TYPE);
-	return id.length > 0 ? id : null;
 }
 
 function FolderNode({
