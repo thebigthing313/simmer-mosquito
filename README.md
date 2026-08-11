@@ -57,7 +57,12 @@ at `https://localhost:5175`).
 ## Testing
 
 Fast tests run through each package's `pnpm test` script. Postgres-backed DB
-integration tests are opt-in and require an explicit test database URL.
+integration tests are opt-in and require an explicit test database URL; without
+one they skip silently, so a green `pnpm test` does not mean they ran.
+
+Each test applies the whole migration set into a throwaway `simmer_test_*`
+schema and drops it afterwards. Point `TEST_DATABASE_URL` at any PostGIS-capable
+Postgres — the Railway staging URL from `.env`, or a local container:
 
 ```sh
 docker-compose up -d postgres
@@ -71,6 +76,10 @@ docker-compose up -d postgres
 $env:TEST_DATABASE_URL='postgres://postgres:postgres@localhost:55432/simmer_mosquito'
 pnpm --filter @simmer-mosquito/db test
 ```
+
+CI runs the same suites against its own `postgis/postgis:17-3.5` service
+container, matching the version staging runs. It does not use staging, so
+nothing CI does touches a database anyone else is using.
 
 ## Docs
 
