@@ -71,6 +71,66 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # A branch that changes what a user can do carries a changeset (docs/releases.md).
+  # "If needed" is a judgement call no path heuristic can make — a refactor and a
+  # feature touch the same directories — so this is deliberately a *prompt with an
+  # override*, not a wall: it fails only when app-visible source moved with no
+  # changeset, and the `no changeset` label says "I considered it, the answer is
+  # no". A gate with no override would be answered by filing empty changesets,
+  # which is worse than not gating at all.
+  changeset:
+    name: Changeset filed (or declined)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # The comparison is against the merge base, so the base branch's
+          # history has to be here — the default shallow clone has neither.
+          fetch-depth: 0
+
+      - name: Require a changeset for user-visible changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          DECLINED: ${{ contains(github.event.pull_request.labels.*.name, 'no changeset') }}
+        run: |
+          changed=$(git diff --name-only "$BASE"...HEAD)
+
+          if printf '%s\n' "$changed" | grep -qE '^\.changeset/.+\.md$'; then
+            echo "A changeset is filed."
+            exit 0
+          fi
+
+          # Tests and the release tooling itself are not what a user sees, so
+          # they do not trigger the prompt even though they live under `src`.
+          visible=$(printf '%s\n' "$changed" \
+            | grep -E '^(apps/(web|admin|server)|packages/[^/]+)/src/' \
+            | grep -vE '/src/tests/' \
+            | grep -vE '\.test\.tsx?$' || true)
+
+          if [ -z "$visible" ]; then
+            echo "No user-visible source changed; no changeset needed."
+            exit 0
+          fi
+
+          if [ "$DECLINED" = "true" ]; then
+            echo "Labelled 'no changeset' — the author declined one deliberately."
+            exit 0
+          fi
+
+          echo "::error::This PR changes app source but files no changeset."
+          echo
+          echo "If it changes what a user can do, run 'pnpm changeset' and commit the file."
+          echo "If it does not — a refactor, a test, a dependency bump — add the"
+          echo "'no changeset' label to this PR."
+          echo
+          echo "Source files that triggered this:"
+          printf '%s\n' "$visible" | sed 's/^/  /'
+          exit 1
+
   # Split from `verify` on purpose. These suites need a real Postgres, so they
   # are the only checks that can go red because a database is unreachable rather
   # than because the code is wrong — keeping them separate means that failure

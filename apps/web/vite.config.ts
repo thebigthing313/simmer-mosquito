@@ -2,10 +2,22 @@ import tailwindcss from '@tailwindcss/vite';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { version } from './package.json' with { type: 'json' };
 
 export default defineConfig({
 	envDir: '../..',
 	plugins: [TanStackRouterVite({ autoCodeSplitting: true }), react(), tailwindcss()],
+	/*
+	 * The version the sidebar shows and the changelog page badges. It is inlined
+	 * at build rather than read at runtime because production is a Caddy image
+	 * with no Node process in it — there is nothing there to serve a version
+	 * endpoint, and `package.json` is not in the document root. Sourcing it from
+	 * this file's own package.json means `changeset version` is the only thing
+	 * that ever moves the number.
+	 */
+	define: {
+		__APP_VERSION__: JSON.stringify(version),
+	},
 	build: {
 		outDir: 'dist',
 		emptyOutDir: true,

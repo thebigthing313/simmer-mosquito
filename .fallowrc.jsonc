@@ -31,7 +31,11 @@
 
 		// Second published entry point of @simmer-mosquito/db, imported by the
 		// server's integration suites via `@simmer-mosquito/db/test-support`.
-		"packages/db/src/test-support/db-integration.ts"
+		"packages/db/src/test-support/db-integration.ts",
+
+		// Loaded by path from `.changeset/config.json`, which is data rather than
+		// code, so nothing imports it and the graph cannot see the edge.
+		".changeset/changelog-simmer.mjs"
 	],
 
 	// Vendored shadcn primitives: imported, but not ours to edit. Hidden rather

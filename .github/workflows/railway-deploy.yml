@@ -38,6 +38,9 @@ jobs:
 
   verify:
     name: Verify workspace
+    # Only for the target name, which the release guard below branches on.
+    needs:
+      - resolve-target
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -58,6 +61,28 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Versions move at promotion and nowhere else (docs/releases.md), so a
+      # production release with changesets still pending is one that ships user-
+      # visible changes under the previous version number — the sidebar names a
+      # build the agency is not on, and the changelog omits what they just got.
+      # Staging is exempt by design: that is where changesets accumulate.
+      - name: Require the release to be cut
+        if: needs.resolve-target.outputs.environment == 'production'
+        run: |
+          pending=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md')
+
+          if [ -n "$pending" ]; then
+            echo "::error::Production deploy with unconsumed changesets."
+            echo
+            echo "Run 'pnpm release:version' on the promotion branch and commit"
+            echo "the result before merging to main."
+            echo
+            printf '%s\n' "$pending" | sed 's/^/  /'
+            exit 1
+          fi
+
+          echo "No pending changesets; the release is cut."
 
       - name: Typecheck
         run: pnpm typecheck
