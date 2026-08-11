@@ -475,7 +475,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'assignment stop',
 				'assignment stops',
 			),
-			detaches('habitatInspections', 'inspections', 'habitat_id', 'inspection', 'inspections'),
+			cascades('habitatInspections', 'inspections', 'habitat_id', 'inspection', 'inspections'),
 			detaches(
 				'habitatApplications',
 				'applications',
