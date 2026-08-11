@@ -1,0 +1,59 @@
+# Production static host for the two SPAs, `apps/web` and `apps/admin`.
+#
+# One file for both on purpose. They are the same artifact — a Vite build with
+# content-hashed assets under `assets/`, a handful of unhashed files from
+# `public/`, and one HTML entry that owns every route — and issue #85 was
+# written because the *previous* answer had already been copied into two
+# places and started to drift.
+#
+# Railway terminates TLS at its edge and forwards plain HTTP on `$PORT`, so
+# there is no certificate work to do here.
+{
+	# No admin API and no on-disk config: this container has one job and both of
+	# those are surface it does not need.
+	admin off
+	auto_https off
+	persist_config off
+}
+
+:{$PORT:8080} {
+	root * /srv
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+		# The successor to X-Frame-Options, and the only CSP directive here:
+		# neither app is ever framed. A full policy is a separate exercise —
+		# mapbox-gl builds workers from blobs and the sign-in flow talks to
+		# WorkOS, so a `default-src` written blind would break both surfaces.
+		Content-Security-Policy "frame-ancestors 'none'"
+
+		# `geolocation` is deliberately absent: `apps/web`'s map has a
+		# locate-me control, and naming it here would turn that off.
+		Permissions-Policy "camera=(), microphone=(), payment=(), usb=()"
+
+		-Server
+	}
+
+	# Vite hashes these filenames from their contents, so the bytes behind a
+	# given name never change and a year is not a gamble.
+	@hashed path /assets/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+	# Everything else is the entry document or an unhashed `public/` file, and
+	# must be revalidated — cache `index.html` and a deploy never reaches a tab
+	# that already has one.
+	@unhashed not path /assets/*
+	header @unhashed Cache-Control "no-cache"
+
+	# Client-side routing: every path that is not a file on disk is a route the
+	# SPA resolves itself.
+	try_files {path} /index.html
+	file_server
+}
+
+# No `log` directive: Railway already records an HTTP log per request at its
+# edge, and a second copy from in here is the same lines twice.
