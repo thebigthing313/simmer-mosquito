@@ -873,17 +873,9 @@ function formatCoords(
 }
 
 /**
- * Close or reopen, with the reason that goes on the record.
- *
- * Both write a comment on the request in the same transaction, so the dialog is
- * not a confirmation step bolted on — it is where the comment's text comes from.
- * The reason travels as mutation metadata rather than on the draft: it is not a
- * column on the row, and the optimistic row must not pretend it is.
- *
- * Neither is required. The command insists on non-empty text, so an empty box
- * falls back to the plain fact — the same bargain the mission cancel dialog
- * strikes. A close nobody explained is still a close, and refusing to record it
- * over a blank field would be the worse failure.
+ * Everything that differs between the close dialog and the reopen dialog. The
+ * two are the same component with one of these picked once, so a wording change
+ * lands in exactly one place and cannot drift between the halves.
  */
 interface LifecycleCopy {
 	readonly action: string;
@@ -913,6 +905,19 @@ const REOPEN_COPY: LifecycleCopy = {
 	unexplained: 'Reopened',
 };
 
+/**
+ * Close or reopen, with the reason that goes on the record.
+ *
+ * Both write a comment on the request in the same transaction, so the dialog is
+ * not a confirmation step bolted on — it is where the comment's text comes from.
+ * The reason travels as mutation metadata rather than on the draft: it is not a
+ * column on the row, and the optimistic row must not pretend it is.
+ *
+ * Neither is required. The command insists on non-empty text, so an empty box
+ * falls back to the plain fact — the same bargain the mission cancel dialog
+ * strikes. A close nobody explained is still a close, and refusing to record it
+ * over a blank field would be the worse failure.
+ */
 function CloseReopenButton({
 	requestId,
 	open,
