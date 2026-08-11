@@ -98,5 +98,5 @@ export const adminShellDomains: readonly ShellDomain[] = [
  * history, reached from the version under the brand mark and from no menu.
  */
 export const adminStandalonePages: readonly ShellStandalonePage[] = [
-	{ path: '/changelog', crumbs: [{ label: "What's new" }] },
+	{ path: '/changelog', crumbs: [{ label: "What's New" }] },
 ];

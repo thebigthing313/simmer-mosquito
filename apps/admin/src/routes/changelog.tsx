@@ -14,7 +14,7 @@ function ChangelogRoute() {
 			currentVersion={__APP_VERSION__}
 			description="What has changed in the operator console, newest first."
 			markdown={changelogMarkdown}
-			title="What's new"
+			title="What's New"
 		/>
 	);
 }

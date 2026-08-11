@@ -37,7 +37,7 @@ function renderPage(currentVersion = '0.2.0') {
 			currentVersion={currentVersion}
 			description="What has changed in SIMMER, newest first."
 			markdown={GENERATED}
-			title="What's new"
+			title="What's New"
 		/>,
 	);
 }
@@ -96,7 +96,7 @@ describe('ChangelogPage', () => {
 				currentVersion="0.1.0"
 				description="What has changed in SIMMER, newest first."
 				markdown="# @simmer-mosquito/web\n"
-				title="What's new"
+				title="What's New"
 			/>,
 		);
 
