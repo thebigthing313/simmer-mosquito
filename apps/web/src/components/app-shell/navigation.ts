@@ -794,6 +794,8 @@ export function shellDomainsForRole(auth: AuthMe | null): readonly WebShellDomai
  */
 export const webStandalonePages: readonly ShellStandalonePage[] = [
 	{ path: '/profile', crumbs: [{ label: 'Account' }, { label: 'Profile' }] },
+	// Reached from the version under the brand mark, which is in no menu at all.
+	{ path: '/changelog', crumbs: [{ label: "What's new" }] },
 ];
 
 /** The account-menu entries for the agency workspace. */

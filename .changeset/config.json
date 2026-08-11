@@ -1,0 +1,23 @@
+{
+	"$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+	"changelog": "./changelog-simmer.mjs",
+	"commit": false,
+	"fixed": [],
+	"linked": [],
+	"access": "restricted",
+	"baseBranch": "staging",
+	"updateInternalDependencies": "patch",
+	"privatePackages": { "version": true, "tag": false },
+	"ignore": [
+		"@simmer-mosquito/server",
+		"@simmer-mosquito/preview",
+		"@simmer-mosquito/auth",
+		"@simmer-mosquito/config",
+		"@simmer-mosquito/db",
+		"@simmer-mosquito/design-tokens",
+		"@simmer-mosquito/domain",
+		"@simmer-mosquito/mapping",
+		"@simmer-mosquito/sync",
+		"@simmer-mosquito/ui-web"
+	]
+}

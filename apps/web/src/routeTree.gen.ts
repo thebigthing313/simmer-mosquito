@@ -17,6 +17,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MyOrganizationRouteImport } from './routes/my-organization'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicEngagementIndexRouteImport } from './routes/public-engagement/index'
@@ -167,6 +168,11 @@ const LandingRoute = LandingRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogRoute = ChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
@@ -812,6 +818,7 @@ const AdultSurveillanceTrapsRoutesIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
@@ -933,6 +940,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
   '/profile': typeof ProfileRoute
@@ -1054,6 +1062,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
@@ -1177,6 +1186,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accept-invitation'
+    | '/changelog'
     | '/forgot-password'
     | '/landing'
     | '/my-organization'
@@ -1298,6 +1308,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accept-invitation'
+    | '/changelog'
     | '/forgot-password'
     | '/landing'
     | '/profile'
@@ -1418,6 +1429,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accept-invitation'
+    | '/changelog'
     | '/forgot-password'
     | '/landing'
     | '/my-organization'
@@ -1540,6 +1552,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcceptInvitationRoute: typeof AcceptInvitationRoute
+  ChangelogRoute: typeof ChangelogRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LandingRoute: typeof LandingRoute
   MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
@@ -1706,6 +1719,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog': {
+      id: '/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof ChangelogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accept-invitation': {
@@ -2528,6 +2548,7 @@ const AdminOrganizationsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
+  ChangelogRoute: ChangelogRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LandingRoute: LandingRoute,
   MyOrganizationRoute: MyOrganizationRouteWithChildren,

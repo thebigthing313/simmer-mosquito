@@ -86,6 +86,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				resolutionDomains={webShellDomains}
 				standalonePages={webStandalonePages}
 				accountLinks={webAccountLinks}
+				version={__APP_VERSION__}
 				getToday={getToday}
 				activePath={pathname}
 				onNavigate={(to) => {

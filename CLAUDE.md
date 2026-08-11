@@ -22,6 +22,20 @@ pnpm graph          # nx project graph
 
 Per-app dev servers: `pnpm dev:server`, `pnpm dev:web`, `pnpm dev:admin`, `pnpm dev:preview`. `pnpm dev:caddy` runs the local reverse proxy (`Caddyfile.local`).
 
+### Releases
+
+`apps/web` and `apps/admin` are versioned independently (both from 0.1.0) and each publishes its history at `/changelog`, linked from the version under the sidebar logo.
+
+**All work happens on a branch**, merged to `staging`, and `staging` is promoted to `main` to release. A branch that changes what a user can do carries a changeset; refactors, tests, tooling, and docs do not.
+
+```sh
+pnpm changeset          # write one — body starts with Added:/Changed:/Fixed:/Removed:
+pnpm changeset:status   # what is pending on this branch
+pnpm release:version    # promotion only: consume changesets, bump versions, stamp dates
+```
+
+Only the two apps are versioned; every other package is in `ignore`, so a `packages/ui-web` or `apps/server` change is filed against the app whose surface it changes. Read `docs/releases.md` before changing any of this.
+
 ### Rot gates
 
 CI's `verify` job runs three `fallow` checks, and all three are also runnable locally:

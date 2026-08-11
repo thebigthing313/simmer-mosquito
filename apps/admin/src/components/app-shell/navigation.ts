@@ -1,4 +1,7 @@
-import type { ShellDomain } from '@simmer-mosquito/ui-web/components/app-shell';
+import type {
+	ShellDomain,
+	ShellStandalonePage,
+} from '@simmer-mosquito/ui-web/components/app-shell';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 
 /**
@@ -88,4 +91,12 @@ export const adminShellDomains: readonly ShellDomain[] = [
 			},
 		],
 	},
+];
+
+/**
+ * Destinations outside the domain rail. The console has one: the release
+ * history, reached from the version under the brand mark and from no menu.
+ */
+export const adminStandalonePages: readonly ShellStandalonePage[] = [
+	{ path: '/changelog', crumbs: [{ label: "What's new" }] },
 ];
