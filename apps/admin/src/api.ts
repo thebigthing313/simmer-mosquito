@@ -189,7 +189,13 @@ export interface AdminMutationResult<TRow> {
 }
 
 export function getServerUrl(): string {
-	return trimTrailingSlash(import.meta.env.VITE_SERVER_URL ?? DEFAULT_SERVER_URL);
+	// Empty read as absent, not as a URL — `??` does not fall back on `''`, and
+	// a build variable arrives empty rather than missing whenever a field is
+	// left blank or a Docker `ARG` is declared without being passed.
+	const configured = import.meta.env.VITE_SERVER_URL?.trim();
+	return trimTrailingSlash(
+		configured === undefined || configured === '' ? DEFAULT_SERVER_URL : configured,
+	);
 }
 
 /**
