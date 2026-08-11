@@ -20,7 +20,14 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+	type ComponentType,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CommentsSection } from '../../../components/comments-section';
@@ -51,17 +58,20 @@ import { RequestStatusBadge } from '../-public-engagement-ui';
 import { settleWrite } from '../-public-engagement-writes';
 import {
 	buildNearbyMapData,
+	countNearbyByFamily,
 	describeNearbyItem,
 	formatNearbyDistance,
 	formatRadiusLabel,
 	NEARBY_CATEGORY_LABEL,
 	NEARBY_FAMILIES,
 	NEARBY_FAMILY_OF,
+	type NearbyCategory,
 	type NearbyFamily,
 	type NearbyItem,
 	type NearbyResponse,
 	useNearbyNameById,
 	useServiceRequestNearby,
+	visibleNearbyItems,
 } from './-service-request-nearby';
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id')({
@@ -362,13 +372,32 @@ function MapContextCaption({ response }: { readonly response: NearbyResponse }) 
 	);
 }
 
+/** The habitat card is the one that needs a detail route told to it. */
+function HabitatNearbyCard({ id, onClose }: NearbyCardProps) {
+	return <HabitatMapCard detailTo="/larval-surveillance/habitats/$id" id={id} onClose={onClose} />;
+}
+
+interface NearbyCardProps {
+	readonly id: string;
+	readonly onClose: () => void;
+}
+
 /**
- * Renders the same rich, self-fetching per-type card an explorer would for the
- * selected nearby record — dispatching on its category so a habitat near a request
- * shows the exact card the Habitats explorer shows, and so on for every family.
- * Each card takes just the record id and resolves its own content; the SR-relative
- * distance stays in the left-column nearby list.
+ * The same rich, self-fetching per-type card an explorer would show, keyed by
+ * category — a habitat near a request shows the exact card the Habitats explorer
+ * shows, and so on for every family. Each card takes just the record id and
+ * resolves its own content; the SR-relative distance stays in the nearby list.
  */
+const NEARBY_MAP_CARD: Readonly<Record<NearbyCategory, ComponentType<NearbyCardProps>>> = {
+	habitat: HabitatNearbyCard,
+	trap: TrapMapCard,
+	inspection: InspectionMapCard,
+	collection: CollectionMapCard,
+	application: ApplicationMapCard,
+	sourceReduction: SourceReductionMapCard,
+	biocontrol: BiocontrolMapCard,
+};
+
 function NearbyFocusCard({
 	item,
 	onClose,
@@ -376,28 +405,8 @@ function NearbyFocusCard({
 	readonly item: NearbyItem;
 	readonly onClose: () => void;
 }) {
-	switch (item.category) {
-		case 'habitat':
-			return (
-				<HabitatMapCard
-					detailTo="/larval-surveillance/habitats/$id"
-					id={item.id}
-					onClose={onClose}
-				/>
-			);
-		case 'trap':
-			return <TrapMapCard id={item.id} onClose={onClose} />;
-		case 'inspection':
-			return <InspectionMapCard id={item.id} onClose={onClose} />;
-		case 'collection':
-			return <CollectionMapCard id={item.id} onClose={onClose} />;
-		case 'application':
-			return <ApplicationMapCard id={item.id} onClose={onClose} />;
-		case 'sourceReduction':
-			return <SourceReductionMapCard id={item.id} onClose={onClose} />;
-		case 'biocontrol':
-			return <BiocontrolMapCard id={item.id} onClose={onClose} />;
-	}
+	const MapCardForCategory = NEARBY_MAP_CARD[item.category];
+	return <MapCardForCategory id={item.id} onClose={onClose} />;
 }
 
 // --- Nearby panel (left column) ----------------------------------------------
@@ -421,27 +430,11 @@ function NearbyPanel({
 	readonly onSelect: (id: string | null) => void;
 	readonly nameById: ReadonlyMap<string, string>;
 }) {
-	const countsByFamily = useMemo(() => {
-		const counts: Record<NearbyFamily, number> = {
-			infrastructure: 0,
-			surveillance: 0,
-			control: 0,
-		};
-		for (const item of response?.items ?? []) {
-			counts[NEARBY_FAMILY_OF[item.category]] += 1;
-		}
-		return counts;
-	}, [response]);
-
-	const visibleItems = useMemo(() => {
-		const items = (response?.items ?? []).filter((item) =>
-			visibleFamilies.has(NEARBY_FAMILY_OF[item.category]),
-		);
-		return [...items].sort((first, second) => first.distanceMeters - second.distanceMeters);
-	}, [response, visibleFamilies]);
-
-	const totalCount = response?.items.length ?? 0;
-	const unitCode = response?.radius.unitCode ?? 'mile';
+	const countsByFamily = useMemo(() => countNearbyByFamily(response?.items ?? []), [response]);
+	const visibleItems = useMemo(
+		() => visibleNearbyItems(response?.items ?? [], visibleFamilies),
+		[response, visibleFamilies],
+	);
 
 	return (
 		<Card variant="surface">
@@ -450,11 +443,7 @@ function NearbyPanel({
 					<MapPinnedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 					Nearby Activity
 				</CardTitle>
-				<CardDescription>
-					{response === undefined
-						? 'Records around this request, from your public-engagement settings.'
-						: `${totalCount === 0 ? 'No' : totalCount} record${totalCount === 1 ? '' : 's'} within ${formatRadiusLabel(response.radius.amount, response.radius.unitCode)}, ${formatRequestDate(response.dateFrom)} – ${formatRequestDate(response.dateTo)}.`}
-				</CardDescription>
+				<CardDescription>{nearbySummary(response)}</CardDescription>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
 				<div className="flex flex-wrap gap-2">
@@ -470,33 +459,79 @@ function NearbyPanel({
 					))}
 				</div>
 
-				{isError ? (
-					<NearbyMessage>Nearby records couldn't be loaded. Try again shortly.</NearbyMessage>
-				) : isLoading || response === undefined ? (
-					<NearbyLoading />
-				) : totalCount === 0 ? (
-					<NearbyMessage>
-						No infrastructure, surveillance, or control activity fell within this radius and time
-						window.
-					</NearbyMessage>
-				) : visibleItems.length === 0 ? (
-					<NearbyMessage>All families are hidden. Toggle one above to see records.</NearbyMessage>
-				) : (
-					<ul className="grid gap-1">
-						{visibleItems.map((item) => (
-							<NearbyRow
-								isSelected={item.id === selectedId}
-								item={item}
-								key={item.id}
-								nameById={nameById}
-								onSelect={onSelect}
-								unitCode={unitCode}
-							/>
-						))}
-					</ul>
-				)}
+				<NearbyList
+					isError={isError}
+					isLoading={isLoading}
+					items={visibleItems}
+					nameById={nameById}
+					onSelect={onSelect}
+					response={response}
+					selectedId={selectedId}
+				/>
 			</CardContent>
 		</Card>
+	);
+}
+
+/** What the panel says it is showing, before and after the fetch lands. */
+function nearbySummary(response: NearbyResponse | undefined): string {
+	if (response === undefined) {
+		return 'Records around this request, from your public-engagement settings.';
+	}
+	const count = response.items.length;
+	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
+	const window = `${formatRequestDate(response.dateFrom)} – ${formatRequestDate(response.dateTo)}`;
+	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
+}
+
+/** The list, or the one line standing in for it. `items` is already family-filtered. */
+function NearbyList({
+	response,
+	items,
+	isLoading,
+	isError,
+	selectedId,
+	onSelect,
+	nameById,
+}: {
+	readonly response: NearbyResponse | undefined;
+	readonly items: readonly NearbyItem[];
+	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly selectedId: string | null;
+	readonly onSelect: (id: string | null) => void;
+	readonly nameById: ReadonlyMap<string, string>;
+}) {
+	if (isError) {
+		return <NearbyMessage>Nearby records couldn't be loaded. Try again shortly.</NearbyMessage>;
+	}
+	if (isLoading || response === undefined) {
+		return <NearbyLoading />;
+	}
+	if (response.items.length === 0) {
+		return (
+			<NearbyMessage>
+				No infrastructure, surveillance, or control activity fell within this radius and time
+				window.
+			</NearbyMessage>
+		);
+	}
+	if (items.length === 0) {
+		return <NearbyMessage>All families are hidden. Toggle one above to see records.</NearbyMessage>;
+	}
+	return (
+		<ul className="grid gap-1">
+			{items.map((item) => (
+				<NearbyRow
+					isSelected={item.id === selectedId}
+					item={item}
+					key={item.id}
+					nameById={nameById}
+					onSelect={onSelect}
+					unitCode={response.radius.unitCode}
+				/>
+			))}
+		</ul>
 	);
 }
 
@@ -576,9 +611,13 @@ function NearbyRow({
 					<span className="truncate text-muted-foreground text-xs">{meta}</span>
 				</span>
 			</button>
-			<NearbyItemLink category={item.category} className={NEARBY_ITEM_LINK_ICON_CLASS} id={item.id}>
+			<Link
+				className={NEARBY_ITEM_LINK_ICON_CLASS}
+				params={{ id: item.id }}
+				to={NEARBY_DETAIL_ROUTE[item.category]}
+			>
 				<ChevronRightIcon aria-hidden="true" className="size-4" />
-			</NearbyItemLink>
+			</Link>
 		</li>
 	);
 }
@@ -602,68 +641,16 @@ function FamilyDot({
 const NEARBY_ITEM_LINK_ICON_CLASS =
 	'flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
-/**
- * A typed link to a nearby record's detail page, chosen by its category. Pass no
- * `className` for a bare link (e.g. inside a `Button asChild` footer); pass one
- * for the standalone list affordance.
- */
-function NearbyItemLink({
-	category,
-	id,
-	children,
-	className,
-}: {
-	readonly category: NearbyItem['category'];
-	readonly id: string;
-	readonly children: ReactNode;
-	readonly className?: string;
-}) {
-	const params = { id };
-	switch (category) {
-		case 'habitat':
-			return (
-				<Link className={className} params={params} to="/larval-surveillance/habitats/$id">
-					{children}
-				</Link>
-			);
-		case 'trap':
-			return (
-				<Link className={className} params={params} to="/adult-surveillance/traps/$id">
-					{children}
-				</Link>
-			);
-		case 'inspection':
-			return (
-				<Link className={className} params={params} to="/larval-surveillance/inspections/$id">
-					{children}
-				</Link>
-			);
-		case 'collection':
-			return (
-				<Link className={className} params={params} to="/adult-surveillance/collections/$id">
-					{children}
-				</Link>
-			);
-		case 'application':
-			return (
-				<Link className={className} params={params} to="/control-operations/chemical/$id">
-					{children}
-				</Link>
-			);
-		case 'sourceReduction':
-			return (
-				<Link className={className} params={params} to="/control-operations/source-reduction/$id">
-					{children}
-				</Link>
-			);
-		case 'biocontrol':
-			return (
-				<Link className={className} params={params} to="/control-operations/biocontrol/$id">
-					{children}
-				</Link>
-			);
-	}
-}
+/** Where each nearby category's detail page lives. Every one takes an `$id`. */
+const NEARBY_DETAIL_ROUTE = {
+	habitat: '/larval-surveillance/habitats/$id',
+	trap: '/adult-surveillance/traps/$id',
+	inspection: '/larval-surveillance/inspections/$id',
+	collection: '/adult-surveillance/collections/$id',
+	application: '/control-operations/chemical/$id',
+	sourceReduction: '/control-operations/source-reduction/$id',
+	biocontrol: '/control-operations/biocontrol/$id',
+} as const satisfies Record<NearbyCategory, string>;
 
 function NearbyLoading() {
 	return (
@@ -698,6 +685,46 @@ function RequestPartiesCard({
 	readonly contactId: string;
 	readonly addressId: string;
 }) {
+	return (
+		<Card variant="surface">
+			<CardHeader className="px-4 py-4">
+				<CardTitle>Contact &amp; Location</CardTitle>
+			</CardHeader>
+			<CardContent className="grid gap-5" padding="compact">
+				<PartySection label="Contact">
+					<ContactParty contactId={contactId} />
+				</PartySection>
+				<PartySection label="Address">
+					<AddressParty addressId={addressId} />
+				</PartySection>
+			</CardContent>
+		</Card>
+	);
+}
+
+function PartySection({
+	label,
+	children,
+}: {
+	readonly label: string;
+	readonly children: ReactNode;
+}) {
+	return (
+		<div className="grid gap-2">
+			<span className="font-semibold text-muted-foreground text-xs uppercase">{label}</span>
+			{children}
+		</div>
+	);
+}
+
+/** What a party section says while its row is in flight, and when there is none. */
+function PartyPlaceholder({ isReady }: { readonly isReady: boolean }) {
+	return (
+		<span className="text-muted-foreground text-sm">{isReady ? 'Not available' : 'Loading…'}</span>
+	);
+}
+
+function ContactParty({ contactId }: { readonly contactId: string }) {
 	const contactResult = useLiveQuery(
 		{
 			gcTime: detailGcTimeMs,
@@ -710,7 +737,42 @@ function RequestPartiesCard({
 		[contactId],
 	);
 	const contact = contactResult.data as ContactRow | undefined;
+	if (contact === undefined) {
+		return <PartyPlaceholder isReady={contactResult.isReady} />;
+	}
 
+	// The display name already heads the section, so rows that would only repeat
+	// it drop out — `primary` is what PartyRow compares against.
+	const primary = contactDisplayName(contact);
+	return (
+		<>
+			<Link
+				className="w-fit rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				params={{ id: contact.id }}
+				to="/public-engagement/contacts/$id"
+			>
+				{primary}
+			</Link>
+			<dl className="grid gap-1.5">
+				<PartyRow label="Name" primary={primary} value={contact.contactName} />
+				<PartyRow label="Company" primary={primary} value={contact.company} />
+				<PartyRow label="Department" value={contact.department} />
+				<PartyRow label="Title" value={contact.title} />
+				<PartyRow label="Preferred" primary={primary} value={contact.preferredPhone} />
+				<PartyRow label="Alternate" value={contact.alternatePhone} />
+				<PartyRow
+					href={mailtoHref(contact.email)}
+					label="Email"
+					primary={primary}
+					value={contact.email}
+				/>
+				<PartyRow label="Prefers" value={contactPreferences(contact)} />
+			</dl>
+		</>
+	);
+}
+
+function AddressParty({ addressId }: { readonly addressId: string }) {
 	const addressResult = useLiveQuery(
 		{
 			gcTime: detailGcTimeMs,
@@ -723,93 +785,32 @@ function RequestPartiesCard({
 		[addressId],
 	);
 	const address = addressResult.data as AddressRow | undefined;
-	const addressLines = address === undefined ? [] : formatAddressLines(address);
+	if (address === undefined) {
+		return <PartyPlaceholder isReady={addressResult.isReady} />;
+	}
 
+	// Postal lines, as an envelope carries them: staff read this address down a
+	// phone to a resident.
+	const addressLines = formatAddressLines(address);
+	const lines = addressLines.length === 0 ? [address.displayName] : addressLines;
 	return (
-		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
-				<CardTitle>Contact &amp; Location</CardTitle>
-			</CardHeader>
-			<CardContent className="grid gap-5" padding="compact">
-				<div className="grid gap-2">
-					<span className="font-semibold text-muted-foreground text-xs uppercase">Contact</span>
-					{contact === undefined ? (
-						<span className="text-muted-foreground text-sm">
-							{contactResult.isReady ? 'Not available' : 'Loading…'}
-						</span>
-					) : (
-						<>
-							<Link
-								className="w-fit rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								params={{ id: contact.id }}
-								to="/public-engagement/contacts/$id"
-							>
-								{contactDisplayName(contact)}
-							</Link>
-							<dl className="grid gap-1.5">
-								<PartyRow
-									label="Name"
-									primary={contactDisplayName(contact)}
-									value={contact.contactName}
-								/>
-								<PartyRow
-									label="Company"
-									primary={contactDisplayName(contact)}
-									value={contact.company}
-								/>
-								<PartyRow label="Department" value={contact.department} />
-								<PartyRow label="Title" value={contact.title} />
-								<PartyRow
-									label="Preferred"
-									primary={contactDisplayName(contact)}
-									value={contact.preferredPhone}
-								/>
-								<PartyRow label="Alternate" value={contact.alternatePhone} />
-								<PartyRow
-									href={mailtoHref(contact.email)}
-									label="Email"
-									primary={contactDisplayName(contact)}
-									value={contact.email}
-								/>
-								<PartyRow label="Prefers" value={contactPreferences(contact)} />
-							</dl>
-						</>
-					)}
-				</div>
-				<div className="grid gap-2">
-					<span className="font-semibold text-muted-foreground text-xs uppercase">Address</span>
-					{address === undefined ? (
-						<span className="text-muted-foreground text-sm">
-							{addressResult.isReady ? 'Not available' : 'Loading…'}
-						</span>
-					) : (
-						<>
-							<Link
-								className="w-fit rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								params={{ id: address.id }}
-								to="/gis/addresses/$id"
-							>
-								{address.displayName}
-							</Link>
-							{/* Postal lines, as an envelope carries them: staff read this
-							    address down a phone to a resident. */}
-							{addressLines.length === 0 ? (
-								<p className="m-0 text-muted-foreground text-sm">{address.displayName}</p>
-							) : (
-								addressLines.map((line) => (
-									<p className="m-0 text-muted-foreground text-sm" key={line}>
-										{line}
-									</p>
-								))
-							)}
-							<dl className="grid gap-1.5">
-								<PartyRow label="Coords" value={formatCoords(address.lat, address.lng)} />
-							</dl>
-						</>
-					)}
-				</div>
-			</CardContent>
-		</Card>
+		<>
+			<Link
+				className="w-fit rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				params={{ id: address.id }}
+				to="/gis/addresses/$id"
+			>
+				{address.displayName}
+			</Link>
+			{lines.map((line) => (
+				<p className="m-0 text-muted-foreground text-sm" key={line}>
+					{line}
+				</p>
+			))}
+			<dl className="grid gap-1.5">
+				<PartyRow label="Coords" value={formatCoords(address.lat, address.lng)} />
+			</dl>
+		</>
 	);
 }
 
@@ -884,6 +885,34 @@ function formatCoords(
  * strikes. A close nobody explained is still a close, and refusing to record it
  * over a blank field would be the worse failure.
  */
+interface LifecycleCopy {
+	readonly action: string;
+	readonly title: string;
+	readonly description: string;
+	readonly placeholder: string;
+	/** Metadata key the command reads the comment text from, and its stand-in. */
+	readonly reasonKey: 'resolutionSummary' | 'reopenReason';
+	readonly unexplained: string;
+}
+
+const CLOSE_COPY: LifecycleCopy = {
+	action: 'Close Request',
+	title: 'Close this request',
+	description: 'What was found, and what was done about it. This goes on the request as a comment.',
+	placeholder: 'No standing water found on site.',
+	reasonKey: 'resolutionSummary',
+	unexplained: 'Closed',
+};
+
+const REOPEN_COPY: LifecycleCopy = {
+	action: 'Reopen Request',
+	title: 'Reopen this request',
+	description: 'Why this request is being picked back up. This goes on the request as a comment.',
+	placeholder: 'Caller reported it again.',
+	reasonKey: 'reopenReason',
+	unexplained: 'Reopened',
+};
+
 function CloseReopenButton({
 	requestId,
 	open,
@@ -896,6 +925,7 @@ function CloseReopenButton({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
+	const copy = open ? CLOSE_COPY : REOPEN_COPY;
 
 	const confirm = useCallback(
 		async (reason: string) => {
@@ -903,26 +933,20 @@ function CloseReopenButton({
 			setBusy(true);
 			setError(null);
 			const trimmed = reason.trim();
+			const closure = open
+				? { closedAt: new Date().toISOString(), closedByProfileId: actorProfileId }
+				: { closedAt: null, closedByProfileId: null };
 			try {
 				await settleWrite(
 					webCollections.serviceRequests.update(
 						requestId,
-						{
-							metadata: open
-								? { resolutionSummary: trimmed.length === 0 ? 'Closed' : trimmed }
-								: { reopenReason: trimmed.length === 0 ? 'Reopened' : trimmed },
-						},
+						{ metadata: { [copy.reasonKey]: trimmed.length === 0 ? copy.unexplained : trimmed } },
 						(draft) => {
 							const writable = draft as {
 								-readonly [K in keyof ServiceRequestRow]: ServiceRequestRow[K];
 							};
-							if (open) {
-								writable.closedAt = new Date().toISOString();
-								writable.closedByProfileId = actorProfileId;
-							} else {
-								writable.closedAt = null;
-								writable.closedByProfileId = null;
-							}
+							writable.closedAt = closure.closedAt;
+							writable.closedByProfileId = closure.closedByProfileId;
 						},
 					),
 				);
@@ -932,28 +956,24 @@ function CloseReopenButton({
 				setBusy(false);
 			}
 		},
-		[requestId, open, actorProfileId],
+		[requestId, open, actorProfileId, copy],
 	);
 
 	return (
 		<div className="grid justify-items-end gap-1">
 			<Button disabled={busy} onClick={() => setDialogOpen(true)} size="sm" variant="outline">
-				{open ? 'Close Request' : 'Reopen Request'}
+				{copy.action}
 			</Button>
 			{error === null ? null : <span className="text-destructive text-xs">{error}</span>}
 			<ReasonDialog
-				confirmLabel={open ? 'Close Request' : 'Reopen Request'}
-				description={
-					open
-						? 'What was found, and what was done about it. This goes on the request as a comment.'
-						: 'Why this request is being picked back up. This goes on the request as a comment.'
-				}
+				confirmLabel={copy.action}
+				description={copy.description}
 				onConfirm={(reason) => void confirm(reason)}
 				onOpenChange={setDialogOpen}
 				open={dialogOpen}
-				placeholder={open ? 'No standing water found on site.' : 'Caller reported it again.'}
+				placeholder={copy.placeholder}
 				required={false}
-				title={open ? 'Close this request' : 'Reopen this request'}
+				title={copy.title}
 			/>
 		</div>
 	);

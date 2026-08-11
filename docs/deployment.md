@@ -527,6 +527,16 @@ shell in production.
   via the Railway dashboard/CLI (`railway variables --set …`) or MCP; they don't
   come from the repo.
 
+**The rot gates do not gate deploys, on purpose.** `fallow dead-code`, `fallow
+dupes`, and `fallow:health` run in `ci.yml`, and `verify` here runs typecheck,
+test, and build — it never consults them. Duplication and complexity are read as
+"did this branch make it worse" against where the workspace already is, and a
+threshold judgement about the shape of the code is not a reason to refuse a
+release to an agency that is waiting on a fix. The cost is that a red CI on
+`main` does not stop anything shipping, which is how #136 sat red across several
+green production deploys: read a red `main` as work owed, not as a broken
+release, and check which job failed before treating it as either.
+
 The separate DB migration workflow (`db-migrate.yml`) remains available for
 targeted migration retries. `workflow_dispatch` on the deploy workflow allows a
 manual deploy to a chosen environment from its matching branch.
