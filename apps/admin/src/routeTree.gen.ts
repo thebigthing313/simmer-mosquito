@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UnitsIndexRouteImport } from './routes/units/index'
 import { Route as TaxonomyIndexRouteImport } from './routes/taxonomy/index'
@@ -25,6 +26,11 @@ import { Route as OrganizationsOrganizationIdFoundationsRouteImport } from './ro
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogRoute = ChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -89,6 +95,7 @@ const OrganizationsOrganizationIdFoundationsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/changelog': typeof ChangelogRoute
   '/sign-in': typeof SignInRoute
   '/organizations/$organizationId': typeof OrganizationsOrganizationIdRouteWithChildren
   '/organizations/create': typeof OrganizationsCreateRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/changelog': typeof ChangelogRoute
   '/sign-in': typeof SignInRoute
   '/organizations/create': typeof OrganizationsCreateRoute
   '/taxonomy/genera': typeof TaxonomyGeneraRoute
@@ -117,6 +125,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/changelog': typeof ChangelogRoute
   '/sign-in': typeof SignInRoute
   '/organizations/$organizationId': typeof OrganizationsOrganizationIdRouteWithChildren
   '/organizations/create': typeof OrganizationsCreateRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/changelog'
     | '/sign-in'
     | '/organizations/$organizationId'
     | '/organizations/create'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/changelog'
     | '/sign-in'
     | '/organizations/create'
     | '/taxonomy/genera'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/changelog'
     | '/sign-in'
     | '/organizations/$organizationId'
     | '/organizations/create'
@@ -175,6 +187,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ChangelogRoute: typeof ChangelogRoute
   SignInRoute: typeof SignInRoute
   OrganizationsOrganizationIdRoute: typeof OrganizationsOrganizationIdRouteWithChildren
   OrganizationsCreateRoute: typeof OrganizationsCreateRoute
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog': {
+      id: '/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof ChangelogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -297,6 +317,7 @@ const OrganizationsOrganizationIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChangelogRoute: ChangelogRoute,
   SignInRoute: SignInRoute,
   OrganizationsOrganizationIdRoute:
     OrganizationsOrganizationIdRouteWithChildren,

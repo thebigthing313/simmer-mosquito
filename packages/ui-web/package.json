@@ -12,6 +12,10 @@
 			"types": "./src/components/app-shell/index.ts",
 			"import": "./src/components/app-shell/index.ts"
 		},
+		"./components/changelog": {
+			"types": "./src/components/changelog/index.ts",
+			"import": "./src/components/changelog/index.ts"
+		},
 		"./components/auth": {
 			"types": "./src/components/auth/index.ts",
 			"import": "./src/components/auth/index.ts"

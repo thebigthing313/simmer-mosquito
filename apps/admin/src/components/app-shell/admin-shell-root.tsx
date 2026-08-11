@@ -10,7 +10,7 @@ import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { Suspense } from 'react';
 import { type AuthMe, adminLogoutUrl } from '../../api';
-import { adminShellDomains } from './navigation';
+import { adminShellDomains, adminStandalonePages } from './navigation';
 
 /**
  * Mounts the shared shell for the operator console.
@@ -49,6 +49,8 @@ export function AdminShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				onSelectOrganization={() => undefined}
 				user={shellUser}
 				domains={adminShellDomains}
+				standalonePages={adminStandalonePages}
+				version={__APP_VERSION__}
 				activePath={pathname}
 				onNavigate={(to) => {
 					// The shell models destinations as plain strings; the router's typed

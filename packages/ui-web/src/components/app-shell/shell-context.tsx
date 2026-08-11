@@ -35,6 +35,14 @@ export interface ShellContextValue {
 	readonly standalonePages?: readonly ShellStandalonePage[];
 	/** Extra entries in the account dropdown, above sign-out. */
 	readonly accountLinks?: readonly ShellAccountLink[];
+	/**
+	 * The running build, drawn under the brand mark as a link to the changelog.
+	 *
+	 * Absent in surfaces that have no release identity of their own (the design
+	 * preview app), in which case the rail simply shows no version rather than a
+	 * placeholder that would be a lie in a screenshot.
+	 */
+	readonly version?: string;
 	/** Current location, router-agnostic. Drives active nav + breadcrumbs. */
 	readonly activePath: string;
 	readonly onNavigate: (to: string) => void;
@@ -64,6 +72,7 @@ export function ShellProvider({
 	resolutionDomains,
 	standalonePages,
 	accountLinks,
+	version,
 	activePath,
 	onNavigate,
 	onSignOut,
@@ -81,6 +90,7 @@ export function ShellProvider({
 			...(resolutionDomains ? { resolutionDomains } : {}),
 			...(standalonePages ? { standalonePages } : {}),
 			...(accountLinks ? { accountLinks } : {}),
+			...(version ? { version } : {}),
 			...(onSignOut ? { onSignOut } : {}),
 			...(getToday ? { getToday } : {}),
 		}),
@@ -93,6 +103,7 @@ export function ShellProvider({
 			resolutionDomains,
 			standalonePages,
 			accountLinks,
+			version,
 			activePath,
 			onNavigate,
 			onSignOut,
