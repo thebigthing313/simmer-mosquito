@@ -789,7 +789,7 @@ function RegionsEmpty() {
 					</EmptyMedia>
 					<EmptyTitle>No Regions Yet</EmptyTitle>
 					<EmptyDescription>
-						Create a region or import boundaries from a KML or GeoJSON file.
+						Create a region or import boundaries from a KML, KMZ, or GeoJSON file.
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

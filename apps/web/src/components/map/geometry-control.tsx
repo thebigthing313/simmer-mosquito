@@ -28,7 +28,7 @@ import type { DrawGeometry, DrawGeometryType, MapDrawController } from './use-ma
  * any shape, {@link POINT_DRAW_TYPES} for the point-only ones.
  *
  * Areas and lines can also be filled from a shape the agency already has — one of
- * its regions, or a KML/GeoJSON file — instead of being traced by hand. Those
+ * its regions, or a KML/KMZ/GeoJSON file — instead of being traced by hand. Those
  * shortcuts commit through the same draw controller, so an adopted shape behaves
  * exactly like a drawn one and can be redrawn or cleared.
  */
@@ -217,7 +217,7 @@ export function GeometryControl({
 					) : null}
 					{canImportFile ? (
 						<Button
-							aria-label="Fill this geometry from a KML or GeoJSON file"
+							aria-label="Fill this geometry from a KML, KMZ, or GeoJSON file"
 							disabled={isBusy}
 							onClick={() => setIsImporting(true)}
 							size="sm"

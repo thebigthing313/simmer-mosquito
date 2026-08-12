@@ -252,8 +252,8 @@ commands. Import handlers should call the same per-row domain validation and
 write ordinary rows; they do not need a public bulk command vocabulary.
 
 Address imports support lat/lng columns only. Region imports may accept GeoJSON,
-KML, or Shapefile at the import layer, but the foundation command/domain layer
-sees normalized Polygon geometry. Region import rejects MultiPolygon,
+KML, KMZ, or Shapefile at the import layer, but the foundation command/domain
+layer sees normalized Polygon geometry. Region import rejects MultiPolygon,
 GeometryCollection, Point, and LineString. Imports create new rows only;
 duplicate handling is warnings, not matching/upsert.
 

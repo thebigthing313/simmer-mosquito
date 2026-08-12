@@ -1,7 +1,7 @@
 /**
- * Client-side parsing of geometry out of an uploaded KML or GeoJSON file.
+ * Client-side parsing of geometry out of an uploaded KML, KMZ, or GeoJSON file.
  * Everything here is dependency-free: GeoJSON via `JSON.parse`, KML via the
- * browser's built-in `DOMParser`.
+ * browser's built-in `DOMParser`, and KMZ via `./kmz.js`.
  *
  * Callers say which geometry kinds they want (`Polygon`, `LineString`, or both);
  * every other geometry in the file is ignored and counted as skipped. Multi-part
@@ -12,9 +12,13 @@
  * turns every polygon in the file into a region) and the record forms' "fill
  * geometry from a file" convenience, which lets the user pick one shape.
  *
- * Only `parseKmlGroups` touches the DOM; the GeoJSON path and the helpers are
- * pure and unit-tested.
+ * Reading a file (`readImportFileText`) is separate from parsing its text
+ * (`collectImportGroups`) because only reading is asynchronous, and because the
+ * pasted-GeoJSON path in `apps/admin` has text and no file. Only `parseKmlGroups`
+ * touches the DOM; the GeoJSON path and the helpers are pure and unit-tested.
  */
+
+import { extractKmlFromKmz, isZipArchive } from './kmz.js';
 
 export type ImportPosition = [number, number];
 
@@ -69,16 +73,55 @@ export interface ImportCandidateResult {
 }
 
 /**
+ * What to put in a file input's `accept` for an import this module can read.
+ *
+ * It lives beside the reader because the reader is what decides — three copies
+ * of this string had already drifted apart on extension order and on whether
+ * `application/json` was listed, and only one of them was the truth. Note that
+ * `accept` is a filter on the picker, not a guarantee: `readImportFileText`
+ * still decides on the bytes.
+ */
+export const IMPORT_FILE_ACCEPT = [
+	'.kml',
+	'.kmz',
+	'.geojson',
+	'.json',
+	'application/geo+json',
+	'application/json',
+	'application/vnd.google-earth.kml+xml',
+	'application/vnd.google-earth.kmz',
+].join(',');
+
+/**
+ * Read an uploaded file into the text `collectImportGroups` parses.
+ *
+ * A KMZ is a zipped KML, so its document is unpacked here and the rest of the
+ * file is never parsed. The archive is recognised by its bytes rather than its
+ * extension: agencies pass these files around by email and a `.kmz` saved as
+ * `.kml` (or the reverse) is common enough that the extension is not evidence.
+ *
+ * Throws when the archive can't be read; the message names what is wrong with
+ * the file, so callers can render it as-is.
+ */
+export async function readImportFileText(file: Blob): Promise<string> {
+	const bytes = new Uint8Array(await file.arrayBuffer());
+	return isZipArchive(bytes) ? extractKmlFromKmz(bytes) : new TextDecoder().decode(bytes);
+}
+
+/**
  * Parse an uploaded file into geometry groups. KML is detected by extension or a
  * leading `<`; anything else is read as GeoJSON. Parse failures come back as an
  * `error` rather than a throw, so callers can render them.
+ *
+ * A `.kmz` name reaches here on the KML the archive held, unpacked by
+ * `readImportFileText`, so it routes down the same path as a bare `.kml`.
  */
 export function collectImportGroups(
 	text: string,
 	fileName: string,
 	kinds: readonly ImportGeometryKind[],
 ): ImportGroupResult {
-	const looksKml = /\.kml$/i.test(fileName) || text.trimStart().startsWith('<');
+	const looksKml = /\.km[lz]$/i.test(fileName) || text.trimStart().startsWith('<');
 	try {
 		return { groups: looksKml ? parseKmlGroups(text, kinds) : parseGeoJsonGroups(text, kinds) };
 	} catch (error) {
