@@ -109,4 +109,21 @@ describe('readResponseBody', () => {
 		).resolves.toEqual({});
 		await expect(readResponseBody(new Response('', { status: 500 }))).resolves.toEqual({});
 	});
+
+	it('answers an empty object for the bare text an unhandled 500 returns', async () => {
+		// What Hono sends when a handler throws. Parsed, it reached the operator as
+		// `Unexpected token 'I', "Internal S"... is not valid JSON` — a message about
+		// the client's parser, in place of the fault that actually happened.
+		await expect(
+			readResponseBody(new Response('Internal Server Error', { status: 500 })),
+		).resolves.toEqual({});
+	});
+
+	it('answers an empty object for JSON that is not an object', async () => {
+		// Callers test the parsed body with `'txid' in result`, and `in` throws on a
+		// string or a number — the same failure shape this exists to prevent.
+		await expect(readResponseBody(new Response('"nope"', { status: 500 }))).resolves.toEqual({});
+		await expect(readResponseBody(new Response('42', { status: 500 }))).resolves.toEqual({});
+		await expect(readResponseBody(new Response('null', { status: 500 }))).resolves.toEqual({});
+	});
 });

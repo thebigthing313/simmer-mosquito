@@ -1,4 +1,8 @@
-import { createHabitatCommand, DomainValidationError } from '@simmer-mosquito/domain';
+import {
+	createHabitatCommand,
+	DomainValidationError,
+	recordChemicalApplicationCommand,
+} from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import { domainValidator, validateAgainstCommand } from '../../../forms/domain-validation';
 
@@ -83,6 +87,43 @@ describe('domainValidator', () => {
 		expect(validate({ value: { description: '' } })).toMatchObject({
 			fields: { description: expect.any(String) },
 		});
+	});
+});
+
+describe('issue wording', () => {
+	it('names the field the operator sees, not the payload path', () => {
+		// The domain writes for two readers, and one of them is an API client
+		// reading a rejection. Verbatim on a form, `insecticideId is required.`
+		// hands the crew an identifier that appears nowhere on screen.
+		const result = validateAgainstCommand(
+			() =>
+				recordChemicalApplicationCommand({
+					organizationId: ORG,
+					actorProfileId: ACTOR,
+					applicationId: HABITAT,
+					insecticideId: '',
+					amountApplied: 0,
+					applicationUnitId: '',
+					applicationDate: '2026-08-12',
+					locationSource: { kind: 'geometry', geometry: POINT },
+				}),
+			{ insecticideId: 'insecticideId', amountApplied: 'amountApplied' },
+		);
+
+		expect(result?.fields.insecticideId).toBe('Insecticide is required.');
+		expect(result?.fields.amountApplied).toBe('Amount applied must be a positive finite number.');
+		// Unmapped issues land on the form alert, and are worded the same way.
+		expect(result?.form).toContain('Application unit is required.');
+	});
+
+	it('leaves a message that does not lead with its path alone', () => {
+		const untouched = validateAgainstCommand(() => {
+			throw new DomainValidationError('invalid', [
+				{ path: 'trapId', message: 'Pick a trap that is still active.' },
+			]);
+		});
+
+		expect(untouched?.form).toEqual(['Pick a trap that is still active.']);
 	});
 });
 

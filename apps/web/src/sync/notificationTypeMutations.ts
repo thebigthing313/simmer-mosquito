@@ -1,5 +1,5 @@
 import { createRowPayloadMapper } from '@simmer-mosquito/sync';
-import { commandErrorFrom } from './command-error';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 interface NotificationTypeMutationRow {
 	readonly id: string;
@@ -101,7 +101,7 @@ async function writeNotificationType(
 		},
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
-	const result = (await response.json()) as
+	const result = (await readResponseBody(response)) as
 		| NotificationTypeMutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 

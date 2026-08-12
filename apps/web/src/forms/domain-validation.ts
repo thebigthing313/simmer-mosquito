@@ -71,16 +71,46 @@ export function validateAgainstCommand(
 			if (CONTEXT_ISSUE_PATHS.has(issue.path) || idIssuePaths.has(issue.path)) {
 				continue;
 			}
+			const message = humanizeIssue(issue);
 			const field = pathMap[issue.path];
 			if (field === undefined) {
-				form.push(issue.message);
+				form.push(message);
 			} else if (fields[field] === undefined) {
 				// First issue per field wins; later ones are usually consequences.
-				fields[field] = issue.message;
+				fields[field] = message;
 			}
 		}
 		return { fields, form };
 	}
+}
+
+/**
+ * The same complaint, addressed to the person filling the form.
+ *
+ * Domain messages lead with the payload path they belong to, because their other
+ * reader is an API client reading a rejection: `insecticideId is required.`,
+ * `amountApplied must be a positive finite number.` Shown verbatim on a field,
+ * that hands an operator an identifier they have never seen and cannot map to
+ * the box in front of them. Only the leading token is rewritten — the rule the
+ * rest of the sentence states is the domain's to word, not this layer's.
+ */
+function humanizeIssue(issue: { readonly path: string; readonly message: string }): string {
+	const segment = issue.path.split('.').at(-1) ?? issue.path;
+	for (const lead of [issue.path, segment]) {
+		if (lead !== '' && issue.message.startsWith(`${lead} `)) {
+			return `${fieldLabel(segment)}${issue.message.slice(lead.length)}`;
+		}
+	}
+	return issue.message;
+}
+
+/** `applicationUnitId` -> `Application unit`. A trailing `Id` is plumbing, not a word. */
+function fieldLabel(segment: string): string {
+	const words = segment
+		.replace(/Id$/, '')
+		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+		.toLowerCase();
+	return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 /**

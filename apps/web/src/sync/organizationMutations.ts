@@ -1,4 +1,5 @@
 import type { OrganizationRow } from '@simmer-mosquito/sync';
+import { readResponseBody } from './command-error';
 
 export function createOrganizationMutationHandlers(options: { readonly serverUrl: string }) {
 	return {
@@ -104,7 +105,9 @@ async function sendOrganizationWrite(
 		},
 		body: JSON.stringify(body),
 	});
-	const result = (await response.json()) as OrganizationMutationResult | OrganizationMutationError;
+	const result = (await readResponseBody(response)) as
+		| OrganizationMutationResult
+		| OrganizationMutationError;
 
 	if (!response.ok || !('txid' in result)) {
 		return { ok: false, status: response.status, body: result as OrganizationMutationError };

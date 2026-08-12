@@ -1,6 +1,6 @@
 import type { OrganizationSpeciesRow, RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { isNoOpUpdate, pickChanged } from './change-set';
-import { commandErrorFrom } from './command-error';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 /**
  * Foundation geography + agency taxonomy optimistic mutation handlers: region
@@ -180,7 +180,7 @@ async function writeRecord(
 		},
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
-	const result = (await response.json()) as
+	const result = (await readResponseBody(response)) as
 		| MutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 

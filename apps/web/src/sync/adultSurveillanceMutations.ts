@@ -1,7 +1,7 @@
 import type { AdultCollectionRow, CollectionSpeciesRow, TrapRow } from '@simmer-mosquito/sync';
 import { readAcknowledgements } from '../lib/stop-acknowledgements';
 import { isNoOpUpdate, pickChanged } from './change-set';
-import { commandErrorFrom } from './command-error';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 /**
  * Adult surveillance optimistic mutation handlers.
@@ -394,7 +394,7 @@ async function writeAdult(
 		},
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
-	const result = (await response.json()) as
+	const result = (await readResponseBody(response)) as
 		| MutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 
