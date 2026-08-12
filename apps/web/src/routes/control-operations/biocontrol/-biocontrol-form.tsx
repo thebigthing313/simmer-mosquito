@@ -30,7 +30,7 @@ import {
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
-	FORM_VALIDATION_GEOMETRY,
+	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
@@ -206,12 +206,7 @@ export function BiocontrolFormPage({
 					recordBiocontrolActionCommand({
 						...FORM_VALIDATION_CONTEXT,
 						biocontrolActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: {
-							kind: 'geometry',
-							// Not required means a mission stop supplies it; see
-							// FORM_VALIDATION_GEOMETRY.
-							geometry: (geometry ?? (requireLocation ? null : FORM_VALIDATION_GEOMETRY)) as never,
-						},
+						locationSource: validationLocationSource(geometry, requireLocation),
 						biocontrolMethodId: value.biocontrolMethodId,
 						amountReleased: value.amountReleased as number,
 						releaseUnitId: value.releaseUnitId,

@@ -45,10 +45,29 @@ export const FORM_VALIDATION_CONTEXT = {
  * the real absence is caught by the form's own guard and reported against the
  * map.
  */
-export const FORM_VALIDATION_GEOMETRY = {
+const FORM_VALIDATION_GEOMETRY = {
 	type: 'Point',
 	coordinates: [0, 0],
 } as const;
+
+/**
+ * The `locationSource` a form's validator passes to the ordinary command
+ * builder, standing in for a location the operator was not asked to draw.
+ *
+ * The builders all take a location source even where the form does not require
+ * one, so every location-bearing form needs this same substitution; holding it
+ * here keeps the four control-action forms from each spelling out when a null
+ * geometry is a real omission and when it is the mission's to fill in.
+ */
+export function validationLocationSource(
+	geometry: unknown,
+	requireLocation: boolean,
+): { readonly kind: 'geometry'; readonly geometry: never } {
+	return {
+		kind: 'geometry',
+		geometry: (geometry ?? (requireLocation ? null : FORM_VALIDATION_GEOMETRY)) as never,
+	};
+}
 
 /** Issue paths that describe the session, not the form. */
 const CONTEXT_ISSUE_PATHS: ReadonlySet<string> = new Set([
