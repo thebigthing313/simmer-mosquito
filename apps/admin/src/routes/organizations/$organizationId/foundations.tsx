@@ -188,7 +188,7 @@ function FoundationPanels({
 			>
 				<RecordSection
 					addLabel="Add region"
-					emptyMessage="No regions. Load the agency's district boundaries from the KML or GeoJSON they sent."
+					emptyMessage="No regions. Load the agency's district boundaries from the KML, KMZ, or GeoJSON they sent."
 					icon={RegionIcon}
 					items={data.regions.map((region) => ({
 						id: region.id,
@@ -757,7 +757,7 @@ function RegionForm({
 			</Field>
 			<TextAreaRow label="Description" onChange={setDescription} value={description} />
 			<GeometryFileInput
-				description="The district boundary, from the customer's KML or GeoJSON."
+				description="The district boundary, from the customer's KML, KMZ, or GeoJSON."
 				kinds={POLYGON_ONLY}
 				label="Boundary"
 				onChange={setGeometry}

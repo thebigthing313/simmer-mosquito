@@ -8,6 +8,7 @@ import {
 	type ImportGeometryKind,
 	importCandidatesFrom,
 	isWgs84Geometry,
+	readImportFileText,
 } from '@simmer-mosquito/mapping';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -29,7 +30,7 @@ const CheckIcon = iconRegistry.actions.check.icon;
  * operator standing an agency up is loading the boundary file the customer sent,
  * not tracing a district freehand.
  *
- * Shapes therefore come from a KML or GeoJSON file, parsed with the shared
+ * Shapes therefore come from a KML, KMZ, or GeoJSON file, parsed with the shared
  * `@simmer-mosquito/mapping` importer (the same parser the web app's bulk region
  * import uses), and single points come from typed coordinates. Both read back
  * what was understood before anything is saved: with no map to check against,
@@ -37,7 +38,7 @@ const CheckIcon = iconRegistry.actions.check.icon;
  * parsed cleanly but is not the district anyone meant.
  */
 
-/** Shape entry — polygons and lines, from a file or pasted GeoJSON. */
+/** Shape entry — polygons and lines, from a KML/KMZ/GeoJSON file or pasted GeoJSON. */
 export function GeometryFileInput({
 	label,
 	description,
@@ -98,9 +99,11 @@ export function GeometryFileInput({
 
 	async function handleFile(file: File) {
 		try {
-			parse(await file.text(), file.name);
-		} catch {
-			setError('That file could not be read.');
+			parse(await readImportFileText(file), file.name);
+		} catch (cause) {
+			// An unreadable archive says why (wrong format, encrypted, no KML inside);
+			// anything else has nothing worth relaying.
+			setError(cause instanceof Error ? cause.message : 'That file could not be read.');
 		}
 	}
 
@@ -113,7 +116,7 @@ export function GeometryFileInput({
 				<div className="flex flex-wrap items-center gap-2">
 					<Button onClick={() => fileInputRef.current?.click()} type="button" variant="outline">
 						<UploadIcon aria-hidden="true" data-icon="inline-start" />
-						Choose KML or GeoJSON file
+						Choose KML, KMZ, or GeoJSON file
 					</Button>
 					{value === null ? null : (
 						<Button
@@ -130,7 +133,7 @@ export function GeometryFileInput({
 					)}
 				</div>
 				<input
-					accept=".kml,.json,.geojson,application/geo+json,application/json,application/vnd.google-earth.kml+xml"
+					accept=".kml,.kmz,.json,.geojson,application/geo+json,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz"
 					className="sr-only"
 					onChange={(event) => {
 						const file = event.target.files?.[0];

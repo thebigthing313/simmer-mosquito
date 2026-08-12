@@ -1,3 +1,4 @@
+import { readImportFileText } from '@simmer-mosquito/mapping';
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
@@ -123,7 +124,7 @@ function ImportRegionsRoute() {
 		setPendingSync(0);
 		setSelectedId(null);
 		try {
-			const text = await file.text();
+			const text = await readImportFileText(file);
 			const result = parseRegionsFromFile(text, file.name);
 			setFileName(file.name);
 			setSkipped(result.skipped);
@@ -297,8 +298,8 @@ function ImportRegionsRoute() {
 							Import Regions
 						</h1>
 						<p className="m-0 text-muted-foreground text-sm">
-							Upload a KML or GeoJSON file. Polygons are flattened into individual regions you can
-							review before importing.
+							Upload a KML, KMZ, or GeoJSON file. Polygons are flattened into individual regions you
+							can review before importing.
 						</p>
 					</div>
 				</header>
@@ -307,7 +308,7 @@ function ImportRegionsRoute() {
 					<div className="grid gap-5">
 						<div className="grid gap-2">
 							<input
-								accept=".kml,.geojson,.json,application/geo+json,application/vnd.google-earth.kml+xml"
+								accept=".kml,.kmz,.geojson,.json,application/geo+json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz"
 								className="hidden"
 								onChange={(event) => {
 									const file = event.target.files?.[0];
@@ -321,7 +322,7 @@ function ImportRegionsRoute() {
 							/>
 							<Button onClick={() => fileInputRef.current?.click()} type="button" variant="outline">
 								<UploadIcon aria-hidden="true" data-icon="inline-start" />
-								{fileName === null ? 'Choose KML or GeoJSON File' : 'Choose a Different File'}
+								{fileName === null ? 'Choose KML, KMZ, or GeoJSON File' : 'Choose a Different File'}
 							</Button>
 							{fileName === null ? null : (
 								<p className="m-0 text-muted-foreground text-xs">

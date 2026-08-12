@@ -66,6 +66,7 @@ export {
 	POLYGON_KINDS,
 	parseGeoJsonGroups,
 	parseKmlCoordinates,
+	readImportFileText,
 } from './geometry-import.js';
 export type { MeasurementSystem } from './measurement.js';
 export {
