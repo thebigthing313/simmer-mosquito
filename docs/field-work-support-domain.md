@@ -1004,6 +1004,16 @@ Options, matching `MissionExecutionOptions`:
   one the stop names. A wrong *type* (a collection against a habitat stop) is
   always refused; a different trap is only acknowledged.
 
+The two acknowledgements are answers to a refusal, not options a form offers up
+front: the conditions are only knowable once the server has the row, so the
+write goes out plain, is refused with its code and reason, and the client
+re-sends the same write with the matching flag if the technician confirms. The
+flags travel as TanStack DB mutation metadata rather than as row columns — they
+are not properties of the record — and `apps/web/src/lib/stop-acknowledgements.ts`
+is the single map from refusal code to flag. The refusals with no flag
+(`assignment_item_wrong_target_type`, `assignment_item_skipped`) are absent from
+it on purpose.
+
 Server checks, in `apps/server/src/field-work-commands/assignment-lifecycle.ts`:
 the assignment row is locked before it is read, so two devices cannot both
 decide it was unstarted and both stamp a start time. A skipped stop is refused —

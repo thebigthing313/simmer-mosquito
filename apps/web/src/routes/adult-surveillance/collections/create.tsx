@@ -10,6 +10,7 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
@@ -150,109 +151,129 @@ function CreateCollectionRoute() {
 	const [collectionId] = useState(() => crypto.randomUUID());
 	useAdditionalPersonnel({ type: 'collection', id: collectionId });
 
+	// The whole save re-runs on a confirmed acknowledgement, crew rows included;
+	// every id is minted up front, so a second attempt writes the same rows.
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+
 	const onSave = useCallback(
-		async ({ values, trap, geometry }: CollectionSaveInput) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+		async (input: CollectionSaveInput) =>
+			runAcknowledged(async (acknowledgements) => {
+				const { values, trap, geometry } = input;
+				if (organization === null) {
+					throw new Error('Organization details are still loading.');
+				}
+				if (actorProfileId === null) {
+					throw new Error('Your profile is still loading.');
+				}
 
-			const isTrap = values.sourceMode === 'trap';
-			const exact = values.timingMode === 'exact_timestamps';
-			const now = new Date().toISOString();
-			const collectedAt = exact ? toIsoDate(values.collectedAt) : toIsoDate(values.collectionDate);
+				const isTrap = values.sourceMode === 'trap';
+				const exact = values.timingMode === 'exact_timestamps';
+				const now = new Date().toISOString();
+				const collectedAt = exact
+					? toIsoDate(values.collectedAt)
+					: toIsoDate(values.collectionDate);
 
-			// Trap mode inherits the trap's location; ad-hoc carries its own point. The
-			// server recomputes geom from the location source; this centroid seeds the
-			// optimistic row so the map/coordinates show immediately.
-			const centroid =
-				isTrap && trap !== null
-					? { lat: trap.lat, lng: trap.lng }
-					: geometry !== null && geometry.type === 'Point'
-						? { lat: geometry.coordinates[1], lng: geometry.coordinates[0] }
-						: null;
-			if (centroid === null) {
-				throw new Error('Unable to determine the collection location.');
-			}
+				// Trap mode inherits the trap's location; ad-hoc carries its own point. The
+				// server recomputes geom from the location source; this centroid seeds the
+				// optimistic row so the map/coordinates show immediately.
+				const centroid =
+					isTrap && trap !== null
+						? { lat: trap.lat, lng: trap.lng }
+						: geometry !== null && geometry.type === 'Point'
+							? { lat: geometry.coordinates[1], lng: geometry.coordinates[0] }
+							: null;
+				if (centroid === null) {
+					throw new Error('Unable to determine the collection location.');
+				}
 
-			const row = buildCollectionRow({
-				values,
-				id: collectionId,
-				organizationId: organization.id,
-				actorProfileId,
-				now,
-				centroid,
-				isTrap,
-				exact,
-				collectedAt,
-				assignmentItemId,
-			});
-
-			const locationSource =
-				isTrap && trap !== null
-					? ({ kind: 'trap', trapId: trap.id } as const)
-					: geometry !== null
-						? ({ kind: 'geometry', geometry } as const)
-						: undefined;
-			if (locationSource === undefined) {
-				throw new Error('Unable to determine the collection location.');
-			}
-
-			const transaction = webCollections.collections.insert(row, {
-				metadata: { locationSource },
-			});
-			await settleWrite(transaction);
-			// Crew rows reference the collection, so they can only be written once it
-			// exists.
-			await attachLinksBestEffort('the additional personnel', () =>
-				saveAdditionalPersonnel({
-					target: { type: 'collection', id: row.id },
+				const row = buildCollectionRow({
+					values,
+					id: collectionId,
 					organizationId: organization.id,
 					actorProfileId,
-					existing: [],
-					profileIds: values.additionalPersonnelIds,
-				}),
-			);
-			// Back to the worklist the stop came from, not to the collection: the
-			// crew's next move is the next stop.
-			if (assignmentId !== null) {
-				await navigate({ to: '/operations/assignments/$id', params: { id: assignmentId } });
-				return;
-			}
-			await navigate({ to: '/adult-surveillance/collections/$id', params: { id: row.id } });
-		},
-		[organization, actorProfileId, collectionId, navigate, assignmentItemId, assignmentId],
+					now,
+					centroid,
+					isTrap,
+					exact,
+					collectedAt,
+					assignmentItemId,
+				});
+
+				const locationSource =
+					isTrap && trap !== null
+						? ({ kind: 'trap', trapId: trap.id } as const)
+						: geometry !== null
+							? ({ kind: 'geometry', geometry } as const)
+							: undefined;
+				if (locationSource === undefined) {
+					throw new Error('Unable to determine the collection location.');
+				}
+
+				await settleWrite(
+					webCollections.collections.insert(row, {
+						metadata: { acknowledgements, locationSource },
+					}),
+				);
+				// Crew rows reference the collection, so they can only be written once it
+				// exists.
+				await attachLinksBestEffort('the additional personnel', () =>
+					saveAdditionalPersonnel({
+						target: { type: 'collection', id: row.id },
+						organizationId: organization.id,
+						actorProfileId,
+						existing: [],
+						profileIds: values.additionalPersonnelIds,
+					}),
+				);
+				// Back to the worklist the stop came from, not to the collection: the
+				// crew's next move is the next stop.
+				if (assignmentId !== null) {
+					await navigate({ to: '/operations/assignments/$id', params: { id: assignmentId } });
+					return;
+				}
+				await navigate({ to: '/adult-surveillance/collections/$id', params: { id: row.id } });
+			}),
+		[
+			organization,
+			actorProfileId,
+			collectionId,
+			navigate,
+			assignmentItemId,
+			assignmentId,
+			runAcknowledged,
+		],
 	);
 
 	return (
-		<CollectionFormPage
-			canSubmit={canSubmit}
-			collectionLures={lures}
-			collectionMethods={methods}
-			defaultValues={seededDefaults(
-				defaultCollectionFormValues(
-					today,
-					trapId ?? null,
-					settings.adultSurveillance.collectionTimingMode,
-				),
-				initialGeometry,
-			)}
-			header={{
-				title: 'Record Collection',
-				description: 'Log a collection from a trap or a one-off field location.',
-				backTo: '/adult-surveillance/collections',
-				backLabel: 'Collections',
-			}}
-			initialGeometry={initialGeometry}
-			onSave={onSave}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			submitLabel="Record Collection"
-			traps={traps}
-			units={units}
-		/>
+		<>
+			<CollectionFormPage
+				canSubmit={canSubmit}
+				collectionLures={lures}
+				collectionMethods={methods}
+				defaultValues={seededDefaults(
+					defaultCollectionFormValues(
+						today,
+						trapId ?? null,
+						settings.adultSurveillance.collectionTimingMode,
+					),
+					initialGeometry,
+				)}
+				header={{
+					title: 'Record Collection',
+					description: 'Log a collection from a trap or a one-off field location.',
+					backTo: '/adult-surveillance/collections',
+					backLabel: 'Collections',
+				}}
+				initialGeometry={initialGeometry}
+				onSave={onSave}
+				organizationId={organization?.id ?? ''}
+				profiles={profiles}
+				submitLabel="Record Collection"
+				traps={traps}
+				units={units}
+			/>
+			{acknowledgeDialog}
+		</>
 	);
 }
 

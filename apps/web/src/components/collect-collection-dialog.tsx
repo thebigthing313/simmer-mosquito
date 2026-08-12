@@ -10,6 +10,7 @@ import {
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { useState } from 'react';
+import type { StopAcknowledgements } from '../lib/stop-acknowledgements';
 import { webCollections } from '../sync/webCollections';
 import { DateControl } from './date-control';
 
@@ -92,19 +93,24 @@ export async function collectPendingCollection(input: {
 	readonly collectedAt: string;
 	readonly actorProfileId: string | null;
 	readonly assignmentItemId?: string | null;
+	readonly acknowledgements?: StopAcknowledgements;
 }): Promise<void> {
 	await settleWrite(
-		webCollections.collections.update(input.collectionId, (draft) => {
-			const mutable = draft as {
-				-readonly [K in keyof AdultCollectionRow]: AdultCollectionRow[K];
-			};
-			// UTC noon, so a date never lands on the previous day for a western
-			// agency — the same conversion the collection forms use.
-			mutable.collectedAt = `${input.collectedAt.slice(0, 10)}T12:00:00.000Z`;
-			mutable.collectedByProfileId = input.actorProfileId;
-			if (input.assignmentItemId != null) {
-				mutable.collectedAssignmentItemId = input.assignmentItemId;
-			}
-		}),
+		webCollections.collections.update(
+			input.collectionId,
+			{ metadata: { acknowledgements: input.acknowledgements ?? {} } },
+			(draft) => {
+				const mutable = draft as {
+					-readonly [K in keyof AdultCollectionRow]: AdultCollectionRow[K];
+				};
+				// UTC noon, so a date never lands on the previous day for a western
+				// agency — the same conversion the collection forms use.
+				mutable.collectedAt = `${input.collectedAt.slice(0, 10)}T12:00:00.000Z`;
+				mutable.collectedByProfileId = input.actorProfileId;
+				if (input.assignmentItemId != null) {
+					mutable.collectedAssignmentItemId = input.assignmentItemId;
+				}
+			},
+		),
 	);
 }

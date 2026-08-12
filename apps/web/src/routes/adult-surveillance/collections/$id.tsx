@@ -62,6 +62,7 @@ import { ArrowLeftIcon, iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-w
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import {
@@ -279,6 +280,7 @@ function CollectCollectionButton({
 	readonly actorProfileId: string | null;
 }) {
 	const [open, setOpen] = useState(false);
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
 
 	return (
 		<>
@@ -289,15 +291,19 @@ function CollectCollectionButton({
 				defaultDate={todayInTimeZone(undefined)}
 				onConfirm={(collectedAt) => {
 					setOpen(false);
-					void collectPendingCollection({
-						actorProfileId,
-						collectedAt,
-						collectionId: collection.id,
-					});
+					void runAcknowledged((acknowledgements) =>
+						collectPendingCollection({
+							acknowledgements,
+							actorProfileId,
+							collectedAt,
+							collectionId: collection.id,
+						}),
+					);
 				}}
 				onOpenChange={setOpen}
 				open={open}
 			/>
+			{acknowledgeDialog}
 		</>
 	);
 }

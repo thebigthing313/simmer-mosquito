@@ -15,6 +15,7 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
@@ -83,150 +84,157 @@ function CreateApplicationRoute() {
 	useAdditionalPersonnel({ type: 'application', id: applicationId });
 	useApplicationBatches(applicationId);
 
+	// A confirmed acknowledgement re-runs the whole save. Safe because the loop
+	// below only lets a refusal escape while nothing has been written yet: once a
+	// mix has landed part way, the failure is reported as a count instead.
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+
 	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-		}: {
+		async (input: {
 			readonly values: ApplicationFormValues;
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
-		}) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			if (geometry === null) {
-				throw new Error('Place the application point on the map.');
-			}
-			if (values.amountApplied === null) {
-				throw new Error('Enter the amount applied.');
-			}
-
-			// The point is the application's authoritative geometry; the address (if
-			// any) is reference only. The server recomputes geom from the location
-			// source; this centroid seeds the optimistic row so the map/coordinates
-			// show immediately.
-			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine the application location.');
-			}
-
-			// A formulation is a calculator: it becomes one ordinary application per
-			// component product, each holding its own share of the total. Nothing
-			// records that they came from a mix.
-			const products =
-				values.productMode === 'formulation'
-					? formulationProducts(values, formulations, formulationComponents, applicationId)
-					: [
-							{
-								id: applicationId,
-								insecticideId: values.insecticideId,
-								amountApplied: values.amountApplied,
-								applicationUnitId: values.applicationUnitId,
-								insecticideBatchIds: values.insecticideBatchIds,
-							},
-						];
-
-			const now = new Date().toISOString();
-			const rows = products.map(
-				(product): ApplicationRow => ({
-					id: product.id,
-					organizationId: organization.id,
-					lat: centroid.lat,
-					lng: centroid.lng,
-					geomType: centroid.geomType,
-					applicationMethodId: nullableSelection(values.applicationMethodId),
-					insecticideId: product.insecticideId,
-					applicatorProfileId: nullableSelection(values.applicatorProfileId),
-					applicationDate: values.applicationDate,
-					addressId: values.addressId,
-					vehicleId: nullableSelection(values.vehicleId),
-					equipmentId: nullableSelection(values.equipmentId),
-					amountApplied: product.amountApplied,
-					applicationUnitId: product.applicationUnitId,
-					habitatId: values.habitatId,
-					collectionId: null,
-					inspectionId: null,
-					requestedControlActionId: null,
-					missionItemId,
-					metadata: values.metadata,
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				}),
-			);
-
-			const locationSource = {
-				kind: 'geometry',
-				geometry: geometry as unknown as GeoJsonGeometry,
-			} as const;
-
-			// Written one at a time so a failure part way through a mix can say how
-			// much of it landed — those rows are real applications the user now owns.
-			const saved: ApplicationRow[] = [];
-			for (const row of rows) {
-				try {
-					await settleWrite(
-						webCollections.applications.insert(row, { metadata: { locationSource } }),
-					);
-				} catch (error) {
-					if (saved.length === 0) {
-						throw error;
-					}
-					throw new Error(
-						`Recorded ${saved.length} of ${rows.length} applications before failing: ${
-							error instanceof Error ? error.message : 'Unknown error.'
-						}`,
-					);
+		}) =>
+			runAcknowledged(async (acknowledgements) => {
+				const { values, geometry } = input;
+				if (organization === null) {
+					throw new Error('Organization details are still loading.');
 				}
-				saved.push(row);
-			}
+				if (actorProfileId === null) {
+					throw new Error('Your profile is still loading.');
+				}
+				if (geometry === null) {
+					throw new Error('Place the application point on the map.');
+				}
+				if (values.amountApplied === null) {
+					throw new Error('Enter the amount applied.');
+				}
 
-			// Crew and batches are separate rows that reference the application, so
-			// they can only be written once it exists. Reported one at a time, so a
-			// failure names which of the two did not land.
-			await Promise.all(
-				saved.flatMap((row, index) => [
-					attachLinksBestEffort('the additional personnel', () =>
-						saveAdditionalPersonnel({
-							target: { type: 'application', id: row.id },
-							organizationId: organization.id,
-							actorProfileId,
-							existing: [],
-							profileIds: values.additionalPersonnelIds,
-						}),
-					),
-					attachLinksBestEffort('the batches', () =>
-						saveApplicationBatches({
-							applicationId: row.id,
-							organizationId: organization.id,
-							actorProfileId,
-							existing: [],
-							insecticideBatchIds: products[index]?.insecticideBatchIds ?? [],
-						}),
-					),
-				]),
-			);
+				// The point is the application's authoritative geometry; the address (if
+				// any) is reference only. The server recomputes geom from the location
+				// source; this centroid seeds the optimistic row so the map/coordinates
+				// show immediately.
+				const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
+				if (centroid === null) {
+					throw new Error('Unable to determine the application location.');
+				}
 
-			const first = saved[0];
-			if (saved.length > 1 || first === undefined) {
-				toast.success(`Recorded ${saved.length} applications.`);
-				await navigate({ to: '/control-operations/chemical' });
-				return;
-			}
-			// Back to the worklist the stop came from; the crew's next move is the
-			// next stop, not this record.
-			if (missionId !== null) {
-				await navigate({ to: '/operations/missions/$id', params: { id: missionId } });
-				return;
-			}
-			await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
-		},
+				// A formulation is a calculator: it becomes one ordinary application per
+				// component product, each holding its own share of the total. Nothing
+				// records that they came from a mix.
+				const products =
+					values.productMode === 'formulation'
+						? formulationProducts(values, formulations, formulationComponents, applicationId)
+						: [
+								{
+									id: applicationId,
+									insecticideId: values.insecticideId,
+									amountApplied: values.amountApplied,
+									applicationUnitId: values.applicationUnitId,
+									insecticideBatchIds: values.insecticideBatchIds,
+								},
+							];
+
+				const now = new Date().toISOString();
+				const rows = products.map(
+					(product): ApplicationRow => ({
+						id: product.id,
+						organizationId: organization.id,
+						lat: centroid.lat,
+						lng: centroid.lng,
+						geomType: centroid.geomType,
+						applicationMethodId: nullableSelection(values.applicationMethodId),
+						insecticideId: product.insecticideId,
+						applicatorProfileId: nullableSelection(values.applicatorProfileId),
+						applicationDate: values.applicationDate,
+						addressId: values.addressId,
+						vehicleId: nullableSelection(values.vehicleId),
+						equipmentId: nullableSelection(values.equipmentId),
+						amountApplied: product.amountApplied,
+						applicationUnitId: product.applicationUnitId,
+						habitatId: values.habitatId,
+						collectionId: null,
+						inspectionId: null,
+						requestedControlActionId: null,
+						missionItemId,
+						metadata: values.metadata,
+						createdByProfileId: actorProfileId,
+						updatedByProfileId: actorProfileId,
+						createdAt: now,
+						updatedAt: now,
+					}),
+				);
+
+				const locationSource = {
+					kind: 'geometry',
+					geometry: geometry as unknown as GeoJsonGeometry,
+				} as const;
+
+				// Written one at a time so a failure part way through a mix can say how
+				// much of it landed — those rows are real applications the user now owns.
+				const saved: ApplicationRow[] = [];
+				for (const row of rows) {
+					try {
+						await settleWrite(
+							webCollections.applications.insert(row, {
+								metadata: { acknowledgements, locationSource },
+							}),
+						);
+					} catch (error) {
+						if (saved.length === 0) {
+							throw error;
+						}
+						throw new Error(
+							`Recorded ${saved.length} of ${rows.length} applications before failing: ${
+								error instanceof Error ? error.message : 'Unknown error.'
+							}`,
+						);
+					}
+					saved.push(row);
+				}
+
+				// Crew and batches are separate rows that reference the application, so
+				// they can only be written once it exists. Reported one at a time, so a
+				// failure names which of the two did not land.
+				await Promise.all(
+					saved.flatMap((row, index) => [
+						attachLinksBestEffort('the additional personnel', () =>
+							saveAdditionalPersonnel({
+								target: { type: 'application', id: row.id },
+								organizationId: organization.id,
+								actorProfileId,
+								existing: [],
+								profileIds: values.additionalPersonnelIds,
+							}),
+						),
+						attachLinksBestEffort('the batches', () =>
+							saveApplicationBatches({
+								applicationId: row.id,
+								organizationId: organization.id,
+								actorProfileId,
+								existing: [],
+								insecticideBatchIds: products[index]?.insecticideBatchIds ?? [],
+							}),
+						),
+					]),
+				);
+
+				const first = saved[0];
+				if (saved.length > 1 || first === undefined) {
+					toast.success(`Recorded ${saved.length} applications.`);
+					await navigate({ to: '/control-operations/chemical' });
+					return;
+				}
+				// Back to the worklist the stop came from; the crew's next move is the
+				// next stop, not this record.
+				if (missionId !== null) {
+					await navigate({ to: '/operations/missions/$id', params: { id: missionId } });
+					return;
+				}
+				await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
+			}),
 		[
+			runAcknowledged,
 			organization,
 			actorProfileId,
 			applicationId,
@@ -239,29 +247,32 @@ function CreateApplicationRoute() {
 	);
 
 	return (
-		<ApplicationFormPage
-			applicationMethods={methods}
-			canSubmit={canSubmit}
-			defaultValues={defaultApplicationFormValues()}
-			equipment={equipment}
-			formulationComponents={formulationComponents}
-			formulations={formulations}
-			header={{
-				title: 'Record Application',
-				description:
-					'Place the treated point, pick the product and amount, and note who applied it.',
-				backTo: '/control-operations/chemical',
-				backLabel: 'Applications',
-			}}
-			insecticides={insecticides}
-			initialGeometry={initialGeometry}
-			onSave={onSave}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			submitLabel="Record Application"
-			units={units}
-			vehicles={vehicles}
-		/>
+		<>
+			<ApplicationFormPage
+				applicationMethods={methods}
+				canSubmit={canSubmit}
+				defaultValues={defaultApplicationFormValues()}
+				equipment={equipment}
+				formulationComponents={formulationComponents}
+				formulations={formulations}
+				header={{
+					title: 'Record Application',
+					description:
+						'Place the treated point, pick the product and amount, and note who applied it.',
+					backTo: '/control-operations/chemical',
+					backLabel: 'Applications',
+				}}
+				insecticides={insecticides}
+				initialGeometry={initialGeometry}
+				onSave={onSave}
+				organizationId={organization?.id ?? ''}
+				profiles={profiles}
+				submitLabel="Record Application"
+				units={units}
+				vehicles={vehicles}
+			/>
+			{acknowledgeDialog}
+		</>
 	);
 }
 

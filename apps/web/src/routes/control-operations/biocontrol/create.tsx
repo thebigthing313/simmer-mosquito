@@ -8,6 +8,7 @@ import type {
 import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
@@ -66,109 +67,124 @@ function CreateBiocontrolActionRoute() {
 	const [biocontrolActionId] = useState(() => crypto.randomUUID());
 	useAdditionalPersonnel({ type: 'biocontrolAction', id: biocontrolActionId });
 
+	// The whole save is what a confirmed acknowledgement re-runs, crew rows
+	// included; every id is minted up front, so a retry writes the same rows.
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+
 	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-		}: {
+		async (input: {
 			readonly values: BiocontrolFormValues;
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
-		}) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			if (geometry === null) {
-				throw new Error('Place the release point on the map.');
-			}
-			if (values.amountReleased === null) {
-				throw new Error('Enter how much was released.');
-			}
+		}) =>
+			runAcknowledged(async (acknowledgements) => {
+				const { values, geometry } = input;
+				if (organization === null) {
+					throw new Error('Organization details are still loading.');
+				}
+				if (actorProfileId === null) {
+					throw new Error('Your profile is still loading.');
+				}
+				if (geometry === null) {
+					throw new Error('Place the release point on the map.');
+				}
+				if (values.amountReleased === null) {
+					throw new Error('Enter how much was released.');
+				}
 
-			// The point is the action's authoritative geometry; the address (if any) is
-			// reference only. The server recomputes geom from the location source; this
-			// centroid seeds the optimistic row so the map/coordinates show immediately.
-			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine the release location.');
-			}
+				// The point is the action's authoritative geometry; the address (if any) is
+				// reference only. The server recomputes geom from the location source; this
+				// centroid seeds the optimistic row so the map/coordinates show immediately.
+				const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
+				if (centroid === null) {
+					throw new Error('Unable to determine the release location.');
+				}
 
-			const now = new Date().toISOString();
-			const row: BiocontrolActionRow = {
-				id: biocontrolActionId,
-				organizationId: organization.id,
-				lat: centroid.lat,
-				lng: centroid.lng,
-				geomType: centroid.geomType,
-				biocontrolMethodId: values.biocontrolMethodId,
-				technicianProfileId:
-					values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-				biocontrolDate: values.biocontrolDate,
-				addressId: values.addressId,
-				habitatId: values.habitatId,
-				inspectionId: null,
-				amountReleased: values.amountReleased,
-				releaseUnitId: values.releaseUnitId,
-				requestedControlActionId: null,
-				missionItemId,
-				metadata: values.metadata,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-
-			const locationSource = {
-				kind: 'geometry',
-				geometry: geometry as unknown as GeoJsonGeometry,
-			} as const;
-
-			const transaction = webCollections.biocontrolActions.insert(row, {
-				metadata: { locationSource },
-			});
-			await settleWrite(transaction);
-			// Crew rows reference the release, so they can only be written once it exists.
-			await attachLinksBestEffort('the additional personnel', () =>
-				saveAdditionalPersonnel({
-					target: { type: 'biocontrolAction', id: row.id },
+				const now = new Date().toISOString();
+				const row: BiocontrolActionRow = {
+					id: biocontrolActionId,
 					organizationId: organization.id,
-					actorProfileId,
-					existing: [],
-					profileIds: values.additionalPersonnelIds,
-				}),
-			);
-			// Back to the worklist the stop came from; the crew's next move is the
-			// next stop, not this record.
-			if (missionId !== null) {
-				await navigate({ to: '/operations/missions/$id', params: { id: missionId } });
-				return;
-			}
-			await navigate({ to: '/control-operations/biocontrol/$id', params: { id: row.id } });
-		},
-		[organization, actorProfileId, biocontrolActionId, navigate, missionItemId, missionId],
+					lat: centroid.lat,
+					lng: centroid.lng,
+					geomType: centroid.geomType,
+					biocontrolMethodId: values.biocontrolMethodId,
+					technicianProfileId:
+						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+					biocontrolDate: values.biocontrolDate,
+					addressId: values.addressId,
+					habitatId: values.habitatId,
+					inspectionId: null,
+					amountReleased: values.amountReleased,
+					releaseUnitId: values.releaseUnitId,
+					requestedControlActionId: null,
+					missionItemId,
+					metadata: values.metadata,
+					createdByProfileId: actorProfileId,
+					updatedByProfileId: actorProfileId,
+					createdAt: now,
+					updatedAt: now,
+				};
+
+				const locationSource = {
+					kind: 'geometry',
+					geometry: geometry as unknown as GeoJsonGeometry,
+				} as const;
+
+				await settleWrite(
+					webCollections.biocontrolActions.insert(row, {
+						metadata: { acknowledgements, locationSource },
+					}),
+				);
+				// Crew rows reference the release, so they can only be written once it exists.
+				await attachLinksBestEffort('the additional personnel', () =>
+					saveAdditionalPersonnel({
+						target: { type: 'biocontrolAction', id: row.id },
+						organizationId: organization.id,
+						actorProfileId,
+						existing: [],
+						profileIds: values.additionalPersonnelIds,
+					}),
+				);
+				// Back to the worklist the stop came from; the crew's next move is the
+				// next stop, not this record.
+				if (missionId !== null) {
+					await navigate({ to: '/operations/missions/$id', params: { id: missionId } });
+					return;
+				}
+				await navigate({ to: '/control-operations/biocontrol/$id', params: { id: row.id } });
+			}),
+		[
+			organization,
+			actorProfileId,
+			biocontrolActionId,
+			navigate,
+			missionItemId,
+			missionId,
+			runAcknowledged,
+		],
 	);
 
 	return (
-		<BiocontrolFormPage
-			biocontrolMethods={methods}
-			canSubmit={canSubmit}
-			defaultValues={defaultBiocontrolFormValues()}
-			header={{
-				title: 'Record Biocontrol',
-				description:
-					'Place the release point, then record the method, amount, and date of the release.',
-				backTo: '/control-operations/biocontrol',
-				backLabel: 'Biocontrol',
-			}}
-			initialGeometry={initialGeometry}
-			onSave={onSave}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			submitLabel="Record Biocontrol"
-			units={units}
-		/>
+		<>
+			<BiocontrolFormPage
+				biocontrolMethods={methods}
+				canSubmit={canSubmit}
+				defaultValues={defaultBiocontrolFormValues()}
+				header={{
+					title: 'Record Biocontrol',
+					description:
+						'Place the release point, then record the method, amount, and date of the release.',
+					backTo: '/control-operations/biocontrol',
+					backLabel: 'Biocontrol',
+				}}
+				initialGeometry={initialGeometry}
+				onSave={onSave}
+				organizationId={organization?.id ?? ''}
+				profiles={profiles}
+				submitLabel="Record Biocontrol"
+				units={units}
+			/>
+			{acknowledgeDialog}
+		</>
 	);
 }

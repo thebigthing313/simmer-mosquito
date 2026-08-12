@@ -109,6 +109,42 @@ describe('stop execution transport', () => {
 		expect(body).not.toHaveProperty('geometry');
 	});
 
+	it('sends an acknowledgement with the retry that carries it', async () => {
+		// The flags are not columns on any record — nothing about an inspection
+		// says whether its stop was already completed — so they ride as mutation
+		// metadata, and this handler is what turns them into payload keys.
+		const fetch = stubFetch();
+
+		await createInspectionMutationHandlers({ serverUrl: SERVER }).onInsert({
+			transaction: {
+				mutations: [
+					{
+						original: {},
+						modified: inspection(),
+						metadata: {
+							acknowledgements: { acknowledgedCompletedItemAdditionalRecord: true },
+						},
+					},
+				],
+			},
+		});
+
+		expect(bodyOf(fetch)).toMatchObject({
+			acknowledgedCompletedItemAdditionalRecord: true,
+			assignmentItemId: 'assignment-item-1',
+		});
+	});
+
+	it('sends no acknowledgement on an ordinary first attempt', async () => {
+		const fetch = stubFetch();
+
+		await createInspectionMutationHandlers({ serverUrl: SERVER }).onInsert({
+			transaction: { mutations: [{ original: {}, modified: inspection() }] },
+		});
+
+		expect(bodyOf(fetch)).not.toHaveProperty('acknowledgedCompletedItemAdditionalRecord');
+	});
+
 	it('routes emptying a pending trap to the collect endpoint, carrying the stop', async () => {
 		// Only `collectCollection` can link and close the stop; the ordinary PATCH
 		// has no execution branch, so a Collect sent that way would record the

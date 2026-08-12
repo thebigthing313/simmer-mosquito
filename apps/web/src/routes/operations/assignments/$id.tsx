@@ -19,6 +19,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
@@ -543,6 +544,7 @@ function CollectStopButton({
 	readonly enabled: boolean;
 }) {
 	const [open, setOpen] = useState(false);
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
 
 	return (
 		<>
@@ -553,16 +555,20 @@ function CollectStopButton({
 				defaultDate={todayInTimeZone(undefined)}
 				onConfirm={(collectedAt) => {
 					setOpen(false);
-					void collectPendingCollection({
-						actorProfileId,
-						assignmentItemId: stop.assignmentItemId,
-						collectedAt,
-						collectionId,
-					});
+					void runAcknowledged((acknowledgements) =>
+						collectPendingCollection({
+							acknowledgements,
+							actorProfileId,
+							assignmentItemId: stop.assignmentItemId,
+							collectedAt,
+							collectionId,
+						}),
+					);
 				}}
 				onOpenChange={setOpen}
 				open={open}
 			/>
+			{acknowledgeDialog}
 		</>
 	);
 }

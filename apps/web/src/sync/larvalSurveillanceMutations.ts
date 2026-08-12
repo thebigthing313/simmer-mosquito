@@ -1,4 +1,5 @@
 import type { InspectionRow, SampleRow, SampleSpeciesRow } from '@simmer-mosquito/sync';
+import { readAcknowledgements } from '../lib/stop-acknowledgements';
 import { isNoOpUpdate, pickChanged } from './change-set';
 import { commandErrorFrom } from './command-error';
 
@@ -74,6 +75,7 @@ export function createInspectionMutationHandlers(options: { readonly serverUrl: 
 						// what makes the write an execution: the server links the inspection
 						// to the stop and closes it in the same transaction.
 						assignmentItemId: row.assignmentItemId,
+						...readAcknowledgements(mutation.metadata),
 						locationSource: readOptionalLocationSource(mutation.metadata),
 					});
 					return result.txid;

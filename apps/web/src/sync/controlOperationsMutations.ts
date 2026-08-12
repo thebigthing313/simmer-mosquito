@@ -8,6 +8,7 @@ import type {
 	RequestedControlActionRow,
 	SourceReductionRow,
 } from '@simmer-mosquito/sync';
+import { readAcknowledgements } from '../lib/stop-acknowledgements';
 import { isNoOpUpdate, pickChanged } from './change-set';
 import { commandErrorFrom } from './command-error';
 
@@ -76,6 +77,7 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 					const missionItemId = config.hasMissionStop ? readMissionItemId(mutation.modified) : null;
 					if (missionItemId !== null) {
 						body.missionItemId = missionItemId;
+						Object.assign(body, readAcknowledgements(mutation.metadata));
 					}
 					if (config.hasLocation) {
 						const locationSource = readOptionalLocationSource(mutation.metadata);

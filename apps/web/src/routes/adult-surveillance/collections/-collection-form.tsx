@@ -41,6 +41,7 @@ import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-d
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
+import { isPendingCollection as isPendingCollectionRow } from '../-adult-display';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
@@ -69,17 +70,17 @@ const COLLECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * Whether the trap has been emptied yet.
+ * Whether the trap has been emptied yet, asked of the form's own values.
  *
- * A trap set on one visit and emptied on another is two visits, and between
- * them the collection exists with no specimens against it. That state is what
- * `setTrapCollection`/`setAdHocCollection` write, and the only thing that
- * distinguishes it is the absence of a collected date — a date-plus-duration
- * collection is by definition already in hand, so the question only arises in
- * exact-timestamps mode.
+ * The rule itself lives with the badge that reports it, so the form and the
+ * record it produces cannot come to disagree about what "still out" means; only
+ * the two field names differ.
  */
-export function isPendingCollection(value: CollectionFormValues): boolean {
-	return value.timingMode === 'exact_timestamps' && value.collectedAt === null;
+function isPendingCollection(value: CollectionFormValues): boolean {
+	return isPendingCollectionRow({
+		collectedAt: value.collectedAt,
+		collectionTimingMode: value.timingMode,
+	});
 }
 
 /**

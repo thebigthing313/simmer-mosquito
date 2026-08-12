@@ -548,6 +548,12 @@ cover" and is not refused.
 
 Address mismatch is warning-only because geometry is authoritative.
 
+`acknowledgedMissionGeometryNotCovered` and `acknowledgedRequestedActionMismatch`
+are answers to a refusal rather than options the form offers up front, and reach
+the endpoint the same way the assignment ones do — see "Assignment Item
+Execution" in `docs/field-work-support-domain.md`. `mission_item_wrong_control_type`
+and `mission_method_required` take no flag and are never offered a way past.
+
 Mission helper commands do not automatically resolve requested control actions.
 Resolution remains an explicit control-operations command.
 

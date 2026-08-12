@@ -1,4 +1,5 @@
 import type { AdultCollectionRow, CollectionSpeciesRow, TrapRow } from '@simmer-mosquito/sync';
+import { readAcknowledgements } from '../lib/stop-acknowledgements';
 import { isNoOpUpdate, pickChanged } from './change-set';
 import { commandErrorFrom } from './command-error';
 
@@ -193,6 +194,7 @@ export function createCollectionMutationHandlers(options: { readonly serverUrl: 
 						// the visit only set the trap or set and emptied it; the server
 						// decides which of the two columns it lands in.
 						assignmentItemId: row.setAssignmentItemId,
+						...readAcknowledgements(mutation.metadata),
 						locationSource: readOptionalLocationSource(mutation.metadata),
 					});
 					return result.txid;
@@ -212,6 +214,7 @@ export function createCollectionMutationHandlers(options: { readonly serverUrl: 
 							// Set when the trap was emptied off an assignment stop, which
 							// makes this write close that stop in the same transaction.
 							assignmentItemId: row.collectedAssignmentItemId,
+							...readAcknowledgements(mutation.metadata),
 						});
 						return result.txid;
 					}

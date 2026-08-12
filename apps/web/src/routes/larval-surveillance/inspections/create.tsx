@@ -3,6 +3,7 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
@@ -93,117 +94,136 @@ function CreateInspectionRoute() {
 		[inspectionId],
 	);
 
+	// The whole save is the unit an acknowledgement re-runs, not just the insert:
+	// the samples, crew, and comment below only exist once the inspection lands,
+	// so a confirmed retry has to carry them too. Every id is minted up front, so
+	// running twice writes the same rows rather than a second set.
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+
 	const onSave = useCallback(
-		async ({
-			values,
-			adhocGeometry,
-		}: {
+		async (input: {
 			readonly values: InspectionFormValues;
 			readonly adhocGeometry: DrawGeometry | null;
-		}) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+		}) =>
+			runAcknowledged(async (acknowledgements) => {
+				const { values, adhocGeometry } = input;
+				if (organization === null) {
+					throw new Error('Organization details are still loading.');
+				}
+				if (actorProfileId === null) {
+					throw new Error('Your profile is still loading.');
+				}
 
-			const now = new Date().toISOString();
-			const isAdhoc = values.locationMode === 'adhoc';
-			const row = buildInspectionRow(values, {
-				id: inspectionId,
-				organizationId: organization.id,
-				actorProfileId,
-				now,
-				assignmentItemId,
-			});
-
-			const transaction =
-				isAdhoc && adhocGeometry !== null
-					? webCollections.inspections.insert(row, {
-							metadata: { locationSource: { kind: 'geometry', geometry: adhocGeometry } },
-						})
-					: webCollections.inspections.insert(row);
-			await settleWrite(transaction);
-
-			// Samples reference the inspection, so they follow it. Best-effort like
-			// the crew rows: a sample that fails to land is reported rather than
-			// failing a save that already succeeded.
-			await attachLinksBestEffort('the samples', () =>
-				saveInspectionSamples(values.samples, {
-					inspectionId: row.id,
+				const now = new Date().toISOString();
+				const isAdhoc = values.locationMode === 'adhoc';
+				const row = buildInspectionRow(values, {
+					id: inspectionId,
 					organizationId: organization.id,
 					actorProfileId,
 					now,
-				}),
-			);
-
-			// Crew rows reference the inspection, so they can only be written once it
-			// exists.
-			await attachLinksBestEffort('the additional personnel', () =>
-				saveAdditionalPersonnel({
-					target: { type: 'inspection', id: row.id },
-					organizationId: organization.id,
-					actorProfileId,
-					existing: [],
-					profileIds: values.additionalPersonnelIds,
-				}),
-			);
-
-			// Attach the optional note as the inspection's first comment. The
-			// inspection must be committed first (the comment references it), so this
-			// runs after its persistence — best-effort, so a comment hiccup never
-			// strands the user on a saved-but-unnavigated inspection.
-			const comment = values.comment.trim();
-			if (comment.length > 0) {
-				await addInspectionComment(comment, {
-					inspectionId: row.id,
-					organizationId: organization.id,
-					actorProfileId,
-					now,
+					assignmentItemId,
 				});
-			}
 
-			// Back to the worklist the stop came from, not to the inspection: the
-			// crew's next move is the next stop.
-			if (assignmentId !== null) {
+				await settleWrite(
+					webCollections.inspections.insert(row, {
+						metadata: {
+							acknowledgements,
+							...(isAdhoc && adhocGeometry !== null
+								? { locationSource: { kind: 'geometry', geometry: adhocGeometry } }
+								: {}),
+						},
+					}),
+				);
+
+				// Samples reference the inspection, so they follow it. Best-effort like
+				// the crew rows: a sample that fails to land is reported rather than
+				// failing a save that already succeeded.
+				await attachLinksBestEffort('the samples', () =>
+					saveInspectionSamples(values.samples, {
+						inspectionId: row.id,
+						organizationId: organization.id,
+						actorProfileId,
+						now,
+					}),
+				);
+
+				// Crew rows reference the inspection, so they can only be written once it
+				// exists.
+				await attachLinksBestEffort('the additional personnel', () =>
+					saveAdditionalPersonnel({
+						target: { type: 'inspection', id: row.id },
+						organizationId: organization.id,
+						actorProfileId,
+						existing: [],
+						profileIds: values.additionalPersonnelIds,
+					}),
+				);
+
+				// Attach the optional note as the inspection's first comment. The
+				// inspection must be committed first (the comment references it), so this
+				// runs after its persistence — best-effort, so a comment hiccup never
+				// strands the user on a saved-but-unnavigated inspection.
+				const comment = values.comment.trim();
+				if (comment.length > 0) {
+					await addInspectionComment(comment, {
+						inspectionId: row.id,
+						organizationId: organization.id,
+						actorProfileId,
+						now,
+					});
+				}
+
+				// Back to the worklist the stop came from, not to the inspection: the
+				// crew's next move is the next stop.
+				if (assignmentId !== null) {
+					await navigate({
+						to: '/operations/assignments/$id',
+						params: { id: assignmentId },
+					});
+					return;
+				}
+
 				await navigate({
-					to: '/operations/assignments/$id',
-					params: { id: assignmentId },
+					to: '/larval-surveillance/inspections/$id',
+					params: { id: row.id },
 				});
-				return;
-			}
-
-			await navigate({
-				to: '/larval-surveillance/inspections/$id',
-				params: { id: row.id },
-			});
-		},
-		[organization, actorProfileId, inspectionId, navigate, assignmentItemId, assignmentId],
+			}),
+		[
+			organization,
+			actorProfileId,
+			inspectionId,
+			navigate,
+			assignmentItemId,
+			assignmentId,
+			runAcknowledged,
+		],
 	);
 
 	return (
-		<InspectionFormPage
-			canSubmit={canSubmit}
-			defaultValues={seededDefaults(
-				defaultInspectionFormValues(today, actorProfileId),
-				initialGeometry,
-			)}
-			habitatTypes={habitatTypes}
-			mode="create"
-			header={{
-				title: 'Record Inspection',
-				description: 'Log a larval inspection against a habitat or an ad-hoc field location.',
-				backTo: '/larval-surveillance/inspections',
-				backLabel: 'Inspections',
-			}}
-			initialAdhocGeometry={initialGeometry}
-			onSave={onSave}
-			organizationId={organization?.id ?? ''}
-			policy={policy}
-			profiles={profiles}
-			submitLabel="Record Inspection"
-		/>
+		<>
+			<InspectionFormPage
+				canSubmit={canSubmit}
+				defaultValues={seededDefaults(
+					defaultInspectionFormValues(today, actorProfileId),
+					initialGeometry,
+				)}
+				habitatTypes={habitatTypes}
+				mode="create"
+				header={{
+					title: 'Record Inspection',
+					description: 'Log a larval inspection against a habitat or an ad-hoc field location.',
+					backTo: '/larval-surveillance/inspections',
+					backLabel: 'Inspections',
+				}}
+				initialAdhocGeometry={initialGeometry}
+				onSave={onSave}
+				organizationId={organization?.id ?? ''}
+				policy={policy}
+				profiles={profiles}
+				submitLabel="Record Inspection"
+			/>
+			{acknowledgeDialog}
+		</>
 	);
 }
 
