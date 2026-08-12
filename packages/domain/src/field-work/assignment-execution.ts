@@ -1,13 +1,14 @@
 import {
 	createIssues,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
+	jsonObject as normalizeMetadata,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
 	validateNotFutureLocalDate,
 } from '../command-validation.js';
-import type { DomainId, DomainValidationIssue, LocalDateString } from '../shared.js';
+import type { DomainId, DomainValidationIssue, JsonObject, LocalDateString } from '../shared.js';
 import {
 	type CollectedCollectionTiming,
 	type ExactPendingCollectionTiming,
@@ -141,6 +142,8 @@ export interface SetTrapCollectionForAssignmentItemCommandInput extends Assignme
 	readonly collectionMethodId?: DomainId | null;
 	readonly collectionLureId?: DomainId | null;
 	readonly trapId?: DomainId | null;
+	/** The org's custom fields for a collection, same as the ordinary trap set. */
+	readonly metadata?: unknown | null;
 }
 
 export type SetTrapCollectionForAssignmentItemCommand = FieldWorkDomainCommand<
@@ -152,6 +155,7 @@ export type SetTrapCollectionForAssignmentItemCommand = FieldWorkDomainCommand<
 		readonly collectionMethodId: DomainId | null;
 		readonly collectionLureId: DomainId | null;
 		readonly trapId: DomainId | null;
+		readonly metadata: JsonObject | null;
 	}
 >;
 
@@ -173,6 +177,7 @@ export function setTrapCollectionForAssignmentItemCommand(
 		issues,
 	);
 	const trapId = normalizeOptionalUuid(input.trapId, 'trapId', issues);
+	const metadata = normalizeMetadata(input.metadata, 'metadata', issues);
 	throwIfIssues('Set trap collection for assignment item command is invalid.', issues);
 
 	return {
@@ -185,6 +190,7 @@ export function setTrapCollectionForAssignmentItemCommand(
 			collectionMethodId,
 			collectionLureId,
 			trapId,
+			metadata,
 		},
 	};
 }
@@ -245,6 +251,8 @@ export interface RecordCollectedTrapCollectionForAssignmentItemCommandInput
 	readonly collectionMethodId?: DomainId | null;
 	readonly collectionLureId?: DomainId | null;
 	readonly trapId?: DomainId | null;
+	/** The org's custom fields for a collection, same as the ordinary trap record. */
+	readonly metadata?: unknown | null;
 	readonly acknowledgedPendingTrapCollection?: boolean;
 }
 
@@ -259,6 +267,7 @@ export type RecordCollectedTrapCollectionForAssignmentItemCommand = FieldWorkDom
 		readonly collectionMethodId: DomainId | null;
 		readonly collectionLureId: DomainId | null;
 		readonly trapId: DomainId | null;
+		readonly metadata: JsonObject | null;
 		readonly acknowledgedPendingTrapCollection: boolean;
 	}
 >;
@@ -282,6 +291,7 @@ export function recordCollectedTrapCollectionForAssignmentItemCommand(
 		issues,
 	);
 	const trapId = normalizeOptionalUuid(input.trapId, 'trapId', issues);
+	const metadata = normalizeMetadata(input.metadata, 'metadata', issues);
 	throwIfIssues('Record collected trap collection for assignment item command is invalid.', issues);
 
 	return {
@@ -299,6 +309,7 @@ export function recordCollectedTrapCollectionForAssignmentItemCommand(
 			collectionMethodId,
 			collectionLureId,
 			trapId,
+			metadata,
 			acknowledgedPendingTrapCollection: input.acknowledgedPendingTrapCollection ?? false,
 		},
 	};

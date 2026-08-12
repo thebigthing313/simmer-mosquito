@@ -70,6 +70,10 @@ export function createInspectionMutationHandlers(options: { readonly serverUrl: 
 						hasFourthInstar: row.hasFourthInstar,
 						hasPupae: row.hasPupae,
 						hasEggs: row.hasEggs,
+						// Present when the form was opened from an assignment stop. It is
+						// what makes the write an execution: the server links the inspection
+						// to the stop and closes it in the same transaction.
+						assignmentItemId: row.assignmentItemId,
 						locationSource: readOptionalLocationSource(mutation.metadata),
 					});
 					return result.txid;

@@ -21,6 +21,7 @@ import {
 import {
 	assertMissionGeometryCovered,
 	beginMissionExecution,
+	defaultMissionMethodId,
 	finishMissionExecution,
 	missionItemGeom,
 } from '../mission-dispatch-commands/mission-execution.js';
@@ -238,7 +239,7 @@ async function writeMissionApplication(
 		.values({
 			id: payload.applicationId,
 			organization_id: payload.organizationId,
-			application_method_id: payload.applicationMethodId,
+			application_method_id: defaultMissionMethodId(payload.applicationMethodId, stop),
 			insecticide_id: payload.insecticideId,
 			applicator_profile_id: payload.applicatorProfileId,
 			application_date: localDateColumn(payload.applicationDate),

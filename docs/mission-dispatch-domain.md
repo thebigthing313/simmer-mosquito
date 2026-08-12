@@ -528,8 +528,12 @@ Defaults the server fills when the command omits them:
 - geometry — the mission item's own geometry, so the ordinary call cannot
   disagree with the stop it came from
 - `requested_control_action_id` — the stop's
-- method — `missions.planned_method_id`. A mission planned without one, executed
-  without one, is refused (`mission_method_required`) rather than invented.
+- method — `missions.planned_method_id`. For source reduction, outreach, and
+  biocontrol the column is required, so a mission planned without a method and
+  executed without one is refused (`mission_method_required`) rather than
+  invented. A chemical application's method is nullable, so the plan is a
+  default there and never a requirement: refusing would make a mission-recorded
+  application stricter than the same application recorded off-mission.
 
 The mission row is locked before it is read, so the auto-start that may follow
 cannot race a concurrent one.

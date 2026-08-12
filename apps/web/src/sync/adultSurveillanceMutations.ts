@@ -147,6 +147,11 @@ export function createCollectionMutationHandlers(options: { readonly serverUrl: 
 						collectedByProfileId: row.collectedByProfileId,
 						hasProblem: row.hasProblem,
 						metadata: row.metadata,
+						// The stop this visit was dispatched for, when there was one. A
+						// create is one visit, so `setAssignmentItemId` carries it whether
+						// the visit only set the trap or set and emptied it; the server
+						// decides which of the two columns it lands in.
+						assignmentItemId: row.setAssignmentItemId,
 						locationSource: readOptionalLocationSource(mutation.metadata),
 					});
 					return result.txid;

@@ -186,6 +186,13 @@ export function checkItemProgress(
  *
  * A second record against an already-completed stop is allowed but must be
  * asked for, because the ordinary cause is a double submit.
+ *
+ * The completion this writes is a progress timestamp like any other, so it is
+ * judged against the assignment's start the same way `checkItemProgress` judges
+ * one. Passing `timing` only when a completion is actually being written keeps
+ * the rule off a `completedAt` the command is going to ignore; on the auto-start
+ * path `startedAt` is still null here, and the comparison stands down rather
+ * than refusing work for happening before a start this very command is stamping.
  */
 export function checkExecution(
 	parent: AssignmentState,
@@ -194,6 +201,7 @@ export function checkExecution(
 		readonly autoStart: boolean;
 		readonly acknowledgedCompletedItemAdditionalRecord: boolean;
 	},
+	timing?: ProgressTiming,
 ): LifecycleRejection | null {
 	if (parent === 'not_started' && !options.autoStart) {
 		return 'assignment_not_started';
@@ -206,6 +214,11 @@ export function checkExecution(
 	}
 	if (item === 'completed' && !options.acknowledgedCompletedItemAdditionalRecord) {
 		return 'assignment_item_already_completed';
+	}
+	// Last, for the same reason as in `checkItemProgress`: a stop refused for its
+	// state should be told about its state.
+	if (timing !== undefined && isProgressBeforeStart(timing.progressAt, timing.startedAt)) {
+		return 'assignment_item_progress_before_start';
 	}
 	return null;
 }
@@ -328,6 +341,9 @@ export async function beginExecution(
 		readonly autoStart: boolean;
 		readonly acknowledgedCompletedItemAdditionalRecord: boolean;
 		readonly acknowledgedTargetMismatch: boolean;
+		/** The completion this execution will write, if it is writing one. */
+		readonly completeItem: boolean;
+		readonly completedAt: Date | null;
 	},
 ): Promise<ExecutionStop> {
 	const item = await trx
@@ -355,10 +371,18 @@ export async function beginExecution(
 
 	const state = readAssignmentState(assignment);
 	reject(
-		checkExecution(state, readAssignmentItemState(item), {
-			autoStart: options.autoStart,
-			acknowledgedCompletedItemAdditionalRecord: options.acknowledgedCompletedItemAdditionalRecord,
-		}),
+		checkExecution(
+			state,
+			readAssignmentItemState(item),
+			{
+				autoStart: options.autoStart,
+				acknowledgedCompletedItemAdditionalRecord:
+					options.acknowledgedCompletedItemAdditionalRecord,
+			},
+			options.completeItem
+				? { progressAt: options.completedAt, startedAt: assignment.started_at }
+				: undefined,
+		),
 	);
 	reject(
 		checkExecutionTarget(

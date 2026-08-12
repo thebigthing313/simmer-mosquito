@@ -208,5 +208,38 @@ describe('assignment execution commands', () => {
 			expect(command.payload.collectedByProfileId).toBe(actorProfileId);
 			expect(command.payload.hasProblem).toBe(false);
 		});
+
+		it('keeps the org’s custom fields, the same as an off-stop trap visit', () => {
+			// Dropped here, a stop-recorded collection would silently lose every
+			// custom field the org configured — and only when recorded off a stop,
+			// which is the hardest place to notice it.
+			const metadata = { trapCondition: 'intact' };
+
+			expect(
+				setTrapCollectionForAssignmentItemCommand({
+					...ctx,
+					assignmentItemId,
+					collectionId,
+					trapId,
+					startedAt: new Date('2026-08-10T12:00:00Z'),
+					metadata,
+				}).payload.metadata,
+			).toEqual(metadata);
+
+			expect(
+				recordCollectedTrapCollectionForAssignmentItemCommand({
+					...ctx,
+					assignmentItemId,
+					collectionId,
+					timing: {
+						mode: 'collection_date_duration',
+						collectionDate: '2026-08-10',
+						durationAmount: 24,
+						durationUnitId,
+					},
+					metadata,
+				}).payload.metadata,
+			).toEqual(metadata);
+		});
 	});
 });

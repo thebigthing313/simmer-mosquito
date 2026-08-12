@@ -152,6 +152,22 @@ export function resolveMissionMethodId(
 }
 
 /**
+ * The same default for a record whose method column is nullable.
+ *
+ * Only chemical applications are in this position: an application may legally
+ * be filed with no method, so the mission's plan is a default here and never a
+ * requirement. Refusing as {@link resolveMissionMethodId} does would make a
+ * mission-recorded application stricter than the same application recorded
+ * off-mission, which is a rule nothing asked for.
+ */
+export function defaultMissionMethodId(
+	explicit: string | null | undefined,
+	stop: MissionExecutionStop,
+): string | null {
+	return explicit ?? stop.plannedMethodId ?? null;
+}
+
+/**
  * Where the recorded work happened.
  *
  * Defaults to the stop's own geometry, which is the ordinary case: the crew

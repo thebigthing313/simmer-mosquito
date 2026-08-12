@@ -210,6 +210,54 @@ describe('checkExecution', () => {
 			}),
 		).toBeNull();
 	});
+
+	it('refuses a completion dated before the assignment started', () => {
+		// The completion this writes is a progress timestamp like any other, and
+		// the progress commands have always been judged against the start. Without
+		// this, the execution path was the one way in that skipped the rule.
+		const startedAt = new Date('2026-08-04T09:00:00.000Z');
+		expect(
+			checkExecution('in_progress', 'pending', open, {
+				progressAt: new Date('2026-08-04T08:00:00.000Z'),
+				startedAt,
+			}),
+		).toBe('assignment_item_progress_before_start');
+	});
+
+	it('allows a completion inside the clock-skew allowance', () => {
+		// The two values come from different clocks — the server stamped the start,
+		// the device stamped the completion — so a phone a minute slow must not
+		// have genuinely-completed work refused.
+		const startedAt = new Date('2026-08-04T09:00:00.000Z');
+		expect(
+			checkExecution('in_progress', 'pending', open, {
+				progressAt: new Date(startedAt.getTime() - CLOCK_SKEW_TOLERANCE_MS + 1_000),
+				startedAt,
+			}),
+		).toBeNull();
+	});
+
+	it('stands down on the auto-start path, where the start is being stamped now', () => {
+		// `startedAt` is still null when the check runs, so there is nothing to be
+		// before: recording the first stop of the day is what starts the assignment.
+		expect(
+			checkExecution('not_started', 'pending', open, {
+				progressAt: new Date('2026-08-04T08:00:00.000Z'),
+				startedAt: null,
+			}),
+		).toBeNull();
+	});
+
+	it('reports the stop’s state ahead of its timing', () => {
+		// A stop refused for being skipped should be told that, not handed a
+		// timing complaint it cannot act on.
+		expect(
+			checkExecution('in_progress', 'skipped', open, {
+				progressAt: new Date('2026-08-04T08:00:00.000Z'),
+				startedAt: new Date('2026-08-04T09:00:00.000Z'),
+			}),
+		).toBe('assignment_item_skipped');
+	});
 });
 
 describe('checkExecutionTarget', () => {

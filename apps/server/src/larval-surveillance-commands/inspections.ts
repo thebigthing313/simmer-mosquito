@@ -310,6 +310,8 @@ async function recordInspectionForStop(
 			autoStart: payload.autoStartAssignment,
 			acknowledgedCompletedItemAdditionalRecord: payload.acknowledgedCompletedItemAdditionalRecord,
 			acknowledgedTargetMismatch: payload.acknowledgedTargetMismatch,
+			completeItem: payload.completeAssignmentItem,
+			completedAt: payload.completedAt,
 		},
 	);
 	// The stop's own habitat is the default, so the ordinary call carries no

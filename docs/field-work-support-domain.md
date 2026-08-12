@@ -1007,7 +1007,12 @@ Options, matching `MissionExecutionOptions`:
 Server checks, in `apps/server/src/field-work-commands/assignment-lifecycle.ts`:
 the assignment row is locked before it is read, so two devices cannot both
 decide it was unstarted and both stamp a start time. A skipped stop is refused —
-unskip first.
+unskip first. A `completedAt` before the assignment's `started_at` is refused
+(`assignment_item_progress_before_start`) exactly as it is for the progress
+commands, within `CLOCK_SKEW_TOLERANCE_MS` because the two timestamps come from
+different clocks; the rule stands down on the auto-start path, where the start
+is being stamped by this very command, and when `completeAssignmentItem` is
+false and no completion is being written.
 
 Service request items have no execution command. Record the follow-up, then send
 `fieldWork.completeAssignmentItem`; if the follow-up succeeds and completion

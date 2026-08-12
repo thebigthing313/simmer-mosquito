@@ -174,6 +174,7 @@ function buildCollectionCreateCommand(
 			assignmentItemId,
 			collectionId,
 			trapId,
+			metadata,
 			completedAt: readDate(payload.completedAt),
 			...readExecutionOptions(payload),
 		};
@@ -584,6 +585,8 @@ function executionOptions(payload: ExecutionPayload) {
 		autoStart: payload.autoStartAssignment,
 		acknowledgedCompletedItemAdditionalRecord: payload.acknowledgedCompletedItemAdditionalRecord,
 		acknowledgedTargetMismatch: payload.acknowledgedTargetMismatch,
+		completeItem: payload.completeAssignmentItem,
+		completedAt: payload.completedAt,
 	};
 }
 
@@ -628,7 +631,7 @@ async function setTrapCollectionForStop(
 		setByProfileId: payload.setByProfileId,
 		collectedByProfileId: null,
 		hasProblem: false,
-		metadata: null,
+		metadata: payload.metadata,
 		actorProfileId: payload.actorProfileId,
 		setAssignmentItemId: payload.assignmentItemId,
 	});
@@ -664,7 +667,7 @@ async function recordCollectedTrapCollectionForStop(
 		setByProfileId: payload.setByProfileId,
 		collectedByProfileId: payload.collectedByProfileId,
 		hasProblem: payload.hasProblem,
-		metadata: null,
+		metadata: payload.metadata,
 		actorProfileId: payload.actorProfileId,
 		setAssignmentItemId: payload.assignmentItemId,
 		collectedAssignmentItemId: payload.assignmentItemId,
