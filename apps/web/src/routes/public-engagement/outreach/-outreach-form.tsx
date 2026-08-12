@@ -27,7 +27,11 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	FORM_VALIDATION_GEOMETRY,
+} from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayDateValue } from '../../control-operations/-control-display';
 import { FormSection } from '../../control-operations/-control-form-parts';
@@ -188,7 +192,12 @@ export function OutreachFormPage({
 					recordOutreachActionCommand({
 						...FORM_VALIDATION_CONTEXT,
 						outreachActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						locationSource: {
+							kind: 'geometry',
+							// Not required means a mission stop supplies it; see
+							// FORM_VALIDATION_GEOMETRY.
+							geometry: (geometry ?? (requireLocation ? null : FORM_VALIDATION_GEOMETRY)) as never,
+						},
 						outreachMethodId: value.outreachMethodId,
 						reach: value.reach as number,
 						reachDescription: value.reachDescription.trim() === '' ? null : value.reachDescription,

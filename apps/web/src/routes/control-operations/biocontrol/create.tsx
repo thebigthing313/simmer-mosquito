@@ -1,4 +1,3 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type {
 	BiocontrolActionRow,
 	ControlMethodRow,
@@ -8,12 +7,12 @@ import type {
 import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -50,8 +49,7 @@ function CreateBiocontrolActionRoute() {
 	const initialGeometry = pointFromSearch(search);
 	// Recorded off a mission stop: the server links the action to the stop and
 	// completes it in the same transaction.
-	const missionItemId = search.missionItemId ?? null;
-	const missionId = search.missionId ?? null;
+	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
@@ -67,17 +65,13 @@ function CreateBiocontrolActionRoute() {
 	const [biocontrolActionId] = useState(() => crypto.randomUUID());
 	useAdditionalPersonnel({ type: 'biocontrolAction', id: biocontrolActionId });
 
-	// The whole save is what a confirmed acknowledgement re-runs, crew rows
-	// included; every id is minted up front, so a retry writes the same rows.
-	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
-
 	const onSave = useCallback(
 		async (input: {
 			readonly values: BiocontrolFormValues;
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
 		}) =>
-			runAcknowledged(async (acknowledgements) => {
+			mission.run(async (acknowledgements) => {
 				const { values, geometry } = input;
 				if (organization === null) {
 					throw new Error('Organization details are still loading.');
@@ -85,28 +79,26 @@ function CreateBiocontrolActionRoute() {
 				if (actorProfileId === null) {
 					throw new Error('Your profile is still loading.');
 				}
-				if (geometry === null) {
-					throw new Error('Place the release point on the map.');
-				}
 				if (values.amountReleased === null) {
 					throw new Error('Enter how much was released.');
 				}
 
 				// The point is the action's authoritative geometry; the address (if any) is
-				// reference only. The server recomputes geom from the location source; this
-				// centroid seeds the optimistic row so the map/coordinates show immediately.
-				const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
-				if (centroid === null) {
-					throw new Error('Unable to determine the release location.');
-				}
+				// reference only. Off a mission stop it is required; on one it is an
+				// override the crew may not have drawn, and the server falls back to the
+				// stop's own ground.
+				const location = mission.resolveLocation(geometry, {
+					missing: 'Place the release point on the map.',
+					unresolvable: 'Unable to determine the release location.',
+				});
 
 				const now = new Date().toISOString();
 				const row: BiocontrolActionRow = {
 					id: biocontrolActionId,
 					organizationId: organization.id,
-					lat: centroid.lat,
-					lng: centroid.lng,
-					geomType: centroid.geomType,
+					lat: location.lat,
+					lng: location.lng,
+					geomType: location.geomType,
 					biocontrolMethodId: values.biocontrolMethodId,
 					technicianProfileId:
 						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
@@ -117,7 +109,7 @@ function CreateBiocontrolActionRoute() {
 					amountReleased: values.amountReleased,
 					releaseUnitId: values.releaseUnitId,
 					requestedControlActionId: null,
-					missionItemId,
+					missionItemId: mission.missionItemId,
 					metadata: values.metadata,
 					createdByProfileId: actorProfileId,
 					updatedByProfileId: actorProfileId,
@@ -125,14 +117,9 @@ function CreateBiocontrolActionRoute() {
 					updatedAt: now,
 				};
 
-				const locationSource = {
-					kind: 'geometry',
-					geometry: geometry as unknown as GeoJsonGeometry,
-				} as const;
-
 				await settleWrite(
 					webCollections.biocontrolActions.insert(row, {
-						metadata: { acknowledgements, locationSource },
+						metadata: { acknowledgements, locationSource: location.locationSource },
 					}),
 				);
 				// Crew rows reference the release, so they can only be written once it exists.
@@ -145,23 +132,11 @@ function CreateBiocontrolActionRoute() {
 						profileIds: values.additionalPersonnelIds,
 					}),
 				);
-				// Back to the worklist the stop came from; the crew's next move is the
-				// next stop, not this record.
-				if (missionId !== null) {
-					await navigate({ to: '/operations/missions/$id', params: { id: missionId } });
-					return;
-				}
-				await navigate({ to: '/control-operations/biocontrol/$id', params: { id: row.id } });
+				await mission.navigateAfterSave(async () => {
+					await navigate({ to: '/control-operations/biocontrol/$id', params: { id: row.id } });
+				});
 			}),
-		[
-			organization,
-			actorProfileId,
-			biocontrolActionId,
-			navigate,
-			missionItemId,
-			missionId,
-			runAcknowledged,
-		],
+		[organization, actorProfileId, biocontrolActionId, navigate, mission],
 	);
 
 	return (
@@ -178,18 +153,14 @@ function CreateBiocontrolActionRoute() {
 					backLabel: 'Biocontrol',
 				}}
 				initialGeometry={initialGeometry}
-				// A mission stop already names the ground. The server defaults the
-				// action's geometry from it, so requiring a draw here would make the
-				// crew re-trace the place they were sent — and, for a line or polygon
-				// stop, trace it wrongly enough to trip the coverage check.
-				requireLocation={missionItemId === null}
+				requireLocation={mission.requireLocation}
 				onSave={onSave}
 				organizationId={organization?.id ?? ''}
 				profiles={profiles}
 				submitLabel="Record Biocontrol"
 				units={units}
 			/>
-			{acknowledgeDialog}
+			{mission.dialog}
 		</>
 	);
 }

@@ -43,7 +43,11 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	FORM_VALIDATION_GEOMETRY,
+} from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { webCollections } from '../../../sync/webCollections';
@@ -372,7 +376,9 @@ export function ApplicationFormPage({
 			onSubmit: ({ value }: { readonly value: ApplicationFormValues }) => {
 				const locationSource = {
 					kind: 'geometry',
-					geometry: (geometry ?? null) as never,
+					// Not required means a mission stop supplies it; see
+					// FORM_VALIDATION_GEOMETRY.
+					geometry: (geometry ?? (requireLocation ? null : FORM_VALIDATION_GEOMETRY)) as never,
 				} as const;
 				const shared = {
 					...FORM_VALIDATION_CONTEXT,

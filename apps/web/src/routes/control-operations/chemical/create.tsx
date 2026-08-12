@@ -1,5 +1,4 @@
 import { calculateFormulationComponentAmounts } from '@simmer-mosquito/domain';
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type {
 	ApplicationRow,
 	ControlMethodRow,
@@ -15,12 +14,12 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -58,8 +57,7 @@ function CreateApplicationRoute() {
 	const initialGeometry = pointFromSearch(search);
 	// Recorded off a mission stop: the server links the action to the stop and
 	// completes it in the same transaction.
-	const missionItemId = search.missionItemId ?? null;
-	const missionId = search.missionId ?? null;
+	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
@@ -87,15 +85,13 @@ function CreateApplicationRoute() {
 	// A confirmed acknowledgement re-runs the whole save. Safe because the loop
 	// below only lets a refusal escape while nothing has been written yet: once a
 	// mix has landed part way, the failure is reported as a count instead.
-	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
-
 	const onSave = useCallback(
 		async (input: {
 			readonly values: ApplicationFormValues;
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
 		}) =>
-			runAcknowledged(async (acknowledgements) => {
+			mission.run(async (acknowledgements) => {
 				const { values, geometry } = input;
 				if (organization === null) {
 					throw new Error('Organization details are still loading.');
@@ -103,21 +99,18 @@ function CreateApplicationRoute() {
 				if (actorProfileId === null) {
 					throw new Error('Your profile is still loading.');
 				}
-				if (geometry === null) {
-					throw new Error('Place the application point on the map.');
-				}
 				if (values.amountApplied === null) {
 					throw new Error('Enter the amount applied.');
 				}
 
 				// The point is the application's authoritative geometry; the address (if
-				// any) is reference only. The server recomputes geom from the location
-				// source; this centroid seeds the optimistic row so the map/coordinates
-				// show immediately.
-				const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
-				if (centroid === null) {
-					throw new Error('Unable to determine the application location.');
-				}
+				// any) is reference only. Off a mission stop it is required; on one it is
+				// an override the crew may not have drawn, and the server falls back to
+				// the stop's own ground.
+				const location = mission.resolveLocation(geometry, {
+					missing: 'Place the application point on the map.',
+					unresolvable: 'Unable to determine the application location.',
+				});
 
 				// A formulation is a calculator: it becomes one ordinary application per
 				// component product, each holding its own share of the total. Nothing
@@ -140,9 +133,9 @@ function CreateApplicationRoute() {
 					(product): ApplicationRow => ({
 						id: product.id,
 						organizationId: organization.id,
-						lat: centroid.lat,
-						lng: centroid.lng,
-						geomType: centroid.geomType,
+						lat: location.lat,
+						lng: location.lng,
+						geomType: location.geomType,
 						applicationMethodId: nullableSelection(values.applicationMethodId),
 						insecticideId: product.insecticideId,
 						applicatorProfileId: nullableSelection(values.applicatorProfileId),
@@ -156,7 +149,7 @@ function CreateApplicationRoute() {
 						collectionId: null,
 						inspectionId: null,
 						requestedControlActionId: null,
-						missionItemId,
+						missionItemId: mission.missionItemId,
 						metadata: values.metadata,
 						createdByProfileId: actorProfileId,
 						updatedByProfileId: actorProfileId,
@@ -165,11 +158,6 @@ function CreateApplicationRoute() {
 					}),
 				);
 
-				const locationSource = {
-					kind: 'geometry',
-					geometry: geometry as unknown as GeoJsonGeometry,
-				} as const;
-
 				// Written one at a time so a failure part way through a mix can say how
 				// much of it landed — those rows are real applications the user now owns.
 				const saved: ApplicationRow[] = [];
@@ -177,7 +165,7 @@ function CreateApplicationRoute() {
 					try {
 						await settleWrite(
 							webCollections.applications.insert(row, {
-								metadata: { acknowledgements, locationSource },
+								metadata: { acknowledgements, locationSource: location.locationSource },
 							}),
 						);
 					} catch (error) {
@@ -225,24 +213,18 @@ function CreateApplicationRoute() {
 					await navigate({ to: '/control-operations/chemical' });
 					return;
 				}
-				// Back to the worklist the stop came from; the crew's next move is the
-				// next stop, not this record.
-				if (missionId !== null) {
-					await navigate({ to: '/operations/missions/$id', params: { id: missionId } });
-					return;
-				}
-				await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
+				await mission.navigateAfterSave(async () => {
+					await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
+				});
 			}),
 		[
-			runAcknowledged,
+			mission,
 			organization,
 			actorProfileId,
 			applicationId,
 			formulations,
 			formulationComponents,
 			navigate,
-			missionItemId,
-			missionId,
 		],
 	);
 
@@ -264,11 +246,7 @@ function CreateApplicationRoute() {
 				}}
 				insecticides={insecticides}
 				initialGeometry={initialGeometry}
-				// A mission stop already names the ground. The server defaults the
-				// action's geometry from it, so requiring a draw here would make the
-				// crew re-trace the place they were sent — and, for a line or polygon
-				// stop, trace it wrongly enough to trip the coverage check.
-				requireLocation={missionItemId === null}
+				requireLocation={mission.requireLocation}
 				onSave={onSave}
 				organizationId={organization?.id ?? ''}
 				profiles={profiles}
@@ -276,7 +254,7 @@ function CreateApplicationRoute() {
 				units={units}
 				vehicles={vehicles}
 			/>
-			{acknowledgeDialog}
+			{mission.dialog}
 		</>
 	);
 }

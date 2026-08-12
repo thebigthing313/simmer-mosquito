@@ -27,7 +27,11 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	FORM_VALIDATION_GEOMETRY,
+} from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { todayDateValue } from '../-control-display';
@@ -202,7 +206,12 @@ export function BiocontrolFormPage({
 					recordBiocontrolActionCommand({
 						...FORM_VALIDATION_CONTEXT,
 						biocontrolActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						locationSource: {
+							kind: 'geometry',
+							// Not required means a mission stop supplies it; see
+							// FORM_VALIDATION_GEOMETRY.
+							geometry: (geometry ?? (requireLocation ? null : FORM_VALIDATION_GEOMETRY)) as never,
+						},
 						biocontrolMethodId: value.biocontrolMethodId,
 						amountReleased: value.amountReleased as number,
 						releaseUnitId: value.releaseUnitId,

@@ -1,14 +1,13 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type { ControlMethodRow, OutreachActionRow, ProfileRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -45,8 +44,7 @@ function CreateOutreachActionRoute() {
 	const initialGeometry = pointFromSearch(search);
 	// Recorded off a mission stop: the server links the action to the stop and
 	// completes it in the same transaction.
-	const missionItemId = search.missionItemId ?? null;
-	const missionId = search.missionId ?? null;
+	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.outreachMethods);
@@ -61,17 +59,13 @@ function CreateOutreachActionRoute() {
 	const [outreachActionId] = useState(() => crypto.randomUUID());
 	useAdditionalPersonnel({ type: 'outreachAction', id: outreachActionId });
 
-	// The whole save is what a confirmed acknowledgement re-runs, crew rows
-	// included; every id is minted up front, so a retry writes the same rows.
-	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
-
 	const onSave = useCallback(
 		async (input: {
 			readonly values: OutreachFormValues;
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
 		}) =>
-			runAcknowledged(async (acknowledgements) => {
+			mission.run(async (acknowledgements) => {
 				const { values, geometry } = input;
 				if (organization === null) {
 					throw new Error('Organization details are still loading.');
@@ -79,29 +73,27 @@ function CreateOutreachActionRoute() {
 				if (actorProfileId === null) {
 					throw new Error('Your profile is still loading.');
 				}
-				if (geometry === null) {
-					throw new Error('Place the outreach location on the map.');
-				}
 				if (values.reach === null) {
 					throw new Error('Enter how many people were reached.');
 				}
 
 				// The geometry is the action's authoritative location; the address (if any)
-				// is reference only. The server recomputes geom from the location source;
-				// this centroid seeds the optimistic row so the map shows it immediately.
-				const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
-				if (centroid === null) {
-					throw new Error('Unable to determine the outreach location.');
-				}
+				// is reference only. Off a mission stop it is required; on one it is an
+				// override the crew may not have drawn, and the server falls back to the
+				// stop's own ground.
+				const location = mission.resolveLocation(geometry, {
+					missing: 'Place the outreach location on the map.',
+					unresolvable: 'Unable to determine the outreach location.',
+				});
 
 				const now = new Date().toISOString();
 				const reachDescription = values.reachDescription.trim();
 				const row: OutreachActionRow = {
 					id: outreachActionId,
 					organizationId: organization.id,
-					lat: centroid.lat,
-					lng: centroid.lng,
-					geomType: centroid.geomType,
+					lat: location.lat,
+					lng: location.lng,
+					geomType: location.geomType,
 					outreachMethodId: values.outreachMethodId,
 					technicianProfileId:
 						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
@@ -111,7 +103,7 @@ function CreateOutreachActionRoute() {
 					reach: values.reach,
 					reachDescription: reachDescription === '' ? null : reachDescription,
 					requestedControlActionId: null,
-					missionItemId,
+					missionItemId: mission.missionItemId,
 					metadata: values.metadata,
 					createdByProfileId: actorProfileId,
 					updatedByProfileId: actorProfileId,
@@ -119,14 +111,9 @@ function CreateOutreachActionRoute() {
 					updatedAt: now,
 				};
 
-				const locationSource = {
-					kind: 'geometry',
-					geometry: geometry as unknown as GeoJsonGeometry,
-				} as const;
-
 				await settleWrite(
 					webCollections.outreachActions.insert(row, {
-						metadata: { acknowledgements, locationSource },
+						metadata: { acknowledgements, locationSource: location.locationSource },
 					}),
 				);
 				// Crew rows reference the action, so they can only be written once it exists.
@@ -139,22 +126,11 @@ function CreateOutreachActionRoute() {
 						profileIds: values.additionalPersonnelIds,
 					}),
 				);
-				// Back to the worklist the stop came from.
-				if (missionId !== null) {
-					await navigate({ to: '/operations/missions/$id', params: { id: missionId } });
-					return;
-				}
-				await navigate({ to: '/public-engagement/outreach/$id', params: { id: row.id } });
+				await mission.navigateAfterSave(async () => {
+					await navigate({ to: '/public-engagement/outreach/$id', params: { id: row.id } });
+				});
 			}),
-		[
-			organization,
-			actorProfileId,
-			outreachActionId,
-			navigate,
-			missionItemId,
-			missionId,
-			runAcknowledged,
-		],
+		[organization, actorProfileId, outreachActionId, navigate, mission],
 	);
 
 	return (
@@ -170,18 +146,14 @@ function CreateOutreachActionRoute() {
 					backLabel: 'Outreach',
 				}}
 				initialGeometry={initialGeometry}
-				// A mission stop already names the ground. The server defaults the
-				// action's geometry from it, so requiring a draw here would make the
-				// crew re-trace the place they were sent — and, for a line or polygon
-				// stop, trace it wrongly enough to trip the coverage check.
-				requireLocation={missionItemId === null}
+				requireLocation={mission.requireLocation}
 				onSave={onSave}
 				organizationId={organization?.id ?? ''}
 				outreachMethods={methods}
 				profiles={profiles}
 				submitLabel="Record Outreach"
 			/>
-			{acknowledgeDialog}
+			{mission.dialog}
 		</>
 	);
 }

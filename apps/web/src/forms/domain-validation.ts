@@ -32,6 +32,24 @@ export const FORM_VALIDATION_CONTEXT = {
 	actorProfileId: '00000000-0000-4000-8000-000000000002',
 } as const;
 
+/**
+ * The same stand-in, for a location the operator is not being asked to draw.
+ *
+ * A control action recorded off a mission stop takes its geometry from the stop
+ * unless the crew draws an override, so the form does not require one — but the
+ * ordinary command builder these validators run does, and a null geometry fails
+ * it with "must be a GeoJSON geometry object" before any other rule is reached.
+ * That is a complaint about a field the operator was never shown.
+ *
+ * Only ever passed when the form itself is not requiring a location; when it is,
+ * the real absence is caught by the form's own guard and reported against the
+ * map.
+ */
+export const FORM_VALIDATION_GEOMETRY = {
+	type: 'Point',
+	coordinates: [0, 0],
+} as const;
+
 /** Issue paths that describe the session, not the form. */
 const CONTEXT_ISSUE_PATHS: ReadonlySet<string> = new Set([
 	'organizationId',
