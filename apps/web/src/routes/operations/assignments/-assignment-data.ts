@@ -9,7 +9,7 @@ import type {
 	TrapRow,
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import { and, eq, gte, inArray, lte, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, gte, inArray, isNull, lte, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../components/map';
 import type { StopTone } from '../../../components/stop-order';
@@ -564,7 +564,10 @@ function usePendingTrapCollections(
 						inArray(collection.trapId, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]),
 						// The pending state, spelled out: a date-plus-duration collection
 						// also has a null `collectedAt` and is not waiting for anybody.
-						eq(collection.collectedAt, null),
+						// `isNull`, not `eq(…, null)` — the query builder follows SQL
+						// three-valued logic, so an equality test against null matches
+						// nothing and every trap stop silently looks like a first visit.
+						isNull(collection.collectedAt),
 						eq(collection.collectionTimingMode, 'exact_timestamps'),
 					),
 				),
