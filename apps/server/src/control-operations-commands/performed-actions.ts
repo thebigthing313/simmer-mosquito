@@ -182,6 +182,9 @@ export const sourceReductionConfig: ActionConfig<SafeSourceReduction> = {
 				technicianProfileId: readNullableText(p.technicianProfileId),
 				...(p.geometry === undefined ? {} : { geometry: p.geometry }),
 				addressId: readNullableText(p.addressId),
+				// The larval/adult context the record was made in is the record's own,
+				// not the mission's — the form sends the same keys either way.
+				context: readControlActionContext(p),
 				requestedControlActionId: readNullableText(p.requestedControlActionId),
 				metadata: p.metadata ?? null,
 				...readMissionExecutionOptions(p),
@@ -495,6 +498,9 @@ export const outreachActionConfig: ActionConfig<SafeOutreachAction> = {
 				reachDescription: readNullableText(p.reachDescription),
 				...(p.geometry === undefined ? {} : { geometry: p.geometry }),
 				addressId: readNullableText(p.addressId),
+				// The larval/adult context the record was made in is the record's own,
+				// not the mission's — the form sends the same keys either way.
+				context: readControlActionContext(p),
 				requestedControlActionId: readNullableText(p.requestedControlActionId),
 				metadata: p.metadata ?? null,
 				...readMissionExecutionOptions(p),
@@ -700,6 +706,9 @@ export const biocontrolActionConfig: ActionConfig<SafeBiocontrolAction> = {
 				technicianProfileId: readNullableText(p.technicianProfileId),
 				...(p.geometry === undefined ? {} : { geometry: p.geometry }),
 				addressId: readNullableText(p.addressId),
+				// The larval/adult context the record was made in is the record's own,
+				// not the mission's — the form sends the same keys either way.
+				context: readControlActionContext(p),
 				requestedControlActionId: readNullableText(p.requestedControlActionId),
 				metadata: p.metadata ?? null,
 				...readMissionExecutionOptions(p),

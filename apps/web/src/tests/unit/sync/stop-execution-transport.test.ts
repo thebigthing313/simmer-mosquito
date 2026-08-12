@@ -1,7 +1,19 @@
-import type { AdultCollectionRow, ApplicationRow, InspectionRow } from '@simmer-mosquito/sync';
+import type {
+	AdultCollectionRow,
+	ApplicationRow,
+	BiocontrolActionRow,
+	InspectionRow,
+	OutreachActionRow,
+	SourceReductionRow,
+} from '@simmer-mosquito/sync';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createCollectionMutationHandlers } from '../../../sync/adultSurveillanceMutations';
-import { createApplicationMutationHandlers } from '../../../sync/controlOperationsMutations';
+import {
+	createApplicationMutationHandlers,
+	createBiocontrolActionMutationHandlers,
+	createOutreachActionMutationHandlers,
+	createSourceReductionMutationHandlers,
+} from '../../../sync/controlOperationsMutations';
 import { createInspectionMutationHandlers } from '../../../sync/larvalSurveillanceMutations';
 
 /**
@@ -64,6 +76,65 @@ describe('stop execution transport', () => {
 		});
 
 		expect(bodyOf(fetch)).toMatchObject({ missionItemId: 'mission-item-1' });
+	});
+
+	it.each([
+		[
+			'source reduction',
+			() => createSourceReductionMutationHandlers({ serverUrl: SERVER }),
+			() => sourceReduction({ missionItemId: 'mission-item-2' }),
+		],
+		[
+			'outreach action',
+			() => createOutreachActionMutationHandlers({ serverUrl: SERVER }),
+			() => outreachAction({ missionItemId: 'mission-item-3' }),
+		],
+		[
+			'biocontrol action',
+			() => createBiocontrolActionMutationHandlers({ serverUrl: SERVER }),
+			() => biocontrolAction({ missionItemId: 'mission-item-4' }),
+		],
+	])('sends the mission stop with a %s recorded from one', async (_name, handlers, row) => {
+		// The application above is the only one of the four that had a wire-body
+		// test, and all four are built by the same shared factory — so a config
+		// that forgets `hasMissionStop` on one of these three ships the same
+		// silence the first commit of this feature shipped.
+		const fetch = stubFetch();
+
+		await handlers().onInsert({
+			transaction: { mutations: [{ original: {}, modified: row() as never }] },
+		});
+
+		expect(bodyOf(fetch)).toMatchObject({ missionItemId: expect.stringMatching(/^mission-item-/) });
+	});
+
+	it('sends the larval context of an action recorded off a mission stop', async () => {
+		// A mission-recorded action stores no less than the same action recorded
+		// outside one. The keys have to be on the wire for the server to have
+		// anything to read them from — it takes the execution branch here, and that
+		// branch built its command without a context at all until it was fixed.
+		const fetch = stubFetch();
+
+		await createApplicationMutationHandlers({ serverUrl: SERVER }).onInsert({
+			transaction: {
+				mutations: [
+					{
+						original: {},
+						modified: application({
+							missionItemId: 'mission-item-1',
+							habitatId: 'habitat-1',
+							inspectionId: 'inspection-1',
+						}),
+					},
+				],
+			},
+		});
+
+		expect(bodyOf(fetch)).toMatchObject({
+			habitatId: 'habitat-1',
+			inspectionId: 'inspection-1',
+			missionItemId: 'mission-item-1',
+		});
 	});
 
 	it('sends a drawn mission location as a geometry, not a location source', async () => {
@@ -291,6 +362,83 @@ function collection(overrides: Partial<AdultCollectionRow> = {}): AdultCollectio
 		hasProblem: false,
 		isZeroResult: false,
 		hasBycatch: false,
+		metadata: null,
+		createdByProfileId: 'profile-1',
+		updatedByProfileId: 'profile-1',
+		createdAt: '2026-08-11T00:00:00.000Z',
+		updatedAt: '2026-08-11T00:00:00.000Z',
+		...overrides,
+	};
+}
+
+function sourceReduction(overrides: Partial<SourceReductionRow> = {}): SourceReductionRow {
+	return {
+		id: 'source-reduction-1',
+		organizationId: 'organization-1',
+		lat: 47.61,
+		lng: -122.33,
+		geomType: 'point',
+		sourceReductionMethodId: 'method-1',
+		technicianProfileId: 'profile-1',
+		sourceReductionDate: '2026-08-11',
+		addressId: null,
+		habitatId: null,
+		sourcesEliminatedAmount: 4,
+		sourcesEliminatedUnitId: 'unit-1',
+		inspectionId: null,
+		requestedControlActionId: null,
+		missionItemId: null,
+		metadata: null,
+		createdByProfileId: 'profile-1',
+		updatedByProfileId: 'profile-1',
+		createdAt: '2026-08-11T00:00:00.000Z',
+		updatedAt: '2026-08-11T00:00:00.000Z',
+		...overrides,
+	};
+}
+
+function outreachAction(overrides: Partial<OutreachActionRow> = {}): OutreachActionRow {
+	return {
+		id: 'outreach-action-1',
+		organizationId: 'organization-1',
+		lat: 47.61,
+		lng: -122.33,
+		geomType: 'point',
+		outreachMethodId: 'method-1',
+		technicianProfileId: 'profile-1',
+		outreachDate: '2026-08-11',
+		addressId: null,
+		inspectionId: null,
+		reach: 12,
+		reachDescription: null,
+		requestedControlActionId: null,
+		missionItemId: null,
+		metadata: null,
+		createdByProfileId: 'profile-1',
+		updatedByProfileId: 'profile-1',
+		createdAt: '2026-08-11T00:00:00.000Z',
+		updatedAt: '2026-08-11T00:00:00.000Z',
+		...overrides,
+	};
+}
+
+function biocontrolAction(overrides: Partial<BiocontrolActionRow> = {}): BiocontrolActionRow {
+	return {
+		id: 'biocontrol-action-1',
+		organizationId: 'organization-1',
+		lat: 47.61,
+		lng: -122.33,
+		geomType: 'point',
+		biocontrolMethodId: 'method-1',
+		technicianProfileId: 'profile-1',
+		biocontrolDate: '2026-08-11',
+		addressId: null,
+		habitatId: null,
+		inspectionId: null,
+		amountReleased: 500,
+		releaseUnitId: 'unit-1',
+		requestedControlActionId: null,
+		missionItemId: null,
 		metadata: null,
 		createdByProfileId: 'profile-1',
 		updatedByProfileId: 'profile-1',
