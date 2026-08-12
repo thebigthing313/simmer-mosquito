@@ -91,7 +91,6 @@ function TrapDirectoryRoute() {
 			aside={
 				<SelectedTrap
 					hasActiveTraps={hasActiveTraps}
-					isNarrowed={isNarrowed}
 					methodNameById={methodNameById}
 					trap={selectedTrap}
 				/>
@@ -166,15 +165,13 @@ function SelectedTrap({
 	trap,
 	methodNameById,
 	hasActiveTraps,
-	isNarrowed,
 }: {
 	readonly trap: TrapRow | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly hasActiveTraps: boolean;
-	readonly isNarrowed: boolean;
 }) {
 	if (trap === null) {
-		return <NoSelection hasTraps={hasActiveTraps} isNarrowed={isNarrowed} />;
+		return <NoSelection hasTraps={hasActiveTraps} />;
 	}
 	return (
 		<TrapCollectionHistory
@@ -272,14 +269,15 @@ function TrapListRow({
 
 // --- the empty right half ---------------------------------------------------
 
-function NoSelection({
-	hasTraps,
-	isNarrowed,
-}: {
-	readonly hasTraps: boolean;
-	readonly isNarrowed: boolean;
-}) {
-	const copy = noSelectionCopy(hasTraps, isNarrowed);
+/**
+ * The right half with no trap in it.
+ *
+ * Only two states reach here. The pane holds whichever trap the list has
+ * anchored to, so it is empty exactly when the list is — either the agency runs
+ * no active traps, or the filters hid every one of them. There is no third
+ * "nothing picked yet" state: the directory selects for you.
+ */
+function NoSelection({ hasTraps }: { readonly hasTraps: boolean }) {
 	return (
 		<div className="flex h-full items-center justify-center p-8">
 			<Empty className="max-w-[42ch]">
@@ -287,38 +285,14 @@ function NoSelection({
 					<EmptyMedia variant="icon">
 						<TrapIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>{copy.title}</EmptyTitle>
-					<EmptyDescription>{copy.description}</EmptyDescription>
+					<EmptyTitle>{hasTraps ? 'No Traps Match' : 'No Active Traps'}</EmptyTitle>
+					<EmptyDescription>
+						{hasTraps
+							? 'Clear the search, or try another collection method, to pick a trap.'
+							: 'Deploy a trap, or reactivate a retired one, and its collections will read here.'}
+					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
 		</div>
 	);
-}
-
-/**
- * Three reasons the right half is empty, and they are not the same news: the
- * agency runs no traps, the filters hid the one that would have been selected,
- * or there is simply nothing picked yet.
- */
-function noSelectionCopy(
-	hasTraps: boolean,
-	isNarrowed: boolean,
-): { readonly title: string; readonly description: string } {
-	if (!hasTraps) {
-		return {
-			title: 'No Active Traps',
-			description:
-				'Deploy a trap, or reactivate a retired one, and its collections will read here.',
-		};
-	}
-	if (isNarrowed) {
-		return {
-			title: 'No Traps Match',
-			description: 'Clear the search, or try another collection method, to pick a trap.',
-		};
-	}
-	return {
-		title: 'No Trap Selected',
-		description: 'Choose a trap to read its collections, season by season.',
-	};
 }

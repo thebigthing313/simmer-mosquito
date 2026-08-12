@@ -30,11 +30,12 @@ import {
 	CircleIcon,
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, gte, isNull, or, toArray, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
 import { WriteOnly } from '../../components/write-only';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { localDayStartAsTimestamp } from '../../lib/local-date';
 import { webCollections } from '../../sync/webCollections';
 import {
 	CollectionFlagBadges,
@@ -44,7 +45,7 @@ import {
 	SpeciesStatusBadge,
 	trapDisplayName,
 } from './-adult-display';
-import { formatMonthDay } from './-overview-data';
+import { formatMonthDay, todayInTimeZone } from './-overview-data';
 import {
 	type CollectionYear,
 	type DirectoryCollection,
@@ -62,6 +63,16 @@ const AddIcon = iconRegistry.actions.add.icon;
 const collectionsGcTimeMs = 30_000;
 
 /**
+ * How many seasons load without being asked for.
+ *
+ * `docs/sync.md` sets the policy for this table — "Adult collections: three-year
+ * persisted history, older on request" — and a trap directory is the surface
+ * most able to break it, because a trap kept in the same place for a decade has
+ * a decade of collections and every one of them carries its species rows.
+ */
+const DEFAULT_SEASONS = 3;
+
+/**
  * Everything one trap has produced, read as a season at a time.
  *
  * The directory's right half. A trap's collections are a long, flat run of dates
@@ -77,6 +88,14 @@ export function TrapCollectionHistory({
 	readonly trap: TrapRow;
 	readonly methodName: string;
 }) {
+	// Older seasons are asked for, not loaded up front — see DEFAULT_SEASONS.
+	const [allSeasons, setAllSeasons] = useState(false);
+	const since = useMemo(() => {
+		const thisYear = Number(todayInTimeZone(undefined).slice(0, 4));
+		return `${thisYear - (DEFAULT_SEASONS - 1)}-01-01`;
+	}, []);
+	const sinceTimestamp = useMemo(() => localDayStartAsTimestamp(since), [since]);
+
 	// collections is on-demand; this query's predicate is what loads the trap's
 	// subset, and the correlated species include comes with it. Status-gated
 	// useLiveQuery rather than the suspense variant, which hangs after a
@@ -87,7 +106,27 @@ export function TrapCollectionHistory({
 			query: (query) =>
 				query
 					.from({ collection: webCollections.collections })
-					.where(({ collection }) => eq(collection.trapId, trap.id))
+					.where(({ collection }) =>
+						allSeasons
+							? eq(collection.trapId, trap.id)
+							: and(
+									eq(collection.trapId, trap.id),
+									or(
+										// Each column against a bound in its own type: a bare
+										// YYYY-MM-DD against a timestamptz is not a predicate
+										// Electric will parse.
+										gte(collection.collectedAt, sinceTimestamp),
+										gte(collection.collectionDate, since),
+										/*
+										 * A trap that is still out has neither date, and a
+										 * comparison against null is never true — so without this
+										 * the window would drop the "Trap out" bucket, hiding the
+										 * one collection the operator is most likely looking for.
+										 */
+										and(isNull(collection.collectedAt), isNull(collection.collectionDate)),
+									),
+								),
+					)
 					.select(({ collection }) => ({
 						id: collection.id,
 						collectedAt: collection.collectedAt,
@@ -110,7 +149,7 @@ export function TrapCollectionHistory({
 						),
 					})),
 		},
-		[trap.id],
+		[trap.id, allSeasons, since, sinceTimestamp],
 	);
 
 	const years = useMemo(
@@ -132,6 +171,7 @@ export function TrapCollectionHistory({
 			header={<TrapHeader methodName={methodName} trap={trap} />}
 			isError={result.isError}
 			isReady={result.isReady}
+			onLoadEarlier={allSeasons ? undefined : () => setAllSeasons(true)}
 			speciesNameById={speciesNameById}
 			years={years}
 		/>
@@ -188,6 +228,7 @@ function CollectionYears({
 	isError,
 	speciesNameById,
 	header,
+	onLoadEarlier,
 }: {
 	readonly years: readonly CollectionYear[];
 	readonly isReady: boolean;
@@ -195,6 +236,8 @@ function CollectionYears({
 	readonly speciesNameById: ReadonlyMap<string, string>;
 	/** The trap this history belongs to, pinned above its own scroll. */
 	readonly header: ReactNode;
+	/** Lifts the default season window. Absent once every season is loaded. */
+	readonly onLoadEarlier?: (() => void) | undefined;
 }) {
 	// The open year is held here rather than in the URL: it belongs to the trap in
 	// view, and a year that is meaningful for one trap need not exist for the next.
@@ -243,16 +286,25 @@ function CollectionYears({
 			<HistoryFrame
 				header={header}
 				tabs={
-					<DirectoryTabsList label="Season">
-						{years.map((year) => (
-							<DirectoryTab key={year.key} value={year.key}>
-								{year.label}
-								<span className="text-muted-foreground text-xs tabular-nums">
-									{year.collections.length}
-								</span>
-							</DirectoryTab>
-						))}
-					</DirectoryTabsList>
+					<div className="flex items-center gap-2">
+						<div className="min-w-0 flex-1">
+							<DirectoryTabsList label="Season">
+								{years.map((year) => (
+									<DirectoryTab key={year.key} value={year.key}>
+										{year.label}
+										<span className="text-muted-foreground text-xs tabular-nums">
+											{year.collections.length}
+										</span>
+									</DirectoryTab>
+								))}
+							</DirectoryTabsList>
+						</div>
+						{onLoadEarlier === undefined ? null : (
+							<Button className="shrink-0" onClick={onLoadEarlier} size="sm" variant="ghost">
+								Earlier seasons
+							</Button>
+						)}
+					</div>
 				}
 			>
 				{/*
