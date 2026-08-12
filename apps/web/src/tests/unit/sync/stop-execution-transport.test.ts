@@ -109,6 +109,62 @@ describe('stop execution transport', () => {
 		expect(body).not.toHaveProperty('geometry');
 	});
 
+	it('routes emptying a pending trap to the collect endpoint, carrying the stop', async () => {
+		// Only `collectCollection` can link and close the stop; the ordinary PATCH
+		// has no execution branch, so a Collect sent that way would record the
+		// specimens and leave the stop pending.
+		const fetch = stubFetch();
+		const pending = collection({ collectedAt: null, collectedByProfileId: null });
+
+		await createCollectionMutationHandlers({ serverUrl: SERVER }).onUpdate({
+			transaction: {
+				mutations: [
+					{
+						original: pending,
+						modified: collection({
+							collectedAt: '2026-08-11T12:00:00.000Z',
+							collectedAssignmentItemId: 'assignment-item-3',
+						}),
+					},
+				],
+			},
+		});
+
+		expect(String(fetch.mock.calls[0]?.[0])).toBe(
+			`${SERVER}/adult-surveillance/collections/collection-1/collect`,
+		);
+		expect(bodyOf(fetch)).toMatchObject({
+			assignmentItemId: 'assignment-item-3',
+			collectedAt: '2026-08-11T12:00:00.000Z',
+		});
+	});
+
+	it('leaves a broader edit on the ordinary patch, even when it also collects', async () => {
+		// The edit form can turn a pending collection into a collected one while
+		// changing anything else on the record. Routing that to /collect would
+		// carry the collect columns and silently drop the rest of the edit.
+		const fetch = stubFetch();
+
+		await createCollectionMutationHandlers({ serverUrl: SERVER }).onUpdate({
+			transaction: {
+				mutations: [
+					{
+						original: collection({ collectedAt: null }),
+						modified: collection({
+							collectedAt: '2026-08-11T12:00:00.000Z',
+							collectionLureId: 'lure-2',
+						}),
+					},
+				],
+			},
+		});
+
+		expect(String(fetch.mock.calls[0]?.[0])).toBe(
+			`${SERVER}/adult-surveillance/collections/collection-1`,
+		);
+		expect(bodyOf(fetch)).toMatchObject({ collectionLureId: 'lure-2' });
+	});
+
 	it('does not offer the stop as an editable field on a later correction', async () => {
 		// Provenance is written once, by the write that closed the stop. A PATCH
 		// carrying it would let an ordinary edit reassign which stop a record came

@@ -64,6 +64,10 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import {
+	CollectCollectionDialog,
+	collectPendingCollection,
+} from '../../../components/collect-collection-dialog';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -78,6 +82,7 @@ import {
 	CollectionFlagBadges,
 	collectionEffectiveDate,
 	collectionTitle,
+	isPendingCollection,
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
 	SpeciesSexBadge,
@@ -212,6 +217,11 @@ function CollectionDetailContent({
 						className="flex flex-wrap items-center gap-1.5"
 						collection={collection}
 					/>
+					{canEdit && isPendingCollection(collection) ? (
+						<WriteOnly>
+							<CollectCollectionButton actorProfileId={actorProfileId} collection={collection} />
+						</WriteOnly>
+					) : null}
 					{canEdit ? (
 						<WriteOnly>
 							<Button asChild size="sm" variant="outline">
@@ -256,6 +266,38 @@ function CollectionDetailContent({
 					/>
 				</div>
 			</div>
+		</>
+	);
+}
+
+/** The second visit, on a trap that is still out. */
+function CollectCollectionButton({
+	collection,
+	actorProfileId,
+}: {
+	readonly collection: AdultCollectionRow;
+	readonly actorProfileId: string | null;
+}) {
+	const [open, setOpen] = useState(false);
+
+	return (
+		<>
+			<Button onClick={() => setOpen(true)} size="sm" variant="default">
+				Collect
+			</Button>
+			<CollectCollectionDialog
+				defaultDate={todayInTimeZone(undefined)}
+				onConfirm={(collectedAt) => {
+					setOpen(false);
+					void collectPendingCollection({
+						actorProfileId,
+						collectedAt,
+						collectionId: collection.id,
+					});
+				}}
+				onOpenChange={setOpen}
+				open={open}
+			/>
 		</>
 	);
 }

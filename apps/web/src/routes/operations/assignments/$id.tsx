@@ -21,10 +21,15 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import {
+	CollectCollectionDialog,
+	collectPendingCollection,
+} from '../../../components/collect-collection-dialog';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { todayInTimeZone } from '../../adult-surveillance/-overview-data';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
@@ -255,6 +260,7 @@ function AssignmentRunRoute() {
 						target={{ type: 'assignment', id }}
 					>
 						<RunStopList
+							actorProfileId={identity?.profileId ?? null}
 							assignmentId={id}
 							enabled={itemsEnabled}
 							highlightId={highlightId}
@@ -365,6 +371,7 @@ function LifecycleControls({
 }
 
 function RunStopList({
+	actorProfileId,
 	assignmentId,
 	stops,
 	enabled,
@@ -375,6 +382,7 @@ function RunStopList({
 	onSelect,
 	onHover,
 }: {
+	readonly actorProfileId: string | null;
 	readonly assignmentId: string;
 	readonly stops: readonly AssignmentStopView[];
 	readonly enabled: boolean;
@@ -427,6 +435,7 @@ function RunStopList({
 		<ol className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3">
 			{stops.map((stop) => (
 				<RunStopRow
+					actorProfileId={actorProfileId}
 					assignmentId={assignmentId}
 					enabled={enabled}
 					isHighlighted={stop.assignmentItemId === highlightId}
@@ -460,10 +469,12 @@ const ACTION_LABELS: Readonly<Record<ItemAction, string>> = {
 function RecordStopWorkButton({
 	stop,
 	assignmentId,
+	actorProfileId,
 	enabled,
 }: {
 	readonly stop: AssignmentStopView;
 	readonly assignmentId: string;
+	readonly actorProfileId: string | null;
 	readonly enabled: boolean;
 }) {
 	const search = { assignmentItemId: stop.assignmentItemId, assignmentId };
@@ -483,6 +494,18 @@ function RecordStopWorkButton({
 	}
 
 	if (stop.entityType === 'trap') {
+		// A trap with a collection already out on it is the second visit of two:
+		// the work here is emptying what somebody set, not setting a new one.
+		if (stop.pendingCollectionId !== null) {
+			return (
+				<CollectStopButton
+					actorProfileId={actorProfileId}
+					collectionId={stop.pendingCollectionId}
+					enabled={enabled}
+					stop={stop}
+				/>
+			);
+		}
 		return (
 			<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
 				{enabled ? (
@@ -501,8 +524,52 @@ function RecordStopWorkButton({
 	return null;
 }
 
+/**
+ * Emptying the trap this stop was sent to, without leaving the worklist.
+ *
+ * The collection already exists, so there is no form to open — only the date to
+ * confirm. The write links the collection to this stop and completes it in one
+ * transaction, the same as the create path does for a first visit.
+ */
+function CollectStopButton({
+	stop,
+	collectionId,
+	actorProfileId,
+	enabled,
+}: {
+	readonly stop: AssignmentStopView;
+	readonly collectionId: string;
+	readonly actorProfileId: string | null;
+	readonly enabled: boolean;
+}) {
+	const [open, setOpen] = useState(false);
+
+	return (
+		<>
+			<Button disabled={!enabled} onClick={() => setOpen(true)} size="sm" variant="default">
+				Collect
+			</Button>
+			<CollectCollectionDialog
+				defaultDate={todayInTimeZone(undefined)}
+				onConfirm={(collectedAt) => {
+					setOpen(false);
+					void collectPendingCollection({
+						actorProfileId,
+						assignmentItemId: stop.assignmentItemId,
+						collectedAt,
+						collectionId,
+					});
+				}}
+				onOpenChange={setOpen}
+				open={open}
+			/>
+		</>
+	);
+}
+
 function RunStopRow({
 	stop,
+	actorProfileId,
 	assignmentId,
 	enabled,
 	isSelected,
@@ -512,6 +579,7 @@ function RunStopRow({
 	onHover,
 }: {
 	readonly stop: AssignmentStopView;
+	readonly actorProfileId: string | null;
 	readonly assignmentId: string;
 	readonly enabled: boolean;
 	readonly isSelected: boolean;
@@ -579,7 +647,12 @@ function RunStopRow({
 					<WriteOnly>
 						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
 							{stop.progress === 'pending' ? (
-								<RecordStopWorkButton assignmentId={assignmentId} enabled={enabled} stop={stop} />
+								<RecordStopWorkButton
+									actorProfileId={actorProfileId}
+									assignmentId={assignmentId}
+									enabled={enabled}
+									stop={stop}
+								/>
 							) : null}
 							{actions.map((action) => (
 								<Button
