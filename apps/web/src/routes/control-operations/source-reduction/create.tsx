@@ -175,6 +175,11 @@ function CreateSourceReductionRoute() {
 				}}
 				methods={methods}
 				initialGeometry={initialGeometry}
+				// A mission stop already names the ground. The server defaults the
+				// action's geometry from it, so requiring a draw here would make the
+				// crew re-trace the place they were sent — and, for a line or polygon
+				// stop, trace it wrongly enough to trip the coverage check.
+				requireLocation={missionItemId === null}
 				onSave={onSave}
 				organizationId={organization?.id ?? ''}
 				profiles={profiles}

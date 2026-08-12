@@ -1214,7 +1214,7 @@
         "count": 3
       },
       "crap_moderate": {
-        "count": 5
+        "count": 6
       }
     },
     "apps/web/src/routes/larval-surveillance/inspections/create.tsx": {
@@ -1339,14 +1339,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/operations/-operations-data.ts": {
-      "crap_high": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 2
-      }
-    },
     "apps/web/src/routes/operations/-operations-display.tsx": {
       "crap_moderate": {
         "count": 1
@@ -1467,10 +1459,7 @@
         "count": 1
       },
       "crap_high": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 1
+        "count": 2
       }
     },
     "apps/web/src/routes/operations/missions/-mission-stops.tsx": {
@@ -1935,14 +1924,14 @@
     "apps/web/src/routes/gis/regions/index.tsx:complexity",
     "apps/web/src/routes/control-operations/chemical/-application-form.tsx:complexity",
     "apps/web/src/routes/public-engagement/service-requests/index.tsx:complexity",
+    "apps/web/src/routes/adult-surveillance/collections/-collection-form.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/inspections/index.tsx:complexity",
     "apps/server/src/mission-dispatch-commands/missions.ts:complexity",
-    "apps/web/src/routes/adult-surveillance/collections/-collection-form.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/inspections/-inspection-form.tsx:complexity",
-    "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
+    "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
     "apps/web/src/routes/control-operations/biocontrol/-biocontrol-form.tsx:complexity",
     "apps/web/src/routes/control-operations/source-reduction/-source-reduction-form.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",

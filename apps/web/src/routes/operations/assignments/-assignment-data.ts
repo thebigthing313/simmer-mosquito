@@ -146,6 +146,23 @@ export function canProgressItems(status: AssignmentStatus): boolean {
 }
 
 /**
+ * Recording the work a stop was created for, which is a wider gate than
+ * {@link canProgressItems}.
+ *
+ * Done and Skip are progress commands and need a started assignment. Recording
+ * does not: `autoStartAssignment` defaults true precisely so a technician who
+ * opens the first stop of the day and files the record has started the
+ * assignment by doing so, and the server permits it (`checkExecution` allows
+ * `not_started` on the auto-start path). Sharing the progress gate here made
+ * that unreachable — the crew had to press Start first, which is the tap the
+ * auto-start exists to remove. See `docs/field-work-support-domain.md`,
+ * "Assignment Item Execution".
+ */
+export function canRecordStopWork(status: AssignmentStatus): boolean {
+	return status === 'notStarted' || status === 'inProgress';
+}
+
+/**
  * The server does not enforce these preconditions (issue #39), so this is the only
  * thing standing between a mis-click and an assignment completed with pending work.
  */

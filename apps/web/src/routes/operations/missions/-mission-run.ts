@@ -12,6 +12,7 @@ import {
 	cancelMission,
 	canEditMissionPlan,
 	canProgressMissionItems,
+	canRecordMissionStopWork,
 	canStartMission,
 	completeMission,
 	completeMissionItem,
@@ -75,6 +76,8 @@ export interface MissionRun extends MissionSelection, MissionActions {
 	readonly canComplete: boolean;
 	/** Stops may be worked: the mission is running and nothing is in flight. */
 	readonly progressEnabled: boolean;
+	/** Wider: recording is also allowed on a scheduled mission, which it starts. */
+	readonly recordEnabled: boolean;
 	/** Stops may be added, reordered, or removed. */
 	readonly planEditable: boolean;
 	readonly canAddStops: boolean;
@@ -183,6 +186,7 @@ interface MissionCapabilities {
 	readonly canStart: boolean;
 	readonly canComplete: boolean;
 	readonly progressEnabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly planEditable: boolean;
 	readonly canAddStops: boolean;
 }
@@ -201,6 +205,7 @@ function missionCapabilities(input: {
 			canStart: false,
 			canComplete: false,
 			progressEnabled: false,
+			recordEnabled: false,
 			planEditable: false,
 			canAddStops: false,
 		};
@@ -211,6 +216,8 @@ function missionCapabilities(input: {
 		canStart: canStartMission(status, counts),
 		canComplete: canCompleteMission(status, counts),
 		progressEnabled: canProgressMissionItems(status) && !busy,
+		// Wider on purpose: recording auto-starts the mission.
+		recordEnabled: canRecordMissionStopWork(status) && !busy,
 		planEditable,
 		canAddStops: planEditable && input.hasOrganization && !busy,
 	};

@@ -99,6 +99,7 @@ export function MissionStopList({
 	missionId,
 	isLoading,
 	progressEnabled,
+	recordEnabled,
 	planEditable,
 	selectedStopId,
 	highlightId,
@@ -115,6 +116,8 @@ export function MissionStopList({
 	readonly isLoading: boolean;
 	/** The mission is running and no write is in flight. */
 	readonly progressEnabled: boolean;
+	/** Wider: recording is also allowed on a scheduled mission, which it starts. */
+	readonly recordEnabled: boolean;
 	/** The mission is still open to plan changes. */
 	readonly planEditable: boolean;
 	readonly selectedStopId: string | null;
@@ -154,6 +157,7 @@ export function MissionStopList({
 					ordinal={index + 1}
 					planEditable={planEditable}
 					progressEnabled={progressEnabled}
+					recordEnabled={recordEnabled}
 					stop={stop}
 				/>
 			))}
@@ -172,6 +176,7 @@ function MissionStopRow({
 	isSelected,
 	isHighlighted,
 	progressEnabled,
+	recordEnabled,
 	planEditable,
 	onAction,
 	onMove,
@@ -189,6 +194,7 @@ function MissionStopRow({
 	readonly isSelected: boolean;
 	readonly isHighlighted: boolean;
 	readonly progressEnabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly planEditable: boolean;
 	readonly onAction: (stop: MissionStopView, action: MissionItemAction) => void;
 	readonly onMove: (index: number, action: MoveAction) => void;
@@ -256,7 +262,7 @@ function MissionStopRow({
 							{stop.progress === 'pending' ? (
 								<RecordMissionWorkButton
 									controlType={controlType}
-									enabled={progressEnabled}
+									enabled={recordEnabled}
 									missionId={missionId}
 									stop={stop}
 								/>

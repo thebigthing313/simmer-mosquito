@@ -3,6 +3,7 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
+import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	saveAdditionalPersonnel,
@@ -33,6 +34,7 @@ export const Route = createFileRoute('/larval-surveillance/inspections/create')(
 	validateSearch: (search) => ({
 		...mapPointSearchSchema.parse(search),
 		...assignmentStopSearchSchema.parse(search),
+		...inspectionSeedSearchSchema.parse(search),
 	}),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
@@ -45,6 +47,18 @@ export const Route = createFileRoute('/larval-surveillance/inspections/create')(
 const warmGcTimeMs = 30_000;
 
 /**
+ * The habitat to open the form on, the counterpart of the collection form's
+ * `trapId`.
+ *
+ * A stop names the habitat the inspector was sent to, so arriving from one
+ * should not ask them to find it again — and a wrong pick is not a typo here,
+ * it is a target mismatch the server has to be told to accept.
+ */
+const inspectionSeedSearchSchema = z.object({
+	habitatId: z.uuid().optional().catch(undefined),
+});
+
+/**
  * An inspection opened from a point on the map is an ad-hoc one.
  *
  * The mode has to follow the coordinate: left on `habitat`, the seeded geometry
@@ -53,8 +67,39 @@ const warmGcTimeMs = 30_000;
 function seededDefaults(
 	base: InspectionFormValues,
 	seed: DrawGeometry | null,
+	habitatId: string | null,
 ): InspectionFormValues {
+	// A named habitat wins over a seeded point, the way the collection form lets
+	// an explicit `trapId` beat one: the stop is the stronger signal about what
+	// this inspection is for.
+	if (habitatId !== null) {
+		return { ...base, locationMode: 'habitat', habitatId };
+	}
 	return seed === null ? base : { ...base, locationMode: 'adhoc' };
+}
+
+/**
+ * The id a not-yet-saved inspection will be written under, with its on-demand
+ * streams already warm.
+ *
+ * Minted up front so the samples, crew, and comment can be written the moment
+ * the inspection lands, and so their streams are live before the save fires — a
+ * write against a cold stream times out waiting for its txid confirmation.
+ */
+function useNewInspectionDraft(): string {
+	const [inspectionId] = useState(() => crypto.randomUUID());
+	useAdditionalPersonnel({ type: 'inspection', id: inspectionId });
+	useLiveQuery(
+		{
+			gcTime: warmGcTimeMs,
+			query: (query) =>
+				query
+					.from({ sample: webCollections.samples })
+					.where(({ sample }) => eq(sample.inspectionId, inspectionId)),
+		},
+		[inspectionId],
+	);
+	return inspectionId;
 }
 
 function CreateInspectionRoute() {
@@ -77,22 +122,7 @@ function CreateInspectionRoute() {
 	const canSubmit = organization !== null && actorProfileId !== null;
 	const policy = settings.larvalSurveillance.inspectionEntryPolicy;
 
-	// Minted up front so the crew rows can be written the moment the inspection
-	// lands — and so their on-demand stream is already warm when the save fires.
-	const [inspectionId] = useState(() => crypto.randomUUID());
-	useAdditionalPersonnel({ type: 'inspection', id: inspectionId });
-	// Same reason: samples sync on demand, and a write against a cold stream times
-	// out waiting for its txid confirmation.
-	useLiveQuery(
-		{
-			gcTime: warmGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sample: webCollections.samples })
-					.where(({ sample }) => eq(sample.inspectionId, inspectionId)),
-		},
-		[inspectionId],
-	);
+	const inspectionId = useNewInspectionDraft();
 
 	// The whole save is the unit an acknowledgement re-runs, not just the insert:
 	// the samples, crew, and comment below only exist once the inspection lands,
@@ -206,6 +236,7 @@ function CreateInspectionRoute() {
 				defaultValues={seededDefaults(
 					defaultInspectionFormValues(today, actorProfileId),
 					initialGeometry,
+					search.habitatId ?? null,
 				)}
 				habitatTypes={habitatTypes}
 				mode="create"

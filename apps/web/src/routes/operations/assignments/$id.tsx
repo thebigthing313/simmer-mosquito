@@ -43,6 +43,7 @@ import {
 	canCompleteAssignment,
 	cancelAssignment,
 	canProgressItems,
+	canRecordStopWork,
 	canStartAssignment,
 	completeAssignment,
 	completeAssignmentItem,
@@ -156,6 +157,8 @@ function AssignmentRunRoute() {
 	}
 
 	const itemsEnabled = assignment !== null && canProgressItems(assignment.status) && !busy;
+	// Wider than `itemsEnabled` on purpose: recording auto-starts the assignment.
+	const recordEnabled = assignment !== null && canRecordStopWork(assignment.status) && !busy;
 
 	return (
 		<>
@@ -264,6 +267,7 @@ function AssignmentRunRoute() {
 							actorProfileId={identity?.profileId ?? null}
 							assignmentId={id}
 							enabled={itemsEnabled}
+							recordEnabled={recordEnabled}
 							highlightId={highlightId}
 							isLoading={isLoading}
 							onAction={itemAction}
@@ -376,6 +380,7 @@ function RunStopList({
 	assignmentId,
 	stops,
 	enabled,
+	recordEnabled,
 	isLoading,
 	selectedStopId,
 	highlightId,
@@ -387,6 +392,7 @@ function RunStopList({
 	readonly assignmentId: string;
 	readonly stops: readonly AssignmentStopView[];
 	readonly enabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly isLoading: boolean;
 	readonly selectedStopId: string | null;
 	readonly highlightId: string | null;
@@ -439,6 +445,7 @@ function RunStopList({
 					actorProfileId={actorProfileId}
 					assignmentId={assignmentId}
 					enabled={enabled}
+					recordEnabled={recordEnabled}
 					isHighlighted={stop.assignmentItemId === highlightId}
 					isSelected={stop.assignmentItemId === selectedStopId}
 					key={stop.assignmentItemId}
@@ -478,13 +485,20 @@ function RecordStopWorkButton({
 	readonly actorProfileId: string | null;
 	readonly enabled: boolean;
 }) {
+	// The stop's own target rides along, so the form opens on the place the crew
+	// was sent rather than asking them to find it again. Left out, the server
+	// would default it anyway — but the field is required client-side, so the
+	// crew re-picks it, and a wrong pick is a target mismatch rather than a typo.
 	const search = { assignmentItemId: stop.assignmentItemId, assignmentId };
 
 	if (stop.entityType === 'habitat') {
 		return (
 			<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
 				{enabled ? (
-					<Link search={search} to="/larval-surveillance/inspections/create">
+					<Link
+						search={{ ...search, habitatId: stop.entityId }}
+						to="/larval-surveillance/inspections/create"
+					>
 						Record inspection
 					</Link>
 				) : (
@@ -510,7 +524,10 @@ function RecordStopWorkButton({
 		return (
 			<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
 				{enabled ? (
-					<Link search={search} to="/adult-surveillance/collections/create">
+					<Link
+						search={{ ...search, trapId: stop.entityId }}
+						to="/adult-surveillance/collections/create"
+					>
 						Record collection
 					</Link>
 				) : (
@@ -578,6 +595,7 @@ function RunStopRow({
 	actorProfileId,
 	assignmentId,
 	enabled,
+	recordEnabled,
 	isSelected,
 	isHighlighted,
 	onAction,
@@ -588,6 +606,7 @@ function RunStopRow({
 	readonly actorProfileId: string | null;
 	readonly assignmentId: string;
 	readonly enabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly isSelected: boolean;
 	readonly isHighlighted: boolean;
 	readonly onAction: (stop: AssignmentStopView, action: ItemAction) => void;
@@ -656,7 +675,7 @@ function RunStopRow({
 								<RecordStopWorkButton
 									actorProfileId={actorProfileId}
 									assignmentId={assignmentId}
-									enabled={enabled}
+									enabled={recordEnabled}
 									stop={stop}
 								/>
 							) : null}

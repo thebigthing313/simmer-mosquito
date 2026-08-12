@@ -142,6 +142,7 @@ function MissionPanel({
 					onSelect={run.setSelectedStopId}
 					planEditable={run.planEditable && !run.busy}
 					progressEnabled={run.progressEnabled}
+					recordEnabled={run.recordEnabled}
 					selectedStopId={run.selectedStopId}
 					stops={run.stops}
 				/>
