@@ -1,6 +1,6 @@
 import type { SpeciesSex, SpeciesStatus, TrapRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { formatDate } from './-overview-data';
+import { formatDate, formatWeekdayDate } from './-overview-data';
 
 // --- shared labels ----------------------------------------------------------
 
@@ -46,6 +46,21 @@ export function collectionTitle(collection: {
 }): string {
 	const date = collectionEffectiveDate(collection);
 	return date === null ? 'Pending collection' : formatDate(date);
+}
+
+/**
+ * A collection's date as a *row* reads it: `Wed, Aug 12, 2026`.
+ *
+ * Distinct from {@link collectionTitle}, which heads a page and a breadcrumb,
+ * where a weekday is noise. In a list the weekday is the point — a trap's run is
+ * weekly, so it says whether a gap is a missed visit or a weekend.
+ */
+export function collectionRowDate(collection: {
+	readonly collectedAt: string | null;
+	readonly collectionDate: string | null;
+}): string {
+	const date = collectionEffectiveDate(collection);
+	return date === null ? 'Pending collection' : formatWeekdayDate(date);
 }
 
 // Shared, read-only presentation for adult-surveillance values. Mirrors the

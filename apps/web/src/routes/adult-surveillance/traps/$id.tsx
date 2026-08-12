@@ -72,7 +72,7 @@ import {
 	aggregateSpeciesDistribution,
 	CollectionFlagBadges,
 	collectionEffectiveDate,
-	collectionTitle,
+	collectionRowDate,
 	SpeciesDistributionBars,
 	trapDisplayName,
 } from '../-adult-display';
@@ -383,7 +383,7 @@ function TrapCollectionsList({
 										params={{ id: collection.id }}
 										to="/adult-surveillance/collections/$id"
 									>
-										{collectionTitle(collection)}
+										{collectionRowDate(collection)}
 									</Link>
 								</TableCell>
 								<TableCell>

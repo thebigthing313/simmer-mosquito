@@ -344,6 +344,26 @@ export function formatWeekdayMonthDay(date: string): string {
 	}).format(parsed);
 }
 
+/**
+ * The same, carrying the year: `Wed, Aug 12, 2026`.
+ *
+ * For a list that spans seasons — a trap's whole run of collections — where
+ * {@link formatWeekdayMonthDay} alone would make two Augusts look like one.
+ */
+export function formatWeekdayDate(date: string): string {
+	const parsed = parseDateString(date);
+	if (Number.isNaN(parsed.getTime())) {
+		return '—';
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		weekday: 'short',
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(parsed);
+}
+
 export function formatMonthDay(date: string): string {
 	const parsed = parseDateString(date);
 	if (Number.isNaN(parsed.getTime())) {

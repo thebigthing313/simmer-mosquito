@@ -93,7 +93,7 @@ import {
 	trapDisplayName,
 } from '../-adult-display';
 import { CollectionKeyEntryDialog } from '../-collection-key-entry';
-import { formatMonthDay, todayInTimeZone } from '../-overview-data';
+import { formatWeekdayMonthDay, todayInTimeZone } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id')({
 	component: RouteComponent,
@@ -964,11 +964,15 @@ function DetailsCard({
 						{collectedDate === null ? (
 							<span className="text-muted-foreground">Pending</span>
 						) : (
-							formatMonthDay(collectedDate)
+							formatWeekdayMonthDay(collectedDate)
 						)}
 					</DetailRow>
 					<DetailRow label="Set">
-						{collection.startedAt === null ? <EmptyValue /> : formatMonthDay(collection.startedAt)}
+						{collection.startedAt === null ? (
+							<EmptyValue />
+						) : (
+							formatWeekdayMonthDay(collection.startedAt)
+						)}
 					</DetailRow>
 					<DetailRow label="Collected by">
 						{collection.collectedByProfileId === null ? (
