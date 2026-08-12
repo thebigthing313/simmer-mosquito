@@ -30,7 +30,7 @@ import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { todayInTimeZone } from '../../adult-surveillance/-overview-data';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';

@@ -5,7 +5,6 @@ import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
 import type { LifeStageFlags } from '../../components/larval-display';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { getToday } from '../../lib/get-today';
 import { webCollections } from '../../sync/webCollections';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
@@ -290,15 +289,10 @@ export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, str
 
 // --- pure date helpers (operate on `YYYY-MM-DD` strings) --------------------
 
-/** Today's date in the org's timezone as a `YYYY-MM-DD` string. */
-export function todayInTimeZone(timeZone: string | undefined): string {
-	return new Intl.DateTimeFormat('en-CA', {
-		timeZone: timeZone || undefined,
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-	}).format(getToday());
-}
+// `todayInTimeZone` lives in `lib/local-date` — every section defaults a date
+// with it, so it is not a larval-surveillance fact. Re-exported here because the
+// other three overview modules already re-export it from this one.
+export { todayInTimeZone } from '../../lib/local-date';
 
 /** Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift. */
 export function addDaysToDateString(date: string, days: number): string {

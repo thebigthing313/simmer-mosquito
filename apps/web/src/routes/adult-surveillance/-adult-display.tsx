@@ -171,7 +171,12 @@ function collectionFlagList(
 	const flags: { readonly label: string; readonly tone: Tone }[] = [];
 	// First, because it says the record is not finished: the other three describe
 	// specimens, and a trap that is still out has none yet.
-	if (collection.collectedAt === null && collection.collectionTimingMode === 'exact_timestamps') {
+	if (
+		isPendingCollection({
+			collectedAt: collection.collectedAt ?? null,
+			collectionTimingMode: collection.collectionTimingMode ?? '',
+		})
+	) {
 		flags.push({ label: 'Trap out', tone: 'info' });
 	}
 	if (collection.hasProblem) {

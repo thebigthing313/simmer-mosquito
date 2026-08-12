@@ -253,7 +253,6 @@ export interface RecordCollectedTrapCollectionForAssignmentItemCommandInput
 	readonly trapId?: DomainId | null;
 	/** The org's custom fields for a collection, same as the ordinary trap record. */
 	readonly metadata?: unknown | null;
-	readonly acknowledgedPendingTrapCollection?: boolean;
 }
 
 export type RecordCollectedTrapCollectionForAssignmentItemCommand = FieldWorkDomainCommand<
@@ -268,7 +267,6 @@ export type RecordCollectedTrapCollectionForAssignmentItemCommand = FieldWorkDom
 		readonly collectionLureId: DomainId | null;
 		readonly trapId: DomainId | null;
 		readonly metadata: JsonObject | null;
-		readonly acknowledgedPendingTrapCollection: boolean;
 	}
 >;
 
@@ -310,7 +308,6 @@ export function recordCollectedTrapCollectionForAssignmentItemCommand(
 			collectionLureId,
 			trapId,
 			metadata,
-			acknowledgedPendingTrapCollection: input.acknowledgedPendingTrapCollection ?? false,
 		},
 	};
 }

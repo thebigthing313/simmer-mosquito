@@ -186,7 +186,6 @@ function buildCollectionCreateCommand(
 					setByProfileId,
 					collectedByProfileId: readNullableText(payload.collectedByProfileId),
 					hasProblem: payload.hasProblem === true,
-					acknowledgedPendingTrapCollection: true,
 				}),
 			);
 		}
