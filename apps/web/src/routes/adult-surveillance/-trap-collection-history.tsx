@@ -1,4 +1,5 @@
 import type { SpeciesRow, TrapRow } from '@simmer-mosquito/sync';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Collapsible,
@@ -21,12 +22,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import {
 	ArrowRightIcon,
 	CheckCircle2Icon,
@@ -36,7 +32,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { WriteOnly } from '../../components/write-only';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
@@ -57,6 +53,7 @@ import {
 	specimenTotals,
 	summaryLabel,
 } from './-trap-directory-data';
+import { DirectoryTab, DirectoryTabsList } from './-trap-directory-tabs';
 
 const CollectionIcon = iconRegistry.entities.collection.icon;
 const TrapIcon = iconRegistry.entities.trap.icon;
@@ -131,17 +128,13 @@ export function TrapCollectionHistory({
 	);
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className="grid content-start gap-5 px-6 py-5">
-				<TrapHeader methodName={methodName} trap={trap} />
-				<CollectionYears
-					isError={result.isError}
-					isReady={result.isReady}
-					speciesNameById={speciesNameById}
-					years={years}
-				/>
-			</div>
-		</div>
+		<CollectionYears
+			header={<TrapHeader methodName={methodName} trap={trap} />}
+			isError={result.isError}
+			isReady={result.isReady}
+			speciesNameById={speciesNameById}
+			years={years}
+		/>
 	);
 }
 
@@ -194,78 +187,121 @@ function CollectionYears({
 	isReady,
 	isError,
 	speciesNameById,
+	header,
 }: {
 	readonly years: readonly CollectionYear[];
 	readonly isReady: boolean;
 	readonly isError: boolean;
 	readonly speciesNameById: ReadonlyMap<string, string>;
+	/** The trap this history belongs to, pinned above its own scroll. */
+	readonly header: ReactNode;
 }) {
-	// The selected year is held here rather than in the URL: it belongs to the
-	// trap in view, and a year that is meaningful for one trap need not exist for
-	// the next. Falling back to the first group re-anchors on every trap change.
+	// The open year is held here rather than in the URL: it belongs to the trap in
+	// view, and a year that is meaningful for one trap need not exist for the next.
+	// Falling back to the first group re-anchors on every trap change.
 	const [openYear, setOpenYear] = useState<string | null>(null);
+	const active = years.find((year) => year.key === openYear) ?? years[0];
 
 	if (isError) {
 		return (
-			<HistoryMessage
-				description="Collection records could not be loaded. Try again shortly."
-				title="Collections Unavailable"
-			/>
+			<HistoryFrame header={header}>
+				<HistoryMessage
+					description="Collection records could not be loaded. Try again shortly."
+					title="Collections Unavailable"
+				/>
+			</HistoryFrame>
 		);
 	}
 	if (!isReady) {
 		return (
-			<div className="grid gap-2">
-				<Skeleton className="h-9 w-52" />
-				{[0, 1, 2, 3].map((index) => (
-					<Skeleton className="h-12 w-full" key={index} />
-				))}
-			</div>
+			<HistoryFrame header={header}>
+				<div className="grid gap-2">
+					{[0, 1, 2, 3, 4].map((index) => (
+						<Skeleton className="h-12 w-full" key={index} />
+					))}
+				</div>
+			</HistoryFrame>
 		);
 	}
-	if (years.length === 0) {
-		return (
-			<HistoryMessage
-				description="Nothing has been collected from this trap yet. Record a collection to start its history."
-				title="No Collections"
-			/>
-		);
-	}
-
-	const active = years.find((year) => year.key === openYear) ?? years[0];
 	if (active === undefined) {
-		return null;
+		return (
+			<HistoryFrame header={header}>
+				<HistoryMessage
+					description="Nothing has been collected from this trap yet. Record a collection to start its history."
+					title="No Collections"
+				/>
+			</HistoryFrame>
+		);
 	}
 
 	return (
-		<Tabs onValueChange={setOpenYear} value={active.key}>
-			<TabsList variant="line">
-				{years.map((year) => (
-					<TabsTrigger key={year.key} value={year.key}>
-						{year.label}
-						<span className="text-muted-foreground text-xs tabular-nums">
-							{year.collections.length}
-						</span>
-					</TabsTrigger>
-				))}
-			</TabsList>
-			{/*
-			 * One panel, always the active year's: Radix mounts only the open tab
-			 * anyway, so rendering the other years' panels would build markup no one
-			 * can see and re-run every species roll-up behind it.
-			 */}
-			<TabsContent className="mt-1" value={active.key}>
-				<ul className="grid list-none gap-0 divide-y divide-border/40 overflow-hidden rounded-md border border-border/50 p-0">
-					{active.collections.map((collection) => (
-						<CollectionRow
-							collection={collection}
-							key={collection.id}
-							speciesNameById={speciesNameById}
-						/>
-					))}
-				</ul>
-			</TabsContent>
+		<Tabs
+			className="flex h-full min-h-0 flex-col gap-0"
+			onValueChange={setOpenYear}
+			value={active.key}
+		>
+			<HistoryFrame
+				header={header}
+				tabs={
+					<DirectoryTabsList label="Season">
+						{years.map((year) => (
+							<DirectoryTab key={year.key} value={year.key}>
+								{year.label}
+								<span className="text-muted-foreground text-xs tabular-nums">
+									{year.collections.length}
+								</span>
+							</DirectoryTab>
+						))}
+					</DirectoryTabsList>
+				}
+			>
+				{/*
+				 * One panel, always the open year's: Radix mounts only the open tab
+				 * anyway, so rendering the other years' panels would build markup no one
+				 * can see and re-run every species roll-up behind it.
+				 */}
+				<TabsContent value={active.key}>
+					<ul className="grid list-none gap-0 divide-y divide-border/40 overflow-hidden rounded-md border border-border/50 p-0">
+						{active.collections.map((collection) => (
+							<CollectionRow
+								collection={collection}
+								key={collection.id}
+								speciesNameById={speciesNameById}
+							/>
+						))}
+					</ul>
+				</TabsContent>
+			</HistoryFrame>
 		</Tabs>
+	);
+}
+
+/**
+ * The pane's geometry: the trap and its years pinned, the collections scrolling
+ * under them.
+ *
+ * A season runs to seventy-odd dates. Let the header scroll with them and by row
+ * twenty the reader has a column of dates with no trap name over it, no year
+ * strip to move between seasons, and the Record Collection button somewhere
+ * above the viewport.
+ */
+function HistoryFrame({
+	header,
+	tabs,
+	children,
+}: {
+	readonly header: ReactNode;
+	readonly tabs?: ReactNode;
+	readonly children: ReactNode;
+}) {
+	return (
+		<div className="flex h-full min-h-0 flex-col">
+			<div className={stickyHeader({ gap: 'default', padding: 'roomy' })}>
+				{header}
+				{tabs}
+			</div>
+			<div className="min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-6">{children}</div>
+		</div>
 	);
 }
 

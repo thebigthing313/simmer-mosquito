@@ -47,6 +47,12 @@ export interface TrapDirectory {
 	readonly visibleTraps: readonly TrapRow[];
 	readonly selectedTrap: TrapRow | null;
 	readonly hasActiveTraps: boolean;
+	/**
+	 * Whether a filter is holding traps back. An empty list means two different
+	 * things — an agency with no traps deployed, and a search that matched none —
+	 * and only one of them is the reader's to fix.
+	 */
+	readonly isNarrowed: boolean;
 }
 
 /**
@@ -121,6 +127,7 @@ export function useTrapDirectory(filters: DirectoryFilters): TrapDirectory {
 		visibleTraps,
 		selectedTrap,
 		hasActiveTraps: activeTraps.length > 0,
+		isNarrowed: search !== '' || method !== ALL_METHODS,
 	};
 }
 

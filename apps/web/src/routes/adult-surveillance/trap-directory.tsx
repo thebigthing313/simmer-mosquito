@@ -8,12 +8,7 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import {
 	ChevronRightIcon,
 	iconRegistry,
@@ -39,6 +34,7 @@ import {
 	type MethodTab,
 	useTrapDirectory,
 } from './-trap-directory-data';
+import { DirectoryTab, DirectoryTabsList } from './-trap-directory-tabs';
 
 const TrapIcon = iconRegistry.entities.trap.icon;
 
@@ -80,8 +76,15 @@ function TrapDirectoryRoute() {
 		clear: clearSearchInput,
 	} = useDebouncedTextFilter(filters.search, commitSearch, 200);
 
-	const { methodNameById, methodTabs, method, visibleTraps, selectedTrap, hasActiveTraps } =
-		useTrapDirectory(filters);
+	const {
+		methodNameById,
+		methodTabs,
+		method,
+		visibleTraps,
+		selectedTrap,
+		hasActiveTraps,
+		isNarrowed,
+	} = useTrapDirectory(filters);
 
 	const selectMethod = useCallback(
 		(next: string) => setFilters({ method: next === ALL_METHODS ? '' : next }),
@@ -94,6 +97,7 @@ function TrapDirectoryRoute() {
 			aside={
 				<SelectedTrap
 					hasActiveTraps={hasActiveTraps}
+					isNarrowed={isNarrowed}
 					methodNameById={methodNameById}
 					trap={selectedTrap}
 				/>
@@ -128,6 +132,7 @@ function TrapDirectoryRoute() {
 				 */}
 				<TabsContent className="flex min-h-0 flex-1 flex-col" value={method}>
 					<TrapList
+						isNarrowed={isNarrowed}
 						methodNameById={methodNameById}
 						onSelect={selectTrap}
 						selectedId={selectedTrap?.id ?? null}
@@ -149,14 +154,14 @@ function MethodTabs({ tabs }: { readonly tabs: readonly MethodTab[] }) {
 		return null;
 	}
 	return (
-		<TabsList className="h-auto w-full flex-wrap justify-start" variant="line">
-			<TabsTrigger value={ALL_METHODS}>All</TabsTrigger>
+		<DirectoryTabsList label="Collection method">
+			<DirectoryTab value={ALL_METHODS}>All</DirectoryTab>
 			{tabs.map((tab) => (
-				<TabsTrigger key={tab.id} value={tab.id}>
+				<DirectoryTab key={tab.id} value={tab.id}>
 					{tab.label}
-				</TabsTrigger>
+				</DirectoryTab>
 			))}
-		</TabsList>
+		</DirectoryTabsList>
 	);
 }
 
@@ -165,13 +170,15 @@ function SelectedTrap({
 	trap,
 	methodNameById,
 	hasActiveTraps,
+	isNarrowed,
 }: {
 	readonly trap: TrapRow | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly hasActiveTraps: boolean;
+	readonly isNarrowed: boolean;
 }) {
 	if (trap === null) {
-		return <NoSelection hasTraps={hasActiveTraps} />;
+		return <NoSelection hasTraps={hasActiveTraps} isNarrowed={isNarrowed} />;
 	}
 	return (
 		<TrapCollectionHistory
@@ -191,6 +198,7 @@ function TrapList({
 	selectedId,
 	methodNameById,
 	showMethod,
+	isNarrowed,
 	onSelect,
 }: {
 	readonly traps: readonly TrapRow[];
@@ -198,15 +206,21 @@ function TrapList({
 	readonly methodNameById: ReadonlyMap<string, string>;
 	/** The method line is noise under a method tab, where every row shares it. */
 	readonly showMethod: boolean;
+	/** Whether a filter is what emptied the list. Changes the empty copy. */
+	readonly isNarrowed: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
 	if (traps.length === 0) {
 		return (
 			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
 				<TrapIcon aria-hidden="true" className="size-7 text-muted-foreground/60" />
-				<p className="m-0 font-medium text-foreground text-sm">No active traps</p>
+				<p className="m-0 font-medium text-foreground text-sm">
+					{isNarrowed ? 'No traps match' : 'No active traps'}
+				</p>
 				<p className="m-0 max-w-[34ch] text-muted-foreground text-sm">
-					The directory lists traps that are currently deployed. Retired traps stay on the map.
+					{isNarrowed
+						? 'Clear the search, or try another collection method.'
+						: 'The directory lists traps that are currently deployed. Retired traps stay on the map.'}
 				</p>
 			</div>
 		);
@@ -282,7 +296,14 @@ function TrapListRow({
 
 // --- the empty right half ---------------------------------------------------
 
-function NoSelection({ hasTraps }: { readonly hasTraps: boolean }) {
+function NoSelection({
+	hasTraps,
+	isNarrowed,
+}: {
+	readonly hasTraps: boolean;
+	readonly isNarrowed: boolean;
+}) {
+	const copy = noSelectionCopy(hasTraps, isNarrowed);
 	return (
 		<div className="flex h-full items-center justify-center p-8">
 			<Empty className="max-w-[42ch]">
@@ -290,16 +311,40 @@ function NoSelection({ hasTraps }: { readonly hasTraps: boolean }) {
 					<EmptyMedia variant="icon">
 						<TrapIcon aria-hidden="true" />
 					</EmptyMedia>
-					<EmptyTitle>{hasTraps ? 'No Trap Selected' : 'No Active Traps'}</EmptyTitle>
-					<EmptyDescription>
-						{hasTraps
-							? 'Choose a trap to read its collections, season by season.'
-							: 'Deploy a trap, or reactivate a retired one, and its collections will read here.'}
-					</EmptyDescription>
+					<EmptyTitle>{copy.title}</EmptyTitle>
+					<EmptyDescription>{copy.description}</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
 		</div>
 	);
+}
+
+/**
+ * Three reasons the right half is empty, and they are not the same news: the
+ * agency runs no traps, the filters hid the one that would have been selected,
+ * or there is simply nothing picked yet.
+ */
+function noSelectionCopy(
+	hasTraps: boolean,
+	isNarrowed: boolean,
+): { readonly title: string; readonly description: string } {
+	if (!hasTraps) {
+		return {
+			title: 'No Active Traps',
+			description:
+				'Deploy a trap, or reactivate a retired one, and its collections will read here.',
+		};
+	}
+	if (isNarrowed) {
+		return {
+			title: 'No Traps Match',
+			description: 'Clear the search, or try another collection method, to pick a trap.',
+		};
+	}
+	return {
+		title: 'No Trap Selected',
+		description: 'Choose a trap to read its collections, season by season.',
+	};
 }
 
 // --- filters ----------------------------------------------------------------
