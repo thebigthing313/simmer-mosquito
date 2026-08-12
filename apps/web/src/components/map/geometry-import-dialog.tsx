@@ -1,5 +1,6 @@
 import {
 	collectImportGroups,
+	IMPORT_FILE_ACCEPT,
 	type ImportCandidate,
 	type ImportGeometryKind,
 	importCandidatesFrom,
@@ -42,9 +43,6 @@ const UploadIcon = iconRegistry.actions.upload.icon;
 
 /** Plenty for a hand-curated file, and small enough to render as a plain list. */
 const MAX_CANDIDATES = 500;
-
-const FILE_ACCEPT =
-	'.kml,.kmz,.geojson,.json,application/geo+json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz';
 
 /** A parsed shape plus a key of its own, since a file may repeat a name. */
 interface ParsedShape extends ImportCandidate {
@@ -117,7 +115,7 @@ export function GeometryImportDialog({
 			// A file holding exactly one usable shape needs no choosing.
 			setSelectedId(shapes.length === 1 ? (shapes[0]?.id ?? null) : null);
 		} catch (error) {
-			setParseError(error instanceof Error ? error.message : 'Unable to read the file.');
+			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
 		}
 	}
 
@@ -152,7 +150,7 @@ export function GeometryImportDialog({
 
 				<div className="grid gap-3">
 					<input
-						accept={FILE_ACCEPT}
+						accept={IMPORT_FILE_ACCEPT}
 						className="hidden"
 						onChange={(event) => {
 							const file = event.target.files?.[0];

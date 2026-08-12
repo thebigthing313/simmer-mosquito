@@ -73,6 +73,26 @@ export interface ImportCandidateResult {
 }
 
 /**
+ * What to put in a file input's `accept` for an import this module can read.
+ *
+ * It lives beside the reader because the reader is what decides — three copies
+ * of this string had already drifted apart on extension order and on whether
+ * `application/json` was listed, and only one of them was the truth. Note that
+ * `accept` is a filter on the picker, not a guarantee: `readImportFileText`
+ * still decides on the bytes.
+ */
+export const IMPORT_FILE_ACCEPT = [
+	'.kml',
+	'.kmz',
+	'.geojson',
+	'.json',
+	'application/geo+json',
+	'application/json',
+	'application/vnd.google-earth.kml+xml',
+	'application/vnd.google-earth.kmz',
+].join(',');
+
+/**
  * Read an uploaded file into the text `collectImportGroups` parses.
  *
  * A KMZ is a zipped KML, so its document is unpacked here and the rest of the

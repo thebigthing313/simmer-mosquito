@@ -1,4 +1,4 @@
-import { readImportFileText } from '@simmer-mosquito/mapping';
+import { IMPORT_FILE_ACCEPT, readImportFileText } from '@simmer-mosquito/mapping';
 import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
@@ -142,7 +142,7 @@ function ImportRegionsRoute() {
 				})),
 			);
 		} catch (error) {
-			setParseError(error instanceof Error ? error.message : 'Unable to read the file.');
+			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
 			setItems([]);
 		}
 	}, []);
@@ -308,7 +308,7 @@ function ImportRegionsRoute() {
 					<div className="grid gap-5">
 						<div className="grid gap-2">
 							<input
-								accept=".kml,.kmz,.geojson,.json,application/geo+json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz"
+								accept={IMPORT_FILE_ACCEPT}
 								className="hidden"
 								onChange={(event) => {
 									const file = event.target.files?.[0];

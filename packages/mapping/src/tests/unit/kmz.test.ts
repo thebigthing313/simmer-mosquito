@@ -29,6 +29,15 @@ describe('isZipArchive', () => {
 		expect(isZipArchive(new TextEncoder().encode(KML))).toBe(false);
 		expect(isZipArchive(new Uint8Array([0x50, 0x4b]))).toBe(false);
 	});
+
+	it('takes the two whole signatures and not a mix of their halves', () => {
+		// PK\x05\x06 is an empty archive; PK\x03\x06 and PK\x05\x04 are not signatures
+		// at all, and calling one an archive would replace a readable KML complaint
+		// with a confusing archive one.
+		expect(isZipArchive(new Uint8Array([0x50, 0x4b, 0x05, 0x06]))).toBe(true);
+		expect(isZipArchive(new Uint8Array([0x50, 0x4b, 0x03, 0x06]))).toBe(false);
+		expect(isZipArchive(new Uint8Array([0x50, 0x4b, 0x05, 0x04]))).toBe(false);
+	});
 });
 
 describe('readZipEntries', () => {
@@ -91,6 +100,19 @@ describe('extractKmlFromKmz', () => {
 	it('says so when the archive holds no KML', async () => {
 		const bytes = await buildZip([{ name: 'files/overlay.png', content: 'not really a png' }]);
 		await expect(extractKmlFromKmz(bytes)).rejects.toThrow(/holds no KML/i);
+	});
+
+	it('translates a corrupt deflate stream instead of leaking the engine error', async () => {
+		// The callers render the message, so an engine `TypeError` reaching one would
+		// put decompression vocabulary in front of somebody importing a boundary.
+		const bytes = await buildZip([{ name: 'doc.kml', content: KML }]);
+		const entry = readZipEntries(bytes)[0] as { localHeaderOffset: number; compressedSize: number };
+		// Only the deflate payload — 30 bytes of local header plus the 7-byte name —
+		// so the directory still reads and the failure lands where it is meant to.
+		const start = entry.localHeaderOffset + 30 + 'doc.kml'.length;
+		bytes.fill(0, start, start + entry.compressedSize);
+
+		await expect(extractKmlFromKmz(bytes)).rejects.toThrow(/could not be decompressed/i);
 	});
 });
 

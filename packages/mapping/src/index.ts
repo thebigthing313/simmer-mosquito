@@ -59,6 +59,7 @@ export {
 	collectImportGroups,
 	declareMissingNamespaces,
 	flattenGeometries,
+	IMPORT_FILE_ACCEPT,
 	importCandidatesFrom,
 	importVertexCount,
 	isWgs84Geometry,

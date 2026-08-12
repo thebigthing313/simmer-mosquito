@@ -5,6 +5,7 @@ import {
 	formatBoundingBox,
 	type GeoJsonGeometry,
 	type GeoJsonPoint,
+	IMPORT_FILE_ACCEPT,
 	type ImportGeometryKind,
 	importCandidatesFrom,
 	isWgs84Geometry,
@@ -133,7 +134,7 @@ export function GeometryFileInput({
 					)}
 				</div>
 				<input
-					accept=".kml,.kmz,.json,.geojson,application/geo+json,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz"
+					accept={IMPORT_FILE_ACCEPT}
 					className="sr-only"
 					onChange={(event) => {
 						const file = event.target.files?.[0];

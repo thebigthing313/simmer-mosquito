@@ -55,15 +55,17 @@ export interface ZipEntry {
 	readonly encrypted: boolean;
 }
 
-/** True when these bytes open with a ZIP local-file or empty-archive signature. */
-export function isZipArchive(bytes: Uint8Array): boolean {
-	return (
-		bytes.length >= 4 &&
-		bytes[0] === 0x50 &&
-		bytes[1] === 0x4b &&
-		(bytes[2] === 0x03 || bytes[2] === 0x05) &&
-		(bytes[3] === 0x04 || bytes[3] === 0x06)
-	);
+/**
+ * True when these bytes open with a ZIP local-file (`PK\x03\x04`) or
+ * empty-archive (`PK\x05\x06`) signature. Those two whole signatures, not any
+ * mix of their halves — `PK\x03\x06` is not a thing, and treating it as an
+ * archive would trade a readable KML complaint for a confusing archive one.
+ */
+export function isZipArchive(bytes: ArchiveBytes): boolean {
+	if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+		return false;
+	}
+	return (bytes[2] === 0x03 && bytes[3] === 0x04) || (bytes[2] === 0x05 && bytes[3] === 0x06);
 }
 
 /**
@@ -208,10 +210,23 @@ function decodeEntryName(bytes: Uint8Array): string {
 	return new TextDecoder().decode(bytes);
 }
 
+/**
+ * Inflate one entry.
+ *
+ * Everything the platform can throw here is translated, because the callers
+ * render the message: a bad deflate stream rejects with the engine's own
+ * `TypeError`, and an engine that has `DecompressionStream` but not the
+ * `deflate-raw` format throws from the constructor rather than being absent — so
+ * the `typeof` guard alone would let both reach a user as engine vocabulary.
+ */
 async function inflateRaw(data: ArchiveBytes): Promise<ArchiveBytes> {
 	if (typeof DecompressionStream === 'undefined') {
 		throw new Error('Reading a KMZ is only available in the browser.');
 	}
-	const inflated = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-	return new Uint8Array(await new Response(inflated).arrayBuffer());
+	try {
+		const inflated = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+		return new Uint8Array(await new Response(inflated).arrayBuffer());
+	} catch {
+		throw new Error("That KMZ's KML document could not be decompressed.");
+	}
 }
