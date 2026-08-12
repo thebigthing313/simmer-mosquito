@@ -1,5 +1,6 @@
 import type { TrapRow } from '@simmer-mosquito/sync';
 import { SplitPage } from '@simmer-mosquito/ui-web/components/app-shell/outlet/split-page';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import {
 	Empty,
 	EmptyDescription,
@@ -7,18 +8,11 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
-import {
-	ChevronRightIcon,
-	iconRegistry,
-	SearchIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { createFileRoute } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { ExplorerHeader } from '../../components/explorer';
+import { ExplorerHeader, ExplorerRow } from '../../components/explorer';
 import {
 	type FilterCodecs,
 	searchValidator,
@@ -116,11 +110,13 @@ function TrapDirectoryRoute() {
 					total={visibleTraps.length}
 				>
 					<SearchField
+						label="Search traps by name or code"
 						onChange={setSearchInput}
 						onClear={() => {
 							clearSearchInput();
 							commitSearch('');
 						}}
+						placeholder="Search name or code…"
 						value={searchInput}
 					/>
 					<MethodTabs tabs={methodTabs} />
@@ -243,9 +239,8 @@ function TrapList({
 }
 
 /**
- * One trap in the directory. Clicking the row shows its collections beside the
- * list; the chevron opens the trap's own record. Two sibling controls rather
- * than a link inside a button, which is what the explorer rows do.
+ * One trap in the directory: the shared explorer row, with no date rail — a trap
+ * is a standing record, not something that happened on a day.
  */
 function TrapListRow({
 	trap,
@@ -261,36 +256,17 @@ function TrapListRow({
 	readonly onSelect: (id: string) => void;
 }) {
 	const label = trapDisplayName(trap);
+	const detailLink = { to: '/adult-surveillance/traps/$id', params: { id: trap.id } } as const;
 	return (
-		<li className="relative">
-			<button
-				aria-label={`Show collections for ${label}`}
-				aria-pressed={isSelected}
-				className={cn(
-					'absolute inset-0 size-full transition-colors',
-					isSelected ? 'bg-primary/8 ring-1 ring-primary/40 ring-inset' : 'hover:bg-muted/50',
-				)}
-				onClick={() => onSelect(trap.id)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative flex items-center gap-3 px-4 py-3">
-				<span className="min-w-0 flex-1">
-					<span className="block truncate font-medium text-foreground text-sm">{label}</span>
-					{showMethod ? (
-						<span className="block truncate text-muted-foreground text-xs">{methodName}</span>
-					) : null}
-				</span>
-				<Link
-					aria-label={`Open the record for ${label}`}
-					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					params={{ id: trap.id }}
-					title={`Open the record for ${label}`}
-					to="/adult-surveillance/traps/$id"
-				>
-					<ChevronRightIcon aria-hidden="true" className="size-4" />
-				</Link>
-			</div>
-		</li>
+		<ExplorerRow
+			detailLabel={`Open the record for ${label}`}
+			detailLink={detailLink}
+			isSelected={isSelected}
+			onSelect={() => onSelect(trap.id)}
+			selectLabel={`Show collections for ${label}`}
+			subtitle={showMethod ? methodName : undefined}
+			title={label}
+		/>
 	);
 }
 
@@ -345,43 +321,4 @@ function noSelectionCopy(
 		title: 'No Trap Selected',
 		description: 'Choose a trap to read its collections, season by season.',
 	};
-}
-
-// --- filters ----------------------------------------------------------------
-
-function SearchField({
-	value,
-	onChange,
-	onClear,
-}: {
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-	readonly onClear: () => void;
-}) {
-	return (
-		<div className="relative">
-			<SearchIcon
-				aria-hidden="true"
-				className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-			/>
-			<Input
-				aria-label="Search traps by name or code"
-				className="pl-9"
-				onChange={(event) => onChange(event.target.value)}
-				placeholder="Search name or code…"
-				type="search"
-				value={value}
-			/>
-			{value.length > 0 ? (
-				<button
-					aria-label="Clear search"
-					className="-translate-y-1/2 absolute top-1/2 right-2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					onClick={onClear}
-					type="button"
-				>
-					<XIcon aria-hidden="true" className="size-3.5" />
-				</button>
-			) : null}
-		</div>
-	);
 }

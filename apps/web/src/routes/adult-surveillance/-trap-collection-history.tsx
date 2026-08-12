@@ -144,7 +144,7 @@ function TrapHeader({ trap, methodName }: { readonly trap: TrapRow; readonly met
 	return (
 		<div className="flex flex-wrap items-start justify-between gap-3">
 			<div className="grid min-w-0 gap-1">
-				<h2 className="m-0 truncate font-semibold text-[1.35rem] text-foreground leading-tight">
+				<h2 className="m-0 truncate font-semibold text-foreground text-lg leading-tight">
 					{trapDisplayName(trap)}
 				</h2>
 				<p className="m-0 flex items-center gap-2 text-muted-foreground text-sm">
@@ -152,7 +152,7 @@ function TrapHeader({ trap, methodName }: { readonly trap: TrapRow; readonly met
 					<span aria-hidden="true">·</span>
 					<span className="inline-flex items-center gap-1">
 						{trap.isActive ? (
-							<CheckCircle2Icon aria-hidden="true" className="size-3.5 text-[var(--success)]" />
+							<CheckCircle2Icon aria-hidden="true" className="size-3.5 text-success" />
 						) : (
 							<CircleIcon aria-hidden="true" className="size-3.5" />
 						)}
