@@ -45,7 +45,7 @@ import {
 	SpeciesStatusBadge,
 	trapDisplayName,
 } from './-adult-display';
-import { formatMonthDay, todayInTimeZone } from './-overview-data';
+import { formatWeekdayMonthDay, todayInTimeZone } from './-overview-data';
 import {
 	type CollectionYear,
 	type DirectoryCollection,
@@ -378,8 +378,8 @@ export function CollectionRow({
 						aria-hidden="true"
 						className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[state=open]:rotate-90 motion-reduce:transition-none"
 					/>
-					<span className="w-[4.5rem] shrink-0 font-medium text-foreground text-sm tabular-nums">
-						{date === null ? '—' : formatMonthDay(date)}
+					<span className="w-24 shrink-0 font-medium text-foreground text-sm tabular-nums">
+						{date === null ? '—' : formatWeekdayMonthDay(date)}
 					</span>
 					<CollectionFlagBadges
 						className="flex min-w-0 flex-wrap items-center gap-1.5"

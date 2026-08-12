@@ -17,6 +17,7 @@ export {
 	addDaysToDateString,
 	formatDate,
 	formatMonthDay,
+	formatWeekdayMonthDay,
 	todayInTimeZone,
 } from '../larval-surveillance/-overview-data';
 

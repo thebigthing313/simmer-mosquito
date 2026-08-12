@@ -321,6 +321,29 @@ export function dayOfMonth(date: string): number {
 	return parseDateString(date).getUTCDate();
 }
 
+/**
+ * A record's own date, with the weekday it fell on: `Wed, Aug 12`.
+ *
+ * Field work runs on a weekly rhythm — a trap set Monday and collected
+ * Wednesday, a route walked every Thursday — so the weekday is what tells an
+ * operator whether a gap in a run is a missed visit or just the weekend. It
+ * belongs on dates that ARE the record; {@link formatMonthDay} stays the plain
+ * form for the places a date is a bound or a heading rather than a fact about
+ * one record.
+ */
+export function formatWeekdayMonthDay(date: string): string {
+	const parsed = parseDateString(date);
+	if (Number.isNaN(parsed.getTime())) {
+		return '—';
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(parsed);
+}
+
 export function formatMonthDay(date: string): string {
 	const parsed = parseDateString(date);
 	if (Number.isNaN(parsed.getTime())) {

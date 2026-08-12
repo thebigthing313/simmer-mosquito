@@ -61,10 +61,12 @@ function renderRow(row: DirectoryCollection) {
  * disclosure: a season of open species tables is a wall, not a history.
  */
 describe('CollectionRow', () => {
+	// The weekday is part of the date, not decoration: field work runs weekly, and
+	// it is what says whether a gap in a run is a missed visit or a weekend.
 	it('opens closed, showing the date and what it caught but not the species', () => {
 		renderRow(collection());
 
-		expect(screen.getByText('Jul 14')).toBeTruthy();
+		expect(screen.getByText('Tue, Jul 14')).toBeTruthy();
 		expect(screen.getByText('2 species · 160 specimens')).toBeTruthy();
 		expect(screen.queryByText('Aedes vexans')).toBeNull();
 	});
@@ -110,7 +112,7 @@ describe('CollectionRow', () => {
 			}),
 		);
 
-		expect(screen.getByText('Sep 2')).toBeTruthy();
+		expect(screen.getByText('Wed, Sep 2')).toBeTruthy();
 		expect(screen.queryByText('Not yet collected')).toBeNull();
 	});
 });
