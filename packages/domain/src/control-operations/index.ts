@@ -2,6 +2,7 @@ export type {
 	ApplicationBatchInput,
 	ControlActionContext,
 	ControlType,
+	PerformedControlActionKind,
 } from '../performed-control-actions.js';
 export * from './actions.js';
 export * from './assets.js';

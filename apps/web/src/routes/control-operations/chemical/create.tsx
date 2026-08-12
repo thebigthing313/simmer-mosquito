@@ -1,5 +1,4 @@
 import { calculateFormulationComponentAmounts } from '@simmer-mosquito/domain';
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type {
 	ApplicationRow,
 	ControlMethodRow,
@@ -20,9 +19,11 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import { saveApplicationBatches, useApplicationBatches } from './-application-batches';
@@ -38,7 +39,10 @@ export const Route = createFileRoute('/control-operations/chemical/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...missionStopSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/control-operations/chemical' });
@@ -49,7 +53,11 @@ export const Route = createFileRoute('/control-operations/chemical/create')({
 
 function CreateApplicationRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
+	// Recorded off a mission stop: the server links the action to the stop and
+	// completes it in the same transaction.
+	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
@@ -74,170 +82,180 @@ function CreateApplicationRoute() {
 	useAdditionalPersonnel({ type: 'application', id: applicationId });
 	useApplicationBatches(applicationId);
 
+	// A confirmed acknowledgement re-runs the whole save. Safe because the loop
+	// below only lets a refusal escape while nothing has been written yet: once a
+	// mix has landed part way, the failure is reported as a count instead.
 	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-		}: {
+		async (input: {
 			readonly values: ApplicationFormValues;
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
-		}) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			if (geometry === null) {
-				throw new Error('Place the application point on the map.');
-			}
-			if (values.amountApplied === null) {
-				throw new Error('Enter the amount applied.');
-			}
-
-			// The point is the application's authoritative geometry; the address (if
-			// any) is reference only. The server recomputes geom from the location
-			// source; this centroid seeds the optimistic row so the map/coordinates
-			// show immediately.
-			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine the application location.');
-			}
-
-			// A formulation is a calculator: it becomes one ordinary application per
-			// component product, each holding its own share of the total. Nothing
-			// records that they came from a mix.
-			const products =
-				values.productMode === 'formulation'
-					? formulationProducts(values, formulations, formulationComponents, applicationId)
-					: [
-							{
-								id: applicationId,
-								insecticideId: values.insecticideId,
-								amountApplied: values.amountApplied,
-								applicationUnitId: values.applicationUnitId,
-								insecticideBatchIds: values.insecticideBatchIds,
-							},
-						];
-
-			const now = new Date().toISOString();
-			const rows = products.map(
-				(product): ApplicationRow => ({
-					id: product.id,
-					organizationId: organization.id,
-					lat: centroid.lat,
-					lng: centroid.lng,
-					geomType: centroid.geomType,
-					applicationMethodId: nullableSelection(values.applicationMethodId),
-					insecticideId: product.insecticideId,
-					applicatorProfileId: nullableSelection(values.applicatorProfileId),
-					applicationDate: values.applicationDate,
-					addressId: values.addressId,
-					vehicleId: nullableSelection(values.vehicleId),
-					equipmentId: nullableSelection(values.equipmentId),
-					amountApplied: product.amountApplied,
-					applicationUnitId: product.applicationUnitId,
-					habitatId: values.habitatId,
-					collectionId: null,
-					inspectionId: null,
-					requestedControlActionId: null,
-					missionItemId: null,
-					metadata: values.metadata,
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				}),
-			);
-
-			const locationSource = {
-				kind: 'geometry',
-				geometry: geometry as unknown as GeoJsonGeometry,
-			} as const;
-
-			// Written one at a time so a failure part way through a mix can say how
-			// much of it landed — those rows are real applications the user now owns.
-			const saved: ApplicationRow[] = [];
-			for (const row of rows) {
-				try {
-					await settleWrite(
-						webCollections.applications.insert(row, { metadata: { locationSource } }),
-					);
-				} catch (error) {
-					if (saved.length === 0) {
-						throw error;
-					}
-					throw new Error(
-						`Recorded ${saved.length} of ${rows.length} applications before failing: ${
-							error instanceof Error ? error.message : 'Unknown error.'
-						}`,
-					);
+		}) =>
+			mission.run(async (acknowledgements) => {
+				const { values, geometry } = input;
+				if (organization === null) {
+					throw new Error('Organization details are still loading.');
 				}
-				saved.push(row);
-			}
+				if (actorProfileId === null) {
+					throw new Error('Your profile is still loading.');
+				}
+				if (values.amountApplied === null) {
+					throw new Error('Enter the amount applied.');
+				}
 
-			// Crew and batches are separate rows that reference the application, so
-			// they can only be written once it exists. Reported one at a time, so a
-			// failure names which of the two did not land.
-			await Promise.all(
-				saved.flatMap((row, index) => [
-					attachLinksBestEffort('the additional personnel', () =>
-						saveAdditionalPersonnel({
-							target: { type: 'application', id: row.id },
-							organizationId: organization.id,
-							actorProfileId,
-							existing: [],
-							profileIds: values.additionalPersonnelIds,
-						}),
-					),
-					attachLinksBestEffort('the batches', () =>
-						saveApplicationBatches({
-							applicationId: row.id,
-							organizationId: organization.id,
-							actorProfileId,
-							existing: [],
-							insecticideBatchIds: products[index]?.insecticideBatchIds ?? [],
-						}),
-					),
-				]),
-			);
+				// The point is the application's authoritative geometry; the address (if
+				// any) is reference only. Off a mission stop it is required; on one it is
+				// an override the crew may not have drawn, and the server falls back to
+				// the stop's own ground.
+				const location = mission.resolveLocation(geometry, {
+					missing: 'Place the application point on the map.',
+					unresolvable: 'Unable to determine the application location.',
+				});
 
-			const first = saved[0];
-			if (saved.length > 1 || first === undefined) {
-				toast.success(`Recorded ${saved.length} applications.`);
-				await navigate({ to: '/control-operations/chemical' });
-				return;
-			}
-			await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
-		},
-		[organization, actorProfileId, applicationId, formulations, formulationComponents, navigate],
+				// A formulation is a calculator: it becomes one ordinary application per
+				// component product, each holding its own share of the total. Nothing
+				// records that they came from a mix.
+				const products =
+					values.productMode === 'formulation'
+						? formulationProducts(values, formulations, formulationComponents, applicationId)
+						: [
+								{
+									id: applicationId,
+									insecticideId: values.insecticideId,
+									amountApplied: values.amountApplied,
+									applicationUnitId: values.applicationUnitId,
+									insecticideBatchIds: values.insecticideBatchIds,
+								},
+							];
+
+				const now = new Date().toISOString();
+				const rows = products.map(
+					(product): ApplicationRow => ({
+						id: product.id,
+						organizationId: organization.id,
+						lat: location.lat,
+						lng: location.lng,
+						geomType: location.geomType,
+						applicationMethodId: nullableSelection(values.applicationMethodId),
+						insecticideId: product.insecticideId,
+						applicatorProfileId: nullableSelection(values.applicatorProfileId),
+						applicationDate: values.applicationDate,
+						addressId: values.addressId,
+						vehicleId: nullableSelection(values.vehicleId),
+						equipmentId: nullableSelection(values.equipmentId),
+						amountApplied: product.amountApplied,
+						applicationUnitId: product.applicationUnitId,
+						habitatId: values.habitatId,
+						collectionId: null,
+						inspectionId: null,
+						requestedControlActionId: null,
+						missionItemId: mission.missionItemId,
+						metadata: values.metadata,
+						createdByProfileId: actorProfileId,
+						updatedByProfileId: actorProfileId,
+						createdAt: now,
+						updatedAt: now,
+					}),
+				);
+
+				// Written one at a time so a failure part way through a mix can say how
+				// much of it landed — those rows are real applications the user now owns.
+				const saved: ApplicationRow[] = [];
+				for (const row of rows) {
+					try {
+						await settleWrite(
+							webCollections.applications.insert(row, {
+								metadata: { acknowledgements, locationSource: location.locationSource },
+							}),
+						);
+					} catch (error) {
+						if (saved.length === 0) {
+							throw error;
+						}
+						throw new Error(
+							`Recorded ${saved.length} of ${rows.length} applications before failing: ${
+								error instanceof Error ? error.message : 'Unknown error.'
+							}`,
+						);
+					}
+					saved.push(row);
+				}
+
+				// Crew and batches are separate rows that reference the application, so
+				// they can only be written once it exists. Reported one at a time, so a
+				// failure names which of the two did not land.
+				await Promise.all(
+					saved.flatMap((row, index) => [
+						attachLinksBestEffort('the additional personnel', () =>
+							saveAdditionalPersonnel({
+								target: { type: 'application', id: row.id },
+								organizationId: organization.id,
+								actorProfileId,
+								existing: [],
+								profileIds: values.additionalPersonnelIds,
+							}),
+						),
+						attachLinksBestEffort('the batches', () =>
+							saveApplicationBatches({
+								applicationId: row.id,
+								organizationId: organization.id,
+								actorProfileId,
+								existing: [],
+								insecticideBatchIds: products[index]?.insecticideBatchIds ?? [],
+							}),
+						),
+					]),
+				);
+
+				const first = saved[0];
+				if (saved.length > 1 || first === undefined) {
+					toast.success(`Recorded ${saved.length} applications.`);
+					await navigate({ to: '/control-operations/chemical' });
+					return;
+				}
+				await mission.navigateAfterSave(async () => {
+					await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
+				});
+			}),
+		[
+			mission,
+			organization,
+			actorProfileId,
+			applicationId,
+			formulations,
+			formulationComponents,
+			navigate,
+		],
 	);
 
 	return (
-		<ApplicationFormPage
-			applicationMethods={methods}
-			canSubmit={canSubmit}
-			defaultValues={defaultApplicationFormValues()}
-			equipment={equipment}
-			formulationComponents={formulationComponents}
-			formulations={formulations}
-			header={{
-				title: 'Record Application',
-				description:
-					'Place the treated point, pick the product and amount, and note who applied it.',
-				backTo: '/control-operations/chemical',
-				backLabel: 'Applications',
-			}}
-			insecticides={insecticides}
-			initialGeometry={initialGeometry}
-			onSave={onSave}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			submitLabel="Record Application"
-			units={units}
-			vehicles={vehicles}
-		/>
+		<>
+			<ApplicationFormPage
+				applicationMethods={methods}
+				canSubmit={canSubmit}
+				defaultValues={defaultApplicationFormValues()}
+				equipment={equipment}
+				formulationComponents={formulationComponents}
+				formulations={formulations}
+				header={{
+					title: 'Record Application',
+					description:
+						'Place the treated point, pick the product and amount, and note who applied it.',
+					backTo: '/control-operations/chemical',
+					backLabel: 'Applications',
+				}}
+				insecticides={insecticides}
+				initialGeometry={initialGeometry}
+				requireLocation={mission.requireLocation}
+				onSave={onSave}
+				organizationId={organization?.id ?? ''}
+				profiles={profiles}
+				submitLabel="Record Application"
+				units={units}
+				vehicles={vehicles}
+			/>
+			{mission.dialog}
+		</>
 	);
 }
 

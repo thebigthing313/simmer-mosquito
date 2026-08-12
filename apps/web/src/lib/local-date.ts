@@ -9,6 +9,25 @@
  * before it was named once.
  */
 
+import { getToday } from './get-today';
+
+/**
+ * Today's date in the org's timezone as a `YYYY-MM-DD` string.
+ *
+ * Here rather than in a domain's `-overview-data` module because "what is today"
+ * is not a fact about larval surveillance: every section's forms default a date
+ * with it, and reaching across route trees for one is how a private route module
+ * becomes a shared library nobody named.
+ */
+export function todayInTimeZone(timeZone: string | undefined): string {
+	return new Intl.DateTimeFormat('en-CA', {
+		timeZone: timeZone || undefined,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+	}).format(getToday());
+}
+
 /** A `YYYY-MM-DD` string as a local Date, or undefined when empty or malformed. */
 export function parseLocalDate(value: string | null | undefined): Date | undefined {
 	if (value === null || value === undefined || value === '') {

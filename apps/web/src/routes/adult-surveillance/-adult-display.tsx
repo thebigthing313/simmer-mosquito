@@ -124,6 +124,22 @@ interface CollectionFlags {
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
+	readonly collectedAt?: string | null;
+	readonly collectionTimingMode?: string;
+}
+
+/**
+ * A trap that was set and has not been emptied yet.
+ *
+ * Only exact-timestamps collections can be in this state: one recorded as a
+ * date plus a duration is by definition already in hand, and its `collectedAt`
+ * is null for a different reason entirely.
+ */
+export function isPendingCollection(collection: {
+	readonly collectedAt: string | null;
+	readonly collectionTimingMode: string;
+}): boolean {
+	return collection.collectionTimingMode === 'exact_timestamps' && collection.collectedAt === null;
 }
 
 /** The prominent result flags on a collection, in the order they should read. */
@@ -153,6 +169,16 @@ function collectionFlagList(
 	collection: CollectionFlags,
 ): readonly { readonly label: string; readonly tone: Tone }[] {
 	const flags: { readonly label: string; readonly tone: Tone }[] = [];
+	// First, because it says the record is not finished: the other three describe
+	// specimens, and a trap that is still out has none yet.
+	if (
+		isPendingCollection({
+			collectedAt: collection.collectedAt ?? null,
+			collectionTimingMode: collection.collectionTimingMode ?? '',
+		})
+	) {
+		flags.push({ label: 'Trap out', tone: 'info' });
+	}
 	if (collection.hasProblem) {
 		flags.push({ label: 'Problem reported', tone: 'danger' });
 	}

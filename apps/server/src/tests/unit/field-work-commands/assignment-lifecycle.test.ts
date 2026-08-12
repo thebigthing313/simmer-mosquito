@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	type AssignmentSnapshot,
 	checkCompleteAssignment,
+	checkExecution,
+	checkExecutionTarget,
 	checkItemProgress,
 	checkReopenAssignment,
 	checkStartAssignment,
@@ -170,6 +172,122 @@ describe('isProgressBeforeStart', () => {
 		expect(isProgressBeforeStart(null, startedAt)).toBe(false);
 		expect(isProgressBeforeStart(new Date('2020-01-01T00:00:00.000Z'), null)).toBe(false);
 		expect(isProgressBeforeStart(null, null)).toBe(false);
+	});
+});
+
+describe('checkExecution', () => {
+	const open = { autoStart: true, acknowledgedCompletedItemAdditionalRecord: false };
+
+	it('allows an unstarted assignment when the caller will auto-start it', () => {
+		expect(checkExecution('not_started', 'pending', open)).toBeNull();
+	});
+
+	it('refuses an unstarted assignment when it will not', () => {
+		expect(checkExecution('not_started', 'pending', { ...open, autoStart: false })).toBe(
+			'assignment_not_started',
+		);
+	});
+
+	it('refuses a closed assignment either way', () => {
+		expect(checkExecution('completed', 'pending', open)).toBe('assignment_not_in_progress');
+		expect(checkExecution('cancelled', 'pending', open)).toBe('assignment_not_in_progress');
+	});
+
+	it('sends a skipped stop through unskip rather than silently clearing it', () => {
+		expect(checkExecution('in_progress', 'skipped', open)).toBe('assignment_item_skipped');
+	});
+
+	it('asks before adding a second record to a completed stop', () => {
+		// The ordinary cause of this is a double submit, so it is a question
+		// rather than a refusal.
+		expect(checkExecution('in_progress', 'completed', open)).toBe(
+			'assignment_item_already_completed',
+		);
+		expect(
+			checkExecution('in_progress', 'completed', {
+				...open,
+				acknowledgedCompletedItemAdditionalRecord: true,
+			}),
+		).toBeNull();
+	});
+
+	it('refuses a completion dated before the assignment started', () => {
+		// The completion this writes is a progress timestamp like any other, and
+		// the progress commands have always been judged against the start. Without
+		// this, the execution path was the one way in that skipped the rule.
+		const startedAt = new Date('2026-08-04T09:00:00.000Z');
+		expect(
+			checkExecution('in_progress', 'pending', open, {
+				progressAt: new Date('2026-08-04T08:00:00.000Z'),
+				startedAt,
+			}),
+		).toBe('assignment_item_progress_before_start');
+	});
+
+	it('allows a completion inside the clock-skew allowance', () => {
+		// The two values come from different clocks — the server stamped the start,
+		// the device stamped the completion — so a phone a minute slow must not
+		// have genuinely-completed work refused.
+		const startedAt = new Date('2026-08-04T09:00:00.000Z');
+		expect(
+			checkExecution('in_progress', 'pending', open, {
+				progressAt: new Date(startedAt.getTime() - CLOCK_SKEW_TOLERANCE_MS + 1_000),
+				startedAt,
+			}),
+		).toBeNull();
+	});
+
+	it('stands down on the auto-start path, where the start is being stamped now', () => {
+		// `startedAt` is still null when the check runs, so there is nothing to be
+		// before: recording the first stop of the day is what starts the assignment.
+		expect(
+			checkExecution('not_started', 'pending', open, {
+				progressAt: new Date('2026-08-04T08:00:00.000Z'),
+				startedAt: null,
+			}),
+		).toBeNull();
+	});
+
+	it('reports the stop’s state ahead of its timing', () => {
+		// A stop refused for being skipped should be told that, not handed a
+		// timing complaint it cannot act on.
+		expect(
+			checkExecution('in_progress', 'skipped', open, {
+				progressAt: new Date('2026-08-04T08:00:00.000Z'),
+				startedAt: new Date('2026-08-04T09:00:00.000Z'),
+			}),
+		).toBe('assignment_item_skipped');
+	});
+});
+
+describe('checkExecutionTarget', () => {
+	const stop = { entityType: 'habitat', entityId: 'habitat-1' };
+
+	it('passes when the record is for the place the stop names', () => {
+		expect(
+			checkExecutionTarget(stop, { entityType: 'habitat', entityId: 'habitat-1' }, false),
+		).toBeNull();
+	});
+
+	it('passes when the record names no target, because the stop supplies it', () => {
+		expect(checkExecutionTarget(stop, { entityType: 'habitat', entityId: null }, false)).toBeNull();
+	});
+
+	it('always refuses the wrong kind of stop', () => {
+		// A trap collection filed against a habitat stop is a bug, not a choice,
+		// so no acknowledgement clears it.
+		expect(checkExecutionTarget(stop, { entityType: 'trap', entityId: null }, true)).toBe(
+			'assignment_item_wrong_target_type',
+		);
+	});
+
+	it('asks before recording against a different target of the same kind', () => {
+		expect(
+			checkExecutionTarget(stop, { entityType: 'habitat', entityId: 'habitat-2' }, false),
+		).toBe('assignment_item_target_mismatch');
+		expect(
+			checkExecutionTarget(stop, { entityType: 'habitat', entityId: 'habitat-2' }, true),
+		).toBeNull();
 	});
 });
 

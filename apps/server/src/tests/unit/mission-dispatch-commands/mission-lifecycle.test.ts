@@ -8,6 +8,7 @@ import {
 	type MissionSnapshot,
 	readMissionItemState,
 	readMissionState,
+	rejectMission,
 } from '../../../mission-dispatch-commands/mission-lifecycle.js';
 
 const at = new Date('2026-08-05T12:00:00.000Z');
@@ -164,6 +165,34 @@ describe('checkMissionItemProgress', () => {
 		);
 	});
 
+	it('lets an acknowledged second action through on an already-completed stop', () => {
+		// Execution is not a repeated `complete`: a mission stop treated twice in a
+		// day is real work whose stop happens to be closed, and the assignment side
+		// has always taken the same answer (`checkExecution`). The flag is only ever
+		// set by the execution path, so an ordinary Complete still refuses.
+		expect(
+			checkMissionItemProgress('complete', 'in_progress', 'completed', {
+				...running,
+				acknowledgedCompletedItemAdditionalAction: true,
+			}),
+		).toBeNull();
+	});
+
+	it('does not let the acknowledgement clear any other refusal', () => {
+		// It answers one question. A skipped stop still has to be unskipped, and a
+		// closed mission is still closed.
+		const acknowledged = { ...running, acknowledgedCompletedItemAdditionalAction: true };
+		expect(checkMissionItemProgress('complete', 'in_progress', 'skipped', acknowledged)).toBe(
+			'mission_item_skipped',
+		);
+		expect(checkMissionItemProgress('skip', 'in_progress', 'skipped', acknowledged)).toBe(
+			'mission_item_already_skipped',
+		);
+		expect(checkMissionItemProgress('complete', 'cancelled', 'completed', acknowledged)).toBe(
+			'mission_not_in_progress',
+		);
+	});
+
 	it('reopens only completed stops and unskips only skipped ones', () => {
 		expect(checkMissionItemProgress('reopen', 'in_progress', 'completed', running)).toBeNull();
 		expect(checkMissionItemProgress('reopen', 'in_progress', 'pending', running)).toBe(
@@ -228,3 +257,33 @@ function snapshot(
 		pendingItemCount,
 	};
 }
+
+describe('rejectMission', () => {
+	it('passes null through and throws a worded refusal otherwise', () => {
+		expect(() => rejectMission(null)).not.toThrow();
+		// Every rejection has to carry a sentence, or a refusal the crew could
+		// have acted on reaches them as a bare error code.
+		try {
+			rejectMission('mission_item_wrong_control_type');
+			expect.unreachable('should have thrown');
+		} catch (error) {
+			const body = (error as { readonly body: { readonly reason?: string } }).body;
+			expect(body.reason).toBe('This mission is not for the kind of work you are recording.');
+		}
+	});
+
+	it('words the two execution refusals it introduced', () => {
+		for (const rejection of [
+			'mission_item_requested_action_mismatch',
+			'mission_geometry_not_covered',
+		] as const) {
+			try {
+				rejectMission(rejection);
+				expect.unreachable('should have thrown');
+			} catch (error) {
+				const body = (error as { readonly body: { readonly reason?: string } }).body;
+				expect(body.reason).toBeTruthy();
+			}
+		}
+	});
+});

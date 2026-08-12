@@ -146,6 +146,9 @@ export interface AdultCollectionRow extends AuditedOrganizationRowBase {
 	readonly collectedByProfileId: string | null;
 	readonly startedAt: string | null;
 	readonly setByProfileId: string | null;
+	/** The assignment stops this collection was set and emptied from, if any. */
+	readonly setAssignmentItemId: string | null;
+	readonly collectedAssignmentItemId: string | null;
 	readonly collectionTimingMode: CollectionTimingMode;
 	readonly collectionDate: string | null;
 	readonly durationAmount: number | null;

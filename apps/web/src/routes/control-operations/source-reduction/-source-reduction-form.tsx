@@ -27,7 +27,11 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	validationLocationSource,
+} from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { todayDateValue } from '../-control-display';
@@ -195,7 +199,7 @@ export function SourceReductionFormPage({
 					recordSourceReductionCommand({
 						...FORM_VALIDATION_CONTEXT,
 						sourceReductionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						locationSource: validationLocationSource(geometry, requireLocation),
 						sourceReductionMethodId: value.sourceReductionMethodId,
 						sourcesEliminatedAmount: value.sourcesEliminatedAmount as number,
 						sourcesEliminatedUnitId: value.sourcesEliminatedUnitId,

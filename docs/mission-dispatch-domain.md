@@ -506,6 +506,9 @@ Recording actual work from a mission item:
 - validates requested-action compatibility
 - writes the actual action with `mission_item_id`
 - defaults `requested_control_action_id` from the mission item when appropriate
+- carries the action's own larval/adult context (`habitatId`, `inspectionId`,
+  `collectionId`) exactly as the off-mission command does — a mission-recorded
+  action stores no less than the same action recorded outside one
 - optionally marks the mission item complete in the same transaction
 - optionally auto-starts the mission
 
@@ -513,15 +516,58 @@ Helper commands include:
 
 - `completeMissionItem`, default `true`
 - `autoStartMission`, default `true`
-- acknowledgement flags for method/requested-action/schedule/coverage issues
+- `acknowledgedRequestedActionMismatch` — the action cites a requested action
+  that is not the stop's
+- `acknowledgedMissionGeometryNotCovered` — the action does not cover the ground
+  the stop names
+- `acknowledgedCompletedItemAdditionalAction` — a second action against a stop
+  that is already completed, the mission counterpart of
+  `acknowledgedCompletedItemAdditionalRecord`
+
+There is no method or schedule acknowledgement. A mission's planned method is a
+default rather than a rule, so there is nothing to disagree with, and no check
+has ever compared an action's date to the mission's window; flags for either
+would name rules that do not exist.
+
+Implemented in `apps/server/src/mission-dispatch-commands/mission-execution.ts`
+and reached through the action's own endpoint (`POST
+/control-operations/applications`, `/source-reductions`, `/biocontrol-actions`,
+`/outreach-actions`) by including `missionItemId` in the body. Outreach is
+recorded from `/public-engagement/outreach` in the UI but its table and endpoint
+are control-operations, like the other three. The endpoint follows the table;
+the command follows the unit of work. A body without `missionItemId` builds the
+ordinary `controlOperations.*` command, unchanged.
+
+Defaults the server fills when the command omits them:
+
+- geometry — the mission item's own geometry, so the ordinary call cannot
+  disagree with the stop it came from
+- `requested_control_action_id` — the stop's
+- method — `missions.planned_method_id`. For source reduction, outreach, and
+  biocontrol the column is required, so a mission planned without a method and
+  executed without one is refused (`mission_method_required`) rather than
+  invented. A chemical application's method is nullable, so the plan is a
+  default there and never a requirement: refusing would make a mission-recorded
+  application stricter than the same application recorded off-mission.
+
+The mission row is locked before it is read, so the auto-start that may follow
+cannot race a concurrent one.
 
 Geometry mismatch acknowledgement is required only when actual action geometry
 does not fully cover/encompass the mission item geometry. For point mission
 items, coverage means the point lies on/within the action geometry or equals the
-action point. Server handlers use PostGIS predicates and may require
-acknowledgement when coverage is uncertain.
+action point. This is `ST_Covers(action.geom, mission_item.geom)`, checked after
+the action row is written and inside the same transaction, so a refusal rolls
+the write back. A null answer — one of the geometries missing — is not "does not
+cover" and is not refused.
 
 Address mismatch is warning-only because geometry is authoritative.
+
+`acknowledgedMissionGeometryNotCovered` and `acknowledgedRequestedActionMismatch`
+are answers to a refusal rather than options the form offers up front, and reach
+the endpoint the same way the assignment ones do — see "Assignment Item
+Execution" in `docs/field-work-support-domain.md`. `mission_item_wrong_control_type`
+and `mission_method_required` take no flag and are never offered a way past.
 
 Mission helper commands do not automatically resolve requested control actions.
 Resolution remains an explicit control-operations command.

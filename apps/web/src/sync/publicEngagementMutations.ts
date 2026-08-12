@@ -6,7 +6,7 @@ import type {
 	ServiceRequestRow,
 } from '@simmer-mosquito/sync';
 import { isNoOpUpdate, pickChanged } from './change-set';
-import { commandErrorFrom } from './command-error';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 /**
  * Public engagement optimistic mutation handlers: contacts, service requests,
@@ -393,7 +393,7 @@ async function writeRecord(
 		},
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
-	const result = (await response.json()) as
+	const result = (await readResponseBody(response)) as
 		| MutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 

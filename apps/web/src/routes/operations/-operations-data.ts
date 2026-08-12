@@ -139,6 +139,20 @@ export function canProgressMissionItems(status: MissionStatus): boolean {
 	return status === 'inProgress';
 }
 
+/**
+ * Recording the action a stop was dispatched for, which is a wider gate than
+ * {@link canProgressMissionItems}.
+ *
+ * Done and Skip need a running mission. Recording does not: `autoStartMission`
+ * defaults true so the crew's first record of the day starts the mission, and
+ * the server permits it. Sharing the progress gate made that unreachable — the
+ * mirror of the same mistake on the assignment side. See
+ * `docs/mission-dispatch-domain.md`.
+ */
+export function canRecordMissionStopWork(status: MissionStatus): boolean {
+	return status === 'scheduled' || status === 'inProgress';
+}
+
 /** A finished mission is a record. Reopen it before changing what it covers. */
 export function canEditMissionPlan(status: MissionStatus): boolean {
 	return status === 'scheduled' || status === 'inProgress';

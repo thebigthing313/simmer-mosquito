@@ -19,12 +19,18 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import {
+	CollectCollectionDialog,
+	collectPendingCollection,
+} from '../../../components/collect-collection-dialog';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
@@ -37,6 +43,7 @@ import {
 	canCompleteAssignment,
 	cancelAssignment,
 	canProgressItems,
+	canRecordStopWork,
 	canStartAssignment,
 	completeAssignment,
 	completeAssignmentItem,
@@ -150,6 +157,8 @@ function AssignmentRunRoute() {
 	}
 
 	const itemsEnabled = assignment !== null && canProgressItems(assignment.status) && !busy;
+	// Wider than `itemsEnabled` on purpose: recording auto-starts the assignment.
+	const recordEnabled = assignment !== null && canRecordStopWork(assignment.status) && !busy;
 
 	return (
 		<>
@@ -255,8 +264,10 @@ function AssignmentRunRoute() {
 						target={{ type: 'assignment', id }}
 					>
 						<RunStopList
+							actorProfileId={identity?.profileId ?? null}
 							assignmentId={id}
 							enabled={itemsEnabled}
+							recordEnabled={recordEnabled}
 							highlightId={highlightId}
 							isLoading={isLoading}
 							onAction={itemAction}
@@ -365,9 +376,11 @@ function LifecycleControls({
 }
 
 function RunStopList({
+	actorProfileId,
 	assignmentId,
 	stops,
 	enabled,
+	recordEnabled,
 	isLoading,
 	selectedStopId,
 	highlightId,
@@ -375,9 +388,11 @@ function RunStopList({
 	onSelect,
 	onHover,
 }: {
+	readonly actorProfileId: string | null;
 	readonly assignmentId: string;
 	readonly stops: readonly AssignmentStopView[];
 	readonly enabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly isLoading: boolean;
 	readonly selectedStopId: string | null;
 	readonly highlightId: string | null;
@@ -427,7 +442,10 @@ function RunStopList({
 		<ol className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3">
 			{stops.map((stop) => (
 				<RunStopRow
+					actorProfileId={actorProfileId}
+					assignmentId={assignmentId}
 					enabled={enabled}
+					recordEnabled={recordEnabled}
 					isHighlighted={stop.assignmentItemId === highlightId}
 					isSelected={stop.assignmentItemId === selectedStopId}
 					key={stop.assignmentItemId}
@@ -448,9 +466,136 @@ const ACTION_LABELS: Readonly<Record<ItemAction, string>> = {
 	reopen: 'Reopen',
 };
 
+/**
+ * The record a stop exists to produce.
+ *
+ * Recording it is the ordinary way to finish a stop — the server writes the
+ * record, links it, and completes the stop in one transaction. "Done" stays
+ * beside it for the corrections and for the stops that produce nothing
+ * linkable, which is every service request stop today.
+ */
+function RecordStopWorkButton({
+	stop,
+	assignmentId,
+	actorProfileId,
+	enabled,
+}: {
+	readonly stop: AssignmentStopView;
+	readonly assignmentId: string;
+	readonly actorProfileId: string | null;
+	readonly enabled: boolean;
+}) {
+	// The stop's own target rides along, so the form opens on the place the crew
+	// was sent rather than asking them to find it again. Left out, the server
+	// would default it anyway — but the field is required client-side, so the
+	// crew re-picks it, and a wrong pick is a target mismatch rather than a typo.
+	const search = { assignmentItemId: stop.assignmentItemId, assignmentId };
+
+	if (stop.entityType === 'habitat') {
+		return (
+			<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
+				{enabled ? (
+					<Link
+						search={{ ...search, habitatId: stop.entityId }}
+						to="/larval-surveillance/inspections/create"
+					>
+						Record inspection
+					</Link>
+				) : (
+					<span>Record inspection</span>
+				)}
+			</Button>
+		);
+	}
+
+	if (stop.entityType === 'trap') {
+		// A trap with a collection already out on it is the second visit of two:
+		// the work here is emptying what somebody set, not setting a new one.
+		if (stop.pendingCollectionId !== null) {
+			return (
+				<CollectStopButton
+					actorProfileId={actorProfileId}
+					collectionId={stop.pendingCollectionId}
+					enabled={enabled}
+					stop={stop}
+				/>
+			);
+		}
+		return (
+			<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
+				{enabled ? (
+					<Link
+						search={{ ...search, trapId: stop.entityId }}
+						to="/adult-surveillance/collections/create"
+					>
+						Record collection
+					</Link>
+				) : (
+					<span>Record collection</span>
+				)}
+			</Button>
+		);
+	}
+
+	// Service request stops have no single record to point at, so they keep the
+	// two-step flow: handle the request, then mark the stop done.
+	return null;
+}
+
+/**
+ * Emptying the trap this stop was sent to, without leaving the worklist.
+ *
+ * The collection already exists, so there is no form to open — only the date to
+ * confirm. The write links the collection to this stop and completes it in one
+ * transaction, the same as the create path does for a first visit.
+ */
+function CollectStopButton({
+	stop,
+	collectionId,
+	actorProfileId,
+	enabled,
+}: {
+	readonly stop: AssignmentStopView;
+	readonly collectionId: string;
+	readonly actorProfileId: string | null;
+	readonly enabled: boolean;
+}) {
+	const [open, setOpen] = useState(false);
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+
+	return (
+		<>
+			<Button disabled={!enabled} onClick={() => setOpen(true)} size="sm" variant="default">
+				Collect
+			</Button>
+			<CollectCollectionDialog
+				defaultDate={todayInTimeZone(undefined)}
+				onConfirm={(collectedAt) => {
+					setOpen(false);
+					void runAcknowledged((acknowledgements) =>
+						collectPendingCollection({
+							acknowledgements,
+							actorProfileId,
+							assignmentItemId: stop.assignmentItemId,
+							collectedAt,
+							collectionId,
+						}),
+					);
+				}}
+				onOpenChange={setOpen}
+				open={open}
+			/>
+			{acknowledgeDialog}
+		</>
+	);
+}
+
 function RunStopRow({
 	stop,
+	actorProfileId,
+	assignmentId,
 	enabled,
+	recordEnabled,
 	isSelected,
 	isHighlighted,
 	onAction,
@@ -458,7 +603,10 @@ function RunStopRow({
 	onHover,
 }: {
 	readonly stop: AssignmentStopView;
+	readonly actorProfileId: string | null;
+	readonly assignmentId: string;
 	readonly enabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly isSelected: boolean;
 	readonly isHighlighted: boolean;
 	readonly onAction: (stop: AssignmentStopView, action: ItemAction) => void;
@@ -523,13 +671,21 @@ function RunStopRow({
 
 					<WriteOnly>
 						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
+							{stop.progress === 'pending' ? (
+								<RecordStopWorkButton
+									actorProfileId={actorProfileId}
+									assignmentId={assignmentId}
+									enabled={recordEnabled}
+									stop={stop}
+								/>
+							) : null}
 							{actions.map((action) => (
 								<Button
 									disabled={!enabled}
 									key={action}
 									onClick={() => onAction(stop, action)}
 									size="sm"
-									variant={action === 'complete' ? 'default' : 'outline'}
+									variant="outline"
 								>
 									{ACTION_LABELS[action]}
 								</Button>

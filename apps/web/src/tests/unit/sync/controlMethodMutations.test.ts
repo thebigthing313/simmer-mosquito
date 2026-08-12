@@ -90,7 +90,10 @@ function handlersWithCapturedFetch() {
 	const bodies: Record<string, unknown>[] = [];
 	vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
 		bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
-		return { ok: true, status: 200, json: async () => ({ txid: 1 }) } as unknown as Response;
+		// A real `Response`, not a hand-rolled stand-in: the write layer reads the
+		// body as text before parsing it, so a fake with only `json()` passes a
+		// test the browser would fail.
+		return new Response(JSON.stringify({ txid: 1 }), { status: 200 });
 	});
 
 	return {

@@ -6,6 +6,7 @@ import {
 	canCompleteAssignment,
 	canEditPlan,
 	canProgressItems,
+	canRecordStopWork,
 	canStartAssignment,
 	itemActionsFor,
 	itemProgress,
@@ -128,6 +129,21 @@ describe('canProgressItems', () => {
 		expect(canProgressItems('notStarted')).toBe(false);
 		expect(canProgressItems('completed')).toBe(false);
 		expect(canProgressItems('cancelled')).toBe(false);
+	});
+});
+
+describe('canRecordStopWork', () => {
+	it('lets an unstarted assignment be recorded against, because doing so starts it', () => {
+		// The whole point of `autoStartAssignment`. Gating this on `inProgress`
+		// the way the progress commands are gated makes the auto-start
+		// unreachable and puts a Start tap back in front of the first record.
+		expect(canRecordStopWork('notStarted')).toBe(true);
+		expect(canRecordStopWork('inProgress')).toBe(true);
+	});
+
+	it('still refuses a closed assignment, as the server does', () => {
+		expect(canRecordStopWork('completed')).toBe(false);
+		expect(canRecordStopWork('cancelled')).toBe(false);
 	});
 });
 

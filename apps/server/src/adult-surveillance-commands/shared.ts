@@ -382,6 +382,7 @@ export type CollectionUpdateColumns = {
 	is_zero_result?: boolean;
 	has_bycatch?: boolean;
 	metadata?: unknown | null;
+	collected_assignment_item_id?: string | null;
 	updated_by_profile_id: string;
 } & Partial<CollectionTimingColumns>;
 
@@ -399,6 +400,14 @@ export interface CollectionInsertInput {
 	readonly hasProblem: boolean;
 	readonly metadata: unknown | null;
 	readonly actorProfileId: string;
+	/**
+	 * The assignment stops this row came from, if any. Two columns rather than
+	 * one because setting and collecting a trap are separate visits on separate
+	 * days, so they are separate stops on separate assignments — a single link
+	 * would let the collect visit erase the set visit's provenance.
+	 */
+	readonly setAssignmentItemId?: string | null;
+	readonly collectedAssignmentItemId?: string | null;
 }
 
 export function readSpeciesSex(value: unknown): 'male' | 'female' | null {

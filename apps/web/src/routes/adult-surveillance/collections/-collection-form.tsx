@@ -2,6 +2,8 @@ import {
 	isCollectionDurationUnitType,
 	recordCollectedAdHocCollectionCommand,
 	recordCollectedTrapCollectionCommand,
+	setAdHocCollectionCommand,
+	setTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
@@ -39,6 +41,7 @@ import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-d
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
+import { isPendingCollection as isPendingCollectionRow } from '../-adult-display';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
@@ -67,11 +70,27 @@ const COLLECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * A collection has four command shapes — trap or ad-hoc, crossed with exact
- * timestamps or date-plus-duration — and the validator picks the same one the
- * save will, so the rules an operator is held to match what actually runs.
+ * Whether the trap has been emptied yet, asked of the form's own values.
+ *
+ * The rule itself lives with the badge that reports it, so the form and the
+ * record it produces cannot come to disagree about what "still out" means; only
+ * the two field names differ.
+ */
+function isPendingCollection(value: CollectionFormValues): boolean {
+	return isPendingCollectionRow({
+		collectedAt: value.collectedAt,
+		collectionTimingMode: value.timingMode,
+	});
+}
+
+/**
+ * A collection has six command shapes — trap or ad-hoc, crossed with exact
+ * timestamps, date-plus-duration, or not yet emptied — and the validator picks
+ * the same one the save will, so the rules an operator is held to match what
+ * actually runs.
  */
 function validateCollection(value: CollectionFormValues, geometry: DrawGeometry | null) {
+	const pending = isPendingCollection(value);
 	const timing =
 		value.timingMode === 'exact_timestamps'
 			? ({
@@ -92,21 +111,26 @@ function validateCollection(value: CollectionFormValues, geometry: DrawGeometry 
 		setByProfileId: value.setByProfileId,
 		collectedByProfileId: value.collectedByProfileId,
 	};
+	const adHoc = {
+		collectionMethodId: value.collectionMethodId,
+		locationSource: { kind: 'geometry' as const, geometry: (geometry ?? null) as never },
+		collectionLureId: value.collectionLureId === noLureValue ? null : value.collectionLureId,
+		addressId: value.addressId,
+	};
 
-	return domainValidator(
-		() =>
-			value.sourceMode === 'trap'
-				? recordCollectedTrapCollectionCommand({ ...base, trapId: value.trapId ?? '' })
-				: recordCollectedAdHocCollectionCommand({
-						...base,
-						collectionMethodId: value.collectionMethodId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
-						collectionLureId:
-							value.collectionLureId === noLureValue ? null : value.collectionLureId,
-						addressId: value.addressId,
-					}),
-		COLLECTION_FIELD_PATHS,
-	)({ value });
+	return domainValidator(() => {
+		if (pending) {
+			// The set commands take `startedAt` directly rather than a timing, and
+			// carry no collected half at all.
+			const startedAt = parseDateValue(value.startedAt);
+			return value.sourceMode === 'trap'
+				? setTrapCollectionCommand({ ...base, trapId: value.trapId ?? '', startedAt })
+				: setAdHocCollectionCommand({ ...base, ...adHoc, startedAt });
+		}
+		return value.sourceMode === 'trap'
+			? recordCollectedTrapCollectionCommand({ ...base, trapId: value.trapId ?? '' })
+			: recordCollectedAdHocCollectionCommand({ ...base, ...adHoc });
+	}, COLLECTION_FIELD_PATHS)({ value });
 }
 
 /** `YYYY-MM-DD` to a Date the builder can range-check; invalid stays invalid. */
@@ -541,15 +565,23 @@ export function CollectionFormPage({
 								/>
 							)}
 						</form.AppField>
-						<form.AppField name="collectedByProfileId">
-							{(field) => (
-								<field.SelectField
-									label="Collected by"
-									options={profileOptions(profiles)}
-									placeholder="Unassigned"
-								/>
-							)}
-						</form.AppField>
+						{/* Nobody has emptied a trap that is still out; the field appears on
+						    the visit that does. */}
+						<form.Subscribe selector={(state) => isPendingCollection(state.values)}>
+							{(pending) =>
+								pending ? null : (
+									<form.AppField name="collectedByProfileId">
+										{(field) => (
+											<field.SelectField
+												label="Collected by"
+												options={profileOptions(profiles)}
+												placeholder="Unassigned"
+											/>
+										)}
+									</form.AppField>
+								)
+							}
+						</form.Subscribe>
 					</div>
 					<form.Subscribe selector={(state) => state.values.collectedByProfileId}>
 						{(collectedByProfileId) => (
@@ -634,9 +666,14 @@ function TimingSection({
 			</form.AppField>
 
 			<form.Subscribe
-				selector={(state: { values: CollectionFormValues }) => state.values.timingMode}
+				selector={(state: { values: CollectionFormValues }) => ({
+					timingMode: state.values.timingMode,
+					// Which of the two dates is the required one swaps with this, so the
+					// section has to re-render when it changes and not only on the mode.
+					pending: isPendingCollection(state.values),
+				})}
 			>
-				{(timingMode: CollectionTimingMode) =>
+				{({ timingMode, pending }: { timingMode: CollectionTimingMode; pending: boolean }) =>
 					timingMode === 'exact_timestamps' ? (
 						<div className="grid gap-5 sm:grid-cols-2">
 							<form.AppField name="startedAt">
@@ -645,6 +682,7 @@ function TimingSection({
 									<DateControl
 										label="Set date"
 										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
+										required={pending}
 										value={field.state.value}
 									/>
 								)}
@@ -653,8 +691,9 @@ function TimingSection({
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (
 									<DateControl
+										// Left empty, the trap is still out and the collection is
+										// saved pending, to be emptied on a later visit.
 										label="Collected date"
-										required
 										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
 										value={field.state.value}
 									/>
@@ -725,8 +764,10 @@ function validate(values: CollectionFormValues): string | null {
 	if (values.collectionMethodId === '') {
 		return 'A collection method is required.';
 	}
-	if (values.timingMode === 'exact_timestamps' && values.collectedAt === null) {
-		return 'Enter the date this collection was retrieved.';
+	// No collected date means the trap is still out, which is a state the record
+	// can legally be in — but only if it says when it was set.
+	if (isPendingCollection(values) && values.startedAt === null) {
+		return 'Enter the date this trap was set.';
 	}
 	if (values.timingMode === 'collection_date_duration' && values.collectionDate === null) {
 		return 'Enter the collection date.';

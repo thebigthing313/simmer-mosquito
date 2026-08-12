@@ -106,7 +106,7 @@ CI does not use staging for this. The `Database integration tests` job runs a `p
 
 Authoritative docs (read before non-trivial work):
 - `docs/architecture.md` — full system shape.
-- `docs/adr/` — accepted architecture decisions (0001–0009); read the relevant ADR before changing auth, sync, identity, tenancy, or DB layering.
+- `docs/adr/` — accepted architecture decisions (0001–0012); read the relevant ADR before changing auth, sync, identity, tenancy, DB layering, or field-work provenance.
 - `CONTEXT.md` — domain glossary (load often); `docs/*-domain.md` — per-domain command vocabulary.
 - `docs/sync.md` — the table-level Electric/TanStack DB sync matrix (eager vs on-demand per table).
 - `docs/domain-command-contract.md` — command/validation/offline rules.

@@ -1,5 +1,6 @@
 import type {
 	AddressRow,
+	AdultCollectionRow,
 	AssignmentItemRow,
 	AssignmentRow,
 	HabitatRow,
@@ -8,7 +9,7 @@ import type {
 	TrapRow,
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import { and, eq, gte, inArray, lte, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, gte, inArray, isNull, lte, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../components/map';
 import type { StopTone } from '../../../components/stop-order';
@@ -145,6 +146,23 @@ export function canProgressItems(status: AssignmentStatus): boolean {
 }
 
 /**
+ * Recording the work a stop was created for, which is a wider gate than
+ * {@link canProgressItems}.
+ *
+ * Done and Skip are progress commands and need a started assignment. Recording
+ * does not: `autoStartAssignment` defaults true precisely so a technician who
+ * opens the first stop of the day and files the record has started the
+ * assignment by doing so, and the server permits it (`checkExecution` allows
+ * `not_started` on the auto-start path). Sharing the progress gate here made
+ * that unreachable — the crew had to press Start first, which is the tap the
+ * auto-start exists to remove. See `docs/field-work-support-domain.md`,
+ * "Assignment Item Execution".
+ */
+export function canRecordStopWork(status: AssignmentStatus): boolean {
+	return status === 'notStarted' || status === 'inProgress';
+}
+
+/**
  * The server does not enforce these preconditions (issue #39), so this is the only
  * thing standing between a mis-click and an assignment completed with pending work.
  */
@@ -188,6 +206,14 @@ export interface AssignmentStopView {
 	readonly hasLocation: boolean;
 	/** The target row is still streaming. False with a null target means deleted. */
 	readonly isResolving: boolean;
+	/**
+	 * On a trap stop, the collection already out on that trap, if there is one.
+	 *
+	 * Its presence is what makes this visit the *second* of a two-visit trap: the
+	 * stop is here to empty a trap somebody set earlier, not to set a new one.
+	 * Null on every other kind of stop and on a trap with nothing out.
+	 */
+	readonly pendingCollectionId: string | null;
 }
 
 export interface AssignmentView extends AssignmentRow {
@@ -522,6 +548,61 @@ function targetKey(type: TargetType, id: string): string {
 }
 
 /** An assignment's stops, joined to their targets and ready to render or map. */
+/**
+ * Traps on this worklist that already have a collection out on them.
+ *
+ * A trap stop means one of two visits — set the trap, or come back and empty
+ * it — and only the data says which. The subset is keyed on the stops' own trap
+ * ids rather than reading every collection, and the live query doubles as the
+ * thing that keeps the on-demand collections stream warm: the Collect write
+ * lands on this page, and a write to a cold stream times out waiting for its
+ * txid.
+ */
+function usePendingTrapCollections(
+	items: readonly AssignmentItemRow[],
+): ReadonlyMap<string, string> {
+	const trapIds = useMemo(() => {
+		const ids = new Set<string>();
+		for (const item of items) {
+			if (targetTypeOf(item.entityType) === 'trap') {
+				ids.add(item.entityId);
+			}
+		}
+		return [...ids].sort();
+	}, [items]);
+	const trapKey = trapIds.join(',');
+
+	const result = useLiveQuery(
+		{
+			gcTime: assignmentsGcTimeMs,
+			query: (query) =>
+				query.from({ collection: webCollections.collections }).where(({ collection }) =>
+					and(
+						inArray(collection.trapId, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]),
+						// The pending state, spelled out: a date-plus-duration collection
+						// also has a null `collectedAt` and is not waiting for anybody.
+						// `isNull`, not `eq(…, null)` — the query builder follows SQL
+						// three-valued logic, so an equality test against null matches
+						// nothing and every trap stop silently looks like a first visit.
+						isNull(collection.collectedAt),
+						eq(collection.collectionTimingMode, 'exact_timestamps'),
+					),
+				),
+		},
+		[trapKey],
+	);
+
+	return useMemo(() => {
+		const map = new Map<string, string>();
+		for (const collection of (result.data ?? []) as readonly AdultCollectionRow[]) {
+			if (collection.trapId !== null && !map.has(collection.trapId)) {
+				map.set(collection.trapId, collection.id);
+			}
+		}
+		return map;
+	}, [result.data]);
+}
+
 export function useAssignmentStops(assignmentId: string | null): {
 	readonly stops: readonly AssignmentStopView[];
 	readonly features: readonly RouteStopFeature[];
@@ -530,6 +611,7 @@ export function useAssignmentStops(assignmentId: string | null): {
 } {
 	const { items, isLoading: itemsLoading } = useAssignmentItems(assignmentId);
 	const { byKey, isReady: targetsReady } = useAssignmentTargets(items);
+	const pendingByTrapId = usePendingTrapCollections(items);
 
 	const stops = useMemo<readonly AssignmentStopView[]>(
 		() =>
@@ -538,6 +620,8 @@ export function useAssignmentStops(assignmentId: string | null): {
 				const target = type === null ? undefined : byKey.get(targetKey(type, item.entityId));
 				const progress = itemProgress(item);
 				return {
+					pendingCollectionId:
+						type === 'trap' ? (pendingByTrapId.get(item.entityId) ?? null) : null,
 					assignmentItemId: item.id,
 					ordinal: index + 1,
 					position: item.position,
@@ -555,7 +639,7 @@ export function useAssignmentStops(assignmentId: string | null): {
 					isResolving: target === undefined && !targetsReady,
 				};
 			}),
-		[items, byKey, targetsReady],
+		[items, byKey, targetsReady, pendingByTrapId],
 	);
 
 	const features = useMemo<RouteStopFeature[]>(

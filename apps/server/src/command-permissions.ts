@@ -305,6 +305,13 @@ const FIELD_WORK_PERMISSIONS: Record<FieldWorkCommandType, CommandPermission> = 
 	'fieldWork.reopenAssignmentItem': OWN_ASSIGNMENT_ITEM,
 	'fieldWork.skipAssignmentItem': OWN_ASSIGNMENT_ITEM,
 	'fieldWork.unskipAssignmentItem': OWN_ASSIGNMENT_ITEM,
+
+	// Recording the work a stop was created for. Same floor as completing the
+	// stop by hand, because that is what these do — the record is the reason.
+	'fieldWork.recordHabitatInspectionForAssignmentItem': OWN_ASSIGNMENT_ITEM,
+	'fieldWork.setTrapCollectionForAssignmentItem': OWN_ASSIGNMENT_ITEM,
+	'fieldWork.collectTrapCollectionForAssignmentItem': OWN_ASSIGNMENT_ITEM,
+	'fieldWork.recordCollectedTrapCollectionForAssignmentItem': OWN_ASSIGNMENT_ITEM,
 };
 
 const MISSION_DISPATCH_PERMISSIONS: Record<MissionDispatchCommandType, CommandPermission> = {

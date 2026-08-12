@@ -1,6 +1,7 @@
 import type { AdultCollectionRow, CollectionSpeciesRow, TrapRow } from '@simmer-mosquito/sync';
+import { readAcknowledgements } from '../lib/stop-acknowledgements';
 import { isNoOpUpdate, pickChanged } from './change-set';
-import { commandErrorFrom } from './command-error';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 /**
  * Adult surveillance optimistic mutation handlers.
@@ -124,6 +125,47 @@ const COLLECTION_SCALAR_KEYS = [
 	'hasBycatch',
 ] as const satisfies readonly (keyof AdultCollectionRow)[];
 
+/**
+ * The columns emptying a trap writes, and nothing else.
+ *
+ * A trap set on one visit and emptied on another produces exactly this change,
+ * and it has its own command and its own endpoint —
+ * `adultSurveillance.collectCollection` at `POST /collections/:id/collect` — so
+ * that the visit which empties the trap can also close the stop it came from.
+ * The ordinary PATCH cannot: `updateCollectionFieldDetails` has no stop to link
+ * and no execution branch.
+ */
+const COLLECT_KEYS = [
+	'collectedAt',
+	'collectedByProfileId',
+	'hasProblem',
+	'collectedAssignmentItemId',
+] as const satisfies readonly (keyof AdultCollectionRow)[];
+
+/**
+ * Whether this update is a trap being emptied and nothing more.
+ *
+ * Deliberately narrow. The edit form can also turn a pending collection into a
+ * collected one, alongside any other field on the record, and routing that to
+ * `/collect` would either drop the rest of the edit or need two writes to stay
+ * in step. An edit is an edit; only a change confined to the collect columns is
+ * the visit itself, which is the case the Collect action produces.
+ */
+function isCollectOnly(
+	original: Partial<AdultCollectionRow>,
+	modified: AdultCollectionRow,
+): boolean {
+	const becameCollected = !original.collectedAt && modified.collectedAt !== null;
+	if (!becameCollected) {
+		return false;
+	}
+	const collectKeys = new Set<string>(COLLECT_KEYS);
+	const otherChanged = [...COLLECTION_TIMING_KEYS, ...COLLECTION_SCALAR_KEYS].some(
+		(key) => !collectKeys.has(key) && original[key] !== modified[key],
+	);
+	return !otherChanged && !metadataChanged(original.metadata, modified.metadata);
+}
+
 export function createCollectionMutationHandlers(options: { readonly serverUrl: string }) {
 	const endpoint = `${options.serverUrl}/adult-surveillance/collections`;
 	return {
@@ -147,6 +189,12 @@ export function createCollectionMutationHandlers(options: { readonly serverUrl: 
 						collectedByProfileId: row.collectedByProfileId,
 						hasProblem: row.hasProblem,
 						metadata: row.metadata,
+						// The stop this visit was dispatched for, when there was one. A
+						// create is one visit, so `setAssignmentItemId` carries it whether
+						// the visit only set the trap or set and emptied it; the server
+						// decides which of the two columns it lands in.
+						assignmentItemId: row.setAssignmentItemId,
+						...readAcknowledgements(mutation.metadata),
 						locationSource: readOptionalLocationSource(mutation.metadata),
 					});
 					return result.txid;
@@ -157,6 +205,19 @@ export function createCollectionMutationHandlers(options: { readonly serverUrl: 
 		onUpdate: async ({ transaction }: MutationInput<AdultCollectionRow>) => {
 			const txid = await Promise.all(
 				transaction.mutations.map(async (mutation) => {
+					if (isCollectOnly(mutation.original, mutation.modified)) {
+						const row = mutation.modified;
+						const result = await writeAdult(`${endpoint}/${row.id}/collect`, 'POST', 'collection', {
+							collectedAt: row.collectedAt,
+							collectedByProfileId: row.collectedByProfileId,
+							hasProblem: row.hasProblem,
+							// Set when the trap was emptied off an assignment stop, which
+							// makes this write close that stop in the same transaction.
+							assignmentItemId: row.collectedAssignmentItemId,
+							...readAcknowledgements(mutation.metadata),
+						});
+						return result.txid;
+					}
 					const body = pickChanged(
 						mutation.original,
 						mutation.modified,
@@ -333,7 +394,7 @@ async function writeAdult(
 		},
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
-	const result = (await response.json()) as
+	const result = (await readResponseBody(response)) as
 		| MutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 

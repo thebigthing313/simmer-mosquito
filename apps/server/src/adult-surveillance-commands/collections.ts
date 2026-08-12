@@ -4,23 +4,34 @@ import {
 	type AdultSurveillanceCommand,
 	type CollectedCollectionTiming,
 	type CollectionTiming,
+	type CollectTrapCollectionForAssignmentItemCommand,
 	cancelPendingCollectionCommand,
 	clearCollectionZeroResultCommand,
 	collectCollectionCommand,
+	collectTrapCollectionForAssignmentItemCommand,
 	deleteCollectionCommand,
 	markCollectionZeroResultCommand,
+	type RecordCollectedTrapCollectionForAssignmentItemCommand,
 	recordCollectedAdHocCollectionCommand,
 	recordCollectedTrapCollectionCommand,
+	recordCollectedTrapCollectionForAssignmentItemCommand,
+	type SetTrapCollectionForAssignmentItemCommand,
 	setAdHocCollectionCommand,
 	setCollectionBycatchCommand,
 	setTrapCollectionCommand,
+	setTrapCollectionForAssignmentItemCommand,
 	updateAdHocCollectionConfigurationCommand,
 	updateCollectionFieldDetailsCommand,
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { CommandError } from '../command-endpoint.js';
+import { readExecutionOptions, readNullableText, readText } from '../command-payload.js';
+import {
+	beginExecution,
+	completeExecutedStop,
+} from '../field-work-commands/assignment-lifecycle.js';
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
@@ -82,15 +93,30 @@ export function registerCollectionRoutes(
 		'/adult-surveillance/collections/:collectionId/collect',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
-				collectCollectionCommand({
+			build: ({ payload, agency: ctx, param }) => {
+				const assignmentItemId = readNullableText(payload.assignmentItemId);
+				// Emptying the trap off the stop that sent the technician to it.
+				if (assignmentItemId !== null) {
+					return collectTrapCollectionForAssignmentItemCommand({
+						...ctx,
+						assignmentItemId,
+						collectionId: param('collectionId'),
+						collectedAtTimestamp: readDate(payload.collectedAt) ?? new Date(Number.NaN),
+						collectedByProfileId: readNullableText(payload.collectedByProfileId),
+						hasProblem: payload.hasProblem === true,
+						completedAt: readDate(payload.completedAt),
+						...readExecutionOptions(payload),
+					});
+				}
+				return collectCollectionCommand({
 					...ctx,
 					collectionId: param('collectionId'),
 					collectedAt: readDate(payload.collectedAt) ?? new Date(Number.NaN),
 					collectedByProfileId: readNullableText(payload.collectedByProfileId),
 					hasProblem: payload.hasProblem === true,
 					metadata: payload.metadata ?? null,
-				}),
+				});
+			},
 			run: (context, commands) => runCollectionCommands(context, options.db, commands),
 		}),
 	);
@@ -129,7 +155,7 @@ function buildCollectionCreateCommand(
 	authContext: AuthContext,
 	payload: Record<string, unknown>,
 ):
-	| { readonly ok: true; readonly command: AdultSurveillanceCommand }
+	| { readonly ok: true; readonly command: CollectionCommand }
 	| { readonly ok: false; readonly body: InvalidCommandBody } {
 	const ctx = agencyCommandContext(authContext);
 	const collectionId = readText(payload.id) ?? '';
@@ -138,6 +164,39 @@ function buildCollectionCreateCommand(
 	const trapId = readNullableText(payload.trapId);
 	const metadata = payload.metadata ?? null;
 	const setByProfileId = readNullableText(payload.setByProfileId);
+
+	// Setting or emptying a trap off an assignment stop closes the stop in the
+	// same transaction. `trapId` may be omitted — the stop already names one.
+	const assignmentItemId = readNullableText(payload.assignmentItemId);
+	if (assignmentItemId !== null) {
+		const execution = {
+			...ctx,
+			assignmentItemId,
+			collectionId,
+			trapId,
+			metadata,
+			completedAt: readDate(payload.completedAt),
+			...readExecutionOptions(payload),
+		};
+		if (collected) {
+			return createCommand(() =>
+				recordCollectedTrapCollectionForAssignmentItemCommand({
+					...execution,
+					timing: timing as CollectedCollectionTiming,
+					setByProfileId,
+					collectedByProfileId: readNullableText(payload.collectedByProfileId),
+					hasProblem: payload.hasProblem === true,
+				}),
+			);
+		}
+		return createCommand(() =>
+			setTrapCollectionForAssignmentItemCommand({
+				...execution,
+				startedAt: pendingStartedAt(timing),
+				setByProfileId,
+			}),
+		);
+	}
 
 	if (trapId !== null) {
 		if (collected) {
@@ -210,10 +269,10 @@ function buildCollectionUpdateCommands(
 	collectionId: string,
 	payload: Record<string, unknown>,
 ):
-	| { readonly ok: true; readonly commands: readonly AdultSurveillanceCommand[] }
+	| { readonly ok: true; readonly commands: readonly CollectionCommand[] }
 	| { readonly ok: false; readonly body: InvalidCommandBody } {
 	const ctx = agencyCommandContext(authContext);
-	const commands: AdultSurveillanceCommand[] = [];
+	const commands: CollectionCommand[] = [];
 
 	const hasMethod = 'collectionMethodId' in payload;
 	const hasLocation = 'locationSource' in payload;
@@ -303,7 +362,7 @@ function buildCollectionUpdateCommands(
 async function runCollectionCommands(
 	context: CommandContext,
 	db: AdultSurveillanceDb,
-	commands: readonly AdultSurveillanceCommand[],
+	commands: readonly CollectionCommand[],
 	createdStatus?: 201,
 ) {
 	return runCommands(
@@ -316,7 +375,7 @@ async function runCollectionCommands(
 
 async function writeCollectionCommand(
 	trx: AdultSurveillanceTransaction,
-	command: AdultSurveillanceCommand,
+	command: CollectionCommand,
 ): Promise<SafeCollection | null> {
 	switch (command.type) {
 		case 'adultSurveillance.setTrapCollection': {
@@ -341,6 +400,12 @@ async function writeCollectionCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		}
+		case 'fieldWork.setTrapCollectionForAssignmentItem':
+			return setTrapCollectionForStop(trx, command.payload);
+		case 'fieldWork.recordCollectedTrapCollectionForAssignmentItem':
+			return recordCollectedTrapCollectionForStop(trx, command.payload);
+		case 'fieldWork.collectTrapCollectionForAssignmentItem':
+			return collectTrapCollectionForStop(trx, command.payload);
 		case 'adultSurveillance.recordCollectedTrapCollection': {
 			const snapshot = await loadTrapSnapshot(
 				trx,
@@ -497,6 +562,154 @@ async function writeCollectionCommand(
 	}
 }
 
+/**
+ * The three trap-stop execution commands, which write a collection *and* close
+ * the stop that produced it. They are `fieldWork.*` commands handled here
+ * because the row is a collection; see the same note in the inspection handler.
+ */
+type CollectionCommand =
+	| AdultSurveillanceCommand
+	| SetTrapCollectionForAssignmentItemCommand
+	| CollectTrapCollectionForAssignmentItemCommand
+	| RecordCollectedTrapCollectionForAssignmentItemCommand;
+
+type ExecutionPayload = (
+	| SetTrapCollectionForAssignmentItemCommand
+	| CollectTrapCollectionForAssignmentItemCommand
+	| RecordCollectedTrapCollectionForAssignmentItemCommand
+)['payload'];
+
+function executionOptions(payload: ExecutionPayload) {
+	return {
+		autoStart: payload.autoStartAssignment,
+		acknowledgedCompletedItemAdditionalRecord: payload.acknowledgedCompletedItemAdditionalRecord,
+		acknowledgedTargetMismatch: payload.acknowledgedTargetMismatch,
+		completeItem: payload.completeAssignmentItem,
+		completedAt: payload.completedAt,
+	};
+}
+
+async function finishExecution(
+	trx: AdultSurveillanceTransaction,
+	payload: ExecutionPayload,
+): Promise<void> {
+	if (payload.completeAssignmentItem) {
+		await completeExecutedStop(
+			trx,
+			payload.assignmentItemId,
+			payload.organizationId,
+			payload.actorProfileId,
+			payload.completedAt,
+		);
+	}
+}
+
+async function setTrapCollectionForStop(
+	trx: AdultSurveillanceTransaction,
+	payload: SetTrapCollectionForAssignmentItemCommand['payload'],
+): Promise<SafeCollection | null> {
+	const stop = await beginExecution(
+		trx,
+		payload.assignmentItemId,
+		payload.organizationId,
+		payload.actorProfileId,
+		{ entityType: 'trap', entityId: payload.trapId },
+		executionOptions(payload),
+	);
+	const trapId = payload.trapId ?? stop.entityId;
+	const snapshot = await loadTrapSnapshot(trx, payload.organizationId, trapId);
+	const collection = await insertCollection(trx, {
+		id: payload.collectionId,
+		organizationId: payload.organizationId,
+		geom: geojsonToGeom(snapshot.geojson),
+		trapId,
+		collectionMethodId: payload.collectionMethodId ?? snapshot.collectionMethodId,
+		collectionLureId: payload.collectionLureId ?? snapshot.collectionLureId,
+		addressId: snapshot.addressId,
+		timing: payload.timing,
+		setByProfileId: payload.setByProfileId,
+		collectedByProfileId: null,
+		hasProblem: false,
+		metadata: payload.metadata,
+		actorProfileId: payload.actorProfileId,
+		setAssignmentItemId: payload.assignmentItemId,
+	});
+	await finishExecution(trx, payload);
+	return collection;
+}
+
+async function recordCollectedTrapCollectionForStop(
+	trx: AdultSurveillanceTransaction,
+	payload: RecordCollectedTrapCollectionForAssignmentItemCommand['payload'],
+): Promise<SafeCollection | null> {
+	const stop = await beginExecution(
+		trx,
+		payload.assignmentItemId,
+		payload.organizationId,
+		payload.actorProfileId,
+		{ entityType: 'trap', entityId: payload.trapId },
+		executionOptions(payload),
+	);
+	const trapId = payload.trapId ?? stop.entityId;
+	const snapshot = await loadTrapSnapshot(trx, payload.organizationId, trapId);
+	// One visit that both set and emptied the trap, so the same stop is the
+	// provenance for both halves.
+	const collection = await insertCollection(trx, {
+		id: payload.collectionId,
+		organizationId: payload.organizationId,
+		geom: geojsonToGeom(snapshot.geojson),
+		trapId,
+		collectionMethodId: payload.collectionMethodId ?? snapshot.collectionMethodId,
+		collectionLureId: payload.collectionLureId ?? snapshot.collectionLureId,
+		addressId: snapshot.addressId,
+		timing: payload.timing,
+		setByProfileId: payload.setByProfileId,
+		collectedByProfileId: payload.collectedByProfileId,
+		hasProblem: payload.hasProblem,
+		metadata: payload.metadata,
+		actorProfileId: payload.actorProfileId,
+		setAssignmentItemId: payload.assignmentItemId,
+		collectedAssignmentItemId: payload.assignmentItemId,
+	});
+	await finishExecution(trx, payload);
+	return collection;
+}
+
+async function collectTrapCollectionForStop(
+	trx: AdultSurveillanceTransaction,
+	payload: CollectTrapCollectionForAssignmentItemCommand['payload'],
+): Promise<SafeCollection | null> {
+	// The collection already exists — it was set on an earlier visit — so the
+	// target check is against the trap that row already names, not a snapshot.
+	const existing = await trx
+		.selectFrom('collections')
+		.select(['trap_id'])
+		.where('id', '=', payload.collectionId)
+		.where('organization_id', '=', payload.organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	if (existing === undefined) {
+		throw new CommandError(404, { error: 'collection_not_found' });
+	}
+	await beginExecution(
+		trx,
+		payload.assignmentItemId,
+		payload.organizationId,
+		payload.actorProfileId,
+		{ entityType: 'trap', entityId: existing.trap_id },
+		executionOptions(payload),
+	);
+	const collection = await updateCollection(trx, payload.collectionId, payload.organizationId, {
+		collected_at: payload.collectedAtTimestamp,
+		collected_by_profile_id: payload.collectedByProfileId,
+		has_problem: payload.hasProblem,
+		collected_assignment_item_id: payload.assignmentItemId,
+		updated_by_profile_id: payload.actorProfileId,
+	});
+	await finishExecution(trx, payload);
+	return collection;
+}
+
 async function insertCollection(
 	trx: AdultSurveillanceTransaction,
 	input: CollectionInsertInput,
@@ -515,6 +728,8 @@ async function insertCollection(
 			set_by_profile_id: input.setByProfileId,
 			has_problem: input.hasProblem,
 			metadata: input.metadata,
+			set_assignment_item_id: input.setAssignmentItemId ?? null,
+			collected_assignment_item_id: input.collectedAssignmentItemId ?? null,
 			created_by_profile_id: input.actorProfileId,
 			updated_by_profile_id: input.actorProfileId,
 			...timingColumns(input.timing),

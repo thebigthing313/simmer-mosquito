@@ -1,6 +1,7 @@
 import type { InspectionRow, SampleRow, SampleSpeciesRow } from '@simmer-mosquito/sync';
+import { readAcknowledgements } from '../lib/stop-acknowledgements';
 import { isNoOpUpdate, pickChanged } from './change-set';
-import { commandErrorFrom } from './command-error';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 /**
  * Larval surveillance optimistic mutation handlers for inspections, samples,
@@ -70,6 +71,11 @@ export function createInspectionMutationHandlers(options: { readonly serverUrl: 
 						hasFourthInstar: row.hasFourthInstar,
 						hasPupae: row.hasPupae,
 						hasEggs: row.hasEggs,
+						// Present when the form was opened from an assignment stop. It is
+						// what makes the write an execution: the server links the inspection
+						// to the stop and closes it in the same transaction.
+						assignmentItemId: row.assignmentItemId,
+						...readAcknowledgements(mutation.metadata),
 						locationSource: readOptionalLocationSource(mutation.metadata),
 					});
 					return result.txid;
@@ -304,7 +310,7 @@ async function writeLarval(
 		},
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
-	const result = (await response.json()) as
+	const result = (await readResponseBody(response)) as
 		| MutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 

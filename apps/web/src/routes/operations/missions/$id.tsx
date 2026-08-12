@@ -131,8 +131,10 @@ function MissionPanel({
 				target={{ type: 'mission', id: missionId }}
 			>
 				<MissionStopList
+					controlType={run.mission?.controlType ?? null}
 					highlightId={run.highlightId}
 					isLoading={run.isLoadingStops}
+					missionId={missionId}
 					onAction={run.itemAction}
 					onHover={run.setHighlightId}
 					onMove={run.move}
@@ -140,6 +142,7 @@ function MissionPanel({
 					onSelect={run.setSelectedStopId}
 					planEditable={run.planEditable && !run.busy}
 					progressEnabled={run.progressEnabled}
+					recordEnabled={run.recordEnabled}
 					selectedStopId={run.selectedStopId}
 					stops={run.stops}
 				/>

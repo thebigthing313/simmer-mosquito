@@ -16,6 +16,7 @@ export const inspectionsSyncDescriptor = createSyncDescriptor<InspectionRow>({
 		'habitatTypeId',
 		'addressId',
 		'inspectedByProfileId',
+		'assignmentItemId',
 		'inspectionDate',
 		'isWet',
 		'dipCount',
