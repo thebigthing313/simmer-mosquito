@@ -39,7 +39,12 @@ export function ExplorerRow({
 	readonly titleLink?: LinkProps;
 	/** Second line — the record's type, method, or address; may carry a link. */
 	readonly subtitle?: ReactNode;
-	/** Operational date, pre-formatted. Omit for records that carry none. */
+	/**
+	 * Operational date, pre-formatted. Pass `null` for a record that has none in
+	 * a list where others do — the rail still reserves its width, so the column
+	 * holds. Omit the prop entirely on a list where *no* record is dated, and the
+	 * rail is not drawn at all.
+	 */
 	readonly date?: string | null;
 	/** Colour this record draws in on the map, shown as a leading dot. */
 	readonly swatch?: { readonly color: string; readonly label: string } | undefined;
@@ -62,7 +67,13 @@ export function ExplorerRow({
 				aria-pressed={isSelected}
 				className={cn(
 					'absolute inset-0 size-full transition-colors',
-					isSelected ? 'bg-primary/8 ring-1 ring-primary/40 ring-inset' : 'hover:bg-muted/50',
+					/*
+					 * The ring is opaque. At `ring-primary/40` it composited toward the
+					 * row behind it — the very surface it has to stand against — which is
+					 * what DESIGN.md's Solid Indicator Rule exists to stop. The 8% wash
+					 * stays: that is a fill, not the indicator.
+					 */
+					isSelected ? 'bg-primary/8 ring-1 ring-primary ring-inset' : 'hover:bg-muted/50',
 				)}
 				onClick={onSelect}
 				type="button"
@@ -77,12 +88,15 @@ export function ExplorerRow({
 					/>
 				)}
 				{/*
-				 * Reserved whether or not this record has a date, so a list mixing dated
-				 * and undated records keeps one left edge.
+				 * Reserved whether or not *this* record has a date, so a list mixing
+				 * dated and undated records keeps one left edge. A list where dates are
+				 * not part of the record at all omits the prop and gets its width back.
 				 */}
-				<span className="w-[5.5rem] shrink-0 text-muted-foreground text-xs tabular-nums">
-					{date ?? ''}
-				</span>
+				{date === undefined ? null : (
+					<span className="w-[5.5rem] shrink-0 text-muted-foreground text-xs tabular-nums">
+						{date ?? ''}
+					</span>
+				)}
 				<span className="min-w-0 flex-1">
 					{titleLink === undefined ? (
 						<span className="block truncate font-medium text-foreground text-sm">{title}</span>

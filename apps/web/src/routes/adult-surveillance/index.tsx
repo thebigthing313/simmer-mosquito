@@ -15,6 +15,7 @@ import {
 	ADULT_ACTIVITY_WINDOW_DAYS,
 	addDaysToDateString,
 	formatMonthDay,
+	formatWeekdayMonthDay,
 	type SpeciesTotal,
 	todayInTimeZone,
 	useAwaitingIdentification,
@@ -106,12 +107,12 @@ function collectionMethodLabel(collection: ActivityCollection, labels: Labels): 
 	return labels.methodNameById.get(collection.collectionMethodId) ?? 'Unknown method';
 }
 
-/** A collection's date as `Mon D` — an em dash while it is still pending. */
+/** A collection's date as `Wed, Aug 12` — an em dash while it is still pending. */
 function collectionDayLabel(collection: {
 	readonly collectedAt: string | null;
 	readonly collectionDate: string | null;
 }): string {
-	return formatMonthDay(collectionEffectiveDate(collection) ?? '');
+	return formatWeekdayMonthDay(collectionEffectiveDate(collection) ?? '');
 }
 
 function CollectionLink({
