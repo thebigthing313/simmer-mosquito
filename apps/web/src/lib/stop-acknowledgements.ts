@@ -1,12 +1,17 @@
 /**
  * The refusals a technician is allowed to answer, and the flag that answers them.
  *
- * Recording work against a stop has four preconditions that are questions rather
- * than rules: the stop is already completed, the record names a different target
- * of the same kind, the action cites a different requested action, the action
- * does not cover the ground the stop names. Each is usually a mistake and
- * occasionally the truth, so the server refuses once and accepts the same write
- * again with the matching flag set.
+ * Recording work against a stop has preconditions that are questions rather than
+ * rules: the stop is already completed, the record names a different target of
+ * the same kind, the action cites a different requested action, the action does
+ * not cover the ground the stop names. Each is usually a mistake and occasionally
+ * the truth, so the server refuses once and accepts the same write again with the
+ * matching flag set.
+ *
+ * "Already completed" appears twice because the two sides name it differently and
+ * take different flags — the same question about an assignment stop and a mission
+ * stop, since a place treated twice in a day is as ordinary as a habitat
+ * inspected twice.
  *
  * A wrong *type* of record, or a mission whose control type does not match, is
  * absent on purpose: those are always bugs and the server never takes a flag for
@@ -15,6 +20,7 @@
 const ACKNOWLEDGEABLE_REFUSALS = {
 	assignment_item_already_completed: 'acknowledgedCompletedItemAdditionalRecord',
 	assignment_item_target_mismatch: 'acknowledgedTargetMismatch',
+	mission_item_already_completed: 'acknowledgedCompletedItemAdditionalAction',
 	mission_item_requested_action_mismatch: 'acknowledgedRequestedActionMismatch',
 	mission_geometry_not_covered: 'acknowledgedMissionGeometryNotCovered',
 } as const satisfies Readonly<Record<string, string>>;

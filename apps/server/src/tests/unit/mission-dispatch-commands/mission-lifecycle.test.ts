@@ -165,6 +165,34 @@ describe('checkMissionItemProgress', () => {
 		);
 	});
 
+	it('lets an acknowledged second action through on an already-completed stop', () => {
+		// Execution is not a repeated `complete`: a mission stop treated twice in a
+		// day is real work whose stop happens to be closed, and the assignment side
+		// has always taken the same answer (`checkExecution`). The flag is only ever
+		// set by the execution path, so an ordinary Complete still refuses.
+		expect(
+			checkMissionItemProgress('complete', 'in_progress', 'completed', {
+				...running,
+				acknowledgedCompletedItemAdditionalAction: true,
+			}),
+		).toBeNull();
+	});
+
+	it('does not let the acknowledgement clear any other refusal', () => {
+		// It answers one question. A skipped stop still has to be unskipped, and a
+		// closed mission is still closed.
+		const acknowledged = { ...running, acknowledgedCompletedItemAdditionalAction: true };
+		expect(checkMissionItemProgress('complete', 'in_progress', 'skipped', acknowledged)).toBe(
+			'mission_item_skipped',
+		);
+		expect(checkMissionItemProgress('skip', 'in_progress', 'skipped', acknowledged)).toBe(
+			'mission_item_already_skipped',
+		);
+		expect(checkMissionItemProgress('complete', 'cancelled', 'completed', acknowledged)).toBe(
+			'mission_not_in_progress',
+		);
+	});
+
 	it('reopens only completed stops and unskips only skipped ones', () => {
 		expect(checkMissionItemProgress('reopen', 'in_progress', 'completed', running)).toBeNull();
 		expect(checkMissionItemProgress('reopen', 'in_progress', 'pending', running)).toBe(

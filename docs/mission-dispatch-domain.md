@@ -506,6 +506,9 @@ Recording actual work from a mission item:
 - validates requested-action compatibility
 - writes the actual action with `mission_item_id`
 - defaults `requested_control_action_id` from the mission item when appropriate
+- carries the action's own larval/adult context (`habitatId`, `inspectionId`,
+  `collectionId`) exactly as the off-mission command does — a mission-recorded
+  action stores no less than the same action recorded outside one
 - optionally marks the mission item complete in the same transaction
 - optionally auto-starts the mission
 
@@ -513,15 +516,27 @@ Helper commands include:
 
 - `completeMissionItem`, default `true`
 - `autoStartMission`, default `true`
-- acknowledgement flags for method/requested-action/schedule/coverage issues
+- `acknowledgedRequestedActionMismatch` — the action cites a requested action
+  that is not the stop's
+- `acknowledgedMissionGeometryNotCovered` — the action does not cover the ground
+  the stop names
+- `acknowledgedCompletedItemAdditionalAction` — a second action against a stop
+  that is already completed, the mission counterpart of
+  `acknowledgedCompletedItemAdditionalRecord`
+
+There is no method or schedule acknowledgement. A mission's planned method is a
+default rather than a rule, so there is nothing to disagree with, and no check
+has ever compared an action's date to the mission's window; flags for either
+would name rules that do not exist.
 
 Implemented in `apps/server/src/mission-dispatch-commands/mission-execution.ts`
 and reached through the action's own endpoint (`POST
 /control-operations/applications`, `/source-reductions`, `/biocontrol-actions`,
-`POST /public-engagement/outreach-actions`) by including `missionItemId` in the
-body. The endpoint follows the table; the command follows the unit of work. A
-body without `missionItemId` builds the ordinary `controlOperations.*` command,
-unchanged.
+`/outreach-actions`) by including `missionItemId` in the body. Outreach is
+recorded from `/public-engagement/outreach` in the UI but its table and endpoint
+are control-operations, like the other three. The endpoint follows the table;
+the command follows the unit of work. A body without `missionItemId` builds the
+ordinary `controlOperations.*` command, unchanged.
 
 Defaults the server fills when the command omits them:
 

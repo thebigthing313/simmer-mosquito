@@ -84,6 +84,7 @@ export function readMissionExecutionOptions(payload: Record<string, unknown>): {
 	readonly autoStartMission?: boolean;
 	readonly acknowledgedMissionGeometryNotCovered?: boolean;
 	readonly acknowledgedRequestedActionMismatch?: boolean;
+	readonly acknowledgedCompletedItemAdditionalAction?: boolean;
 } {
 	return {
 		...(payload.completeMissionItem === false ? { completeMissionItem: false } : {}),
@@ -93,6 +94,9 @@ export function readMissionExecutionOptions(payload: Record<string, unknown>): {
 			: {}),
 		...(payload.acknowledgedRequestedActionMismatch === true
 			? { acknowledgedRequestedActionMismatch: true }
+			: {}),
+		...(payload.acknowledgedCompletedItemAdditionalAction === true
+			? { acknowledgedCompletedItemAdditionalAction: true }
 			: {}),
 	};
 }

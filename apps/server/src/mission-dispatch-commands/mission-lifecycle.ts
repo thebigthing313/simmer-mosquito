@@ -208,6 +208,15 @@ export interface MissionItemProgressContext {
 	 */
 	readonly autoStart: boolean;
 	readonly timing: ProgressTiming;
+	/**
+	 * The crew has said it means to record a second action against a stop that is
+	 * already completed — a mission stop treated twice in a day, say. Only
+	 * execution sets it: an ordinary `complete` on a completed stop is the no-op
+	 * the precondition table refuses, while a second *record* is real work whose
+	 * stop happens to be closed. The assignment side spells the same rule out in
+	 * `checkExecution`.
+	 */
+	readonly acknowledgedCompletedItemAdditionalAction?: boolean;
 }
 
 /**
@@ -247,7 +256,13 @@ export function checkMissionItemProgress(
 	}
 
 	const itemRejection = ITEM_PRECONDITIONS[command][item];
-	if (itemRejection !== undefined) {
+	if (
+		itemRejection !== undefined &&
+		!(
+			itemRejection === 'mission_item_already_completed' &&
+			context.acknowledgedCompletedItemAdditionalAction === true
+		)
+	) {
 		return itemRejection;
 	}
 
@@ -366,6 +381,8 @@ export async function assertMissionItemProgress(
 		readonly progressAt: Date | null;
 		/** The command's `autoStartMission`; false for the commands that lack it. */
 		readonly autoStart: boolean;
+		/** Execution only: a second action against an already-completed stop. */
+		readonly acknowledgedCompletedItemAdditionalAction?: boolean;
 	},
 ): Promise<{ readonly missionId: string; readonly snapshot: MissionSnapshot }> {
 	const item = await trx
@@ -385,6 +402,8 @@ export async function assertMissionItemProgress(
 	}
 
 	const rejection = checkMissionItemProgress(command, snapshot.state, readMissionItemState(item), {
+		acknowledgedCompletedItemAdditionalAction:
+			options.acknowledgedCompletedItemAdditionalAction === true,
 		autoStart: options.autoStart,
 		timing: { progressAt: options.progressAt, startedAt: snapshot.startedAt },
 	});

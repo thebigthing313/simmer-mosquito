@@ -41,6 +41,7 @@ export interface MissionExecutionCommandFields {
 	readonly autoStartMission: boolean;
 	readonly acknowledgedMissionGeometryNotCovered: boolean;
 	readonly acknowledgedRequestedActionMismatch: boolean;
+	readonly acknowledgedCompletedItemAdditionalAction: boolean;
 	readonly requestedControlActionId?: string | null;
 }
 
@@ -112,13 +113,19 @@ export async function beginMissionExecution(
 	);
 
 	// Reuses the progress precondition rather than restating it: recording work
-	// completes the stop, so it has to be a legal completion.
+	// completes the stop, so it has to be a legal completion — with the one
+	// difference that a stop treated a second time is real work rather than the
+	// no-op a repeated `complete` would be, so it asks instead of refusing.
 	const { missionId, snapshot } = await assertMissionItemProgress(
 		trx,
 		payload.missionItemId,
 		payload.organizationId,
 		'complete',
-		{ progressAt: null, autoStart: payload.autoStartMission },
+		{
+			acknowledgedCompletedItemAdditionalAction: payload.acknowledgedCompletedItemAdditionalAction,
+			autoStart: payload.autoStartMission,
+			progressAt: null,
+		},
 	);
 
 	return {
@@ -218,6 +225,7 @@ export async function assertMissionGeometryCovered(
 		])
 		.where('id', '=', payload.missionItemId)
 		.where('organization_id', '=', payload.organizationId)
+		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
 
 	// A null answer means one of the geometries is missing, which is not the same
