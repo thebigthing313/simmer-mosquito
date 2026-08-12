@@ -72,6 +72,7 @@ import {
 	listInspectionDisplayRowsByBounds,
 	listMissionItemGeometry,
 	listOutreachDisplayRowsPage,
+	listProfileActivity,
 	listSampleDisplayRowsByBounds,
 	listSourceReductionDisplayRowsPage,
 	listTrapDisplayRowsPage,
@@ -197,6 +198,7 @@ const defaultMapReaders = {
 	searchHabitatDisplayRows: searchHabitatSites,
 	countHabitatTypeUsage: countActiveHabitatsByType,
 	listMissionItems: listMissionItemGeometry,
+	listProfileActivity,
 };
 
 type MapReaders = typeof defaultMapReaders;
@@ -460,6 +462,42 @@ export function registerMapTileRoutes(
 		});
 
 		return context.json({ missionItems });
+	});
+
+	// One Profile's field work over a date range, across the nine record types
+	// that attribute work to a person. The five explorers that carry a personnel
+	// filter can each answer part of this; none can reach `additional_personnel`,
+	// and the collections surface has no personnel filter at all.
+	//
+	// Tenancy alone, like every other `/map/*` read: agency data is viewable by
+	// anyone in the agency, and a floor here would be theatre while those five
+	// filters stay open to any member.
+	app.get('/map/profiles/:profileId/activity', options.authContextMiddleware, async (context) => {
+		const profileId = context.req.param('profileId');
+		if (!uuidPattern.test(profileId)) {
+			return context.json({ error: 'invalid_id', reason: 'Profile id must be a UUID.' }, 400);
+		}
+
+		const queryResult = parseProfileActivityQuery(new URL(context.req.url).searchParams);
+		if (!queryResult.ok) {
+			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
+		}
+		const { dateFrom, dateTo } = queryResult;
+
+		const authContext = context.get('authContext');
+		// One extra row is what tells a full result apart from a truncated one. A
+		// truncated log that reads as complete is the failure this reports out loud.
+		const rows = await readers.listProfileActivity(options.db, {
+			organizationId: authContext.organization.id,
+			profileId,
+			dateFrom,
+			dateTo,
+			limit: profileActivityLimit + 1,
+		});
+		const truncated = rows.length > profileActivityLimit;
+		const items = truncated ? rows.slice(0, profileActivityLimit) : rows;
+
+		return context.json({ profileId, dateFrom, dateTo, items, total: items.length, truncated });
 	});
 
 	registerPagedRoute(app, options, {
@@ -1287,6 +1325,50 @@ function parseOptionalDensityListFilter(
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 /** A finite positive number, absent, or the reason it is neither. */
+/**
+ * How many activity entries one read may answer with, and how wide a window it
+ * may be asked for.
+ *
+ * The window cap is what actually keeps this read off the row limit; the row
+ * limit is the backstop, and the response's `truncated` flag is what lets the
+ * client say so when it bites anyway. An over-long range is refused rather than
+ * trimmed — a silently narrowed window answers a question nobody asked.
+ */
+const profileActivityLimit = 2000;
+const profileActivityMaxDays = 92;
+
+function parseProfileActivityQuery(
+	searchParams: URLSearchParams,
+):
+	| { readonly ok: true; readonly dateFrom: string; readonly dateTo: string }
+	| { readonly ok: false; readonly reason: string } {
+	const from = parseOptionalDateFilter(searchParams, 'dateFrom');
+	if (!from.ok) {
+		return from;
+	}
+	const to = parseOptionalDateFilter(searchParams, 'dateTo');
+	if (!to.ok) {
+		return to;
+	}
+	if (from.value === undefined || to.value === undefined) {
+		return { ok: false, reason: 'dateFrom and dateTo are both required.' };
+	}
+	if (from.value > to.value) {
+		return { ok: false, reason: 'dateFrom must not be after dateTo.' };
+	}
+
+	const spanDays =
+		(Date.parse(`${to.value}T00:00:00Z`) - Date.parse(`${from.value}T00:00:00Z`)) / 86_400_000 + 1;
+	if (spanDays > profileActivityMaxDays) {
+		return {
+			ok: false,
+			reason: `The date range may span at most ${profileActivityMaxDays} days.`,
+		};
+	}
+
+	return { ok: true, dateFrom: from.value, dateTo: to.value };
+}
+
 export function parseOptionalPositiveNumber(
 	searchParams: URLSearchParams,
 	param: string,

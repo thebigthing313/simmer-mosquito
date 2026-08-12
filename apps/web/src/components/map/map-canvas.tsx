@@ -23,6 +23,7 @@ import { buildRegionExtentUrl } from './region-tiles';
 import { buildSampleExtentUrl } from './sample-tiles';
 import { buildSourceReductionExtentUrl } from './source-reduction-tiles';
 import { buildTrapExtentUrl } from './trap-tiles';
+import { type ActivityLayerConfig, useActivityLayer } from './use-activity-layer';
 import { type AddressTileLayerConfig, useAddressTileLayer } from './use-address-tile-layer';
 import {
 	type BiocontrolTileLayerConfig,
@@ -94,6 +95,7 @@ export function MapCanvas({
 	collectionLayer,
 	routeLayer,
 	nearbyLayer,
+	activityLayer,
 	geoJson,
 	geoJsonInteraction,
 	contextGeoJson,
@@ -136,6 +138,8 @@ export function MapCanvas({
 	readonly routeLayer?: RouteLayerConfig;
 	/** Draw a service-request proximity ring + center marker + family-colored nearby records. */
 	readonly nearbyLayer?: NearbyLayerConfig;
+	/** Draw one Profile's field work as a family-coloured pin cloud. */
+	readonly activityLayer?: ActivityLayerConfig;
 	/** Draw a single GeoJSON overlay (e.g. one record's geometry on a detail map). */
 	readonly geoJson?: GeoJSON.GeoJSON | null;
 	/** Opt into click-to-select + highlight on the GeoJSON overlay's features. */
@@ -193,6 +197,7 @@ export function MapCanvas({
 	useCollectionTileLayer(map, isLoaded, collectionLayer);
 	useRouteLayer(map, isLoaded, routeLayer);
 	useNearbyLayer(map, isLoaded, nearbyLayer);
+	useActivityLayer(map, isLoaded, activityLayer);
 	// Before useGeoJsonLayer: Mapbox appends layers in add order and effects run
 	// in hook order, so registering context first is what puts the record on top.
 	useContextGeoJsonLayer(map, isLoaded, contextGeoJson ?? null);

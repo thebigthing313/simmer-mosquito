@@ -77,6 +77,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						stub: true,
 						icon: iconRegistry.generic.component.icon,
 					},
+					{
+						id: 'activity-monitor',
+						label: 'Activity Monitor',
+						to: '/activity-monitor',
+						icon: iconRegistry.entities.contact.icon,
+					},
 				],
 			},
 		],

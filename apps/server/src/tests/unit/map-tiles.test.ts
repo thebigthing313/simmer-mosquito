@@ -1,3 +1,5 @@
+import { ACTIVITY_PERSONNEL_ENTITY_TYPES } from '@simmer-mosquito/db';
+import { ADDITIONAL_PERSONNEL_TARGET_TYPES, toDbEntityType } from '@simmer-mosquito/domain';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it, vi } from 'vitest';
@@ -877,6 +879,152 @@ describe('map geometry routes', () => {
 });
 
 /**
+ * One Profile's activity log: the guards that bound it, and the contract the
+ * page reads.
+ *
+ * The bounds are the point. This read touches nine tables at once under one
+ * hard row limit, so an unbounded window is the difference between a day's work
+ * and a year of it — and a truncated log that reads as complete is a supervisor
+ * concluding somebody did nothing on Thursday. Every case here is answered
+ * before the database is touched, or by a reader that never had one.
+ */
+describe('profile activity', () => {
+	const activityQuery = 'dateFrom=2026-08-01&dateTo=2026-08-01';
+
+	function activityApp(rows: readonly unknown[], calls: unknown[] = []) {
+		return createApp({
+			listProfileActivity: async (_db, input) => {
+				calls.push(input);
+				return rows as never;
+			},
+		});
+	}
+
+	/** `count` entries, all alike; only the row count matters to truncation. */
+	function activityRows(count: number) {
+		return Array.from({ length: count }, (_unused, index) => ({
+			category: 'inspection',
+			family: 'larval',
+			involvement: 'primary',
+			role: 'inspected',
+			id: inspectionId,
+			lat: 35.5,
+			lng: -90.5,
+			date: '2026-08-01',
+			occurredAt: null,
+			label: null,
+			refId: String(index),
+		}));
+	}
+
+	it('answers a flat, time-ordered array with the request echoed back', async () => {
+		const calls: unknown[] = [];
+		const app = activityApp(activityRows(2), calls);
+
+		const response = await app.request(`/map/profiles/${profileId}/activity?${activityQuery}`);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({
+			profileId,
+			dateFrom: '2026-08-01',
+			dateTo: '2026-08-01',
+			total: 2,
+			truncated: false,
+		});
+		// The window and the Profile reach the reader; the agency comes from the
+		// session rather than the URL, so a caller cannot ask for another one.
+		expect(calls).toEqual([
+			{
+				organizationId,
+				profileId,
+				dateFrom: '2026-08-01',
+				dateTo: '2026-08-01',
+				limit: 2001,
+			},
+		]);
+	});
+
+	// The reader is asked for one row more than the response may carry, and the
+	// extra row is what proves the cap bit — without it a full result and a
+	// truncated one are the same length.
+	it('reports truncation instead of quietly answering a partial log', async () => {
+		const app = activityApp(activityRows(2001));
+
+		const response = await app.request(`/map/profiles/${profileId}/activity?${activityQuery}`);
+
+		const body = (await response.json()) as { items: unknown[]; total: number; truncated: boolean };
+		expect(body.truncated).toBe(true);
+		expect(body.total).toBe(2000);
+		expect(body.items).toHaveLength(2000);
+	});
+
+	it('does not report truncation when the result exactly fills the limit', async () => {
+		const app = activityApp(activityRows(2000));
+
+		const response = await app.request(`/map/profiles/${profileId}/activity?${activityQuery}`);
+
+		await expect(response.json()).resolves.toMatchObject({ total: 2000, truncated: false });
+	});
+
+	it.each([
+		['a range longer than 92 days', 'dateFrom=2026-01-01&dateTo=2026-12-31'],
+		['an inverted range', 'dateFrom=2026-08-31&dateTo=2026-08-01'],
+		['a missing dateTo', 'dateFrom=2026-08-01'],
+		['a missing dateFrom', 'dateTo=2026-08-01'],
+		['a malformed date', 'dateFrom=2026-13-40&dateTo=2026-08-01'],
+	])('refuses %s before reading', async (_name, query) => {
+		const listProfileActivity = vi.fn();
+		const app = createApp({ listProfileActivity });
+
+		const response = await app.request(`/map/profiles/${profileId}/activity?${query}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+		expect(listProfileActivity).not.toHaveBeenCalled();
+	});
+
+	// 92 days inclusive is the widest window the page may ask for; one day either
+	// side of the boundary is what pins which comparison the cap uses.
+	it('accepts a range exactly 92 days wide', async () => {
+		const app = activityApp([]);
+
+		const response = await app.request(
+			`/map/profiles/${profileId}/activity?dateFrom=2026-01-01&dateTo=2026-04-02`,
+		);
+
+		expect(response.status).toBe(200);
+	});
+
+	it('refuses a non-UUID profile id before reading', async () => {
+		const listProfileActivity = vi.fn();
+		const app = createApp({ listProfileActivity });
+
+		const response = await app.request(`/map/profiles/not-a-uuid/activity?${activityQuery}`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
+		expect(listProfileActivity).not.toHaveBeenCalled();
+	});
+});
+
+/**
+ * The assisting half of the activity read matches on `entity_type` values it
+ * spells out itself, because `packages/db` cannot import the domain package.
+ * Two lists that must agree, in two packages that cannot see each other — but
+ * `apps/server` can see both, so this is where they are held together.
+ *
+ * A drift here does not crash: it returns zero assisting rows, which looks
+ * exactly like "nobody assisted".
+ */
+describe('additional-personnel entity types', () => {
+	it('match the domain target types, converted to their snake_case column values', () => {
+		expect([...ACTIVITY_PERSONNEL_ENTITY_TYPES].sort()).toEqual(
+			ADDITIONAL_PERSONNEL_TARGET_TYPES.map(toDbEntityType).sort(),
+		);
+	});
+});
+
+/**
  * An app whose routes read from fakes.
  *
  * Every reader is nameable here, because `registerMapTileRoutes` takes one
@@ -914,6 +1062,7 @@ const inspectionId = 'b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e';
 const addressId = '2b8f4c1a-7d63-4e59-9a02-3c5b7e1d8f40';
 const requestedControlActionId = '6d1e9a37-4b28-4c5f-8e13-9f2a0b7c4d61';
 const missionId = 'e9c2f480-15a6-4d73-8b21-7c40d5e9a382';
+const profileId = '3f8a1c9d-2e47-4b60-9a58-6d1e0f7b3c92';
 
 /** The owned geometry every geometry-only route answers with. */
 const geometry = {
@@ -1044,6 +1193,7 @@ describe('map read route registration', () => {
 		'/map/outreach/not-a-uuid',
 		'/map/requested-control-actions/not-a-uuid',
 		'/map/missions/not-a-uuid/items',
+		'/map/profiles/not-a-uuid/activity',
 		'/map/traps/not-a-uuid',
 		'/map/collections/not-a-uuid',
 	])('registers %s and refuses an id that is not a UUID', async (path) => {

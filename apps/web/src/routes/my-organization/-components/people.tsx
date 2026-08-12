@@ -33,6 +33,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { type Collection, eq, isNull, not, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { type AuthMe, getServerUrl } from '../../../auth';
@@ -313,14 +314,27 @@ function ProfileRowItem({
 					{profile.email ?? 'No login link'}
 				</p>
 			</div>
-			{canManage ? (
-				<EditProfileSheet
-					auth={auth}
-					canEditRole={canEditRole}
-					membership={membership}
-					profile={profile}
-				/>
-			) : null}
+			{/* One grid cell, however many actions: the article's second column is
+			    where a row's controls go, and a bare sibling would take a row of
+			    its own. */}
+			<div className="flex items-center gap-2">
+				{/* Straight from the roster to this person's day. Not gated on
+				    `canManage`: agency records are readable by anyone in the agency,
+				    and the Activity Monitor is an ordinary agency read. */}
+				<Button asChild size="sm" variant="outline">
+					<Link search={{ profile: profile.id }} to="/activity-monitor">
+						Activity
+					</Link>
+				</Button>
+				{canManage ? (
+					<EditProfileSheet
+						auth={auth}
+						canEditRole={canEditRole}
+						membership={membership}
+						profile={profile}
+					/>
+				) : null}
+			</div>
 		</article>
 	);
 }
