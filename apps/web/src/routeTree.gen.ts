@@ -35,6 +35,7 @@ import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-or
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as GisDataExplorerRouteImport } from './routes/gis/data-explorer'
 import { Route as ControlOperationsResistanceMonitoringRouteImport } from './routes/control-operations/resistance-monitoring'
+import { Route as AdultSurveillanceTrapDirectoryRouteImport } from './routes/adult-surveillance/trap-directory'
 import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes/adult-surveillance/collection-methods'
 import { Route as AdultSurveillanceArbovirusSurveillanceRouteImport } from './routes/adult-surveillance/arbovirus-surveillance'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
@@ -265,6 +266,12 @@ const ControlOperationsResistanceMonitoringRoute =
   ControlOperationsResistanceMonitoringRouteImport.update({
     id: '/control-operations/resistance-monitoring',
     path: '/control-operations/resistance-monitoring',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdultSurveillanceTrapDirectoryRoute =
+  AdultSurveillanceTrapDirectoryRouteImport.update({
+    id: '/adult-surveillance/trap-directory',
+    path: '/adult-surveillance/trap-directory',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AdultSurveillanceCollectionMethodsRoute =
@@ -830,6 +837,7 @@ export interface FileRoutesByFullPath {
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
@@ -951,6 +959,7 @@ export interface FileRoutesByTo {
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
@@ -1074,6 +1083,7 @@ export interface FileRoutesById {
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
@@ -1198,6 +1208,7 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
@@ -1319,6 +1330,7 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
@@ -1441,6 +1453,7 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
@@ -1564,6 +1577,7 @@ export interface RootRouteChildren {
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
   AdultSurveillanceArbovirusSurveillanceRoute: typeof AdultSurveillanceArbovirusSurveillanceRoute
   AdultSurveillanceCollectionMethodsRoute: typeof AdultSurveillanceCollectionMethodsRoute
+  AdultSurveillanceTrapDirectoryRoute: typeof AdultSurveillanceTrapDirectoryRoute
   ControlOperationsResistanceMonitoringRoute: typeof ControlOperationsResistanceMonitoringRoute
   GisDataExplorerRoute: typeof GisDataExplorerRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
@@ -1845,6 +1859,13 @@ declare module '@tanstack/react-router' {
       path: '/control-operations/resistance-monitoring'
       fullPath: '/control-operations/resistance-monitoring'
       preLoaderRoute: typeof ControlOperationsResistanceMonitoringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/trap-directory': {
+      id: '/adult-surveillance/trap-directory'
+      path: '/adult-surveillance/trap-directory'
+      fullPath: '/adult-surveillance/trap-directory'
+      preLoaderRoute: typeof AdultSurveillanceTrapDirectoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/adult-surveillance/collection-methods': {
@@ -2562,6 +2583,7 @@ const rootRouteChildren: RootRouteChildren = {
     AdultSurveillanceArbovirusSurveillanceRoute,
   AdultSurveillanceCollectionMethodsRoute:
     AdultSurveillanceCollectionMethodsRoute,
+  AdultSurveillanceTrapDirectoryRoute: AdultSurveillanceTrapDirectoryRoute,
   ControlOperationsResistanceMonitoringRoute:
     ControlOperationsResistanceMonitoringRoute,
   GisDataExplorerRoute: GisDataExplorerRoute,
