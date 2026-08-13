@@ -44,6 +44,8 @@ export interface InspectionRow {
 	readonly habitatTypeId: string | null;
 	readonly addressId: string | null;
 	readonly inspectedByProfileId: string | null;
+	/** The assignment stop this inspection was recorded from, if any. */
+	readonly assignmentItemId: string | null;
 	readonly inspectionDate: string;
 	readonly isWet: boolean;
 	readonly dipCount: number | null;

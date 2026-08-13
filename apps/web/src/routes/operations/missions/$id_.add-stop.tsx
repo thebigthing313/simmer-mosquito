@@ -16,6 +16,7 @@ import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowRole } from '../../../lib/write-access';
 import { useCommandRunner } from '../-command-runner';
 import { useDrawLocation } from '../-draw-location';
@@ -79,6 +80,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionView }) {
 	// against and gives the new stop its place at the end of the order.
 	const { stops } = useMissionStops(mission.id);
 	const { busy, error, run } = useCommandRunner();
+	const timeZone = useOrganizationTimeZone();
 
 	const [addressId, setAddressId] = useState<string | null>(null);
 	const location = useDrawLocation({ missingMessage: 'Draw where the crew has to go.' });
@@ -135,7 +137,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionView }) {
 			gap="tight"
 			header={{
 				title: 'Add a Stop',
-				description: `Draw where the crew has to go on ${missionDisplayName(mission)}.`,
+				description: `Draw where the crew has to go on ${missionDisplayName(mission, timeZone)}.`,
 				backTo: '/operations/missions/$id',
 				backParams: { id: mission.id },
 				backLabel: 'Back to mission',

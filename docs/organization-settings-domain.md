@@ -190,12 +190,89 @@ history table is part of v1.
 
 ## Timezone
 
-Timezone is a shared top-level setting. It affects date-only rules such as:
+**`settings.timezone` is the authority for every operational date.** An Agency's
+day is a local operational day: a trap placed at 9pm, a collection emptied
+before dawn, and an application logged at the end of a shift all belong to the
+day the crew worked — not to the day it was in UTC, on the database server, or
+on the laptop of whoever opened the page.
+
+This is not only a display rule. Every date-bounded read compares against a
+calendar day, so a moment filed under the wrong day at the edge of a range is
+**outside the range that was asked for** — absent, not merely mislabelled. Two
+people in different zones then see different answers on the same page and
+neither has any way to tell.
+
+It affects date-only rules such as:
 
 - future-date validation
 - 30-day correction windows
 - route self-assignment dates
 - service-request time windows
+
+### Where the zone comes from
+
+- **Server.** `AuthContext.timeZone`, resolved once per request when the session
+  is resolved. The identity query already joins `organizations`, so the settings
+  blob rides along and no read pays for a second round trip — which is what
+  makes it affordable on the map-tile path.
+- **Client.** `useOrganizationTimeZone()` in `apps/web`, read off the synced
+  organization row. It always returns a zone; while that row is still streaming
+  it resolves to `DEFAULT_ORGANIZATION_TIMEZONE`. That is deliberate — the
+  obvious alternative is the browser's zone, and that is the disagreement this
+  whole rule exists to remove. A default is wrong for an agency that has set
+  something else, but it is wrong identically for every viewer.
+
+### The three rules
+
+1. **A `timestamptz` becoming a calendar date takes the Agency zone.** Use
+   `localDateSql` from `packages/db/src/domains/record-display-sql.ts`, never a
+   bare `::date` — that cast uses the database server's session timezone.
+   `assertIanaTimeZone` guards it, because the zone is interpolated rather than
+   bound.
+2. **A rendered instant takes the Agency zone.** Pass `timeZone` to every
+   `Intl.DateTimeFormat` / `toLocaleString` that formats a moment. This includes
+   audit timestamps ("Recorded", "Updated", a comment's absolute time): they sit
+   in the same lists as operational dates, and a rule that split them by kind is
+   what produced the inconsistency in the first place. Relative durations
+   ("3m ago") are the one exception, and only because an elapsed span is the
+   same number in every zone.
+3. **A `date` column takes *no* zone.** It is already a calendar day, and naming
+   a zone introduces the very shift the other two rules remove — `new Date
+   ('2026-08-04')` is UTC midnight, which renders as the 3rd west of Greenwich.
+   Read the parts out and rebuild in UTC.
+4. **A typed calendar day widened into a `timestamptz` takes the Agency zone.**
+   The inverse of rule 1, and the half that has to agree with it. Use
+   `operationalDayAsInstant` (a day, stamped at Agency midday) or
+   `localTimeAsInstant` (a day and an `HH:MM`) from
+   `apps/web/src/lib/local-date.ts`. Never `new Date(`${date}T${time}`)`, which
+   is the browser's zone, and never a hard-coded `T12:00:00.000Z`, which is
+   right only for zones strictly inside ±12.
+
+   A form that also reads the stored instant back — a due time, a scheduled
+   start — must read it with `localTimeOfDay` and the same zone, or an untouched
+   field drifts every time the record is opened and saved.
+
+   `operationalDayAsInstant` clamps to now while now is still on the day that
+   was typed. Midday is otherwise ahead of now for most of the morning, and
+   `validateOperationalDate` refuses an operational date beyond the clock-skew
+   tolerance — so an unclamped stamp would reject a record keyed on the morning
+   it was made. Past that day the stamp stands: a mistyped future date has to
+   reach the validator that refuses it.
+
+### Daylight saving
+
+A zone's offset is a property of the zone **at an instant**, not of the zone.
+America/New_York is UTC-5 in January and UTC-4 in July, so anything that
+computes an offset once and reuses it is an hour wrong for half the year — which
+is enough to move an evening's work out of the window that asked for it.
+
+Never compute an offset; always ask the zone about the instant in question.
+Postgres `at time zone` with an IANA *name* does this already (a fixed offset
+like `-05:00` does not). On the client, `Intl` does it, and
+`localDayStartAsTimestamp` in `apps/web/src/lib/local-date.ts` is the one place
+that has to resolve an Agency midnight to a UTC instant — including the case
+where the requested midnight does not exist, in a zone that springs forward at
+midnight.
 
 Settings commands validate and canonicalize IANA timezone names with built-in
 `Intl`. The web UI should normally offer a select or autocomplete sourced from

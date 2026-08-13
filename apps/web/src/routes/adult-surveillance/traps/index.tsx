@@ -1,12 +1,7 @@
 import type { CollectionMethodRow } from '@simmer-mosquito/sync';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import {
-	CheckCircle2Icon,
-	CircleIcon,
-	SearchIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { CheckCircle2Icon, CircleIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -210,7 +205,12 @@ function TrapsExplorerRoute() {
 					title="Traps"
 					total={total}
 				>
-					<SearchField onChange={setSearchInput} value={searchInput} />
+					<SearchField
+						label="Search traps by name or code"
+						onChange={setSearchInput}
+						placeholder="Search name or code…"
+						value={searchInput}
+					/>
 
 					<SegmentedFilter
 						label="Status"
@@ -291,41 +291,6 @@ const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: s
 	{ value: 'active', label: 'Active' },
 	{ value: 'inactive', label: 'Inactive' },
 ];
-
-function SearchField({
-	value,
-	onChange,
-}: {
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="relative">
-			<SearchIcon
-				aria-hidden="true"
-				className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-			/>
-			<Input
-				aria-label="Search traps by name or code"
-				className="pl-9"
-				onChange={(event) => onChange(event.target.value)}
-				placeholder="Search name or code…"
-				type="search"
-				value={value}
-			/>
-			{value.length > 0 ? (
-				<button
-					aria-label="Clear search"
-					className="-translate-y-1/2 absolute top-1/2 right-2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					onClick={() => onChange('')}
-					type="button"
-				>
-					<XIcon aria-hidden="true" className="size-3.5" />
-				</button>
-			) : null}
-		</div>
-	);
-}
 
 // --- results ----------------------------------------------------------------
 

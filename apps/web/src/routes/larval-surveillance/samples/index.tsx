@@ -46,6 +46,7 @@ import {
 	type SampleTileFilters,
 } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
@@ -133,7 +134,8 @@ const RESULT_CHIP_LIMIT = 1;
 const PATH = '/map/samples';
 
 function SamplesExplorerRoute() {
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const defaultFrom = useMemo(
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],

@@ -27,10 +27,14 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	validationLocationSource,
+} from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
-import { todayDateValue } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 
@@ -104,14 +108,14 @@ export interface BiocontrolFormPageProps {
 	}) => Promise<void>;
 }
 
-export function defaultBiocontrolFormValues(): BiocontrolFormValues {
+export function defaultBiocontrolFormValues(timeZone: string): BiocontrolFormValues {
 	return {
 		addressId: null,
 		habitatId: null,
 		biocontrolMethodId: '',
 		technicianProfileId: noTechnicianValue,
 		additionalPersonnelIds: [],
-		biocontrolDate: todayDateValue(),
+		biocontrolDate: todayInTimeZone(timeZone),
 		amountReleased: null,
 		releaseUnitId: '',
 		metadata: null,
@@ -202,7 +206,7 @@ export function BiocontrolFormPage({
 					recordBiocontrolActionCommand({
 						...FORM_VALIDATION_CONTEXT,
 						biocontrolActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						locationSource: validationLocationSource(geometry, requireLocation),
 						biocontrolMethodId: value.biocontrolMethodId,
 						amountReleased: value.amountReleased as number,
 						releaseUnitId: value.releaseUnitId,

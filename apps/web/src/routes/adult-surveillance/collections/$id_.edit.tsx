@@ -19,6 +19,7 @@ import {
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
@@ -29,6 +30,7 @@ import {
 	noLureValue,
 	noUnitValue,
 } from './-collection-form';
+import { collectionTimingStamps } from './-collection-timing';
 
 const collectionGcTimeMs = 30_000;
 
@@ -119,6 +121,7 @@ function EditCollectionLoader({
 	readonly canSubmit: boolean;
 }) {
 	const navigate = useNavigate();
+	const timeZone = useOrganizationTimeZone();
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'collection', id: collection.id });
@@ -134,6 +137,7 @@ function EditCollectionLoader({
 			const locationSource = refinedPoint ? ({ kind: 'geometry', geometry } as const) : undefined;
 
 			const now = new Date().toISOString();
+			const timing = collectionTimingStamps(values, timeZone);
 			const applyEdits = (draft: AdultCollectionRow) => {
 				const writable = draft as {
 					-readonly [K in keyof AdultCollectionRow]: AdultCollectionRow[K];
@@ -146,10 +150,8 @@ function EditCollectionLoader({
 				writable.hasProblem = values.hasProblem;
 				writable.metadata = values.metadata;
 				writable.collectionTimingMode = values.timingMode;
-				writable.startedAt = exact ? toIsoDate(values.startedAt) : null;
-				writable.collectedAt = exact
-					? toIsoDate(values.collectedAt)
-					: toIsoDate(values.collectionDate);
+				writable.startedAt = timing.startedAt;
+				writable.collectedAt = timing.collectedAt;
 				writable.collectionDate = exact ? null : values.collectionDate;
 				writable.durationAmount = exact ? null : values.durationAmount;
 				writable.durationUnitId =
@@ -196,6 +198,7 @@ function EditCollectionLoader({
 			actorProfileId,
 			personnel.rows,
 			navigate,
+			timeZone,
 		],
 	);
 
@@ -269,14 +272,6 @@ function defaultsFromCollection(
 /** Reduce an ISO timestamp (or bare date) to its `YYYY-MM-DD` calendar day. */
 function toDateOnly(value: string | null): string | null {
 	return value === null ? null : value.slice(0, 10);
-}
-
-/** Convert a `YYYY-MM-DD` to an ISO timestamp at UTC noon (avoids day-shift). */
-function toIsoDate(date: string | null): string | null {
-	if (date === null || date.length < 10) {
-		return null;
-	}
-	return `${date.slice(0, 10)}T12:00:00.000Z`;
 }
 
 function EditFormSkeleton() {

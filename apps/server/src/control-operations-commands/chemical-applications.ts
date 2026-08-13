@@ -3,15 +3,30 @@ import {
 	type ControlActionLocationSourceInput,
 	type ControlOperationsCommand,
 	deleteChemicalApplicationCommand,
+	type RecordChemicalApplicationForMissionItemCommand,
 	recordChemicalApplicationCommand,
+	recordChemicalApplicationForMissionItemCommand,
 	updateChemicalApplicationFieldDetailsCommand,
 	updateChemicalApplicationLocationAndContextCommand,
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readNumber, readText } from '../command-payload.js';
 import {
+	readMissionExecutionOptions,
+	readNullableText,
+	readNumber,
+	readText,
+} from '../command-payload.js';
+import {
+	assertMissionGeometryCovered,
+	beginMissionExecution,
+	defaultMissionMethodId,
+	finishMissionExecution,
+	missionItemGeom,
+} from '../mission-dispatch-commands/mission-execution.js';
+import {
+	type AgencyContext,
 	type ApplicationUpdateColumns,
 	agencyCommandContext,
 	applicationReturnColumns,
@@ -41,6 +56,9 @@ import {
 // Chemical applications
 // ===========================================================================
 
+/** Plus the mission helper, which writes an application and closes the stop. */
+type ApplicationCommand = ControlOperationsCommand | RecordChemicalApplicationForMissionItemCommand;
+
 export function registerApplicationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
@@ -49,24 +67,7 @@ export function registerApplicationRoutes(
 		'/control-operations/applications',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
-				recordChemicalApplicationCommand({
-					...ctx,
-					applicationId: readText(payload.id) ?? '',
-					insecticideId: readText(payload.insecticideId) ?? '',
-					amountApplied: readNumber(payload.amountApplied) ?? Number.NaN,
-					applicationUnitId: readText(payload.applicationUnitId) ?? '',
-					applicationDate: readText(payload.applicationDate) ?? '',
-					applicatorProfileId: readNullableText(payload.applicatorProfileId),
-					locationSource: payload.locationSource as ControlActionLocationSourceInput,
-					addressId: readNullableText(payload.addressId),
-					context: readControlActionContext(payload),
-					requestedControlActionId: readNullableText(payload.requestedControlActionId),
-					applicationMethodId: readNullableText(payload.applicationMethodId),
-					vehicleId: readNullableText(payload.vehicleId),
-					equipmentId: readNullableText(payload.equipmentId),
-					metadata: payload.metadata ?? null,
-				}),
+			build: ({ payload, agency: ctx }) => buildApplicationCreateCommand(ctx, payload),
 			run: (context, commands) => runApplicationCommands(context, options.db, commands, 201),
 		}),
 	);
@@ -98,12 +99,73 @@ export function registerApplicationRoutes(
 	);
 }
 
+/**
+ * The create command a request body asks for — the mission execution helper when
+ * it names a stop, the ordinary record otherwise.
+ *
+ * Named and exported, like the `buildCreate` on the other three action configs,
+ * so the branch can be tested without a transaction. The context keys are the
+ * reason: they were dropped on the mission side and nothing below the endpoint
+ * could see it.
+ */
+export function buildApplicationCreateCommand(
+	ctx: AgencyContext,
+	payload: Record<string, unknown>,
+): ApplicationCommand {
+	const missionItemId = readNullableText(payload.missionItemId);
+	// Recorded off a mission stop: the application carries the stop and
+	// closes it, in the same transaction.
+	if (missionItemId !== null) {
+		return recordChemicalApplicationForMissionItemCommand({
+			...ctx,
+			missionItemId,
+			applicationId: readText(payload.id) ?? '',
+			insecticideId: readText(payload.insecticideId) ?? '',
+			amountApplied: readNumber(payload.amountApplied) ?? Number.NaN,
+			applicationUnitId: readText(payload.applicationUnitId) ?? '',
+			applicationDate: readText(payload.applicationDate) ?? '',
+			applicatorProfileId: readNullableText(payload.applicatorProfileId),
+			applicationMethodId: readNullableText(payload.applicationMethodId),
+			vehicleId: readNullableText(payload.vehicleId),
+			equipmentId: readNullableText(payload.equipmentId),
+			...(payload.geometry === undefined ? {} : { geometry: payload.geometry }),
+			addressId: readNullableText(payload.addressId),
+			// The larval/adult context the record was made in is the record's own,
+			// not the mission's. Reading it here is what keeps a mission-recorded
+			// application from storing less than the same application recorded off
+			// one — the form sends the same keys either way.
+			context: readControlActionContext(payload),
+			requestedControlActionId: readNullableText(payload.requestedControlActionId),
+			metadata: payload.metadata ?? null,
+			...readMissionExecutionOptions(payload),
+		});
+	}
+	return recordChemicalApplicationCommand({
+		...ctx,
+		applicationId: readText(payload.id) ?? '',
+		insecticideId: readText(payload.insecticideId) ?? '',
+		amountApplied: readNumber(payload.amountApplied) ?? Number.NaN,
+		applicationUnitId: readText(payload.applicationUnitId) ?? '',
+		applicationDate: readText(payload.applicationDate) ?? '',
+		applicatorProfileId: readNullableText(payload.applicatorProfileId),
+		locationSource: payload.locationSource as ControlActionLocationSourceInput,
+		addressId: readNullableText(payload.addressId),
+		context: readControlActionContext(payload),
+		requestedControlActionId: readNullableText(payload.requestedControlActionId),
+		applicationMethodId: readNullableText(payload.applicationMethodId),
+		vehicleId: readNullableText(payload.vehicleId),
+		equipmentId: readNullableText(payload.equipmentId),
+		metadata: payload.metadata ?? null,
+	});
+}
+
 function buildApplicationUpdateCommands(
 	authContext: AuthContext,
 	applicationId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
 	const ctx = agencyCommandContext(authContext);
+	// Updates never produce a mission helper; only the create path can.
 	const commands: ControlOperationsCommand[] = [];
 
 	const fieldKeys = [
@@ -175,7 +237,7 @@ function buildApplicationUpdateCommands(
 async function runApplicationCommands(
 	context: CommandContext,
 	db: ControlOperationsDb,
-	commands: readonly ControlOperationsCommand[],
+	commands: readonly ApplicationCommand[],
 	createdStatus?: 201,
 ) {
 	return runCommands(
@@ -186,9 +248,55 @@ async function runApplicationCommands(
 	);
 }
 
+async function writeMissionApplication(
+	trx: ControlOperationsTransaction,
+	payload: RecordChemicalApplicationForMissionItemCommand['payload'],
+): Promise<SafeApplication | null> {
+	const stop = await beginMissionExecution(trx, payload, 'chemicalApplication');
+	const ids = contextIds(payload.context ?? { kind: 'none' });
+	const row = await trx
+		.insertInto('applications')
+		.values({
+			id: payload.applicationId,
+			organization_id: payload.organizationId,
+			application_method_id: defaultMissionMethodId(payload.applicationMethodId, stop),
+			insecticide_id: payload.insecticideId,
+			applicator_profile_id: payload.applicatorProfileId,
+			application_date: localDateColumn(payload.applicationDate),
+			geom: missionItemGeom(payload.missionItemId, payload.geometry),
+			address_id: payload.addressId ?? null,
+			vehicle_id: payload.vehicleId,
+			equipment_id: payload.equipmentId,
+			amount_applied: payload.amountApplied,
+			application_unit_id: payload.applicationUnitId,
+			habitat_id: ids.habitatId,
+			collection_id: ids.collectionId,
+			inspection_id: ids.inspectionId,
+			requested_control_action_id: stop.requestedControlActionId,
+			mission_item_id: payload.missionItemId,
+			metadata: payload.metadata,
+			created_by_profile_id: payload.actorProfileId,
+			updated_by_profile_id: payload.actorProfileId,
+		})
+		.returning(applicationReturnColumns)
+		.executeTakeFirstOrThrow();
+	for (const batch of payload.applicationBatches) {
+		await insertApplicationBatch(trx, {
+			id: batch.applicationBatchId,
+			organizationId: payload.organizationId,
+			applicationId: payload.applicationId,
+			insecticideBatchId: batch.insecticideBatchId,
+			actorProfileId: payload.actorProfileId,
+		});
+	}
+	await assertMissionGeometryCovered(trx, payload, payload.applicationId, 'applications');
+	await finishMissionExecution(trx, payload, stop);
+	return toSafeApplication(row);
+}
+
 async function writeApplicationCommand(
 	trx: ControlOperationsTransaction,
-	command: ControlOperationsCommand,
+	command: ApplicationCommand,
 ): Promise<SafeApplication | null> {
 	switch (command.type) {
 		case 'controlOperations.recordChemicalApplication': {
@@ -233,6 +341,8 @@ async function writeApplicationCommand(
 			}
 			return toSafeApplication(row);
 		}
+		case 'missionDispatch.recordChemicalApplicationForMissionItem':
+			return writeMissionApplication(trx, command.payload);
 		case 'controlOperations.updateChemicalApplicationFieldDetails': {
 			const changes = command.payload.changes;
 			return updateApplication(trx, command.payload.applicationId, command.payload.organizationId, {

@@ -5,7 +5,6 @@ import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
 import type { LifeStageFlags } from '../../components/larval-display';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { getToday } from '../../lib/get-today';
 import { webCollections } from '../../sync/webCollections';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
@@ -290,15 +289,10 @@ export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, str
 
 // --- pure date helpers (operate on `YYYY-MM-DD` strings) --------------------
 
-/** Today's date in the org's timezone as a `YYYY-MM-DD` string. */
-export function todayInTimeZone(timeZone: string | undefined): string {
-	return new Intl.DateTimeFormat('en-CA', {
-		timeZone: timeZone || undefined,
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-	}).format(getToday());
-}
+// `todayInTimeZone` lives in `lib/local-date` — every section defaults a date
+// with it, so it is not a larval-surveillance fact. Re-exported here because the
+// other three overview modules already re-export it from this one.
+export { todayInTimeZone } from '../../lib/local-date';
 
 /** Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift. */
 export function addDaysToDateString(date: string, days: number): string {
@@ -325,6 +319,49 @@ export function weekdayLabel(date: string): string {
 
 export function dayOfMonth(date: string): number {
 	return parseDateString(date).getUTCDate();
+}
+
+/**
+ * A record's own date, with the weekday it fell on: `Wed, Aug 12`.
+ *
+ * Field work runs on a weekly rhythm — a trap set Monday and collected
+ * Wednesday, a route walked every Thursday — so the weekday is what tells an
+ * operator whether a gap in a run is a missed visit or just the weekend. It
+ * belongs on dates that ARE the record; {@link formatMonthDay} stays the plain
+ * form for the places a date is a bound or a heading rather than a fact about
+ * one record.
+ */
+export function formatWeekdayMonthDay(date: string): string {
+	const parsed = parseDateString(date);
+	if (Number.isNaN(parsed.getTime())) {
+		return '—';
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(parsed);
+}
+
+/**
+ * The same, carrying the year: `Wed, Aug 12, 2026`.
+ *
+ * For a list that spans seasons — a trap's whole run of collections — where
+ * {@link formatWeekdayMonthDay} alone would make two Augusts look like one.
+ */
+export function formatWeekdayDate(date: string): string {
+	const parsed = parseDateString(date);
+	if (Number.isNaN(parsed.getTime())) {
+		return '—';
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		weekday: 'short',
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(parsed);
 }
 
 export function formatMonthDay(date: string): string {

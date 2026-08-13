@@ -62,8 +62,13 @@ import { ArrowLeftIcon, iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-w
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import {
+	CollectCollectionDialog,
+	collectPendingCollection,
+} from '../../../components/collect-collection-dialog';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -73,11 +78,13 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	CollectionFlagBadges,
 	collectionEffectiveDate,
 	collectionTitle,
+	isPendingCollection,
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
 	SpeciesSexBadge,
@@ -87,7 +94,7 @@ import {
 	trapDisplayName,
 } from '../-adult-display';
 import { CollectionKeyEntryDialog } from '../-collection-key-entry';
-import { formatMonthDay, todayInTimeZone } from '../-overview-data';
+import { formatWeekdayMonthDay, todayInTimeZone } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id')({
 	component: RouteComponent,
@@ -162,6 +169,47 @@ function CollectionDetail({
 	);
 }
 
+interface CollectionCatalogContext {
+	readonly methodName: string;
+	readonly lureName: string | null;
+	readonly trap: TrapRow | null;
+}
+
+/**
+ * The three catalog rows a collection's header and detail card name.
+ *
+ * Lookups rather than rendering, so they sit outside the component. Each keeps
+ * "none" and "gone" apart on purpose: a collection set without a lure reads as
+ * no lure, while one whose lure has since been deleted reads as an unknown one,
+ * and collapsing those would quietly turn a deleted catalog row into a blank.
+ */
+function collectionCatalogContext(
+	collection: AdultCollectionRow,
+	catalogs: {
+		readonly methods: readonly CollectionMethodRow[];
+		readonly lures: readonly CollectionLureRow[];
+		readonly traps: readonly TrapRow[];
+	},
+): CollectionCatalogContext {
+	const { collectionLureId } = collection;
+	return {
+		methodName: findById(catalogs.methods, collection.collectionMethodId)?.name ?? 'Unknown method',
+		lureName:
+			collectionLureId === null
+				? null
+				: (findById(catalogs.lures, collectionLureId)?.name ?? 'Unknown lure'),
+		trap: findById(catalogs.traps, collection.trapId),
+	};
+}
+
+/** A catalog row by id, tolerating both "no id" and "id that resolves to nothing". */
+function findById<TRow extends { readonly id: string }>(
+	rows: readonly TRow[],
+	id: string | null,
+): TRow | null {
+	return id === null ? null : (rows.find((row) => row.id === id) ?? null);
+}
+
 function CollectionDetailContent({
 	collection,
 	actorProfileId,
@@ -171,7 +219,8 @@ function CollectionDetailContent({
 	readonly actorProfileId: string | null;
 	readonly canEdit: boolean;
 }) {
-	const title = collectionTitle(collection);
+	const titleTimeZone = useOrganizationTimeZone();
+	const title = collectionTitle(collection, titleTimeZone);
 	useBreadcrumbLabel(collection.id, title);
 
 	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
@@ -181,14 +230,11 @@ function CollectionDetailContent({
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
 
-	const methodName =
-		methods.find((method) => method.id === collection.collectionMethodId)?.name ?? 'Unknown method';
-	const lureName =
-		collection.collectionLureId === null
-			? null
-			: (lures.find((lure) => lure.id === collection.collectionLureId)?.name ?? 'Unknown lure');
-	const trap =
-		collection.trapId === null ? null : (traps.find((t) => t.id === collection.trapId) ?? null);
+	const { methodName, lureName, trap } = collectionCatalogContext(collection, {
+		methods,
+		lures,
+		traps,
+	});
 	const profileNameById = useMemo(
 		() => new Map(profiles.map((profile) => [profile.id, profile.displayName])),
 		[profiles],
@@ -212,6 +258,11 @@ function CollectionDetailContent({
 						className="flex flex-wrap items-center gap-1.5"
 						collection={collection}
 					/>
+					{canEdit && isPendingCollection(collection) ? (
+						<WriteOnly>
+							<CollectCollectionButton actorProfileId={actorProfileId} collection={collection} />
+						</WriteOnly>
+					) : null}
 					{canEdit ? (
 						<WriteOnly>
 							<Button asChild size="sm" variant="outline">
@@ -256,6 +307,45 @@ function CollectionDetailContent({
 					/>
 				</div>
 			</div>
+		</>
+	);
+}
+
+/** The second visit, on a trap that is still out. */
+function CollectCollectionButton({
+	collection,
+	actorProfileId,
+}: {
+	readonly collection: AdultCollectionRow;
+	readonly actorProfileId: string | null;
+}) {
+	const [open, setOpen] = useState(false);
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+	const timeZone = useOrganizationTimeZone();
+
+	return (
+		<>
+			<Button onClick={() => setOpen(true)} size="sm" variant="default">
+				Collect
+			</Button>
+			<CollectCollectionDialog
+				defaultDate={todayInTimeZone(timeZone)}
+				onConfirm={(collectedAt) => {
+					setOpen(false);
+					void runAcknowledged((acknowledgements) =>
+						collectPendingCollection({
+							acknowledgements,
+							actorProfileId,
+							collectedAt,
+							collectionId: collection.id,
+							timeZone,
+						}),
+					);
+				}}
+				onOpenChange={setOpen}
+				open={open}
+			/>
+			{acknowledgeDialog}
 		</>
 	);
 }
@@ -725,6 +815,7 @@ function AddSpeciesForm({
 	readonly speciesOptions: readonly SpeciesOption[];
 	readonly actorProfileId: string | null;
 }) {
+	const timeZone = useOrganizationTimeZone();
 	const form = useAppForm({
 		defaultValues: {
 			speciesId: null as string | null,
@@ -746,7 +837,7 @@ function AddSpeciesForm({
 				sex: value.sex === 'unset' ? null : value.sex,
 				status: value.status === 'unset' ? null : value.status,
 				identifiedByProfileId: actorProfileId,
-				identifiedDate: todayInTimeZone(undefined),
+				identifiedDate: todayInTimeZone(timeZone),
 				createdByProfileId: actorProfileId,
 				updatedByProfileId: actorProfileId,
 				createdAt: now,
@@ -886,7 +977,8 @@ function DetailsCard({
 	readonly lureName: string | null;
 	readonly profileNameById: ReadonlyMap<string, string>;
 }) {
-	const collectedDate = collectionEffectiveDate(collection);
+	const timeZone = useOrganizationTimeZone();
+	const collectedDate = collectionEffectiveDate(collection, timeZone);
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
@@ -916,11 +1008,15 @@ function DetailsCard({
 						{collectedDate === null ? (
 							<span className="text-muted-foreground">Pending</span>
 						) : (
-							formatMonthDay(collectedDate)
+							formatWeekdayMonthDay(collectedDate)
 						)}
 					</DetailRow>
 					<DetailRow label="Set">
-						{collection.startedAt === null ? <EmptyValue /> : formatMonthDay(collection.startedAt)}
+						{collection.startedAt === null ? (
+							<EmptyValue />
+						) : (
+							formatWeekdayMonthDay(collection.startedAt)
+						)}
 					</DetailRow>
 					<DetailRow label="Collected by">
 						{collection.collectedByProfileId === null ? (

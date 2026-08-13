@@ -11,9 +11,10 @@ import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-ro
 import { useCallback, useMemo, useState } from 'react';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
-import { todayDateValue } from '../../control-operations/-control-display';
 import { useRouteStopCounts } from '../../larval-surveillance/habitats/-route-data';
 import {
 	createAssignmentFromRoute,
@@ -49,7 +50,8 @@ function AssignmentCreateRoute() {
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
 
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	// Minted up front so the streams below can be warmed against it before the
 	// write lands (a write to a cold on-demand collection waits out its txid
 	// confirmation, which reads as a frozen save).
@@ -94,7 +96,7 @@ function AssignmentCreateRoute() {
 					assignmentDate: values.assignmentDate,
 					assignmentName: assignmentNameOrNull(values),
 					assignedToProfileId: assigneeOrNull(values),
-					dueAt: toDueAt(values),
+					dueAt: toDueAt(values, timeZone),
 					assignmentItemIds: routeItems.map((item) => ({
 						routeItemId: item.id,
 						assignmentItemId: crypto.randomUUID(),
@@ -110,7 +112,7 @@ function AssignmentCreateRoute() {
 					// Mirrors what the server records, so the row does not flicker.
 					assignedByProfileId: identity?.profileId ?? null,
 					assignmentDate: values.assignmentDate,
-					dueAt: toDueAt(values),
+					dueAt: toDueAt(values, timeZone),
 					startedAt: null,
 					completedAt: null,
 					cancelledAt: null,
@@ -139,6 +141,7 @@ function AssignmentCreateRoute() {
 		assignmentId,
 		identity,
 		navigate,
+		timeZone,
 	]);
 
 	return (

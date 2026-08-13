@@ -1,6 +1,14 @@
 import { type Kysely, sql } from 'kysely';
 
 import type { SimmerDatabase } from '../index.js';
+import {
+	assertIanaTimeZone,
+	habitatStatusSql,
+	inspectionResultSql,
+	localDateSql,
+	trapLabelSql,
+	trapStatusSql,
+} from './record-display-sql.js';
 
 /**
  * The operational record kinds a service-request context view surfaces around a
@@ -42,6 +50,12 @@ export interface NearbyRecordsInput {
 	readonly dateFrom: string;
 	/** Inclusive upper bound on the temporal kinds' dates (`YYYY-MM-DD`). */
 	readonly dateTo: string;
+	/**
+	 * The agency's IANA timezone, which decides the calendar day a collection's
+	 * `collected_at` instant fell on. The other six kinds are dated by plain
+	 * `date` columns and need no conversion.
+	 */
+	readonly timeZone: string;
 	/** Safety cap on total rows returned across all categories. */
 	readonly limit?: number;
 }
@@ -60,6 +74,13 @@ export async function listNearbyRecords(
 ): Promise<NearbyRecordRow[]> {
 	const { organizationId: org, radiusMeters, dateFrom, dateTo } = input;
 	const limit = input.limit ?? DEFAULT_NEARBY_LIMIT;
+	// A collection is dated by an instant or by a plain date, depending on the
+	// agency's timing mode. The instant becomes a day in the agency's zone, not
+	// the database server's — otherwise an evening's collection reads as, and
+	// filters as, the next day. See localDateSql.
+	const collectionDate = sql.raw(
+		`coalesce(${localDateSql('c.collected_at', assertIanaTimeZone(input.timeZone))}, c.collection_date)`,
+	);
 
 	const result = await sql<NearbyRecordRow>`
 		with center as (
@@ -68,8 +89,7 @@ export async function listNearbyRecords(
 		select 'habitat' as category, h.id, h.lat, h.lng,
 			st_distance(h.geom::geography, center.g) as "distanceMeters",
 			null::text as date, h.habitat_name as label, h.habitat_type_id::text as "refId",
-			case when h.is_active = false then 'inactive'
-				when h.is_inaccessible = true then 'inaccessible' else 'active' end as status
+			${sql.raw(habitatStatusSql('h'))} as status
 		from habitats h cross join center
 		where h.organization_id = ${org} and h.deleted_at is null
 			and st_dwithin(h.geom::geography, center.g, ${radiusMeters})
@@ -77,10 +97,9 @@ export async function listNearbyRecords(
 		select 'trap', t.id, t.lat, t.lng,
 			st_distance(t.geom::geography, center.g),
 			null::text,
-			-- Same label the web app renders: "code - name", dash-free when only one is set.
-			nullif(concat_ws(' - ', nullif(btrim(t.trap_code), ''), nullif(btrim(t.trap_name), '')), ''),
+			${sql.raw(trapLabelSql('t'))},
 			t.collection_method_id::text,
-			case when t.is_active = false then 'inactive' else 'active' end
+			${sql.raw(trapStatusSql('t'))}
 		from traps t cross join center
 		where t.organization_id = ${org} and t.deleted_at is null
 			and st_dwithin(t.geom::geography, center.g, ${radiusMeters})
@@ -88,7 +107,7 @@ export async function listNearbyRecords(
 		select 'inspection', i.id, i.lat, i.lng,
 			st_distance(i.geom::geography, center.g),
 			to_char(i.inspection_date, 'YYYY-MM-DD'), null::text, null::text,
-			case when i.is_wet = false then 'dry' else coalesce(i.density::text, 'wet') end
+			${sql.raw(inspectionResultSql('i'))}
 		from inspections i cross join center
 		where i.organization_id = ${org} and i.deleted_at is null
 			and st_dwithin(i.geom::geography, center.g, ${radiusMeters})
@@ -96,13 +115,13 @@ export async function listNearbyRecords(
 		union all
 		select 'collection', c.id, c.lat, c.lng,
 			st_distance(c.geom::geography, center.g),
-			to_char(coalesce(c.collected_at::date, c.collection_date), 'YYYY-MM-DD'),
+			to_char(${collectionDate}, 'YYYY-MM-DD'),
 			null::text, c.collection_method_id::text,
 			case when c.has_problem = true then 'problem' else null end
 		from collections c cross join center
 		where c.organization_id = ${org} and c.deleted_at is null
 			and st_dwithin(c.geom::geography, center.g, ${radiusMeters})
-			and coalesce(c.collected_at::date, c.collection_date) between ${dateFrom}::date and ${dateTo}::date
+			and ${collectionDate} between ${dateFrom}::date and ${dateTo}::date
 		union all
 		select 'application', a.id, a.lat, a.lng,
 			st_distance(a.geom::geography, center.g),

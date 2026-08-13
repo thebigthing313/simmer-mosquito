@@ -117,13 +117,21 @@ export interface MissionItemLocationInput {
 	readonly requestedControlActionId?: DomainId | null;
 }
 
+/**
+ * The three preconditions recording against a mission stop can ask about.
+ *
+ * A flag is here only if a server check reads it. The method and schedule flags
+ * this once carried had no check behind them: a mission's planned method is a
+ * default rather than a rule (`resolveMissionMethodId`), and nothing has ever
+ * compared an action's date to the mission's window. A declared flag with no
+ * reader is worse than a missing one, because it reads as an implemented rule
+ * both to a caller and to the next person to touch this.
+ */
 export interface MissionExecutionOptions {
 	readonly completeMissionItem?: boolean;
 	readonly autoStartMission?: boolean;
 	readonly acknowledgedMissionGeometryNotCovered?: boolean;
-	readonly acknowledgedMethodMismatch?: boolean;
 	readonly acknowledgedRequestedActionMismatch?: boolean;
-	readonly acknowledgedOutOfScheduleAction?: boolean;
 	readonly acknowledgedCompletedItemAdditionalAction?: boolean;
 }
 
@@ -139,9 +147,7 @@ export type MissionExecutionPayload = {
 	readonly completeMissionItem: boolean;
 	readonly autoStartMission: boolean;
 	readonly acknowledgedMissionGeometryNotCovered: boolean;
-	readonly acknowledgedMethodMismatch: boolean;
 	readonly acknowledgedRequestedActionMismatch: boolean;
-	readonly acknowledgedOutOfScheduleAction: boolean;
 	readonly acknowledgedCompletedItemAdditionalAction: boolean;
 	readonly geometry?: SupportedGeoJsonGeometry;
 	readonly addressId?: DomainId | null;
@@ -434,9 +440,7 @@ export function missionExecutionPayload(
 		completeMissionItem: input.completeMissionItem ?? true,
 		autoStartMission: input.autoStartMission ?? true,
 		acknowledgedMissionGeometryNotCovered: input.acknowledgedMissionGeometryNotCovered ?? false,
-		acknowledgedMethodMismatch: input.acknowledgedMethodMismatch ?? false,
 		acknowledgedRequestedActionMismatch: input.acknowledgedRequestedActionMismatch ?? false,
-		acknowledgedOutOfScheduleAction: input.acknowledgedOutOfScheduleAction ?? false,
 		acknowledgedCompletedItemAdditionalAction:
 			input.acknowledgedCompletedItemAdditionalAction ?? false,
 		...(input.geometry !== undefined

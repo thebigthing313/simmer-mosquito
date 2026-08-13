@@ -27,9 +27,13 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	validationLocationSource,
+} from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { todayDateValue } from '../../control-operations/-control-display';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { FormSection } from '../../control-operations/-control-form-parts';
 import { AddressPicker } from '../../control-operations/-control-pickers';
 
@@ -101,13 +105,13 @@ export interface OutreachFormPageProps {
 	}) => Promise<void>;
 }
 
-export function defaultOutreachFormValues(): OutreachFormValues {
+export function defaultOutreachFormValues(timeZone: string): OutreachFormValues {
 	return {
 		addressId: null,
 		outreachMethodId: '',
 		technicianProfileId: noTechnicianValue,
 		additionalPersonnelIds: [],
-		outreachDate: todayDateValue(),
+		outreachDate: todayInTimeZone(timeZone),
 		reach: null,
 		reachDescription: '',
 		metadata: null,
@@ -188,7 +192,7 @@ export function OutreachFormPage({
 					recordOutreachActionCommand({
 						...FORM_VALIDATION_CONTEXT,
 						outreachActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						locationSource: validationLocationSource(geometry, requireLocation),
 						outreachMethodId: value.outreachMethodId,
 						reach: value.reach as number,
 						reachDescription: value.reachDescription.trim() === '' ? null : value.reachDescription,

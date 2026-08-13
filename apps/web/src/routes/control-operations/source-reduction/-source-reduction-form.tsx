@@ -27,10 +27,14 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	validationLocationSource,
+} from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
-import { todayDateValue } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 
@@ -109,12 +113,12 @@ export interface SourceReductionFormPageProps {
 	readonly onSave: (input: SourceReductionSaveInput) => Promise<void>;
 }
 
-export function defaultSourceReductionFormValues(): SourceReductionFormValues {
+export function defaultSourceReductionFormValues(timeZone: string): SourceReductionFormValues {
 	return {
 		sourceReductionMethodId: '',
 		sourcesEliminatedAmount: null,
 		sourcesEliminatedUnitId: '',
-		sourceReductionDate: todayDateValue(),
+		sourceReductionDate: todayInTimeZone(timeZone),
 		technicianProfileId: noTechnicianValue,
 		additionalPersonnelIds: [],
 		addressId: null,
@@ -195,7 +199,7 @@ export function SourceReductionFormPage({
 					recordSourceReductionCommand({
 						...FORM_VALIDATION_CONTEXT,
 						sourceReductionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						locationSource: validationLocationSource(geometry, requireLocation),
 						sourceReductionMethodId: value.sourceReductionMethodId,
 						sourcesEliminatedAmount: value.sourcesEliminatedAmount as number,
 						sourcesEliminatedUnitId: value.sourcesEliminatedUnitId,

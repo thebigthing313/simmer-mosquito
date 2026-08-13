@@ -75,6 +75,9 @@ import type { SimmerDatabase } from '../../../index.js';
 // a refactor that changes one character of emitted SQL fails here first.
 
 const organizationId = '9a3d9e12-2a1c-4d5f-8f2b-6d0f47a03c31';
+// The agency's zone. Named rather than defaulted so a collection read that
+// stopped converting `collected_at` would change the SQL these assert on.
+const timeZone = 'America/New_York';
 const id = 'd4e5f6a7-b8c9-4d0e-8f1a-2b3c4d5e6f70';
 const regionIds = ['b7c0c1d4-8f43-4f6a-9d21-5f9a7b2e14aa'];
 const ids = ['c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f'];
@@ -336,6 +339,7 @@ const mapReads: ReadonlyArray<{
 			getCollectionMvtTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
 			}),
 	},
@@ -347,6 +351,7 @@ const mapReads: ReadonlyArray<{
 		read: (db) =>
 			listCollectionDisplayRowsPage(db, {
 				organizationId,
+				timeZone,
 				...page,
 				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
 			}),
@@ -359,6 +364,7 @@ const mapReads: ReadonlyArray<{
 		read: (db) =>
 			getCollectionMapExtent(db, {
 				organizationId,
+				timeZone,
 				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
 			}),
 	},

@@ -46,6 +46,7 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
 import { webCollections } from '../../../sync/webCollections';
@@ -262,7 +263,8 @@ export function InspectionFormPage({
 	submitLabel,
 	onSave,
 }: InspectionFormPageProps) {
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const isEditing = mode === 'edit';
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
@@ -859,6 +861,23 @@ function SelectedHabitat({ habitatId }: { readonly habitatId: string | null }) {
 const habitatSearchGcTimeMs = 30_000;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
+/** The display label for a habitat known only by id, or '' while it resolves. */
+function useHabitatLabel(habitatId: string | null): string {
+	const result = useLiveQuery(
+		{
+			gcTime: habitatSearchGcTimeMs,
+			query: (query) =>
+				query
+					.from({ habitat: webCollections.habitats })
+					.where(({ habitat }) => eq(habitat.id, habitatId ?? UNMATCHABLE_ID))
+					.findOne(),
+		},
+		[habitatId],
+	);
+	const habitat = result.data as HabitatRow | undefined;
+	return habitat === undefined ? '' : habitatLabel(habitat);
+}
+
 function HabitatPicker({
 	organizationId,
 	value,
@@ -870,9 +889,15 @@ function HabitatPicker({
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
-	const [selectedLabel, setSelectedLabel] = useState('');
+	const [pickedLabel, setPickedLabel] = useState('');
 	const deferredSearch = useDeferredValue(search);
 	const anchorRef = useRef<HTMLDivElement>(null);
+	// A value can arrive without a pick — a stop's "Record inspection" seeds the
+	// habitat it was sent to — and then there is no label to show. Resolving it
+	// from the id covers both routes in; the picked label still wins so typing
+	// never flickers against a query.
+	const seededLabel = useHabitatLabel(pickedLabel === '' ? value : null);
+	const selectedLabel = pickedLabel === '' ? seededLabel : pickedLabel;
 
 	return (
 		<LabeledControl label="Habitat" required>
@@ -898,7 +923,7 @@ function HabitatPicker({
 								aria-label="Clear habitat"
 								className="-translate-y-1/2 absolute top-1/2 right-1.5"
 								onClick={() => {
-									setSelectedLabel('');
+									setPickedLabel('');
 									setSearch('');
 									onSelect(null);
 								}}
@@ -924,7 +949,7 @@ function HabitatPicker({
 				>
 					<HabitatSearchResults
 						onSelect={(habitat) => {
-							setSelectedLabel(habitatLabel(habitat));
+							setPickedLabel(habitatLabel(habitat));
 							setSearch(habitatLabel(habitat));
 							onSelect(habitat);
 							setOpen(false);

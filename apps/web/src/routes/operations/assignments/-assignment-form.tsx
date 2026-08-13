@@ -11,7 +11,12 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/select';
 import { useMemo, useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
-import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
+import {
+	formatLocalDate,
+	localTimeAsInstant,
+	localTimeOfDay,
+	parseLocalDate,
+} from '../../../lib/local-date';
 import { NO_ASSIGNEE } from './-assignment-data';
 
 /** The planning fields an assignment carries, shared by create and edit. */
@@ -36,44 +41,31 @@ export function defaultAssignmentDetails(today: string): AssignmentDetailValues 
  * `dueAt` is an instant, but an assignment covers one agency-local day, so the
  * form asks for a time and anchors it to that day rather than making the operator
  * key a second date that would have to match the first.
+ *
+ * Which day, and which 4pm, is the agency's to say. Anchored to the *browser's*
+ * clock this read back through `formatDueAt` — which has always shown the
+ * agency's — as a time nobody set, and the further the dispatcher is from the
+ * yard the further off it is.
  */
-export function toDueAt(values: AssignmentDetailValues): string | null {
-	if (values.dueTime === '' || values.assignmentDate === '') {
-		return null;
-	}
-	const [hour, minute] = values.dueTime.split(':').map(Number);
-	const parsed = parseLocalDate(values.assignmentDate);
-	if (parsed === undefined || hour === undefined || minute === undefined) {
-		return null;
-	}
-	parsed.setHours(hour, minute, 0, 0);
-	return parsed.toISOString();
-}
-
-/** The stored instant back into an `HH:MM` field value. */
-function toDueTime(dueAt: string | null): string {
-	if (dueAt === null) {
-		return '';
-	}
-	const parsed = new Date(dueAt);
-	if (Number.isNaN(parsed.getTime())) {
-		return '';
-	}
-	return `${`${parsed.getHours()}`.padStart(2, '0')}:${`${parsed.getMinutes()}`.padStart(2, '0')}`;
+export function toDueAt(values: AssignmentDetailValues, timeZone: string): string | null {
+	return localTimeAsInstant(values.assignmentDate, values.dueTime, timeZone);
 }
 
 /** A stored assignment back into the form's shape, so edit starts where create left off. */
-export function toAssignmentDetails(row: {
-	readonly assignmentName: string | null;
-	readonly assignmentDate: string;
-	readonly assignedToProfileId: string | null;
-	readonly dueAt: string | null;
-}): AssignmentDetailValues {
+export function toAssignmentDetails(
+	row: {
+		readonly assignmentName: string | null;
+		readonly assignmentDate: string;
+		readonly assignedToProfileId: string | null;
+		readonly dueAt: string | null;
+	},
+	timeZone: string,
+): AssignmentDetailValues {
 	return {
 		assignmentName: row.assignmentName ?? '',
 		assignmentDate: row.assignmentDate,
 		assignedToProfileId: row.assignedToProfileId ?? NO_ASSIGNEE,
-		dueTime: toDueTime(row.dueAt),
+		dueTime: localTimeOfDay(row.dueAt, timeZone),
 	};
 }
 

@@ -77,6 +77,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						stub: true,
 						icon: iconRegistry.generic.component.icon,
 					},
+					{
+						id: 'activity-monitor',
+						label: 'Activity Monitor',
+						to: '/activity-monitor',
+						icon: iconRegistry.entities.contact.icon,
+					},
 				],
 			},
 		],
@@ -215,6 +221,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Map',
 						to: '/adult-surveillance/traps',
 						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'traps-directory',
+						label: 'Directory',
+						to: '/adult-surveillance/trap-directory',
+						icon: iconRegistry.entities.trap.icon,
 					},
 					{
 						id: 'traps-create',

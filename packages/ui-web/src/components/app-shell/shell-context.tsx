@@ -54,6 +54,15 @@ export interface ShellContextValue {
 	 * an app that pins today for demos against a data snapshot pins it here too.
 	 */
 	readonly getToday?: () => Date;
+	/**
+	 * The zone "today" is read in — the agency's, where there is one.
+	 *
+	 * The header's date is the same operational day the rest of the app filters
+	 * by, so it has to be resolved the same way. Left undefined the browser
+	 * answers, which is right for surfaces with no agency behind them (the design
+	 * preview app, the operator console) and wrong for every agency page.
+	 */
+	readonly timeZone?: string;
 }
 
 const ShellContext = createContext<ShellContextValue | null>(null);
@@ -77,6 +86,7 @@ export function ShellProvider({
 	onNavigate,
 	onSignOut,
 	getToday,
+	timeZone,
 }: ShellProviderProps) {
 	const value = useMemo<ShellContextValue>(
 		() => ({
@@ -93,6 +103,7 @@ export function ShellProvider({
 			...(version ? { version } : {}),
 			...(onSignOut ? { onSignOut } : {}),
 			...(getToday ? { getToday } : {}),
+			...(timeZone ? { timeZone } : {}),
 		}),
 		[
 			organizations,
@@ -108,6 +119,7 @@ export function ShellProvider({
 			onNavigate,
 			onSignOut,
 			getToday,
+			timeZone,
 		],
 	);
 

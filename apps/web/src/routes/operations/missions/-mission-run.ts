@@ -5,6 +5,7 @@ import type { RouteStopFeature } from '../../../components/map';
 import { type MoveAction, type OrderPlacement, useStopOrder } from '../../../components/stop-order';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useHasRole } from '../../../hooks/use-can-write';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { type CommandRunner, useCommandRunner } from '../-command-runner';
 import {
 	addMissionItemFromRequest,
@@ -12,6 +13,7 @@ import {
 	cancelMission,
 	canEditMissionPlan,
 	canProgressMissionItems,
+	canRecordMissionStopWork,
 	canStartMission,
 	completeMission,
 	completeMissionItem,
@@ -75,6 +77,8 @@ export interface MissionRun extends MissionSelection, MissionActions {
 	readonly canComplete: boolean;
 	/** Stops may be worked: the mission is running and nothing is in flight. */
 	readonly progressEnabled: boolean;
+	/** Wider: recording is also allowed on a scheduled mission, which it starts. */
+	readonly recordEnabled: boolean;
 	/** Stops may be added, reordered, or removed. */
 	readonly planEditable: boolean;
 	readonly canAddStops: boolean;
@@ -164,9 +168,10 @@ interface MissionLabels {
 function useMissionLabels(mission: MissionView | null): MissionLabels {
 	const { nameById } = usePersonnelOptions();
 	const methodNameById = useAllControlMethodNames();
+	const timeZone = useOrganizationTimeZone();
 
 	return {
-		displayName: mission === null ? null : missionDisplayName(mission),
+		displayName: mission === null ? null : missionDisplayName(mission, timeZone),
 		assigneeName: lookup(nameById, mission?.assignedToProfileId),
 		methodName: lookup(methodNameById, mission?.plannedMethodId),
 	};
@@ -183,6 +188,7 @@ interface MissionCapabilities {
 	readonly canStart: boolean;
 	readonly canComplete: boolean;
 	readonly progressEnabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly planEditable: boolean;
 	readonly canAddStops: boolean;
 }
@@ -201,6 +207,7 @@ function missionCapabilities(input: {
 			canStart: false,
 			canComplete: false,
 			progressEnabled: false,
+			recordEnabled: false,
 			planEditable: false,
 			canAddStops: false,
 		};
@@ -211,6 +218,8 @@ function missionCapabilities(input: {
 		canStart: canStartMission(status, counts),
 		canComplete: canCompleteMission(status, counts),
 		progressEnabled: canProgressMissionItems(status) && !busy,
+		// Wider on purpose: recording auto-starts the mission.
+		recordEnabled: canRecordMissionStopWork(status) && !busy,
 		planEditable,
 		canAddStops: planEditable && input.hasOrganization && !busy,
 	};

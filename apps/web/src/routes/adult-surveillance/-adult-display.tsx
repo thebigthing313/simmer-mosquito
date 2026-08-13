@@ -1,6 +1,7 @@
 import type { SpeciesSex, SpeciesStatus, TrapRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { formatDate } from './-overview-data';
+import { todayInTimeZone } from '../../lib/local-date';
+import { formatDate, formatWeekdayDate } from './-overview-data';
 
 // --- shared labels ----------------------------------------------------------
 
@@ -24,28 +25,81 @@ export function trapDisplayName(trap: {
 }
 
 /**
- * The date a collection is anchored to, or null when genuinely pending.
+ * The calendar day a collection is anchored to, `YYYY-MM-DD`, or null when
+ * genuinely pending.
  *
- * The two timing modes store the date in different columns: `exact_timestamps`
- * keeps it in `collectedAt` (null until the trap is retrieved — a real pending
- * state), while `collection_date_duration` keeps it in `collectionDate` and
- * always leaves `collectedAt` null. Reading only `collectedAt` mislabels every
- * date+duration collection as "Pending", so fall back to `collectionDate`.
+ * The two timing modes store it in different columns: `exact_timestamps` keeps
+ * an instant in `collectedAt` (null until the trap is retrieved — a real pending
+ * state), while `collection_date_duration` keeps a plain day in `collectionDate`
+ * and always leaves `collectedAt` null. Reading only `collectedAt` mislabels
+ * every date+duration collection as "Pending", so fall back to `collectionDate`.
+ *
+ * The instant becomes a day in the *agency's* zone, matching how the server
+ * windows and orders these rows (`collectionEffectiveDateExpr`). Returning the
+ * raw timestamp let every caller take its UTC prefix, so a trap emptied at
+ * 10:30pm read as the next day on screen while the server filed it under the day
+ * the crew worked — the two halves of the same record disagreeing.
  */
-export function collectionEffectiveDate(collection: {
-	readonly collectedAt: string | null;
-	readonly collectionDate: string | null;
-}): string | null {
-	return collection.collectedAt ?? collection.collectionDate;
+export function collectionEffectiveDate(
+	collection: {
+		readonly collectedAt: string | null;
+		readonly collectionDate: string | null;
+	},
+	timeZone: string,
+): string | null {
+	const { collectedAt, collectionDate } = collection;
+	if (collectedAt === null) {
+		return collectionDate === null ? null : collectionDate.slice(0, 10);
+	}
+	const instant = new Date(collectedAt);
+	return Number.isNaN(instant.getTime())
+		? collectedAt.slice(0, 10)
+		: todayInTimeZone(timeZone, instant);
 }
 
-/** Title for a collection: its date as `M/D/YYYY`, or `Pending collection` when unretrieved. */
-export function collectionTitle(collection: {
+/**
+ * What a collection sorts by — the raw stored value, not a calendar day.
+ *
+ * Ordering does not need a zone: it only needs a key that ranks the same way for
+ * everyone, and the stored instant does that with finer resolution than the day
+ * it falls on. Separate from {@link collectionEffectiveDate} because that answers
+ * "which day is this filed under", and only that question needs the agency.
+ */
+export function collectionSortKey(collection: {
 	readonly collectedAt: string | null;
 	readonly collectionDate: string | null;
 }): string {
-	const date = collectionEffectiveDate(collection);
+	return collection.collectedAt ?? collection.collectionDate ?? '';
+}
+
+/** Title for a collection: its date as `M/D/YYYY`, or `Pending collection` when unretrieved. */
+export function collectionTitle(
+	collection: {
+		readonly collectedAt: string | null;
+		readonly collectionDate: string | null;
+	},
+	timeZone: string,
+): string {
+	const date = collectionEffectiveDate(collection, timeZone);
 	return date === null ? 'Pending collection' : formatDate(date);
+}
+
+/**
+ * A collection's date as a *row* reads it: `Wed, Aug 12, 2026`.
+ *
+ * Distinct from {@link collectionTitle}, which heads a page and a breadcrumb,
+ * where a weekday is noise. In a list the weekday is the point — a trap's run is
+ * weekly, so it says whether a gap is a missed visit or a weekend.
+ */
+export function collectionRowDate(
+	collection: {
+		readonly collectedAt: string | null;
+		readonly collectionDate: string | null;
+	},
+	timeZone: string,
+): string {
+	const date = collectionEffectiveDate(collection, timeZone);
+	return date === null ? 'Pending collection' : formatWeekdayDate(date);
 }
 
 // Shared, read-only presentation for adult-surveillance values. Mirrors the
@@ -124,6 +178,22 @@ interface CollectionFlags {
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
+	readonly collectedAt?: string | null;
+	readonly collectionTimingMode?: string;
+}
+
+/**
+ * A trap that was set and has not been emptied yet.
+ *
+ * Only exact-timestamps collections can be in this state: one recorded as a
+ * date plus a duration is by definition already in hand, and its `collectedAt`
+ * is null for a different reason entirely.
+ */
+export function isPendingCollection(collection: {
+	readonly collectedAt: string | null;
+	readonly collectionTimingMode: string;
+}): boolean {
+	return collection.collectionTimingMode === 'exact_timestamps' && collection.collectedAt === null;
 }
 
 /** The prominent result flags on a collection, in the order they should read. */
@@ -153,6 +223,16 @@ function collectionFlagList(
 	collection: CollectionFlags,
 ): readonly { readonly label: string; readonly tone: Tone }[] {
 	const flags: { readonly label: string; readonly tone: Tone }[] = [];
+	// First, because it says the record is not finished: the other three describe
+	// specimens, and a trap that is still out has none yet.
+	if (
+		isPendingCollection({
+			collectedAt: collection.collectedAt ?? null,
+			collectionTimingMode: collection.collectionTimingMode ?? '',
+		})
+	) {
+		flags.push({ label: 'Trap out', tone: 'info' });
+	}
 	if (collection.hasProblem) {
 		flags.push({ label: 'Problem reported', tone: 'danger' });
 	}

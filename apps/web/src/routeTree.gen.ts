@@ -18,6 +18,7 @@ import { Route as MyOrganizationRouteImport } from './routes/my-organization'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as ChangelogRouteImport } from './routes/changelog'
+import { Route as ActivityMonitorRouteImport } from './routes/activity-monitor'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicEngagementIndexRouteImport } from './routes/public-engagement/index'
@@ -35,6 +36,7 @@ import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-or
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as GisDataExplorerRouteImport } from './routes/gis/data-explorer'
 import { Route as ControlOperationsResistanceMonitoringRouteImport } from './routes/control-operations/resistance-monitoring'
+import { Route as AdultSurveillanceTrapDirectoryRouteImport } from './routes/adult-surveillance/trap-directory'
 import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes/adult-surveillance/collection-methods'
 import { Route as AdultSurveillanceArbovirusSurveillanceRouteImport } from './routes/adult-surveillance/arbovirus-surveillance'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
@@ -175,6 +177,11 @@ const ChangelogRoute = ChangelogRouteImport.update({
   path: '/changelog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivityMonitorRoute = ActivityMonitorRouteImport.update({
+  id: '/activity-monitor',
+  path: '/activity-monitor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
   id: '/accept-invitation',
   path: '/accept-invitation',
@@ -265,6 +272,12 @@ const ControlOperationsResistanceMonitoringRoute =
   ControlOperationsResistanceMonitoringRouteImport.update({
     id: '/control-operations/resistance-monitoring',
     path: '/control-operations/resistance-monitoring',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdultSurveillanceTrapDirectoryRoute =
+  AdultSurveillanceTrapDirectoryRouteImport.update({
+    id: '/adult-surveillance/trap-directory',
+    path: '/adult-surveillance/trap-directory',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AdultSurveillanceCollectionMethodsRoute =
@@ -818,6 +831,7 @@ const AdultSurveillanceTrapsRoutesIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/activity-monitor': typeof ActivityMonitorRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
@@ -830,6 +844,7 @@ export interface FileRoutesByFullPath {
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
@@ -940,6 +955,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/activity-monitor': typeof ActivityMonitorRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
@@ -951,6 +967,7 @@ export interface FileRoutesByTo {
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
@@ -1062,6 +1079,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/activity-monitor': typeof ActivityMonitorRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
@@ -1074,6 +1092,7 @@ export interface FileRoutesById {
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
@@ -1186,6 +1205,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accept-invitation'
+    | '/activity-monitor'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
@@ -1198,6 +1218,7 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
@@ -1308,6 +1329,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accept-invitation'
+    | '/activity-monitor'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
@@ -1319,6 +1341,7 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
@@ -1429,6 +1452,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accept-invitation'
+    | '/activity-monitor'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
@@ -1441,6 +1465,7 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
@@ -1552,6 +1577,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcceptInvitationRoute: typeof AcceptInvitationRoute
+  ActivityMonitorRoute: typeof ActivityMonitorRoute
   ChangelogRoute: typeof ChangelogRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LandingRoute: typeof LandingRoute
@@ -1564,6 +1590,7 @@ export interface RootRouteChildren {
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
   AdultSurveillanceArbovirusSurveillanceRoute: typeof AdultSurveillanceArbovirusSurveillanceRoute
   AdultSurveillanceCollectionMethodsRoute: typeof AdultSurveillanceCollectionMethodsRoute
+  AdultSurveillanceTrapDirectoryRoute: typeof AdultSurveillanceTrapDirectoryRoute
   ControlOperationsResistanceMonitoringRoute: typeof ControlOperationsResistanceMonitoringRoute
   GisDataExplorerRoute: typeof GisDataExplorerRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
@@ -1728,6 +1755,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChangelogRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity-monitor': {
+      id: '/activity-monitor'
+      path: '/activity-monitor'
+      fullPath: '/activity-monitor'
+      preLoaderRoute: typeof ActivityMonitorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/accept-invitation': {
       id: '/accept-invitation'
       path: '/accept-invitation'
@@ -1845,6 +1879,13 @@ declare module '@tanstack/react-router' {
       path: '/control-operations/resistance-monitoring'
       fullPath: '/control-operations/resistance-monitoring'
       preLoaderRoute: typeof ControlOperationsResistanceMonitoringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/trap-directory': {
+      id: '/adult-surveillance/trap-directory'
+      path: '/adult-surveillance/trap-directory'
+      fullPath: '/adult-surveillance/trap-directory'
+      preLoaderRoute: typeof AdultSurveillanceTrapDirectoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/adult-surveillance/collection-methods': {
@@ -2548,6 +2589,7 @@ const AdminOrganizationsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
+  ActivityMonitorRoute: ActivityMonitorRoute,
   ChangelogRoute: ChangelogRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LandingRoute: LandingRoute,
@@ -2562,6 +2604,7 @@ const rootRouteChildren: RootRouteChildren = {
     AdultSurveillanceArbovirusSurveillanceRoute,
   AdultSurveillanceCollectionMethodsRoute:
     AdultSurveillanceCollectionMethodsRoute,
+  AdultSurveillanceTrapDirectoryRoute: AdultSurveillanceTrapDirectoryRoute,
   ControlOperationsResistanceMonitoringRoute:
     ControlOperationsResistanceMonitoringRoute,
   GisDataExplorerRoute: GisDataExplorerRoute,

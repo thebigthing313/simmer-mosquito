@@ -386,9 +386,9 @@ redeploy, and that it is deliberately *not* server-side — enforced in
 who genuinely holds an agency membership still needs to choose.
 
 It does **not** need a Mapbox token: the console has no maps by design (see
-`apps/admin/src/components/geometry-input.tsx` — geometry comes from KML/GeoJSON
-files and typed coordinates, so `mapbox-gl` stays out of a bundle that would
-otherwise pay 1.7 MB for it).
+`apps/admin/src/components/geometry-input.tsx` — geometry comes from
+KML/KMZ/GeoJSON files and typed coordinates, so `mapbox-gl` stays out of a
+bundle that would otherwise pay 1.7 MB for it).
 
 Enable **Serverless** on this service (Railway Settings → Serverless; the API
 field is `sleepApplication`). It is a good fit and a poor one for the others:
@@ -526,6 +526,16 @@ shell in production.
 - Env-var changes on a Railway service are separate from code deploys — set them
   via the Railway dashboard/CLI (`railway variables --set …`) or MCP; they don't
   come from the repo.
+
+**The rot gates do not gate deploys, on purpose.** `fallow dead-code`, `fallow
+dupes`, and `fallow:health` run in `ci.yml`, and `verify` here runs typecheck,
+test, and build — it never consults them. Duplication and complexity are read as
+"did this branch make it worse" against where the workspace already is, and a
+threshold judgement about the shape of the code is not a reason to refuse a
+release to an agency that is waiting on a fix. The cost is that a red CI on
+`main` does not stop anything shipping, which is how #136 sat red across several
+green production deploys: read a red `main` as work owed, not as a broken
+release, and check which job failed before treating it as either.
 
 The separate DB migration workflow (`db-migrate.yml`) remains available for
 targeted migration retries. `workflow_dispatch` on the deploy workflow allows a

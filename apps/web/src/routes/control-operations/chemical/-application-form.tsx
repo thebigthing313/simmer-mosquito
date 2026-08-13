@@ -43,11 +43,16 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	validationLocationSource,
+} from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
 import { webCollections } from '../../../sync/webCollections';
-import { insecticideDisplayName, todayDateValue } from '../-control-display';
+import { insecticideDisplayName } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 import {
@@ -189,14 +194,14 @@ export interface ApplicationFormPageProps {
 	}) => Promise<void>;
 }
 
-export function defaultApplicationFormValues(): ApplicationFormValues {
+export function defaultApplicationFormValues(timeZone: string): ApplicationFormValues {
 	return {
 		productMode: 'insecticide',
 		insecticideId: '',
 		formulationId: '',
 		amountApplied: null,
 		applicationUnitId: '',
-		applicationDate: todayDateValue(),
+		applicationDate: todayInTimeZone(timeZone),
 		applicationMethodId: noSelectionValue,
 		applicatorProfileId: noSelectionValue,
 		additionalPersonnelIds: [],
@@ -370,10 +375,7 @@ export function ApplicationFormPage({
 		defaultValues,
 		validators: {
 			onSubmit: ({ value }: { readonly value: ApplicationFormValues }) => {
-				const locationSource = {
-					kind: 'geometry',
-					geometry: (geometry ?? null) as never,
-				} as const;
+				const locationSource = validationLocationSource(geometry, requireLocation);
 				const shared = {
 					...FORM_VALIDATION_CONTEXT,
 					locationSource,

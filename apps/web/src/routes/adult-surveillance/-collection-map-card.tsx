@@ -10,6 +10,7 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../components/map/map-card';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { webCollections } from '../../sync/webCollections';
 import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from './-adult-display';
 
@@ -71,6 +72,7 @@ export function CollectionMapCard({
 		[methodId],
 	);
 	const method = methodResult.data as CollectionMethodRow | undefined;
+	const timeZone = useOrganizationTimeZone();
 
 	if (collection === undefined) {
 		return (
@@ -90,7 +92,7 @@ export function CollectionMapCard({
 				? 'Collection'
 				: trapDisplayName(trap);
 	const methodName = method?.name ?? 'Unknown method';
-	const effectiveDate = collectionEffectiveDate(collection);
+	const effectiveDate = collectionEffectiveDate(collection, timeZone);
 
 	return (
 		<MapCard

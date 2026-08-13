@@ -1,6 +1,6 @@
 import { type AddressRow, createRowPayloadMapper } from '@simmer-mosquito/sync';
 import { isNoOpUpdate } from './change-set';
-import { commandErrorFrom } from './command-error';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 const mapAddressPayload = createRowPayloadMapper<AddressRow>([
 	'id',
@@ -144,7 +144,7 @@ async function writeAddress(
 		},
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
-	const result = (await response.json()) as
+	const result = (await readResponseBody(response)) as
 		| AddressMutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 

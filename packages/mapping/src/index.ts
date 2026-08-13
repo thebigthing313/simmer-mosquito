@@ -59,6 +59,7 @@ export {
 	collectImportGroups,
 	declareMissingNamespaces,
 	flattenGeometries,
+	IMPORT_FILE_ACCEPT,
 	importCandidatesFrom,
 	importVertexCount,
 	isWgs84Geometry,
@@ -66,6 +67,7 @@ export {
 	POLYGON_KINDS,
 	parseGeoJsonGroups,
 	parseKmlCoordinates,
+	readImportFileText,
 } from './geometry-import.js';
 export type { MeasurementSystem } from './measurement.js';
 export {

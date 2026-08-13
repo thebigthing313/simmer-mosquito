@@ -61,6 +61,7 @@ import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
+import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import { webCollections } from '../sync/webCollections';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
@@ -393,9 +394,10 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 }
 
 function AuditValue({ at, profileId }: { readonly at: string; readonly profileId: string | null }) {
+	const timeZone = useOrganizationTimeZone();
 	return (
 		<span>
-			{formatDateTime(at)}
+			{formatDateTime(at, timeZone)}
 			{profileId === null ? null : (
 				<>
 					{' by '}
@@ -1230,9 +1232,20 @@ function formatSampleResult(sample: HistorySample): string {
 	return 'Larvae present';
 }
 
+/**
+ * A calendar-date column — an inspection date, an application date — as itself.
+ *
+ * These are days, not instants, and reading one with `new Date` made it one: a
+ * bare `YYYY-MM-DD` parses as UTC midnight, which renders as the *previous* day
+ * everywhere west of Greenwich. So the parts are read out and put back together
+ * in UTC, where the day cannot move.
+ */
 function formatDate(value: string): string {
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
+	const parts = value.slice(0, 10).split('-');
+	const year = Number(parts[0]);
+	const month = Number(parts[1]);
+	const day = Number(parts[2]);
+	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
 		return 'Unknown';
 	}
 
@@ -1240,7 +1253,8 @@ function formatDate(value: string): string {
 		day: 'numeric',
 		month: 'short',
 		year: 'numeric',
-	}).format(date);
+		timeZone: 'UTC',
+	}).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 // Trim trailing zeros from stored decimals (e.g. 2.50 -> 2.5) while keeping whole
@@ -1253,7 +1267,7 @@ function formatAmount(value: number): string {
 	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value);
 }
 
-function formatDateTime(value: string): string {
+function formatDateTime(value: string, timeZone: string | undefined): string {
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) {
 		return 'Unknown';
@@ -1265,5 +1279,6 @@ function formatDateTime(value: string): string {
 		year: 'numeric',
 		hour: 'numeric',
 		minute: '2-digit',
+		...(timeZone === undefined ? {} : { timeZone }),
 	}).format(date);
 }

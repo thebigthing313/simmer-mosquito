@@ -16,7 +16,22 @@ import {
 	validateTrapLocationSource,
 } from '../location-intent.js';
 import type { UnitType } from '../organization-settings/types-and-defaults.js';
-import type { DomainId, DomainValidationIssue, JsonObject, LocalDateString } from '../shared.js';
+import type { DomainId, DomainValidationIssue, JsonObject } from '../shared.js';
+import { validateOperationalDate } from '../surveillance-records.js';
+
+export type {
+	CollectedCollectionTiming,
+	CollectionTiming,
+	CollectionTimingMode,
+	DateDurationCollectionTiming,
+	ExactCollectedCollectionTiming,
+	ExactPendingCollectionTiming,
+} from '../surveillance-records.js';
+export {
+	validateCollectedTiming,
+	validateOperationalDate,
+	validateTiming,
+} from '../surveillance-records.js';
 
 export type AdultSurveillanceCommandType =
 	| 'adultSurveillance.createTrap'
@@ -41,8 +56,6 @@ export type AdultSurveillanceCommandType =
 	| 'adultSurveillance.clearCollectionZeroResult'
 	| 'adultSurveillance.setCollectionBycatch';
 
-export type CollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
-
 export interface DomainCommand<TType extends AdultSurveillanceCommandType, TPayload> {
 	readonly type: TType;
 	readonly payload: TPayload;
@@ -57,33 +70,6 @@ export interface AdultCommandPayload {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 }
-
-export interface ExactPendingCollectionTiming {
-	readonly mode: 'exact_timestamps';
-	readonly startedAt: Date;
-}
-
-export interface ExactCollectedCollectionTiming {
-	readonly mode: 'exact_timestamps';
-	readonly startedAt: Date;
-	readonly collectedAt: Date;
-}
-
-export interface DateDurationCollectionTiming {
-	readonly mode: 'collection_date_duration';
-	readonly collectionDate: LocalDateString;
-	readonly durationAmount: number;
-	readonly durationUnitId: DomainId;
-}
-
-export type CollectionTiming =
-	| ExactPendingCollectionTiming
-	| ExactCollectedCollectionTiming
-	| DateDurationCollectionTiming;
-
-export type CollectedCollectionTiming =
-	| ExactCollectedCollectionTiming
-	| DateDurationCollectionTiming;
 
 export interface CollectionBaseInput extends AdultCommandInput {
 	readonly collectionId: DomainId;
@@ -126,82 +112,6 @@ export function validateSpeciesCountBase(input: {
 	validateBase(input, issues);
 	requireUuid(input.collectionSpeciesId, 'collectionSpeciesId', issues);
 	return issues;
-}
-
-export function validateTiming(
-	timing: CollectionTiming | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): CollectionTiming | undefined {
-	if (timing === undefined) {
-		return undefined;
-	}
-	if (timing.mode === 'collection_date_duration') {
-		return validateDateDurationTiming(timing, path, issues);
-	}
-	validateOperationalDate(timing.startedAt, `${path}.startedAt`, issues);
-	if ('collectedAt' in timing) {
-		validateCollectedAtAfterStartedAt(timing.startedAt, timing.collectedAt, path, issues);
-		return {
-			mode: 'exact_timestamps',
-			startedAt: timing.startedAt,
-			collectedAt: timing.collectedAt,
-		};
-	}
-	return { mode: 'exact_timestamps', startedAt: timing.startedAt };
-}
-
-export function validateCollectedTiming(
-	timing: CollectedCollectionTiming,
-	path: string,
-	issues: DomainValidationIssue[],
-): CollectedCollectionTiming {
-	if (timing.mode === 'collection_date_duration') {
-		return validateDateDurationTiming(timing, path, issues);
-	}
-	validateCollectedAtAfterStartedAt(timing.startedAt, timing.collectedAt, path, issues);
-	return {
-		mode: 'exact_timestamps',
-		startedAt: timing.startedAt,
-		collectedAt: timing.collectedAt,
-	};
-}
-
-function validateDateDurationTiming(
-	timing: DateDurationCollectionTiming,
-	path: string,
-	issues: DomainValidationIssue[],
-): DateDurationCollectionTiming {
-	validateNotFutureLocalDate(timing.collectionDate, `${path}.collectionDate`, issues);
-	if (!Number.isFinite(timing.durationAmount) || timing.durationAmount <= 0) {
-		issues.push({
-			path: `${path}.durationAmount`,
-			message: 'durationAmount must be greater than zero.',
-		});
-	}
-	requireUuid(timing.durationUnitId, `${path}.durationUnitId`, issues);
-	return {
-		mode: 'collection_date_duration',
-		collectionDate: timing.collectionDate,
-		durationAmount: timing.durationAmount,
-		durationUnitId: normalizeRequiredId(timing.durationUnitId),
-	};
-}
-
-function validateCollectedAtAfterStartedAt(
-	startedAt: Date,
-	collectedAt: Date,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	validateOperationalDate(startedAt, `${path}.startedAt`, issues);
-	validateOperationalDate(collectedAt, `${path}.collectedAt`, issues);
-	if (isValidDate(startedAt) && isValidDate(collectedAt) && collectedAt < startedAt) {
-		issues.push({
-			path: `${path}.collectedAt`,
-			message: 'collectedAt must be greater than or equal to startedAt.',
-		});
-	}
 }
 
 export function validateTrapDisplay(
@@ -260,20 +170,6 @@ export function validateSpeciesCount(
 ): void {
 	if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) {
 		issues.push({ path, message: 'count must be a positive integer.' });
-	}
-}
-
-export function validateOperationalDate(
-	value: Date | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	if (!isValidDate(value)) {
-		issues.push({ path, message: `${path} must be a valid Date.` });
-		return;
-	}
-	if (isFutureBeyondClockSkew(value)) {
-		issues.push({ path, message: `${path} cannot be in the future.` });
 	}
 }
 

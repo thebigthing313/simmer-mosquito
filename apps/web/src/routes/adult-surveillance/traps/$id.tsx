@@ -67,12 +67,14 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	aggregateSpeciesDistribution,
 	CollectionFlagBadges,
 	collectionEffectiveDate,
-	collectionTitle,
+	collectionRowDate,
+	collectionSortKey,
 	SpeciesDistributionBars,
 	trapDisplayName,
 } from '../-adult-display';
@@ -321,6 +323,7 @@ function TrapCollectionsList({
 	readonly isError: boolean;
 	readonly trapId: string;
 }) {
+	const timeZone = useOrganizationTimeZone();
 	const pageCount = Math.max(1, Math.ceil(collections.length / collectionsPageSize));
 	const [page, setPage] = useState(0);
 	// Reset to the first page when navigating to a different trap — this card's
@@ -383,7 +386,7 @@ function TrapCollectionsList({
 										params={{ id: collection.id }}
 										to="/adult-surveillance/collections/$id"
 									>
-										{collectionTitle(collection)}
+										{collectionRowDate(collection, timeZone)}
 									</Link>
 								</TableCell>
 								<TableCell>
@@ -437,7 +440,8 @@ function TrapSpeciesDistribution({
 		[species],
 	);
 
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const [from, setFrom] = useState('');
 	const [to, setTo] = useState('');
 	const hasRange = from !== '' || to !== '';
@@ -463,16 +467,9 @@ function TrapSpeciesDistribution({
 	const activePresetId = useMemo(() => activeDatePresetId(from, to, today), [from, to, today]);
 
 	const { distribution, matchedCollections } = useMemo(() => {
-		const inRange = collections.filter((collection) => {
-			const date = collectionEffectiveDate(collection)?.slice(0, 10) ?? null;
-			if (from !== '' && (date === null || date < from)) {
-				return false;
-			}
-			if (to !== '' && (date === null || date > to)) {
-				return false;
-			}
-			return true;
-		});
+		const inRange = collections.filter((collection) =>
+			withinDateRange(collectionEffectiveDate(collection, timeZone), from, to),
+		);
 		// Statistics count female mosquitoes only (matching the collections table),
 		// and exclude the unidentified placeholder taxon.
 		const specimens = inRange.flatMap((collection) =>
@@ -484,7 +481,7 @@ function TrapSpeciesDistribution({
 			distribution: aggregateSpeciesDistribution(specimens, nameById),
 			matchedCollections: inRange.length,
 		};
-	}, [collections, nameById, from, to, unidentifiedSpeciesIds]);
+	}, [collections, nameById, from, to, timeZone, unidentifiedSpeciesIds]);
 
 	return (
 		<div className="grid gap-4">
@@ -700,12 +697,26 @@ function TrapDetailSkeleton() {
 }
 
 /**
+ * Inside `[from, to]`, where an empty bound is no bound at all.
+ *
+ * An undated collection falls outside any bound that is set: a trap still out
+ * has no day to be inside a window, and showing it in one would count work that
+ * has not happened yet.
+ */
+function withinDateRange(date: string | null, from: string, to: string): boolean {
+	if (from !== '' && (date === null || date < from)) {
+		return false;
+	}
+	return !(to !== '' && (date === null || date > to));
+}
+
+/**
  * Most-recent-first by effective date (collectedAt, falling back to the
  * scheduled collectionDate for pending collections). Undated rows sort last.
  */
 function compareByCollectedDesc(a: TrapCollectionEntry, b: TrapCollectionEntry): number {
-	const aDate = collectionEffectiveDate(a);
-	const bDate = collectionEffectiveDate(b);
+	const aDate = collectionSortKey(a) === '' ? null : collectionSortKey(a);
+	const bDate = collectionSortKey(b) === '' ? null : collectionSortKey(b);
 	if (aDate === bDate) {
 		return 0;
 	}

@@ -24,6 +24,8 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas, type OutreachTileFilters } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../../lib/local-date';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -32,7 +34,7 @@ import {
 	useSearchFilters,
 } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
-import { nameById, todayDateValue } from '../../control-operations/-control-display';
+import { nameById } from '../../control-operations/-control-display';
 import { addDaysToDateString } from '../../control-operations/-overview-data';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { OutreachMapCard } from '../-outreach-map-card';
@@ -76,7 +78,8 @@ const RESULT_NOUN = { one: 'action', many: 'actions' };
 const PATH = '/map/outreach';
 
 function OutreachExplorerRoute() {
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const defaultFrom = useMemo(
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],

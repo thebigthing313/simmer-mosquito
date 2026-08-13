@@ -73,7 +73,10 @@ export type MissionRejection =
 	| 'mission_item_completed'
 	| 'mission_item_not_completed'
 	| 'mission_item_not_skipped'
-	| 'mission_item_progress_before_start';
+	| 'mission_item_progress_before_start'
+	| 'mission_item_wrong_control_type'
+	| 'mission_item_requested_action_mismatch'
+	| 'mission_geometry_not_covered';
 
 /**
  * What to tell the person who tried.
@@ -103,7 +106,18 @@ const REJECTION_REASONS: Record<MissionRejection, string> = {
 	mission_item_not_skipped: 'This stop was not skipped.',
 	mission_item_progress_before_start:
 		'This stop is dated before the mission started. Check the mission start time.',
+	mission_item_wrong_control_type: 'This mission is not for the kind of work you are recording.',
+	mission_item_requested_action_mismatch:
+		'This record cites a different requested action than the stop does.',
+	mission_geometry_not_covered: 'The work recorded does not cover the area this stop names.',
 };
+
+/** Throw the documented refusal, or return. Shared by the execution helpers. */
+export function rejectMission(rejection: MissionRejection | null): void {
+	if (rejection !== null) {
+		throw new CommandError(400, { error: rejection, reason: REJECTION_REASONS[rejection] });
+	}
+}
 
 export function readMissionState(row: {
 	readonly started_at: Date | null;
@@ -194,6 +208,15 @@ export interface MissionItemProgressContext {
 	 */
 	readonly autoStart: boolean;
 	readonly timing: ProgressTiming;
+	/**
+	 * The crew has said it means to record a second action against a stop that is
+	 * already completed — a mission stop treated twice in a day, say. Only
+	 * execution sets it: an ordinary `complete` on a completed stop is the no-op
+	 * the precondition table refuses, while a second *record* is real work whose
+	 * stop happens to be closed. The assignment side spells the same rule out in
+	 * `checkExecution`.
+	 */
+	readonly acknowledgedCompletedItemAdditionalAction?: boolean;
 }
 
 /**
@@ -233,7 +256,13 @@ export function checkMissionItemProgress(
 	}
 
 	const itemRejection = ITEM_PRECONDITIONS[command][item];
-	if (itemRejection !== undefined) {
+	if (
+		itemRejection !== undefined &&
+		!(
+			itemRejection === 'mission_item_already_completed' &&
+			context.acknowledgedCompletedItemAdditionalAction === true
+		)
+	) {
 		return itemRejection;
 	}
 
@@ -352,6 +381,8 @@ export async function assertMissionItemProgress(
 		readonly progressAt: Date | null;
 		/** The command's `autoStartMission`; false for the commands that lack it. */
 		readonly autoStart: boolean;
+		/** Execution only: a second action against an already-completed stop. */
+		readonly acknowledgedCompletedItemAdditionalAction?: boolean;
 	},
 ): Promise<{ readonly missionId: string; readonly snapshot: MissionSnapshot }> {
 	const item = await trx
@@ -371,6 +402,8 @@ export async function assertMissionItemProgress(
 	}
 
 	const rejection = checkMissionItemProgress(command, snapshot.state, readMissionItemState(item), {
+		acknowledgedCompletedItemAdditionalAction:
+			options.acknowledgedCompletedItemAdditionalAction === true,
 		autoStart: options.autoStart,
 		timing: { progressAt: options.progressAt, startedAt: snapshot.startedAt },
 	});

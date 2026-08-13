@@ -1,4 +1,3 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type {
 	ControlMethodRow,
 	ProfileRow,
@@ -13,9 +12,12 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -29,7 +31,10 @@ export const Route = createFileRoute('/control-operations/source-reduction/creat
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...missionStopSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/control-operations/source-reduction' });
@@ -40,8 +45,13 @@ export const Route = createFileRoute('/control-operations/source-reduction/creat
 
 function CreateSourceReductionRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
+	// Recorded off a mission stop: the server links the action to the stop and
+	// completes it in the same transaction.
+	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
+	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(
 		webCollections.sourceReductionMethods,
@@ -59,95 +69,99 @@ function CreateSourceReductionRoute() {
 	useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReductionId });
 
 	const onSave = useCallback(
-		async ({ values, geometry }: SourceReductionSaveInput) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			if (geometry === null) {
-				throw new Error('Place the point where the sources were eliminated.');
-			}
-			if (values.sourcesEliminatedAmount === null) {
-				throw new Error('Enter how many sources were eliminated.');
-			}
+		async (input: SourceReductionSaveInput) =>
+			mission.run(async (acknowledgements) => {
+				const { values, geometry } = input;
+				if (organization === null) {
+					throw new Error('Organization details are still loading.');
+				}
+				if (actorProfileId === null) {
+					throw new Error('Your profile is still loading.');
+				}
+				if (values.sourcesEliminatedAmount === null) {
+					throw new Error('Enter how many sources were eliminated.');
+				}
 
-			// The point is the action's authoritative geometry; the address and habitat
-			// (if any) are reference only. The server recomputes geom from the location
-			// source; this centroid seeds the optimistic row so the map/coordinates show
-			// immediately.
-			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine the source reduction location.');
-			}
+				// The point is the action's authoritative geometry; the address and habitat
+				// (if any) are reference only. Off a mission stop it is required; on one it
+				// is an override the crew may not have drawn, and the server falls back to
+				// the stop's own ground.
+				const location = mission.resolveLocation(geometry, {
+					missing: 'Place the point where the sources were eliminated.',
+					unresolvable: 'Unable to determine the source reduction location.',
+				});
 
-			const now = new Date().toISOString();
-			const row: SourceReductionRow = {
-				id: sourceReductionId,
-				organizationId: organization.id,
-				lat: centroid.lat,
-				lng: centroid.lng,
-				geomType: centroid.geomType,
-				sourceReductionMethodId: values.sourceReductionMethodId,
-				technicianProfileId:
-					values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-				sourceReductionDate: values.sourceReductionDate,
-				addressId: values.addressId,
-				habitatId: values.habitatId,
-				sourcesEliminatedAmount: values.sourcesEliminatedAmount,
-				sourcesEliminatedUnitId: values.sourcesEliminatedUnitId,
-				inspectionId: null,
-				requestedControlActionId: null,
-				missionItemId: null,
-				metadata: values.metadata,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-
-			const locationSource = {
-				kind: 'geometry',
-				geometry: geometry as unknown as GeoJsonGeometry,
-			} as const;
-
-			const transaction = webCollections.sourceReductions.insert(row, {
-				metadata: { locationSource },
-			});
-			await settleWrite(transaction);
-			// Crew rows reference the action, so they can only be written once it exists.
-			await attachLinksBestEffort('the additional personnel', () =>
-				saveAdditionalPersonnel({
-					target: { type: 'sourceReduction', id: row.id },
+				const now = new Date().toISOString();
+				const row: SourceReductionRow = {
+					id: sourceReductionId,
 					organizationId: organization.id,
-					actorProfileId,
-					existing: [],
-					profileIds: values.additionalPersonnelIds,
-				}),
-			);
-			await navigate({ to: '/control-operations/source-reduction/$id', params: { id: row.id } });
-		},
-		[organization, actorProfileId, sourceReductionId, navigate],
+					lat: location.lat,
+					lng: location.lng,
+					geomType: location.geomType,
+					sourceReductionMethodId: values.sourceReductionMethodId,
+					technicianProfileId:
+						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+					sourceReductionDate: values.sourceReductionDate,
+					addressId: values.addressId,
+					habitatId: values.habitatId,
+					sourcesEliminatedAmount: values.sourcesEliminatedAmount,
+					sourcesEliminatedUnitId: values.sourcesEliminatedUnitId,
+					inspectionId: null,
+					requestedControlActionId: null,
+					missionItemId: mission.missionItemId,
+					metadata: values.metadata,
+					createdByProfileId: actorProfileId,
+					updatedByProfileId: actorProfileId,
+					createdAt: now,
+					updatedAt: now,
+				};
+
+				await settleWrite(
+					webCollections.sourceReductions.insert(row, {
+						metadata: { acknowledgements, locationSource: location.locationSource },
+					}),
+				);
+				// Crew rows reference the action, so they can only be written once it exists.
+				await attachLinksBestEffort('the additional personnel', () =>
+					saveAdditionalPersonnel({
+						target: { type: 'sourceReduction', id: row.id },
+						organizationId: organization.id,
+						actorProfileId,
+						existing: [],
+						profileIds: values.additionalPersonnelIds,
+					}),
+				);
+				await mission.navigateAfterSave(async () => {
+					await navigate({
+						to: '/control-operations/source-reduction/$id',
+						params: { id: row.id },
+					});
+				});
+			}),
+		[organization, actorProfileId, sourceReductionId, navigate, mission],
 	);
 
 	return (
-		<SourceReductionFormPage
-			canSubmit={canSubmit}
-			defaultValues={defaultSourceReductionFormValues()}
-			header={{
-				title: 'Record Source Reduction',
-				description: 'Place the point, then record what the crew eliminated, how much, and when.',
-				backTo: '/control-operations/source-reduction',
-				backLabel: 'Source Reduction',
-			}}
-			methods={methods}
-			initialGeometry={initialGeometry}
-			onSave={onSave}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			submitLabel="Record Source Reduction"
-			units={units}
-		/>
+		<>
+			<SourceReductionFormPage
+				canSubmit={canSubmit}
+				defaultValues={defaultSourceReductionFormValues(timeZone)}
+				header={{
+					title: 'Record Source Reduction',
+					description: 'Place the point, then record what the crew eliminated, how much, and when.',
+					backTo: '/control-operations/source-reduction',
+					backLabel: 'Source Reduction',
+				}}
+				methods={methods}
+				initialGeometry={initialGeometry}
+				requireLocation={mission.requireLocation}
+				onSave={onSave}
+				organizationId={organization?.id ?? ''}
+				profiles={profiles}
+				submitLabel="Record Source Reduction"
+				units={units}
+			/>
+			{mission.dialog}
+		</>
 	);
 }

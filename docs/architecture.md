@@ -76,7 +76,8 @@ split as the web app — `useLiveQuery` over Electric-backed collections for the
 global catalogs, `useQuery` for the operator-scoped `/admin/*` JSON endpoints,
 which are not tenant-scoped and so have no shape to authorize. The console
 deliberately carries no map: geometry for the foundation endpoints comes from
-KML/GeoJSON files and typed coordinates, keeping `mapbox-gl` out of its bundle.
+KML/KMZ/GeoJSON files and typed coordinates, keeping `mapbox-gl` out of its
+bundle.
 
 Access is all-or-nothing, unlike the web app's role ladder: the server's
 `SIMMER_OPERATOR_EMAILS` allowlist admits an account to every `/admin/*`

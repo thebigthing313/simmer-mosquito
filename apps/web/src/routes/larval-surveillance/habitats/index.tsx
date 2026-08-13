@@ -1,12 +1,10 @@
 import type { HabitatRow, HabitatTypeRow, TagRow } from '@simmer-mosquito/sync';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	AlertTriangleIcon,
 	CheckCircle2Icon,
 	CircleIcon,
-	SearchIcon,
-	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -211,7 +209,12 @@ function HabitatsExplorerRoute() {
 		>
 			<div className="flex h-full min-h-0 flex-col">
 				<ExplorerHeader isLoading={isLoading} title="Habitats" total={total}>
-					<SearchField value={searchInput} onChange={setSearchInput} />
+					<SearchField
+						label="Search habitats by name or description"
+						onChange={setSearchInput}
+						placeholder="Search name or description…"
+						value={searchInput}
+					/>
 
 					<div className="grid gap-2">
 						<SegmentedFilter
@@ -306,41 +309,6 @@ const ACCESS_OPTIONS: readonly { readonly value: AccessFilter; readonly label: s
 	{ value: 'accessible', label: 'Accessible' },
 	{ value: 'inaccessible', label: 'Inaccessible' },
 ];
-
-function SearchField({
-	value,
-	onChange,
-}: {
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="relative">
-			<SearchIcon
-				aria-hidden="true"
-				className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-			/>
-			<Input
-				aria-label="Search habitats by name or description"
-				className="pl-9"
-				onChange={(event) => onChange(event.target.value)}
-				placeholder="Search name or description…"
-				type="search"
-				value={value}
-			/>
-			{value.length > 0 ? (
-				<button
-					aria-label="Clear search"
-					className="-translate-y-1/2 absolute top-1/2 right-2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					onClick={() => onChange('')}
-					type="button"
-				>
-					<XIcon aria-hidden="true" className="size-3.5" />
-				</button>
-			) : null}
-		</div>
-	);
-}
 
 function ActiveFilters({
 	status,

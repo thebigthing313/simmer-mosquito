@@ -96,7 +96,9 @@ pnpm --filter @simmer-mosquito/db test
 pnpm --filter @simmer-mosquito/server test
 ```
 
-Each test builds a throwaway `simmer_test_*` schema, applies every migration into it, and drops it afterwards — `public` is never touched. Against a remote database that is ~10s per test, so `describeDbIntegration` sets its own long timeout; do not run these suites under vitest's default. Without `TEST_DATABASE_URL` they **skip silently**, so a green `pnpm test` does not mean they ran.
+Each test builds a throwaway `simmer_test_*` schema, applies every migration into it as a single query, and drops it afterwards — `public` is never touched. Against a remote database that is ~9s per test, so `describeDbIntegration` sets its own 45s timeout; do not run these suites under vitest's default. Without `TEST_DATABASE_URL` they **skip silently**, so a green `pnpm test` does not mean they ran.
+
+CI does not use staging for this. The `Database integration tests` job runs a `postgis/postgis:17-3.5` service container — the version staging runs — and points `TEST_DATABASE_URL` at loopback, so nothing CI does reaches the database your dev server is talking to.
 
 **Local dev backends:** `apps/server` + frontends run locally; Postgres + Electric come from the Railway `staging` environment (`.env`/`apps/server/.env` point `DATABASE_URL`/`ELECTRIC_URL`/`ELECTRIC_SECRET` at staging). There is no local Docker Postgres. See `docs/deployment.md` → "Local development". Deploys are gated on `pnpm test` passing (`verify` job) — keep tests green or nothing deploys; pushing `main` is a production release.
 
@@ -104,7 +106,7 @@ Each test builds a throwaway `simmer_test_*` schema, applies every migration int
 
 Authoritative docs (read before non-trivial work):
 - `docs/architecture.md` — full system shape.
-- `docs/adr/` — accepted architecture decisions (0001–0009); read the relevant ADR before changing auth, sync, identity, tenancy, or DB layering.
+- `docs/adr/` — accepted architecture decisions (0001–0012); read the relevant ADR before changing auth, sync, identity, tenancy, DB layering, or field-work provenance.
 - `CONTEXT.md` — domain glossary (load often); `docs/*-domain.md` — per-domain command vocabulary.
 - `docs/sync.md` — the table-level Electric/TanStack DB sync matrix (eager vs on-demand per table).
 - `docs/domain-command-contract.md` — command/validation/offline rules.

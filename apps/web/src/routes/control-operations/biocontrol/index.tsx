@@ -25,6 +25,8 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type BiocontrolTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../../lib/local-date';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -36,7 +38,7 @@ import {
 import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { BiocontrolMapCard } from '../-biocontrol-map-card';
-import { ContextBadge, formatAmount, nameById, todayDateValue } from '../-control-display';
+import { ContextBadge, formatAmount, nameById } from '../-control-display';
 import { addDaysToDateString, useHabitatNames } from '../-overview-data';
 
 interface BiocontrolSite {
@@ -80,7 +82,8 @@ const RESULT_NOUN = { one: 'release', many: 'releases' };
 const PATH = '/map/biocontrol';
 
 function BiocontrolExplorerRoute() {
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const defaultFrom = useMemo(
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],

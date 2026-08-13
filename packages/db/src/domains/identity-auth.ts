@@ -39,6 +39,18 @@ export interface ActiveLocalAuthIdentity {
 		readonly workosOrganizationId: string;
 		readonly name: string;
 		readonly slug: string | null;
+		/**
+		 * The agency's raw settings blob, unresolved.
+		 *
+		 * Carried here because the timezone inside it decides which calendar day
+		 * every timestamped record belongs to, and every authorized read needs that
+		 * answer. This query already joins `organizations`, so it rides along for
+		 * free — the alternative was a second round trip on the map-tile path.
+		 *
+		 * Raw rather than resolved because `packages/db` cannot import
+		 * `packages/domain`; `apps/server` resolves it when it builds `AuthContext`.
+		 */
+		readonly settings: unknown;
 	};
 	readonly profile: {
 		readonly id: string;
@@ -284,6 +296,7 @@ export async function resolveActiveLocalAuthIdentity(
 			'organizations.workos_organization_id as organization_workos_organization_id',
 			'organizations.name as organization_name',
 			'organizations.slug as organization_slug',
+			'organizations.settings as organization_settings',
 			'profiles.id as profile_id',
 			'profiles.organization_id as profile_organization_id',
 			'profiles.user_id as profile_user_id',
@@ -329,6 +342,7 @@ export async function resolveActiveLocalAuthIdentity(
 			workosOrganizationId: row.organization_workos_organization_id,
 			name: row.organization_name,
 			slug: row.organization_slug,
+			settings: row.organization_settings,
 		},
 		profile: {
 			id: row.profile_id,

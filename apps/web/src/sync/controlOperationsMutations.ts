@@ -8,8 +8,9 @@ import type {
 	RequestedControlActionRow,
 	SourceReductionRow,
 } from '@simmer-mosquito/sync';
+import { readAcknowledgements } from '../lib/stop-acknowledgements';
 import { isNoOpUpdate, pickChanged } from './change-set';
-import { commandErrorFrom } from './command-error';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 /**
  * Control operations optimistic mutation handlers — formulations, formulation
@@ -20,7 +21,9 @@ import { commandErrorFrom } from './command-error';
  * insert sends the row's create fields, update sends a diff, delete sends the id.
  * Performed actions carry geometry through `metadata.locationSource`, and their
  * larval/adult context rides along as the habitat/inspection/collection id
- * columns the server reads back into a ControlActionContext.
+ * columns the server reads back into a ControlActionContext. An action recorded
+ * off a mission stop additionally sends that stop's id, which is what makes the
+ * write an execution — record, link, and stop completion in one transaction.
  */
 
 interface MutationInput<TRow> {
@@ -45,6 +48,14 @@ interface RecordHandlerConfig<TRow extends { readonly id: string }> {
 	readonly patchKeys: readonly (keyof TRow)[];
 	readonly hasLocation?: boolean;
 	readonly noUpdate?: boolean;
+	/**
+	 * The record can be written off a mission stop, so an insert carries
+	 * `missionItemId` and — because a mission execution takes its location
+	 * override as a bare `geometry` rather than a location source — sends a drawn
+	 * geometry under that name instead. Insert only: provenance is set once by the
+	 * write that closed the stop and is not a patchable field.
+	 */
+	readonly hasMissionStop?: boolean;
 }
 
 function createRecordHandlers<TRow extends { readonly id: string }>(
@@ -63,10 +74,27 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 					for (const key of config.insertKeys) {
 						body[key as string] = mutation.modified[key];
 					}
+					const missionItemId = config.hasMissionStop ? readMissionItemId(mutation.modified) : null;
+					if (missionItemId !== null) {
+						body.missionItemId = missionItemId;
+						Object.assign(body, readAcknowledgements(mutation.metadata));
+					}
 					if (config.hasLocation) {
 						const locationSource = readOptionalLocationSource(mutation.metadata);
 						if (locationSource !== undefined) {
-							body.locationSource = locationSource;
+							// A mission execution defaults its geometry from the stop and takes
+							// only a drawn override, as a bare geometry. Anything else the form
+							// could offer — an address, a habitat — is a source the mission
+							// command has no reader for, so it falls through to the stop's own
+							// geometry rather than being sent somewhere it would be ignored.
+							if (missionItemId !== null) {
+								const geometry = readManualGeometry(locationSource);
+								if (geometry !== undefined) {
+									body.geometry = geometry;
+								}
+							} else {
+								body.locationSource = locationSource;
+							}
 						}
 					}
 					const result = await writeControlOp(endpoint, 'POST', config.noun, body);
@@ -155,6 +183,7 @@ export function createApplicationMutationHandlers(options: { readonly serverUrl:
 		path: '/control-operations/applications',
 		noun: 'application',
 		hasLocation: true,
+		hasMissionStop: true,
 		insertKeys: APPLICATION_FIELD_KEYS,
 		patchKeys: APPLICATION_FIELD_KEYS,
 	});
@@ -177,6 +206,7 @@ export function createSourceReductionMutationHandlers(options: { readonly server
 		path: '/control-operations/source-reductions',
 		noun: 'source reduction',
 		hasLocation: true,
+		hasMissionStop: true,
 		insertKeys: SOURCE_REDUCTION_FIELD_KEYS,
 		patchKeys: SOURCE_REDUCTION_FIELD_KEYS,
 	});
@@ -188,6 +218,7 @@ export function createOutreachActionMutationHandlers(options: { readonly serverU
 		path: '/control-operations/outreach-actions',
 		noun: 'outreach action',
 		hasLocation: true,
+		hasMissionStop: true,
 		insertKeys: OUTREACH_ACTION_FIELD_KEYS,
 		patchKeys: OUTREACH_ACTION_FIELD_KEYS,
 	});
@@ -199,6 +230,7 @@ export function createBiocontrolActionMutationHandlers(options: { readonly serve
 		path: '/control-operations/biocontrol-actions',
 		noun: 'biocontrol action',
 		hasLocation: true,
+		hasMissionStop: true,
 		insertKeys: BIOCONTROL_ACTION_FIELD_KEYS,
 		patchKeys: BIOCONTROL_ACTION_FIELD_KEYS,
 	});
@@ -304,6 +336,20 @@ function readOptionalLocationSource(metadata: unknown): unknown {
 	return undefined;
 }
 
+/** The stop id an optimistic row carries, when the form was opened from one. */
+function readMissionItemId(row: object): string | null {
+	const value = (row as { readonly missionItemId?: unknown }).missionItemId;
+	return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/** The geometry a `{ kind: 'geometry' }` source is carrying, if that is the kind. */
+function readManualGeometry(locationSource: unknown): unknown {
+	if (isRecord(locationSource) && locationSource.kind === 'geometry') {
+		return locationSource.geometry;
+	}
+	return undefined;
+}
+
 function requireId(id: string | undefined, noun: string): string {
 	if (id === undefined) {
 		throw new Error(`Unable to delete ${noun} without an id.`);
@@ -326,7 +372,7 @@ async function writeControlOp(
 		},
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
-	const result = (await response.json()) as
+	const result = (await readResponseBody(response)) as
 		| MutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 

@@ -2,6 +2,7 @@ import { toDbEntityType } from '@simmer-mosquito/domain';
 import type { AddressRow, CommentRow, ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { and, eq, gte, inArray, or, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { localDayStartAsTimestamp } from '../../lib/local-date';
 import { webCollections } from '../../sync/webCollections';
 import { isServiceRequestOpen } from './-public-engagement-display';
@@ -192,7 +193,8 @@ export function useServiceRequestFeed(
 ): { readonly events: readonly ServiceRequestEvent[] } & LoadState {
 	// `commentedAt` is a timestamptz; a bare YYYY-MM-DD against one is rejected by
 	// Electric outright. See localDayStartAsTimestamp.
-	const since = useMemo(() => localDayStartAsTimestamp(sinceDate), [sinceDate]);
+	const timeZone = useOrganizationTimeZone();
+	const since = useMemo(() => localDayStartAsTimestamp(sinceDate, timeZone), [sinceDate, timeZone]);
 
 	const commentResult = useLiveQuery(
 		{

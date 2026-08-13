@@ -1,5 +1,5 @@
 import { createRowPayloadMapper } from '@simmer-mosquito/sync';
-import { commandErrorFrom } from './command-error';
+import { commandErrorFrom, readResponseBody } from './command-error';
 
 interface ControlMethodMutationRow {
 	readonly id: string;
@@ -126,7 +126,7 @@ async function writeControlMethod(
 		},
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),
 	});
-	const result = (await response.json()) as
+	const result = (await readResponseBody(response)) as
 		| ControlMethodMutationResult
 		| { readonly error: string; readonly reason?: string; readonly message?: string };
 

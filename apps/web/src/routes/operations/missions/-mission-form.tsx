@@ -9,10 +9,10 @@ import { useMemo, useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { domainValidator } from '../../../forms/domain-validation';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { formatLocalDate } from '../../../lib/local-date';
+import { localTimeAsInstant, localTimeOfDay, todayInTimeZone } from '../../../lib/local-date';
 import { webCollections } from '../../../sync/webCollections';
-import { todayDateValue } from '../../control-operations/-control-display';
 import { FormSection } from '../../control-operations/-control-form-parts';
 import { ControlTypeToggle } from '../-control-type-toggle';
 import { useMethodsForControlType } from '../-operations-data';
@@ -82,10 +82,10 @@ export interface MissionPlan {
 	readonly notificationTypeId: string | null;
 }
 
-export function defaultMissionFormValues(): MissionFormValues {
+export function defaultMissionFormValues(timeZone: string): MissionFormValues {
 	return {
 		controlType: 'application',
-		startDate: todayDateValue(),
+		startDate: todayInTimeZone(timeZone),
 		startTime: DEFAULT_START_TIME,
 		endTime: '',
 		rainDate: '',
@@ -105,19 +105,22 @@ export function defaultMissionFormValues(): MissionFormValues {
  * Greenwich. The end time is read the same way and is assumed to be on the start's
  * day, which is the only shape the form can produce.
  */
-export function missionFormValuesFrom(mission: {
-	readonly controlType: ControlType;
-	readonly scheduledStartAt: string;
-	readonly scheduledEndAt: string | null;
-	readonly rainDate: string | null;
-	readonly missionName: string | null;
-	readonly plannedMethodId: string | null;
-	readonly assignedToProfileId: string | null;
-	readonly notificationTypeId: string | null;
-}): MissionFormValues {
+export function missionFormValuesFrom(
+	mission: {
+		readonly controlType: ControlType;
+		readonly scheduledStartAt: string;
+		readonly scheduledEndAt: string | null;
+		readonly rainDate: string | null;
+		readonly missionName: string | null;
+		readonly plannedMethodId: string | null;
+		readonly assignedToProfileId: string | null;
+		readonly notificationTypeId: string | null;
+	},
+	timeZone: string,
+): MissionFormValues {
 	return {
 		controlType: mission.controlType,
-		...scheduleFieldsFrom(mission.scheduledStartAt, mission.scheduledEndAt),
+		...scheduleFieldsFrom(mission.scheduledStartAt, mission.scheduledEndAt, timeZone),
 		rainDate: mission.rainDate ?? '',
 		missionName: mission.missionName ?? '',
 		plannedMethodId: mission.plannedMethodId ?? NO_METHOD,
@@ -130,28 +133,18 @@ export function missionFormValuesFrom(mission: {
 function scheduleFieldsFrom(
 	scheduledStartAt: string,
 	scheduledEndAt: string | null,
+	timeZone: string,
 ): Pick<MissionFormValues, 'startDate' | 'startTime' | 'endTime'> {
 	const start = new Date(scheduledStartAt);
-	const end = scheduledEndAt === null ? null : new Date(scheduledEndAt);
+	const startTime = localTimeOfDay(scheduledStartAt, timeZone);
 
 	return {
-		startDate: localDateValue(start) ?? todayDateValue(),
-		startTime: localTimeValue(start) ?? DEFAULT_START_TIME,
-		endTime: (end === null ? null : localTimeValue(end)) ?? '',
+		startDate: Number.isNaN(start.getTime())
+			? todayInTimeZone(timeZone)
+			: todayInTimeZone(timeZone, start),
+		startTime: startTime === '' ? DEFAULT_START_TIME : startTime,
+		endTime: localTimeOfDay(scheduledEndAt, timeZone),
 	};
-}
-
-/** `YYYY-MM-DD` local, or null when the instant is unreadable. */
-function localDateValue(date: Date): string | null {
-	return Number.isNaN(date.getTime()) ? null : formatLocalDate(date);
-}
-
-/** `HH:MM` local, or null when the instant is unreadable. */
-function localTimeValue(date: Date): string | null {
-	if (Number.isNaN(date.getTime())) {
-		return null;
-	}
-	return `${`${date.getHours()}`.padStart(2, '0')}:${`${date.getMinutes()}`.padStart(2, '0')}`;
 }
 
 /**
@@ -169,12 +162,12 @@ function localTimeValue(date: Date): string | null {
  * pair yields null rather than an Invalid Date, so the domain builder reports the
  * missing field instead of the browser reporting NaN.
  */
-function readMissionPlan(values: MissionFormValues): MissionPlan {
+export function readMissionPlan(values: MissionFormValues, timeZone: string): MissionPlan {
 	const trimmedName = values.missionName.trim();
 	return {
 		controlType: values.controlType,
-		startAt: toLocalInstant(values.startDate, values.startTime),
-		endAt: values.endTime === '' ? null : toLocalInstant(values.startDate, values.endTime),
+		startAt: agencyInstant(values.startDate, values.startTime, timeZone),
+		endAt: agencyInstant(values.startDate, values.endTime, timeZone),
 		rainDate: values.rainDate === '' ? null : values.rainDate,
 		missionName: trimmedName === '' ? null : trimmedName,
 		plannedMethodId: values.plannedMethodId === NO_METHOD ? null : values.plannedMethodId,
@@ -185,12 +178,16 @@ function readMissionPlan(values: MissionFormValues): MissionPlan {
 	};
 }
 
-function toLocalInstant(date: string, time: string): Date | null {
-	if (date === '' || time === '') {
-		return null;
-	}
-	const parsed = new Date(`${date}T${time}`);
-	return Number.isNaN(parsed.getTime()) ? null : parsed;
+/**
+ * A day and a wall time as the instant they name on the agency's clock.
+ *
+ * The zone is the agency's, not the browser's: a dispatcher scheduling a 6am
+ * muster from another zone was writing their own 6am, while the mission list and
+ * detail page have always shown the yard's.
+ */
+function agencyInstant(date: string, time: string, timeZone: string): Date | null {
+	const instant = localTimeAsInstant(date, time, timeZone);
+	return instant === null ? null : new Date(instant);
 }
 
 export function MissionFormPage({
@@ -214,6 +211,7 @@ export function MissionFormPage({
 	readonly errorTitle: string;
 	readonly onSave: (plan: MissionPlan) => Promise<void>;
 }) {
+	const timeZone = useOrganizationTimeZone();
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [controlType, setControlType] = useState<ControlType>(defaultValues.controlType);
 
@@ -222,11 +220,11 @@ export function MissionFormPage({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidatorFor(validate, fieldPaths),
+			onSubmit: domainValidatorFor(validate, fieldPaths, timeZone),
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			const plan = readMissionPlan(value);
+			const plan = readMissionPlan(value, timeZone);
 			if (plan.startAt === null) {
 				setSaveError('Enter the date and time the mission is scheduled to start.');
 				return;
@@ -420,9 +418,11 @@ function useMissionFormOptions(controlType: ControlType) {
 function domainValidatorFor(
 	validate: (plan: MissionPlan) => unknown,
 	fieldPaths: Readonly<Record<string, string>>,
+	timeZone: string,
 ) {
 	return domainValidator(
-		({ value }: { readonly value: MissionFormValues }) => validate(readMissionPlan(value)),
+		({ value }: { readonly value: MissionFormValues }) =>
+			validate(readMissionPlan(value, timeZone)),
 		fieldPaths,
 	);
 }

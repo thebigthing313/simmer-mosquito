@@ -13,6 +13,7 @@ import {
 	NO_VARIANT,
 	type TallyEntry,
 } from '../../components/key-entry/use-key-entry-tally';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
 import { webCollections } from '../../sync/webCollections';
 import { todayInTimeZone } from './-overview-data';
@@ -36,6 +37,7 @@ export function SampleKeyEntryDialog({
 	readonly actorProfileId: string | null;
 }) {
 	const bindings = useSpeciesKeyBindings();
+	const timeZone = useOrganizationTimeZone();
 
 	const result = useLiveQuery(
 		{
@@ -103,7 +105,7 @@ export function SampleKeyEntryDialog({
 					identifiedByProfileId: actorProfileId,
 					// A calendar date, not a timestamp — the domain builder validates
 					// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
-					identifiedAt: todayInTimeZone(undefined),
+					identifiedAt: todayInTimeZone(timeZone),
 					createdByProfileId: actorProfileId,
 					updatedByProfileId: actorProfileId,
 					createdAt: now,
@@ -120,7 +122,7 @@ export function SampleKeyEntryDialog({
 			await Promise.all(writes);
 			flushedRef.current = flushedKeysAfter(entries);
 		},
-		[actorProfileId, organizationId, sampleId],
+		[actorProfileId, organizationId, sampleId, timeZone],
 	);
 
 	return (
