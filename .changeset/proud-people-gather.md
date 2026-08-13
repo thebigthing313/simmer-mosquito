@@ -1,5 +1,0 @@
----
-'@simmer-mosquito/web': minor
----
-
-Added: Activity Monitor, in Overview, shows one person's field work over a date range on one map — habitats and traps they recorded, inspections, trap set and collect visits, chemical, source reduction and biocontrol work, outreach, and service requests they took or closed. Pins are coloured by domain, the list beside the map is grouped by day, and the two share one selection; clicking a pin opens the record's card and its details. It opens on you and on today, and the person and the dates are in the address, so a particular person's particular day can be sent to someone. Records the person only assisted on appear too, drawn hollow to keep them apart from work they ran — until now, an assisting crew member appeared by name on nothing. A trap set on one day and collected on another appears on both. Ranges are capped at 92 days, and a log too large to return in full says so rather than looking complete. Each person in My Organization now has an Activity link that opens their day.
