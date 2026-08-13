@@ -71,8 +71,9 @@ function activityLayers(): CircleLayerSpecification[] {
 			},
 		},
 		{
-			// Assisting work reads hollow: rode along, rather than ran it. The
-			// white centre is drawn over the filled point beneath.
+			// Assisting work reads hollow: rode along, rather than ran it. This is
+			// the punched-out centre, drawn over the filled point beneath — so the
+			// family colour survives as the surviving ring.
 			id: ASSISTING_LAYER_ID,
 			type: 'circle',
 			source: SOURCE_ID,
@@ -80,8 +81,6 @@ function activityLayers(): CircleLayerSpecification[] {
 			paint: {
 				'circle-color': mapInteraction.pointStroke,
 				'circle-radius': 3,
-				'circle-stroke-color': familyColor,
-				'circle-stroke-width': 0,
 			},
 		},
 		{

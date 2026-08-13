@@ -1,5 +1,18 @@
-import { ACTIVITY_PERSONNEL_ENTITY_TYPES } from '@simmer-mosquito/db';
-import { ADDITIONAL_PERSONNEL_TARGET_TYPES, toDbEntityType } from '@simmer-mosquito/domain';
+import {
+	ACTIVITY_PERSONNEL_ENTITY_TYPES,
+	dbActivityCategories,
+	dbActivityFamilies,
+	dbActivityInvolvements,
+	dbActivityRoles,
+} from '@simmer-mosquito/db';
+import {
+	ACTIVITY_CATEGORIES,
+	ACTIVITY_FAMILIES,
+	ACTIVITY_INVOLVEMENTS,
+	ACTIVITY_ROLES,
+	ADDITIONAL_PERSONNEL_TARGET_TYPES,
+	toDbEntityType,
+} from '@simmer-mosquito/domain';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it, vi } from 'vitest';
@@ -897,6 +910,8 @@ describe('profile activity', () => {
 				calls.push(input);
 				return rows as never;
 			},
+			countProfileActivity: async () => 4317,
+			getOrganizationSettings: async () => ({ timezone: 'America/New_York' }),
 		});
 	}
 
@@ -939,6 +954,9 @@ describe('profile activity', () => {
 				profileId,
 				dateFrom: '2026-08-01',
 				dateTo: '2026-08-01',
+				// The agency's zone, so a trap placed at 9pm is filed under the day
+				// the crew worked rather than the day the database server rolled over.
+				timeZone: 'America/New_York',
 				limit: 2001,
 			},
 		]);
@@ -954,16 +972,26 @@ describe('profile activity', () => {
 
 		const body = (await response.json()) as { items: unknown[]; total: number; truncated: boolean };
 		expect(body.truncated).toBe(true);
-		expect(body.total).toBe(2000);
 		expect(body.items).toHaveLength(2000);
+		// Not 2000. A truncated log has to say how much it is missing, or the
+		// banner reads "there is more" and stops there.
+		expect(body.total).toBe(4317);
 	});
 
 	it('does not report truncation when the result exactly fills the limit', async () => {
-		const app = activityApp(activityRows(2000));
+		const countProfileActivity = vi.fn();
+		const app = createApp({
+			listProfileActivity: async () => activityRows(2000) as never,
+			countProfileActivity,
+			getOrganizationSettings: async () => ({ timezone: 'America/New_York' }),
+		});
 
 		const response = await app.request(`/map/profiles/${profileId}/activity?${activityQuery}`);
 
 		await expect(response.json()).resolves.toMatchObject({ total: 2000, truncated: false });
+		// Counting costs a second pass over seventeen branches, so an untruncated
+		// read must not pay for it.
+		expect(countProfileActivity).not.toHaveBeenCalled();
 	});
 
 	it.each([
@@ -974,7 +1002,7 @@ describe('profile activity', () => {
 		['a malformed date', 'dateFrom=2026-13-40&dateTo=2026-08-01'],
 	])('refuses %s before reading', async (_name, query) => {
 		const listProfileActivity = vi.fn();
-		const app = createApp({ listProfileActivity });
+		const app = createApp({ listProfileActivity, getOrganizationSettings: vi.fn() });
 
 		const response = await app.request(`/map/profiles/${profileId}/activity?${query}`);
 
@@ -997,7 +1025,7 @@ describe('profile activity', () => {
 
 	it('refuses a non-UUID profile id before reading', async () => {
 		const listProfileActivity = vi.fn();
-		const app = createApp({ listProfileActivity });
+		const app = createApp({ listProfileActivity, getOrganizationSettings: vi.fn() });
 
 		const response = await app.request(`/map/profiles/not-a-uuid/activity?${activityQuery}`);
 
@@ -1023,6 +1051,28 @@ describe('additional-personnel entity types', () => {
 		);
 	});
 });
+
+/**
+ * The activity vocabulary is declared twice for the same reason: `packages/db`
+ * depends on nothing but Kysely, so it cannot import the domain's unions and
+ * restates them, exactly as it already restates `LarvalDensity`. `apps/server`
+ * is the one place that sees both.
+ *
+ * A drift here is a category the reader can emit and the page cannot name, or a
+ * role the page renders raw. Neither fails; both just read wrong.
+ */
+describe('activity vocabulary', () => {
+	it('is the same in packages/db as in the domain', () => {
+		expectSameMembers<string>(dbActivityCategories, ACTIVITY_CATEGORIES);
+		expectSameMembers<string>(dbActivityFamilies, ACTIVITY_FAMILIES);
+		expectSameMembers<string>(dbActivityRoles, ACTIVITY_ROLES);
+		expectSameMembers<string>(dbActivityInvolvements, ACTIVITY_INVOLVEMENTS);
+	});
+});
+
+function expectSameMembers<T>(first: readonly T[], second: readonly T[]): void {
+	expect([...first].sort()).toEqual([...second].sort());
+}
 
 /**
  * An app whose routes read from fakes.

@@ -1,6 +1,14 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { SimmerDatabase } from '../index.js';
+import {
+	assertIanaTimeZone,
+	habitatStatusSql,
+	inspectionResultSql,
+	localDateSql,
+	trapLabelSql,
+	trapStatusSql,
+} from './record-display-sql.js';
 
 /**
  * One Profile's field work, across every record type that attributes work to a
@@ -15,35 +23,52 @@ import type { SimmerDatabase } from '../index.js';
  * exception: they carry no domain attribution column, so creation is the only
  * signal there is, and their pins mean "created this site record".
  */
-export type ActivityCategory =
-	| 'habitat'
-	| 'inspection'
-	| 'trap'
-	| 'collection'
-	| 'application'
-	| 'sourceReduction'
-	| 'biocontrol'
-	| 'outreach'
-	| 'serviceRequest';
+/**
+ * This package depends on nothing but Kysely, so the activity vocabulary the
+ * domain owns is restated here rather than imported — the same arrangement
+ * `LarvalDensity` already has. `apps/server` sees both packages and pins these
+ * lists equal, because a drift is a category this reader can emit that the page
+ * cannot name, and nothing about that fails.
+ */
+export const dbActivityCategories = [
+	'habitat',
+	'inspection',
+	'trap',
+	'collection',
+	'application',
+	'sourceReduction',
+	'biocontrol',
+	'outreach',
+	'serviceRequest',
+] as const;
 
-export type ActivityFamily = 'larval' | 'adult' | 'control' | 'publicEngagement';
+export type ActivityCategory = (typeof dbActivityCategories)[number];
+
+export const dbActivityFamilies = ['larval', 'adult', 'control', 'publicEngagement'] as const;
+
+export type ActivityFamily = (typeof dbActivityFamilies)[number];
 
 /** Whether the Profile is named on the record itself, or assisted on it. */
-export type ActivityInvolvement = 'primary' | 'assisting';
+export const dbActivityInvolvements = ['primary', 'assisting'] as const;
+
+export type ActivityInvolvement = (typeof dbActivityInvolvements)[number];
 
 /** What the Profile did to the record. */
-export type ActivityRole =
-	| 'created'
-	| 'inspected'
-	| 'set'
-	| 'collected'
-	| 'applied'
-	| 'reduced'
-	| 'released'
-	| 'engaged'
-	| 'received'
-	| 'closed'
-	| 'assisted';
+export const dbActivityRoles = [
+	'created',
+	'inspected',
+	'set',
+	'collected',
+	'applied',
+	'reduced',
+	'released',
+	'engaged',
+	'received',
+	'closed',
+	'assisted',
+] as const;
+
+export type ActivityRole = (typeof dbActivityRoles)[number];
 
 export interface ProfileActivityRow {
 	readonly category: ActivityCategory;
@@ -92,6 +117,12 @@ export interface ProfileActivityInput {
 	readonly dateFrom: string;
 	/** Inclusive upper bound on the activity date (`YYYY-MM-DD`). */
 	readonly dateTo: string;
+	/**
+	 * The agency's IANA timezone. Timestamps become calendar dates in it, so a
+	 * trap set at 9pm files under the day the crew worked rather than the day
+	 * the database server rolled over.
+	 */
+	readonly timeZone: string;
 	/** Safety cap on total rows returned across all branches. */
 	readonly limit?: number;
 }
@@ -152,163 +183,155 @@ const NO_TIMESTAMP = 'null::timestamptz';
 const NO_NUMBER = 'null::numeric';
 const NO_TEXT = 'null::text';
 
-/**
- * A collection is dated by whichever of the two mutually-exclusive timing shapes
- * it was recorded in — `collections_timing_shape` guarantees exactly one of them
- * is populated, so reading either column alone silently empties the adult
- * surveillance family for every agency on the other mode.
- */
-const COLLECTED_DATE = 'coalesce(r.collected_at::date, r.collection_date)';
-const SET_DATE = 'coalesce(r.started_at::date, r.collection_date)';
-
 /** The habitat, else the address, a record was performed at. */
 const SITE_JOINS =
 	'left join habitats h on h.id = r.habitat_id left join addresses ad on ad.id = r.address_id';
 const SITE_NAME = `coalesce(nullif(btrim(h.habitat_name), ''), nullif(btrim(ad.display_name), ''))`;
 const ADDRESS_JOIN = 'left join addresses ad on ad.id = r.address_id';
 const ADDRESS_NAME = `nullif(btrim(ad.display_name), '')`;
-/** The label the web app renders for a trap: "code - name", dash-free when only one is set. */
-const TRAP_LABEL = (alias: string) =>
-	`nullif(concat_ws(' - ', nullif(btrim(${alias}.trap_code), ''), nullif(btrim(${alias}.trap_name), '')), '')`;
 
-const HABITAT: RecordShape = {
-	category: 'habitat',
-	family: 'larval',
-	table: 'habitats',
-	date: 'r.created_at::date',
-	occurredAt: 'r.created_at',
-	label: 'r.habitat_name',
-	// A habitat *is* the site, so it names no other one.
-	siteName: NO_TEXT,
-	refId: 'r.habitat_type_id::text',
-	detail: `case when r.is_active = false then 'inactive'
-		when r.is_inaccessible = true then 'inaccessible' else 'active' end`,
-};
+/**
+ * The nine record shapes, dated in one agency's timezone.
+ *
+ * Built per call rather than declared as constants because six of these date
+ * expressions convert a `timestamptz`, and which calendar day that lands on is
+ * the agency's question rather than the database server's.
+ */
+function recordShapes(timeZone: string): {
+	readonly habitat: RecordShape;
+	readonly inspection: RecordShape;
+	readonly trap: RecordShape;
+	readonly collection: RecordShape;
+	readonly application: RecordShape;
+	readonly sourceReduction: RecordShape;
+	readonly biocontrol: RecordShape;
+	readonly outreach: RecordShape;
+	readonly serviceRequest: RecordShape;
+} {
+	const localDate = (expression: string) => localDateSql(expression, timeZone);
 
-const INSPECTION: RecordShape = {
-	category: 'inspection',
-	family: 'larval',
-	table: 'inspections',
-	joins: SITE_JOINS,
-	date: 'r.inspection_date',
-	occurredAt: NO_TIMESTAMP,
-	label: NO_TEXT,
-	siteName: SITE_NAME,
-	refId: 'r.habitat_type_id::text',
-	// What the explorer's badge reads: dry, or how much was found.
-	detail: `case when r.is_wet = false then 'dry' else coalesce(r.density::text, 'wet') end`,
-};
+	return {
+		habitat: {
+			category: 'habitat',
+			family: 'larval',
+			table: 'habitats',
+			date: localDate('r.created_at'),
+			occurredAt: 'r.created_at',
+			label: 'r.habitat_name',
+			// A habitat *is* the site, so it names no other one.
+			siteName: NO_TEXT,
+			refId: 'r.habitat_type_id::text',
+			detail: habitatStatusSql('r'),
+		},
+		inspection: {
+			category: 'inspection',
+			family: 'larval',
+			table: 'inspections',
+			joins: SITE_JOINS,
+			date: 'r.inspection_date',
+			occurredAt: NO_TIMESTAMP,
+			label: NO_TEXT,
+			siteName: SITE_NAME,
+			refId: 'r.habitat_type_id::text',
+			// What the explorer's badge reads: dry, or how much was found.
+			detail: inspectionResultSql('r'),
+		},
+		trap: {
+			category: 'trap',
+			family: 'adult',
+			table: 'traps',
+			date: localDate('r.created_at'),
+			occurredAt: 'r.created_at',
+			label: trapLabelSql('r'),
+			siteName: NO_TEXT,
+			refId: 'r.collection_method_id::text',
+			detail: trapStatusSql('r'),
+		},
+		collection: {
+			category: 'collection',
+			family: 'adult',
+			table: 'collections',
+			joins: 'left join traps t on t.id = r.trap_id',
+			date: `coalesce(${localDate('r.collected_at')}, r.collection_date, ${localDate('r.started_at')})`,
+			occurredAt: 'coalesce(r.collected_at, r.started_at)',
+			label: NO_TEXT,
+			// The trap it came out of. A collection with none was recorded ad hoc.
+			siteName: trapLabelSql('t'),
+			refId: 'r.collection_method_id::text',
+			detail: `case when r.has_problem = true then 'problem'
+				when r.is_zero_result = true then 'zero' else null end`,
+		},
+		application: {
+			category: 'application',
+			family: 'control',
+			table: 'applications',
+			joins: SITE_JOINS,
+			date: 'r.application_date',
+			occurredAt: NO_TIMESTAMP,
+			label: NO_TEXT,
+			siteName: SITE_NAME,
+			refId: 'r.insecticide_id::text',
+			methodRefId: 'r.application_method_id::text',
+			amount: 'r.amount_applied',
+			unitId: 'r.application_unit_id::text',
+		},
+		sourceReduction: {
+			category: 'sourceReduction',
+			family: 'control',
+			table: 'source_reductions',
+			joins: SITE_JOINS,
+			date: 'r.source_reduction_date',
+			occurredAt: NO_TIMESTAMP,
+			label: NO_TEXT,
+			siteName: SITE_NAME,
+			refId: 'r.source_reduction_method_id::text',
+			amount: 'r.sources_eliminated_amount',
+			unitId: 'r.sources_eliminated_unit_id::text',
+		},
+		biocontrol: {
+			category: 'biocontrol',
+			family: 'control',
+			table: 'biocontrol_actions',
+			joins: SITE_JOINS,
+			date: 'r.biocontrol_date',
+			occurredAt: NO_TIMESTAMP,
+			label: NO_TEXT,
+			siteName: SITE_NAME,
+			refId: 'r.biocontrol_method_id::text',
+			amount: 'r.amount_released',
+			unitId: 'r.release_unit_id::text',
+		},
+		outreach: {
+			category: 'outreach',
+			family: 'publicEngagement',
+			table: 'outreach_actions',
+			joins: ADDRESS_JOIN,
+			date: 'r.outreach_date',
+			occurredAt: NO_TIMESTAMP,
+			label: NO_TEXT,
+			siteName: ADDRESS_NAME,
+			refId: 'r.outreach_method_id::text',
+			// Reach is a count of people, not a measured quantity, so it carries no unit.
+			amount: 'r.reach',
+			detail: `nullif(btrim(r.reach_description), '')`,
+		},
+		serviceRequest: {
+			category: 'serviceRequest',
+			family: 'publicEngagement',
+			table: 'service_requests',
+			joins: ADDRESS_JOIN,
+			date: 'r.request_date',
+			occurredAt: NO_TIMESTAMP,
+			label: `nullif(concat('Request ', r.display_name::text), 'Request ')`,
+			siteName: ADDRESS_NAME,
+			// Requests carry no method or type lookup; the intake type is a column.
+			refId: NO_TEXT,
+			detail: `case when r.closed_at is null then 'open' else 'closed' end`,
+		},
+	};
+}
 
-const TRAP: RecordShape = {
-	category: 'trap',
-	family: 'adult',
-	table: 'traps',
-	date: 'r.created_at::date',
-	occurredAt: 'r.created_at',
-	label: TRAP_LABEL('r'),
-	siteName: NO_TEXT,
-	refId: 'r.collection_method_id::text',
-	detail: `case when r.is_active = false then 'inactive' else 'active' end`,
-};
-
-const COLLECTION: RecordShape = {
-	category: 'collection',
-	family: 'adult',
-	table: 'collections',
-	joins: 'left join traps t on t.id = r.trap_id',
-	date: `coalesce(r.collected_at::date, r.collection_date, r.started_at::date)`,
-	occurredAt: 'coalesce(r.collected_at, r.started_at)',
-	label: NO_TEXT,
-	// The trap it came out of. A collection with none was recorded ad hoc.
-	siteName: TRAP_LABEL('t'),
-	refId: 'r.collection_method_id::text',
-	detail: `case when r.has_problem = true then 'problem'
-		when r.is_zero_result = true then 'zero' else null end`,
-};
-
-const APPLICATION: RecordShape = {
-	category: 'application',
-	family: 'control',
-	table: 'applications',
-	joins: SITE_JOINS,
-	date: 'r.application_date',
-	occurredAt: NO_TIMESTAMP,
-	label: NO_TEXT,
-	siteName: SITE_NAME,
-	refId: 'r.insecticide_id::text',
-	methodRefId: 'r.application_method_id::text',
-	amount: 'r.amount_applied',
-	unitId: 'r.application_unit_id::text',
-};
-
-const SOURCE_REDUCTION: RecordShape = {
-	category: 'sourceReduction',
-	family: 'control',
-	table: 'source_reductions',
-	joins: SITE_JOINS,
-	date: 'r.source_reduction_date',
-	occurredAt: NO_TIMESTAMP,
-	label: NO_TEXT,
-	siteName: SITE_NAME,
-	refId: 'r.source_reduction_method_id::text',
-	amount: 'r.sources_eliminated_amount',
-	unitId: 'r.sources_eliminated_unit_id::text',
-};
-
-const BIOCONTROL: RecordShape = {
-	category: 'biocontrol',
-	family: 'control',
-	table: 'biocontrol_actions',
-	joins: SITE_JOINS,
-	date: 'r.biocontrol_date',
-	occurredAt: NO_TIMESTAMP,
-	label: NO_TEXT,
-	siteName: SITE_NAME,
-	refId: 'r.biocontrol_method_id::text',
-	amount: 'r.amount_released',
-	unitId: 'r.release_unit_id::text',
-};
-
-const OUTREACH: RecordShape = {
-	category: 'outreach',
-	family: 'publicEngagement',
-	table: 'outreach_actions',
-	joins: ADDRESS_JOIN,
-	date: 'r.outreach_date',
-	occurredAt: NO_TIMESTAMP,
-	label: NO_TEXT,
-	siteName: ADDRESS_NAME,
-	refId: 'r.outreach_method_id::text',
-	// Reach is a count of people, not a measured quantity, so it carries no unit.
-	amount: 'r.reach',
-	detail: `nullif(btrim(r.reach_description), '')`,
-};
-
-const SERVICE_REQUEST: RecordShape = {
-	category: 'serviceRequest',
-	family: 'publicEngagement',
-	table: 'service_requests',
-	joins: ADDRESS_JOIN,
-	date: 'r.request_date',
-	occurredAt: NO_TIMESTAMP,
-	label: `nullif(concat('Request ', r.display_name::text), 'Request ')`,
-	siteName: ADDRESS_NAME,
-	// Requests carry no method or type lookup; the intake type is a column.
-	refId: NO_TEXT,
-	detail: `case when r.closed_at is null then 'open' else 'closed' end`,
-};
-
-/** The record shape each `additional_personnel.entity_type` value points at. */
-const SHAPE_BY_ENTITY_TYPE: Readonly<
-	Record<(typeof ACTIVITY_PERSONNEL_ENTITY_TYPES)[number], RecordShape>
-> = {
-	inspection: INSPECTION,
-	collection: COLLECTION,
-	application: APPLICATION,
-	source_reduction: SOURCE_REDUCTION,
-	outreach_action: OUTREACH,
-	biocontrol_action: BIOCONTROL,
-};
+type RecordShapes = ReturnType<typeof recordShapes>;
 
 /** One branch of the union: a record shape, plus who it counts for and why. */
 interface PrimaryBranch {
@@ -333,42 +356,64 @@ interface PrimaryBranch {
  * days, and a request received by one person and closed by another is two
  * people's work.
  */
-const PRIMARY_BRANCHES: readonly PrimaryBranch[] = [
-	{ shape: HABITAT, role: 'created', profileColumn: 'created_by_profile_id' },
-	{ shape: INSPECTION, role: 'inspected', profileColumn: 'inspected_by_profile_id' },
-	{ shape: TRAP, role: 'created', profileColumn: 'created_by_profile_id' },
-	{
-		shape: COLLECTION,
-		role: 'set',
-		profileColumn: 'set_by_profile_id',
-		date: SET_DATE,
-		occurredAt: 'r.started_at',
-	},
-	{
-		shape: COLLECTION,
-		role: 'collected',
-		profileColumn: 'collected_by_profile_id',
-		date: COLLECTED_DATE,
-		occurredAt: 'r.collected_at',
-		// A trap set but not yet collected has no collect visit to report. In the
-		// date + duration shape the collection date *is* the collection, so it is
-		// the timestamp alone that can be absent.
-		where: '(r.collected_at is not null or r.collection_date is not null)',
-	},
-	{ shape: APPLICATION, role: 'applied', profileColumn: 'applicator_profile_id' },
-	{ shape: SOURCE_REDUCTION, role: 'reduced', profileColumn: 'technician_profile_id' },
-	{ shape: BIOCONTROL, role: 'released', profileColumn: 'technician_profile_id' },
-	{ shape: OUTREACH, role: 'engaged', profileColumn: 'technician_profile_id' },
-	{ shape: SERVICE_REQUEST, role: 'received', profileColumn: 'received_by_profile_id' },
-	{
-		shape: SERVICE_REQUEST,
-		role: 'closed',
-		profileColumn: 'closed_by_profile_id',
-		date: 'r.closed_at::date',
-		occurredAt: 'r.closed_at',
-		where: 'r.closed_at is not null',
-	},
-];
+function primaryBranches(shapes: RecordShapes, timeZone: string): readonly PrimaryBranch[] {
+	const localDate = (expression: string) => localDateSql(expression, timeZone);
+
+	return [
+		{ shape: shapes.habitat, role: 'created', profileColumn: 'created_by_profile_id' },
+		{ shape: shapes.inspection, role: 'inspected', profileColumn: 'inspected_by_profile_id' },
+		{ shape: shapes.trap, role: 'created', profileColumn: 'created_by_profile_id' },
+		{
+			shape: shapes.collection,
+			role: 'set',
+			profileColumn: 'set_by_profile_id',
+			// A collection is dated by whichever of the two mutually-exclusive timing
+			// shapes it was recorded in — `collections_timing_shape` guarantees exactly
+			// one is populated, so reading either column alone silently empties adult
+			// surveillance for every agency on the other mode.
+			date: `coalesce(${localDate('r.started_at')}, r.collection_date)`,
+			occurredAt: 'r.started_at',
+		},
+		{
+			shape: shapes.collection,
+			role: 'collected',
+			profileColumn: 'collected_by_profile_id',
+			date: `coalesce(${localDate('r.collected_at')}, r.collection_date)`,
+			occurredAt: 'r.collected_at',
+			// A trap set but not yet collected has no collect visit to report. In the
+			// date + duration shape the collection date *is* the collection, so it is
+			// the timestamp alone that can be absent.
+			where: '(r.collected_at is not null or r.collection_date is not null)',
+		},
+		{ shape: shapes.application, role: 'applied', profileColumn: 'applicator_profile_id' },
+		{ shape: shapes.sourceReduction, role: 'reduced', profileColumn: 'technician_profile_id' },
+		{ shape: shapes.biocontrol, role: 'released', profileColumn: 'technician_profile_id' },
+		{ shape: shapes.outreach, role: 'engaged', profileColumn: 'technician_profile_id' },
+		{ shape: shapes.serviceRequest, role: 'received', profileColumn: 'received_by_profile_id' },
+		{
+			shape: shapes.serviceRequest,
+			role: 'closed',
+			profileColumn: 'closed_by_profile_id',
+			date: localDate('r.closed_at'),
+			occurredAt: 'r.closed_at',
+			where: 'r.closed_at is not null',
+		},
+	];
+}
+
+/** The record shape each `additional_personnel.entity_type` value points at. */
+function shapeByEntityType(
+	shapes: RecordShapes,
+): Readonly<Record<(typeof ACTIVITY_PERSONNEL_ENTITY_TYPES)[number], RecordShape>> {
+	return {
+		inspection: shapes.inspection,
+		collection: shapes.collection,
+		application: shapes.application,
+		source_reduction: shapes.sourceReduction,
+		outreach_action: shapes.outreach,
+		biocontrol_action: shapes.biocontrol,
+	};
+}
 
 /**
  * Every record the Profile is named on or assisted with, in `[dateFrom,
@@ -383,20 +428,10 @@ export async function listProfileActivity(
 	db: Kysely<SimmerDatabase>,
 	input: ProfileActivityInput,
 ): Promise<ProfileActivityRow[]> {
-	const { organizationId: org, profileId, dateFrom, dateTo } = input;
 	const limit = input.limit ?? DEFAULT_PROFILE_ACTIVITY_LIMIT;
 
-	const branches: RawBuilder<ProfileActivityRow>[] = [
-		...PRIMARY_BRANCHES.map((branch) =>
-			primarySelect(branch, { org, profileId, dateFrom, dateTo }),
-		),
-		...ACTIVITY_PERSONNEL_ENTITY_TYPES.map((entityType) =>
-			assistingSelect(entityType, { org, profileId, dateFrom, dateTo }),
-		),
-	];
-
 	const result = await sql<ProfileActivityRow>`
-		${sql.join(branches, sql` union all `)}
+		${sql.join(activityBranches(input), sql` union all `)}
 		order by "date" desc, "occurredAt" desc nulls last
 		limit ${limit}
 	`.execute(db);
@@ -409,6 +444,49 @@ export async function listProfileActivity(
 		// one formats wrong rather than failing.
 		amount: row.amount === null ? null : Number(row.amount),
 	}));
+}
+
+/**
+ * How many entries the same question has, ignoring the row cap.
+ *
+ * Only worth asking when the cap actually bit: this re-runs all seventeen
+ * branches, so the caller pays for it exactly when it has something to say —
+ * "showing the first 2000 of 4,317" rather than a truncation flag with no
+ * magnitude, which tells an operator their log is short but not by how much.
+ */
+export async function countProfileActivity(
+	db: Kysely<SimmerDatabase>,
+	input: ProfileActivityInput,
+): Promise<number> {
+	const result = await sql<{ readonly total: string }>`
+		select count(*)::text as total
+		from (${sql.join(activityBranches(input), sql` union all `)}) as entries
+	`.execute(db);
+
+	return Number(result.rows[0]?.total ?? 0);
+}
+
+/**
+ * The seventeen branches one question expands to: eleven where the Profile is
+ * named on the record, six where they assisted on it.
+ */
+function activityBranches(input: ProfileActivityInput): RawBuilder<ProfileActivityRow>[] {
+	const timeZone = assertIanaTimeZone(input.timeZone);
+	const shapes = recordShapes(timeZone);
+	const assistingShapes = shapeByEntityType(shapes);
+	const scope: BranchScope = {
+		org: input.organizationId,
+		profileId: input.profileId,
+		dateFrom: input.dateFrom,
+		dateTo: input.dateTo,
+	};
+
+	return [
+		...primaryBranches(shapes, timeZone).map((branch) => primarySelect(branch, scope)),
+		...ACTIVITY_PERSONNEL_ENTITY_TYPES.map((entityType) =>
+			assistingSelect(assistingShapes[entityType], entityType, scope),
+		),
+	];
 }
 
 interface BranchScope {
@@ -446,11 +524,10 @@ function primarySelect(branch: PrimaryBranch, scope: BranchScope): RawBuilder<Pr
  * must leave that record's log, and the record itself is still live.
  */
 function assistingSelect(
+	shape: RecordShape,
 	entityType: (typeof ACTIVITY_PERSONNEL_ENTITY_TYPES)[number],
 	scope: BranchScope,
 ): RawBuilder<ProfileActivityRow> {
-	const shape = SHAPE_BY_ENTITY_TYPE[entityType];
-
 	return sql<ProfileActivityRow>`
 		select ${projection(shape, {
 			involvement: 'assisting',

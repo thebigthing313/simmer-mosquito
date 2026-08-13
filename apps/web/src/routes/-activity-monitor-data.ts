@@ -1,4 +1,10 @@
-import { isLarvalDensity, type LarvalDensity } from '@simmer-mosquito/domain';
+import {
+	type ActivityCategory,
+	type ActivityFamily,
+	type ActivityInvolvement,
+	isLarvalDensity,
+	type LarvalDensity,
+} from '@simmer-mosquito/domain';
 import type {
 	CollectionMethodRow,
 	ControlMethodRow,
@@ -15,21 +21,6 @@ import { formatAmount, insecticideDisplayName } from './control-operations/-cont
 
 // Data + display helpers for the Activity Monitor: one Profile's field work over
 // a date range. Dash-prefixed so TanStack Router ignores this file as a route.
-
-export type ActivityCategory =
-	| 'habitat'
-	| 'inspection'
-	| 'trap'
-	| 'collection'
-	| 'application'
-	| 'sourceReduction'
-	| 'biocontrol'
-	| 'outreach'
-	| 'serviceRequest';
-
-export type ActivityFamily = 'larval' | 'adult' | 'control' | 'publicEngagement';
-
-export type ActivityInvolvement = 'primary' | 'assisting';
 
 export interface ActivityEntry {
 	readonly category: ActivityCategory;
@@ -67,7 +58,7 @@ interface ActivityResponse {
 	readonly truncated: boolean;
 }
 
-export const ACTIVITY_FAMILIES: readonly {
+export const ACTIVITY_FAMILY_LABELS: readonly {
 	readonly key: ActivityFamily;
 	readonly label: string;
 }[] = [
@@ -153,7 +144,7 @@ export interface ActivityDayGroup {
  * Within a family the entries run oldest-first, but only partly: six of the nine
  * categories are dated by a `date` with no time of day, so entries without a
  * timestamp keep the order the server sent and sit after the timed ones.
- * Families keep {@link ACTIVITY_FAMILIES} order rather than a per-day order, so
+ * Families keep {@link ACTIVITY_FAMILY_LABELS} order rather than a per-day order, so
  * a week of days reads down the same columns.
  */
 export function groupActivityByDay(items: readonly ActivityEntry[]): readonly ActivityDayGroup[] {
@@ -174,7 +165,7 @@ export function groupActivityByDay(items: readonly ActivityEntry[]): readonly Ac
 			return {
 				date,
 				entries,
-				families: ACTIVITY_FAMILIES.map(({ key }) => ({
+				families: ACTIVITY_FAMILY_LABELS.map(({ key }) => ({
 					family: key,
 					entries: entries.filter((entry) => entry.family === key),
 				})).filter((group) => group.entries.length > 0),
@@ -510,15 +501,28 @@ function joinParts(parts: readonly (string | null | undefined)[]): string | null
 	return present.length === 0 ? null : present.join(' · ');
 }
 
-/** The time of day, where the record genuinely carries one. */
-export function formatActivityTime(occurredAt: string | null): string | null {
+/**
+ * The time of day, where the record genuinely carries one, in the agency's zone.
+ *
+ * The server sends an instant; which clock reading that is depends on where you
+ * ask. A collector on the road and a supervisor two time zones away have to see
+ * the same 9pm, so the agency's zone is the one that answers.
+ */
+export function formatActivityTime(
+	occurredAt: string | null,
+	timeZone: string | undefined,
+): string | null {
 	if (occurredAt === null) {
 		return null;
 	}
 	const parsed = new Date(occurredAt);
 	return Number.isNaN(parsed.getTime())
 		? null
-		: parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+		: parsed.toLocaleTimeString(undefined, {
+				hour: 'numeric',
+				minute: '2-digit',
+				...(timeZone === undefined ? {} : { timeZone }),
+			});
 }
 
 /**

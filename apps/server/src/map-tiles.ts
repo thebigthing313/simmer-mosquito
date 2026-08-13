@@ -17,6 +17,7 @@ import {
 	type CollectionPageInput,
 	type CollectionPageResult,
 	countActiveHabitatsByType,
+	countProfileActivity,
 	getAddressById,
 	getAddressMapExtent,
 	getAddressMvtTile,
@@ -35,6 +36,7 @@ import {
 	getInspectionDisplayRowById,
 	getInspectionMapExtent,
 	getInspectionMvtTile,
+	getOrganizationSettingsRaw,
 	getOutreachDisplayRowById,
 	getOutreachMapExtent,
 	getOutreachMvtTile,
@@ -112,6 +114,7 @@ import {
 	type TrapPageInput,
 	type TrapPageResult,
 } from '@simmer-mosquito/db';
+import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
@@ -199,6 +202,8 @@ const defaultMapReaders = {
 	countHabitatTypeUsage: countActiveHabitatsByType,
 	listMissionItems: listMissionItemGeometry,
 	listProfileActivity,
+	countProfileActivity,
+	getOrganizationSettings: getOrganizationSettingsRaw,
 };
 
 type MapReaders = typeof defaultMapReaders;
@@ -484,20 +489,29 @@ export function registerMapTileRoutes(
 		}
 		const { dateFrom, dateTo } = queryResult;
 
-		const authContext = context.get('authContext');
+		const organizationId = context.get('authContext').organization.id;
+		// Dates are the agency's, not the database server's: a trap placed at 9pm
+		// belongs to the day the crew worked. Everything timestamped is converted
+		// into this zone before it is filed under a day.
+		const timeZone = resolveOrganizationSettings(
+			await readers.getOrganizationSettings(options.db, { organizationId }),
+		).settings.timezone;
+
+		const query = { organizationId, profileId, dateFrom, dateTo, timeZone };
 		// One extra row is what tells a full result apart from a truncated one. A
 		// truncated log that reads as complete is the failure this reports out loud.
 		const rows = await readers.listProfileActivity(options.db, {
-			organizationId: authContext.organization.id,
-			profileId,
-			dateFrom,
-			dateTo,
+			...query,
 			limit: profileActivityLimit + 1,
 		});
 		const truncated = rows.length > profileActivityLimit;
 		const items = truncated ? rows.slice(0, profileActivityLimit) : rows;
+		// Counting costs a second pass over all seventeen branches, so it is paid
+		// for only when the cap bit — and then it is worth paying, because "the
+		// first 2000 of 4,317" is actionable where a bare flag is not.
+		const total = truncated ? await readers.countProfileActivity(options.db, query) : items.length;
 
-		return context.json({ profileId, dateFrom, dateTo, items, total: items.length, truncated });
+		return context.json({ profileId, dateFrom, dateTo, items, total, truncated });
 	});
 
 	registerPagedRoute(app, options, {

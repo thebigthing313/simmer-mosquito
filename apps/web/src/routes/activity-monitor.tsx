@@ -1,4 +1,5 @@
 import { mapFamily } from '@simmer-mosquito/design-tokens';
+import type { ActivityFamily } from '@simmer-mosquito/domain';
 import { boundsFromGeoJson } from '@simmer-mosquito/mapping';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
@@ -12,18 +13,21 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ComponentType, useCallback, useMemo, useState } from 'react';
+import type { Map as MapboxMap } from 'mapbox-gl';
+import { type ComponentType, type ReactNode, useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../components/date-range-filter';
 import {
 	ExplorerHeader,
 	ExplorerRow,
 	useDateRangeFilters,
+	useFlyToSelection,
 	usePersonnelOptions,
 } from '../components/explorer';
 import { DensityBadge, WetnessBadge } from '../components/larval-display';
 import { MapCanvas } from '../components/map';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
+import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../lib/local-date';
 import {
 	dateParam,
@@ -34,11 +38,10 @@ import {
 } from '../lib/search-filters';
 import {
 	ACTIVITY_CATEGORY_LABEL,
-	ACTIVITY_FAMILIES,
+	ACTIVITY_FAMILY_LABELS,
 	ACTIVITY_ROLE_LABEL,
 	type ActivityDayGroup,
 	type ActivityEntry,
-	type ActivityFamily,
 	ActivityRequestError,
 	type ActivityStateToken,
 	activityEntryKey,
@@ -97,28 +100,26 @@ function ActivityMonitorRoute() {
 	const filters = useActivityFilters();
 	const personnel = usePersonnelOptions();
 	const lookups = useActivityLookups();
-	const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
 	const activity = useProfileActivity(filters.window);
-	const view = useActivityView(activity.data?.items, selectedKey);
+	// Switching person needs no explicit reset: the selection resolves by key
+	// against the entries on screen, so a key the new log does not contain is
+	// already no selection.
+	const selection = useActivitySelection(activity.data?.items);
+	const { view } = selection;
+	const reach = activityReach(activity.data, view.items.length);
 
-	const clearSelection = useCallback(() => setSelectedKey(null), []);
-	const activityLayer = useMemo(
-		() => ({ data: view.mapData, selectedKey, onSelectFeature: setSelectedKey }),
-		[view.mapData, selectedKey],
-	);
 	return (
 		<MapSplitPage
 			map={
 				<>
 					<MapCanvas
-						activityLayer={activityLayer}
+						activityLayer={selection.activityLayer}
 						controls={{ layers: false, measure: true }}
 						fitToData={view.bounds}
+						onMapReady={selection.onMapReady}
 					/>
-					{view.selected === null ? null : (
-						<ActivityFocusCard entry={view.selected} onClose={clearSelection} />
-					)}
+					<ActivityFocusCard entry={view.selected} onClose={selection.clear} />
 				</>
 			}
 		>
@@ -130,12 +131,9 @@ function ActivityMonitorRoute() {
 					total={view.items.length}
 				>
 					<ProfilePicker
-						onChange={(next) => {
-							setSelectedKey(null);
-							filters.setProfile(next);
-						}}
+						onChange={filters.setProfile}
 						options={personnel.options}
-						value={filters.window.profileId ?? ''}
+						value={filters.window.profileId}
 					/>
 					<DateRangeFilter {...filters.dateRange} />
 					<FamilyCounts counts={view.counts} />
@@ -146,14 +144,47 @@ function ActivityMonitorRoute() {
 					error={activity.error}
 					isLoading={activity.isLoading}
 					lookups={lookups}
-					onSelect={setSelectedKey}
+					onSelect={selection.select}
 					profileId={filters.window.profileId}
-					selectedKey={selectedKey}
-					truncated={activity.data?.truncated === true}
+					selectedKey={selection.selectedKey}
+					timeZone={filters.timeZone}
+					total={reach.total}
+					truncated={reach.truncated}
 				/>
 			</div>
 		</MapSplitPage>
 	);
+}
+
+/**
+ * The one selection the map and the list both answer to.
+ *
+ * A row and a pin are two views of the same entry, so picking either has to
+ * move the other: the map flies to what the list selected, and the list
+ * highlights what the map was clicked on. Keeping that in one hook is what
+ * stops the two halves drifting into separate selections, which is how a card
+ * ends up describing a record the map is not looking at.
+ */
+function useActivitySelection(items: readonly ActivityEntry[] | undefined) {
+	const [map, setMap] = useState<MapboxMap | null>(null);
+	const [selectedKey, setSelectedKey] = useState<string | null>(null);
+	const view = useActivityView(items, selectedKey);
+
+	// Keyed on the coordinates rather than the entry, so a refetch that hands
+	// back an equal-but-new object does not re-fly the camera.
+	useFlyToSelection(map, view.selected);
+
+	return {
+		view,
+		selectedKey,
+		select: setSelectedKey,
+		clear: useCallback(() => setSelectedKey(null), []),
+		onMapReady: useCallback((instance: MapboxMap) => setMap(instance), []),
+		activityLayer: useMemo(
+			() => ({ data: view.mapData, selectedKey, onSelectFeature: setSelectedKey }),
+			[view.mapData, selectedKey],
+		),
+	};
 }
 
 /**
@@ -172,8 +203,11 @@ function useActivityFilters(): {
 	};
 	readonly dateRange: ReturnType<typeof useDateRangeFilters>;
 	readonly setProfile: (next: string) => void;
+	/** The agency's zone, which every date and time on this page is read in. */
+	readonly timeZone: string | undefined;
 } {
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const snapshot = useAuthSnapshot();
 	const ownProfileId =
 		snapshot?.authenticated === true ? (snapshot.localIdentity.profileId ?? '') : '';
@@ -193,6 +227,7 @@ function useActivityFilters(): {
 		},
 		dateRange: useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters }),
 		setProfile,
+		timeZone,
 	};
 }
 
@@ -237,7 +272,7 @@ function ProfilePicker({
 	options,
 	onChange,
 }: {
-	readonly value: string;
+	readonly value: string | null;
 	readonly options: readonly { readonly id: string; readonly label: string }[];
 	readonly onChange: (next: string) => void;
 }) {
@@ -255,7 +290,7 @@ function ProfilePicker({
 			onValueChange={(next) => onChange(next ?? '')}
 			options={autocompleteOptions}
 			placeholder="Search people…"
-			value={value}
+			value={value ?? ''}
 		/>
 	);
 }
@@ -264,7 +299,7 @@ function ProfilePicker({
 function FamilyCounts({ counts }: { readonly counts: Readonly<Record<ActivityFamily, number>> }) {
 	return (
 		<div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-			{ACTIVITY_FAMILIES.map(({ key, label }) => (
+			{ACTIVITY_FAMILY_LABELS.map(({ key, label }) => (
 				<span
 					className="flex items-center gap-1.5 text-muted-foreground text-xs"
 					key={key}
@@ -279,22 +314,12 @@ function FamilyCounts({ counts }: { readonly counts: Readonly<Record<ActivityFam
 	);
 }
 
-function FamilyDot({
-	family,
-	hollow = false,
-}: {
-	readonly family: ActivityFamily;
-	readonly hollow?: boolean;
-}) {
+function FamilyDot({ family }: { readonly family: ActivityFamily }) {
 	return (
 		<span
 			aria-hidden="true"
 			className="size-2.5 shrink-0 rounded-full"
-			style={
-				hollow
-					? { boxShadow: `inset 0 0 0 2px ${mapFamily[family]}` }
-					: { backgroundColor: mapFamily[family] }
-			}
+			style={{ backgroundColor: mapFamily[family] }}
 		/>
 	);
 }
@@ -306,8 +331,10 @@ function ActivityPanel({
 	isLoading,
 	error,
 	truncated,
+	total,
 	lookups,
 	profileId,
+	timeZone,
 	selectedKey,
 	onSelect,
 }: {
@@ -315,11 +342,15 @@ function ActivityPanel({
 	readonly isLoading: boolean;
 	readonly error: Error | null;
 	readonly truncated: boolean;
+	/** What the response reports for the whole question, cap ignored. */
+	readonly total: number;
 	readonly lookups: ActivityLookups;
 	readonly profileId: string | null;
 	readonly selectedKey: string | null;
+	readonly timeZone: string | undefined;
 	readonly onSelect: (key: string) => void;
 }) {
+	const shownCount = days.reduce((running, day) => running + day.entries.length, 0);
 	const message = activityPanelMessage({
 		hasProfile: profileId !== null,
 		isLoading,
@@ -335,7 +366,7 @@ function ActivityPanel({
 
 	return (
 		<div className="min-h-0 flex-1 overflow-y-auto">
-			{truncated ? <TruncationNotice /> : null}
+			{truncated ? <TruncationNotice shown={shownCount} total={total} /> : null}
 			<ol className="grid gap-4 p-3">
 				{days.map((day) => (
 					<ActivityDaySection
@@ -344,20 +375,62 @@ function ActivityPanel({
 						lookups={lookups}
 						onSelect={onSelect}
 						selectedKey={selectedKey}
+						timeZone={timeZone}
 					/>
 				))}
 			</ol>
+			<WhatThisDoesNotShow />
 		</div>
 	);
 }
 
+/**
+ * What the log cannot tell you, on the page rather than in a code comment.
+ *
+ * Each of these is a place where an operator could otherwise draw a confident
+ * wrong conclusion — that somebody was at a site they only typed up, that a
+ * quiet-looking morning is ordered, that a colleague assisted on nothing. They
+ * are consequences of what the records hold, so they cannot be fixed here; the
+ * honest move is to say so where the conclusion would be drawn.
+ */
+function WhatThisDoesNotShow() {
+	return (
+		<details className="mx-3 mb-3 rounded-md border border-border/50 bg-muted/25 px-3 py-2">
+			<summary className="cursor-pointer font-medium text-muted-foreground text-xs">
+				What this log cannot show
+			</summary>
+			<ul className="mt-2 grid gap-1.5 text-muted-foreground text-xs">
+				<li>
+					Habitats and traps are listed as <span className="font-medium">Created</span>, which means
+					the record was entered — not that the person stood at the site. Every other kind of entry
+					here names someone who did the work.
+				</li>
+				<li>
+					Only three kinds of entry carry a time of day. The rest are dated to the day, so the order
+					within a day is partial and no route is drawn.
+				</li>
+				<li>
+					Assisting crew can only be recorded on inspections, collections, chemical applications,
+					source reduction, biocontrol, and outreach. Site records and service requests have nowhere
+					to name them.
+				</li>
+				<li>
+					A trap recorded with a date and a duration, rather than exact timestamps, has no separate
+					set time — both its visits fall on the collection date.
+				</li>
+			</ul>
+		</details>
+	);
+}
+
 /** The row cap bit, said out loud: a partial log must never read as a whole one. */
-function TruncationNotice() {
+function TruncationNotice({ shown, total }: { readonly shown: number; readonly total: number }) {
 	return (
 		<Alert className="m-3" variant="destructive">
 			<AlertTitle>This log is incomplete</AlertTitle>
 			<AlertDescription>
-				There is more work in this range than one read can carry. Narrow the dates to see all of it.
+				Showing the first {shown.toLocaleString()} of {total.toLocaleString()} entries. Narrow the
+				dates to see all of them.
 			</AlertDescription>
 		</Alert>
 	);
@@ -378,55 +451,119 @@ function ActivityDaySection({
 	day,
 	selectedKey,
 	lookups,
+	timeZone,
 	onSelect,
 }: {
 	readonly day: ActivityDayGroup;
 	readonly selectedKey: string | null;
 	readonly lookups: ActivityLookups;
+	readonly timeZone: string | undefined;
 	readonly onSelect: (key: string) => void;
 }) {
-	const [open, setOpen] = useState(true);
-
 	return (
 		<li>
-			<Collapsible onOpenChange={setOpen} open={open}>
-				<CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/50">
-					<ChevronRightIcon
-						aria-hidden="true"
-						className={cn(
-							'size-4 shrink-0 text-muted-foreground transition-transform',
-							open && 'rotate-90',
-						)}
-					/>
-					<span className="flex-1 font-medium text-foreground text-sm">
-						{formatListDate(day.date)}
-					</span>
-					<span className="text-muted-foreground text-xs tabular-nums">{day.entries.length}</span>
-				</CollapsibleTrigger>
-				<CollapsibleContent>
-					<div className="grid gap-2 pt-1 pb-2">
-						{day.families.map((group) => (
-							<div className="grid gap-1" key={group.family}>
-								<h3 className="px-2 font-medium text-muted-foreground text-xs">
-									{ACTIVITY_FAMILIES.find((family) => family.key === group.family)?.label}
-								</h3>
-								<ul className="grid">
-									{group.entries.map((entry) => (
-										<ActivityRow
-											entry={entry}
-											isSelected={activityEntryKey(entry) === selectedKey}
-											key={activityEntryKey(entry)}
-											lookups={lookups}
-											onSelect={onSelect}
-										/>
-									))}
-								</ul>
-							</div>
-						))}
-					</div>
-				</CollapsibleContent>
-			</Collapsible>
+			<CollapsibleSection count={day.entries.length} level="day" title={formatListDate(day.date)}>
+				<div className="grid gap-1 pt-1 pb-2">
+					{day.families.map((group) => (
+						<CollapsibleSection
+							count={group.entries.length}
+							key={group.family}
+							level="family"
+							title={familyLabel(group.family)}
+						>
+							<ul className="grid pb-1">
+								{group.entries.map((entry) => (
+									<ActivityRow
+										entry={entry}
+										isSelected={activityEntryKey(entry) === selectedKey}
+										key={activityEntryKey(entry)}
+										lookups={lookups}
+										onSelect={onSelect}
+										timeZone={timeZone}
+									/>
+								))}
+							</ul>
+						</CollapsibleSection>
+					))}
+				</div>
+			</CollapsibleSection>
 		</li>
+	);
+}
+
+/**
+ * How much of the whole answer this response carries.
+ *
+ * `total` is what the server counted for the question, which is larger than the
+ * list when the row cap bit; before a response arrives it is simply what is on
+ * screen, so the header never claims a total it does not have.
+ */
+function activityReach(
+	response: { readonly total: number; readonly truncated: boolean } | undefined,
+	shown: number,
+): { readonly total: number; readonly truncated: boolean } {
+	return response === undefined ? { total: shown, truncated: false } : response;
+}
+
+function familyLabel(family: ActivityFamily): string {
+	return ACTIVITY_FAMILY_LABELS.find((entry) => entry.key === family)?.label ?? family;
+}
+
+/**
+ * A day, or one family within a day, collapsed to its heading and its count.
+ *
+ * Both levels fold, because a range wide enough to need folding is usually wide
+ * in both directions: a month of days, and a day where one family did forty
+ * things and the rest did two. Open by default at both levels — the common case
+ * is a single day, where anything closed is a click of pure ceremony.
+ *
+ * The two levels differ only in weight, so the nesting reads as nesting rather
+ * than as two lists that happen to be indented.
+ */
+function CollapsibleSection({
+	title,
+	count,
+	level,
+	children,
+}: {
+	readonly title: string;
+	readonly count: number;
+	readonly level: 'day' | 'family';
+	readonly children: ReactNode;
+}) {
+	const [open, setOpen] = useState(true);
+	const isDay = level === 'day';
+
+	return (
+		<Collapsible onOpenChange={setOpen} open={open}>
+			<CollapsibleTrigger
+				className={cn(
+					'flex w-full items-center gap-2 rounded-md py-1.5 text-left hover:bg-muted/50',
+					isDay ? 'px-2' : 'px-2 pl-6',
+				)}
+			>
+				<ChevronRightIcon
+					aria-hidden="true"
+					className={cn(
+						'shrink-0 text-muted-foreground transition-transform',
+						isDay ? 'size-4' : 'size-3.5',
+						open && 'rotate-90',
+					)}
+				/>
+				<span
+					className={cn(
+						'flex-1',
+						isDay
+							? 'font-medium text-foreground text-sm'
+							: 'font-medium text-muted-foreground text-xs',
+					)}
+				>
+					{title}
+				</span>
+				<span className="text-muted-foreground text-xs tabular-nums">{count}</span>
+			</CollapsibleTrigger>
+			<CollapsibleContent>{children}</CollapsibleContent>
+		</Collapsible>
 	);
 }
 
@@ -443,11 +580,13 @@ function ActivityRow({
 	entry,
 	isSelected,
 	lookups,
+	timeZone,
 	onSelect,
 }: {
 	readonly entry: ActivityEntry;
 	readonly isSelected: boolean;
 	readonly lookups: ActivityLookups;
+	readonly timeZone: string | undefined;
 	readonly onSelect: (key: string) => void;
 }) {
 	const key = activityEntryKey(entry);
@@ -476,7 +615,7 @@ function ActivityRow({
 			// "Assisted" in words rather than resting on the hollow pin alone. The
 			// date rail is omitted: the day heading above already carries the date,
 			// so the time of day rides at the end for the three kinds that have one.
-			subtitle={[verb, subtitle, formatActivityTime(entry.occurredAt)]
+			subtitle={[verb, subtitle, formatActivityTime(entry.occurredAt, timeZone)]
 				.filter((part) => part !== null && part !== '')
 				.join(' · ')}
 			swatch={{
@@ -606,9 +745,12 @@ function ActivityFocusCard({
 	entry,
 	onClose,
 }: {
-	readonly entry: ActivityEntry;
+	readonly entry: ActivityEntry | null;
 	readonly onClose: () => void;
 }) {
+	if (entry === null) {
+		return null;
+	}
 	const CardForCategory = ACTIVITY_MAP_CARD[entry.category];
 	return <CardForCategory id={entry.id} onClose={onClose} />;
 }

@@ -1,6 +1,11 @@
 import { expect, it } from 'vitest';
 import type { DbExecutor } from '../../index.js';
-import { listProfileActivity, type ProfileActivityRow, sql } from '../../index.js';
+import {
+	countProfileActivity,
+	listProfileActivity,
+	type ProfileActivityRow,
+	sql,
+} from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
 
 // --- what one Profile's activity log actually answers -------------------------
@@ -16,6 +21,8 @@ import { describeDbIntegration, withTestDb } from '../../test-support/db-integra
 
 const DATE_FROM = '2026-08-01';
 const DATE_TO = '2026-08-31';
+/** A zone five hours behind UTC in August, so a UTC/local disagreement shows up. */
+const AGENCY_TIME_ZONE = 'America/New_York';
 
 describeDbIntegration('profile activity', () => {
 	it('counts field attribution, not data entry', async () => {
@@ -154,6 +161,61 @@ describeDbIntegration('profile activity', () => {
 		});
 	});
 
+	// A `timestamptz` becomes a calendar date in whichever zone does the
+	// converting, and the database server's is not the agency's. An evening's
+	// work filed under tomorrow is missing from the day it was done — and, at the
+	// edge of a range, missing from the log entirely.
+	it('dates timestamped work in the agency’s timezone, not the server’s', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedActivityWorld(db);
+
+			const eastern = await activityFor(db, world.ownOrganizationId, world.danaProfileId);
+			const utc = await activityFor(db, world.ownOrganizationId, world.danaProfileId, 'UTC');
+
+			// Seeded 2026-08-04T01:30Z — 9:30pm on the 3rd in New York.
+			expect(pick(eastern, (row) => row.id === world.lateTrapId).date).toBe('2026-08-03');
+			expect(pick(utc, (row) => row.id === world.lateTrapId).date).toBe('2026-08-04');
+		});
+	});
+
+	it('refuses a timezone that is not an IANA name', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedActivityWorld(db);
+
+			await expect(
+				activityFor(db, world.ownOrganizationId, world.danaProfileId, "UTC'; drop table traps --"),
+			).rejects.toThrow(/Invalid IANA time zone/);
+		});
+	});
+
+	it('counts every entry the cap hid', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedActivityWorld(db);
+
+			const capped = await listProfileActivity(db, {
+				organizationId: world.ownOrganizationId,
+				profileId: world.danaProfileId,
+				dateFrom: DATE_FROM,
+				dateTo: DATE_TO,
+				timeZone: AGENCY_TIME_ZONE,
+				limit: 2,
+			});
+			const total = await countProfileActivity(db, {
+				organizationId: world.ownOrganizationId,
+				profileId: world.danaProfileId,
+				dateFrom: DATE_FROM,
+				dateTo: DATE_TO,
+				timeZone: AGENCY_TIME_ZONE,
+			});
+
+			expect(capped).toHaveLength(2);
+			// The whole point: a truncated log can say how much it is missing.
+			expect(total).toBeGreaterThan(capped.length);
+			const uncapped = await activityFor(db, world.ownOrganizationId, world.danaProfileId);
+			expect(total).toBe(uncapped.length);
+		});
+	});
+
 	it('orders newest first and carries the coordinates the map draws', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedActivityWorld(db);
@@ -176,12 +238,14 @@ function activityFor(
 	db: Parameters<typeof listProfileActivity>[0],
 	organizationId: string,
 	profileId: string,
+	timeZone: string = AGENCY_TIME_ZONE,
 ): Promise<ProfileActivityRow[]> {
 	return listProfileActivity(db, {
 		organizationId,
 		profileId,
 		dateFrom: DATE_FROM,
 		dateTo: DATE_TO,
+		timeZone,
 	});
 }
 
@@ -202,12 +266,31 @@ function pick(
 	return row;
 }
 
-/** The `role:date` entries one record produced, oldest first. */
+/**
+ * The `role:date` entries one record produced, oldest first.
+ *
+ * Ties break on the order the visits happen in rather than alphabetically: a
+ * date + duration collection files both of its visits on the same day, and an
+ * assertion reading `collected` before `set` would be describing the ordering
+ * of this helper rather than anything about the data.
+ */
+const VISIT_ORDER: Readonly<Record<string, number>> = {
+	set: 0,
+	received: 0,
+	collected: 1,
+	closed: 1,
+};
+
 function entriesFor(rows: readonly ProfileActivityRow[], id: string): string[] {
 	return rows
 		.filter((row) => row.id === id)
-		.map((row) => `${row.role}:${row.date}`)
-		.sort((first, second) => (first.split(':')[1] ?? '').localeCompare(second.split(':')[1] ?? ''));
+		.map((row) => ({
+			key: `${row.role}:${row.date}`,
+			date: row.date,
+			rank: VISIT_ORDER[row.role] ?? 0,
+		}))
+		.sort((first, second) => first.date.localeCompare(second.date) || first.rank - second.rank)
+		.map((entry) => entry.key);
 }
 
 interface ActivityWorld {
@@ -222,6 +305,7 @@ interface ActivityWorld {
 	readonly durationCollectionId: string;
 	readonly openCollectionId: string;
 	readonly serviceRequestId: string;
+	readonly lateTrapId: string;
 	readonly habitatTypeId: string;
 	readonly collectionMethodId: string;
 	readonly sourceReductionMethodId: string;
@@ -313,6 +397,21 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 			collection_method_id: collectionMethod.id,
 			trap_code: 'T-1',
 			trap_name: 'North gate',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+
+	// Placed at 9:30pm Eastern, which is already tomorrow in UTC.
+	const lateTrap = await db
+		.insertInto('traps')
+		.values({
+			organization_id: own,
+			geom: point(-90.5, 35.5),
+			collection_method_id: collectionMethod.id,
+			trap_code: 'T-2',
+			trap_name: 'Late shift',
+			created_by_profile_id: dana,
+			created_at: new Date('2026-08-04T01:30:00.000Z'),
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
@@ -469,6 +568,7 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 		durationCollectionId: duration,
 		openCollectionId: open,
 		serviceRequestId: serviceRequest.id,
+		lateTrapId: lateTrap.id,
 		habitatTypeId: habitatType.id,
 		collectionMethodId: collectionMethod.id,
 		sourceReductionMethodId: sourceReductionMethod.id,
