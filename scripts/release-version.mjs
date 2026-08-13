@@ -60,6 +60,9 @@ const FLOOR_CHANGESET = join(CHANGESET_DIR, 'maintenance-release.md');
  */
 const UNDATED_HEADING = /^## (\d+\.\d+\.\d+)[ \t]*$/gm;
 
+/** A changeset's leading `---` block, which is the only part of it read here. */
+const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---/;
+
 /** A frontmatter line: `'@simmer-mosquito/web': minor`, quoted or not. */
 const RELEASE_DECLARATION = /^\s*['"]?(@[^'":\s]+)['"]?\s*:\s*(major|minor|patch)\s*$/;
 
@@ -96,30 +99,26 @@ function releasedRef() {
 	return null;
 }
 
-/** Every package named by a pending changeset, whatever bump it asks for. */
-function packagesWithPendingBumps() {
-	const named = new Set();
-
-	for (const entry of readdirSync(CHANGESET_DIR)) {
-		if (!entry.endsWith('.md') || entry === 'README.md') {
-			continue;
-		}
-
-		const contents = readFileSync(join(CHANGESET_DIR, entry), 'utf8');
-		const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(contents);
-		if (frontmatter === null) {
-			continue;
-		}
-
-		for (const line of frontmatter[1].split('\n')) {
-			const declaration = RELEASE_DECLARATION.exec(line);
-			if (declaration !== null) {
-				named.add(declaration[1]);
-			}
-		}
+/** The packages one changeset names, whatever bump each asks for. */
+function packagesNamedBy(path) {
+	const frontmatter = FRONTMATTER.exec(readFileSync(path, 'utf8'));
+	if (frontmatter === null) {
+		return [];
 	}
 
-	return named;
+	return frontmatter[1]
+		.split('\n')
+		.map((line) => RELEASE_DECLARATION.exec(line)?.[1])
+		.filter((name) => name !== undefined);
+}
+
+/** Every package the pending changesets name, across all of them. */
+function packagesWithPendingBumps() {
+	const pending = readdirSync(CHANGESET_DIR).filter(
+		(entry) => entry.endsWith('.md') && entry !== 'README.md',
+	);
+
+	return new Set(pending.flatMap((entry) => packagesNamedBy(join(CHANGESET_DIR, entry))));
 }
 
 /**
