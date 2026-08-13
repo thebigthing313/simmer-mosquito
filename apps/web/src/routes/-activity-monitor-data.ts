@@ -296,6 +296,51 @@ export function useActivityLookups(): {
 }
 
 /**
+ * Which of the four non-log states the panel is in, if any.
+ *
+ * A pure resolution rather than a chain of early returns in the component,
+ * because the distinction that matters here is a product one: an outage must
+ * never read as an empty day. The two are indistinguishable on the page unless
+ * something says which is which, and one of them is a conclusion about a
+ * colleague.
+ */
+export function activityPanelMessage(state: {
+	readonly hasProfile: boolean;
+	readonly isLoading: boolean;
+	readonly error: Error | null;
+	readonly isEmpty: boolean;
+}): { readonly title: string; readonly body: string } | 'loading' | null {
+	if (!state.hasProfile) {
+		return { title: 'Choose a person', body: 'Pick someone to see their field work.' };
+	}
+	if (state.isLoading) {
+		return 'loading';
+	}
+	// A refusal says which window was refused; anything else is an outage, and an
+	// outage must never read as an empty day.
+	if (state.error !== null) {
+		return isRefusal(state.error)
+			? { title: 'That range was not read', body: state.error.message }
+			: {
+					title: 'Activity could not be loaded',
+					body: 'The read failed. Try again, or narrow the range.',
+				};
+	}
+	if (state.isEmpty) {
+		return {
+			title: 'No activity in this range',
+			body: 'Nothing is recorded against this person between these dates.',
+		};
+	}
+	return null;
+}
+
+/** A refusal is the server declining the question, not the read failing. */
+function isRefusal(error: Error): boolean {
+	return error instanceof ActivityRequestError && error.refused;
+}
+
+/**
  * The one status pill an entry reads by, if it has one.
  *
  * The server sends a single short token per category rather than a column per

@@ -1,3 +1,4 @@
+import { mapFamily, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -23,23 +24,6 @@ const POINTS_LAYER_ID = `${SOURCE_ID}-points`;
 const ASSISTING_LAYER_ID = `${SOURCE_ID}-assisting`;
 const SELECTED_LAYER_ID = `${SOURCE_ID}-selected`;
 
-/**
- * The four families, in colour.
- *
- * Scoped to this feature rather than shared with the nearby overlay: that one
- * cuts the same records three ways (infrastructure / surveillance / control),
- * which is a different taxonomy, and widening it would leave one palette
- * answering to two meanings. Exported so the count chips and the list dots read
- * the same source the map paints from — the counts are the legend.
- */
-export const ACTIVITY_FAMILY_COLORS = {
-	larval: '#1f9d63',
-	adult: '#9333a8',
-	control: '#2f56c9',
-	publicEngagement: '#d9822b',
-} as const;
-
-const SELECTED_RING = '#0c1b12';
 const NO_SELECTION = '__no-selection__';
 
 const assistingOnly: ExpressionSpecification = ['==', ['get', 'involvement'], 'assisting'];
@@ -48,13 +32,13 @@ const familyColor: ExpressionSpecification = [
 	'match',
 	['get', 'family'],
 	'larval',
-	ACTIVITY_FAMILY_COLORS.larval,
+	mapFamily.larval,
 	'adult',
-	ACTIVITY_FAMILY_COLORS.adult,
+	mapFamily.adult,
 	'control',
-	ACTIVITY_FAMILY_COLORS.control,
+	mapFamily.control,
 	'publicEngagement',
-	ACTIVITY_FAMILY_COLORS.publicEngagement,
+	mapFamily.publicEngagement,
 	'#6b7280',
 ];
 
@@ -82,7 +66,7 @@ function activityLayers(): CircleLayerSpecification[] {
 			paint: {
 				'circle-color': familyColor,
 				'circle-radius': 6,
-				'circle-stroke-color': '#ffffff',
+				'circle-stroke-color': mapInteraction.pointStroke,
 				'circle-stroke-width': 1.5,
 			},
 		},
@@ -94,7 +78,7 @@ function activityLayers(): CircleLayerSpecification[] {
 			source: SOURCE_ID,
 			filter: assistingOnly,
 			paint: {
-				'circle-color': '#ffffff',
+				'circle-color': mapInteraction.pointStroke,
 				'circle-radius': 3,
 				'circle-stroke-color': familyColor,
 				'circle-stroke-width': 0,
@@ -105,10 +89,13 @@ function activityLayers(): CircleLayerSpecification[] {
 			type: 'circle',
 			source: SOURCE_ID,
 			filter: selectedFilter(null),
+			// Amber, like selection on every other layer — DESIGN.md's One Selection
+			// Rule. A near-black halo here would mean selection said something
+			// different depending on which surface the operator clicked from.
 			paint: {
 				'circle-color': 'rgba(0,0,0,0)',
 				'circle-radius': 10,
-				'circle-stroke-color': SELECTED_RING,
+				'circle-stroke-color': mapInteraction.selected,
 				'circle-stroke-width': 2.5,
 			},
 		},

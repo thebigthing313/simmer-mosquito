@@ -155,7 +155,7 @@
         "count": 1
       },
       "crap_high": {
-        "count": 1
+        "count": 2
       }
     },
     "apps/server/src/control-operations-commands/formulations.ts": {
@@ -604,14 +604,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/activity-monitor.tsx": {
-      "crap_high": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 2
-      }
-    },
     "apps/web/src/routes/adult-surveillance/-collection-map-card.tsx": {
       "crap_critical": {
         "count": 1
@@ -824,7 +816,7 @@
       }
     },
     "apps/web/src/routes/control-operations/biocontrol/create.tsx": {
-      "crap_moderate": {
+      "crap_high": {
         "count": 2
       }
     },
@@ -866,10 +858,10 @@
         "count": 3
       },
       "crap_high": {
-        "count": 1
+        "count": 2
       },
       "crap_moderate": {
-        "count": 3
+        "count": 2
       }
     },
     "apps/web/src/routes/control-operations/chemical/-formulation-math.ts": {
@@ -878,13 +870,16 @@
       }
     },
     "apps/web/src/routes/control-operations/chemical/create.tsx": {
-      "complexity_moderate": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
         "count": 1
       },
       "crap_critical": {
         "count": 1
       },
-      "crap_moderate": {
+      "crap_high": {
         "count": 1
       }
     },
@@ -948,7 +943,7 @@
       }
     },
     "apps/web/src/routes/control-operations/source-reduction/create.tsx": {
-      "crap_moderate": {
+      "crap_high": {
         "count": 2
       }
     },
@@ -1604,7 +1599,7 @@
       }
     },
     "apps/web/src/routes/public-engagement/outreach/create.tsx": {
-      "crap_moderate": {
+      "crap_high": {
         "count": 2
       }
     },
@@ -1913,6 +1908,11 @@
       "crap_moderate": {
         "count": 2
       }
+    },
+    "apps/web/src/routes/activity-monitor.tsx": {
+      "crap_moderate": {
+        "count": 2
+      }
     }
   },
   "runtime_coverage_findings": [],
@@ -1924,8 +1924,8 @@
     "apps/web/src/components/map/geometry-control.tsx:complexity",
     "apps/web/src/routes/operations/assignments/create.tsx:complexity",
     "apps/web/src/routes/operations/assignments/index.tsx:complexity",
-    "apps/web/src/routes/gis/addresses/-address-form.tsx:complexity",
     "apps/web/src/routes/public-engagement/outreach/-outreach-form.tsx:complexity",
+    "apps/web/src/routes/gis/addresses/-address-form.tsx:complexity",
     "apps/web/src/routes/gis/regions/index.tsx:complexity",
     "apps/web/src/routes/control-operations/chemical/-application-form.tsx:complexity",
     "apps/web/src/routes/public-engagement/service-requests/index.tsx:complexity",
@@ -1934,16 +1934,16 @@
     "apps/server/src/mission-dispatch-commands/missions.ts:complexity",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
-    "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/inspections/-inspection-form.tsx:complexity",
+    "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
     "apps/web/src/routes/control-operations/biocontrol/-biocontrol-form.tsx:complexity",
     "apps/web/src/routes/control-operations/source-reduction/-source-reduction-form.tsx:complexity",
+    "packages/ui-web/src/components/ui/autocomplete.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/server/src/public-engagement-records-commands/contacts.ts:complexity",
     "apps/web/src/routes/operations/assignments/$id.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",
-    "packages/ui-web/src/components/ui/autocomplete.tsx:complexity",
     "apps/web/src/routes/operations/missions/index.tsx:complexity",
     "packages/auth/src/index.ts:complexity"
   ]

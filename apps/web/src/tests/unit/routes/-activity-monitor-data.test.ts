@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	type ActivityEntry,
+	ActivityRequestError,
 	activityEntryKey,
+	activityPanelMessage,
 	activityStatus,
 	buildActivityMapData,
 	countActivityByFamily,
@@ -172,6 +174,47 @@ describe('describeActivityEntry', () => {
 	// Nothing resolved and nothing joined still has to read as something.
 	it('falls back to the category when a record names nothing', () => {
 		expect(describe_({ category: 'biocontrol' })).toEqual({ title: 'Biocontrol', subtitle: null });
+	});
+});
+
+// Which of the non-log states the panel is in. The distinction that matters is
+// a product one: an outage must never read as an empty day, because the two are
+// indistinguishable on the page and one of them is a conclusion about a colleague.
+describe('activityPanelMessage', () => {
+	const ready = { hasProfile: true, isLoading: false, error: null, isEmpty: false };
+
+	it('shows the log once there is one', () => {
+		expect(activityPanelMessage(ready)).toBeNull();
+	});
+
+	it('asks for a person before anything else', () => {
+		expect(activityPanelMessage({ ...ready, hasProfile: false, isLoading: true })).toMatchObject({
+			title: 'Choose a person',
+		});
+	});
+
+	it('distinguishes a failed read from a day with no work in it', () => {
+		const failed = activityPanelMessage({ ...ready, error: new Error('boom'), isEmpty: true });
+		const empty = activityPanelMessage({ ...ready, isEmpty: true });
+
+		expect(failed).not.toEqual(empty);
+		expect(failed).toMatchObject({ title: 'Activity could not be loaded' });
+		expect(empty).toMatchObject({ title: 'No activity in this range' });
+	});
+
+	// A refused range is the server declining the question, so it repeats the
+	// server's own reason rather than the generic failure copy.
+	it('repeats the reason when the server refuses the range', () => {
+		const refused = new ActivityRequestError('The date range may span at most 92 days.', true);
+
+		expect(activityPanelMessage({ ...ready, error: refused, isEmpty: true })).toEqual({
+			title: 'That range was not read',
+			body: 'The date range may span at most 92 days.',
+		});
+	});
+
+	it('loads before it reports emptiness', () => {
+		expect(activityPanelMessage({ ...ready, isLoading: true, isEmpty: true })).toBe('loading');
 	});
 });
 

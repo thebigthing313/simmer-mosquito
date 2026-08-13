@@ -1,3 +1,4 @@
+import { mapFamily } from '@simmer-mosquito/design-tokens';
 import { boundsFromGeoJson } from '@simmer-mosquito/mapping';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
@@ -22,7 +23,6 @@ import {
 } from '../components/explorer';
 import { DensityBadge, WetnessBadge } from '../components/larval-display';
 import { MapCanvas } from '../components/map';
-import { ACTIVITY_FAMILY_COLORS } from '../components/map/use-activity-layer';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
 import { todayInTimeZone } from '../lib/local-date';
 import {
@@ -42,6 +42,7 @@ import {
 	ActivityRequestError,
 	type ActivityStateToken,
 	activityEntryKey,
+	activityPanelMessage,
 	activityStatus,
 	buildActivityMapData,
 	countActivityByFamily,
@@ -93,26 +94,12 @@ export const Route = createFileRoute('/activity-monitor')({
 });
 
 function ActivityMonitorRoute() {
-	const today = useMemo(() => todayInTimeZone(undefined), []);
-	const snapshot = useAuthSnapshot();
-	const ownProfileId =
-		snapshot?.authenticated === true ? snapshot.localIdentity.profileId : undefined;
-
-	// Today, and the signed-in person: the page is useful to a collector
-	// reviewing their own day without configuring anything.
-	const filterDefaults = useMemo<ActivityFilters>(
-		() => ({ profile: ownProfileId ?? '', from: today, to: today }),
-		[ownProfileId, today],
-	);
-	const { filters: query, setFilters } = useSearchFilters(filterDefaults, ACTIVITY_FILTER_CODECS);
-	const profileId = query.profile === '' ? null : query.profile;
-	const dateRange = useDateRangeFilters({ from: query.from, to: query.to, today, setFilters });
-
+	const filters = useActivityFilters();
 	const personnel = usePersonnelOptions();
 	const lookups = useActivityLookups();
 	const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-	const activity = useProfileActivity({ profileId, dateFrom: query.from, dateTo: query.to });
+	const activity = useProfileActivity(filters.window);
 	const view = useActivityView(activity.data?.items, selectedKey);
 
 	const clearSelection = useCallback(() => setSelectedKey(null), []);
@@ -145,12 +132,12 @@ function ActivityMonitorRoute() {
 					<ProfilePicker
 						onChange={(next) => {
 							setSelectedKey(null);
-							setFilters({ profile: next });
+							filters.setProfile(next);
 						}}
 						options={personnel.options}
-						value={profileId}
+						value={filters.window.profileId ?? ''}
 					/>
-					<DateRangeFilter {...dateRange} />
+					<DateRangeFilter {...filters.dateRange} />
 					<FamilyCounts counts={view.counts} />
 				</ExplorerHeader>
 
@@ -160,13 +147,53 @@ function ActivityMonitorRoute() {
 					isLoading={activity.isLoading}
 					lookups={lookups}
 					onSelect={setSelectedKey}
-					profileId={profileId}
+					profileId={filters.window.profileId}
 					selectedKey={selectedKey}
 					truncated={activity.data?.truncated === true}
 				/>
 			</div>
 		</MapSplitPage>
 	);
+}
+
+/**
+ * The page's filters, held in the URL: which person, and which dates.
+ *
+ * Defaults to the signed-in person and today, so the page is useful to a
+ * collector reviewing their own day without configuring anything — and because
+ * the filters are in the address, one particular person's one particular day is
+ * a link somebody can be sent.
+ */
+function useActivityFilters(): {
+	readonly window: {
+		readonly profileId: string | null;
+		readonly dateFrom: string;
+		readonly dateTo: string;
+	};
+	readonly dateRange: ReturnType<typeof useDateRangeFilters>;
+	readonly setProfile: (next: string) => void;
+} {
+	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const snapshot = useAuthSnapshot();
+	const ownProfileId =
+		snapshot?.authenticated === true ? (snapshot.localIdentity.profileId ?? '') : '';
+
+	const defaults = useMemo<ActivityFilters>(
+		() => ({ profile: ownProfileId, from: today, to: today }),
+		[ownProfileId, today],
+	);
+	const { filters, setFilters } = useSearchFilters(defaults, ACTIVITY_FILTER_CODECS);
+	const setProfile = useCallback((next: string) => setFilters({ profile: next }), [setFilters]);
+
+	return {
+		window: {
+			profileId: filters.profile === '' ? null : filters.profile,
+			dateFrom: filters.from,
+			dateTo: filters.to,
+		},
+		dateRange: useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters }),
+		setProfile,
+	};
 }
 
 /**
@@ -210,7 +237,7 @@ function ProfilePicker({
 	options,
 	onChange,
 }: {
-	readonly value: string | null;
+	readonly value: string;
 	readonly options: readonly { readonly id: string; readonly label: string }[];
 	readonly onChange: (next: string) => void;
 }) {
@@ -265,54 +292,14 @@ function FamilyDot({
 			className="size-2.5 shrink-0 rounded-full"
 			style={
 				hollow
-					? { boxShadow: `inset 0 0 0 2px ${ACTIVITY_FAMILY_COLORS[family]}` }
-					: { backgroundColor: ACTIVITY_FAMILY_COLORS[family] }
+					? { boxShadow: `inset 0 0 0 2px ${mapFamily[family]}` }
+					: { backgroundColor: mapFamily[family] }
 			}
 		/>
 	);
 }
 
 // --- the log -----------------------------------------------------------------
-
-/**
- * Which of the four non-log states the panel is in, if any.
- *
- * A pure resolution rather than a chain of early returns in the component,
- * because the distinction that matters here is a product one: an outage must
- * never read as an empty day. The two are indistinguishable on the page unless
- * something says which is which, and one of them is a conclusion about a
- * colleague.
- */
-function activityPanelMessage(state: {
-	readonly hasProfile: boolean;
-	readonly isLoading: boolean;
-	readonly error: Error | null;
-	readonly isEmpty: boolean;
-}): { readonly title: string; readonly body: string } | 'loading' | null {
-	if (!state.hasProfile) {
-		return { title: 'Choose a person', body: 'Pick someone to see their field work.' };
-	}
-	if (state.isLoading) {
-		return 'loading';
-	}
-	// A refusal says which window was refused; anything else is an outage, and an
-	// outage must never read as an empty day.
-	if (state.error !== null) {
-		return isRefusal(state.error)
-			? { title: 'That range was not read', body: state.error.message }
-			: {
-					title: 'Activity could not be loaded',
-					body: 'The read failed. Try again, or narrow the range.',
-				};
-	}
-	if (state.isEmpty) {
-		return {
-			title: 'No activity in this range',
-			body: 'Nothing is recorded against this person between these dates.',
-		};
-	}
-	return null;
-}
 
 function ActivityPanel({
 	days,
@@ -378,10 +365,6 @@ function TruncationNotice() {
 
 /** The resolved lookup names + unit formatter every row's description needs. */
 type ActivityLookups = ReturnType<typeof useActivityLookups>;
-
-function isRefusal(error: Error): boolean {
-	return error instanceof ActivityRequestError && error.refused;
-}
 
 /**
  * One day of the log, collapsible.
@@ -497,7 +480,7 @@ function ActivityRow({
 				.filter((part) => part !== null && part !== '')
 				.join(' · ')}
 			swatch={{
-				color: ACTIVITY_FAMILY_COLORS[entry.family],
+				color: mapFamily[entry.family],
 				label: `${noun}, ${entry.involvement === 'assisting' ? 'assisted' : 'performed'}`,
 			}}
 			title={title}

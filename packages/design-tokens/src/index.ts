@@ -2,6 +2,7 @@ export { type BrandColor, type BrandScale, brand, green, yellow } from './colors
 export {
 	type MapDensityStep,
 	type MapDomainMark,
+	type MapFamily,
 	type MapInteractionRole,
 	type MapLifecycleState,
 	type MapProgressTone,
@@ -9,6 +10,7 @@ export {
 	mapContext,
 	mapDensity,
 	mapDomain,
+	mapFamily,
 	mapInteraction,
 	mapLifecycle,
 	mapProgress,
