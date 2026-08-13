@@ -21,7 +21,6 @@ import { RecordUnavailable } from '../../../components/record';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { operationalDayAsInstant } from '../../../lib/local-date';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -31,6 +30,7 @@ import {
 	noLureValue,
 	noUnitValue,
 } from './-collection-form';
+import { collectionTimingStamps } from './-collection-timing';
 
 const collectionGcTimeMs = 30_000;
 
@@ -137,6 +137,7 @@ function EditCollectionLoader({
 			const locationSource = refinedPoint ? ({ kind: 'geometry', geometry } as const) : undefined;
 
 			const now = new Date().toISOString();
+			const timing = collectionTimingStamps(values, timeZone);
 			const applyEdits = (draft: AdultCollectionRow) => {
 				const writable = draft as {
 					-readonly [K in keyof AdultCollectionRow]: AdultCollectionRow[K];
@@ -149,10 +150,8 @@ function EditCollectionLoader({
 				writable.hasProblem = values.hasProblem;
 				writable.metadata = values.metadata;
 				writable.collectionTimingMode = values.timingMode;
-				writable.startedAt = exact ? operationalDayAsInstant(values.startedAt, timeZone) : null;
-				writable.collectedAt = exact
-					? operationalDayAsInstant(values.collectedAt, timeZone)
-					: operationalDayAsInstant(values.collectionDate, timeZone);
+				writable.startedAt = timing.startedAt;
+				writable.collectedAt = timing.collectedAt;
 				writable.collectionDate = exact ? null : values.collectionDate;
 				writable.durationAmount = exact ? null : values.durationAmount;
 				writable.durationUnitId =

@@ -22,7 +22,6 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
-import { operationalDayAsInstant } from '../../../lib/local-date';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -34,6 +33,7 @@ import {
 	noLureValue,
 	noUnitValue,
 } from './-collection-form';
+import { type CollectionTimingStamps, collectionTimingStamps } from './-collection-timing';
 
 const createCollectionSearchSchema = z.object({
 	...mapPointSearchSchema.shape,
@@ -87,11 +87,10 @@ function buildCollectionRow(input: {
 	readonly centroid: { readonly lat: number; readonly lng: number };
 	readonly isTrap: boolean;
 	readonly exact: boolean;
-	readonly collectedAt: string | null;
+	readonly timing: CollectionTimingStamps;
 	readonly assignmentItemId: string | null;
-	readonly timeZone: string;
 }): AdultCollectionRow {
-	const { values, centroid, isTrap, exact, collectedAt, assignmentItemId, timeZone } = input;
+	const { values, centroid, isTrap, exact, timing, assignmentItemId } = input;
 	return {
 		id: input.id,
 		organizationId: input.organizationId,
@@ -102,14 +101,14 @@ function buildCollectionRow(input: {
 		collectionMethodId: values.collectionMethodId,
 		collectionLureId: values.collectionLureId === noLureValue ? null : values.collectionLureId,
 		addressId: isTrap ? null : values.addressId,
-		collectedAt,
+		collectedAt: timing.collectedAt,
 		collectedByProfileId: values.collectedByProfileId,
-		startedAt: exact ? operationalDayAsInstant(values.startedAt, timeZone) : null,
+		startedAt: timing.startedAt,
 		setByProfileId: values.setByProfileId,
 		// Both halves come from this one visit; the server writes whichever
 		// applies for the timing mode.
 		setAssignmentItemId: assignmentItemId,
-		collectedAssignmentItemId: collectedAt === null ? null : assignmentItemId,
+		collectedAssignmentItemId: timing.collectedAt === null ? null : assignmentItemId,
 		collectionTimingMode: values.timingMode,
 		collectionDate: exact ? null : values.collectionDate,
 		durationAmount: exact ? null : values.durationAmount,
@@ -173,9 +172,7 @@ function CreateCollectionRoute() {
 				const isTrap = values.sourceMode === 'trap';
 				const exact = values.timingMode === 'exact_timestamps';
 				const now = new Date().toISOString();
-				const collectedAt = exact
-					? operationalDayAsInstant(values.collectedAt, timeZone)
-					: operationalDayAsInstant(values.collectionDate, timeZone);
+				const timing = collectionTimingStamps(values, timeZone);
 
 				// Trap mode inherits the trap's location; ad-hoc carries its own point. The
 				// server recomputes geom from the location source; this centroid seeds the
@@ -199,9 +196,8 @@ function CreateCollectionRoute() {
 					centroid,
 					isTrap,
 					exact,
-					collectedAt,
+					timing,
 					assignmentItemId,
-					timeZone,
 				});
 
 				const locationSource =
