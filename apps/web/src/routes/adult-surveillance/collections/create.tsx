@@ -18,6 +18,7 @@ import {
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -141,7 +142,8 @@ function CreateCollectionRoute() {
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = organization !== null && actorProfileId !== null;

@@ -246,12 +246,17 @@ interface TileSetDefinition {
 		db: TileDb,
 		input: TileCoordinate & {
 			readonly organizationId: string;
+			readonly timeZone: string;
 			readonly filters: unknown;
 		},
 	) => Promise<Uint8Array>;
 	readonly getExtent: (
 		db: TileDb,
-		input: { readonly organizationId: string; readonly filters: unknown },
+		input: {
+			readonly organizationId: string;
+			readonly timeZone: string;
+			readonly filters: unknown;
+		},
 	) => Promise<MapExtent | null>;
 }
 
@@ -260,11 +265,15 @@ function defineTileSet<F>(def: {
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<F>;
 	readonly getTile: (
 		db: TileDb,
-		input: TileCoordinate & { readonly organizationId: string; readonly filters: F },
+		input: TileCoordinate & {
+			readonly organizationId: string;
+			readonly timeZone: string;
+			readonly filters: F;
+		},
 	) => Promise<Uint8Array>;
 	readonly getExtent: (
 		db: TileDb,
-		input: { readonly organizationId: string; readonly filters: F },
+		input: { readonly organizationId: string; readonly timeZone: string; readonly filters: F },
 	) => Promise<MapExtent | null>;
 }): TileSetDefinition {
 	return def as unknown as TileSetDefinition;
@@ -381,8 +390,8 @@ export function registerMapTileRoutes(
 	registerPagedRoute(app, options, {
 		path: '/map/chemical',
 		key: 'applications',
-		parseQuery: (searchParams, organizationId) =>
-			parsePageQuery(searchParams, organizationId, parseApplicationMapFilters),
+		parseQuery: (searchParams, organizationId, timeZone) =>
+			parsePageQuery(searchParams, organizationId, timeZone, parseApplicationMapFilters),
 		list: readers.listApplicationDisplayRows,
 	});
 
@@ -396,8 +405,8 @@ export function registerMapTileRoutes(
 	registerPagedRoute(app, options, {
 		path: '/map/source-reduction',
 		key: 'sourceReductions',
-		parseQuery: (searchParams, organizationId) =>
-			parsePageQuery(searchParams, organizationId, parseSourceReductionMapFilters),
+		parseQuery: (searchParams, organizationId, timeZone) =>
+			parsePageQuery(searchParams, organizationId, timeZone, parseSourceReductionMapFilters),
 		list: readers.listSourceReductionDisplayRows,
 	});
 
@@ -411,8 +420,8 @@ export function registerMapTileRoutes(
 	registerPagedRoute(app, options, {
 		path: '/map/biocontrol',
 		key: 'biocontrolActions',
-		parseQuery: (searchParams, organizationId) =>
-			parsePageQuery(searchParams, organizationId, parseBiocontrolMapFilters),
+		parseQuery: (searchParams, organizationId, timeZone) =>
+			parsePageQuery(searchParams, organizationId, timeZone, parseBiocontrolMapFilters),
 		list: readers.listBiocontrolDisplayRows,
 	});
 
@@ -427,8 +436,8 @@ export function registerMapTileRoutes(
 	registerPagedRoute(app, options, {
 		path: '/map/outreach',
 		key: 'outreachActions',
-		parseQuery: (searchParams, organizationId) =>
-			parsePageQuery(searchParams, organizationId, parseOutreachMapFilters),
+		parseQuery: (searchParams, organizationId, timeZone) =>
+			parsePageQuery(searchParams, organizationId, timeZone, parseOutreachMapFilters),
 		list: readers.listOutreachDisplayRows,
 	});
 
@@ -517,8 +526,8 @@ export function registerMapTileRoutes(
 	registerPagedRoute(app, options, {
 		path: '/map/traps',
 		key: 'traps',
-		parseQuery: (searchParams, organizationId) =>
-			parsePageQuery(searchParams, organizationId, parseTrapMapFilters),
+		parseQuery: (searchParams, organizationId, timeZone) =>
+			parsePageQuery(searchParams, organizationId, timeZone, parseTrapMapFilters),
 		list: readers.listTrapDisplayRows,
 	});
 
@@ -532,8 +541,8 @@ export function registerMapTileRoutes(
 	registerPagedRoute(app, options, {
 		path: '/map/collections',
 		key: 'collections',
-		parseQuery: (searchParams, organizationId) =>
-			parsePageQuery(searchParams, organizationId, parseCollectionMapFilters),
+		parseQuery: (searchParams, organizationId, timeZone) =>
+			parsePageQuery(searchParams, organizationId, timeZone, parseCollectionMapFilters),
 		list: readers.listCollectionDisplayRows,
 	});
 
@@ -564,6 +573,7 @@ export function registerMapTileRoutes(
 		const authContext = context.get('authContext');
 		const extent = await tileSet.getExtent(options.db, {
 			organizationId: authContext.organization.id,
+			timeZone: authContext.timeZone,
 			filters: filterResult.filters,
 		});
 
@@ -602,6 +612,7 @@ export function registerMapTileRoutes(
 			const tile = await tileSet.getTile(options.db, {
 				...coordinateResult.coordinate,
 				organizationId: authContext.organization.id,
+				timeZone: authContext.timeZone,
 				filters: filterResult.filters,
 			});
 
@@ -634,6 +645,7 @@ function registerPagedRoute<TInput, TRow>(
 		readonly parseQuery: (
 			searchParams: URLSearchParams,
 			organizationId: string,
+			timeZone: string,
 		) => PageQueryResult<TInput>;
 		readonly list: (
 			db: TileDb,
@@ -646,6 +658,7 @@ function registerPagedRoute<TInput, TRow>(
 		const queryResult = route.parseQuery(
 			new URL(context.req.url).searchParams,
 			authContext.organization.id,
+			authContext.timeZone,
 		);
 
 		if (!queryResult.ok) {
@@ -809,6 +822,7 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
 function parsePageQuery<TFilters>(
 	searchParams: URLSearchParams,
 	organizationId: string,
+	timeZone: string,
 	parseFilters: (params: URLSearchParams) => FilterResult<TFilters>,
 ): PageQueryResult<PageInput<TFilters>> {
 	const limit = parseLimitParam(searchParams.get('limit'));
@@ -830,6 +844,7 @@ function parsePageQuery<TFilters>(
 		ok: true,
 		input: {
 			organizationId,
+			timeZone,
 			filters: filterResult.filters,
 			limit: limit.value,
 			offset: offset.value,
@@ -841,6 +856,7 @@ function parsePageQuery<TFilters>(
 function parseBboxPageQuery<TFilters>(
 	searchParams: URLSearchParams,
 	organizationId: string,
+	timeZone: string,
 	parseFilters: (params: URLSearchParams) => FilterResult<TFilters>,
 ): PageQueryResult<PageInput<TFilters> & { readonly bounds: MapBounds }> {
 	const bbox = parseBoundingBoxParam(searchParams.get('bbox'));
@@ -848,7 +864,7 @@ function parseBboxPageQuery<TFilters>(
 		return bbox;
 	}
 
-	const page = parsePageQuery(searchParams, organizationId, (params) => {
+	const page = parsePageQuery(searchParams, organizationId, timeZone, (params) => {
 		params.delete('bbox');
 		return parseFilters(params);
 	});
@@ -879,6 +895,13 @@ interface PageInput<TFilters> {
 	readonly filters: TFilters;
 	readonly limit: number;
 	readonly offset: number;
+	/**
+	 * The agency's timezone, on every paged read whether or not its surface reads
+	 * one. Uniform rather than per-surface because the surfaces that need it are
+	 * the ones dated by a `timestamptz`, and which those are is a fact about the
+	 * schema that changes without this file changing.
+	 */
+	readonly timeZone: string;
 }
 
 // ===========================================================================
@@ -1113,15 +1136,17 @@ export function parseTileCoordinate(input: {
 export function parseHabitatDisplayQuery(
 	searchParams: URLSearchParams,
 	organizationId: string,
+	timeZone: string,
 ): PageQueryResult<BboxPageInput<HabitatMvtTileFilters>> {
-	return parseBboxPageQuery(searchParams, organizationId, parseHabitatTileFilters);
+	return parseBboxPageQuery(searchParams, organizationId, timeZone, parseHabitatTileFilters);
 }
 
 export function parseInspectionDisplayQuery(
 	searchParams: URLSearchParams,
 	organizationId: string,
+	timeZone: string,
 ): PageQueryResult<BboxPageInput<InspectionMvtTileFilters>> {
-	return parseBboxPageQuery(searchParams, organizationId, parseInspectionTileFilters);
+	return parseBboxPageQuery(searchParams, organizationId, timeZone, parseInspectionTileFilters);
 }
 
 const sampleStatusSet = new Set<string>(sampleStatusValues);
@@ -1129,8 +1154,9 @@ const sampleStatusSet = new Set<string>(sampleStatusValues);
 function parseSampleDisplayQuery(
 	searchParams: URLSearchParams,
 	organizationId: string,
+	timeZone: string,
 ): PageQueryResult<BboxPageInput<SampleListFilters>> {
-	return parseBboxPageQuery(searchParams, organizationId, parseSampleTileFilters);
+	return parseBboxPageQuery(searchParams, organizationId, timeZone, parseSampleTileFilters);
 }
 
 // --- control-operations map queries -----------------------------------------

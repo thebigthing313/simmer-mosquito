@@ -32,6 +32,7 @@ import {
 } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
 	choiceParam,
 	dateParam,
@@ -405,6 +406,7 @@ function RequestRow({
 	readonly onSelect: (id: string) => void;
 }) {
 	const subject = requestDisplayName(request);
+	const timeZone = useOrganizationTimeZone();
 
 	return (
 		<li
@@ -429,7 +431,7 @@ function RequestRow({
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
 						{controlTypeLabel(request.controlType)}
 						{methodName === null ? '' : ` · ${methodName}`}
-						{` · ${formatRequestedAt(request.requestedAt)}`}
+						{` · ${formatRequestedAt(request.requestedAt, timeZone)}`}
 					</p>
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
 						{requesterName ?? 'No requester recorded'}

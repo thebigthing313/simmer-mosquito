@@ -11,6 +11,7 @@ import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { Suspense } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { getToday } from '../../lib/get-today';
 import { webCollections } from '../../sync/webCollections';
 import {
@@ -52,6 +53,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 		[],
 	);
 	const profileResult = useLiveQuery((query) => query.from({ row: webCollections.profiles }), []);
+	const timeZone = useOrganizationTimeZone();
 
 	const organization = (organizationResult.data ?? []).find(
 		(row) => row.id === localIdentity?.organizationId,
@@ -88,6 +90,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				accountLinks={webAccountLinks}
 				version={__APP_VERSION__}
 				getToday={getToday}
+				{...(timeZone === undefined ? {} : { timeZone })}
 				activePath={pathname}
 				onNavigate={(to) => {
 					// The shell models destinations as plain strings; the router's typed

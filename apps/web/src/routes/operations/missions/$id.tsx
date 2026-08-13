@@ -27,10 +27,11 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { WriteOnly } from '../../../components/write-only';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	controlTypeLabel,
-	formatRequestedAt,
+	formatOperationalDate,
 	formatScheduledStart,
 	type MissionView,
 } from '../-operations-data';
@@ -272,6 +273,7 @@ function MissionHeader({
 	readonly mission: MissionView;
 	readonly run: MissionRun;
 }) {
+	const timeZone = useOrganizationTimeZone();
 	return (
 		<>
 			<div className="flex items-start justify-between gap-3">
@@ -283,11 +285,13 @@ function MissionHeader({
 					<p className="m-0 mt-0.5 text-muted-foreground text-sm">
 						{controlTypeLabel(mission.controlType)}
 						{run.methodName === null ? '' : ` · ${run.methodName}`}
-						{` · ${formatScheduledStart(mission.scheduledStartAt)}`}
+						{` · ${formatScheduledStart(mission.scheduledStartAt, timeZone)}`}
 					</p>
 					<p className="m-0 mt-0.5 text-muted-foreground text-sm">
 						{run.assigneeName ?? 'Unassigned'} · {stopSummary(run.counts)}
-						{mission.rainDate === null ? '' : ` · rain date ${formatRequestedAt(mission.rainDate)}`}
+						{mission.rainDate === null
+							? ''
+							: ` · rain date ${formatOperationalDate(mission.rainDate)}`}
 					</p>
 				</div>
 				<div className="flex shrink-0 items-center gap-2">

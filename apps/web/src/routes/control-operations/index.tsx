@@ -25,6 +25,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { webCollections } from '../../sync/webCollections';
 import { formatActionDate, formatAmount, usageTotal } from './-control-display';
 import {
@@ -58,7 +59,8 @@ export const Route = createFileRoute('/control-operations/')({
 });
 
 function ControlOperationsOverviewRoute() {
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const since = useMemo(
 		() => addDaysToDateString(today, -(CONTROL_ACTIVITY_WINDOW_DAYS - 1)),
 		[today],

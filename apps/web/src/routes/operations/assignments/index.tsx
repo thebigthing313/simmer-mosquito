@@ -29,6 +29,7 @@ import {
 	usePersonnelOptions,
 } from '../../../components/explorer';
 import { WriteOnly } from '../../../components/write-only';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -393,7 +394,8 @@ function AssignmentRow({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	const due = formatDueAt(assignment.dueAt);
+	const timeZone = useOrganizationTimeZone();
+	const due = formatDueAt(assignment.dueAt, timeZone);
 
 	return (
 		<li

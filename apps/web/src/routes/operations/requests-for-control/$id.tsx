@@ -26,6 +26,7 @@ import { WriteOnly } from '../../../components/write-only';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
@@ -172,6 +173,7 @@ function RequestHeader({
 	readonly onToggleResolved: () => void;
 }) {
 	const isOpen = request.status === 'open';
+	const timeZone = useOrganizationTimeZone();
 
 	return (
 		<div className="flex flex-wrap items-start justify-between gap-3">
@@ -183,7 +185,7 @@ function RequestHeader({
 				<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">{subject}</h1>
 				<p className="m-0 text-[0.95rem] text-muted-foreground">
 					{controlTypeLabel(request.controlType)} · raised{' '}
-					{formatScheduledStart(request.requestedAt)}
+					{formatScheduledStart(request.requestedAt, timeZone)}
 				</p>
 			</div>
 			<div className="flex flex-wrap items-center gap-2">
@@ -289,6 +291,7 @@ function RequestMissionsCard({ requestId }: { readonly requestId: string }) {
 }
 
 function MissionLinkRow({ mission }: { readonly mission: MissionView }) {
+	const timeZone = useOrganizationTimeZone();
 	return (
 		<Link
 			className={cn(
@@ -299,11 +302,14 @@ function MissionLinkRow({ mission }: { readonly mission: MissionView }) {
 			to="/operations/missions/$id"
 		>
 			<div className="flex flex-wrap items-center gap-2">
-				<span className="font-medium text-foreground text-sm">{missionDisplayName(mission)}</span>
+				<span className="font-medium text-foreground text-sm">
+					{missionDisplayName(mission, timeZone)}
+				</span>
 				<MissionStatusBadge status={mission.status} />
 			</div>
 			<span className="text-muted-foreground text-xs">
-				{controlTypeLabel(mission.controlType)} · {formatScheduledStart(mission.scheduledStartAt)}
+				{controlTypeLabel(mission.controlType)} ·{' '}
+				{formatScheduledStart(mission.scheduledStartAt, timeZone)}
 			</span>
 		</Link>
 	);
@@ -336,6 +342,7 @@ function RequestFactRows({ request }: { readonly request: RequestView }) {
 	const methodName = useRecommendedMethodName(request.recommendedMethodId);
 	const raisedBy = useProfileName(request.requestedByProfileId);
 	const resolvedBy = useProfileName(request.resolvedByProfileId);
+	const timeZone = useOrganizationTimeZone();
 
 	return (
 		<>
@@ -349,10 +356,10 @@ function RequestFactRows({ request }: { readonly request: RequestView }) {
 				)}
 			</DetailRow>
 			<DetailRow label="Raised by">{raisedBy ?? <NotSet>Not recorded</NotSet>}</DetailRow>
-			<DetailRow label="Raised">{formatScheduledStart(request.requestedAt)}</DetailRow>
+			<DetailRow label="Raised">{formatScheduledStart(request.requestedAt, timeZone)}</DetailRow>
 			{request.resolvedAt === null ? null : (
 				<DetailRow label="Resolved">
-					{formatScheduledStart(request.resolvedAt)}
+					{formatScheduledStart(request.resolvedAt, timeZone)}
 					{resolvedBy === null ? '' : ` · ${resolvedBy}`}
 				</DetailRow>
 			)}

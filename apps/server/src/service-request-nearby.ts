@@ -62,6 +62,10 @@ export function registerServiceRequestNearbyRoutes(
 			radiusMeters,
 			dateFrom,
 			dateTo,
+			// The same settings the radius and window came from. A collection's
+			// `collected_at` becomes a day in this zone, so the window here means the
+			// same days the operator picked.
+			timeZone: settings.timezone,
 		});
 
 		return context.json({

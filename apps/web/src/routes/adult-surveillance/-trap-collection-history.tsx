@@ -35,6 +35,7 @@ import { Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
 import { WriteOnly } from '../../components/write-only';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { localDayStartAsTimestamp } from '../../lib/local-date';
 import { webCollections } from '../../sync/webCollections';
 import {
@@ -90,11 +91,15 @@ export function TrapCollectionHistory({
 }) {
 	// Older seasons are asked for, not loaded up front — see DEFAULT_SEASONS.
 	const [allSeasons, setAllSeasons] = useState(false);
+	const timeZone = useOrganizationTimeZone();
 	const since = useMemo(() => {
-		const thisYear = Number(todayInTimeZone(undefined).slice(0, 4));
+		const thisYear = Number(todayInTimeZone(timeZone).slice(0, 4));
 		return `${thisYear - (DEFAULT_SEASONS - 1)}-01-01`;
-	}, []);
-	const sinceTimestamp = useMemo(() => localDayStartAsTimestamp(since), [since]);
+	}, [timeZone]);
+	const sinceTimestamp = useMemo(
+		() => localDayStartAsTimestamp(since, timeZone),
+		[since, timeZone],
+	);
 
 	// collections is on-demand; this query's predicate is what loads the trap's
 	// subset, and the correlated species include comes with it. Status-gated

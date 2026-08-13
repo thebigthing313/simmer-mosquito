@@ -5,6 +5,7 @@ import type { RouteStopFeature } from '../../../components/map';
 import { type MoveAction, type OrderPlacement, useStopOrder } from '../../../components/stop-order';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useHasRole } from '../../../hooks/use-can-write';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { type CommandRunner, useCommandRunner } from '../-command-runner';
 import {
 	addMissionItemFromRequest,
@@ -167,9 +168,10 @@ interface MissionLabels {
 function useMissionLabels(mission: MissionView | null): MissionLabels {
 	const { nameById } = usePersonnelOptions();
 	const methodNameById = useAllControlMethodNames();
+	const timeZone = useOrganizationTimeZone();
 
 	return {
-		displayName: mission === null ? null : missionDisplayName(mission),
+		displayName: mission === null ? null : missionDisplayName(mission, timeZone),
 		assigneeName: lookup(nameById, mission?.assignedToProfileId),
 		methodName: lookup(methodNameById, mission?.plannedMethodId),
 	};

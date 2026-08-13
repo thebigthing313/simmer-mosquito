@@ -28,6 +28,7 @@ const localIdentity: ActiveLocalAuthIdentity = {
 		workosOrganizationId: 'workos_org_123',
 		name: 'County Mosquito Control',
 		slug: 'county-mosquito',
+		settings: { timezone: 'America/New_York' },
 	},
 	profile: {
 		id: 'profile-1',

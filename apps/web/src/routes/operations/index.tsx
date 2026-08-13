@@ -6,6 +6,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { webCollections } from '../../sync/webCollections';
 import { todayDateValue } from '../control-operations/-control-display';
 import {
@@ -147,6 +148,7 @@ function OpenRequestsPanel({
 }) {
 	const { requests, isReady } = useRequestedControlActions(from, to);
 	const methodNameById = useAllControlMethodNames();
+	const timeZone = useOrganizationTimeZone();
 	const open = useMemo(() => requests.filter((request) => request.status === 'open'), [requests]);
 
 	return (
@@ -178,7 +180,7 @@ function OpenRequestsPanel({
 									? 'No requester'
 									: (nameById.get(request.requestedByProfileId) ?? 'Unknown requester')
 							}`}
-							trailing={formatRequestedAt(request.requestedAt)}
+							trailing={formatRequestedAt(request.requestedAt, timeZone)}
 						/>
 					))}
 				</ul>
@@ -267,6 +269,7 @@ function MissionsPanel({
 	const { missions, isReady } = useMissions(from, to);
 	const ids = useMemo(() => missions.map((mission) => mission.id), [missions]);
 	const { countsById } = useMissionItemCounts(ids);
+	const timeZone = useOrganizationTimeZone();
 
 	const active = useMemo(
 		() =>
@@ -295,7 +298,7 @@ function MissionsPanel({
 							<OverviewRow
 								icon={<MissionIcon aria-hidden="true" className="size-4" />}
 								key={mission.id}
-								primary={missionDisplayName(mission)}
+								primary={missionDisplayName(mission, timeZone)}
 								secondary={`${MISSION_STATUS_LABELS[mission.status]} · ${
 									mission.assignedToProfileId === null
 										? 'Unassigned'
@@ -305,7 +308,7 @@ function MissionsPanel({
 										? 'No stops'
 										: `${counts.handled} of ${counts.total} done`
 								}`}
-								trailing={formatScheduledStart(mission.scheduledStartAt)}
+								trailing={formatScheduledStart(mission.scheduledStartAt, timeZone)}
 							/>
 						);
 					})}

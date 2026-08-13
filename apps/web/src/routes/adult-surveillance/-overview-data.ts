@@ -2,6 +2,7 @@ import type { SpeciesRow } from '@simmer-mosquito/sync';
 import { eq, gte, or, toArray, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { localDayStartAsTimestamp } from '../../lib/local-date';
 import { webCollections } from '../../sync/webCollections';
 
@@ -127,7 +128,11 @@ function byDateDescending(first: Dated, second: Dated): number {
 export function useRecentCollections(sinceDate: string): {
 	readonly collections: readonly ActivityCollection[];
 } & LoadState {
-	const sinceTimestamp = useMemo(() => localDayStartAsTimestamp(sinceDate), [sinceDate]);
+	const timeZone = useOrganizationTimeZone();
+	const sinceTimestamp = useMemo(
+		() => localDayStartAsTimestamp(sinceDate, timeZone),
+		[sinceDate, timeZone],
+	);
 
 	const result = useLiveQuery(
 		{
@@ -223,7 +228,11 @@ export function useSpeciesComposition(sinceDate: string): {
 export function useAwaitingIdentification(sinceDate: string): {
 	readonly awaiting: readonly AwaitingCollection[];
 } & LoadState {
-	const sinceTimestamp = useMemo(() => localDayStartAsTimestamp(sinceDate), [sinceDate]);
+	const timeZone = useOrganizationTimeZone();
+	const sinceTimestamp = useMemo(
+		() => localDayStartAsTimestamp(sinceDate, timeZone),
+		[sinceDate, timeZone],
+	);
 
 	const result = useLiveQuery(
 		{

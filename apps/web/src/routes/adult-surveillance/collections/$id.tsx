@@ -78,6 +78,7 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	CollectionFlagBadges,
@@ -281,6 +282,7 @@ function CollectCollectionButton({
 }) {
 	const [open, setOpen] = useState(false);
 	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+	const timeZone = useOrganizationTimeZone();
 
 	return (
 		<>
@@ -288,7 +290,7 @@ function CollectCollectionButton({
 				Collect
 			</Button>
 			<CollectCollectionDialog
-				defaultDate={todayInTimeZone(undefined)}
+				defaultDate={todayInTimeZone(timeZone)}
 				onConfirm={(collectedAt) => {
 					setOpen(false);
 					void runAcknowledged((acknowledgements) =>
@@ -773,6 +775,7 @@ function AddSpeciesForm({
 	readonly speciesOptions: readonly SpeciesOption[];
 	readonly actorProfileId: string | null;
 }) {
+	const timeZone = useOrganizationTimeZone();
 	const form = useAppForm({
 		defaultValues: {
 			speciesId: null as string | null,
@@ -794,7 +797,7 @@ function AddSpeciesForm({
 				sex: value.sex === 'unset' ? null : value.sex,
 				status: value.status === 'unset' ? null : value.status,
 				identifiedByProfileId: actorProfileId,
-				identifiedDate: todayInTimeZone(undefined),
+				identifiedDate: todayInTimeZone(timeZone),
 				createdByProfileId: actorProfileId,
 				updatedByProfileId: actorProfileId,
 				createdAt: now,

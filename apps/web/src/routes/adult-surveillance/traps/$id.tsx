@@ -67,6 +67,7 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
 import {
 	aggregateSpeciesDistribution,
@@ -437,7 +438,8 @@ function TrapSpeciesDistribution({
 		[species],
 	);
 
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const [from, setFrom] = useState('');
 	const [to, setTo] = useState('');
 	const hasRange = from !== '' || to !== '';

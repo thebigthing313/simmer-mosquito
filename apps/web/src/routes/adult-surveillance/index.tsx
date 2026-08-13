@@ -8,6 +8,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { webCollections } from '../../sync/webCollections';
 import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from './-adult-display';
 import {
@@ -33,7 +34,8 @@ export const Route = createFileRoute('/adult-surveillance/')({
 });
 
 function AdultSurveillanceOverviewRoute() {
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const since = useMemo(
 		() => addDaysToDateString(today, -(ADULT_ACTIVITY_WINDOW_DAYS - 1)),
 		[today],
