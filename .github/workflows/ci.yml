@@ -78,6 +78,11 @@ jobs:
   # changeset, and the `no changeset` label says "I considered it, the answer is
   # no". A gate with no override would be answered by filing empty changesets,
   # which is worse than not gating at all.
+  #
+  # Declining one costs nothing that matters: the version still bumps at
+  # promotion, because `pnpm release:version` floors every app the pending
+  # changesets did not name. This gate is only ever asking whether the change
+  # belongs on the changelog page.
   changeset:
     name: Changeset filed (or declined)
     if: github.event_name == 'pull_request'

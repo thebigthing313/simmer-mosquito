@@ -24,11 +24,35 @@ feature branch  ──▶  staging  ──▶  main (production)
   `.changeset/` unconsumed; the version number does not move.
 - **Promotion to `main` is the release.** That is when `pnpm release:version`
   runs, the pending changesets are consumed into the two `CHANGELOG.md` files,
-  and the app versions bump.
+  and both app versions bump — **whether or not anything was pending**.
 
 The version in an agency's sidebar therefore always names something they
 actually have. A number that existed before anyone could use it would be a
 worse lie than no number at all.
+
+## A changeset is not a version bump
+
+These are two different questions and only the first one is a judgement call:
+
+|                | What it is for                 | When it happens                 |
+| -------------- | ------------------------------ | ------------------------------- |
+| **Changeset**  | An entry on the changelog page | Only when a user can tell       |
+| **Version**    | Naming the build somebody is on | Every promotion, automatically |
+
+A refactor that reaches production is a new build. Nobody needs to read about it
+— but they may well have to *report* it, and "which version are you on" is where
+a support conversation starts. If the number had not moved, two different builds
+would answer to `0.2.0` and the answer would be worthless.
+
+So `pnpm release:version` gives every app with nothing pending a `patch` bump of
+its own, with no changelog entry attached. The release lands on the page as its
+version, its date, and one line: *Maintenance release with no user-facing
+changes.* That is the honest description of it — and it is written by the
+release, not by an author who was made to invent something to say.
+
+Nothing about this changes what you do on a branch. Write a changeset when the
+change is one a user could notice; don't when it isn't. The version takes care
+of itself at promotion.
 
 ## Writing a changeset
 
@@ -81,11 +105,24 @@ On the branch that promotes `staging` to `main`:
 pnpm release:version
 ```
 
-That runs `changeset version` (consuming `.changeset/*.md` into the changelogs
-and bumping the two `package.json` versions), then stamps the new headings with
-today's date. Commit the result — the deleted changesets, the two changelogs,
-and the two package.json bumps — and merge to `main`. The deploy inlines the new
-version at build.
+That writes a `patch` changeset for any app nothing pending would bump, runs
+`changeset version` (consuming `.changeset/*.md` into the changelogs and bumping
+the two `package.json` versions), then stamps the new headings with today's
+date. Commit the result — the deleted changesets, the two changelogs, and the
+two package.json bumps — and merge to `main`. The deploy inlines the new version
+at build.
+
+It is safe to run twice. The floor bump is skipped for an app whose version has
+already moved past the one on `main`, so a second run — after another changeset
+merged into the promotion branch, say — consumes that one without inventing a
+second patch. A run with no commits since `main` bumps nothing at all.
+
+Forgetting it is caught rather than shipped. The production deploy refuses a
+push to `main` that leaves either app on the version it was already on, the same
+way it refuses one with changesets still pending — a promotion that skipped this
+step is one where two different builds answer to one number. A manual
+`workflow_dispatch` deploy is exempt, because re-deploying a release already cut
+is a legitimate second deploy of one version.
 
 ## Only the apps are versioned
 
@@ -108,8 +145,8 @@ avoid.
 
 - `.changeset/changelog-simmer.mjs` formats each entry: the summary verbatim,
   no commit hashes, no dependency lines.
-- `scripts/release-version.mjs` stamps the release date, which changesets has no
-  hook for.
+- `scripts/release-version.mjs` floor-bumps the apps no changeset named, and
+  stamps the release date — neither of which changesets has a hook for.
 - `packages/ui-web/src/lib/changelog.ts` parses the generated markdown into
   releases and regroups the entries by their category token. It is pure, and
   covered by `packages/ui-web/src/tests/unit/lib/changelog.test.ts`.
