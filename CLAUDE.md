@@ -28,6 +28,8 @@ Per-app dev servers: `pnpm dev:server`, `pnpm dev:web`, `pnpm dev:admin`, `pnpm 
 
 **All work happens on a branch**, merged to `staging`, and `staging` is promoted to `main` to release. A branch that changes what a user can do carries a changeset; refactors, tests, tooling, and docs do not.
 
+A changeset is a changelog entry, **not** a version bump. Every promotion bumps both apps whether or not anything was pending — a refactor that ships is a build somebody is running, and the number is how they report it. `pnpm release:version` writes the `patch` itself for an app no changeset named, and the release draws as a maintenance one. So never file a changeset just to move a version.
+
 ```sh
 pnpm changeset          # write one — body starts with Added:, Changed:, or Fixed:
 pnpm changeset:status   # what is pending on this branch

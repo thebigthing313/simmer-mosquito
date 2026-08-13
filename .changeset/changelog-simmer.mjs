@@ -23,10 +23,16 @@
 // project's module graph.
 const changelogFunctions = {
 	getReleaseLine: async (changeset) => {
-		const [firstLine, ...rest] = changeset.summary
-			.trim()
-			.split('\n')
-			.map((line) => line.trimEnd());
+		const summary = changeset.summary.trim();
+
+		// The floor bump `scripts/release-version.mjs` writes when a release has
+		// nothing to tell a user: it exists to move the version number, not to say
+		// anything. Emitting a bullet for it would draw an empty one on the page.
+		if (summary === '') {
+			return '';
+		}
+
+		const [firstLine, ...rest] = summary.split('\n').map((line) => line.trimEnd());
 
 		// Continuation lines are indented so markdown keeps them in the bullet.
 		const continuation = rest.map((line) => (line === '' ? '' : `  ${line}`));
