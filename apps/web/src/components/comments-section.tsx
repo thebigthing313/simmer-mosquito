@@ -27,6 +27,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, or, useLiveQuery } from '@tanstack/react-db';
 import { type KeyboardEvent, useCallback, useMemo, useState } from 'react';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
+import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { webCollections } from '../sync/webCollections';
 
 const CommentIcon = iconRegistry.actions.comment.icon;
@@ -368,6 +369,7 @@ function CommentItem({
 	const [mode, setMode] = useState<'view' | 'edit' | 'confirm-delete'>('view');
 	const [editValue, setEditValue] = useState(comment.commentText);
 	const [busy, setBusy] = useState(false);
+	const timeZone = useOrganizationTimeZone();
 
 	const startEdit = () => {
 		setEditValue(comment.commentText);
@@ -442,8 +444,11 @@ function CommentItem({
 							role="img"
 						/>
 					) : null}
-					<span className="text-xs text-muted-foreground" title={absoluteTime(comment.commentedAt)}>
-						{relativeTime(comment.commentedAt)}
+					<span
+						className="text-xs text-muted-foreground"
+						title={absoluteTime(comment.commentedAt, timeZone)}
+					>
+						{relativeTime(comment.commentedAt, timeZone)}
 					</span>
 				</div>
 
@@ -601,7 +606,15 @@ function initialsFor(name: string | null): string {
 	return (first + last).toUpperCase() || '?';
 }
 
-function relativeTime(value: string): string {
+/**
+ * How long ago a comment was left.
+ *
+ * The durations — "3m ago", "2d ago" — are zone-free by construction: an
+ * elapsed span is the same number wherever it is read. Past a week this falls
+ * back to naming the day, and a named day does need a zone, so the agency's is
+ * the one that names it.
+ */
+function relativeTime(value: string, timeZone: string | undefined): string {
 	const then = new Date(value).getTime();
 	if (Number.isNaN(then)) {
 		return '';
@@ -622,14 +635,23 @@ function relativeTime(value: string): string {
 	if (days < 7) {
 		return `${days}d ago`;
 	}
+	// The year is dropped inside the current one. Which year each falls in is
+	// itself a zone question, so both are read in the agency's — otherwise a
+	// comment left on New Year's Eve is "in this year" to one reader and not the
+	// other.
+	const zone = timeZone === undefined ? {} : { timeZone };
+	const yearOf = (at: number): string =>
+		new Intl.DateTimeFormat('en-US', { ...zone, year: 'numeric' }).format(at);
 	return new Intl.DateTimeFormat(undefined, {
+		...zone,
 		day: 'numeric',
 		month: 'short',
-		year: new Date(then).getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+		year: yearOf(then) === yearOf(Date.now()) ? undefined : 'numeric',
 	}).format(then);
 }
 
-function absoluteTime(value: string): string {
+/** The full timestamp behind {@link relativeTime}, on the agency's clock. */
+function absoluteTime(value: string, timeZone: string | undefined): string {
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) {
 		return '';
@@ -640,6 +662,7 @@ function absoluteTime(value: string): string {
 		year: 'numeric',
 		hour: 'numeric',
 		minute: '2-digit',
+		...(timeZone === undefined ? {} : { timeZone }),
 	}).format(date);
 }
 

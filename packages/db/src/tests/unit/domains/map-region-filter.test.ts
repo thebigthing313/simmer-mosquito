@@ -19,6 +19,9 @@ import type { SimmerDatabase } from '../../../index.js';
 // guessed region id from another agency widen a tenant-scoped read.
 
 const organizationId = '9a3d9e12-2a1c-4d5f-8f2b-6d0f47a03c31';
+// The agency's zone. Named rather than defaulted so a collection read that
+// stopped converting `collected_at` would change the SQL these assert on.
+const timeZone = 'America/New_York';
 const regionIds = ['b7c0c1d4-8f43-4f6a-9d21-5f9a7b2e14aa', 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f'];
 
 describe('region membership filter', () => {
@@ -42,7 +45,7 @@ describe('region membership filter', () => {
 		[
 			'collections',
 			async (db: Kysely<SimmerDatabase>) =>
-				getCollectionMapExtent(db, { organizationId, filters: { regionIds } }),
+				getCollectionMapExtent(db, { organizationId, timeZone, filters: { regionIds } }),
 			'c',
 			'c',
 		],

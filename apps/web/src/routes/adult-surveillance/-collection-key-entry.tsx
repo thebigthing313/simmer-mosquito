@@ -13,6 +13,7 @@ import {
 	type TallyEntry,
 	type TallyVariant,
 } from '../../components/key-entry/use-key-entry-tally';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
 import { webCollections } from '../../sync/webCollections';
 import {
@@ -60,6 +61,7 @@ export function CollectionKeyEntryDialog({
 	readonly actorProfileId: string | null;
 }) {
 	const bindings = useSpeciesKeyBindings();
+	const timeZone = useOrganizationTimeZone();
 
 	const result = useLiveQuery(
 		{
@@ -119,7 +121,7 @@ export function CollectionKeyEntryDialog({
 					sex: step.variant.sex as SpeciesSex | null,
 					status: step.variant.status as SpeciesStatus | null,
 					identifiedByProfileId: actorProfileId,
-					identifiedDate: todayInTimeZone(undefined),
+					identifiedDate: todayInTimeZone(timeZone),
 					createdByProfileId: actorProfileId,
 					updatedByProfileId: actorProfileId,
 					createdAt: now,
@@ -136,7 +138,7 @@ export function CollectionKeyEntryDialog({
 			await Promise.all(writes);
 			flushedRef.current = flushedKeysAfter(entries);
 		},
-		[actorProfileId, collectionId, organizationId],
+		[actorProfileId, collectionId, organizationId, timeZone],
 	);
 
 	return (

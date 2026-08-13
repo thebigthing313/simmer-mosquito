@@ -128,6 +128,24 @@ export const mapSurfaceRowIds = Object.fromEntries(
  */
 export const mapSurfaceSampleOnDeletedInspectionId = seedId(2, 6);
 
+/**
+ * A collection on the *other* timing mode — an exact `collected_at` instant
+ * rather than a plain date — placed so the two zones disagree about its day.
+ *
+ * `2026-03-16T02:30Z` is 10:30pm on the 15th in New York. An agency there
+ * filters it under the 15th; a reader converting in UTC files it under the 16th
+ * and drops it from any window that ends on the 15th. Nothing else in this seed
+ * can catch that, because every other collection here is dated by a plain
+ * `collection_date` that no zone can move.
+ */
+export const mapSurfaceLateCollectionId = seedId(4, 6);
+const mapSurfaceLateCollectionAt = new Date('2026-03-16T02:30:00.000Z');
+/** The day {@link mapSurfaceLateCollectionAt} fell on, per zone. */
+export const mapSurfaceLateCollectionDates = {
+	'America/New_York': '2026-03-15',
+	UTC: '2026-03-16',
+} as const;
+
 /** The units the amount-bearing surfaces are measured in. Units are global. */
 const unitId = '00000000-0000-4000-8000-000000000401';
 const durationUnitId = '00000000-0000-4000-8000-000000000402';
@@ -543,4 +561,31 @@ async function seedSurfaceRows(db: DbExecutor): Promise<void> {
  */
 function seedId(surface: number, row: number): string {
 	return `00000000-0000-4000-8000-${String(surface).padStart(6, '0')}${String(row).padStart(6, '0')}`;
+}
+
+/**
+ * Adds the one collection whose calendar day depends on who is asking.
+ *
+ * Kept out of {@link seedMapSurfaces} on purpose: every surface there has
+ * exactly the same five rows, and the shared assertions count on that. A sixth
+ * collection would make the collections surface answer differently from its
+ * eleven peers for a reason that has nothing to do with what those tests check.
+ * Call it after the main seed, from the test that is actually about timezones.
+ */
+export async function seedLateCollection(db: DbExecutor): Promise<void> {
+	await db
+		.insertInto('collections')
+		.values({
+			id: mapSurfaceLateCollectionId,
+			organization_id: mapSurfaceOrganizationIds.own,
+			geom: point(mapSurfacePlace.inside),
+			collection_method_id: seedId(92, 1),
+			// `collections_timing_shape` admits one of two shapes: this is the exact
+			// one, so `started_at` is required and every date+duration field must
+			// stay null.
+			collection_timing_mode: 'exact_timestamps',
+			started_at: new Date('2026-03-14T14:00:00.000Z'),
+			collected_at: mapSurfaceLateCollectionAt,
+		})
+		.execute();
 }

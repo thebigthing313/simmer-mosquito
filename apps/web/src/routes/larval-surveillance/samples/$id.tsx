@@ -49,6 +49,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -395,6 +396,8 @@ function IdentificationCard({
 		[speciesRows],
 	);
 
+	const timeZone = useOrganizationTimeZone();
+
 	const guard = useCallback((): boolean => {
 		if (!canManage || identity?.organizationId == null) {
 			setError('You do not have permission to manage this sample.');
@@ -419,7 +422,7 @@ function IdentificationCard({
 				identifiedByProfileId: identity.profileId,
 				// A calendar date, not a timestamp — the domain builder validates
 				// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
-				identifiedAt: todayInTimeZone(undefined),
+				identifiedAt: todayInTimeZone(timeZone),
 				createdByProfileId: identity.profileId,
 				updatedByProfileId: identity.profileId,
 				createdAt: now,
@@ -431,7 +434,7 @@ function IdentificationCard({
 				setError(messageOf(cause, 'Unable to add species.'));
 			}
 		},
-		[guard, identity, sampleId],
+		[guard, identity, sampleId, timeZone],
 	);
 
 	const handleUpdateCount = useCallback(
@@ -978,6 +981,7 @@ function TextPatchField({
 // --- context ----------------------------------------------------------------
 
 function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
+	const timeZone = useOrganizationTimeZone();
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
@@ -1011,8 +1015,8 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 					</DetailRow>
 					<DetailRow label="Collected">{formatFullDate(geo.inspectionDate)}</DetailRow>
 					<DetailRow label="Coordinates">{coordinateLabel(geo)}</DetailRow>
-					<DetailRow label="Recorded">{formatDateTime(geo.createdAt)}</DetailRow>
-					<DetailRow label="Updated">{formatDateTime(geo.updatedAt)}</DetailRow>
+					<DetailRow label="Recorded">{formatDateTime(geo.createdAt, timeZone)}</DetailRow>
+					<DetailRow label="Updated">{formatDateTime(geo.updatedAt, timeZone)}</DetailRow>
 				</dl>
 			</CardContent>
 		</Card>
@@ -1231,7 +1235,7 @@ function parseDateOnly(date: string): Date | null {
 	return new Date(Date.UTC(year, month - 1, day));
 }
 
-function formatDateTime(value: string): string {
+function formatDateTime(value: string, timeZone: string | undefined): string {
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) {
 		return 'Unknown';
@@ -1242,5 +1246,6 @@ function formatDateTime(value: string): string {
 		year: 'numeric',
 		hour: 'numeric',
 		minute: '2-digit',
+		...(timeZone === undefined ? {} : { timeZone }),
 	}).format(date);
 }

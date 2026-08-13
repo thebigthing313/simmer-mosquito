@@ -2,8 +2,10 @@ import { type Kysely, sql } from 'kysely';
 
 import type { SimmerDatabase } from '../index.js';
 import {
+	assertIanaTimeZone,
 	habitatStatusSql,
 	inspectionResultSql,
+	localDateSql,
 	trapLabelSql,
 	trapStatusSql,
 } from './record-display-sql.js';
@@ -48,6 +50,12 @@ export interface NearbyRecordsInput {
 	readonly dateFrom: string;
 	/** Inclusive upper bound on the temporal kinds' dates (`YYYY-MM-DD`). */
 	readonly dateTo: string;
+	/**
+	 * The agency's IANA timezone, which decides the calendar day a collection's
+	 * `collected_at` instant fell on. The other six kinds are dated by plain
+	 * `date` columns and need no conversion.
+	 */
+	readonly timeZone: string;
 	/** Safety cap on total rows returned across all categories. */
 	readonly limit?: number;
 }
@@ -66,6 +74,13 @@ export async function listNearbyRecords(
 ): Promise<NearbyRecordRow[]> {
 	const { organizationId: org, radiusMeters, dateFrom, dateTo } = input;
 	const limit = input.limit ?? DEFAULT_NEARBY_LIMIT;
+	// A collection is dated by an instant or by a plain date, depending on the
+	// agency's timing mode. The instant becomes a day in the agency's zone, not
+	// the database server's — otherwise an evening's collection reads as, and
+	// filters as, the next day. See localDateSql.
+	const collectionDate = sql.raw(
+		`coalesce(${localDateSql('c.collected_at', assertIanaTimeZone(input.timeZone))}, c.collection_date)`,
+	);
 
 	const result = await sql<NearbyRecordRow>`
 		with center as (
@@ -100,13 +115,13 @@ export async function listNearbyRecords(
 		union all
 		select 'collection', c.id, c.lat, c.lng,
 			st_distance(c.geom::geography, center.g),
-			to_char(coalesce(c.collected_at::date, c.collection_date), 'YYYY-MM-DD'),
+			to_char(${collectionDate}, 'YYYY-MM-DD'),
 			null::text, c.collection_method_id::text,
 			case when c.has_problem = true then 'problem' else null end
 		from collections c cross join center
 		where c.organization_id = ${org} and c.deleted_at is null
 			and st_dwithin(c.geom::geography, center.g, ${radiusMeters})
-			and coalesce(c.collected_at::date, c.collection_date) between ${dateFrom}::date and ${dateTo}::date
+			and ${collectionDate} between ${dateFrom}::date and ${dateTo}::date
 		union all
 		select 'application', a.id, a.lat, a.lng,
 			st_distance(a.geom::geography, center.g),

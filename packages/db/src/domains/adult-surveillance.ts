@@ -14,9 +14,11 @@ import {
 	type MapFilterInput,
 	type MapPageInput,
 	type MapPageResult,
+	type MapRecordSurfaceReaders,
 	type MapTileInput,
 	mapRecordSurface,
 } from './map-surface.js';
+import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 
 export interface CreateTrapInput {
 	readonly organizationId: string;
@@ -613,8 +615,20 @@ export interface CollectionMapFilters {
 	readonly dateTo?: string;
 }
 
-export type CollectionMvtTileInput = MapTileInput<CollectionMapFilters>;
-export type CollectionPageInput = MapPageInput<CollectionMapFilters>;
+/**
+ * Every collection read carries the agency's timezone, because every one of them
+ * has to decide which calendar day a `collected_at` instant fell on. It is not a
+ * filter — the operator never chooses it — so it rides on the input beside the
+ * filters rather than inside them.
+ */
+export interface CollectionTimeZoneInput {
+	/** The agency's IANA timezone, from `AuthContext`. */
+	readonly timeZone: string;
+}
+
+export type CollectionMvtTileInput = MapTileInput<CollectionMapFilters> & CollectionTimeZoneInput;
+export type CollectionPageInput = MapPageInput<CollectionMapFilters> & CollectionTimeZoneInput;
+export type CollectionExtentInput = MapFilterInput<CollectionMapFilters> & CollectionTimeZoneInput;
 export type CollectionByIdInput = MapByIdInput;
 
 export interface SafeCollectionDisplayRow {
@@ -637,10 +651,34 @@ export interface SafeCollectionDisplayRow {
 
 export type CollectionPageResult = MapPageResult<SafeCollectionDisplayRow>;
 
-// The two timing modes store the date in different columns — an exact timestamp
-// in `collected_at`, a plain date in `collection_date` (with `collected_at`
-// null). Coalesce to a single effective date for filtering and ordering.
-const collectionEffectiveDateExpr = sql`coalesce(c.collected_at::date, c.collection_date)`;
+/**
+ * The zone the by-id read is built with.
+ *
+ * That read projects raw columns and neither filters nor orders by the effective
+ * date, so no zone-dependent decision is made — UTC keeps it out of the cache's
+ * way rather than standing for any agency's clock.
+ */
+const DEFAULT_SURFACE_TIME_ZONE = 'UTC';
+
+/**
+ * The single date a collection is filtered and ordered by, in the agency's zone.
+ *
+ * The two timing modes store it in different columns — an exact timestamp in
+ * `collected_at`, a plain date in `collection_date` (with `collected_at` null) —
+ * so they coalesce to one effective date.
+ *
+ * The timestamp half must be converted before it is reduced to a day. A bare
+ * `collected_at::date` uses the *database server's* session timezone, so a trap
+ * emptied at 9pm in a US agency files under the next day and drops out of the
+ * range the operator actually asked for. `at time zone` with an IANA name
+ * applies the offset in force at that instant, so this stays right across a
+ * daylight-saving change rather than an hour off for half the season.
+ */
+function collectionEffectiveDateExpr(timeZone: string): RawBuilder<unknown> {
+	return sql.raw(
+		`coalesce(${localDateSql('c.collected_at', assertIanaTimeZone(timeZone))}, c.collection_date)`,
+	);
+}
 
 const collectionDisplayColumns = sql`
 	c.id,
@@ -662,20 +700,52 @@ const collectionDisplayColumns = sql`
 	c.updated_at as "updatedAt"
 `;
 
-const collectionSurface = mapRecordSurface<CollectionMapFilters, SafeCollectionDisplayRow>({
-	layer: 'collections',
-	from: sql`collections c`,
-	alias: 'c',
-	geom: sql`c.geom`,
-	properties: [sql`c.id`, sql`c.has_problem as "hasProblem"`],
-	filterWhere: collectionFilterWhere,
-	display: {
-		columns: collectionDisplayColumns,
-		orderBy: sql`${collectionEffectiveDateExpr} desc nulls last, c.created_at desc, c.id`,
-	},
-});
+/**
+ * The collections surface, built for one agency's timezone.
+ *
+ * Parameterized rather than declared once because the zone reaches into both
+ * halves of the surface: the predicates that decide which collections fall in
+ * the window, and the order the result rail reads in. Built separately they
+ * could disagree — a list ordered by one notion of "the day" and filtered by
+ * another — so both come from {@link collectionEffectiveDateExpr}.
+ *
+ * Cached per zone: an agency has one, so this holds a handful of entries for the
+ * life of the process rather than rebuilding the definition per request.
+ */
+const collectionSurfaces = new Map<
+	string,
+	MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow>
+>();
 
-function collectionFilterWhere(filters: CollectionMapFilters | undefined): RawBuilder<boolean>[] {
+function collectionSurface(
+	timeZone: string,
+): MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> {
+	const zone = assertIanaTimeZone(timeZone);
+	const cached = collectionSurfaces.get(zone);
+	if (cached !== undefined) {
+		return cached;
+	}
+	const effectiveDate = collectionEffectiveDateExpr(zone);
+	const surface = mapRecordSurface<CollectionMapFilters, SafeCollectionDisplayRow>({
+		layer: 'collections',
+		from: sql`collections c`,
+		alias: 'c',
+		geom: sql`c.geom`,
+		properties: [sql`c.id`, sql`c.has_problem as "hasProblem"`],
+		filterWhere: (filters) => collectionFilterWhere(filters, effectiveDate),
+		display: {
+			columns: collectionDisplayColumns,
+			orderBy: sql`${effectiveDate} desc nulls last, c.created_at desc, c.id`,
+		},
+	});
+	collectionSurfaces.set(zone, surface);
+	return surface;
+}
+
+function collectionFilterWhere(
+	filters: CollectionMapFilters | undefined,
+	effectiveDate: RawBuilder<unknown>,
+): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
 	if (filters?.collectionMethodIds !== undefined && filters.collectionMethodIds.length > 0) {
 		clauses.push(
@@ -686,10 +756,10 @@ function collectionFilterWhere(filters: CollectionMapFilters | undefined): RawBu
 		clauses.push(sql<boolean>`c.has_problem = true`);
 	}
 	if (filters?.dateFrom !== undefined) {
-		clauses.push(sql<boolean>`${collectionEffectiveDateExpr} >= ${filters.dateFrom}`);
+		clauses.push(sql<boolean>`${effectiveDate} >= ${filters.dateFrom}`);
 	}
 	if (filters?.dateTo !== undefined) {
-		clauses.push(sql<boolean>`${collectionEffectiveDateExpr} <= ${filters.dateTo}`);
+		clauses.push(sql<boolean>`${effectiveDate} <= ${filters.dateTo}`);
 	}
 	clauses.push(
 		...regionMembershipClauses({
@@ -705,21 +775,23 @@ export async function getCollectionMvtTile(
 	db: Kysely<SimmerDatabase>,
 	input: CollectionMvtTileInput,
 ): Promise<Uint8Array> {
-	return collectionSurface.getTile(db, input);
+	return collectionSurface(input.timeZone).getTile(db, input);
 }
 
 export async function listCollectionDisplayRowsPage(
 	db: Kysely<SimmerDatabase>,
 	input: CollectionPageInput,
 ): Promise<CollectionPageResult> {
-	return collectionSurface.listPage(db, input);
+	return collectionSurface(input.timeZone).listPage(db, input);
 }
 
 export async function getCollectionDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: CollectionByIdInput,
 ): Promise<SafeCollectionDisplayRow | undefined> {
-	return collectionSurface.getById(db, input);
+	// No zone needed: this projects raw columns and neither filters nor orders by
+	// the effective date, so which day the instant falls on never comes up.
+	return collectionSurface(DEFAULT_SURFACE_TIME_ZONE).getById(db, input);
 }
 
 /**
@@ -728,7 +800,7 @@ export async function getCollectionDisplayRowById(
  */
 export async function getCollectionMapExtent(
 	db: Kysely<SimmerDatabase>,
-	input: MapFilterInput<CollectionMapFilters>,
+	input: CollectionExtentInput,
 ): Promise<MapExtent | null> {
-	return collectionSurface.getExtent(db, input);
+	return collectionSurface(input.timeZone).getExtent(db, input);
 }

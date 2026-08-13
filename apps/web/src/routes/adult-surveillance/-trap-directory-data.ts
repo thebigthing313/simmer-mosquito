@@ -7,7 +7,12 @@ import type {
 import { useMemo } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { webCollections } from '../../sync/webCollections';
-import { collectionEffectiveDate, isPendingCollection, trapDisplayName } from './-adult-display';
+import {
+	collectionEffectiveDate,
+	collectionSortKey,
+	isPendingCollection,
+	trapDisplayName,
+} from './-adult-display';
 
 /**
  * The fold behind the trap directory's right half: a trap's flat run of
@@ -174,10 +179,11 @@ export interface SpecimenTotals {
  */
 export function groupByYear(
 	collections: readonly DirectoryCollection[],
+	timeZone: string,
 ): readonly CollectionYear[] {
 	const byYear = new Map<string, DirectoryCollection[]>();
 	for (const collection of collections) {
-		const date = collectionEffectiveDate(collection);
+		const date = collectionEffectiveDate(collection, timeZone);
 		const key = date === null ? UNDATED_GROUP_KEY : date.slice(0, 4);
 		const bucket = byYear.get(key);
 		if (bucket === undefined) {
@@ -216,8 +222,8 @@ export function groupByYear(
 
 /** Most recent first. Undated rows sort last, which the year buckets never mix. */
 function compareByDateDesc(first: DirectoryCollection, second: DirectoryCollection): number {
-	const firstDate = collectionEffectiveDate(first) ?? '';
-	const secondDate = collectionEffectiveDate(second) ?? '';
+	const firstDate = collectionSortKey(first);
+	const secondDate = collectionSortKey(second);
 	if (firstDate === secondDate) {
 		return 0;
 	}

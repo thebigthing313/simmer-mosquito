@@ -9,6 +9,7 @@ import {
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
@@ -46,6 +47,7 @@ function CreateOutreachActionRoute() {
 	// completes it in the same transaction.
 	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
+	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.outreachMethods);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
@@ -137,7 +139,7 @@ function CreateOutreachActionRoute() {
 		<>
 			<OutreachFormPage
 				canSubmit={canSubmit}
-				defaultValues={defaultOutreachFormValues()}
+				defaultValues={defaultOutreachFormValues(timeZone)}
 				header={{
 					title: 'Record Outreach',
 					description:

@@ -35,6 +35,7 @@ import { Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
 import { WriteOnly } from '../../components/write-only';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { localDayStartAsTimestamp } from '../../lib/local-date';
 import { webCollections } from '../../sync/webCollections';
 import {
@@ -90,11 +91,15 @@ export function TrapCollectionHistory({
 }) {
 	// Older seasons are asked for, not loaded up front — see DEFAULT_SEASONS.
 	const [allSeasons, setAllSeasons] = useState(false);
+	const timeZone = useOrganizationTimeZone();
 	const since = useMemo(() => {
-		const thisYear = Number(todayInTimeZone(undefined).slice(0, 4));
+		const thisYear = Number(todayInTimeZone(timeZone).slice(0, 4));
 		return `${thisYear - (DEFAULT_SEASONS - 1)}-01-01`;
-	}, []);
-	const sinceTimestamp = useMemo(() => localDayStartAsTimestamp(since), [since]);
+	}, [timeZone]);
+	const sinceTimestamp = useMemo(
+		() => localDayStartAsTimestamp(since, timeZone),
+		[since, timeZone],
+	);
 
 	// collections is on-demand; this query's predicate is what loads the trap's
 	// subset, and the correlated species include comes with it. Status-gated
@@ -153,8 +158,8 @@ export function TrapCollectionHistory({
 	);
 
 	const years = useMemo(
-		() => groupByYear((result.data ?? []) as unknown as readonly DirectoryCollection[]),
-		[result.data],
+		() => groupByYear((result.data ?? []) as unknown as readonly DirectoryCollection[], timeZone),
+		[result.data, timeZone],
 	);
 
 	// Resolved once for the pane rather than inside each row: the species catalog
@@ -173,6 +178,7 @@ export function TrapCollectionHistory({
 			isReady={result.isReady}
 			onLoadEarlier={allSeasons ? undefined : () => setAllSeasons(true)}
 			speciesNameById={speciesNameById}
+			timeZone={timeZone}
 			years={years}
 		/>
 	);
@@ -227,6 +233,7 @@ function CollectionYears({
 	isReady,
 	isError,
 	speciesNameById,
+	timeZone,
 	header,
 	onLoadEarlier,
 }: {
@@ -234,6 +241,8 @@ function CollectionYears({
 	readonly isReady: boolean;
 	readonly isError: boolean;
 	readonly speciesNameById: ReadonlyMap<string, string>;
+	/** Resolved once for the pane and handed down, not read per row. */
+	readonly timeZone: string;
 	/** The trap this history belongs to, pinned above its own scroll. */
 	readonly header: ReactNode;
 	/** Lifts the default season window. Absent once every season is loaded. */
@@ -319,6 +328,7 @@ function CollectionYears({
 								collection={collection}
 								key={collection.id}
 								speciesNameById={speciesNameById}
+								timeZone={timeZone}
 							/>
 						))}
 					</ul>
@@ -362,11 +372,19 @@ function HistoryFrame({
 export function CollectionRow({
 	collection,
 	speciesNameById,
+	timeZone,
 }: {
 	readonly collection: DirectoryCollection;
 	readonly speciesNameById: ReadonlyMap<string, string>;
+	/**
+	 * Passed down rather than read here. A row is a leaf rendered once per
+	 * collection in a season, and subscribing each one to the organization
+	 * collection would open a live query per row to answer a question the pane
+	 * already knows the answer to.
+	 */
+	readonly timeZone: string;
 }) {
-	const date = collectionEffectiveDate(collection);
+	const date = collectionEffectiveDate(collection, timeZone);
 	const isPending = isPendingCollection(collection);
 	const totals = useMemo(() => specimenTotals(collection.species), [collection.species]);
 

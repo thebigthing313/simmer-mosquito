@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { addressPrimaryLabel } from '../../lib/address-format';
 import { localDayStartAsTimestamp } from '../../lib/local-date';
 import { postCommand } from '../../sync/post-command';
@@ -264,12 +265,15 @@ export interface MissionStopView {
 /** A mission's name, falling back to what the mission is and when it runs. */
 export function missionDisplayName(
 	row: Pick<MissionRow, 'missionName' | 'controlType' | 'scheduledStartAt'>,
+	timeZone: string | undefined,
 ): string {
 	const name = row.missionName?.trim();
 	if (name) {
 		return name;
 	}
-	return `${controlTypeLabel(row.controlType)} — ${formatScheduledStart(row.scheduledStartAt)}`;
+	// An unnamed mission is named by when it runs, so the fallback carries the
+	// same zone the scheduled start is read in everywhere else.
+	return `${controlTypeLabel(row.controlType)} — ${formatScheduledStart(row.scheduledStartAt, timeZone)}`;
 }
 
 /** A request's one-line subject: its own summary, or the control type it asks for. */
@@ -280,7 +284,14 @@ export function requestDisplayName(
 	return summary || `${controlTypeLabel(row.controlType)} requested`;
 }
 
-export function formatScheduledStart(value: string): string {
+/**
+ * When a mission is due to start, on the agency's clock.
+ *
+ * `scheduledStartAt` is an instant, and an instant has no time of day until a
+ * zone is named. A dispatcher two zones from the yard has to read the same 6am
+ * muster as the crew standing in it, so the zone is the agency's.
+ */
+export function formatScheduledStart(value: string, timeZone: string | undefined): string {
 	const parsed = new Date(value);
 	if (Number.isNaN(parsed.getTime())) {
 		return value;
@@ -291,10 +302,35 @@ export function formatScheduledStart(value: string): string {
 		day: 'numeric',
 		hour: 'numeric',
 		minute: '2-digit',
+		...(timeZone === undefined ? {} : { timeZone }),
 	});
 }
 
-export function formatRequestedAt(value: string): string {
+/**
+ * A `date` column as the day it names — a mission's rain date, not an instant.
+ *
+ * The opposite hazard to {@link formatScheduledStart}: naming a zone here would
+ * *introduce* the shift. `new Date('2026-08-04')` is UTC midnight, so a zone
+ * west of Greenwich renders it as the 3rd. Rebuilt in UTC, where it cannot move.
+ */
+export function formatOperationalDate(value: string): string {
+	const parts = value.slice(0, 10).split('-');
+	const year = Number(parts[0]);
+	const month = Number(parts[1]);
+	const day = Number(parts[2]);
+	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
+		return value;
+	}
+	return new Intl.DateTimeFormat(undefined, {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+/** The day a request came in, on the agency's calendar. See {@link formatScheduledStart}. */
+export function formatRequestedAt(value: string, timeZone: string | undefined): string {
 	const parsed = new Date(value);
 	if (Number.isNaN(parsed.getTime())) {
 		return value;
@@ -303,6 +339,7 @@ export function formatRequestedAt(value: string): string {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',
+		...(timeZone === undefined ? {} : { timeZone }),
 	});
 }
 
@@ -329,15 +366,16 @@ export function useRequestedControlActions(
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
 } {
+	const timeZone = useOrganizationTimeZone();
 	const fromBound = useMemo(
-		() => localDayStartAsTimestamp(from === '' ? EARLIEST_DATE : from),
-		[from],
+		() => localDayStartAsTimestamp(from === '' ? EARLIEST_DATE : from, timeZone),
+		[from, timeZone],
 	);
 	// The upper bound is the start of the day *after* `to`, so a request raised at
 	// any hour of the closing day is still inside the window.
 	const toBound = useMemo(
-		() => localDayStartAsTimestamp(addDays(to === '' ? LATEST_DATE : to, 1)),
-		[to],
+		() => localDayStartAsTimestamp(addDays(to === '' ? LATEST_DATE : to, 1), timeZone),
+		[to, timeZone],
 	);
 
 	const result = useLiveQuery(
@@ -405,13 +443,14 @@ export function useMissions(
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
 } {
+	const timeZone = useOrganizationTimeZone();
 	const fromBound = useMemo(
-		() => localDayStartAsTimestamp(from === '' ? EARLIEST_DATE : from),
-		[from],
+		() => localDayStartAsTimestamp(from === '' ? EARLIEST_DATE : from, timeZone),
+		[from, timeZone],
 	);
 	const toBound = useMemo(
-		() => localDayStartAsTimestamp(addDays(to === '' ? LATEST_DATE : to, 1)),
-		[to],
+		() => localDayStartAsTimestamp(addDays(to === '' ? LATEST_DATE : to, 1), timeZone),
+		[to, timeZone],
 	);
 
 	const result = useLiveQuery(

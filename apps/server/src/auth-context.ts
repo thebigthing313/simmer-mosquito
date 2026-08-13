@@ -1,5 +1,6 @@
 import type { AuthUser, SessionAuthenticationResult } from '@simmer-mosquito/auth';
 import type { ActiveLocalAuthIdentity, SimmerRole } from '@simmer-mosquito/db';
+import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 
 export interface AuthContext {
 	readonly workosUser: AuthUser;
@@ -11,6 +12,16 @@ export interface AuthContext {
 	readonly profile: ActiveLocalAuthIdentity['profile'];
 	readonly membership: ActiveLocalAuthIdentity['membership'];
 	readonly role: SimmerRole;
+	/**
+	 * The agency's IANA timezone — the authority for which calendar day a
+	 * timestamped record belongs to.
+	 *
+	 * On the context rather than fetched per read because *every* date-bounded
+	 * read needs it and the map-tile path cannot afford a second query for it.
+	 * Resolved through the domain, so a missing or unparseable setting lands on
+	 * `DEFAULT_ORGANIZATION_TIMEZONE` rather than on the database server's zone.
+	 */
+	readonly timeZone: string;
 }
 
 export type AuthContextError =
@@ -112,6 +123,7 @@ export async function resolveAuthContext(options: {
 			profile: localIdentity.profile,
 			membership: localIdentity.membership,
 			role: localIdentity.membership.role,
+			timeZone: resolveOrganizationSettings(localIdentity.organization.settings).settings.timezone,
 		},
 		...(session.sealedSession === undefined ? {} : { sealedSession: session.sealedSession }),
 	};

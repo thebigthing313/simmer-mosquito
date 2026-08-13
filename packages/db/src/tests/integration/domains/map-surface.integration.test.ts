@@ -58,10 +58,13 @@ import type { SimmerDatabase } from '../../../index.js';
 import {
 	type MapSurfaceName,
 	type MapSurfaceRowIds,
+	mapSurfaceLateCollectionDates,
+	mapSurfaceLateCollectionId,
 	mapSurfaceOrganizationIds,
 	mapSurfacePlace,
 	mapSurfaceRowIds,
 	mapSurfaceSampleOnDeletedInspectionId,
+	seedLateCollection,
 	seedMapSurfaces,
 } from '../../../seeds/map-surfaces.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
@@ -92,24 +95,25 @@ interface SurfaceUnderTest {
 	readonly name: MapSurfaceName;
 	readonly tile?: (
 		db: Kysely<SimmerDatabase>,
-		input: { z: number; x: number; y: number; organizationId: string },
+		input: { z: number; x: number; y: number; organizationId: string; timeZone: string },
 	) => Promise<Uint8Array>;
 	/** The layer name the tile's features are encoded under. */
 	readonly layer?: string;
 	readonly extent?: (
 		db: Kysely<SimmerDatabase>,
-		input: { organizationId: string },
+		input: { organizationId: string; timeZone: string },
 	) => Promise<MapExtent | null>;
 	/** The unbounded paged list, however the surface spells it. */
 	readonly page?: (
 		db: Kysely<SimmerDatabase>,
-		input: { organizationId: string; limit: number; offset: number },
+		input: { organizationId: string; timeZone: string; limit: number; offset: number },
 	) => Promise<{ total: number; rows: ReadonlyArray<{ id: string }> }>;
 	/** The paged list inside an explicit bounding box. */
 	readonly boundsPage?: (
 		db: Kysely<SimmerDatabase>,
 		input: {
 			organizationId: string;
+			timeZone: string;
 			bounds: typeof mapSurfacePlace.bounds;
 			limit: number;
 			offset: number;
@@ -122,6 +126,13 @@ interface SurfaceUnderTest {
 	/** How far the surface's geometry reaches beyond its seeded point, in degrees. */
 	readonly padding?: number;
 }
+
+/**
+ * The agency zone every surface is read in. Deliberately not UTC: a surface that
+ * stopped converting `collected_at` would still pass under UTC, because UTC is
+ * exactly the wrong answer this issue is about.
+ */
+const mapSurfaceTimeZone = 'America/New_York';
 
 /** Regions are areas, so their extent runs half a box wider than their centre. */
 const boxPadding = 0.02;
@@ -225,6 +236,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 					const tile = await surface.tile?.(db, {
 						...mapSurfacePlace.tile,
 						organizationId: mapSurfaceOrganizationIds.own,
+						timeZone: mapSurfaceTimeZone,
 					});
 					return featureIds(tile, surface.layer ?? '');
 				},
@@ -252,6 +264,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 					const tile = await surface.tile?.(db, {
 						...mapSurfacePlace.emptyTile,
 						organizationId: mapSurfaceOrganizationIds.own,
+						timeZone: mapSurfaceTimeZone,
 					});
 					// A tile with no features is a valid answer the client caches; a
 					// null or a throw would make the map retry an empty viewport
@@ -278,10 +291,16 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				(surface) => surface.extent !== undefined,
 				async (surface) => ({
 					own: rounded(
-						await surface.extent?.(db, { organizationId: mapSurfaceOrganizationIds.own }),
+						await surface.extent?.(db, {
+							organizationId: mapSurfaceOrganizationIds.own,
+							timeZone: mapSurfaceTimeZone,
+						}),
 					),
 					other: rounded(
-						await surface.extent?.(db, { organizationId: mapSurfaceOrganizationIds.other }),
+						await surface.extent?.(db, {
+							organizationId: mapSurfaceOrganizationIds.other,
+							timeZone: mapSurfaceTimeZone,
+						}),
 					),
 				}),
 			);
@@ -321,6 +340,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				async (surface) => {
 					const result = await surface.page?.(db, {
 						organizationId: mapSurfaceOrganizationIds.own,
+						timeZone: mapSurfaceTimeZone,
 						...page,
 					});
 					return { ids: sortedIds(result?.rows), total: result?.total };
@@ -341,6 +361,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				async (surface) => {
 					const result = await surface.boundsPage?.(db, {
 						organizationId: mapSurfaceOrganizationIds.own,
+						timeZone: mapSurfaceTimeZone,
 						bounds: mapSurfacePlace.bounds,
 						...page,
 					});
@@ -389,6 +410,51 @@ describeDbIntegration('map surfaces against Postgres', () => {
 					(surface) => surface.byId !== undefined,
 				),
 			);
+		});
+	});
+
+	// A `timestamptz` becomes a calendar date in whichever zone does the
+	// converting, and the database server's is not the agency's. This is worse
+	// than a mislabelled row: at the edge of a window the collection falls
+	// *outside the range that was asked for* and is simply absent.
+	it('windows a collection by the agency’s day, not the database server’s', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedLateCollection(db);
+
+			// A one-day window on the day New York says the collection happened.
+			const onTheAgencysDay = async (timeZone: string): Promise<readonly string[]> => {
+				const day = mapSurfaceLateCollectionDates['America/New_York'];
+				const result = await listCollectionDisplayRowsPage(db, {
+					organizationId: mapSurfaceOrganizationIds.own,
+					timeZone,
+					limit: 50,
+					offset: 0,
+					filters: { dateFrom: day, dateTo: day },
+				});
+				return result.rows.map((row) => row.id);
+			};
+
+			// Collected 2026-03-16T02:30Z — 10:30pm on the 15th in New York.
+			expect(await onTheAgencysDay('America/New_York')).toContain(mapSurfaceLateCollectionId);
+			// Converted in UTC the same instant is the 16th, so the 15th loses it.
+			expect(await onTheAgencysDay('UTC')).not.toContain(mapSurfaceLateCollectionId);
+		});
+	});
+
+	it('refuses a timezone that is not an IANA name', async () => {
+		await withTestDb(async ({ db }) => {
+			// The zone is spliced into the SQL rather than bound, so the only thing
+			// standing between a bad value and the query is this check.
+			await expect(
+				listCollectionDisplayRowsPage(db, {
+					organizationId: mapSurfaceOrganizationIds.own,
+					timeZone: "UTC'; drop table collections --",
+					limit: 1,
+					offset: 0,
+					filters: {},
+				}),
+			).rejects.toThrow(/Invalid IANA time zone/);
 		});
 	});
 

@@ -7,6 +7,7 @@ import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { OutletSimpleLayout } from '../../components/app-shell';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { webCollections } from '../../sync/webCollections';
 import {
@@ -56,7 +57,8 @@ function PublicEngagementOverviewRoute() {
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const organizationId = organization?.id ?? '';
 
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const since = useMemo(
 		() => addDaysToDateString(today, -(OUTREACH_ACTIVITY_WINDOW_DAYS - 1)),
 		[today],

@@ -168,11 +168,13 @@ describe('parseHabitatDisplayQuery', () => {
 					isInaccessible: 'false',
 				}),
 				organizationId,
+				timeZone,
 			),
 		).toEqual({
 			ok: true,
 			input: {
 				organizationId,
+				timeZone,
 				bounds: {
 					west: -91,
 					south: 35,
@@ -190,10 +192,12 @@ describe('parseHabitatDisplayQuery', () => {
 	});
 
 	it('rejects invalid bbox and oversized limits', () => {
-		expect(parseHabitatDisplayQuery(new URLSearchParams(), organizationId)).toMatchObject({
-			ok: false,
-			reason: 'bbox is required.',
-		});
+		expect(parseHabitatDisplayQuery(new URLSearchParams(), organizationId, timeZone)).toMatchObject(
+			{
+				ok: false,
+				reason: 'bbox is required.',
+			},
+		);
 		expect(
 			parseHabitatDisplayQuery(
 				new URLSearchParams({
@@ -201,6 +205,7 @@ describe('parseHabitatDisplayQuery', () => {
 					limit: '100',
 				}),
 				organizationId,
+				timeZone,
 			),
 		).toMatchObject({
 			ok: false,
@@ -665,11 +670,13 @@ describe('parseInspectionDisplayQuery', () => {
 					density: 'medium',
 				}),
 				organizationId,
+				timeZone,
 			),
 		).toEqual({
 			ok: true,
 			input: {
 				organizationId,
+				timeZone,
 				bounds: { west: -91, south: 35, east: -90, north: 36 },
 				filters: { isWet: true, densities: ['medium'] },
 				limit: 25,
@@ -683,6 +690,7 @@ describe('parseInspectionDisplayQuery', () => {
 			parseInspectionDisplayQuery(
 				new URLSearchParams({ bbox: '-91,35,-90,36', limit: '500' }),
 				organizationId,
+				timeZone,
 			),
 		).toMatchObject({ ok: false, reason: 'limit must be between 1 and 50.' });
 	});
@@ -1105,6 +1113,9 @@ function createApp(
 }
 
 const organizationId = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';
+// A zone with a real UTC offset, so a test that dropped it would show up as a
+// missing field rather than pass on a value indistinguishable from the default.
+const timeZone = 'America/New_York';
 const regionId = 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f';
 const habitatId = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const habitatTypeId = '4fe25a2d-925c-4d37-9d4e-07185ad19858';

@@ -30,6 +30,7 @@ import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
@@ -92,6 +93,7 @@ function AssignmentRunRoute() {
 	const { assignment, isReady } = useAssignment(id);
 	const { stops, features, counts, isLoading } = useAssignmentStops(id);
 	const { nameById } = useAssigneeOptions();
+	const timeZone = useOrganizationTimeZone();
 
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 	const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -202,9 +204,9 @@ function AssignmentRunRoute() {
 										<p className="m-0 mt-0.5 text-muted-foreground text-sm">
 											{formatAssignmentDate(assignment.assignmentDate)} ·{' '}
 											{assigneeName ?? 'Unassigned'}
-											{formatDueAt(assignment.dueAt) === null
+											{formatDueAt(assignment.dueAt, timeZone) === null
 												? ''
-												: ` · due ${formatDueAt(assignment.dueAt)}`}
+												: ` · due ${formatDueAt(assignment.dueAt, timeZone)}`}
 										</p>
 									</div>
 									<div className="flex shrink-0 items-center gap-2">
@@ -562,6 +564,7 @@ function CollectStopButton({
 }) {
 	const [open, setOpen] = useState(false);
 	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+	const timeZone = useOrganizationTimeZone();
 
 	return (
 		<>
@@ -569,7 +572,7 @@ function CollectStopButton({
 				Collect
 			</Button>
 			<CollectCollectionDialog
-				defaultDate={todayInTimeZone(undefined)}
+				defaultDate={todayInTimeZone(timeZone)}
 				onConfirm={(collectedAt) => {
 					setOpen(false);
 					void runAcknowledged((acknowledgements) =>

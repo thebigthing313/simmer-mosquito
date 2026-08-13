@@ -18,33 +18,59 @@ import { getToday } from './get-today';
  * is not a fact about larval surveillance: every section's forms default a date
  * with it, and reaching across route trees for one is how a private route module
  * becomes a shared library nobody named.
+ *
+ * `instant` names a moment other than now — which calendar day some *other*
+ * instant falls on in the zone, the same question with a different subject.
  */
-export function todayInTimeZone(timeZone: string | undefined): string {
+export function todayInTimeZone(timeZone: string | undefined, instant?: Date): string {
 	return new Intl.DateTimeFormat('en-CA', {
 		timeZone: timeZone || undefined,
 		year: 'numeric',
 		month: '2-digit',
 		day: '2-digit',
-	}).format(getToday());
+	}).format(instant ?? getToday());
 }
 
 /** A `YYYY-MM-DD` string as a local Date, or undefined when empty or malformed. */
 export function parseLocalDate(value: string | null | undefined): Date | undefined {
-	if (value === null || value === undefined || value === '') {
+	const parts = calendarDateParts(value);
+	if (parts === undefined) {
 		return undefined;
 	}
-	const [yearPart, monthPart, dayPart] = value.slice(0, 10).split('-');
-	if (yearPart === undefined || monthPart === undefined || dayPart === undefined) {
-		return undefined;
-	}
-	const year = Number.parseInt(yearPart, 10);
-	const month = Number.parseInt(monthPart, 10);
-	const day = Number.parseInt(dayPart, 10);
-	if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-		return undefined;
-	}
-	const date = new Date(year, month - 1, day);
+	const date = new Date(parts.year, parts.month - 1, parts.day);
 	return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+interface CalendarDateParts {
+	readonly year: number;
+	readonly month: number;
+	readonly day: number;
+}
+
+/**
+ * A leading `YYYY-MM-DD`, which is both what a date column holds and how a
+ * timestamp starts — so a full ISO string yields the day it begins on.
+ */
+const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})/;
+
+/**
+ * The year, month, and day a `YYYY-MM-DD` names, before any zone is applied.
+ *
+ * Read out as numbers rather than as a Date because which *instant* that
+ * calendar day begins at is a separate question, answered differently for the
+ * browser's zone and the agency's, and answering it too early is what
+ * {@link parseLocalDate} can only do one way.
+ *
+ * One match rather than a split and three range checks: every value that
+ * reaches here is a date column, a date input, or something already rejected,
+ * and the shape is the whole of what makes it readable.
+ */
+function calendarDateParts(value: string | null | undefined): CalendarDateParts | undefined {
+	const match = value === null || value === undefined ? null : CALENDAR_DATE.exec(value);
+	if (match === null) {
+		return undefined;
+	}
+	return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
 }
 
 /** A local Date back to `YYYY-MM-DD`, reading the local parts rather than the UTC ones. */
@@ -56,7 +82,8 @@ export function formatLocalDate(date: Date): string {
 }
 
 /**
- * The start of a local calendar day as a lower bound for a `timestamptz` column.
+ * The start of an agency-local calendar day as a lower bound for a `timestamptz`
+ * column.
  *
  * A bare `YYYY-MM-DD` cannot be compared against a `timestamptz` in a sync
  * predicate: Postgres would cast it, but Electric rejects it outright with
@@ -69,11 +96,102 @@ export function formatLocalDate(date: Date): string {
  * two comparisons disagree and same-day rows arrive from the server only to be
  * filtered out on the client.
  *
+ * The day starts where the *agency* says it does. Without the zone this began at
+ * the browser's midnight, so the same window asked for different records
+ * depending on who opened the page — and at the edge the difference is a record
+ * missing from the range, not a record shown on the wrong day.
+ *
  * An unreadable date yields the epoch — an effectively absent lower bound, which
  * shows too much rather than silently showing nothing.
  */
-export function localDayStartAsTimestamp(date: string | null | undefined): string {
-	const start = parseLocalDate(date) ?? new Date(0);
+export function localDayStartAsTimestamp(
+	date: string | null | undefined,
+	timeZone: string | undefined,
+): string {
+	const start = zonedDayStart(date, timeZone) ?? new Date(0);
 	const iso = start.toISOString();
 	return `${iso.slice(0, 10)} ${iso.slice(11, 19)}+00`;
+}
+
+/**
+ * The instant a calendar day began in `timeZone` — the agency's midnight, as UTC.
+ *
+ * Daylight saving is why this cannot be a subtraction. A zone's offset is not a
+ * property of the zone but of the zone *at an instant*: America/New_York is
+ * UTC-5 in January and UTC-4 in July, so a bound computed with one offset and
+ * applied across a season is an hour wrong for half the year — enough to move
+ * an evening's work out of the window that asked for it.
+ *
+ * So the offset is read at the instant in question, and read twice: once at the
+ * wall time treated as UTC, then again at the instant that produced, which is on
+ * the correct side of any changeover that happened that day. Either pass can be
+ * the right answer, so both are checked against the day they actually land on
+ * and the earliest one that lands on the requested day wins.
+ *
+ * Checking rather than trusting the second pass is what handles a zone that
+ * springs forward *at* midnight — Santiago in September. There the requested
+ * midnight does not exist, and the second pass reads the post-jump offset and
+ * lands an hour into the previous day. The first pass lands on 1am, the first
+ * moment the day actually has, which is what a lower bound is asking for.
+ */
+function zonedDayStart(
+	date: string | null | undefined,
+	timeZone: string | undefined,
+): Date | undefined {
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		return undefined;
+	}
+	if (timeZone === undefined || timeZone === '') {
+		return parseLocalDate(date);
+	}
+	const wall = Date.UTC(parts.year, parts.month - 1, parts.day);
+	const firstPass = wall - zoneOffsetMs(new Date(wall), timeZone);
+	const secondPass = wall - zoneOffsetMs(new Date(firstPass), timeZone);
+	const wanted = formatCalendarDate(parts);
+
+	const earliest = Math.min(firstPass, secondPass);
+	const latest = Math.max(firstPass, secondPass);
+	const startsTheDay = (at: number): boolean => todayInTimeZone(timeZone, new Date(at)) === wanted;
+
+	return new Date(startsTheDay(earliest) ? earliest : latest);
+}
+
+/** The parts back as the `YYYY-MM-DD` they came from, zero-padded. */
+function formatCalendarDate(parts: CalendarDateParts): string {
+	const month = `${parts.month}`.padStart(2, '0');
+	const day = `${parts.day}`.padStart(2, '0');
+	return `${parts.year}-${month}-${day}`;
+}
+
+/**
+ * How far ahead of UTC `timeZone` was at `instant`, in milliseconds.
+ *
+ * Derived by asking `Intl` what the wall clock read there and comparing that to
+ * the instant itself, because that is the only question the platform answers
+ * with the daylight-saving rules already applied. Anything that computes an
+ * offset from a zone name alone is wrong twice a year.
+ */
+function zoneOffsetMs(instant: Date, timeZone: string): number {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone,
+		hourCycle: 'h23',
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+	}).formatToParts(instant);
+	const read = (type: Intl.DateTimeFormatPartTypes): number =>
+		Number(parts.find((part) => part.type === type)?.value);
+	const wallClock = Date.UTC(
+		read('year'),
+		read('month') - 1,
+		read('day'),
+		read('hour'),
+		read('minute'),
+		read('second'),
+	);
+	return Number.isNaN(wallClock) ? 0 : wallClock - instant.getTime();
 }

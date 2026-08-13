@@ -39,6 +39,7 @@ import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
 
@@ -371,6 +372,7 @@ function formatRate(rate: number): string {
 }
 
 function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow }) {
+	const timeZone = useOrganizationTimeZone();
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
@@ -407,8 +409,8 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 					</DetailRow>
 					<DetailRow label="Inspected">{formatFullDate(inspection.inspectionDate)}</DetailRow>
 					<DetailRow label="Coordinates">{coordinateLabel(inspection)}</DetailRow>
-					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt)}</DetailRow>
-					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt)}</DetailRow>
+					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt, timeZone)}</DetailRow>
+					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt, timeZone)}</DetailRow>
 				</dl>
 				<AdditionalPersonnelList target={{ type: 'inspection', id: inspection.id }} />
 			</CardContent>
@@ -1184,7 +1186,7 @@ function parseDateOnly(date: string): Date | null {
 	return new Date(Date.UTC(year, month - 1, day));
 }
 
-function formatDateTime(value: string): string {
+function formatDateTime(value: string, timeZone: string | undefined): string {
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) {
 		return 'Unknown';
@@ -1195,5 +1197,6 @@ function formatDateTime(value: string): string {
 		year: 'numeric',
 		hour: 'numeric',
 		minute: '2-digit',
+		...(timeZone === undefined ? {} : { timeZone }),
 	}).format(date);
 }

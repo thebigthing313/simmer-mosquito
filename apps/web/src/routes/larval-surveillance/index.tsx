@@ -27,6 +27,7 @@ import {
 	WetnessBadge,
 } from '../../components/larval-display';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { adhocLabel, formatCoordinates } from '../../lib/coordinate-label';
 import { webCollections } from '../../sync/webCollections';
 import type { InspectionsSearch } from './-inspections-search';
@@ -107,8 +108,9 @@ function LarvalSurveillanceOverviewRoute() {
 }
 
 function OverviewBody() {
-	// Local-timezone "today"; the day strip and windows are pure string math from here.
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	// The agency's "today"; the day strip and windows are pure string math from here.
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const since = useMemo(() => addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1)), [today]);
 
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);

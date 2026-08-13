@@ -5,6 +5,7 @@ import { useCallback, useMemo } from 'react';
 import { RecordUnavailable } from '../../../components/record';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowRole } from '../../../lib/write-access';
 import { type MissionView, updateMission, useMission } from '../-operations-data';
 import {
@@ -43,6 +44,7 @@ function EditMissionRoute() {
 
 function EditMissionForm({ mission }: { readonly mission: MissionView }) {
 	const navigate = useNavigate();
+	const timeZone = useOrganizationTimeZone();
 	const auth = useAuthSnapshot();
 	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 
@@ -89,7 +91,7 @@ function EditMissionForm({ mission }: { readonly mission: MissionView }) {
 	return (
 		<MissionFormPage
 			canSubmit={actorProfileId !== null}
-			defaultValues={useMemo(() => missionFormValuesFrom(mission), [mission])}
+			defaultValues={useMemo(() => missionFormValuesFrom(mission, timeZone), [mission, timeZone])}
 			errorTitle="Unable to Save Mission"
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{

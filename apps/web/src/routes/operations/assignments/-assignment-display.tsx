@@ -142,8 +142,14 @@ export function TargetLink({
 	);
 }
 
-/** A due time, shown only when one is set. Dates render in the agency's locale. */
-export function formatDueAt(dueAt: string | null): string | null {
+/**
+ * A due time, shown only when one is set, on the agency's clock.
+ *
+ * `dueAt` is an instant; "due 4pm" is only a fact once a zone says which 4pm.
+ * A worklist due at end of shift has to read the same to the crew working it
+ * and to the supervisor checking on it from elsewhere.
+ */
+export function formatDueAt(dueAt: string | null, timeZone: string | undefined): string | null {
 	if (dueAt === null) {
 		return null;
 	}
@@ -156,6 +162,7 @@ export function formatDueAt(dueAt: string | null): string | null {
 		day: 'numeric',
 		hour: 'numeric',
 		minute: '2-digit',
+		...(timeZone === undefined ? {} : { timeZone }),
 	});
 }
 

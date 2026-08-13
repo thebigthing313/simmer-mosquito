@@ -2,6 +2,7 @@ import { createMissionCommand } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
 import { createMission, useMission } from '../-operations-data';
@@ -24,6 +25,7 @@ export const Route = createFileRoute('/operations/missions/create')({
 function CreateMissionRoute() {
 	const { auth } = Route.useRouteContext();
 	const navigate = useNavigate();
+	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -62,7 +64,7 @@ function CreateMissionRoute() {
 	return (
 		<MissionFormPage
 			canSubmit={organizationId !== null && actorProfileId !== null}
-			defaultValues={useMemo(() => defaultMissionFormValues(), [])}
+			defaultValues={useMemo(() => defaultMissionFormValues(timeZone), [timeZone])}
 			errorTitle="Unable to Create Mission"
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{

@@ -33,8 +33,8 @@ import {
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
-import { todayDateValue } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 
@@ -113,12 +113,12 @@ export interface SourceReductionFormPageProps {
 	readonly onSave: (input: SourceReductionSaveInput) => Promise<void>;
 }
 
-export function defaultSourceReductionFormValues(): SourceReductionFormValues {
+export function defaultSourceReductionFormValues(timeZone: string): SourceReductionFormValues {
 	return {
 		sourceReductionMethodId: '',
 		sourcesEliminatedAmount: null,
 		sourcesEliminatedUnitId: '',
-		sourceReductionDate: todayDateValue(),
+		sourceReductionDate: todayInTimeZone(timeZone),
 		technicianProfileId: noTechnicianValue,
 		additionalPersonnelIds: [],
 		addressId: null,
