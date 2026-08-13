@@ -1,12 +1,12 @@
 import { boundsFromGeoJson } from '@simmer-mosquito/mapping';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
+import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
+import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@simmer-mosquito/ui-web/components/ui/select';
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/collapsible';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -14,7 +14,13 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ComponentType, useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../components/date-range-filter';
-import { ExplorerHeader, useDateRangeFilters, usePersonnelOptions } from '../components/explorer';
+import {
+	ExplorerHeader,
+	ExplorerRow,
+	useDateRangeFilters,
+	usePersonnelOptions,
+} from '../components/explorer';
+import { DensityBadge, WetnessBadge } from '../components/larval-display';
 import { MapCanvas } from '../components/map';
 import { ACTIVITY_FAMILY_COLORS } from '../components/map/use-activity-layer';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
@@ -34,11 +40,15 @@ import {
 	type ActivityEntry,
 	type ActivityFamily,
 	ActivityRequestError,
+	type ActivityStateToken,
 	activityEntryKey,
+	activityStatus,
 	buildActivityMapData,
 	countActivityByFamily,
+	describeActivityEntry,
 	formatActivityTime,
 	groupActivityByDay,
+	useActivityLookups,
 	useProfileActivity,
 } from './-activity-monitor-data';
 import { HabitatMapCard } from './-habitat-map-card';
@@ -99,6 +109,7 @@ function ActivityMonitorRoute() {
 	const dateRange = useDateRangeFilters({ from: query.from, to: query.to, today, setFilters });
 
 	const personnel = usePersonnelOptions();
+	const lookups = useActivityLookups();
 	const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
 	const activity = useProfileActivity({ profileId, dateFrom: query.from, dateTo: query.to });
@@ -147,6 +158,7 @@ function ActivityMonitorRoute() {
 					days={view.days}
 					error={activity.error}
 					isLoading={activity.isLoading}
+					lookups={lookups}
 					onSelect={setSelectedKey}
 					profileId={profileId}
 					selectedKey={selectedKey}
@@ -202,19 +214,22 @@ function ProfilePicker({
 	readonly options: readonly { readonly id: string; readonly label: string }[];
 	readonly onChange: (next: string) => void;
 }) {
+	// Type-to-search rather than a scroll: an agency's roster runs to hundreds of
+	// profiles, most of them historical, and a supervisor knows the name.
+	const autocompleteOptions = useMemo(
+		() => options.map((option) => ({ value: option.id, label: option.label })),
+		[options],
+	);
+
 	return (
-		<Select onValueChange={onChange} {...(value === null ? {} : { value })}>
-			<SelectTrigger aria-label="Person" className="w-full" size="sm">
-				<SelectValue placeholder="Choose a person" />
-			</SelectTrigger>
-			<SelectContent>
-				{options.map((option) => (
-					<SelectItem key={option.id} value={option.id}>
-						{option.label}
-					</SelectItem>
-				))}
-			</SelectContent>
-		</Select>
+		<Autocomplete
+			aria-label="Person"
+			emptyValue=""
+			onValueChange={(next) => onChange(next ?? '')}
+			options={autocompleteOptions}
+			placeholder="Search people…"
+			value={value}
+		/>
 	);
 }
 
@@ -304,6 +319,7 @@ function ActivityPanel({
 	isLoading,
 	error,
 	truncated,
+	lookups,
 	profileId,
 	selectedKey,
 	onSelect,
@@ -312,6 +328,7 @@ function ActivityPanel({
 	readonly isLoading: boolean;
 	readonly error: Error | null;
 	readonly truncated: boolean;
+	readonly lookups: ActivityLookups;
 	readonly profileId: string | null;
 	readonly selectedKey: string | null;
 	readonly onSelect: (key: string) => void;
@@ -337,6 +354,7 @@ function ActivityPanel({
 					<ActivityDaySection
 						day={day}
 						key={day.date}
+						lookups={lookups}
 						onSelect={onSelect}
 						selectedKey={selectedKey}
 					/>
@@ -358,87 +376,182 @@ function TruncationNotice() {
 	);
 }
 
+/** The resolved lookup names + unit formatter every row's description needs. */
+type ActivityLookups = ReturnType<typeof useActivityLookups>;
+
 function isRefusal(error: Error): boolean {
 	return error instanceof ActivityRequestError && error.refused;
 }
 
+/**
+ * One day of the log, collapsible.
+ *
+ * A month-wide range is a page of days, and a supervisor scanning for the one
+ * they care about should not have to scroll past four hundred rows to reach it.
+ * Open by default — the common case is a single day, where a closed section
+ * would be one click of pure ceremony.
+ */
 function ActivityDaySection({
 	day,
 	selectedKey,
+	lookups,
 	onSelect,
 }: {
 	readonly day: ActivityDayGroup;
 	readonly selectedKey: string | null;
+	readonly lookups: ActivityLookups;
 	readonly onSelect: (key: string) => void;
 }) {
+	const [open, setOpen] = useState(true);
+
 	return (
-		<li className="grid gap-2">
-			<h2 className="font-medium text-foreground text-sm">{formatListDate(day.date)}</h2>
-			{day.families.map((group) => (
-				<div className="grid gap-1" key={group.family}>
-					<h3 className="text-muted-foreground text-xs">
-						{ACTIVITY_FAMILIES.find((family) => family.key === group.family)?.label}
-					</h3>
-					<ul className="grid gap-0.5">
-						{group.entries.map((entry) => (
-							<ActivityRow
-								entry={entry}
-								isSelected={activityEntryKey(entry) === selectedKey}
-								key={activityEntryKey(entry)}
-								onSelect={onSelect}
-							/>
+		<li>
+			<Collapsible onOpenChange={setOpen} open={open}>
+				<CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/50">
+					<ChevronRightIcon
+						aria-hidden="true"
+						className={cn(
+							'size-4 shrink-0 text-muted-foreground transition-transform',
+							open && 'rotate-90',
+						)}
+					/>
+					<span className="flex-1 font-medium text-foreground text-sm">
+						{formatListDate(day.date)}
+					</span>
+					<span className="text-muted-foreground text-xs tabular-nums">{day.entries.length}</span>
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<div className="grid gap-2 pt-1 pb-2">
+						{day.families.map((group) => (
+							<div className="grid gap-1" key={group.family}>
+								<h3 className="px-2 font-medium text-muted-foreground text-xs">
+									{ACTIVITY_FAMILIES.find((family) => family.key === group.family)?.label}
+								</h3>
+								<ul className="grid">
+									{group.entries.map((entry) => (
+										<ActivityRow
+											entry={entry}
+											isSelected={activityEntryKey(entry) === selectedKey}
+											key={activityEntryKey(entry)}
+											lookups={lookups}
+											onSelect={onSelect}
+										/>
+									))}
+								</ul>
+							</div>
 						))}
-					</ul>
-				</div>
-			))}
+					</div>
+				</CollapsibleContent>
+			</Collapsible>
 		</li>
 	);
 }
 
+/**
+ * One entry, as its own explorer would list it.
+ *
+ * `ExplorerRow` is the shared list item every explorer already uses, so a row
+ * here reads the way the same record reads on the page it lives on — the same
+ * title, the same subtitle, the same status pill. Date and personnel are the
+ * two things it omits, and they are the two things this page already knows: the
+ * section is the date, and the picker is the person.
+ */
 function ActivityRow({
 	entry,
 	isSelected,
+	lookups,
 	onSelect,
 }: {
 	readonly entry: ActivityEntry;
 	readonly isSelected: boolean;
+	readonly lookups: ActivityLookups;
 	readonly onSelect: (key: string) => void;
 }) {
 	const key = activityEntryKey(entry);
-	const time = formatActivityTime(entry.occurredAt);
-	const title = entry.label ?? ACTIVITY_CATEGORY_LABEL[entry.category];
+	const { title, subtitle } = describeActivityEntry(
+		entry,
+		lookups.nameById,
+		lookups.formatQuantity,
+	);
+	const noun = ACTIVITY_CATEGORY_LABEL[entry.category];
 	const verb = ACTIVITY_ROLE_LABEL[entry.role] ?? entry.role;
+	const link = { to: ACTIVITY_DETAIL_ROUTE[entry.category], params: { id: entry.id } };
 
 	return (
-		<li className="flex items-center gap-1">
-			<button
-				className={cn(
-					'flex flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/60',
-					isSelected && 'bg-muted',
-				)}
-				onClick={() => onSelect(key)}
-				type="button"
-			>
-				<FamilyDot family={entry.family} hollow={entry.involvement === 'assisting'} />
-				<span className="min-w-0 flex-1 truncate text-foreground text-sm">{title}</span>
-				<span className="shrink-0 text-muted-foreground text-xs">
-					{entry.involvement === 'assisting' ? 'Assisted' : verb}
-				</span>
-				{time === null ? null : (
-					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">{time}</span>
-				)}
-			</button>
-			<Link
-				aria-label={`Open ${ACTIVITY_CATEGORY_LABEL[entry.category].toLowerCase()} details`}
-				className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-				params={{ id: entry.id }}
-				to={ACTIVITY_DETAIL_ROUTE[entry.category]}
-			>
-				<ChevronRightIcon aria-hidden="true" className="size-4" />
-			</Link>
-		</li>
+		<ExplorerRow
+			// One badge, and only where the record has a state worth a pill. The
+			// panel is half a page wide, and a second one pushed the row into a
+			// horizontal scroll.
+			badges={<ActivityStatusBadge entry={entry} />}
+			detailLabel={`View details for ${title}`}
+			detailLink={link}
+			isSelected={isSelected}
+			onSelect={() => onSelect(key)}
+			selectLabel={`Show ${title} on the map`}
+			// The verb leads, because what the person did to the record is the one
+			// thing this page adds over the record's own explorer — and it says
+			// "Assisted" in words rather than resting on the hollow pin alone. The
+			// date rail is omitted: the day heading above already carries the date,
+			// so the time of day rides at the end for the three kinds that have one.
+			subtitle={[verb, subtitle, formatActivityTime(entry.occurredAt)]
+				.filter((part) => part !== null && part !== '')
+				.join(' · ')}
+			swatch={{
+				color: ACTIVITY_FAMILY_COLORS[entry.family],
+				label: `${noun}, ${entry.involvement === 'assisting' ? 'assisted' : 'performed'}`,
+			}}
+			title={title}
+			titleLink={link}
+		/>
 	);
 }
+
+/**
+ * The one status each category reads by, in the badge its explorer uses.
+ *
+ * The server sends a single token per category rather than a column per kind,
+ * so this is where it becomes the right pill.
+ */
+function ActivityStatusBadge({ entry }: { readonly entry: ActivityEntry }) {
+	const status = activityStatus(entry);
+	if (status === null) {
+		return null;
+	}
+	if (status.kind === 'density') {
+		return <DensityBadge density={status.density} />;
+	}
+	if (status.kind === 'wetness') {
+		return <WetnessBadge isWet={status.isWet} />;
+	}
+
+	return (
+		<Badge tone={ACTIVITY_DETAIL_TONE[status.token]} variant="outline">
+			{ACTIVITY_DETAIL_LABEL[status.token]}
+		</Badge>
+	);
+}
+
+const ACTIVITY_DETAIL_LABEL: Readonly<Record<ActivityStateToken, string>> = {
+	active: 'Active',
+	inactive: 'Inactive',
+	inaccessible: 'Inaccessible',
+	problem: 'Problem',
+	zero: 'Zero Result',
+	open: 'Open',
+	closed: 'Closed',
+};
+
+const ACTIVITY_DETAIL_TONE: Readonly<
+	Record<ActivityStateToken, 'success' | 'neutral' | 'warning' | 'info'>
+> = {
+	active: 'success',
+	inactive: 'neutral',
+	inaccessible: 'warning',
+	problem: 'warning',
+	zero: 'neutral',
+	open: 'info',
+	closed: 'neutral',
+};
 
 function PanelMessage({
 	title,

@@ -1,5 +1,17 @@
+import { isLarvalDensity, type LarvalDensity } from '@simmer-mosquito/domain';
+import type {
+	CollectionMethodRow,
+	ControlMethodRow,
+	HabitatTypeRow,
+	InsecticideRow,
+	UnitRow,
+} from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { getServerUrl } from '../auth';
+import { useCollectionRows } from '../hooks/use-collection-rows';
+import { webCollections } from '../sync/webCollections';
+import { formatAmount, insecticideDisplayName } from './control-operations/-control-display';
 
 // Data + display helpers for the Activity Monitor: one Profile's field work over
 // a date range. Dash-prefixed so TanStack Router ignores this file as a route.
@@ -29,8 +41,20 @@ export interface ActivityEntry {
 	readonly lng: number;
 	readonly date: string;
 	readonly occurredAt: string | null;
+	/** The record's own name where it has one — a habitat, a trap, a request number. */
 	readonly label: string | null;
+	/** The place it hangs off — habitat, trap or address — already resolved server-side. */
+	readonly siteName: string | null;
+	/** The lookup that names its kind (type/method/insecticide). */
 	readonly refId: string | null;
+	/** A second lookup where one exists — an application's method, beside its product. */
+	readonly methodRefId: string | null;
+	/** What the record measured: applied, eliminated, released, reached. */
+	readonly amount: number | null;
+	/** The unit `amount` is in; null where the quantity is a bare count. */
+	readonly unitId: string | null;
+	/** One short, category-specific extra — a density, a status, a reach description. */
+	readonly detail: string | null;
 }
 
 interface ActivityResponse {
@@ -47,10 +71,10 @@ export const ACTIVITY_FAMILIES: readonly {
 	readonly key: ActivityFamily;
 	readonly label: string;
 }[] = [
-	{ key: 'larval', label: 'Larval surveillance' },
-	{ key: 'adult', label: 'Adult surveillance' },
-	{ key: 'control', label: 'Control actions' },
-	{ key: 'publicEngagement', label: 'Public engagement' },
+	{ key: 'larval', label: 'Larval Surveillance' },
+	{ key: 'adult', label: 'Adult Surveillance' },
+	{ key: 'control', label: 'Control Actions' },
+	{ key: 'publicEngagement', label: 'Public Engagement' },
 ];
 
 export const ACTIVITY_CATEGORY_LABEL: Readonly<Record<ActivityCategory, string>> = {
@@ -59,10 +83,10 @@ export const ACTIVITY_CATEGORY_LABEL: Readonly<Record<ActivityCategory, string>>
 	trap: 'Trap',
 	collection: 'Collection',
 	application: 'Application',
-	sourceReduction: 'Source reduction',
+	sourceReduction: 'Source Reduction',
 	biocontrol: 'Biocontrol',
 	outreach: 'Outreach',
-	serviceRequest: 'Service request',
+	serviceRequest: 'Service Request',
 };
 
 /**
@@ -200,6 +224,245 @@ export function buildActivityMapData(
 			geometry: { type: 'Point', coordinates: [item.lng, item.lat] },
 		})),
 	};
+}
+
+/**
+ * One id → name map over every lookup an activity entry can reference, plus the
+ * unit formatter its quantity needs.
+ *
+ * Ids are globally unique, so one map serves every category's `refId` and
+ * `methodRefId` alike — the same trick the nearby context view takes. All of
+ * these stream eagerly, so this needs no fetch.
+ */
+export function useActivityLookups(): {
+	readonly nameById: ReadonlyMap<string, string>;
+	readonly formatQuantity: (amount: number, unitId: string | null) => string;
+} {
+	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
+	const { rows: collectionMethods } = useCollectionRows<CollectionMethodRow>(
+		webCollections.collectionMethods,
+	);
+	const { rows: applicationMethods } = useCollectionRows<ControlMethodRow>(
+		webCollections.applicationMethods,
+	);
+	const { rows: sourceReductionMethods } = useCollectionRows<ControlMethodRow>(
+		webCollections.sourceReductionMethods,
+	);
+	const { rows: biocontrolMethods } = useCollectionRows<ControlMethodRow>(
+		webCollections.biocontrolMethods,
+	);
+	const { rows: outreachMethods } = useCollectionRows<ControlMethodRow>(
+		webCollections.outreachMethods,
+	);
+	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
+	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
+
+	return useMemo(() => {
+		const nameById = new Map<string, string>();
+		for (const row of habitatTypes) {
+			nameById.set(row.id, row.name);
+		}
+		for (const rows of [
+			collectionMethods as readonly { readonly id: string; readonly name: string }[],
+			applicationMethods,
+			sourceReductionMethods,
+			biocontrolMethods,
+			outreachMethods,
+		]) {
+			for (const row of rows) {
+				nameById.set(row.id, row.name);
+			}
+		}
+		for (const row of insecticides) {
+			nameById.set(row.id, insecticideDisplayName(row));
+		}
+
+		const unitById = new Map(units.map((unit) => [unit.id, unit] as const));
+		return {
+			nameById,
+			formatQuantity: (amount: number, unitId: string | null) =>
+				formatAmount(amount, unitId === null ? undefined : unitById.get(unitId)),
+		};
+	}, [
+		habitatTypes,
+		collectionMethods,
+		applicationMethods,
+		sourceReductionMethods,
+		biocontrolMethods,
+		outreachMethods,
+		insecticides,
+		units,
+	]);
+}
+
+/**
+ * The one status pill an entry reads by, if it has one.
+ *
+ * The server sends a single short token per category rather than a column per
+ * kind, so this is where it becomes a specific badge. It is a pure mapping
+ * rather than a chain of conditions inside the component, because "which pill"
+ * is the part with the wrong answers in it — an unknown density silently
+ * rendering nothing, or a token from a build that predates this column.
+ */
+export type ActivityStatus =
+	| { readonly kind: 'density'; readonly density: LarvalDensity }
+	| { readonly kind: 'wetness'; readonly isWet: boolean }
+	| { readonly kind: 'state'; readonly token: ActivityStateToken };
+
+export type ActivityStateToken =
+	| 'active'
+	| 'inactive'
+	| 'inaccessible'
+	| 'problem'
+	| 'zero'
+	| 'open'
+	| 'closed';
+
+const ACTIVITY_STATE_TOKENS: readonly ActivityStateToken[] = [
+	'active',
+	'inactive',
+	'inaccessible',
+	'problem',
+	'zero',
+	'open',
+	'closed',
+];
+
+export function activityStatus(entry: ActivityEntry): ActivityStatus | null {
+	const detail = text(entry.detail);
+	if (detail === null) {
+		return null;
+	}
+	if (entry.category === 'inspection') {
+		if (detail === 'dry') {
+			return { kind: 'wetness', isWet: false };
+		}
+		// Wet with nothing counted, or a density this build does not know: say wet
+		// rather than assert a value the badge table cannot render.
+		return isLarvalDensity(detail)
+			? { kind: 'density', density: detail }
+			: { kind: 'wetness', isWet: true };
+	}
+	// Outreach's extra is a description, not a state; it is already in the subtitle.
+	if (entry.category === 'outreach') {
+		return null;
+	}
+	return ACTIVITY_STATE_TOKENS.includes(detail as ActivityStateToken)
+		? { kind: 'state', token: detail as ActivityStateToken }
+		: null;
+}
+
+/** What one entry reads as: the explorer row's title and subtitle, minus date and personnel. */
+export interface ActivityDescription {
+	readonly title: string;
+	readonly subtitle: string | null;
+}
+
+/**
+ * One entry, described the way its own explorer describes it.
+ *
+ * The nine categories do not share a shape — an application is named by its
+ * product and measured in gallons, a source reduction is named by its method,
+ * an inspection by the site it was performed at — so a single "label" line
+ * reads as "Inspection · Inspected", which tells a supervisor nothing they did
+ * not already know from the page they are on. Each row therefore composes what
+ * its explorer composes.
+ *
+ * `nameById` resolves the lookup ids (types, methods, products) from the eagerly
+ * synced collections; `siteName` is already text, because habitats and addresses
+ * are not synced to the client.
+ */
+export function describeActivityEntry(
+	entry: ActivityEntry,
+	nameById: ReadonlyMap<string, string>,
+	formatQuantity: (amount: number, unitId: string | null) => string,
+): ActivityDescription {
+	return DESCRIBE_BY_CATEGORY[entry.category]({
+		/** The lookup that names the record's kind. */
+		kind: resolve(entry.refId, nameById),
+		/** A second lookup, where the record has one. */
+		method: resolve(entry.methodRefId, nameById),
+		/** The record's own name. */
+		own: text(entry.label),
+		/** The place it hangs off. */
+		site: text(entry.siteName),
+		/** What it measured, already in its unit. */
+		// `typeof` rather than a null check: a server that predates these columns
+		// sends no field at all, and `undefined` reaching the formatter is a crash.
+		measured:
+			typeof entry.amount === 'number' ? formatQuantity(entry.amount, entry.unitId ?? null) : null,
+		/** How many people an outreach action reached. */
+		reached: typeof entry.amount === 'number' ? `${formatReach(entry.amount)} reached` : null,
+		extra: text(entry.detail),
+		fallback: ACTIVITY_CATEGORY_LABEL[entry.category],
+	});
+}
+
+/** Everything one category's description is composed from, already resolved. */
+interface DescriptionParts {
+	readonly kind: string | null;
+	readonly method: string | null;
+	readonly own: string | null;
+	readonly site: string | null;
+	readonly measured: string | null;
+	readonly reached: string | null;
+	readonly extra: string | null;
+	readonly fallback: string;
+}
+
+/**
+ * How each category is titled, one line apiece.
+ *
+ * A table rather than a switch: nine shapes in one function is nine reasons to
+ * edit it, and the interesting thing about each is a single expression.
+ */
+const DESCRIBE_BY_CATEGORY: Readonly<
+	Record<ActivityCategory, (parts: DescriptionParts) => ActivityDescription>
+> = {
+	habitat: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.kind }),
+	trap: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.kind }),
+	inspection: (parts) => ({ title: parts.site ?? parts.fallback, subtitle: parts.kind }),
+	// A collection with no trap was recorded away from one.
+	collection: (parts) => ({ title: parts.site ?? 'Ad-hoc collection', subtitle: parts.kind }),
+	application: (parts) => ({
+		title: parts.kind ?? parts.fallback,
+		subtitle: joinParts([parts.measured, parts.method, parts.site]),
+	}),
+	sourceReduction: (parts) => ({
+		title: parts.kind ?? parts.fallback,
+		subtitle: joinParts([parts.measured, parts.site]),
+	}),
+	biocontrol: (parts) => ({
+		title: parts.kind ?? parts.fallback,
+		subtitle: joinParts([parts.measured, parts.site]),
+	}),
+	outreach: (parts) => ({
+		title: parts.kind ?? parts.fallback,
+		subtitle: joinParts([parts.reached, parts.extra, parts.site]),
+	}),
+	serviceRequest: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.site }),
+};
+
+function resolve(id: string | null, nameById: ReadonlyMap<string, string>): string | null {
+	return typeof id === 'string' ? (nameById.get(id) ?? null) : null;
+}
+
+function text(value: string | null): string | null {
+	return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
+/** How many people an outreach action reached. */
+function formatReach(reach: number): string {
+	return reach === 1 ? '1 person' : `${reach.toLocaleString()} people`;
+}
+
+function joinParts(parts: readonly (string | null | undefined)[]): string | null {
+	// `typeof` rather than `!== null`: a response that predates one of these
+	// columns sends no field, and `undefined.trim()` is a render crash.
+	const present = parts.filter(
+		(part): part is string => typeof part === 'string' && part.trim() !== '',
+	);
+	return present.length === 0 ? null : present.join(' · ');
 }
 
 /** The time of day, where the record genuinely carries one. */

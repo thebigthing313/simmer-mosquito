@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	type ActivityEntry,
 	activityEntryKey,
+	activityStatus,
 	buildActivityMapData,
 	countActivityByFamily,
+	describeActivityEntry,
 	groupActivityByDay,
 } from '../../../routes/-activity-monitor-data';
 
@@ -24,7 +26,12 @@ function entry(overrides: Partial<ActivityEntry> = {}): ActivityEntry {
 		date: '2026-08-05',
 		occurredAt: null,
 		label: null,
+		siteName: null,
 		refId: null,
+		methodRefId: null,
+		amount: null,
+		unitId: null,
+		detail: null,
 		...overrides,
 	};
 }
@@ -96,6 +103,117 @@ describe('groupActivityByDay', () => {
 
 	it('answers nothing for an empty log', () => {
 		expect(groupActivityByDay([])).toEqual([]);
+	});
+});
+
+// A row reading "Inspection · Inspected" tells a supervisor nothing they did not
+// already know from the page they are on. Each category is therefore described
+// the way its own explorer describes it.
+describe('describeActivityEntry', () => {
+	const names = new Map([
+		['type-1', 'Roadside ditch'],
+		['product-1', 'Altosid'],
+		['method-1', 'Backpack sprayer'],
+		['sr-method-1', 'Container removal'],
+		['outreach-1', 'Door hanger'],
+	]);
+	const quantity = (amount: number, unitId: string | null) =>
+		unitId === null ? String(amount) : `${amount} gal`;
+
+	function describe_(overrides: Partial<ActivityEntry>) {
+		return describeActivityEntry(entry(overrides), names, quantity);
+	}
+
+	it('titles an inspection by the site it was performed at', () => {
+		expect(describe_({ category: 'inspection', siteName: 'Culvert 12', refId: 'type-1' })).toEqual({
+			title: 'Culvert 12',
+			subtitle: 'Roadside ditch',
+		});
+	});
+
+	it('titles an application by its product, and measures it', () => {
+		expect(
+			describe_({
+				category: 'application',
+				refId: 'product-1',
+				methodRefId: 'method-1',
+				amount: 2,
+				unitId: 'unit-1',
+				siteName: 'Culvert 12',
+			}),
+		).toEqual({ title: 'Altosid', subtitle: '2 gal · Backpack sprayer · Culvert 12' });
+	});
+
+	it('titles a source reduction by its method', () => {
+		expect(
+			describe_({
+				category: 'sourceReduction',
+				refId: 'sr-method-1',
+				amount: 4,
+				unitId: 'unit-1',
+				siteName: 'Culvert 12',
+			}),
+		).toEqual({ title: 'Container removal', subtitle: '4 gal · Culvert 12' });
+	});
+
+	it('counts an outreach action in people, not units', () => {
+		expect(
+			describe_({ category: 'outreach', refId: 'outreach-1', amount: 30, detail: 'Block party' }),
+		).toEqual({ title: 'Door hanger', subtitle: '30 people reached · Block party' });
+	});
+
+	it('names a collection by its trap, and says so when there is none', () => {
+		expect(describe_({ category: 'collection', siteName: 'T-1 - North gate' }).title).toBe(
+			'T-1 - North gate',
+		);
+		expect(describe_({ category: 'collection', siteName: null }).title).toBe('Ad-hoc collection');
+	});
+
+	// Nothing resolved and nothing joined still has to read as something.
+	it('falls back to the category when a record names nothing', () => {
+		expect(describe_({ category: 'biocontrol' })).toEqual({ title: 'Biocontrol', subtitle: null });
+	});
+});
+
+// One short token per category becomes one specific pill. The wrong answers
+// here are silent: an unknown density rendering nothing, or a token from a
+// build that predates the column.
+describe('activityStatus', () => {
+	it('reads an inspection by what was found', () => {
+		expect(activityStatus(entry({ category: 'inspection', detail: 'heavy' }))).toEqual({
+			kind: 'density',
+			density: 'heavy',
+		});
+		expect(activityStatus(entry({ category: 'inspection', detail: 'dry' }))).toEqual({
+			kind: 'wetness',
+			isWet: false,
+		});
+	});
+
+	// Wet with nothing counted, and a density this build does not know, both land
+	// on "wet" rather than asserting a value the badge table cannot render.
+	it.each(['wet', 'astronomical'])('falls back to wet for %s', (detail) => {
+		expect(activityStatus(entry({ category: 'inspection', detail }))).toEqual({
+			kind: 'wetness',
+			isWet: true,
+		});
+	});
+
+	it('reads a site or a request by its state', () => {
+		expect(activityStatus(entry({ category: 'habitat', detail: 'inaccessible' }))).toEqual({
+			kind: 'state',
+			token: 'inaccessible',
+		});
+		expect(activityStatus(entry({ category: 'serviceRequest', detail: 'open' }))).toEqual({
+			kind: 'state',
+			token: 'open',
+		});
+	});
+
+	it('has no pill for an outreach description, an absent detail, or an unknown token', () => {
+		expect(activityStatus(entry({ category: 'outreach', detail: 'Block party' }))).toBeNull();
+		expect(activityStatus(entry({ category: 'habitat', detail: null }))).toBeNull();
+		expect(activityStatus(entry({ category: 'habitat', detail: 'mysterious' }))).toBeNull();
 	});
 });
 

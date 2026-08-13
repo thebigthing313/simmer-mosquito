@@ -58,10 +58,31 @@ export interface ProfileActivityRow {
 	readonly date: string;
 	/** The full moment, where the record genuinely carries one; null otherwise. */
 	readonly occurredAt: string | null;
-	/** The record's own name when it has one (habitat/trap/request); null otherwise. */
+	/** The record's own name where it has one — a habitat, a trap, a request number. */
 	readonly label: string | null;
-	/** A related lookup id the client resolves to a name (type/method/insecticide). */
+	/**
+	 * The place this record hangs off, already resolved to text: the habitat it
+	 * was performed at, the trap it came out of, or the address it was logged
+	 * against. Joined here rather than left to the client, because habitats and
+	 * addresses are not eagerly synced and a list of "Inspection" with no site is
+	 * the thing this surface exists to avoid.
+	 */
+	readonly siteName: string | null;
+	/** The lookup that names the record's kind (type/method/insecticide). */
 	readonly refId: string | null;
+	/** A second lookup where one exists — an application's method, beside its product. */
+	readonly methodRefId: string | null;
+	/** The quantity the record measures: applied, eliminated, released, reached. */
+	readonly amount: number | null;
+	/** The unit `amount` is in. Null where the quantity is a bare count (outreach reach). */
+	readonly unitId: string | null;
+	/**
+	 * One short, category-specific thing more: a density or `dry` for inspections,
+	 * `problem`/`zero` for collections, `active`/`inactive`/`inaccessible` for
+	 * sites, `open`/`closed` for requests, the reach description for outreach.
+	 * The client already switches on category to lay a row out; this rides along.
+	 */
+	readonly detail: string | null;
 }
 
 export interface ProfileActivityInput {
@@ -108,15 +129,27 @@ interface RecordShape {
 	readonly category: ActivityCategory;
 	readonly family: ActivityFamily;
 	readonly table: string;
+	/**
+	 * The left joins this shape's site name needs. Every branch aliases its own
+	 * table `r`, so `h`, `ad` and `t` are free for the habitat, address and trap
+	 * a record hangs off.
+	 */
+	readonly joins?: string;
 	/** The `date` this record's work is dated by. */
 	readonly date: string;
 	/** A `timestamptz` where one genuinely exists, `null` otherwise. */
 	readonly occurredAt: string;
 	readonly label: string;
+	readonly siteName: string;
 	readonly refId: string;
+	readonly methodRefId?: string;
+	readonly amount?: string;
+	readonly unitId?: string;
+	readonly detail?: string;
 }
 
 const NO_TIMESTAMP = 'null::timestamptz';
+const NO_NUMBER = 'null::numeric';
 const NO_TEXT = 'null::text';
 
 /**
@@ -128,6 +161,16 @@ const NO_TEXT = 'null::text';
 const COLLECTED_DATE = 'coalesce(r.collected_at::date, r.collection_date)';
 const SET_DATE = 'coalesce(r.started_at::date, r.collection_date)';
 
+/** The habitat, else the address, a record was performed at. */
+const SITE_JOINS =
+	'left join habitats h on h.id = r.habitat_id left join addresses ad on ad.id = r.address_id';
+const SITE_NAME = `coalesce(nullif(btrim(h.habitat_name), ''), nullif(btrim(ad.display_name), ''))`;
+const ADDRESS_JOIN = 'left join addresses ad on ad.id = r.address_id';
+const ADDRESS_NAME = `nullif(btrim(ad.display_name), '')`;
+/** The label the web app renders for a trap: "code - name", dash-free when only one is set. */
+const TRAP_LABEL = (alias: string) =>
+	`nullif(concat_ws(' - ', nullif(btrim(${alias}.trap_code), ''), nullif(btrim(${alias}.trap_name), '')), '')`;
+
 const HABITAT: RecordShape = {
 	category: 'habitat',
 	family: 'larval',
@@ -135,17 +178,25 @@ const HABITAT: RecordShape = {
 	date: 'r.created_at::date',
 	occurredAt: 'r.created_at',
 	label: 'r.habitat_name',
+	// A habitat *is* the site, so it names no other one.
+	siteName: NO_TEXT,
 	refId: 'r.habitat_type_id::text',
+	detail: `case when r.is_active = false then 'inactive'
+		when r.is_inaccessible = true then 'inaccessible' else 'active' end`,
 };
 
 const INSPECTION: RecordShape = {
 	category: 'inspection',
 	family: 'larval',
 	table: 'inspections',
+	joins: SITE_JOINS,
 	date: 'r.inspection_date',
 	occurredAt: NO_TIMESTAMP,
 	label: NO_TEXT,
+	siteName: SITE_NAME,
 	refId: 'r.habitat_type_id::text',
+	// What the explorer's badge reads: dry, or how much was found.
+	detail: `case when r.is_wet = false then 'dry' else coalesce(r.density::text, 'wet') end`,
 };
 
 const TRAP: RecordShape = {
@@ -154,69 +205,97 @@ const TRAP: RecordShape = {
 	table: 'traps',
 	date: 'r.created_at::date',
 	occurredAt: 'r.created_at',
-	// The same label the web app renders: "code - name", dash-free when only one is set.
-	label: `nullif(concat_ws(' - ', nullif(btrim(r.trap_code), ''), nullif(btrim(r.trap_name), '')), '')`,
+	label: TRAP_LABEL('r'),
+	siteName: NO_TEXT,
 	refId: 'r.collection_method_id::text',
+	detail: `case when r.is_active = false then 'inactive' else 'active' end`,
 };
 
 const COLLECTION: RecordShape = {
 	category: 'collection',
 	family: 'adult',
 	table: 'collections',
+	joins: 'left join traps t on t.id = r.trap_id',
 	date: `coalesce(r.collected_at::date, r.collection_date, r.started_at::date)`,
 	occurredAt: 'coalesce(r.collected_at, r.started_at)',
 	label: NO_TEXT,
+	// The trap it came out of. A collection with none was recorded ad hoc.
+	siteName: TRAP_LABEL('t'),
 	refId: 'r.collection_method_id::text',
+	detail: `case when r.has_problem = true then 'problem'
+		when r.is_zero_result = true then 'zero' else null end`,
 };
 
 const APPLICATION: RecordShape = {
 	category: 'application',
 	family: 'control',
 	table: 'applications',
+	joins: SITE_JOINS,
 	date: 'r.application_date',
 	occurredAt: NO_TIMESTAMP,
 	label: NO_TEXT,
+	siteName: SITE_NAME,
 	refId: 'r.insecticide_id::text',
+	methodRefId: 'r.application_method_id::text',
+	amount: 'r.amount_applied',
+	unitId: 'r.application_unit_id::text',
 };
 
 const SOURCE_REDUCTION: RecordShape = {
 	category: 'sourceReduction',
 	family: 'control',
 	table: 'source_reductions',
+	joins: SITE_JOINS,
 	date: 'r.source_reduction_date',
 	occurredAt: NO_TIMESTAMP,
 	label: NO_TEXT,
+	siteName: SITE_NAME,
 	refId: 'r.source_reduction_method_id::text',
+	amount: 'r.sources_eliminated_amount',
+	unitId: 'r.sources_eliminated_unit_id::text',
 };
 
 const BIOCONTROL: RecordShape = {
 	category: 'biocontrol',
 	family: 'control',
 	table: 'biocontrol_actions',
+	joins: SITE_JOINS,
 	date: 'r.biocontrol_date',
 	occurredAt: NO_TIMESTAMP,
 	label: NO_TEXT,
+	siteName: SITE_NAME,
 	refId: 'r.biocontrol_method_id::text',
+	amount: 'r.amount_released',
+	unitId: 'r.release_unit_id::text',
 };
 
 const OUTREACH: RecordShape = {
 	category: 'outreach',
 	family: 'publicEngagement',
 	table: 'outreach_actions',
+	joins: ADDRESS_JOIN,
 	date: 'r.outreach_date',
 	occurredAt: NO_TIMESTAMP,
 	label: NO_TEXT,
+	siteName: ADDRESS_NAME,
 	refId: 'r.outreach_method_id::text',
+	// Reach is a count of people, not a measured quantity, so it carries no unit.
+	amount: 'r.reach',
+	detail: `nullif(btrim(r.reach_description), '')`,
 };
 
 const SERVICE_REQUEST: RecordShape = {
 	category: 'serviceRequest',
 	family: 'publicEngagement',
 	table: 'service_requests',
+	joins: ADDRESS_JOIN,
 	date: 'r.request_date',
 	occurredAt: NO_TIMESTAMP,
 	label: `nullif(concat('Request ', r.display_name::text), 'Request ')`,
+	siteName: ADDRESS_NAME,
+	// Requests carry no method or type lookup; the intake type is a column.
 	refId: NO_TEXT,
+	detail: `case when r.closed_at is null then 'open' else 'closed' end`,
 };
 
 /** The record shape each `additional_personnel.entity_type` value points at. */
@@ -322,7 +401,14 @@ export async function listProfileActivity(
 		limit ${limit}
 	`.execute(db);
 
-	return result.rows.map((row) => ({ ...row, lat: Number(row.lat), lng: Number(row.lng) }));
+	return result.rows.map((row) => ({
+		...row,
+		lat: Number(row.lat),
+		lng: Number(row.lng),
+		// `numeric` arrives as a string over the wire, and a quantity rendered as
+		// one formats wrong rather than failing.
+		amount: row.amount === null ? null : Number(row.amount),
+	}));
 }
 
 interface BranchScope {
@@ -344,6 +430,7 @@ function primarySelect(branch: PrimaryBranch, scope: BranchScope): RawBuilder<Pr
 			occurredAt: branch.occurredAt ?? shape.occurredAt,
 		})}
 		from ${sql.raw(shape.table)} r
+		${shape.joins === undefined ? sql`` : sql.raw(shape.joins)}
 		where r.organization_id = ${scope.org}
 			and r.deleted_at is null
 			and r.${sql.raw(branch.profileColumn)} = ${scope.profileId}
@@ -373,6 +460,7 @@ function assistingSelect(
 		})}
 		from additional_personnel ap
 		join ${sql.raw(shape.table)} r on r.id = ap.entity_id
+		${shape.joins === undefined ? sql`` : sql.raw(shape.joins)}
 		where ap.organization_id = ${scope.org}
 			and ap.deleted_at is null
 			and ap.personnel_profile_id = ${scope.profileId}
@@ -413,6 +501,11 @@ function projection(
 			'YYYY-MM-DD"T"HH24:MI:SS"Z"'
 		) as "occurredAt",
 		${sql.raw(shape.label)} as label,
-		${sql.raw(shape.refId)} as "refId"
+		${sql.raw(shape.siteName)} as "siteName",
+		${sql.raw(shape.refId)} as "refId",
+		${sql.raw(shape.methodRefId ?? NO_TEXT)} as "methodRefId",
+		${sql.raw(shape.amount ?? NO_NUMBER)} as amount,
+		${sql.raw(shape.unitId ?? NO_TEXT)} as "unitId",
+		${sql.raw(shape.detail ?? NO_TEXT)} as detail
 	`;
 }

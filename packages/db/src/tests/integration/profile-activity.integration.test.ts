@@ -111,6 +111,49 @@ describeDbIntegration('profile activity', () => {
 		});
 	});
 
+	// A row that says only "Inspection" is a row nobody can act on, so each entry
+	// carries what its explorer's list item shows: the site it happened at, the
+	// lookup that names its kind, the quantity it measured, and its one status.
+	it('carries the site and kind a list row is titled by', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedActivityWorld(db);
+
+			const rows = await activityFor(db, world.ownOrganizationId, world.danaProfileId);
+
+			// The habitat the inspection was performed at, joined here because
+			// habitats do not stream to the client.
+			expect(pick(rows, (row) => row.category === 'inspection')).toMatchObject({
+				siteName: 'Culvert 12',
+				refId: world.habitatTypeId,
+				detail: 'light',
+			});
+			// The trap the collection came out of.
+			expect(pick(rows, (row) => row.id === world.spanningCollectionId)).toMatchObject({
+				siteName: 'T-1 - North gate',
+				refId: world.collectionMethodId,
+			});
+			expect(pick(rows, (row) => row.role === 'received')).toMatchObject({
+				label: 'Request 42',
+				siteName: '100 Main St',
+				detail: 'closed',
+			});
+		});
+	});
+
+	it('carries the quantity a control action measured, and its unit', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedActivityWorld(db);
+
+			const rows = await activityFor(db, world.ownOrganizationId, world.danaProfileId);
+
+			expect(pick(rows, (row) => row.category === 'sourceReduction')).toMatchObject({
+				refId: world.sourceReductionMethodId,
+				amount: 3,
+				unitId: world.unitId,
+			});
+		});
+	});
+
 	it('orders newest first and carries the coordinates the map draws', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedActivityWorld(db);
@@ -147,6 +190,18 @@ function entryKeys(rows: readonly ProfileActivityRow[]): string[] {
 	return rows.map((row) => `${row.category}:${row.role}:${row.date}`);
 }
 
+/** The first row matching, or a failure that names what was missing. */
+function pick(
+	rows: readonly ProfileActivityRow[],
+	match: (row: ProfileActivityRow) => boolean,
+): ProfileActivityRow {
+	const row = rows.find(match);
+	if (row === undefined) {
+		throw new Error('No activity row matched.');
+	}
+	return row;
+}
+
 /** The `role:date` entries one record produced, oldest first. */
 function entriesFor(rows: readonly ProfileActivityRow[], id: string): string[] {
 	return rows
@@ -167,6 +222,10 @@ interface ActivityWorld {
 	readonly durationCollectionId: string;
 	readonly openCollectionId: string;
 	readonly serviceRequestId: string;
+	readonly habitatTypeId: string;
+	readonly collectionMethodId: string;
+	readonly sourceReductionMethodId: string;
+	readonly unitId: string;
 }
 
 function point(lng: number, lat: number) {
@@ -226,6 +285,38 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
 
+	const habitatType = await db
+		.insertInto('habitat_types')
+		.values({ organization_id: own, name: 'Roadside ditch' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+
+	// The site each record hangs off, which is what a list row is titled by.
+	const habitat = await db
+		.insertInto('habitats')
+		.values({
+			organization_id: own,
+			geom: point(-90.5, 35.5),
+			habitat_type_id: habitatType.id,
+			habitat_name: 'Culvert 12',
+			description: '',
+			metadata: null,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+
+	const trap = await db
+		.insertInto('traps')
+		.values({
+			organization_id: own,
+			geom: point(-90.5, 35.5),
+			collection_method_id: collectionMethod.id,
+			trap_code: 'T-1',
+			trap_name: 'North gate',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+
 	// --- inspections: the attribution rule, three ways --------------------------
 
 	const inspected = await insertInspection(db, {
@@ -233,6 +324,8 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 		date: '2026-08-05',
 		inspectedBy: dana,
 		createdBy: casey,
+		habitatId: habitat.id,
+		habitatTypeId: habitatType.id,
 	});
 	// Dana typed this one up; Casey was the one at the ditch.
 	await insertInspection(db, {
@@ -305,6 +398,7 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 	const spanning = await insertCollection(db, {
 		organizationId: own,
 		collectionMethodId: collectionMethod.id,
+		trapId: trap.id,
 		setBy: dana,
 		collectedBy: dana,
 		startedAt: new Date('2026-08-10T14:00:00.000Z'),
@@ -351,6 +445,7 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 		.values({
 			organization_id: own,
 			geom: point(-90.5, 35.5),
+			display_name: 42,
 			request_date: calendarDate('2026-08-02'),
 			address_id: address.id,
 			contact_id: contact.id,
@@ -374,6 +469,10 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 		durationCollectionId: duration,
 		openCollectionId: open,
 		serviceRequestId: serviceRequest.id,
+		habitatTypeId: habitatType.id,
+		collectionMethodId: collectionMethod.id,
+		sourceReductionMethodId: sourceReductionMethod.id,
+		unitId: unit.id,
 	};
 }
 
@@ -411,6 +510,8 @@ async function insertInspection(
 		readonly inspectedBy: string;
 		readonly createdBy: string;
 		readonly deleted?: boolean;
+		readonly habitatId?: string;
+		readonly habitatTypeId?: string;
 	},
 ): Promise<string> {
 	const row = await db
@@ -421,8 +522,11 @@ async function insertInspection(
 			inspection_date: calendarDate(input.date),
 			inspected_by_profile_id: input.inspectedBy,
 			created_by_profile_id: input.createdBy,
+			habitat_id: input.habitatId ?? null,
+			habitat_type_id: input.habitatTypeId ?? null,
 			is_wet: true,
 			dip_count: 8,
+			density: 'light' as const,
 			deleted_at: input.deleted === true ? new Date('2026-08-09T12:00:00.000Z') : null,
 		})
 		.returning(['id'])
@@ -458,6 +562,7 @@ async function insertCollection(
 	input: {
 		readonly organizationId: string;
 		readonly collectionMethodId: string;
+		readonly trapId?: string;
 		readonly setBy: string;
 		readonly collectedBy: string | null;
 		readonly startedAt?: Date;
@@ -473,6 +578,7 @@ async function insertCollection(
 			organization_id: input.organizationId,
 			geom: point(-90.5, 35.5),
 			collection_method_id: input.collectionMethodId,
+			trap_id: input.trapId ?? null,
 			set_by_profile_id: input.setBy,
 			collected_by_profile_id: input.collectedBy,
 			...(exact
