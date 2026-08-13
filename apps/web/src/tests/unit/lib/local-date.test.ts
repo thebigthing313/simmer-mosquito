@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formatLocalDate, localDayStartAsTimestamp, parseLocalDate } from '../../../lib/local-date';
+import {
+	formatLocalDate,
+	localDayStartAsTimestamp,
+	localTimeAsInstant,
+	localTimeOfDay,
+	operationalDayAsInstant,
+	parseLocalDate,
+} from '../../../lib/local-date';
 
 describe('parseLocalDate', () => {
 	it('reads a calendar date as that day in local time', () => {
@@ -140,5 +147,74 @@ describe('localDayStartAsTimestamp', () => {
 		expect(localDayStartAsTimestamp('2026-07-24', undefined)).toBe(
 			localDayStartAsTimestamp('2026-07-24', ''),
 		);
+	});
+});
+
+describe('localTimeAsInstant', () => {
+	it('names the instant a wall time falls on in the agency zone', () => {
+		// 09:30 on 4 August is 13:30Z in New York, which is UTC-4 in August.
+		expect(localTimeAsInstant('2026-08-04', '09:30', 'America/New_York')).toBe(
+			'2026-08-04T13:30:00.000Z',
+		);
+	});
+
+	it('keeps the typed day across a changeover later the same day', () => {
+		// New Zealand springs forward at 2am on 2026-09-27, so 00:30 that morning is
+		// still NZST — UTC+12, and 12:30Z the day before. Reading the offset at the
+		// wall time treated as UTC finds the post-jump +13 instead and lands on
+		// 23:30 on the 26th: an hour early, and a day wrong.
+		expect(localTimeAsInstant('2026-09-27', '00:30', 'Pacific/Auckland')).toBe(
+			'2026-09-26T12:30:00.000Z',
+		);
+	});
+});
+
+describe('operationalDayAsInstant', () => {
+	/** Well clear of every day these tests stamp, so nothing clamps. */
+	const LONG_AFTER = new Date('2027-01-01T00:00:00.000Z');
+
+	it('stamps midday where the agency is, not midday UTC', () => {
+		// New Zealand is UTC+12 in August, so its midday on the 4th is midnight UTC
+		// that same morning. Stamped at noon UTC instead, the row is 01:00 on the
+		// 5th in Auckland and every surface reads it back as the wrong day.
+		expect(operationalDayAsInstant('2026-08-04', 'Pacific/Auckland', LONG_AFTER)).toBe(
+			'2026-08-04T00:00:00.000Z',
+		);
+	});
+
+	it('does not stamp today ahead of now', () => {
+		// A collection keyed at 09:00 on the morning it was made. The agency's
+		// midday is three hours out, and `validateOperationalDate` rejects an
+		// operational date more than the clock-skew tolerance in the future — so a
+		// bare midday stamp would refuse the most ordinary entry there is.
+		const morning = new Date('2026-08-04T13:00:00.000Z');
+		expect(operationalDayAsInstant('2026-08-04', 'America/New_York', morning)).toBe(
+			'2026-08-04T13:00:00.000Z',
+		);
+	});
+
+	it('leaves a future day in the future rather than relabelling it as today', () => {
+		// Pulling every ahead-of-now stamp back to now would quietly turn a
+		// mistyped date into today's, and the row would look deliberate. The
+		// clamp only applies while now is still on the day that was typed; past
+		// that, the day stands and the domain refuses it.
+		const morning = new Date('2026-08-04T13:00:00.000Z');
+		expect(operationalDayAsInstant('2026-08-10', 'America/New_York', morning)).toBe(
+			'2026-08-10T16:00:00.000Z',
+		);
+	});
+});
+
+describe('localTimeOfDay', () => {
+	it('reads an instant back on the agency clock, not the browser one', () => {
+		// The inverse of `localTimeAsInstant`: 13:30Z is 09:30 in New York in
+		// August. A form that hydrates in the browser's zone and saves in the
+		// agency's shows a due time nobody set the moment the two differ.
+		expect(localTimeOfDay('2026-08-04T13:30:00.000Z', 'America/New_York')).toBe('09:30');
+	});
+
+	it('has no time to offer for an absent or unreadable instant', () => {
+		expect(localTimeOfDay(null, 'America/New_York')).toBe('');
+		expect(localTimeOfDay('not-an-instant', 'America/New_York')).toBe('');
 	});
 });

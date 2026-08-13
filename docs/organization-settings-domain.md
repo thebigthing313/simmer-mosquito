@@ -240,6 +240,24 @@ It affects date-only rules such as:
    a zone introduces the very shift the other two rules remove — `new Date
    ('2026-08-04')` is UTC midnight, which renders as the 3rd west of Greenwich.
    Read the parts out and rebuild in UTC.
+4. **A typed calendar day widened into a `timestamptz` takes the Agency zone.**
+   The inverse of rule 1, and the half that has to agree with it. Use
+   `operationalDayAsInstant` (a day, stamped at Agency midday) or
+   `localTimeAsInstant` (a day and an `HH:MM`) from
+   `apps/web/src/lib/local-date.ts`. Never `new Date(`${date}T${time}`)`, which
+   is the browser's zone, and never a hard-coded `T12:00:00.000Z`, which is
+   right only for zones strictly inside ±12.
+
+   A form that also reads the stored instant back — a due time, a scheduled
+   start — must read it with `localTimeOfDay` and the same zone, or an untouched
+   field drifts every time the record is opened and saved.
+
+   `operationalDayAsInstant` clamps to now while now is still on the day that
+   was typed. Midday is otherwise ahead of now for most of the morning, and
+   `validateOperationalDate` refuses an operational date beyond the clock-skew
+   tolerance — so an unclamped stamp would reject a record keyed on the morning
+   it was made. Past that day the stamp stands: a mistyped future date has to
+   reach the validator that refuses it.
 
 ### Daylight saving
 

@@ -113,6 +113,134 @@ export function localDayStartAsTimestamp(
 	return `${iso.slice(0, 10)} ${iso.slice(11, 19)}+00`;
 }
 
+/** A `HH:MM` time-of-day, the shape a `<input type="time">` and a picker both hold. */
+const WALL_TIME = /^(\d{2}):(\d{2})$/;
+
+/**
+ * The instant a wall time on a calendar day names in the agency's zone.
+ *
+ * The inverse of reading a stored instant back on the agency's clock. A form asks
+ * for a day and a time because that is how the work is planned; the column is one
+ * `timestamptz`, and which instant that pair names is only a fact once a zone
+ * says so. Left to the browser, the same typed "16:00" is a different instant for
+ * a dispatcher working from home two zones away — and it is read back on the
+ * agency's clock either way, so it comes back as a time nobody typed.
+ *
+ * Null rather than an Invalid Date when either half is unreadable, so the domain
+ * builder reports the missing field instead of the browser reporting NaN.
+ */
+export function localTimeAsInstant(
+	date: string | null | undefined,
+	time: string,
+	timeZone: string,
+): string | null {
+	const parts = calendarDateParts(date);
+	const clock = WALL_TIME.exec(time);
+	if (parts === undefined || clock === null) {
+		return null;
+	}
+	const wall = Date.UTC(parts.year, parts.month - 1, parts.day, Number(clock[1]), Number(clock[2]));
+	if (Number.isNaN(wall)) {
+		return null;
+	}
+	return new Date(instantReading(wall, timeZone)).toISOString();
+}
+
+/**
+ * The instant an operational date is stamped at: midday on that day, agency time.
+ *
+ * A typed calendar day has to be widened to an instant because the column is a
+ * `timestamptz`, and midday is the widest berth on either side of the day it
+ * names. Which midday is the whole question. Midday *UTC* has twelve hours of
+ * headroom, so it survives every zone strictly inside ±12 and no further: an
+ * agency on `Pacific/Auckland` types the 4th, the row is 01:00 on the 5th
+ * locally, and the day is read back wrong everywhere.
+ *
+ * Midday is also, half the time, still ahead — and `validateOperationalDate`
+ * refuses an operational date more than the clock-skew tolerance in the future,
+ * so a bare midday stamp would reject a collection keyed on the morning it was
+ * made. It is clamped to now while now is still on the day that was typed, which
+ * is any instant that day and so reads back the same. Past that day the stamp
+ * stands: a mistyped future date has to reach the validator that refuses it,
+ * not be quietly relabelled as today.
+ */
+export function operationalDayAsInstant(
+	date: string | null | undefined,
+	timeZone: string,
+	now: Date = getToday(),
+): string | null {
+	const midday = localTimeAsInstant(date, MIDDAY, timeZone);
+	if (midday === null) {
+		return null;
+	}
+	const stillThatDay =
+		todayInTimeZone(timeZone, now) === todayInTimeZone(timeZone, new Date(midday));
+	return new Date(midday) > now && stillThatDay ? now.toISOString() : midday;
+}
+
+/** Midday, as the wall time {@link localTimeAsInstant} takes. */
+const MIDDAY = '12:00';
+
+/**
+ * A stored instant back as the `HH:MM` a time field holds, on the agency's clock.
+ *
+ * The inverse of {@link localTimeAsInstant}, and it has to be, or a form loses
+ * the time it was given: hydrate in the browser's zone and save in the agency's
+ * and an untouched due time drifts by the difference every time the record is
+ * opened and saved.
+ *
+ * Empty rather than a placeholder for an absent or unreadable instant, because
+ * that is what an unset time field holds and what the callers already spell.
+ */
+export function localTimeOfDay(instant: string | null | undefined, timeZone: string): string {
+	if (instant === null || instant === undefined) {
+		return '';
+	}
+	const parsed = new Date(instant);
+	if (Number.isNaN(parsed.getTime())) {
+		return '';
+	}
+	return new Intl.DateTimeFormat('en-GB', {
+		timeZone: timeZone || undefined,
+		hourCycle: 'h23',
+		hour: '2-digit',
+		minute: '2-digit',
+	}).format(parsed);
+}
+
+/**
+ * The instant whose clock in `timeZone` reads `wall`, where `wall` is that wall
+ * time treated as UTC.
+ *
+ * Two passes, for the reason {@link zonedDayStart} needs them: a zone's offset
+ * belongs to an instant, not to the zone, so the offset has to be read at the
+ * instant being solved for — which is not known until it has been read. The
+ * first pass reads it at the wall time itself and the second at the instant that
+ * produced, which is on the correct side of any changeover in between.
+ *
+ * A pass is right when the clock there reads back the wall time it was asked
+ * for, which is what {@link zoneOffsetMs} already measures — no formatting
+ * needed, since adding the offset to an instant *is* its wall clock.
+ *
+ * Neither pass matches where the wall time does not exist: the half-hour a
+ * spring-forward skips. The later instant wins there, so a typed 02:30 becomes
+ * 03:30 rather than falling back to 01:30 and reading as earlier than what was
+ * typed. Both are the same calendar day, which is what the record is dated by.
+ */
+function instantReading(wall: number, timeZone: string): number {
+	const firstPass = wall - zoneOffsetMs(new Date(wall), timeZone);
+	const secondPass = wall - zoneOffsetMs(new Date(firstPass), timeZone);
+	const reads = (at: number): boolean => at + zoneOffsetMs(new Date(at), timeZone) === wall;
+
+	if (reads(firstPass)) {
+		return firstPass;
+	}
+	if (reads(secondPass)) {
+		return secondPass;
+	}
+	return Math.max(firstPass, secondPass);
+}
+
 /**
  * The instant a calendar day began in `timeZone` — the agency's midnight, as UTC.
  *

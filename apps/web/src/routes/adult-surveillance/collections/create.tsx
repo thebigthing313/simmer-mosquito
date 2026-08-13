@@ -22,6 +22,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { operationalDayAsInstant } from '../../../lib/local-date';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
@@ -88,8 +89,9 @@ function buildCollectionRow(input: {
 	readonly exact: boolean;
 	readonly collectedAt: string | null;
 	readonly assignmentItemId: string | null;
+	readonly timeZone: string;
 }): AdultCollectionRow {
-	const { values, centroid, isTrap, exact, collectedAt, assignmentItemId } = input;
+	const { values, centroid, isTrap, exact, collectedAt, assignmentItemId, timeZone } = input;
 	return {
 		id: input.id,
 		organizationId: input.organizationId,
@@ -102,7 +104,7 @@ function buildCollectionRow(input: {
 		addressId: isTrap ? null : values.addressId,
 		collectedAt,
 		collectedByProfileId: values.collectedByProfileId,
-		startedAt: exact ? toIsoDate(values.startedAt) : null,
+		startedAt: exact ? operationalDayAsInstant(values.startedAt, timeZone) : null,
 		setByProfileId: values.setByProfileId,
 		// Both halves come from this one visit; the server writes whichever
 		// applies for the timing mode.
@@ -172,8 +174,8 @@ function CreateCollectionRoute() {
 				const exact = values.timingMode === 'exact_timestamps';
 				const now = new Date().toISOString();
 				const collectedAt = exact
-					? toIsoDate(values.collectedAt)
-					: toIsoDate(values.collectionDate);
+					? operationalDayAsInstant(values.collectedAt, timeZone)
+					: operationalDayAsInstant(values.collectionDate, timeZone);
 
 				// Trap mode inherits the trap's location; ad-hoc carries its own point. The
 				// server recomputes geom from the location source; this centroid seeds the
@@ -199,6 +201,7 @@ function CreateCollectionRoute() {
 					exact,
 					collectedAt,
 					assignmentItemId,
+					timeZone,
 				});
 
 				const locationSource =
@@ -243,6 +246,7 @@ function CreateCollectionRoute() {
 			assignmentItemId,
 			assignmentId,
 			runAcknowledged,
+			timeZone,
 		],
 	);
 
@@ -277,12 +281,4 @@ function CreateCollectionRoute() {
 			{acknowledgeDialog}
 		</>
 	);
-}
-
-/** Convert a `YYYY-MM-DD` to an ISO timestamp at UTC noon (avoids day-shift). */
-function toIsoDate(date: string | null): string | null {
-	if (date === null || date.length < 10) {
-		return null;
-	}
-	return `${date.slice(0, 10)}T12:00:00.000Z`;
 }
