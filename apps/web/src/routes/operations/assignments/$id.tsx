@@ -582,6 +582,7 @@ function CollectStopButton({
 							assignmentItemId: stop.assignmentItemId,
 							collectedAt,
 							collectionId,
+							timeZone,
 						}),
 					);
 				}}

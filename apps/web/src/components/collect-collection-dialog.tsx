@@ -10,6 +10,7 @@ import {
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { useState } from 'react';
+import { operationalDayAsInstant } from '../lib/local-date';
 import type { StopAcknowledgements } from '../lib/stop-acknowledgements';
 import { webCollections } from '../sync/webCollections';
 import { DateControl } from './date-control';
@@ -91,6 +92,8 @@ export async function collectPendingCollection(input: {
 	readonly collectionId: string;
 	/** `YYYY-MM-DD`. */
 	readonly collectedAt: string;
+	/** The agency's zone, which is what decides the instant that day is stamped at. */
+	readonly timeZone: string;
 	readonly actorProfileId: string | null;
 	readonly assignmentItemId?: string | null;
 	readonly acknowledgements?: StopAcknowledgements;
@@ -103,9 +106,9 @@ export async function collectPendingCollection(input: {
 				const mutable = draft as {
 					-readonly [K in keyof AdultCollectionRow]: AdultCollectionRow[K];
 				};
-				// UTC noon, so a date never lands on the previous day for a western
-				// agency — the same conversion the collection forms use.
-				mutable.collectedAt = `${input.collectedAt.slice(0, 10)}T12:00:00.000Z`;
+				// Midday on the agency's clock — the same stamp the collection forms
+				// use, and the one every surface reads the day back with.
+				mutable.collectedAt = operationalDayAsInstant(input.collectedAt, input.timeZone);
 				mutable.collectedByProfileId = input.actorProfileId;
 				if (input.assignmentItemId != null) {
 					mutable.collectedAssignmentItemId = input.assignmentItemId;

@@ -64,8 +64,12 @@ import {
 	mapSurfacePlace,
 	mapSurfaceRowIds,
 	mapSurfaceSampleOnDeletedInspectionId,
+	mapSurfaceStampedCollectionIds,
+	mapSurfaceStampedTimeZone,
+	mapSurfaceStampedTypedDay,
 	seedLateCollection,
 	seedMapSurfaces,
+	seedStampedCollections,
 } from '../../../seeds/map-surfaces.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
 
@@ -439,6 +443,32 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			expect(await onTheAgencysDay('America/New_York')).toContain(mapSurfaceLateCollectionId);
 			// Converted in UTC the same instant is the 16th, so the 15th loses it.
 			expect(await onTheAgencysDay('UTC')).not.toContain(mapSurfaceLateCollectionId);
+		});
+	});
+
+	// The other half of the same seam. The test above proves the *reader* takes
+	// the agency's zone; this one proves the *stamp* the client writes agrees with
+	// it. Both are correct in isolation and were written months apart — issue #156
+	// is what happened in between, and it lived entirely in the gap.
+	it('files a typed day under that day, from a zone past +12', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedStampedCollections(db);
+
+			const onTheTypedDay = await listCollectionDisplayRowsPage(db, {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceStampedTimeZone,
+				limit: 50,
+				offset: 0,
+				filters: { dateFrom: mapSurfaceStampedTypedDay, dateTo: mapSurfaceStampedTypedDay },
+			});
+			const found = onTheTypedDay.rows.map((row) => row.id);
+
+			expect(found).toContain(mapSurfaceStampedCollectionIds.agencyMidday);
+			// And the stamp this replaced, through the same reader, is a day late —
+			// so if anything puts midday UTC back, the assertion above starts
+			// failing and this one says why.
+			expect(found).not.toContain(mapSurfaceStampedCollectionIds.utcMidday);
 		});
 	});
 

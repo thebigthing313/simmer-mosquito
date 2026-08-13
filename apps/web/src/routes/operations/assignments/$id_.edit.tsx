@@ -43,6 +43,7 @@ import {
 	useStopOrder,
 } from '../../../components/stop-order';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import { WorklistMap } from '../-worklist-map';
@@ -110,6 +111,7 @@ export const Route = createFileRoute('/operations/assignments/$id_/edit')({
 function AssignmentPlanRoute() {
 	const { id } = Route.useParams();
 	const auth = useAuthSnapshot();
+	const timeZone = useOrganizationTimeZone();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
 
@@ -132,8 +134,8 @@ function AssignmentPlanRoute() {
 	useBreadcrumbLabel(id, displayName);
 
 	const savedDetails = useMemo(
-		() => (assignment === null ? null : toAssignmentDetails(assignment)),
-		[assignment],
+		() => (assignment === null ? null : toAssignmentDetails(assignment, timeZone)),
+		[assignment, timeZone],
 	);
 	const values = detailDraft ?? savedDetails;
 	const isDirty =
@@ -192,7 +194,7 @@ function AssignmentPlanRoute() {
 				assignmentName: assignmentNameOrNull(detailDraft),
 				assignmentDate: detailDraft.assignmentDate,
 				assignedToProfileId: assigneeOrNull(detailDraft),
-				dueAt: toDueAt(detailDraft),
+				dueAt: toDueAt(detailDraft, timeZone),
 			});
 			setDetailDraft(null);
 		} catch (cause) {
@@ -200,7 +202,7 @@ function AssignmentPlanRoute() {
 		} finally {
 			setSavingDetails(false);
 		}
-	}, [detailDraft, id]);
+	}, [detailDraft, id, timeZone]);
 
 	const addStop = useCallback(
 		async (selection: AssignmentTargetSelection) => {

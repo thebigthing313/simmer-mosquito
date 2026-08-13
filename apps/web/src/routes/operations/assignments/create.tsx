@@ -96,7 +96,7 @@ function AssignmentCreateRoute() {
 					assignmentDate: values.assignmentDate,
 					assignmentName: assignmentNameOrNull(values),
 					assignedToProfileId: assigneeOrNull(values),
-					dueAt: toDueAt(values),
+					dueAt: toDueAt(values, timeZone),
 					assignmentItemIds: routeItems.map((item) => ({
 						routeItemId: item.id,
 						assignmentItemId: crypto.randomUUID(),
@@ -112,7 +112,7 @@ function AssignmentCreateRoute() {
 					// Mirrors what the server records, so the row does not flicker.
 					assignedByProfileId: identity?.profileId ?? null,
 					assignmentDate: values.assignmentDate,
-					dueAt: toDueAt(values),
+					dueAt: toDueAt(values, timeZone),
 					startedAt: null,
 					completedAt: null,
 					cancelledAt: null,
@@ -141,6 +141,7 @@ function AssignmentCreateRoute() {
 		assignmentId,
 		identity,
 		navigate,
+		timeZone,
 	]);
 
 	return (

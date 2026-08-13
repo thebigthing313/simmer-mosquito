@@ -338,6 +338,7 @@ function CollectCollectionButton({
 							actorProfileId,
 							collectedAt,
 							collectionId: collection.id,
+							timeZone,
 						}),
 					);
 				}}
