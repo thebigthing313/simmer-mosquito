@@ -1908,6 +1908,11 @@
       "crap_moderate": {
         "count": 2
       }
+    },
+    "apps/web/src/routes/activity-monitor.tsx": {
+      "crap_moderate": {
+        "count": 2
+      }
     }
   },
   "runtime_coverage_findings": [],
@@ -1916,29 +1921,29 @@
     "apps/web/src/components/map/map-canvas.tsx:complexity",
     "apps/web/src/components/comments-section.tsx:complexity",
     "apps/web/src/routes/control-operations/biocontrol/index.tsx:complexity",
-    "apps/web/src/routes/operations/assignments/create.tsx:complexity",
     "apps/web/src/components/map/geometry-control.tsx:complexity",
+    "apps/web/src/routes/operations/assignments/create.tsx:complexity",
     "apps/web/src/routes/operations/assignments/index.tsx:complexity",
-    "apps/web/src/routes/gis/addresses/-address-form.tsx:complexity",
     "apps/web/src/routes/public-engagement/outreach/-outreach-form.tsx:complexity",
+    "apps/web/src/routes/gis/addresses/-address-form.tsx:complexity",
     "apps/web/src/routes/gis/regions/index.tsx:complexity",
     "apps/web/src/routes/control-operations/chemical/-application-form.tsx:complexity",
     "apps/web/src/routes/public-engagement/service-requests/index.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/collections/-collection-form.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/inspections/index.tsx:complexity",
     "apps/server/src/mission-dispatch-commands/missions.ts:complexity",
-    "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
+    "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/inspections/-inspection-form.tsx:complexity",
-    "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
+    "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
     "apps/web/src/routes/control-operations/biocontrol/-biocontrol-form.tsx:complexity",
     "apps/web/src/routes/control-operations/source-reduction/-source-reduction-form.tsx:complexity",
+    "packages/ui-web/src/components/ui/autocomplete.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/server/src/public-engagement-records-commands/contacts.ts:complexity",
-    "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id.tsx:complexity",
-    "packages/ui-web/src/components/ui/autocomplete.tsx:complexity",
+    "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",
     "apps/web/src/routes/operations/missions/index.tsx:complexity",
     "packages/auth/src/index.ts:complexity"
   ]

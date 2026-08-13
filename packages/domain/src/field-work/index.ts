@@ -22,7 +22,7 @@ export type {
 	TagTarget,
 	TagTargetType,
 } from './shared.js';
-export { toDbEntityType } from './shared.js';
+export { ADDITIONAL_PERSONNEL_TARGET_TYPES, toDbEntityType } from './shared.js';
 export * from './tags.js';
 
 import type {
