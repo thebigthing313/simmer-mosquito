@@ -342,7 +342,8 @@ function CollectionListItem({
 	readonly onSelect: (id: string) => void;
 }) {
 	const label = trapName ?? 'Ad-hoc collection';
-	const effectiveDate = collectionEffectiveDate(row);
+	const timeZone = useOrganizationTimeZone();
+	const effectiveDate = collectionEffectiveDate(row, timeZone);
 	return (
 		<ExplorerRow
 			badges={

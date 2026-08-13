@@ -7,8 +7,8 @@ import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../lib/local-date';
 import { webCollections } from '../../sync/webCollections';
-import { todayDateValue } from '../control-operations/-control-display';
 import {
 	addDays,
 	controlTypeLabel,
@@ -45,7 +45,8 @@ const REQUEST_WINDOW_DAYS = 90;
 const PANEL_ROW_LIMIT = 8;
 
 function OperationsOverviewRoute() {
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const scheduleFrom = useMemo(() => addDays(today, -SCHEDULE_DAYS_BACK), [today]);
 	const scheduleTo = useMemo(() => addDays(today, SCHEDULE_DAYS_AHEAD), [today]);
 	const requestFrom = useMemo(() => addDays(today, -(REQUEST_WINDOW_DAYS - 1)), [today]);

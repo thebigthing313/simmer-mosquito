@@ -216,8 +216,11 @@ It affects date-only rules such as:
   blob rides along and no read pays for a second round trip — which is what
   makes it affordable on the map-tile path.
 - **Client.** `useOrganizationTimeZone()` in `apps/web`, read off the synced
-  organization row. It falls back to the browser's zone while that row is still
-  streaming, which is the same answer the page would have given anyway.
+  organization row. It always returns a zone; while that row is still streaming
+  it resolves to `DEFAULT_ORGANIZATION_TIMEZONE`. That is deliberate — the
+  obvious alternative is the browser's zone, and that is the disagreement this
+  whole rule exists to remove. A default is wrong for an agency that has set
+  something else, but it is wrong identically for every viewer.
 
 ### The three rules
 

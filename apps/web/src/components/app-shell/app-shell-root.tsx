@@ -90,7 +90,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				accountLinks={webAccountLinks}
 				version={__APP_VERSION__}
 				getToday={getToday}
-				{...(timeZone === undefined ? {} : { timeZone })}
+				timeZone={timeZone}
 				activePath={pathname}
 				onNavigate={(to) => {
 					// The shell models destinations as plain strings; the router's typed

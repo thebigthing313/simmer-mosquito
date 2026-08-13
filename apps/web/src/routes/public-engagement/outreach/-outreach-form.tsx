@@ -33,7 +33,7 @@ import {
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { todayDateValue } from '../../control-operations/-control-display';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { FormSection } from '../../control-operations/-control-form-parts';
 import { AddressPicker } from '../../control-operations/-control-pickers';
 
@@ -105,13 +105,13 @@ export interface OutreachFormPageProps {
 	}) => Promise<void>;
 }
 
-export function defaultOutreachFormValues(): OutreachFormValues {
+export function defaultOutreachFormValues(timeZone: string): OutreachFormValues {
 	return {
 		addressId: null,
 		outreachMethodId: '',
 		technicianProfileId: noTechnicianValue,
 		additionalPersonnelIds: [],
-		outreachDate: todayDateValue(),
+		outreachDate: todayInTimeZone(timeZone),
 		reach: null,
 		reachDescription: '',
 		metadata: null,

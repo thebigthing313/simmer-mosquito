@@ -28,6 +28,8 @@ import {
 	type SourceReductionTileFilters,
 } from '../../../components/map';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../../lib/local-date';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -37,7 +39,7 @@ import {
 } from '../../../lib/search-filters';
 import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
-import { formatAmount, nameById, todayDateValue } from '../-control-display';
+import { formatAmount, nameById } from '../-control-display';
 import { addDaysToDateString, useHabitatNames } from '../-overview-data';
 import { SourceReductionMapCard } from '../-source-reduction-map-card';
 
@@ -80,7 +82,8 @@ const RESULT_NOUN = { one: 'source reduction', many: 'source reductions' };
 const PATH = '/map/source-reduction';
 
 function SourceReductionExplorerRoute() {
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const defaultFrom = useMemo(
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],

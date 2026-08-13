@@ -169,6 +169,47 @@ function CollectionDetail({
 	);
 }
 
+interface CollectionCatalogContext {
+	readonly methodName: string;
+	readonly lureName: string | null;
+	readonly trap: TrapRow | null;
+}
+
+/**
+ * The three catalog rows a collection's header and detail card name.
+ *
+ * Lookups rather than rendering, so they sit outside the component. Each keeps
+ * "none" and "gone" apart on purpose: a collection set without a lure reads as
+ * no lure, while one whose lure has since been deleted reads as an unknown one,
+ * and collapsing those would quietly turn a deleted catalog row into a blank.
+ */
+function collectionCatalogContext(
+	collection: AdultCollectionRow,
+	catalogs: {
+		readonly methods: readonly CollectionMethodRow[];
+		readonly lures: readonly CollectionLureRow[];
+		readonly traps: readonly TrapRow[];
+	},
+): CollectionCatalogContext {
+	const { collectionLureId } = collection;
+	return {
+		methodName: findById(catalogs.methods, collection.collectionMethodId)?.name ?? 'Unknown method',
+		lureName:
+			collectionLureId === null
+				? null
+				: (findById(catalogs.lures, collectionLureId)?.name ?? 'Unknown lure'),
+		trap: findById(catalogs.traps, collection.trapId),
+	};
+}
+
+/** A catalog row by id, tolerating both "no id" and "id that resolves to nothing". */
+function findById<TRow extends { readonly id: string }>(
+	rows: readonly TRow[],
+	id: string | null,
+): TRow | null {
+	return id === null ? null : (rows.find((row) => row.id === id) ?? null);
+}
+
 function CollectionDetailContent({
 	collection,
 	actorProfileId,
@@ -178,7 +219,8 @@ function CollectionDetailContent({
 	readonly actorProfileId: string | null;
 	readonly canEdit: boolean;
 }) {
-	const title = collectionTitle(collection);
+	const titleTimeZone = useOrganizationTimeZone();
+	const title = collectionTitle(collection, titleTimeZone);
 	useBreadcrumbLabel(collection.id, title);
 
 	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
@@ -188,14 +230,11 @@ function CollectionDetailContent({
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
 
-	const methodName =
-		methods.find((method) => method.id === collection.collectionMethodId)?.name ?? 'Unknown method';
-	const lureName =
-		collection.collectionLureId === null
-			? null
-			: (lures.find((lure) => lure.id === collection.collectionLureId)?.name ?? 'Unknown lure');
-	const trap =
-		collection.trapId === null ? null : (traps.find((t) => t.id === collection.trapId) ?? null);
+	const { methodName, lureName, trap } = collectionCatalogContext(collection, {
+		methods,
+		lures,
+		traps,
+	});
 	const profileNameById = useMemo(
 		() => new Map(profiles.map((profile) => [profile.id, profile.displayName])),
 		[profiles],
@@ -937,7 +976,8 @@ function DetailsCard({
 	readonly lureName: string | null;
 	readonly profileNameById: ReadonlyMap<string, string>;
 }) {
-	const collectedDate = collectionEffectiveDate(collection);
+	const timeZone = useOrganizationTimeZone();
+	const collectedDate = collectionEffectiveDate(collection, timeZone);
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">

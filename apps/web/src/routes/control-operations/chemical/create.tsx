@@ -21,6 +21,7 @@ import {
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
@@ -59,6 +60,7 @@ function CreateApplicationRoute() {
 	// completes it in the same transaction.
 	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
+	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
 	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
@@ -233,7 +235,7 @@ function CreateApplicationRoute() {
 			<ApplicationFormPage
 				applicationMethods={methods}
 				canSubmit={canSubmit}
-				defaultValues={defaultApplicationFormValues()}
+				defaultValues={defaultApplicationFormValues(timeZone)}
 				equipment={equipment}
 				formulationComponents={formulationComponents}
 				formulations={formulations}

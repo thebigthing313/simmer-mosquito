@@ -23,6 +23,11 @@ import {
  * silently, which is why the fixtures below exercise both.
  */
 
+// A US agency zone rather than UTC: a fixture timestamped in the evening falls
+// on a different day in the two, which is what makes the year assertions able to
+// fail if the grouping ever reverts to the browser's or the server's zone.
+const AGENCY_TIME_ZONE = 'America/New_York';
+
 function collection(overrides: Partial<DirectoryCollection> = {}): DirectoryCollection {
 	return {
 		id: 'collection-1',
@@ -50,11 +55,14 @@ function species(overrides: Partial<DirectorySpecies> = {}): DirectorySpecies {
 
 describe('groupByYear', () => {
 	it('cuts collections into years, most recent first', () => {
-		const years = groupByYear([
-			collection({ id: 'a', collectedAt: '2024-08-01 06:00:00+00' }),
-			collection({ id: 'b', collectedAt: '2026-07-14 06:00:00+00' }),
-			collection({ id: 'c', collectedAt: '2025-06-02 06:00:00+00' }),
-		]);
+		const years = groupByYear(
+			[
+				collection({ id: 'a', collectedAt: '2024-08-01 06:00:00+00' }),
+				collection({ id: 'b', collectedAt: '2026-07-14 06:00:00+00' }),
+				collection({ id: 'c', collectedAt: '2025-06-02 06:00:00+00' }),
+			],
+			AGENCY_TIME_ZONE,
+		);
 
 		expect(years.map((year) => year.label)).toEqual(['2026', '2025', '2024']);
 		expect(years.map((year) => year.collections.length)).toEqual([1, 1, 1]);
@@ -63,14 +71,17 @@ describe('groupByYear', () => {
 	it('dates a date-and-duration collection by collectionDate, not collectedAt', () => {
 		// This is the mode where `collectedAt` is null by design. Read alone it
 		// would file the whole season under undated.
-		const years = groupByYear([
-			collection({
-				id: 'duration',
-				collectedAt: null,
-				collectionDate: '2025-09-09',
-				collectionTimingMode: 'collection_date_duration',
-			}),
-		]);
+		const years = groupByYear(
+			[
+				collection({
+					id: 'duration',
+					collectedAt: null,
+					collectionDate: '2025-09-09',
+					collectionTimingMode: 'collection_date_duration',
+				}),
+			],
+			AGENCY_TIME_ZONE,
+		);
 
 		expect(years).toHaveLength(1);
 		expect(years[0]?.label).toBe('2025');
@@ -78,20 +89,26 @@ describe('groupByYear', () => {
 	});
 
 	it('orders a year most recent first', () => {
-		const years = groupByYear([
-			collection({ id: 'june', collectedAt: '2026-06-01 06:00:00+00' }),
-			collection({ id: 'august', collectedAt: '2026-08-20 06:00:00+00' }),
-			collection({ id: 'july', collectedAt: '2026-07-04 06:00:00+00' }),
-		]);
+		const years = groupByYear(
+			[
+				collection({ id: 'june', collectedAt: '2026-06-01 06:00:00+00' }),
+				collection({ id: 'august', collectedAt: '2026-08-20 06:00:00+00' }),
+				collection({ id: 'july', collectedAt: '2026-07-04 06:00:00+00' }),
+			],
+			AGENCY_TIME_ZONE,
+		);
 
 		expect(years[0]?.collections.map((row) => row.id)).toEqual(['august', 'july', 'june']);
 	});
 
 	it('puts traps that are still out ahead of every dated year', () => {
-		const years = groupByYear([
-			collection({ id: 'dated', collectedAt: '2026-07-14 06:00:00+00' }),
-			collection({ id: 'out', collectedAt: null }),
-		]);
+		const years = groupByYear(
+			[
+				collection({ id: 'dated', collectedAt: '2026-07-14 06:00:00+00' }),
+				collection({ id: 'out', collectedAt: null }),
+			],
+			AGENCY_TIME_ZONE,
+		);
 
 		expect(years[0]?.key).toBe(UNDATED_GROUP_KEY);
 		expect(years[0]?.label).toBe('Trap out');
@@ -103,27 +120,47 @@ describe('groupByYear', () => {
 	// it is a record missing its date. Calling that bucket "Trap out" would tell
 	// the operator the trap is in the field when it is not.
 	it('calls the undated bucket what it is when it is not all pending', () => {
-		const years = groupByYear([
-			collection({ id: 'out', collectedAt: null }),
-			collection({
-				id: 'missing-date',
-				collectedAt: null,
-				collectionDate: null,
-				collectionTimingMode: 'collection_date_duration',
-			}),
-		]);
+		const years = groupByYear(
+			[
+				collection({ id: 'out', collectedAt: null }),
+				collection({
+					id: 'missing-date',
+					collectedAt: null,
+					collectionDate: null,
+					collectionTimingMode: 'collection_date_duration',
+				}),
+			],
+			AGENCY_TIME_ZONE,
+		);
 
 		expect(years[0]?.label).toBe('Undated');
 	});
 
 	it('has no undated bucket when every collection is dated', () => {
-		const years = groupByYear([collection({ id: 'dated' })]);
+		const years = groupByYear([collection({ id: 'dated' })], AGENCY_TIME_ZONE);
 
 		expect(years.map((year) => year.key)).toEqual(['2026']);
 	});
 
+	// A collection retrieved late on New Year's Eve is that season's, not the next
+	// one's. Grouping on the UTC prefix of `collectedAt` — which this did — moves
+	// it into a year the crew never worked it in, and the server, which now
+	// windows in the agency's zone, disagrees with the screen.
+	it('files a late-evening collection in the agency’s year, not UTC’s', () => {
+		const newYearsEve = collection({
+			id: 'late',
+			// 2026-12-31 20:00 in New York; already 2027-01-01 in UTC.
+			collectedAt: '2027-01-01 01:00:00+00',
+		});
+
+		expect(groupByYear([newYearsEve], AGENCY_TIME_ZONE).map((year) => year.label)).toEqual([
+			'2026',
+		]);
+		expect(groupByYear([newYearsEve], 'UTC').map((year) => year.label)).toEqual(['2027']);
+	});
+
 	it('returns nothing for a trap that has never collected', () => {
-		expect(groupByYear([])).toEqual([]);
+		expect(groupByYear([], AGENCY_TIME_ZONE)).toEqual([]);
 	});
 });
 

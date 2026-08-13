@@ -14,6 +14,7 @@ import {
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
@@ -50,6 +51,7 @@ function CreateSourceReductionRoute() {
 	// completes it in the same transaction.
 	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
+	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(
 		webCollections.sourceReductionMethods,
@@ -143,7 +145,7 @@ function CreateSourceReductionRoute() {
 		<>
 			<SourceReductionFormPage
 				canSubmit={canSubmit}
-				defaultValues={defaultSourceReductionFormValues()}
+				defaultValues={defaultSourceReductionFormValues(timeZone)}
 				header={{
 					title: 'Record Source Reduction',
 					description: 'Place the point, then record what the crew eliminated, how much, and when.',

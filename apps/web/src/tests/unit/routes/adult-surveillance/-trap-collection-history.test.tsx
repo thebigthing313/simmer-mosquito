@@ -51,8 +51,16 @@ function collection(overrides: Partial<DirectoryCollection> = {}): DirectoryColl
 	};
 }
 
+// The agency's zone, handed in the way the pane hands it down. A US zone rather
+// than UTC so a fixture collected in the evening lands on a different day in the
+// two, which is what lets the date assertions below fail if the row ever goes
+// back to reading a raw timestamp's UTC prefix.
+const AGENCY_TIME_ZONE = 'America/New_York';
+
 function renderRow(row: DirectoryCollection) {
-	return render(<CollectionRow collection={row} speciesNameById={SPECIES_NAMES} />);
+	return render(
+		<CollectionRow collection={row} speciesNameById={SPECIES_NAMES} timeZone={AGENCY_TIME_ZONE} />,
+	);
 }
 
 /**

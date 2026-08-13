@@ -10,9 +10,8 @@ import { DateControl } from '../../../components/date-control';
 import { domainValidator } from '../../../forms/domain-validation';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { formatLocalDate } from '../../../lib/local-date';
+import { formatLocalDate, todayInTimeZone } from '../../../lib/local-date';
 import { webCollections } from '../../../sync/webCollections';
-import { todayDateValue } from '../../control-operations/-control-display';
 import { FormSection } from '../../control-operations/-control-form-parts';
 import { ControlTypeToggle } from '../-control-type-toggle';
 import { useMethodsForControlType } from '../-operations-data';
@@ -82,10 +81,10 @@ export interface MissionPlan {
 	readonly notificationTypeId: string | null;
 }
 
-export function defaultMissionFormValues(): MissionFormValues {
+export function defaultMissionFormValues(timeZone: string): MissionFormValues {
 	return {
 		controlType: 'application',
-		startDate: todayDateValue(),
+		startDate: todayInTimeZone(timeZone),
 		startTime: DEFAULT_START_TIME,
 		endTime: '',
 		rainDate: '',
@@ -105,19 +104,22 @@ export function defaultMissionFormValues(): MissionFormValues {
  * Greenwich. The end time is read the same way and is assumed to be on the start's
  * day, which is the only shape the form can produce.
  */
-export function missionFormValuesFrom(mission: {
-	readonly controlType: ControlType;
-	readonly scheduledStartAt: string;
-	readonly scheduledEndAt: string | null;
-	readonly rainDate: string | null;
-	readonly missionName: string | null;
-	readonly plannedMethodId: string | null;
-	readonly assignedToProfileId: string | null;
-	readonly notificationTypeId: string | null;
-}): MissionFormValues {
+export function missionFormValuesFrom(
+	mission: {
+		readonly controlType: ControlType;
+		readonly scheduledStartAt: string;
+		readonly scheduledEndAt: string | null;
+		readonly rainDate: string | null;
+		readonly missionName: string | null;
+		readonly plannedMethodId: string | null;
+		readonly assignedToProfileId: string | null;
+		readonly notificationTypeId: string | null;
+	},
+	timeZone: string,
+): MissionFormValues {
 	return {
 		controlType: mission.controlType,
-		...scheduleFieldsFrom(mission.scheduledStartAt, mission.scheduledEndAt),
+		...scheduleFieldsFrom(mission.scheduledStartAt, mission.scheduledEndAt, timeZone),
 		rainDate: mission.rainDate ?? '',
 		missionName: mission.missionName ?? '',
 		plannedMethodId: mission.plannedMethodId ?? NO_METHOD,
@@ -130,12 +132,13 @@ export function missionFormValuesFrom(mission: {
 function scheduleFieldsFrom(
 	scheduledStartAt: string,
 	scheduledEndAt: string | null,
+	timeZone: string,
 ): Pick<MissionFormValues, 'startDate' | 'startTime' | 'endTime'> {
 	const start = new Date(scheduledStartAt);
 	const end = scheduledEndAt === null ? null : new Date(scheduledEndAt);
 
 	return {
-		startDate: localDateValue(start) ?? todayDateValue(),
+		startDate: localDateValue(start) ?? todayInTimeZone(timeZone),
 		startTime: localTimeValue(start) ?? DEFAULT_START_TIME,
 		endTime: (end === null ? null : localTimeValue(end)) ?? '',
 	};

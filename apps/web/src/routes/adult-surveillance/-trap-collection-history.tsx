@@ -158,8 +158,8 @@ export function TrapCollectionHistory({
 	);
 
 	const years = useMemo(
-		() => groupByYear((result.data ?? []) as unknown as readonly DirectoryCollection[]),
-		[result.data],
+		() => groupByYear((result.data ?? []) as unknown as readonly DirectoryCollection[], timeZone),
+		[result.data, timeZone],
 	);
 
 	// Resolved once for the pane rather than inside each row: the species catalog
@@ -178,6 +178,7 @@ export function TrapCollectionHistory({
 			isReady={result.isReady}
 			onLoadEarlier={allSeasons ? undefined : () => setAllSeasons(true)}
 			speciesNameById={speciesNameById}
+			timeZone={timeZone}
 			years={years}
 		/>
 	);
@@ -232,6 +233,7 @@ function CollectionYears({
 	isReady,
 	isError,
 	speciesNameById,
+	timeZone,
 	header,
 	onLoadEarlier,
 }: {
@@ -239,6 +241,8 @@ function CollectionYears({
 	readonly isReady: boolean;
 	readonly isError: boolean;
 	readonly speciesNameById: ReadonlyMap<string, string>;
+	/** Resolved once for the pane and handed down, not read per row. */
+	readonly timeZone: string;
 	/** The trap this history belongs to, pinned above its own scroll. */
 	readonly header: ReactNode;
 	/** Lifts the default season window. Absent once every season is loaded. */
@@ -324,6 +328,7 @@ function CollectionYears({
 								collection={collection}
 								key={collection.id}
 								speciesNameById={speciesNameById}
+								timeZone={timeZone}
 							/>
 						))}
 					</ul>
@@ -367,11 +372,19 @@ function HistoryFrame({
 export function CollectionRow({
 	collection,
 	speciesNameById,
+	timeZone,
 }: {
 	readonly collection: DirectoryCollection;
 	readonly speciesNameById: ReadonlyMap<string, string>;
+	/**
+	 * Passed down rather than read here. A row is a leaf rendered once per
+	 * collection in a season, and subscribing each one to the organization
+	 * collection would open a live query per row to answer a question the pane
+	 * already knows the answer to.
+	 */
+	readonly timeZone: string;
 }) {
-	const date = collectionEffectiveDate(collection);
+	const date = collectionEffectiveDate(collection, timeZone);
 	const isPending = isPendingCollection(collection);
 	const totals = useMemo(() => specimenTotals(collection.species), [collection.species]);
 

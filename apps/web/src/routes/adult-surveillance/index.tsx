@@ -110,11 +110,14 @@ function collectionMethodLabel(collection: ActivityCollection, labels: Labels): 
 }
 
 /** A collection's date as `Wed, Aug 12` — an em dash while it is still pending. */
-function collectionDayLabel(collection: {
-	readonly collectedAt: string | null;
-	readonly collectionDate: string | null;
-}): string {
-	return formatWeekdayMonthDay(collectionEffectiveDate(collection) ?? '');
+function collectionDayLabel(
+	collection: {
+		readonly collectedAt: string | null;
+		readonly collectionDate: string | null;
+	},
+	timeZone: string,
+): string {
+	return formatWeekdayMonthDay(collectionEffectiveDate(collection, timeZone) ?? '');
 }
 
 function CollectionLink({
@@ -147,10 +150,13 @@ interface DayGroup {
 	readonly rows: readonly ActivityCollection[];
 }
 
-function groupByDay(collections: readonly ActivityCollection[]): readonly DayGroup[] {
+function groupByDay(
+	collections: readonly ActivityCollection[],
+	timeZone: string,
+): readonly DayGroup[] {
 	const groups = new Map<string, ActivityCollection[]>();
 	for (const collection of collections) {
-		const day = (collectionEffectiveDate(collection) ?? '').slice(0, 10);
+		const day = collectionEffectiveDate(collection, timeZone) ?? '';
 		if (day === '') {
 			continue;
 		}
@@ -173,7 +179,8 @@ function RecentCollectionsPanel({
 	readonly since: string;
 }) {
 	const { collections, isReady, isError } = useRecentCollections(since);
-	const groups = useMemo(() => groupByDay(collections), [collections]);
+	const timeZone = useOrganizationTimeZone();
+	const groups = useMemo(() => groupByDay(collections, timeZone), [collections, timeZone]);
 
 	return (
 		<Panel
@@ -366,6 +373,7 @@ function AwaitingIdentificationPanel({
 	readonly labels: Labels;
 	readonly since: string;
 }) {
+	const timeZone = useOrganizationTimeZone();
 	const { awaiting, isReady, isError } = useAwaitingIdentification(since);
 
 	return (
@@ -409,7 +417,7 @@ function AwaitingIdentificationPanel({
 								</span>
 							</div>
 							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-								{collectionDayLabel(collection)}
+								{collectionDayLabel(collection, timeZone)}
 							</span>
 						</li>
 					))}
@@ -422,6 +430,7 @@ function AwaitingIdentificationPanel({
 // --- attention (problem collections) ----------------------------------------
 
 function AttentionPanel({ labels, since }: { readonly labels: Labels; readonly since: string }) {
+	const timeZone = useOrganizationTimeZone();
 	const { collections, isReady, isError } = useRecentCollections(since);
 	const flagged = useMemo(
 		() => collections.filter((collection) => collection.hasProblem),
@@ -460,7 +469,7 @@ function AttentionPanel({ labels, since }: { readonly labels: Labels; readonly s
 								</span>
 							</div>
 							<span className="w-11 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
-								{collectionDayLabel(collection)}
+								{collectionDayLabel(collection, timeZone)}
 							</span>
 						</li>
 					))}

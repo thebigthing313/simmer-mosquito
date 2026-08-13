@@ -108,7 +108,7 @@ function LarvalSurveillanceOverviewRoute() {
 }
 
 function OverviewBody() {
-	// Local-timezone "today"; the day strip and windows are pure string math from here.
+	// The agency's "today"; the day strip and windows are pure string math from here.
 	const timeZone = useOrganizationTimeZone();
 	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const since = useMemo(() => addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1)), [today]);

@@ -30,6 +30,7 @@ import {
 } from '../../../components/explorer';
 import { WriteOnly } from '../../../components/write-only';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../../lib/local-date';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -37,7 +38,6 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { todayDateValue } from '../../control-operations/-control-display';
 import { addDaysToDateString } from '../../larval-surveillance/-overview-data';
 import { WorklistMap } from '../-worklist-map';
 import {
@@ -95,7 +95,8 @@ const DEFAULT_DAYS_BACK = 7;
 const DEFAULT_DAYS_AHEAD = 14;
 
 function AssignmentsIndexRoute() {
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const filterDefaults = useMemo<AssignmentFilters>(
 		() => ({
 			from: addDaysToDateString(today, -DEFAULT_DAYS_BACK),

@@ -48,14 +48,6 @@ export function formatActionDate(value: string): string {
 	});
 }
 
-/** Today as `YYYY-MM-DD` in local time — the default for a new action's date field. */
-export function todayDateValue(): string {
-	const now = new Date();
-	const month = `${now.getMonth() + 1}`.padStart(2, '0');
-	const day = `${now.getDate()}`.padStart(2, '0');
-	return `${now.getFullYear()}-${month}-${day}`;
-}
-
 export function nameById<TRow extends { readonly id: string }>(
 	rows: readonly TRow[],
 	toName: (row: TRow) => string,
