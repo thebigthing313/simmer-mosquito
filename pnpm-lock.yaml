@@ -308,6 +308,9 @@ importers:
       '@tanstack/electric-db-collection':
         specifier: 0.3.18
         version: 0.3.18(typescript@7.0.2)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/ui-web:
     dependencies:

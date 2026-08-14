@@ -17,7 +17,8 @@
 	},
 	"dependencies": {
 		"@tanstack/db": "^0.7.2",
-		"@tanstack/electric-db-collection": "0.3.18"
+		"@tanstack/electric-db-collection": "0.3.18",
+		"zod": "^4.4.3"
 	},
 	"types": "./dist/index.d.ts"
 }
