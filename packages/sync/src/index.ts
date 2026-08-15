@@ -2,7 +2,6 @@ import {
 	type ElectricCollectionConfig,
 	electricCollectionOptions,
 } from '@tanstack/electric-db-collection';
-import type { SyncShapeScope } from './descriptor-factory.js';
 import * as syncDescriptors from './descriptors/index.js';
 
 export {
@@ -18,7 +17,6 @@ export interface SyncDescriptor<TRow extends { readonly id: string }> {
 	readonly table: string;
 	readonly endpointPath: string;
 	readonly syncMode: WebSyncMode;
-	readonly scope: SyncShapeScope;
 	readonly columns: readonly (keyof TRow & string)[];
 	readonly getKey: (row: TRow) => string;
 }
@@ -26,12 +24,15 @@ export interface SyncDescriptor<TRow extends { readonly id: string }> {
 /**
  * Everything the server needs to register a shape route, with the row type
  * erased so one loop can carry all of them.
+ *
+ * No scope: which rows an agency may read is the server's decision and lives in
+ * its own map, keyed by table. A descriptor that carried one would be a second
+ * place for the answer to be written, and a second place for it to be wrong.
  */
 export interface SyncShapeRoute {
 	readonly id: string;
 	readonly table: string;
 	readonly endpointPath: string;
-	readonly scope: SyncShapeScope;
 	readonly columns: readonly string[];
 }
 

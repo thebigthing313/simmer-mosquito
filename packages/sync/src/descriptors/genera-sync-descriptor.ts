@@ -6,7 +6,6 @@ export const generaSyncDescriptor = createSyncDescriptor<GenusRow>({
 	table: 'genera',
 	endpointPath: '/sync/shapes/genera',
 	syncMode: 'eager',
-	scope: 'global',
 	columns: ['id', 'abbreviation', 'name', 'createdAt', 'updatedAt'],
 	getKey: (row) => row.id,
 });

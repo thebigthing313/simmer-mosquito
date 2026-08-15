@@ -6,7 +6,6 @@ export const speciesSyncDescriptor = createSyncDescriptor<SpeciesRow>({
 	table: 'species',
 	endpointPath: '/sync/shapes/species',
 	syncMode: 'eager',
-	scope: 'global',
 	columns: ['id', 'genusId', 'epithet', 'commonName', 'displayName', 'createdAt', 'updatedAt'],
 	getKey: (row) => row.id,
 });

@@ -6,7 +6,6 @@ export const membershipsSyncDescriptor = createSyncDescriptor<MembershipRow>({
 	table: 'memberships',
 	endpointPath: '/sync/shapes/memberships',
 	syncMode: 'eager',
-	scope: 'organization-no-soft-delete',
 	columns: [
 		'id',
 		'organizationId',

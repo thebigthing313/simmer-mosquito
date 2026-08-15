@@ -6,7 +6,6 @@ export const weatherSummariesSyncDescriptor = createSyncDescriptor<WeatherSummar
 	table: 'weather_summaries',
 	endpointPath: '/sync/shapes/weather-summaries',
 	syncMode: 'on-demand',
-	scope: 'organization-or-global-no-soft-delete',
 	columns: [
 		'id',
 		'organizationId',

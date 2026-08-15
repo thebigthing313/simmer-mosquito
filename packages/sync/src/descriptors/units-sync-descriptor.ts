@@ -6,7 +6,6 @@ export const unitsSyncDescriptor = createSyncDescriptor<UnitRow>({
 	table: 'units',
 	endpointPath: '/sync/shapes/units',
 	syncMode: 'eager',
-	scope: 'global',
 	columns: ['id', 'code', 'unitName', 'abbreviation', 'unitType', 'unitSystem', 'createdAt'],
 	getKey: (row) => row.id,
 });

@@ -1,13 +1,13 @@
 import {
 	generaSyncDescriptor,
 	type SyncShapeRoute,
-	type SyncShapeScope,
 	speciesSyncDescriptor,
 	syncShapeDescriptors,
 	unitsSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
+import { type SyncShapeScope, shapeScopeOf } from './shape-scopes.js';
 
 interface ShapeRouteOptions {
 	readonly electricUrl: string | null;
@@ -54,15 +54,21 @@ function registerShapeRoute(
 		readonly descriptor: SyncShapeRoute;
 	},
 ): void {
+	// Resolved once, here, rather than per request: a table with no declared scope
+	// stops the server from starting instead of answering the request that needed
+	// it. See `shape-scopes.ts` — the descriptor no longer carries a scope of its
+	// own, so there is nothing for this to disagree with.
+	const scope = shapeScopeOf(shape.descriptor.table);
+
 	app.get(shape.path, shape.middleware, async (context) =>
-		proxyShapeRoute(context, options, shape.descriptor, undefined),
+		proxyShapeRoute(context, options, shape.descriptor, scope, undefined),
 	);
 
 	// POST carries subset snapshot params in the body (on-demand collections). The
 	// forced table/columns/where/params are identical to the GET path; the body is
 	// sanitized to subset-only keys so it can only narrow within the forced shape.
 	app.post(shape.path, shape.middleware, async (context) =>
-		proxyShapeRoute(context, options, shape.descriptor, await readSubsetBody(context)),
+		proxyShapeRoute(context, options, shape.descriptor, scope, await readSubsetBody(context)),
 	);
 }
 
@@ -70,6 +76,7 @@ function proxyShapeRoute(
 	context: Context<{ Variables: AuthVariables }>,
 	options: ShapeRouteOptions,
 	descriptor: SyncShapeRoute,
+	scope: SyncShapeScope,
 	subsetBody: Record<string, unknown> | undefined,
 ): Promise<Response> | Response {
 	if (options.electricUrl === null) {
@@ -83,14 +90,14 @@ function proxyShapeRoute(
 			incomingUrl: context.req.url,
 			columns: descriptor.columns.map(camelToSnake),
 			table: descriptor.table,
-			...shapeScopeFilter(descriptor.scope, context),
+			...shapeScopeFilter(scope, context),
 			...(subsetBody === undefined ? {} : { subsetBody }),
 		}),
 	});
 }
 
 /**
- * The tenant predicate for a shape, derived from the descriptor's declared scope
+ * The tenant predicate for a shape, derived from the scope declared for its table
  * — never from anything the caller sent. A new scope is a compile error here
  * rather than a route that silently streams unscoped rows.
  */
