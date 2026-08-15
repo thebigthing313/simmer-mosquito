@@ -5,7 +5,6 @@ export const collectionMethodsSyncDescriptor = createSyncDescriptor<CollectionMe
 	id: 'collection_methods',
 	table: 'collection_methods',
 	endpointPath: '/sync/shapes/collection-methods',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

@@ -5,7 +5,6 @@ export const applicationsSyncDescriptor = createSyncDescriptor<ApplicationRow>({
 	id: 'applications',
 	table: 'applications',
 	endpointPath: '/sync/shapes/applications',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

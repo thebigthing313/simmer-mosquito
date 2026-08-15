@@ -20,6 +20,19 @@ import {
 	updateAdminUnit,
 } from '../api';
 
+/**
+ * The operator console reads the whole taxonomy up front.
+ *
+ * There are three tables, they are global rather than per-agency, and every
+ * catalog screen lists all of one — so there is no subset worth asking for.
+ *
+ * `apps/web` declares the same three the same way, and for the same reason. Each
+ * app says so itself because a descriptor carries no sync mode: the same table
+ * can be wanted differently by different apps, and `apps/mobile` is the case
+ * that proves it.
+ */
+const adminSyncMode = 'eager';
+
 const adminShapePaths = {
 	genera: '/admin/sync/shapes/genera',
 	species: '/admin/sync/shapes/species',
@@ -37,6 +50,7 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 		electricShapeCollectionOptions<UnitRow>({
 			descriptor: unitsSyncDescriptor,
 			url: `${options.serverUrl}${adminShapePaths.units}`,
+			syncMode: adminSyncMode,
 			onInsert: async ({ transaction }) => {
 				const results = await Promise.all(
 					transaction.mutations.map((mutation) =>
@@ -85,6 +99,7 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 		electricShapeCollectionOptions<GenusRow>({
 			descriptor: generaSyncDescriptor,
 			url: `${options.serverUrl}${adminShapePaths.genera}`,
+			syncMode: adminSyncMode,
 			onInsert: async ({ transaction }) => {
 				const results = await Promise.all(
 					transaction.mutations.map((mutation) =>
@@ -129,6 +144,7 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 		electricShapeCollectionOptions<SpeciesRow>({
 			descriptor: speciesSyncDescriptor,
 			url: `${options.serverUrl}${adminShapePaths.species}`,
+			syncMode: adminSyncMode,
 			onInsert: async ({ transaction }) => {
 				const results = await Promise.all(
 					transaction.mutations.map((mutation) =>

@@ -5,7 +5,6 @@ export const missionsSyncDescriptor = createSyncDescriptor<MissionRow>({
 	id: 'missions',
 	table: 'missions',
 	endpointPath: '/sync/shapes/missions',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

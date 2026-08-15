@@ -6,7 +6,6 @@ export const formulationInsecticidesSyncDescriptor =
 		id: 'formulation_insecticides',
 		table: 'formulation_insecticides',
 		endpointPath: '/sync/shapes/formulation-insecticides',
-		syncMode: 'eager',
 		columns: [
 			'id',
 			'organizationId',

@@ -5,7 +5,6 @@ export const trapsSyncDescriptor = createSyncDescriptor<TrapRow>({
 	id: 'traps',
 	table: 'traps',
 	endpointPath: '/sync/shapes/traps',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

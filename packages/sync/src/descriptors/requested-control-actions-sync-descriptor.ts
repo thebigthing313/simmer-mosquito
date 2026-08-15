@@ -6,7 +6,6 @@ export const requestedControlActionsSyncDescriptor =
 		id: 'requested_control_actions',
 		table: 'requested_control_actions',
 		endpointPath: '/sync/shapes/requested-control-actions',
-		syncMode: 'on-demand',
 		columns: [
 			'id',
 			'organizationId',

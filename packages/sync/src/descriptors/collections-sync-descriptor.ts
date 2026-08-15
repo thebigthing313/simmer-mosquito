@@ -5,7 +5,6 @@ export const collectionsSyncDescriptor = createSyncDescriptor<AdultCollectionRow
 	id: 'collections',
 	table: 'collections',
 	endpointPath: '/sync/shapes/collections',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

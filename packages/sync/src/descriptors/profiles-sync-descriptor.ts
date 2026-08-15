@@ -5,7 +5,6 @@ export const profilesSyncDescriptor = createSyncDescriptor<ProfileRow>({
 	id: 'profiles',
 	table: 'profiles',
 	endpointPath: '/sync/shapes/profiles',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

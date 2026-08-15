@@ -5,7 +5,6 @@ export const vehiclesSyncDescriptor = createSyncDescriptor<VehicleRow>({
 	id: 'vehicles',
 	table: 'vehicles',
 	endpointPath: '/sync/shapes/vehicles',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

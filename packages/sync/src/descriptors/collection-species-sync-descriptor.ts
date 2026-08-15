@@ -5,7 +5,6 @@ export const collectionSpeciesSyncDescriptor = createSyncDescriptor<CollectionSp
 	id: 'collection_species',
 	table: 'collection_species',
 	endpointPath: '/sync/shapes/collection-species',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

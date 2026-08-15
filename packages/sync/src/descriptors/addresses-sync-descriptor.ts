@@ -5,7 +5,6 @@ export const addressesSyncDescriptor = createSyncDescriptor<AddressRow>({
 	id: 'addresses',
 	table: 'addresses',
 	endpointPath: '/sync/shapes/addresses',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

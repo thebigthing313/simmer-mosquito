@@ -5,7 +5,6 @@ export const weatherSourcesSyncDescriptor = createSyncDescriptor<WeatherSourceRo
 	id: 'weather_sources',
 	table: 'weather_sources',
 	endpointPath: '/sync/shapes/weather-sources',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

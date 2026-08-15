@@ -5,7 +5,6 @@ export const applicationMethodsSyncDescriptor = createSyncDescriptor<ControlMeth
 	id: 'application_methods',
 	table: 'application_methods',
 	endpointPath: '/sync/shapes/application-methods',
-	syncMode: 'eager',
 	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
 	getKey: (row) => row.id,
 });

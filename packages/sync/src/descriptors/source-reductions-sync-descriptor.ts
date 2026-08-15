@@ -5,7 +5,6 @@ export const sourceReductionsSyncDescriptor = createSyncDescriptor<SourceReducti
 	id: 'source_reductions',
 	table: 'source_reductions',
 	endpointPath: '/sync/shapes/source-reductions',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

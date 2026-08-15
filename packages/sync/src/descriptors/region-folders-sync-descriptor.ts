@@ -5,7 +5,6 @@ export const regionFoldersSyncDescriptor = createSyncDescriptor<RegionFolderRow>
 	id: 'region_folders',
 	table: 'region_folders',
 	endpointPath: '/sync/shapes/region-folders',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

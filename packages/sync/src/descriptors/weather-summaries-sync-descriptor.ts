@@ -5,7 +5,6 @@ export const weatherSummariesSyncDescriptor = createSyncDescriptor<WeatherSummar
 	id: 'weather_summaries',
 	table: 'weather_summaries',
 	endpointPath: '/sync/shapes/weather-summaries',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

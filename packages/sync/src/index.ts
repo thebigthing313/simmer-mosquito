@@ -10,13 +10,21 @@ export {
 	settleWrite,
 } from './settle-write.js';
 
+/**
+ * How a table streams: the whole thing up front, or the subsets a live query
+ * asks for.
+ *
+ * A parameter rather than a descriptor field, because the same table is wanted
+ * differently by different apps — `apps/mobile` needs habitats before the signal
+ * goes, `apps/web` is online-only. Each app declares its own; `apps/web` does so
+ * in `src/sync/sync-modes.ts`.
+ */
 export type WebSyncMode = 'eager' | 'on-demand';
 
 export interface SyncDescriptor<TRow extends { readonly id: string }> {
 	readonly id: string;
 	readonly table: string;
 	readonly endpointPath: string;
-	readonly syncMode: WebSyncMode;
 	readonly columns: readonly (keyof TRow & string)[];
 	readonly getKey: (row: TRow) => string;
 }
@@ -68,12 +76,13 @@ export function electricShapeCollectionOptions<TRow extends { readonly id: strin
 	input: {
 		readonly descriptor: SyncDescriptor<TRow>;
 		readonly url: string;
+		readonly syncMode: WebSyncMode;
 	} & Pick<ElectricCollectionConfig<TRow, never>, 'onInsert' | 'onUpdate' | 'onDelete'>,
 ) {
 	return electricCollectionOptions<TRow>({
 		id: input.descriptor.id,
 		getKey: input.descriptor.getKey,
-		syncMode: input.descriptor.syncMode,
+		syncMode: input.syncMode,
 		...(input.onInsert === undefined ? {} : { onInsert: input.onInsert }),
 		...(input.onUpdate === undefined ? {} : { onUpdate: input.onUpdate }),
 		...(input.onDelete === undefined ? {} : { onDelete: input.onDelete }),

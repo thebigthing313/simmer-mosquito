@@ -5,7 +5,6 @@ export const contactsSyncDescriptor = createSyncDescriptor<ContactRow>({
 	id: 'contacts',
 	table: 'contacts',
 	endpointPath: '/sync/shapes/contacts',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

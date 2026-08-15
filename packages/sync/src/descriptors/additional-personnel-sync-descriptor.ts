@@ -5,7 +5,6 @@ export const additionalPersonnelSyncDescriptor = createSyncDescriptor<Additional
 	id: 'additional_personnel',
 	table: 'additional_personnel',
 	endpointPath: '/sync/shapes/additional-personnel',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

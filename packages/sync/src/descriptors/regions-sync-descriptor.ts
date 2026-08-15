@@ -5,7 +5,6 @@ export const regionsSyncDescriptor = createSyncDescriptor<RegionRow>({
 	id: 'regions',
 	table: 'regions',
 	endpointPath: '/sync/shapes/regions',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

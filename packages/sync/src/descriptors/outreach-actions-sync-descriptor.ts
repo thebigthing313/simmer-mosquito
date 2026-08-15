@@ -5,7 +5,6 @@ export const outreachActionsSyncDescriptor = createSyncDescriptor<OutreachAction
 	id: 'outreach_actions',
 	table: 'outreach_actions',
 	endpointPath: '/sync/shapes/outreach-actions',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

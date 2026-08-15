@@ -5,7 +5,6 @@ export const tagsSyncDescriptor = createSyncDescriptor<TagRow>({
 	id: 'tags',
 	table: 'tags',
 	endpointPath: '/sync/shapes/tags',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

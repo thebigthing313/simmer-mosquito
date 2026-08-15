@@ -5,7 +5,6 @@ export const insecticideBatchesSyncDescriptor = createSyncDescriptor<Insecticide
 	id: 'insecticide_batches',
 	table: 'insecticide_batches',
 	endpointPath: '/sync/shapes/insecticide-batches',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

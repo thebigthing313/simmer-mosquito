@@ -5,7 +5,6 @@ export const notificationTypesSyncDescriptor = createSyncDescriptor<Notification
 	id: 'notification_types',
 	table: 'notification_types',
 	endpointPath: '/sync/shapes/notification-types',
-	syncMode: 'eager',
 	columns: ['id', 'organizationId', 'name', 'description', 'isActive', 'createdAt', 'updatedAt'],
 	getKey: (row) => row.id,
 });

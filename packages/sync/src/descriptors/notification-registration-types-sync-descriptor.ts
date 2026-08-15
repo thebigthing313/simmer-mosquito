@@ -6,7 +6,6 @@ export const notificationRegistrationTypesSyncDescriptor =
 		id: 'notification_registration_types',
 		table: 'notification_registration_types',
 		endpointPath: '/sync/shapes/notification-registration-types',
-		syncMode: 'on-demand',
 		columns: [
 			'id',
 			'organizationId',

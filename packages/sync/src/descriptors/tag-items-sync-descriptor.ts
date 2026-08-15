@@ -5,7 +5,6 @@ export const tagItemsSyncDescriptor = createSyncDescriptor<TagItemRow>({
 	id: 'tag_items',
 	table: 'tag_items',
 	endpointPath: '/sync/shapes/tag-items',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

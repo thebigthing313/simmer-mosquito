@@ -6,7 +6,6 @@ export const weatherSourceSubscriptionsSyncDescriptor =
 		id: 'weather_source_subscriptions',
 		table: 'weather_source_subscriptions',
 		endpointPath: '/sync/shapes/weather-source-subscriptions',
-		syncMode: 'on-demand',
 		columns: [
 			'id',
 			'organizationId',

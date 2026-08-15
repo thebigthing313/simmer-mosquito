@@ -5,7 +5,6 @@ export const serviceRequestsSyncDescriptor = createSyncDescriptor<ServiceRequest
 	id: 'service_requests',
 	table: 'service_requests',
 	endpointPath: '/sync/shapes/service-requests',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

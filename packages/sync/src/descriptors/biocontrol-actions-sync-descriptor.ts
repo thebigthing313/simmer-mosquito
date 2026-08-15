@@ -5,7 +5,6 @@ export const biocontrolActionsSyncDescriptor = createSyncDescriptor<BiocontrolAc
 	id: 'biocontrol_actions',
 	table: 'biocontrol_actions',
 	endpointPath: '/sync/shapes/biocontrol-actions',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

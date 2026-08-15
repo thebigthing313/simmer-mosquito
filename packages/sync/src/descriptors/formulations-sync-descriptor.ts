@@ -5,7 +5,6 @@ export const formulationsSyncDescriptor = createSyncDescriptor<FormulationRow>({
 	id: 'formulations',
 	table: 'formulations',
 	endpointPath: '/sync/shapes/formulations',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

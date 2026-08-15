@@ -5,7 +5,6 @@ export const missionNotificationsSyncDescriptor = createSyncDescriptor<MissionNo
 	id: 'mission_notifications',
 	table: 'mission_notifications',
 	endpointPath: '/sync/shapes/mission-notifications',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

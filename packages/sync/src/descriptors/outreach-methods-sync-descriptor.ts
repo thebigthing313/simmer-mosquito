@@ -5,7 +5,6 @@ export const outreachMethodsSyncDescriptor = createSyncDescriptor<ControlMethodR
 	id: 'outreach_methods',
 	table: 'outreach_methods',
 	endpointPath: '/sync/shapes/outreach-methods',
-	syncMode: 'eager',
 	columns: ['id', 'organizationId', 'name', 'customSchema', 'isActive', 'createdAt', 'updatedAt'],
 	getKey: (row) => row.id,
 });

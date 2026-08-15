@@ -12,12 +12,11 @@ import {
 } from '../../index.js';
 
 describe('sync descriptors', () => {
-	it('defines units as the first eager web sync shape', () => {
+	it('defines the units shape', () => {
 		expect(unitsSyncDescriptor).toMatchObject({
 			id: 'units',
 			table: 'units',
 			endpointPath: '/sync/shapes/units',
-			syncMode: 'eager',
 		});
 		expect(unitsSyncDescriptor.columns).toEqual([
 			'id',
@@ -35,7 +34,6 @@ describe('sync descriptors', () => {
 			id: 'profiles',
 			table: 'profiles',
 			endpointPath: '/sync/shapes/profiles',
-			syncMode: 'eager',
 		});
 		expect(profilesSyncDescriptor.columns).toEqual([
 			'id',
@@ -54,7 +52,6 @@ describe('sync descriptors', () => {
 			id: 'memberships',
 			table: 'memberships',
 			endpointPath: '/sync/shapes/memberships',
-			syncMode: 'eager',
 		});
 		expect(membershipsSyncDescriptor.columns).toEqual([
 			'id',
@@ -76,7 +73,6 @@ describe('sync descriptors', () => {
 			id: 'current_organization',
 			table: 'organizations',
 			endpointPath: '/sync/shapes/organization',
-			syncMode: 'eager',
 		});
 		expect(currentOrganizationSyncDescriptor.columns).toEqual([
 			'id',
@@ -103,6 +99,9 @@ describe('sync descriptors', () => {
 		const options = electricShapeCollectionOptions({
 			descriptor: unitsSyncDescriptor,
 			url: 'https://example.test/sync/shapes/units',
+			// The caller's, not the descriptor's: how a table streams is the app's
+			// decision, and `apps/web` makes it in `src/sync/sync-modes.ts`.
+			syncMode: 'eager',
 		});
 
 		expect(options.id).toBe('units');
@@ -120,8 +119,7 @@ describe('sync descriptors', () => {
 		).toBe('unit-1');
 	});
 
-	it('syncs address book records on demand with centroid coordinates', () => {
-		expect(addressesSyncDescriptor.syncMode).toBe('on-demand');
+	it('gives the address book its centroid coordinates', () => {
 		expect(addressesSyncDescriptor.columns).toEqual([
 			'id',
 			'organizationId',
@@ -142,8 +140,7 @@ describe('sync descriptors', () => {
 		]);
 	});
 
-	it('syncs insecticide batches on demand', () => {
-		expect(insecticideBatchesSyncDescriptor.syncMode).toBe('on-demand');
+	it('scopes insecticide batches to an agency', () => {
 		expect(insecticideBatchesSyncDescriptor.columns).toContain('organizationId');
 	});
 
@@ -179,6 +176,7 @@ function expectReadOnlyCollectionOptions(descriptor: SyncDescriptor<unknown & An
 	const options = electricShapeCollectionOptions({
 		descriptor,
 		url: `https://example.test${descriptor.endpointPath}`,
+		syncMode: 'eager',
 	}) as Record<string, unknown>;
 
 	expect(options.onInsert).toBeUndefined();

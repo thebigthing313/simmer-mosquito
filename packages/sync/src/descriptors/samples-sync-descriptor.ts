@@ -5,7 +5,6 @@ export const samplesSyncDescriptor = createSyncDescriptor<SampleRow>({
 	id: 'samples',
 	table: 'samples',
 	endpointPath: '/sync/shapes/samples',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

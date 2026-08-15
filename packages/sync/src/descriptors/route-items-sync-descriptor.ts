@@ -5,7 +5,6 @@ export const routeItemsSyncDescriptor = createSyncDescriptor<RouteItemRow>({
 	id: 'route_items',
 	table: 'route_items',
 	endpointPath: '/sync/shapes/route-items',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

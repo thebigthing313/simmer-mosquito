@@ -5,7 +5,6 @@ export const habitatTypesSyncDescriptor = createSyncDescriptor<HabitatTypeRow>({
 	id: 'habitat_types',
 	table: 'habitat_types',
 	endpointPath: '/sync/shapes/habitat-types',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

@@ -104,6 +104,7 @@ import {
 	vehiclesSyncDescriptor,
 	type WeatherSourceRow,
 	type WeatherSummaryRow,
+	type WebSyncMode,
 	weatherSourcesSyncDescriptor,
 	weatherSummariesSyncDescriptor,
 } from '@simmer-mosquito/sync';
@@ -166,6 +167,7 @@ import {
 	createNotificationRegistrationTypeMutationHandlers,
 	createServiceRequestMutationHandlers,
 } from './publicEngagementMutations';
+import { webSyncModes } from './sync-modes';
 import { createTagMutationHandlers } from './tagMutations';
 
 export interface WebCollections {
@@ -278,11 +280,13 @@ interface PreloadableCollection {
 function createReadOnlyWebCollection<TRow extends { readonly id: string }>(
 	descriptor: SyncDescriptor<TRow>,
 	shapeServerUrl: string,
+	syncMode: WebSyncMode,
 ): Collection<TRow, string | number> {
 	return createCollection(
 		electricShapeCollectionOptions<TRow>({
 			descriptor,
 			url: `${shapeServerUrl}${descriptor.endpointPath}`,
+			syncMode,
 		}),
 	);
 }
@@ -295,12 +299,14 @@ export function createWebCollections(options: {
 	const units = createCollection(
 		electricShapeCollectionOptions<UnitRow>({
 			descriptor: unitsSyncDescriptor,
+			syncMode: webSyncModes.units,
 			url: `${shapeServerUrl}${unitsSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const profiles = createCollection(
 		electricShapeCollectionOptions<ProfileRow>({
 			descriptor: profilesSyncDescriptor,
+			syncMode: webSyncModes.profiles,
 			url: `${shapeServerUrl}${profilesSyncDescriptor.endpointPath}`,
 			...createProfileMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -310,24 +316,28 @@ export function createWebCollections(options: {
 	const memberships = createCollection(
 		electricShapeCollectionOptions<MembershipRow>({
 			descriptor: membershipsSyncDescriptor,
+			syncMode: webSyncModes.memberships,
 			url: `${shapeServerUrl}${membershipsSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const genera = createCollection(
 		electricShapeCollectionOptions<GenusRow>({
 			descriptor: generaSyncDescriptor,
+			syncMode: webSyncModes.genera,
 			url: `${shapeServerUrl}${generaSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const species = createCollection(
 		electricShapeCollectionOptions<SpeciesRow>({
 			descriptor: speciesSyncDescriptor,
+			syncMode: webSyncModes.species,
 			url: `${shapeServerUrl}${speciesSyncDescriptor.endpointPath}`,
 		}),
 	);
 	const organizationSpecies = createCollection(
 		electricShapeCollectionOptions<OrganizationSpeciesRow>({
 			descriptor: organizationSpeciesSyncDescriptor,
+			syncMode: webSyncModes.organization_species,
 			url: `${shapeServerUrl}${organizationSpeciesSyncDescriptor.endpointPath}`,
 			...createOrganizationSpeciesMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -335,6 +345,7 @@ export function createWebCollections(options: {
 	const currentOrganization = createCollection(
 		electricShapeCollectionOptions<OrganizationRow>({
 			descriptor: currentOrganizationSyncDescriptor,
+			syncMode: webSyncModes.organizations,
 			url: `${shapeServerUrl}${currentOrganizationSyncDescriptor.endpointPath}`,
 			...createOrganizationMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -344,6 +355,7 @@ export function createWebCollections(options: {
 	const collectionMethods = createCollection(
 		electricShapeCollectionOptions<CollectionMethodRow>({
 			descriptor: collectionMethodsSyncDescriptor,
+			syncMode: webSyncModes.collection_methods,
 			url: `${shapeServerUrl}${collectionMethodsSyncDescriptor.endpointPath}`,
 			...createOrgLookupMutationHandlers<CollectionMethodRow>({
 				serverUrl: options.serverUrl,
@@ -355,6 +367,7 @@ export function createWebCollections(options: {
 	const collectionLures = createCollection(
 		electricShapeCollectionOptions<CollectionLureRow>({
 			descriptor: collectionLuresSyncDescriptor,
+			syncMode: webSyncModes.collection_lures,
 			url: `${shapeServerUrl}${collectionLuresSyncDescriptor.endpointPath}`,
 			...createOrgLookupMutationHandlers<CollectionLureRow>({
 				serverUrl: options.serverUrl,
@@ -366,6 +379,7 @@ export function createWebCollections(options: {
 	const habitatTypes = createCollection(
 		electricShapeCollectionOptions<HabitatTypeRow>({
 			descriptor: habitatTypesSyncDescriptor,
+			syncMode: webSyncModes.habitat_types,
 			url: `${shapeServerUrl}${habitatTypesSyncDescriptor.endpointPath}`,
 			...createOrgLookupMutationHandlers<HabitatTypeRow>({
 				serverUrl: options.serverUrl,
@@ -377,6 +391,7 @@ export function createWebCollections(options: {
 	const addresses = createCollection(
 		electricShapeCollectionOptions<AddressRow>({
 			descriptor: addressesSyncDescriptor,
+			syncMode: webSyncModes.addresses,
 			url: `${shapeServerUrl}${addressesSyncDescriptor.endpointPath}`,
 			...createAddressMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -388,6 +403,7 @@ export function createWebCollections(options: {
 	const applicationMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: applicationMethodsSyncDescriptor,
+			syncMode: webSyncModes.application_methods,
 			url: `${shapeServerUrl}${applicationMethodsSyncDescriptor.endpointPath}`,
 			...createControlMethodMutationHandlers<ControlMethodRow>({
 				serverUrl: options.serverUrl,
@@ -399,6 +415,7 @@ export function createWebCollections(options: {
 	const sourceReductionMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: sourceReductionMethodsSyncDescriptor,
+			syncMode: webSyncModes.source_reduction_methods,
 			url: `${shapeServerUrl}${sourceReductionMethodsSyncDescriptor.endpointPath}`,
 			...createControlMethodMutationHandlers<ControlMethodRow>({
 				serverUrl: options.serverUrl,
@@ -410,6 +427,7 @@ export function createWebCollections(options: {
 	const outreachMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: outreachMethodsSyncDescriptor,
+			syncMode: webSyncModes.outreach_methods,
 			url: `${shapeServerUrl}${outreachMethodsSyncDescriptor.endpointPath}`,
 			...createControlMethodMutationHandlers<ControlMethodRow>({
 				serverUrl: options.serverUrl,
@@ -421,6 +439,7 @@ export function createWebCollections(options: {
 	const biocontrolMethods = createCollection(
 		electricShapeCollectionOptions<ControlMethodRow>({
 			descriptor: biocontrolMethodsSyncDescriptor,
+			syncMode: webSyncModes.biocontrol_methods,
 			url: `${shapeServerUrl}${biocontrolMethodsSyncDescriptor.endpointPath}`,
 			...createControlMethodMutationHandlers<ControlMethodRow>({
 				serverUrl: options.serverUrl,
@@ -432,6 +451,7 @@ export function createWebCollections(options: {
 	const vehicles = createCollection(
 		electricShapeCollectionOptions<VehicleRow>({
 			descriptor: vehiclesSyncDescriptor,
+			syncMode: webSyncModes.vehicles,
 			url: `${shapeServerUrl}${vehiclesSyncDescriptor.endpointPath}`,
 			...createVehicleMutationHandlers<VehicleRow>({
 				serverUrl: options.serverUrl,
@@ -441,6 +461,7 @@ export function createWebCollections(options: {
 	const equipment = createCollection(
 		electricShapeCollectionOptions<EquipmentRow>({
 			descriptor: equipmentSyncDescriptor,
+			syncMode: webSyncModes.equipment,
 			url: `${shapeServerUrl}${equipmentSyncDescriptor.endpointPath}`,
 			...createEquipmentMutationHandlers<EquipmentRow>({
 				serverUrl: options.serverUrl,
@@ -450,6 +471,7 @@ export function createWebCollections(options: {
 	const insecticides = createCollection(
 		electricShapeCollectionOptions<InsecticideRow>({
 			descriptor: insecticidesSyncDescriptor,
+			syncMode: webSyncModes.insecticides,
 			url: `${shapeServerUrl}${insecticidesSyncDescriptor.endpointPath}`,
 			...createInsecticideMutationHandlers<InsecticideRow>({
 				serverUrl: options.serverUrl,
@@ -459,6 +481,7 @@ export function createWebCollections(options: {
 	const insecticideBatches = createCollection(
 		electricShapeCollectionOptions<InsecticideBatchRow>({
 			descriptor: insecticideBatchesSyncDescriptor,
+			syncMode: webSyncModes.insecticide_batches,
 			url: `${shapeServerUrl}${insecticideBatchesSyncDescriptor.endpointPath}`,
 			...createInsecticideBatchMutationHandlers<InsecticideBatchRow>({
 				serverUrl: options.serverUrl,
@@ -468,6 +491,7 @@ export function createWebCollections(options: {
 	const notificationTypes = createCollection(
 		electricShapeCollectionOptions<NotificationTypeRow>({
 			descriptor: notificationTypesSyncDescriptor,
+			syncMode: webSyncModes.notification_types,
 			url: `${shapeServerUrl}${notificationTypesSyncDescriptor.endpointPath}`,
 			...createNotificationTypeMutationHandlers<NotificationTypeRow>({
 				serverUrl: options.serverUrl,
@@ -477,6 +501,7 @@ export function createWebCollections(options: {
 	const tags = createCollection(
 		electricShapeCollectionOptions<TagRow>({
 			descriptor: tagsSyncDescriptor,
+			syncMode: webSyncModes.tags,
 			url: `${shapeServerUrl}${tagsSyncDescriptor.endpointPath}`,
 			...createTagMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -486,6 +511,7 @@ export function createWebCollections(options: {
 	const routes = createCollection(
 		electricShapeCollectionOptions<RouteRow>({
 			descriptor: routesSyncDescriptor,
+			syncMode: webSyncModes.routes,
 			url: `${shapeServerUrl}${routesSyncDescriptor.endpointPath}`,
 			...createRouteMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -493,6 +519,7 @@ export function createWebCollections(options: {
 	const habitats = createCollection(
 		electricShapeCollectionOptions<HabitatRow>({
 			descriptor: habitatsSyncDescriptor,
+			syncMode: webSyncModes.habitats,
 			url: `${shapeServerUrl}${habitatsSyncDescriptor.endpointPath}`,
 			...createHabitatMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -504,6 +531,7 @@ export function createWebCollections(options: {
 	const inspections = createCollection(
 		electricShapeCollectionOptions<InspectionRow>({
 			descriptor: inspectionsSyncDescriptor,
+			syncMode: webSyncModes.inspections,
 			url: `${shapeServerUrl}${inspectionsSyncDescriptor.endpointPath}`,
 			...createInspectionMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -513,6 +541,7 @@ export function createWebCollections(options: {
 	const samples = createCollection(
 		electricShapeCollectionOptions<SampleRow>({
 			descriptor: samplesSyncDescriptor,
+			syncMode: webSyncModes.samples,
 			url: `${shapeServerUrl}${samplesSyncDescriptor.endpointPath}`,
 			...createSampleMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -522,6 +551,7 @@ export function createWebCollections(options: {
 	const sampleSpecies = createCollection(
 		electricShapeCollectionOptions<SampleSpeciesRow>({
 			descriptor: sampleSpeciesSyncDescriptor,
+			syncMode: webSyncModes.sample_species,
 			url: `${shapeServerUrl}${sampleSpeciesSyncDescriptor.endpointPath}`,
 			...createSampleSpeciesMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -531,6 +561,7 @@ export function createWebCollections(options: {
 	const regionFolders = createCollection(
 		electricShapeCollectionOptions<RegionFolderRow>({
 			descriptor: regionFoldersSyncDescriptor,
+			syncMode: webSyncModes.region_folders,
 			url: `${shapeServerUrl}${regionFoldersSyncDescriptor.endpointPath}`,
 			...createRegionFolderMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -538,6 +569,7 @@ export function createWebCollections(options: {
 	const regions = createCollection(
 		electricShapeCollectionOptions<RegionRow>({
 			descriptor: regionsSyncDescriptor,
+			syncMode: webSyncModes.regions,
 			url: `${shapeServerUrl}${regionsSyncDescriptor.endpointPath}`,
 			...createRegionMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -547,6 +579,7 @@ export function createWebCollections(options: {
 	const traps = createCollection(
 		electricShapeCollectionOptions<TrapRow>({
 			descriptor: trapsSyncDescriptor,
+			syncMode: webSyncModes.traps,
 			url: `${shapeServerUrl}${trapsSyncDescriptor.endpointPath}`,
 			...createTrapMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -556,6 +589,7 @@ export function createWebCollections(options: {
 	const collections = createCollection(
 		electricShapeCollectionOptions<AdultCollectionRow>({
 			descriptor: collectionsSyncDescriptor,
+			syncMode: webSyncModes.collections,
 			url: `${shapeServerUrl}${collectionsSyncDescriptor.endpointPath}`,
 			...createCollectionMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -565,6 +599,7 @@ export function createWebCollections(options: {
 	const collectionSpecies = createCollection(
 		electricShapeCollectionOptions<CollectionSpeciesRow>({
 			descriptor: collectionSpeciesSyncDescriptor,
+			syncMode: webSyncModes.collection_species,
 			url: `${shapeServerUrl}${collectionSpeciesSyncDescriptor.endpointPath}`,
 			...createCollectionSpeciesMutationHandlers({
 				serverUrl: options.serverUrl,
@@ -574,6 +609,7 @@ export function createWebCollections(options: {
 	const comments = createCollection(
 		electricShapeCollectionOptions<CommentRow>({
 			descriptor: commentsSyncDescriptor,
+			syncMode: webSyncModes.comments,
 			url: `${shapeServerUrl}${commentsSyncDescriptor.endpointPath}`,
 			...createCommentMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -581,6 +617,7 @@ export function createWebCollections(options: {
 	const tagItems = createCollection(
 		electricShapeCollectionOptions<TagItemRow>({
 			descriptor: tagItemsSyncDescriptor,
+			syncMode: webSyncModes.tag_items,
 			url: `${shapeServerUrl}${tagItemsSyncDescriptor.endpointPath}`,
 			...createTagItemMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -588,6 +625,7 @@ export function createWebCollections(options: {
 	const additionalPersonnel = createCollection(
 		electricShapeCollectionOptions<AdditionalPersonnelRow>({
 			descriptor: additionalPersonnelSyncDescriptor,
+			syncMode: webSyncModes.additional_personnel,
 			url: `${shapeServerUrl}${additionalPersonnelSyncDescriptor.endpointPath}`,
 			...createAdditionalPersonnelMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -595,6 +633,7 @@ export function createWebCollections(options: {
 	const routeItems = createCollection(
 		electricShapeCollectionOptions<RouteItemRow>({
 			descriptor: routeItemsSyncDescriptor,
+			syncMode: webSyncModes.route_items,
 			url: `${shapeServerUrl}${routeItemsSyncDescriptor.endpointPath}`,
 			...createRouteItemMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -602,6 +641,7 @@ export function createWebCollections(options: {
 	const assignments = createCollection(
 		electricShapeCollectionOptions<AssignmentRow>({
 			descriptor: assignmentsSyncDescriptor,
+			syncMode: webSyncModes.assignments,
 			url: `${shapeServerUrl}${assignmentsSyncDescriptor.endpointPath}`,
 			...createAssignmentMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -609,6 +649,7 @@ export function createWebCollections(options: {
 	const assignmentItems = createCollection(
 		electricShapeCollectionOptions<AssignmentItemRow>({
 			descriptor: assignmentItemsSyncDescriptor,
+			syncMode: webSyncModes.assignment_items,
 			url: `${shapeServerUrl}${assignmentItemsSyncDescriptor.endpointPath}`,
 			...createAssignmentItemMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -616,6 +657,7 @@ export function createWebCollections(options: {
 	const formulations = createCollection(
 		electricShapeCollectionOptions<FormulationRow>({
 			descriptor: formulationsSyncDescriptor,
+			syncMode: webSyncModes.formulations,
 			url: `${shapeServerUrl}${formulationsSyncDescriptor.endpointPath}`,
 			...createFormulationMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -623,6 +665,7 @@ export function createWebCollections(options: {
 	const formulationInsecticides = createCollection(
 		electricShapeCollectionOptions<FormulationInsecticideRow>({
 			descriptor: formulationInsecticidesSyncDescriptor,
+			syncMode: webSyncModes.formulation_insecticides,
 			url: `${shapeServerUrl}${formulationInsecticidesSyncDescriptor.endpointPath}`,
 			...createFormulationInsecticideMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -630,6 +673,7 @@ export function createWebCollections(options: {
 	const applications = createCollection(
 		electricShapeCollectionOptions<ApplicationRow>({
 			descriptor: applicationsSyncDescriptor,
+			syncMode: webSyncModes.applications,
 			url: `${shapeServerUrl}${applicationsSyncDescriptor.endpointPath}`,
 			...createApplicationMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -637,6 +681,7 @@ export function createWebCollections(options: {
 	const applicationBatches = createCollection(
 		electricShapeCollectionOptions<ApplicationBatchRow>({
 			descriptor: applicationBatchesSyncDescriptor,
+			syncMode: webSyncModes.application_batches,
 			url: `${shapeServerUrl}${applicationBatchesSyncDescriptor.endpointPath}`,
 			...createApplicationBatchMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -644,6 +689,7 @@ export function createWebCollections(options: {
 	const sourceReductions = createCollection(
 		electricShapeCollectionOptions<SourceReductionRow>({
 			descriptor: sourceReductionsSyncDescriptor,
+			syncMode: webSyncModes.source_reductions,
 			url: `${shapeServerUrl}${sourceReductionsSyncDescriptor.endpointPath}`,
 			...createSourceReductionMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -651,6 +697,7 @@ export function createWebCollections(options: {
 	const outreachActions = createCollection(
 		electricShapeCollectionOptions<OutreachActionRow>({
 			descriptor: outreachActionsSyncDescriptor,
+			syncMode: webSyncModes.outreach_actions,
 			url: `${shapeServerUrl}${outreachActionsSyncDescriptor.endpointPath}`,
 			...createOutreachActionMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -658,6 +705,7 @@ export function createWebCollections(options: {
 	const biocontrolActions = createCollection(
 		electricShapeCollectionOptions<BiocontrolActionRow>({
 			descriptor: biocontrolActionsSyncDescriptor,
+			syncMode: webSyncModes.biocontrol_actions,
 			url: `${shapeServerUrl}${biocontrolActionsSyncDescriptor.endpointPath}`,
 			...createBiocontrolActionMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -665,6 +713,7 @@ export function createWebCollections(options: {
 	const contacts = createCollection(
 		electricShapeCollectionOptions<ContactRow>({
 			descriptor: contactsSyncDescriptor,
+			syncMode: webSyncModes.contacts,
 			url: `${shapeServerUrl}${contactsSyncDescriptor.endpointPath}`,
 			...createContactMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -674,6 +723,7 @@ export function createWebCollections(options: {
 	const serviceRequests = createCollection(
 		electricShapeCollectionOptions<ServiceRequestRow>({
 			descriptor: serviceRequestsSyncDescriptor,
+			syncMode: webSyncModes.service_requests,
 			url: `${shapeServerUrl}${serviceRequestsSyncDescriptor.endpointPath}`,
 			...createServiceRequestMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -681,6 +731,7 @@ export function createWebCollections(options: {
 	const requestedControlActions = createCollection(
 		electricShapeCollectionOptions<RequestedControlActionRow>({
 			descriptor: requestedControlActionsSyncDescriptor,
+			syncMode: webSyncModes.requested_control_actions,
 			url: `${shapeServerUrl}${requestedControlActionsSyncDescriptor.endpointPath}`,
 			...createRequestedControlActionMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -688,6 +739,7 @@ export function createWebCollections(options: {
 	const missions = createCollection(
 		electricShapeCollectionOptions<MissionRow>({
 			descriptor: missionsSyncDescriptor,
+			syncMode: webSyncModes.missions,
 			url: `${shapeServerUrl}${missionsSyncDescriptor.endpointPath}`,
 			...createMissionMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -695,6 +747,7 @@ export function createWebCollections(options: {
 	const missionItems = createCollection(
 		electricShapeCollectionOptions<MissionItemRow>({
 			descriptor: missionItemsSyncDescriptor,
+			syncMode: webSyncModes.mission_items,
 			url: `${shapeServerUrl}${missionItemsSyncDescriptor.endpointPath}`,
 			...createMissionItemMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -702,6 +755,7 @@ export function createWebCollections(options: {
 	const notificationRegistrations = createCollection(
 		electricShapeCollectionOptions<NotificationRegistrationRow>({
 			descriptor: notificationRegistrationsSyncDescriptor,
+			syncMode: webSyncModes.notification_registrations,
 			url: `${shapeServerUrl}${notificationRegistrationsSyncDescriptor.endpointPath}`,
 			...createNotificationRegistrationMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -709,6 +763,7 @@ export function createWebCollections(options: {
 	const notificationRegistrationTypes = createCollection(
 		electricShapeCollectionOptions<NotificationRegistrationTypeRow>({
 			descriptor: notificationRegistrationTypesSyncDescriptor,
+			syncMode: webSyncModes.notification_registration_types,
 			url: `${shapeServerUrl}${notificationRegistrationTypesSyncDescriptor.endpointPath}`,
 			...createNotificationRegistrationTypeMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -716,6 +771,7 @@ export function createWebCollections(options: {
 	const missionNotifications = createCollection(
 		electricShapeCollectionOptions<MissionNotificationRow>({
 			descriptor: missionNotificationsSyncDescriptor,
+			syncMode: webSyncModes.mission_notifications,
 			url: `${shapeServerUrl}${missionNotificationsSyncDescriptor.endpointPath}`,
 			...createMissionNotificationMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
@@ -723,10 +779,12 @@ export function createWebCollections(options: {
 	const weatherSources = createReadOnlyWebCollection<WeatherSourceRow>(
 		weatherSourcesSyncDescriptor,
 		shapeServerUrl,
+		webSyncModes.weather_sources,
 	);
 	const weatherSummaries = createReadOnlyWebCollection<WeatherSummaryRow>(
 		weatherSummariesSyncDescriptor,
 		shapeServerUrl,
+		webSyncModes.weather_summaries,
 	);
 
 	return {

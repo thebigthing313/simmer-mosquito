@@ -5,7 +5,6 @@ export const commentsSyncDescriptor = createSyncDescriptor<CommentRow>({
 	id: 'comments',
 	table: 'comments',
 	endpointPath: '/sync/shapes/comments',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

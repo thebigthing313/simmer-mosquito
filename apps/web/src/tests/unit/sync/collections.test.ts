@@ -8,7 +8,6 @@ import {
 	sampleSpeciesSyncDescriptor,
 	samplesSyncDescriptor,
 	trapsSyncDescriptor,
-	weatherSourceSubscriptionsSyncDescriptor,
 	weatherSourcesSyncDescriptor,
 	weatherSummariesSyncDescriptor,
 } from '@simmer-mosquito/sync';
@@ -19,6 +18,7 @@ import {
 	type WebCollections,
 	webBaselineCollectionKeys,
 } from '../../../sync/collections';
+import { webSyncModes } from '../../../sync/sync-modes';
 
 describe('web sync baseline preload', () => {
 	it('keeps the eager baseline bundle explicit', () => {
@@ -105,12 +105,12 @@ describe('web sync baseline preload', () => {
 		expect(collections.samples.config.onInsert).toBeTypeOf('function');
 		expect(collections.sampleSpecies.config.id).toBe(sampleSpeciesSyncDescriptor.id);
 		expect(collections.sampleSpecies.config.onInsert).toBeTypeOf('function');
-		expect(habitatTypesSyncDescriptor.syncMode).toBe('eager');
-		expect(addressesSyncDescriptor.syncMode).toBe('on-demand');
-		expect(habitatsSyncDescriptor.syncMode).toBe('on-demand');
-		expect(inspectionsSyncDescriptor.syncMode).toBe('on-demand');
-		expect(samplesSyncDescriptor.syncMode).toBe('on-demand');
-		expect(sampleSpeciesSyncDescriptor.syncMode).toBe('on-demand');
+		expect(collections.habitatTypes.config.syncMode).toBe('eager');
+		expect(collections.addresses.config.syncMode).toBe('on-demand');
+		expect(collections.habitats.config.syncMode).toBe('on-demand');
+		expect(collections.inspections.config.syncMode).toBe('on-demand');
+		expect(collections.samples.config.syncMode).toBe('on-demand');
+		expect(collections.sampleSpecies.config.syncMode).toBe('on-demand');
 	});
 
 	it('wires the remaining web sync collections without mutation handlers', () => {
@@ -218,7 +218,7 @@ describe('web sync baseline preload', () => {
 	it('leaves weather source subscriptions unwired for web', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		expect(weatherSourceSubscriptionsSyncDescriptor.syncMode).toBe('on-demand');
+		expect('weather_source_subscriptions' in webSyncModes).toBe(false);
 		expect('weatherSourceSubscriptions' in collections).toBe(false);
 	});
 });

@@ -5,7 +5,6 @@ export const applicationBatchesSyncDescriptor = createSyncDescriptor<Application
 	id: 'application_batches',
 	table: 'application_batches',
 	endpointPath: '/sync/shapes/application-batches',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

@@ -5,7 +5,6 @@ export const insecticidesSyncDescriptor = createSyncDescriptor<InsecticideRow>({
 	id: 'insecticides',
 	table: 'insecticides',
 	endpointPath: '/sync/shapes/insecticides',
-	syncMode: 'eager',
 	columns: [
 		'id',
 		'organizationId',

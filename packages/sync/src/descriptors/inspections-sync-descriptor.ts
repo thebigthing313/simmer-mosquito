@@ -5,7 +5,6 @@ export const inspectionsSyncDescriptor = createSyncDescriptor<InspectionRow>({
 	id: 'inspections',
 	table: 'inspections',
 	endpointPath: '/sync/shapes/inspections',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',

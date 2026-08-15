@@ -16,7 +16,6 @@ export function createSyncDescriptor<
 	readonly id: string;
 	readonly table: string;
 	readonly endpointPath: string;
-	readonly syncMode: SyncDescriptor<TRow>['syncMode'];
 	readonly columns: TColumns & NoGeometryColumns<TColumns>;
 	readonly getKey: (row: TRow) => string;
 }): SyncDescriptor<TRow> {

@@ -5,7 +5,6 @@ export const assignmentItemsSyncDescriptor = createSyncDescriptor<AssignmentItem
 	id: 'assignment_items',
 	table: 'assignment_items',
 	endpointPath: '/sync/shapes/assignment-items',
-	syncMode: 'on-demand',
 	columns: [
 		'id',
 		'organizationId',
