@@ -31,8 +31,11 @@ import { type ForbiddenBody, forbidden, hasAtLeastRole, type MinimumRole } from 
 /**
  * Every command type an agency membership can send.
  *
- * `weather.*` is absent because no server route answers it yet; it joins this
- * union when one does, and the build will demand a map for it.
+ * `weather.*` is absent because nothing writes one yet. The routes in
+ * `unimplemented-commands.ts` do answer those paths, but only to refuse with a
+ * `501` before any authorization decision — so there is still no write for a
+ * permission to gate. They join this union when one of them writes, and the build
+ * will demand a map for all ten at once.
  */
 export type AgencyCommandType =
 	| AdultSurveillanceCommandType

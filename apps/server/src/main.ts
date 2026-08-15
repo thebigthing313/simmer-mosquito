@@ -59,6 +59,7 @@ import { registerPublicEngagementRecordRoutes } from './public-engagement-record
 import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
+import { registerUnimplementedCommandRoutes } from './unimplemented-commands.js';
 
 const env = readServerEnv();
 const auth = createWorkOsAuth({
@@ -378,6 +379,13 @@ registerRecordDeletionRoutes(app, {
 
 registerGeocoderRoutes(app, {
 	apiKey: env.geocodioApiKey,
+	authContextMiddleware,
+});
+
+// Last, so a real handler for any of these paths always wins: the day one is
+// implemented, its own route registers above this and the stub is unreachable
+// before it is deleted.
+registerUnimplementedCommandRoutes(app, {
 	authContextMiddleware,
 });
 
