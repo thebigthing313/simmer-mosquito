@@ -1,16 +1,3 @@
-import {
-	addressesSyncDescriptor,
-	collectionsSyncDescriptor,
-	formulationsSyncDescriptor,
-	habitatsSyncDescriptor,
-	habitatTypesSyncDescriptor,
-	inspectionsSyncDescriptor,
-	sampleSpeciesSyncDescriptor,
-	samplesSyncDescriptor,
-	trapsSyncDescriptor,
-	weatherSourcesSyncDescriptor,
-	weatherSummariesSyncDescriptor,
-} from '@simmer-mosquito/sync';
 import { describe, expect, it } from 'vitest';
 import {
 	createWebCollections,
@@ -91,19 +78,19 @@ describe('web sync baseline preload', () => {
 	it('keeps larval surveillance operational collections on demand', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		expect(collections.addresses.config.id).toBe(addressesSyncDescriptor.id);
+		expect(collections.addresses.config.id).toBe('addresses');
 		expect(collections.addresses.config.onInsert).toBeTypeOf('function');
-		expect(collections.habitats.config.id).toBe(habitatsSyncDescriptor.id);
+		expect(collections.habitats.config.id).toBe('habitats');
 		expect(collections.habitats.config.onInsert).toBeTypeOf('function');
 		expect(collections.habitats.config.onUpdate).toBeTypeOf('function');
 		expect(collections.habitats.config.onDelete).toBeTypeOf('function');
-		expect(collections.inspections.config.id).toBe(inspectionsSyncDescriptor.id);
+		expect(collections.inspections.config.id).toBe('inspections');
 		expect(collections.inspections.config.onInsert).toBeTypeOf('function');
 		expect(collections.inspections.config.onUpdate).toBeTypeOf('function');
 		expect(collections.inspections.config.onDelete).toBeTypeOf('function');
-		expect(collections.samples.config.id).toBe(samplesSyncDescriptor.id);
+		expect(collections.samples.config.id).toBe('samples');
 		expect(collections.samples.config.onInsert).toBeTypeOf('function');
-		expect(collections.sampleSpecies.config.id).toBe(sampleSpeciesSyncDescriptor.id);
+		expect(collections.sampleSpecies.config.id).toBe('sample_species');
 		expect(collections.sampleSpecies.config.onInsert).toBeTypeOf('function');
 		expect(collections.habitatTypes.config.syncMode).toBe('eager');
 		expect(collections.addresses.config.syncMode).toBe('on-demand');
@@ -116,10 +103,10 @@ describe('web sync baseline preload', () => {
 	it('wires the remaining web sync collections without mutation handlers', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		expect(collections.traps.config.id).toBe(trapsSyncDescriptor.id);
-		expect(collections.collections.config.id).toBe(collectionsSyncDescriptor.id);
-		expect(collections.weatherSources.config.id).toBe(weatherSourcesSyncDescriptor.id);
-		expect(collections.weatherSummaries.config.id).toBe(weatherSummariesSyncDescriptor.id);
+		expect(collections.traps.config.id).toBe('traps');
+		expect(collections.collections.config.id).toBe('collections');
+		expect(collections.weatherSources.config.id).toBe('weather_sources');
+		expect(collections.weatherSummaries.config.id).toBe('weather_summaries');
 
 		expect(collections.weatherSummaries.config.onInsert).toBeUndefined();
 		expect(collections.weatherSummaries.config.onUpdate).toBeUndefined();
@@ -154,7 +141,7 @@ describe('web sync baseline preload', () => {
 	it('attaches optimistic write handlers to control operations collections', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		expect(collections.formulations.config.id).toBe(formulationsSyncDescriptor.id);
+		expect(collections.formulations.config.id).toBe('formulations');
 		for (const key of [
 			'formulations',
 			'formulationInsecticides',

@@ -2,7 +2,6 @@ import {
 	type ElectricCollectionConfig,
 	electricCollectionOptions,
 } from '@tanstack/electric-db-collection';
-import * as syncDescriptors from './descriptors/index.js';
 
 export {
 	isTxIdConfirmationTimeout,
@@ -21,67 +20,35 @@ export {
  */
 export type WebSyncMode = 'eager' | 'on-demand';
 
-export interface SyncDescriptor<TRow extends { readonly id: string }> {
-	readonly id: string;
-	readonly table: string;
-	readonly endpointPath: string;
-	readonly columns: readonly (keyof TRow & string)[];
-	readonly getKey: (row: TRow) => string;
-}
-
-/**
- * Everything the server needs to register a shape route, with the row type
- * erased so one loop can carry all of them.
- *
- * No scope: which rows an agency may read is the server's decision and lives in
- * its own map, keyed by table. A descriptor that carried one would be a second
- * place for the answer to be written, and a second place for it to be wrong.
- */
-export interface SyncShapeRoute {
-	readonly id: string;
-	readonly table: string;
-	readonly endpointPath: string;
-	readonly columns: readonly string[];
-}
-
-/**
- * The rewrite. Reachable from here so that it is compiled, linted and checked for
- * reachability like everything else — not because anything imports it yet. Both
- * worlds are exported side by side while the call sites move over; the descriptor
- * exports below are what apps still use.
- */
 export * from './collections/index.js';
 
-export * from './descriptor-factory.js';
 export * from './row-payload-mapper.js';
 export * from './rows/index.js';
 
 /**
- * Every shape the server exposes, read off the descriptor barrel rather than
- * listed again. Adding a descriptor file adds its route; there is no second
- * place to remember, and no way for a path to be typed twice and disagree.
+ * A collection over a table's shape route.
  *
- * This is the only list. There used to be two more beside it —
- * `observationalReadOnlySyncDescriptors` and `foundationWritableSyncDescriptors`,
- * plus an alias each — which stated all fifty-five descriptors again in a
- * hand-maintained order and split them by whether `apps/web` writes to the table.
- * Neither app ever read them: which collections an app creates, and which of them
- * take writes, is the app's own decision and is made in `apps/web/src/sync`.
+ * Takes the table rather than a descriptor, because a descriptor's remaining
+ * fields were the table name spelled four ways: its `id` was the table, its
+ * `getKey` was `row.id` on all fifty-six, its `endpointPath` is what
+ * `shapePathFor` derives, and its `columns` were sent as a query param that the
+ * server strips and the Electric client never reads — so that list decided
+ * nothing on either side. The server takes its columns from the table's schema.
+ *
+ * Superseded by the factories in `collections/`, which need no call-site
+ * arguments at all. This is what the apps use until they move over.
  */
-export const syncShapeDescriptors: readonly SyncShapeRoute[] = Object.values(syncDescriptors);
-
-export * from './descriptors/index.js';
-
 export function electricShapeCollectionOptions<TRow extends { readonly id: string }>(
 	input: {
-		readonly descriptor: SyncDescriptor<TRow>;
+		/** The Postgres table. Names the collection, and nothing else needs saying. */
+		readonly table: string;
 		readonly url: string;
 		readonly syncMode: WebSyncMode;
 	} & Pick<ElectricCollectionConfig<TRow, never>, 'onInsert' | 'onUpdate' | 'onDelete'>,
 ) {
 	return electricCollectionOptions<TRow>({
-		id: input.descriptor.id,
-		getKey: input.descriptor.getKey,
+		id: input.table,
+		getKey: (row) => row.id,
 		syncMode: input.syncMode,
 		...(input.onInsert === undefined ? {} : { onInsert: input.onInsert }),
 		...(input.onUpdate === undefined ? {} : { onUpdate: input.onUpdate }),
@@ -97,10 +64,6 @@ export function electricShapeCollectionOptions<TRow extends { readonly id: strin
 					...init,
 					credentials: 'include',
 				}),
-			params: {
-				table: input.descriptor.table,
-				columns: [...input.descriptor.columns],
-			},
 		},
 	});
 }

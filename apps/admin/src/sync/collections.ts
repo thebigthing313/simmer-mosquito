@@ -1,11 +1,8 @@
 import {
 	electricShapeCollectionOptions,
 	type GenusRow,
-	generaSyncDescriptor,
 	type SpeciesRow,
-	speciesSyncDescriptor,
 	type UnitRow,
-	unitsSyncDescriptor,
 } from '@simmer-mosquito/sync';
 import { type Collection, createCollection } from '@tanstack/db';
 import {
@@ -48,7 +45,7 @@ export interface AdminCollections {
 export function createAdminCollections(options: { readonly serverUrl: string }): AdminCollections {
 	const units = createCollection(
 		electricShapeCollectionOptions<UnitRow>({
-			descriptor: unitsSyncDescriptor,
+			table: 'units',
 			url: `${options.serverUrl}${adminShapePaths.units}`,
 			syncMode: adminSyncMode,
 			onInsert: async ({ transaction }) => {
@@ -97,7 +94,7 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 	);
 	const genera = createCollection(
 		electricShapeCollectionOptions<GenusRow>({
-			descriptor: generaSyncDescriptor,
+			table: 'genera',
 			url: `${options.serverUrl}${adminShapePaths.genera}`,
 			syncMode: adminSyncMode,
 			onInsert: async ({ transaction }) => {
@@ -142,7 +139,7 @@ export function createAdminCollections(options: { readonly serverUrl: string }):
 	);
 	const species = createCollection(
 		electricShapeCollectionOptions<SpeciesRow>({
-			descriptor: speciesSyncDescriptor,
+			table: 'species',
 			url: `${options.serverUrl}${adminShapePaths.species}`,
 			syncMode: adminSyncMode,
 			onInsert: async ({ transaction }) => {
