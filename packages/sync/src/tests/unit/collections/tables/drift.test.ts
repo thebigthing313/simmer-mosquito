@@ -125,12 +125,21 @@ import type { WeatherSummary } from '../../../../collections/tables/weather_summ
  * Only `tsc` can see it, so the file has one runtime test to keep vitest happy.
  */
 
-/** Columns a client never receives, so their absence from a schema is correct. */
+/** Columns no client receives, on any table, so their absence is correct. */
 type ClientOmitted = 'geom' | 'geojson' | 'deleted_at' | 'deleted_by_profile_id';
 
-/** A key in the table that no schema field covers, or the reverse. */
-type Drift<TSchema, TTable> =
-	| Exclude<keyof TTable, keyof TSchema | ClientOmitted>
+/**
+ * A key in the table that no schema field covers, or the reverse.
+ *
+ * `TWithheld` is what one table keeps from its readers, passed at the call sites
+ * below and declared in `WITHHELD` in `scripts/generate-table-schemas.mjs`, which
+ * generates both this file and the schema the column is missing from. It is
+ * constrained to `keyof TTable`, so withholding a column a migration has since
+ * renamed or dropped is an error here rather than a line that quietly withholds
+ * nothing.
+ */
+type Drift<TSchema, TTable, TWithheld extends keyof TTable = never> =
+	| Exclude<keyof TTable, keyof TSchema | ClientOmitted | TWithheld>
 	| Exclude<keyof TSchema, keyof TTable>;
 
 /** Errors with the offending column names when `T` is not `never`. */
@@ -138,7 +147,15 @@ type Assert<T extends never> = T;
 
 type UserDrift = Drift<User, UsersTable>;
 type _User = Assert<UserDrift>;
-type OrganizationDrift = Drift<Organization, OrganizationsTable>;
+type OrganizationDrift = Drift<
+	Organization,
+	OrganizationsTable,
+	| 'subscription_status'
+	| 'billing_mode'
+	| 'billing_contact_name'
+	| 'billing_contact_email'
+	| 'subscription_notes'
+>;
 type _Organization = Assert<OrganizationDrift>;
 type ProfileDrift = Drift<Profile, ProfilesTable>;
 type _Profile = Assert<ProfileDrift>;

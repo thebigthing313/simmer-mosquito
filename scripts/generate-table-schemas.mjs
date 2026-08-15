@@ -6,9 +6,14 @@
  * database.
  *
  * Run it once when a migration adds or changes a table, then own the output by
- * hand — a schema is where a table's client-side decisions live (which columns a
- * client never receives, which enum a column really is), and those do not
- * survive a regeneration. The drift check is what catches the ones you forget.
+ * hand — a schema is where a table's client-side decisions live (which enum a
+ * column really is, which shape its metadata takes), and those do not survive a
+ * regeneration. The drift check is what catches the ones you forget.
+ *
+ * The one decision that must *not* be owned by hand is which columns a client
+ * never receives, because a regeneration would put them back. `OMIT` and
+ * `WITHHELD` below are where that is said, and both the schema and the drift
+ * check are generated from them together.
  *
  * The collection files are a different matter: every one of them is the same six
  * lines with a table name substituted, because everything a table can differ by is
@@ -124,8 +129,54 @@ const IRREGULAR = {
 
 const toSnake = (n) => n.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
 
-/** Columns a client never receives. */
+/** Columns no client receives, on any table. */
 const OMIT = new Set(['geom', 'geojson', 'deleted_at', 'deleted_by_profile_id']);
+
+/**
+ * Columns one table withholds, and why.
+ *
+ * `OMIT` above is a property of the column — geometry is too heavy to stream, and
+ * a soft-deleted row is filtered by the shape predicate before it exists for a
+ * client. This is a property of the *audience*: the column is ordinary, and this
+ * particular table's readers are not the people it is for.
+ *
+ * Both halves of the withholding are generated from here — the column's absence
+ * from the schema, and the drift check's licence to expect it absent. That
+ * matters because the drift check is what makes a new column a build error, and
+ * an entry here is the only way to answer it other than adding the column to the
+ * schema. Withholding by hand-editing a schema file lasts until the next
+ * `pnpm generate:schemas`; withholding here is the statement itself.
+ *
+ * The emitted `Drift<…>` constrains these names to `keyof …Table`, so a column
+ * that is renamed or dropped by a migration fails the build rather than sitting
+ * here withholding nothing.
+ */
+const WITHHELD = {
+	organizations: {
+		reason:
+			"the operator's view of an agency rather than the agency's own record. They are written and read in the operator console (`apps/admin`), which reaches them over REST; `subscription_notes` in particular is what operators write *about* an agency. An agency that should see its own subscription state is a product decision to make deliberately, not a column to leave streaming by default",
+		columns: [
+			'subscription_status',
+			'billing_mode',
+			'billing_contact_name',
+			'billing_contact_email',
+			'subscription_notes',
+		],
+	},
+};
+
+const withheldColumns = (table) => new Set(WITHHELD[table]?.columns ?? []);
+
+/**
+ * Reflows a reason into the ` * `-prefixed lines of a JSDoc block.
+ *
+ * Greedy: take as much as fits, ending on a word boundary. Biome will not do it —
+ * a comment is opaque to a formatter — so an unwrapped reason would emit one very
+ * long line and stay that way.
+ */
+function wrapComment(text) {
+	return (text.match(/\S.{0,73}(?=\s|$)/g) ?? []).join('\n * ');
+}
 const AUDIT = new Set([
 	'created_by_profile_id',
 	'updated_by_profile_id',
@@ -175,15 +226,28 @@ for (const [name] of bodies) {
 	const table = toSnake(name);
 	if (!realTables.has(table)) continue;
 
+	const withheld = withheldColumns(table);
 	const lines = [];
 	const unknown = [];
 	for (const { column, tsType } of columnsOf(name)) {
-		if (OMIT.has(column)) continue;
+		if (OMIT.has(column) || withheld.has(column)) continue;
 		const { zod, unknownType } = zodFor(column, tsType);
 		if (zod === null) unknown.push(`${column}: ${unknownType}`);
 		else lines.push(`\t${column}: ${zod},`);
 	}
 	if (unknown.length) report.push(`UNMAPPED ${table}: ${unknown.join(' | ')}`);
+
+	// Named in the file that withholds them, so the absence is legible where a
+	// reader would otherwise only notice a column missing.
+	const withholdingNote =
+		withheld.size === 0
+			? ''
+			: `\n * ${wrapComment(
+					`This table withholds ${[...withheld].map((c) => `\`${c}\``).join(', ')} as well. ` +
+						`They are ${WITHHELD[table].reason}. Say so in \`WITHHELD\` in ` +
+						'`scripts/generate-table-schemas.mjs`, never by deleting a line below — that ' +
+						'lasts until the next regeneration, and the drift check reads the same list.',
+				)}\n *`;
 
 	// `Summaries` -> `Summary`, then `Batches` -> `Batch` (a plural in `-es` after a
 	// sibilant keeps the whole `es`), then the ordinary trailing `s`.
@@ -206,7 +270,7 @@ for (const [name] of bodies) {
  * \`geom\`, \`geojson\`, \`deleted_at\` and \`deleted_by_profile_id\` are absent:
  * geometry is served by the \`/map/*\` endpoints, and the shape predicate filters
  * soft-deleted rows upstream, so neither ever reaches a collection.
- *
+ *${withholdingNote}
  * A \`date\` column is a \`YYYY-MM-DD\` string rather than a \`Date\` — see
  * \`functions/sync-collection.ts\` for why parsing one loses a day.
  */
@@ -265,10 +329,13 @@ const imports = emitted
 	.join('\n');
 
 const cases = emitted
-	.map(
-		(e) => `type ${e.typeName}Drift = Drift<${e.typeName}, ${e.name}Table>;
-type _${e.typeName} = Assert<${e.typeName}Drift>;`,
-	)
+	.map((e) => {
+		const withheld = [...withheldColumns(e.table)].map((c) => `'${c}'`);
+		const argument = withheld.length === 0 ? '' : `, ${withheld.join(' | ')}`;
+
+		return `type ${e.typeName}Drift = Drift<${e.typeName}, ${e.name}Table${argument}>;
+type _${e.typeName} = Assert<${e.typeName}Drift>;`;
+	})
 	.join('\n');
 
 const tableImports = emitted
@@ -293,12 +360,21 @@ ${imports}
  * Only \`tsc\` can see it, so the file has one runtime test to keep vitest happy.
  */
 
-/** Columns a client never receives, so their absence from a schema is correct. */
+/** Columns no client receives, on any table, so their absence is correct. */
 type ClientOmitted = 'geom' | 'geojson' | 'deleted_at' | 'deleted_by_profile_id';
 
-/** A key in the table that no schema field covers, or the reverse. */
-type Drift<TSchema, TTable> =
-	| Exclude<keyof TTable, keyof TSchema | ClientOmitted>
+/**
+ * A key in the table that no schema field covers, or the reverse.
+ *
+ * \`TWithheld\` is what one table keeps from its readers, passed at the call sites
+ * below and declared in \`WITHHELD\` in \`scripts/generate-table-schemas.mjs\`, which
+ * generates both this file and the schema the column is missing from. It is
+ * constrained to \`keyof TTable\`, so withholding a column a migration has since
+ * renamed or dropped is an error here rather than a line that quietly withholds
+ * nothing.
+ */
+type Drift<TSchema, TTable, TWithheld extends keyof TTable = never> =
+	| Exclude<keyof TTable, keyof TSchema | ClientOmitted | TWithheld>
 	| Exclude<keyof TSchema, keyof TTable>;
 
 /** Errors with the offending column names when \`T\` is not \`never\`. */
