@@ -11,8 +11,8 @@ export * from './adult-surveillance/index.js';
 export { CLOCK_SKEW_TOLERANCE_MS, isFutureBeyondClockSkew } from './command-validation.js';
 export type {
 	DomainCommandType,
-	MultiTableCommandType,
-	SingleTableCommandType,
+	MultiRowCommandType,
+	SingleRowCommandType,
 } from './command-vocabulary.js';
 export * from './control-operations/index.js';
 export * from './field-work/index.js';

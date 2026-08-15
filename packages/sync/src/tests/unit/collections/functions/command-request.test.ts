@@ -40,7 +40,7 @@ function write(overrides: Partial<PendingWrite<TestRow>>): PendingWrite<TestRow>
 		modified: row,
 		changes: {},
 		key: 'habitat-1',
-		metadata: { intent: 'larvalSurveillance.createHabitat' },
+		metadata: { intents: ['larvalSurveillance.createHabitat'] },
 		collection: writable,
 		...overrides,
 	};
@@ -65,7 +65,7 @@ describe('commandRequestFor', () => {
 			id: 'habitat-1',
 			habitat_name: 'Ditch by the levee',
 			is_active: true,
-			intent: 'larvalSurveillance.createHabitat',
+			intents: ['larvalSurveillance.createHabitat'],
 		});
 	});
 
@@ -74,7 +74,7 @@ describe('commandRequestFor', () => {
 			write({
 				type: 'update',
 				changes: { habitat_name: 'Levee ditch', updated_at: new Date() },
-				metadata: { intent: 'larvalSurveillance.updateHabitatDetails' },
+				metadata: { intents: ['larvalSurveillance.updateHabitatDetails'] },
 			}),
 			SERVER,
 		);
@@ -83,7 +83,7 @@ describe('commandRequestFor', () => {
 		expect(request?.url).toBe('https://api.test/commands/habitats/habitat-1');
 		expect(request?.body).toEqual({
 			habitat_name: 'Levee ditch',
-			intent: 'larvalSurveillance.updateHabitatDetails',
+			intents: ['larvalSurveillance.updateHabitatDetails'],
 		});
 	});
 
@@ -95,7 +95,7 @@ describe('commandRequestFor', () => {
 			write({
 				type: 'update',
 				changes: { updated_at: new Date(), updated_by_profile_id: 'profile-2' },
-				metadata: { intent: 'larvalSurveillance.updateHabitatDetails' },
+				metadata: { intents: ['larvalSurveillance.updateHabitatDetails'] },
 			}),
 			SERVER,
 		);
@@ -109,34 +109,67 @@ describe('commandRequestFor', () => {
 			write({
 				type: 'update',
 				changes: { updated_at: new Date() },
-				metadata: { intent: 'larvalSurveillance.updateHabitatLocation', locationSource },
+				metadata: { intents: ['larvalSurveillance.updateHabitatLocation'], locationSource },
 			}),
 			SERVER,
 		);
 
 		expect(request?.body).toEqual({
 			locationSource,
-			intent: 'larvalSurveillance.updateHabitatLocation',
+			intents: ['larvalSurveillance.updateHabitatLocation'],
 		});
 	});
 
 	it('sends a delete as the command it means and nothing else', () => {
 		const request = commandRequestFor(
-			write({ type: 'delete', metadata: { intent: 'larvalSurveillance.deleteHabitat' } }),
+			write({ type: 'delete', metadata: { intents: ['larvalSurveillance.deleteHabitat'] } }),
 			SERVER,
 		);
 
 		expect(request).toEqual({
 			method: 'DELETE',
 			url: 'https://api.test/commands/habitats/habitat-1',
-			body: { intent: 'larvalSurveillance.deleteHabitat' },
+			body: { intents: ['larvalSurveillance.deleteHabitat'] },
 		});
 	});
 
-	it('refuses a write that does not say which command it means', () => {
-		expect(() => commandRequestFor(write({ metadata: {} }), SERVER)).toThrowError(
-			/must name the command it means/,
+	it('sends every command a save meant, over one shared payload', () => {
+		// Renaming a habitat and redrawing it is two commands against one row. They
+		// cannot be two writes: TanStack DB merges two updates to a key and keeps only
+		// the last `metadata`, so the rename would travel under the other command's
+		// name and be dropped without an error.
+		const locationSource = { kind: 'geometry', geometry: { type: 'Point', coordinates: [1, 2] } };
+		const request = commandRequestFor(
+			write({
+				type: 'update',
+				changes: { habitat_name: 'Levee ditch' },
+				metadata: {
+					intents: [
+						'larvalSurveillance.updateHabitatDetails',
+						'larvalSurveillance.updateHabitatLocation',
+					],
+					locationSource,
+				},
+			}),
+			SERVER,
 		);
+
+		expect(request?.body).toEqual({
+			habitat_name: 'Levee ditch',
+			locationSource,
+			intents: [
+				'larvalSurveillance.updateHabitatDetails',
+				'larvalSurveillance.updateHabitatLocation',
+			],
+		});
+	});
+
+	it('refuses a write that does not say which commands it means', () => {
+		for (const metadata of [{}, { intents: [] }, { intents: 'not-a-list' }, { intents: [''] }]) {
+			expect(() => commandRequestFor(write({ metadata }), SERVER)).toThrowError(
+				/must name the commands it means/,
+			);
+		}
 	});
 
 	describe('a collection the client declared read-only', () => {

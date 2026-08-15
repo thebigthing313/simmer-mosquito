@@ -12,7 +12,7 @@ interface TestRow {
 	readonly is_active: boolean;
 }
 
-type Vocabulary = 'test.create' | 'test.retire' | 'test.recordAcrossTables';
+type Vocabulary = 'test.create' | 'test.retire' | 'test.rename' | 'test.recordAcrossTables';
 type MultiTable = 'test.recordAcrossTables';
 
 const mutate = createCollectionMutator<Exclude<Vocabulary, MultiTable>>();
@@ -76,11 +76,27 @@ describe('mutateCollection', () => {
 		});
 		mutate(collection, { operation: 'delete', intent: 'test.retire', key: 'row-1' });
 
-		expect(calls.map((call) => call.metadata?.intent)).toEqual([
-			'test.create',
-			'test.retire',
-			'test.retire',
+		expect(calls.map((call) => call.metadata?.intents)).toEqual([
+			['test.create'],
+			['test.retire'],
+			['test.retire'],
 		]);
+	});
+
+	it('takes several commands for one row, as the list they are', () => {
+		// One save can mean more than one command against the same row. Writing them
+		// as two mutations loses one: TanStack DB merges two updates to a key and
+		// keeps only the later `metadata`.
+		const { collection, calls } = recordingCollection();
+
+		mutate(collection, {
+			operation: 'update',
+			intent: ['test.retire', 'test.rename'],
+			key: 'row-1',
+			changes: { is_active: false, name: 'B' },
+		});
+
+		expect(calls[0]?.metadata?.intents).toEqual(['test.retire', 'test.rename']);
 	});
 
 	it('applies the changes to the draft so the library computes the diff', () => {
@@ -145,6 +161,13 @@ describe('mutateCollection', () => {
 
 		// @ts-expect-error — a real command, but excluded as multi-table.
 		mutate(collection, { operation: 'delete', intent: 'test.recordAcrossTables', key: 'row-1' });
+
+		mutate(collection, {
+			operation: 'delete',
+			// @ts-expect-error — the vocabulary constrains a list the same as one name.
+			intent: ['test.retire', 'test.notACommand'],
+			key: 'row-1',
+		});
 
 		mutate(collection, {
 			operation: 'update',

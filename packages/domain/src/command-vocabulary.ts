@@ -60,70 +60,96 @@ export type DomainCommandType =
 	| WeatherCommandType;
 
 /**
- * The commands that write more than one table.
+ * The commands a client cannot apply as one row.
  *
- * Read off the server handlers rather than reasoned about: every `case` in a
- * command writer was checked for how many tables it writes, and every delete was
- * resolved through `DELETABLE_RECORDS` in `packages/db` to see whether its rules
- * cascade, detach, or merely block. A rule that only blocks writes nothing but
- * its own row; `cascades`, `cascadesSupport` and `detaches` all write elsewhere.
+ * ## The question this answers, and the one it used to
  *
- * ## Why it is worth naming
+ * This list was first drawn as "commands that write more than one table", read
+ * off the server handlers. That is a true fact about the server and the wrong
+ * question for the client, and it made the list three times too long.
  *
- * A client applies a command as an optimistic mutation on one collection. When
- * the command writes one table that is the whole truth, and the optimistic row
- * is replaced by the synced one. When it writes several, the collection knows
- * about one of them: deleting a habitat also soft-deletes its comments, tags,
- * route stops and assignment stops and detaches its inspections, and none of
- * that is represented by removing one row from the habitats collection. The
- * write succeeds and the client is left describing it wrongly until every other
- * affected collection happens to re-sync.
+ * A client does not mirror the server's writes. It writes what the user must see
+ * change at once, and everything else arrives over sync a moment later. Deleting
+ * a Habitat is the case that makes the difference plain: the server also
+ * soft-deletes the Habitat's Comments and Tags and detaches its Habitat
+ * Inspections, so it writes four tables — but the client removes one row from one
+ * collection, which is exactly and completely what the user asked for. The
+ * Comments were never loaded. The detached Inspection updates when Electric says
+ * so. There is nothing for a transaction to hold.
  *
- * So these are excluded from the single-collection mutation helper. They need a
- * transaction spanning the collections they touch — the server already commits
- * the batch atomically and returns one txid, so what is missing is only on this
- * side.
+ * So the test is not how many tables the server writes. It is whether the
+ * optimistic view is *wrong* without a second row being written here. That is
+ * true in three shapes:
  *
- * ## What this does not yet cover
+ * 1. **Many rows the command names.** A move takes an id list and restacks a
+ *    whole list; a merge takes a list of losing rows and retires all of them.
+ *    Either way the caller named N rows and expects N to change, and they are
+ *    separate keys, so nothing merges them and every one needs writing.
+ * 2. **A parent and the children created with it.** Creating a Mission with its
+ *    Mission Items, a Chemical Application with its batches, a Notification
+ *    Registration with its types — one command, one payload, a parent row and N
+ *    child rows that reference it.
  *
- * The sweep read the 242 commands handled by a `switch` in `apps/server`. Of the
- * 271 names in the vocabulary, 29 are handled another way or not at all:
- * `foundation.deleteAddress` was chased down separately and is included; the
- * global taxonomy writes (`createGenus`, `updateSpecies`, and their siblings)
- * run through `admin-foundations.ts` and were not analysed; and the ten `weather.*`
- * writes appear only in `command-permissions.ts`, so they have no handler to
- * read. Absence from this union is therefore not proof a command writes one
- * table — for those 28 it means nobody has looked.
+ *    These belong here whether or not a given screen lists the children while
+ *    they are being created, and the reason is order rather than display: a
+ *    child names its parent, so the parent has to land first. Applied as one
+ *    transaction the whole group either appears or does not, which is what the
+ *    server does with it too. Applied as separate writes it is a parent that
+ *    exists briefly with no children, and children that reference a row the
+ *    server may yet refuse.
+ * 3. **A record and the thing that produced it.** The four
+ *    `*ForAssignmentItem` commands write the Collection or Habitat Inspection
+ *    *and* close the Assignment Item that produced it, and may start the
+ *    Assignment (ADR 0012). On a run page the user is looking at both.
+ *    `createHabitatFromInspection` is the same shape: it inserts the Habitat and
+ *    points the Habitat Inspection at it.
+ *
+ * A merge is worth being precise about, because it is easy to put here for the
+ * wrong reason. It also repoints every record that named a losing row — each
+ * Habitat holding a merged Address moves to the surviving `address_id`, and so
+ * on through every table with a reference. That half needs no optimism at all:
+ * it streams back exactly like the support rows of a cascading delete. What puts
+ * a merge in this union is the N rows the caller named, not the fan-out behind
+ * them.
+ *
+ * Everything else — every cascading delete, every `block`, every `detach` — is
+ * one row here and a sync round trip for the rest.
+ *
+ * ## What this does not cover
+ *
+ * Two sets have no handler to read, so neither was analysed. Absence from this
+ * union does not mean either was found to write one row.
+ *
+ * The ten `weather.*` names appear nowhere in `apps/server` at all — no route,
+ * no writer, nothing. They are vocabulary waiting for an endpoint.
+ *
+ * The global taxonomy names (`createGenus`, `updateSpecies` and their siblings)
+ * appear only in `command-permissions.ts`. Their routes under `/admin` call
+ * `createGenusWithTxid` and the like directly, with hand-written payload
+ * readers, so no route ever builds one of these commands. They are also operator
+ * writes rather than agency ones, which is why nothing has needed them yet.
  */
-export type MultiTableCommandType =
-	// Writes two tables outright.
-	| 'controlOperations.deleteEquipment'
-	| 'controlOperations.deleteInsecticideBatch'
+export type MultiRowCommandType =
+	// Many rows the command names: a move restacks an id list, a merge retires one.
 	| 'fieldWork.moveAssignmentItems'
+	| 'fieldWork.moveRouteItems'
+	| 'missionDispatch.moveMissionItems'
+	// A parent, and the children created with it in one payload.
+	| 'controlOperations.recordChemicalApplication'
+	| 'missionDispatch.createMission'
+	| 'publicEngagement.createNotificationRegistration'
+	// A record, and the Assignment Item its work closed.
+	| 'fieldWork.collectTrapCollectionForAssignmentItem'
+	| 'fieldWork.recordCollectedTrapCollectionForAssignmentItem'
+	| 'fieldWork.recordHabitatInspectionForAssignmentItem'
+	| 'fieldWork.setTrapCollectionForAssignmentItem'
+	// A Habitat, and the Habitat Inspection promoted into it.
 	| 'larvalSurveillance.createHabitatFromInspection'
-	// Deletes whose record configuration cascades or detaches.
-	| 'adultSurveillance.deleteTrap'
-	| 'adultSurveillance.setCollectionBycatch'
-	| 'controlOperations.deleteBiocontrolAction'
-	| 'controlOperations.deleteChemicalApplication'
-	| 'controlOperations.deleteOutreachAction'
-	| 'controlOperations.deleteRequestedControlAction'
-	| 'controlOperations.deleteSourceReduction'
-	| 'fieldWork.deleteAssignment'
-	| 'fieldWork.deleteRoute'
-	| 'foundation.deleteAddress'
-	| 'foundation.deleteRegion'
-	| 'larvalSurveillance.deleteHabitat'
-	| 'larvalSurveillance.deleteInspection'
-	| 'larvalSurveillance.deleteInspectionSample'
-	| 'missionDispatch.deleteMission'
-	| 'publicEngagement.deleteContact'
-	| 'publicEngagement.deleteServiceRequest'
-	// No handler exists yet, so these two are listed on what the command means
-	// rather than on what it does. A merge reassigns the losing records' children
-	// before retiring them, which cannot be one table by construction.
+	// `mergeContacts` has a handler; the other two do not, and are listed on what a
+	// merge means rather than on what one does.
 	| 'foundation.mergeAddresses'
-	| 'larvalSurveillance.mergeHabitats';
+	| 'larvalSurveillance.mergeHabitats'
+	| 'publicEngagement.mergeContacts';
 
-/** A command a single-collection mutation can carry safely. */
-export type SingleTableCommandType = Exclude<DomainCommandType, MultiTableCommandType>;
+/** A command a single-row mutation can carry safely. */
+export type SingleRowCommandType = Exclude<DomainCommandType, MultiRowCommandType>;

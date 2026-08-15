@@ -19,11 +19,18 @@
  * where the intent goes. Four rules, restated once for the simple path and once
  * for the batch, is the shape of the duplication this layer exists to remove.
  *
- * So both paths build their requests here. The handlers send them one at a time.
- * A transaction sends them together.
+ * So both paths build their requests here, and the handlers send them one at a
+ * time.
+ *
+ * What a transaction sends is not settled. A command that writes several tables
+ * is still one command with one payload, so it is probably one request rather
+ * than one per mutation — in which case a transaction's mutations exist only so
+ * the library can apply the change and take it back, and this builder is not what
+ * produces its body. Resolve that when the transaction path is built; nothing
+ * here assumes either answer.
  */
 
-import { locationSourceFields, requireIntent } from './mutation-metadata.js';
+import { locationSourceFields, requireIntents } from './mutation-metadata.js';
 import { commandPathFor } from './routes.js';
 
 /** The body of a command: row fields named for their Postgres columns. */
@@ -163,13 +170,13 @@ export function commandRequestFor<TRow extends object>(
 	refuseIfReadOnly(mutation, table);
 
 	const endpoint = `${serverUrl}${commandPathFor(table)}`;
-	const intent = requireIntent(mutation.metadata, table);
+	const intents = requireIntents(mutation.metadata, table);
 
 	if (mutation.type === 'delete') {
 		// A delete has no payload of its own beyond the command it means. Which
 		// acknowledgements that command demands is the server's to decide, and it
 		// answers with them when it refuses.
-		return { method: 'DELETE', url: `${endpoint}/${String(mutation.key)}`, body: { intent } };
+		return { method: 'DELETE', url: `${endpoint}/${String(mutation.key)}`, body: { intents } };
 	}
 
 	if (mutation.type === 'insert') {
@@ -179,14 +186,14 @@ export function commandRequestFor<TRow extends object>(
 			body: {
 				...withoutServerOwnedColumns(mutation.modified),
 				...locationSourceFields(mutation.metadata),
-				intent,
+				intents,
 			},
 		};
 	}
 
 	// A re-drawn shape is a change even when no column moved, so the location
-	// instruction is folded in before the emptiness check. The intent is not:
-	// naming the command does not give the endpoint anything to write, so an
+	// instruction is folded in before the emptiness check. The intents are not:
+	// naming the commands does not give the endpoint anything to write, so an
 	// otherwise empty patch stays empty.
 	const body = {
 		...withoutServerOwnedColumns(mutation.changes),
@@ -200,6 +207,6 @@ export function commandRequestFor<TRow extends object>(
 	return {
 		method: 'PATCH',
 		url: `${endpoint}/${String(mutation.key)}`,
-		body: { ...body, intent },
+		body: { ...body, intents },
 	};
 }

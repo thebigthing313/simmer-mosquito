@@ -15,36 +15,55 @@ function readMutationMetadata(metadata: unknown): Record<string, unknown> | unde
 }
 
 /**
- * The command this write means. Required.
+ * The commands this write means. At least one, required.
  *
- * Without it a server has only the payload to go on and must infer the intent
+ * Without them a server has only the payload to go on and must infer the intent
  * from which fields are present — `is_active: false` must mean "retire", because
  * nothing else could have said so. That inference is what makes a payload's shape
  * load-bearing: an extra key becomes an extra command, and the endpoint has to
  * grant its own acknowledgements because it cannot tell a deliberate retirement
  * from an incidental one.
  *
- * Naming the command removes the guess, which is what lets the client send a
- * payload without curating it. That trade only holds if the name is always there,
- * so this throws rather than returning `undefined`: an unnamed write is a
+ * Naming the commands removes the guess, which is what lets the client send a
+ * payload without curating it. That trade only holds if the names are always
+ * there, so this throws rather than returning `undefined`: an unnamed write is a
  * malformed request, not a request with a missing option.
  *
- * Refusing here is not domain validation — whether the named command is real,
- * permitted, and applicable is decided by the server. This only checks that the
- * request says what it is.
+ * ## Why a list rather than one name
  *
- * Typed as a plain string rather than the domain's command union: `packages/sync`
- * does not depend on `packages/domain`, and the server re-derives the command
- * from this name anyway, so a wrong one is refused rather than trusted.
+ * One save can mean more than one command against the same row. Renaming a
+ * Habitat and redrawing its geometry is `updateHabitatDetails` and
+ * `updateHabitatLocation` — two commands, one row, one save.
+ *
+ * Sending them as two writes does not work, and fails quietly. TanStack DB merges
+ * two updates to one key into a single mutation: the changed fields union, but
+ * `metadata` is replaced whole, last write wins. The request would carry both the
+ * new name and the new geometry under the name of the second command alone, the
+ * server would run one builder that does not read the other's fields, and the
+ * rename would vanish behind a 200.
+ *
+ * A list has no such seam. The server runs each named builder over the same body
+ * and commits the resulting commands in one transaction, which is what its write
+ * loop already takes.
+ *
+ * Typed as plain strings rather than the domain's command union: `packages/sync`
+ * does not depend on `packages/domain`, and the server re-derives each command
+ * from its name anyway, so a wrong one is refused rather than trusted.
  */
-export function requireIntent(metadata: unknown, table: string): string {
-	const intent = readMutationMetadata(metadata)?.intent;
+export function requireIntents(metadata: unknown, table: string): readonly string[] {
+	const intents = readMutationMetadata(metadata)?.intents;
 
-	if (typeof intent !== 'string' || intent.length === 0) {
-		throw new Error(`A write to ${table} must name the command it means, as \`metadata.intent\`.`);
+	if (
+		!Array.isArray(intents) ||
+		intents.length === 0 ||
+		!intents.every((intent) => typeof intent === 'string' && intent.length > 0)
+	) {
+		throw new Error(
+			`A write to ${table} must name the commands it means, as a non-empty \`metadata.intents\`.`,
+		);
 	}
 
-	return intent;
+	return intents;
 }
 
 /**
