@@ -59,6 +59,7 @@ import { registerPublicEngagementRecordRoutes } from './public-engagement-record
 import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
+import { registerTableCommandSurface } from './table-commands/index.js';
 import { registerUnimplementedCommandRoutes } from './unimplemented-commands.js';
 
 const env = readServerEnv();
@@ -379,6 +380,14 @@ registerRecordDeletionRoutes(app, {
 
 registerGeocoderRoutes(app, {
 	apiKey: env.geocodioApiKey,
+	authContextMiddleware,
+});
+
+// The `/commands/{table}` surface, which the new sync collections write through.
+// Additive: the domain-shaped endpoints above are untouched, and both reach the
+// same commands, permissions and write transaction.
+registerTableCommandSurface(app, {
+	db,
 	authContextMiddleware,
 });
 

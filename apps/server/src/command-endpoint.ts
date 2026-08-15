@@ -141,12 +141,18 @@ export function agencyCommandContext(authContext: AuthContext): AgencyContext {
 // The endpoint itself
 // ===========================================================================
 
-type JsonResult =
+export type JsonResult =
 	| { readonly ok: true; readonly payload: Record<string, unknown> }
 	| { readonly ok: false; readonly reason: string };
 
-/** Parse a request body that has to be a JSON object. */
-async function readJsonObject(request: {
+/**
+ * Parse a request body that has to be a JSON object.
+ *
+ * Exported for `table-commands/dispatch.ts`, which reads a body the same way and
+ * then does something different with it — the `intents` list decides which
+ * builders run, so it cannot go through {@link commandEndpoint}'s single `build`.
+ */
+export async function readJsonObject(request: {
 	readonly json: () => Promise<unknown>;
 }): Promise<JsonResult> {
 	let raw: unknown;
