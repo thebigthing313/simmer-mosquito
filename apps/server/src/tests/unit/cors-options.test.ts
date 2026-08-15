@@ -102,7 +102,7 @@ describe('CORS preflights over the real middleware', () => {
 	});
 
 	it('allows POST preflights for Electric subset snapshot shape routes', async () => {
-		const response = await preflight('/sync/shapes/route-items', 'POST', 'content-type');
+		const response = await preflight('/sync/shapes/route_items', 'POST', 'content-type');
 
 		expect(response.headers.get('access-control-allow-methods')).toContain('POST');
 		expect(response.headers.get('access-control-allow-headers')).toContain('content-type');

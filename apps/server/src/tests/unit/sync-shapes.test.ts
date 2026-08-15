@@ -1,8 +1,9 @@
-import { syncShapeDescriptors } from '@simmer-mosquito/sync';
+import { tableSchemas } from '@simmer-mosquito/sync';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
 import type { AuthVariables } from '../../auth-middleware.js';
+import { isServedScope, syncShapeScopes } from '../../shape-scopes.js';
 import {
 	buildElectricShapeRequest,
 	buildElectricShapeUrl,
@@ -52,7 +53,7 @@ describe('buildElectricShapeUrl', () => {
 		const url = new URL(
 			buildElectricShapeUrl({
 				electricUrl: 'http://localhost:3001/v1/shape',
-				incomingUrl: 'http://localhost:3000/sync/shapes/organization',
+				incomingUrl: 'http://localhost:3000/sync/shapes/organizations',
 				columns: ['id', 'mailing_address_line_1', 'mailing_address_line_2'],
 				table: 'organizations',
 			}),
@@ -115,7 +116,7 @@ describe('buildElectricShapeUrl', () => {
 	it('forwards a POST subset body while forcing the org-scoped shape', () => {
 		const request = buildElectricShapeRequest({
 			electricUrl: 'http://localhost:3001/v1/shape',
-			incomingUrl: 'http://localhost:3000/sync/shapes/route-items?offset=-1&handle=shape-1',
+			incomingUrl: 'http://localhost:3000/sync/shapes/route_items?offset=-1&handle=shape-1',
 			columns: ['id', 'organization_id', 'route_id'],
 			table: 'route_items',
 			where: 'organization_id = $1 and deleted_at is null',
@@ -185,27 +186,35 @@ describe('buildElectricShapeUrl', () => {
 });
 
 /**
- * The `where` each shape must reach Electric with. Every shape defaults to the
- * org-scoped, soft-delete-aware predicate; the exceptions are listed, so a
- * descriptor that quietly acquires the wrong scope fails here rather than
- * streaming another agency's rows.
+ * The `where` each shape must reach Electric with, written out here rather than
+ * derived from the map the routes read.
  *
- * The two `organization_id = $1`-only entries are not a decision to expose
- * deleted rows: `memberships` and `weather_summaries` have no `deleted_at`
- * column, and naming `deleted_at` in their shape is an Electric error.
+ * That is the point of it: `shape-scopes.ts` says which scope a table has and
+ * `sync-shapes.ts` turns a scope into SQL, so a test that consulted either would
+ * agree with itself no matter what they said. This is the SQL, by table, checked
+ * against what actually reached Electric.
+ *
+ * Everything defaults to the org-scoped, soft-delete-aware predicate; the
+ * exceptions are listed. The two `organization_id = $1`-only entries are not a
+ * decision to expose deleted rows — `memberships` and `weather_summaries` have no
+ * `deleted_at` column, and naming one in their shape is an Electric error.
  */
 const orgScopedWhere = 'organization_id = $1 and deleted_at is null';
-const shapeWhereByPath: Readonly<Record<string, string | null>> = {
+const shapeWhereByTable: Readonly<Record<string, string | null>> = {
 	// Global reference data every agency reads — no tenant predicate at all.
-	'/sync/shapes/units': null,
-	'/sync/shapes/genera': null,
-	'/sync/shapes/species': null,
-	'/sync/shapes/memberships': 'organization_id = $1',
-	'/sync/shapes/organization': 'id = $1 and deleted_at is null',
-	'/sync/shapes/weather-sources':
-		'(organization_id = $1 or organization_id is null) and deleted_at is null',
-	'/sync/shapes/weather-summaries': '(organization_id = $1 or organization_id is null)',
+	units: null,
+	genera: null,
+	species: null,
+	memberships: 'organization_id = $1',
+	organizations: 'id = $1 and deleted_at is null',
+	weather_sources: '(organization_id = $1 or organization_id is null) and deleted_at is null',
+	weather_summaries: '(organization_id = $1 or organization_id is null)',
 };
+
+/** Every table with a route, and the columns its schema says it may carry. */
+const servedTables = Object.entries(syncShapeScopes)
+	.filter(([, entry]) => isServedScope(entry))
+	.map(([table]) => table);
 
 function recordingApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
 	const app = new Hono<{ Variables: AuthVariables }>();
@@ -228,25 +237,42 @@ function recordingApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
 
 describe('registerSyncShapeRoutes', () => {
 	it.each(
-		syncShapeDescriptors.map((descriptor) => [descriptor.id, descriptor] as const),
-	)('forces the table, columns and tenant scope of the %s shape', async (_id, descriptor) => {
+		servedTables,
+	)('forces the table, columns and tenant scope of the %s shape', async (table) => {
 		const requests: string[] = [];
-		const response = await recordingApp(requests).request(descriptor.endpointPath);
+		const response = await recordingApp(requests).request(`/sync/shapes/${table}`);
 		const upstream = new URL(requests[0] ?? '');
-		const declared = shapeWhereByPath[descriptor.endpointPath];
+		const declared = shapeWhereByTable[table];
 		const expectedWhere = declared === undefined ? orgScopedWhere : declared;
 
 		expect(response.status).toBe(200);
-		expect(upstream.searchParams.get('table')).toBe(descriptor.table);
-		expect(upstream.searchParams.get('columns')?.split(',')).toHaveLength(
-			descriptor.columns.length,
+		expect(upstream.searchParams.get('table')).toBe(table);
+		// The schema is the column list. Not a count against a second list — the
+		// exact fields, so a column the schema gains reaches the shape and one it
+		// withholds cannot.
+		expect(upstream.searchParams.get('columns')?.split(',')).toEqual(
+			Object.keys(tableSchemas[table as keyof typeof tableSchemas].shape),
 		);
 		expect(upstream.searchParams.get('where')).toBe(expectedWhere);
 		expect(upstream.searchParams.get('params[1]')).toBe(expectedWhere === null ? null : 'org-1');
 	});
 
+	it('serves no shape for a table the scope map withholds', async () => {
+		// `users` has no predicate that could scope it to an agency, so it has no
+		// route at all rather than one that streams every login.
+		const app = new Hono<{ Variables: AuthVariables }>();
+
+		registerSyncShapeRoutes(app, {
+			electricUrl: 'http://localhost:3001/v1/shape',
+			authContextMiddleware: createMiddleware(async (_context, next) => next()),
+			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+		});
+
+		expect((await app.request('/sync/shapes/users')).status).toBe(404);
+	});
+
 	it.each(
-		syncShapeDescriptors.map((descriptor) => [descriptor.endpointPath] as const),
+		servedTables.map((table) => [`/sync/shapes/${table}`] as const),
 	)('registers %s for both GET and the POST subset transport', async (path) => {
 		const app = new Hono<{ Variables: AuthVariables }>();
 
@@ -286,15 +312,16 @@ describe('registerSyncShapeRoutes', () => {
 		expect(upstream.searchParams.get('params[1]')).toBeNull();
 	});
 
-	it('translates camelCase descriptor columns to their snake_case DB names', async () => {
+	it('asks for the column names Postgres has, with no case conversion', async () => {
 		const requests: string[] = [];
-		await recordingApp(requests).request('/sync/shapes/organization');
+		await recordingApp(requests).request('/sync/shapes/organizations');
 		const columns = new URL(requests[0] ?? '').searchParams.get('columns')?.split(',') ?? [];
 
 		expect(columns).toContain('workos_organization_id');
 		expect(columns).toContain('updated_by_profile_id');
-		// The numbered address columns are the four hand-coded exceptions: a plain
-		// camel→snake pass would produce `mailing_address_line1`, which is not a column.
+		// The numbered address columns were four hand-written exceptions to a
+		// camel→snake pass, which is exactly the class of thing that no longer exists:
+		// the schema field IS the column name.
 		expect(columns).toContain('mailing_address_line_1');
 		expect(columns).toContain('mailing_address_line_2');
 	});
@@ -318,7 +345,7 @@ describe('registerSyncShapeRoutes', () => {
 			}) as typeof fetch,
 		});
 
-		const response = await app.request('/sync/shapes/insecticide-batches');
+		const response = await app.request('/sync/shapes/insecticide_batches');
 		const upstream = new URL(requests[0] ?? '');
 
 		expect(response.status).toBe(200);
@@ -377,7 +404,7 @@ describe('registerSyncShapeRoutes', () => {
 			}) as typeof fetch,
 		});
 
-		const response = await app.request('/sync/shapes/route-items', {
+		const response = await app.request('/sync/shapes/route_items', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({
@@ -408,7 +435,7 @@ describe('registerSyncShapeRoutes', () => {
 			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
 		});
 
-		const response = await app.request('/sync/shapes/route-items', {
+		const response = await app.request('/sync/shapes/route_items', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: '{}',
@@ -474,14 +501,14 @@ describe('registerSyncShapeRoutes', () => {
 			'/sync/shapes/traps',
 			'/sync/shapes/collections',
 			'/sync/shapes/applications',
-			'/sync/shapes/source-reductions',
-			'/sync/shapes/outreach-actions',
-			'/sync/shapes/biocontrol-actions',
-			'/sync/shapes/service-requests',
-			'/sync/shapes/requested-control-actions',
-			'/sync/shapes/mission-items',
-			'/sync/shapes/notification-registrations',
-			'/sync/shapes/weather-sources',
+			'/sync/shapes/source_reductions',
+			'/sync/shapes/outreach_actions',
+			'/sync/shapes/biocontrol_actions',
+			'/sync/shapes/service_requests',
+			'/sync/shapes/requested_control_actions',
+			'/sync/shapes/mission_items',
+			'/sync/shapes/notification_registrations',
+			'/sync/shapes/weather_sources',
 		]) {
 			const response = await app.request(path);
 			const upstream = new URL(requests.at(-1) ?? '');

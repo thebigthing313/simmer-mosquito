@@ -72,6 +72,7 @@ export * from './service_requests.js';
 export * from './source_reduction_methods.js';
 export * from './source_reductions.js';
 export * from './species.js';
+export * from './tables/index.js';
 export * from './tag_items.js';
 export * from './tags.js';
 export * from './traps.js';

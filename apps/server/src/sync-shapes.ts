@@ -1,13 +1,19 @@
-import {
-	generaSyncDescriptor,
-	type SyncShapeRoute,
-	speciesSyncDescriptor,
-	syncShapeDescriptors,
-	unitsSyncDescriptor,
-} from '@simmer-mosquito/sync';
+/**
+ * A shape route per table, derived rather than declared.
+ *
+ * Three facts make one route, and each comes from the one place that owns it:
+ * the path from `shapePathFor`, which the client's collection derives too; the
+ * columns from the table's schema, which is also what a client parses a row
+ * with; and the tenant predicate from `shape-scopes.ts`, which is the server's
+ * alone. Nothing is written twice, so nothing can drift.
+ *
+ * This replaces fifty-five descriptor files that stated all three per table and
+ * carried a fourth — a `syncMode` that was never a fact about a table at all.
+ */
+import { shapePathFor, syncedColumnsOf, tableSchemas } from '@simmer-mosquito/sync';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
-import { type SyncShapeScope, shapeScopeOf } from './shape-scopes.js';
+import { isServedScope, type SyncShapeScope, syncShapeScopes } from './shape-scopes.js';
 
 interface ShapeRouteOptions {
 	readonly electricUrl: string | null;
@@ -16,67 +22,96 @@ interface ShapeRouteOptions {
 	readonly fetch?: typeof fetch;
 }
 
-// The operator console reads the global taxonomy through its own path prefix and
-// its own middleware. Same descriptors, same forced shape — a different door.
-const operatorShapeDescriptors = [
-	unitsSyncDescriptor,
-	generaSyncDescriptor,
-	speciesSyncDescriptor,
-] as const;
+/**
+ * The tables the operator console reads, through its own path prefix and its own
+ * middleware. Same shape, a different door.
+ *
+ * Every one is `global` scope, which is why a second door works at all: a global
+ * shape's predicate is empty, so its handler never reads an agency context — and
+ * an operator session has none. The prefix collapses when `apps/admin` moves to
+ * the collection factories, at which point the middleware can admit either
+ * identity on exactly the routes this map calls `global`.
+ */
+const operatorShapeTables = ['units', 'genera', 'species'] as const;
+
+/** One table's route: what the server forces, and who may ask for it. */
+interface ShapeRoute {
+	readonly table: string;
+	readonly path: string;
+	readonly columns: readonly string[];
+	readonly scope: SyncShapeScope;
+	readonly middleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+}
 
 export function registerSyncShapeRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: ShapeRouteOptions,
 ): void {
-	for (const descriptor of syncShapeDescriptors) {
+	for (const [table, entry] of Object.entries(syncShapeScopes)) {
+		// A withheld table has no route rather than an unscoped one. `users` is the
+		// only one, and `shape-scopes.ts` says why.
+		if (!isServedScope(entry)) {
+			continue;
+		}
+
 		registerShapeRoute(app, options, {
-			path: descriptor.endpointPath,
+			table,
+			path: shapePathFor(table),
+			columns: columnsOf(table),
+			scope: entry,
 			middleware: options.authContextMiddleware,
-			descriptor,
 		});
 	}
 
-	for (const descriptor of operatorShapeDescriptors) {
+	for (const table of operatorShapeTables) {
 		registerShapeRoute(app, options, {
-			path: `/admin${descriptor.endpointPath}`,
+			table,
+			path: `/admin${shapePathFor(table)}`,
+			columns: columnsOf(table),
+			scope: 'global',
 			middleware: options.operatorAuthContextMiddleware,
-			descriptor,
 		});
 	}
+}
+
+/**
+ * The columns a table's shape may carry: exactly the fields its schema declares.
+ *
+ * Which is why withholding a column is done in the schema (see `WITHHELD` in
+ * `scripts/generate-table-schemas.mjs`) — a column absent there is absent from
+ * the shape, and there is no second list that could disagree about it.
+ */
+function columnsOf(table: string): readonly string[] {
+	const schema = tableSchemas[table as keyof typeof tableSchemas];
+
+	if (schema === undefined) {
+		throw new Error(`No collection schema for ${table}, so its shape has no column list.`);
+	}
+
+	return syncedColumnsOf(schema);
 }
 
 function registerShapeRoute(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: ShapeRouteOptions,
-	shape: {
-		readonly path: string;
-		readonly middleware: MiddlewareHandler<{ Variables: AuthVariables }>;
-		readonly descriptor: SyncShapeRoute;
-	},
+	shape: ShapeRoute,
 ): void {
-	// Resolved once, here, rather than per request: a table with no declared scope
-	// stops the server from starting instead of answering the request that needed
-	// it. See `shape-scopes.ts` — the descriptor no longer carries a scope of its
-	// own, so there is nothing for this to disagree with.
-	const scope = shapeScopeOf(shape.descriptor.table);
-
 	app.get(shape.path, shape.middleware, async (context) =>
-		proxyShapeRoute(context, options, shape.descriptor, scope, undefined),
+		proxyShapeRoute(context, options, shape, undefined),
 	);
 
 	// POST carries subset snapshot params in the body (on-demand collections). The
 	// forced table/columns/where/params are identical to the GET path; the body is
 	// sanitized to subset-only keys so it can only narrow within the forced shape.
 	app.post(shape.path, shape.middleware, async (context) =>
-		proxyShapeRoute(context, options, shape.descriptor, scope, await readSubsetBody(context)),
+		proxyShapeRoute(context, options, shape, await readSubsetBody(context)),
 	);
 }
 
 function proxyShapeRoute(
 	context: Context<{ Variables: AuthVariables }>,
 	options: ShapeRouteOptions,
-	descriptor: SyncShapeRoute,
-	scope: SyncShapeScope,
+	shape: ShapeRoute,
 	subsetBody: Record<string, unknown> | undefined,
 ): Promise<Response> | Response {
 	if (options.electricUrl === null) {
@@ -88,9 +123,12 @@ function proxyShapeRoute(
 		upstreamRequest: buildElectricShapeRequest({
 			electricUrl: options.electricUrl,
 			incomingUrl: context.req.url,
-			columns: descriptor.columns.map(camelToSnake),
-			table: descriptor.table,
-			...shapeScopeFilter(scope, context),
+			// No case conversion. The schema's field names are the column names, which
+			// is the whole point of the collections holding rows as Postgres sends
+			// them — `camelToSnake` and its four hand-written exceptions are gone.
+			columns: shape.columns,
+			table: shape.table,
+			...shapeScopeFilter(shape.scope, context),
 			...(subsetBody === undefined ? {} : { subsetBody }),
 		}),
 	});
@@ -328,23 +366,6 @@ const electricExposeHeaders = [
 	'electric-schema',
 	'electric-cursor',
 ];
-
-function camelToSnake(value: string): string {
-	if (value === 'addressLine1') {
-		return 'address_line_1';
-	}
-	if (value === 'addressLine2') {
-		return 'address_line_2';
-	}
-	if (value === 'mailingAddressLine1') {
-		return 'mailing_address_line_1';
-	}
-	if (value === 'mailingAddressLine2') {
-		return 'mailing_address_line_2';
-	}
-
-	return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-}
 
 function isServerOwnedShapeParam(value: string): boolean {
 	return serverOwnedShapeParams.has(value) || /^params\[\d+\]$/.test(value);
