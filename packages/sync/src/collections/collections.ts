@@ -14,7 +14,13 @@ import {
 	type SyncCollectionClientOptions,
 	syncCollectionConfig,
 } from './functions/sync-collection.js';
-import { type Collection, collectionSchema } from './tables/collections.js';
+import { type AdultCollection, adultCollectionSchema } from './tables/collections.js';
+
+/**
+ * The row, re-exported here so a consumer needs one import rather than reaching
+ * past the collection into the schema module for the type of what it holds.
+ */
+export type { AdultCollection };
 
 /** Where this table's shape is served. Derived so client and server cannot drift. */
 export const collectionsShapePath = shapePathFor('collections');
@@ -24,8 +30,8 @@ export function createCollectionsCollection(options: SyncCollectionClientOptions
 	// has to be concrete for the row type to be inferred from it — see that module.
 	return createCollection(
 		electricCollectionOptions({
-			...syncCollectionConfig<Collection>({ table: 'collections', ...options }),
-			schema: collectionSchema,
+			...syncCollectionConfig<AdultCollection>({ table: 'collections', ...options }),
+			schema: adultCollectionSchema,
 		}),
 	);
 }

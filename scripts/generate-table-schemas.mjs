@@ -115,8 +115,15 @@ function columnsOf(name, seen = new Set()) {
 /**
  * Names the simple rule gets wrong. `Species` is both singular and plural, and a
  * row of `genera` is a `Genus`.
+ *
+ * `Collections` is not an irregular plural — it is a collision. A row of the
+ * `collections` table is a Collection in the domain sense (what a trap caught),
+ * but `Collection` is also what TanStack DB calls the thing that holds rows, so
+ * a module naming both cannot import them. `AdultCollection` is the qualifier
+ * the surrounding code already uses, and the domain word survives inside it.
  */
 const IRREGULAR = {
+	Collections: 'AdultCollection',
 	Addresses: 'Address',
 	CollectionSpecies: 'CollectionSpecies',
 	Genera: 'Genus',
@@ -302,6 +309,12 @@ import {
 	syncCollectionConfig,
 } from './functions/sync-collection.js';
 import { type ${singular}, ${schemaName} } from './tables/${table}.js';
+
+/**
+ * The row, re-exported here so a consumer needs one import rather than reaching
+ * past the collection into the schema module for the type of what it holds.
+ */
+export type { ${singular} };
 
 /** Where this table's shape is served. Derived so client and server cannot drift. */
 export const ${shapePathName} = shapePathFor('${table}');

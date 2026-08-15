@@ -16,6 +16,12 @@ import {
 } from './functions/sync-collection.js';
 import { type ApplicationBatch, applicationBatchSchema } from './tables/application_batches.js';
 
+/**
+ * The row, re-exported here so a consumer needs one import rather than reaching
+ * past the collection into the schema module for the type of what it holds.
+ */
+export type { ApplicationBatch };
+
 /** Where this table's shape is served. Derived so client and server cannot drift. */
 export const applicationBatchesShapePath = shapePathFor('application_batches');
 

@@ -19,6 +19,12 @@ import {
 	requestedControlActionSchema,
 } from './tables/requested_control_actions.js';
 
+/**
+ * The row, re-exported here so a consumer needs one import rather than reaching
+ * past the collection into the schema module for the type of what it holds.
+ */
+export type { RequestedControlAction };
+
 /** Where this table's shape is served. Derived so client and server cannot drift. */
 export const requestedControlActionsShapePath = shapePathFor('requested_control_actions');
 

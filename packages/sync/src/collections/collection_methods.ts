@@ -16,6 +16,12 @@ import {
 } from './functions/sync-collection.js';
 import { type CollectionMethod, collectionMethodSchema } from './tables/collection_methods.js';
 
+/**
+ * The row, re-exported here so a consumer needs one import rather than reaching
+ * past the collection into the schema module for the type of what it holds.
+ */
+export type { CollectionMethod };
+
 /** Where this table's shape is served. Derived so client and server cannot drift. */
 export const collectionMethodsShapePath = shapePathFor('collection_methods');
 

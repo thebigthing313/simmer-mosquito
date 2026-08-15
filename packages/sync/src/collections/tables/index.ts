@@ -24,7 +24,7 @@ import { biocontrolMethodSchema } from './biocontrol_methods.js';
 import { collectionLureSchema } from './collection_lures.js';
 import { collectionMethodSchema } from './collection_methods.js';
 import { collectionSpeciesSchema } from './collection_species.js';
-import { collectionSchema } from './collections.js';
+import { adultCollectionSchema } from './collections.js';
 import { commentSchema } from './comments.js';
 import { contactSchema } from './contacts.js';
 import { equipmentSchema } from './equipment.js';
@@ -82,7 +82,7 @@ export const tableSchemas = {
 	collection_lures: collectionLureSchema,
 	collection_methods: collectionMethodSchema,
 	collection_species: collectionSpeciesSchema,
-	collections: collectionSchema,
+	collections: adultCollectionSchema,
 	comments: commentSchema,
 	contacts: contactSchema,
 	equipment: equipmentSchema,

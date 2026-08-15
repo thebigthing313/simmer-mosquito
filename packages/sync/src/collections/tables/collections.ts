@@ -12,7 +12,7 @@
 
 import { z } from 'zod';
 
-export const collectionSchema = z.object({
+export const adultCollectionSchema = z.object({
 	id: z.uuid(),
 	organization_id: z.uuid(),
 	trap_id: z.uuid().nullable(),
@@ -42,4 +42,4 @@ export const collectionSchema = z.object({
 	updated_at: z.coerce.date().default(() => new Date()),
 });
 
-export type Collection = z.infer<typeof collectionSchema>;
+export type AdultCollection = z.infer<typeof adultCollectionSchema>;

@@ -16,6 +16,12 @@ import {
 } from './functions/sync-collection.js';
 import { type Organization, organizationSchema } from './tables/organizations.js';
 
+/**
+ * The row, re-exported here so a consumer needs one import rather than reaching
+ * past the collection into the schema module for the type of what it holds.
+ */
+export type { Organization };
+
 /** Where this table's shape is served. Derived so client and server cannot drift. */
 export const organizationsShapePath = shapePathFor('organizations');
 
