@@ -115,7 +115,7 @@ const authContextMiddleware = createAuthContextMiddleware({
 const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,
-	isOperatorEmail,
+	operatorOrganizationId: env.simmerOperatorOrganizationId,
 	setAuthCookie,
 });
 
@@ -558,10 +558,6 @@ function setAuthCookie(
 		sameSite: 'Lax',
 		secure: env.nodeEnv === 'production',
 	});
-}
-
-function isOperatorEmail(email: string): boolean {
-	return env.simmerOperatorEmails.includes(email.trim().toLowerCase());
 }
 
 function readAllowedReturnTo(value: string | undefined): string | null {

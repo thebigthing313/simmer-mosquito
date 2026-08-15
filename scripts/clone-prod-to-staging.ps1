@@ -59,7 +59,7 @@ $ErrorActionPreference = 'Stop'
 # WorkOS STAGING environment, and `resolveActiveLocalAuthIdentity` looks
 # organizations up by `workos_organization_id` — so an unrelinked row is
 # invisible to a staging session. `apps/admin` tolerates that (the operator
-# grant is `SIMMER_OPERATOR_EMAILS`, not the local identity), but `apps/web`
+# grant is the session's WorkOS organization, not the local identity), but `apps/web`
 # does not: `__root.tsx` throws when `localIdentity.organizationId` is null.
 #
 # Worse than invisible, actually. Signing in against an org id that resolves to

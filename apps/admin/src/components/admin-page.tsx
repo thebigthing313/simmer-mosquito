@@ -55,10 +55,10 @@ export function AdminPage({
 /**
  * What a page shows when its read failed.
  *
- * The operator-allowlist refusal gets its own answer rather than being rendered
- * as an error string. It is not a fault the operator can retry past — the fix is
- * a different account, or their address added to `SIMMER_OPERATOR_EMAILS` — so
- * the screen says that and offers the only action that helps.
+ * The operator refusal gets its own answer rather than being rendered as an
+ * error string. It is not a fault the operator can retry past — the fix is to
+ * sign in as SIMMER rather than as an agency, or to be added to the SIMMER
+ * organization — so the screen says that and offers the only action that helps.
  */
 export function AdminError({ error }: { readonly error: unknown }) {
 	if (isOperatorRequiredError(error)) {
@@ -86,10 +86,10 @@ function OperatorRequired() {
 				<EmptyMedia variant="icon">
 					<LockIcon aria-hidden="true" />
 				</EmptyMedia>
-				<EmptyTitle>Not an Operator Account</EmptyTitle>
+				<EmptyTitle>Not Signed In as SIMMER</EmptyTitle>
 				<EmptyDescription>
-					You are signed in, but this account is not on the SIMMER operator list. Agency work
-					happens in the SIMMER web app; this console is for platform operators.
+					This console is for platform operators. If you also work in an agency, sign out and sign
+					back in as SIMMER. Agency work happens in the SIMMER web app.
 				</EmptyDescription>
 			</EmptyHeader>
 			<EmptyContent>

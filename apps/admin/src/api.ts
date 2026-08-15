@@ -17,8 +17,8 @@ export type { AuthMe, AuthOrganizationChoice } from '@simmer-mosquito/auth/brows
  *
  * The code matters for exactly one case, but it is the case that decides whether
  * the console works at all: `operator_required` is a 403 from
- * `createOperatorAuthContextMiddleware` meaning "signed in, but not on
- * `SIMMER_OPERATOR_EMAILS`". A plain `Error` flattens that into a string, and
+ * `createOperatorAuthContextMiddleware` meaning "signed in, but not as SIMMER".
+ * A plain `Error` flattens that into a string, and
  * "operator_required" rendered in a red box is not an explanation. Pages read
  * {@link isOperatorRequiredError} instead and say what happened.
  */
@@ -208,9 +208,10 @@ export function getServerUrl(): string {
  * and it will keep coming back.
  *
  * The console answers it without asking, because the answer is always the same:
- * an operator working in the control plane is acting as SIMMER. Nothing here
- * reads the organization (the `SIMMER_OPERATOR_EMAILS` allowlist is the whole
- * grant), so the choice was pure friction.
+ * an operator working in the control plane is acting as SIMMER. The server now
+ * reads exactly that organization off the session to decide operator access, so
+ * answering the challenge with it is not friction removal but the thing that
+ * puts the session in the org the console needs.
  *
  * Deliberately **not** server-side. Keyed off operator identity in
  * `/auth/sign-in` it would strip the picker from `apps/web` too, and an operator
