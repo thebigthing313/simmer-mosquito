@@ -12,7 +12,7 @@
 
 import { z } from 'zod';
 
-export const insecticideBatcheSchema = z.object({
+export const insecticideBatchSchema = z.object({
 	id: z.uuid(),
 	organization_id: z.uuid(),
 	insecticide_id: z.uuid(),
@@ -24,4 +24,4 @@ export const insecticideBatcheSchema = z.object({
 	updated_at: z.coerce.date().default(() => new Date()),
 });
 
-export type InsecticideBatche = z.infer<typeof insecticideBatcheSchema>;
+export type InsecticideBatch = z.infer<typeof insecticideBatchSchema>;

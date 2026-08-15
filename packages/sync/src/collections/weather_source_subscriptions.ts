@@ -1,5 +1,5 @@
 /**
- * The `habitats` collection.
+ * The `weather_source_subscriptions` collection.
  *
  * Generated, and there is nothing table-specific below the schema import: what one
  * table differs by is either declared in its schema or chosen by the client
@@ -14,18 +14,24 @@ import {
 	type SyncCollectionClientOptions,
 	syncCollectionConfig,
 } from './functions/sync-collection.js';
-import { type Habitat, habitatSchema } from './tables/habitats.js';
+import {
+	type WeatherSourceSubscription,
+	weatherSourceSubscriptionSchema,
+} from './tables/weather_source_subscriptions.js';
 
 /** Where this table's shape is served. Derived so client and server cannot drift. */
-export const habitatsShapePath = shapePathFor('habitats');
+export const weatherSourceSubscriptionsShapePath = shapePathFor('weather_source_subscriptions');
 
-export function createHabitatsCollection(options: SyncCollectionClientOptions) {
+export function createWeatherSourceSubscriptionsCollection(options: SyncCollectionClientOptions) {
 	// The schema is passed here rather than through `syncCollectionConfig` because it
 	// has to be concrete for the row type to be inferred from it — see that module.
 	return createCollection(
 		electricCollectionOptions({
-			...syncCollectionConfig<Habitat>({ table: 'habitats', ...options }),
-			schema: habitatSchema,
+			...syncCollectionConfig<WeatherSourceSubscription>({
+				table: 'weather_source_subscriptions',
+				...options,
+			}),
+			schema: weatherSourceSubscriptionSchema,
 		}),
 	);
 }

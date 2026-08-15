@@ -24,15 +24,15 @@
  * internals, which is a worse thing to own than four lines at each call site.
  *
  * So the schema stays where it is concrete — in the table's own file, one line
- * from the type it defines — and this contributes everything that does not depend
- * on the row type. Every table therefore ends the same way:
+ * from the type it defines — and this contributes everything else, including the
+ * parts that do depend on the row type but not on which table it is. Every table
+ * therefore ends the same way:
  *
  * ```ts
  * return createCollection(
  * 	electricCollectionOptions({
- * 		...syncCollectionConfig({ table: 'habitats', serverUrl, syncMode: 'on-demand' }),
+ * 		...syncCollectionConfig<Habitat>({ table: 'habitats', ...options }),
  * 		schema: habitatSchema,
- * 		getKey: (row) => row.id,
  * 	}),
  * )
  * ```
@@ -184,11 +184,12 @@ export interface SyncCollectionConfigOptions extends SyncCollectionClientOptions
  * union — an argument of union type cannot select the schema overload, which
  * would put the row type back to `Record<string, unknown>` at every call site.
  */
-export interface SyncCollectionConfig<TRow extends object>
+export interface SyncCollectionConfig<TRow extends SyncedRow>
 	extends Partial<ReturnType<typeof createMutationHandlers<TRow>>> {
 	readonly id: string;
 	readonly syncMode: CollectionSyncMode;
 	readonly gcTime: number;
+	readonly getKey: (row: TRow) => string;
 	readonly shapeOptions: {
 		readonly url: string;
 		readonly fetchClient: typeof fetch;
@@ -196,13 +197,28 @@ export interface SyncCollectionConfig<TRow extends object>
 	};
 }
 
-export function syncCollectionConfig<TRow extends object>(
+/**
+ * Every synced table has a single `uuid` primary key named `id`.
+ *
+ * That is a property of the migrations rather than a convention this package
+ * hopes for: all fifty-six of them declare `id uuid primary key`, join tables
+ * included — `collection_species` and `route_items` carry a surrogate key rather
+ * than a composite one. So `getKey` is not a per-table decision, and stating it
+ * here means a table that ever broke the rule would fail to compile rather than
+ * quietly key its collection on `undefined`.
+ */
+export interface SyncedRow {
+	readonly id: string;
+}
+
+export function syncCollectionConfig<TRow extends SyncedRow>(
 	options: SyncCollectionConfigOptions,
 ): SyncCollectionConfig<TRow> {
 	return {
 		id: options.table,
 		syncMode: options.syncMode,
 		gcTime: options.gcTime ?? defaultGcTime,
+		getKey: (row) => row.id,
 
 		// Spread rather than assigned so a read-only client has no `onInsert` key at
 		// all, rather than one holding `undefined` — which is both what

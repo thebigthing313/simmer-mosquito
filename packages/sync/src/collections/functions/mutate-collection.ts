@@ -65,7 +65,8 @@ export interface MutableCollection<TRow extends object> {
 	readonly delete: (key: string, config?: MutationConfig) => MutationTransaction;
 }
 
-interface MutationConfig {
+/** The side channel a write travels with — see `mutation-metadata.ts`. */
+export interface MutationConfig {
 	readonly metadata?: Record<string, unknown>;
 }
 

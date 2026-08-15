@@ -35,6 +35,14 @@ export interface SyncShapeRoute {
 	readonly columns: readonly string[];
 }
 
+/**
+ * The rewrite. Reachable from here so that it is compiled, linted and checked for
+ * reachability like everything else — not because anything imports it yet. Both
+ * worlds are exported side by side while the call sites move over; the descriptor
+ * exports below are what apps still use.
+ */
+export * from './collections/index.js';
+
 export * from './descriptor-factory.js';
 export * from './row-payload-mapper.js';
 export * from './rows/index.js';

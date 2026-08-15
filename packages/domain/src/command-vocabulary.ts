@@ -26,15 +26,20 @@
  * for the caller — a union only rules out names that do not exist at all.
  */
 
-import type { AdultSurveillanceCommandType } from './adult-surveillance/shared.js';
-import type { ControlOperationsCommandType } from './control-operations/core.js';
-import type { FieldWorkCommandType } from './field-work/shared.js';
-import type { FoundationCommandType } from './foundation/shared.js';
-import type { LarvalSurveillanceCommandType } from './larval-surveillance/shared.js';
-import type { MissionDispatchCommandType } from './mission-dispatch/shared.js';
-import type { OrganizationSettingsCommandType } from './organization-settings/types-and-defaults.js';
-import type { PublicEngagementCommandType } from './public-engagement/core.js';
-import type { WeatherCommandType } from './weather/shared.js';
+// Each domain's barrel rather than the file inside it that declares the union.
+// This module is re-exported from the package root, so importing `shared.ts` or
+// `core.ts` directly puts those files into the public re-export graph — where the
+// helper names they have in common (`basePayload`, `validateBase`, and four more)
+// become ambiguous barrel re-exports, and `pnpm fallow dead-code` says so.
+import type { AdultSurveillanceCommandType } from './adult-surveillance/index.js';
+import type { ControlOperationsCommandType } from './control-operations/index.js';
+import type { FieldWorkCommandType } from './field-work/index.js';
+import type { FoundationCommandType } from './foundation/index.js';
+import type { LarvalSurveillanceCommandType } from './larval-surveillance/index.js';
+import type { MissionDispatchCommandType } from './mission-dispatch/index.js';
+import type { OrganizationSettingsCommandType } from './organization-settings/index.js';
+import type { PublicEngagementCommandType } from './public-engagement/index.js';
+import type { WeatherCommandType } from './weather/index.js';
 
 /**
  * The name of any command in the vocabulary.

@@ -12,7 +12,11 @@
  * here gates anything, so there is nothing here to keep in step with the domain.
  */
 
-interface CommandRefusal {
+/**
+ * What a refusal body may carry. Every field optional because the shape is the
+ * server's to choose, and a caller reading one has to cope with any of them.
+ */
+export interface CommandRefusal {
 	readonly error?: string;
 	readonly reason?: string;
 	readonly message?: string;

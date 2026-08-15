@@ -7,7 +7,7 @@
  * caller meant to issue.
  */
 
-export function readMutationMetadata(metadata: unknown): Record<string, unknown> | undefined {
+function readMutationMetadata(metadata: unknown): Record<string, unknown> | undefined {
 	if (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata)) {
 		return undefined;
 	}
@@ -62,7 +62,7 @@ export function requireIntent(metadata: unknown, table: string): string {
  * the transport layer that knew those unions would be a second copy of a rule it
  * does not own.
  */
-export function readLocationSource(metadata: unknown): unknown {
+function readLocationSource(metadata: unknown): unknown {
 	return readMutationMetadata(metadata)?.locationSource;
 }
 

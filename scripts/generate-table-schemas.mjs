@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 /**
- * Writes a zod schema per table into `packages/sync/src/collections/tables`, and
- * the type-level drift check that holds them to the database.
+ * Writes, per table, a zod schema into `packages/sync/src/collections/tables` and
+ * a collection factory into `packages/sync/src/collections` — plus the barrel over
+ * the factories and the type-level drift check that holds the schemas to the
+ * database.
  *
  * Run it once when a migration adds or changes a table, then own the output by
  * hand — a schema is where a table's client-side decisions live (which columns a
  * client never receives, which enum a column really is), and those do not
  * survive a regeneration. The drift check is what catches the ones you forget.
+ *
+ * The collection files are a different matter: every one of them is the same six
+ * lines with a table name substituted, because everything a table can differ by is
+ * either in its schema or declared by the client calling the factory. Editing one
+ * by hand is a signal that something belongs in `functions/sync-collection.ts`.
  *
  * It reads two sources. `packages/db/src/tables.ts` gives the columns and their
  * TypeScript types. The migrations give which tables exist and which columns are
@@ -30,7 +37,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = join(ROOT, 'packages/sync/src/collections/tables');
+const COLLECTIONS = join(ROOT, 'packages/sync/src/collections');
+const OUT = join(COLLECTIONS, 'tables');
 const WRITE = process.argv.includes('--write');
 
 const tablesSrc = readFileSync(join(ROOT, 'packages/db/src/tables.ts'), 'utf8');
@@ -177,10 +185,19 @@ for (const [name] of bodies) {
 	}
 	if (unknown.length) report.push(`UNMAPPED ${table}: ${unknown.join(' | ')}`);
 
-	const singular = IRREGULAR[name] ?? name.replace(/ies$/, 'y').replace(/([^s])s$/, '$1');
+	// `Summaries` -> `Summary`, then `Batches` -> `Batch` (a plural in `-es` after a
+	// sibilant keeps the whole `es`), then the ordinary trailing `s`.
+	const singular =
+		IRREGULAR[name] ??
+		name
+			.replace(/ies$/, 'y')
+			.replace(/(ch|sh|ss|x|z)es$/, '$1')
+			.replace(/([^s])s$/, '$1');
 	const schemaName = `${singular[0].toLowerCase()}${singular.slice(1)}Schema`;
+	const factoryName = `create${name}Collection`;
+	const shapePathName = `${name[0].toLowerCase()}${name.slice(1)}ShapePath`;
 
-	emitted.push({ table, name, schemaName, typeName: singular });
+	emitted.push({ table, name, schemaName, typeName: singular, factoryName, shapePathName });
 
 	const file = `/**
  * The \`${table}\` table, as a client receives it.
@@ -203,6 +220,40 @@ ${lines.join('\n')}
 export type ${singular} = z.infer<typeof ${schemaName}>;
 `;
 	if (WRITE) writeFileSync(join(OUT, `${table}.ts`), file, 'utf8');
+
+	const collection = `/**
+ * The \`${table}\` collection.
+ *
+ * Generated, and there is nothing table-specific below the schema import: what one
+ * table differs by is either declared in its schema or chosen by the client
+ * calling this. See \`functions/sync-collection.ts\` for what is shared, and
+ * \`pnpm generate:schemas\` before editing this by hand.
+ */
+
+import { createCollection } from '@tanstack/db';
+import { electricCollectionOptions } from '@tanstack/electric-db-collection';
+import { shapePathFor } from './functions/routes.js';
+import {
+	type SyncCollectionClientOptions,
+	syncCollectionConfig,
+} from './functions/sync-collection.js';
+import { type ${singular}, ${schemaName} } from './tables/${table}.js';
+
+/** Where this table's shape is served. Derived so client and server cannot drift. */
+export const ${shapePathName} = shapePathFor('${table}');
+
+export function ${factoryName}(options: SyncCollectionClientOptions) {
+	// The schema is passed here rather than through \`syncCollectionConfig\` because it
+	// has to be concrete for the row type to be inferred from it — see that module.
+	return createCollection(
+		electricCollectionOptions({
+			...syncCollectionConfig<${singular}>({ table: '${table}', ...options }),
+			schema: ${schemaName},
+		}),
+	);
+}
+`;
+	if (WRITE) writeFileSync(join(COLLECTIONS, `${table}.ts`), collection, 'utf8');
 }
 
 // ---------------------------------------------------------------------------
@@ -263,15 +314,57 @@ describe('collection schemas against the database', () => {
 });
 `;
 
+// ---------------------------------------------------------------------------
+// The barrel over the collection factories.
+// ---------------------------------------------------------------------------
+const barrel = `/**
+ * Every synced table, as a collection factory.
+ *
+ * Calling one is what a client does to obtain a collection; nothing is created by
+ * importing this. Which tables an app actually creates, how each syncs, and
+ * whether each accepts writes are the app's decisions — this package holds no
+ * opinion about any of them, and none of them are recorded here.
+ *
+ * Field names are the Postgres column names, unchanged. Electric already streams
+ * snake_case (the server forces the column list upstream), so leaving it alone
+ * means no \`columnMapper\`, and the predicates a live query pushes down as subset
+ * requests compile to SQL that needs no identifier rewriting.
+ *
+ * Four modules from \`functions/\` are exported alongside them, because a caller
+ * cannot use a factory without them: the options each one takes, the wrapper that
+ * names a write's command, the refusal a rejected write throws, and the route
+ * derivation the server registers against. The rest of \`functions/\` is how the
+ * factories are built and is nobody else's business.
+ *
+ * Generated by \`pnpm generate:schemas\`. Biome sorts the exports below, so the
+ * four are somewhere in the middle of the list rather than at the top.
+ */
+
+export * from './functions/mutate-collection.js';
+export * from './functions/routes.js';
+export * from './functions/sync-collection.js';
+export * from './functions/write-command.js';
+
+${emitted
+	.map((e) => `export * from './${e.table}.js';`)
+	.sort()
+	.join('\n')}
+`;
+
 console.log(`tables in migrations: ${realTables.size}`);
-console.log(`schemas emitted: ${emitted.length}${WRITE ? ' (written)' : ' (dry run)'}`);
-console.log(`uuid columns detected: ${uuidColumns.size}\n`);
+console.log(
+	`schemas and collections emitted: ${emitted.length}${WRITE ? ' (written)' : ' (dry run)'}`,
+);
+console.log(`uuid columns detected: ${uuidColumns.size}`);
+
+// Named rather than only counted: a table the migrations create but tables.ts has
+// no interface for is invisible to everything below, including the drift check.
+const uncovered = [...realTables].filter((t) => !emitted.some((e) => e.table === t)).sort();
+if (uncovered.length) console.log(`\nno Kysely interface, so not emitted: ${uncovered.join(', ')}`);
 for (const line of report) console.log(line);
-if (!WRITE) {
-	console.log('\n--- sample: habitats.ts ---');
-	console.log(readFileSync(join(ROOT, 'packages/db/src/tables.ts'), 'utf8') && '');
-}
+
 if (WRITE) {
+	writeFileSync(join(COLLECTIONS, 'index.ts'), barrel, 'utf8');
 	writeFileSync(
 		join(ROOT, 'packages/sync/src/tests/unit/collections/tables/drift.test.ts'),
 		driftTest,

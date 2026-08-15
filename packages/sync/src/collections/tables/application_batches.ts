@@ -12,7 +12,7 @@
 
 import { z } from 'zod';
 
-export const applicationBatcheSchema = z.object({
+export const applicationBatchSchema = z.object({
 	id: z.uuid(),
 	organization_id: z.uuid(),
 	application_id: z.uuid(),
@@ -23,4 +23,4 @@ export const applicationBatcheSchema = z.object({
 	updated_at: z.coerce.date().default(() => new Date()),
 });
 
-export type ApplicationBatche = z.infer<typeof applicationBatcheSchema>;
+export type ApplicationBatch = z.infer<typeof applicationBatchSchema>;
