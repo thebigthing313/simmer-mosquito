@@ -7,9 +7,8 @@ import {
 	membershipsSyncDescriptor,
 	profilesSyncDescriptor,
 	type SyncDescriptor,
+	syncShapeDescriptors,
 	unitsSyncDescriptor,
-	webCommandMutationDescriptors,
-	webReadOnlyTracerDescriptors,
 } from '../../index.js';
 
 describe('sync descriptors', () => {
@@ -121,18 +120,6 @@ describe('sync descriptors', () => {
 		).toBe('unit-1');
 	});
 
-	it('keeps foundation lookup catalogs as command-backed tracer descriptors', () => {
-		expect(webCommandMutationDescriptors.map((descriptor) => descriptor.id)).toEqual([
-			'current_organization',
-			'addresses',
-			'collection_methods',
-			'collection_lures',
-			'habitat_types',
-			'habitats',
-			'tags',
-		]);
-	});
-
 	it('syncs address book records on demand with centroid coordinates', () => {
 		expect(addressesSyncDescriptor.syncMode).toBe('on-demand');
 		expect(addressesSyncDescriptor.columns).toEqual([
@@ -160,68 +147,24 @@ describe('sync descriptors', () => {
 		expect(insecticideBatchesSyncDescriptor.columns).toContain('organizationId');
 	});
 
-	it('omits server-only geometry columns from Electric shapes', () => {
+	// Both of these used to walk two hand-maintained arrays that between them
+	// restated all fifty-five descriptors — one of which also asserted that order,
+	// which was the whole of what it tested. `syncShapeDescriptors` is every
+	// descriptor there is, so these now cover tables those lists could omit.
+	it('omits server-only geometry columns from every shape', () => {
 		// Raw/heavy geometry stays server-only and is served by /map/* endpoints.
 		// Trigger-maintained centroid columns (lat, lng, geomType) may sync.
-		for (const descriptor of [...webCommandMutationDescriptors, ...webReadOnlyTracerDescriptors]) {
+		for (const descriptor of syncShapeDescriptors) {
 			expect(descriptor.columns).not.toContain('geom');
 			expect(descriptor.columns).not.toContain('geojson');
 		}
 	});
 
-	it('keeps the remaining web tracer descriptors read-only', () => {
-		expect(webReadOnlyTracerDescriptors.map((descriptor) => descriptor.id)).toEqual([
-			'units',
-			'profiles',
-			'memberships',
-			'genera',
-			'species',
-			'organization_species',
-			'application_methods',
-			'source_reduction_methods',
-			'outreach_methods',
-			'biocontrol_methods',
-			'vehicles',
-			'equipment',
-			'insecticides',
-			'insecticide_batches',
-			'notification_types',
-			'inspections',
-			'samples',
-			'sample_species',
-			'routes',
-			'region_folders',
-			'regions',
-			'traps',
-			'collections',
-			'collection_species',
-			'comments',
-			'tag_items',
-			'additional_personnel',
-			'route_items',
-			'assignments',
-			'assignment_items',
-			'formulations',
-			'formulation_insecticides',
-			'applications',
-			'application_batches',
-			'source_reductions',
-			'outreach_actions',
-			'biocontrol_actions',
-			'contacts',
-			'service_requests',
-			'requested_control_actions',
-			'missions',
-			'mission_items',
-			'notification_registrations',
-			'notification_registration_types',
-			'mission_notifications',
-			'weather_sources',
-			'weather_source_subscriptions',
-			'weather_summaries',
-		]);
-
-		for (const descriptor of webReadOnlyTracerDescriptors) {
+	it('gives a collection no write handlers unless it is handed some', () => {
+		// Whether a table accepts writes is the app's decision, made where the
+		// collection is created. A descriptor cannot make a collection writable and
+		// never could, which is why the read-only/writable split above was inert.
+		for (const descriptor of syncShapeDescriptors) {
 			expectReadOnlyCollectionOptions(descriptor as unknown as SyncDescriptor<AnyTestRow>);
 		}
 	});

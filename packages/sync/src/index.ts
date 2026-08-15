@@ -51,134 +51,18 @@ export * from './rows/index.js';
 /**
  * Every shape the server exposes, read off the descriptor barrel rather than
  * listed again. Adding a descriptor file adds its route; there is no second
- * place to remember, and no way for a path or scope to be typed twice and
- * disagree.
+ * place to remember, and no way for a path to be typed twice and disagree.
+ *
+ * This is the only list. There used to be two more beside it —
+ * `observationalReadOnlySyncDescriptors` and `foundationWritableSyncDescriptors`,
+ * plus an alias each — which stated all fifty-five descriptors again in a
+ * hand-maintained order and split them by whether `apps/web` writes to the table.
+ * Neither app ever read them: which collections an app creates, and which of them
+ * take writes, is the app's own decision and is made in `apps/web/src/sync`.
  */
 export const syncShapeDescriptors: readonly SyncShapeRoute[] = Object.values(syncDescriptors);
 
-import {
-	additionalPersonnelSyncDescriptor,
-	addressesSyncDescriptor,
-	applicationBatchesSyncDescriptor,
-	applicationMethodsSyncDescriptor,
-	applicationsSyncDescriptor,
-	assignmentItemsSyncDescriptor,
-	assignmentsSyncDescriptor,
-	biocontrolActionsSyncDescriptor,
-	biocontrolMethodsSyncDescriptor,
-	collectionLuresSyncDescriptor,
-	collectionMethodsSyncDescriptor,
-	collectionSpeciesSyncDescriptor,
-	collectionsSyncDescriptor,
-	commentsSyncDescriptor,
-	contactsSyncDescriptor,
-	currentOrganizationSyncDescriptor,
-	equipmentSyncDescriptor,
-	formulationInsecticidesSyncDescriptor,
-	formulationsSyncDescriptor,
-	generaSyncDescriptor,
-	habitatsSyncDescriptor,
-	habitatTypesSyncDescriptor,
-	insecticideBatchesSyncDescriptor,
-	insecticidesSyncDescriptor,
-	inspectionsSyncDescriptor,
-	membershipsSyncDescriptor,
-	missionItemsSyncDescriptor,
-	missionNotificationsSyncDescriptor,
-	missionsSyncDescriptor,
-	notificationRegistrationsSyncDescriptor,
-	notificationRegistrationTypesSyncDescriptor,
-	notificationTypesSyncDescriptor,
-	organizationSpeciesSyncDescriptor,
-	outreachActionsSyncDescriptor,
-	outreachMethodsSyncDescriptor,
-	profilesSyncDescriptor,
-	regionFoldersSyncDescriptor,
-	regionsSyncDescriptor,
-	requestedControlActionsSyncDescriptor,
-	routeItemsSyncDescriptor,
-	routesSyncDescriptor,
-	sampleSpeciesSyncDescriptor,
-	samplesSyncDescriptor,
-	serviceRequestsSyncDescriptor,
-	sourceReductionMethodsSyncDescriptor,
-	sourceReductionsSyncDescriptor,
-	speciesSyncDescriptor,
-	tagItemsSyncDescriptor,
-	tagsSyncDescriptor,
-	trapsSyncDescriptor,
-	unitsSyncDescriptor,
-	vehiclesSyncDescriptor,
-	weatherSourceSubscriptionsSyncDescriptor,
-	weatherSourcesSyncDescriptor,
-	weatherSummariesSyncDescriptor,
-} from './descriptors/index.js';
-
 export * from './descriptors/index.js';
-
-export const observationalReadOnlySyncDescriptors = [
-	unitsSyncDescriptor,
-	profilesSyncDescriptor,
-	membershipsSyncDescriptor,
-	generaSyncDescriptor,
-	speciesSyncDescriptor,
-	organizationSpeciesSyncDescriptor,
-	applicationMethodsSyncDescriptor,
-	sourceReductionMethodsSyncDescriptor,
-	outreachMethodsSyncDescriptor,
-	biocontrolMethodsSyncDescriptor,
-	vehiclesSyncDescriptor,
-	equipmentSyncDescriptor,
-	insecticidesSyncDescriptor,
-	insecticideBatchesSyncDescriptor,
-	notificationTypesSyncDescriptor,
-	inspectionsSyncDescriptor,
-	samplesSyncDescriptor,
-	sampleSpeciesSyncDescriptor,
-	routesSyncDescriptor,
-	regionFoldersSyncDescriptor,
-	regionsSyncDescriptor,
-	trapsSyncDescriptor,
-	collectionsSyncDescriptor,
-	collectionSpeciesSyncDescriptor,
-	commentsSyncDescriptor,
-	tagItemsSyncDescriptor,
-	additionalPersonnelSyncDescriptor,
-	routeItemsSyncDescriptor,
-	assignmentsSyncDescriptor,
-	assignmentItemsSyncDescriptor,
-	formulationsSyncDescriptor,
-	formulationInsecticidesSyncDescriptor,
-	applicationsSyncDescriptor,
-	applicationBatchesSyncDescriptor,
-	sourceReductionsSyncDescriptor,
-	outreachActionsSyncDescriptor,
-	biocontrolActionsSyncDescriptor,
-	contactsSyncDescriptor,
-	serviceRequestsSyncDescriptor,
-	requestedControlActionsSyncDescriptor,
-	missionsSyncDescriptor,
-	missionItemsSyncDescriptor,
-	notificationRegistrationsSyncDescriptor,
-	notificationRegistrationTypesSyncDescriptor,
-	missionNotificationsSyncDescriptor,
-	weatherSourcesSyncDescriptor,
-	weatherSourceSubscriptionsSyncDescriptor,
-	weatherSummariesSyncDescriptor,
-] as const;
-
-export const foundationWritableSyncDescriptors = [
-	currentOrganizationSyncDescriptor,
-	addressesSyncDescriptor,
-	collectionMethodsSyncDescriptor,
-	collectionLuresSyncDescriptor,
-	habitatTypesSyncDescriptor,
-	habitatsSyncDescriptor,
-	tagsSyncDescriptor,
-] as const;
-
-export const webReadOnlyTracerDescriptors = observationalReadOnlySyncDescriptors;
-export const webCommandMutationDescriptors = foundationWritableSyncDescriptors;
 
 export function electricShapeCollectionOptions<TRow extends { readonly id: string }>(
 	input: {
