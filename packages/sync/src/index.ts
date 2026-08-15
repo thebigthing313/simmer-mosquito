@@ -2,10 +2,8 @@ import {
 	type ElectricCollectionConfig,
 	electricCollectionOptions,
 } from '@tanstack/electric-db-collection';
-import { decodeShapeColumnName } from './decode-shape-column-name.js';
 import type { SyncShapeScope } from './descriptor-factory.js';
 import * as syncDescriptors from './descriptors/index.js';
-import { encodeShapeColumnName } from './encode-shape-column-name.js';
 
 export {
 	isTxIdConfirmationTimeout,
@@ -201,12 +199,6 @@ export function electricShapeCollectionOptions<TRow extends { readonly id: strin
 				table: input.descriptor.table,
 				columns: [...input.descriptor.columns],
 			},
-			columnMapper: snakeCamelColumnMapper,
 		},
 	});
 }
-
-const snakeCamelColumnMapper = {
-	encode: encodeShapeColumnName,
-	decode: decodeShapeColumnName,
-};

@@ -15,26 +15,36 @@ export function readMutationMetadata(metadata: unknown): Record<string, unknown>
 }
 
 /**
- * The command a write means, when the caller named one.
+ * The command this write means. Required.
  *
- * Without it a server has only the payload to go on, and has to infer the intent
+ * Without it a server has only the payload to go on and must infer the intent
  * from which fields are present — `is_active: false` must mean "retire", because
- * nothing else could have said so. That inference is why the endpoints currently
- * grant their own acknowledgements: they cannot tell a deliberate retirement from
- * an incidental one, so they assume the caller meant it.
+ * nothing else could have said so. That inference is what makes a payload's shape
+ * load-bearing: an extra key becomes an extra command, and the endpoint has to
+ * grant its own acknowledgements because it cannot tell a deliberate retirement
+ * from an incidental one.
  *
- * Naming the command removes the guess. It is optional on purpose — a payload
- * without an intent is exactly what the endpoints already accept — so call sites
- * can adopt it one at a time.
+ * Naming the command removes the guess, which is what lets the client send a
+ * payload without curating it. That trade only holds if the name is always there,
+ * so this throws rather than returning `undefined`: an unnamed write is a
+ * malformed request, not a request with a missing option.
+ *
+ * Refusing here is not domain validation — whether the named command is real,
+ * permitted, and applicable is decided by the server. This only checks that the
+ * request says what it is.
  *
  * Typed as a plain string rather than the domain's command union: `packages/sync`
  * does not depend on `packages/domain`, and the server re-derives the command
  * from this name anyway, so a wrong one is refused rather than trusted.
  */
-export function readIntent(metadata: unknown): string | undefined {
-	const record = readMutationMetadata(metadata);
-	const intent = record?.intent;
-	return typeof intent === 'string' && intent.length > 0 ? intent : undefined;
+export function requireIntent(metadata: unknown, table: string): string {
+	const intent = readMutationMetadata(metadata)?.intent;
+
+	if (typeof intent !== 'string' || intent.length === 0) {
+		throw new Error(`A write to ${table} must name the command it means, as \`metadata.intent\`.`);
+	}
+
+	return intent;
 }
 
 /**

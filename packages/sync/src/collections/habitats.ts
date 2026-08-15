@@ -13,18 +13,20 @@
 import { createCollection } from '@tanstack/db';
 import { electricCollectionOptions } from '@tanstack/electric-db-collection';
 import { z } from 'zod';
-import { type CommandBody, createMutationHandlers } from './functions/mutation-handlers.js';
-import { readLocationSource } from './functions/mutation-metadata.js';
+import { shapePathFor } from './functions/routes.js';
+import {
+	type SyncCollectionClientOptions,
+	syncCollectionConfig,
+} from './functions/sync-collection.js';
 
 /**
  * Where this table's shape is served.
  *
  * `/sync/shapes/*` is a SIMMER convention, not something Electric or TanStack DB
- * knows about — both only ever see a URL. The path therefore has to agree with
- * the route the server registers, so it is written once, here, for the server to
- * read when it registers from this module rather than from a descriptor.
+ * knows about — both only ever see a URL. The path is derived rather than written
+ * so the server registering the route and the client requesting it cannot drift.
  */
-export const habitatsShapePath = '/sync/shapes/habitats';
+export const habitatsShapePath = shapePathFor('habitats');
 
 /**
  * A habitat row as it arrives on the client — the `habitats` table, minus what
@@ -77,103 +79,26 @@ export const habitatSchema = z.object({
 export type Habitat = z.infer<typeof habitatSchema>;
 
 /**
- * The create payload.
- *
- * Deliberately narrower than the row: `organization_id` comes from the session,
- * the centroid columns are derived from the geometry, and the audit columns are
- * stamped by the server. Sending the client's guesses at those would be sending
- * values the server is about to overwrite.
- *
- * The location instruction itself is not built here — every location-bearing
- * table forwards it identically, so the handler folds it in. What is specific to
- * habitats is that one is *required*: a habitat is a place, and there is nothing
- * to create without knowing where. `createHabitatCommand` refuses the same write
- * server-side, so this only saves a round trip.
- */
-export function toHabitatInsertBody(row: Habitat, metadata: unknown): CommandBody {
-	if (readLocationSource(metadata) === undefined) {
-		throw new Error('Habitat geometry is required.');
-	}
-
-	return {
-		id: row.id,
-		addressId: row.address_id,
-		habitatTypeId: row.habitat_type_id,
-		habitatName: row.habitat_name,
-		description: row.description,
-		metadata: row.metadata,
-	};
-}
-
-/**
- * The patch payload: the columns this endpoint accepts, of the ones that changed.
- *
- * `changes` is the library's own diff, so a field is here because it genuinely
- * differs — not because a hand-maintained key list happened to include it. The
- * projection then drops what the endpoint does not take: an edit form stamps
- * `updated_at` and `updated_by_profile_id` on every save so the optimistic row
- * looks right, and the server stamps its own inside the transaction.
- */
-export function toHabitatUpdateBody(changes: Partial<Habitat>): CommandBody {
-	const body: CommandBody = {};
-
-	if ('habitat_name' in changes) body.habitatName = changes.habitat_name;
-	if ('description' in changes) body.description = changes.description;
-	if ('address_id' in changes) body.addressId = changes.address_id;
-	if ('habitat_type_id' in changes) body.habitatTypeId = changes.habitat_type_id;
-	if ('is_active' in changes) body.isActive = changes.is_active;
-	if ('is_inaccessible' in changes) body.isInaccessible = changes.is_inaccessible;
-	if ('metadata' in changes) body.metadata = changes.metadata;
-
-	return body;
-}
-
-/**
  * `serverUrl` is a parameter rather than a constant because this package has no
  * environment to read: the frontends talk to the API cross-origin and each one
  * resolves its own base URL.
+ *
+ * There is nothing habitat-specific left below. That a habitat must have a
+ * geometry, that a new one may not already be retired, that only some columns are
+ * a client's to state — all of it is enforced by the domain builders the endpoint
+ * runs, and none of it is repeated here. What remains is the table, its shape, and
+ * where its commands are posted.
  */
-export function createHabitatsCollection(options: { readonly serverUrl: string }) {
-	const handlers = createMutationHandlers<Habitat>({
-		// Writes go to the command endpoint, not to the shape route: reads are
-		// authorized per shape, writes per command.
-		endpoint: `${options.serverUrl}/larval-surveillance/habitats`,
-		fallbackMessage: 'Unable to save habitat.',
-		toInsertBody: toHabitatInsertBody,
-		toUpdateBody: toHabitatUpdateBody,
-	});
-
+export function createHabitatsCollection(options: SyncCollectionClientOptions) {
 	return createCollection(
-		// No explicit type parameter: the schema is the single declaration and the
-		// row type is inferred from it. Passing both is a documented anti-pattern —
-		// the generic and the schema become conflicting type constraints.
+		// The schema is passed here rather than through `syncCollectionConfig` because
+		// it has to be concrete for the row type to be inferred from it — see that
+		// module's comment. No explicit type parameter for the same reason: passing
+		// both a generic and a schema is a documented anti-pattern.
 		electricCollectionOptions({
-			id: 'habitats',
+			...syncCollectionConfig<Habitat>({ table: 'habitats', ...options }),
 			schema: habitatSchema,
 			getKey: (row) => row.id,
-			...handlers,
-
-			// Habitat catalogs run to tens of thousands of rows per agency, so rows
-			// load as the subsets live queries ask for, not as one baseline.
-			syncMode: 'on-demand',
-
-			shapeOptions: {
-				// One route per table. The server owns the shape: it forces `table`,
-				// `columns`, and the tenant `where` from the session cookie, and strips
-				// any the client sends — so there is no `params` to set here.
-				url: `${options.serverUrl}${habitatsShapePath}`,
-
-				// The session cookie is the whole authorization story; nothing about the
-				// agency travels in the request itself.
-				fetchClient: (request, init) => fetch(request, { ...init, credentials: 'include' }),
-
-				// The sync path does not run the schema — rows off the stream are parsed
-				// here instead, keyed by Postgres type. Every `timestamptz` column on
-				// this table lands as a `Date`, matching what the schema stores.
-				parser: {
-					timestamptz: (value) => new Date(value),
-				},
-			},
 		}),
 	);
 }

@@ -9,6 +9,11 @@ export * from './adult-surveillance/index.js';
  * "two minutes" would be two things to keep in step.
  */
 export { CLOCK_SKEW_TOLERANCE_MS, isFutureBeyondClockSkew } from './command-validation.js';
+export type {
+	DomainCommandType,
+	MultiTableCommandType,
+	SingleTableCommandType,
+} from './command-vocabulary.js';
 export * from './control-operations/index.js';
 export * from './field-work/index.js';
 export * from './foundation/index.js';

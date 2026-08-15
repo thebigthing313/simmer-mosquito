@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { decodeShapeColumnName } from '../../decode-shape-column-name.js';
-import { encodeShapeColumnName } from '../../encode-shape-column-name.js';
 import {
 	addressesSyncDescriptor,
 	currentOrganizationSyncDescriptor,
@@ -121,25 +119,6 @@ describe('sync descriptors', () => {
 				createdAt: '2026-05-14T00:00:00.000Z',
 			}),
 		).toBe('unit-1');
-	});
-
-	it('maps numbered address columns between client and Electric column names', () => {
-		expect(encodeShapeColumnName('addressLine1')).toBe('address_line_1');
-		expect(encodeShapeColumnName('addressLine2')).toBe('address_line_2');
-		expect(encodeShapeColumnName('mailingAddressLine1')).toBe('mailing_address_line_1');
-		expect(encodeShapeColumnName('mailingAddressLine2')).toBe('mailing_address_line_2');
-		expect(decodeShapeColumnName('address_line_1')).toBe('addressLine1');
-		expect(decodeShapeColumnName('address_line_2')).toBe('addressLine2');
-		expect(decodeShapeColumnName('mailing_address_line_1')).toBe('mailingAddressLine1');
-		expect(decodeShapeColumnName('mailing_address_line_2')).toBe('mailingAddressLine2');
-	});
-
-	it('leaves all-caps SQL keywords untouched so Electric subset where clauses stay valid', () => {
-		// The Electric subset-where compiler emits `= ANY($1)` for inArray filters and
-		// re-maps identifier tokens through this encoder; ANY must not become _a_n_y.
-		expect(encodeShapeColumnName('ANY')).toBe('ANY');
-		expect(encodeShapeColumnName('AND')).toBe('AND');
-		expect(encodeShapeColumnName('LIKE')).toBe('LIKE');
 	});
 
 	it('keeps foundation lookup catalogs as command-backed tracer descriptors', () => {
