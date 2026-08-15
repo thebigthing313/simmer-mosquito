@@ -311,6 +311,10 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+    devDependencies:
+      '@simmer-mosquito/db':
+        specifier: workspace:*
+        version: link:../db
 
   packages/ui-web:
     dependencies:

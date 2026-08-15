@@ -20,5 +20,8 @@
 		"@tanstack/electric-db-collection": "0.3.18",
 		"zod": "^4.4.3"
 	},
-	"types": "./dist/index.d.ts"
+	"types": "./dist/index.d.ts",
+	"devDependencies": {
+		"@simmer-mosquito/db": "workspace:*"
+	}
 }
