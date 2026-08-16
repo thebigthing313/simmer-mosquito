@@ -106,7 +106,8 @@ async function runSampleSpeciesCommands(
 	);
 }
 
-async function writeSampleSpeciesCommand(
+/** Exported for `table-commands/sample-species.ts` — see `writeHabitatCommand`. */
+export async function writeSampleSpeciesCommand(
 	trx: LarvalSurveillanceTransaction,
 	command: LarvalSurveillanceCommand,
 ): Promise<SafeSampleSpecies | null> {

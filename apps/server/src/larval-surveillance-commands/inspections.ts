@@ -51,7 +51,7 @@ import {
  * written is an inspection. The command vocabulary follows the *unit of work*
  * (a stop, closed by a record); the endpoint follows the table.
  */
-type InspectionCommand =
+export type InspectionCommand =
 	| LarvalSurveillanceCommand
 	| RecordHabitatInspectionForAssignmentItemCommand;
 
@@ -179,7 +179,12 @@ async function runInspectionCommands(
 	);
 }
 
-async function writeInspectionCommand(
+/**
+ * Exported for `table-commands/inspections.ts`, which reaches the same six
+ * commands through `/commands/inspections` and needs the writer unchanged —
+ * only the route and how the command is chosen differ.
+ */
+export async function writeInspectionCommand(
 	trx: LarvalSurveillanceTransaction,
 	command: InspectionCommand,
 ): Promise<SafeInspection | null> {

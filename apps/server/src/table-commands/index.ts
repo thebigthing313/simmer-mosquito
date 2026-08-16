@@ -1,10 +1,10 @@
 /**
  * The `/commands/{table}` surface.
  *
- * One table so far. The mechanism in `dispatch.ts` is table-agnostic and the
- * writers already exist per table, so adding one is its own file of the shape
- * `habitats.ts` has: a `run` config imported from the domain module that already
- * writes it, and a map from each command it accepts to a builder.
+ * Larval surveillance, whole. The mechanism in `dispatch.ts` is table-agnostic
+ * and the writers already exist per table, so adding one is its own file of the
+ * shape `habitats.ts` has: a `run` config imported from the domain module that
+ * already writes it, and a map from each command it accepts to a builder.
  *
  * The remaining tables are mechanical but not automatic. Each builder is a
  * translation from column names to domain arguments, and the existing `build`
@@ -22,6 +22,9 @@ import type { AuthVariables } from '../auth-middleware.js';
 import type { CommandDb } from '../command-write.js';
 import { registerTableCommandRoutes } from './dispatch.js';
 import { habitatTableCommands } from './habitats.js';
+import { inspectionTableCommands } from './inspections.js';
+import { sampleSpeciesTableCommands } from './sample-species.js';
+import { sampleTableCommands } from './samples.js';
 
 export function registerTableCommandSurface(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -31,4 +34,7 @@ export function registerTableCommandSurface(
 	},
 ): void {
 	registerTableCommandRoutes(app, options, habitatTableCommands(options.db));
+	registerTableCommandRoutes(app, options, inspectionTableCommands(options.db));
+	registerTableCommandRoutes(app, options, sampleTableCommands(options.db));
+	registerTableCommandRoutes(app, options, sampleSpeciesTableCommands(options.db));
 }

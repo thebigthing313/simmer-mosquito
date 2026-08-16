@@ -1,5 +1,5 @@
 import { lookupUnitConversion, totalInUnit, type UnitDefaults } from '@simmer-mosquito/domain';
-import type { HabitatRow, InsecticideRow } from '@simmer-mosquito/sync';
+import type { InsecticideRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 
 /** As much of a unit as anything here reads: its conversion key and its label. */
@@ -11,15 +11,6 @@ interface MeasureUnit {
 // Shared labelling for the control-operations routes. Control actions reference
 // methods, units, profiles, and (optionally) a habitat or address, so most screens
 // need the same handful of name lookups.
-
-/** Habitats may be unnamed — fall back to a short id so rows stay identifiable. */
-export function habitatDisplayName(habitat: HabitatRow): string {
-	const name = habitat.habitatName?.trim() ?? '';
-	if (name.length > 0) {
-		return name;
-	}
-	return `Habitat ${habitat.id.slice(0, 8)}`;
-}
 
 /**
  * Insecticides display by trade name everywhere. `shorthand` is an agency's

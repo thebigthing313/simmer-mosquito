@@ -42,17 +42,7 @@ import type { CommandDb } from '../command-write.js';
 import { writeHabitatCommand } from '../larval-surveillance-commands/habitats.js';
 import type { SafeHabitat } from '../larval-surveillance-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
-
-/**
- * An acknowledgement the caller did not withhold.
- *
- * The delete and lifecycle commands take flags that a client sets to `false` to
- * say "I have not confirmed this yet"; absent means confirmed, which is what the
- * existing endpoints already do. Written once here rather than five times below.
- */
-function acknowledged(value: unknown): boolean {
-	return value !== false;
-}
+import { acknowledged } from './shared.js';
 
 export function habitatTableCommands(
 	db: CommandDb,

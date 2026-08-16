@@ -125,7 +125,14 @@ export function hasInspectionResultFields(payload: Record<string, unknown>): boo
 	return 'inspectionDate' in payload || 'isWet' in payload;
 }
 
-function readDensity(value: unknown): LarvalDensity | null {
+/**
+ * A density band, or nothing.
+ *
+ * Exported because `table-commands/inspections.ts` reads the same five values
+ * off a column named `density` rather than `density`'s camelCase twin, and the
+ * set of bands is not something two readers should each hold a copy of.
+ */
+export function readDensity(value: unknown): LarvalDensity | null {
 	return value === 'none' ||
 		value === 'light' ||
 		value === 'medium' ||
