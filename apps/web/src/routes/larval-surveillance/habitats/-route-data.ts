@@ -1,10 +1,13 @@
-import type { AddressRow, HabitatRow, RouteItemRow, RouteRow } from '@simmer-mosquito/sync';
-import { eq, inArray, useLiveQuery } from '@tanstack/react-db';
+import { and, coalesce, concat, eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../../auth';
 import type { RouteStopFeature } from '../../../components/map';
-import { webCollections } from '../../../sync/webCollections';
+import type { RouteSummary } from '../../../components/route-planning/route-summary';
+import { addresses } from '../../../lib/collections/addresses';
+import { habitats } from '../../../lib/collections/habitats';
+import { route_items } from '../../../lib/collections/route_items';
+import { routes } from '../../../lib/collections/routes';
 
 // `route_items` is an on-demand shape (docs/sync.md); keep a route's members warm
 // briefly after unmount so hopping index → detail → edit reuses the subset.
@@ -69,28 +72,30 @@ export function stopTone(stop: {
 	return stop.isActive ? 'default' : 'inactive';
 }
 
-/** All habitat-typed routes for the active org, sorted by name. */
+/**
+ * All habitat-typed routes for the active org, sorted by name.
+ *
+ * The sort moved into the query, which drops `localeCompare`'s
+ * `sensitivity: 'base'` — so a route named "acme" now sorts after "Zone 4"
+ * rather than beside "Acme". Route names in practice are codes and zone numbers;
+ * if that stops being true this wants a case-folded column, not a JS sort.
+ */
 export function useHabitatRoutes(): {
-	readonly routes: readonly RouteRow[];
+	readonly routes: readonly RouteSummary[];
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ route: webCollections.routes })
-				.where(({ route }) => eq(route.routeType, 'habitat')),
+				.from({ route: routes })
+				.where(({ route }) => eq(route.route_type, 'habitat'))
+				.orderBy(({ route }) => route.route_name, 'asc')
+				.select(({ route }) => ({ id: route.id, routeName: route.route_name })),
 		[],
 	);
 
-	const routes = useMemo(() => {
-		const rows = (result.data ?? []) as readonly RouteRow[];
-		return [...rows].sort((first, second) =>
-			first.routeName.localeCompare(second.routeName, undefined, { sensitivity: 'base' }),
-		);
-	}, [result.data]);
-
-	return { routes, isLoading: result.isLoading, isReady: result.isReady };
+	return { routes: result.data, isLoading: result.isLoading, isReady: result.isReady };
 }
 
 /**
@@ -107,141 +112,42 @@ export function useRouteStopCounts(): {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: webCollections.routeItems })
-					.where(({ item }) => eq(item.entityType, 'habitat')),
+					.from({ item: route_items })
+					.where(({ item }) => eq(item.entity_type, 'habitat'))
+					.select(({ item }) => ({ routeId: item.route_id })),
 		},
 		[],
 	);
 
+	const stops = result.data;
+
 	const countByRouteId = useMemo(() => {
 		const map = new Map<string, number>();
-		for (const item of (result.data ?? []) as readonly RouteItemRow[]) {
-			map.set(item.routeId, (map.get(item.routeId) ?? 0) + 1);
+		for (const stop of stops) {
+			map.set(stop.routeId, (map.get(stop.routeId) ?? 0) + 1);
 		}
 		return map;
-	}, [result.data]);
+	}, [stops]);
 
 	return { countByRouteId, isLoading: result.isLoading };
 }
 
-function useRouteItems(routeId: string | null): {
-	readonly items: readonly RouteItemRow[];
-	readonly isLoading: boolean;
-} {
-	const result = useLiveQuery(
-		{
-			gcTime: routeItemsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: webCollections.routeItems })
-					// An unmatchable id keeps the hook order stable while no route is selected.
-					.where(({ item }) => eq(item.routeId, routeId ?? UNMATCHABLE_ID))
-					.orderBy(({ item }) => item.position, 'asc'),
-		},
-		[routeId],
-	);
-
-	const items = useMemo(() => {
-		const rows = (result.data ?? []) as readonly RouteItemRow[];
-		return rows.filter((row) => row.entityType === 'habitat');
-	}, [result.data]);
-
-	return { items, isLoading: routeId !== null && result.isLoading };
-}
-
 /**
- * Resolve the habitats behind a set of route stops, each with its address label,
- * as live on-demand subsets. `habitats` and `addresses` are on-demand collections
- * (docs/sync.md): the `IN` predicates load exactly the referenced rows and keep
- * streaming, so an edit to a stop's habitat (description/address) shows up without
- * any manual invalidation. Centroid `lat`/`lng` ride the synced habitat row, so
- * pins no longer need the `/map/habitats/by-ids` fetch.
- */
-function useHabitatSites(ids: readonly string[]): {
-	readonly byId: ReadonlyMap<string, HabitatSite>;
-	readonly isLoading: boolean;
-} {
-	// A stable, order-independent key so panning selection doesn't re-run the query.
-	const idsKey = useMemo(() => [...ids].sort().join(','), [ids]);
-	const habitatIds = ids.length > 0 ? [...ids] : [UNMATCHABLE_ID];
-
-	const habitatResult = useLiveQuery(
-		{
-			gcTime: routeItemsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: webCollections.habitats })
-					.where(({ habitat }) => inArray(habitat.id, habitatIds)),
-		},
-		[idsKey],
-	);
-
-	const habitats = useMemo(
-		() => (habitatResult.data ?? []) as readonly HabitatRow[],
-		[habitatResult.data],
-	);
-
-	// The distinct address book records those habitats link to — a second bounded
-	// subset that supplies the cluster label (`address.displayName`).
-	const addressIds = useMemo(() => {
-		const set = new Set<string>();
-		for (const habitat of habitats) {
-			if (habitat.addressId !== null) {
-				set.add(habitat.addressId);
-			}
-		}
-		return [...set];
-	}, [habitats]);
-	const addressKey = addressIds.join(',');
-	const addressQueryIds = addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID];
-
-	const addressResult = useLiveQuery(
-		{
-			gcTime: routeItemsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => inArray(address.id, addressQueryIds)),
-		},
-		[addressKey],
-	);
-
-	const addressNameById = useMemo(() => {
-		const map = new Map<string, string>();
-		for (const address of (addressResult.data ?? []) as readonly AddressRow[]) {
-			map.set(address.id, address.displayName);
-		}
-		return map;
-	}, [addressResult.data]);
-
-	const byId = useMemo(() => {
-		const map = new Map<string, HabitatSite>();
-		for (const habitat of habitats) {
-			map.set(habitat.id, {
-				id: habitat.id,
-				habitatName: habitat.habitatName,
-				description: habitat.description,
-				lat: habitat.lat,
-				lng: habitat.lng,
-				addressId: habitat.addressId,
-				addressDisplayName:
-					habitat.addressId === null ? null : (addressNameById.get(habitat.addressId) ?? null),
-				habitatTypeId: habitat.habitatTypeId,
-				isActive: habitat.isActive,
-				isInaccessible: habitat.isInaccessible,
-			});
-		}
-		return map;
-	}, [habitats, addressNameById]);
-
-	return { byId, isLoading: ids.length > 0 && habitatResult.isLoading };
-}
-
-/**
- * The composed itinerary for a route: ordered stops (item joined to habitat),
- * address clusters, and the point features the map layer draws. Route items,
- * habitats, and addresses all sync on-demand — the stops resolve entirely from
- * live collection subsets (no HTTP), so edits reflect without invalidation.
+ * The composed itinerary for a route: ordered stops, address clusters, and the
+ * point features the map layer draws.
+ *
+ * ## One query, not three
+ *
+ * This read the route's items, then the habitats those items named, then the
+ * addresses those habitats linked — each waiting on the render before it, and the
+ * last two re-running whenever the id set moved. It is one join now. The planner
+ * collects the join keys each side produces and asks the on-demand collections for
+ * exactly those rows, which is the same three subsets minus two round trips
+ * through React.
+ *
+ * Everything still resolves from live collection subsets rather than HTTP, so an
+ * edit to a stop's habitat — its description, its linked address — streams back
+ * without any manual invalidation.
  */
 export function useRouteStops(routeId: string | null): {
 	readonly stops: readonly RouteStopView[];
@@ -250,36 +156,75 @@ export function useRouteStops(routeId: string | null): {
 	readonly itemCount: number;
 	readonly isLoading: boolean;
 } {
-	const { items, isLoading: itemsLoading } = useRouteItems(routeId);
-	const ids = useMemo(() => items.map((item) => item.entityId), [items]);
-	const { byId, isLoading: sitesLoading } = useHabitatSites(ids);
+	const result = useLiveQuery(
+		{
+			gcTime: routeItemsGcTimeMs,
+			query: (query) =>
+				query
+					.from({ item: route_items })
+					.where(({ item }) =>
+						and(
+							// An unmatchable id keeps the hook order stable while no route is
+							// selected — a live query cannot be conditional.
+							eq(item.route_id, routeId ?? UNMATCHABLE_ID),
+							// Pushed into the predicate rather than filtered afterwards: a trap
+							// route's items are rows this subset should never have loaded.
+							eq(item.entity_type, 'habitat'),
+						),
+					)
+					// `left` throughout: a stop whose Habitat has not streamed in yet still
+					// belongs in the itinerary, drawn as resolving rather than dropped.
+					.join(
+						{ habitat: habitats },
+						({ item, habitat }) => eq(item.entity_id, habitat.id),
+						'left',
+					)
+					.join(
+						{ address: addresses },
+						({ habitat, address }) => eq(habitat.address_id, address.id),
+						'left',
+					)
+					.orderBy(({ item }) => item.position, 'asc')
+					.select(({ item, habitat, address }) => ({
+						routeItemId: item.id,
+						habitatId: item.entity_id,
+						position: item.position,
+						directionsToNextItem: item.directions_to_next_item,
+
+						// `undefined` here is the join still resolving, which is what
+						// `isResolving` reports below.
+						resolvedHabitatId: habitat.id,
+						name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
+						description: coalesce(habitat.description, ''),
+						habitatTypeId: coalesce(habitat.habitat_type_id, null),
+						lat: coalesce(habitat.lat, null),
+						lng: coalesce(habitat.lng, null),
+						isActive: coalesce(habitat.is_active, true),
+						isInaccessible: coalesce(habitat.is_inaccessible, false),
+
+						addressId: coalesce(habitat.address_id, null),
+						addressLabel: coalesce(address.display_name, null),
+					})),
+		},
+		[routeId],
+	);
+
+	const rows = result.data;
 
 	const stops = useMemo<RouteStopView[]>(
 		() =>
-			items.map((item, index) => {
-				const site = byId.get(item.entityId);
-				const lat = site?.lat ?? null;
-				const lng = site?.lng ?? null;
-				return {
-					routeItemId: item.id,
-					habitatId: item.entityId,
-					ordinal: index + 1,
-					position: item.position,
-					name: site?.habitatName?.trim() || `Habitat ${item.entityId.slice(0, 8)}`,
-					description: site?.description ?? '',
-					habitatTypeId: site?.habitatTypeId ?? null,
-					addressId: site?.addressId ?? null,
-					addressLabel: site?.addressDisplayName ?? null,
-					lat,
-					lng,
-					isActive: site?.isActive ?? true,
-					isInaccessible: site?.isInaccessible ?? false,
-					directionsToNextItem: item.directionsToNextItem,
-					hasLocation: lat !== null && lng !== null,
-					isResolving: site === undefined,
-				};
-			}),
-		[items, byId],
+			// The `ordinal` is the one thing the query cannot produce: it is the stop's
+			// place in the ordered result, and a projection sees a row rather than the
+			// sequence. `position` is the stored sort key and can have gaps, so it is
+			// not the number a crew reads off the list.
+			rows.map((row, index) => ({
+				...row,
+				ordinal: index + 1,
+				name: row.name ?? `Habitat ${row.habitatId.slice(0, 8)}`,
+				hasLocation: row.lat !== null && row.lng !== null,
+				isResolving: row.resolvedHabitatId === undefined,
+			})),
+		[rows],
 	);
 
 	const clusters = useMemo(() => clusterByAddress(stops), [stops]);
@@ -302,8 +247,8 @@ export function useRouteStops(routeId: string | null): {
 		stops,
 		clusters,
 		features,
-		itemCount: items.length,
-		isLoading: itemsLoading || sitesLoading,
+		itemCount: rows.length,
+		isLoading: routeId !== null && result.isLoading,
 	};
 }
 

@@ -1,4 +1,3 @@
-import type { RouteRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -21,6 +20,7 @@ import type { RouteStopFeature } from '../map';
 import { WriteOnly } from '../write-only';
 import { RouteMap } from './route-map';
 import { type RouteStop, stopCountLabel } from './route-stop';
+import type { RouteSummary } from './route-summary';
 import type { RoutePlanningSurface } from './surface';
 
 const RouteIcon = iconRegistry.entities.route.icon;
@@ -54,7 +54,7 @@ export function RouteDetailPage({
 }: {
 	readonly surface: RoutePlanningSurface;
 	readonly routeId: string;
-	readonly route: RouteRow | null;
+	readonly route: RouteSummary | null;
 	/** False while the route set is still resolving — before that, absence means nothing. */
 	readonly isReady: boolean;
 	readonly stops: readonly RouteStop[];

@@ -1,11 +1,9 @@
-import type { LarvalDensity, SpeciesRow } from '@simmer-mosquito/sync';
 import { gte, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
-import type { LifeStageFlags } from '../../components/larval-display';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { webCollections } from '../../sync/webCollections';
+import { useSpeciesNames } from '../../hooks/queries/use-species-names';
+import { sample_species } from '../../lib/collections/sample_species';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
 export const ACTIVITY_WINDOW_DAYS = 14;
@@ -60,29 +58,26 @@ export function useSpeciesComposition(sinceDate: string): {
 	readonly totals: readonly SpeciesTotal[];
 	readonly grandTotal: number;
 } & LoadState {
-	const { rows: species } = useCollectionRows<SpeciesRow>(webCollections.species);
-	const nameById = useMemo(
-		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
-		[species],
-	);
+	const nameById = useSpeciesNames();
 
 	const result = useLiveQuery(
 		{
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sampleSpecies: webCollections.sampleSpecies })
-					.where(({ sampleSpecies }) => gte(sampleSpecies.identifiedAt, sinceDate))
-					.select(({ sampleSpecies }) => ({
-						speciesId: sampleSpecies.speciesId,
-						larvaeCount: sampleSpecies.larvaeCount,
+					.from({ identification: sample_species })
+					.where(({ identification }) => gte(identification.identified_at, sinceDate))
+					.select(({ identification }) => ({
+						speciesId: identification.species_id,
+						larvaeCount: identification.larvae_count,
 					})),
 		},
 		[sinceDate],
 	);
 
+	const rows = result.data;
+
 	const { totals, grandTotal } = useMemo(() => {
-		const rows = (result.data ?? []) as readonly { speciesId: string; larvaeCount: number }[];
 		const byId = new Map<string, number>();
 		let sum = 0;
 		for (const row of rows) {
@@ -101,7 +96,7 @@ export function useSpeciesComposition(sinceDate: string): {
 			}))
 			.sort((first, second) => second.total - first.total);
 		return { totals: ranked, grandTotal: sum };
-	}, [result.data, nameById]);
+	}, [rows, nameById]);
 
 	return { totals, grandTotal, isReady: result.isReady, isError: result.isError };
 }
