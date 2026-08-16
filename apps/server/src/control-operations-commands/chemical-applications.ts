@@ -57,7 +57,9 @@ import {
 // ===========================================================================
 
 /** Plus the mission helper, which writes an application and closes the stop. */
-type ApplicationCommand = ControlOperationsCommand | RecordChemicalApplicationForMissionItemCommand;
+export type ApplicationCommand =
+	| ControlOperationsCommand
+	| RecordChemicalApplicationForMissionItemCommand;
 
 export function registerApplicationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -294,7 +296,7 @@ async function writeMissionApplication(
 	return toSafeApplication(row);
 }
 
-async function writeApplicationCommand(
+export async function writeApplicationCommand(
 	trx: ControlOperationsTransaction,
 	command: ApplicationCommand,
 ): Promise<SafeApplication | null> {

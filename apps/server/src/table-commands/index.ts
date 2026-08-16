@@ -21,6 +21,7 @@
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import type { CommandDb } from '../command-write.js';
+import { applicationBatchTableCommands, applicationTableCommands } from './applications.js';
 import { collectionSpeciesTableCommands } from './collection-species.js';
 import { collectionTableCommands } from './collections.js';
 import { equipmentTableCommands, vehicleTableCommands } from './control-assets.js';
@@ -33,6 +34,12 @@ import {
 import { registerTableCommandRoutes } from './dispatch.js';
 import { habitatTableCommands } from './habitats.js';
 import { inspectionTableCommands } from './inspections.js';
+import {
+	biocontrolActionTableCommands,
+	outreachActionTableCommands,
+	sourceReductionTableCommands,
+} from './performed-actions.js';
+import { requestedControlActionTableCommands } from './requested-control-actions.js';
 import { sampleSpeciesTableCommands } from './sample-species.js';
 import { sampleTableCommands } from './samples.js';
 import { trapTableCommands } from './traps.js';
@@ -57,4 +64,10 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, biocontrolMethodTableCommands(options.db));
 	registerTableCommandRoutes(app, options, vehicleTableCommands(options.db));
 	registerTableCommandRoutes(app, options, equipmentTableCommands(options.db));
+	registerTableCommandRoutes(app, options, sourceReductionTableCommands(options.db));
+	registerTableCommandRoutes(app, options, outreachActionTableCommands(options.db));
+	registerTableCommandRoutes(app, options, biocontrolActionTableCommands(options.db));
+	registerTableCommandRoutes(app, options, requestedControlActionTableCommands(options.db));
+	registerTableCommandRoutes(app, options, applicationTableCommands(options.db));
+	registerTableCommandRoutes(app, options, applicationBatchTableCommands(options.db));
 }

@@ -206,7 +206,7 @@ async function runRequestedControlActionCommands(
 	);
 }
 
-async function writeRequestedControlActionCommand(
+export async function writeRequestedControlActionCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
 ): Promise<SafeRequestedControlAction | null> {

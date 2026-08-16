@@ -79,7 +79,7 @@ import {
  * vocabulary follows the unit of work, the endpoint follows the table. Same
  * split as the assignment execution commands on the surveillance endpoints.
  */
-type ActionCommand =
+export type ActionCommand =
 	| ControlOperationsCommand
 	| RecordSourceReductionForMissionItemCommand
 	| RecordOutreachActionForMissionItemCommand
@@ -370,7 +370,7 @@ async function writeMissionBiocontrolAction(
 	return toSafeBiocontrolAction(row);
 }
 
-async function writeSourceReductionCommand(
+export async function writeSourceReductionCommand(
 	trx: ControlOperationsTransaction,
 	command: ActionCommand,
 ): Promise<SafeSourceReduction | null> {
@@ -581,7 +581,7 @@ export const outreachActionConfig: ActionConfig<SafeOutreachAction> = {
 	write: writeOutreachActionCommand,
 };
 
-async function writeOutreachActionCommand(
+export async function writeOutreachActionCommand(
 	trx: ControlOperationsTransaction,
 	command: ActionCommand,
 ): Promise<SafeOutreachAction | null> {
@@ -791,7 +791,7 @@ export const biocontrolActionConfig: ActionConfig<SafeBiocontrolAction> = {
 	write: writeBiocontrolActionCommand,
 };
 
-async function writeBiocontrolActionCommand(
+export async function writeBiocontrolActionCommand(
 	trx: ControlOperationsTransaction,
 	command: ActionCommand,
 ): Promise<SafeBiocontrolAction | null> {

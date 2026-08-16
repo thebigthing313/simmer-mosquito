@@ -44,13 +44,12 @@ so domains are not.
 - The other 43 server intent maps in `apps/server/src/table-commands/`. Both
   surveillance domains are done — `habitats`, `inspections`, `samples`,
   `sample_species`, `traps`, `collections`, `collection_species` — plus the
-  control-operations catalogs: the four method tables, `vehicles`, `equipment`.
-  Control operations still needs `insecticides`, `insecticide_batches`,
-  `formulations`, `formulation_insecticides`, and the six action-record tables
-  (`applications`, `application_batches`, `source_reductions`,
-  `outreach_actions`, `biocontrol_actions`, `requested_control_actions`) —
-  the last group is where the `performer` and `DeletionEscalation` permission
-  rules apply, so those builders sit next to authorization the others don't touch.
+  control-operations catalogs (the four method tables, `vehicles`, `equipment`)
+  and its six action-record tables (`applications`, `application_batches`,
+  `source_reductions`, `outreach_actions`, `biocontrol_actions`,
+  `requested_control_actions`). Control operations still needs the four product
+  tables: `insecticides`, `insecticide_batches`, `formulations`,
+  `formulation_insecticides`.
 - `packages/sync/src/rows/*` — 58 camelCase `*Row` types, still imported by the
   old path. They go when nothing imports them.
 - `/map/*` REST endpoints still return camelCase via ~170 `as "camelCase"`
