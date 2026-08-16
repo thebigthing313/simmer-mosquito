@@ -1,11 +1,11 @@
 /**
  * Routes for the commands the domain declares and nothing writes yet.
  *
- * Fourteen of the 271 names in the vocabulary have no handler: two merges, an
- * address location update, mission notification generation, and every
- * `weather.*` write. Until now that was invisible — a client naming one of them
- * got a 404 from Hono, which is the same answer it gets for a typo, so an
- * unbuilt feature and a misspelled path were indistinguishable.
+ * Thirteen of the 271 names in the vocabulary have no handler: two merges,
+ * mission notification generation, and every `weather.*` write. Until now that
+ * was invisible — a client naming one of them got a 404 from Hono, which is the
+ * same answer it gets for a typo, so an unbuilt feature and a misspelled path
+ * were indistinguishable.
  *
  * These routes exist to answer differently. Each one is registered, authorized
  * like any other command endpoint, and then refuses with `501` and the command
@@ -57,13 +57,9 @@ interface UnimplementedRoute {
  * would never be reached.
  */
 export const unimplementedCommandRoutes: readonly UnimplementedRoute[] = [
-	// Addresses. The existing PATCH builds `updateAddressDetails` and only that, so
-	// a location change has nowhere to go; a merge has no route at all.
-	{
-		verb: 'post',
-		path: '/foundation/addresses/:addressId/location',
-		command: 'foundation.updateAddressLocation',
-	},
+	// A merge has no route at all. `foundation.updateAddressLocation` was stubbed
+	// here beside it and is not any more: `/commands/addresses` names it, and
+	// `writeAddressCommand` writes it.
 	{ verb: 'post', path: '/foundation/addresses/merge', command: 'foundation.mergeAddresses' },
 
 	{

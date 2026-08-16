@@ -8,7 +8,19 @@ import { type MapFilterInput, type MapTileInput, mapSurface } from './map-surfac
 export interface CreateAddressInput {
 	readonly id?: string;
 	readonly organizationId: string;
-	readonly geojson: GeoJsonGeometry;
+	/**
+	 * `unknown`, as `adult-surveillance-commands` and `larval-surveillance-commands`
+	 * already spell the same field, and as `geojsonToGeom` below actually takes it
+	 * — it stringifies whatever it is handed and lets PostGIS refuse the rest.
+	 *
+	 * `GeoJsonGeometry` is `Record<string, unknown>`, which the *shape* of a
+	 * geometry satisfies but a named geometry type does not: an interface has no
+	 * implicit index signature, so `packages/domain`'s `GeoJsonPoint` is refused
+	 * here however identical the value is. That is a spelling mismatch between two
+	 * packages rather than a check worth keeping, and it is what stopped
+	 * `foundation.createAddress` handing its own validated point straight through.
+	 */
+	readonly geojson: unknown;
 	readonly displayName: string;
 	readonly country: string;
 	readonly addressLine1?: string | null;
@@ -82,7 +94,7 @@ export interface SafeRegion {
 	readonly updatedAt: Date;
 }
 
-function geojsonToGeom(geojson: GeoJsonGeometry): RawBuilder<string> {
+function geojsonToGeom(geojson: unknown): RawBuilder<string> {
 	const serialized = JSON.stringify(geojson);
 	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
 		case
@@ -250,7 +262,8 @@ export async function updateAddressLocation(
 	id: string,
 	input: {
 		readonly organizationId: string;
-		readonly geojson: GeoJsonGeometry;
+		/** See `CreateAddressInput.geojson`. */
+		readonly geojson: unknown;
 		readonly updatedByProfileId?: string | null;
 	},
 ): Promise<SafeAddress | null> {
