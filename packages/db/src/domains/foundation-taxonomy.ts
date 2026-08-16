@@ -11,14 +11,18 @@ import type {
 	UpdateUnitInput,
 } from '../index.js';
 
-export interface CreateGenusInput {
-	readonly id?: string;
-	readonly abbreviation: string;
-	readonly name: string;
-}
-
-export interface UpdateGenusInput extends CreateGenusInput {}
-
+/**
+ * The taxonomy is read here and written through commands.
+ *
+ * `createGenus`, `updateSpecies` and their six `*WithTxid` wrappers used to live
+ * in this file, called straight from `/admin/genera` and `/admin/species`. They
+ * are gone: `apps/server/src/table-commands/taxonomy.ts` writes those rows from
+ * a domain command now, and it could not have reused them anyway — `updateGenus`
+ * and `updateSpecies` `.set()` every column unconditionally, so `updateSpecies`
+ * would have detached a species from its genus on any edit that did not restate
+ * `genusId`. What is left here is the two list reads the operator console's
+ * foundations view still needs.
+ */
 export interface SafeGenus {
 	readonly id: string;
 	readonly abbreviation: string;
@@ -26,16 +30,6 @@ export interface SafeGenus {
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
-
-export interface CreateSpeciesInput {
-	readonly id?: string;
-	readonly genusId?: string | null;
-	readonly epithet: string;
-	readonly commonName?: string | null;
-	readonly displayName: string;
-}
-
-export interface UpdateSpeciesInput extends CreateSpeciesInput {}
 
 export interface SafeSpecies {
 	readonly id: string;
@@ -65,83 +59,6 @@ export interface SafeOrganizationSpecies {
 	readonly updatedAt: Date;
 }
 
-export async function createGenus(db: DbExecutor, input: CreateGenusInput): Promise<SafeGenus> {
-	const row = await db
-		.insertInto('genera')
-		.values({
-			...(input.id === undefined ? {} : { id: input.id }),
-			abbreviation: input.abbreviation,
-			name: input.name,
-		})
-		.returning(['id', 'abbreviation', 'name', 'created_at', 'updated_at'])
-		.executeTakeFirstOrThrow();
-
-	return toSafeGenus(row);
-}
-
-export async function createGenusWithTxid(
-	db: Kysely<SimmerDatabase>,
-	input: CreateGenusInput,
-): Promise<MutationWriteResult<SafeGenus>> {
-	return db.transaction().execute(async (trx) => {
-		const row = await createGenus(trx, input);
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
-}
-
-export async function updateGenus(
-	db: DbExecutor,
-	genusId: string,
-	input: UpdateGenusInput,
-): Promise<SafeGenus | null> {
-	const row = await db
-		.updateTable('genera')
-		.set({
-			abbreviation: input.abbreviation,
-			name: input.name,
-			updated_at: sql`now()`,
-		})
-		.where('id', '=', genusId)
-		.returning(['id', 'abbreviation', 'name', 'created_at', 'updated_at'])
-		.executeTakeFirst();
-
-	return row === undefined ? null : toSafeGenus(row);
-}
-
-export async function updateGenusWithTxid(
-	db: Kysely<SimmerDatabase>,
-	genusId: string,
-	input: UpdateGenusInput,
-): Promise<MutationWriteResult<SafeGenus | null>> {
-	return db.transaction().execute(async (trx) => {
-		const row = await updateGenus(trx, genusId, input);
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
-}
-
-export async function deleteGenus(db: DbExecutor, genusId: string): Promise<SafeGenus | null> {
-	const row = await db
-		.deleteFrom('genera')
-		.where('id', '=', genusId)
-		.returning(['id', 'abbreviation', 'name', 'created_at', 'updated_at'])
-		.executeTakeFirst();
-
-	return row === undefined ? null : toSafeGenus(row);
-}
-
-export async function deleteGenusWithTxid(
-	db: Kysely<SimmerDatabase>,
-	genusId: string,
-): Promise<MutationWriteResult<SafeGenus | null>> {
-	return db.transaction().execute(async (trx) => {
-		const row = await deleteGenus(trx, genusId);
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
-}
-
 export async function listGenera(db: DbExecutor): Promise<SafeGenus[]> {
 	const rows = await db
 		.selectFrom('genera')
@@ -150,117 +67,6 @@ export async function listGenera(db: DbExecutor): Promise<SafeGenus[]> {
 		.execute();
 
 	return rows.map(toSafeGenus);
-}
-
-export async function createSpecies(
-	db: DbExecutor,
-	input: CreateSpeciesInput,
-): Promise<SafeSpecies> {
-	const row = await db
-		.insertInto('species')
-		.values({
-			...(input.id === undefined ? {} : { id: input.id }),
-			genus_id: input.genusId ?? null,
-			epithet: input.epithet,
-			common_name: input.commonName ?? null,
-			display_name: input.displayName,
-		})
-		.returning([
-			'id',
-			'genus_id',
-			'epithet',
-			'common_name',
-			'display_name',
-			'created_at',
-			'updated_at',
-		])
-		.executeTakeFirstOrThrow();
-
-	return toSafeSpecies(row);
-}
-
-export async function createSpeciesWithTxid(
-	db: Kysely<SimmerDatabase>,
-	input: CreateSpeciesInput,
-): Promise<MutationWriteResult<SafeSpecies>> {
-	return db.transaction().execute(async (trx) => {
-		const row = await createSpecies(trx, input);
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
-}
-
-export async function updateSpecies(
-	db: DbExecutor,
-	speciesId: string,
-	input: UpdateSpeciesInput,
-): Promise<SafeSpecies | null> {
-	const row = await db
-		.updateTable('species')
-		.set({
-			genus_id: input.genusId ?? null,
-			epithet: input.epithet,
-			common_name: input.commonName ?? null,
-			display_name: input.displayName,
-			updated_at: sql`now()`,
-		})
-		.where('id', '=', speciesId)
-		.returning([
-			'id',
-			'genus_id',
-			'epithet',
-			'common_name',
-			'display_name',
-			'created_at',
-			'updated_at',
-		])
-		.executeTakeFirst();
-
-	return row === undefined ? null : toSafeSpecies(row);
-}
-
-export async function updateSpeciesWithTxid(
-	db: Kysely<SimmerDatabase>,
-	speciesId: string,
-	input: UpdateSpeciesInput,
-): Promise<MutationWriteResult<SafeSpecies | null>> {
-	return db.transaction().execute(async (trx) => {
-		const row = await updateSpecies(trx, speciesId, input);
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
-}
-
-export async function deleteSpecies(
-	db: DbExecutor,
-	speciesId: string,
-): Promise<SafeSpecies | null> {
-	const row = await db
-		.deleteFrom('species')
-		.where('id', '=', speciesId)
-		.returning([
-			'id',
-			'genus_id',
-			'epithet',
-			'common_name',
-			'display_name',
-			'created_at',
-			'updated_at',
-		])
-		.executeTakeFirst();
-
-	return row === undefined ? null : toSafeSpecies(row);
-}
-
-export async function deleteSpeciesWithTxid(
-	db: Kysely<SimmerDatabase>,
-	speciesId: string,
-): Promise<MutationWriteResult<SafeSpecies | null>> {
-	return db.transaction().execute(async (trx) => {
-		const row = await deleteSpecies(trx, speciesId);
-		const txid = await readCurrentTransactionId(trx);
-		return { row, txid };
-	});
 }
 
 export async function listSpecies(db: DbExecutor): Promise<SafeSpecies[]> {

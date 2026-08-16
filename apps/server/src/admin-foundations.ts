@@ -1,9 +1,5 @@
 import {
-	createGenusWithTxid,
-	createSpeciesWithTxid,
 	createUnitWithTxid,
-	deleteGenusWithTxid,
-	deleteSpeciesWithTxid,
 	deleteUnitWithTxid,
 	getOperatorOrganization,
 	listAddresses,
@@ -25,8 +21,6 @@ import {
 	type SafeUnit,
 	type UnitSystem,
 	type UnitType,
-	updateGenusWithTxid,
-	updateSpeciesWithTxid,
 	updateUnitWithTxid,
 } from '@simmer-mosquito/db';
 import type { Context, Hono } from 'hono';
@@ -41,14 +35,18 @@ const FOREIGN_KEY_VIOLATION = '23503';
 /**
  * A delete the database may refuse, separated from one that failed.
  *
- * The global catalogs are deliberately restrictive — a genus with species, a
- * unit an agency still measures in — and the console *says so* before asking
- * for confirmation. But nothing caught the refusal, so Postgres's error left as
- * an unhandled 500 with a plain-text body, and the console could only report
- * "Server response was unreadable" about a rule it had just explained.
+ * The global catalogs are deliberately restrictive — a unit an agency still
+ * measures in — and the console *says so* before asking for confirmation. But
+ * nothing caught the refusal, so Postgres's error left as an unhandled 500 with
+ * a plain-text body, and the console could only report "Server response was
+ * unreadable" about a rule it had just explained.
  *
  * Only `23503` is answered. Anything else still throws, because a delete that
  * failed for some other reason is not a rule being enforced.
+ *
+ * The taxonomy makes the same argument through `/commands/{table}` — see
+ * `foreignKeyRefusal` in `table-commands/taxonomy.ts`, which raises the same
+ * 409 from inside the command transaction.
  */
 async function deleteOrExplain<TResult>(
 	run: () => Promise<TResult>,
@@ -73,9 +71,18 @@ async function deleteOrExplain<TResult>(
 //
 // Two kinds of thing, and the difference is the whole of ADR 0011.
 //
-// **Global catalogs** — genera, species, units. SIMMER controls these; no agency
-// route writes them and no agency membership is relevant to them. They are
-// operator-owned by nature and stay here.
+// **Global catalogs** — units. SIMMER controls these; no agency route writes
+// them and no agency membership is relevant to them. They are operator-owned by
+// nature and stay here.
+//
+// Genera and species were here too, and are not any more. They were the second
+// door on the taxonomy: `createGenusWithTxid` and its siblings called straight
+// from a route, so a genus written here was validated by a hand-rolled payload
+// reader, attributed to nobody, and checked against no permission map, while
+// `/commands/genera` wrote the same row through a domain command behind the
+// operator floor. Two doors with different checks is the thing that surface
+// exists to remove, so these six routes are gone and `apps/admin` posts intents.
+// The `*WithTxid` helpers went with them — nothing else called them.
 //
 // **Reads of one agency's foundations**, so an operator can see whether an
 // agency is ready to work without joining it. Reading is not the problem #120
@@ -144,112 +151,6 @@ export function registerAdminFoundationRoutes(
 					habitatTypes: habitatTypes.map(toOrgLookupResponse),
 				},
 				traps: traps.map(toTrapResponse),
-			});
-		},
-	);
-
-	app.post('/admin/genera', options.operatorAuthContextMiddleware, async (context) => {
-		const payloadResult = await readGenusPayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const result = await createGenusWithTxid(options.db, payloadResult.payload);
-		return context.json({ genus: toGenusResponse(result.row), txid: result.txid }, 201);
-	});
-
-	app.patch('/admin/genera/:genusId', options.operatorAuthContextMiddleware, async (context) => {
-		const payloadResult = await readGenusPayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const result = await updateGenusWithTxid(
-			options.db,
-			context.req.param('genusId'),
-			payloadResult.payload,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'genus_not_found' }, 404);
-		}
-
-		return context.json({ genus: toGenusResponse(result.row), txid: result.txid });
-	});
-
-	app.delete('/admin/genera/:genusId', options.operatorAuthContextMiddleware, async (context) => {
-		const outcome = await deleteOrExplain(() =>
-			deleteGenusWithTxid(options.db, context.req.param('genusId')),
-		);
-		if (!outcome.ok) {
-			return context.json(
-				{
-					error: 'genus_in_use',
-					reason: 'This genus still has species recorded against it.',
-				},
-				409,
-			);
-		}
-
-		if (outcome.result.row === null) {
-			return context.json({ error: 'genus_not_found' }, 404);
-		}
-
-		return context.json({ genus: toGenusResponse(outcome.result.row), txid: outcome.result.txid });
-	});
-
-	app.post('/admin/species', options.operatorAuthContextMiddleware, async (context) => {
-		const payloadResult = await readSpeciesPayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const result = await createSpeciesWithTxid(options.db, payloadResult.payload);
-		return context.json({ species: toSpeciesResponse(result.row), txid: result.txid }, 201);
-	});
-
-	app.patch('/admin/species/:speciesId', options.operatorAuthContextMiddleware, async (context) => {
-		const payloadResult = await readSpeciesPayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const result = await updateSpeciesWithTxid(
-			options.db,
-			context.req.param('speciesId'),
-			payloadResult.payload,
-		);
-		if (result.row === null) {
-			return context.json({ error: 'species_not_found' }, 404);
-		}
-
-		return context.json({ species: toSpeciesResponse(result.row), txid: result.txid });
-	});
-
-	app.delete(
-		'/admin/species/:speciesId',
-		options.operatorAuthContextMiddleware,
-		async (context) => {
-			const outcome = await deleteOrExplain(() =>
-				deleteSpeciesWithTxid(options.db, context.req.param('speciesId')),
-			);
-			if (!outcome.ok) {
-				return context.json(
-					{
-						error: 'species_in_use',
-						reason:
-							'This species is still enabled for an agency, or recorded in a count. Remove those first.',
-					},
-					409,
-				);
-			}
-
-			if (outcome.result.row === null) {
-				return context.json({ error: 'species_not_found' }, 404);
-			}
-
-			return context.json({
-				species: toSpeciesResponse(outcome.result.row),
-				txid: outcome.result.txid,
 			});
 		},
 	);
@@ -339,20 +240,6 @@ async function assertOperatorOrganization(
 	return { ok: true, organizationId };
 }
 
-interface GenusPayload {
-	readonly id?: string;
-	readonly abbreviation: string;
-	readonly name: string;
-}
-
-interface SpeciesPayload {
-	readonly id?: string;
-	readonly genusId: string | null;
-	readonly epithet: string;
-	readonly commonName: string | null;
-	readonly displayName: string;
-}
-
 interface UnitPayload {
 	readonly id?: string;
 	readonly code: string;
@@ -365,56 +252,6 @@ interface UnitPayload {
 type PayloadResult<T> =
 	| { readonly ok: true; readonly payload: T }
 	| { readonly ok: false; readonly reason: string };
-
-async function readGenusPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<GenusPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const abbreviation = readRequiredText(rawResult.payload.abbreviation);
-	const name = readRequiredText(rawResult.payload.name);
-	if (abbreviation === null || name === null) {
-		return invalid('abbreviation and name are required.');
-	}
-	const id = readOptionalUuid(rawResult.payload.id);
-	if (id === undefined) {
-		return invalid('id must be a UUID when provided.');
-	}
-
-	return { ok: true, payload: { ...(id === null ? {} : { id }), abbreviation, name } };
-}
-
-async function readSpeciesPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<SpeciesPayload>> {
-	const rawResult = await readJsonObject(request);
-	if (!rawResult.ok) {
-		return rawResult;
-	}
-	const raw = rawResult.payload;
-	const epithet = readRequiredText(raw.epithet);
-	const displayName = readRequiredText(raw.displayName);
-	if (epithet === null || displayName === null) {
-		return invalid('epithet and displayName are required.');
-	}
-	const id = readOptionalUuid(raw.id);
-	if (id === undefined) {
-		return invalid('id must be a UUID when provided.');
-	}
-
-	return {
-		ok: true,
-		payload: {
-			...(id === null ? {} : { id }),
-			genusId: readOptionalText(raw.genusId),
-			epithet,
-			commonName: readOptionalText(raw.commonName),
-			displayName,
-		},
-	};
-}
 
 async function readUnitPayload(request: {
 	readonly json: () => Promise<unknown>;

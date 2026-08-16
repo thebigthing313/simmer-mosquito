@@ -11,7 +11,8 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import type { AuthVariables } from '../../../auth-middleware.js';
-import type { WritableCommand } from '../../../command-write.js';
+import { CommandError } from '../../../command-endpoint.js';
+import type { CommandTransaction, WritableCommand } from '../../../command-write.js';
 import {
 	type OperatorIntentRequest,
 	type OperatorTableCommands,
@@ -137,6 +138,19 @@ describe('species intent map', () => {
 		});
 	});
 
+	it('reads a species off column names, not the domain vocabulary', () => {
+		// `genusId` and `displayName` are what the domain calls these; the body
+		// speaks Postgres, so neither is read and the command comes back empty
+		// enough for the domain to refuse it.
+		expect(() =>
+			build(
+				species,
+				'foundation.createSpecies',
+				request({ genusId: GENUS, epithet: 'albopictus', displayName: 'Aedes albopictus' }),
+			),
+		).toThrow();
+	});
+
 	it('does not detach a species from its genus on an unrelated edit', () => {
 		// The trap in the helper this replaces: `updateSpecies` in `packages/db`
 		// sets `genus_id: input.genusId ?? null` unconditionally, so correcting an
@@ -147,4 +161,67 @@ describe('species intent map', () => {
 		expect(command.payload).toMatchObject({ changes: { epithet: 'aegypti' } });
 		expect((command.payload as { changes: object }).changes).not.toHaveProperty('genusId');
 	});
+});
+
+/** What `pg` throws when a delete would orphan a row. */
+function foreignKeyViolation(): Error {
+	return Object.assign(new Error('update or delete on table violates foreign key constraint'), {
+		code: '23503',
+	});
+}
+
+/** A `deleteFrom(…).where(…).returning(…).executeTakeFirst()` chain that fails. */
+function failingTransaction(error: unknown): CommandTransaction {
+	const chain = {
+		where: () => chain,
+		returning: () => chain,
+		executeTakeFirst: () => Promise.reject(error),
+	};
+	return { deleteFrom: () => chain } as unknown as CommandTransaction;
+}
+
+/**
+ * The taxonomy is hard-deleted and the foreign keys are what refuse it.
+ *
+ * Every other table on this surface is soft-deleted and settles this before
+ * writing, in `applyRecordDeletion`, so its refusal is a `RecordDeleteBlockedError`
+ * raised by a read. These two only find out once the statement has run, and left
+ * unhandled that arrives as a 500 with a plain-text body — which the console can
+ * only report as "Server response was unreadable", about a rule its own
+ * confirmation dialog had just explained.
+ */
+describe('a taxonomy delete the database refuses', () => {
+	const cases = [
+		{ what: 'genus', spec: genera, intent: 'foundation.deleteGenus', code: 'genus_in_use' },
+		{ what: 'species', spec: species, intent: 'foundation.deleteSpecies', code: 'species_in_use' },
+	] as const;
+
+	for (const { what, spec, intent, code } of cases) {
+		it(`answers 409 and names the rule for a ${what} still in use`, async () => {
+			const command = build(spec as never, intent, request({}));
+
+			const failure = await spec.run
+				.write(failingTransaction(foreignKeyViolation()), command as never)
+				.catch((error: unknown) => error);
+
+			expect(failure).toBeInstanceOf(CommandError);
+			expect((failure as CommandError).status).toBe(409);
+			expect((failure as CommandError).body.error).toBe(code);
+			// The reason is what the operator reads, so it has to say something.
+			expect((failure as CommandError).body.reason?.length ?? 0).toBeGreaterThan(10);
+		});
+
+		// Dressing an unrelated failure up as a 409 would tell the operator their
+		// catalog is in use when the database merely fell over.
+		it(`lets an unrelated ${what} failure through as itself`, async () => {
+			const command = build(spec as never, intent, request({}));
+			const dropped = new Error('connection terminated');
+
+			const failure = await spec.run
+				.write(failingTransaction(dropped), command as never)
+				.catch((error: unknown) => error);
+
+			expect(failure).toBe(dropped);
+		});
+	}
 });

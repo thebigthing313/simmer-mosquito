@@ -144,23 +144,39 @@ export interface AdminSpecies {
 	readonly updatedAt: string;
 }
 
+/**
+ * `id` is required on a create, unlike every other input here.
+ *
+ * The taxonomy is written through `/commands/{table}`, where a POST carries the
+ * row's id in its body rather than letting Postgres assign one — SIMMER writes
+ * carry their own ids so they are replay-safe, and the collection has already
+ * minted one for the optimistic row on screen. There is no id to fall back to.
+ */
 export interface CreateAdminGenusInput {
-	readonly id?: string;
+	readonly id: string;
 	readonly abbreviation: string;
 	readonly name: string;
 }
 
-export interface UpdateAdminGenusInput extends CreateAdminGenusInput {}
+export interface UpdateAdminGenusInput {
+	readonly abbreviation: string;
+	readonly name: string;
+}
 
 export interface CreateAdminSpeciesInput {
-	readonly id?: string;
+	readonly id: string;
 	readonly genusId: string | null;
 	readonly epithet: string;
 	readonly commonName: string;
 	readonly displayName: string;
 }
 
-export interface UpdateAdminSpeciesInput extends CreateAdminSpeciesInput {}
+export interface UpdateAdminSpeciesInput {
+	readonly genusId: string | null;
+	readonly epithet: string;
+	readonly commonName: string;
+	readonly displayName: string;
+}
 
 export interface AdminUnit {
 	readonly id: string;
@@ -318,13 +334,41 @@ export async function inviteAdminUser(
 	);
 }
 
+/**
+ * The taxonomy writes, against `/commands/{table}`.
+ *
+ * These six used to post to `/admin/genera` and `/admin/species`, which wrote
+ * the rows directly — no domain command, no permission map, and nobody the edit
+ * could be attributed to. The command surface serves the same two tables behind
+ * the operator floor, so those routes are gone and this is the only door.
+ *
+ * Three things about the bodies, none of them cosmetic:
+ *
+ * - **`intents` names the command.** The endpoint dispatches on it rather than
+ *   inferring one from which keys arrived, so an extra field can no longer
+ *   become an extra command.
+ * - **The keys are Postgres column names.** `genus_id`, `common_name`,
+ *   `display_name` — the payload is the row as the client holds it, and the
+ *   translation into the domain's vocabulary happens server-side. A camelCase
+ *   key is not read, so it does not silently change nothing; the command comes
+ *   back missing a required field and the server answers 400.
+ * - **A create carries its own `id`.** There is no path parameter on a POST, so
+ *   the body's `id` is the row's.
+ *
+ * Responses are unchanged: `{ genus | species, txid }`.
+ */
 export async function createAdminGenus(
 	input: CreateAdminGenusInput,
 	serverUrl = getServerUrl(),
 ): Promise<AdminMutationResult<AdminGenus>> {
 	const body = await postJson<{ readonly genus: AdminGenus; readonly txid: number }>(
-		`${serverUrl}/admin/genera`,
-		input,
+		`${serverUrl}/commands/genera`,
+		{
+			intents: ['foundation.createGenus'],
+			id: input.id,
+			abbreviation: input.abbreviation,
+			name: input.name,
+		},
 	);
 	return { row: body.genus, txid: body.txid };
 }
@@ -335,8 +379,12 @@ export async function updateAdminGenus(
 	serverUrl = getServerUrl(),
 ): Promise<AdminMutationResult<AdminGenus>> {
 	const body = await patchJson<{ readonly genus: AdminGenus; readonly txid: number }>(
-		`${serverUrl}/admin/genera/${genusId}`,
-		input,
+		`${serverUrl}/commands/genera/${genusId}`,
+		{
+			intents: ['foundation.updateGenus'],
+			abbreviation: input.abbreviation,
+			name: input.name,
+		},
 	);
 	return { row: body.genus, txid: body.txid };
 }
@@ -346,7 +394,8 @@ export async function deleteAdminGenus(
 	serverUrl = getServerUrl(),
 ): Promise<AdminMutationResult<AdminGenus>> {
 	const body = await deleteJson<{ readonly genus: AdminGenus; readonly txid: number }>(
-		`${serverUrl}/admin/genera/${genusId}`,
+		`${serverUrl}/commands/genera/${genusId}`,
+		{ intents: ['foundation.deleteGenus'] },
 	);
 	return { row: body.genus, txid: body.txid };
 }
@@ -356,8 +405,15 @@ export async function createAdminSpecies(
 	serverUrl = getServerUrl(),
 ): Promise<AdminMutationResult<AdminSpecies>> {
 	const body = await postJson<{ readonly species: AdminSpecies; readonly txid: number }>(
-		`${serverUrl}/admin/species`,
-		input,
+		`${serverUrl}/commands/species`,
+		{
+			intents: ['foundation.createSpecies'],
+			id: input.id,
+			genus_id: input.genusId,
+			epithet: input.epithet,
+			common_name: input.commonName,
+			display_name: input.displayName,
+		},
 	);
 	return { row: body.species, txid: body.txid };
 }
@@ -368,8 +424,14 @@ export async function updateAdminSpecies(
 	serverUrl = getServerUrl(),
 ): Promise<AdminMutationResult<AdminSpecies>> {
 	const body = await patchJson<{ readonly species: AdminSpecies; readonly txid: number }>(
-		`${serverUrl}/admin/species/${speciesId}`,
-		input,
+		`${serverUrl}/commands/species/${speciesId}`,
+		{
+			intents: ['foundation.updateSpecies'],
+			genus_id: input.genusId,
+			epithet: input.epithet,
+			common_name: input.commonName,
+			display_name: input.displayName,
+		},
 	);
 	return { row: body.species, txid: body.txid };
 }
@@ -379,7 +441,8 @@ export async function deleteAdminSpecies(
 	serverUrl = getServerUrl(),
 ): Promise<AdminMutationResult<AdminSpecies>> {
 	const body = await deleteJson<{ readonly species: AdminSpecies; readonly txid: number }>(
-		`${serverUrl}/admin/species/${speciesId}`,
+		`${serverUrl}/commands/species/${speciesId}`,
+		{ intents: ['foundation.deleteSpecies'] },
 	);
 	return { row: body.species, txid: body.txid };
 }
@@ -425,13 +488,24 @@ async function patchJson<T>(url: string, input: unknown): Promise<T> {
 	return writeJson<T>(url, 'PATCH', input);
 }
 
-async function deleteJson<T>(url: string): Promise<T> {
+/**
+ * `input` is what a command DELETE needs and a REST one does not.
+ *
+ * `/commands/{table}/{id}` still has to be told which command the delete means,
+ * so it carries an `intents` body; `/admin/units/{id}` encodes that in the verb
+ * and the path and sends nothing. Omitted, no body and no `content-type` is
+ * sent at all — which matters, because a `content-type: application/json` with
+ * an empty body is what makes a JSON parse fail on the other end.
+ */
+async function deleteJson<T>(url: string, input?: unknown): Promise<T> {
 	const response = await fetch(url, {
 		method: 'DELETE',
 		credentials: 'include',
 		headers: {
 			accept: 'application/json',
+			...(input === undefined ? {} : { 'content-type': 'application/json' }),
 		},
+		...(input === undefined ? {} : { body: JSON.stringify(input) }),
 	});
 
 	return readJsonResponse<T>(response);
