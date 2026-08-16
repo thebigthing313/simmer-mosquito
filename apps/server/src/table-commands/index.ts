@@ -48,6 +48,11 @@ import {
 	notificationTypeTableCommands,
 } from './notifications.js';
 import {
+	collectionLureTableCommands,
+	collectionMethodTableCommands,
+	habitatTypeTableCommands,
+} from './org-lookups.js';
+import {
 	biocontrolActionTableCommands,
 	outreachActionTableCommands,
 	sourceReductionTableCommands,
@@ -96,6 +101,9 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, notificationRegistrationTableCommands(options.db));
 	registerTableCommandRoutes(app, options, notificationRegistrationTypeTableCommands(options.db));
 	registerTableCommandRoutes(app, options, missionNotificationTableCommands(options.db));
+	registerTableCommandRoutes(app, options, collectionMethodTableCommands(options.db));
+	registerTableCommandRoutes(app, options, collectionLureTableCommands(options.db));
+	registerTableCommandRoutes(app, options, habitatTypeTableCommands(options.db));
 	// The two global catalogs, behind the operator door.
 	registerTableCommandRoutes(app, options, genusTableCommands(options.db));
 	registerTableCommandRoutes(app, options, speciesTableCommands(options.db));
