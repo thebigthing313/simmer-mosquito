@@ -42,7 +42,7 @@ so domains are not.
 - Write hooks. Only reads have moved. `mutateCollection` exists
   (`lib/collections/mutate.ts`) and nothing calls it yet.
 - The remaining server intent maps in `apps/server/src/table-commands/`.
-  **193 of the 261 agency commands are reachable**, across 36 tables: both
+  **196 of the 264 agency commands are reachable**, across 37 tables: both
   surveillance domains whole (`habitats`, `inspections`, `samples`,
   `sample_species`, `traps`, `collections`, `collection_species`) and control
   operations whole (72/72 — the four method catalogs, `vehicles`, `equipment`,
@@ -55,11 +55,19 @@ so domains are not.
   `notification_types`, `notification_registrations`,
   `notification_registration_types`, `mission_notifications`).
 
-  Foundation is 35/36: `genera` and `species` as the first **operator** tables
-  (`table-commands/taxonomy.ts`), plus `collection_methods`, `collection_lures`,
-  `habitat_types`, `region_folders`, `regions`, `organization_species` and
-  `addresses`. **`/admin/genera` and `/admin/species` are gone** — the console
-  posts intents at `/commands/*` and there is one door on the taxonomy now.
+  Foundation is 38/39: `genera`, `species` and `units` as the **operator** tables
+  (`table-commands/taxonomy.ts`, `table-commands/units.ts`), plus
+  `collection_methods`, `collection_lures`, `habitat_types`, `region_folders`,
+  `regions`, `organization_species` and `addresses`. The three unit commands are
+  new to the vocabulary; `docs/foundation-domain.md` records why `code` is the
+  only field on a unit that carries a guard.
+
+  **`admin-foundations.ts` is reads only.** All nine global-catalog write routes
+  are gone and a test asserts the module registers no verb but `GET`. The
+  `/admin/sync/shapes/*` prefix is gone too: those three tables are `global`
+  scope, so one route admits either identity through
+  `createGlobalReadMiddleware`, and the scope — not a list — decides which routes
+  get it.
 
   Left: `missionDispatch` (4/24), `fieldWork` (4/42), `organizationSettings`
   (0/7). The four `fieldWork` and four `missionDispatch` commands already
@@ -101,17 +109,31 @@ so domains are not.
   agency org fails the same check, and the console has no switcher, only "Sign
   out". Same gap as §5.4's Railway note.
 
-  **`apps/admin` is broken by the deleted column mapper too, in three different
-  ways.** Worth knowing because only one of them looks like a fault:
-  `/taxonomy/species` throws `Cannot read properties of undefined (reading
-  'localeCompare')` — it sorts on `displayName` and the shape streams
-  `display_name`; `/units` counts "25 units" and then shows "No units match" —
-  the same cause degrading to an empty list rather than a crash; `/taxonomy/genera`
-  works, because every column it reads (`id`, `name`, `abbreviation`) is a single
-  word and spells the same either way. Its species badges all read "0 species"
-  for the same reason. Writes are unaffected: a mutation's `modified` carries the
-  camelCase values the form just set, so `api.ts` reads them fine — which is why
-  the genus round-trip above passes on a page whose sibling crashes.
+  **`apps/admin` is migrated too, and is the only app that is.** It has
+  `lib/collections/` (three modules from the factories, `mutations: true`),
+  `hooks/queries/` (three read hooks doing the camelCase transition in a compiled
+  `select`) and `lib/collections/writes.ts` doing the journey back. `sync/` and
+  the nine `/admin/*` write functions in `api.ts` are gone. That fixed three live
+  bugs of which only one looked like one: species threw on
+  `displayName.localeCompare`, units counted "25 units" and listed none, and
+  genera worked because its columns are single words.
+
+  Four things it learned that `apps/web` will hit as it migrates:
+
+  1. **Every mutation needs `metadata: { intents: [...] }`.** `requireIntents`
+     throws without it, so a write with no intent is not degraded — it fails at
+     the click. A test that stubs a collection and ignores the second argument
+     will not see it.
+  2. **`orderBy` is not honoured after `groupBy`,** and cannot read the
+     projection either. A list that needs both an order and a per-key count is
+     two queries and a `Map`, as `use-assignment-item-counts.ts` already does.
+  3. **The query builder holds to strict SQL group-by** — every non-aggregate
+     column in the `select` must be in the `groupBy`, with no
+     functional-dependency relaxation for a primary key. It throws at render;
+     `tsc` sees nothing.
+  4. **`satisfies Row` on an optimistic insert is what makes column names a
+     compile error.** The `as Row` cast the console used before is exactly what
+     let camelCase rows through in silence.
 
   **`/commands/*` had no CORS prefix at all** until this work, and
   `cors-options.test.ts` could not catch it because its route walk never stood
