@@ -1,6 +1,5 @@
 import { toDbEntityType } from '@simmer-mosquito/domain';
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import type { AddressRow, ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -40,7 +39,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { eq, inArray, useLiveQuery } from '@tanstack/react-db';
+import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -58,8 +57,14 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
 import { WriteOnly } from '../../../components/write-only';
+import type { Address } from '../../../hooks/queries/address-view';
+import type { ContactSummary } from '../../../hooks/queries/contact-view';
 import type { Tag } from '../../../hooks/queries/tag-view';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import {
+	type RequestListing,
+	useOrganizationServiceRequests,
+} from '../../../hooks/queries/use-organization-service-requests';
+import { useRequestParties } from '../../../hooks/queries/use-request-parties';
 import { tag_items } from '../../../lib/collections/tag_items';
 import {
 	choiceParam,
@@ -70,7 +75,6 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	contactDisplayName,
 	formatAddressLine,
@@ -117,23 +121,7 @@ export const Route = createFileRoute('/public-engagement/service-requests/')({
 });
 
 function ServiceRequestsExplorerRoute() {
-	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const organizationId = organization?.id ?? '';
-
-	// service_requests is on-demand; the org-scoped query drives its subset.
-	const result = useLiveQuery(
-		{
-			gcTime: requestsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.serviceRequests })
-					.where(({ request }) => eq(request.organizationId, organizationId))
-					.orderBy(({ request }) => request.requestDate, 'desc'),
-		},
-		[organizationId],
-	);
-	const requests = (result.data ?? []) as readonly ServiceRequestRow[];
+	const { requests, isReady } = useOrganizationServiceRequests();
 
 	// The catalog drives both the filter options and the per-card chip labels.
 	const { byId: tagById } = useTagOptions();
@@ -187,7 +175,7 @@ function ServiceRequestsExplorerRoute() {
 			if (selectedTagIds.size > 0 && !taggedRequestIds.has(request.id)) {
 				return false;
 			}
-			if (!regionMembership.contains({ lng: request.lng, lat: request.lat })) {
+			if (!regionMembership.contains({ lng: request.longitude, lat: request.latitude })) {
 				return false;
 			}
 			if (query.length === 0) {
@@ -215,22 +203,19 @@ function ServiceRequestsExplorerRoute() {
 	// Resolve the related on-demand rows for the *visible page only* — a ≤25-id
 	// subset that loads reliably, instead of one join over the whole request set.
 	const visibleRequestIds = useStableIds(visible.map((request) => request.id));
-	const visibleContactIds = useStableIds(visible.map((request) => request.contactId));
-	const visibleAddressIds = useStableIds(visible.map((request) => request.addressId));
-	const contacts = useContactMap(visibleContactIds);
-	const addresses = useAddressMap(visibleAddressIds);
+	const parties = useRequestParties(visible);
 	const tagsByRequestId = useEntityTags(toDbEntityType('serviceRequest'), visibleRequestIds);
-	const detailsLoading = !contacts.isReady || !addresses.isReady || !tagsByRequestId.isReady;
+	const detailsLoading = !parties.isReady || !tagsByRequestId.isReady;
 
 	const geoJson = useMemo<GeoJSON.GeoJSON | null>(() => {
 		const features = filtered
-			.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng))
+			.filter((request) => Number.isFinite(request.latitude) && Number.isFinite(request.longitude))
 			.map(
 				(request): GeoJSON.Feature => ({
 					type: 'Feature',
 					id: request.id,
 					properties: { id: request.id },
-					geometry: { type: 'Point', coordinates: [request.lng, request.lat] },
+					geometry: { type: 'Point', coordinates: [request.longitude, request.latitude] },
 				}),
 			);
 		return features.length === 0 ? null : { type: 'FeatureCollection', features };
@@ -242,8 +227,10 @@ function ServiceRequestsExplorerRoute() {
 		() =>
 			boundsFromCoordinates(
 				filtered
-					.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng))
-					.map((request) => ({ lng: request.lng, lat: request.lat })),
+					.filter(
+						(request) => Number.isFinite(request.latitude) && Number.isFinite(request.longitude),
+					)
+					.map((request) => ({ lng: request.longitude, lat: request.latitude })),
 			),
 		[filtered],
 	);
@@ -255,7 +242,7 @@ function ServiceRequestsExplorerRoute() {
 			return;
 		}
 		map.flyTo({
-			center: [focused.lng, focused.lat],
+			center: [focused.longitude, focused.latitude],
 			zoom: Math.max(map.getZoom(), 14),
 			duration: 600,
 		});
@@ -391,7 +378,7 @@ function ServiceRequestsExplorerRoute() {
 					) : null}
 				</div>
 
-				{!result.isReady || !regionMembership.isReady ? (
+				{!isReady || !regionMembership.isReady ? (
 					<RequestsSkeleton />
 				) : filtered.length === 0 ? (
 					<RequestsEmpty hasFilter={hasFilter} />
@@ -400,8 +387,8 @@ function ServiceRequestsExplorerRoute() {
 						<ul className="min-h-0 flex-1 overflow-y-auto p-2">
 							{visible.map((request) => (
 								<RequestRowItem
-									address={addresses.byId.get(request.addressId) ?? null}
-									contact={contacts.byId.get(request.contactId) ?? null}
+									address={parties.addressById.get(request.addressId) ?? null}
+									contact={parties.contactById.get(request.contactId) ?? null}
 									detailsLoading={detailsLoading}
 									isFocused={request.id === focusedId}
 									key={request.id}
@@ -461,60 +448,6 @@ function useRequestIdsForTags(selectedTagIds: ReadonlySet<string>): ReadonlySet<
 	const assignments = result.data;
 
 	return useMemo(() => new Set(assignments.map((item) => item.entityId)), [assignments]);
-}
-
-/** Load contacts by id off the on-demand `contacts` collection, indexed by id. */
-function useContactMap(ids: readonly string[]): {
-	readonly byId: ReadonlyMap<string, ContactRow>;
-	readonly isReady: boolean;
-} {
-	const idsKey = ids.join(',');
-	const queryIds = ids.length > 0 ? [...ids] : [UNMATCHABLE_ID];
-	const result = useLiveQuery(
-		{
-			gcTime: requestsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => inArray(contact.id, queryIds)),
-		},
-		[idsKey],
-	);
-	const byId = useMemo(() => {
-		const map = new Map<string, ContactRow>();
-		for (const contact of (result.data ?? []) as readonly ContactRow[]) {
-			map.set(contact.id, contact);
-		}
-		return map;
-	}, [result.data]);
-	return { byId, isReady: result.isReady };
-}
-
-/** Load addresses by id off the on-demand `addresses` collection, indexed by id. */
-function useAddressMap(ids: readonly string[]): {
-	readonly byId: ReadonlyMap<string, AddressRow>;
-	readonly isReady: boolean;
-} {
-	const idsKey = ids.join(',');
-	const queryIds = ids.length > 0 ? [...ids] : [UNMATCHABLE_ID];
-	const result = useLiveQuery(
-		{
-			gcTime: requestsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => inArray(address.id, queryIds)),
-		},
-		[idsKey],
-	);
-	const byId = useMemo(() => {
-		const map = new Map<string, AddressRow>();
-		for (const address of (result.data ?? []) as readonly AddressRow[]) {
-			map.set(address.id, address);
-		}
-		return map;
-	}, [result.data]);
-	return { byId, isReady: result.isReady };
 }
 
 function TagFilter({
@@ -611,10 +544,10 @@ function RequestRowItem({
 	isFocused,
 	onFocus,
 }: {
-	readonly request: ServiceRequestRow;
+	readonly request: RequestListing;
 	readonly tags: readonly Tag[];
-	readonly contact: ContactRow | null;
-	readonly address: AddressRow | null;
+	readonly contact: ContactSummary | null;
+	readonly address: Address | null;
 	readonly detailsLoading: boolean;
 	readonly isFocused: boolean;
 	readonly onFocus: () => void;

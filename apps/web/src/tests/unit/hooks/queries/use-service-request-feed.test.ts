@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { deriveServiceRequestEvents } from '../../../../routes/public-engagement/-overview-data';
+import {
+	deriveServiceRequestEvents,
+	type FeedComment,
+	type FeedRequest,
+} from '../../../../hooks/queries/use-service-request-feed';
 
 /**
  * The activity feed lists only what the schema records: an open, a close, and a
@@ -11,15 +15,19 @@ import { deriveServiceRequestEvents } from '../../../../routes/public-engagement
  * the three kinds interleave in. Each is a way the feed could be wrong without
  * the screen showing it.
  *
- * Timestamps are written the way Electric streams them, because the fold
- * compares them as strings.
+ * Every timestamp is a `Date`, because that is what the row schema parses a
+ * `timestamptz` into. The fold used to compare these as text against a
+ * wire-format string, which is why the bound below is an instant too: a `Date`
+ * compared with `>=` against `'2026-08-01 00:00:00+00'` stringifies to
+ * `'Sat Aug 01 2026…'` and loses to it every time, which would empty the feed
+ * without erroring.
  */
-const SINCE = '2026-08-01 00:00:00+00';
+const SINCE = new Date('2026-08-01T00:00:00Z');
 
-function request(overrides: Partial<FeedRequestFixture> = {}): FeedRequestFixture {
+function request(overrides: Partial<FeedRequest> = {}): FeedRequest {
 	return {
 		id: 'request-1',
-		createdAt: '2026-08-03 09:00:00.100+00',
+		createdAt: new Date('2026-08-03T09:00:00.100Z'),
 		closedAt: null,
 		createdByProfileId: 'profile-intake',
 		closedByProfileId: null,
@@ -27,12 +35,15 @@ function request(overrides: Partial<FeedRequestFixture> = {}): FeedRequestFixtur
 	};
 }
 
-interface FeedRequestFixture {
-	readonly id: string;
-	readonly createdAt: string;
-	readonly closedAt: string | null;
-	readonly createdByProfileId: string | null;
-	readonly closedByProfileId: string | null;
+function comment(overrides: Partial<FeedComment> = {}): FeedComment {
+	return {
+		id: 'comment-1',
+		entityId: 'request-1',
+		commentedAt: new Date('2026-08-06T08:15:00Z'),
+		commentText: 'Called back; no standing water found.',
+		commentedByProfileId: 'profile-tech',
+		...overrides,
+	};
 }
 
 function kindsOf(events: readonly { readonly kind: string }[]): readonly string[] {
@@ -51,7 +62,7 @@ describe('deriveServiceRequestEvents', () => {
 		const events = deriveServiceRequestEvents(
 			[
 				request({
-					closedAt: '2026-08-05 11:00:00.000+00',
+					closedAt: new Date('2026-08-05T11:00:00Z'),
 					closedByProfileId: 'profile-super',
 				}),
 			],
@@ -67,30 +78,15 @@ describe('deriveServiceRequestEvents', () => {
 		// The close command takes an operator-supplied closedAt, so a request closed
 		// today can be recorded as closed last Tuesday. That instant is what the feed
 		// carries, and it is the only row the close produces.
-		const events = deriveServiceRequestEvents(
-			[request({ closedAt: '2026-08-02 00:00:00.000+00' })],
-			[],
-			SINCE,
-		);
+		const closedAt = new Date('2026-08-02T00:00:00Z');
+		const events = deriveServiceRequestEvents([request({ closedAt })], [], SINCE);
 
 		expect(kindsOf(events)).toEqual(['created', 'closed']);
-		expect(events[1]?.at).toBe('2026-08-02 00:00:00.000+00');
+		expect(events[1]?.at.toISOString()).toBe(closedAt.toISOString());
 	});
 
 	it('carries a comment with its author and body', () => {
-		const events = deriveServiceRequestEvents(
-			[request()],
-			[
-				{
-					id: 'comment-1',
-					entityId: 'request-1',
-					commentedAt: '2026-08-06 08:15:00.000+00',
-					commentText: 'Called back; no standing water found.',
-					commentedByProfileId: 'profile-tech',
-				},
-			],
-			SINCE,
-		);
+		const events = deriveServiceRequestEvents([request()], [comment()], SINCE);
 
 		expect(kindsOf(events)).toEqual(['commented', 'created']);
 		expect(events[0]?.text).toBe('Called back; no standing water found.');
@@ -103,15 +99,7 @@ describe('deriveServiceRequestEvents', () => {
 		// feed cannot resolve.
 		const events = deriveServiceRequestEvents(
 			[request()],
-			[
-				{
-					id: 'comment-1',
-					entityId: 'request-elsewhere',
-					commentedAt: '2026-08-06 08:15:00.000+00',
-					commentText: 'Orphaned.',
-					commentedByProfileId: null,
-				},
-			],
+			[comment({ entityId: 'request-elsewhere', commentText: 'Orphaned.' })],
 			SINCE,
 		);
 
@@ -124,8 +112,8 @@ describe('deriveServiceRequestEvents', () => {
 		const events = deriveServiceRequestEvents(
 			[
 				request({
-					createdAt: '2026-07-20 09:00:00.000+00',
-					closedAt: '2026-08-04 09:00:00.000+00',
+					createdAt: new Date('2026-07-20T09:00:00Z'),
+					closedAt: new Date('2026-08-04T09:00:00Z'),
 					closedByProfileId: 'profile-super',
 				}),
 			],
@@ -136,34 +124,34 @@ describe('deriveServiceRequestEvents', () => {
 		expect(kindsOf(events)).toEqual(['closed']);
 	});
 
+	it('keeps an event that lands exactly on the window boundary', () => {
+		// `>=`, not `>`. The bound is the first instant of the day the window opens,
+		// so a request opened at midnight belongs to it.
+		const events = deriveServiceRequestEvents([request({ createdAt: SINCE })], [], SINCE);
+
+		expect(kindsOf(events)).toEqual(['created']);
+	});
+
 	it('orders every kind together, newest first', () => {
 		const events = deriveServiceRequestEvents(
 			[
-				request({ id: 'request-1', createdAt: '2026-08-02 09:00:00.000+00' }),
+				request({ id: 'request-1', createdAt: new Date('2026-08-02T09:00:00Z') }),
 				request({
 					id: 'request-2',
-					createdAt: '2026-08-03 09:00:00.000+00',
-					closedAt: '2026-08-05 17:00:00.000+00',
+					createdAt: new Date('2026-08-03T09:00:00Z'),
+					closedAt: new Date('2026-08-05T17:00:00Z'),
 				}),
 			],
-			[
-				{
-					id: 'comment-1',
-					entityId: 'request-1',
-					commentedAt: '2026-08-06 08:15:00.000+00',
-					commentText: 'Latest.',
-					commentedByProfileId: null,
-				},
-			],
+			[comment({ entityId: 'request-1', commentText: 'Latest.' })],
 			SINCE,
 		);
 
 		expect(kindsOf(events)).toEqual(['commented', 'closed', 'created', 'created']);
-		expect(events.map((event) => event.at)).toEqual([
-			'2026-08-06 08:15:00.000+00',
-			'2026-08-05 17:00:00.000+00',
-			'2026-08-03 09:00:00.000+00',
-			'2026-08-02 09:00:00.000+00',
+		expect(events.map((event) => event.at.toISOString())).toEqual([
+			'2026-08-06T08:15:00.000Z',
+			'2026-08-05T17:00:00.000Z',
+			'2026-08-03T09:00:00.000Z',
+			'2026-08-02T09:00:00.000Z',
 		]);
 	});
 });

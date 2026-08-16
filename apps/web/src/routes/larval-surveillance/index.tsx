@@ -30,8 +30,7 @@ import type { LarvalActivityRow } from '../../hooks/queries/larval-activity-view
 import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-activity';
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { adhocLabel, formatCoordinates } from '../../lib/coordinate-label';
-import { webCollections } from '../../sync/webCollections';
+import { adhocLabel } from '../../lib/coordinate-label';
 import type { InspectionsSearch } from './-inspections-search';
 import {
 	ACTIVITY_WINDOW_DAYS,
@@ -560,7 +559,7 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 
 // --- heavy / very heavy -----------------------------------------------------
 
-function isHot(density: LarvalDensity | null): boolean {
+function _isHot(density: LarvalDensity | null): boolean {
 	return density === 'heavy' || density === 'very_heavy';
 }
 

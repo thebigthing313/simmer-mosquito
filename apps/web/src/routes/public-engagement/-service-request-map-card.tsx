@@ -1,13 +1,12 @@
-import type { ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ContactIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { MapCardAddressById } from '../../components/linked-address';
+import { MapCardAddress } from '../../components/linked-address';
 import { MapCard, MapCardDetail, MapCardEyebrow, MapCardText } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
+import { resolveLinkedContact } from '../../hooks/queries/contact-view';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
-import { webCollections } from '../../sync/webCollections';
+import { useServiceRequest } from '../../hooks/queries/use-service-request';
 import {
 	contactDisplayName,
 	isServiceRequestOpen,
@@ -15,15 +14,12 @@ import {
 } from './-public-engagement-display';
 import { RequestStatusBadge } from './-public-engagement-ui';
 
-const gcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
 /**
- * The map focus card for a service request. Self-contained: given the request
- * id it resolves the request, its contact + address, and its tags off the
- * on-demand collections (single-id lookups warm the subset), then renders the
- * shared {@link MapCard}. Drop `<ServiceRequestMapCard id onClose />` beside any
- * MapCanvas that plots service requests.
+ * The map focus card for a service request. One query brings the request up with
+ * its contact and address already joined ({@link useServiceRequest}); the tags
+ * come alongside it, keyed on the same id the card was opened with. Drop
+ * `<ServiceRequestMapCard id onClose />` beside any MapCanvas that plots service
+ * requests.
  */
 export function ServiceRequestMapCard({
 	id,
@@ -32,33 +28,7 @@ export function ServiceRequestMapCard({
 	readonly id: string;
 	readonly onClose: () => void;
 }) {
-	const requestResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.serviceRequests })
-					.where(({ request }) => eq(request.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const request = requestResult.data as ServiceRequestRow | undefined;
-
-	const contactId = request?.contactId ?? UNMATCHABLE_ID;
-	const contactResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => eq(contact.id, contactId))
-					.findOne(),
-		},
-		[contactId],
-	);
-	const contact = contactResult.data as ContactRow | undefined;
-
+	const { request } = useServiceRequest(id);
 	const tags = useRecordTags(id);
 
 	if (request === undefined) {
@@ -72,8 +42,9 @@ export function ServiceRequestMapCard({
 		);
 	}
 
-	const contactLabel = contact === undefined ? null : contactDisplayName(contact);
-	const contactLoading = !contactResult.isReady;
+	// A request always names a contact, so an absent one is the join still in
+	// flight rather than a request nobody reported.
+	const contact = resolveLinkedContact(request.contact);
 
 	return (
 		<MapCard
@@ -98,11 +69,13 @@ export function ServiceRequestMapCard({
 			<div className="grid gap-3">
 				<div className="grid gap-1.5">
 					<MapCardDetail icon={ContactIcon}>
-						{contactLabel ?? (
-							<span className="italic">{contactLoading ? 'Loading…' : 'No contact'}</span>
+						{contact === undefined ? (
+							<span className="italic">Loading…</span>
+						) : (
+							contactDisplayName(contact)
 						)}
 					</MapCardDetail>
-					<MapCardAddressById addressId={request.addressId} />
+					<MapCardAddress address={request.address} addressId={request.addressId} />
 				</div>
 				<MapCardText>{request.details}</MapCardText>
 			</div>

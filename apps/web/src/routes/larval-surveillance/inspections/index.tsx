@@ -1,4 +1,4 @@
-import type { HabitatTypeRow, LarvalDensity } from '@simmer-mosquito/sync';
+import type { LarvalDensity } from '@simmer-mosquito/sync';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -41,7 +41,6 @@ import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
 } from '../../../components/map';
-import { WriteOnly } from '../../../components/write-only';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { searchValidator, useSearchFilters } from '../../../lib/search-filters';

@@ -21,6 +21,7 @@ export {
 	useApplicationMethodOptions,
 	useBiocontrolMethodOptions,
 	useInsecticideOptions,
+	useOutreachMethodOptions,
 	useSourceReductionMethodOptions,
 } from './use-control-method-options';
 export { useDateRangeFilters } from './use-date-range-filters';

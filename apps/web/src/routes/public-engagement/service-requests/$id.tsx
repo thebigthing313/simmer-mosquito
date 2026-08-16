@@ -37,6 +37,7 @@ import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useLookupNames } from '../../../hooks/queries/use-lookup-names';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { HabitatMapCard } from '../../-habitat-map-card';
@@ -69,7 +70,6 @@ import {
 	type NearbyFamily,
 	type NearbyItem,
 	type NearbyResponse,
-	useNearbyNameById,
 	useServiceRequestNearby,
 	visibleNearbyItems,
 } from './-service-request-nearby';
@@ -157,7 +157,7 @@ function ServiceRequestDetailContent({
 	const open = isServiceRequestOpen(request);
 
 	const nearby = useServiceRequestNearby(request.id);
-	const nameById = useNearbyNameById();
+	const nameById = useLookupNames();
 	const [visibleFamilies, setVisibleFamilies] = useState<ReadonlySet<NearbyFamily>>(
 		() => new Set(ALL_FAMILIES),
 	);

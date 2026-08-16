@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { application_methods } from '../../lib/collections/application_methods';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
 import { insecticides } from '../../lib/collections/insecticides';
+import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 import type { FilterOption } from './multi-select-filter';
 
@@ -43,6 +44,11 @@ export function useSourceReductionMethodOptions(): CatalogOptions {
 /** Biocontrol methods — which organism was released. */
 export function useBiocontrolMethodOptions(): CatalogOptions {
 	return useNamedCatalog(biocontrol_methods);
+}
+
+/** Outreach methods — how the public was reached. */
+export function useOutreachMethodOptions(): CatalogOptions {
+	return useNamedCatalog(outreach_methods);
 }
 
 /**
