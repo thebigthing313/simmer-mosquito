@@ -75,3 +75,18 @@ export interface HabitatName {
 	readonly id: string;
 	readonly name: string;
 }
+
+/**
+ * A Habitat as a typeahead offers it.
+ *
+ * The description rides along because it is the second line of a result row — and
+ * for a Habitat with no name it is often the only thing that tells two catch
+ * basins apart. The centroid rides along because picking a Habitat is how a form
+ * says "the work happened here", so the caller frames the map on it without a
+ * second read.
+ */
+export interface HabitatMatch extends HabitatName {
+	readonly description: string;
+	readonly latitude: number;
+	readonly longitude: number;
+}

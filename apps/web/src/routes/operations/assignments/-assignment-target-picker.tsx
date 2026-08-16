@@ -8,7 +8,6 @@ import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { webCollections } from '../../../sync/webCollections';
 import { TrapPicker } from '../../adult-surveillance/-adult-pickers';
-import { habitatDisplayName } from '../../control-operations/-control-display';
 import { HabitatPicker } from '../../control-operations/-control-pickers';
 import type { TargetType } from './-assignment-data';
 import { useOpenServiceRequests } from './-assignment-data';
@@ -151,11 +150,7 @@ function HabitatTargetPicker({
 		<HabitatPicker
 			label="Habitat"
 			onSelect={(habitat) =>
-				onSelect(
-					habitat === null
-						? null
-						: { type: 'habitat', id: habitat.id, name: habitatDisplayName(habitat) },
-				)
+				onSelect(habitat === null ? null : { type: 'habitat', id: habitat.id, name: habitat.name })
 			}
 			organizationId={organizationId}
 			value={value}

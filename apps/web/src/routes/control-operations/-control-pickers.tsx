@@ -1,9 +1,7 @@
-import type { HabitatRow } from '@simmer-mosquito/sync';
-import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../components/pickers/entity-picker';
-import { webCollections } from '../../sync/webCollections';
-import { habitatDisplayName } from './-control-display';
+import type { HabitatMatch } from '../../hooks/queries/habitat-view';
+import { useHabitatSearch } from '../../hooks/queries/use-habitat-search';
 
 // Control actions pick an address (shared, on-demand subset search) or a habitat
 // when the work was done against a known larval site. Habitats sync on demand
@@ -11,8 +9,6 @@ import { habitatDisplayName } from './-control-display';
 // client-side filter over an eager set.
 
 export { AddressPicker } from '../../components/pickers/address-picker';
-
-const habitatSearchGcTimeMs = 30_000;
 
 export function HabitatPicker({
 	label = 'Habitat',
@@ -23,7 +19,7 @@ export function HabitatPicker({
 	readonly label?: string;
 	readonly organizationId: string;
 	readonly value: string | null;
-	readonly onSelect: (habitat: HabitatRow | null) => void;
+	readonly onSelect: (habitat: HabitatMatch | null) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
@@ -54,8 +50,8 @@ export function HabitatPicker({
 		>
 			<HabitatResults
 				onSelect={(habitat) => {
-					setSelectedLabel(habitatDisplayName(habitat));
-					setSearch(habitatDisplayName(habitat));
+					setSelectedLabel(habitat.name);
+					setSearch(habitat.name);
 					onSelect(habitat);
 					setOpen(false);
 				}}
@@ -76,50 +72,27 @@ function HabitatResults({
 	readonly organizationId: string;
 	readonly search: string;
 	readonly selectedValue: string | null;
-	readonly onSelect: (habitat: HabitatRow) => void;
+	readonly onSelect: (habitat: HabitatMatch) => void;
 }) {
-	const normalized = search.trim();
-	const pattern = `%${normalized}%`;
-	const { data, isReady, isError } = useLiveQuery(
-		{
-			gcTime: habitatSearchGcTimeMs,
-			query: (query) => {
-				const habitats = query.from({ habitat: webCollections.habitats });
-				const scoped =
-					normalized.length === 0
-						? habitats.where(({ habitat }) =>
-								and(eq(habitat.organizationId, organizationId), eq(habitat.isActive, true)),
-							)
-						: habitats.where(({ habitat }) =>
-								and(
-									and(eq(habitat.organizationId, organizationId), eq(habitat.isActive, true)),
-									or(ilike(habitat.habitatName, pattern), ilike(habitat.description, pattern)),
-								),
-							);
-				return scoped.orderBy(({ habitat }) => habitat.habitatName, 'asc').limit(6);
-			},
-		},
-		[organizationId, pattern],
-	);
+	const { matches, isReady, isError } = useHabitatSearch(organizationId, search);
 
 	if (isError) {
 		return <PickerFallback label="Habitats unavailable" />;
 	}
-	if (!isReady && (data ?? []).length === 0) {
+	if (!isReady && matches.length === 0) {
 		return <PickerFallback label="Searching habitats" />;
 	}
-	const habitats = (data ?? []) as readonly HabitatRow[];
-	if (habitats.length === 0) {
+	if (matches.length === 0) {
 		return <PickerFallback label="No habitat matches" />;
 	}
 
 	return (
 		<div className="grid gap-1">
-			{habitats.map((habitat) => (
+			{matches.map((habitat) => (
 				<OptionRow
 					key={habitat.id}
 					onSelect={() => onSelect(habitat)}
-					primary={habitatDisplayName(habitat)}
+					primary={habitat.name}
 					secondary={habitat.description}
 					selected={habitat.id === selectedValue}
 				/>

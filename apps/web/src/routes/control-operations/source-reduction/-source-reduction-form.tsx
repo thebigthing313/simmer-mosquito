@@ -1,6 +1,5 @@
 import { isSourceReductionUnitType, recordSourceReductionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { HabitatRow } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -32,6 +31,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
@@ -252,12 +252,19 @@ export function SourceReductionFormPage({
 	// The habitat is larval context, not the action's location — but framing the map
 	// on it (and seeding unplaced geometry) saves the crew a pan across the county.
 	const handleHabitatSelected = useCallback(
-		(habitat: HabitatRow | null) => {
-			if (habitat === null || typeof habitat.lat !== 'number' || typeof habitat.lng !== 'number') {
+		(habitat: HabitatMatch | null) => {
+			if (
+				habitat === null ||
+				typeof habitat.latitude !== 'number' ||
+				typeof habitat.longitude !== 'number'
+			) {
 				setReferenceGeometry(null);
 				return;
 			}
-			const point: DrawGeometry = { type: 'Point', coordinates: [habitat.lng, habitat.lat] };
+			const point: DrawGeometry = {
+				type: 'Point',
+				coordinates: [habitat.longitude, habitat.latitude],
+			};
 			if (geometry === null) {
 				// Seeded as the action's own geometry, so it needs no reference copy.
 				setGeometry(point);

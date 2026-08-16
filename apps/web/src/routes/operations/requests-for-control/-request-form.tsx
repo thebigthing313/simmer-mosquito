@@ -260,10 +260,10 @@ export function RequestFormPage({
 										field.handleChange(habitat?.id ?? null);
 										location.selectReference(
 											habitat === null ||
-												typeof habitat.lat !== 'number' ||
-												typeof habitat.lng !== 'number'
+												typeof habitat.latitude !== 'number' ||
+												typeof habitat.longitude !== 'number'
 												? null
-												: { lat: habitat.lat, lng: habitat.lng },
+												: { lat: habitat.latitude, lng: habitat.longitude },
 										);
 									}}
 									organizationId={organizationId}
