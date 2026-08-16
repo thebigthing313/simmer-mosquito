@@ -1,0 +1,70 @@
+/**
+ * Every Trap the agency is currently running, in the order they read.
+ *
+ * The standing inventory: the trap directory's left half, and anywhere else that
+ * lists what is deployed right now. Retired traps are excluded in the predicate
+ * rather than filtered afterwards — a surface that wants those wants a different
+ * question, and should not have to pay for the ones it is about to drop.
+ *
+ * ## The sort
+ *
+ * By code, then by name, which is the order `trapDisplayName` composes them in.
+ * It replaces a `localeCompare` over the composed label, and differs from it in
+ * two ways worth naming. Case folding is gone, so a lowercase code sorts after
+ * every uppercase one; trap codes are codes, and if that stops being true this
+ * wants a folded column rather than a JS sort. And a trap with neither a code nor
+ * a name — which reads as its short id — sorts by where the nulls land instead of
+ * by that id. There is no third thing to sort such a trap by that an operator
+ * would recognise.
+ */
+
+import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
+import { collection_methods } from '../../lib/collections/collection_methods';
+import { traps } from '../../lib/collections/traps';
+
+/** A Trap as a list of them shows one: its label, and what it collects with. */
+export interface TrapListing {
+	readonly id: string;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly methodId: string;
+	readonly methodName: string;
+	/**
+	 * Always `true` from this hook, and carried anyway so a surface that shows a
+	 * trap's status reads it off the trap rather than inferring it from which hook
+	 * it came out of. That inference is right until someone reuses the shape.
+	 */
+	readonly isActive: boolean;
+}
+
+export function useActiveTraps(): {
+	readonly traps: readonly TrapListing[];
+	readonly isReady: boolean;
+} {
+	const result = useLiveQuery(
+		(query) =>
+			query
+				.from({ trap: traps })
+				.where(({ trap }) => eq(trap.is_active, true))
+				// `left`: a method that has been retired out from under a trap should not
+				// take the trap off the screen with it.
+				.join(
+					{ method: collection_methods },
+					({ trap, method }) => eq(trap.collection_method_id, method.id),
+					'left',
+				)
+				.orderBy(({ trap }) => coalesce(trap.trap_code, trap.trap_name), 'asc')
+				.orderBy(({ trap }) => trap.trap_name, 'asc')
+				.select(({ trap, method }) => ({
+					id: trap.id,
+					trapName: trap.trap_name,
+					trapCode: trap.trap_code,
+					methodId: trap.collection_method_id,
+					methodName: coalesce(method.name, 'Unknown method'),
+					isActive: trap.is_active,
+				})),
+		[],
+	);
+
+	return { traps: result.data, isReady: result.isReady };
+}

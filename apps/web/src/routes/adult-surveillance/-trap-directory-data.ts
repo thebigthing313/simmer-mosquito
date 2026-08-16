@@ -1,12 +1,6 @@
-import type {
-	CollectionMethodRow,
-	SpeciesSex,
-	SpeciesStatus,
-	TrapRow,
-} from '@simmer-mosquito/sync';
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
 import { useMemo } from 'react';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { webCollections } from '../../sync/webCollections';
+import { type TrapListing, useActiveTraps } from '../../hooks/queries/use-active-traps';
 import {
 	collectionEffectiveDate,
 	collectionSortKey,
@@ -44,13 +38,12 @@ export interface MethodTab {
 }
 
 export interface TrapDirectory {
-	readonly methodNameById: ReadonlyMap<string, string>;
 	/** Only the methods an active trap actually uses. */
 	readonly methodTabs: readonly MethodTab[];
 	/** The open tab: a method id, or {@link ALL_METHODS}. */
 	readonly method: string;
-	readonly visibleTraps: readonly TrapRow[];
-	readonly selectedTrap: TrapRow | null;
+	readonly visibleTraps: readonly TrapListing[];
+	readonly selectedTrap: TrapListing | null;
 	readonly hasActiveTraps: boolean;
 	/**
 	 * Whether a filter is holding traps back. An empty list means two different
@@ -61,51 +54,41 @@ export interface TrapDirectory {
 }
 
 /**
- * The standing inventory the directory lists, and which of it the filters leave
- * on screen.
+ * Which of the standing inventory the filters leave on screen.
  *
- * Both reads are eager shapes, so the list resolves without a fetch — only the
- * selected trap's collections are on-demand, which is what makes the selection
- * rule below worth stating carefully.
+ * The inventory itself arrives sorted and with its method names joined
+ * ({@link useActiveTraps}), off an eager shape, so the list resolves without a
+ * fetch — only the selected trap's collections are on-demand, which is what makes
+ * the selection rule below worth stating carefully.
  */
 export function useTrapDirectory(filters: DirectoryFilters): TrapDirectory {
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-
-	const methodNameById = useMemo(
-		() => new Map(methods.map((method) => [method.id, method.name] as const)),
-		[methods],
-	);
-
-	const activeTraps = useMemo(
-		() =>
-			traps
-				.filter((trap) => trap.isActive)
-				.sort((first, second) => trapDisplayName(first).localeCompare(trapDisplayName(second))),
-		[traps],
-	);
+	const { traps: activeTraps } = useActiveTraps();
 
 	// A method only gets a tab if an active trap actually uses it. An agency that
-	// has never run a gravid trap should not be offered an empty gravid tab.
+	// has never run a gravid trap should not be offered an empty gravid tab — which
+	// is why the tabs are built from the traps rather than from the catalog.
 	const methodTabs = useMemo(() => {
-		const inUse = new Set(activeTraps.map((trap) => trap.collectionMethodId));
-		return methods
-			.filter((method) => inUse.has(method.id))
-			.map((method) => ({ id: method.id, label: method.name }))
+		const byId = new Map<string, string>();
+		for (const trap of activeTraps) {
+			byId.set(trap.methodId, trap.methodName);
+		}
+		return [...byId.entries()]
+			.map(([id, label]) => ({ id, label }))
 			.sort((first, second) => first.label.localeCompare(second.label));
-	}, [activeTraps, methods]);
+	}, [activeTraps]);
 
 	// A method id left in the URL after its last trap was retired falls back to
 	// All, rather than an empty list under a tab that is no longer there.
 	const method = methodTabs.some((tab) => tab.id === filters.method) ? filters.method : ALL_METHODS;
 	const search = filters.search.trim().toLowerCase();
 
+	// Filtered here rather than in the query, for the reason the label is composed
+	// here: a search runs against `Code - Name`, and the query cannot spell that.
+	// The inventory is one eager, active-only shape, so this is a few hundred rows.
 	const visibleTraps = useMemo(
 		() =>
 			activeTraps.filter((trap) => {
-				if (method !== ALL_METHODS && trap.collectionMethodId !== method) {
+				if (method !== ALL_METHODS && trap.methodId !== method) {
 					return false;
 				}
 				return search === '' || trapDisplayName(trap).toLowerCase().includes(search);
@@ -121,12 +104,11 @@ export function useTrapDirectory(filters: DirectoryFilters): TrapDirectory {
 	 */
 	const held = activeTraps.find((trap) => trap.id === filters.trap);
 	const selectedTrap =
-		held !== undefined && (method === ALL_METHODS || held.collectionMethodId === method)
+		held !== undefined && (method === ALL_METHODS || held.methodId === method)
 			? held
 			: (visibleTraps[0] ?? null);
 
 	return {
-		methodNameById,
 		methodTabs,
 		method,
 		visibleTraps,
@@ -146,7 +128,12 @@ export interface DirectorySpecies {
 
 export interface DirectoryCollection {
 	readonly id: string;
-	readonly collectedAt: string | null;
+	/**
+	 * A `Date` off `useTrapCollections`, which is what the row schema parses a
+	 * `timestamptz` into. Stated as either because these are the shapes the pure
+	 * functions below work over, and a fixture is easier to read as a string.
+	 */
+	readonly collectedAt: Date | string | null;
 	readonly collectionDate: string | null;
 	readonly collectionTimingMode: string;
 	readonly hasProblem: boolean;

@@ -1,4 +1,4 @@
-import type { SpeciesSex, SpeciesStatus, TrapRow } from '@simmer-mosquito/sync';
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { todayInTimeZone } from '../../lib/local-date';
 import { formatDate, formatWeekdayDate } from './-overview-data';
@@ -13,8 +13,8 @@ import { formatDate, formatWeekdayDate } from './-overview-data';
  */
 export function trapDisplayName(trap: {
 	readonly id: string;
-	readonly trapName: TrapRow['trapName'];
-	readonly trapCode: TrapRow['trapCode'];
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
 }): string {
 	const name = trap.trapName?.trim();
 	const code = trap.trapCode?.trim();
@@ -39,10 +39,16 @@ export function trapDisplayName(trap: {
  * raw timestamp let every caller take its UTC prefix, so a trap emptied at
  * 10:30pm read as the next day on screen while the server filed it under the day
  * the crew worked — the two halves of the same record disagreeing.
+ *
+ * `collectedAt` is taken as a `Date` or a string because the two read paths spell
+ * it differently: the query hooks in `hooks/queries` hand up the `Date` the row
+ * schema parses, while the surfaces still on the old collections hand up the raw
+ * timestamp string. Both name the same instant, and this is the one function that
+ * has to know it.
  */
 export function collectionEffectiveDate(
 	collection: {
-		readonly collectedAt: string | null;
+		readonly collectedAt: Date | string | null;
 		readonly collectionDate: string | null;
 	},
 	timeZone: string,
@@ -51,10 +57,13 @@ export function collectionEffectiveDate(
 	if (collectedAt === null) {
 		return collectionDate === null ? null : collectionDate.slice(0, 10);
 	}
-	const instant = new Date(collectedAt);
-	return Number.isNaN(instant.getTime())
-		? collectedAt.slice(0, 10)
-		: todayInTimeZone(timeZone, instant);
+	const instant = collectedAt instanceof Date ? collectedAt : new Date(collectedAt);
+	if (!Number.isNaN(instant.getTime())) {
+		return todayInTimeZone(timeZone, instant);
+	}
+	// An unparseable string still carries its leading date, so it is worth reading;
+	// an invalid `Date` carries nothing, and guessing would be worse than a blank.
+	return typeof collectedAt === 'string' ? collectedAt.slice(0, 10) : null;
 }
 
 /**
@@ -66,16 +75,22 @@ export function collectionEffectiveDate(
  * "which day is this filed under", and only that question needs the agency.
  */
 export function collectionSortKey(collection: {
-	readonly collectedAt: string | null;
+	readonly collectedAt: Date | string | null;
 	readonly collectionDate: string | null;
 }): string {
-	return collection.collectedAt ?? collection.collectionDate ?? '';
+	const { collectedAt } = collection;
+	if (collectedAt === null) {
+		return collection.collectionDate ?? '';
+	}
+	// ISO either way, so an instant and a plain day still rank against each other
+	// on their shared `YYYY-MM-DD` prefix.
+	return collectedAt instanceof Date ? collectedAt.toISOString() : collectedAt;
 }
 
 /** Title for a collection: its date as `M/D/YYYY`, or `Pending collection` when unretrieved. */
 export function collectionTitle(
 	collection: {
-		readonly collectedAt: string | null;
+		readonly collectedAt: Date | string | null;
 		readonly collectionDate: string | null;
 	},
 	timeZone: string,
@@ -93,7 +108,7 @@ export function collectionTitle(
  */
 export function collectionRowDate(
 	collection: {
-		readonly collectedAt: string | null;
+		readonly collectedAt: Date | string | null;
 		readonly collectionDate: string | null;
 	},
 	timeZone: string,
@@ -178,7 +193,7 @@ interface CollectionFlags {
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
-	readonly collectedAt?: string | null;
+	readonly collectedAt?: Date | string | null;
 	readonly collectionTimingMode?: string;
 }
 
@@ -190,7 +205,7 @@ interface CollectionFlags {
  * is null for a different reason entirely.
  */
 export function isPendingCollection(collection: {
-	readonly collectedAt: string | null;
+	readonly collectedAt: Date | string | null;
 	readonly collectionTimingMode: string;
 }): boolean {
 	return collection.collectionTimingMode === 'exact_timestamps' && collection.collectedAt === null;

@@ -108,9 +108,31 @@ export function localDayStartAsTimestamp(
 	date: string | null | undefined,
 	timeZone: string | undefined,
 ): string {
-	const start = zonedDayStart(date, timeZone) ?? new Date(0);
-	const iso = start.toISOString();
+	const iso = localDayStartAsInstant(date, timeZone).toISOString();
 	return `${iso.slice(0, 10)} ${iso.slice(11, 19)}+00`;
+}
+
+/**
+ * The same bound, as the instant it is.
+ *
+ * What {@link localDayStartAsTimestamp} exists to work around is gone on a
+ * collection whose row schema parses `timestamptz`: the column holds a `Date`, the
+ * browser re-runs the predicate as `Date >= Date`, and the subset compiler emits
+ * `toISOString()` on the way out to Electric. Nothing has to match a wire format
+ * character for character, because nothing is comparing text.
+ *
+ * So the string form is for the surfaces still reading raw Electric strings, and
+ * this is for the ones reading through `lib/collections`. Handing a string bound
+ * to a parsed column compares a `Date` against text, which orders by neither.
+ *
+ * Same epoch fallback, for the same reason: an unreadable date shows too much
+ * rather than silently showing nothing.
+ */
+export function localDayStartAsInstant(
+	date: string | null | undefined,
+	timeZone: string | undefined,
+): Date {
+	return zonedDayStart(date, timeZone) ?? new Date(0);
 }
 
 /** A `HH:MM` time-of-day, the shape a `<input type="time">` and a picker both hold. */

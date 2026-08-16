@@ -1,4 +1,3 @@
-import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
@@ -7,9 +6,8 @@ import {
 	iconRegistry,
 	LocateFixedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { MapCardAddressById } from '../../components/linked-address';
+import { MapCardAddress } from '../../components/linked-address';
 import {
 	coordinateLabel,
 	MapCard,
@@ -18,18 +16,16 @@ import {
 } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
-import { webCollections } from '../../sync/webCollections';
+import { useTrap } from '../../hooks/queries/use-trap';
 import { trapDisplayName } from './-adult-display';
 
-const gcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
 /**
- * The map focus card for a trap. Given the trap id it resolves the trap off the
- * eager baseline collection, its method + lure off the eager lookups, its address
- * off the on-demand collection, and its tags off the eager catalog, then renders
- * the shared {@link MapCard}.
+ * The map focus card for a trap. One query brings the trap up with its method,
+ * lure and address already joined ({@link useTrap}); the tags come alongside it,
+ * keyed on the same id the card was opened with rather than on anything the trap
+ * row has to return first.
  */
 export function TrapMapCard({
 	id,
@@ -38,47 +34,7 @@ export function TrapMapCard({
 	readonly id: string;
 	readonly onClose: () => void;
 }) {
-	const trapResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ trap: webCollections.traps })
-					.where(({ trap }) => eq(trap.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const trap = trapResult.data as TrapRow | undefined;
-
-	const methodId = trap?.collectionMethodId ?? UNMATCHABLE_ID;
-	const methodResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ method: webCollections.collectionMethods })
-					.where(({ method }) => eq(method.id, methodId))
-					.findOne(),
-		},
-		[methodId],
-	);
-	const method = methodResult.data as CollectionMethodRow | undefined;
-
-	const lureId = trap?.collectionLureId ?? UNMATCHABLE_ID;
-	const lureResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ lure: webCollections.collectionLures })
-					.where(({ lure }) => eq(lure.id, lureId))
-					.findOne(),
-		},
-		[lureId],
-	);
-	const lure = lureResult.data as CollectionLureRow | undefined;
-
+	const { trap } = useTrap(id);
 	const tags = useRecordTags(id);
 
 	if (trap === undefined) {
@@ -92,8 +48,7 @@ export function TrapMapCard({
 		);
 	}
 
-	const methodName = method?.name ?? 'Unknown method';
-	const lureName = trap.collectionLureId === null ? null : (lure?.name ?? 'Unknown lure');
+	const lureName = trap.lureId === null ? null : (trap.lureName ?? 'Unknown lure');
 
 	return (
 		<MapCard
@@ -116,12 +71,12 @@ export function TrapMapCard({
 		>
 			<div className="grid gap-1.5">
 				<MapCardDetail icon={TrapEntityIcon}>
-					{methodName}
+					{trap.methodName}
 					{lureName === null ? '' : ` · ${lureName} lure`}
 				</MapCardDetail>
-				<MapCardAddressById addressId={trap.addressId} />
+				<MapCardAddress address={trap.address} addressId={trap.addressId} />
 				<MapCardDetail icon={LocateFixedIcon} mono>
-					{coordinateLabel(trap)}
+					{coordinateLabel({ lat: trap.latitude, lng: trap.longitude })}
 				</MapCardDetail>
 			</div>
 		</MapCard>

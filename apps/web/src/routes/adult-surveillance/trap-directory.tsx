@@ -1,4 +1,3 @@
-import type { TrapRow } from '@simmer-mosquito/sync';
 import { SplitPage } from '@simmer-mosquito/ui-web/components/app-shell/outlet/split-page';
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import {
@@ -13,6 +12,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { ExplorerHeader, ExplorerRow } from '../../components/explorer';
+import type { TrapListing } from '../../hooks/queries/use-active-traps';
 import {
 	type FilterCodecs,
 	searchValidator,
@@ -70,15 +70,8 @@ function TrapDirectoryRoute() {
 		clear: clearSearchInput,
 	} = useDebouncedTextFilter(filters.search, commitSearch, 200);
 
-	const {
-		methodNameById,
-		methodTabs,
-		method,
-		visibleTraps,
-		selectedTrap,
-		hasActiveTraps,
-		isNarrowed,
-	} = useTrapDirectory(filters);
+	const { methodTabs, method, visibleTraps, selectedTrap, hasActiveTraps, isNarrowed } =
+		useTrapDirectory(filters);
 
 	const selectMethod = useCallback(
 		(next: string) => setFilters({ method: next === ALL_METHODS ? '' : next }),
@@ -87,15 +80,7 @@ function TrapDirectoryRoute() {
 	const selectTrap = useCallback((next: string) => setFilters({ trap: next }), [setFilters]);
 
 	return (
-		<SplitPage
-			aside={
-				<SelectedTrap
-					hasActiveTraps={hasActiveTraps}
-					methodNameById={methodNameById}
-					trap={selectedTrap}
-				/>
-			}
-		>
+		<SplitPage aside={<SelectedTrap hasActiveTraps={hasActiveTraps} trap={selectedTrap} />}>
 			<Tabs
 				className="flex h-full min-h-0 flex-col gap-0"
 				onValueChange={selectMethod}
@@ -128,7 +113,6 @@ function TrapDirectoryRoute() {
 				<TabsContent className="flex min-h-0 flex-1 flex-col" value={method}>
 					<TrapList
 						isNarrowed={isNarrowed}
-						methodNameById={methodNameById}
 						onSelect={selectTrap}
 						selectedId={selectedTrap?.id ?? null}
 						showMethod={method === ALL_METHODS}
@@ -163,11 +147,9 @@ function MethodTabs({ tabs }: { readonly tabs: readonly MethodTab[] }) {
 /** The right half: the selected trap's history, or the reason there isn't one. */
 function SelectedTrap({
 	trap,
-	methodNameById,
 	hasActiveTraps,
 }: {
-	readonly trap: TrapRow | null;
-	readonly methodNameById: ReadonlyMap<string, string>;
+	readonly trap: TrapListing | null;
 	readonly hasActiveTraps: boolean;
 }) {
 	if (trap === null) {
@@ -178,7 +160,6 @@ function SelectedTrap({
 			// Keyed on the trap, so switching selection remounts rather than carrying
 			// the previous trap's open year across to one that may not have it.
 			key={trap.id}
-			methodName={methodNameById.get(trap.collectionMethodId) ?? 'Unknown method'}
 			trap={trap}
 		/>
 	);
@@ -189,14 +170,12 @@ function SelectedTrap({
 function TrapList({
 	traps,
 	selectedId,
-	methodNameById,
 	showMethod,
 	isNarrowed,
 	onSelect,
 }: {
-	readonly traps: readonly TrapRow[];
+	readonly traps: readonly TrapListing[];
 	readonly selectedId: string | null;
-	readonly methodNameById: ReadonlyMap<string, string>;
 	/** The method line is noise under a method tab, where every row shares it. */
 	readonly showMethod: boolean;
 	/** Whether a filter is what emptied the list. Changes the empty copy. */
@@ -225,7 +204,6 @@ function TrapList({
 				<TrapListRow
 					isSelected={trap.id === selectedId}
 					key={trap.id}
-					methodName={methodNameById.get(trap.collectionMethodId) ?? 'Unknown method'}
 					onSelect={onSelect}
 					showMethod={showMethod}
 					trap={trap}
@@ -241,13 +219,11 @@ function TrapList({
  */
 function TrapListRow({
 	trap,
-	methodName,
 	showMethod,
 	isSelected,
 	onSelect,
 }: {
-	readonly trap: TrapRow;
-	readonly methodName: string;
+	readonly trap: TrapListing;
 	readonly showMethod: boolean;
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
@@ -261,7 +237,7 @@ function TrapListRow({
 			isSelected={isSelected}
 			onSelect={() => onSelect(trap.id)}
 			selectLabel={`Show collections for ${label}`}
-			subtitle={showMethod ? methodName : undefined}
+			subtitle={showMethod ? trap.methodName : undefined}
 			title={label}
 		/>
 	);
