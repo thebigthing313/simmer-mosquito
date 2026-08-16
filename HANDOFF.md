@@ -42,7 +42,7 @@ so domains are not.
 - Write hooks. Only reads have moved. `mutateCollection` exists
   (`lib/collections/mutate.ts`) and nothing calls it yet.
 - The remaining server intent maps in `apps/server/src/table-commands/`.
-  **164 of the 261 agency commands are reachable**, across 31 tables: both
+  **193 of the 261 agency commands are reachable**, across 36 tables: both
   surveillance domains whole (`habitats`, `inspections`, `samples`,
   `sample_species`, `traps`, `collections`, `collection_species`) and control
   operations whole (72/72 — the four method catalogs, `vehicles`, `equipment`,
@@ -55,29 +55,51 @@ so domains are not.
   `notification_types`, `notification_registrations`,
   `notification_registration_types`, `mission_notifications`).
 
-  `genera` and `species` are on it too, as the first **operator** tables — see
-  `table-commands/taxonomy.ts`. Two things are still open there:
+  Foundation is 35/36: `genera` and `species` as the first **operator** tables
+  (`table-commands/taxonomy.ts`), plus `collection_methods`, `collection_lures`,
+  `habitat_types`, `region_folders`, `regions`, `organization_species` and
+  `addresses`. **`/admin/genera` and `/admin/species` are gone** — the console
+  posts intents at `/commands/*` and there is one door on the taxonomy now.
 
-  1. **`/admin/genera` and `/admin/species` are a second door.** They still call
-     `createGenusWithTxid` and its siblings directly — no command, no permission
-     map, no actor. Retiring them means repointing `apps/admin/src/api.ts`
-     (six functions), and that is not a URL swap: `/commands/*` takes a
-     client-generated `id` on POST where `/admin/*` lets Postgres assign one, so
-     the console has to mint uuids. Worth a browser pass.
-  2. **An operator needs a SIMMER `users` row.** `OperatorAuthContext.localIdentity`
-     is nullable, and the operator routes refuse with `operator_identity_required`
-     when it is null rather than writing an unattributable edit. Whether the
-     operator organization has identity rows in staging is unverified.
+  Left: `missionDispatch` (4/24), `fieldWork` (4/42), `organizationSettings`
+  (0/7). The four `fieldWork` and four `missionDispatch` commands already
+  reachable are the execution ones that write a surveillance or control record,
+  so they live on that record's table.
 
-  Left: `foundation` (6/36), `missionDispatch` (4/24), `fieldWork` (4/42),
-  `organizationSettings` (0/7). The four `fieldWork` and four `missionDispatch`
-  commands already reachable are the execution ones that write a surveillance or
-  control record, so they live on that record's table.
+  Three gaps sit in otherwise finished domains, and all three are the same cause
+  — commands with no writer anywhere (#163): `larvalSurveillance.mergeHabitats`,
+  `publicEngagement.generateMissionNotifications` and
+  `foundation.mergeAddresses`. They join their maps when the writers land; until
+  then their 501 stubs in `unimplemented-commands.ts` are the honest answer, and
+  `addresses.test.ts` holds the stub in place from the other side.
 
-  Two gaps sit in otherwise finished domains, and both are the same cause —
-  commands with no writer anywhere (#163): `larvalSurveillance.mergeHabitats`
-  and `publicEngagement.generateMissionNotifications`. They join their maps when
-  the writers land.
+  **The console taxonomy editor cannot be exercised in any environment yet, and
+  the cause is not this code.** `SIMMER_OPERATOR_ORG_ID` is set in neither
+  `.env` nor `apps/server/.env` (only its `VITE_` twin is), so
+  `env.simmerOperatorOrganizationId` is null and
+  `createOperatorAuthContextMiddleware` refuses every operator route with
+  `operator_required` — reads included, which is why `/taxonomy/genera` renders
+  an empty list rather than staging's. A browser session also has to be *in* the
+  operator organization; a session left in an agency org fails the same check,
+  and the console offers no switcher, only "Sign out". Same gap as §5.4's
+  Railway note, and it is true locally too.
+
+  What was verified in the browser against the running API, with real session
+  credentials: `POST /admin/genera` answers 404 (the second door is gone),
+  `POST /commands/genera` answers 403 `operator_required` (the floor holds and
+  fails closed), the console-origin preflight for `/commands/genera` answers 204
+  (see the CORS note below), and the console's own request is
+  `POST /commands/genera` carrying
+  `{"intents":["foundation.createGenus"],"id":"<client uuid>","abbreviation":…,"name":…}`.
+  Unverified: a create/edit/delete that actually commits, which needs an
+  operator session.
+
+  **`/commands/*` had no CORS prefix at all** until this work, and
+  `cors-options.test.ts` could not catch it because its route walk never stood
+  up `registerTableCommandSurface`. Invisible under local Caddy — same origin,
+  no preflight — and a refused write everywhere the SPA and API are separate
+  hosts, which is both deployed environments and the admin console locally. Both
+  halves are fixed; the test now registers the surface.
 
   `organizationSettings` is the odd one: it writes `organizations`, which is not
   a per-row table in the same sense, and its seven commands are already gated by
@@ -86,8 +108,10 @@ so domains are not.
 
   Coverage is checkable — collect the quoted intent keys under
   `table-commands/` and diff against the keys of `COMMAND_PERMISSIONS`, which is
-  exhaustive over every domain union by construction. Worth making a real test
-  once the count reaches 261.
+  exhaustive over every domain union by construction. Read the per-domain
+  entries rather than the merged object: `COMMAND_PERMISSIONS` is eight spreads,
+  so a regex over its body alone matches nothing. Worth making a real test once
+  the count reaches 261.
 - `packages/sync/src/rows/*` — 58 camelCase `*Row` types, still imported by the
   old path. They go when nothing imports them.
 - `/map/*` REST endpoints still return camelCase via ~170 `as "camelCase"`
