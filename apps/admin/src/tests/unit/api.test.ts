@@ -1,37 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { adminLogoutUrl, createAdminUnit } from '../../api';
+import { adminLogoutUrl } from '../../api';
 
-describe('admin API writes', () => {
-	afterEach(() => {
-		vi.unstubAllGlobals();
-	});
-
-	it('sends the optimistic unit id when creating a unit', async () => {
-		let requestBody: BodyInit | null | undefined;
-		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-			requestBody = init?.body;
-			return new Response(JSON.stringify({ unit: {}, txid: 42 }));
-		});
-		vi.stubGlobal('fetch', fetchMock);
-
-		await createAdminUnit(
-			{
-				id: 'be08a10c-7d27-4130-a359-9e8874d4d2b8',
-				code: 'count',
-				unitName: 'Count',
-				abbreviation: 'ct',
-				unitType: 'count',
-				unitSystem: 'si',
-			},
-			'https://api.simmer-data.com',
-		);
-
-		expect(JSON.parse(String(requestBody))).toMatchObject({
-			id: 'be08a10c-7d27-4130-a359-9e8874d4d2b8',
-		});
-	});
-});
-
+/**
+ * `api.ts` is agencies, invitations and identity now.
+ *
+ * The global-catalog writes it used to carry — nine functions across genera,
+ * species and units — went to `lib/collections/writes.ts`, which mutates the
+ * collections and lets `packages/sync` derive the command request. The test that
+ * lived here for "a create sends its own id" moved with them, to
+ * `lib/collections/writes.test.ts`, where the id is minted.
+ */
 describe('operator sign-out', () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
