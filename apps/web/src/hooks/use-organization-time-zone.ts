@@ -1,6 +1,4 @@
-import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
-import { webCollections } from '../sync/webCollections';
-import { useCollectionRows } from './use-collection-rows';
+import { useOrganizationSettings } from './queries/use-organization-settings';
 
 /**
  * The agency's configured timezone.
@@ -10,14 +8,10 @@ import { useCollectionRows } from './use-collection-rows';
  * 9pm trap placement belongs to, and only the agency's own zone answers that
  * the same way for everyone.
  *
- * Always a zone, never undefined. While the organization row is still streaming
- * this resolves to `DEFAULT_ORGANIZATION_TIMEZONE` — deliberately, because the
- * obvious alternative is the browser's zone and that is the disagreement this
- * exists to remove. A default is wrong for an agency that has set something
- * else, but it is wrong *identically for every viewer*, so the pre-hydration
- * frame cannot be the thing two people disagree about.
+ * Always a zone, never undefined — see `use-organization-settings.ts` for why the
+ * pre-hydration frame resolves to `DEFAULT_ORGANIZATION_TIMEZONE` rather than to
+ * the browser's zone.
  */
 export function useOrganizationTimeZone(): string {
-	const { rows } = useCollectionRows(webCollections.currentOrganization);
-	return resolveOrganizationSettings(rows[0]?.settings).settings.timezone;
+	return useOrganizationSettings().timezone;
 }

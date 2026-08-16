@@ -1,4 +1,4 @@
-import { resolveOrganizationSettings, type UnitDefaults } from '@simmer-mosquito/domain';
+import type { UnitDefaults } from '@simmer-mosquito/domain';
 import type {
 	ControlMethodRow,
 	FormulationRow,
@@ -24,6 +24,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
+import { useOrganizationSettings } from '../../hooks/queries/use-organization-settings';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { webCollections } from '../../sync/webCollections';
@@ -79,15 +80,10 @@ function ControlOperationsOverviewRoute() {
 	const { rows: formulations } = useCollectionRows<FormulationRow>(webCollections.formulations);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: organizationRows } = useCollectionRows(webCollections.currentOrganization);
-
 	// Which unit the agency wants each kind of quantity reported in. Falls back
 	// to the domain defaults while the organization row is still syncing, so the
 	// widget renders a total rather than waiting on a setting.
-	const unitDefaults = useMemo(
-		() => resolveOrganizationSettings(organizationRows[0]?.settings).settings.unitDefaults,
-		[organizationRows],
-	);
+	const { unitDefaults } = useOrganizationSettings();
 
 	const labels = useMemo<Labels>(
 		() => ({
