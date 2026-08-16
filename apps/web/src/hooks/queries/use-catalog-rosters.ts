@@ -25,11 +25,11 @@
 
 import type { Collection } from '@tanstack/db';
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
+import { application_methods } from '../../lib/collections/application_methods';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
 import { collection_lures } from '../../lib/collections/collection_lures';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { habitat_types } from '../../lib/collections/habitat_types';
-import { application_methods } from '../../lib/collections/application_methods';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 
