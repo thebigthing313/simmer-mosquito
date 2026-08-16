@@ -1,5 +1,5 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { BiocontrolActionRow, ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
+import type { BiocontrolActionRow, ControlMethodRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -13,6 +13,7 @@ import {
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -45,7 +46,7 @@ function EditBiocontrolActionRoute() {
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
+	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 
 	// biocontrolActions is on-demand; status-gated useLiveQuery (not suspense)
@@ -98,7 +99,7 @@ function EditBiocontrolActionLoader({
 }: {
 	readonly action: BiocontrolActionRow;
 	readonly biocontrolMethods: readonly ControlMethodRow[];
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;

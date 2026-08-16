@@ -3,7 +3,8 @@ import {
 	DomainValidationError,
 	type FormulationComponentAmount,
 } from '@simmer-mosquito/domain';
-import type { FormulationInsecticideRow, UnitRow } from '@simmer-mosquito/sync';
+import type { FormulationInsecticideRow } from '@simmer-mosquito/sync';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 
 /**
  * Reading a formulation: what one batch of a mix takes, and what an application
@@ -63,7 +64,7 @@ export function formatAmountValue(value: number): string {
 }
 
 /** `0.5 lb` — an amount against its unit, or bare when the unit is unknown. */
-export function formatAmountWithUnit(value: number, unit: UnitRow | undefined): string {
+export function formatAmountWithUnit(value: number, unit: UnitLabel | undefined): string {
 	const amount = formatAmountValue(value);
 	return unit === undefined ? amount : `${amount} ${unit.abbreviation}`;
 }

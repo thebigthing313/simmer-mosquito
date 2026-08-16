@@ -10,11 +10,11 @@ import type {
 	ControlMethodRow,
 	HabitatTypeRow,
 	InsecticideRow,
-	UnitRow,
 } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../auth';
+import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../hooks/use-collection-rows';
 import { webCollections } from '../sync/webCollections';
 import { formatAmount, insecticideDisplayName } from './control-operations/-control-display';
@@ -246,7 +246,7 @@ export function useActivityLookups(): {
 		webCollections.outreachMethods,
 	);
 	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
+	const { all: units } = useUnitLabels();
 
 	return useMemo(() => {
 		const nameById = new Map<string, string>();

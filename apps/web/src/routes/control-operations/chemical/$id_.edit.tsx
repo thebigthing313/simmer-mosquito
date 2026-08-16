@@ -4,7 +4,6 @@ import type {
 	ControlMethodRow,
 	EquipmentRow,
 	InsecticideRow,
-	UnitRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
@@ -20,6 +19,7 @@ import {
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -58,7 +58,7 @@ function EditApplicationRoute() {
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
 	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
+	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
 	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
@@ -121,7 +121,7 @@ function EditApplicationLoader({
 	readonly application: ApplicationRow;
 	readonly applicationMethods: readonly ControlMethodRow[];
 	readonly insecticides: readonly InsecticideRow[];
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];
 	readonly vehicles: readonly VehicleRow[];
 	readonly equipment: readonly EquipmentRow[];

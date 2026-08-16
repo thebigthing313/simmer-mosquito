@@ -10,7 +10,6 @@ import type {
 	FormulationRow,
 	InsecticideBatchRow,
 	InsecticideRow,
-	UnitRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
 import {
@@ -48,6 +47,7 @@ import {
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
+import type { UnitLabel, UnitType } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
@@ -100,7 +100,7 @@ const FORMULATION_FIELD_PATHS: Readonly<Record<string, string>> = {
  * treatment can be measured in are offered (matching the insecticide catalog's
  * default-usage-unit choices).
  */
-function isApplicationUnitType(unitType: UnitRow['unitType']): boolean {
+function isApplicationUnitType(unitType: UnitType): boolean {
 	return unitType === 'volume' || unitType === 'weight' || unitType === 'count';
 }
 
@@ -171,7 +171,7 @@ export interface ApplicationFormPageProps {
 	readonly formulations?: readonly FormulationRow[];
 	/** Every mix's component rows; the chosen mix's are picked out of these. */
 	readonly formulationComponents?: readonly FormulationInsecticideRow[];
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];
 	readonly vehicles: readonly VehicleRow[];
 	readonly equipment: readonly EquipmentRow[];
@@ -315,7 +315,7 @@ export function ApplicationFormPage({
 	// a product is chosen (or if its default unit is missing) every unit a
 	// treatment can be measured in stays on offer.
 	const unitTypeFor = useCallback(
-		(insecticideId: string): UnitRow['unitType'] | null => {
+		(insecticideId: string): UnitType | null => {
 			const product = insecticides.find((row) => row.id === insecticideId);
 			return product === undefined ? null : (unitTypeById.get(product.defaultUnitId) ?? null);
 		},
@@ -918,7 +918,7 @@ function FormulationBreakdown({
 	readonly formulation: FormulationRow | undefined;
 	readonly insecticides: readonly InsecticideRow[];
 	readonly totalAmount: number | null;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	if (formulation === undefined) {
 		return null;

@@ -1,13 +1,19 @@
 /**
- * The unit catalog, indexed both ways.
+ * The unit catalog: the whole list, and indexed both ways.
  *
- * For the surfaces that hold an amount and a unit id and have to render the pair
- * — and, where the units convert, total across several of them. That totalling
- * (`usageTotal` in `routes/control-operations/-control-display.tsx`) is what
- * makes this a lookup rather than a join: it works over a `Map` of totals keyed
- * by unit id, and reaches the conversion table by unit *code*, so it needs the
- * catalog indexed by both. A join gives a row its own unit; it cannot give a
- * roll-up every unit its parts were measured in.
+ * Three views because three questions get asked of one small table, and one read
+ * answers all of them.
+ *
+ * `byId` is for the surfaces that hold an amount and a unit id and have to render
+ * the pair. `byCode` is for totalling across units that convert — `usageTotal` in
+ * `routes/control-operations/-control-display.tsx` works over a `Map` of totals
+ * keyed by unit id and reaches the conversion table by unit *code*. That is what
+ * makes this a lookup rather than a join: a join gives a row its own unit, but it
+ * cannot give a roll-up every unit its parts were measured in.
+ *
+ * `all` is for the form selects, which filter the catalog down to the unit types
+ * a field can carry (see `lib/unit-options.ts`) — a question about the catalog
+ * rather than about any one row.
  *
  * Anywhere one row means one unit, join it instead. `use-application.ts` and the
  * two beside it do.
@@ -26,9 +32,24 @@ export interface UnitLabel {
 	/** The domain's conversion key — see `packages/domain`, never the units table. */
 	readonly code: string;
 	readonly abbreviation: string;
+	readonly unitName: string;
+	/** Which kind of quantity it measures, so a field can offer only what it takes. */
+	readonly unitType: UnitType;
 }
 
+/** The `unit_type` enum, as the domain's field predicates spell it. */
+export type UnitType =
+	| 'weight'
+	| 'distance'
+	| 'area'
+	| 'volume'
+	| 'temperature'
+	| 'duration'
+	| 'count'
+	| 'speed';
+
 export function useUnitLabels(): {
+	readonly all: readonly UnitLabel[];
 	readonly byId: ReadonlyMap<string, UnitLabel>;
 	readonly byCode: ReadonlyMap<string, UnitLabel>;
 } {
@@ -38,6 +59,8 @@ export function useUnitLabels(): {
 				id: unit.id,
 				code: unit.code,
 				abbreviation: unit.abbreviation,
+				unitName: unit.unit_name,
+				unitType: unit.unit_type,
 			})),
 		[],
 	);
@@ -46,6 +69,7 @@ export function useUnitLabels(): {
 
 	return useMemo(
 		() => ({
+			all: rows,
 			byId: new Map(rows.map((unit) => [unit.id, unit] as const)),
 			byCode: new Map(rows.map((unit) => [unit.code, unit] as const)),
 		}),

@@ -1,4 +1,4 @@
-import type { BiocontrolActionRow, ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
+import type { BiocontrolActionRow, ControlMethodRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
@@ -26,6 +26,7 @@ import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -85,7 +86,7 @@ function BiocontrolDetail({ actionId }: { readonly actionId: string }) {
 
 function BiocontrolDetailContent({ action }: { readonly action: BiocontrolActionRow }) {
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
+	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 	// habitats is on-demand; resolve just the linked habitat's name as a subset.
 	const habitatIds = useMemo(
@@ -213,7 +214,7 @@ function BiocontrolDetailsCard({
 }: {
 	readonly action: BiocontrolActionRow;
 	readonly methodName: string;
-	readonly releaseUnit: UnitRow | undefined;
+	readonly releaseUnit: UnitLabel | undefined;
 	readonly technicianName: string | null;
 	readonly habitatName: string | null;
 }) {

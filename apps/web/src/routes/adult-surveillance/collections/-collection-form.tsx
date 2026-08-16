@@ -11,7 +11,6 @@ import type {
 	CollectionMethodRow,
 	CollectionTimingMode,
 	TrapRow,
-	UnitRow,
 } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
@@ -39,6 +38,7 @@ import { type DrawPoint, useAddressPoint } from '../../../components/map/use-add
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { isPendingCollection as isPendingCollectionRow } from '../-adult-display';
@@ -196,7 +196,7 @@ export interface CollectionFormPageProps {
 	readonly collectionMethods: readonly CollectionMethodRow[];
 	readonly collectionLures: readonly CollectionLureRow[];
 	readonly profiles: readonly ProfileListing[];
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 	readonly defaultValues: CollectionFormValues;
 	/** Edit locks the trap/ad-hoc choice — the two are distinct command paths. */
 	readonly lockSourceMode?: boolean;
@@ -628,7 +628,7 @@ function TimingSection({
 }: {
 	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
 	readonly form: any;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	// A date-plus-duration collection is saying how long the trap ran, so the only
 	// units that carry meaning are times.

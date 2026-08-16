@@ -3,7 +3,6 @@ import type {
 	FormulationRow,
 	InsecticideRow,
 	OrganizationRow,
-	UnitRow,
 } from '@simmer-mosquito/sync';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -34,6 +33,11 @@ import {
 	commitCatalogWrite,
 	toggleCatalogLifecycle,
 } from '../../../components/catalog';
+import {
+	type UnitLabel,
+	type UnitType,
+	useUnitLabels,
+} from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -54,7 +58,7 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
 /** A mix and its products are measured the way a treatment is measured. */
-function isRecipeUnitType(unitType: UnitRow['unitType']): boolean {
+function isRecipeUnitType(unitType: UnitType): boolean {
 	return unitType === 'volume' || unitType === 'weight' || unitType === 'count';
 }
 
@@ -85,7 +89,7 @@ function FormulationsRoute() {
 		webCollections.formulationInsecticides,
 	);
 	const { rows: insecticideRows } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
-	const { rows: unitRows } = useCollectionRows<UnitRow>(webCollections.units);
+	const { all: unitRows } = useUnitLabels();
 
 	const formulations = useMemo(
 		() =>
@@ -200,8 +204,8 @@ interface CatalogProps {
 	readonly insecticideById: ReadonlyMap<string, InsecticideRow>;
 	readonly insecticides: readonly InsecticideRow[];
 	readonly organization: OrganizationRow | null;
-	readonly unitById: ReadonlyMap<string, UnitRow>;
-	readonly units: readonly UnitRow[];
+	readonly unitById: ReadonlyMap<string, UnitLabel>;
+	readonly units: readonly UnitLabel[];
 }
 
 function FormulationTable({
@@ -375,7 +379,7 @@ function FormulationDrawer({
 	/** When set, the trigger gets a hover/focus tooltip with this label. */
 	readonly tooltip?: string | undefined;
 	readonly trigger: React.ReactNode;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	const [open, setOpen] = useState(false);
 	const unitChoices = useMemo(() => unitOptions(units, isRecipeUnitType), [units]);
@@ -957,7 +961,7 @@ function formulationFormValues(
 }
 
 /** Mixes are carried in a tank, so a new one starts on a volume unit. */
-function defaultBatchUnitId(units: readonly UnitRow[]): string {
+function defaultBatchUnitId(units: readonly UnitLabel[]): string {
 	const gallon = units.find((unit) => unit.code === 'gallon');
 	return (gallon ?? units.find((unit) => unit.unitType === 'volume'))?.id ?? '';
 }

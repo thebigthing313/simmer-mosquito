@@ -3,7 +3,6 @@ import type {
 	CollectionLureRow,
 	CollectionMethodRow,
 	TrapRow,
-	UnitRow,
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
@@ -17,6 +16,7 @@ import {
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -141,7 +141,7 @@ function CreateCollectionRoute() {
 	);
 	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
 	const profiles = useProfileRoster();
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
+	const { all: units } = useUnitLabels();
 
 	const timeZone = useOrganizationTimeZone();
 	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);

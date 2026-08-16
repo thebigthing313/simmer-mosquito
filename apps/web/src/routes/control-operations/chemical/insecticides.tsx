@@ -1,9 +1,4 @@
-import type {
-	InsecticideBatchRow,
-	InsecticideRow,
-	OrganizationRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
+import type { InsecticideBatchRow, InsecticideRow, OrganizationRow } from '@simmer-mosquito/sync';
 import { useAppForm, validateMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -35,6 +30,11 @@ import {
 	commitCatalogWrite,
 	toggleCatalogLifecycle,
 } from '../../../components/catalog';
+import {
+	type UnitLabel,
+	type UnitType,
+	useUnitLabels,
+} from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { webCollections } from '../../../sync/webCollections';
@@ -65,7 +65,7 @@ const EditIcon = iconRegistry.actions.edit.icon;
 const batchesGcTimeMs = 30_000;
 
 /** Amounts are recorded per product, so only these unit types are offered. */
-const USAGE_UNIT_TYPES = new Set<UnitRow['unitType']>(['volume', 'weight', 'count']);
+const USAGE_UNIT_TYPES = new Set<UnitType>(['volume', 'weight', 'count']);
 
 function InsecticidesRoute() {
 	const { auth } = Route.useRouteContext();
@@ -73,7 +73,7 @@ function InsecticidesRoute() {
 
 	// insecticides and units sync eagerly; only the batches are on-demand.
 	const { rows: insecticideRows } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
-	const { rows: unitRows } = useCollectionRows<UnitRow>(webCollections.units);
+	const { all: unitRows } = useUnitLabels();
 
 	const units = useMemo(
 		() =>
@@ -205,7 +205,7 @@ function InsecticideTable({
 	/** The subset of products this table renders as rows. */
 	readonly insecticides: readonly InsecticideRow[];
 	readonly organization: OrganizationRow | null;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	// Expand toggle + product columns (+ actions when the viewer can manage).
 	const columnCount = 7 + (canManage ? 1 : 0);
@@ -265,7 +265,7 @@ function InsecticideTableRow({
 	readonly insecticide: InsecticideRow;
 	readonly insecticides: readonly InsecticideRow[];
 	readonly organization: OrganizationRow | null;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	const [expanded, setExpanded] = useState(false);
 	const productLabel = insecticide.tradeName;
@@ -365,7 +365,7 @@ function InsecticideDrawer({
 	/** When set, the trigger gets a hover/focus tooltip with this label. */
 	readonly tooltip?: string | undefined;
 	readonly trigger: React.ReactNode;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	const [open, setOpen] = useState(false);
 	const defaultValues = insecticideFormValues(insecticide, units[0]?.id ?? '');
@@ -878,7 +878,7 @@ function DeleteInsecticideBatchDialog({ batch }: { readonly batch: InsecticideBa
 
 // --- helpers ------------------------------------------------------------------
 
-function unitOption(unit: UnitRow) {
+function unitOption(unit: UnitLabel) {
 	return {
 		label:
 			unit.abbreviation.length === 0 ? unit.unitName : `${unit.unitName} (${unit.abbreviation})`,
@@ -893,7 +893,7 @@ function insecticideOption(insecticide: InsecticideRow) {
 	};
 }
 
-function unitLabel(units: readonly UnitRow[], unitId: string): string {
+function unitLabel(units: readonly UnitLabel[], unitId: string): string {
 	const unit = units.find((item) => item.id === unitId);
 	return unit === undefined ? 'Not set' : unit.abbreviation || unit.unitName;
 }
