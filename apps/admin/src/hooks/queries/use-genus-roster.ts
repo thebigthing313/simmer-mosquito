@@ -1,5 +1,5 @@
 /**
- * Every genus, with how many species hang off it.
+ * Every genus, and how many species hang off each.
  *
  * ## This folder is the console's read seam
  *
@@ -20,57 +20,87 @@
  * genera page worked, because `id`, `name` and `abbreviation` are single words
  * that spell the same either way. Only the first looks like a fault.
  *
- * ## This hook
+ * ## Two queries, not one join
  *
- * The species count is the one fact that changes what an operator may do with a
- * row — a genus in use cannot be deleted — so it belongs on the row rather than
- * being discovered by trying. It used to be built by reading the whole species
- * table into the component and tallying it in a `useMemo`, which re-ran on every
- * render and, once the rows went snake_case, tallied `undefined` and reported
- * nought against every genus.
+ * The count is the one fact that changes what an operator may do with a row — a
+ * genus in use cannot be deleted — so it has to arrive with the list rather than
+ * be discovered by trying. It was tempting to get both from a single left join
+ * grouped by genus, and that does produce the right numbers; it also loses the
+ * sort. `orderBy` is not honoured on a grouped query here, and it cannot read the
+ * projection either, so there is nowhere left to put it. (Two other things about
+ * that shape are worth knowing: the builder holds to strict SQL, so every
+ * non-aggregate column in the `select` must appear in the `groupBy` — Postgres's
+ * functional-dependency relaxation does not apply — and none of it is visible to
+ * `tsc`. It fails at render.)
  *
- * Here it is a `count()` over a left join, computed in the pipeline: a genus that
- * gains a species emits one changed number rather than a new array of every
- * species in the catalog.
+ * So: an ordered list, and a grouped count beside it, which is the shape
+ * `use-assignment-item-counts.ts` already uses in `apps/web`. The `Map` is the
+ * documented exception to keeping transforms in the query — a query returns rows
+ * and cannot return a lookup of them — and the route reads the two as the
+ * separate props it already took.
  */
 
-import { count, eq, useLiveQuery } from '@tanstack/react-db';
+import { count, useLiveQuery } from '@tanstack/react-db';
+import { useMemo } from 'react';
 import { genera } from '../../lib/collections/genera';
 import { species } from '../../lib/collections/species';
 
-/** A genus as the page that lists them reads it. */
+/** A genus as the pages that list one read it. */
 export interface GenusListing {
 	readonly id: string;
 	readonly name: string;
 	readonly abbreviation: string;
-	/** Zero is meaningful: it is what makes a genus deletable. */
-	readonly speciesCount: number;
 }
 
 export function useGenusRoster(): {
 	readonly genera: readonly GenusListing[];
+	/** Absent means none, which is what makes a genus deletable. */
+	readonly speciesCountById: ReadonlyMap<string, number>;
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
+	const roster = useLiveQuery(
 		(query) =>
 			query
 				.from({ genus: genera })
-				// `left`: a genus with no species is the ordinary case for a freshly
-				// added one, and it is precisely the row an operator is most likely to
-				// act on. An inner join would hide it.
-				.join({ taxon: species }, ({ genus, taxon }) => eq(genus.id, taxon.genus_id), 'left')
-				.groupBy(({ genus }) => genus.id)
 				.orderBy(({ genus }) => genus.name, 'asc')
-				.select(({ genus, taxon }) => ({
+				.select(({ genus }) => ({
 					id: genus.id,
 					name: genus.name,
 					abbreviation: genus.abbreviation,
-					// `count` of the joined column, not of the group: on an unmatched left
-					// join the column is absent, so this is nought rather than one.
-					speciesCount: count(taxon.id),
 				})),
 		[],
 	);
 
-	return { genera: result.data as readonly GenusListing[], isReady: result.isReady };
+	const counts = useLiveQuery(
+		(query) =>
+			query
+				.from({ taxon: species })
+				.groupBy(({ taxon }) => taxon.genus_id)
+				.select(({ taxon }) => ({
+					genusId: taxon.genus_id,
+					total: count(taxon.id),
+				})),
+		[],
+	);
+
+	const speciesCountById = useMemo(
+		() =>
+			new Map(
+				counts.data
+					// A species may name no genus — the special categories do — and that
+					// group is a real row here with a null key. It belongs to no genus, so
+					// it belongs in no genus's count.
+					.filter((row) => row.genusId !== null)
+					.map((row) => [row.genusId as string, Number(row.total)] as const),
+			),
+		[counts.data],
+	);
+
+	return {
+		genera: roster.data as readonly GenusListing[],
+		speciesCountById,
+		// Both, because a list showing every genus as "0 species" while the counts
+		// are still arriving would say something false rather than nothing.
+		isReady: roster.isReady && counts.isReady,
+	};
 }

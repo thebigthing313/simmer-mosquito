@@ -74,7 +74,7 @@ type GenusDialog = CatalogDialogState<GenusListing>;
  * this component's state.
  */
 function GeneraRoute() {
-	const { genera: all, isReady } = useGenusRoster();
+	const { genera: all, speciesCountById, isReady } = useGenusRoster();
 	const [search, setSearch] = useState('');
 	const [dialog, setDialog] = useState<GenusDialog>(null);
 
@@ -129,7 +129,7 @@ function GeneraRoute() {
 							key={genus.id}
 							onDelete={() => void removeGenus(genus)}
 							onEdit={() => setDialog(genus)}
-							speciesCount={genus.speciesCount}
+							speciesCount={speciesCountById.get(genus.id) ?? 0}
 						/>
 					))}
 				</CatalogList>

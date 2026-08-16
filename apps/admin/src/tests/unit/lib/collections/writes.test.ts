@@ -18,21 +18,47 @@ import { describe, expect, it, vi } from 'vitest';
 
 const inserted: Record<string, unknown>[] = [];
 const updated: Record<string, unknown>[] = [];
+const intents: (readonly string[] | undefined)[] = [];
 
-/** A collection stub that records the row an insert built, or an update's result. */
+/** What every mutation carries alongside its row. */
+interface WriteConfig {
+	readonly metadata?: { readonly intents?: readonly string[] };
+}
+
+function record(config: WriteConfig | undefined) {
+	intents.push(config?.metadata?.intents);
+}
+
+/**
+ * A collection stub that records the row a write built and the commands it named.
+ *
+ * The intents matter as much as the columns and are easier to leave out: they are
+ * the one thing a form cannot supply, `requireIntents` throws without them, and a
+ * stub that ignored them would pass a suite while every write in the app failed
+ * at the click. That is exactly what happened before this recorded them.
+ */
 function stubCollection() {
 	return {
-		insert: (row: Record<string, unknown>) => {
+		insert: (row: Record<string, unknown>, config?: WriteConfig) => {
 			inserted.push(row);
+			record(config);
 			return Promise.resolve();
 		},
-		update: (_id: string, mutate: (draft: Record<string, unknown>) => void) => {
+		update: (
+			_id: string,
+			config: WriteConfig,
+			mutate: (draft: Record<string, unknown>) => void,
+		) => {
 			const draft: Record<string, unknown> = {};
 			mutate(draft);
 			updated.push(draft);
+			record(config);
 			return Promise.resolve();
 		},
-		delete: () => Promise.resolve(),
+		delete: (_id: string, config?: WriteConfig) => {
+			record(config);
+			return Promise.resolve();
+		},
 	};
 }
 
@@ -41,13 +67,22 @@ vi.mock('../../../../lib/collections/species', () => ({ species: stubCollection(
 vi.mock('../../../../lib/collections/units', () => ({ units: stubCollection() }));
 vi.mock('@simmer-mosquito/sync', () => ({ settleWrite: (value: unknown) => value }));
 
-const { createGenus, createSpecies, createUnit, updateSpecies, updateUnit } = await import(
-	'../../../../lib/collections/writes'
-);
+const {
+	createGenus,
+	createSpecies,
+	createUnit,
+	deleteGenus,
+	deleteSpecies,
+	deleteUnit,
+	updateGenus,
+	updateSpecies,
+	updateUnit,
+} = await import('../../../../lib/collections/writes');
 
 describe('writes project onto Postgres column names', () => {
 	it('writes a species as genus_id, common_name and display_name', async () => {
 		inserted.length = 0;
+		intents.length = 0;
 		await createSpecies({
 			genusId: 'ff2e6f4e-1d9a-4a0f-9b0f-3c9c0a5f1f11',
 			epithet: 'albopictus',
@@ -126,4 +161,51 @@ describe('a create mints its own id', () => {
 			/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
 		);
 	});
+});
+
+/**
+ * `requireIntents` throws on a write that names no command, so a missing intent is
+ * not a degraded write — it is every write on that page failing at the click.
+ * Nothing else in the app can supply them: a form knows its values, and only this
+ * module knows which command they mean.
+ */
+describe('every write names the command it means', () => {
+	const values = {
+		genus: { name: 'Aedes', abbreviation: 'Ae.' },
+		species: {
+			genusId: null,
+			epithet: 'unidentified',
+			commonName: null,
+			displayName: 'Unidentified mosquito',
+		},
+		unit: {
+			code: 'ct',
+			unitName: 'count',
+			abbreviation: 'ct',
+			unitType: 'count',
+			unitSystem: 'si',
+		},
+	} as const;
+	const id = '7c1a5b6e-8f3d-4e2a-9a1b-2c3d4e5f6073';
+
+	const writes: readonly [string, () => Promise<void>, string][] = [
+		['createGenus', () => createGenus(values.genus), 'foundation.createGenus'],
+		['updateGenus', () => updateGenus(id, values.genus), 'foundation.updateGenus'],
+		['deleteGenus', () => deleteGenus(id), 'foundation.deleteGenus'],
+		['createSpecies', () => createSpecies(values.species), 'foundation.createSpecies'],
+		['updateSpecies', () => updateSpecies(id, values.species), 'foundation.updateSpecies'],
+		['deleteSpecies', () => deleteSpecies(id), 'foundation.deleteSpecies'],
+		['createUnit', () => createUnit(values.unit), 'foundation.createUnit'],
+		['updateUnit', () => updateUnit(id, values.unit), 'foundation.updateUnit'],
+		['deleteUnit', () => deleteUnit(id), 'foundation.deleteUnit'],
+	];
+
+	for (const [name, run, intent] of writes) {
+		it(`${name} names ${intent}`, async () => {
+			intents.length = 0;
+			await run();
+
+			expect(intents[0]).toEqual([intent]);
+		});
+	}
 });

@@ -18,6 +18,14 @@
  * The row is on screen before the round trip, and a txid confirmation that
  * arrives late is treated as pending rather than as failure.
  *
+ * ## Every write names the command it means
+ *
+ * `metadata.intents` is required, and `requireIntents` throws without it — an
+ * unnamed write is a malformed request rather than one with a missing option.
+ * Naming the command is what stops the server inferring intent from which fields
+ * arrived, which is the whole reason `/commands/{table}` exists. It is also the
+ * only thing here a form could not have told us.
+ *
  * ## Two things the caller does not supply
  *
  * **Ids are minted here.** A create carries the row's `id` in its body, because
@@ -61,19 +69,22 @@ export interface UnitValues {
 export async function createGenus(values: GenusValues): Promise<void> {
 	const now = new Date();
 	await settleWrite(
-		genera.insert({
-			id: crypto.randomUUID(),
-			name: values.name,
-			abbreviation: values.abbreviation,
-			created_at: now,
-			updated_at: now,
-		} satisfies Genus),
+		genera.insert(
+			{
+				id: crypto.randomUUID(),
+				name: values.name,
+				abbreviation: values.abbreviation,
+				created_at: now,
+				updated_at: now,
+			} satisfies Genus,
+			{ metadata: { intents: ['foundation.createGenus'] } },
+		),
 	);
 }
 
 export async function updateGenus(genusId: string, values: GenusValues): Promise<void> {
 	await settleWrite(
-		genera.update(genusId, (draft) => {
+		genera.update(genusId, { metadata: { intents: ['foundation.updateGenus'] } }, (draft) => {
 			const row = draft as { -readonly [K in keyof Genus]: Genus[K] };
 			row.name = values.name;
 			row.abbreviation = values.abbreviation;
@@ -82,27 +93,30 @@ export async function updateGenus(genusId: string, values: GenusValues): Promise
 }
 
 export async function deleteGenus(genusId: string): Promise<void> {
-	await settleWrite(genera.delete(genusId));
+	await settleWrite(genera.delete(genusId, { metadata: { intents: ['foundation.deleteGenus'] } }));
 }
 
 export async function createSpecies(values: SpeciesValues): Promise<void> {
 	const now = new Date();
 	await settleWrite(
-		species.insert({
-			id: crypto.randomUUID(),
-			genus_id: values.genusId,
-			epithet: values.epithet,
-			common_name: values.commonName,
-			display_name: values.displayName,
-			created_at: now,
-			updated_at: now,
-		} satisfies Species),
+		species.insert(
+			{
+				id: crypto.randomUUID(),
+				genus_id: values.genusId,
+				epithet: values.epithet,
+				common_name: values.commonName,
+				display_name: values.displayName,
+				created_at: now,
+				updated_at: now,
+			} satisfies Species,
+			{ metadata: { intents: ['foundation.createSpecies'] } },
+		),
 	);
 }
 
 export async function updateSpecies(speciesId: string, values: SpeciesValues): Promise<void> {
 	await settleWrite(
-		species.update(speciesId, (draft) => {
+		species.update(speciesId, { metadata: { intents: ['foundation.updateSpecies'] } }, (draft) => {
 			const row = draft as { -readonly [K in keyof Species]: Species[K] };
 			row.genus_id = values.genusId;
 			row.epithet = values.epithet;
@@ -113,28 +127,33 @@ export async function updateSpecies(speciesId: string, values: SpeciesValues): P
 }
 
 export async function deleteSpecies(speciesId: string): Promise<void> {
-	await settleWrite(species.delete(speciesId));
+	await settleWrite(
+		species.delete(speciesId, { metadata: { intents: ['foundation.deleteSpecies'] } }),
+	);
 }
 
 export async function createUnit(values: UnitValues): Promise<void> {
 	await settleWrite(
-		units.insert({
-			id: crypto.randomUUID(),
-			code: values.code,
-			unit_name: values.unitName,
-			abbreviation: values.abbreviation,
-			unit_type: values.unitType,
-			unit_system: values.unitSystem,
-			// No `updated_at`: `units` is reference data that is corrected, not a
-			// record with a history, so the table has no such column.
-			created_at: new Date(),
-		} satisfies Unit),
+		units.insert(
+			{
+				id: crypto.randomUUID(),
+				code: values.code,
+				unit_name: values.unitName,
+				abbreviation: values.abbreviation,
+				unit_type: values.unitType,
+				unit_system: values.unitSystem,
+				// No `updated_at`: `units` is reference data that is corrected, not a
+				// record with a history, so the table has no such column.
+				created_at: new Date(),
+			} satisfies Unit,
+			{ metadata: { intents: ['foundation.createUnit'] } },
+		),
 	);
 }
 
 export async function updateUnit(unitId: string, values: UnitValues): Promise<void> {
 	await settleWrite(
-		units.update(unitId, (draft) => {
+		units.update(unitId, { metadata: { intents: ['foundation.updateUnit'] } }, (draft) => {
 			const row = draft as { -readonly [K in keyof Unit]: Unit[K] };
 			row.code = values.code;
 			row.unit_name = values.unitName;
@@ -146,5 +165,5 @@ export async function updateUnit(unitId: string, values: UnitValues): Promise<vo
 }
 
 export async function deleteUnit(unitId: string): Promise<void> {
-	await settleWrite(units.delete(unitId));
+	await settleWrite(units.delete(unitId, { metadata: { intents: ['foundation.deleteUnit'] } }));
 }
