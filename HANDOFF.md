@@ -73,26 +73,45 @@ so domains are not.
   then their 501 stubs in `unimplemented-commands.ts` are the honest answer, and
   `addresses.test.ts` holds the stub in place from the other side.
 
-  **The console taxonomy editor cannot be exercised in any environment yet, and
-  the cause is not this code.** `SIMMER_OPERATOR_ORG_ID` is set in neither
-  `.env` nor `apps/server/.env` (only its `VITE_` twin is), so
+  **Verified in the browser, against staging, as an operator.** The genus
+  round-trip commits: create → edit → delete, each with its toast, the row
+  settling through `settleWrite`, and staging left as it was found. The console's
+  request is `POST /commands/genera` carrying
+  `{"intents":["foundation.createGenus"],"id":"<client uuid>","abbreviation":…,"name":…}`.
+  `POST /admin/genera` answers 404 — the second door is gone. Deleting a genus
+  that 33 species point at answers 409
+  `{"error":"genus_in_use","reason":"This genus still has species recorded
+  against it."}` and the genus survives, which is the behaviour the retired route
+  had. Signed out of the operator organization, every one of these answers 403
+  `operator_required` and nothing is written.
+
+  Also settled: **the operator organization does have SIMMER identity rows.**
+  `OperatorAuthContext.localIdentity` is populated, so
+  `operator_identity_required` does not fire.
+
+  **Two environment gates, both of which read as broken code.**
+  `SIMMER_OPERATOR_ORG_ID` must be set for `apps/server` — it is a separate
+  variable from the console's `VITE_SIMMER_OPERATOR_ORG_ID`, and with it unset
   `env.simmerOperatorOrganizationId` is null and
   `createOperatorAuthContextMiddleware` refuses every operator route with
-  `operator_required` — reads included, which is why `/taxonomy/genera` renders
-  an empty list rather than staging's. A browser session also has to be *in* the
-  operator organization; a session left in an agency org fails the same check,
-  and the console offers no switcher, only "Sign out". Same gap as §5.4's
-  Railway note, and it is true locally too.
+  `operator_required`, **reads included**. The symptom is not an error: a 403 on
+  an Electric shape is swallowed and the collection marked ready, so
+  `/taxonomy/genera` renders "No genera yet" over a staging database that has
+  ten. The session must also be *in* the operator organization; one left in an
+  agency org fails the same check, and the console has no switcher, only "Sign
+  out". Same gap as §5.4's Railway note.
 
-  What was verified in the browser against the running API, with real session
-  credentials: `POST /admin/genera` answers 404 (the second door is gone),
-  `POST /commands/genera` answers 403 `operator_required` (the floor holds and
-  fails closed), the console-origin preflight for `/commands/genera` answers 204
-  (see the CORS note below), and the console's own request is
-  `POST /commands/genera` carrying
-  `{"intents":["foundation.createGenus"],"id":"<client uuid>","abbreviation":…,"name":…}`.
-  Unverified: a create/edit/delete that actually commits, which needs an
-  operator session.
+  **`apps/admin` is broken by the deleted column mapper too, in three different
+  ways.** Worth knowing because only one of them looks like a fault:
+  `/taxonomy/species` throws `Cannot read properties of undefined (reading
+  'localeCompare')` — it sorts on `displayName` and the shape streams
+  `display_name`; `/units` counts "25 units" and then shows "No units match" —
+  the same cause degrading to an empty list rather than a crash; `/taxonomy/genera`
+  works, because every column it reads (`id`, `name`, `abbreviation`) is a single
+  word and spells the same either way. Its species badges all read "0 species"
+  for the same reason. Writes are unaffected: a mutation's `modified` carries the
+  camelCase values the form just set, so `api.ts` reads them fine — which is why
+  the genus round-trip above passes on a page whose sibling crashes.
 
   **`/commands/*` had no CORS prefix at all** until this work, and
   `cors-options.test.ts` could not catch it because its route walk never stood
