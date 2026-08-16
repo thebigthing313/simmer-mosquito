@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	assignmentDisplayName,
-	assignmentStatus,
 	assignmentStopTone,
 	canCompleteAssignment,
 	canEditPlan,
@@ -13,31 +11,6 @@ import {
 	progressCounts,
 	targetTypeOf,
 } from '../../../../../routes/operations/assignments/-assignment-data';
-
-const lifecycle = (
-	startedAt: string | null,
-	completedAt: string | null,
-	cancelledAt: string | null,
-) => ({ startedAt, completedAt, cancelledAt });
-
-describe('assignmentStatus', () => {
-	it('derives the four states from timestamps', () => {
-		expect(assignmentStatus(lifecycle(null, null, null))).toBe('notStarted');
-		expect(assignmentStatus(lifecycle('t', null, null))).toBe('inProgress');
-		expect(assignmentStatus(lifecycle('t', 't', null))).toBe('completed');
-		expect(assignmentStatus(lifecycle('t', null, 't'))).toBe('cancelled');
-	});
-
-	it('resolves a completed-and-cancelled row the way the server would', () => {
-		// readLifecycleTransition checks completedAt before cancelledAt. If this ever
-		// disagreed, a row would render as one state and PATCH as the other.
-		expect(assignmentStatus(lifecycle('t', 't', 't'))).toBe('completed');
-	});
-
-	it('reports completed even when the row was never started', () => {
-		expect(assignmentStatus(lifecycle(null, 't', null))).toBe('completed');
-	});
-});
 
 describe('itemProgress', () => {
 	it('derives progress from timestamps', () => {
@@ -194,34 +167,5 @@ describe('assignmentStopTone', () => {
 		for (const progress of ['pending', 'completed', 'skipped'] as const) {
 			expect(siteTones).not.toContain(assignmentStopTone(stop(progress)));
 		}
-	});
-});
-
-describe('assignmentDisplayName', () => {
-	it('prefers an explicit name', () => {
-		expect(
-			assignmentDisplayName(
-				{ assignmentName: 'North sweep', assignmentDate: '2026-08-04' },
-				'Rivera',
-			),
-		).toBe('North sweep');
-	});
-
-	it('falls back to the date and assignee', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' }, 'Rivera'),
-		).toBe('2026-08-04 — Rivera');
-	});
-
-	it('falls back to the date alone when nobody is assigned', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' }, null),
-		).toBe('2026-08-04');
-	});
-
-	it('ignores a name that is only whitespace', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: '   ', assignmentDate: '2026-08-04' }, null),
-		).toBe('2026-08-04');
 	});
 });

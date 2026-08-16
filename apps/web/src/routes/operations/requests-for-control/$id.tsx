@@ -19,10 +19,17 @@ import { type ReactNode, useCallback, useMemo } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { useControlMethodNames } from '../../../components/explorer';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import {
+	controlTypeLabel,
+	formatScheduledStart,
+	missionDisplayName,
+	requestDisplayName,
+} from '../../../hooks/queries/operations-view';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -35,15 +42,10 @@ import {
 import { webCollections } from '../../../sync/webCollections';
 import { useCommandRunner } from '../-command-runner';
 import {
-	controlTypeLabel,
-	formatScheduledStart,
 	type MissionView,
-	missionDisplayName,
 	type RequestView,
 	reopenRequest,
-	requestDisplayName,
 	resolveRequest,
-	useAllControlMethodNames,
 	useMissionsForRequest,
 	useRequestedControlAction,
 } from '../-operations-data';
@@ -434,7 +436,7 @@ const recordLinkClass =
  * keeps the row honest if the type is edited afterwards.
  */
 function useRecommendedMethodName(methodId: string | null): string | null {
-	const methodNameById = useAllControlMethodNames();
+	const methodNameById = useControlMethodNames();
 	return methodId === null ? null : (methodNameById.get(methodId) ?? 'Unknown method');
 }
 

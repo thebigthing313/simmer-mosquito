@@ -4,12 +4,14 @@ import type { RouteStopFeature } from '../../components/map';
 import type { StopTone } from '../../components/stop-order';
 import {
 	MISSION_STATUS_LABELS,
-	type MissionItemProgress,
 	type MissionProgressCounts,
 	type MissionStatus,
+	type RequestStatus,
+} from '../../hooks/queries/operations-view';
+import {
+	type MissionItemProgress,
 	type MissionStopView,
 	missionItemProgress,
-	type RequestStatus,
 } from './-operations-data';
 
 /**

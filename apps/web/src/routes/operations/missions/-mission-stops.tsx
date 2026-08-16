@@ -14,12 +14,11 @@ import {
 	StopReorderControls,
 } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
+import { controlTypeLabel, requestDisplayName } from '../../../hooks/queries/operations-view';
 import {
-	controlTypeLabel,
 	type MissionItemAction,
 	type MissionStopView,
 	missionItemActionsFor,
-	requestDisplayName,
 	useOpenRequestedControlActions,
 } from '../-operations-data';
 import { MissionItemProgressBadge, missionStopTone } from '../-operations-display';

@@ -20,6 +20,7 @@ export { useCollectionMethodOptions } from './use-collection-method-options';
 export {
 	useApplicationMethodOptions,
 	useBiocontrolMethodOptions,
+	useControlMethodNames,
 	useInsecticideOptions,
 	useOutreachMethodOptions,
 	useSourceReductionMethodOptions,

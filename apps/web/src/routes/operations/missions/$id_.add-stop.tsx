@@ -15,6 +15,7 @@ import { useCallback, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { AddressPicker } from '../../../components/pickers/address-picker';
+import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowRole } from '../../../lib/write-access';
@@ -25,7 +26,6 @@ import {
 	addMissionItemAtGeometry,
 	canEditMissionPlan,
 	type MissionView,
-	missionDisplayName,
 	useMission,
 	useMissionStops,
 } from '../-operations-data';

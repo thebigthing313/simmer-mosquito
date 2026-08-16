@@ -52,6 +52,37 @@ export function useOutreachMethodOptions(): CatalogOptions {
 }
 
 /**
+ * Every control method by id, across all four catalogs.
+ *
+ * For the surfaces that hold a method id without knowing which catalog it came
+ * from: `recommended_method_id` on a request and `planned_method_id` on a mission
+ * are both polymorphic by control type — the id points at a different table for
+ * each — so a queue mixing all four control types cannot pick one catalog to look
+ * in. Ids are uuids and so globally unique, which is what lets one map serve all
+ * four.
+ *
+ * Built from the four hooks above rather than from four more queries, so a page
+ * that shows both a filter and a name pays for one read of each catalog.
+ */
+export function useControlMethodNames(): ReadonlyMap<string, string> {
+	const application = useApplicationMethodOptions();
+	const sourceReduction = useSourceReductionMethodOptions();
+	const biocontrol = useBiocontrolMethodOptions();
+	const outreach = useOutreachMethodOptions();
+
+	return useMemo(
+		() =>
+			new Map([
+				...application.nameById,
+				...sourceReduction.nameById,
+				...biocontrol.nameById,
+				...outreach.nameById,
+			]),
+		[application, sourceReduction, biocontrol, outreach],
+	);
+}
+
+/**
  * Insecticides, by trade name.
  *
  * Its own hook rather than a fourth call to {@link useNamedCatalog}, because the

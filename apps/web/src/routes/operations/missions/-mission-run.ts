@@ -1,8 +1,10 @@
 import type { RequestedControlActionRow } from '@simmer-mosquito/sync';
 import { useCallback, useMemo, useState } from 'react';
-import { usePersonnelOptions } from '../../../components/explorer';
+import { useControlMethodNames, usePersonnelOptions } from '../../../components/explorer';
 import type { RouteStopFeature } from '../../../components/map';
 import { type MoveAction, type OrderPlacement, useStopOrder } from '../../../components/stop-order';
+import type { MissionProgressCounts, MissionStatus } from '../../../hooks/queries/operations-view';
+import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useHasRole } from '../../../hooks/use-can-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -18,11 +20,8 @@ import {
 	completeMission,
 	completeMissionItem,
 	type MissionItemAction,
-	type MissionProgressCounts,
-	type MissionStatus,
 	type MissionStopView,
 	type MissionView,
-	missionDisplayName,
 	moveMissionItems,
 	removeMissionItem,
 	reopenMission,
@@ -30,7 +29,6 @@ import {
 	skipMissionItem,
 	startMission,
 	unskipMissionItem,
-	useAllControlMethodNames,
 	useMission,
 	useMissionStops,
 } from '../-operations-data';
@@ -167,7 +165,7 @@ interface MissionLabels {
  */
 function useMissionLabels(mission: MissionView | null): MissionLabels {
 	const { nameById } = usePersonnelOptions();
-	const methodNameById = useAllControlMethodNames();
+	const methodNameById = useControlMethodNames();
 	const timeZone = useOrganizationTimeZone();
 
 	return {

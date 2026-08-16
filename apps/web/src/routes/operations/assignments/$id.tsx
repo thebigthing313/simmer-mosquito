@@ -29,6 +29,12 @@ import {
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
+import {
+	assignmentDisplayName,
+	formatAssignmentDate,
+	formatDueAt,
+	type ProgressCounts,
+} from '../../../hooks/queries/assignment-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
@@ -39,7 +45,6 @@ import { WorklistTabs } from '../-worklist-tabs';
 import {
 	type AssignmentStopView,
 	type AssignmentView,
-	assignmentDisplayName,
 	assignmentStopTone,
 	canCompleteAssignment,
 	cancelAssignment,
@@ -50,7 +55,6 @@ import {
 	completeAssignmentItem,
 	type ItemAction,
 	itemActionsFor,
-	type ProgressCounts,
 	reopenAssignment,
 	reopenAssignmentItem,
 	skipAssignmentItem,
@@ -62,8 +66,6 @@ import {
 } from './-assignment-data';
 import {
 	AssignmentStatusBadge,
-	formatAssignmentDate,
-	formatDueAt,
 	ItemProgressBadge,
 	TargetLink,
 	TargetTypePill,

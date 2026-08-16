@@ -9,15 +9,27 @@ import type {
 	TrapRow,
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import { and, eq, gte, inArray, isNull, lte, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, inArray, isNull, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../components/map';
 import type { StopTone } from '../../../components/stop-order';
+import type { AssignmentStatus, ProgressCounts } from '../../../hooks/queries/assignment-view';
+import { assignmentStatus } from '../../../hooks/queries/assignment-view';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { type LifecycleOption, lifecycleOptions } from '../../../lib/lifecycle-options';
 import { postCommand } from '../../../sync/post-command';
 import { webCollections } from '../../../sync/webCollections';
+
+/**
+ * The reads and writes behind a worklist run.
+ *
+ * What is left here is the write half plus the reads the run and plan pages
+ * depend on. The assignments schedule reads through `hooks/queries` instead;
+ * these stay on `webCollections` because a page that writes a row has to read it
+ * through the same collection, or the write's txid lands on a stream nothing is
+ * watching and the save never settles.
+ */
 
 // `assignments` and `assignment_items` are both on-demand shapes (docs/sync.md);
 // hold a worklist's rows briefly after unmount so list → run → plan reuses them.
@@ -26,12 +38,6 @@ const assignmentsGcTimeMs = 30_000;
 // A syntactically valid uuid that matches no row — keeps an `IN`/`eq` subset
 // predicate live (and empty) while an id set is still unresolved.
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
-// The date analogue of UNMATCHABLE_ID. `dateParam` encodes "no bound" as an empty
-// string, and comparing a date column against '' is not meaningfully total, so an
-// unbounded filter gets a bound that every real date falls inside.
-const EARLIEST_DATE = '0001-01-01';
-const LATEST_DATE = '9999-12-31';
 
 /**
  * Timestamps are validated against the *server's* clock with no tolerance, so a
@@ -51,28 +57,8 @@ export const NO_ASSIGNEE = 'none';
 
 // --- derived state ----------------------------------------------------------
 
-export type AssignmentStatus = 'notStarted' | 'inProgress' | 'completed' | 'cancelled';
 export type ItemProgress = 'pending' | 'completed' | 'skipped';
 export type TargetType = 'trap' | 'habitat' | 'serviceRequest';
-
-/**
- * Assignment lifecycle, derived from timestamps — there is no status column.
- *
- * The precedence deliberately matches the server's `readLifecycleTransition`
- * rather than the intuitive reading, so a row that somehow carries two terminal
- * timestamps can never render as one state while PATCHing as another.
- */
-export function assignmentStatus(
-	row: Pick<AssignmentRow, 'startedAt' | 'completedAt' | 'cancelledAt'>,
-): AssignmentStatus {
-	if (row.completedAt !== null) {
-		return 'completed';
-	}
-	if (row.cancelledAt !== null) {
-		return 'cancelled';
-	}
-	return row.startedAt === null ? 'notStarted' : 'inProgress';
-}
 
 /** Item progress. Skipped is checked first, matching `readItemLifecycleTransition`. */
 export function itemProgress(
@@ -104,15 +90,6 @@ export function targetTypeOf(entityType: string): TargetType | null {
 		default:
 			return null;
 	}
-}
-
-export interface ProgressCounts {
-	readonly total: number;
-	readonly completed: number;
-	readonly skipped: number;
-	readonly pending: number;
-	/** Completed or skipped — the two ways a stop is done being worked. */
-	readonly handled: number;
 }
 
 export function progressCounts(
@@ -231,61 +208,10 @@ export function assignmentStopTone(stop: AssignmentStopView): StopTone {
 	return 'default';
 }
 
-export function assignmentDisplayName(
-	row: Pick<AssignmentRow, 'assignmentName' | 'assignmentDate'>,
-	assigneeName: string | null,
-): string {
-	const name = row.assignmentName?.trim();
-	if (name) {
-		return name;
-	}
-	return assigneeName === null ? row.assignmentDate : `${row.assignmentDate} — ${assigneeName}`;
-}
-
 // --- reads ------------------------------------------------------------------
 
 function toView(row: AssignmentRow): AssignmentView {
 	return { ...row, status: assignmentStatus(row) };
-}
-
-/**
- * Assignments dated within `[from, to]`.
- *
- * Assignee and status are filtered by callers in memory rather than here: status
- * derives from three nullable timestamps and so is not one predicate, and the
- * assignee filter carries an "unassigned" pseudo-value that matches a null column.
- */
-export function useAssignments(
-	from: string,
-	to: string,
-): {
-	readonly assignments: readonly AssignmentView[];
-	readonly isLoading: boolean;
-	readonly isReady: boolean;
-} {
-	const fromBound = from === '' ? EARLIEST_DATE : from;
-	const toBound = to === '' ? LATEST_DATE : to;
-
-	const result = useLiveQuery(
-		{
-			gcTime: assignmentsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ assignment: webCollections.assignments })
-					.where(({ assignment }) =>
-						and(gte(assignment.assignmentDate, fromBound), lte(assignment.assignmentDate, toBound)),
-					)
-					.orderBy(({ assignment }) => assignment.assignmentDate, 'desc'),
-		},
-		[fromBound, toBound],
-	);
-
-	const assignments = useMemo(
-		() => ((result.data ?? []) as readonly AssignmentRow[]).map(toView),
-		[result.data],
-	);
-
-	return { assignments, isLoading: result.isLoading, isReady: result.isReady };
 }
 
 /** One assignment. Also the warm-stream anchor on pages that write before reading. */
@@ -343,39 +269,6 @@ export function useAssignmentItems(assignmentId: string | null): {
 		isLoading: assignmentId !== null && result.isLoading,
 		isReady: result.isReady,
 	};
-}
-
-/** Per-assignment progress tallies, so the list can show "3 of 8" without drilling in. */
-export function useAssignmentItemCounts(assignmentIds: readonly string[]): {
-	readonly countsById: ReadonlyMap<string, ProgressCounts>;
-	readonly isReady: boolean;
-} {
-	// Sorted + joined so a reordered id list doesn't re-run an identical query.
-	const idsKey = useMemo(() => [...assignmentIds].sort().join(','), [assignmentIds]);
-	const queryIds = assignmentIds.length > 0 ? [...assignmentIds] : [UNMATCHABLE_ID];
-
-	const result = useLiveQuery(
-		{
-			gcTime: assignmentsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: webCollections.assignmentItems })
-					.where(({ item }) => inArray(item.assignmentId, queryIds)),
-		},
-		[idsKey],
-	);
-
-	const countsById = useMemo(() => {
-		const grouped = new Map<string, { progress: ItemProgress }[]>();
-		for (const item of (result.data ?? []) as readonly AssignmentItemRow[]) {
-			const bucket = grouped.get(item.assignmentId) ?? [];
-			bucket.push({ progress: itemProgress(item) });
-			grouped.set(item.assignmentId, bucket);
-		}
-		return new Map([...grouped].map(([id, items]) => [id, progressCounts(items)]));
-	}, [result.data]);
-
-	return { countsById, isReady: result.isReady };
 }
 
 /**

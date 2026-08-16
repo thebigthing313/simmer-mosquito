@@ -73,6 +73,34 @@ function calendarDateParts(value: string | null | undefined): CalendarDateParts 
 	return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
 }
 
+/**
+ * A `YYYY-MM-DD` plus a whole number of days.
+ *
+ * Done in UTC, where every day is 24 hours: adding a day in a zone that springs
+ * forward that night lands on the same date it started from. The value is a
+ * calendar date and the answer is a calendar date, so no zone is involved.
+ *
+ * An unreadable date comes back untouched rather than as `NaN-NaN-NaN`, so a
+ * caller building a bound from one gets a value the reader below still refuses
+ * rather than one it silently accepts.
+ */
+export function addCalendarDays(date: string, days: number): string {
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		return date;
+	}
+	const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));
+	return Number.isNaN(shifted.getTime()) ? date : formatUtcDate(shifted);
+}
+
+/** A UTC Date back to `YYYY-MM-DD`, reading the UTC parts. See {@link formatLocalDate}. */
+function formatUtcDate(date: Date): string {
+	const year = `${date.getUTCFullYear()}`.padStart(4, '0');
+	const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+	const day = `${date.getUTCDate()}`.padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
 /** A local Date back to `YYYY-MM-DD`, reading the local parts rather than the UTC ones. */
 export function formatLocalDate(date: Date): string {
 	const year = date.getFullYear();

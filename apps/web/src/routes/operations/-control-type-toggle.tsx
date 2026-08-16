@@ -1,7 +1,7 @@
 import type { ControlType } from '@simmer-mosquito/sync';
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { CONTROL_TYPES, controlTypeLabel } from './-operations-data';
+import { CONTROL_TYPES, controlTypeLabel } from '../../hooks/queries/operations-view';
 
 const OPTIONS = CONTROL_TYPES.map((controlType) => ({
 	value: controlType,

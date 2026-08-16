@@ -42,6 +42,7 @@ import {
 	StopReorderControls,
 	useStopOrder,
 } from '../../../components/stop-order';
+import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowRole } from '../../../lib/write-access';
@@ -50,7 +51,6 @@ import { WorklistMap } from '../-worklist-map';
 import {
 	type AssignmentStopView,
 	addAssignmentItem,
-	assignmentDisplayName,
 	assignmentStopTone,
 	canEditPlan,
 	moveAssignmentItems,

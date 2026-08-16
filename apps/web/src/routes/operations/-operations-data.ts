@@ -9,20 +9,30 @@ import type {
 	RequestedControlActionRow,
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import { and, eq, gte, inArray, lte, useLiveQuery } from '@tanstack/react-db';
+import { eq, inArray, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
+import type {
+	MissionProgressCounts,
+	MissionStatus,
+	RequestStatus,
+} from '../../hooks/queries/operations-view';
+import { missionStatus, requestStatus } from '../../hooks/queries/operations-view';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { addressPrimaryLabel } from '../../lib/address-format';
-import { localDayStartAsTimestamp } from '../../lib/local-date';
 import { postCommand } from '../../sync/post-command';
 import { webCollections } from '../../sync/webCollections';
 
 /**
  * The reads and writes behind the operations section — requested control actions
  * and missions.
+ *
+ * What is left here is the write half plus the reads the write surfaces depend
+ * on. The queue and the schedule read through `hooks/queries` instead; these stay
+ * on `webCollections` because a page that writes a row has to read it through the
+ * same collection, or the write's txid lands on a stream nothing is watching and
+ * the save never settles.
  *
  * Assignments deliberately keep their own module: they are field-work commands
  * against a different set of tables, and the only thing the two share is the
@@ -37,10 +47,6 @@ const operationsGcTimeMs = 30_000;
 /** A syntactically valid uuid no row matches — keeps a subset predicate live and empty. */
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
-/** Bounds for an unset date filter, wide enough that every real row falls inside. */
-const EARLIEST_DATE = '0001-01-01';
-const LATEST_DATE = '9999-12-31';
-
 /**
  * Timestamps are validated against the server's clock with no tolerance, so a
  * client running even slightly fast has its writes rejected as "in the future"
@@ -53,72 +59,7 @@ function nowTimestamp(): string {
 	return new Date(Date.now() - CLOCK_SKEW_MARGIN_MS).toISOString();
 }
 
-// --- vocabulary -------------------------------------------------------------
-
-/**
- * The four kinds of control work a request or mission can be for.
- *
- * The column stores the snake_case `control_type` enum; these are the labels the
- * operator reads. Ordered as the domain lists them, not alphabetically.
- */
-export const CONTROL_TYPES: readonly ControlType[] = [
-	'application',
-	'source_reduction',
-	'biocontrol',
-	'outreach',
-];
-
-const CONTROL_TYPE_LABELS: Readonly<Record<ControlType, string>> = {
-	application: 'Application',
-	source_reduction: 'Source Reduction',
-	biocontrol: 'Biocontrol',
-	outreach: 'Outreach',
-};
-
-export function controlTypeLabel(controlType: string): string {
-	return CONTROL_TYPE_LABELS[controlType as ControlType] ?? controlType;
-}
-
 // --- derived state ----------------------------------------------------------
-
-/**
- * A request is open until someone resolves it. There is no status column and no
- * intermediate state: resolution can mean handled, duplicate, or not feasible,
- * and which of those it was lives in the comments.
- */
-export type RequestStatus = 'open' | 'resolved';
-
-function requestStatus(row: Pick<RequestedControlActionRow, 'resolvedAt'>): RequestStatus {
-	return row.resolvedAt === null ? 'open' : 'resolved';
-}
-
-/**
- * Mission lifecycle, derived from timestamps — there is no status column.
- *
- * The precedence matches `deriveMissionLifecycleStatus` in the domain and the
- * server's own read, so a row carrying two terminal timestamps can never render
- * as one state while writing as another.
- */
-export type MissionStatus = 'scheduled' | 'inProgress' | 'completed' | 'cancelled';
-
-function missionStatus(
-	row: Pick<MissionRow, 'startedAt' | 'completedAt' | 'cancelledAt'>,
-): MissionStatus {
-	if (row.completedAt !== null) {
-		return 'completed';
-	}
-	if (row.cancelledAt !== null) {
-		return 'cancelled';
-	}
-	return row.startedAt === null ? 'scheduled' : 'inProgress';
-}
-
-export const MISSION_STATUS_LABELS: Readonly<Record<MissionStatus, string>> = {
-	scheduled: 'Scheduled',
-	inProgress: 'In progress',
-	completed: 'Completed',
-	cancelled: 'Cancelled',
-};
 
 /**
  * A mission needs somewhere to go before it can be dispatched.
@@ -191,15 +132,6 @@ export function missionItemProgress(
 	return row.completedAt === null ? 'pending' : 'completed';
 }
 
-export interface MissionProgressCounts {
-	readonly total: number;
-	readonly completed: number;
-	readonly skipped: number;
-	readonly pending: number;
-	/** Completed or skipped — the two ways a stop is done being worked. */
-	readonly handled: number;
-}
-
 function missionProgressCounts(
 	items: readonly Pick<MissionItemRow, 'completedAt' | 'skippedAt'>[],
 ): MissionProgressCounts {
@@ -262,54 +194,10 @@ export interface MissionStopView {
 	readonly isResolving: boolean;
 }
 
-/** A mission's name, falling back to what the mission is and when it runs. */
-export function missionDisplayName(
-	row: Pick<MissionRow, 'missionName' | 'controlType' | 'scheduledStartAt'>,
-	timeZone: string | undefined,
-): string {
-	const name = row.missionName?.trim();
-	if (name) {
-		return name;
-	}
-	// An unnamed mission is named by when it runs, so the fallback carries the
-	// same zone the scheduled start is read in everywhere else.
-	return `${controlTypeLabel(row.controlType)} — ${formatScheduledStart(row.scheduledStartAt, timeZone)}`;
-}
-
-/** A request's one-line subject: its own summary, or the control type it asks for. */
-export function requestDisplayName(
-	row: Pick<RequestedControlActionRow, 'summary' | 'controlType'>,
-): string {
-	const summary = row.summary?.trim();
-	return summary || `${controlTypeLabel(row.controlType)} requested`;
-}
-
-/**
- * When a mission is due to start, on the agency's clock.
- *
- * `scheduledStartAt` is an instant, and an instant has no time of day until a
- * zone is named. A dispatcher two zones from the yard has to read the same 6am
- * muster as the crew standing in it, so the zone is the agency's.
- */
-export function formatScheduledStart(value: string, timeZone: string | undefined): string {
-	const parsed = new Date(value);
-	if (Number.isNaN(parsed.getTime())) {
-		return value;
-	}
-	return parsed.toLocaleString(undefined, {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
-	});
-}
-
 /**
  * A `date` column as the day it names — a mission's rain date, not an instant.
  *
- * The opposite hazard to {@link formatScheduledStart}: naming a zone here would
+ * The opposite hazard to `formatScheduledStart`: naming a zone here would
  * *introduce* the shift. `new Date('2026-08-04')` is UTC midnight, so a zone
  * west of Greenwich renders it as the 3rd. Rebuilt in UTC, where it cannot move.
  */
@@ -329,80 +217,7 @@ export function formatOperationalDate(value: string): string {
 	}).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
-/** The day a request came in, on the agency's calendar. See {@link formatScheduledStart}. */
-export function formatRequestedAt(value: string, timeZone: string | undefined): string {
-	const parsed = new Date(value);
-	if (Number.isNaN(parsed.getTime())) {
-		return value;
-	}
-	return parsed.toLocaleDateString(undefined, {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		...(timeZone === undefined ? {} : { timeZone }),
-	});
-}
-
 // --- reads ------------------------------------------------------------------
-
-/**
- * Requested control actions raised within `[from, to]`.
- *
- * `requested_at` is a `timestamptz`, so each bound is widened to an instant
- * Electric will parse — a bare `YYYY-MM-DD` 400s the shape outright, and the
- * same predicate is re-run in the browser against the raw streamed strings, so
- * the two have to agree character for character (see {@link
- * localDayStartAsTimestamp}).
- *
- * Control type and status are filtered by callers in memory: status derives from
- * a nullable timestamp rather than a column, and both sets are small enough that
- * narrowing the shape per filter change would cost more than it saves.
- */
-export function useRequestedControlActions(
-	from: string,
-	to: string,
-): {
-	readonly requests: readonly RequestView[];
-	readonly isLoading: boolean;
-	readonly isReady: boolean;
-} {
-	const timeZone = useOrganizationTimeZone();
-	const fromBound = useMemo(
-		() => localDayStartAsTimestamp(from === '' ? EARLIEST_DATE : from, timeZone),
-		[from, timeZone],
-	);
-	// The upper bound is the start of the day *after* `to`, so a request raised at
-	// any hour of the closing day is still inside the window.
-	const toBound = useMemo(
-		() => localDayStartAsTimestamp(addDays(to === '' ? LATEST_DATE : to, 1), timeZone),
-		[to, timeZone],
-	);
-
-	const result = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.requestedControlActions })
-					.where(({ request }) =>
-						and(gte(request.requestedAt, fromBound), lte(request.requestedAt, toBound)),
-					)
-					.orderBy(({ request }) => request.requestedAt, 'desc'),
-		},
-		[fromBound, toBound],
-	);
-
-	const requests = useMemo(
-		() =>
-			((result.data ?? []) as readonly RequestedControlActionRow[]).map((row) => ({
-				...row,
-				status: requestStatus(row),
-			})),
-		[result.data],
-	);
-
-	return { requests, isLoading: result.isLoading, isReady: result.isReady };
-}
 
 /** One request. Also the warm-stream anchor on pages that write before reading. */
 export function useRequestedControlAction(requestId: string | null): {
@@ -427,56 +242,6 @@ export function useRequestedControlAction(requestId: string | null): {
 		request: row === undefined ? null : { ...row, status: requestStatus(row) },
 		isReady: result.isReady,
 	};
-}
-
-/**
- * Missions scheduled to start within `[from, to]`.
- *
- * `scheduled_start_at` is a `timestamptz` and takes the same bound treatment as
- * `requested_at` above.
- */
-export function useMissions(
-	from: string,
-	to: string,
-): {
-	readonly missions: readonly MissionView[];
-	readonly isLoading: boolean;
-	readonly isReady: boolean;
-} {
-	const timeZone = useOrganizationTimeZone();
-	const fromBound = useMemo(
-		() => localDayStartAsTimestamp(from === '' ? EARLIEST_DATE : from, timeZone),
-		[from, timeZone],
-	);
-	const toBound = useMemo(
-		() => localDayStartAsTimestamp(addDays(to === '' ? LATEST_DATE : to, 1), timeZone),
-		[to, timeZone],
-	);
-
-	const result = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ mission: webCollections.missions })
-					.where(({ mission }) =>
-						and(gte(mission.scheduledStartAt, fromBound), lte(mission.scheduledStartAt, toBound)),
-					)
-					.orderBy(({ mission }) => mission.scheduledStartAt, 'desc'),
-		},
-		[fromBound, toBound],
-	);
-
-	const missions = useMemo(
-		() =>
-			((result.data ?? []) as readonly MissionRow[]).map((row) => ({
-				...row,
-				status: missionStatus(row),
-			})),
-		[result.data],
-	);
-
-	return { missions, isLoading: result.isLoading, isReady: result.isReady };
 }
 
 /** One mission. Also the warm-stream anchor for the create page's write. */
@@ -724,39 +489,6 @@ function toMissionStop(
 	};
 }
 
-/** Per-mission progress tallies, so the list shows "3 of 8" without drilling in. */
-export function useMissionItemCounts(missionIds: readonly string[]): {
-	readonly countsById: ReadonlyMap<string, MissionProgressCounts>;
-	readonly isReady: boolean;
-} {
-	// Sorted + joined so a reordered id list does not re-run an identical query.
-	const idsKey = useMemo(() => [...missionIds].sort().join(','), [missionIds]);
-	const queryIds = missionIds.length > 0 ? [...missionIds] : [UNMATCHABLE_ID];
-
-	const result = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: webCollections.missionItems })
-					.where(({ item }) => inArray(item.missionId, queryIds)),
-		},
-		[idsKey],
-	);
-
-	const countsById = useMemo(() => {
-		const grouped = new Map<string, MissionItemRow[]>();
-		for (const item of (result.data ?? []) as readonly MissionItemRow[]) {
-			const bucket = grouped.get(item.missionId) ?? [];
-			bucket.push(item);
-			grouped.set(item.missionId, bucket);
-		}
-		return new Map([...grouped].map(([id, items]) => [id, missionProgressCounts(items)]));
-	}, [result.data]);
-
-	return { countsById, isReady: result.isReady };
-}
-
 /**
  * Open requests in the org, newest first — what a mission can be pointed at.
  *
@@ -887,35 +619,6 @@ export function useMethodsForControlType(controlType: ControlType | ''): {
 	}, [controlType, applicationMethods, sourceReductionMethods, biocontrolMethods, outreachMethods]);
 
 	return { methods };
-}
-
-/** Every control method by id, across the four catalogs — for labelling a list. */
-export function useAllControlMethodNames(): ReadonlyMap<string, string> {
-	const { rows: applicationMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.applicationMethods,
-	);
-	const { rows: sourceReductionMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.sourceReductionMethods,
-	);
-	const { rows: biocontrolMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.biocontrolMethods,
-	);
-	const { rows: outreachMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.outreachMethods,
-	);
-
-	return useMemo(
-		() =>
-			new Map(
-				[
-					...applicationMethods,
-					...sourceReductionMethods,
-					...biocontrolMethods,
-					...outreachMethods,
-				].map((method) => [method.id, method.name] as const),
-			),
-		[applicationMethods, sourceReductionMethods, biocontrolMethods, outreachMethods],
-	);
 }
 
 // --- writes -----------------------------------------------------------------
@@ -1420,16 +1123,4 @@ export async function reopenRequest(requestId: string): Promise<void> {
 			mutable.resolvedByProfileId = null;
 		}),
 	);
-}
-
-// --- helpers ----------------------------------------------------------------
-
-/** `YYYY-MM-DD` plus a whole number of days, in UTC so no DST boundary shifts it. */
-export function addDays(date: string, days: number): string {
-	const parsed = new Date(`${date}T00:00:00Z`);
-	if (Number.isNaN(parsed.getTime())) {
-		return date;
-	}
-	parsed.setUTCDate(parsed.getUTCDate() + days);
-	return parsed.toISOString().slice(0, 10);
 }

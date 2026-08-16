@@ -27,14 +27,10 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { WriteOnly } from '../../../components/write-only';
+import { controlTypeLabel, formatScheduledStart } from '../../../hooks/queries/operations-view';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
-import {
-	controlTypeLabel,
-	formatOperationalDate,
-	formatScheduledStart,
-	type MissionView,
-} from '../-operations-data';
+import { formatOperationalDate, type MissionView } from '../-operations-data';
 import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
 import { WorklistTabs } from '../-worklist-tabs';
