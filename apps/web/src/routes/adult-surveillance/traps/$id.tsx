@@ -1,10 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type {
-	CollectionLureRow,
-	CollectionMethodRow,
-	SpeciesRow,
-	TrapRow,
-} from '@simmer-mosquito/sync';
+import type { SpeciesRow, TrapRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -68,6 +63,10 @@ import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { collectionSortKey } from '../../../hooks/queries/collection-view';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import {
+	useCollectionLureRoster,
+	useCollectionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
@@ -130,10 +129,8 @@ function TrapDetail({ trapId }: { readonly trapId: string }) {
 function TrapDetailContent({ trap }: { readonly trap: TrapRow }) {
 	useBreadcrumbLabel(trap.id, trapDisplayName(trap));
 
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
+	const methods = useCollectionMethodRoster();
+	const lures = useCollectionLureRoster();
 	const methodName =
 		methods.find((method) => method.id === trap.collectionMethodId)?.name ?? 'Unknown method';
 	const lureName =

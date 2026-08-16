@@ -1,4 +1,4 @@
-import type { HabitatTypeRow, TagItemRow, TagRow } from '@simmer-mosquito/sync';
+import type { TagItemRow, TagRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	AlertTriangleIcon,
@@ -11,6 +11,7 @@ import { and, eq, inArray, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, useMemo } from 'react';
 import { OrdinalBadge } from '../../../components/stop-order';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { hexWithAlpha } from '../../../lib/hex-color';
 import { webCollections } from '../../../sync/webCollections';
@@ -71,7 +72,7 @@ export function useStopMeta(stops: readonly RouteStopView[]): {
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly tagsByHabitatId: ReadonlyMap<string, readonly TagRow[]>;
 } {
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
+	const habitatTypes = useHabitatTypeRoster();
 	const { rows: tags } = useCollectionRows<TagRow>(webCollections.tags);
 
 	const typeNameById = useMemo(

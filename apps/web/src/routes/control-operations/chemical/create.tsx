@@ -1,7 +1,6 @@
 import { calculateFormulationComponentAmounts } from '@simmer-mosquito/domain';
 import type {
 	ApplicationRow,
-	ControlMethodRow,
 	EquipmentRow,
 	FormulationInsecticideRow,
 	FormulationRow,
@@ -18,6 +17,7 @@ import {
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -62,7 +62,7 @@ function CreateApplicationRoute() {
 	const navigate = useNavigate();
 	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
+	const methods = useApplicationMethodRoster();
 	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
 	const { rows: formulations } = useCollectionRows<FormulationRow>(webCollections.formulations);
 	const { rows: formulationComponents } = useCollectionRows<FormulationInsecticideRow>(

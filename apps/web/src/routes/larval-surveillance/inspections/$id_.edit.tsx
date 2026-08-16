@@ -3,7 +3,6 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	AdditionalPersonnelRow,
 	CommentRow,
-	HabitatTypeRow,
 	InspectionRow,
 	LarvalDensity,
 	SampleRow,
@@ -20,8 +19,11 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import {
+	type SchemaCatalogListing,
+	useHabitatTypeRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { isWriteBlocked } from '../../../lib/write-access';
@@ -55,7 +57,7 @@ function EditInspectionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
+	const habitatTypes = useHabitatTypeRoster();
 	const profiles = useProfileRoster();
 
 	// inspections is an on-demand collection, so this reads live status through
@@ -128,7 +130,7 @@ function EditInspectionLoader({
 	personnelProfileIds,
 }: {
 	readonly inspection: InspectionRow;
-	readonly habitatTypes: readonly HabitatTypeRow[];
+	readonly habitatTypes: readonly SchemaCatalogListing[];
 	readonly profiles: readonly ProfileListing[];
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 	readonly organizationId: string;

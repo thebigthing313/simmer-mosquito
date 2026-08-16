@@ -1,4 +1,4 @@
-import type { ControlMethodRow, OutreachActionRow } from '@simmer-mosquito/sync';
+import type { OutreachActionRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
@@ -24,8 +24,8 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { webCollections } from '../../../sync/webCollections';
 import { formatActionDate, nameById } from '../../control-operations/-control-display';
@@ -83,7 +83,7 @@ function OutreachDetail({ actionId }: { readonly actionId: string }) {
 }
 
 function OutreachDetailContent({ action }: { readonly action: OutreachActionRow }) {
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.outreachMethods);
+	const methods = useOutreachMethodRoster();
 	const profiles = useProfileRoster();
 
 	const methodName =

@@ -1,12 +1,17 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
+import type { TrapRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import {
+	type CatalogListing,
+	type SchemaCatalogListing,
+	useCollectionLureRoster,
+	useCollectionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
@@ -29,10 +34,8 @@ function EditTrapRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
+	const methods = useCollectionMethodRoster();
+	const lures = useCollectionLureRoster();
 
 	// traps is an eager collection, so this resolves without a fetch.
 	const trapResult = useLiveQuery(
@@ -77,8 +80,8 @@ function EditTrapLoader({
 	canSubmit,
 }: {
 	readonly trap: TrapRow;
-	readonly collectionMethods: readonly CollectionMethodRow[];
-	readonly collectionLures: readonly CollectionLureRow[];
+	readonly collectionMethods: readonly SchemaCatalogListing[];
+	readonly collectionLures: readonly CatalogListing[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 }) {

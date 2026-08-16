@@ -6,12 +6,7 @@ import {
 	setTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type {
-	CollectionLureRow,
-	CollectionMethodRow,
-	CollectionTimingMode,
-	TrapRow,
-} from '@simmer-mosquito/sync';
+import type { CollectionTimingMode, TrapRow } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -37,6 +32,10 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type {
+	CatalogListing,
+	SchemaCatalogListing,
+} from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -193,8 +192,8 @@ export interface CollectionFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
 	readonly traps: readonly TrapRow[];
-	readonly collectionMethods: readonly CollectionMethodRow[];
-	readonly collectionLures: readonly CollectionLureRow[];
+	readonly collectionMethods: readonly SchemaCatalogListing[];
+	readonly collectionLures: readonly CatalogListing[];
 	readonly profiles: readonly ProfileListing[];
 	readonly units: readonly UnitLabel[];
 	readonly defaultValues: CollectionFormValues;
@@ -775,7 +774,7 @@ function validate(values: CollectionFormValues): string | null {
 	return null;
 }
 
-function lureOptions(lures: readonly CollectionLureRow[]) {
+function lureOptions(lures: readonly CatalogListing[]) {
 	return [
 		{ label: 'No lure', value: noLureValue },
 		...lifecycleOptions(

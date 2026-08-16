@@ -1,6 +1,5 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { CollectionLureRow, CollectionMethodRow } from '@simmer-mosquito/sync';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -16,6 +15,10 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type {
+	CatalogListing,
+	SchemaCatalogListing,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { AddressPicker } from '../-adult-pickers';
 
@@ -60,8 +63,8 @@ export interface TrapFormHeader {
 export interface TrapFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly collectionMethods: readonly CollectionMethodRow[];
-	readonly collectionLures: readonly CollectionLureRow[];
+	readonly collectionMethods: readonly SchemaCatalogListing[];
+	readonly collectionLures: readonly CatalogListing[];
 	readonly defaultValues: TrapFormValues;
 	/** The trap's point to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -366,7 +369,7 @@ function FormSection({
 
 // --- helpers ----------------------------------------------------------------
 
-function lureOptions(lures: readonly CollectionLureRow[]) {
+function lureOptions(lures: readonly CatalogListing[]) {
 	return [
 		{ label: 'No lure', value: noLureValue },
 		...lifecycleOptions(

@@ -1,11 +1,11 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { HabitatRow, HabitatTypeRow } from '@simmer-mosquito/sync';
+import type { HabitatRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
@@ -37,7 +37,7 @@ function CreateHabitatRoute() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
+	const habitatTypes = useHabitatTypeRoster();
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

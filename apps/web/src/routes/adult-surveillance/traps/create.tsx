@@ -1,10 +1,13 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
+import type { TrapRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import {
+	useCollectionLureRoster,
+	useCollectionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
@@ -34,10 +37,8 @@ function CreateTrapRoute() {
 	const initialGeometry = pointFromSearch(Route.useSearch());
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
+	const methods = useCollectionMethodRoster();
+	const lures = useCollectionLureRoster();
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

@@ -1,6 +1,6 @@
 import { isSourceReductionUnitType, recordSourceReductionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { ControlMethodRow, HabitatRow } from '@simmer-mosquito/sync';
+import type { HabitatRow } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -32,6 +32,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -99,7 +100,7 @@ export interface SourceReductionSaveInput {
 export interface SourceReductionFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly methods: readonly ControlMethodRow[];
+	readonly methods: readonly SchemaCatalogListing[];
 	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];
 	readonly defaultValues: SourceReductionFormValues;

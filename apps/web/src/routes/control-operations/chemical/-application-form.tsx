@@ -4,7 +4,6 @@ import {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
-	ControlMethodRow,
 	EquipmentRow,
 	FormulationInsecticideRow,
 	FormulationRow,
@@ -46,6 +45,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel, UnitType } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -161,7 +161,7 @@ export interface ApplicationFormHeader {
 export interface ApplicationFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly applicationMethods: readonly ControlMethodRow[];
+	readonly applicationMethods: readonly SchemaCatalogListing[];
 	readonly insecticides: readonly InsecticideRow[];
 	/**
 	 * The agency's saved mixes. Passing them turns on formulation entry — leave

@@ -1,8 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	AdultCollectionRow,
-	CollectionLureRow,
-	CollectionMethodRow,
 	CollectionSpeciesRow,
 	SpeciesRow,
 	SpeciesSex,
@@ -77,6 +75,12 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import {
+	type CatalogListing,
+	type SchemaCatalogListing,
+	useCollectionLureRoster,
+	useCollectionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -186,8 +190,8 @@ interface CollectionCatalogContext {
 function collectionCatalogContext(
 	collection: AdultCollectionRow,
 	catalogs: {
-		readonly methods: readonly CollectionMethodRow[];
-		readonly lures: readonly CollectionLureRow[];
+		readonly methods: readonly SchemaCatalogListing[];
+		readonly lures: readonly CatalogListing[];
 		readonly traps: readonly TrapRow[];
 	},
 ): CollectionCatalogContext {
@@ -223,10 +227,8 @@ function CollectionDetailContent({
 	const title = collectionTitle(collection, titleTimeZone);
 	useBreadcrumbLabel(collection.id, title);
 
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
+	const methods = useCollectionMethodRoster();
+	const lures = useCollectionLureRoster();
 	const profiles = useProfileRoster();
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
 

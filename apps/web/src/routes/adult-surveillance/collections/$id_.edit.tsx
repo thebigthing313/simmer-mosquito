@@ -1,9 +1,4 @@
-import type {
-	AdultCollectionRow,
-	CollectionLureRow,
-	CollectionMethodRow,
-	TrapRow,
-} from '@simmer-mosquito/sync';
+import type { AdultCollectionRow, TrapRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -16,6 +11,12 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import {
+	type CatalogListing,
+	type SchemaCatalogListing,
+	useCollectionLureRoster,
+	useCollectionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -52,10 +53,8 @@ function EditCollectionRoute() {
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
+	const methods = useCollectionMethodRoster();
+	const lures = useCollectionLureRoster();
 	const profiles = useProfileRoster();
 	const { all: units } = useUnitLabels();
 
@@ -113,8 +112,8 @@ function EditCollectionLoader({
 }: {
 	readonly collection: AdultCollectionRow;
 	readonly traps: readonly TrapRow[];
-	readonly collectionMethods: readonly CollectionMethodRow[];
-	readonly collectionLures: readonly CollectionLureRow[];
+	readonly collectionMethods: readonly SchemaCatalogListing[];
+	readonly collectionLures: readonly CatalogListing[];
 	readonly profiles: readonly ProfileListing[];
 	readonly units: readonly UnitLabel[];
 	readonly actorProfileId: string | null;

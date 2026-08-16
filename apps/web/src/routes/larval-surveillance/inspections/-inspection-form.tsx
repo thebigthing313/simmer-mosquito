@@ -4,7 +4,7 @@ import {
 	recordHabitatInspectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { HabitatRow, HabitatTypeRow, LarvalDensity } from '@simmer-mosquito/sync';
+import type { HabitatRow, LarvalDensity } from '@simmer-mosquito/sync';
 import { RecordFormPage, RequiredMark, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
@@ -46,6 +46,7 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -147,7 +148,7 @@ export interface InspectionFormPageProps {
 	/** The agency's larval entry policy — decides which abundance fields exist. */
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 	readonly profiles: readonly ProfileListing[];
-	readonly habitatTypes: readonly HabitatTypeRow[];
+	readonly habitatTypes: readonly SchemaCatalogListing[];
 	readonly defaultValues: InspectionFormValues;
 	/** Ad-hoc geometry to pre-fill on edit; create starts with none. */
 	readonly initialAdhocGeometry?: DrawGeometry | null;
@@ -1180,7 +1181,7 @@ function densityOptions() {
 	];
 }
 
-function habitatTypeOptions(habitatTypes: readonly HabitatTypeRow[]) {
+function habitatTypeOptions(habitatTypes: readonly SchemaCatalogListing[]) {
 	return [
 		{ label: 'Unassigned type', value: noHabitatTypeValue },
 		...lifecycleOptions(

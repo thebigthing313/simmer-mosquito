@@ -1,9 +1,4 @@
-import type {
-	AdultCollectionRow,
-	CollectionLureRow,
-	CollectionMethodRow,
-	TrapRow,
-} from '@simmer-mosquito/sync';
+import type { AdultCollectionRow, TrapRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -15,6 +10,10 @@ import {
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
+import {
+	useCollectionLureRoster,
+	useCollectionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -136,10 +135,8 @@ function CreateCollectionRoute() {
 	const navigate = useNavigate();
 	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
+	const methods = useCollectionMethodRoster();
+	const lures = useCollectionLureRoster();
 	const profiles = useProfileRoster();
 	const { all: units } = useUnitLabels();
 

@@ -1,5 +1,5 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { ControlMethodRow, OutreachActionRow } from '@simmer-mosquito/sync';
+import type { OutreachActionRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -12,8 +12,11 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import {
+	type SchemaCatalogListing,
+	useOutreachMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { isWriteBlocked } from '../../../lib/write-access';
@@ -44,7 +47,7 @@ function EditOutreachActionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.outreachMethods);
+	const methods = useOutreachMethodRoster();
 	const profiles = useProfileRoster();
 
 	// outreachActions is on-demand; status-gated useLiveQuery (not suspense) avoids
@@ -94,7 +97,7 @@ function EditOutreachActionLoader({
 	canSubmit,
 }: {
 	readonly action: OutreachActionRow;
-	readonly outreachMethods: readonly ControlMethodRow[];
+	readonly outreachMethods: readonly SchemaCatalogListing[];
 	readonly profiles: readonly ProfileListing[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;

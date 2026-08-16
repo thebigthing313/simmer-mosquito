@@ -1,5 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { HabitatRow, HabitatTypeRow } from '@simmer-mosquito/sync';
+import type { HabitatRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -9,7 +9,10 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import {
+	type SchemaCatalogListing,
+	useHabitatTypeRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
@@ -38,7 +41,7 @@ function EditHabitatRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
+	const habitatTypes = useHabitatTypeRoster();
 
 	// habitats is an on-demand collection, so this reads live status via
 	// useLiveQuery (not the suspense variant, which can hang after a nav unmount).
@@ -84,7 +87,7 @@ function EditHabitatLoader({
 	canSubmit,
 }: {
 	readonly habitat: HabitatRow;
-	readonly habitatTypes: readonly HabitatTypeRow[];
+	readonly habitatTypes: readonly SchemaCatalogListing[];
 	readonly organizationId: string;
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;

@@ -1,7 +1,6 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type {
 	ApplicationRow,
-	ControlMethodRow,
 	EquipmentRow,
 	InsecticideRow,
 	VehicleRow,
@@ -18,6 +17,10 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import {
+	type SchemaCatalogListing,
+	useApplicationMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
@@ -56,7 +59,7 @@ function EditApplicationRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
+	const methods = useApplicationMethodRoster();
 	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
@@ -119,7 +122,7 @@ function EditApplicationLoader({
 	canSubmit,
 }: {
 	readonly application: ApplicationRow;
-	readonly applicationMethods: readonly ControlMethodRow[];
+	readonly applicationMethods: readonly SchemaCatalogListing[];
 	readonly insecticides: readonly InsecticideRow[];
 	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];

@@ -1,7 +1,6 @@
 import type {
 	ApplicationBatchRow,
 	ApplicationRow,
-	ControlMethodRow,
 	EquipmentRow,
 	InsecticideBatchRow,
 	InsecticideRow,
@@ -55,6 +54,7 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
@@ -147,7 +147,7 @@ function ApplicationDetailContent({
 	readonly canEdit: boolean;
 }) {
 	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
+	const methods = useApplicationMethodRoster();
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);

@@ -2,7 +2,6 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type {
 	AddressRow,
-	ControlMethodRow,
 	ControlType,
 	MissionItemRow,
 	MissionRow,
@@ -19,7 +18,13 @@ import type {
 	RequestStatus,
 } from '../../hooks/queries/operations-view';
 import { missionStatus, requestStatus } from '../../hooks/queries/operations-view';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
+import {
+	type SchemaCatalogListing,
+	useApplicationMethodRoster,
+	useBiocontrolMethodRoster,
+	useOutreachMethodRoster,
+	useSourceReductionMethodRoster,
+} from '../../hooks/queries/use-catalog-rosters';
 import { addressPrimaryLabel } from '../../lib/address-format';
 import { postCommand } from '../../sync/post-command';
 import { webCollections } from '../../sync/webCollections';
@@ -588,20 +593,12 @@ export function useMissionsForRequest(requestId: string | null): {
  * type change has to re-source its options from here rather than hold one list.
  */
 export function useMethodsForControlType(controlType: ControlType | ''): {
-	readonly methods: readonly ControlMethodRow[];
+	readonly methods: readonly SchemaCatalogListing[];
 } {
-	const { rows: applicationMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.applicationMethods,
-	);
-	const { rows: sourceReductionMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.sourceReductionMethods,
-	);
-	const { rows: biocontrolMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.biocontrolMethods,
-	);
-	const { rows: outreachMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.outreachMethods,
-	);
+	const applicationMethods = useApplicationMethodRoster();
+	const sourceReductionMethods = useSourceReductionMethodRoster();
+	const biocontrolMethods = useBiocontrolMethodRoster();
+	const outreachMethods = useOutreachMethodRoster();
 
 	const methods = useMemo(() => {
 		switch (controlType) {
