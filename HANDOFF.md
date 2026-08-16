@@ -42,7 +42,7 @@ so domains are not.
 - Write hooks. Only reads have moved. `mutateCollection` exists
   (`lib/collections/mutate.ts`) and nothing calls it yet.
 - The remaining server intent maps in `apps/server/src/table-commands/`.
-  **127 of the 261 agency commands are reachable**, across 23 tables: both
+  **158 of the 261 agency commands are reachable**, across 29 tables: both
   surveillance domains whole (`habitats`, `inspections`, `samples`,
   `sample_species`, `traps`, `collections`, `collection_species`) and control
   operations whole (72/72 — the four method catalogs, `vehicles`, `equipment`,
@@ -51,12 +51,19 @@ so domains are not.
   `source_reductions`, `outreach_actions`, `biocontrol_actions`,
   `requested_control_actions`).
 
-  Left: `publicEngagement` (0/32), `foundation` (0/36), `missionDispatch`
-  (4/24), `fieldWork` (4/42), `organizationSettings` (0/7). The four `fieldWork`
-  and four `missionDispatch` commands already reachable are the execution ones
-  that write a surveillance or control record, so they live on that record's
-  table. `larvalSurveillance.mergeHabitats` is the one gap in a finished
-  domain — it is one of the twenty commands with no writer at all (#163).
+  Public engagement is done too (31/32 — `contacts`, `service_requests`,
+  `notification_types`, `notification_registrations`,
+  `notification_registration_types`, `mission_notifications`).
+
+  Left: `foundation` (0/36), `missionDispatch` (4/24), `fieldWork` (4/42),
+  `organizationSettings` (0/7). The four `fieldWork` and four `missionDispatch`
+  commands already reachable are the execution ones that write a surveillance or
+  control record, so they live on that record's table.
+
+  Two gaps sit in otherwise finished domains, and both are the same cause —
+  commands with no writer anywhere (#163): `larvalSurveillance.mergeHabitats`
+  and `publicEngagement.generateMissionNotifications`. They join their maps when
+  the writers land.
 
   `organizationSettings` is the odd one: it writes `organizations`, which is not
   a per-row table in the same sense, and its seven commands are already gated by

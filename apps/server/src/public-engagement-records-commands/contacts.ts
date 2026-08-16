@@ -149,7 +149,7 @@ async function runContactCommands(
 	);
 }
 
-async function writeContactCommand(
+export async function writeContactCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
 ): Promise<SafeContact | null> {

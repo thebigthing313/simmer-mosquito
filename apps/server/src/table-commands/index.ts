@@ -24,6 +24,7 @@ import type { CommandDb } from '../command-write.js';
 import { applicationBatchTableCommands, applicationTableCommands } from './applications.js';
 import { collectionSpeciesTableCommands } from './collection-species.js';
 import { collectionTableCommands } from './collections.js';
+import { contactTableCommands, serviceRequestTableCommands } from './contacts.js';
 import { equipmentTableCommands, vehicleTableCommands } from './control-assets.js';
 import {
 	applicationMethodTableCommands,
@@ -40,6 +41,12 @@ import {
 import { registerTableCommandRoutes } from './dispatch.js';
 import { habitatTableCommands } from './habitats.js';
 import { inspectionTableCommands } from './inspections.js';
+import {
+	missionNotificationTableCommands,
+	notificationRegistrationTableCommands,
+	notificationRegistrationTypeTableCommands,
+	notificationTypeTableCommands,
+} from './notifications.js';
 import {
 	biocontrolActionTableCommands,
 	outreachActionTableCommands,
@@ -80,4 +87,10 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, insecticideBatchTableCommands(options.db));
 	registerTableCommandRoutes(app, options, formulationTableCommands(options.db));
 	registerTableCommandRoutes(app, options, formulationInsecticideTableCommands(options.db));
+	registerTableCommandRoutes(app, options, contactTableCommands(options.db));
+	registerTableCommandRoutes(app, options, serviceRequestTableCommands(options.db));
+	registerTableCommandRoutes(app, options, notificationTypeTableCommands(options.db));
+	registerTableCommandRoutes(app, options, notificationRegistrationTableCommands(options.db));
+	registerTableCommandRoutes(app, options, notificationRegistrationTypeTableCommands(options.db));
+	registerTableCommandRoutes(app, options, missionNotificationTableCommands(options.db));
 }

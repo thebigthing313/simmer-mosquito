@@ -72,7 +72,7 @@ export function registerMissionNotificationRoutes(
 	);
 }
 
-async function writeMissionNotificationCommand(
+export async function writeMissionNotificationCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
 ): Promise<SafeMissionNotification | null> {
