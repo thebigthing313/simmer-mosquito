@@ -32,6 +32,8 @@
  * writes them, not here.
  */
 
+import type { LinkedAddress } from './address-view';
+
 /**
  * A Habitat, as the surfaces that show one whole want it.
  *
@@ -44,7 +46,18 @@ export interface Habitat {
 	readonly name: string;
 	readonly description: string;
 	readonly typeId: string | null;
+	/**
+	 * What the Habitat Type is called, joined rather than looked up.
+	 *
+	 * `null` when the Habitat has no type — which every surface distinguishes from
+	 * a type it could not resolve, so the two read as "Unassigned type" and
+	 * "Unknown type" rather than as one shrug. The catalog is eager, so the join
+	 * costs no request.
+	 */
+	readonly typeName: string | null;
 	readonly addressId: string | null;
+	/** Joined, not looked up — see `address-view.ts` for why it is nested here. */
+	readonly address: LinkedAddress;
 	readonly isActive: boolean;
 	readonly isInaccessible: boolean;
 	readonly latitude: number;

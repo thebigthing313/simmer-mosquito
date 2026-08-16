@@ -3,7 +3,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ContactIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { MapCardAddress } from '../../components/linked-address';
+import { MapCardAddressById } from '../../components/linked-address';
 import { MapCard, MapCardDetail, MapCardEyebrow, MapCardText } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
 import { useMapCardTags } from '../../hooks/use-map-card-tags';
@@ -102,7 +102,7 @@ export function ServiceRequestMapCard({
 							<span className="italic">{contactLoading ? 'Loading…' : 'No contact'}</span>
 						)}
 					</MapCardDetail>
-					<MapCardAddress addressId={request.addressId} />
+					<MapCardAddressById addressId={request.addressId} />
 				</div>
 				<MapCardText>{request.details}</MapCardText>
 			</div>

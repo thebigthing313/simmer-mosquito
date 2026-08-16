@@ -3,7 +3,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { MapCardAddress } from '../../components/linked-address';
+import { MapCardAddressById } from '../../components/linked-address';
 import {
 	coordinateLabel,
 	MapCard,
@@ -112,7 +112,7 @@ export function CollectionMapCard({
 				/>
 				<div className="grid gap-1.5">
 					<MapCardDetail icon={CollectionEntityIcon}>{methodName}</MapCardDetail>
-					<MapCardAddress addressId={collection.addressId} />
+					<MapCardAddressById addressId={collection.addressId} />
 					<MapCardDetail icon={LocateFixedIcon} mono>
 						{coordinateLabel(collection)}
 					</MapCardDetail>

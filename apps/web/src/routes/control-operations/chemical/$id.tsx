@@ -53,7 +53,7 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import { LinkedAddressValue } from '../../../components/linked-address';
+import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
@@ -586,7 +586,7 @@ function ApplicationDetailsCard({
 						)}
 					</DetailRow>
 					<DetailRow label="Address">
-						<LinkedAddressValue addressId={application.addressId} />
+						<LinkedAddressValueById addressId={application.addressId} />
 					</DetailRow>
 				</dl>
 				<AdditionalPersonnelList target={{ type: 'application', id: application.id }} />

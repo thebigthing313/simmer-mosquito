@@ -35,7 +35,7 @@ import {
 	larvaePerDip,
 	WetnessBadge,
 } from '../../../components/larval-display';
-import { LinkedAddressValue } from '../../../components/linked-address';
+import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
@@ -400,7 +400,7 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 						</Suspense>
 					</DetailRow>
 					<DetailRow label="Address">
-						<LinkedAddressValue addressId={inspection.addressId} />
+						<LinkedAddressValueById addressId={inspection.addressId} />
 					</DetailRow>
 					<DetailRow label="Inspector">
 						{inspection.inspectedByName ?? (

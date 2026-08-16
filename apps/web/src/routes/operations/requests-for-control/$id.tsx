@@ -19,7 +19,7 @@ import { type ReactNode, useCallback, useMemo } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import { LinkedAddressValue } from '../../../components/linked-address';
+import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
@@ -378,7 +378,7 @@ function RequestLinkRows({
 	return (
 		<>
 			<DetailRow label="Address">
-				<LinkedAddressValue addressId={request.addressId} />
+				<LinkedAddressValueById addressId={request.addressId} />
 			</DetailRow>
 			<DetailRow label="Habitat">
 				{request.habitatId === null ? (

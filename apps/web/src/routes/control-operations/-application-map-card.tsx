@@ -12,7 +12,7 @@ import { ContactIcon, InfoIcon, iconRegistry } from '@simmer-mosquito/ui-web/ico
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { MapCardAddress } from '../../components/linked-address';
+import { MapCardAddressById } from '../../components/linked-address';
 import {
 	MapCard,
 	MapCardDetail,
@@ -187,7 +187,7 @@ export function ApplicationMapCard({
 				{batchNames.length === 0 ? null : (
 					<MapCardDetail icon={InfoIcon}>Batch {batchNames.join(', ')}</MapCardDetail>
 				)}
-				<MapCardAddress addressId={application.addressId} />
+				<MapCardAddressById addressId={application.addressId} />
 				<MapCardLocation
 					geomType={application.geomType}
 					lat={application.lat}

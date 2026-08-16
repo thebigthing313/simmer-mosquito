@@ -7,7 +7,9 @@
  * the opposite; that is `use-habitat-suspense.ts`.
  */
 
-import { coalesce, concat, eq, useLiveQuery } from '@tanstack/react-db';
+import { caseWhen, coalesce, concat, eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { addresses } from '../../lib/collections/addresses';
+import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import type { Habitat } from './habitat-view';
 import { mapCardGcTimeMs, unmatchableId } from './shared';
@@ -28,11 +30,35 @@ export function useHabitat(
 				query
 					.from({ habitat: habitats })
 					.where(({ habitat }) => eq(habitat.id, habitatId ?? unmatchableId))
-					.select(({ habitat }) => ({
+					// `left`: a Habitat need not have a type, and an `inner` join would make
+					// an untyped one disappear from its own card.
+					.join(
+						{ type: habitat_types },
+						({ habitat, type }) => eq(habitat.habitat_type_id, type.id),
+						'left',
+					)
+					.join(
+						{ address: addresses },
+						({ habitat, address }) => eq(habitat.address_id, address.id),
+						'left',
+					)
+					.select(({ habitat, type, address }) => ({
 						id: habitat.id,
+						address: {
+							id: address.id,
+							displayName: address.display_name,
+							addressLine1: address.address_line_1,
+							addressLine2: address.address_line_2,
+							locality: address.locality,
+							region: address.region,
+							postalCode: address.postal_code,
+						},
 						name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
 						description: habitat.description,
 						typeId: habitat.habitat_type_id,
+						// Guarded on the Habitat's own column, so an unmatched join reads as
+						// `null` rather than as `undefined`.
+						typeName: caseWhen(isNull(habitat.habitat_type_id), null, type.name),
 						addressId: habitat.address_id,
 						isActive: habitat.is_active,
 						isInaccessible: habitat.is_inaccessible,

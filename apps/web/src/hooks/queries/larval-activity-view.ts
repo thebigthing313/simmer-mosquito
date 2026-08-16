@@ -24,6 +24,7 @@
 
 import type { Inspection } from '@simmer-mosquito/sync';
 import type { LifeStageFlags } from '../../components/larval-display';
+import type { LinkedAddress } from './address-view';
 
 export interface LarvalActivityRow extends LifeStageFlags {
 	readonly id: string;
@@ -81,4 +82,6 @@ export interface LarvalActivityRow extends LifeStageFlags {
 export interface InspectionCard extends LarvalActivityRow {
 	readonly geometryKind: string;
 	readonly addressId: string | null;
+	/** Joined, not looked up — see `address-view.ts` for why it is nested here. */
+	readonly address: LinkedAddress;
 }

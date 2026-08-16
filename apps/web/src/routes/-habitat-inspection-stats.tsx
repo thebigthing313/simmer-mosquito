@@ -1,4 +1,4 @@
-import type { LarvalDensity } from '@simmer-mosquito/sync';
+import type { Inspection } from '@simmer-mosquito/sync';
 import {
 	Card,
 	CardContent,
@@ -16,7 +16,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import { Cell, Pie, PieChart } from 'recharts';
-import { webCollections } from '../sync/webCollections';
+import { inspections } from '../lib/collections/inspections';
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 
@@ -28,7 +28,11 @@ const statsGcTimeMs = 30_000;
 interface InspectionStatsRow {
 	readonly id: string;
 	readonly isWet: boolean;
-	readonly density: LarvalDensity | null;
+	/**
+	 * Taken from the row schema rather than a hand-written union, so a migration
+	 * that adds a density band reaches this without anything being edited.
+	 */
+	readonly density: Inspection['density'];
 	readonly larvaeCount: number | null;
 	readonly hasEggs: boolean;
 	readonly hasFirstInstar: boolean;
@@ -128,25 +132,25 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 			gcTime: statsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ inspection: webCollections.inspections })
-					.where(({ inspection }) => eq(inspection.habitatId, habitatId))
+					.from({ inspection: inspections })
+					.where(({ inspection }) => eq(inspection.habitat_id, habitatId))
 					.select(({ inspection }) => ({
 						id: inspection.id,
-						isWet: inspection.isWet,
+						isWet: inspection.is_wet,
 						density: inspection.density,
-						larvaeCount: inspection.larvaeCount,
-						hasEggs: inspection.hasEggs,
-						hasFirstInstar: inspection.hasFirstInstar,
-						hasSecondInstar: inspection.hasSecondInstar,
-						hasThirdInstar: inspection.hasThirdInstar,
-						hasFourthInstar: inspection.hasFourthInstar,
-						hasPupae: inspection.hasPupae,
+						larvaeCount: inspection.larvae_count,
+						hasEggs: inspection.has_eggs,
+						hasFirstInstar: inspection.has_first_instar,
+						hasSecondInstar: inspection.has_second_instar,
+						hasThirdInstar: inspection.has_third_instar,
+						hasFourthInstar: inspection.has_fourth_instar,
+						hasPupae: inspection.has_pupae,
 					})),
 		},
 		[habitatId],
 	);
 
-	const rows = (result.data ?? []) as unknown as readonly InspectionStatsRow[];
+	const rows: readonly InspectionStatsRow[] = result.data;
 	const { total, segments } = useMemo(() => computeSegments(rows), [rows]);
 
 	return (

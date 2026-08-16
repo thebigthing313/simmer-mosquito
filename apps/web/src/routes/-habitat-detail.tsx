@@ -56,7 +56,7 @@ import { DangerZoneCard } from '../components/danger-zone-card';
 import { EmptyValue } from '../components/empty-value';
 import { ExplorerPagination } from '../components/explorer-pagination';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
-import { LinkedAddressValue } from '../components/linked-address';
+import { LinkedAddressValueById } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
@@ -324,7 +324,7 @@ function HabitatDetailsCard({
 						</Suspense>
 					</DetailRow>
 					<DetailRow label="Address">
-						<LinkedAddressValue addressId={habitat.addressId} />
+						<LinkedAddressValueById addressId={habitat.addressId} />
 					</DetailRow>
 					<DetailRow label="Tags">
 						<Suspense fallback={<span className="text-muted-foreground">Loading tags…</span>}>

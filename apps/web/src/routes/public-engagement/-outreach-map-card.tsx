@@ -3,7 +3,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { MapCardAddress } from '../../components/linked-address';
+import { MapCardAddressById } from '../../components/linked-address';
 import {
 	MapCard,
 	MapCardDetail,
@@ -85,7 +85,7 @@ export function OutreachMapCard({
 					{formatReach(action.reach)} reached
 					{action.reachDescription === null ? '' : ` · ${action.reachDescription}`}
 				</MapCardDetail>
-				<MapCardAddress addressId={action.addressId} />
+				<MapCardAddressById addressId={action.addressId} />
 				<MapCardLocation geomType={action.geomType} lat={action.lat} lng={action.lng} />
 			</div>
 		</MapCard>

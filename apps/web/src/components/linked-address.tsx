@@ -1,6 +1,7 @@
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
+import { type LinkedAddress, resolveLinkedAddress } from '../hooks/queries/address-view';
 import { useAddress } from '../hooks/queries/use-address';
 import {
 	addressPrimaryLabel,
@@ -24,6 +25,18 @@ import { MapCardDetail } from './map/map-card';
  * name addresses for their own navigation ("Riverside HOA clubhouse") and the
  * name alone will not get a crew there, while the postal line alone loses the
  * name the agency filed it under.
+ *
+ * ## Why these take the address rather than fetch it
+ *
+ * They used to take an `addressId` and resolve it themselves, which made every
+ * card and detail page a two-step load: the record arrived, then this mounted and
+ * asked for the address. A surface should be one query, so the surface's own hook
+ * joins the address and hands it down. What is left here is the reading of it.
+ *
+ * The three states are distinguished by two props rather than a loading flag.
+ * `addressId === null` is a record that links no address. An `address` that is
+ * absent, or present with no `id`, is one that has not arrived — which is what an
+ * unmatched `left` join looks like.
  */
 
 /**
@@ -32,16 +45,24 @@ import { MapCardDetail } from './map/map-card';
  * links none — a detail list is a list, and a sentence explaining the absence
  * would say more than the row is worth.
  */
-export function LinkedAddressValue({ addressId }: { readonly addressId: string | null }) {
-	const { address, isReady } = useAddress(addressId);
+export function LinkedAddressValue({
+	addressId,
+	address: linked,
+}: {
+	readonly addressId: string | null;
+	readonly address: LinkedAddress | undefined;
+}) {
+	const address = linked === undefined ? undefined : resolveLinkedAddress(linked);
 
 	if (addressId === null) {
 		return <EmptyValue />;
 	}
 	if (address === undefined) {
-		// Resolved-and-absent (deleted, or out of scope) reads the same as unlinked;
-		// still streaming does not, so it waits rather than claiming there is none.
-		return isReady ? <EmptyValue /> : <Skeleton className="h-4 w-36" />;
+		// A record that names an address the app cannot see — deleted, or out of
+		// scope — waits rather than claiming there is none. It is rare enough that a
+		// permanent skeleton is the better wrong answer: an em dash would say the
+		// record has no address, which is a different and more misleading claim.
+		return <Skeleton className="h-4 w-36" />;
 	}
 
 	// Postal lines, not one comma-run: a detail row has the width, and a reader
@@ -72,10 +93,16 @@ export function LinkedAddressValue({ addressId }: { readonly addressId: string |
  * dash: a card is prose-shaped, not tabular, and there is no column header
  * above it to say what the dash would be standing in for.
  */
-export function MapCardAddress({ addressId }: { readonly addressId: string | null }) {
-	const { address, isReady } = useAddress(addressId);
+export function MapCardAddress({
+	addressId,
+	address: linked,
+}: {
+	readonly addressId: string | null;
+	readonly address: LinkedAddress | undefined;
+}) {
+	const address = linked === undefined ? undefined : resolveLinkedAddress(linked);
 
-	if (addressId === null || (address === undefined && isReady)) {
+	if (addressId === null) {
 		return (
 			<MapCardDetail icon={MapPinnedIcon}>
 				<span className="italic">No linked address</span>
@@ -97,4 +124,29 @@ export function MapCardAddress({ addressId }: { readonly addressId: string | nul
 			{secondary === null ? null : <span className="block">{secondary}</span>}
 		</MapCardDetail>
 	);
+}
+
+/*
+ * ## The two `…ById` wrappers below are scaffolding
+ *
+ * They are the old behaviour — resolve the address from an id, here, after the
+ * record has arrived — kept for the surfaces that have not moved to a joined
+ * surface query yet. Each one is a second request the surface could have made in
+ * its first.
+ *
+ * They are not a supported way to show an address. When the last caller of each
+ * goes, `fallow dead-code` will say so and they should be deleted rather than
+ * kept "in case". Do not add callers.
+ */
+
+/** {@link LinkedAddressValue} for a surface that has not joined its address yet. */
+export function LinkedAddressValueById({ addressId }: { readonly addressId: string | null }) {
+	const { address } = useAddress(addressId);
+	return <LinkedAddressValue address={address} addressId={addressId} />;
+}
+
+/** {@link MapCardAddress} for a surface that has not joined its address yet. */
+export function MapCardAddressById({ addressId }: { readonly addressId: string | null }) {
+	const { address } = useAddress(addressId);
+	return <MapCardAddress address={address} addressId={addressId} />;
 }

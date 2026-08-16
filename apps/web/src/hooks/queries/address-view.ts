@@ -37,3 +37,48 @@ export interface Address {
 	readonly region: string | null;
 	readonly postalCode: string | null;
 }
+
+/**
+ * The same Address, as it arrives joined onto a record that links one.
+ *
+ * Every field is additionally `undefined`, because that is what a `left` join
+ * yields when it matches nothing — and here "matches nothing" covers both a record
+ * that links no Address and one whose Address has not streamed in yet. `id` is the
+ * field that tells them apart: it is the only one that cannot be null on a real
+ * row, so `id === undefined` means there is nothing to show.
+ *
+ * It is a nested object inside the surface query rather than a second hook. A hook
+ * would have to wait for the record before it knew which Address to ask for, which
+ * is the round trip through React that joining exists to remove.
+ */
+export interface LinkedAddress {
+	readonly id: string | undefined;
+	readonly displayName: string | null | undefined;
+	readonly addressLine1: string | null | undefined;
+	readonly addressLine2: string | null | undefined;
+	readonly locality: string | null | undefined;
+	readonly region: string | null | undefined;
+	readonly postalCode: string | null | undefined;
+}
+
+/**
+ * A joined Address as a resolved one, or `undefined` when the join matched
+ * nothing.
+ *
+ * Narrowing on `id` tells TypeScript that *this* field is present but says nothing
+ * about its siblings, so they are normalized here rather than at each of the two
+ * readouts. One place, and the `id === undefined` rule is written down once.
+ */
+export function resolveLinkedAddress(address: LinkedAddress): Address | undefined {
+	return address.id === undefined
+		? undefined
+		: {
+				id: address.id,
+				displayName: address.displayName ?? null,
+				addressLine1: address.addressLine1 ?? null,
+				addressLine2: address.addressLine2 ?? null,
+				locality: address.locality ?? null,
+				region: address.region ?? null,
+				postalCode: address.postalCode ?? null,
+			};
+}

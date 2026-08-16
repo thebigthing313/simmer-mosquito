@@ -62,7 +62,7 @@ import {
 	DateRangeFilter,
 	datePresetRange,
 } from '../../../components/date-range-filter';
-import { LinkedAddressValue } from '../../../components/linked-address';
+import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
@@ -618,7 +618,7 @@ function TrapDetailsCard({
 						{trap.trapCode ?? <span className="text-muted-foreground">Not set</span>}
 					</DetailRow>
 					<DetailRow label="Address">
-						<LinkedAddressValue addressId={trap.addressId} />
+						<LinkedAddressValueById addressId={trap.addressId} />
 					</DetailRow>
 					<DetailRow label="Status">{trap.isActive ? 'Active' : 'Inactive'}</DetailRow>
 				</dl>

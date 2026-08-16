@@ -20,7 +20,7 @@ import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
-import { LinkedAddressValue } from '../../../components/linked-address';
+import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
@@ -206,7 +206,7 @@ function OutreachDetailsCard({
 						{technicianName ?? <span className="text-muted-foreground">Unassigned</span>}
 					</DetailRow>
 					<DetailRow label="Address">
-						<LinkedAddressValue addressId={action.addressId} />
+						<LinkedAddressValueById addressId={action.addressId} />
 					</DetailRow>
 				</dl>
 				<AdditionalPersonnelList target={{ type: 'outreachAction', id: action.id }} />

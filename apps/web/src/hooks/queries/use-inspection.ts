@@ -24,6 +24,7 @@
  */
 
 import { caseWhen, coalesce, concat, eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
@@ -60,7 +61,21 @@ export function useInspection(inspectionId: string): {
 						({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
 						'left',
 					)
-					.select(({ inspection, habitat, type, inspector }) => ({
+					.join(
+						{ address: addresses },
+						({ inspection, address }) => eq(inspection.address_id, address.id),
+						'left',
+					)
+					.select(({ inspection, habitat, type, inspector, address }) => ({
+						address: {
+							id: address.id,
+							displayName: address.display_name,
+							addressLine1: address.address_line_1,
+							addressLine2: address.address_line_2,
+							locality: address.locality,
+							region: address.region,
+							postalCode: address.postal_code,
+						},
 						id: inspection.id,
 						inspectionDate: inspection.inspection_date,
 						inspectedByProfileId: inspection.inspected_by_profile_id,

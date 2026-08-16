@@ -15,7 +15,7 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
-import { useAddress } from '../../hooks/queries/use-address';
+import { resolveLinkedAddress } from '../../hooks/queries/address-view';
 import { useInspection } from '../../hooks/queries/use-inspection';
 import { addressCardLabel } from '../../lib/address-format';
 import { adhocLabel } from '../../lib/coordinate-label';
@@ -38,7 +38,6 @@ export function InspectionMapCard({
 	readonly onClose: () => void;
 }) {
 	const { inspection } = useInspection(id);
-	const { address } = useAddress(inspection?.addressId ?? null);
 
 	if (inspection === undefined) {
 		return (
@@ -57,7 +56,7 @@ export function InspectionMapCard({
 	// to, or failing that its own centroid.
 	const siteLabel =
 		inspection.habitatName ??
-		addressCardLabel(address) ??
+		addressCardLabel(resolveLinkedAddress(inspection.address)) ??
 		adhocLabel(inspection.latitude, inspection.longitude);
 	const typeName =
 		inspection.habitatTypeId === null ? 'Unassigned type' : (inspection.typeName ?? 'Unknown type');
@@ -108,7 +107,9 @@ export function InspectionMapCard({
 						</MapCardDetail>
 					</>
 				) : null}
-				{inspection.addressId === null ? null : <MapCardAddress addressId={inspection.addressId} />}
+				{inspection.addressId === null ? null : (
+					<MapCardAddress address={inspection.address} addressId={inspection.addressId} />
+				)}
 				<MapCardLocation
 					geomType={inspection.geometryKind}
 					lat={inspection.latitude}

@@ -9,7 +9,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { MapCardAddress } from '../../components/linked-address';
+import { MapCardAddressById } from '../../components/linked-address';
 import {
 	coordinateLabel,
 	MapCard,
@@ -119,7 +119,7 @@ export function TrapMapCard({
 					{methodName}
 					{lureName === null ? '' : ` · ${lureName} lure`}
 				</MapCardDetail>
-				<MapCardAddress addressId={trap.addressId} />
+				<MapCardAddressById addressId={trap.addressId} />
 				<MapCardDetail icon={LocateFixedIcon} mono>
 					{coordinateLabel(trap)}
 				</MapCardDetail>
