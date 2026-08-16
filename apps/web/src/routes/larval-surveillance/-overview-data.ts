@@ -22,20 +22,6 @@ const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 // --- projected query shapes -------------------------------------------------
 
-export interface ActivityInspection extends LifeStageFlags {
-	readonly id: string;
-	readonly inspectionDate: string;
-	readonly inspectedByProfileId: string | null;
-	readonly habitatId: string | null;
-	readonly habitatTypeId: string | null;
-	/** Trigger-maintained centroid; the only handle an ad-hoc inspection has. */
-	readonly lat: number | null;
-	readonly lng: number | null;
-	readonly isWet: boolean;
-	readonly density: LarvalDensity | null;
-	readonly larvaeCount: number | null;
-}
-
 /** One sample awaiting identification, as returned by the overview read endpoint. */
 export interface AwaitingSample {
 	readonly id: string;
@@ -69,80 +55,6 @@ interface LoadState {
 //
 // All use the status-gated {@link useLiveQuery} (not the suspense variant) because
 // the suspense hook hangs after a navigation unmount over on-demand collections.
-
-/**
- * Inspections for a single day. Keyed on an equality subset so browsing to any
- * historical week loads only that day's rows, not a rolling window.
- */
-export function useInspectionsForDay(date: string): {
-	readonly inspections: readonly ActivityInspection[];
-} & LoadState {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: webCollections.inspections })
-					.where(({ inspection }) => eq(inspection.inspectionDate, date))
-					.orderBy(({ inspection }) => inspection.createdAt, 'asc')
-					.select(selectInspection),
-		},
-		[date],
-	);
-
-	return {
-		inspections: (result.data ?? []) as unknown as readonly ActivityInspection[],
-		isReady: result.isReady,
-		isError: result.isError,
-	};
-}
-
-/** Recent inspections (last {@link ACTIVITY_WINDOW_DAYS} days) for the heavy list. */
-export function useRecentInspections(sinceDate: string): {
-	readonly inspections: readonly ActivityInspection[];
-} & LoadState {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: webCollections.inspections })
-					.where(({ inspection }) => gte(inspection.inspectionDate, sinceDate))
-					.orderBy(({ inspection }) => inspection.inspectionDate, 'desc')
-					.select(selectInspection),
-		},
-		[sinceDate],
-	);
-
-	return {
-		inspections: (result.data ?? []) as unknown as readonly ActivityInspection[],
-		isReady: result.isReady,
-		isError: result.isError,
-	};
-}
-
-// Shared projection for both inspection queries.
-// biome-ignore lint/suspicious/noExplicitAny: query-builder ref proxy has no exported type
-function selectInspection({ inspection }: any) {
-	return {
-		id: inspection.id,
-		inspectionDate: inspection.inspectionDate,
-		inspectedByProfileId: inspection.inspectedByProfileId,
-		habitatId: inspection.habitatId,
-		habitatTypeId: inspection.habitatTypeId,
-		lat: inspection.lat,
-		lng: inspection.lng,
-		isWet: inspection.isWet,
-		density: inspection.density,
-		larvaeCount: inspection.larvaeCount,
-		hasEggs: inspection.hasEggs,
-		hasFirstInstar: inspection.hasFirstInstar,
-		hasSecondInstar: inspection.hasSecondInstar,
-		hasThirdInstar: inspection.hasThirdInstar,
-		hasFourthInstar: inspection.hasFourthInstar,
-		hasPupae: inspection.hasPupae,
-	};
-}
 
 /**
  * Larvae totals by species over the given window (identified_at based), sorted

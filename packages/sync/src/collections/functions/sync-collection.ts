@@ -192,6 +192,8 @@ export interface SyncCollectionConfig<TRow extends SyncedRow>
 	readonly getKey: (row: TRow) => string;
 	readonly shapeOptions: {
 		readonly url: string;
+		/** Literal rather than `string`, so it still selects Electric's POST overload. */
+		readonly subsetMethod: 'POST';
 		readonly fetchClient: typeof fetch;
 		readonly parser: typeof shapeParsers;
 	};
@@ -239,6 +241,19 @@ export function syncCollectionConfig<TRow extends SyncedRow>(
 			// `columns`, and the tenant `where` from the session cookie, and strips any
 			// the client sends — so there is no `params` to set here.
 			url: `${options.serverUrl}${shapePathFor(options.table)}`,
+
+			// Subset snapshot requests ride in a POST body so a large id set never hits
+			// the URL-length ceiling. The live shape-log stream stays on GET.
+			//
+			// This is what a join needs. The compiler loads the joined side lazily by
+			// collecting the join keys the driving side produced and asking for exactly
+			// those rows — one `IN` over as many ids as the query matched. A day of
+			// Habitat Inspections is a couple of hundred uuids, which is past what a URL
+			// will carry, so on GET the request never lands and the joined side stays
+			// empty: names simply do not appear, with no error to say why.
+			//
+			// Electric 2.0 deprecates GET for subsets regardless.
+			subsetMethod: 'POST',
 
 			fetchClient: fetchWithSession,
 

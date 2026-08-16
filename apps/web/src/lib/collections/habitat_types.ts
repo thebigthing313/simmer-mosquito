@@ -7,7 +7,7 @@
  */
 
 import { createHabitatTypesCollection, type HabitatType } from '@simmer-mosquito/sync';
-import type { Collection } from '@tanstack/db';
+import { BasicIndex, type Collection } from '@tanstack/db';
 import { getServerUrl } from '../../auth';
 
 /**
@@ -27,3 +27,17 @@ export const habitat_types: Collection<HabitatType, string | number> = createHab
 		mutations: true,
 	},
 );
+
+/**
+ * The join index.
+ *
+ * A live query that joins this table loads it lazily — it collects the join keys
+ * the driving side produces and asks for exactly those rows. It can only do that
+ * when the join column is indexed. Without this it says so in a console warning
+ * and loads the whole table instead, which on an on-demand collection is the one
+ * thing the mode exists to avoid.
+ *
+ * Always `id`: every table is joined by its primary key, because that is what the
+ * foreign keys point at.
+ */
+habitat_types.createIndex((row) => row.id, { indexType: BasicIndex });

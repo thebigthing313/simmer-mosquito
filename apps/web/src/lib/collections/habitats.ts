@@ -27,5 +27,19 @@ export const habitats: Collection<Habitat, string | number> = createHabitatsColl
 	mutations: true,
 });
 
+/**
+ * The join index.
+ *
+ * A live query that joins this table loads it lazily — it collects the join keys
+ * the driving side produces and asks for exactly those rows. It can only do that
+ * when the join column is indexed. Without this it says so in a console warning
+ * and loads the whole table instead, which on an on-demand collection is the one
+ * thing the mode exists to avoid.
+ *
+ * Always `id`: every table is joined by its primary key, because that is what the
+ * foreign keys point at.
+ */
+habitats.createIndex((row) => row.id, { indexType: BasicIndex });
+
 // The habitat pickers on the control-action and inspection forms.
 habitats.createIndex((row) => row.habitat_name, { indexType: BasicIndex });
