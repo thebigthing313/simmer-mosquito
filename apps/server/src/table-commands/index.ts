@@ -65,6 +65,7 @@ import { sampleSpeciesTableCommands } from './sample-species.js';
 import { sampleTableCommands } from './samples.js';
 import { genusTableCommands, speciesTableCommands } from './taxonomy.js';
 import { trapTableCommands } from './traps.js';
+import { unitTableCommands } from './units.js';
 
 export function registerTableCommandSurface(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -111,7 +112,8 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, regionTableCommands(options.db));
 	registerTableCommandRoutes(app, options, organizationSpeciesTableCommands(options.db));
 	registerTableCommandRoutes(app, options, addressTableCommands(options.db));
-	// The two global catalogs, behind the operator door.
+	// The three global catalogs, behind the operator door.
 	registerTableCommandRoutes(app, options, genusTableCommands(options.db));
 	registerTableCommandRoutes(app, options, speciesTableCommands(options.db));
+	registerTableCommandRoutes(app, options, unitTableCommands(options.db));
 }

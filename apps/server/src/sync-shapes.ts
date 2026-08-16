@@ -12,7 +12,7 @@
  */
 import { shapePathFor, syncedColumnsOf, tableSchemas } from '@simmer-mosquito/sync';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
-import type { AuthVariables } from './auth-middleware.js';
+import { type AuthVariables, createGlobalReadMiddleware } from './auth-middleware.js';
 import { isServedScope, type SyncShapeScope, syncShapeScopes } from './shape-scopes.js';
 
 interface ShapeRouteOptions {
@@ -21,18 +21,6 @@ interface ShapeRouteOptions {
 	readonly operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	readonly fetch?: typeof fetch;
 }
-
-/**
- * The tables the operator console reads, through its own path prefix and its own
- * middleware. Same shape, a different door.
- *
- * Every one is `global` scope, which is why a second door works at all: a global
- * shape's predicate is empty, so its handler never reads an agency context — and
- * an operator session has none. The prefix collapses when `apps/admin` moves to
- * the collection factories, at which point the middleware can admit either
- * identity on exactly the routes this map calls `global`.
- */
-const operatorShapeTables = ['units', 'genera', 'species'] as const;
 
 /** One table's route: what the server forces, and who may ask for it. */
 interface ShapeRoute {
@@ -43,10 +31,30 @@ interface ShapeRoute {
 	readonly middleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 }
 
+/**
+ * One route per table, and the door follows from the scope.
+ *
+ * `units`, `genera` and `species` used to be registered a second time under
+ * `/admin`, behind the operator middleware, because `apps/admin` could not reach
+ * the ordinary path: an operator session has no agency context and the agency
+ * middleware refuses it. That prefix is gone. The three tables are `global`
+ * scope, meaning `shapeScopeFilter` forces no predicate and the handler never
+ * reads an agency context at all — so one route can admit either identity,
+ * which is exactly what `createGlobalReadMiddleware` does.
+ *
+ * The scope decides, not a list. A table that becomes tenant-scoped stops
+ * admitting operators the moment its entry in `shape-scopes.ts` changes, rather
+ * than when someone remembers to remove it from a second array here.
+ */
 export function registerSyncShapeRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: ShapeRouteOptions,
 ): void {
+	const globalReadMiddleware = createGlobalReadMiddleware({
+		agency: options.authContextMiddleware,
+		operator: options.operatorAuthContextMiddleware,
+	});
+
 	for (const [table, entry] of Object.entries(syncShapeScopes)) {
 		// A withheld table has no route rather than an unscoped one. `users` is the
 		// only one, and `shape-scopes.ts` says why.
@@ -59,17 +67,10 @@ export function registerSyncShapeRoutes(
 			path: shapePathFor(table),
 			columns: columnsOf(table),
 			scope: entry,
-			middleware: options.authContextMiddleware,
-		});
-	}
-
-	for (const table of operatorShapeTables) {
-		registerShapeRoute(app, options, {
-			table,
-			path: `/admin${shapePathFor(table)}`,
-			columns: columnsOf(table),
-			scope: 'global',
-			middleware: options.operatorAuthContextMiddleware,
+			// The assertion `createGlobalReadMiddleware` documents, made structural:
+			// the wider door is reachable only on the arm where the scope is the
+			// literal `'global'`, so a scoped shape cannot be given it by mistake.
+			middleware: entry === 'global' ? globalReadMiddleware : options.authContextMiddleware,
 		});
 	}
 }

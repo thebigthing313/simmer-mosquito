@@ -165,6 +165,34 @@ explicit and required. Duplicate display names are warnings only.
 Renaming referenced taxonomy requires explicit acknowledgement in server command
 handling so operators do not accidentally relabel historical results.
 
+## Global Units
+
+Commands:
+
+- `createUnit`
+- `updateUnit`
+- `deleteUnit`
+
+Units of measure are SIMMER-operator-only, like the taxonomy, and for the same
+reason: there is no `organization_id`, and every agency records amounts against
+them. Commands require a client-generated `unitId`.
+
+`code`, `unitName` and `abbreviation` are each unique globally. Uniqueness is
+checked by the server inside the write transaction, not by the builders — it is a
+fact about the other rows rather than about the command.
+
+Delete is hard delete, allowed only when unreferenced. A unit is blocked by any
+record measured in it, and by an organization's unit defaults.
+
+**`code` is a join key, not a label.** The `units` table carries no conversion
+factor and no base-unit column; the arithmetic lives in
+`organization-settings/unit-conversion.ts`, keyed by `code`. Changing a unit's
+code therefore detaches it from every total that crosses units, and it does not
+fail — an unknown code makes a total *unavailable*, so callers fall back to
+reporting each unit separately. `updateUnit` requires
+`acknowledgedUnitCodeChange` when, and only when, `code` is among the changes.
+Adding a unit to the database means adding it to the conversion table too.
+
 ## Organization Species
 
 Commands:

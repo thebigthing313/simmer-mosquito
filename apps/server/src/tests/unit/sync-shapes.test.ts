@@ -235,6 +235,28 @@ function recordingApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
 	return app;
 }
 
+/**
+ * The app as an operator meets it: the agency middleware refuses, the operator
+ * one admits.
+ */
+function refusingAgencyApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
+	const app = new Hono<{ Variables: AuthVariables }>();
+
+	registerSyncShapeRoutes(app, {
+		electricUrl: 'http://localhost:3001/v1/shape',
+		authContextMiddleware: createMiddleware(async (context) =>
+			context.json({ error: 'forbidden' }, 403),
+		),
+		operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
+		fetch: ((request) => {
+			requests.push(String(request));
+			return Promise.resolve(new Response('[]'));
+		}) as typeof fetch,
+	});
+
+	return app;
+}
+
 describe('registerSyncShapeRoutes', () => {
 	it.each(
 		servedTables,
@@ -296,20 +318,67 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	it.each([
-		['/admin/sync/shapes/units', 'units'],
-		['/admin/sync/shapes/genera', 'genera'],
-		['/admin/sync/shapes/species', 'species'],
-	])('serves %s to operators with no tenant predicate', async (path, table) => {
+		['/sync/shapes/units', 'units'],
+		['/sync/shapes/genera', 'genera'],
+		['/sync/shapes/species', 'species'],
+	])('serves %s with no tenant predicate', async (path, table) => {
 		const requests: string[] = [];
 		const response = await recordingApp(requests).request(path);
 		const upstream = new URL(requests[0] ?? '');
 
 		expect(response.status).toBe(200);
 		expect(upstream.searchParams.get('table')).toBe(table);
-		// The highest-privilege path in the file: global taxonomy, no `where`. The
-		// operator middleware is the only thing standing in front of it.
+		// The highest-privilege path in the file: the global catalogs, no `where`.
+		// Being signed in — as an agency member or as SIMMER — is the only thing
+		// standing in front of it.
 		expect(upstream.searchParams.get('where')).toBeNull();
 		expect(upstream.searchParams.get('params[1]')).toBeNull();
+	});
+
+	/*
+	 * These three were registered a second time under `/admin`, behind the
+	 * operator middleware, because `apps/admin` could not reach the ordinary path.
+	 * The prefix is gone; the ordinary path admits either identity, because a
+	 * `global` shape forces no predicate and its handler reads no agency context.
+	 *
+	 * A 404 rather than a 403 is the point: the routes do not exist, so nothing
+	 * can be reached through them if the wider door on the ordinary path is ever
+	 * narrowed again.
+	 */
+	it.each([
+		'/admin/sync/shapes/units',
+		'/admin/sync/shapes/genera',
+		'/admin/sync/shapes/species',
+	])('no longer serves %s', async (path) => {
+		const response = await recordingApp([]).request(path);
+
+		expect(response.status).toBe(404);
+	});
+
+	/**
+	 * The whole reason the prefix could go: an operator session has no agency
+	 * context, so it fails the agency middleware, and a `global` shape does not
+	 * need one.
+	 */
+	it('admits an operator on a global shape the agency middleware refuses', async () => {
+		const requests: string[] = [];
+		const response = await refusingAgencyApp(requests).request('/sync/shapes/genera');
+
+		expect(response.status).toBe(200);
+		expect(new URL(requests[0] ?? '').searchParams.get('table')).toBe('genera');
+	});
+
+	/*
+	 * And the half that keeps it safe. A tenant-scoped shape reached without an
+	 * agency context would not fail loudly — `shapeScopeFilter` would read
+	 * `undefined` — so the wider door must not be on it at all. The scope decides
+	 * which middleware a route gets, so this is structural rather than a list
+	 * someone maintains.
+	 */
+	it('does not admit an operator on a tenant-scoped shape', async () => {
+		const response = await refusingAgencyApp([]).request('/sync/shapes/habitats');
+
+		expect(response.status).toBe(403);
 	});
 
 	it('asks for the column names Postgres has, with no case conversion', async () => {

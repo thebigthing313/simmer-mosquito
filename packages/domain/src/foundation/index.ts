@@ -8,6 +8,7 @@ export type {
 	FoundationDomainCommand,
 	FoundationWarningCode,
 } from './shared.js';
+export * from './units.js';
 
 import type {
 	CreateAddressCommand,
@@ -53,6 +54,7 @@ import type {
 	UpdateRegionFolderCommand,
 	UpdateRegionGeometryCommand,
 } from './regions.js';
+import type { CreateUnitCommand, DeleteUnitCommand, UpdateUnitCommand } from './units.js';
 
 export type FoundationCommand =
 	| CreateAddressCommand
@@ -74,6 +76,9 @@ export type FoundationCommand =
 	| CreateSpeciesCommand
 	| UpdateSpeciesCommand
 	| DeleteSpeciesCommand
+	| CreateUnitCommand
+	| UpdateUnitCommand
+	| DeleteUnitCommand
 	| SelectOrganizationSpeciesCommand
 	| UnselectOrganizationSpeciesCommand
 	| CreateCollectionMethodCommand

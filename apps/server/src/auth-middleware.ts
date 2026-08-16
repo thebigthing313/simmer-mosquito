@@ -1,7 +1,7 @@
 import type { AuthUser } from '@simmer-mosquito/auth';
 import { WORKOS_SESSION_COOKIE_NAME } from '@simmer-mosquito/auth';
 import type { ActiveLocalAuthIdentity } from '@simmer-mosquito/db';
-import type { Context } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
 import {
@@ -56,6 +56,54 @@ export function createAuthContextMiddleware(options: {
 
 		context.set('authContext', result.context);
 		await next();
+	});
+}
+
+/**
+ * Admit an agency identity **or** an operator one, for a shape that is neither's.
+ *
+ * The global catalogs — `genera`, `species`, `units` — have no `organization_id`
+ * and every agency reads them, so their shape route forces no tenant predicate at
+ * all: `shapeScopeFilter` returns `{}` for `global` and never touches
+ * `authContext`. The only thing left to check is that somebody is signed in.
+ *
+ * That is why `apps/admin` needed a second set of routes under `/admin` in the
+ * first place — an operator session has no agency context, so it could not pass
+ * the agency middleware — and it is why the second set can now go: one route can
+ * ask for either identity when it uses neither.
+ *
+ * **Only safe on a `global` scope, and `registerSyncShapeRoutes` asserts it.**
+ * On an operator session this sets `operatorContext` and leaves `authContext`
+ * unset, so a handler that reads the agency organization would find nothing
+ * there. A scoped shape reached through this would not fail — it would stream
+ * without a predicate.
+ *
+ * The agency door is tried first and its refusal is the one returned. Both
+ * answer 401 to a caller with no session, and for these three tables almost
+ * every caller is an agency user, so "you have no membership" is the more useful
+ * of the two things to be told.
+ */
+export function createGlobalReadMiddleware(options: {
+	readonly agency: MiddlewareHandler<{ Variables: AuthVariables }>;
+	readonly operator: MiddlewareHandler<{ Variables: AuthVariables }>;
+}) {
+	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
+		let admitted = false;
+		const markAdmitted = async () => {
+			admitted = true;
+		};
+
+		const agencyRefusal = await options.agency(context, markAdmitted);
+		if (admitted) {
+			return next();
+		}
+
+		await options.operator(context, markAdmitted);
+		if (admitted) {
+			return next();
+		}
+
+		return agencyRefusal;
 	});
 }
 

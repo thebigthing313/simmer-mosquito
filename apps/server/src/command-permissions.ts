@@ -408,6 +408,9 @@ const FOUNDATION_PERMISSIONS: Record<FoundationCommandType, CommandPermission> =
 	'foundation.createSpecies': OPERATOR,
 	'foundation.updateSpecies': OPERATOR,
 	'foundation.deleteSpecies': OPERATOR,
+	'foundation.createUnit': OPERATOR,
+	'foundation.updateUnit': OPERATOR,
+	'foundation.deleteUnit': OPERATOR,
 
 	'foundation.selectOrganizationSpecies': ADMIN,
 	'foundation.unselectOrganizationSpecies': ADMIN,

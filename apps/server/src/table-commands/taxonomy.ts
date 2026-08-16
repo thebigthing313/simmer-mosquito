@@ -39,49 +39,10 @@ import {
 	updateGenusCommand,
 	updateSpeciesCommand,
 } from '@simmer-mosquito/domain';
-import { CommandError } from '../command-endpoint.js';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
 import type { OperatorTableCommands } from './dispatch.js';
-import { acknowledged } from './shared.js';
-
-/** Postgres refusing to orphan a row: `foreign_key_violation`. */
-const FOREIGN_KEY_VIOLATION = '23503';
-
-/**
- * The delete Postgres refuses, said in words.
- *
- * The console explains the rule — a genus with species, a species an agency has
- * enabled — before it asks for confirmation, so the refusal it gets back has to
- * be the same rule and not a stack trace. Every other table on this surface is
- * soft-deleted and decides this before writing, in `applyRecordDeletion`; the
- * taxonomy has no `deleted_at` and leans on the foreign keys instead, so the
- * answer only exists once the statement has run.
- *
- * Only `23503` is translated. Anything else rethrows, because a delete that
- * failed for some other reason is not a rule being enforced, and reporting a
- * dropped connection as "still in use" would send an operator looking for
- * records that are not there.
- */
-async function refusableDelete<TRow>(
-	run: () => Promise<TRow>,
-	refusal: { readonly error: string; readonly reason: string },
-): Promise<TRow> {
-	try {
-		return await run();
-	} catch (error) {
-		if (
-			typeof error === 'object' &&
-			error !== null &&
-			'code' in error &&
-			(error as { readonly code: unknown }).code === FOREIGN_KEY_VIOLATION
-		) {
-			throw new CommandError(409, refusal);
-		}
-
-		throw error;
-	}
-}
+import { acknowledged, refusableWrite } from './shared.js';
 
 const GENUS_COLUMNS = ['id', 'abbreviation', 'name', 'created_at', 'updated_at'] as const;
 const SPECIES_COLUMNS = [
@@ -182,7 +143,7 @@ async function writeGenusCommand(
 		// A hard delete, unlike every agency table: the taxonomy has no
 		// `deleted_at`, and the foreign keys refuse a genus that still has species.
 		case 'foundation.deleteGenus': {
-			const row = await refusableDelete(
+			const row = await refusableWrite(
 				() =>
 					trx
 						.deleteFrom('genera')
@@ -190,8 +151,10 @@ async function writeGenusCommand(
 						.returning(GENUS_COLUMNS)
 						.executeTakeFirst(),
 				{
-					error: 'genus_in_use',
-					reason: 'This genus still has species recorded against it.',
+					inUse: {
+						error: 'genus_in_use',
+						reason: 'This genus still has species recorded against it.',
+					},
 				},
 			);
 			return row === undefined ? null : toGenus(row);
@@ -240,7 +203,7 @@ async function writeSpeciesCommand(
 			return row === undefined ? null : toSpecies(row);
 		}
 		case 'foundation.deleteSpecies': {
-			const row = await refusableDelete(
+			const row = await refusableWrite(
 				() =>
 					trx
 						.deleteFrom('species')
@@ -248,9 +211,11 @@ async function writeSpeciesCommand(
 						.returning(SPECIES_COLUMNS)
 						.executeTakeFirst(),
 				{
-					error: 'species_in_use',
-					reason:
-						'This species is still enabled for an agency, or recorded in a count. Remove those first.',
+					inUse: {
+						error: 'species_in_use',
+						reason:
+							'This species is still enabled for an agency, or recorded in a count. Remove those first.',
+					},
 				},
 			);
 			return row === undefined ? null : toSpecies(row);
