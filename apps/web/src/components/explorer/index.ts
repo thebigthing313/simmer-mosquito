@@ -17,6 +17,12 @@ export { RESULT_SKELETON_KEYS } from './result-skeleton';
 export { SegmentedFilter } from './segmented-filter';
 export { ToggleFilter } from './toggle-filter';
 export { useCollectionMethodOptions } from './use-collection-method-options';
+export {
+	useApplicationMethodOptions,
+	useBiocontrolMethodOptions,
+	useInsecticideOptions,
+	useSourceReductionMethodOptions,
+} from './use-control-method-options';
 export { useDateRangeFilters } from './use-date-range-filters';
 export { useEntityTags } from './use-entity-tags';
 export { useFlyToSelection } from './use-fly-to-selection';

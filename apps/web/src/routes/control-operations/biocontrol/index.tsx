@@ -1,4 +1,3 @@
-import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
@@ -15,6 +14,7 @@ import {
 	ResultList,
 	ToggleFilter,
 	toggle,
+	useBiocontrolMethodOptions,
 	useDateRangeFilters,
 	useFlyToSelection,
 	usePagedMapResource,
@@ -25,7 +25,7 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type BiocontrolTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import {
@@ -36,10 +36,9 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { BiocontrolMapCard } from '../-biocontrol-map-card';
-import { ContextBadge, formatAmount, nameById } from '../-control-display';
+import { ContextBadge, formatAmount } from '../-control-display';
 import { addDaysToDateString } from '../-overview-data';
 
 interface BiocontrolSite {
@@ -129,11 +128,8 @@ function BiocontrolExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-
-	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
-	const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
+	const { options: methodOptions, nameById: methodNameById } = useBiocontrolMethodOptions();
+	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no toggle) drop out.
@@ -233,7 +229,7 @@ function BiocontrolExplorerRoute() {
 							empty="No biocontrol methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter
@@ -330,7 +326,7 @@ function BiocontrolResults({
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly personnelNameById: ReadonlyMap<string, string>;
 	readonly habitatNameById: ReadonlyMap<string, string>;
-	readonly unitById: ReadonlyMap<string, UnitRow>;
+	readonly unitById: ReadonlyMap<string, UnitLabel>;
 	readonly onSelect: (id: string) => void;
 }) {
 	return (

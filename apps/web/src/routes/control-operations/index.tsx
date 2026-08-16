@@ -1,11 +1,4 @@
 import type { UnitDefaults } from '@simmer-mosquito/domain';
-import type {
-	ControlMethodRow,
-	FormulationRow,
-	InsecticideRow,
-	ProfileRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -24,26 +17,31 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
+import {
+	type ControlActionKind,
+	type DailyControlAction,
+	useControlActionsForDay,
+} from '../../hooks/queries/use-control-actions-for-day';
+import { useControlCatalogCounts } from '../../hooks/queries/use-control-catalog-counts';
+import { useInsecticideUsage } from '../../hooks/queries/use-insecticide-usage';
 import { useOrganizationSettings } from '../../hooks/queries/use-organization-settings';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
+import {
+	type RecentControlAction,
+	useRecentBiocontrolActions,
+	useRecentSourceReductions,
+} from '../../hooks/queries/use-recent-control-actions';
+import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { webCollections } from '../../sync/webCollections';
-import { formatActionDate, formatAmount, usageTotal } from './-control-display';
+import { formatActionDate, formatMeasure, usageTotal } from './-control-display';
 import {
 	addDaysToDateString,
 	buildWeek,
 	CONTROL_ACTIVITY_WINDOW_DAYS,
-	type ControlActionKind,
-	type DailyControlAction,
 	dayOfMonth,
 	startOfWeek,
 	todayInTimeZone,
 	USAGE_WINDOW_DAYS,
 	type UsageWindowDays,
-	useControlActionsForDay,
-	useInsecticideUsage,
-	useRecentBiocontrolActions,
-	useRecentSourceReductions,
 	weekdayLabel,
 } from './-overview-data';
 
@@ -67,46 +65,10 @@ function ControlOperationsOverviewRoute() {
 		[today],
 	);
 
-	const { rows: applicationMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.applicationMethods,
-	);
-	const { rows: sourceReductionMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.sourceReductionMethods,
-	);
-	const { rows: biocontrolMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.biocontrolMethods,
-	);
-	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
-	const { rows: formulations } = useCollectionRows<FormulationRow>(webCollections.formulations);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
 	// Which unit the agency wants each kind of quantity reported in. Falls back
 	// to the domain defaults while the organization row is still syncing, so the
 	// widget renders a total rather than waiting on a setting.
 	const { unitDefaults } = useOrganizationSettings();
-
-	const labels = useMemo<Labels>(
-		() => ({
-			applicationMethodNameById: new Map(
-				applicationMethods.map((method) => [method.id, method.name] as const),
-			),
-			sourceReductionMethodNameById: new Map(
-				sourceReductionMethods.map((method) => [method.id, method.name] as const),
-			),
-			biocontrolMethodNameById: new Map(
-				biocontrolMethods.map((method) => [method.id, method.name] as const),
-			),
-			insecticideNameById: new Map(
-				insecticides.map((insecticide) => [insecticide.id, insecticide.tradeName] as const),
-			),
-			unitById: new Map(units.map((unit) => [unit.id, unit] as const)),
-			unitByCode: new Map(units.map((unit) => [unit.code, unit] as const)),
-			profileNameById: new Map(
-				profiles.map((profile) => [profile.id, profile.displayName] as const),
-			),
-		}),
-		[applicationMethods, sourceReductionMethods, biocontrolMethods, insecticides, units, profiles],
-	);
 
 	return (
 		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
@@ -128,35 +90,19 @@ function ControlOperationsOverviewRoute() {
 
 			<div className="grid gap-5 xl:grid-cols-12">
 				<div className="grid content-start gap-5 xl:col-span-7">
-					<DailyControlActionsPanel labels={labels} today={today} />
-					<InsecticideUsagePanel labels={labels} today={today} unitDefaults={unitDefaults} />
+					<DailyControlActionsPanel today={today} />
+					<InsecticideUsagePanel today={today} unitDefaults={unitDefaults} />
 				</div>
 				<div className="grid content-start gap-5 xl:col-span-5">
-					<RecentSourceReductionsPanel labels={labels} since={since} />
-					<RecentBiocontrolPanel labels={labels} since={since} />
+					<RecentSourceReductionsPanel since={since} />
+					<RecentBiocontrolPanel since={since} />
 				</div>
 				<div className="xl:col-span-12">
-					<CatalogPanel
-						applicationMethods={applicationMethods}
-						biocontrolMethods={biocontrolMethods}
-						formulations={formulations}
-						insecticides={insecticides}
-						sourceReductionMethods={sourceReductionMethods}
-					/>
+					<CatalogPanel />
 				</div>
 			</div>
 		</div>
 	);
-}
-
-interface Labels {
-	readonly applicationMethodNameById: ReadonlyMap<string, string>;
-	readonly sourceReductionMethodNameById: ReadonlyMap<string, string>;
-	readonly biocontrolMethodNameById: ReadonlyMap<string, string>;
-	readonly insecticideNameById: ReadonlyMap<string, string>;
-	readonly unitById: ReadonlyMap<string, UnitRow>;
-	readonly unitByCode: ReadonlyMap<string, UnitRow>;
-	readonly profileNameById: ReadonlyMap<string, string>;
 }
 
 /** Header shortcut from a panel to the map explorer holding the same records. */
@@ -235,10 +181,7 @@ interface CrewGroup {
 	readonly actions: readonly DailyControlAction[];
 }
 
-function groupByCrewMember(
-	actions: readonly DailyControlAction[],
-	profileNameById: ReadonlyMap<string, string>,
-): readonly CrewGroup[] {
+function groupByCrewMember(actions: readonly DailyControlAction[]): readonly CrewGroup[] {
 	const groups = new Map<string, DailyControlAction[]>();
 	for (const action of actions) {
 		const key = action.performedByProfileId ?? UNASSIGNED_KEY;
@@ -252,7 +195,9 @@ function groupByCrewMember(
 	return [...groups.entries()]
 		.map(([key, rows]) => ({
 			key,
-			name: key === UNASSIGNED_KEY ? 'Unassigned' : (profileNameById.get(key) ?? 'Unknown'),
+			// The name rides on the rows, so a group takes it from its first one —
+			// they all name the same person, that being what grouped them.
+			name: key === UNASSIGNED_KEY ? 'Unassigned' : (rows[0]?.performedByName ?? 'Unknown'),
 			actions: rows,
 		}))
 		.sort((first, second) => {
@@ -273,19 +218,10 @@ function groupByCrewMember(
  * this covers all three rather than applications alone — reading one kind
  * understates what each person actually got through.
  */
-function DailyControlActionsPanel({
-	labels,
-	today,
-}: {
-	readonly labels: Labels;
-	readonly today: string;
-}) {
+function DailyControlActionsPanel({ today }: { readonly today: string }) {
 	const [selectedDate, setSelectedDate] = useState(today);
 	const { actions, isReady, isError } = useControlActionsForDay(selectedDate);
-	const groups = useMemo(
-		() => groupByCrewMember(actions, labels.profileNameById),
-		[actions, labels.profileNameById],
-	);
+	const groups = useMemo(() => groupByCrewMember(actions), [actions]);
 
 	const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
 	const days = useMemo(() => buildWeek(weekStart), [weekStart]);
@@ -365,7 +301,7 @@ function DailyControlActionsPanel({
 				// shorter right column instead of stretching to full document length.
 				<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
 					{groups.map((group) => (
-						<CrewGroupBlock group={group} key={group.key} labels={labels} />
+						<CrewGroupBlock group={group} key={group.key} />
 					))}
 				</div>
 			)}
@@ -374,7 +310,7 @@ function DailyControlActionsPanel({
 }
 
 /** One person's day, collapsed to a summary row until opened. */
-function CrewGroupBlock({ group, labels }: { readonly group: CrewGroup; readonly labels: Labels }) {
+function CrewGroupBlock({ group }: { readonly group: CrewGroup }) {
 	const [open, setOpen] = useState(false);
 	const PersonnelIcon = iconRegistry.entities.organization.icon;
 
@@ -409,11 +345,7 @@ function CrewGroupBlock({ group, labels }: { readonly group: CrewGroup; readonly
 				<CollapsibleContent>
 					<ul className="grid px-3 pb-3">
 						{group.actions.map((action) => (
-							<ControlActionRow
-								action={action}
-								key={`${action.kind}:${action.id}`}
-								labels={labels}
-							/>
+							<ControlActionRow action={action} key={`${action.kind}:${action.id}`} />
 						))}
 					</ul>
 				</CollapsibleContent>
@@ -422,13 +354,7 @@ function CrewGroupBlock({ group, labels }: { readonly group: CrewGroup; readonly
 	);
 }
 
-function ControlActionRow({
-	action,
-	labels,
-}: {
-	readonly action: DailyControlAction;
-	readonly labels: Labels;
-}) {
+function ControlActionRow({ action }: { readonly action: DailyControlAction }) {
 	const Icon = KIND_ICON[action.kind];
 
 	return (
@@ -440,14 +366,12 @@ function ControlActionRow({
 					params={{ id: action.id }}
 					to={KIND_DETAIL_ROUTE[action.kind]}
 				>
-					{actionSubject(action, labels)}
+					{action.subjectName}
 				</Link>
-				<span className="truncate text-muted-foreground text-xs">
-					{actionSecondary(action, labels)}
-				</span>
+				<span className="truncate text-muted-foreground text-xs">{actionSecondary(action)}</span>
 			</div>
 			<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-				{formatAmount(action.amount, labels.unitById.get(action.unitId))}
+				{formatMeasure(action.amount, action.unitAbbreviation)}
 			</span>
 		</li>
 	);
@@ -492,29 +416,21 @@ function kindBreakdown(actions: readonly DailyControlAction[]): string {
 		.join(' · ');
 }
 
-/** The product for an application; the method for the other two. */
-function actionSubject(action: DailyControlAction, labels: Labels): string {
-	if (action.kind === 'application') {
-		return labels.insecticideNameById.get(action.subjectId) ?? 'Unknown insecticide';
-	}
-	if (action.kind === 'sourceReduction') {
-		return labels.sourceReductionMethodNameById.get(action.subjectId) ?? 'Unknown method';
-	}
-	return labels.biocontrolMethodNameById.get(action.subjectId) ?? 'Unknown method';
-}
-
-function actionSecondary(action: DailyControlAction, labels: Labels): string {
+/**
+ * What kind of work the row was, under the name of what it was done with.
+ *
+ * Only an application qualifies further, because only an application has a method
+ * separate from its subject: a source reduction and a biocontrol release are both
+ * titled by their method already, and naming it twice reads as a stutter.
+ */
+function actionSecondary(action: DailyControlAction): string {
 	if (action.kind === 'sourceReduction') {
 		return 'Source reduction';
 	}
 	if (action.kind === 'biocontrol') {
 		return 'Biocontrol release';
 	}
-	const method =
-		action.methodId === null
-			? 'No method'
-			: (labels.applicationMethodNameById.get(action.methodId) ?? 'Unknown method');
-	return `Application · ${method}`;
+	return `Application · ${action.methodName ?? 'No method'}`;
 }
 
 // --- insecticide usage ------------------------------------------------------
@@ -528,33 +444,33 @@ function actionSecondary(action: DailyControlAction, labels: Labels): string {
  * recorded in gallons on one job and pounds on the next cannot be added up.
  */
 function InsecticideUsagePanel({
-	labels,
 	today,
 	unitDefaults,
 }: {
-	readonly labels: Labels;
 	readonly today: string;
 	readonly unitDefaults: UnitDefaults;
 }) {
 	const [windowDays, setWindowDays] = useState<UsageWindowDays>(USAGE_WINDOW_DAYS[0]);
 	const since = useMemo(() => addDaysToDateString(today, -(windowDays - 1)), [today, windowDays]);
 	const { usage, isReady, isError } = useInsecticideUsage(since);
+	// The one place a unit lookup is still right: a product's total spans every
+	// unit its applications were recorded in, which is not a fact one row carries.
+	const units = useUnitLabels();
 
 	const rows = useMemo(
 		() =>
 			usage
 				.map((entry) => ({
 					...entry,
-					name: labels.insecticideNameById.get(entry.insecticideId) ?? 'Unknown insecticide',
 					total: usageTotal({
 						totalsByUnitId: entry.totalsByUnitId,
-						unitById: labels.unitById,
-						unitByCode: labels.unitByCode,
+						unitById: units.byId,
+						unitByCode: units.byCode,
 						unitDefaults,
 					}),
 				}))
 				.sort((first, second) => first.name.localeCompare(second.name)),
-		[usage, labels, unitDefaults],
+		[usage, units, unitDefaults],
 	);
 
 	return (
@@ -622,14 +538,8 @@ function InsecticideUsagePanel({
 
 // --- source reductions ------------------------------------------------------
 
-function RecentSourceReductionsPanel({
-	labels,
-	since,
-}: {
-	readonly labels: Labels;
-	readonly since: string;
-}) {
-	const { sourceReductions, isReady, isError } = useRecentSourceReductions(since);
+function RecentSourceReductionsPanel({ since }: { readonly since: string }) {
+	const { actions, isReady, isError } = useRecentSourceReductions(since);
 
 	return (
 		<Panel
@@ -639,7 +549,7 @@ function RecentSourceReductionsPanel({
 					to="/control-operations/source-reduction"
 				/>
 			}
-			count={isReady ? sourceReductions.length : undefined}
+			count={isReady ? actions.length : undefined}
 			icon={<SourceReductionIcon className="size-4" />}
 			scrollBody
 			title="Source Reductions"
@@ -648,26 +558,20 @@ function RecentSourceReductionsPanel({
 				<PanelMessage>Source reduction activity is unavailable right now.</PanelMessage>
 			) : !isReady ? (
 				<RowSkeleton count={3} />
-			) : sourceReductions.length === 0 ? (
+			) : actions.length === 0 ? (
 				<PanelMessage>
 					No source reductions recorded in the last {CONTROL_ACTIVITY_WINDOW_DAYS} days.
 				</PanelMessage>
 			) : (
 				<ul className="divide-y divide-border/60">
-					{sourceReductions.map((sourceReduction) => (
+					{actions.map((action) => (
 						<ActionRow
-							amount={formatAmount(
-								sourceReduction.sourcesEliminatedAmount,
-								labels.unitById.get(sourceReduction.sourcesEliminatedUnitId),
-							)}
-							date={formatActionDate(sourceReduction.sourceReductionDate)}
-							key={sourceReduction.id}
-							params={{ id: sourceReduction.id }}
-							primary={
-								labels.sourceReductionMethodNameById.get(sourceReduction.sourceReductionMethodId) ??
-								'Unknown method'
-							}
-							secondary={technicianLabel(sourceReduction.technicianProfileId, labels)}
+							amount={formatMeasure(action.amount, action.unitAbbreviation)}
+							date={formatActionDate(action.actionDate)}
+							key={action.id}
+							params={{ id: action.id }}
+							primary={action.methodName}
+							secondary={technicianLabel(action)}
 							to="/control-operations/source-reduction/$id"
 						/>
 					))}
@@ -679,21 +583,15 @@ function RecentSourceReductionsPanel({
 
 // --- biocontrol -------------------------------------------------------------
 
-function RecentBiocontrolPanel({
-	labels,
-	since,
-}: {
-	readonly labels: Labels;
-	readonly since: string;
-}) {
-	const { biocontrolActions, isReady, isError } = useRecentBiocontrolActions(since);
+function RecentBiocontrolPanel({ since }: { readonly since: string }) {
+	const { actions, isReady, isError } = useRecentBiocontrolActions(since);
 
 	return (
 		<Panel
 			actions={
 				<MapLinkButton label="Open the biocontrol map" to="/control-operations/biocontrol" />
 			}
-			count={isReady ? biocontrolActions.length : undefined}
+			count={isReady ? actions.length : undefined}
 			icon={<BiocontrolIcon className="size-4" />}
 			scrollBody
 			title="Biocontrol Releases"
@@ -702,25 +600,20 @@ function RecentBiocontrolPanel({
 				<PanelMessage>Biocontrol activity is unavailable right now.</PanelMessage>
 			) : !isReady ? (
 				<RowSkeleton count={3} />
-			) : biocontrolActions.length === 0 ? (
+			) : actions.length === 0 ? (
 				<PanelMessage>
 					No biocontrol releases recorded in the last {CONTROL_ACTIVITY_WINDOW_DAYS} days.
 				</PanelMessage>
 			) : (
 				<ul className="divide-y divide-border/60">
-					{biocontrolActions.map((action) => (
+					{actions.map((action) => (
 						<ActionRow
-							amount={formatAmount(
-								action.amountReleased,
-								labels.unitById.get(action.releaseUnitId),
-							)}
-							date={formatActionDate(action.biocontrolDate)}
+							amount={formatMeasure(action.amount, action.unitAbbreviation)}
+							date={formatActionDate(action.actionDate)}
 							key={action.id}
 							params={{ id: action.id }}
-							primary={
-								labels.biocontrolMethodNameById.get(action.biocontrolMethodId) ?? 'Unknown method'
-							}
-							secondary={technicianLabel(action.technicianProfileId, labels)}
+							primary={action.methodName}
+							secondary={technicianLabel(action)}
 							to="/control-operations/biocontrol/$id"
 						/>
 					))}
@@ -730,57 +623,47 @@ function RecentBiocontrolPanel({
 	);
 }
 
-function technicianLabel(profileId: string | null, labels: Labels): string {
-	if (profileId === null) {
+function technicianLabel(action: RecentControlAction): string {
+	if (action.technicianProfileId === null) {
 		return 'No technician recorded';
 	}
-	return labels.profileNameById.get(profileId) ?? 'Unknown technician';
+	return action.technicianName ?? 'Unknown technician';
 }
 
 // --- catalogs ---------------------------------------------------------------
 
-function CatalogPanel({
-	applicationMethods,
-	sourceReductionMethods,
-	biocontrolMethods,
-	formulations,
-	insecticides,
-}: {
-	readonly applicationMethods: readonly ControlMethodRow[];
-	readonly sourceReductionMethods: readonly ControlMethodRow[];
-	readonly biocontrolMethods: readonly ControlMethodRow[];
-	readonly formulations: readonly FormulationRow[];
-	readonly insecticides: readonly InsecticideRow[];
-}) {
+function CatalogPanel() {
+	const counts = useControlCatalogCounts();
+
 	return (
 		<Panel icon={<ControlIcon className="size-4" />} title="Catalogs">
 			<ul className="grid gap-1 p-2 sm:grid-cols-2 xl:grid-cols-5">
 				<CatalogTile
-					activeCount={applicationMethods.filter((method) => method.isActive).length}
+					activeCount={counts.applicationMethods}
 					icon={<ApplicationIcon aria-hidden="true" className="size-4" />}
 					label="Application methods"
 					to="/control-operations/chemical/methods"
 				/>
 				<CatalogTile
-					activeCount={insecticides.filter((insecticide) => insecticide.isActive).length}
+					activeCount={counts.insecticides}
 					icon={<InsecticideIcon aria-hidden="true" className="size-4" />}
 					label="Insecticides"
 					to="/control-operations/chemical/insecticides"
 				/>
 				<CatalogTile
-					activeCount={formulations.filter((formulation) => formulation.isActive).length}
+					activeCount={counts.formulations}
 					icon={<FormulationIcon aria-hidden="true" className="size-4" />}
 					label="Formulations"
 					to="/control-operations/chemical/formulations"
 				/>
 				<CatalogTile
-					activeCount={sourceReductionMethods.filter((method) => method.isActive).length}
+					activeCount={counts.sourceReductionMethods}
 					icon={<SourceReductionIcon aria-hidden="true" className="size-4" />}
 					label="Source reduction methods"
 					to="/control-operations/source-reduction/methods"
 				/>
 				<CatalogTile
-					activeCount={biocontrolMethods.filter((method) => method.isActive).length}
+					activeCount={counts.biocontrolMethods}
 					icon={<BiocontrolIcon aria-hidden="true" className="size-4" />}
 					label="Biocontrol methods"
 					to="/control-operations/biocontrol/methods"

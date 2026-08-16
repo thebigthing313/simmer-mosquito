@@ -1,5 +1,3 @@
-import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
-import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
@@ -15,8 +13,10 @@ import {
 	mapQueryParams,
 	ResultList,
 	toggle,
+	useApplicationMethodOptions,
 	useDateRangeFilters,
 	useFlyToSelection,
+	useInsecticideOptions,
 	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
@@ -24,7 +24,7 @@ import {
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type ChemicalTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
 	dateParam,
@@ -33,10 +33,9 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { ApplicationMapCard } from '../-application-map-card';
-import { formatAmount, nameById } from '../-control-display';
+import { formatAmount } from '../-control-display';
 import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
 
 interface ApplicationSite {
@@ -128,26 +127,9 @@ function ApplicationsExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-
-	// Order + project the product options straight from the collection so the
-	// alphabetized select and the id→name lookup share one live read, rather than
-	// copying the collection into a memoized array.
-	const { data: productOptions } = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ insecticide: webCollections.insecticides })
-				.orderBy(({ insecticide }) => insecticide.tradeName, 'asc')
-				.select(({ insecticide }) => ({ id: insecticide.id, label: insecticide.tradeName })),
-		[],
-	);
-	const insecticideNameById = useMemo(
-		() => nameById(productOptions, (option) => option.label),
-		[productOptions],
-	);
-	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
-	const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
+	const { options: methodOptions, nameById: methodNameById } = useApplicationMethodOptions();
+	const { options: productOptions, nameById: insecticideNameById } = useInsecticideOptions();
+	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
@@ -250,7 +232,7 @@ function ApplicationsExplorerRoute() {
 							empty="No application methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter
@@ -353,7 +335,7 @@ function ApplicationResults({
 	readonly selectedId: string | null;
 	readonly insecticideNameById: ReadonlyMap<string, string>;
 	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly unitById: ReadonlyMap<string, UnitRow>;
+	readonly unitById: ReadonlyMap<string, UnitLabel>;
 	readonly onSelect: (id: string) => void;
 }) {
 	return (
