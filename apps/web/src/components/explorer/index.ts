@@ -19,6 +19,7 @@ export { ToggleFilter } from './toggle-filter';
 export { useDateRangeFilters } from './use-date-range-filters';
 export { useEntityTags } from './use-entity-tags';
 export { useFlyToSelection } from './use-fly-to-selection';
+export { useHabitatTypeOptions } from './use-habitat-type-options';
 export { useMapBoundsParam } from './use-map-bounds';
 export {
 	mapQueryParams,
@@ -28,3 +29,4 @@ export {
 export { usePersonnelOptions } from './use-personnel-options';
 export { useRegionMembership } from './use-region-membership';
 export { useRegionOptions } from './use-region-options';
+export { useSpeciesOptions } from './use-species-options';
