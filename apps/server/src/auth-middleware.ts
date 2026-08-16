@@ -28,6 +28,11 @@ export interface OperatorAuthContext {
 export function createAuthContextMiddleware(options: {
 	readonly auth: AuthSessionProvider;
 	readonly localIdentityResolver: LocalAuthIdentityResolver;
+	/**
+	 * Passed through so `AuthContext.isOperator` can be resolved here rather than
+	 * re-derived by every route that serves operators and agencies alike.
+	 */
+	readonly operatorOrganizationId?: string | null;
 	readonly setAuthCookie: (
 		context: Context<{ Variables: AuthVariables }>,
 		sealedSession: string | undefined,
@@ -38,6 +43,7 @@ export function createAuthContextMiddleware(options: {
 			sealedSession: getCookie(context, WORKOS_SESSION_COOKIE_NAME),
 			auth: options.auth,
 			localIdentityResolver: options.localIdentityResolver,
+			operatorOrganizationId: options.operatorOrganizationId ?? null,
 		});
 
 		if (result.sealedSession !== undefined) {

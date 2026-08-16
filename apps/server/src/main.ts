@@ -110,6 +110,7 @@ if (env.geocodioApiKey === null) {
 const authContextMiddleware = createAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,
+	operatorOrganizationId: env.simmerOperatorOrganizationId,
 	setAuthCookie,
 });
 const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
