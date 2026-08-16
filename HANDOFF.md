@@ -41,15 +41,32 @@ so domains are not.
   — rows arrive snake_case, consumers read camelCase. Expected; don't chase it.
 - Write hooks. Only reads have moved. `mutateCollection` exists
   (`lib/collections/mutate.ts`) and nothing calls it yet.
-- The other 43 server intent maps in `apps/server/src/table-commands/`. Both
-  surveillance domains are done — `habitats`, `inspections`, `samples`,
-  `sample_species`, `traps`, `collections`, `collection_species` — plus the
-  control-operations catalogs (the four method tables, `vehicles`, `equipment`)
-  and its six action-record tables (`applications`, `application_batches`,
+- The remaining server intent maps in `apps/server/src/table-commands/`.
+  **127 of the 261 agency commands are reachable**, across 23 tables: both
+  surveillance domains whole (`habitats`, `inspections`, `samples`,
+  `sample_species`, `traps`, `collections`, `collection_species`) and control
+  operations whole (72/72 — the four method catalogs, `vehicles`, `equipment`,
+  `insecticides`, `insecticide_batches`, `formulations`,
+  `formulation_insecticides`, `applications`, `application_batches`,
   `source_reductions`, `outreach_actions`, `biocontrol_actions`,
-  `requested_control_actions`). Control operations still needs the four product
-  tables: `insecticides`, `insecticide_batches`, `formulations`,
-  `formulation_insecticides`.
+  `requested_control_actions`).
+
+  Left: `publicEngagement` (0/32), `foundation` (0/36), `missionDispatch`
+  (4/24), `fieldWork` (4/42), `organizationSettings` (0/7). The four `fieldWork`
+  and four `missionDispatch` commands already reachable are the execution ones
+  that write a surveillance or control record, so they live on that record's
+  table. `larvalSurveillance.mergeHabitats` is the one gap in a finished
+  domain — it is one of the twenty commands with no writer at all (#163).
+
+  `organizationSettings` is the odd one: it writes `organizations`, which is not
+  a per-row table in the same sense, and its seven commands are already gated by
+  `denyUnauthorizedCommandType` at their own routes. Decide whether it belongs
+  on this surface before building it.
+
+  Coverage is checkable — collect the quoted intent keys under
+  `table-commands/` and diff against the keys of `COMMAND_PERMISSIONS`, which is
+  exhaustive over every domain union by construction. Worth making a real test
+  once the count reaches 261.
 - `packages/sync/src/rows/*` — 58 camelCase `*Row` types, still imported by the
   old path. They go when nothing imports them.
 - `/map/*` REST endpoints still return camelCase via ~170 `as "camelCase"`

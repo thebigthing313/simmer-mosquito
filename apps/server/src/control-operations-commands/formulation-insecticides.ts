@@ -101,7 +101,7 @@ async function runFormulationInsecticideCommands(
 	);
 }
 
-async function writeFormulationInsecticideCommand(
+export async function writeFormulationInsecticideCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
 ): Promise<SafeFormulationInsecticide | null> {

@@ -31,6 +31,12 @@ import {
 	outreachMethodTableCommands,
 	sourceReductionMethodTableCommands,
 } from './control-methods.js';
+import {
+	formulationInsecticideTableCommands,
+	formulationTableCommands,
+	insecticideBatchTableCommands,
+	insecticideTableCommands,
+} from './control-products.js';
 import { registerTableCommandRoutes } from './dispatch.js';
 import { habitatTableCommands } from './habitats.js';
 import { inspectionTableCommands } from './inspections.js';
@@ -70,4 +76,8 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, requestedControlActionTableCommands(options.db));
 	registerTableCommandRoutes(app, options, applicationTableCommands(options.db));
 	registerTableCommandRoutes(app, options, applicationBatchTableCommands(options.db));
+	registerTableCommandRoutes(app, options, insecticideTableCommands(options.db));
+	registerTableCommandRoutes(app, options, insecticideBatchTableCommands(options.db));
+	registerTableCommandRoutes(app, options, formulationTableCommands(options.db));
+	registerTableCommandRoutes(app, options, formulationInsecticideTableCommands(options.db));
 }
