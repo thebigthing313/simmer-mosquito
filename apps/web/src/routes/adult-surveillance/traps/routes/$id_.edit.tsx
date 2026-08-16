@@ -75,8 +75,12 @@ function EditTrapRouteRoute() {
 	const [error, setError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
+	const identity = auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity : null;
+	const actorProfileId = identity?.profileId ?? null;
+	// Off the session rather than off the route being edited: a route summary says
+	// which route it is and what it is called, and a new stop's tenancy is the
+	// signed-in agency either way. The habitat route editor reads it the same way.
+	const organizationId = identity?.organizationId ?? null;
 
 	const commitMove = useCallback(
 		(movedIds: readonly string[], placement: OrderPlacement) =>
@@ -127,7 +131,7 @@ function EditTrapRouteRoute() {
 
 	const addStop = useCallback(
 		(trap: TrapRow | null) => {
-			if (trap === null || route === null) {
+			if (trap === null || route === null || organizationId === null) {
 				return;
 			}
 			setError(null);
@@ -135,7 +139,7 @@ function EditTrapRouteRoute() {
 			const now = new Date().toISOString();
 			const row: RouteItemRow = {
 				id: crypto.randomUUID(),
-				organizationId: route.organizationId,
+				organizationId,
 				routeId: id,
 				entityType: 'trap',
 				entityId: trap.id,
@@ -152,7 +156,7 @@ function EditTrapRouteRoute() {
 				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
 			}
 		},
-		[id, route, stops, actorProfileId],
+		[id, route, stops, actorProfileId, organizationId],
 	);
 
 	const move = useCallback(
