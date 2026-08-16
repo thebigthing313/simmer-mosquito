@@ -52,11 +52,13 @@ import {
 	collectionMethodTableCommands,
 	habitatTypeTableCommands,
 } from './org-lookups.js';
+import { organizationSpeciesTableCommands } from './organization-species.js';
 import {
 	biocontrolActionTableCommands,
 	outreachActionTableCommands,
 	sourceReductionTableCommands,
 } from './performed-actions.js';
+import { regionFolderTableCommands, regionTableCommands } from './regions.js';
 import { requestedControlActionTableCommands } from './requested-control-actions.js';
 import { sampleSpeciesTableCommands } from './sample-species.js';
 import { sampleTableCommands } from './samples.js';
@@ -104,6 +106,9 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, collectionMethodTableCommands(options.db));
 	registerTableCommandRoutes(app, options, collectionLureTableCommands(options.db));
 	registerTableCommandRoutes(app, options, habitatTypeTableCommands(options.db));
+	registerTableCommandRoutes(app, options, regionFolderTableCommands(options.db));
+	registerTableCommandRoutes(app, options, regionTableCommands(options.db));
+	registerTableCommandRoutes(app, options, organizationSpeciesTableCommands(options.db));
 	// The two global catalogs, behind the operator door.
 	registerTableCommandRoutes(app, options, genusTableCommands(options.db));
 	registerTableCommandRoutes(app, options, speciesTableCommands(options.db));
