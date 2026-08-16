@@ -41,9 +41,16 @@ so domains are not.
   — rows arrive snake_case, consumers read camelCase. Expected; don't chase it.
 - Write hooks. Only reads have moved. `mutateCollection` exists
   (`lib/collections/mutate.ts`) and nothing calls it yet.
-- The other 49 server intent maps in `apps/server/src/table-commands/`. Both
+- The other 43 server intent maps in `apps/server/src/table-commands/`. Both
   surveillance domains are done — `habitats`, `inspections`, `samples`,
-  `sample_species`, `traps`, `collections`, `collection_species`.
+  `sample_species`, `traps`, `collections`, `collection_species` — plus the
+  control-operations catalogs: the four method tables, `vehicles`, `equipment`.
+  Control operations still needs `insecticides`, `insecticide_batches`,
+  `formulations`, `formulation_insecticides`, and the six action-record tables
+  (`applications`, `application_batches`, `source_reductions`,
+  `outreach_actions`, `biocontrol_actions`, `requested_control_actions`) —
+  the last group is where the `performer` and `DeletionEscalation` permission
+  rules apply, so those builders sit next to authorization the others don't touch.
 - `packages/sync/src/rows/*` — 58 camelCase `*Row` types, still imported by the
   old path. They go when nothing imports them.
 - `/map/*` REST endpoints still return camelCase via ~170 `as "camelCase"`
