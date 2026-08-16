@@ -1,14 +1,12 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
+import { useAddress } from '../hooks/queries/use-address';
 import {
 	addressPrimaryLabel,
 	addressSecondaryLabel,
 	addressSecondaryLines,
 } from '../lib/address-format';
-import { webCollections } from '../sync/webCollections';
 import { EmptyValue } from './empty-value';
 import { MapCardDetail } from './map/map-card';
 
@@ -28,30 +26,6 @@ import { MapCardDetail } from './map/map-card';
  * name the agency filed it under.
  */
 
-const gcTimeMs = 30_000;
-/** A sentinel no real row matches, so the query is inert when nothing is linked. */
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
-function useLinkedAddress(addressId: string | null | undefined): {
-	readonly address: AddressRow | undefined;
-	readonly isReady: boolean;
-} {
-	const id = addressId ?? UNMATCHABLE_ID;
-	const result = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-
-	return { address: result.data as AddressRow | undefined, isReady: result.isReady };
-}
-
 /**
  * The value side of an "Address" row on a record's detail page: the name over
  * the postal line, linked to the address itself. An em dash when the record
@@ -59,7 +33,7 @@ function useLinkedAddress(addressId: string | null | undefined): {
  * would say more than the row is worth.
  */
 export function LinkedAddressValue({ addressId }: { readonly addressId: string | null }) {
-	const { address, isReady } = useLinkedAddress(addressId);
+	const { address, isReady } = useAddress(addressId);
 
 	if (addressId === null) {
 		return <EmptyValue />;
@@ -99,7 +73,7 @@ export function LinkedAddressValue({ addressId }: { readonly addressId: string |
  * above it to say what the dash would be standing in for.
  */
 export function MapCardAddress({ addressId }: { readonly addressId: string | null }) {
-	const { address, isReady } = useLinkedAddress(addressId);
+	const { address, isReady } = useAddress(addressId);
 
 	if (addressId === null || (address === undefined && isReady)) {
 		return (

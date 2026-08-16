@@ -64,3 +64,21 @@ export interface LarvalActivityRow extends LifeStageFlags {
 	readonly latitude: number;
 	readonly longitude: number;
 }
+
+/**
+ * One Habitat Inspection on its own, for the map card.
+ *
+ * The activity row plus the two things a list does not need and a card does: the
+ * kind of geometry that was recorded, so the location line can say whether this
+ * was a point or a shape, and the linked Address, which titles an Ad Hoc
+ * Inspection that has one.
+ *
+ * An extension rather than a second projection, because a card and a list row
+ * showing the same inspection should not be able to disagree about it — the
+ * density band, the life stages and the inspector are the same fields resolved
+ * the same way.
+ */
+export interface InspectionCard extends LarvalActivityRow {
+	readonly geometryKind: string;
+	readonly addressId: string | null;
+}
