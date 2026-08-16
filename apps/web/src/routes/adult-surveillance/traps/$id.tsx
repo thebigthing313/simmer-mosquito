@@ -1,5 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { SpeciesRow, TrapRow } from '@simmer-mosquito/sync';
+import type { TrapRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -67,7 +67,7 @@ import {
 	useCollectionLureRoster,
 	useCollectionMethodRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useSpeciesCatalog } from '../../../hooks/queries/use-species-catalog';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
 import {
@@ -424,7 +424,7 @@ function TrapSpeciesDistribution({
 	readonly isReady: boolean;
 	readonly isError: boolean;
 }) {
-	const { rows: species } = useCollectionRows<SpeciesRow>(webCollections.species);
+	const species = useSpeciesCatalog();
 	const nameById = useMemo(
 		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
 		[species],

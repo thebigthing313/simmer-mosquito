@@ -1,10 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type {
-	OrganizationSpeciesRow,
-	SampleRow,
-	SampleSpeciesRow,
-	SpeciesRow,
-} from '@simmer-mosquito/sync';
+import type { SampleRow, SampleSpeciesRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -46,6 +41,7 @@ import { getServerUrl } from '../../../auth';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
@@ -1062,32 +1058,7 @@ function useSpeciesCatalog(): {
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly options: readonly SpeciesOption[];
 } {
-	const speciesResult = useLiveQuery(
-		(query) => query.from({ species: webCollections.species }),
-		[],
-	);
-	const orgSpeciesResult = useLiveQuery(
-		(query) => query.from({ orgSpecies: webCollections.organizationSpecies }),
-		[],
-	);
-
-	const species = (speciesResult.data ?? []) as readonly SpeciesRow[];
-	const orgSpecies = (orgSpeciesResult.data ?? []) as readonly OrganizationSpeciesRow[];
-
-	const nameById = useMemo(
-		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
-		[species],
-	);
-
-	const options = useMemo(() => {
-		const orgIds = new Set(orgSpecies.map((row) => row.speciesId));
-		const source = orgIds.size > 0 ? species.filter((row) => orgIds.has(row.id)) : species;
-		return source
-			.map((row) => ({ id: row.id, label: row.displayName }))
-			.sort((first, second) => first.label.localeCompare(second.label));
-	}, [species, orgSpecies]);
-
-	return { nameById, options };
+	return useAdoptedSpeciesOptions();
 }
 
 // --- data hook --------------------------------------------------------------

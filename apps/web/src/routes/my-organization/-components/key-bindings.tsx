@@ -3,7 +3,7 @@ import {
 	type OrganizationSettings,
 	type SpeciesKeyBinding,
 } from '@simmer-mosquito/domain';
-import type { OrganizationRow, OrganizationSpeciesRow, SpeciesRow } from '@simmer-mosquito/sync';
+import type { OrganizationRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -24,8 +24,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useMemo, useState } from 'react';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { webCollections } from '../../../sync/webCollections';
+import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { errorMessageForSave, updateCurrentOrganization } from './helpers';
 
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
@@ -314,16 +313,5 @@ function SectionLabel({ children }: { readonly children: React.ReactNode }) {
  * curated — the same rule the sample identification picker follows.
  */
 function useSpeciesOptions(): readonly SpeciesOption[] {
-	const { rows: species } = useCollectionRows<SpeciesRow>(webCollections.species);
-	const { rows: organizationSpecies } = useCollectionRows<OrganizationSpeciesRow>(
-		webCollections.organizationSpecies,
-	);
-
-	return useMemo(() => {
-		const adopted = new Set(organizationSpecies.map((row) => row.speciesId));
-		const source = adopted.size > 0 ? species.filter((row) => adopted.has(row.id)) : species;
-		return source
-			.map((row) => ({ id: row.id, label: row.displayName }))
-			.sort((first, second) => first.label.localeCompare(second.label));
-	}, [species, organizationSpecies]);
+	return useAdoptedSpeciesOptions().options;
 }

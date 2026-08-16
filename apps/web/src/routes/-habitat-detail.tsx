@@ -61,6 +61,7 @@ import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
+import { useSpeciesNames } from '../hooks/queries/use-species-names';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
@@ -1079,17 +1080,9 @@ function useLarvalEntryMode(): LarvalInspectionEntryMode {
 		.inspectionEntryPolicy.mode;
 }
 
+/** One id through the shared taxonomy read — the catalog is eager and small. */
 function useSpeciesName(speciesId: string): string {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ species: webCollections.species })
-				.where(({ species }) => eq(species.id, speciesId))
-				.findOne(),
-		[speciesId],
-	);
-
-	return result.data?.displayName ?? 'Unknown species';
+	return useSpeciesNames().get(speciesId) ?? 'Unknown species';
 }
 
 function HistoryEmpty({

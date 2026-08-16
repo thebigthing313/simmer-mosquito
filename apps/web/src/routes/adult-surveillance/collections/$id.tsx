@@ -2,7 +2,6 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	AdultCollectionRow,
 	CollectionSpeciesRow,
-	SpeciesRow,
 	SpeciesSex,
 	SpeciesStatus,
 	TrapRow,
@@ -82,6 +81,7 @@ import {
 	useCollectionMethodRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useSpeciesCatalog } from '../../../hooks/queries/use-species-catalog';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
@@ -397,7 +397,7 @@ function ResultsCard({
 	readonly actorProfileId: string | null;
 	readonly canEdit: boolean;
 }) {
-	const { rows: speciesRows } = useCollectionRows<SpeciesRow>(webCollections.species);
+	const speciesRows = useSpeciesCatalog();
 	// Sorted once here so every species picker/select on the page reads alphabetically.
 	const species = useMemo(
 		() => [...speciesRows].sort((a, b) => a.displayName.localeCompare(b.displayName)),
