@@ -1,8 +1,8 @@
-import type { TagRow } from '@simmer-mosquito/sync';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import type { Tag } from '../../hooks/queries/tag-view';
 import { TagChipRow } from '../tag-chip';
 
 /**
@@ -50,7 +50,7 @@ export function ExplorerRow({
 	readonly swatch?: { readonly color: string; readonly label: string } | undefined;
 	/** Who performed the work — inspector, applicator, technician. */
 	readonly personnel?: string | null;
-	readonly tags?: readonly TagRow[];
+	readonly tags?: readonly Tag[];
 	/** Status pills, life-stage strips: whatever this record type reads by. */
 	readonly badges?: ReactNode;
 	/** Where the chevron goes — this record's detail page. */

@@ -17,7 +17,7 @@ import {
 import { TagBadge } from '../components/tag-badge';
 import type { Habitat } from '../hooks/queries/habitat-view';
 import { useHabitat } from '../hooks/queries/use-habitat';
-import { useMapCardTags } from '../hooks/use-map-card-tags';
+import { useRecordTags } from '../hooks/queries/use-record-tags';
 
 /**
  * The map focus card for a Habitat.
@@ -37,7 +37,7 @@ export function HabitatMapCard({
 	readonly detailTo?: '/larval-surveillance/habitats/$id';
 }) {
 	const { habitat } = useHabitat(id);
-	const tags = useMapCardTags(id);
+	const tags = useRecordTags(id);
 
 	if (habitat === undefined) {
 		return (

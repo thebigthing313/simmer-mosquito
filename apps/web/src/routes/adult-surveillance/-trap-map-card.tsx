@@ -17,7 +17,7 @@ import {
 	MapCardEyebrow,
 } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
-import { useMapCardTags } from '../../hooks/use-map-card-tags';
+import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { webCollections } from '../../sync/webCollections';
 import { trapDisplayName } from './-adult-display';
 
@@ -79,7 +79,7 @@ export function TrapMapCard({
 	);
 	const lure = lureResult.data as CollectionLureRow | undefined;
 
-	const tags = useMapCardTags(id);
+	const tags = useRecordTags(id);
 
 	if (trap === undefined) {
 		return (

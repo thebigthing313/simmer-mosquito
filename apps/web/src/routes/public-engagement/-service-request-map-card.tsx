@@ -6,7 +6,7 @@ import { Link } from '@tanstack/react-router';
 import { MapCardAddressById } from '../../components/linked-address';
 import { MapCard, MapCardDetail, MapCardEyebrow, MapCardText } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
-import { useMapCardTags } from '../../hooks/use-map-card-tags';
+import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { webCollections } from '../../sync/webCollections';
 import {
 	contactDisplayName,
@@ -59,7 +59,7 @@ export function ServiceRequestMapCard({
 	);
 	const contact = contactResult.data as ContactRow | undefined;
 
-	const tags = useMapCardTags(id);
+	const tags = useRecordTags(id);
 
 	if (request === undefined) {
 		return (

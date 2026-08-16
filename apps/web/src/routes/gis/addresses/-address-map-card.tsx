@@ -12,7 +12,7 @@ import {
 	MapCardEyebrow,
 } from '../../../components/map/map-card';
 import { TagBadge } from '../../../components/tag-badge';
-import { useMapCardTags } from '../../../hooks/use-map-card-tags';
+import { useRecordTags } from '../../../hooks/queries/use-record-tags';
 import { formatAddressLine } from '../../../lib/address-format';
 import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
@@ -51,7 +51,7 @@ export function AddressMapCard({
 	const lat = geometryQuery.data?.lat ?? null;
 	const lng = geometryQuery.data?.lng ?? null;
 
-	const tags = useMapCardTags(id);
+	const tags = useRecordTags(id);
 
 	useEffect(() => {
 		if (map === null || lat === null || lng === null) {

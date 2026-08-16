@@ -7,7 +7,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
 import { MapCard, MapCardEyebrow, MapCardText } from '../../../components/map/map-card';
 import { TagBadge } from '../../../components/tag-badge';
-import { useMapCardTags } from '../../../hooks/use-map-card-tags';
+import { useRecordTags } from '../../../hooks/queries/use-record-tags';
 import { useRegionGeometry } from '../../../hooks/use-region-geometry';
 import { webCollections } from '../../../sync/webCollections';
 
@@ -44,7 +44,7 @@ export function RegionMapCard({
 	const geometryQuery = useRegionGeometry(id);
 	const geojson = geometryQuery.data?.geojson ?? null;
 
-	const tags = useMapCardTags(id);
+	const tags = useRecordTags(id);
 
 	useEffect(() => {
 		if (map === null || geojson === null) {

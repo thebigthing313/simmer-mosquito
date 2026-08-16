@@ -1,11 +1,6 @@
+import { toDbEntityType } from '@simmer-mosquito/domain';
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import type {
-	AddressRow,
-	ContactRow,
-	ServiceRequestRow,
-	TagItemRow,
-	TagRow,
-} from '@simmer-mosquito/sync';
+import type { AddressRow, ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -54,14 +49,18 @@ import {
 	FilterChip,
 	MultiSelectFilter,
 	toggle,
+	useEntityTags,
 	useRegionMembership,
 	useRegionOptions,
+	useTagOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
 import { WriteOnly } from '../../../components/write-only';
+import type { Tag } from '../../../hooks/queries/tag-view';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { tag_items } from '../../../lib/collections/tag_items';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -85,7 +84,7 @@ const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const requestsGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-const EMPTY_TAGS: readonly TagRow[] = [];
+const EMPTY_TAGS: readonly Tag[] = [];
 
 type StatusFilter = 'all' | 'open' | 'closed';
 
@@ -136,20 +135,9 @@ function ServiceRequestsExplorerRoute() {
 	);
 	const requests = (result.data ?? []) as readonly ServiceRequestRow[];
 
-	// tags is an eager baseline collection, so the whole catalog is already local.
-	// It drives both the filter options and the per-card chip labels.
-	const tagCatalog = useLiveQuery((query) => query.from({ tag: webCollections.tags }), []);
-	const tagById = useMemo(
-		() => new Map((tagCatalog.data ?? []).map((tag) => [tag.id, tag as TagRow])),
-		[tagCatalog.data],
-	);
-	const availableTags = useMemo(
-		() =>
-			[...tagById.values()]
-				.filter((tag) => tag.isActive)
-				.sort((first, second) => first.tagName.localeCompare(second.tagName)),
-		[tagById],
-	);
+	// The catalog drives both the filter options and the per-card chip labels.
+	const { byId: tagById } = useTagOptions();
+	const availableTags = useMemo(() => [...tagById.values()], [tagById]);
 
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to.
@@ -231,7 +219,7 @@ function ServiceRequestsExplorerRoute() {
 	const visibleAddressIds = useStableIds(visible.map((request) => request.addressId));
 	const contacts = useContactMap(visibleContactIds);
 	const addresses = useAddressMap(visibleAddressIds);
-	const tagsByRequestId = useTagsByEntityId(visibleRequestIds, tagById);
+	const tagsByRequestId = useEntityTags(toDbEntityType('serviceRequest'), visibleRequestIds);
 	const detailsLoading = !contacts.isReady || !addresses.isReady || !tagsByRequestId.isReady;
 
 	const geoJson = useMemo<GeoJSON.GeoJSON | null>(() => {
@@ -463,18 +451,16 @@ function useRequestIdsForTags(selectedTagIds: ReadonlySet<string>): ReadonlySet<
 			gcTime: requestsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: webCollections.tagItems })
-					.where(({ item }) => inArray(item.tagId, queryIds)),
+					.from({ item: tag_items })
+					.where(({ item }) => inArray(item.tag_id, queryIds))
+					.select(({ item }) => ({ entityId: item.entity_id })),
 		},
 		[key],
 	);
-	return useMemo(() => {
-		const ids = new Set<string>();
-		for (const item of (result.data ?? []) as readonly TagItemRow[]) {
-			ids.add(item.entityId);
-		}
-		return ids;
-	}, [result.data]);
+
+	const assignments = result.data;
+
+	return useMemo(() => new Set(assignments.map((item) => item.entityId)), [assignments]);
 }
 
 /** Load contacts by id off the on-demand `contacts` collection, indexed by id. */
@@ -531,55 +517,12 @@ function useAddressMap(ids: readonly string[]): {
 	return { byId, isReady: result.isReady };
 }
 
-/**
- * Resolve the assigned tags for each entity id off the on-demand `tag_items`
- * collection, joined against the eager `tags` catalog. Filtering by `entityId`
- * alone is safe: ids are globally unique UUIDs, so only service-request tag
- * items match — and it sidesteps the snake_case/camelCase `entity_type` bridge.
- */
-function useTagsByEntityId(
-	entityIds: readonly string[],
-	tagById: ReadonlyMap<string, TagRow>,
-): { readonly byId: ReadonlyMap<string, readonly TagRow[]>; readonly isReady: boolean } {
-	const idsKey = entityIds.join(',');
-	const queryIds = entityIds.length > 0 ? [...entityIds] : [UNMATCHABLE_ID];
-	const result = useLiveQuery(
-		{
-			gcTime: requestsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: webCollections.tagItems })
-					.where(({ item }) => inArray(item.entityId, queryIds)),
-		},
-		[idsKey],
-	);
-	const byId = useMemo(() => {
-		const map = new Map<string, TagRow[]>();
-		for (const item of (result.data ?? []) as readonly TagItemRow[]) {
-			const tag = tagById.get(item.tagId);
-			if (tag === undefined) {
-				continue;
-			}
-			const list = map.get(item.entityId) ?? [];
-			if (!list.some((existing) => existing.id === tag.id)) {
-				list.push(tag);
-			}
-			map.set(item.entityId, list);
-		}
-		for (const list of map.values()) {
-			list.sort((first, second) => first.tagName.localeCompare(second.tagName));
-		}
-		return map;
-	}, [result.data, tagById]);
-	return { byId, isReady: result.isReady };
-}
-
 function TagFilter({
 	options,
 	selected,
 	onChange,
 }: {
-	readonly options: readonly TagRow[];
+	readonly options: readonly Tag[];
 	readonly selected: ReadonlySet<string>;
 	readonly onChange: (next: ReadonlySet<string>) => void;
 }) {
@@ -619,7 +562,7 @@ function TagFilter({
 									<CommandItem
 										key={tag.id}
 										onSelect={() => onChange(toggle(selected, tag.id))}
-										value={`${tag.tagName} ${tag.id}`}
+										value={`${tag.name} ${tag.id}`}
 									>
 										<span
 											className={cn(
@@ -643,18 +586,12 @@ function TagFilter({
 	);
 }
 
-function RemovableTagChip({
-	tag,
-	onRemove,
-}: {
-	readonly tag: TagRow;
-	readonly onRemove: () => void;
-}) {
+function RemovableTagChip({ tag, onRemove }: { readonly tag: Tag; readonly onRemove: () => void }) {
 	return (
 		<span className="inline-flex items-center gap-1">
 			<TagBadge tag={tag} />
 			<button
-				aria-label={`Remove ${tag.tagName} filter`}
+				aria-label={`Remove ${tag.name} filter`}
 				className="rounded-full p-0.5 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={onRemove}
 				type="button"
@@ -675,7 +612,7 @@ function RequestRowItem({
 	onFocus,
 }: {
 	readonly request: ServiceRequestRow;
-	readonly tags: readonly TagRow[];
+	readonly tags: readonly Tag[];
 	readonly contact: ContactRow | null;
 	readonly address: AddressRow | null;
 	readonly detailsLoading: boolean;
