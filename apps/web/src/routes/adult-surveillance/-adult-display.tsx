@@ -6,25 +6,6 @@ import { formatDate, formatWeekdayDate } from './-overview-data';
 // --- shared labels ----------------------------------------------------------
 
 /**
- * The one trap label used everywhere in the app: `Code - Name`, dropping the dash
- * when only one of the two is set (and falling back to a short id when neither
- * is). Selects, lists, detail headers, map cards and route stops all read the
- * same way, so a trap is recognisable by its code wherever it appears.
- */
-export function trapDisplayName(trap: {
-	readonly id: string;
-	readonly trapName: string | null;
-	readonly trapCode: string | null;
-}): string {
-	const name = trap.trapName?.trim();
-	const code = trap.trapCode?.trim();
-	if (name && code) {
-		return `${code} - ${name}`;
-	}
-	return code || name || `Trap ${trap.id.slice(0, 8)}`;
-}
-
-/**
  * The calendar day a collection is anchored to, `YYYY-MM-DD`, or null when
  * genuinely pending.
  *
@@ -64,27 +45,6 @@ export function collectionEffectiveDate(
 	// An unparseable string still carries its leading date, so it is worth reading;
 	// an invalid `Date` carries nothing, and guessing would be worse than a blank.
 	return typeof collectedAt === 'string' ? collectedAt.slice(0, 10) : null;
-}
-
-/**
- * What a collection sorts by — the raw stored value, not a calendar day.
- *
- * Ordering does not need a zone: it only needs a key that ranks the same way for
- * everyone, and the stored instant does that with finer resolution than the day
- * it falls on. Separate from {@link collectionEffectiveDate} because that answers
- * "which day is this filed under", and only that question needs the agency.
- */
-export function collectionSortKey(collection: {
-	readonly collectedAt: Date | string | null;
-	readonly collectionDate: string | null;
-}): string {
-	const { collectedAt } = collection;
-	if (collectedAt === null) {
-		return collection.collectionDate ?? '';
-	}
-	// ISO either way, so an instant and a plain day still rank against each other
-	// on their shared `YYYY-MM-DD` prefix.
-	return collectedAt instanceof Date ? collectedAt.toISOString() : collectedAt;
 }
 
 /** Title for a collection: its date as `M/D/YYYY`, or `Pending collection` when unretrieved. */

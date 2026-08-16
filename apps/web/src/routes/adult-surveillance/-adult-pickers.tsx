@@ -1,7 +1,7 @@
 import type { TrapRow } from '@simmer-mosquito/sync';
 import { useMemo, useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../components/pickers/entity-picker';
-import { trapDisplayName } from './-adult-display';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
 
 // The adult forms pick an address (shared, on-demand subset search) or a trap.
 // The trap picker filters the eager `traps` set client-side.

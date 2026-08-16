@@ -21,7 +21,6 @@
  * `collectedAt` is a `Date` and `collectionDate` a `YYYY-MM-DD` string, which is
  * how they are stored and what the shape streams. The helpers take both.
  */
-
 import type { LinkedAddress } from './address-view';
 
 export type CollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
@@ -84,4 +83,49 @@ export interface AdultCollection {
 	readonly updatedAt: Date;
 	readonly createdByProfileId: string | null;
 	readonly updatedByProfileId: string | null;
+}
+
+/** The two columns that between them date a collection. */
+export interface CollectionDates {
+	readonly collectedAt: Date | string | null;
+	readonly collectionDate: string | null;
+}
+
+/**
+ * What a collection sorts by — the stored value, not a calendar day.
+ *
+ * Ordering needs no zone: it needs a key that ranks the same way for everyone,
+ * and the stored instant does that with finer resolution than the day it falls
+ * on. Separate from `collectionEffectiveDate`, which answers "which day is this
+ * filed under" — only that question needs the agency.
+ *
+ * ISO either way, so an instant and a plain day still rank against each other on
+ * their shared `YYYY-MM-DD` prefix. Undated rows sort last.
+ */
+export function collectionSortKey(collection: CollectionDates): string {
+	const { collectedAt } = collection;
+	if (collectedAt === null) {
+		return collection.collectionDate ?? '';
+	}
+	return collectedAt instanceof Date ? collectedAt.toISOString() : collectedAt;
+}
+
+/**
+ * Newest first.
+ *
+ * A JS sort rather than an `orderBy`, because the two timing modes date a
+ * collection from different columns and no single ordering key covers both — one
+ * is a `timestamptz`, the other a `date`, and a query cannot coalesce across
+ * those types.
+ */
+export function compareByCollectionDateDesc(
+	first: CollectionDates,
+	second: CollectionDates,
+): number {
+	const firstKey = collectionSortKey(first);
+	const secondKey = collectionSortKey(second);
+	if (firstKey === secondKey) {
+		return 0;
+	}
+	return firstKey > secondKey ? -1 : 1;
 }

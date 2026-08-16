@@ -1,4 +1,3 @@
-import type { CollectionMethodRow } from '@simmer-mosquito/sync';
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { CheckCircle2Icon, CircleIcon } from '@simmer-mosquito/ui-web/icons/registry';
@@ -18,6 +17,7 @@ import {
 	ResultList,
 	SegmentedFilter,
 	toggle,
+	useCollectionMethodOptions,
 	useFlyToSelection,
 	usePagedMapResource,
 	useRegionOptions,
@@ -25,7 +25,7 @@ import {
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas, type TrapTileFilters } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -35,8 +35,6 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
-import { trapDisplayName } from '../-adult-display';
 import { TrapMapCard } from '../-trap-map-card';
 
 interface TrapSite {
@@ -115,15 +113,8 @@ function TrapsExplorerRoute() {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
+	const { options: methodOptions, nameById: methodNameById } = useCollectionMethodOptions();
 	const regions = useRegionOptions();
-
-	const methodNameById = useMemo(
-		() => new Map(methods.map((method) => [method.id, method.name])),
-		[methods],
-	);
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
@@ -224,7 +215,7 @@ function TrapsExplorerRoute() {
 							empty="No collection methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter

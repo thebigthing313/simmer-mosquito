@@ -2,9 +2,9 @@ import type { RouteRow, TrapRow } from '@simmer-mosquito/sync';
 import { and, eq, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../../components/map';
+import { trapDisplayName } from '../../../../hooks/queries/trap-view';
 import { useCollectionRows } from '../../../../hooks/use-collection-rows';
 import { webCollections } from '../../../../sync/webCollections';
-import { trapDisplayName } from '../../-adult-display';
 
 // Trap routes reuse the shared `routes` / `route_items` tables — a route with
 // `routeType: 'trap'`, its stops `route_items` with `entityType: 'trap'`. `routes`

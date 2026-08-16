@@ -15,9 +15,9 @@ import {
 	MapCardEyebrow,
 } from '../../components/map/map-card';
 import { TagBadge } from '../../components/tag-badge';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { useTrap } from '../../hooks/queries/use-trap';
-import { trapDisplayName } from './-adult-display';
 
 const TrapEntityIcon = iconRegistry.entities.trap.icon;
 

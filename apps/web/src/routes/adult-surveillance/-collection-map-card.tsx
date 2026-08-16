@@ -8,9 +8,10 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../components/map/map-card';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../hooks/queries/use-adult-collection';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from './-adult-display';
+import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
 
 const CollectionEntityIcon = iconRegistry.entities.collection.icon;
 

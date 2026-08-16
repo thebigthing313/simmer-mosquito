@@ -17,7 +17,6 @@
  * by that id. There is no third thing to sort such a trap by that an operator
  * would recognise.
  */
-
 import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { traps } from '../../lib/collections/traps';

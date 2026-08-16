@@ -32,6 +32,7 @@ import {
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
 import { WriteOnly } from '../../components/write-only';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { useTrapCollections } from '../../hooks/queries/use-trap-collections';
@@ -42,7 +43,6 @@ import {
 	isPendingCollection,
 	SpeciesSexBadge,
 	SpeciesStatusBadge,
-	trapDisplayName,
 } from './-adult-display';
 import { formatWeekdayMonthDay } from './-overview-data';
 import {

@@ -13,11 +13,11 @@ import { and, eq, gte, inArray, isNull, lte, useLiveQuery } from '@tanstack/reac
 import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../components/map';
 import type { StopTone } from '../../../components/stop-order';
+import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { type LifecycleOption, lifecycleOptions } from '../../../lib/lifecycle-options';
 import { postCommand } from '../../../sync/post-command';
 import { webCollections } from '../../../sync/webCollections';
-import { trapDisplayName } from '../../adult-surveillance/-adult-display';
 
 // `assignments` and `assignment_items` are both on-demand shapes (docs/sync.md);
 // hold a worklist's rows briefly after unmount so list → run → plan reuses them.

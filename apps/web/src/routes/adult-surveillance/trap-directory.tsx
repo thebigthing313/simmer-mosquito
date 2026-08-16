@@ -12,6 +12,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { ExplorerHeader, ExplorerRow } from '../../components/explorer';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
 import {
 	type FilterCodecs,
@@ -20,7 +21,6 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../lib/search-filters';
-import { trapDisplayName } from './-adult-display';
 import { TrapCollectionHistory } from './-trap-collection-history';
 import {
 	ALL_METHODS,

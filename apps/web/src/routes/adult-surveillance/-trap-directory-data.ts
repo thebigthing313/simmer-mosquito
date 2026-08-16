@@ -1,12 +1,9 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
 import { useMemo } from 'react';
+import { compareByCollectionDateDesc } from '../../hooks/queries/collection-view';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
 import { type TrapListing, useActiveTraps } from '../../hooks/queries/use-active-traps';
-import {
-	collectionEffectiveDate,
-	collectionSortKey,
-	isPendingCollection,
-	trapDisplayName,
-} from './-adult-display';
+import { collectionEffectiveDate, isPendingCollection } from './-adult-display';
 
 /**
  * The fold behind the trap directory's right half: a trap's flat run of
@@ -188,7 +185,7 @@ export function groupByYear(
 		.map(([key, bucket]) => ({
 			key,
 			label: key,
-			collections: [...bucket].sort(compareByDateDesc),
+			collections: [...bucket].sort(compareByCollectionDateDesc),
 		}));
 
 	if (undated.length === 0) {
@@ -205,16 +202,6 @@ export function groupByYear(
 		},
 		...years,
 	];
-}
-
-/** Most recent first. Undated rows sort last, which the year buckets never mix. */
-function compareByDateDesc(first: DirectoryCollection, second: DirectoryCollection): number {
-	const firstDate = collectionSortKey(first);
-	const secondDate = collectionSortKey(second);
-	if (firstDate === secondDate) {
-		return 0;
-	}
-	return firstDate < secondDate ? 1 : -1;
 }
 
 /**
