@@ -55,6 +55,7 @@ import {
 import { requestedControlActionTableCommands } from './requested-control-actions.js';
 import { sampleSpeciesTableCommands } from './sample-species.js';
 import { sampleTableCommands } from './samples.js';
+import { genusTableCommands, speciesTableCommands } from './taxonomy.js';
 import { trapTableCommands } from './traps.js';
 
 export function registerTableCommandSurface(
@@ -62,6 +63,8 @@ export function registerTableCommandSurface(
 	options: {
 		readonly db: CommandDb;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+		/** Required only by the global catalogs — see `taxonomy.ts`. */
+		readonly operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
 	registerTableCommandRoutes(app, options, habitatTableCommands(options.db));
@@ -93,4 +96,7 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, notificationRegistrationTableCommands(options.db));
 	registerTableCommandRoutes(app, options, notificationRegistrationTypeTableCommands(options.db));
 	registerTableCommandRoutes(app, options, missionNotificationTableCommands(options.db));
+	// The two global catalogs, behind the operator door.
+	registerTableCommandRoutes(app, options, genusTableCommands(options.db));
+	registerTableCommandRoutes(app, options, speciesTableCommands(options.db));
 }

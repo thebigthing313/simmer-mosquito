@@ -390,6 +390,7 @@ registerGeocoderRoutes(app, {
 registerTableCommandSurface(app, {
 	db,
 	authContextMiddleware,
+	operatorAuthContextMiddleware,
 });
 
 // Last, so a real handler for any of these paths always wins: the day one is

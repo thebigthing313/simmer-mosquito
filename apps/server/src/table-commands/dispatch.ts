@@ -50,15 +50,24 @@ import { DomainValidationError } from '@simmer-mosquito/domain';
 import { commandPathFor } from '@simmer-mosquito/sync';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
-import type { AuthVariables } from '../auth-middleware.js';
+import type { AuthVariables, OperatorAuthContext } from '../auth-middleware.js';
 import {
 	type AgencyContext,
 	agencyCommandContext,
 	type CommandContext,
 	readJsonObject,
 } from '../command-endpoint.js';
-import { type AgencyCommandType, denyUnauthorizedAgencyCommands } from '../command-permissions.js';
-import { type RunCommandsConfig, runCommands, type WritableCommand } from '../command-write.js';
+import {
+	type AgencyCommandType,
+	denyUnauthorizedAgencyCommands,
+	readCommandPermission,
+} from '../command-permissions.js';
+import {
+	type RunCommandsConfig,
+	runCommands,
+	runOperatorCommands,
+	type WritableCommand,
+} from '../command-write.js';
 
 /** What every builder in a table's map is handed. */
 export interface IntentRequest {
@@ -99,9 +108,40 @@ export type IntentMap<TCommand> = Readonly<
 export interface TableCommands<TCommand extends WritableCommand, TSafe> {
 	/** The Postgres table. Names the routes, and is what the client's collection id is. */
 	readonly table: string;
+	/** Omitted means `'agency'`, which is every table but the global catalogs. */
+	readonly actor?: 'agency';
 	readonly run: RunCommandsConfig<TCommand, TSafe>;
 	readonly intents: IntentMap<TCommand>;
 }
+
+/**
+ * What an operator-scoped builder is handed.
+ *
+ * No `agency`, because there is none: the commands these tables carry extend
+ * `OperatorFoundationCommandInput`, which is `{ operatorUserId }` and nothing
+ * else. `genera` and `species` have no `organization_id` and every agency reads
+ * them, so an organization is not a thing a caller could sensibly supply.
+ */
+export interface OperatorIntentRequest {
+	readonly payload: Record<string, unknown>;
+	/** The SIMMER `users` row behind the operator session. */
+	readonly operatorUserId: string;
+	readonly operatorContext: OperatorAuthContext;
+	readonly id: string;
+}
+
+export interface OperatorTableCommands<TCommand extends WritableCommand, TSafe> {
+	readonly table: string;
+	readonly actor: 'operator';
+	readonly run: RunCommandsConfig<TCommand, TSafe>;
+	readonly intents: Readonly<
+		Partial<Record<AgencyCommandType, (request: OperatorIntentRequest) => TCommand>>
+	>;
+}
+
+export type AnyTableCommands<TCommand extends WritableCommand, TSafe> =
+	| TableCommands<TCommand, TSafe>
+	| OperatorTableCommands<TCommand, TSafe>;
 
 /** The names a request said it meant, or why the list could not be read. */
 type IntentsResult =
@@ -118,7 +158,10 @@ type IntentsResult =
  */
 function readIntents(
 	payload: Record<string, unknown>,
-	spec: { table: string; intents: IntentMap<unknown> },
+	// Only the names are read, so this fits an agency map and an operator one
+	// alike — their builders take different requests, which is not this function's
+	// business.
+	spec: { readonly table: string; readonly intents: Readonly<Record<string, unknown>> },
 ): IntentsResult {
 	const raw = payload.intents;
 
@@ -207,13 +250,130 @@ function tableCommandHandler<TCommand extends WritableCommand, TSafe>(
 	};
 }
 
+/**
+ * An operator table may only carry operator-scoped commands.
+ *
+ * Checked once at registration, so the process refuses to start rather than
+ * serving a route whose authorization does not match its door. It is what makes
+ * the operator write path safe without an agency actor: every command it can
+ * reach is settled by {@link decideCommand} at the boundary, and none of them
+ * is an ownership rule, so there is no stored row left to check and no agency
+ * membership needed to check it against.
+ */
+function assertOperatorScoped(spec: {
+	readonly table: string;
+	readonly intents: Readonly<Record<string, unknown>>;
+}): void {
+	for (const name of Object.keys(spec.intents) as AgencyCommandType[]) {
+		const permission = readCommandPermission(name);
+		if (permission.kind !== 'operator') {
+			throw new Error(
+				`${spec.table} is an operator table, but ${name} is a ${permission.kind} command. ` +
+					'Map it to `OPERATOR` in command-permissions.ts, or serve the table as an agency table.',
+			);
+		}
+	}
+}
+
+function registerOperatorRoutes<TCommand extends WritableCommand, TSafe>(
+	app: Hono<{ Variables: AuthVariables }>,
+	operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>,
+	spec: OperatorTableCommands<TCommand, TSafe>,
+): void {
+	assertOperatorScoped(spec);
+	const path = commandPathFor(spec.table);
+
+	const handler =
+		(
+			idFrom: (context: CommandContext, payload: Record<string, unknown>) => string,
+			created?: 201,
+		) =>
+		async (context: CommandContext): Promise<Response> => {
+			const parsed = await readJsonObject(context.req);
+			if (!parsed.ok) {
+				return context.json({ error: 'invalid_payload', reason: parsed.reason }, 400);
+			}
+
+			const names = readIntents(parsed.payload, spec);
+			if (!names.ok) {
+				return context.json({ error: 'unknown_command', reason: names.reason }, 400);
+			}
+
+			const operatorContext = context.get('operatorContext');
+			// The middleware proved the session is SIMMER's; what it cannot prove is
+			// that SIMMER has an identity row to attribute the write to, because
+			// `localIdentity` is nullable by design. A global catalog edit nobody can
+			// be named for is not one to accept.
+			if (operatorContext.localIdentity === null) {
+				return context.json(
+					{
+						error: 'operator_identity_required',
+						reason: 'This operator has no SIMMER user record to attribute the write to.',
+					},
+					403,
+				);
+			}
+
+			const payload = withoutIntents(parsed.payload);
+			const request: OperatorIntentRequest = {
+				payload,
+				operatorUserId: operatorContext.localIdentity.user.id,
+				operatorContext,
+				id: idFrom(context, payload),
+			};
+
+			const commands: TCommand[] = [];
+			for (const name of names.intents) {
+				const build = spec.intents[name] as (r: OperatorIntentRequest) => TCommand;
+				try {
+					commands.push(build(request));
+				} catch (error) {
+					if (!(error instanceof DomainValidationError)) {
+						throw error;
+					}
+					return context.json(
+						{ error: 'invalid_command', message: error.message, issues: error.issues },
+						400,
+					);
+				}
+			}
+
+			return runOperatorCommands(context, spec.run, commands, created);
+		};
+
+	app.post(
+		path,
+		operatorAuthContextMiddleware,
+		handler((_c, p) => stringOrEmpty(p.id), 201),
+	);
+	app.patch(
+		`${path}/:id`,
+		operatorAuthContextMiddleware,
+		handler((context) => context.req.param('id') as string),
+	);
+	app.delete(
+		`${path}/:id`,
+		operatorAuthContextMiddleware,
+		handler((context) => context.req.param('id') as string),
+	);
+}
+
 export function registerTableCommandRoutes<TCommand extends WritableCommand, TSafe>(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+		readonly operatorAuthContextMiddleware?: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
-	spec: TableCommands<TCommand, TSafe>,
+	spec: AnyTableCommands<TCommand, TSafe>,
 ): void {
+	if (spec.actor === 'operator') {
+		if (options.operatorAuthContextMiddleware === undefined) {
+			throw new Error(`${spec.table} is an operator table and needs the operator middleware.`);
+		}
+		registerOperatorRoutes(app, options.operatorAuthContextMiddleware, spec);
+		return;
+	}
+
 	const path = commandPathFor(spec.table);
 
 	app.post(

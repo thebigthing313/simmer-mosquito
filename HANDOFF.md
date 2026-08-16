@@ -42,7 +42,7 @@ so domains are not.
 - Write hooks. Only reads have moved. `mutateCollection` exists
   (`lib/collections/mutate.ts`) and nothing calls it yet.
 - The remaining server intent maps in `apps/server/src/table-commands/`.
-  **158 of the 261 agency commands are reachable**, across 29 tables: both
+  **164 of the 261 agency commands are reachable**, across 31 tables: both
   surveillance domains whole (`habitats`, `inspections`, `samples`,
   `sample_species`, `traps`, `collections`, `collection_species`) and control
   operations whole (72/72 — the four method catalogs, `vehicles`, `equipment`,
@@ -55,7 +55,21 @@ so domains are not.
   `notification_types`, `notification_registrations`,
   `notification_registration_types`, `mission_notifications`).
 
-  Left: `foundation` (0/36), `missionDispatch` (4/24), `fieldWork` (4/42),
+  `genera` and `species` are on it too, as the first **operator** tables — see
+  `table-commands/taxonomy.ts`. Two things are still open there:
+
+  1. **`/admin/genera` and `/admin/species` are a second door.** They still call
+     `createGenusWithTxid` and its siblings directly — no command, no permission
+     map, no actor. Retiring them means repointing `apps/admin/src/api.ts`
+     (six functions), and that is not a URL swap: `/commands/*` takes a
+     client-generated `id` on POST where `/admin/*` lets Postgres assign one, so
+     the console has to mint uuids. Worth a browser pass.
+  2. **An operator needs a SIMMER `users` row.** `OperatorAuthContext.localIdentity`
+     is nullable, and the operator routes refuse with `operator_identity_required`
+     when it is null rather than writing an unattributable edit. Whether the
+     operator organization has identity rows in staging is unverified.
+
+  Left: `foundation` (6/36), `missionDispatch` (4/24), `fieldWork` (4/42),
   `organizationSettings` (0/7). The four `fieldWork` and four `missionDispatch`
   commands already reachable are the execution ones that write a surveillance or
   control record, so they live on that record's table.
