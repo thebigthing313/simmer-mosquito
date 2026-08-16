@@ -4,7 +4,6 @@ import type {
 	CollectionLureRow,
 	CollectionMethodRow,
 	CollectionSpeciesRow,
-	ProfileRow,
 	SpeciesRow,
 	SpeciesSex,
 	SpeciesStatus,
@@ -78,6 +77,7 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { webCollections } from '../../../sync/webCollections';
@@ -227,7 +227,7 @@ function CollectionDetailContent({
 		webCollections.collectionMethods,
 	);
 	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
 
 	const { methodName, lureName, trap } = collectionCatalogContext(collection, {

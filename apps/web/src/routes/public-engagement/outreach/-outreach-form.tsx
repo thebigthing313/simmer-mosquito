@@ -1,6 +1,6 @@
 import { recordOutreachActionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { ControlMethodRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { ControlMethodRow } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -32,6 +32,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { FormSection } from '../../control-operations/-control-form-parts';
@@ -85,7 +86,7 @@ export interface OutreachFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
 	readonly outreachMethods: readonly ControlMethodRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly defaultValues: OutreachFormValues;
 	/** The action's geometry to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;

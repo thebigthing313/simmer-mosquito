@@ -1,5 +1,5 @@
 import { type CommentTargetType, toDbEntityType } from '@simmer-mosquito/domain';
-import type { CommentRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { CommentRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Avatar, AvatarFallback } from '@simmer-mosquito/ui-web/components/ui/avatar';
@@ -26,6 +26,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { and, eq, or, useLiveQuery } from '@tanstack/react-db';
 import { type KeyboardEvent, useCallback, useMemo, useState } from 'react';
+import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { webCollections } from '../sync/webCollections';
@@ -109,16 +110,9 @@ export function CommentsSection({
 		[target.type, target.id],
 	);
 
-	// profiles is an eager baseline collection, so a plain live query is cheap and
-	// avoids suspending the whole rail while names resolve.
-	const profilesResult = useLiveQuery(
-		(query) => query.from({ profile: webCollections.profiles }),
-		[],
-	);
-	const profilesById = useMemo(
-		() => new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile])),
-		[profilesResult.data],
-	);
+	// profiles is an eager baseline collection, so this is cheap and does not
+	// suspend the whole rail while names resolve.
+	const profileNameById = useProfileNames();
 
 	const comments = (commentsResult.data ?? []) as readonly CommentRow[];
 	const { pinned, unpinned } = useMemo(() => partitionByPin(comments), [comments]);
@@ -187,7 +181,7 @@ export function CommentsSection({
 	const renderComment = (comment: CommentRow) => (
 		<CommentItem
 			key={comment.id}
-			authorName={authorName(profilesById.get(comment.commentedByProfileId ?? ''))}
+			authorName={authorName(profileNameById.get(comment.commentedByProfileId ?? ''))}
 			canPin={canComment}
 			comment={comment}
 			isAuthor={canComment && comment.commentedByProfileId === currentProfileId}
@@ -591,8 +585,8 @@ function partitionByPin(comments: readonly CommentRow[]): {
 	return { pinned, unpinned };
 }
 
-function authorName(profile: ProfileRow | undefined): string {
-	const name = profile?.displayName?.trim();
+function authorName(displayName: string | undefined): string {
+	const name = displayName?.trim();
 	return name && name.length > 0 ? name : 'Unknown';
 }
 

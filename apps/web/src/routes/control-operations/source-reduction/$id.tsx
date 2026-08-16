@@ -1,9 +1,4 @@
-import type {
-	ControlMethodRow,
-	ProfileRow,
-	SourceReductionRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
+import type { ControlMethodRow, SourceReductionRow, UnitRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
@@ -30,6 +25,7 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import {
@@ -101,7 +97,7 @@ function SourceReductionDetailContent({
 		webCollections.sourceReductionMethods,
 	);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	// habitats is on-demand; resolve just the linked habitat's name as a subset.
 	const habitatIds = useMemo(
 		() => (sourceReduction.habitatId === null ? [] : [sourceReduction.habitatId]),

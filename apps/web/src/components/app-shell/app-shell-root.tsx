@@ -11,6 +11,7 @@ import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { Suspense } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
+import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { getToday } from '../../lib/get-today';
 import { webCollections } from '../../sync/webCollections';
@@ -52,7 +53,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 		(query) => query.from({ row: webCollections.currentOrganization }),
 		[],
 	);
-	const profileResult = useLiveQuery((query) => query.from({ row: webCollections.profiles }), []);
+	const profileNameById = useProfileNames();
 	const timeZone = useOrganizationTimeZone();
 
 	const organization = (organizationResult.data ?? []).find(
@@ -61,7 +62,8 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	if (organizationResult.isReady && localIdentity !== null && organization === undefined) {
 		throw new Error('Unable to resolve active organization for this workspace.');
 	}
-	const profile = (profileResult.data ?? []).find((row) => row.id === localIdentity?.profileId);
+	const profileId = localIdentity?.profileId ?? null;
+	const profileName = profileId === null ? undefined : profileNameById.get(profileId);
 
 	const currentOrganization: ShellOrganization = {
 		id: organization?.id ?? localIdentity?.organizationId ?? 'organization',
@@ -70,7 +72,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 		name: organization?.name ?? localIdentity?.organizationName ?? 'Organization',
 	};
 	const shellUser: ShellUser = {
-		name: profile?.displayName ?? user?.displayName ?? 'SIMMER User',
+		name: profileName ?? user?.displayName ?? 'SIMMER User',
 		email: user?.email ?? '',
 		role: formatRole(localIdentity?.role),
 	};

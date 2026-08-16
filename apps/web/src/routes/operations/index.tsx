@@ -1,4 +1,3 @@
-import type { ProfileRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -21,11 +20,10 @@ import { useAssignmentItemCounts } from '../../hooks/queries/use-assignment-item
 import { useAssignments } from '../../hooks/queries/use-assignments';
 import { useMissionItemCounts } from '../../hooks/queries/use-mission-item-counts';
 import { useMissions } from '../../hooks/queries/use-missions';
+import { useProfileRoster } from '../../hooks/queries/use-profile-roster';
 import { useRequestedControlActions } from '../../hooks/queries/use-requested-control-actions';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { addCalendarDays, todayInTimeZone } from '../../lib/local-date';
-import { webCollections } from '../../sync/webCollections';
 
 const OperationsIcon = iconRegistry.entities.vehicle.icon;
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
@@ -54,7 +52,7 @@ function OperationsOverviewRoute() {
 	const scheduleTo = useMemo(() => addCalendarDays(today, SCHEDULE_DAYS_AHEAD), [today]);
 	const requestFrom = useMemo(() => addCalendarDays(today, -(REQUEST_WINDOW_DAYS - 1)), [today]);
 
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	const profileNameById = useMemo(
 		() => new Map(profiles.map((profile) => [profile.id, profile.displayName] as const)),
 		[profiles],

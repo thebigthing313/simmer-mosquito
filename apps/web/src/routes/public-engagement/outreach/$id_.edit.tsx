@@ -1,5 +1,5 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { ControlMethodRow, OutreachActionRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { ControlMethodRow, OutreachActionRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -12,6 +12,7 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -44,7 +45,7 @@ function EditOutreachActionRoute() {
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.outreachMethods);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 
 	// outreachActions is on-demand; status-gated useLiveQuery (not suspense) avoids
 	// the post-unmount hang.
@@ -94,7 +95,7 @@ function EditOutreachActionLoader({
 }: {
 	readonly action: OutreachActionRow;
 	readonly outreachMethods: readonly ControlMethodRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 }) {

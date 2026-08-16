@@ -1,7 +1,5 @@
-import type { ProfileRow } from '@simmer-mosquito/sync';
 import { useMemo } from 'react';
-import { useCollectionRows } from '../hooks/use-collection-rows';
-import { webCollections } from '../sync/webCollections';
+import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { type AdditionalPersonnelTarget, useAdditionalPersonnel } from './additional-personnel';
 
 /**
@@ -17,14 +15,17 @@ export function AdditionalPersonnelList({
 	readonly target: AdditionalPersonnelTarget;
 }) {
 	const { profileIds, isReady } = useAdditionalPersonnel(target);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	// Names, not the roster: this lists who worked the record, and a crew member
+	// who has since left still worked it. Service status is a picker's question.
+	const nameById = useProfileNames();
 
-	const names = useMemo(() => {
-		const nameById = new Map(profiles.map((profile) => [profile.id, profile.displayName]));
-		return profileIds
-			.map((profileId) => nameById.get(profileId) ?? 'Unknown profile')
-			.sort((first, second) => first.localeCompare(second));
-	}, [profiles, profileIds]);
+	const names = useMemo(
+		() =>
+			profileIds
+				.map((profileId) => nameById.get(profileId) ?? 'Unknown profile')
+				.sort((first, second) => first.localeCompare(second)),
+		[nameById, profileIds],
+	);
 
 	if (!isReady || names.length === 0) {
 		return null;

@@ -6,7 +6,6 @@ import type {
 	FormulationInsecticideRow,
 	FormulationRow,
 	InsecticideRow,
-	ProfileRow,
 	UnitRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
@@ -20,6 +19,7 @@ import {
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -69,7 +69,7 @@ function CreateApplicationRoute() {
 		webCollections.formulationInsecticides,
 	);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
 	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
 

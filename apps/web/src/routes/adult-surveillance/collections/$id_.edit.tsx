@@ -2,7 +2,6 @@ import type {
 	AdultCollectionRow,
 	CollectionLureRow,
 	CollectionMethodRow,
-	ProfileRow,
 	TrapRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
@@ -18,6 +17,7 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -56,7 +56,7 @@ function EditCollectionRoute() {
 		webCollections.collectionMethods,
 	);
 	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
 
 	// collections is on-demand; status-gated useLiveQuery (not suspense) avoids the
@@ -115,7 +115,7 @@ function EditCollectionLoader({
 	readonly traps: readonly TrapRow[];
 	readonly collectionMethods: readonly CollectionMethodRow[];
 	readonly collectionLures: readonly CollectionLureRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly units: readonly UnitRow[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;

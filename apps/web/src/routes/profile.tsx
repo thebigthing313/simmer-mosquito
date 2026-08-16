@@ -15,6 +15,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import { type AuthenticatedMe, requestPasswordReset } from '../auth';
+import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { webCollections } from '../sync/webCollections';
 
 export const Route = createFileRoute('/profile')({
@@ -49,14 +50,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 
 	// Both shapes are eager, so these resolve without a fetch; the auth snapshot
 	// covers whatever has not landed yet.
-	const profileResult = useLiveQuery(
-		(query) =>
-			query
-				.from({ profile: webCollections.profiles })
-				.where(({ profile }) => eq(profile.id, profileId ?? ''))
-				.findOne(),
-		[profileId],
-	);
+	const profileNameById = useProfileNames();
 	const membershipResult = useLiveQuery(
 		(query) =>
 			query
@@ -65,10 +59,10 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 				.findOne(),
 		[membershipId],
 	);
-	const profile = profileResult.data;
 	const membership = membershipResult.data;
 
-	const displayName = profile?.displayName ?? user.displayName;
+	const displayName =
+		(profileId === null ? undefined : profileNameById.get(profileId)) ?? user.displayName;
 	const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
 
 	return (
@@ -144,7 +138,11 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 									</Badge>
 								)}
 							</DetailRow>
-							<DetailRow label="Attributed as">{orNotSet(profile?.displayName ?? null)}</DetailRow>
+							<DetailRow label="Attributed as">
+								{orNotSet(
+									(profileId === null ? undefined : profileNameById.get(profileId)) ?? null,
+								)}
+							</DetailRow>
 						</dl>
 					</CardContent>
 				</Card>

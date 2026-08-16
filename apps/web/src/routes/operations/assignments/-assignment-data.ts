@@ -4,7 +4,6 @@ import type {
 	AssignmentItemRow,
 	AssignmentRow,
 	HabitatRow,
-	ProfileRow,
 	ServiceRequestRow,
 	TrapRow,
 } from '@simmer-mosquito/sync';
@@ -16,6 +15,7 @@ import type { StopTone } from '../../../components/stop-order';
 import type { AssignmentStatus, ProgressCounts } from '../../../hooks/queries/assignment-view';
 import { assignmentStatus } from '../../../hooks/queries/assignment-view';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { type LifecycleOption, lifecycleOptions } from '../../../lib/lifecycle-options';
 import { postCommand } from '../../../sync/post-command';
@@ -562,7 +562,7 @@ export function useAssigneeOptions(): {
 	readonly options: readonly LifecycleOption[];
 	readonly nameById: ReadonlyMap<string, string>;
 } {
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 
 	return useMemo(
 		() => ({

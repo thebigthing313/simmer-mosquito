@@ -5,7 +5,6 @@ import type {
 	EquipmentRow,
 	InsecticideBatchRow,
 	InsecticideRow,
-	ProfileRow,
 	UnitRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
@@ -58,6 +57,7 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -149,7 +149,7 @@ function ApplicationDetailContent({
 	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
 	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
 	// habitats is on-demand; resolve just the linked habitat's name as a subset.

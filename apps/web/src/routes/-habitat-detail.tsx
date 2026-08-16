@@ -60,6 +60,7 @@ import { LinkedAddressValueById } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
+import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
@@ -961,17 +962,13 @@ function SampleSpeciesChip({ row }: { readonly row: HistorySampleSpecies }) {
 	);
 }
 
+/**
+ * One eager read of the whole roster rather than a subset per name rendered.
+ * Profiles number in the tens and every row on this page names an actor, so a
+ * query each would be dozens of identical suspending reads for one small table.
+ */
 function ProfileName({ profileId }: { readonly profileId: string }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ profile: webCollections.profiles })
-				.where(({ profile }) => eq(profile.id, profileId))
-				.findOne(),
-		[profileId],
-	);
-
-	return <>{result.data?.displayName ?? 'Unknown'}</>;
+	return <>{useProfileNames().get(profileId) ?? 'Unknown'}</>;
 }
 
 // insecticides, units, and application methods are eager baseline collections, so

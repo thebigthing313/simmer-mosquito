@@ -1,4 +1,4 @@
-import type { ControlType, NotificationTypeRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { ControlType, NotificationTypeRow } from '@simmer-mosquito/sync';
 import {
 	type RecordFormHeader,
 	RecordFormPage,
@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/com
 import { useMemo, useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { domainValidator } from '../../../forms/domain-validation';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -372,7 +373,7 @@ export function MissionFormPage({
 /** The three catalogs the form picks from, each with its own "unset" first. */
 function useMissionFormOptions(controlType: ControlType) {
 	const { methods } = useMethodsForControlType(controlType);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	const { rows: notificationTypes } = useCollectionRows<NotificationTypeRow>(
 		webCollections.notificationTypes,
 	);

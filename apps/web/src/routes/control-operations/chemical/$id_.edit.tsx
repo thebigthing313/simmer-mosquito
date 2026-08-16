@@ -4,7 +4,6 @@ import type {
 	ControlMethodRow,
 	EquipmentRow,
 	InsecticideRow,
-	ProfileRow,
 	UnitRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
@@ -20,6 +19,7 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -59,7 +59,7 @@ function EditApplicationRoute() {
 	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
 	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
 	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
 	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
 
@@ -122,7 +122,7 @@ function EditApplicationLoader({
 	readonly applicationMethods: readonly ControlMethodRow[];
 	readonly insecticides: readonly InsecticideRow[];
 	readonly units: readonly UnitRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly vehicles: readonly VehicleRow[];
 	readonly equipment: readonly EquipmentRow[];
 	readonly actorProfileId: string | null;

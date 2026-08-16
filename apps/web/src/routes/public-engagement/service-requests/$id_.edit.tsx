@@ -1,11 +1,11 @@
-import type { ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
+import type { ServiceRequestRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { isBelowRole } from '../../../lib/write-access';
 import { webCollections } from '../../../sync/webCollections';
 import { serviceRequestTitle } from '../-public-engagement-display';
@@ -39,7 +39,7 @@ type MutableServiceRequestRow = {
 function EditServiceRequestRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 
 	const result = useLiveQuery(
 		{
@@ -84,7 +84,7 @@ function EditServiceRequestLoader({
 	canSubmit,
 }: {
 	readonly request: ServiceRequestRow;
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 }) {

@@ -1,6 +1,6 @@
 import { isSourceReductionUnitType, recordSourceReductionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { ControlMethodRow, HabitatRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
+import type { ControlMethodRow, HabitatRow, UnitRow } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -32,6 +32,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
@@ -99,7 +100,7 @@ export interface SourceReductionFormPageProps {
 	readonly canSubmit: boolean;
 	readonly methods: readonly ControlMethodRow[];
 	readonly units: readonly UnitRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly defaultValues: SourceReductionFormValues;
 	/** The action's geometry to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -533,7 +534,7 @@ function validate(values: SourceReductionFormValues): string | null {
 	return null;
 }
 
-function technicianOptions(profiles: readonly ProfileRow[]) {
+function technicianOptions(profiles: readonly ProfileListing[]) {
 	return [
 		{ label: 'Unassigned', value: noTechnicianValue },
 		...lifecycleOptions(

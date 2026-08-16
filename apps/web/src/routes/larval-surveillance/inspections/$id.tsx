@@ -39,6 +39,7 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useProfileNames } from '../../../hooks/queries/use-profile-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
@@ -937,16 +938,9 @@ function UnitAmount({ amount, unitId }: { readonly amount: number; readonly unit
 	);
 }
 
+/** See the twin in `-habitat-detail.tsx`: one roster read, not one per name. */
 function ProfileName({ profileId }: { readonly profileId: string }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ profile: webCollections.profiles })
-				.where(({ profile }) => eq(profile.id, profileId))
-				.findOne(),
-		[profileId],
-	);
-	return <>{result.data?.displayName ?? 'Unknown'}</>;
+	return <>{useProfileNames().get(profileId) ?? 'Unknown'}</>;
 }
 
 function LinkedActionsEmpty({

@@ -1,4 +1,3 @@
-import type { ProfileRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -31,8 +30,8 @@ import {
 	requestDisplayName,
 } from '../../../hooks/queries/operations-view';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
@@ -441,7 +440,7 @@ function useRecommendedMethodName(methodId: string | null): string | null {
 }
 
 function useProfileName(profileId: string | null): string | null {
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	return profileId === null
 		? null
 		: (profiles.find((profile) => profile.id === profileId)?.displayName ?? 'Unknown profile');

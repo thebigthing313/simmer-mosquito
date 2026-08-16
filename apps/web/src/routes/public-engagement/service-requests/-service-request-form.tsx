@@ -4,7 +4,7 @@ import {
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { AddressRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { AddressRow } from '@simmer-mosquito/sync';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
@@ -29,6 +29,7 @@ import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import {
 	CONTACT_FIELD_PATHS,
@@ -124,7 +125,7 @@ export interface ServiceRequestFormHeader {
 export interface ServiceRequestFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly defaultValues: ServiceRequestFormValues;
 	/** Prefill the drawn point on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;

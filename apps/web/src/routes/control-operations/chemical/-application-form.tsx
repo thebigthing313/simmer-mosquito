@@ -10,7 +10,6 @@ import type {
 	FormulationRow,
 	InsecticideBatchRow,
 	InsecticideRow,
-	ProfileRow,
 	UnitRow,
 	VehicleRow,
 } from '@simmer-mosquito/sync';
@@ -48,6 +47,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
@@ -172,7 +172,7 @@ export interface ApplicationFormPageProps {
 	/** Every mix's component rows; the chosen mix's are picked out of these. */
 	readonly formulationComponents?: readonly FormulationInsecticideRow[];
 	readonly units: readonly UnitRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly vehicles: readonly VehicleRow[];
 	readonly equipment: readonly EquipmentRow[];
 	readonly defaultValues: ApplicationFormValues;

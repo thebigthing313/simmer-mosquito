@@ -10,7 +10,6 @@ import type {
 	CollectionLureRow,
 	CollectionMethodRow,
 	CollectionTimingMode,
-	ProfileRow,
 	TrapRow,
 	UnitRow,
 } from '@simmer-mosquito/sync';
@@ -39,6 +38,7 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { isPendingCollection as isPendingCollectionRow } from '../-adult-display';
@@ -195,7 +195,7 @@ export interface CollectionFormPageProps {
 	readonly traps: readonly TrapRow[];
 	readonly collectionMethods: readonly CollectionMethodRow[];
 	readonly collectionLures: readonly CollectionLureRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly units: readonly UnitRow[];
 	readonly defaultValues: CollectionFormValues;
 	/** Edit locks the trap/ad-hoc choice — the two are distinct command paths. */
@@ -786,7 +786,7 @@ function lureOptions(lures: readonly CollectionLureRow[]) {
 	];
 }
 
-function profileOptions(profiles: readonly ProfileRow[]) {
+function profileOptions(profiles: readonly ProfileListing[]) {
 	return lifecycleOptions(
 		profiles,
 		(profile) => profile.isActive,

@@ -1,5 +1,5 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
-import type { AddressRow, ContactRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
+import type { AddressRow, ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -38,7 +38,7 @@ import { ReasonDialog } from '../../../components/reason-dialog';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useLookupNames } from '../../../hooks/queries/use-lookup-names';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { webCollections } from '../../../sync/webCollections';
 import { HabitatMapCard } from '../../-habitat-map-card';
 import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
@@ -163,7 +163,7 @@ function ServiceRequestDetailContent({
 	);
 	const [selectedNearbyId, setSelectedNearbyId] = useState<string | null>(null);
 
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	const receivedByName =
 		profiles.find((profile) => profile.id === request.receivedByProfileId)?.displayName ?? null;
 

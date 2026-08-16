@@ -6,7 +6,6 @@ import type {
 	HabitatTypeRow,
 	InspectionRow,
 	LarvalDensity,
-	ProfileRow,
 	SampleRow,
 } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
@@ -21,6 +20,7 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
@@ -56,7 +56,7 @@ function EditInspectionRoute() {
 	const { auth } = Route.useRouteContext();
 	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
 	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 
 	// inspections is an on-demand collection, so this reads live status through
 	// useLiveQuery (not the suspense variant, which can hang after a nav unmount).
@@ -129,7 +129,7 @@ function EditInspectionLoader({
 }: {
 	readonly inspection: InspectionRow;
 	readonly habitatTypes: readonly HabitatTypeRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 	readonly organizationId: string;
 	readonly actorProfileId: string | null;

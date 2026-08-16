@@ -1,9 +1,10 @@
 import { type AdditionalPersonnelTargetType, toDbEntityType } from '@simmer-mosquito/domain';
-import type { AdditionalPersonnelRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { AdditionalPersonnelRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import type { MultiSelectOption } from '@simmer-mosquito/ui-web/components/multi-select';
 import { and, eq, or, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
+import type { ProfileListing } from '../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../lib/lifecycle-options';
 import { reconcileLinks } from '../sync/reconcile-links';
 import { webCollections } from '../sync/webCollections';
@@ -79,7 +80,7 @@ export function useAdditionalPersonnel(
  * somehow attached as crew too.
  */
 export function additionalPersonnelOptions(
-	profiles: readonly ProfileRow[],
+	profiles: readonly ProfileListing[],
 	selectedIds: readonly string[],
 	options: { readonly excludeProfileId?: string | null } = {},
 ): readonly MultiSelectOption[] {
