@@ -177,7 +177,8 @@ async function runTrapCommands(
 	);
 }
 
-async function writeTrapCommand(
+/** Exported for `table-commands/traps.ts` — see `writeHabitatCommand`. */
+export async function writeTrapCommand(
 	trx: AdultSurveillanceTransaction,
 	command: AdultSurveillanceCommand,
 ): Promise<SafeTrap | null> {

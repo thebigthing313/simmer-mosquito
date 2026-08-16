@@ -41,8 +41,9 @@ so domains are not.
   — rows arrive snake_case, consumers read camelCase. Expected; don't chase it.
 - Write hooks. Only reads have moved. `mutateCollection` exists
   (`lib/collections/mutate.ts`) and nothing calls it yet.
-- The other 52 server intent maps in `apps/server/src/table-commands/`. Larval
-  surveillance is done — `habitats`, `inspections`, `samples`, `sample_species`.
+- The other 49 server intent maps in `apps/server/src/table-commands/`. Both
+  surveillance domains are done — `habitats`, `inspections`, `samples`,
+  `sample_species`, `traps`, `collections`, `collection_species`.
 - `packages/sync/src/rows/*` — 58 camelCase `*Row` types, still imported by the
   old path. They go when nothing imports them.
 - `/map/*` REST endpoints still return camelCase via ~170 `as "camelCase"`

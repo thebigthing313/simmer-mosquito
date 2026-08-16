@@ -1,10 +1,11 @@
 /**
  * The `/commands/{table}` surface.
  *
- * Larval surveillance, whole. The mechanism in `dispatch.ts` is table-agnostic
- * and the writers already exist per table, so adding one is its own file of the
- * shape `habitats.ts` has: a `run` config imported from the domain module that
- * already writes it, and a map from each command it accepts to a builder.
+ * Both surveillance domains, whole. The mechanism in `dispatch.ts` is
+ * table-agnostic and the writers already exist per table, so adding one is its
+ * own file of the shape `habitats.ts` has: a `run` config imported from the
+ * domain module that already writes it, and a map from each command it accepts
+ * to a builder.
  *
  * The remaining tables are mechanical but not automatic. Each builder is a
  * translation from column names to domain arguments, and the existing `build`
@@ -20,11 +21,14 @@
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import type { CommandDb } from '../command-write.js';
+import { collectionSpeciesTableCommands } from './collection-species.js';
+import { collectionTableCommands } from './collections.js';
 import { registerTableCommandRoutes } from './dispatch.js';
 import { habitatTableCommands } from './habitats.js';
 import { inspectionTableCommands } from './inspections.js';
 import { sampleSpeciesTableCommands } from './sample-species.js';
 import { sampleTableCommands } from './samples.js';
+import { trapTableCommands } from './traps.js';
 
 export function registerTableCommandSurface(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -37,4 +41,7 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, inspectionTableCommands(options.db));
 	registerTableCommandRoutes(app, options, sampleTableCommands(options.db));
 	registerTableCommandRoutes(app, options, sampleSpeciesTableCommands(options.db));
+	registerTableCommandRoutes(app, options, trapTableCommands(options.db));
+	registerTableCommandRoutes(app, options, collectionTableCommands(options.db));
+	registerTableCommandRoutes(app, options, collectionSpeciesTableCommands(options.db));
 }
