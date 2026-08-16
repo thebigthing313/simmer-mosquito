@@ -17,7 +17,6 @@ export {
 	dayOfMonth,
 	startOfWeek,
 	todayInTimeZone,
-	useHabitatNames,
 	weekdayLabel,
 } from '../larval-surveillance/-overview-data';
 

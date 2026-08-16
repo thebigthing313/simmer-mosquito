@@ -23,6 +23,7 @@ import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
@@ -32,7 +33,6 @@ import {
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
 import { webCollections } from '../../../sync/webCollections';
-import { useHabitatNames } from '../../control-operations/-overview-data';
 import { useCommandRunner } from '../-command-runner';
 import {
 	controlTypeLabel,

@@ -27,6 +27,7 @@ import {
 	MapCanvas,
 	type SourceReductionTileFilters,
 } from '../../../components/map';
+import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
@@ -40,7 +41,7 @@ import {
 import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { formatAmount, nameById } from '../-control-display';
-import { addDaysToDateString, useHabitatNames } from '../-overview-data';
+import { addDaysToDateString } from '../-overview-data';
 import { SourceReductionMapCard } from '../-source-reduction-map-card';
 
 interface SourceReductionSite {

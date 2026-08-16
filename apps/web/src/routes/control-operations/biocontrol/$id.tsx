@@ -29,12 +29,12 @@ import { LinkedAddressValue } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { webCollections } from '../../../sync/webCollections';
 import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
-import { useHabitatNames } from '../-overview-data';
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 const EditIcon = iconRegistry.actions.edit.icon;

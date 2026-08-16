@@ -1,5 +1,5 @@
 import type { LarvalDensity, SpeciesRow } from '@simmer-mosquito/sync';
-import { eq, gte, inArray, useLiveQuery } from '@tanstack/react-db';
+import { gte, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
@@ -15,10 +15,6 @@ const WEEK_LENGTH = 7;
 // Inspections, samples, and sample_species are on-demand shapes (docs/sync.md).
 // Keep the subset warm briefly after unmount so quick nav back reuses it.
 const activityGcTimeMs = 30_000;
-
-// A syntactically valid uuid that matches no row — keeps an `IN` subset predicate
-// live (and empty) while the id set is still empty.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 // --- projected query shapes -------------------------------------------------
 
@@ -154,49 +150,6 @@ async function fetchSamplesAwaiting(
 		throw new Error(`Awaiting samples request failed (${response.status}).`);
 	}
 	return (await response.json()) as { readonly total: number; readonly samples: AwaitingSample[] };
-}
-
-// --- habitat name resolution (live on-demand subset) ------------------------
-
-interface HabitatSiteName {
-	readonly id: string;
-	readonly habitatName: string | null;
-}
-
-// Bound the subset so a very wide activity window stays a reasonable id set;
-// unique habitats past this fall back to a short-id label rather than loading.
-const maxHabitatNameIds = 500;
-
-/**
- * Resolve habitat display names for a set of ids straight off the on-demand
- * `habitats` collection (docs/sync.md): the `IN` subset (a POST body, so a large
- * id set never hits the URL-length ceiling) loads exactly these rows, keeps
- * streaming, and reuses rows already synced for other habitat screens.
- */
-export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, string> {
-	const sortedIds = useMemo(() => [...new Set(ids)].sort().slice(0, maxHabitatNameIds), [ids]);
-	const idsKey = sortedIds.join(',');
-	const queryIds = sortedIds.length > 0 ? sortedIds : [UNMATCHABLE_ID];
-
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: webCollections.habitats })
-					.where(({ habitat }) => inArray(habitat.id, queryIds))
-					.select(({ habitat }) => ({ id: habitat.id, habitatName: habitat.habitatName })),
-		},
-		[idsKey],
-	);
-
-	return useMemo(() => {
-		const map = new Map<string, string>();
-		for (const site of (result.data ?? []) as readonly HabitatSiteName[]) {
-			map.set(site.id, site.habitatName?.trim() || `Habitat ${site.id.slice(0, 8)}`);
-		}
-		return map;
-	}, [result.data]);
 }
 
 // --- pure date helpers (operate on `YYYY-MM-DD` strings) --------------------
