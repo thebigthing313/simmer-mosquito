@@ -30,7 +30,12 @@
  * here assumes either answer.
  */
 
-import { locationSourceFields, requireIntents } from './mutation-metadata.js';
+import {
+	acknowledgementFields,
+	contextFields,
+	locationSourceFields,
+	requireIntents,
+} from './mutation-metadata.js';
 import { commandPathFor } from './routes.js';
 
 /** The body of a command: row fields named for their Postgres columns. */
@@ -173,10 +178,14 @@ export function commandRequestFor<TRow extends object>(
 	const intents = requireIntents(mutation.metadata, table);
 
 	if (mutation.type === 'delete') {
-		// A delete has no payload of its own beyond the command it means. Which
-		// acknowledgements that command demands is the server's to decide, and it
-		// answers with them when it refuses.
-		return { method: 'DELETE', url: `${endpoint}/${String(mutation.key)}`, body: { intents } };
+		// A delete has no payload of its own beyond the command it means and the
+		// refusals it answers — a cascade the caller has agreed to is the whole
+		// reason a delete carries a body at all.
+		return {
+			method: 'DELETE',
+			url: `${endpoint}/${String(mutation.key)}`,
+			body: { ...acknowledgementFields(mutation.metadata), intents },
+		};
 	}
 
 	if (mutation.type === 'insert') {
@@ -186,27 +195,36 @@ export function commandRequestFor<TRow extends object>(
 			body: {
 				...withoutServerOwnedColumns(mutation.modified),
 				...locationSourceFields(mutation.metadata),
+				...contextFields(mutation.metadata),
+				...acknowledgementFields(mutation.metadata),
 				intents,
 			},
 		};
 	}
 
 	// A re-drawn shape is a change even when no column moved, so the location
-	// instruction is folded in before the emptiness check. The intents are not:
-	// naming the commands does not give the endpoint anything to write, so an
-	// otherwise empty patch stays empty.
+	// instruction is folded in before the emptiness check — and the context with
+	// it, for the same reason: re-attaching a record to a different Habitat is an
+	// edit the server derives the columns from, not one it reads them from. The
+	// intents are not: naming the commands does not give the endpoint anything to
+	// write, so an otherwise empty patch stays empty.
 	const body = {
 		...withoutServerOwnedColumns(mutation.changes),
 		...locationSourceFields(mutation.metadata),
+		...contextFields(mutation.metadata),
 	};
 
 	if (Object.keys(body).length === 0) {
 		return null;
 	}
 
+	// Folded in after the check, with the intents: answering a refusal says this
+	// attempt may proceed, not that anything more should change. A patch that
+	// carried nothing but acknowledgements would be asking the server to write
+	// nothing, which is the empty request the check exists to suppress.
 	return {
 		method: 'PATCH',
 		url: `${endpoint}/${String(mutation.key)}`,
-		body: { ...body, intents },
+		body: { ...body, ...acknowledgementFields(mutation.metadata), intents },
 	};
 }

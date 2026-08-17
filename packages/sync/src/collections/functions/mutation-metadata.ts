@@ -95,3 +95,68 @@ export function locationSourceFields(metadata: unknown): Record<string, unknown>
 	const locationSource = readLocationSource(metadata);
 	return locationSource === undefined ? {} : { locationSource };
 }
+
+/**
+ * What this record was worked against, as a body field.
+ *
+ * A performed control action is done at a Habitat, against an Adult Collection,
+ * or at neither — and the domain states that as one discriminated value
+ * (`{ kind: 'none' | 'larval' | 'adult', … }`) rather than as three nullable
+ * columns, because the kinds are exclusive and a row carrying both a habitat and
+ * a collection is not a record anyone meant to write.
+ *
+ * The columns behind it do sync, so this is not `locationSource`'s situation of
+ * having nowhere else to travel. It rides here because a column diff cannot
+ * express the exclusivity: `habitat_id` moving and `collection_id` clearing are
+ * two independent facts on the wire, and the server would have to guess which
+ * one the caller meant. The instruction says it once, and the server derives the
+ * columns from it.
+ *
+ * Read untyped, like the location instruction. Which kinds a command accepts is
+ * the domain builder's rule, re-checked server-side over the untrusted body.
+ */
+function readActionContext(metadata: unknown): unknown {
+	return readMutationMetadata(metadata)?.context;
+}
+
+/**
+ * The context instruction as body fields, or nothing.
+ *
+ * Spreadable for the same reason as {@link locationSourceFields}: absent and
+ * `{ kind: 'none' }` are different requests — one leaves the attachment alone,
+ * the other detaches it — so a caller must be able to send neither.
+ */
+export function contextFields(metadata: unknown): Record<string, unknown> {
+	const context = readActionContext(metadata);
+	return context === undefined ? {} : { context };
+}
+
+/**
+ * The refusals this write is answering, as body fields.
+ *
+ * Some preconditions are questions rather than rules — the mission stop is
+ * already completed, the action does not cover the ground the stop names, the
+ * trap code is a duplicate. The server refuses once naming the question, and
+ * accepts the identical write again when it carries the flag that answers it.
+ * That second attempt is the *same* command, so the answer cannot ride on the row
+ * and cannot be a different intent: it is a fact about this attempt, which is
+ * what `metadata` is for.
+ *
+ * Flat top-level keys rather than a nested object, because that is how the
+ * endpoints read them — `payload.acknowledgedDuplicateTrapCode`, not
+ * `payload.acknowledgements.…`. Callers group them under one metadata key so a
+ * retry can merge in a new flag without touching the rest of the write; this is
+ * where the grouping is undone.
+ *
+ * Read untyped, like `locationSource` and for the same reason. Which flags a
+ * command accepts is the domain's to say and differs per command, and every one
+ * of them is re-checked server-side over the untrusted body — a reader here that
+ * knew the names would be a second copy of a rule it does not own. An unknown key
+ * is ignored by the endpoint rather than trusted, and every flag is acted on only
+ * when explicitly `true`, so passing one through costs nothing when it is wrong.
+ */
+export function acknowledgementFields(metadata: unknown): Record<string, unknown> {
+	const acknowledgements = readMutationMetadata(metadata)?.acknowledgements;
+	const flags = readMutationMetadata(acknowledgements);
+	return flags === undefined ? {} : { ...flags };
+}

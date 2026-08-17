@@ -164,6 +164,175 @@ describe('commandRequestFor', () => {
 		});
 	});
 
+	describe('what a record was worked against', () => {
+		// The kinds are exclusive — a habitat or a collection, never both — and a
+		// column diff cannot say so. The instruction says it once and the server
+		// derives `habitat_id`/`inspection_id`/`collection_id` from it.
+		const context = { kind: 'larval', habitatId: 'habitat-7' };
+
+		it('sends it with a create', () => {
+			const request = commandRequestFor(
+				write({ metadata: { intents: ['controlOperations.recordSourceReduction'], context } }),
+				SERVER,
+			);
+
+			expect(request?.body).toMatchObject({ context });
+		});
+
+		it('treats a re-attachment as an edit even when no column moved', () => {
+			const request = commandRequestFor(
+				write({
+					type: 'update',
+					changes: { updated_at: new Date() },
+					metadata: {
+						intents: ['controlOperations.updateSourceReductionLocationAndContext'],
+						context,
+					},
+				}),
+				SERVER,
+			);
+
+			expect(request?.body).toEqual({
+				context,
+				intents: ['controlOperations.updateSourceReductionLocationAndContext'],
+			});
+		});
+
+		it('distinguishes detaching from leaving the attachment alone', () => {
+			// `{ kind: 'none' }` clears it; absent says nothing about it at all. Sending
+			// the first as the second would silently keep a link the user removed.
+			const detach = commandRequestFor(
+				write({
+					type: 'update',
+					changes: { habitat_name: 'x' },
+					metadata: {
+						intents: ['controlOperations.updateSourceReductionLocationAndContext'],
+						context: { kind: 'none' },
+					},
+				}),
+				SERVER,
+			);
+			const untouched = commandRequestFor(
+				write({
+					type: 'update',
+					changes: { habitat_name: 'x' },
+					metadata: { intents: ['controlOperations.updateSourceReductionFieldDetails'] },
+				}),
+				SERVER,
+			);
+
+			expect(detach?.body).toHaveProperty('context', { kind: 'none' });
+			expect(untouched?.body).not.toHaveProperty('context');
+		});
+
+		it('never sends one on a delete', () => {
+			const request = commandRequestFor(
+				write({
+					type: 'delete',
+					metadata: { intents: ['controlOperations.deleteSourceReduction'], context },
+				}),
+				SERVER,
+			);
+
+			expect(request?.body).toEqual({ intents: ['controlOperations.deleteSourceReduction'] });
+		});
+	});
+
+	describe('the refusals a write answers', () => {
+		// The endpoints read these as flat top-level keys —
+		// `payload.acknowledgedDuplicateTrapCode`, not `payload.acknowledgements.…`.
+		// Callers group them under one metadata key so a retry can merge in a new
+		// flag without rebuilding the write; the request is where that is undone.
+
+		it('flattens them onto a create', () => {
+			const request = commandRequestFor(
+				write({
+					metadata: {
+						intents: ['controlOperations.recordSourceReduction'],
+						acknowledgements: { acknowledgedMissionGeometryNotCovered: true },
+					},
+				}),
+				SERVER,
+			);
+
+			expect(request?.body).toMatchObject({
+				acknowledgedMissionGeometryNotCovered: true,
+				intents: ['controlOperations.recordSourceReduction'],
+			});
+			expect(request?.body).not.toHaveProperty('acknowledgements');
+		});
+
+		it('flattens them onto an edit', () => {
+			const request = commandRequestFor(
+				write({
+					type: 'update',
+					changes: { habitat_name: 'Levee ditch' },
+					metadata: {
+						intents: ['larvalSurveillance.updateHabitatDetails'],
+						acknowledgements: { acknowledgedTargetMismatch: true },
+					},
+				}),
+				SERVER,
+			);
+
+			expect(request?.body).toEqual({
+				habitat_name: 'Levee ditch',
+				acknowledgedTargetMismatch: true,
+				intents: ['larvalSurveillance.updateHabitatDetails'],
+			});
+		});
+
+		it('carries them on a delete, which has nowhere else to put them', () => {
+			// A cascade is the commonest question a write is refused over, and a delete
+			// has no row and no changed fields for the answer to travel in.
+			const request = commandRequestFor(
+				write({
+					type: 'delete',
+					metadata: {
+						intents: ['adultSurveillance.deleteTrap'],
+						acknowledgements: { acknowledgedCascadeDelete: true },
+					},
+				}),
+				SERVER,
+			);
+
+			expect(request?.body).toEqual({
+				acknowledgedCascadeDelete: true,
+				intents: ['adultSurveillance.deleteTrap'],
+			});
+		});
+
+		it('does not make an empty patch into a request', () => {
+			// Answering a refusal says this attempt may proceed, not that anything more
+			// should change. A patch carrying nothing else is still asking the server to
+			// write nothing.
+			const request = commandRequestFor(
+				write({
+					type: 'update',
+					changes: { updated_at: new Date() },
+					metadata: {
+						intents: ['larvalSurveillance.updateHabitatDetails'],
+						acknowledgements: { acknowledgedTargetMismatch: true },
+					},
+				}),
+				SERVER,
+			);
+
+			expect(request).toBeNull();
+		});
+
+		it('adds nothing when the write answers no refusal', () => {
+			const request = commandRequestFor(
+				write({ metadata: { intents: ['larvalSurveillance.createHabitat'] } }),
+				SERVER,
+			);
+
+			expect(Object.keys(request?.body ?? {}).some((key) => key.startsWith('acknowledged'))).toBe(
+				false,
+			);
+		});
+	});
+
 	it('refuses a write that does not say which commands it means', () => {
 		for (const metadata of [{}, { intents: [] }, { intents: 'not-a-list' }, { intents: [''] }]) {
 			expect(() => commandRequestFor(write({ metadata }), SERVER)).toThrowError(

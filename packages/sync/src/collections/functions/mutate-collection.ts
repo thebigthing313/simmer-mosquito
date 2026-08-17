@@ -102,6 +102,15 @@ export type MutationIntent<TIntent extends string> = TIntent | readonly TIntent[
  * 'geometry', geometry }` for a shape the user drew, or a kind naming a row to
  * copy one from. It rides here rather than on the row because `geom` never
  * syncs, so there is no column for it to travel in.
+ *
+ * `context` is what a performed control action was worked against — a Habitat, an
+ * Adult Collection, or neither. Its columns *do* sync, so unlike the location it
+ * has somewhere else it could go; it rides here because the kinds are exclusive
+ * and a column diff cannot say so. The server derives the columns from it.
+ *
+ * `acknowledgements` are the refusals this attempt is answering. They belong to
+ * the attempt rather than to the record, which is why a retry can add one without
+ * changing anything else about the write.
  */
 export type CollectionMutation<TRow extends object, TIntent extends string> =
 	| {
@@ -109,6 +118,8 @@ export type CollectionMutation<TRow extends object, TIntent extends string> =
 			readonly intent: MutationIntent<TIntent>;
 			readonly row: TRow;
 			readonly locationSource?: unknown;
+			readonly context?: unknown;
+			readonly acknowledgements?: Readonly<Record<string, boolean>>;
 	  }
 	| {
 			readonly operation: 'update';
@@ -126,11 +137,19 @@ export type CollectionMutation<TRow extends object, TIntent extends string> =
 			 */
 			readonly changes: Partial<TRow>;
 			readonly locationSource?: unknown;
+			readonly context?: unknown;
+			readonly acknowledgements?: Readonly<Record<string, boolean>>;
 	  }
 	| {
 			readonly operation: 'delete';
 			readonly intent: MutationIntent<TIntent>;
 			readonly key: string;
+			/**
+			 * Present on a delete too: a cascade is the commonest question a write is
+			 * refused over, and the answer has nowhere else to travel — a delete has no
+			 * row and no changed fields.
+			 */
+			readonly acknowledgements?: Readonly<Record<string, boolean>>;
 	  };
 
 /**
@@ -161,6 +180,16 @@ export function createCollectionMutator<TIntent extends string>() {
 			intents: typeof mutation.intent === 'string' ? [mutation.intent] : [...mutation.intent],
 		};
 
+		// Grouped under one key rather than spread here, so a retry can add the flag
+		// it was refused over without rebuilding the write. `acknowledgementFields`
+		// flattens them onto the body, which is where the endpoints read them.
+		// Absent rather than present-and-empty for the same reason `locationSource`
+		// is: an empty object is a claim that no question was answered, and this
+		// layer should not be making claims the caller did not.
+		if (mutation.acknowledgements !== undefined) {
+			metadata.acknowledgements = { ...mutation.acknowledgements };
+		}
+
 		if (mutation.operation === 'delete') {
 			return collection.delete(mutation.key, { metadata });
 		}
@@ -170,6 +199,13 @@ export function createCollectionMutator<TIntent extends string>() {
 		// `locationSource: undefined` would read as an instruction to clear geometry.
 		if (mutation.locationSource !== undefined) {
 			metadata.locationSource = mutation.locationSource;
+		}
+
+		// Same rule, and for a sharper reason: absent leaves the attachment alone
+		// while `{ kind: 'none' }` detaches the record, so the two must stay
+		// distinguishable all the way to the body.
+		if (mutation.context !== undefined) {
+			metadata.context = mutation.context;
 		}
 
 		if (mutation.operation === 'insert') {

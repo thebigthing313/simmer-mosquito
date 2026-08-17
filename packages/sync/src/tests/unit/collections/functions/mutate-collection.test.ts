@@ -141,6 +141,73 @@ describe('mutateCollection', () => {
 		expect(calls[0]?.metadata?.locationSource).toBe(locationSource);
 	});
 
+	it('carries what the record was worked against, and omits it otherwise', () => {
+		// Absent leaves the attachment alone; `{ kind: 'none' }` detaches the record.
+		// The two must stay distinguishable all the way to the body.
+		const { collection, calls } = recordingCollection();
+		const context = { kind: 'larval', habitatId: 'habitat-7' };
+
+		mutate(collection, {
+			operation: 'insert',
+			intent: 'test.create',
+			row: { id: 'row-1', name: 'A', is_active: true },
+			context,
+		});
+		mutate(collection, {
+			operation: 'insert',
+			intent: 'test.create',
+			row: { id: 'row-2', name: 'B', is_active: true },
+		});
+
+		expect(calls[0]?.metadata?.context).toBe(context);
+		expect(calls[1]?.metadata).not.toHaveProperty('context');
+	});
+
+	it('omits the acknowledgements rather than sending an empty set', () => {
+		// An empty object is a claim that no question was answered. This layer should
+		// not be making claims the caller did not.
+		const { collection, calls } = recordingCollection();
+
+		mutate(collection, {
+			operation: 'insert',
+			intent: 'test.create',
+			row: { id: 'row-1', name: 'A', is_active: true },
+		});
+
+		expect(calls[0]?.metadata).not.toHaveProperty('acknowledgements');
+	});
+
+	it('carries the refusals a retry is answering', () => {
+		// Grouped under one key so a retry can merge in the flag it was refused over
+		// without rebuilding the write; `acknowledgementFields` flattens them onto the
+		// body, which is where the endpoints read them.
+		const { collection, calls } = recordingCollection();
+
+		mutate(collection, {
+			operation: 'insert',
+			intent: 'test.create',
+			row: { id: 'row-1', name: 'A', is_active: true },
+			acknowledgements: { acknowledgedMissionGeometryNotCovered: true },
+		});
+
+		expect(calls[0]?.metadata?.acknowledgements).toEqual({
+			acknowledgedMissionGeometryNotCovered: true,
+		});
+	});
+
+	it('carries them on a delete, where a cascade is the usual question', () => {
+		const { collection, calls } = recordingCollection();
+
+		mutate(collection, {
+			operation: 'delete',
+			intent: 'test.retire',
+			key: 'row-1',
+			acknowledgements: { acknowledgedCascadeDelete: true },
+		});
+
+		expect(calls[0]?.metadata?.acknowledgements).toEqual({ acknowledgedCascadeDelete: true });
+	});
+
 	it('never sends a location instruction on a delete', () => {
 		// The delete branch returns before the location is read, so the shape of the
 		// mutation type is what keeps the two from being combined.
