@@ -1,4 +1,3 @@
-import type { SourceReductionRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
@@ -11,7 +10,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
@@ -24,17 +22,17 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
+import type { SourceReduction } from '../../../hooks/queries/control-action-view';
 import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
-import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import { useSourceReduction } from '../../../hooks/queries/use-source-reduction';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
-import { webCollections } from '../../../sync/webCollections';
-import { formatActionDate, formatAmount } from '../-control-display';
+import { formatActionDate, formatMeasure } from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id')({
 	component: RouteComponent,
@@ -51,20 +49,12 @@ function RouteComponent() {
 }
 
 function SourceReductionDetail({ sourceReductionId }: { readonly sourceReductionId: string }) {
-	// sourceReductions is on-demand; status-gated useLiveQuery (not suspense) avoids
-	// the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: sourceReductionGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sourceReduction: webCollections.sourceReductions })
-					.where(({ sourceReduction }) => eq(sourceReduction.id, sourceReductionId))
-					.findOne(),
-		},
-		[sourceReductionId],
-	);
-	const sourceReduction = result.data as SourceReductionRow | undefined;
+	// One query for the action, its method, unit, technician and address — the four
+	// lookups this page used to do for itself. `sourceReductions` is on-demand, so
+	// this is status-gated rather than suspending; see the hook.
+	const { action: sourceReduction, isReady } = useSourceReduction(sourceReductionId, {
+		gcTime: sourceReductionGcTimeMs,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -73,7 +63,7 @@ function SourceReductionDetail({ sourceReductionId }: { readonly sourceReduction
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to source reduction
 				</Link>
-				{!result.isReady ? (
+				{!isReady ? (
 					<SourceReductionDetailSkeleton />
 				) : sourceReduction === undefined ? (
 					<RecordUnavailable
@@ -92,11 +82,12 @@ function SourceReductionDetail({ sourceReductionId }: { readonly sourceReduction
 function SourceReductionDetailContent({
 	sourceReduction,
 }: {
-	readonly sourceReduction: SourceReductionRow;
+	readonly sourceReduction: SourceReduction;
 }) {
+	// The method roster is still read, but only for the custom-field schema the
+	// chosen method declares — the method's *name* arrives joined.
 	const methods = useSourceReductionMethodRoster();
-	const { all: units } = useUnitLabels();
-	const profiles = useProfileRoster();
+	const { remove } = useSourceReductionMutations();
 	// habitats is on-demand; resolve just the linked habitat's name as a subset.
 	const habitatIds = useMemo(
 		() => (sourceReduction.habitatId === null ? [] : [sourceReduction.habitatId]),
@@ -104,16 +95,12 @@ function SourceReductionDetailContent({
 	);
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const methodName =
-		methods.find((method) => method.id === sourceReduction.sourceReductionMethodId)?.name ??
-		'Unknown method';
-	const unit = units.find((row) => row.id === sourceReduction.sourcesEliminatedUnitId);
-	const amountLabel = formatAmount(sourceReduction.sourcesEliminatedAmount, unit);
-	const technicianName =
-		sourceReduction.technicianProfileId === null
-			? null
-			: (profiles.find((profile) => profile.id === sourceReduction.technicianProfileId)
-					?.displayName ?? 'Unknown technician');
+	const methodName = sourceReduction.methodName;
+	const amountLabel = formatMeasure(
+		sourceReduction.sourcesEliminated,
+		sourceReduction.unitAbbreviation,
+	);
+	const technicianName = sourceReduction.technicianName;
 	const habitatId = sourceReduction.habitatId;
 	const habitatName = habitatId === null ? null : (habitatNameById.get(habitatId) ?? null);
 
@@ -131,7 +118,7 @@ function SourceReductionDetailContent({
 						{methodName}
 					</h1>
 					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{amountLabel} eliminated · {formatActionDate(sourceReduction.sourceReductionDate)}
+						{amountLabel} eliminated · {formatActionDate(sourceReduction.actionDate)}
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
@@ -158,7 +145,7 @@ function SourceReductionDetailContent({
 					<DangerZoneCard
 						name={methodName}
 						noun="source reduction"
-						onDelete={() => webCollections.sourceReductions.delete(sourceReduction.id)}
+						onDelete={() => remove(sourceReduction.id)}
 						recordId={sourceReduction.id}
 						recordType="sourceReduction"
 						returnTo="/control-operations/source-reduction"
@@ -175,7 +162,7 @@ function SourceReductionDetailContent({
 					/>
 					<CustomFieldsCard
 						metadata={sourceReduction.metadata}
-						schema={customSchemaFor(methods, sourceReduction.sourceReductionMethodId)}
+						schema={customSchemaFor(methods, sourceReduction.methodId)}
 					/>
 					<CommentsSection
 						description="Follow-up, access notes, and anything crews should know about this work."
@@ -201,13 +188,13 @@ function SourceReductionLocationCard({
 	sourceReduction,
 	habitatName,
 }: {
-	readonly sourceReduction: SourceReductionRow;
+	readonly sourceReduction: SourceReduction;
 	readonly habitatName: string | null;
 }) {
 	const geometry = useOwnedGeometry(
 		SOURCE_REDUCTION_GEOMETRY_SOURCE,
 		sourceReduction.id,
-		sourceReduction.updatedAt,
+		sourceReduction.updatedAt.toISOString(),
 	);
 	const habitatContext = useHabitatLocationContext(sourceReduction.habitatId, habitatName);
 
@@ -216,7 +203,7 @@ function SourceReductionLocationCard({
 			context={habitatContext}
 			emptyDescription="This source reduction action has no location to display."
 			geojson={geometry.geojson}
-			geomType={geometry.geomType ?? sourceReduction.geomType}
+			geomType={geometry.geomType ?? sourceReduction.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
 		/>
@@ -231,7 +218,7 @@ function SourceReductionDetailsCard({
 	habitatId,
 	habitatName,
 }: {
-	readonly sourceReduction: SourceReductionRow;
+	readonly sourceReduction: SourceReduction;
 	readonly methodName: string;
 	readonly amountLabel: string;
 	readonly technicianName: string | null;
@@ -247,9 +234,7 @@ function SourceReductionDetailsCard({
 				<dl className="grid gap-2.5">
 					<DetailRow label="Method">{methodName}</DetailRow>
 					<DetailRow label="Eliminated">{amountLabel}</DetailRow>
-					<DetailRow label="Date">
-						{formatActionDate(sourceReduction.sourceReductionDate)}
-					</DetailRow>
+					<DetailRow label="Date">{formatActionDate(sourceReduction.actionDate)}</DetailRow>
 					<DetailRow label="Technician">
 						{technicianName ?? <span className="text-muted-foreground">Unassigned</span>}
 					</DetailRow>

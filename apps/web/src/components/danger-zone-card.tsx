@@ -44,10 +44,32 @@ export interface DangerZoneCardProps {
 	readonly noun: string;
 	/** What to call this particular record in the confirmation. */
 	readonly name: string;
-	/** Removes the record; normally `webCollections.x.delete(id)`. */
-	readonly onDelete: () => { readonly isPersisted: { readonly promise: Promise<unknown> } };
+	/**
+	 * Removes the record.
+	 *
+	 * Two shapes while the write seam is being migrated. A page on
+	 * `hooks/mutations` returns the promise its hook already settled; one still on
+	 * `webCollections.x.delete(id)` returns the raw transaction, and this card
+	 * settles it. Both are awaited the same way — see {@link settleDeletion}.
+	 */
+	readonly onDelete: () =>
+		| Promise<unknown>
+		| { readonly isPersisted: { readonly promise: Promise<unknown> } };
 	/** Where to land once the record is gone — the list it came from. */
 	readonly returnTo: NonNullable<LinkProps['to']>;
+}
+
+/**
+ * Await a deletion, whichever half of the migration it came from.
+ *
+ * A transaction is recognised by the one thing it has that a promise does not.
+ * Once every page deletes through `hooks/mutations` this collapses back to
+ * awaiting the promise.
+ */
+function settleDeletion(
+	result: Promise<unknown> | { readonly isPersisted: { readonly promise: Promise<unknown> } },
+): Promise<unknown> {
+	return 'isPersisted' in result ? settleWrite(result) : result;
 }
 
 /**
@@ -121,7 +143,7 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 		setDeleteError(null);
 		setIsDeleting(true);
 		try {
-			await settleWrite(onDelete());
+			await settleDeletion(onDelete());
 			await navigate({ to: returnTo });
 		} catch (cause) {
 			const blocked = readBlockers(cause);

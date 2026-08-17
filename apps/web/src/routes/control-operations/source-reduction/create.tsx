@@ -1,5 +1,3 @@
-import type { SourceReductionRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import {
@@ -8,6 +6,8 @@ import {
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
@@ -16,7 +16,6 @@ import { useOrganizationWorkspace } from '../../../hooks/use-organization-worksp
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	defaultSourceReductionFormValues,
 	noTechnicianValue,
@@ -60,8 +59,9 @@ function CreateSourceReductionRoute() {
 
 	// Minted up front so the crew rows can be written the moment the action lands
 	// — and so their on-demand stream is already warm when the save fires.
-	const [sourceReductionId] = useState(() => crypto.randomUUID());
+	const [sourceReductionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReductionId });
+	const { record } = useSourceReductionMutations();
 
 	const onSave = useCallback(
 		async (input: SourceReductionSaveInput) =>
@@ -86,40 +86,36 @@ function CreateSourceReductionRoute() {
 					unresolvable: 'Unable to determine the source reduction location.',
 				});
 
-				const now = new Date().toISOString();
-				const row: SourceReductionRow = {
-					id: sourceReductionId,
-					organizationId: organization.id,
-					lat: location.lat,
-					lng: location.lng,
-					geomType: location.geomType,
-					sourceReductionMethodId: values.sourceReductionMethodId,
-					technicianProfileId:
-						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-					sourceReductionDate: values.sourceReductionDate,
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-					sourcesEliminatedAmount: values.sourcesEliminatedAmount,
-					sourcesEliminatedUnitId: values.sourcesEliminatedUnitId,
-					inspectionId: null,
-					requestedControlActionId: null,
+				// Off a stop this is `missionDispatch.recordSourceReductionForMissionItem`
+				// and links the stop; on its own it is
+				// `controlOperations.recordSourceReduction`. The hook reads the stop id
+				// rather than making this form say which command it meant.
+				await record({
+					sourceReductionId,
+					values: {
+						methodId: values.sourceReductionMethodId,
+						technicianProfileId:
+							values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+						actionDate: values.sourceReductionDate,
+						addressId: values.addressId,
+						habitatId: values.habitatId,
+						sourcesEliminated: values.sourcesEliminatedAmount,
+						unitId: values.sourcesEliminatedUnitId,
+						metadata: values.metadata,
+					},
+					location: {
+						lat: location.lat,
+						lng: location.lng,
+						geomType: location.geomType,
+						locationSource: location.locationSource,
+					},
 					missionItemId: mission.missionItemId,
-					metadata: values.metadata,
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				};
-
-				await settleWrite(
-					webCollections.sourceReductions.insert(row, {
-						metadata: { acknowledgements, locationSource: location.locationSource },
-					}),
-				);
+					acknowledgements,
+				});
 				// Crew rows reference the action, so they can only be written once it exists.
 				await attachLinksBestEffort('the additional personnel', () =>
 					saveAdditionalPersonnel({
-						target: { type: 'sourceReduction', id: row.id },
+						target: { type: 'sourceReduction', id: sourceReductionId },
 						organizationId: organization.id,
 						actorProfileId,
 						existing: [],
@@ -129,11 +125,11 @@ function CreateSourceReductionRoute() {
 				await mission.navigateAfterSave(async () => {
 					await navigate({
 						to: '/control-operations/source-reduction/$id',
-						params: { id: row.id },
+						params: { id: sourceReductionId },
 					});
 				});
 			}),
-		[organization, actorProfileId, sourceReductionId, navigate, mission],
+		[organization, actorProfileId, sourceReductionId, navigate, mission, record],
 	);
 
 	return (
