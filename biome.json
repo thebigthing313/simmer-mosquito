@@ -16,7 +16,9 @@
 			"!.fallow-baseline",
 			"!packages/ui-web/src/components/ui",
 			"!scripts/map-style/simmer-*.json",
-			"!.agents/skills/impeccable/scripts/modern-screenshot.umd.js"
+			"!.agents/skills/impeccable/scripts/modern-screenshot.umd.js",
+			"!MIGRATION.html",
+			"!scripts/migration-page.template.html"
 		]
 	},
 	"formatter": {
