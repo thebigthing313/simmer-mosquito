@@ -18,7 +18,16 @@ import { mapCardGcTimeMs, unmatchableId } from './shared';
 export function useOutreachAction(
 	actionId: string | null,
 	options?: { readonly gcTime?: number },
-): { readonly action: OutreachAction | undefined; readonly isReady: boolean } {
+): {
+	readonly action: OutreachAction | undefined;
+	readonly isReady: boolean;
+	/**
+	 * The subset failed. Distinct from a ready query with no row: the edit page
+	 * offers a retry for one and "no such record" for the other, and a surface that
+	 * conflated them would tell a user their action had been deleted.
+	 */
+	readonly isError: boolean;
+} {
 	const result = useLiveQuery(
 		{
 			gcTime: options?.gcTime ?? mapCardGcTimeMs,
@@ -84,5 +93,5 @@ export function useOutreachAction(
 		[actionId],
 	);
 
-	return { action: result.data[0], isReady: result.isReady };
+	return { action: result.data[0], isReady: result.isReady, isError: result.isError };
 }

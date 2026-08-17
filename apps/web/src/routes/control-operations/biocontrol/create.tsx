@@ -1,5 +1,3 @@
-import type { BiocontrolActionRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import {
@@ -8,6 +6,8 @@ import {
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
@@ -16,7 +16,6 @@ import { useOrganizationWorkspace } from '../../../hooks/use-organization-worksp
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
@@ -61,8 +60,9 @@ function CreateBiocontrolActionRoute() {
 
 	// Minted up front so the crew rows can be written the moment the release lands
 	// — and so their on-demand stream is already warm when the save fires.
-	const [biocontrolActionId] = useState(() => crypto.randomUUID());
+	const [biocontrolActionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'biocontrolAction', id: biocontrolActionId });
+	const { record } = useBiocontrolActionMutations();
 
 	const onSave = useCallback(
 		async (input: {
@@ -91,40 +91,36 @@ function CreateBiocontrolActionRoute() {
 					unresolvable: 'Unable to determine the release location.',
 				});
 
-				const now = new Date().toISOString();
-				const row: BiocontrolActionRow = {
-					id: biocontrolActionId,
-					organizationId: organization.id,
-					lat: location.lat,
-					lng: location.lng,
-					geomType: location.geomType,
-					biocontrolMethodId: values.biocontrolMethodId,
-					technicianProfileId:
-						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-					biocontrolDate: values.biocontrolDate,
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-					inspectionId: null,
-					amountReleased: values.amountReleased,
-					releaseUnitId: values.releaseUnitId,
-					requestedControlActionId: null,
+				// Off a stop this is `missionDispatch.recordBiocontrolActionForMissionItem`
+				// and links the stop; on its own it is
+				// `controlOperations.recordBiocontrolAction`. The hook reads the stop id
+				// rather than making this form say which command it meant.
+				await record({
+					biocontrolActionId,
+					values: {
+						methodId: values.biocontrolMethodId,
+						technicianProfileId:
+							values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+						actionDate: values.biocontrolDate,
+						addressId: values.addressId,
+						habitatId: values.habitatId,
+						amountReleased: values.amountReleased,
+						unitId: values.releaseUnitId,
+						metadata: values.metadata,
+					},
+					location: {
+						lat: location.lat,
+						lng: location.lng,
+						geomType: location.geomType,
+						locationSource: location.locationSource,
+					},
 					missionItemId: mission.missionItemId,
-					metadata: values.metadata,
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				};
-
-				await settleWrite(
-					webCollections.biocontrolActions.insert(row, {
-						metadata: { acknowledgements, locationSource: location.locationSource },
-					}),
-				);
+					acknowledgements,
+				});
 				// Crew rows reference the release, so they can only be written once it exists.
 				await attachLinksBestEffort('the additional personnel', () =>
 					saveAdditionalPersonnel({
-						target: { type: 'biocontrolAction', id: row.id },
+						target: { type: 'biocontrolAction', id: biocontrolActionId },
 						organizationId: organization.id,
 						actorProfileId,
 						existing: [],
@@ -132,10 +128,13 @@ function CreateBiocontrolActionRoute() {
 					}),
 				);
 				await mission.navigateAfterSave(async () => {
-					await navigate({ to: '/control-operations/biocontrol/$id', params: { id: row.id } });
+					await navigate({
+						to: '/control-operations/biocontrol/$id',
+						params: { id: biocontrolActionId },
+					});
 				});
 			}),
-		[organization, actorProfileId, biocontrolActionId, navigate, mission],
+		[organization, actorProfileId, biocontrolActionId, navigate, mission, record],
 	);
 
 	return (

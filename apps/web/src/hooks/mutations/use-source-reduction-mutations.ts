@@ -36,7 +36,6 @@
  * to know which command its save will become.
  */
 
-import type { ControlActionContext } from '@simmer-mosquito/domain';
 import { type SourceReduction as SourceReductionRow, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
@@ -44,6 +43,12 @@ import { source_reductions } from '../../lib/collections/source_reductions';
 import type { StopAcknowledgements } from '../../lib/stop-acknowledgements';
 import type { SourceReduction } from '../queries/control-action-view';
 import { useAuthSnapshot } from '../use-auth-snapshot';
+import {
+	type ActionLocation,
+	actionEditIntents,
+	contextFor,
+	metadataChanged,
+} from './performed-action-writes';
 import { optimisticStamp } from './shared';
 
 /** What a source reduction form collects, in the vocabulary the page speaks. */
@@ -62,24 +67,11 @@ export interface SourceReductionValues {
 	readonly metadata: unknown;
 }
 
-/** Where the action happened, as the form resolved it. */
-export interface SourceReductionLocation {
-	readonly lat: number;
-	readonly lng: number;
-	readonly geomType: string;
-	/**
-	 * The instruction the server takes its geometry from. Absent on an edit that
-	 * did not move the point — absent means "leave it", which is not the same
-	 * request as re-sending the shape it already has.
-	 */
-	readonly locationSource?: unknown;
-}
-
 export interface RecordSourceReductionInput {
 	/** Minted by the caller — see `newRecordId` in `shared.ts` for why. */
 	readonly sourceReductionId: string;
 	readonly values: SourceReductionValues;
-	readonly location: SourceReductionLocation;
+	readonly location: ActionLocation;
 	/** Set when the work was recorded against a mission stop. */
 	readonly missionItemId: string | null;
 	readonly acknowledgements?: StopAcknowledgements;
@@ -88,7 +80,7 @@ export interface RecordSourceReductionInput {
 export interface UpdateSourceReductionInput {
 	readonly values: SourceReductionValues;
 	/** Only when the user moved the point this session. */
-	readonly location?: SourceReductionLocation;
+	readonly location?: ActionLocation;
 	readonly acknowledgements?: StopAcknowledgements;
 }
 
@@ -101,36 +93,6 @@ export interface SourceReductionMutations {
 	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
-}
-
-/**
- * The larval context for a set of values, with the Inspection carried through.
- *
- * `{ kind: 'none' }` rather than an absent context when neither is set: the two
- * are different requests, and this function is only ever called when the
- * attachment is being stated.
- */
-function contextFor(habitatId: string | null, inspectionId: string | null): ControlActionContext {
-	if (habitatId === null && inspectionId === null) {
-		return { kind: 'none' };
-	}
-	return {
-		kind: 'larval',
-		...(habitatId === null ? {} : { habitatId }),
-		...(inspectionId === null ? {} : { inspectionId }),
-	};
-}
-
-/**
- * Whether two custom-field bags differ.
- *
- * A structural comparison because `metadata` is arbitrary JSON the method's
- * schema defines, so there are no known keys to compare one by one. Both sides
- * come from the same form and the same column, so key order is stable enough for
- * this to be an equality test rather than a heuristic.
- */
-function metadataChanged(before: unknown, after: unknown): boolean {
-	return JSON.stringify(before ?? null) !== JSON.stringify(after ?? null);
 }
 
 export function useSourceReductionMutations(): SourceReductionMutations {
@@ -223,15 +185,12 @@ export function useSourceReductionMutations(): SourceReductionMutations {
 				return;
 			}
 
-			// One command per group that actually moved. Naming a builder with nothing
-			// to read is refused by the domain; omitting one that has something to read
-			// drops those fields silently.
-			const intent = [
-				...(fieldsMoved ? (['controlOperations.updateSourceReductionFieldDetails'] as const) : []),
-				...(placementMoved
-					? (['controlOperations.updateSourceReductionLocationAndContext'] as const)
-					: []),
-			];
+			const intent = actionEditIntents(
+				fieldsMoved,
+				placementMoved,
+				'controlOperations.updateSourceReductionFieldDetails',
+				'controlOperations.updateSourceReductionLocationAndContext',
+			);
 
 			const now = optimisticStamp();
 			await settleWrite(

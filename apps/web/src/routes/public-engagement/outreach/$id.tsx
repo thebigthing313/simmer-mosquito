@@ -1,4 +1,3 @@
-import type { OutreachActionRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
@@ -11,9 +10,8 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -24,11 +22,12 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
+import type { OutreachAction } from '../../../hooks/queries/outreach-view';
 import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
-import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
-import { webCollections } from '../../../sync/webCollections';
-import { formatActionDate, nameById } from '../../control-operations/-control-display';
+import { formatActionDate } from '../../control-operations/-control-display';
 import { formatReach } from '../-public-engagement-display';
 
 const OutreachIcon = iconRegistry.entities.outreachAction.icon;
@@ -46,20 +45,10 @@ function RouteComponent() {
 }
 
 function OutreachDetail({ actionId }: { readonly actionId: string }) {
-	// outreachActions is on-demand; status-gated useLiveQuery (not the suspense
-	// variant) avoids the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: outreachGcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: webCollections.outreachActions })
-					.where(({ action }) => eq(action.id, actionId))
-					.findOne(),
-		},
-		[actionId],
-	);
-	const action = result.data as OutreachActionRow | undefined;
+	// One query for the action, its method, technician and address — the lookups
+	// this page used to do for itself. `outreach_actions` is on-demand, so this is
+	// status-gated rather than suspending; see the hook.
+	const { action, isReady, isError } = useOutreachAction(actionId, { gcTime: outreachGcTimeMs });
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -68,9 +57,9 @@ function OutreachDetail({ actionId }: { readonly actionId: string }) {
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to outreach
 				</Link>
-				{result.isError ? (
+				{isError ? (
 					<RecordUnavailable noun="outreach action" reason="error" />
-				) : !result.isReady ? (
+				) : !isReady ? (
 					<OutreachDetailSkeleton />
 				) : action === undefined ? (
 					<RecordUnavailable noun="outreach action" reason="not-found" />
@@ -82,20 +71,14 @@ function OutreachDetail({ actionId }: { readonly actionId: string }) {
 	);
 }
 
-function OutreachDetailContent({ action }: { readonly action: OutreachActionRow }) {
+function OutreachDetailContent({ action }: { readonly action: OutreachAction }) {
+	// The roster is still read, but only for the custom-field schema the chosen
+	// method declares — the method's *name* arrives joined.
 	const methods = useOutreachMethodRoster();
-	const profiles = useProfileRoster();
+	const { remove } = useOutreachActionMutations();
 
-	const methodName =
-		methods.find((method) => method.id === action.outreachMethodId)?.name ?? 'Unknown method';
-	const technicianNameById = useMemo(
-		() => nameById(profiles, (profile) => profile.displayName),
-		[profiles],
-	);
-	const technicianName =
-		action.technicianProfileId === null
-			? null
-			: (technicianNameById.get(action.technicianProfileId) ?? 'Unknown technician');
+	const methodName = action.methodName;
+	const technicianName = action.technicianName;
 
 	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.outreachDate)}`);
 
@@ -130,7 +113,7 @@ function OutreachDetailContent({ action }: { readonly action: OutreachActionRow 
 					<DangerZoneCard
 						name={methodName}
 						noun="outreach action"
-						onDelete={() => webCollections.outreachActions.delete(action.id)}
+						onDelete={() => remove(action.id)}
 						recordId={action.id}
 						recordType="outreachAction"
 						returnTo="/public-engagement/outreach"
@@ -144,7 +127,7 @@ function OutreachDetailContent({ action }: { readonly action: OutreachActionRow 
 					/>
 					<CustomFieldsCard
 						metadata={action.metadata}
-						schema={customSchemaFor(methods, action.outreachMethodId)}
+						schema={customSchemaFor(methods, action.methodId)}
 					/>
 					<CommentsSection
 						description="Follow-up, materials, and response notes for this outreach."
@@ -161,14 +144,18 @@ function OutreachDetailContent({ action }: { readonly action: OutreachActionRow 
  * renders the area as drawn rather than collapsing it to a centroid. Electric
  * streams only the centroid (ADR 0009), so the full shape is fetched here.
  */
-function OutreachLocationCard({ action }: { readonly action: OutreachActionRow }) {
-	const geometry = useOwnedGeometry(OUTREACH_GEOMETRY_SOURCE, action.id, action.updatedAt);
+function OutreachLocationCard({ action }: { readonly action: OutreachAction }) {
+	const geometry = useOwnedGeometry(
+		OUTREACH_GEOMETRY_SOURCE,
+		action.id,
+		action.updatedAt.toISOString(),
+	);
 
 	return (
 		<RecordLocationCard
 			emptyDescription="This outreach action has no location to display."
 			geojson={geometry.geojson}
-			geomType={geometry.geomType ?? action.geomType}
+			geomType={geometry.geomType ?? action.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
 		/>
@@ -180,7 +167,7 @@ function OutreachDetailsCard({
 	methodName,
 	technicianName,
 }: {
-	readonly action: OutreachActionRow;
+	readonly action: OutreachAction;
 	readonly methodName: string;
 	readonly technicianName: string | null;
 }) {

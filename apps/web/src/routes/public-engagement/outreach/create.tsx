@@ -1,5 +1,3 @@
-import type { OutreachActionRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import {
@@ -8,6 +6,8 @@ import {
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -15,7 +15,6 @@ import { useOrganizationWorkspace } from '../../../hooks/use-organization-worksp
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,
 	defaultOutreachFormValues,
@@ -59,8 +58,9 @@ function CreateOutreachActionRoute() {
 
 	// Minted up front so the crew rows can be written the moment the action lands
 	// — and so their on-demand stream is already warm when the save fires.
-	const [outreachActionId] = useState(() => crypto.randomUUID());
+	const [outreachActionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'outreachAction', id: outreachActionId });
+	const { record } = useOutreachActionMutations();
 
 	const onSave = useCallback(
 		async (input: {
@@ -89,40 +89,37 @@ function CreateOutreachActionRoute() {
 					unresolvable: 'Unable to determine the outreach location.',
 				});
 
-				const now = new Date().toISOString();
-				const reachDescription = values.reachDescription.trim();
-				const row: OutreachActionRow = {
-					id: outreachActionId,
-					organizationId: organization.id,
-					lat: location.lat,
-					lng: location.lng,
-					geomType: location.geomType,
-					outreachMethodId: values.outreachMethodId,
-					technicianProfileId:
-						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-					outreachDate: values.outreachDate,
-					addressId: values.addressId,
-					inspectionId: null,
-					reach: values.reach,
-					reachDescription: reachDescription === '' ? null : reachDescription,
-					requestedControlActionId: null,
-					missionItemId: mission.missionItemId,
-					metadata: values.metadata,
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				};
+				const trimmedDescription = values.reachDescription.trim();
 
-				await settleWrite(
-					webCollections.outreachActions.insert(row, {
-						metadata: { acknowledgements, locationSource: location.locationSource },
-					}),
-				);
+				// Off a stop this is `missionDispatch.recordOutreachActionForMissionItem`
+				// and links the stop; on its own it is
+				// `controlOperations.recordOutreachAction`. The hook reads the stop id
+				// rather than making this form say which command it meant.
+				await record({
+					outreachActionId,
+					values: {
+						methodId: values.outreachMethodId,
+						technicianProfileId:
+							values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+						actionDate: values.outreachDate,
+						addressId: values.addressId,
+						reach: values.reach,
+						reachDescription: trimmedDescription === '' ? null : trimmedDescription,
+						metadata: values.metadata,
+					},
+					location: {
+						lat: location.lat,
+						lng: location.lng,
+						geomType: location.geomType,
+						locationSource: location.locationSource,
+					},
+					missionItemId: mission.missionItemId,
+					acknowledgements,
+				});
 				// Crew rows reference the action, so they can only be written once it exists.
 				await attachLinksBestEffort('the additional personnel', () =>
 					saveAdditionalPersonnel({
-						target: { type: 'outreachAction', id: row.id },
+						target: { type: 'outreachAction', id: outreachActionId },
 						organizationId: organization.id,
 						actorProfileId,
 						existing: [],
@@ -130,10 +127,13 @@ function CreateOutreachActionRoute() {
 					}),
 				);
 				await mission.navigateAfterSave(async () => {
-					await navigate({ to: '/public-engagement/outreach/$id', params: { id: row.id } });
+					await navigate({
+						to: '/public-engagement/outreach/$id',
+						params: { id: outreachActionId },
+					});
 				});
 			}),
-		[organization, actorProfileId, outreachActionId, navigate, mission],
+		[organization, actorProfileId, outreachActionId, navigate, mission, record],
 	);
 
 	return (
