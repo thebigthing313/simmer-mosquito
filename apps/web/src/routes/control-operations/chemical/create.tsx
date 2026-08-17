@@ -1,13 +1,4 @@
 import { calculateFormulationComponentAmounts } from '@simmer-mosquito/domain';
-import type {
-	ApplicationRow,
-	EquipmentRow,
-	FormulationInsecticideRow,
-	FormulationRow,
-	InsecticideRow,
-	VehicleRow,
-} from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
@@ -17,17 +8,28 @@ import {
 } from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
 import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import type {
+	FormulationComponentListing,
+	FormulationListing,
+} from '../../../hooks/queries/use-chemical-rosters';
+import {
+	useEquipmentRoster,
+	useFormulationComponentRoster,
+	useFormulationRoster,
+	useInsecticideRoster,
+	useVehicleRoster,
+} from '../../../hooks/queries/use-chemical-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
-import { saveApplicationBatches, useApplicationBatches } from './-application-batches';
 import {
 	ApplicationFormPage,
 	type ApplicationFormValues,
@@ -63,26 +65,28 @@ function CreateApplicationRoute() {
 	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const methods = useApplicationMethodRoster();
-	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
-	const { rows: formulations } = useCollectionRows<FormulationRow>(webCollections.formulations);
-	const { rows: formulationComponents } = useCollectionRows<FormulationInsecticideRow>(
-		webCollections.formulationInsecticides,
-	);
+	const insecticides = useInsecticideRoster();
+	const formulations = useFormulationRoster();
+	const formulationComponents = useFormulationComponentRoster();
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
-	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
-	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
+	const vehicles = useVehicleRoster();
+	const equipment = useEquipmentRoster();
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = organization !== null && actorProfileId !== null;
 
-	// The first application's id is minted up front so its crew and batch links can
-	// be written the moment it lands — and so the on-demand streams those live on
-	// are already warm when the save fires. A formulation mints the rest at save.
-	const [applicationId] = useState(() => crypto.randomUUID());
+	// The first application's id is minted up front so its crew rows can be written
+	// the moment it lands — and so the on-demand streams those live on are already
+	// warm when the save fires. A formulation mints the rest at save.
+	const [applicationId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'application', id: applicationId });
+	// The batches ride in the create's own command now, so nothing here needs this
+	// list. It stays mounted for the stream: a write cannot wait for its own txid on
+	// a collection nobody is subscribed to.
 	useApplicationBatches(applicationId);
+	const { record } = useApplicationMutations();
 
 	// A confirmed acknowledgement re-runs the whole save. Safe because the loop
 	// below only lets a refusal escape while nothing has been written yet: once a
@@ -130,83 +134,70 @@ function CreateApplicationRoute() {
 								},
 							];
 
-				const now = new Date().toISOString();
-				const rows = products.map(
-					(product): ApplicationRow => ({
-						id: product.id,
-						organizationId: organization.id,
-						lat: location.lat,
-						lng: location.lng,
-						geomType: location.geomType,
-						applicationMethodId: nullableSelection(values.applicationMethodId),
-						insecticideId: product.insecticideId,
-						applicatorProfileId: nullableSelection(values.applicatorProfileId),
-						applicationDate: values.applicationDate,
-						addressId: values.addressId,
-						vehicleId: nullableSelection(values.vehicleId),
-						equipmentId: nullableSelection(values.equipmentId),
-						amountApplied: product.amountApplied,
-						applicationUnitId: product.applicationUnitId,
-						habitatId: values.habitatId,
-						collectionId: null,
-						inspectionId: null,
-						requestedControlActionId: null,
-						missionItemId: mission.missionItemId,
-						metadata: values.metadata,
-						createdByProfileId: actorProfileId,
-						updatedByProfileId: actorProfileId,
-						createdAt: now,
-						updatedAt: now,
-					}),
-				);
-
 				// Written one at a time so a failure part way through a mix can say how
 				// much of it landed — those rows are real applications the user now owns.
-				const saved: ApplicationRow[] = [];
-				for (const row of rows) {
+				// Each product is its own command, so they cannot share one transaction:
+				// a single rollback would take back rows the server had already committed.
+				const saved: ApplicationProduct[] = [];
+				for (const product of products) {
 					try {
-						await settleWrite(
-							webCollections.applications.insert(row, {
-								metadata: { acknowledgements, locationSource: location.locationSource },
-							}),
-						);
+						// The batches go with it, in the same command and the same Postgres
+						// transaction — an application and the lots it drew from either both
+						// land or neither does. Off a stop this is
+						// `missionDispatch.recordChemicalApplicationForMissionItem`; the hook
+						// reads the stop id rather than making this form say so.
+						await record({
+							applicationId: product.id,
+							values: {
+								insecticideId: product.insecticideId,
+								amountApplied: product.amountApplied,
+								unitId: product.applicationUnitId,
+								actionDate: values.applicationDate,
+								methodId: nullableSelection(values.applicationMethodId),
+								applicatorProfileId: nullableSelection(values.applicatorProfileId),
+								vehicleId: nullableSelection(values.vehicleId),
+								equipmentId: nullableSelection(values.equipmentId),
+								addressId: values.addressId,
+								habitatId: values.habitatId,
+								metadata: values.metadata,
+							},
+							location: {
+								lat: location.lat,
+								lng: location.lng,
+								geomType: location.geomType,
+								locationSource: location.locationSource,
+							},
+							insecticideBatchIds: product.insecticideBatchIds,
+							missionItemId: mission.missionItemId,
+							acknowledgements,
+						});
 					} catch (error) {
 						if (saved.length === 0) {
 							throw error;
 						}
 						throw new Error(
-							`Recorded ${saved.length} of ${rows.length} applications before failing: ${
+							`Recorded ${saved.length} of ${products.length} applications before failing: ${
 								error instanceof Error ? error.message : 'Unknown error.'
 							}`,
 						);
 					}
-					saved.push(row);
+					saved.push(product);
 				}
 
-				// Crew and batches are separate rows that reference the application, so
-				// they can only be written once it exists. Reported one at a time, so a
-				// failure names which of the two did not land.
+				// Crew rows reference the application, so they can only be written once it
+				// exists. The batches used to be here too, and are not any more.
 				await Promise.all(
-					saved.flatMap((row, index) => [
+					saved.map((product) =>
 						attachLinksBestEffort('the additional personnel', () =>
 							saveAdditionalPersonnel({
-								target: { type: 'application', id: row.id },
+								target: { type: 'application', id: product.id },
 								organizationId: organization.id,
 								actorProfileId,
 								existing: [],
 								profileIds: values.additionalPersonnelIds,
 							}),
 						),
-						attachLinksBestEffort('the batches', () =>
-							saveApplicationBatches({
-								applicationId: row.id,
-								organizationId: organization.id,
-								actorProfileId,
-								existing: [],
-								insecticideBatchIds: products[index]?.insecticideBatchIds ?? [],
-							}),
-						),
-					]),
+					),
 				);
 
 				const first = saved[0];
@@ -227,6 +218,7 @@ function CreateApplicationRoute() {
 			formulations,
 			formulationComponents,
 			navigate,
+			record,
 		],
 	);
 
@@ -279,8 +271,8 @@ interface ApplicationProduct {
  */
 function formulationProducts(
 	values: ApplicationFormValues,
-	formulations: readonly FormulationRow[],
-	formulationComponents: readonly FormulationInsecticideRow[],
+	formulations: readonly FormulationListing[],
+	formulationComponents: readonly FormulationComponentListing[],
 	firstApplicationId: string,
 ): readonly ApplicationProduct[] {
 	const formulation = formulations.find((row) => row.id === values.formulationId);
@@ -305,7 +297,7 @@ function formulationProducts(
 	});
 
 	return amounts.map((amount, index) => ({
-		id: index === 0 ? firstApplicationId : crypto.randomUUID(),
+		id: index === 0 ? firstApplicationId : newRecordId(),
 		insecticideId: amount.insecticideId,
 		amountApplied: amount.amount,
 		applicationUnitId: amount.unitId,

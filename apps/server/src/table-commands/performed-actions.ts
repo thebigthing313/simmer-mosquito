@@ -82,7 +82,7 @@ import type {
 	SafeSourceReduction,
 } from '../control-operations-commands/shared.js';
 import type { IntentRequest, TableCommands } from './dispatch.js';
-import { acknowledged } from './shared.js';
+import { acknowledged, drawnGeometry } from './shared.js';
 
 /**
  * The surveillance record this action was made against.
@@ -105,29 +105,6 @@ function actionPlacement(payload: Record<string, unknown>) {
 		requestedControlActionId: readNullableText(payload.requested_control_action_id),
 		metadata: payload.metadata ?? null,
 	};
-}
-
-/**
- * A drawn shape, taken out of the location instruction that carried it.
- *
- * A mission execution takes a bare `geometry` override rather than a
- * `locationSource`, because the stop's own ground is the default and the only
- * thing that may replace it is a shape the crew drew. Every other kind — an
- * address, a habitat — is a source this command has no reader for, and would
- * fall through to the stop's geometry rather than being honoured.
- *
- * Clients still state their location one way, as a `locationSource`, so that a
- * form does not have to know which of the two commands its save will become.
- * Unwrapping it is this reader's job: the distinction is the domain's, and the
- * transport should not make every caller mirror it.
- */
-function drawnGeometry(payload: Record<string, unknown>): unknown {
-	const source = payload.locationSource;
-	if (typeof source !== 'object' || source === null) {
-		return undefined;
-	}
-	const { kind, geometry } = source as { readonly kind?: unknown; readonly geometry?: unknown };
-	return kind === 'geometry' ? geometry : undefined;
 }
 
 /**

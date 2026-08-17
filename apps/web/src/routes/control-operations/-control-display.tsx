@@ -1,5 +1,4 @@
 import { lookupUnitConversion, totalInUnit, type UnitDefaults } from '@simmer-mosquito/domain';
-import type { InsecticideRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 
 /** As much of a unit as anything here reads: its conversion key and its label. */
@@ -16,7 +15,7 @@ interface MeasureUnit {
  * Insecticides display by trade name everywhere. `shorthand` is an agency's
  * internal abbreviation for data entry, not a name operators should have to read.
  */
-export function insecticideDisplayName(insecticide: InsecticideRow): string {
+export function insecticideDisplayName(insecticide: { readonly tradeName: string }): string {
 	return insecticide.tradeName;
 }
 

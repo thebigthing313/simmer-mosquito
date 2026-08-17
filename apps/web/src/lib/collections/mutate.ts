@@ -6,10 +6,11 @@
  * the two meet, and binding it once here is what makes every write in this app
  * name a command the domain actually defines.
  *
- * `SingleRowCommandType` excludes the fourteen commands that write more than one
- * row. Those need `createTransaction` grouping their optimistic mutations, and
- * naming one here would leave a second record on screen showing its old state —
- * see `MultiRowCommandType` for the list and the reasoning.
+ * `SingleRowCommandType` excludes the fifteen commands that write more than one
+ * row. Those go through `commandTransaction` in `transact.ts`, which groups their
+ * optimistic mutations; naming one here would leave a second record on screen
+ * showing its old state — see `MultiRowCommandType` for the list and the
+ * reasoning.
  */
 
 import type { SingleRowCommandType } from '@simmer-mosquito/domain';

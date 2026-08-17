@@ -2,9 +2,10 @@
  * What every intent map needs and no one table owns.
  *
  * Small on purpose. A builder is a translation from column names to domain
- * arguments, and almost nothing about that translation generalizes. Two things
- * do: how a client withholds an acknowledgement, and how a constraint the
- * database enforces becomes a refusal a person can read.
+ * arguments, and almost nothing about that translation generalizes. Three things
+ * do: how a client withholds an acknowledgement, how a client states a location
+ * to a command that takes a bare geometry, and how a constraint the database
+ * enforces becomes a refusal a person can read.
  */
 
 import { CommandError } from '../command-endpoint.js';
@@ -20,6 +21,31 @@ import { CommandError } from '../command-endpoint.js';
  */
 export function acknowledged(value: unknown): boolean {
 	return value !== false;
+}
+
+/**
+ * The shape a crew drew, out of the location source it was stated as.
+ *
+ * A mission or assignment execution takes a bare `geometry` override rather than
+ * a `locationSource`, because the stop's own ground is the default and the only
+ * thing that may replace it is a shape somebody drew. Every other kind — an
+ * address, a habitat — is a source those commands have no reader for, and would
+ * fall through to the stop's geometry rather than being honoured.
+ *
+ * Clients still state their location one way, as a `locationSource`, so that a
+ * form does not have to know which of the two commands its save will become.
+ * Unwrapping it is this reader's job: the distinction is the domain's, and the
+ * transport should not make every caller mirror it.
+ */
+export function drawnGeometry(payload: Record<string, unknown>): unknown {
+	const source = payload.locationSource;
+
+	if (typeof source !== 'object' || source === null) {
+		return undefined;
+	}
+
+	const { kind, geometry } = source as { readonly kind?: unknown; readonly geometry?: unknown };
+	return kind === 'geometry' ? geometry : undefined;
 }
 
 /** Postgres refusing to orphan a row. */

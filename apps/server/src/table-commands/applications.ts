@@ -23,16 +23,26 @@
  * through the link row (`OWN_APPLICATION_VIA_BATCH` in `command-permissions.ts`).
  * Neither of those changes here; both are settled in the write transaction.
  *
+ * The one exception is the batches an application is *created* with, which ride
+ * in the create's own payload. They have to: a link row names the application, so
+ * it cannot be written before the application exists, and `recordChemicalApplication`
+ * is one command that inserts both inside one Postgres transaction. Sending them
+ * afterwards as separate commands is what the client used to do, and it is how an
+ * application ends up saved with none of its batches attached.
+ *
  * ## Field names
  *
  * Postgres column names: `insecticide_id`, `amount_applied`,
  * `application_unit_id`, `application_date`, `applicator_profile_id`,
  * `application_method_id`, `vehicle_id`, `equipment_id`, and on the link row
- * `application_id` and `insecticide_batch_id`. `context`, `locationSource`,
- * `geometry`, `missionItemId` and the execution flags are instructions.
+ * `application_id` and `insecticide_batch_id`. A create carries its links under
+ * `application_batches`, each spelled as the row it becomes — `id` and
+ * `insecticide_batch_id`. `context`, `locationSource`, `geometry`,
+ * `missionItemId` and the execution flags are instructions.
  */
 
 import {
+	type ApplicationBatchInput,
 	addChemicalApplicationBatchCommand,
 	type ControlActionContext,
 	type ControlActionLocationSourceInput,
@@ -45,6 +55,7 @@ import {
 	updateChemicalApplicationLocationAndContextCommand,
 } from '@simmer-mosquito/domain';
 import {
+	isRecord,
 	readMissionExecutionOptions,
 	readNullableText,
 	readNumber,
@@ -61,10 +72,59 @@ import type {
 	SafeApplicationBatch,
 } from '../control-operations-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
-import { acknowledged } from './shared.js';
+import { acknowledged, drawnGeometry } from './shared.js';
 
 function applicationContext(payload: Record<string, unknown>): ControlActionContext {
 	return (payload.context ?? { kind: 'none' }) as ControlActionContext;
+}
+
+/**
+ * The batch links created with the application.
+ *
+ * Child rows rather than instructions, so they are spelled as rows: `id` and
+ * `insecticide_batch_id`, the columns `application_batches` actually has. Only a
+ * create takes them. An edit adds and removes links one at a time through that
+ * table's own commands, which is why there is no reader for them on the two
+ * update intents.
+ *
+ * A malformed entry is passed through as empty ids rather than skipped. The
+ * domain refuses the whole create and names the index; dropping it would write
+ * an application holding fewer batches than the crew recorded, behind a 201.
+ */
+function applicationBatches(payload: Record<string, unknown>): readonly ApplicationBatchInput[] {
+	const rows = payload.application_batches;
+
+	if (rows === undefined) {
+		return [];
+	}
+
+	if (!Array.isArray(rows)) {
+		// Handed over unchanged: "not an array" is an issue the domain already
+		// reports, and reporting it here as well would be a second copy of the rule.
+		return rows as readonly ApplicationBatchInput[];
+	}
+
+	return rows.map((row) => {
+		const source = isRecord(row) ? row : {};
+		return {
+			applicationBatchId: readText(source.id) ?? '',
+			insecticideBatchId: readText(source.insecticide_batch_id) ?? '',
+		};
+	});
+}
+
+/**
+ * The geometry override a mission-stop create may carry.
+ *
+ * Spread only when there is one: the stop's own ground is the default, and an
+ * explicit `undefined` would read as an instruction to clear it. A client states
+ * its location as a `locationSource` like it does everywhere else, and
+ * `drawnGeometry` unwraps it — an outright `geometry` is honoured too, since that
+ * is what the domain command itself takes.
+ */
+function missionGeometry(payload: Record<string, unknown>): { readonly geometry?: unknown } {
+	const geometry = payload.geometry ?? drawnGeometry(payload);
+	return geometry === undefined ? {} : { geometry };
 }
 
 /** The product and dose half, which both creates take identically. */
@@ -98,6 +158,7 @@ export function applicationTableCommands(
 					...agency,
 					applicationId: id,
 					...applicationFields(payload),
+					applicationBatches: applicationBatches(payload),
 					locationSource: payload.locationSource as ControlActionLocationSourceInput,
 					addressId: readNullableText(payload.address_id),
 					context: applicationContext(payload),
@@ -111,7 +172,8 @@ export function applicationTableCommands(
 					applicationId: id,
 					missionItemId: readText(payload.mission_item_id) ?? '',
 					...applicationFields(payload),
-					...(payload.geometry === undefined ? {} : { geometry: payload.geometry }),
+					applicationBatches: applicationBatches(payload),
+					...missionGeometry(payload),
 					addressId: readNullableText(payload.address_id),
 					// The record's own surveillance context, not the mission's — a
 					// mission-recorded application stores the same as one recorded off a

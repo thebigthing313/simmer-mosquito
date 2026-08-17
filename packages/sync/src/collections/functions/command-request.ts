@@ -19,15 +19,20 @@
  * where the intent goes. Four rules, restated once for the simple path and once
  * for the batch, is the shape of the duplication this layer exists to remove.
  *
- * So both paths build their requests here, and the handlers send them one at a
- * time.
+ * ## What a transaction sends, now settled
  *
- * What a transaction sends is not settled. A command that writes several tables
- * is still one command with one payload, so it is probably one request rather
- * than one per mutation — in which case a transaction's mutations exist only so
- * the library can apply the change and take it back, and this builder is not what
- * produces its body. Resolve that when the transaction path is built; nothing
- * here assumes either answer.
+ * One request, and this builder is not what produces its body — see
+ * `command-transaction.ts`. Every member of `MultiRowCommandType` is a single
+ * command with a single payload: a move takes an id list, a merge takes a losing
+ * -row list, a create takes its children. There is no member for which one
+ * request per mutation is the right answer, and doing it that way would be worse
+ * than the two-phase writes it replaces: if the parent lands and a child is
+ * refused, the library rolls the whole group back on screen while the server
+ * keeps the parent.
+ *
+ * So a transaction's mutations exist only so the library can apply the change and
+ * take it back. What both paths do share is {@link refuseIfReadOnly}, because a
+ * transaction is exactly where the library stops checking.
  */
 
 import {
@@ -48,19 +53,15 @@ export interface CommandRequest {
 }
 
 /**
- * The part of a `PendingMutation` a request is built from.
+ * The least a mutation has to be for the read-only guard to judge it.
  *
- * Structural rather than the library's own type, for the reason recorded through
- * this package: naming the full generic drags a collection's type parameters
- * into positions where they defeat the schema overload's inference. It also
- * means a test can describe a mutation without constructing a live collection.
+ * Separate from {@link PendingWrite} because a transaction holds mutations from
+ * several collections at once and never looks at their rows — it builds one body
+ * of its own — but must still refuse a write to a collection the client declared
+ * read-only. This is the part both paths share.
  */
-export interface PendingWrite<TRow extends object> {
+export interface WriteTarget {
 	readonly type: 'insert' | 'update' | 'delete';
-	readonly modified: TRow;
-	readonly changes: Partial<TRow>;
-	readonly key: unknown;
-	readonly metadata: unknown;
 	/**
 	 * The collection the mutation belongs to.
 	 *
@@ -77,6 +78,21 @@ export interface PendingWrite<TRow extends object> {
 			readonly onDelete?: unknown;
 		};
 	};
+}
+
+/**
+ * The part of a `PendingMutation` a request is built from.
+ *
+ * Structural rather than the library's own type, for the reason recorded through
+ * this package: naming the full generic drags a collection's type parameters
+ * into positions where they defeat the schema overload's inference. It also
+ * means a test can describe a mutation without constructing a live collection.
+ */
+export interface PendingWrite<TRow extends object> extends WriteTarget {
+	readonly modified: TRow;
+	readonly changes: Partial<TRow>;
+	readonly key: unknown;
+	readonly metadata: unknown;
 }
 
 /** The handler whose absence means the client declared this write unavailable. */
@@ -106,8 +122,9 @@ const handlerFor = {
  * optimistically and then rolled back when the server says no — which the user
  * sees as a record that changes and changes back.
  */
-function refuseIfReadOnly(mutation: PendingWrite<object>, table: string): void {
+export function refuseIfReadOnly(mutation: WriteTarget): void {
 	const handler = handlerFor[mutation.type];
+	const table = mutation.collection.id;
 
 	if (mutation.collection.config[handler] === undefined) {
 		throw new Error(
@@ -158,6 +175,43 @@ function withoutServerOwnedColumns(source: object): CommandBody {
 }
 
 /**
+ * A body built from a row rather than from a mutation.
+ *
+ * `commandRequestFor` builds a single-row write's body out of what the library
+ * diffed for it. A transaction has no such mutation to read — it states its own
+ * body, because only the caller knows how a parent and its children fit into one
+ * command — but the rules about what may be in one do not change: the server
+ * still owns the tenant, the centroid and the four audit columns, and the
+ * instructions still ride at the top level where the endpoints read them.
+ *
+ * Restating those in each hook is how one of them ends up sending
+ * `organization_id`, or spelling `acknowledgements` as a nested object the
+ * endpoint never looks in.
+ */
+export function commandBodyFromRow(
+	row: object,
+	instructions: {
+		readonly locationSource?: unknown;
+		readonly context?: unknown;
+		readonly acknowledgements?: Readonly<Record<string, boolean>>;
+	} = {},
+): CommandBody {
+	return {
+		...withoutServerOwnedColumns(row),
+		// Absent rather than present-and-undefined, as everywhere else: a
+		// `locationSource: undefined` reads as an instruction to clear the geometry,
+		// and an absent context leaves an attachment alone where `{ kind: 'none' }`
+		// detaches it.
+		...(instructions.locationSource === undefined
+			? {}
+			: { locationSource: instructions.locationSource }),
+		...(instructions.context === undefined ? {} : { context: instructions.context }),
+		// Flattened, because that is where the endpoints read them.
+		...instructions.acknowledgements,
+	};
+}
+
+/**
  * The request one mutation becomes, or `null` when it asks for nothing.
  *
  * A `null` is only ever an update whose changed fields were all server-owned.
@@ -172,7 +226,7 @@ export function commandRequestFor<TRow extends object>(
 	serverUrl: string,
 ): CommandRequest | null {
 	const table = mutation.collection.id;
-	refuseIfReadOnly(mutation, table);
+	refuseIfReadOnly(mutation);
 
 	const endpoint = `${serverUrl}${commandPathFor(table)}`;
 	const intents = requireIntents(mutation.metadata, table);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	commandBodyFromRow,
 	commandRequestFor,
 	type PendingWrite,
 } from '../../../../collections/functions/command-request.js';
@@ -369,5 +370,41 @@ describe('commandRequestFor', () => {
 				commandRequestFor(write({ type: 'delete', collection: appendOnly }), SERVER),
 			).toThrowError(/cannot delete species/);
 		});
+	});
+});
+
+describe('commandBodyFromRow', () => {
+	it('strips the columns the server owns, as a diffed body would', () => {
+		// A transaction states its own body, so nothing diffed it — but the tenant,
+		// the centroid and the audit columns are still not the client's to send.
+		const body = commandBodyFromRow(row);
+
+		expect(body).toEqual({
+			id: 'habitat-1',
+			habitat_name: 'Ditch by the levee',
+			is_active: true,
+		});
+	});
+
+	it('carries the instructions at the top level, where the endpoints read them', () => {
+		const body = commandBodyFromRow(row, {
+			locationSource: { kind: 'geometry', geometry: { type: 'Point' } },
+			context: { kind: 'larval', habitatId: 'habitat-2' },
+			acknowledgements: { acknowledgedBatchClearance: true },
+		});
+
+		expect(body.locationSource).toEqual({ kind: 'geometry', geometry: { type: 'Point' } });
+		expect(body.context).toEqual({ kind: 'larval', habitatId: 'habitat-2' });
+		// Flat, not nested: `acknowledgements: { … }` is a key no endpoint looks in.
+		expect(body.acknowledgedBatchClearance).toBe(true);
+	});
+
+	it('omits an instruction that was not given rather than sending it undefined', () => {
+		// The distinction the whole context channel exists for: absent leaves the
+		// attachment alone, `{ kind: 'none' }` detaches the record.
+		const body = commandBodyFromRow(row);
+
+		expect('context' in body).toBe(false);
+		expect('locationSource' in body).toBe(false);
 	});
 });

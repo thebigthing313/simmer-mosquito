@@ -1,11 +1,4 @@
-import type {
-	ApplicationBatchRow,
-	ApplicationRow,
-	EquipmentRow,
-	InsecticideBatchRow,
-	InsecticideRow,
-	VehicleRow,
-} from '@simmer-mosquito/sync';
+import type { InsecticideBatch as InsecticideBatchOption } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
@@ -54,16 +47,16 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
+import { useApplication } from '../../../hooks/queries/use-application';
+import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
 import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
-import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
-import { webCollections } from '../../../sync/webCollections';
-import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
-import { useApplicationBatches } from './-application-batches';
+import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
+import { ContextBadge, formatActionDate, formatMeasure, nameById } from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/chemical/$id')({
 	component: RouteComponent,
@@ -84,35 +77,24 @@ function RouteComponent() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
-	const actorProfileId = snapshot?.localIdentity.profileId ?? null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	return <ApplicationDetail actorProfileId={actorProfileId} applicationId={id} canEdit={canEdit} />;
+	return <ApplicationDetail applicationId={id} canEdit={canEdit} />;
 }
 
 function ApplicationDetail({
 	applicationId,
-	actorProfileId,
 	canEdit,
 }: {
 	readonly applicationId: string;
-	readonly actorProfileId: string | null;
 	readonly canEdit: boolean;
 }) {
-	// applications is on-demand; the id-scoped subset drives the shape. Status-gated
-	// useLiveQuery (not the suspense variant) to avoid the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: applicationGcTimeMs,
-			query: (query) =>
-				query
-					.from({ application: webCollections.applications })
-					.where(({ application }) => eq(application.id, applicationId))
-					.findOne(),
-		},
-		[applicationId],
-	);
-	const application = result.data as ApplicationRow | undefined;
+	// One query for the application, its product, method, unit, applicator, rig and
+	// address — the lookups this page used to do for itself. `applications` is
+	// on-demand, so this is status-gated rather than suspending; see the hook.
+	const { application, isReady, isError } = useApplication(applicationId, {
+		gcTime: applicationGcTimeMs,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -121,16 +103,14 @@ function ApplicationDetail({
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to applications
 				</Link>
-				{!result.isReady ? (
+				{isError ? (
+					<RecordUnavailable noun="application" reason="error" />
+				) : !isReady ? (
 					<ApplicationDetailSkeleton />
 				) : application === undefined ? (
 					<RecordUnavailable noun="application" reason="not-found" />
 				) : (
-					<ApplicationDetailContent
-						actorProfileId={actorProfileId}
-						application={application}
-						canEdit={canEdit}
-					/>
+					<ApplicationDetailContent application={application} canEdit={canEdit} />
 				)}
 			</div>
 		</div>
@@ -139,53 +119,28 @@ function ApplicationDetail({
 
 function ApplicationDetailContent({
 	application,
-	actorProfileId,
 	canEdit,
 }: {
-	readonly application: ApplicationRow;
-	readonly actorProfileId: string | null;
+	readonly application: ChemicalApplication;
 	readonly canEdit: boolean;
 }) {
-	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
+	// The roster is still read, but only for the custom-field schema the chosen
+	// method declares — the method's *name* arrives joined.
 	const methods = useApplicationMethodRoster();
-	const { all: units } = useUnitLabels();
-	const profiles = useProfileRoster();
-	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
-	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
-	// habitats is on-demand; resolve just the linked habitat's name as a subset.
+	const { remove } = useApplicationMutations();
+	// habitats is on-demand and has no join here; resolve just the linked habitat's
+	// name as a subset.
 	const habitatIds = useMemo(
 		() => (application.habitatId === null ? [] : [application.habitatId]),
 		[application.habitatId],
 	);
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const insecticide = insecticides.find((row) => row.id === application.insecticideId);
-	const productName = insecticide === undefined ? 'Unknown product' : insecticide.tradeName;
-	const unit = units.find((row) => row.id === application.applicationUnitId);
-	const amount = formatAmount(application.amountApplied, unit);
+	const productName = application.productName;
+	const amount = formatMeasure(application.amountApplied, application.unitAbbreviation);
 
 	useBreadcrumbLabel(application.id, productName);
 
-	const methodName =
-		application.applicationMethodId === null
-			? null
-			: (methods.find((row) => row.id === application.applicationMethodId)?.name ??
-				'Unknown method');
-	const applicatorName =
-		application.applicatorProfileId === null
-			? null
-			: (profiles.find((row) => row.id === application.applicatorProfileId)?.displayName ??
-				'Unknown profile');
-	const vehicleName =
-		application.vehicleId === null
-			? null
-			: (vehicles.find((row) => row.id === application.vehicleId)?.vehicleName ??
-				'Unknown vehicle');
-	const equipmentName =
-		application.equipmentId === null
-			? null
-			: (equipment.find((row) => row.id === application.equipmentId)?.equipmentName ??
-				'Unknown equipment');
 	const habitatName =
 		application.habitatId === null
 			? null
@@ -203,7 +158,7 @@ function ApplicationDetailContent({
 						{productName}
 					</h1>
 					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{amount} · {formatActionDate(application.applicationDate)}
+						{amount} · {formatActionDate(application.actionDate)}
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
@@ -229,7 +184,6 @@ function ApplicationDetailContent({
 				<div className="grid min-w-0 content-start gap-5">
 					<ApplicationLocationCard application={application} habitatName={habitatName} />
 					<ApplicationBatchesCard
-						actorProfileId={actorProfileId}
 						application={application}
 						canEdit={canEdit}
 						productName={productName}
@@ -237,7 +191,7 @@ function ApplicationDetailContent({
 					<DangerZoneCard
 						name={productName}
 						noun="chemical application"
-						onDelete={() => webCollections.applications.delete(application.id)}
+						onDelete={() => remove(application.id)}
 						recordId={application.id}
 						recordType="application"
 						returnTo="/control-operations/chemical"
@@ -247,16 +201,12 @@ function ApplicationDetailContent({
 					<ApplicationDetailsCard
 						amount={amount}
 						application={application}
-						applicatorName={applicatorName}
-						equipmentName={equipmentName}
 						habitatName={habitatName}
-						methodName={methodName}
 						productName={productName}
-						vehicleName={vehicleName}
 					/>
 					<CustomFieldsCard
 						metadata={application.metadata}
-						schema={customSchemaFor(methods, application.applicationMethodId)}
+						schema={customSchemaFor(methods, application.methodId)}
 					/>
 					<CommentsSection
 						description="Field notes, product observations, and follow-up for this application."
@@ -282,13 +232,13 @@ function ApplicationLocationCard({
 	application,
 	habitatName,
 }: {
-	readonly application: ApplicationRow;
+	readonly application: ChemicalApplication;
 	readonly habitatName: string | null;
 }) {
 	const geometry = useOwnedGeometry(
 		CHEMICAL_GEOMETRY_SOURCE,
 		application.id,
-		application.updatedAt,
+		application.updatedAt.toISOString(),
 	);
 	const habitatContext = useHabitatLocationContext(application.habitatId, habitatName);
 
@@ -297,7 +247,7 @@ function ApplicationLocationCard({
 			context={habitatContext}
 			emptyDescription="This application has no location to display."
 			geojson={geometry.geojson}
-			geomType={geometry.geomType ?? application.geomType}
+			geomType={geometry.geomType ?? application.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
 		/>
@@ -313,17 +263,16 @@ function ApplicationLocationCard({
  */
 function ApplicationBatchesCard({
 	application,
-	actorProfileId,
 	canEdit,
 	productName,
 }: {
-	readonly application: ApplicationRow;
-	readonly actorProfileId: string | null;
+	readonly application: ChemicalApplication;
 	readonly canEdit: boolean;
 	readonly productName: string;
 }) {
 	const linkedResult = useApplicationBatches(application.id);
 	const entries = linkedResult.rows;
+	const { addBatch, removeBatch } = useApplicationMutations();
 
 	// insecticide_batches is on-demand too; only this product's batches can be
 	// linked, so scope the subset to the applied insecticide.
@@ -332,15 +281,15 @@ function ApplicationBatchesCard({
 			gcTime: applicationGcTimeMs,
 			query: (query) =>
 				query
-					.from({ batch: webCollections.insecticideBatches })
-					.where(({ batch }) => eq(batch.insecticideId, application.insecticideId))
-					.orderBy(({ batch }) => batch.batchName, 'asc'),
+					.from({ batch: insecticide_batches })
+					.where(({ batch }) => eq(batch.insecticide_id, application.insecticideId))
+					.orderBy(({ batch }) => batch.batch_name, 'asc'),
 		},
 		[application.insecticideId],
 	);
-	const productBatches = (batchResult.data ?? []) as unknown as readonly InsecticideBatchRow[];
+	const productBatches = batchResult.data;
 	const batchNameById = useMemo(
-		() => nameById(productBatches, (batch) => batch.batchName),
+		() => nameById(productBatches, (batch) => batch.batch_name),
 		[productBatches],
 	);
 
@@ -351,30 +300,24 @@ function ApplicationBatchesCard({
 	// Already-linked batches drop out of the picker; inactive ones stay out unless
 	// they are already on the record.
 	const selectableBatches = useMemo(
-		() => productBatches.filter((batch) => batch.isActive && !linkedIds.has(batch.id)),
+		() => productBatches.filter((batch) => batch.is_active && !linkedIds.has(batch.id)),
 		[productBatches, linkedIds],
 	);
 
-	const removeBatch = useCallback((entryId: string) => {
-		void webCollections.applicationBatches.delete(entryId);
-	}, []);
-
-	const addBatch = useCallback(
-		(insecticideBatchId: string) => {
-			const now = new Date().toISOString();
-			const row: ApplicationBatchRow = {
-				id: crypto.randomUUID(),
-				organizationId: application.organizationId,
-				applicationId: application.id,
-				insecticideBatchId,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-			void webCollections.applicationBatches.insert(row);
+	// Add and remove are their own commands, so each is one write — unlike a create,
+	// where the batches ride in the application's own payload.
+	const onRemoveBatch = useCallback(
+		(applicationBatchId: string) => {
+			void removeBatch(applicationBatchId);
 		},
-		[application.id, application.organizationId, actorProfileId],
+		[removeBatch],
+	);
+
+	const onAddBatch = useCallback(
+		(insecticideBatchId: string) => {
+			void addBatch(application.id, insecticideBatchId);
+		},
+		[addBatch, application.id],
 	);
 
 	const isReady = linkedResult.isReady && batchResult.isReady;
@@ -440,7 +383,7 @@ function ApplicationBatchesCard({
 											<TableCell className="text-right">
 												<Button
 													aria-label="Remove batch"
-													onClick={() => removeBatch(entry.id)}
+													onClick={() => onRemoveBatch(entry.id)}
 													size="icon"
 													type="button"
 													variant="ghost"
@@ -457,7 +400,7 @@ function ApplicationBatchesCard({
 				)}
 
 				{canEdit && isReady && !isError ? (
-					<AddBatchControl batches={selectableBatches} onAdd={addBatch} />
+					<AddBatchControl batches={selectableBatches} onAdd={onAddBatch} />
 				) : null}
 			</CardContent>
 		</Card>
@@ -468,7 +411,7 @@ function AddBatchControl({
 	batches,
 	onAdd,
 }: {
-	readonly batches: readonly InsecticideBatchRow[];
+	readonly batches: readonly InsecticideBatchOption[];
 	readonly onAdd: (insecticideBatchId: string) => void;
 }) {
 	const [selected, setSelected] = useState('');
@@ -493,7 +436,7 @@ function AddBatchControl({
 					<SelectContent>
 						{batches.map((batch) => (
 							<SelectItem key={batch.id} value={batch.id}>
-								{batch.batchName}
+								{batch.batch_name}
 							</SelectItem>
 						))}
 					</SelectContent>
@@ -543,19 +486,11 @@ function ApplicationDetailsCard({
 	application,
 	productName,
 	amount,
-	methodName,
-	applicatorName,
-	vehicleName,
-	equipmentName,
 	habitatName,
 }: {
-	readonly application: ApplicationRow;
+	readonly application: ChemicalApplication;
 	readonly productName: string;
 	readonly amount: string;
-	readonly methodName: string | null;
-	readonly applicatorName: string | null;
-	readonly vehicleName: string | null;
-	readonly equipmentName: string | null;
 	readonly habitatName: string | null;
 }) {
 	return (
@@ -567,11 +502,17 @@ function ApplicationDetailsCard({
 				<dl className="grid gap-2.5">
 					<DetailRow label="Product">{productName}</DetailRow>
 					<DetailRow label="Amount">{amount}</DetailRow>
-					<DetailRow label="Date">{formatActionDate(application.applicationDate)}</DetailRow>
-					<DetailRow label="Method">{methodName ?? <NotSet>No method</NotSet>}</DetailRow>
-					<DetailRow label="Applicator">{applicatorName ?? <NotSet>Unassigned</NotSet>}</DetailRow>
-					<DetailRow label="Vehicle">{vehicleName ?? <NotSet>None</NotSet>}</DetailRow>
-					<DetailRow label="Equipment">{equipmentName ?? <NotSet>None</NotSet>}</DetailRow>
+					<DetailRow label="Date">{formatActionDate(application.actionDate)}</DetailRow>
+					<DetailRow label="Method">
+						{application.methodName ?? <NotSet>No method</NotSet>}
+					</DetailRow>
+					<DetailRow label="Applicator">
+						{application.applicatorName ?? <NotSet>Unassigned</NotSet>}
+					</DetailRow>
+					<DetailRow label="Vehicle">{application.vehicleName ?? <NotSet>None</NotSet>}</DetailRow>
+					<DetailRow label="Equipment">
+						{application.equipmentName ?? <NotSet>None</NotSet>}
+					</DetailRow>
 					<DetailRow label="Habitat">
 						{application.habitatId === null ? (
 							<NotSet>Standalone — no habitat</NotSet>

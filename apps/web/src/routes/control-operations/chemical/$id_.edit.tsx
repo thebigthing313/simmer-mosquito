@@ -1,14 +1,6 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type {
-	ApplicationRow,
-	EquipmentRow,
-	InsecticideRow,
-	VehicleRow,
-} from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import {
@@ -17,22 +9,29 @@ import {
 	useAdditionalPersonnel,
 } from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
+import { useApplication } from '../../../hooks/queries/use-application';
+import {
+	type ApplicationBatchesResult,
+	useApplicationBatches,
+} from '../../../hooks/queries/use-application-batches';
 import {
 	type SchemaCatalogListing,
 	useApplicationMethodRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
+import {
+	type InsecticideListing,
+	type RigListing,
+	useEquipmentRoster,
+	useInsecticideRoster,
+	useVehicleRoster,
+} from '../../../hooks/queries/use-chemical-rosters';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
-import {
-	type ApplicationBatchesResult,
-	saveApplicationBatches,
-	useApplicationBatches,
-} from './-application-batches';
 import {
 	ApplicationFormPage,
 	type ApplicationFormValues,
@@ -60,32 +59,20 @@ function EditApplicationRoute() {
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const methods = useApplicationMethodRoster();
-	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
+	const insecticides = useInsecticideRoster();
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
-	const { rows: vehicles } = useCollectionRows<VehicleRow>(webCollections.vehicles);
-	const { rows: equipment } = useCollectionRows<EquipmentRow>(webCollections.equipment);
+	const vehicles = useVehicleRoster();
+	const equipment = useEquipmentRoster();
 
-	// applications is on-demand: the id-scoped subset drives the shape, and the
-	// status-gated useLiveQuery (not the suspense variant) avoids the post-unmount
-	// hang over on-demand collections.
-	const result = useLiveQuery(
-		{
-			gcTime: applicationGcTimeMs,
-			query: (query) =>
-				query
-					.from({ application: webCollections.applications })
-					.where(({ application }) => eq(application.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const application = result.data as ApplicationRow | undefined;
+	// One query for the application and everything named on it. `applications` is
+	// on-demand, so this is status-gated rather than suspending; see the hook.
+	const { application, isReady, isError } = useApplication(id, { gcTime: applicationGcTimeMs });
 
-	if (result.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="application" reason="error" />;
 	}
-	if (!result.isReady) {
+	if (!isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (application === undefined) {
@@ -103,6 +90,7 @@ function EditApplicationRoute() {
 			canSubmit={organization !== null && actorProfileId !== null}
 			equipment={equipment}
 			insecticides={insecticides}
+			organizationId={organization?.id ?? ''}
 			profiles={profiles}
 			units={units}
 			vehicles={vehicles}
@@ -120,28 +108,33 @@ function EditApplicationLoader({
 	equipment,
 	actorProfileId,
 	canSubmit,
+	organizationId,
 }: {
-	readonly application: ApplicationRow;
+	readonly application: ChemicalApplication;
 	readonly applicationMethods: readonly SchemaCatalogListing[];
-	readonly insecticides: readonly InsecticideRow[];
+	readonly insecticides: readonly InsecticideListing[];
 	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];
-	readonly vehicles: readonly VehicleRow[];
-	readonly equipment: readonly EquipmentRow[];
+	readonly vehicles: readonly RigListing[];
+	readonly equipment: readonly RigListing[];
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
+	readonly organizationId: string;
 }) {
 	const navigate = useNavigate();
+	const { update, setBatches } = useApplicationMutations();
 
 	// The synced row carries only the centroid, so the full shape (which may be a
 	// line or polygon) is read from the display endpoint before the form opens.
 	const geometryQuery = useOwnedGeometry(
 		CHEMICAL_GEOMETRY_SOURCE,
 		application.id,
-		application.updatedAt,
+		application.updatedAt.toISOString(),
 	);
 	// Crew and batches live in their own tables; the form edits them as lists and
-	// the save reconciles each against what is attached now.
+	// the save reconciles each against what is attached now. Unlike a create, where
+	// the batches ride in the application's own command, an edit adds and removes
+	// links one at a time — they are their own commands with their own permissions.
 	const personnel = useAdditionalPersonnel({ type: 'application', id: application.id });
 	const batches = useApplicationBatches(application.id);
 
@@ -159,72 +152,67 @@ function EditApplicationLoader({
 				throw new Error('Enter the amount applied.');
 			}
 
-			// The point (geometry) and the address are independent: only send a
-			// location source (and reseed the optimistic centroid) when the user
-			// actually refined the point; the address is a plain field change.
-			const refinedPoint = geometryChanged && geometry !== null;
-			const locationSource = refinedPoint
-				? ({ kind: 'geometry', geometry: geometry as unknown as GeoJsonGeometry } as const)
-				: undefined;
-			const nextCentroid = refinedPoint
-				? ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry)
-				: null;
+			// The shape and the address are independent: only state a location when the
+			// user actually redrew it. Absent means "leave it", which is not the same
+			// request as re-sending the shape it already has.
+			const redrawn =
+				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 
-			const nextAmount = values.amountApplied;
-			const now = new Date().toISOString();
-			// Inlined so TanStack DB infers the mutable draft type.
-			const applyEdits = (draft: ApplicationRow) => {
-				const writable = draft as { -readonly [K in keyof ApplicationRow]: ApplicationRow[K] };
-				writable.insecticideId = values.insecticideId;
-				writable.amountApplied = nextAmount;
-				writable.applicationUnitId = values.applicationUnitId;
-				writable.applicationDate = values.applicationDate;
-				writable.applicationMethodId = nullableSelection(values.applicationMethodId);
-				writable.applicatorProfileId = nullableSelection(values.applicatorProfileId);
-				writable.vehicleId = nullableSelection(values.vehicleId);
-				writable.equipmentId = nullableSelection(values.equipmentId);
-				writable.addressId = values.addressId;
-				writable.habitatId = values.habitatId;
-				writable.metadata = values.metadata;
-				if (nextCentroid !== null) {
-					writable.lat = nextCentroid.lat;
-					writable.lng = nextCentroid.lng;
-					writable.geomType = nextCentroid.geomType;
-				}
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
-
-			const transaction =
-				locationSource === undefined
-					? webCollections.applications.update(application.id, applyEdits)
-					: webCollections.applications.update(
-							application.id,
-							{ metadata: { locationSource } },
-							applyEdits,
-						);
-			await settleWrite(transaction);
+			// Which commands this save means is worked out by the hook, from what
+			// actually moved — the field details and the placement are different
+			// builders, and naming one with nothing to read is refused.
+			await update(application, {
+				values: {
+					insecticideId: values.insecticideId,
+					amountApplied: values.amountApplied,
+					unitId: values.applicationUnitId,
+					actionDate: values.applicationDate,
+					methodId: nullableSelection(values.applicationMethodId),
+					applicatorProfileId: nullableSelection(values.applicatorProfileId),
+					vehicleId: nullableSelection(values.vehicleId),
+					equipmentId: nullableSelection(values.equipmentId),
+					addressId: values.addressId,
+					habitatId: values.habitatId,
+					metadata: values.metadata,
+				},
+				...(centroid === null || redrawn === null
+					? {}
+					: {
+							location: {
+								lat: centroid.lat,
+								lng: centroid.lng,
+								geomType: centroid.geomType,
+								locationSource: { kind: 'geometry', geometry: redrawn },
+							},
+						}),
+			});
 			await Promise.all([
 				saveAdditionalPersonnel({
 					target: { type: 'application', id: application.id },
-					organizationId: application.organizationId,
+					organizationId,
 					actorProfileId,
 					existing: personnel.rows,
 					profileIds: values.additionalPersonnelIds,
 				}),
-				saveApplicationBatches({
+				setBatches({
 					applicationId: application.id,
-					organizationId: application.organizationId,
-					actorProfileId,
 					existing: batches.rows,
 					insecticideBatchIds: values.insecticideBatchIds,
 				}),
 			]);
 			await navigate({ to: '/control-operations/chemical/$id', params: { id: application.id } });
 		},
-		[application, actorProfileId, personnel.rows, batches.rows, navigate],
+		[
+			application,
+			actorProfileId,
+			organizationId,
+			personnel.rows,
+			batches.rows,
+			navigate,
+			update,
+			setBatches,
+		],
 	);
 
 	if (geometryQuery.isError) {
@@ -267,7 +255,7 @@ function EditApplicationLoader({
 			initialGeometry={geometryQuery.geometry}
 			insecticides={insecticides}
 			onSave={onSave}
-			organizationId={application.organizationId}
+			organizationId={organizationId}
 			profiles={profiles}
 			requireLocation={false}
 			submitLabel="Save Changes"
@@ -278,7 +266,7 @@ function EditApplicationLoader({
 }
 
 function defaultsFromApplication(
-	application: ApplicationRow,
+	application: ChemicalApplication,
 	personnel: AdditionalPersonnelResult,
 	batches: ApplicationBatchesResult,
 ): ApplicationFormValues {
@@ -290,9 +278,9 @@ function defaultsFromApplication(
 		formulationId: '',
 		componentBatchIds: {},
 		amountApplied: application.amountApplied,
-		applicationUnitId: application.applicationUnitId,
-		applicationDate: application.applicationDate.slice(0, 10),
-		applicationMethodId: application.applicationMethodId ?? noSelectionValue,
+		applicationUnitId: application.unitId,
+		applicationDate: application.actionDate.slice(0, 10),
+		applicationMethodId: application.methodId ?? noSelectionValue,
 		applicatorProfileId: application.applicatorProfileId ?? noSelectionValue,
 		additionalPersonnelIds: personnel.profileIds,
 		insecticideBatchIds: batches.insecticideBatchIds,

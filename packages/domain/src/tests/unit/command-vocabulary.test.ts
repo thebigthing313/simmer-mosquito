@@ -101,10 +101,25 @@ describe('multi-row commands', () => {
 		const excluded: AllExcluded<
 			| 'missionDispatch.createMission'
 			| 'controlOperations.recordChemicalApplication'
+			| 'missionDispatch.recordChemicalApplicationForMissionItem'
 			| 'publicEngagement.createNotificationRegistration'
 		> = true;
 
 		expect(excluded).toBe(true);
+	});
+
+	it('excludes the mission-stop create that carries children, and only that one', () => {
+		// The chemical one takes its batches in the payload, so it is the same shape as
+		// the ordinary create and the rule applies unchanged. The other three write one
+		// row; the stop they close arrives over sync like any other server-side effect,
+		// which is what keeps them available to a single-row write.
+		const others: readonly SingleRowCommandType[] = [
+			'missionDispatch.recordSourceReductionForMissionItem',
+			'missionDispatch.recordBiocontrolActionForMissionItem',
+			'missionDispatch.recordOutreachActionForMissionItem',
+		];
+
+		expect(others).toHaveLength(3);
 	});
 
 	it('excludes a write whose second row the user is looking at', () => {

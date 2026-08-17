@@ -63,7 +63,10 @@ export interface ChemicalApplication extends ControlActionBase {
 	readonly unitId: string;
 	readonly unitAbbreviation: string | null;
 	readonly vehicleId: string | null;
+	/** `null` when no vehicle was recorded. Guard on `vehicleId`, as with the method. */
+	readonly vehicleName: string | null;
 	readonly equipmentId: string | null;
+	readonly equipmentName: string | null;
 	/** The adult collection this was applied against, if any. */
 	readonly collectionId: string | null;
 }

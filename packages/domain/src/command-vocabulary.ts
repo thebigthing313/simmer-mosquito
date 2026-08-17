@@ -97,6 +97,13 @@ export type DomainCommandType =
  *    server does with it too. Applied as separate writes it is a parent that
  *    exists briefly with no children, and children that reference a row the
  *    server may yet refuse.
+ *
+ *    That is why recording a Chemical Application off a mission stop is here and
+ *    the other three mission-stop creates are not. It is the same command shape
+ *    as the ordinary create — the batches ride in the payload — and the rule
+ *    above does not care that a stop is also being closed. A Source Reduction,
+ *    Biocontrol Action or Outreach Action recorded off a stop is one row, and the
+ *    stop's completion arrives over sync like any other server-side effect.
  * 3. **A record and the thing that produced it.** The four
  *    `*ForAssignmentItem` commands write the Collection or Habitat Inspection
  *    *and* close the Assignment Item that produced it, and may start the
@@ -136,6 +143,7 @@ export type MultiRowCommandType =
 	| 'missionDispatch.moveMissionItems'
 	// A parent, and the children created with it in one payload.
 	| 'controlOperations.recordChemicalApplication'
+	| 'missionDispatch.recordChemicalApplicationForMissionItem'
 	| 'missionDispatch.createMission'
 	| 'publicEngagement.createNotificationRegistration'
 	// A record, and the Assignment Item its work closed.

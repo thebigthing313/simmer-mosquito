@@ -3,14 +3,6 @@ import {
 	recordChemicalApplicationCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type {
-	EquipmentRow,
-	FormulationInsecticideRow,
-	FormulationRow,
-	InsecticideBatchRow,
-	InsecticideRow,
-	VehicleRow,
-} from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -46,12 +38,18 @@ import {
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import type {
+	FormulationComponentListing,
+	FormulationListing,
+	InsecticideListing,
+	RigListing,
+} from '../../../hooks/queries/use-chemical-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel, UnitType } from '../../../hooks/queries/use-unit-labels';
+import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
-import { webCollections } from '../../../sync/webCollections';
 import { insecticideDisplayName } from '../-control-display';
 import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
@@ -66,7 +64,7 @@ import {
 export const noSelectionValue = 'none';
 
 /** Shared empty list, so an unselected formulation keeps a stable identity. */
-const NO_COMPONENTS: readonly FormulationInsecticideRow[] = [];
+const NO_COMPONENTS: readonly FormulationComponentListing[] = [];
 
 /** Domain issue path → the form field holding it. */
 const APPLICATION_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -162,19 +160,19 @@ export interface ApplicationFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
 	readonly applicationMethods: readonly SchemaCatalogListing[];
-	readonly insecticides: readonly InsecticideRow[];
+	readonly insecticides: readonly InsecticideListing[];
 	/**
 	 * The agency's saved mixes. Passing them turns on formulation entry — leave
 	 * them out where a single application row is being edited, since the record
 	 * itself only ever holds one product.
 	 */
-	readonly formulations?: readonly FormulationRow[];
+	readonly formulations?: readonly FormulationListing[];
 	/** Every mix's component rows; the chosen mix's are picked out of these. */
-	readonly formulationComponents?: readonly FormulationInsecticideRow[];
+	readonly formulationComponents?: readonly FormulationComponentListing[];
 	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];
-	readonly vehicles: readonly VehicleRow[];
-	readonly equipment: readonly EquipmentRow[];
+	readonly vehicles: readonly RigListing[];
+	readonly equipment: readonly RigListing[];
 	readonly defaultValues: ApplicationFormValues;
 	/** The application's geometry to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -293,7 +291,7 @@ export function ApplicationFormPage({
 			lifecycleOptions(
 				vehicles,
 				(row) => row.isActive,
-				(row) => row.vehicleName,
+				(row) => row.name,
 			),
 		[vehicles],
 	);
@@ -302,7 +300,7 @@ export function ApplicationFormPage({
 			lifecycleOptions(
 				equipment,
 				(row) => row.isActive,
-				(row) => row.equipmentName,
+				(row) => row.name,
 			),
 		[equipment],
 	);
@@ -350,7 +348,7 @@ export function ApplicationFormPage({
 		[formulations],
 	);
 	const componentsByFormulation = useMemo(() => {
-		const grouped = new Map<string, FormulationInsecticideRow[]>();
+		const grouped = new Map<string, FormulationComponentListing[]>();
 		for (const component of formulationComponents ?? []) {
 			const bucket = grouped.get(component.formulationId);
 			if (bucket === undefined) {
@@ -362,12 +360,12 @@ export function ApplicationFormPage({
 		return grouped;
 	}, [formulationComponents]);
 	const componentsFor = useCallback(
-		(formulationId: string): readonly FormulationInsecticideRow[] =>
+		(formulationId: string): readonly FormulationComponentListing[] =>
 			componentsByFormulation.get(formulationId) ?? NO_COMPONENTS,
 		[componentsByFormulation],
 	);
 	const formulationFor = useCallback(
-		(formulationId: string): FormulationRow | undefined => formulationById.get(formulationId),
+		(formulationId: string): FormulationListing | undefined => formulationById.get(formulationId),
 		[formulationById],
 	);
 
@@ -914,9 +912,9 @@ function FormulationBreakdown({
 	totalAmount,
 	units,
 }: {
-	readonly components: readonly FormulationInsecticideRow[];
-	readonly formulation: FormulationRow | undefined;
-	readonly insecticides: readonly InsecticideRow[];
+	readonly components: readonly FormulationComponentListing[];
+	readonly formulation: FormulationListing | undefined;
+	readonly insecticides: readonly InsecticideListing[];
 	readonly totalAmount: number | null;
 	readonly units: readonly UnitLabel[];
 }) {
@@ -1014,21 +1012,21 @@ function InsecticideBatchOptions({
 			gcTime: batchOptionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ batch: webCollections.insecticideBatches })
-					.where(({ batch }) => eq(batch.insecticideId, insecticideId))
-					.orderBy(({ batch }) => batch.batchName, 'asc'),
+					.from({ batch: insecticide_batches })
+					.where(({ batch }) => eq(batch.insecticide_id, insecticideId))
+					.orderBy(({ batch }) => batch.batch_name, 'asc'),
 		},
 		[insecticideId],
 	);
-	const batches = (result.data ?? []) as unknown as readonly InsecticideBatchRow[];
+	const batches = result.data;
 	// Spent and retired lots stay on offer, behind the ones still on the shelf —
 	// an application being keyed in after the fact used whatever it used.
 	const options = useMemo(
 		() =>
 			lifecycleOptions(
 				batches,
-				(batch) => batch.isActive,
-				(batch) => batch.batchName,
+				(batch) => batch.is_active,
+				(batch) => batch.batch_name,
 			),
 		[batches],
 	);
@@ -1075,7 +1073,7 @@ function validate(values: ApplicationFormValues, componentCount: number): string
 }
 
 /** A component product's name, for a label or a breakdown row. */
-function productLabel(insecticides: readonly InsecticideRow[], insecticideId: string): string {
+function productLabel(insecticides: readonly InsecticideListing[], insecticideId: string): string {
 	const insecticide = insecticides.find((row) => row.id === insecticideId);
 	return insecticide === undefined ? 'Unknown insecticide' : insecticideDisplayName(insecticide);
 }
