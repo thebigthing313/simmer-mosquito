@@ -4,12 +4,10 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
-import {
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import {
 	useCollectionLureRoster,
 	useCollectionMethodRoster,
@@ -150,6 +148,7 @@ function CreateCollectionRoute() {
 	// lands — and so their on-demand stream is already warm when the save fires.
 	const [collectionId] = useState(() => crypto.randomUUID());
 	useAdditionalPersonnel({ type: 'collection', id: collectionId });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 
 	// The whole save re-runs on a confirmed acknowledgement, crew rows included;
 	// every id is minted up front, so a second attempt writes the same rows.
@@ -215,10 +214,8 @@ function CreateCollectionRoute() {
 				// Crew rows reference the collection, so they can only be written once it
 				// exists.
 				await attachLinksBestEffort('the additional personnel', () =>
-					saveAdditionalPersonnel({
+					setPersonnel({
 						target: { type: 'collection', id: row.id },
-						organizationId: organization.id,
-						actorProfileId,
 						existing: [],
 						profileIds: values.additionalPersonnelIds,
 					}),
@@ -240,6 +237,7 @@ function CreateCollectionRoute() {
 			assignmentId,
 			runAcknowledged,
 			timeZone,
+			setPersonnel,
 		],
 	);
 

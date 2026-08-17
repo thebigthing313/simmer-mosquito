@@ -1,13 +1,11 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
-import {
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { newRecordId } from '../../../hooks/mutations/shared';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
@@ -61,6 +59,7 @@ function CreateSourceReductionRoute() {
 	// — and so their on-demand stream is already warm when the save fires.
 	const [sourceReductionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReductionId });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const { record } = useSourceReductionMutations();
 
 	const onSave = useCallback(
@@ -114,10 +113,8 @@ function CreateSourceReductionRoute() {
 				});
 				// Crew rows reference the action, so they can only be written once it exists.
 				await attachLinksBestEffort('the additional personnel', () =>
-					saveAdditionalPersonnel({
+					setPersonnel({
 						target: { type: 'sourceReduction', id: sourceReductionId },
-						organizationId: organization.id,
-						actorProfileId,
 						existing: [],
 						profileIds: values.additionalPersonnelIds,
 					}),
@@ -129,7 +126,7 @@ function CreateSourceReductionRoute() {
 					});
 				});
 			}),
-		[organization, actorProfileId, sourceReductionId, navigate, mission, record],
+		[organization, actorProfileId, sourceReductionId, navigate, mission, record, setPersonnel],
 	);
 
 	return (

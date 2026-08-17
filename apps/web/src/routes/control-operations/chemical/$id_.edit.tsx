@@ -3,14 +3,14 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import {
-	type AdditionalPersonnelResult,
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
+import {
+	type AdditionalPersonnelResult,
+	useAdditionalPersonnel,
+} from '../../../hooks/queries/use-additional-personnel';
 import { useApplication } from '../../../hooks/queries/use-application';
 import {
 	type ApplicationBatchesResult,
@@ -84,7 +84,6 @@ function EditApplicationRoute() {
 
 	return (
 		<EditApplicationLoader
-			actorProfileId={actorProfileId}
 			application={application}
 			applicationMethods={methods}
 			canSubmit={organization !== null && actorProfileId !== null}
@@ -106,7 +105,6 @@ function EditApplicationLoader({
 	profiles,
 	vehicles,
 	equipment,
-	actorProfileId,
 	canSubmit,
 	organizationId,
 }: {
@@ -117,7 +115,6 @@ function EditApplicationLoader({
 	readonly profiles: readonly ProfileListing[];
 	readonly vehicles: readonly RigListing[];
 	readonly equipment: readonly RigListing[];
-	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 	readonly organizationId: string;
 }) {
@@ -136,6 +133,7 @@ function EditApplicationLoader({
 	// the batches ride in the application's own command, an edit adds and removes
 	// links one at a time — they are their own commands with their own permissions.
 	const personnel = useAdditionalPersonnel({ type: 'application', id: application.id });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const batches = useApplicationBatches(application.id);
 
 	const onSave = useCallback(
@@ -188,10 +186,8 @@ function EditApplicationLoader({
 						}),
 			});
 			await Promise.all([
-				saveAdditionalPersonnel({
+				setPersonnel({
 					target: { type: 'application', id: application.id },
-					organizationId,
-					actorProfileId,
 					existing: personnel.rows,
 					profileIds: values.additionalPersonnelIds,
 				}),
@@ -203,16 +199,7 @@ function EditApplicationLoader({
 			]);
 			await navigate({ to: '/control-operations/chemical/$id', params: { id: application.id } });
 		},
-		[
-			application,
-			actorProfileId,
-			organizationId,
-			personnel.rows,
-			batches.rows,
-			navigate,
-			update,
-			setBatches,
-		],
+		[application, personnel.rows, batches.rows, navigate, update, setBatches, setPersonnel],
 	);
 
 	if (geometryQuery.isError) {

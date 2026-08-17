@@ -21,6 +21,7 @@
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import type { CommandDb } from '../command-write.js';
+import { additionalPersonnelTableCommands } from './additional-personnel.js';
 import { addressTableCommands } from './addresses.js';
 import { applicationBatchTableCommands, applicationTableCommands } from './applications.js';
 import { collectionSpeciesTableCommands } from './collection-species.js';
@@ -112,6 +113,8 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, regionTableCommands(options.db));
 	registerTableCommandRoutes(app, options, organizationSpeciesTableCommands(options.db));
 	registerTableCommandRoutes(app, options, addressTableCommands(options.db));
+	// The crew every record type attaches — see `additional-personnel.ts`.
+	registerTableCommandRoutes(app, options, additionalPersonnelTableCommands(options.db));
 	// The three global catalogs, behind the operator door.
 	registerTableCommandRoutes(app, options, genusTableCommands(options.db));
 	registerTableCommandRoutes(app, options, speciesTableCommands(options.db));

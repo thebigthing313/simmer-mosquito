@@ -5,12 +5,12 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import {
 	type AdditionalPersonnelResult,
-	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
-import { RecordUnavailable } from '../../../components/record';
+} from '../../../hooks/queries/use-additional-personnel';
 import {
 	type CatalogListing,
 	type SchemaCatalogListing,
@@ -124,6 +124,7 @@ function EditCollectionLoader({
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'collection', id: collection.id });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 
 	const onSave = useCallback(
 		async ({ values, geometry, geometryChanged }: CollectionSaveInput) => {
@@ -178,10 +179,8 @@ function EditCollectionLoader({
 							applyEdits,
 						);
 			await settleWrite(transaction);
-			await saveAdditionalPersonnel({
+			await setPersonnel({
 				target: { type: 'collection', id: collection.id },
-				organizationId: collection.organizationId,
-				actorProfileId,
 				existing: personnel.rows,
 				profileIds: values.additionalPersonnelIds,
 			});
@@ -192,12 +191,12 @@ function EditCollectionLoader({
 		},
 		[
 			collection.id,
-			collection.organizationId,
 			collection.trapId,
 			actorProfileId,
 			personnel.rows,
 			navigate,
 			timeZone,
+			setPersonnel,
 		],
 	);
 

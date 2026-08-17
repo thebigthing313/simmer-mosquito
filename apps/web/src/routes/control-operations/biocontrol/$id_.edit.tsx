@@ -3,14 +3,14 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import {
-	type AdditionalPersonnelResult,
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
+import {
+	type AdditionalPersonnelResult,
+	useAdditionalPersonnel,
+} from '../../../hooks/queries/use-additional-personnel';
 import { useBiocontrolAction } from '../../../hooks/queries/use-biocontrol-action';
 import {
 	type SchemaCatalogListing,
@@ -69,7 +69,6 @@ function EditBiocontrolActionRoute() {
 	return (
 		<EditBiocontrolActionLoader
 			action={action}
-			actorProfileId={actorProfileId}
 			biocontrolMethods={methods}
 			canSubmit={organization !== null && actorProfileId !== null}
 			organizationId={organization?.id ?? ''}
@@ -84,7 +83,6 @@ function EditBiocontrolActionLoader({
 	biocontrolMethods,
 	units,
 	profiles,
-	actorProfileId,
 	canSubmit,
 	organizationId,
 }: {
@@ -92,7 +90,6 @@ function EditBiocontrolActionLoader({
 	readonly biocontrolMethods: readonly SchemaCatalogListing[];
 	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];
-	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 	readonly organizationId: string;
 }) {
@@ -109,6 +106,7 @@ function EditBiocontrolActionLoader({
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'biocontrolAction', id: action.id });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 
 	const onSave = useCallback(
 		async ({
@@ -157,16 +155,14 @@ function EditBiocontrolActionLoader({
 							},
 						}),
 			});
-			await saveAdditionalPersonnel({
+			await setPersonnel({
 				target: { type: 'biocontrolAction', id: action.id },
-				organizationId,
-				actorProfileId,
 				existing: personnel.rows,
 				profileIds: values.additionalPersonnelIds,
 			});
 			await navigate({ to: '/control-operations/biocontrol/$id', params: { id: action.id } });
 		},
-		[action, actorProfileId, organizationId, personnel.rows, navigate, update],
+		[action, personnel.rows, navigate, update, setPersonnel],
 	);
 
 	if (geometryQuery.isError) {

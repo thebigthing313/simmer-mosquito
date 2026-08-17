@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
+import {
+	type AdditionalPersonnelTarget,
+	useAdditionalPersonnel,
+} from '../hooks/queries/use-additional-personnel';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
-import { type AdditionalPersonnelTarget, useAdditionalPersonnel } from './additional-personnel';
 
 /**
  * The crew attached to a record, for its detail page.

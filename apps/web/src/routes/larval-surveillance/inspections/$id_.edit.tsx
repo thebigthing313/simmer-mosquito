@@ -1,12 +1,6 @@
 import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type {
-	AdditionalPersonnelRow,
-	CommentRow,
-	InspectionRow,
-	LarvalDensity,
-	SampleRow,
-} from '@simmer-mosquito/sync';
+import type { CommentRow, InspectionRow, LarvalDensity, SampleRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -14,11 +8,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
-import {
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import {
+	type AdditionalPersonnelLink,
+	useAdditionalPersonnel,
+} from '../../../hooks/queries/use-additional-personnel';
 import {
 	type SchemaCatalogListing,
 	useHabitatTypeRoster,
@@ -136,11 +131,12 @@ function EditInspectionLoader({
 	readonly organizationId: string;
 	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
-	readonly existingPersonnel: readonly AdditionalPersonnelRow[];
+	readonly existingPersonnel: readonly AdditionalPersonnelLink[];
 	readonly personnelProfileIds: readonly string[];
 }) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const isAdhoc = inspection.habitatId === null;
 
 	// Geometry is not part of the Electric shape (ADR 0009), so it comes from the
@@ -235,10 +231,8 @@ function EditInspectionLoader({
 			// The rest reference the inspection and cannot fail a save that already
 			// landed, so each is reported rather than thrown (see attachLinksBestEffort).
 			await attachLinksBestEffort('the additional personnel', () =>
-				saveAdditionalPersonnel({
+				setPersonnel({
 					target: { type: 'inspection', id: inspection.id },
-					organizationId,
-					actorProfileId,
 					existing: existingPersonnel,
 					profileIds: values.additionalPersonnelIds,
 				}),
@@ -281,6 +275,7 @@ function EditInspectionLoader({
 			existingPersonnel,
 			navigate,
 			queryClient,
+			setPersonnel,
 		],
 	);
 

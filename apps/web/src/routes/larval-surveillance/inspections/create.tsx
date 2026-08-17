@@ -5,11 +5,9 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
-import {
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -113,6 +111,7 @@ function CreateInspectionRoute() {
 	const assignmentItemId = search.assignmentItemId ?? null;
 	const assignmentId = search.assignmentId ?? null;
 	const navigate = useNavigate();
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 	const { organization, settings } = workspace;
 	const { rows: habitatTypes } = useCollectionRows(webCollections.habitatTypes);
@@ -183,10 +182,8 @@ function CreateInspectionRoute() {
 				// Crew rows reference the inspection, so they can only be written once it
 				// exists.
 				await attachLinksBestEffort('the additional personnel', () =>
-					saveAdditionalPersonnel({
+					setPersonnel({
 						target: { type: 'inspection', id: row.id },
-						organizationId: organization.id,
-						actorProfileId,
 						existing: [],
 						profileIds: values.additionalPersonnelIds,
 					}),
@@ -229,6 +226,7 @@ function CreateInspectionRoute() {
 			assignmentItemId,
 			assignmentId,
 			runAcknowledged,
+			setPersonnel,
 		],
 	);
 

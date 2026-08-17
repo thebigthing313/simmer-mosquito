@@ -2,14 +2,12 @@ import { calculateFormulationComponentAmounts } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import {
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { newRecordId } from '../../../hooks/mutations/shared';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
 import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import type {
@@ -82,6 +80,7 @@ function CreateApplicationRoute() {
 	// warm when the save fires. A formulation mints the rest at save.
 	const [applicationId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'application', id: applicationId });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 	// The batches ride in the create's own command now, so nothing here needs this
 	// list. It stays mounted for the stream: a write cannot wait for its own txid on
 	// a collection nobody is subscribed to.
@@ -189,10 +188,8 @@ function CreateApplicationRoute() {
 				await Promise.all(
 					saved.map((product) =>
 						attachLinksBestEffort('the additional personnel', () =>
-							saveAdditionalPersonnel({
+							setPersonnel({
 								target: { type: 'application', id: product.id },
-								organizationId: organization.id,
-								actorProfileId,
 								existing: [],
 								profileIds: values.additionalPersonnelIds,
 							}),
@@ -219,6 +216,7 @@ function CreateApplicationRoute() {
 			formulationComponents,
 			navigate,
 			record,
+			setPersonnel,
 		],
 	);
 

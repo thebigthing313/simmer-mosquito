@@ -3,14 +3,14 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import {
-	type AdditionalPersonnelResult,
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
+import {
+	type AdditionalPersonnelResult,
+	useAdditionalPersonnel,
+} from '../../../hooks/queries/use-additional-personnel';
 import {
 	type SchemaCatalogListing,
 	useSourceReductionMethodRoster,
@@ -89,7 +89,6 @@ function EditSourceReductionRoute() {
 
 	return (
 		<EditSourceReductionLoader
-			actorProfileId={actorProfileId}
 			canSubmit={organization !== null && actorProfileId !== null}
 			methods={methods}
 			organizationId={organization?.id ?? ''}
@@ -105,7 +104,6 @@ function EditSourceReductionLoader({
 	methods,
 	units,
 	profiles,
-	actorProfileId,
 	canSubmit,
 	organizationId,
 }: {
@@ -113,7 +111,6 @@ function EditSourceReductionLoader({
 	readonly methods: readonly SchemaCatalogListing[];
 	readonly units: readonly UnitLabel[];
 	readonly profiles: readonly ProfileListing[];
-	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 	readonly organizationId: string;
 }) {
@@ -130,6 +127,7 @@ function EditSourceReductionLoader({
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReduction.id });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 
 	const onSave = useCallback(
 		async ({ values, geometry, geometryChanged }: SourceReductionSaveInput) => {
@@ -169,10 +167,8 @@ function EditSourceReductionLoader({
 							},
 						}),
 			});
-			await saveAdditionalPersonnel({
+			await setPersonnel({
 				target: { type: 'sourceReduction', id: sourceReduction.id },
-				organizationId,
-				actorProfileId,
 				existing: personnel.rows,
 				profileIds: values.additionalPersonnelIds,
 			});
@@ -181,7 +177,7 @@ function EditSourceReductionLoader({
 				params: { id: sourceReduction.id },
 			});
 		},
-		[sourceReduction, actorProfileId, organizationId, personnel.rows, navigate, update],
+		[sourceReduction, personnel.rows, navigate, update, setPersonnel],
 	);
 
 	if (geometryQuery.isError) {

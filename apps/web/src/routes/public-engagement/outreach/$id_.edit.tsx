@@ -3,14 +3,14 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import {
-	type AdditionalPersonnelResult,
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
+import {
+	type AdditionalPersonnelResult,
+	useAdditionalPersonnel,
+} from '../../../hooks/queries/use-additional-personnel';
 import {
 	type SchemaCatalogListing,
 	useOutreachMethodRoster,
@@ -67,7 +67,6 @@ function EditOutreachActionRoute() {
 	return (
 		<EditOutreachActionLoader
 			action={action}
-			actorProfileId={actorProfileId}
 			canSubmit={organization !== null && actorProfileId !== null}
 			organizationId={organization?.id ?? ''}
 			outreachMethods={methods}
@@ -80,14 +79,12 @@ function EditOutreachActionLoader({
 	action,
 	outreachMethods,
 	profiles,
-	actorProfileId,
 	canSubmit,
 	organizationId,
 }: {
 	readonly action: OutreachAction;
 	readonly outreachMethods: readonly SchemaCatalogListing[];
 	readonly profiles: readonly ProfileListing[];
-	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 	readonly organizationId: string;
 }) {
@@ -104,6 +101,7 @@ function EditOutreachActionLoader({
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'outreachAction', id: action.id });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 
 	const onSave = useCallback(
 		async ({
@@ -152,16 +150,14 @@ function EditOutreachActionLoader({
 							},
 						}),
 			});
-			await saveAdditionalPersonnel({
+			await setPersonnel({
 				target: { type: 'outreachAction', id: action.id },
-				organizationId,
-				actorProfileId,
 				existing: personnel.rows,
 				profileIds: values.additionalPersonnelIds,
 			});
 			await navigate({ to: '/public-engagement/outreach/$id', params: { id: action.id } });
 		},
-		[action, actorProfileId, organizationId, personnel.rows, navigate, update],
+		[action, personnel.rows, navigate, update, setPersonnel],
 	);
 
 	if (geometryQuery.isError) {

@@ -1,13 +1,11 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
-import {
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { newRecordId } from '../../../hooks/mutations/shared';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
@@ -62,6 +60,7 @@ function CreateBiocontrolActionRoute() {
 	// — and so their on-demand stream is already warm when the save fires.
 	const [biocontrolActionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'biocontrolAction', id: biocontrolActionId });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const { record } = useBiocontrolActionMutations();
 
 	const onSave = useCallback(
@@ -119,10 +118,8 @@ function CreateBiocontrolActionRoute() {
 				});
 				// Crew rows reference the release, so they can only be written once it exists.
 				await attachLinksBestEffort('the additional personnel', () =>
-					saveAdditionalPersonnel({
+					setPersonnel({
 						target: { type: 'biocontrolAction', id: biocontrolActionId },
-						organizationId: organization.id,
-						actorProfileId,
 						existing: [],
 						profileIds: values.additionalPersonnelIds,
 					}),
@@ -134,7 +131,7 @@ function CreateBiocontrolActionRoute() {
 					});
 				});
 			}),
-		[organization, actorProfileId, biocontrolActionId, navigate, mission, record],
+		[organization, actorProfileId, biocontrolActionId, navigate, mission, record, setPersonnel],
 	);
 
 	return (
