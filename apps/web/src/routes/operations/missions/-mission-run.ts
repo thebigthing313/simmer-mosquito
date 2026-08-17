@@ -2,7 +2,7 @@ import type { RequestedControlActionRow } from '@simmer-mosquito/sync';
 import { useCallback, useMemo, useState } from 'react';
 import { useControlMethodNames, usePersonnelOptions } from '../../../components/explorer';
 import type { RouteStopFeature } from '../../../components/map';
-import { type MoveAction, type OrderPlacement, useStopOrder } from '../../../components/stop-order';
+import { type MoveAction, type MovePlan, useStopOrder } from '../../../components/stop-order';
 import type { MissionProgressCounts, MissionStatus } from '../../../hooks/queries/operations-view';
 import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
@@ -96,9 +96,11 @@ export function useMissionRun(missionId: string): MissionRun {
 	const selection = useMissionSelection();
 	const runner = useCommandRunner();
 
+	// Mission items still reorder through the old endpoint, which takes only the
+	// moved id and the placement — the rest of the plan is what a caller writing
+	// its own optimistic positions needs, and this one does not.
 	const commitMove = useCallback(
-		(movedIds: readonly string[], placement: OrderPlacement) =>
-			moveMissionItems(missionId, movedIds, placement),
+		(plan: MovePlan) => moveMissionItems(missionId, [plan.movedId], plan.placement),
 		[missionId],
 	);
 	const { ordered, move: moveStop } = useStopOrder({

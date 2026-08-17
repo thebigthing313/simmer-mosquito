@@ -98,6 +98,14 @@ export type DomainCommandType =
  *    exists briefly with no children, and children that reference a row the
  *    server may yet refuse.
  *
+ *    Snapshotting a Route into an Assignment is the same shape read backwards.
+ *    The two from-route creates state the children as ids paired with the Route
+ *    Items they copy, and the server reads each stop's target out of the Route —
+ *    so the payload names N Assignment Items without describing them. The client
+ *    can still draw them, because it is looking at the Route it chose, and it has
+ *    to: the page these are called from navigates straight to the new worklist,
+ *    which is a list of exactly those children.
+ *
  *    That is why recording a Chemical Application off a mission stop is here and
  *    the other three mission-stop creates are not. It is the same command shape
  *    as the ordinary create — the batches ride in the payload — and the rule
@@ -146,6 +154,8 @@ export type MultiRowCommandType =
 	| 'missionDispatch.recordChemicalApplicationForMissionItem'
 	| 'missionDispatch.createMission'
 	| 'publicEngagement.createNotificationRegistration'
+	| 'fieldWork.createAssignmentFromRoute'
+	| 'fieldWork.selfAssignRoute'
 	// A record, and the Assignment Item its work closed.
 	| 'fieldWork.collectTrapCollectionForAssignmentItem'
 	| 'fieldWork.recordCollectedTrapCollectionForAssignmentItem'

@@ -70,3 +70,28 @@ export function newRecordId(): string {
 export function optimisticStamp(): Date {
 	return new Date();
 }
+
+/** How far a lifecycle stamp is backdated — see {@link lifecycleStamp}. */
+const clockSkewMarginMs = 2_000;
+
+/**
+ * A moment that is also sent, backdated far enough to survive a fast clock.
+ *
+ * Different from {@link optimisticStamp} in one way that matters: an
+ * `updated_at` is stripped from the outgoing body, and a `started_at` is not.
+ * Lifecycle commands take the moment the work happened, so a device that was
+ * offline can state it, and the server validates that moment against its own
+ * clock with no tolerance — a browser running two seconds fast has every one of
+ * these refused as "in the future" (issue #37).
+ *
+ * Two seconds of backdating costs nothing: these are provenance timestamps
+ * rather than measurements, and nothing reads them to the second.
+ *
+ * The alternative is to send nothing and let the server date it, which it does
+ * when the field is absent — but then the row on screen would not change until
+ * the write streamed back, and a Start button that does nothing for a second is
+ * a button people press twice.
+ */
+export function lifecycleStamp(): Date {
+	return new Date(Date.now() - clockSkewMarginMs);
+}

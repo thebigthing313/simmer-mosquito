@@ -1,5 +1,3 @@
-import type { AssignmentRow, RouteRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -9,15 +7,12 @@ import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
-import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
+import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
-import { useRouteStopCounts } from '../../larval-surveillance/habitats/-route-data';
 import {
-	createAssignmentFromRoute,
 	useAssigneeOptions,
 	useAssignment,
 	useAssignmentItems,
@@ -46,9 +41,7 @@ type Mode = 'blank' | 'route';
 
 function AssignmentCreateRoute() {
 	const navigate = useNavigate();
-	const auth = useAuthSnapshot();
-	const identity = auth?.authenticated === true ? auth.localIdentity : null;
-	const organizationId = identity?.organizationId ?? null;
+	const { create, createFromRoute, canWrite } = useAssignmentMutations();
 
 	const timeZone = useOrganizationTimeZone();
 	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
@@ -68,7 +61,7 @@ function AssignmentCreateRoute() {
 	const [error, setError] = useState<string | null>(null);
 
 	const { options: assigneeOptions } = useAssigneeOptions();
-	const { rows: allRoutes } = useCollectionRows<RouteRow>(webCollections.routes);
+	const { routes: allRoutes } = useRouteCatalog();
 	const { countByRouteId } = useRouteStopCounts();
 	const { items: routeItems, isReady: routeItemsReady } = useRouteSnapshotItems(
 		mode === 'route' ? routeId : null,
@@ -79,50 +72,39 @@ function AssignmentCreateRoute() {
 	// before the subset resolves would quietly produce a short assignment.
 	const routeReady =
 		mode === 'blank' || (routeId !== null && routeItemsReady && routeStopCount > 0);
-	const canSubmit =
-		organizationId !== null && values.assignmentDate !== '' && routeReady && !saving;
+	const canSubmit = canWrite && values.assignmentDate !== '' && routeReady && !saving;
 
 	const submit = useCallback(async () => {
-		if (organizationId === null || !canSubmit) {
+		if (!canSubmit) {
 			return;
 		}
 		setSaving(true);
 		setError(null);
 		try {
+			const details = {
+				assignmentDate: values.assignmentDate,
+				assignmentName: assignmentNameOrNull(values),
+				assignedToProfileId: assigneeOrNull(values),
+				dueAt: toDueAt(values, timeZone),
+			};
 			if (mode === 'route' && routeId !== null) {
-				await createAssignmentFromRoute({
+				await createFromRoute({
 					assignmentId,
 					routeId,
-					assignmentDate: values.assignmentDate,
-					assignmentName: assignmentNameOrNull(values),
-					assignedToProfileId: assigneeOrNull(values),
-					dueAt: toDueAt(values, timeZone),
-					assignmentItemIds: routeItems.map((item) => ({
-						routeItemId: item.id,
+					details,
+					// The stop's own target rides along so the new worklist can be drawn
+					// before the server answers. Only the id pairing is sent — the server
+					// reads each target out of the Route it is copying.
+					stops: routeItems.map((item) => ({
+						routeItemId: item.routeItemId,
 						assignmentItemId: crypto.randomUUID(),
+						entityType: item.entityType,
+						entityId: item.entityId,
+						directionsToNextItem: item.directionsToNextItem,
 					})),
 				});
 			} else {
-				const now = new Date().toISOString();
-				const row: AssignmentRow = {
-					id: assignmentId,
-					organizationId,
-					assignmentName: assignmentNameOrNull(values),
-					assignedToProfileId: assigneeOrNull(values),
-					// Mirrors what the server records, so the row does not flicker.
-					assignedByProfileId: identity?.profileId ?? null,
-					assignmentDate: values.assignmentDate,
-					dueAt: toDueAt(values, timeZone),
-					startedAt: null,
-					completedAt: null,
-					cancelledAt: null,
-					cancellationReason: null,
-					createdByProfileId: identity?.profileId ?? null,
-					updatedByProfileId: identity?.profileId ?? null,
-					createdAt: now,
-					updatedAt: now,
-				};
-				await settleWrite(webCollections.assignments.insert(row));
+				await create(assignmentId, details);
 			}
 			// Straight to the planning surface: a new assignment with no stops is not
 			// yet usable, and the list would just show an empty shell.
@@ -132,16 +114,16 @@ function AssignmentCreateRoute() {
 			setSaving(false);
 		}
 	}, [
-		organizationId,
 		canSubmit,
 		mode,
 		routeId,
 		routeItems,
 		values,
 		assignmentId,
-		identity,
 		navigate,
 		timeZone,
+		create,
+		createFromRoute,
 	]);
 
 	return (

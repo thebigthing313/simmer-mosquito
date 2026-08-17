@@ -46,7 +46,7 @@ import {
 	ArrowLeftIcon,
 	CheckCircle2Icon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { and, eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../components/app-shell';
@@ -62,6 +62,7 @@ import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
 import type { Tag } from '../hooks/queries/tag-view';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
+import { useRecordRoutes } from '../hooks/queries/use-record-routes';
 import { useRecordTags } from '../hooks/queries/use-record-tags';
 import { useSpeciesNames } from '../hooks/queries/use-species-names';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
@@ -75,9 +76,6 @@ const historyPageSize = 25;
 // Keep the on-demand inspection/sample/species subsets warm briefly after unmount
 // so quick navigation between habitats reuses them instead of refetching them.
 const historyGcTimeMs = 30_000;
-// Same rationale for the on-demand tag_items subset behind the Details "Tags" row.
-const tagsGcTimeMs = 30_000;
-
 // Projected shapes of the nested includes query (inspection -> samples -> species).
 interface HistorySampleSpecies {
 	readonly id: string;
@@ -447,42 +445,12 @@ function HabitatTags({ habitatId }: { readonly habitatId: string }) {
  * on-demand collection. `routes` is eager, so suspense is safe there.
  */
 function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
-	const stops = useLiveQuery(
-		{
-			gcTime: tagsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ routeItem: webCollections.routeItems })
-					.where(({ routeItem }) =>
-						and(eq(routeItem.entityType, 'habitat'), eq(routeItem.entityId, habitatId)),
-					)
-					.select(({ routeItem }) => ({
-						id: routeItem.id,
-						routeId: routeItem.routeId,
-						position: routeItem.position,
-					})),
-		},
-		[habitatId],
-	);
+	const { routes, isReady, isError } = useRecordRoutes({ type: 'habitat', id: habitatId });
 
-	const catalog = useLiveSuspenseQuery((query) => query.from({ route: webCollections.routes }), []);
-
-	const routes = useMemo(() => {
-		const routesById = new Map(catalog.data.map((route) => [route.id, route]));
-		return (stops.data ?? [])
-			.flatMap((stop) => {
-				const route = routesById.get(stop.routeId);
-				// A stop whose route is not in the catalog is another agency's or a
-				// deleted one; either way there is nothing to link to.
-				return route === undefined ? [] : [{ position: stop.position, route }];
-			})
-			.sort((first, second) => first.route.routeName.localeCompare(second.route.routeName));
-	}, [stops.data, catalog.data]);
-
-	if (stops.isError) {
+	if (isError) {
 		return <span className="text-muted-foreground">Routes unavailable</span>;
 	}
-	if (!stops.isReady) {
+	if (!isReady) {
 		return <span className="text-muted-foreground">Loading routes…</span>;
 	}
 	if (routes.length === 0) {
@@ -491,14 +459,14 @@ function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 
 	return (
 		<ul className="m-0 grid list-none gap-1 p-0">
-			{routes.map(({ position, route }) => (
-				<li className="flex items-baseline gap-2" key={route.id}>
+			{routes.map(({ position, routeId, routeItemId, routeName }) => (
+				<li className="flex items-baseline gap-2" key={routeItemId}>
 					<Link
 						className="w-fit rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						params={{ id: route.id }}
+						params={{ id: routeId }}
 						to="/larval-surveillance/habitats/routes/$id"
 					>
-						{route.routeName}
+						{routeName}
 					</Link>
 					{/* Where in the run it falls — the thing a crew lead is actually
 					    asking when they ask which route a site is on. */}

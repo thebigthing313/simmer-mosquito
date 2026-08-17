@@ -1,13 +1,3 @@
-import type {
-	AddressRow,
-	AdultCollectionRow,
-	AssignmentItemRow,
-	AssignmentRow,
-	HabitatRow,
-	ServiceRequestRow,
-	TrapRow,
-} from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { and, eq, inArray, isNull, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../components/map';
@@ -16,19 +6,34 @@ import type { AssignmentStatus, ProgressCounts } from '../../../hooks/queries/as
 import { assignmentStatus } from '../../../hooks/queries/assignment-view';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { addresses } from '../../../lib/collections/addresses';
+import { assignment_items } from '../../../lib/collections/assignment_items';
+import { assignments } from '../../../lib/collections/assignments';
+import { collections } from '../../../lib/collections/collections';
+import { habitats } from '../../../lib/collections/habitats';
+import { route_items } from '../../../lib/collections/route_items';
+import { service_requests } from '../../../lib/collections/service_requests';
+import { traps } from '../../../lib/collections/traps';
 import { type LifecycleOption, lifecycleOptions } from '../../../lib/lifecycle-options';
-import { postCommand } from '../../../sync/post-command';
-import { webCollections } from '../../../sync/webCollections';
 
 /**
- * The reads and writes behind a worklist run.
+ * The reads behind a worklist run, and the rules about what may be done to one.
  *
- * What is left here is the write half plus the reads the run and plan pages
- * depend on. The assignments schedule reads through `hooks/queries` instead;
- * these stay on `webCollections` because a page that writes a row has to read it
- * through the same collection, or the write's txid lands on a stream nothing is
- * watching and the save never settles.
+ * The writes used to live here too. They are in `hooks/mutations` now
+ * (`use-assignment-mutations.ts`, `use-assignment-item-mutations.ts`), because
+ * they no longer depend on anything this module knows: the endpoint reads a
+ * named command rather than inferring one from which timestamp moved, so the
+ * ordering rules that used to make a write dangerous — details and lifecycle
+ * must never ride the same PATCH; Complete must never be offered on a skipped
+ * stop — are enforced by the command's name.
+ *
+ * {@link itemActionsFor} is the one that survives, and it is a display rule now
+ * rather than a safety one: Unskip before Complete is the honest order to offer
+ * a crew, not a fence around an inference.
+ *
+ * What is left is composition — the stops joined to the records they send a crew
+ * to — which is a page's question rather than a table's, and stays beside the
+ * pages that ask it.
  */
 
 // `assignments` and `assignment_items` are both on-demand shapes (docs/sync.md);
@@ -39,19 +44,6 @@ const assignmentsGcTimeMs = 30_000;
 // predicate live (and empty) while an id set is still unresolved.
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
-/**
- * Timestamps are validated against the *server's* clock with no tolerance, so a
- * client running even slightly fast has its lifecycle writes rejected as "in the
- * future" (see issue #37). Backdating by a couple of seconds costs nothing —
- * these are provenance timestamps, not measurements — and keeps a fast clock from
- * making the app unusable.
- */
-const CLOCK_SKEW_MARGIN_MS = 2_000;
-
-function nowTimestamp(): string {
-	return new Date(Date.now() - CLOCK_SKEW_MARGIN_MS).toISOString();
-}
-
 /** Radix Select forbids an empty-string item value, so "nobody" needs a name. */
 export const NO_ASSIGNEE = 'none';
 
@@ -60,10 +52,11 @@ export const NO_ASSIGNEE = 'none';
 export type ItemProgress = 'pending' | 'completed' | 'skipped';
 export type TargetType = 'trap' | 'habitat' | 'serviceRequest';
 
-/** Item progress. Skipped is checked first, matching `readItemLifecycleTransition`. */
-export function itemProgress(
-	row: Pick<AssignmentItemRow, 'completedAt' | 'skippedAt'>,
-): ItemProgress {
+/** Item progress. Skipped is checked first, matching the server's own precedence. */
+export function itemProgress(row: {
+	readonly completedAt: Date | string | null;
+	readonly skippedAt: Date | string | null;
+}): ItemProgress {
 	if (row.skippedAt !== null) {
 		return 'skipped';
 	}
@@ -73,11 +66,14 @@ export function itemProgress(
 /**
  * The one place the polymorphic discriminator is interpreted.
  *
- * An optimistic row carries the camelCase type the command wire uses; the row that
- * syncs back carries the snake_case form the column stores. `trap` and `habitat`
- * are single-word and identical either way — only `serviceRequest` differs, which
- * is exactly why an inline `=== 'serviceRequest'` comparison looks correct until
- * the first service-request stop reloads.
+ * The column holds `service_request`; the vocabulary a page speaks is
+ * `serviceRequest`. `trap` and `habitat` are single-word and identical either
+ * way — which is exactly why an inline `=== 'serviceRequest'` comparison looks
+ * correct until the first service-request stop appears.
+ *
+ * Both spellings are still accepted. The write side stamps the column's
+ * (`use-assignment-item-mutations.ts`), so nothing this app produces is
+ * camelCase any more, but a row written before that change still is.
  */
 export function targetTypeOf(entityType: string): TargetType | null {
 	switch (entityType) {
@@ -173,9 +169,9 @@ export interface AssignmentStopView {
 	readonly entityType: TargetType | null;
 	readonly entityId: string;
 	readonly directionsToNextItem: string | null;
-	readonly completedAt: string | null;
+	readonly completedAt: Date | null;
 	readonly completedByProfileId: string | null;
-	readonly skippedAt: string | null;
+	readonly skippedAt: Date | null;
 	readonly skippedByProfileId: string | null;
 	readonly skipReason: string | null;
 	readonly progress: ItemProgress;
@@ -193,7 +189,17 @@ export interface AssignmentStopView {
 	readonly pendingCollectionId: string | null;
 }
 
-export interface AssignmentView extends AssignmentRow {
+/** An assignment as the run and plan pages read it. */
+export interface AssignmentView {
+	readonly id: string;
+	readonly assignmentName: string | null;
+	readonly assignmentDate: string;
+	readonly assignedToProfileId: string | null;
+	readonly dueAt: Date | null;
+	readonly startedAt: Date | null;
+	readonly completedAt: Date | null;
+	readonly cancelledAt: Date | null;
+	readonly cancellationReason: string | null;
 	readonly status: AssignmentStatus;
 }
 
@@ -210,10 +216,6 @@ export function assignmentStopTone(stop: AssignmentStopView): StopTone {
 
 // --- reads ------------------------------------------------------------------
 
-function toView(row: AssignmentRow): AssignmentView {
-	return { ...row, status: assignmentStatus(row) };
-}
-
 /** One assignment. Also the warm-stream anchor on pages that write before reading. */
 export function useAssignment(assignmentId: string | null): {
 	readonly assignment: AssignmentView | null;
@@ -225,20 +227,44 @@ export function useAssignment(assignmentId: string | null): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ assignment: webCollections.assignments })
-					.where(({ assignment }) => eq(assignment.id, assignmentId ?? UNMATCHABLE_ID)),
+					.from({ assignment: assignments })
+					.where(({ assignment }) => eq(assignment.id, assignmentId ?? UNMATCHABLE_ID))
+					.select(({ assignment }) => ({
+						id: assignment.id,
+						assignmentName: assignment.assignment_name,
+						assignmentDate: assignment.assignment_date,
+						assignedToProfileId: assignment.assigned_to_profile_id,
+						dueAt: assignment.due_at,
+						startedAt: assignment.started_at,
+						completedAt: assignment.completed_at,
+						cancelledAt: assignment.cancelled_at,
+						cancellationReason: assignment.cancellation_reason,
+					})),
 		},
 		[assignmentId],
 	);
 
-	const rows = (result.data ?? []) as readonly AssignmentRow[];
-	const row = rows[0];
+	const row = result.data[0];
 
 	return {
-		assignment: row === undefined ? null : toView(row),
+		assignment: row === undefined ? null : { ...row, status: assignmentStatus(row) },
 		isLoading: assignmentId !== null && result.isLoading,
 		isReady: result.isReady,
 	};
+}
+
+/** One stop, in the vocabulary the run page speaks. */
+interface AssignmentItemView {
+	readonly id: string;
+	readonly entityType: string;
+	readonly entityId: string;
+	readonly position: number;
+	readonly directionsToNextItem: string | null;
+	readonly completedAt: Date | null;
+	readonly completedByProfileId: string | null;
+	readonly skippedAt: Date | null;
+	readonly skippedByProfileId: string | null;
+	readonly skipReason: string | null;
 }
 
 /**
@@ -248,7 +274,7 @@ export function useAssignment(assignmentId: string | null): {
  * traps, habitats, and service requests in one worklist by design.
  */
 export function useAssignmentItems(assignmentId: string | null): {
-	readonly items: readonly AssignmentItemRow[];
+	readonly items: readonly AssignmentItemView[];
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
 } {
@@ -257,15 +283,27 @@ export function useAssignmentItems(assignmentId: string | null): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: webCollections.assignmentItems })
-					.where(({ item }) => eq(item.assignmentId, assignmentId ?? UNMATCHABLE_ID))
-					.orderBy(({ item }) => item.position, 'asc'),
+					.from({ item: assignment_items })
+					.where(({ item }) => eq(item.assignment_id, assignmentId ?? UNMATCHABLE_ID))
+					.orderBy(({ item }) => item.position, 'asc')
+					.select(({ item }) => ({
+						id: item.id,
+						entityType: item.entity_type,
+						entityId: item.entity_id,
+						position: item.position,
+						directionsToNextItem: item.directions_to_next_item,
+						completedAt: item.completed_at,
+						completedByProfileId: item.completed_by_profile_id,
+						skippedAt: item.skipped_at,
+						skippedByProfileId: item.skipped_by_profile_id,
+						skipReason: item.skip_reason,
+					})),
 		},
 		[assignmentId],
 	);
 
 	return {
-		items: (result.data ?? []) as readonly AssignmentItemRow[],
+		items: result.data,
 		isLoading: assignmentId !== null && result.isLoading,
 		isReady: result.isReady,
 	};
@@ -278,10 +316,11 @@ export function useAssignmentItems(assignmentId: string | null): {
  * mounts unconditionally with an unmatchable-id fallback: a worklist made only of
  * traps would otherwise change the hook count between renders.
  *
- * Traps are an eager collection, so they need no subset at all — the catalog is
- * already local and is filtered in memory.
+ * The three are still separate reads rather than one join, and that is what the
+ * polymorphism costs: `entity_id` points at a different table depending on
+ * `entity_type`, so there is no column to join on.
  */
-function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
+function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 	readonly byKey: ReadonlyMap<string, AssignmentTarget>;
 	readonly isReady: boolean;
 } {
@@ -302,20 +341,53 @@ function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
 		return { trapIds: traps, habitatIds: habitats, requestIds: requests };
 	}, [items]);
 
+	const trapKey = useMemo(() => [...trapIds].sort().join(','), [trapIds]);
 	const habitatKey = useMemo(() => [...habitatIds].sort().join(','), [habitatIds]);
 	const requestKey = useMemo(() => [...requestIds].sort().join(','), [requestIds]);
 
-	const { rows: allTraps } = useCollectionRows<TrapRow>(webCollections.traps);
+	// `traps` is eager, so this is a filter over rows already local rather than a
+	// subset request — but asking for the stops' traps by id keeps the three
+	// branches reading the same way.
+	const trapResult = useLiveQuery(
+		{
+			gcTime: assignmentsGcTimeMs,
+			query: (query) =>
+				query
+					.from({ trap: traps })
+					.where(({ trap }) => inArray(trap.id, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]))
+					.select(({ trap }) => ({
+						id: trap.id,
+						trapName: trap.trap_name,
+						trapCode: trap.trap_code,
+						description: trap.description,
+						addressId: trap.address_id,
+						lat: trap.lat,
+						lng: trap.lng,
+						isActive: trap.is_active,
+					})),
+		},
+		[trapKey],
+	);
 
 	const habitatResult = useLiveQuery(
 		{
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ habitat: webCollections.habitats })
+					.from({ habitat: habitats })
 					.where(({ habitat }) =>
 						inArray(habitat.id, habitatIds.length > 0 ? habitatIds : [UNMATCHABLE_ID]),
-					),
+					)
+					.select(({ habitat }) => ({
+						id: habitat.id,
+						habitatName: habitat.habitat_name,
+						description: habitat.description,
+						addressId: habitat.address_id,
+						lat: habitat.lat,
+						lng: habitat.lng,
+						isActive: habitat.is_active,
+						isInaccessible: habitat.is_inaccessible,
+					})),
 		},
 		[habitatKey],
 	);
@@ -325,35 +397,44 @@ function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: webCollections.serviceRequests })
+					.from({ request: service_requests })
 					.where(({ request }) =>
 						inArray(request.id, requestIds.length > 0 ? requestIds : [UNMATCHABLE_ID]),
-					),
+					)
+					.select(({ request }) => ({
+						id: request.id,
+						addressId: request.address_id,
+						details: request.details,
+						lat: request.lat,
+						lng: request.lng,
+						closedAt: request.closed_at,
+					})),
 		},
 		[requestKey],
 	);
 
-	const habitats = (habitatResult.data ?? []) as readonly HabitatRow[];
-	const requests = (requestResult.data ?? []) as readonly ServiceRequestRow[];
+	const trapRows = trapResult.data;
+	const habitatRows = habitatResult.data;
+	const requestRows = requestResult.data;
 
-	// Second-level subset: habitats and requests both label themselves by address.
+	// Second-level subset: all three label themselves by address.
 	const addressIds = useMemo(() => {
 		const ids = new Set<string>();
-		for (const habitat of habitats) {
+		for (const habitat of habitatRows) {
 			if (habitat.addressId !== null) {
 				ids.add(habitat.addressId);
 			}
 		}
-		for (const request of requests) {
+		for (const request of requestRows) {
 			ids.add(request.addressId);
 		}
-		for (const trap of allTraps) {
-			if (trapIds.includes(trap.id) && trap.addressId !== null) {
+		for (const trap of trapRows) {
+			if (trap.addressId !== null) {
 				ids.add(trap.addressId);
 			}
 		}
 		return [...ids].sort();
-	}, [habitats, requests, allTraps, trapIds]);
+	}, [habitatRows, requestRows, trapRows]);
 	const addressKey = addressIds.join(',');
 
 	const addressResult = useLiveQuery(
@@ -361,17 +442,18 @@ function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ address: webCollections.addresses })
+					.from({ address: addresses })
 					.where(({ address }) =>
 						inArray(address.id, addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID]),
-					),
+					)
+					.select(({ address }) => ({ id: address.id, displayName: address.display_name })),
 		},
 		[addressKey],
 	);
 
 	const addressById = useMemo(() => {
 		const map = new Map<string, string>();
-		for (const address of (addressResult.data ?? []) as readonly AddressRow[]) {
+		for (const address of addressResult.data) {
 			map.set(address.id, address.displayName);
 		}
 		return map;
@@ -379,12 +461,8 @@ function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
 
 	const byKey = useMemo(() => {
 		const map = new Map<string, AssignmentTarget>();
-		const wanted = new Set(trapIds);
 
-		for (const trap of allTraps) {
-			if (!wanted.has(trap.id)) {
-				continue;
-			}
+		for (const trap of trapRows) {
 			map.set(targetKey('trap', trap.id), {
 				type: 'trap',
 				id: trap.id,
@@ -398,7 +476,7 @@ function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
 			});
 		}
 
-		for (const habitat of habitats) {
+		for (const habitat of habitatRows) {
 			map.set(targetKey('habitat', habitat.id), {
 				type: 'habitat',
 				id: habitat.id,
@@ -414,7 +492,7 @@ function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
 			});
 		}
 
-		for (const request of requests) {
+		for (const request of requestRows) {
 			map.set(targetKey('serviceRequest', request.id), {
 				type: 'serviceRequest',
 				id: request.id,
@@ -428,11 +506,12 @@ function useAssignmentTargets(items: readonly AssignmentItemRow[]): {
 		}
 
 		return map;
-	}, [allTraps, trapIds, habitats, requests, addressById]);
+	}, [trapRows, habitatRows, requestRows, addressById]);
 
 	return {
 		byKey,
-		isReady: habitatResult.isReady && requestResult.isReady && addressResult.isReady,
+		isReady:
+			trapResult.isReady && habitatResult.isReady && requestResult.isReady && addressResult.isReady,
 	};
 }
 
@@ -440,7 +519,6 @@ function targetKey(type: TargetType, id: string): string {
 	return `${type}:${id}`;
 }
 
-/** An assignment's stops, joined to their targets and ready to render or map. */
 /**
  * Traps on this worklist that already have a collection out on them.
  *
@@ -452,7 +530,7 @@ function targetKey(type: TargetType, id: string): string {
  * txid.
  */
 function usePendingTrapCollections(
-	items: readonly AssignmentItemRow[],
+	items: readonly AssignmentItemView[],
 ): ReadonlyMap<string, string> {
 	const trapIds = useMemo(() => {
 		const ids = new Set<string>();
@@ -469,25 +547,28 @@ function usePendingTrapCollections(
 		{
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
-				query.from({ collection: webCollections.collections }).where(({ collection }) =>
-					and(
-						inArray(collection.trapId, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]),
-						// The pending state, spelled out: a date-plus-duration collection
-						// also has a null `collectedAt` and is not waiting for anybody.
-						// `isNull`, not `eq(…, null)` — the query builder follows SQL
-						// three-valued logic, so an equality test against null matches
-						// nothing and every trap stop silently looks like a first visit.
-						isNull(collection.collectedAt),
-						eq(collection.collectionTimingMode, 'exact_timestamps'),
-					),
-				),
+				query
+					.from({ collection: collections })
+					.where(({ collection }) =>
+						and(
+							inArray(collection.trap_id, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]),
+							// The pending state, spelled out: a date-plus-duration collection
+							// also has a null `collected_at` and is not waiting for anybody.
+							// `isNull`, not `eq(…, null)` — the query builder follows SQL
+							// three-valued logic, so an equality test against null matches
+							// nothing and every trap stop silently looks like a first visit.
+							isNull(collection.collected_at),
+							eq(collection.collection_timing_mode, 'exact_timestamps'),
+						),
+					)
+					.select(({ collection }) => ({ id: collection.id, trapId: collection.trap_id })),
 		},
 		[trapKey],
 	);
 
 	return useMemo(() => {
 		const map = new Map<string, string>();
-		for (const collection of (result.data ?? []) as readonly AdultCollectionRow[]) {
+		for (const collection of result.data) {
 			if (collection.trapId !== null && !map.has(collection.trapId)) {
 				map.set(collection.trapId, collection.id);
 			}
@@ -496,6 +577,7 @@ function usePendingTrapCollections(
 	}, [result.data]);
 }
 
+/** An assignment's stops, joined to their targets and ready to render or map. */
 export function useAssignmentStops(assignmentId: string | null): {
 	readonly stops: readonly AssignmentStopView[];
 	readonly features: readonly RouteStopFeature[];
@@ -580,37 +662,24 @@ export function useAssigneeOptions(): {
 	);
 }
 
-/** Open service requests, for the target picker. Closed requests take no new stops. */
-export function useOpenServiceRequests(organizationId: string): {
-	readonly requests: readonly ServiceRequestRow[];
-	readonly isReady: boolean;
-} {
-	const result = useLiveQuery(
-		{
-			gcTime: assignmentsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.serviceRequests })
-					.where(({ request }) => eq(request.organizationId, organizationId))
-					.orderBy(({ request }) => request.requestDate, 'desc'),
-		},
-		[organizationId],
-	);
-
-	const requests = useMemo(
-		() =>
-			((result.data ?? []) as readonly ServiceRequestRow[]).filter(
-				(request) => request.closedAt === null,
-			),
-		[result.data],
-	);
-
-	return { requests, isReady: result.isReady };
+/** One open service request, for the target picker. Closed requests take no new stops. */
+export interface OpenServiceRequest {
+	readonly id: string;
+	readonly addressId: string;
+	readonly details: string | null;
+	readonly requestDate: string;
 }
 
-/** A route's stops, in order — the source rows a from-route snapshot copies. */
-export function useRouteSnapshotItems(routeId: string | null): {
-	readonly items: readonly { readonly id: string; readonly entityType: string }[];
+/**
+ * Open service requests, for the target picker.
+ *
+ * No `organization_id` predicate: the shape is authorized and scoped server-side,
+ * so a client-side tenant filter is redundant — and on a collection whose rows
+ * carry the column but whose subset request does not accept it, it empties the
+ * page instead.
+ */
+export function useOpenServiceRequests(): {
+	readonly requests: readonly OpenServiceRequest[];
 	readonly isReady: boolean;
 } {
 	const result = useLiveQuery(
@@ -618,223 +687,76 @@ export function useRouteSnapshotItems(routeId: string | null): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: webCollections.routeItems })
-					.where(({ item }) => eq(item.routeId, routeId ?? UNMATCHABLE_ID))
-					.orderBy(({ item }) => item.position, 'asc'),
+					.from({ request: service_requests })
+					.where(({ request }) => isNull(request.closed_at))
+					.orderBy(({ request }) => request.request_date, 'desc')
+					.select(({ request }) => ({
+						id: request.id,
+						addressId: request.address_id,
+						details: request.details,
+						requestDate: request.request_date,
+					})),
+		},
+		[],
+	);
+
+	return { requests: result.data, isReady: result.isReady };
+}
+
+/** One route stop, as a from-route snapshot copies it. */
+export interface RouteSnapshotItem {
+	readonly routeItemId: string;
+	readonly entityType: string;
+	readonly entityId: string;
+	readonly directionsToNextItem: string | null;
+}
+
+/**
+ * A route's stops, in order — the source rows a from-route snapshot copies.
+ *
+ * The whole row rather than just the ids, because the create page draws the new
+ * assignment's stops optimistically and a stop that does not know what it points
+ * at cannot be drawn. The server still reads each target out of the Route; what
+ * travels on the wire is only the id pairing.
+ */
+export function useRouteSnapshotItems(routeId: string | null): {
+	readonly items: readonly RouteSnapshotItem[];
+	readonly isReady: boolean;
+} {
+	const result = useLiveQuery(
+		{
+			gcTime: assignmentsGcTimeMs,
+			query: (query) =>
+				query
+					.from({ item: route_items })
+					.where(({ item }) => eq(item.route_id, routeId ?? UNMATCHABLE_ID))
+					.orderBy(({ item }) => item.position, 'asc')
+					.select(({ item }) => ({
+						routeItemId: item.id,
+						entityType: item.entity_type,
+						entityId: item.entity_id,
+						directionsToNextItem: item.directions_to_next_item,
+					})),
 		},
 		[routeId],
 	);
 
 	return {
-		items: (result.data ?? []) as readonly { id: string; entityType: string }[],
+		items: result.data,
 		isReady: routeId === null ? true : result.isReady,
 	};
 }
 
-// --- writes -----------------------------------------------------------------
-
-type MutableAssignmentRow = { -readonly [Key in keyof AssignmentRow]: AssignmentRow[Key] };
-type MutableAssignmentItemRow = {
-	-readonly [Key in keyof AssignmentItemRow]: AssignmentItemRow[Key];
-};
-
 /**
- * Every write below is a plain collection update, because the PATCH handlers
- * derive their command from *which* fields changed rather than from a verb in
- * the body. Two consequences worth knowing before adding one:
+ * The controls a stop offers, in the order a crew should meet them.
  *
- * 1. Details and lifecycle must never ride the same update. One PATCH body
- *    builds both command families, so an edit form that "normalises"
- *    `completedAt` back to null while saving a name would silently reopen the
- *    assignment.
- * 2. A field is only sent when it actually changes, so writing the value a row
- *    already holds is a no-op rather than a redundant command — which is why
- *    each helper can null every field its transition owns without worrying
- *    about the ones already null.
- */
-
-/** The planning fields. Deliberately touches no lifecycle timestamp. */
-export async function updateAssignmentDetails(
-	assignmentId: string,
-	changes: {
-		readonly assignmentName: string | null;
-		readonly assignmentDate: string;
-		readonly assignedToProfileId: string | null;
-		readonly dueAt: string | null;
-	},
-): Promise<void> {
-	await settleWrite(
-		webCollections.assignments.update(assignmentId, (draft) => {
-			const mutable = draft as MutableAssignmentRow;
-			mutable.assignmentName = changes.assignmentName;
-			mutable.assignmentDate = changes.assignmentDate;
-			mutable.assignedToProfileId = changes.assignedToProfileId;
-			mutable.dueAt = changes.dueAt;
-		}),
-	);
-}
-
-export async function startAssignment(assignmentId: string): Promise<void> {
-	await settleWrite(
-		webCollections.assignments.update(assignmentId, (draft) => {
-			(draft as MutableAssignmentRow).startedAt = nowTimestamp();
-		}),
-	);
-}
-
-export async function completeAssignment(assignmentId: string): Promise<void> {
-	await settleWrite(
-		webCollections.assignments.update(assignmentId, (draft) => {
-			(draft as MutableAssignmentRow).completedAt = nowTimestamp();
-		}),
-	);
-}
-
-/** Cancelling carries its reason in the same draft, so one PATCH holds both. */
-export async function cancelAssignment(
-	assignmentId: string,
-	cancellationReason: string | null,
-): Promise<void> {
-	await settleWrite(
-		webCollections.assignments.update(assignmentId, (draft) => {
-			const mutable = draft as MutableAssignmentRow;
-			mutable.cancelledAt = nowTimestamp();
-			mutable.cancellationReason = cancellationReason;
-		}),
-	);
-}
-
-/**
- * Reopen a closed assignment.
- *
- * `startedAt` is deliberately left alone: the server keeps it (issue #38), since
- * reopening resumes work rather than resetting it and nothing else on the row
- * records when the crew actually started. Nulling it here would show
- * "Not started" until sync corrected the row back.
- */
-export async function reopenAssignment(assignmentId: string): Promise<void> {
-	await settleWrite(
-		webCollections.assignments.update(assignmentId, (draft) => {
-			const mutable = draft as MutableAssignmentRow;
-			mutable.completedAt = null;
-			mutable.cancelledAt = null;
-			mutable.cancellationReason = null;
-		}),
-	);
-}
-
-/** Append a stop. `entityType` is written camelCase — see {@link targetTypeOf}. */
-export async function addAssignmentItem(input: {
-	readonly assignmentItemId: string;
-	readonly assignmentId: string;
-	readonly organizationId: string;
-	readonly actorProfileId: string | null;
-	readonly target: { readonly type: TargetType; readonly id: string };
-	readonly position: number;
-}): Promise<void> {
-	const now = new Date().toISOString();
-	const row: AssignmentItemRow = {
-		id: input.assignmentItemId,
-		organizationId: input.organizationId,
-		assignmentId: input.assignmentId,
-		entityType: input.target.type,
-		entityId: input.target.id,
-		position: input.position,
-		directionsToNextItem: null,
-		completedAt: null,
-		completedByProfileId: null,
-		skippedAt: null,
-		skippedByProfileId: null,
-		skipReason: null,
-		createdByProfileId: input.actorProfileId,
-		updatedByProfileId: input.actorProfileId,
-		createdAt: now,
-		updatedAt: now,
-	};
-	await settleWrite(webCollections.assignmentItems.insert(row));
-}
-
-export async function removeAssignmentItem(assignmentItemId: string): Promise<void> {
-	await settleWrite(webCollections.assignmentItems.delete(assignmentItemId));
-}
-
-export async function updateAssignmentItemDirections(
-	assignmentItemId: string,
-	directions: string,
-): Promise<void> {
-	const trimmed = directions.trim();
-	await settleWrite(
-		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
-			(draft as MutableAssignmentItemRow).directionsToNextItem =
-				trimmed.length === 0 ? null : trimmed;
-		}),
-	);
-}
-
-/**
- * Item progress.
- *
- * The `*ByProfileId` columns are mirrored optimistically so a row does not
- * flicker between what the page wrote and what the server stamped. They are not
- * patch keys, so they never reach the wire — the server sets them from the
- * authenticated actor.
- */
-export async function completeAssignmentItem(
-	assignmentItemId: string,
-	actorProfileId: string | null,
-): Promise<void> {
-	await settleWrite(
-		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
-			const mutable = draft as MutableAssignmentItemRow;
-			mutable.completedAt = nowTimestamp();
-			mutable.completedByProfileId = actorProfileId;
-		}),
-	);
-}
-
-export async function skipAssignmentItem(
-	assignmentItemId: string,
-	skipReason: string,
-	actorProfileId: string | null,
-): Promise<void> {
-	await settleWrite(
-		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
-			const mutable = draft as MutableAssignmentItemRow;
-			mutable.skippedAt = nowTimestamp();
-			mutable.skipReason = skipReason;
-			mutable.skippedByProfileId = actorProfileId;
-		}),
-	);
-}
-
-export async function unskipAssignmentItem(assignmentItemId: string): Promise<void> {
-	await settleWrite(
-		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
-			const mutable = draft as MutableAssignmentItemRow;
-			mutable.skippedAt = null;
-			mutable.skipReason = null;
-			mutable.skippedByProfileId = null;
-		}),
-	);
-}
-
-export async function reopenAssignmentItem(assignmentItemId: string): Promise<void> {
-	await settleWrite(
-		webCollections.assignmentItems.update(assignmentItemId, (draft) => {
-			const mutable = draft as MutableAssignmentItemRow;
-			mutable.completedAt = null;
-			mutable.completedByProfileId = null;
-		}),
-	);
-}
-
-/**
- * The controls a stop offers, in the order the server would resolve them.
- *
- * `readItemLifecycleTransition` checks `skippedAt` before `completedAt`, so a
- * skipped stop must never be offered Complete: the PATCH would be read as a
- * skip-then-complete and the row would keep reading as skipped until sync
- * corrected the optimistic value. Unskip first is the only legal path.
+ * Unskip before Complete on a skipped stop. This used to be a safety rule: the
+ * old PATCH resolved `skipped_at` before `completed_at`, so offering Complete on
+ * a skipped stop produced a write that read as a skip and left the row looking
+ * skipped until sync corrected it. The commands are named now, so Complete on a
+ * skipped stop would be honoured — it is still not offered, because "unskip,
+ * then work it" is the sequence that matches what actually happened in the
+ * field.
  */
 export function itemActionsFor(progress: ItemProgress): readonly ItemAction[] {
 	if (progress === 'skipped') {
@@ -847,68 +769,3 @@ export function itemActionsFor(progress: ItemProgress): readonly ItemAction[] {
 }
 
 export type ItemAction = 'complete' | 'skip' | 'unskip' | 'reopen';
-
-/**
- * Snapshot a route's stops into a new assignment.
- *
- * Compound (one assignment plus N items in a single transaction), so it goes
- * straight to its command endpoint rather than through a collection mutation.
- *
- * The server copies only route items that appear in `assignmentItemIds` — the
- * mapping is both the id source and the membership filter — so a mapping built
- * from a subset that has not finished loading yields a silently short assignment.
- * Callers must gate on the route items being ready.
- */
-export async function createAssignmentFromRoute(input: {
-	readonly assignmentId: string;
-	readonly routeId: string;
-	readonly assignmentDate: string;
-	readonly assignmentName: string | null;
-	readonly assignedToProfileId: string | null;
-	readonly dueAt: string | null;
-	readonly assignmentItemIds: readonly {
-		readonly routeItemId: string;
-		readonly assignmentItemId: string;
-	}[];
-}): Promise<void> {
-	await postCommand(
-		'/field-work/assignments/from-route',
-		{
-			id: input.assignmentId,
-			routeId: input.routeId,
-			assignmentDate: input.assignmentDate,
-			assignmentName: input.assignmentName,
-			assignedToProfileId: input.assignedToProfileId,
-			dueAt: input.dueAt,
-			assignmentItemIds: [...input.assignmentItemIds],
-		},
-		'Unable to create the assignment from that route.',
-	);
-}
-
-/**
- * Reorder stops server-side.
- *
- * The shared planner names the anchor `anchorId`; this endpoint calls it
- * `assignmentItemId`. Translating here keeps the wire vocabulary in the module
- * that owns it.
- */
-export async function moveAssignmentItems(
-	assignmentId: string,
-	assignmentItemIds: readonly string[],
-	placement:
-		| { readonly kind: 'start' }
-		| { readonly kind: 'end' }
-		| { readonly kind: 'before'; readonly anchorId: string }
-		| { readonly kind: 'after'; readonly anchorId: string },
-): Promise<void> {
-	const wirePlacement =
-		placement.kind === 'before' || placement.kind === 'after'
-			? { kind: placement.kind, assignmentItemId: placement.anchorId }
-			: placement;
-	await postCommand(
-		`/field-work/assignments/${assignmentId}/move-items`,
-		{ assignmentItemIds: [...assignmentItemIds], placement: wirePlacement },
-		'Unable to reorder the assignment.',
-	);
-}

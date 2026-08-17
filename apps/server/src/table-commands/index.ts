@@ -24,6 +24,8 @@ import type { CommandDb } from '../command-write.js';
 import { additionalPersonnelTableCommands } from './additional-personnel.js';
 import { addressTableCommands } from './addresses.js';
 import { applicationBatchTableCommands, applicationTableCommands } from './applications.js';
+import { assignmentItemTableCommands } from './assignment-items.js';
+import { assignmentTableCommands } from './assignments.js';
 import { collectionSpeciesTableCommands } from './collection-species.js';
 import { collectionTableCommands } from './collections.js';
 import { commentTableCommands } from './comments.js';
@@ -63,6 +65,8 @@ import {
 } from './performed-actions.js';
 import { regionFolderTableCommands, regionTableCommands } from './regions.js';
 import { requestedControlActionTableCommands } from './requested-control-actions.js';
+import { routeItemTableCommands } from './route-items.js';
+import { routeTableCommands } from './routes.js';
 import { sampleSpeciesTableCommands } from './sample-species.js';
 import { sampleTableCommands } from './samples.js';
 import { tagItemTableCommands } from './tag-items.js';
@@ -119,6 +123,11 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, additionalPersonnelTableCommands(options.db));
 	registerTableCommandRoutes(app, options, commentTableCommands(options.db));
 	registerTableCommandRoutes(app, options, tagItemTableCommands(options.db));
+	// Standing itineraries, and the day's work drawn off them.
+	registerTableCommandRoutes(app, options, routeTableCommands(options.db));
+	registerTableCommandRoutes(app, options, routeItemTableCommands(options.db));
+	registerTableCommandRoutes(app, options, assignmentTableCommands(options.db));
+	registerTableCommandRoutes(app, options, assignmentItemTableCommands(options.db));
 	// The three global catalogs, behind the operator door.
 	registerTableCommandRoutes(app, options, genusTableCommands(options.db));
 	registerTableCommandRoutes(app, options, speciesTableCommands(options.db));

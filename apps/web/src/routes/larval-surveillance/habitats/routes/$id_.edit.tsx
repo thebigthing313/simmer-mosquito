@@ -1,5 +1,3 @@
-import type { RouteItemRow, RouteRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -44,17 +42,17 @@ import { RouteMap } from '../../../../components/route-planning';
 import {
 	InlineEditField,
 	type MoveAction,
-	type OrderPlacement,
+	type MovePlan,
 	OrdinalBadge,
 	StopList,
 	StopReorderControls,
 	useStopOrder,
 } from '../../../../components/stop-order';
+import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-item-mutations';
+import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import type { Tag } from '../../../../hooks/queries/tag-view';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
 import { isBelowRole } from '../../../../lib/write-access';
-import { moveRouteItems } from '../../../../sync/move-route-items';
-import { webCollections } from '../../../../sync/webCollections';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
 	type HabitatSite,
@@ -75,9 +73,6 @@ const NO_TAGS: readonly Tag[] = [];
 
 /** Module-level so the ordering hook's identity stays stable across renders. */
 const stopKey = (stop: RouteStopView) => stop.routeItemId;
-
-type MutableRouteRow = { -readonly [Key in keyof RouteRow]: RouteRow[Key] };
-type MutableRouteItemRow = { -readonly [Key in keyof RouteItemRow]: RouteItemRow[Key] };
 
 export const Route = createFileRoute('/larval-surveillance/habitats/routes/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -114,12 +109,10 @@ function RouteEditRoute() {
 	const [error, setError] = useState<string | null>(null);
 
 	const organizationId = identity?.organizationId ?? null;
+	const { rename, remove: removeRoute, moveStops } = useRouteMutations();
+	const { addStop: addRouteItem, setDirections, removeStop } = useRouteItemMutations();
 
-	const commitMove = useCallback(
-		(movedIds: readonly string[], placement: OrderPlacement) =>
-			moveRouteItems(id, movedIds, placement),
-		[id],
-	);
+	const commitMove = useCallback((plan: MovePlan) => moveStops(id, plan), [id, moveStops]);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
@@ -154,49 +147,31 @@ function RouteEditRoute() {
 			return;
 		}
 		try {
-			const transaction = webCollections.routes.update(id, (draft) => {
-				const mutable = draft as MutableRouteRow;
-				mutable.routeName = trimmed;
-				mutable.updatedAt = new Date().toISOString();
-			});
-			await settleWrite(transaction);
+			await rename(id, trimmed);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to rename the route.');
 		} finally {
 			setNameDraft(null);
 		}
-	}, [route, nameDraft, id]);
+	}, [route, nameDraft, id, rename]);
 
 	const addStop = useCallback(
 		async (habitat: HabitatSite) => {
-			const organizationId = identity?.organizationId ?? null;
-			if (organizationId === null || existingHabitatIds.has(habitat.id)) {
+			if (existingHabitatIds.has(habitat.id)) {
 				return;
 			}
 			setError(null);
 			try {
-				const now = new Date().toISOString();
-				const maxPosition = stops.reduce((max, stop) => Math.max(max, stop.position), 0);
-				const row: RouteItemRow = {
-					id: crypto.randomUUID(),
-					organizationId,
+				await addRouteItem({
 					routeId: id,
-					entityType: 'habitat',
-					entityId: habitat.id,
-					position: maxPosition + 1,
-					directionsToNextItem: null,
-					createdByProfileId: identity?.profileId ?? null,
-					updatedByProfileId: identity?.profileId ?? null,
-					createdAt: now,
-					updatedAt: now,
-				};
-				const transaction = webCollections.routeItems.insert(row);
-				await settleWrite(transaction);
+					target: { type: 'habitat', id: habitat.id },
+					position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
+				});
 			} catch (cause) {
 				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
 			}
 		},
-		[identity, existingHabitatIds, stops, id],
+		[existingHabitatIds, stops, id, addRouteItem],
 	);
 
 	const move = useCallback(
@@ -211,19 +186,16 @@ function RouteEditRoute() {
 		[moveStop],
 	);
 
-	const saveDirections = useCallback(async (routeItemId: string, value: string) => {
-		const next = value.trim().length === 0 ? null : value.trim();
-		try {
-			const transaction = webCollections.routeItems.update(routeItemId, (draft) => {
-				const mutable = draft as MutableRouteItemRow;
-				mutable.directionsToNextItem = next;
-				mutable.updatedAt = new Date().toISOString();
-			});
-			await settleWrite(transaction);
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
-		}
-	}, []);
+	const saveDirections = useCallback(
+		async (routeItemId: string, value: string) => {
+			try {
+				await setDirections(routeItemId, value);
+			} catch (cause) {
+				setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
+			}
+		},
+		[setDirections],
+	);
 
 	const saveDescription = useCallback(async (habitatId: string, value: string) => {
 		try {
@@ -243,24 +215,22 @@ function RouteEditRoute() {
 		}
 		setError(null);
 		try {
-			const transaction = webCollections.routeItems.delete(target.routeItemId);
-			await settleWrite(transaction);
+			await removeStop(target.routeItemId);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
 		}
-	}, [removeTarget]);
+	}, [removeTarget, removeStop]);
 
 	const confirmDeleteRoute = useCallback(async () => {
 		setDeleteOpen(false);
 		setError(null);
 		try {
-			const transaction = webCollections.routes.delete(id);
-			await settleWrite(transaction);
+			await removeRoute(id);
 			await navigate({ to: '/larval-surveillance/habitats/routes' });
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');
 		}
-	}, [id, navigate]);
+	}, [id, navigate, removeRoute]);
 
 	if (isReady && route === null) {
 		return <RouteEditNotFound />;

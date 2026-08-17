@@ -28,6 +28,8 @@ export interface TrapListing {
 	readonly trapCode: string | null;
 	readonly methodId: string;
 	readonly methodName: string;
+	/** What the trap is, in the operator's words — the second line of a picker row. */
+	readonly description: string | null;
 	/**
 	 * Always `true` from this hook, and carried anyway so a surface that shows a
 	 * trap's status reads it off the trap rather than inferring it from which hook
@@ -60,6 +62,7 @@ export function useActiveTraps(): {
 					trapCode: trap.trap_code,
 					methodId: trap.collection_method_id,
 					methodName: coalesce(method.name, 'Unknown method'),
+					description: trap.description,
 					isActive: trap.is_active,
 				})),
 		[],

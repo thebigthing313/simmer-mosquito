@@ -242,7 +242,12 @@ const MIDDAY = '12:00';
  * Empty rather than a placeholder for an absent or unreadable instant, because
  * that is what an unset time field holds and what the callers already spell.
  */
-export function localTimeOfDay(instant: string | null | undefined, timeZone: string): string {
+export function localTimeOfDay(
+	// A `Date` as well as an ISO string: a `timestamptz` read through the query
+	// seam arrives parsed, and one read off a raw Electric row does not.
+	instant: Date | string | null | undefined,
+	timeZone: string,
+): string {
 	if (instant === null || instant === undefined) {
 		return '';
 	}

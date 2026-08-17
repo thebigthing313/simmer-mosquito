@@ -12,7 +12,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, Suspense, useState } from 'react';
-import { webCollections } from '../../sync/webCollections';
+import { useRouteMutations } from '../../hooks/mutations/use-route-mutations';
 import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../danger-zone-card';
@@ -65,6 +65,7 @@ export function RouteDetailPage({
 }) {
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 	const [highlightId, setHighlightId] = useState<string | null>(null);
+	const { remove: removeRoute } = useRouteMutations();
 
 	// Render the route's name in the breadcrumb trail instead of its raw id.
 	useBreadcrumbLabel(routeId, route?.routeName ?? null);
@@ -148,7 +149,7 @@ export function RouteDetailPage({
 							<DangerZoneCard
 								name={route.routeName}
 								noun="route"
-								onDelete={() => webCollections.routes.delete(route.id)}
+								onDelete={() => removeRoute(route.id)}
 								recordId={route.id}
 								recordType="route"
 								returnTo={surface.indexLink.to as NonNullable<typeof surface.indexLink.to>}

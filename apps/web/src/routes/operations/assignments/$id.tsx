@@ -29,6 +29,8 @@ import {
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
+import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
+import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
 import {
 	assignmentDisplayName,
 	formatAssignmentDate,
@@ -47,19 +49,11 @@ import {
 	type AssignmentView,
 	assignmentStopTone,
 	canCompleteAssignment,
-	cancelAssignment,
 	canProgressItems,
 	canRecordStopWork,
 	canStartAssignment,
-	completeAssignment,
-	completeAssignmentItem,
 	type ItemAction,
 	itemActionsFor,
-	reopenAssignment,
-	reopenAssignmentItem,
-	skipAssignmentItem,
-	startAssignment,
-	unskipAssignmentItem,
 	useAssigneeOptions,
 	useAssignment,
 	useAssignmentStops,
@@ -92,6 +86,9 @@ function AssignmentRunRoute() {
 	const auth = useAuthSnapshot();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 
+	const { start, complete, cancel, reopen } = useAssignmentMutations();
+	const items = useAssignmentItemMutations();
+
 	const { assignment, isReady } = useAssignment(id);
 	const { stops, features, counts, isLoading } = useAssignmentStops(id);
 	const { nameById } = useAssigneeOptions();
@@ -116,18 +113,17 @@ function AssignmentRunRoute() {
 				setSkipTarget(stop);
 				return;
 			}
-			const profileId = identity?.profileId ?? null;
 			void run(
 				() =>
 					action === 'complete'
-						? completeAssignmentItem(stop.assignmentItemId, profileId)
+						? items.complete(stop.assignmentItemId)
 						: action === 'unskip'
-							? unskipAssignmentItem(stop.assignmentItemId)
-							: reopenAssignmentItem(stop.assignmentItemId),
+							? items.unskip(stop.assignmentItemId)
+							: items.reopen(stop.assignmentItemId),
 				'Unable to update that stop.',
 			);
 		},
-		[identity, run],
+		[items, run],
 	);
 
 	const confirmSkip = useCallback(
@@ -137,23 +133,20 @@ function AssignmentRunRoute() {
 			if (target === null) {
 				return;
 			}
-			void run(
-				() => skipAssignmentItem(target.assignmentItemId, reason, identity?.profileId ?? null),
-				'Unable to skip that stop.',
-			);
+			void run(() => items.skip(target.assignmentItemId, reason), 'Unable to skip that stop.');
 		},
-		[skipTarget, identity, run],
+		[skipTarget, items, run],
 	);
 
 	const confirmCancel = useCallback(
 		(reason: string) => {
 			setCancelOpen(false);
 			void run(
-				() => cancelAssignment(id, reason.trim().length === 0 ? null : reason.trim()),
+				() => cancel(id, reason.trim().length === 0 ? null : reason.trim()),
 				'Unable to cancel this assignment.',
 			);
 		},
-		[id, run],
+		[id, run, cancel],
 	);
 
 	if (isReady && assignment === null) {
@@ -236,14 +229,10 @@ function AssignmentRunRoute() {
 										counts={counts}
 										onCancel={() => setCancelOpen(true)}
 										onComplete={() =>
-											void run(() => completeAssignment(id), 'Unable to complete this assignment.')
+											void run(() => complete(id), 'Unable to complete this assignment.')
 										}
-										onReopen={() =>
-											void run(() => reopenAssignment(id), 'Unable to reopen this assignment.')
-										}
-										onStart={() =>
-											void run(() => startAssignment(id), 'Unable to start this assignment.')
-										}
+										onReopen={() => void run(() => reopen(id), 'Unable to reopen this assignment.')}
+										onStart={() => void run(() => start(id), 'Unable to start this assignment.')}
 									/>
 								</WriteOnly>
 

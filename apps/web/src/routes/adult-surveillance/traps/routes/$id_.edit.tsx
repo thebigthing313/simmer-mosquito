@@ -1,5 +1,3 @@
-import type { RouteItemRow, TrapRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
@@ -30,22 +28,20 @@ import type { RouteStopFeature } from '../../../../components/map';
 import { RouteMap } from '../../../../components/route-planning';
 import {
 	type MoveAction,
-	type OrderPlacement,
+	type MovePlan,
 	OrdinalBadge,
 	StopReorderControls,
 	useStopOrder,
 } from '../../../../components/stop-order';
-import { useCollectionRows } from '../../../../hooks/use-collection-rows';
+import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-item-mutations';
+import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
+import { type TrapListing, useActiveTraps } from '../../../../hooks/queries/use-active-traps';
 import { isBelowRole } from '../../../../lib/write-access';
-import { moveRouteItems } from '../../../../sync/move-route-items';
-import { webCollections } from '../../../../sync/webCollections';
 import { TrapPicker } from '../../-adult-pickers';
 import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
-
-type MutableRouteItemRow = { -readonly [K in keyof RouteItemRow]: RouteItemRow[K] };
 
 const stopKey = (stop: RouteStopView) => stop.routeItemId;
 
@@ -64,29 +60,20 @@ export const Route = createFileRoute('/adult-surveillance/traps/routes/$id_/edit
 
 function EditTrapRouteRoute() {
 	const { id } = Route.useParams();
-	const { auth } = Route.useRouteContext();
 	const { routes, isReady } = useTrapRoutes();
 	const route = routes.find((candidate) => candidate.id === id) ?? null;
 	const { stops, itemCount, isLoading } = useRouteStops(id);
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
+	const { traps } = useActiveTraps();
 	const navigate = useNavigate();
 
 	const [highlightId, setHighlightId] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 
-	const identity = auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity : null;
-	const actorProfileId = identity?.profileId ?? null;
-	// Off the session rather than off the route being edited: a route summary says
-	// which route it is and what it is called, and a new stop's tenancy is the
-	// signed-in agency either way. The habitat route editor reads it the same way.
-	const organizationId = identity?.organizationId ?? null;
+	const { rename, remove: removeRoute, moveStops } = useRouteMutations();
+	const { addStop: addRouteItem, setDirections, removeStop } = useRouteItemMutations();
 
-	const commitMove = useCallback(
-		(movedIds: readonly string[], placement: OrderPlacement) =>
-			moveRouteItems(id, movedIds, placement),
-		[id],
-	);
+	const commitMove = useCallback((plan: MovePlan) => moveStops(id, plan), [id, moveStops]);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
@@ -122,41 +109,28 @@ function EditTrapRouteRoute() {
 			if (route === null || trimmed.length === 0 || trimmed === route.routeName) {
 				return;
 			}
-			void webCollections.routes.update(id, (draft) => {
-				(draft as { -readonly [K in keyof typeof draft]: (typeof draft)[K] }).routeName = trimmed;
-			});
+			void rename(id, trimmed);
 		},
-		[id, route],
+		[id, route, rename],
 	);
 
 	const addStop = useCallback(
-		(trap: TrapRow | null) => {
-			if (trap === null || route === null || organizationId === null) {
+		(trap: TrapListing | null) => {
+			if (trap === null || route === null) {
 				return;
 			}
 			setError(null);
-			const maxPosition = stops.reduce((max, stop) => Math.max(max, stop.position), 0);
-			const now = new Date().toISOString();
-			const row: RouteItemRow = {
-				id: crypto.randomUUID(),
-				organizationId,
-				routeId: id,
-				entityType: 'trap',
-				entityId: trap.id,
-				position: maxPosition + 1,
-				directionsToNextItem: null,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
 			try {
-				void webCollections.routeItems.insert(row);
+				void addRouteItem({
+					routeId: id,
+					target: { type: 'trap', id: trap.id },
+					position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
+				});
 			} catch (cause) {
 				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
 			}
 		},
-		[id, route, stops, actorProfileId, organizationId],
+		[id, route, stops, addRouteItem],
 	);
 
 	const move = useCallback(
@@ -171,26 +145,15 @@ function EditTrapRouteRoute() {
 		[moveStop],
 	);
 
-	const setDirections = useCallback((routeItemId: string, value: string) => {
-		const next = value.trim().length === 0 ? null : value.trim();
-		void webCollections.routeItems.update(routeItemId, (draft) => {
-			(draft as MutableRouteItemRow).directionsToNextItem = next;
-		});
-	}, []);
-
-	const removeStop = useCallback((routeItemId: string) => {
-		void webCollections.routeItems.delete(routeItemId);
-	}, []);
-
 	const deleteRoute = useCallback(async () => {
 		setConfirmDelete(false);
 		try {
-			await settleWrite(webCollections.routes.delete(id));
+			await removeRoute(id);
 			await navigate({ to: '/adult-surveillance/traps/routes' });
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');
 		}
-	}, [id, navigate]);
+	}, [id, navigate, removeRoute]);
 
 	if (isReady && route === null) {
 		return <RouteNotFound />;

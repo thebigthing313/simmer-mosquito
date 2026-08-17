@@ -36,27 +36,23 @@ import type { RouteStopFeature } from '../../../components/map';
 import {
 	InlineEditField,
 	type MoveAction,
-	type OrderPlacement,
+	type MovePlan,
 	OrdinalBadge,
 	StopList,
 	StopReorderControls,
 	useStopOrder,
 } from '../../../components/stop-order';
+import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
+import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
 import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { WorklistMap } from '../-worklist-map';
 import {
 	type AssignmentStopView,
-	addAssignmentItem,
 	assignmentStopTone,
 	canEditPlan,
-	moveAssignmentItems,
-	removeAssignmentItem,
-	updateAssignmentDetails,
-	updateAssignmentItemDirections,
 	useAssigneeOptions,
 	useAssignment,
 	useAssignmentStops,
@@ -115,6 +111,9 @@ function AssignmentPlanRoute() {
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
 
+	const { updateDetails, remove: removeAssignment, moveStops } = useAssignmentMutations();
+	const items = useAssignmentItemMutations();
+
 	const { assignment, isReady } = useAssignment(id);
 	const { stops, isLoading } = useAssignmentStops(id);
 	const { options: assigneeOptions, nameById } = useAssigneeOptions();
@@ -143,11 +142,7 @@ function AssignmentPlanRoute() {
 		savedDetails !== null &&
 		!sameAssignmentDetails(detailDraft, savedDetails);
 
-	const commitMove = useCallback(
-		(movedIds: readonly string[], placement: OrderPlacement) =>
-			moveAssignmentItems(id, movedIds, placement),
-		[id],
-	);
+	const commitMove = useCallback((plan: MovePlan) => moveStops(id, plan), [id, moveStops]);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
@@ -190,7 +185,7 @@ function AssignmentPlanRoute() {
 		setSavingDetails(true);
 		setError(null);
 		try {
-			await updateAssignmentDetails(id, {
+			await updateDetails(id, {
 				assignmentName: assignmentNameOrNull(detailDraft),
 				assignmentDate: detailDraft.assignmentDate,
 				assignedToProfileId: assigneeOrNull(detailDraft),
@@ -202,28 +197,28 @@ function AssignmentPlanRoute() {
 		} finally {
 			setSavingDetails(false);
 		}
-	}, [detailDraft, id, timeZone]);
+	}, [detailDraft, id, timeZone, updateDetails]);
 
 	const addStop = useCallback(
 		async (selection: AssignmentTargetSelection) => {
-			if (organizationId === null) {
-				return;
-			}
 			setError(null);
 			try {
-				await addAssignmentItem({
-					assignmentItemId: crypto.randomUUID(),
+				await items.addStop({
 					assignmentId: id,
-					organizationId,
-					actorProfileId: identity?.profileId ?? null,
-					target: selection,
+					// The picker speaks the page's vocabulary; the row speaks the
+					// column's. `serviceRequest` is the only member the two spell
+					// differently, which is why this conversion has to be explicit.
+					target: {
+						type: selection.type === 'serviceRequest' ? 'service_request' : selection.type,
+						id: selection.id,
+					},
 					position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
 				});
 			} catch (cause) {
 				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
 			}
 		},
-		[organizationId, identity, id, stops],
+		[items, id, stops],
 	);
 
 	const move = useCallback(
@@ -238,14 +233,17 @@ function AssignmentPlanRoute() {
 		[moveStop],
 	);
 
-	const saveDirections = useCallback(async (assignmentItemId: string, value: string) => {
-		setError(null);
-		try {
-			await updateAssignmentItemDirections(assignmentItemId, value);
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
-		}
-	}, []);
+	const saveDirections = useCallback(
+		async (assignmentItemId: string, value: string) => {
+			setError(null);
+			try {
+				await items.setDirections(assignmentItemId, value);
+			} catch (cause) {
+				setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
+			}
+		},
+		[items],
+	);
 
 	const confirmRemove = useCallback(async () => {
 		const target = removeTarget;
@@ -255,11 +253,11 @@ function AssignmentPlanRoute() {
 		}
 		setError(null);
 		try {
-			await removeAssignmentItem(target.assignmentItemId);
+			await items.removeStop(target.assignmentItemId);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
 		}
-	}, [removeTarget]);
+	}, [removeTarget, items]);
 
 	if (isReady && assignment === null) {
 		return <AssignmentNotFound />;
@@ -374,7 +372,7 @@ function AssignmentPlanRoute() {
 							<DangerZoneCard
 								name={displayName ?? 'this assignment'}
 								noun="assignment"
-								onDelete={() => webCollections.assignments.delete(assignment.id)}
+								onDelete={() => removeAssignment(assignment.id)}
 								recordId={assignment.id}
 								recordType="assignment"
 								returnTo="/operations/assignments"
