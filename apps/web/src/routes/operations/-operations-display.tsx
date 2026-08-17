@@ -72,8 +72,8 @@ export function MissionItemProgressBadge({ progress }: { readonly progress: Miss
 
 /** Pin colour reports progress on the work, not the state of the site. */
 export function missionStopTone(item: {
-	readonly completedAt: string | null;
-	readonly skippedAt: string | null;
+	readonly completedAt: Date | null;
+	readonly skippedAt: Date | null;
 }): StopTone {
 	const progress = missionItemProgress(item);
 	if (progress === 'skipped') {

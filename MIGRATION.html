@@ -208,7 +208,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <div class="wrap">
 
 <header class="masthead">
-	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head a8bfc7a · 69 commits off main</p>
+	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head 9663a9c · 70 commits off main</p>
 	<h1>The sync layer, rebuilt table by table</h1>
 	<p class="standfirst">A ground-up rewrite of how SIMMER reads and writes data. TanStack DB is transport only, the server validates, every mutation names the command it means, and the only per-table definition is the schema. This page is where the work is tracked — it replaces <code>HANDOFF.md</code>.</p>
 	<div class="dials">
@@ -218,14 +218,14 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 			<div class="meter" role="img" aria-label="249 of 274"><span class="meter-fill is-partial" style="inline-size:91%"></span></div>
 		</div>
 		<div class="dial">
-			<span class="dial-figure">48<small>/52</small></span>
+			<span class="dial-figure">48<small>/54</small></span>
 			<span class="dial-label">Tables with an intent map</span>
-			<div class="meter" role="img" aria-label="48 of 52"><span class="meter-fill is-partial" style="inline-size:92%"></span></div>
+			<div class="meter" role="img" aria-label="48 of 54"><span class="meter-fill is-partial" style="inline-size:89%"></span></div>
 		</div>
 		<div class="dial">
-			<span class="dial-figure">19<small>/52</small></span>
+			<span class="dial-figure">23<small>/54</small></span>
 			<span class="dial-label">Tables off webCollections</span>
-			<div class="meter" role="img" aria-label="19 of 52"><span class="meter-fill is-todo" style="inline-size:37%"></span></div>
+			<div class="meter" role="img" aria-label="23 of 54"><span class="meter-fill is-todo" style="inline-size:43%"></span></div>
 		</div>
 	</div>
 </header>
@@ -268,9 +268,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 		<p class="lede">The operational view. A table is finished when the server accepts its commands by name <em>and</em> nothing in <code>apps/web</code> reaches it through <code>webCollections</code> any more. Both halves have to land together: a write to a collection nobody reads waits out a txid that never arrives.</p>
 	</div>
 	<div class="filters">
-		<button type="button" data-scope="tables" data-mode="" aria-pressed="true">All 52</button>
+		<button type="button" data-scope="tables" data-mode="" aria-pressed="true">All 54</button>
 		<button type="button" data-scope="tables" data-mode="only-left" aria-pressed="false">Still to do</button>
-		<button type="button" data-scope="tables" data-mode="only-done" aria-pressed="false">Finished 17</button>
+		<button type="button" data-scope="tables" data-mode="only-done" aria-pressed="false">Finished 19</button>
 	</div>
 	<div class="matrix-shell">
 		<table>
@@ -284,7 +284,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="done"><td><code>comments</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>equipment</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>genera</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="done"><td><code>mission_items</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>mission_notifications</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="done"><td><code>missions</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>notification_registration_types</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>notification_registrations</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>organization_species</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
@@ -310,8 +312,6 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="partial"><td><code>insecticides</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>inspections</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>memberships</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
-<tr data-state="partial"><td><code>mission_items</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
-<tr data-state="partial"><td><code>missions</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>notification_types</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>organizations</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>outreach_actions</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
@@ -328,6 +328,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="partial"><td><code>tags</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="partial"><td><code>traps</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>units</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
+<tr data-state="partial"><td><code>weather_sources</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="partial"><td><code>weather_summaries</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 			</tbody>
 		</table>
 	</div>

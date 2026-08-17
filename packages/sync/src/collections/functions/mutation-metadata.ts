@@ -160,3 +160,32 @@ export function acknowledgementFields(metadata: unknown): Record<string, unknown
 	const flags = readMutationMetadata(acknowledgements);
 	return flags === undefined ? {} : { ...flags };
 }
+
+/**
+ * What a command takes that the table does not hold, as body fields.
+ *
+ * Not everything a command needs is a column. Cancelling a Mission takes the
+ * words explaining why and an id for the comment they become; completing one
+ * takes whether the server may stamp the start it was never given. None of those
+ * is on `missions`, so none of them can ride on the row — and none is an
+ * acknowledgement either: an acknowledgement answers a refusal and changes
+ * nothing about what gets written, while these *are* what gets written.
+ *
+ * The comment ids are the sharper case. A lifecycle comment is a row, and a row
+ * SIMMER writes carries a client-generated id so a retry cannot insert it twice.
+ * The old endpoints called `randomUUID()` server-side, which is exactly how a
+ * retried cancellation ends up with two comments on it.
+ *
+ * Flat top-level keys, like the acknowledgements, because that is how the
+ * builders read them — `payload.reopenReason`. Callers group them under one
+ * metadata key so the write stays one object.
+ *
+ * Read untyped, like every other instruction here: which arguments a command
+ * takes is the domain's to say, it differs per command, and the builder re-checks
+ * them server-side over an untrusted body. A reader in the transport layer that
+ * knew the names would be a second copy of a rule it does not own.
+ */
+export function argumentFields(metadata: unknown): Record<string, unknown> {
+	const values = readMutationMetadata(readMutationMetadata(metadata)?.arguments);
+	return values === undefined ? {} : { ...values };
+}

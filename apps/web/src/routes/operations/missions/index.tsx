@@ -53,7 +53,7 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { useMissionStops } from '../-operations-data';
+import { useMissionStopViews } from '../-operations-data';
 import { MissionStatusBadge, missionStopFeatures, stopSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
 
@@ -152,7 +152,7 @@ function MissionsRoute() {
 	// Missions carry no geometry of their own — the map draws the union of the
 	// selected mission's stops, in dispatch order and as the shapes they were
 	// drawn as.
-	const { stops } = useMissionStops(effectiveId);
+	const { stops } = useMissionStopViews(effectiveId);
 	const features = useMemo(() => missionStopFeatures(stops), [stops]);
 
 	const handleFromChange = useCallback(

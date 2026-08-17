@@ -1,23 +1,19 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type {
-	AddressRow,
-	ControlType,
-	MissionItemRow,
-	MissionRow,
-	RequestedControlActionRow,
-} from '@simmer-mosquito/sync';
+import type { ControlType, RequestedControlActionRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import { eq, inArray, useLiveQuery } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
+import { resolveLinkedAddress } from '../../hooks/queries/address-view';
 import type {
 	MissionProgressCounts,
 	MissionStatus,
+	MissionStop,
 	RequestStatus,
 } from '../../hooks/queries/operations-view';
-import { missionStatus, requestStatus } from '../../hooks/queries/operations-view';
+import { requestStatus } from '../../hooks/queries/operations-view';
 import {
 	type SchemaCatalogListing,
 	useApplicationMethodRoster,
@@ -25,8 +21,8 @@ import {
 	useOutreachMethodRoster,
 	useSourceReductionMethodRoster,
 } from '../../hooks/queries/use-catalog-rosters';
+import { useMissionStops } from '../../hooks/queries/use-mission-stops';
 import { addressPrimaryLabel } from '../../lib/address-format';
-import { postCommand } from '../../sync/post-command';
 import { webCollections } from '../../sync/webCollections';
 
 /**
@@ -128,9 +124,10 @@ export function missionItemActionsFor(progress: MissionItemProgress): readonly M
 /** Item progress. Skipped is checked first, matching `deriveMissionItemStatus`. */
 export type MissionItemProgress = 'pending' | 'completed' | 'skipped';
 
-export function missionItemProgress(
-	row: Pick<MissionItemRow, 'completedAt' | 'skippedAt'>,
-): MissionItemProgress {
+export function missionItemProgress(row: {
+	readonly completedAt: Date | null;
+	readonly skippedAt: Date | null;
+}): MissionItemProgress {
 	if (row.skippedAt !== null) {
 		return 'skipped';
 	}
@@ -138,7 +135,7 @@ export function missionItemProgress(
 }
 
 function missionProgressCounts(
-	items: readonly Pick<MissionItemRow, 'completedAt' | 'skippedAt'>[],
+	items: readonly { readonly completedAt: Date | null; readonly skippedAt: Date | null }[],
 ): MissionProgressCounts {
 	let completed = 0;
 	let skipped = 0;
@@ -166,8 +163,11 @@ export interface RequestView extends RequestedControlActionRow {
 	readonly status: RequestStatus;
 }
 
-export interface MissionView extends MissionRow {
-	readonly status: MissionStatus;
+/** What names a stop drawn off a request. */
+export interface MissionStopRequest {
+	readonly id: string;
+	readonly summary: string | null;
+	readonly controlType: string;
 }
 
 /** One stop on a mission: its own place on the map, plus whatever names it. */
@@ -186,14 +186,20 @@ export interface MissionStopView {
 	 */
 	readonly geometry: GeoJsonGeometry | null;
 	readonly requestedControlActionId: string | null;
-	/** The request this stop came from, once its row has streamed. */
-	readonly request: RequestedControlActionRow | null;
+	/**
+	 * What the request this stop came from is called, once its row has streamed.
+	 *
+	 * The three fields anything showing a stop reads, rather than the request row:
+	 * a stop is *named* by its request, and the request's other thirty columns are
+	 * its own page's business.
+	 */
+	readonly request: MissionStopRequest | null;
 	readonly addressId: string | null;
 	readonly addressLabel: string | null;
 	readonly progress: MissionItemProgress;
 	readonly skipReason: string | null;
-	readonly completedAt: string | null;
-	readonly skippedAt: string | null;
+	readonly completedAt: Date | null;
+	readonly skippedAt: Date | null;
 	readonly hasLocation: boolean;
 	/** A linked row is still streaming. False with no name means the link is gone. */
 	readonly isResolving: boolean;
@@ -249,56 +255,6 @@ export function useRequestedControlAction(requestId: string | null): {
 	};
 }
 
-/** One mission. Also the warm-stream anchor for the create page's write. */
-export function useMission(missionId: string | null): {
-	readonly mission: MissionView | null;
-	readonly isReady: boolean;
-} {
-	const result = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ mission: webCollections.missions })
-					.where(({ mission }) => eq(mission.id, missionId ?? UNMATCHABLE_ID)),
-		},
-		[missionId],
-	);
-
-	const rows = (result.data ?? []) as readonly MissionRow[];
-	const row = rows[0];
-
-	return {
-		mission: row === undefined ? null : { ...row, status: missionStatus(row) },
-		isReady: result.isReady,
-	};
-}
-
-/** A mission's items in dispatch order — the rows every stop view is built from. */
-function useMissionItems(missionId: string | null): {
-	readonly items: readonly MissionItemRow[];
-	readonly isLoading: boolean;
-	readonly isReady: boolean;
-} {
-	const result = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: webCollections.missionItems })
-					.where(({ item }) => eq(item.missionId, missionId ?? UNMATCHABLE_ID))
-					.orderBy(({ item }) => item.position, 'asc'),
-		},
-		[missionId],
-	);
-
-	return {
-		items: (result.data ?? []) as readonly MissionItemRow[],
-		isLoading: missionId !== null && result.isLoading,
-		isReady: result.isReady,
-	};
-}
-
 /**
  * Every stop's real shape on a mission, by mission item id.
  *
@@ -312,12 +268,12 @@ function useMissionItems(missionId: string | null): {
  */
 function useMissionItemShapes(
 	missionId: string | null,
-	items: readonly MissionItemRow[],
+	items: readonly { readonly id: string; readonly updatedAt: Date }[],
 ): ReadonlyMap<string, GeoJsonGeometry> {
 	const version = useMemo(
 		() =>
 			items
-				.map((item) => `${item.id}:${item.updatedAt}`)
+				.map((item) => `${item.id}:${item.updatedAt.getTime()}`)
 				.sort()
 				.join('|'),
 		[items],
@@ -369,128 +325,70 @@ async function fetchMissionItemGeometry(
  * A mission's stops, joined to whatever names them and to the shapes they were
  * drawn as, ready to render or map.
  *
+ * The joins are in `hooks/queries/use-mission-stops.ts`. What is composed here is
+ * what a *page* adds to them: the shape each stop was actually drawn as, which
+ * comes from a `/map/*` endpoint rather than a collection, and the ordinal, which
+ * is a fact about the list rather than about any row in it.
+ *
  * A stop owns its geometry outright — unlike an assignment stop, which is a
  * pointer at a trap or a habitat — so it always has a place on the map even when
  * nothing it links to has loaded. What the joins add is a *name*: the request it
  * came from, or failing that the address it sits at.
  */
-export function useMissionStops(missionId: string | null): {
+export function useMissionStopViews(missionId: string | null): {
 	readonly stops: readonly MissionStopView[];
 	readonly counts: MissionProgressCounts;
 	readonly isLoading: boolean;
 } {
-	const { items, isLoading } = useMissionItems(missionId);
-
-	const requestIds = useMemo(() => {
-		const ids = new Set<string>();
-		for (const item of items) {
-			if (item.requestedControlActionId !== null) {
-				ids.add(item.requestedControlActionId);
-			}
-		}
-		return [...ids].sort();
-	}, [items]);
-	const requestKey = requestIds.join(',');
-
-	const addressIds = useMemo(() => {
-		const ids = new Set<string>();
-		for (const item of items) {
-			if (item.addressId !== null) {
-				ids.add(item.addressId);
-			}
-		}
-		return [...ids].sort();
-	}, [items]);
-	const addressKey = addressIds.join(',');
-
-	const requestResult = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.requestedControlActions })
-					.where(({ request }) =>
-						inArray(request.id, requestIds.length > 0 ? requestIds : [UNMATCHABLE_ID]),
-					),
-		},
-		[requestKey],
-	);
-
-	const addressResult = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) =>
-						inArray(address.id, addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID]),
-					),
-		},
-		[addressKey],
-	);
-
-	const requestById = useMemo(
-		() =>
-			new Map(
-				((requestResult.data ?? []) as readonly RequestedControlActionRow[]).map(
-					(row) => [row.id, row] as const,
-				),
-			),
-		[requestResult.data],
-	);
-	const addressLabelById = useMemo(
-		() =>
-			new Map(
-				((addressResult.data ?? []) as readonly AddressRow[]).map(
-					(row) => [row.id, addressPrimaryLabel(row)] as const,
-				),
-			),
-		[addressResult.data],
-	);
-
-	const linksReady = requestResult.isReady && addressResult.isReady;
-	const shapeById = useMissionItemShapes(missionId, items);
+	const { stops: rows, isLoading, isReady } = useMissionStops(missionId);
+	const shapeById = useMissionItemShapes(missionId, rows);
 
 	const stops = useMemo<readonly MissionStopView[]>(
-		() =>
-			items.map((item, index) =>
-				toMissionStop(item, index, { requestById, addressLabelById, shapeById, linksReady }),
-			),
-		[items, requestById, addressLabelById, shapeById, linksReady],
+		() => rows.map((row, index) => toMissionStop(row, index, shapeById, isReady)),
+		[rows, shapeById, isReady],
 	);
 
-	return { stops, counts: missionProgressCounts(items), isLoading };
+	const counts = useMemo(() => missionProgressCounts(stops), [stops]);
+
+	return { stops, counts, isLoading };
 }
 
 function toMissionStop(
-	item: MissionItemRow,
+	row: MissionStop,
 	index: number,
-	links: {
-		readonly requestById: ReadonlyMap<string, RequestedControlActionRow>;
-		readonly addressLabelById: ReadonlyMap<string, string>;
-		readonly shapeById: ReadonlyMap<string, GeoJsonGeometry>;
-		readonly linksReady: boolean;
-	},
+	shapeById: ReadonlyMap<string, GeoJsonGeometry>,
+	linksReady: boolean,
 ): MissionStopView {
-	const requestId = item.requestedControlActionId;
+	const address = resolveLinkedAddress(row.address);
 	return {
-		missionItemId: item.id,
+		missionItemId: row.id,
 		ordinal: index + 1,
-		position: item.position,
-		lat: item.lat,
-		lng: item.lng,
-		geometry: links.shapeById.get(item.id) ?? null,
-		requestedControlActionId: requestId,
-		request: requestId === null ? null : (links.requestById.get(requestId) ?? null),
-		addressId: item.addressId,
-		addressLabel:
-			item.addressId === null ? null : (links.addressLabelById.get(item.addressId) ?? null),
-		progress: missionItemProgress(item),
-		skipReason: item.skipReason,
-		completedAt: item.completedAt,
-		skippedAt: item.skippedAt,
-		hasLocation: Number.isFinite(item.lat) && Number.isFinite(item.lng),
-		isResolving: !links.linksReady && (requestId !== null || item.addressId !== null),
+		position: row.position,
+		lat: row.latitude,
+		lng: row.longitude,
+		geometry: shapeById.get(row.id) ?? null,
+		requestedControlActionId: row.requestedControlActionId,
+		// Rebuilt from the projected columns rather than carried as a row: what
+		// names a stop is a summary and a control type, and the request's other
+		// thirty columns are not something this page reads.
+		request:
+			row.requestedControlActionId === null
+				? null
+				: {
+						id: row.requestedControlActionId,
+						summary: row.requestSummary,
+						controlType: row.requestControlType ?? '',
+					},
+		addressId: row.addressId,
+		addressLabel: address === undefined ? null : addressPrimaryLabel(address),
+		progress: missionItemProgress(row),
+		skipReason: row.skipReason,
+		completedAt: row.completedAt,
+		skippedAt: row.skippedAt,
+		// A stop always has ground of its own, so this is only ever false for a row
+		// whose centroid has not arrived.
+		hasLocation: Number.isFinite(row.latitude) && Number.isFinite(row.longitude),
+		isResolving: !linksReady && (row.requestedControlActionId !== null || row.addressId !== null),
 	};
 }
 
@@ -527,62 +425,6 @@ export function useOpenRequestedControlActions(organizationId: string): {
 	);
 
 	return { requests, isReady: result.isReady };
-}
-
-/**
- * The missions a request has been scheduled onto.
- *
- * Two hops, because the link lives on the mission *item*: a request is put on a
- * mission by becoming one of its stops. A request can appear on more than one —
- * the domain flags that rather than forbidding it — so this reads as a list.
- */
-export function useMissionsForRequest(requestId: string | null): {
-	readonly missions: readonly MissionView[];
-	readonly isReady: boolean;
-} {
-	const itemResult = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: webCollections.missionItems })
-					.where(({ item }) => eq(item.requestedControlActionId, requestId ?? UNMATCHABLE_ID)),
-		},
-		[requestId],
-	);
-
-	const missionIds = useMemo(() => {
-		const ids = new Set(
-			((itemResult.data ?? []) as readonly MissionItemRow[]).map((item) => item.missionId),
-		);
-		return [...ids].sort();
-	}, [itemResult.data]);
-	const idsKey = missionIds.join(',');
-
-	const missionResult = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ mission: webCollections.missions })
-					.where(({ mission }) =>
-						inArray(mission.id, missionIds.length > 0 ? missionIds : [UNMATCHABLE_ID]),
-					)
-					.orderBy(({ mission }) => mission.scheduledStartAt, 'desc'),
-		},
-		[idsKey],
-	);
-
-	const missions = useMemo(
-		() =>
-			((missionResult.data ?? []) as readonly MissionRow[]).map((row) => ({
-				...row,
-				status: missionStatus(row),
-			})),
-		[missionResult.data],
-	);
-
-	return { missions, isReady: itemResult.isReady && missionResult.isReady };
 }
 
 /**
@@ -676,363 +518,15 @@ export async function createRequestedControlAction(input: {
 }
 
 /**
- * Create a mission.
+ * The request row with its `readonly` lifted, for the drafts below.
  *
- * Missions carry no geometry of their own — their footprint is the union of their
- * items, which are added afterwards. A mission with no items is a valid, legal
- * plan; it simply cannot be started until it has one.
+ * The mission half of this module used to need the same for two more tables.
+ * Both are gone: the mission writes name their commands in `hooks/mutations` and
+ * work in the collection's own snake_case, so nothing has to be cast back.
  */
-export async function createMission(input: {
-	readonly missionId: string;
-	readonly organizationId: string;
-	readonly actorProfileId: string;
-	readonly controlType: ControlType;
-	readonly scheduledStartAt: string;
-	readonly scheduledEndAt: string | null;
-	readonly missionName: string | null;
-	readonly plannedMethodId: string | null;
-	readonly assignedToProfileId: string | null;
-	readonly rainDate: string | null;
-	readonly notificationTypeId: string | null;
-}): Promise<void> {
-	const now = new Date().toISOString();
-	const row: MissionRow = {
-		id: input.missionId,
-		organizationId: input.organizationId,
-		missionName: input.missionName,
-		controlType: input.controlType,
-		plannedMethodId: input.plannedMethodId,
-		assignedToProfileId: input.assignedToProfileId,
-		// Mirrors what the server records, so the row does not flicker.
-		assignedByProfileId: input.assignedToProfileId === null ? null : input.actorProfileId,
-		scheduledStartAt: input.scheduledStartAt,
-		scheduledEndAt: input.scheduledEndAt,
-		rainDate: input.rainDate,
-		startedAt: null,
-		completedAt: null,
-		cancelledAt: null,
-		cancellationReason: null,
-		notificationTypeId: input.notificationTypeId,
-		createdByProfileId: input.actorProfileId,
-		updatedByProfileId: input.actorProfileId,
-		createdAt: now,
-		updatedAt: now,
-	};
-
-	await settleWrite(webCollections.missions.insert(row));
-}
-
-/**
- * Every write below is a plain collection update, because the PATCH handlers
- * derive their command from *which* fields changed rather than from a verb in
- * the body. Two consequences worth knowing before adding one:
- *
- * 1. Planning fields and lifecycle timestamps must never ride the same update.
- *    One PATCH body builds both command families, so an edit that "normalises"
- *    `completedAt` back to null while saving a name would silently reopen the
- *    mission.
- * 2. A field is only sent when it actually changes, so writing the value a row
- *    already holds is a no-op rather than a redundant command — which is why
- *    each helper can null every field its transition owns without checking
- *    whether they were already null.
- */
-
-type MutableMissionRow = { -readonly [Key in keyof MissionRow]: MissionRow[Key] };
-type MutableMissionItemRow = { -readonly [Key in keyof MissionItemRow]: MissionItemRow[Key] };
 type MutableRequestRow = {
 	-readonly [Key in keyof RequestedControlActionRow]: RequestedControlActionRow[Key];
 };
-
-/**
- * Edit a mission's plan.
- *
- * Deliberately touches no lifecycle timestamp. One PATCH body builds both the
- * planning and the lifecycle command families, so writing `completedAt` here —
- * even back to the value it already holds — would read as a transition.
- *
- * `assignedByProfileId` is mirrored the way the server stamps it, so the row does
- * not flicker between what this wrote and what came back.
- */
-export async function updateMission(input: {
-	readonly missionId: string;
-	readonly actorProfileId: string | null;
-	readonly controlType: ControlType;
-	readonly scheduledStartAt: string;
-	readonly scheduledEndAt: string | null;
-	readonly missionName: string | null;
-	readonly plannedMethodId: string | null;
-	readonly assignedToProfileId: string | null;
-	readonly rainDate: string | null;
-	readonly notificationTypeId: string | null;
-}): Promise<void> {
-	const now = new Date().toISOString();
-	await settleWrite(
-		webCollections.missions.update(input.missionId, (draft) => {
-			const mutable = draft as MutableMissionRow;
-			mutable.controlType = input.controlType;
-			mutable.scheduledStartAt = input.scheduledStartAt;
-			mutable.scheduledEndAt = input.scheduledEndAt;
-			mutable.missionName = input.missionName;
-			mutable.plannedMethodId = input.plannedMethodId;
-			mutable.rainDate = input.rainDate;
-			mutable.notificationTypeId = input.notificationTypeId;
-			if (mutable.assignedToProfileId !== input.assignedToProfileId) {
-				mutable.assignedToProfileId = input.assignedToProfileId;
-				mutable.assignedByProfileId =
-					input.assignedToProfileId === null ? null : input.actorProfileId;
-			}
-			if (input.actorProfileId !== null) {
-				mutable.updatedByProfileId = input.actorProfileId;
-			}
-			mutable.updatedAt = now;
-		}),
-	);
-}
-
-export async function startMission(missionId: string): Promise<void> {
-	await settleWrite(
-		webCollections.missions.update(missionId, (draft) => {
-			(draft as MutableMissionRow).startedAt = nowTimestamp();
-		}),
-	);
-}
-
-/**
- * Finish a mission.
- *
- * The server auto-starts one completed straight from scheduled, so `startedAt`
- * is left alone here rather than guessed at — the row that syncs back carries
- * whichever start the server settled on.
- */
-export async function completeMission(missionId: string): Promise<void> {
-	await settleWrite(
-		webCollections.missions.update(missionId, (draft) => {
-			(draft as MutableMissionRow).completedAt = nowTimestamp();
-		}),
-	);
-}
-
-/** Cancelling carries its reason in the same draft, so one PATCH holds both. */
-export async function cancelMission(missionId: string, cancellationReason: string): Promise<void> {
-	await settleWrite(
-		webCollections.missions.update(missionId, (draft) => {
-			const mutable = draft as MutableMissionRow;
-			mutable.cancelledAt = nowTimestamp();
-			mutable.cancellationReason = cancellationReason;
-		}),
-	);
-}
-
-/**
- * Reopen a closed mission, recording why.
- *
- * `startedAt` is deliberately left alone: the server keeps it, since reopening
- * resumes work rather than resetting it and nothing else on the row records when
- * the crew actually started.
- *
- * The reason travels as metadata rather than on the draft. It is not a column —
- * the server writes it as a comment — and this update *clears* the terminal
- * fields, so without that comment a reopened mission would carry no trace of
- * having been closed or why it was picked back up.
- */
-export async function reopenMission(missionId: string, reopenReason: string): Promise<void> {
-	await settleWrite(
-		webCollections.missions.update(missionId, { metadata: { reopenReason } }, (draft) => {
-			const mutable = draft as MutableMissionRow;
-			mutable.completedAt = null;
-			mutable.cancelledAt = null;
-			mutable.cancellationReason = null;
-		}),
-	);
-}
-
-/**
- * Put a request on a mission as its next stop.
- *
- * The server takes the stop's geometry from the request rather than the wire —
- * sending no location is what selects the `addMissionItemFromRequestedControlAction`
- * command — so the centroid copied here only seeds the optimistic row. Without it
- * the new pin would not appear until the shape round-trips.
- */
-export async function addMissionItemFromRequest(input: {
-	readonly missionItemId: string;
-	readonly missionId: string;
-	readonly organizationId: string;
-	readonly actorProfileId: string | null;
-	readonly request: Pick<
-		RequestedControlActionRow,
-		'id' | 'lat' | 'lng' | 'geomType' | 'addressId'
-	>;
-	readonly position: number;
-}): Promise<void> {
-	const now = new Date().toISOString();
-	const row: MissionItemRow = {
-		id: input.missionItemId,
-		organizationId: input.organizationId,
-		missionId: input.missionId,
-		lat: input.request.lat,
-		lng: input.request.lng,
-		geomType: input.request.geomType,
-		requestedControlActionId: input.request.id,
-		// Left null so the POST carries no address and the server reads the stop as
-		// "from this request", geometry and all.
-		addressId: null,
-		position: input.position,
-		completedAt: null,
-		completedByProfileId: null,
-		skippedAt: null,
-		skippedByProfileId: null,
-		skipReason: null,
-		createdByProfileId: input.actorProfileId,
-		updatedByProfileId: input.actorProfileId,
-		createdAt: now,
-		updatedAt: now,
-	};
-	await settleWrite(webCollections.missionItems.insert(row));
-}
-
-/**
- * Add a stop the crew has to visit that no request asked for.
- *
- * The stop owns its geometry outright — Point, LineString, or Polygon, whatever
- * the operator drew — rather than inheriting a request's. Sending a location
- * source with no `requestedControlActionId` is what selects the plain
- * `addMissionItem` command server-side; the centroid written here only seeds the
- * optimistic row, since the server recomputes `geom` from the source.
- *
- * The address is a label, not the location: a stop placed at an address still
- * stores the shape that was drawn.
- */
-export async function addMissionItemAtGeometry(input: {
-	readonly missionItemId: string;
-	readonly missionId: string;
-	readonly organizationId: string;
-	readonly actorProfileId: string | null;
-	readonly geometry: GeoJsonGeometry;
-	readonly addressId: string | null;
-	readonly position: number;
-}): Promise<void> {
-	const centroid = ownedCentroidFromGeoJson(input.geometry);
-	if (centroid === null) {
-		throw new Error('Unable to determine where this stop is.');
-	}
-
-	const now = new Date().toISOString();
-	const row: MissionItemRow = {
-		id: input.missionItemId,
-		organizationId: input.organizationId,
-		missionId: input.missionId,
-		lat: centroid.lat,
-		lng: centroid.lng,
-		geomType: centroid.geomType,
-		requestedControlActionId: null,
-		addressId: input.addressId,
-		position: input.position,
-		completedAt: null,
-		completedByProfileId: null,
-		skippedAt: null,
-		skippedByProfileId: null,
-		skipReason: null,
-		createdByProfileId: input.actorProfileId,
-		updatedByProfileId: input.actorProfileId,
-		createdAt: now,
-		updatedAt: now,
-	};
-
-	await settleWrite(
-		webCollections.missionItems.insert(row, {
-			metadata: { locationSource: { kind: 'geometry', geometry: input.geometry } },
-		}),
-	);
-}
-
-export async function removeMissionItem(missionItemId: string): Promise<void> {
-	await settleWrite(webCollections.missionItems.delete(missionItemId));
-}
-
-/**
- * Stop progress.
- *
- * The `*ByProfileId` columns are mirrored optimistically so a row does not
- * flicker between what the page wrote and what the server stamped. They are not
- * patch keys, so they never reach the wire — the server sets them from the
- * authenticated actor.
- */
-export async function completeMissionItem(
-	missionItemId: string,
-	actorProfileId: string | null,
-): Promise<void> {
-	await settleWrite(
-		webCollections.missionItems.update(missionItemId, (draft) => {
-			const mutable = draft as MutableMissionItemRow;
-			mutable.completedAt = nowTimestamp();
-			mutable.completedByProfileId = actorProfileId;
-		}),
-	);
-}
-
-export async function skipMissionItem(
-	missionItemId: string,
-	skipReason: string,
-	actorProfileId: string | null,
-): Promise<void> {
-	await settleWrite(
-		webCollections.missionItems.update(missionItemId, (draft) => {
-			const mutable = draft as MutableMissionItemRow;
-			mutable.skippedAt = nowTimestamp();
-			mutable.skipReason = skipReason;
-			mutable.skippedByProfileId = actorProfileId;
-		}),
-	);
-}
-
-export async function unskipMissionItem(missionItemId: string): Promise<void> {
-	await settleWrite(
-		webCollections.missionItems.update(missionItemId, (draft) => {
-			const mutable = draft as MutableMissionItemRow;
-			mutable.skippedAt = null;
-			mutable.skipReason = null;
-			mutable.skippedByProfileId = null;
-		}),
-	);
-}
-
-export async function reopenMissionItem(missionItemId: string): Promise<void> {
-	await settleWrite(
-		webCollections.missionItems.update(missionItemId, (draft) => {
-			const mutable = draft as MutableMissionItemRow;
-			mutable.completedAt = null;
-			mutable.completedByProfileId = null;
-		}),
-	);
-}
-
-/**
- * Reorder stops server-side.
- *
- * The shared planner names the anchor `anchorId`; this endpoint calls it
- * `missionItemId`. Translating here keeps the wire vocabulary in the module that
- * owns it.
- */
-export async function moveMissionItems(
-	missionId: string,
-	missionItemIds: readonly string[],
-	placement:
-		| { readonly kind: 'start' }
-		| { readonly kind: 'end' }
-		| { readonly kind: 'before'; readonly anchorId: string }
-		| { readonly kind: 'after'; readonly anchorId: string },
-): Promise<void> {
-	const wirePlacement =
-		placement.kind === 'before' || placement.kind === 'after'
-			? { kind: placement.kind, missionItemId: placement.anchorId }
-			: placement;
-	await postCommand(
-		`/mission-dispatch/missions/${missionId}/move-items`,
-		{ missionItemIds: [...missionItemIds], placement: wirePlacement },
-		'Unable to reorder the mission.',
-	);
-}
 
 /**
  * Close a request out.

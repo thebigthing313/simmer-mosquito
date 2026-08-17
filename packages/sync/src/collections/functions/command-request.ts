@@ -37,6 +37,7 @@
 
 import {
 	acknowledgementFields,
+	argumentFields,
 	contextFields,
 	locationSourceFields,
 	requireIntents,
@@ -250,6 +251,7 @@ export function commandRequestFor<TRow extends object>(
 				...withoutServerOwnedColumns(mutation.modified),
 				...locationSourceFields(mutation.metadata),
 				...contextFields(mutation.metadata),
+				...argumentFields(mutation.metadata),
 				...acknowledgementFields(mutation.metadata),
 				intents,
 			},
@@ -266,6 +268,11 @@ export function commandRequestFor<TRow extends object>(
 		...withoutServerOwnedColumns(mutation.changes),
 		...locationSourceFields(mutation.metadata),
 		...contextFields(mutation.metadata),
+		// Before the emptiness check, with the location and the context rather than
+		// with the acknowledgements: an argument is content the server writes, so a
+		// patch carrying one is not an empty patch. Reopening a Mission would
+		// otherwise be a request the reason could not reach.
+		...argumentFields(mutation.metadata),
 	};
 
 	if (Object.keys(body).length === 0) {

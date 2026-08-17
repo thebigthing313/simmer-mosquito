@@ -195,6 +195,35 @@ describe('mutateCollection', () => {
 		});
 	});
 
+	it('carries what a command takes that the row has no column for', () => {
+		// Separate from the acknowledgements because they answer different questions:
+		// an acknowledgement grants permission and writes nothing, an argument is
+		// part of what gets written.
+		const { collection, calls } = recordingCollection();
+
+		mutate(collection, {
+			operation: 'update',
+			intent: 'test.rename',
+			key: 'row-1',
+			changes: { is_active: true },
+			arguments: { reopenReason: 'Cancelled in error' },
+		});
+
+		expect(calls[0]?.metadata?.arguments).toEqual({ reopenReason: 'Cancelled in error' });
+	});
+
+	it('omits the arguments rather than sending an empty set', () => {
+		const { collection, calls } = recordingCollection();
+
+		mutate(collection, {
+			operation: 'insert',
+			intent: 'test.create',
+			row: { id: 'row-1', name: 'A', is_active: true },
+		});
+
+		expect(calls[0]?.metadata).not.toHaveProperty('arguments');
+	});
+
 	it('carries them on a delete, where a cascade is the usual question', () => {
 		const { collection, calls } = recordingCollection();
 

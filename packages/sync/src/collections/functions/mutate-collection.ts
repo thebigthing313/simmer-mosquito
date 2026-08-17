@@ -110,7 +110,12 @@ export type MutationIntent<TIntent extends string> = TIntent | readonly TIntent[
  *
  * `acknowledgements` are the refusals this attempt is answering. They belong to
  * the attempt rather than to the record, which is why a retry can add one without
- * changing anything else about the write.
+ * changing anything else about the write. *
+ * `arguments` are what the command takes that the table does not hold — the words
+ * behind a cancellation and the id of the comment they become, or whether a
+ * completion may start the record it closes. Unlike `acknowledgements`, which
+ * answer a refusal and change nothing, these are part of what gets written; they
+ * ride here because there is no column for them.
  */
 export type CollectionMutation<TRow extends object, TIntent extends string> =
 	| {
@@ -119,6 +124,7 @@ export type CollectionMutation<TRow extends object, TIntent extends string> =
 			readonly row: TRow;
 			readonly locationSource?: unknown;
 			readonly context?: unknown;
+			readonly arguments?: Readonly<Record<string, unknown>>;
 			readonly acknowledgements?: Readonly<Record<string, boolean>>;
 	  }
 	| {
@@ -138,6 +144,7 @@ export type CollectionMutation<TRow extends object, TIntent extends string> =
 			readonly changes: Partial<TRow>;
 			readonly locationSource?: unknown;
 			readonly context?: unknown;
+			readonly arguments?: Readonly<Record<string, unknown>>;
 			readonly acknowledgements?: Readonly<Record<string, boolean>>;
 	  }
 	| {
@@ -192,6 +199,12 @@ export function createCollectionMutator<TIntent extends string>() {
 
 		if (mutation.operation === 'delete') {
 			return collection.delete(mutation.key, { metadata });
+		}
+
+		// Grouped like the acknowledgements and absent for the same reason: an empty
+		// object is a claim that the command takes arguments and was given none.
+		if (mutation.arguments !== undefined) {
+			metadata.arguments = { ...mutation.arguments };
 		}
 
 		// Absent rather than present-and-undefined: the handlers spread the location

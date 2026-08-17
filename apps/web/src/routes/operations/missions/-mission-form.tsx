@@ -109,8 +109,8 @@ export function defaultMissionFormValues(timeZone: string): MissionFormValues {
 export function missionFormValuesFrom(
 	mission: {
 		readonly controlType: ControlType;
-		readonly scheduledStartAt: string;
-		readonly scheduledEndAt: string | null;
+		readonly scheduledStartAt: Date;
+		readonly scheduledEndAt: Date | null;
 		readonly rainDate: string | null;
 		readonly missionName: string | null;
 		readonly plannedMethodId: string | null;
@@ -132,11 +132,11 @@ export function missionFormValuesFrom(
 
 /** The stored instants back into the date/time trio the schedule fields hold. */
 function scheduleFieldsFrom(
-	scheduledStartAt: string,
-	scheduledEndAt: string | null,
+	scheduledStartAt: Date,
+	scheduledEndAt: Date | null,
 	timeZone: string,
 ): Pick<MissionFormValues, 'startDate' | 'startTime' | 'endTime'> {
-	const start = new Date(scheduledStartAt);
+	const start = scheduledStartAt;
 	const startTime = localTimeOfDay(scheduledStartAt, timeZone);
 
 	return {

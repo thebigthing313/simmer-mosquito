@@ -21,6 +21,7 @@
  */
 
 import type { ControlType } from '@simmer-mosquito/sync';
+import type { LinkedAddress } from './address-view';
 
 /**
  * The four kinds of control work a request or mission can be for.
@@ -162,6 +163,69 @@ export function missionDisplayName(
 	// An unnamed mission is named by when it runs, so the fallback carries the
 	// same zone the scheduled start is read in everywhere else.
 	return `${controlTypeLabel(row.controlType)} — ${formatScheduledStart(row.scheduledStartAt, timeZone)}`;
+}
+
+/**
+ * A mission as its own page reads it.
+ *
+ * Wider than {@link MissionListing} because a detail page shows the whole plan and
+ * an edit form has to seed from it — the closing window, the rain date, the
+ * notification type, and who is on it. `rainDate` is a `date` column, so a
+ * `YYYY-MM-DD` string; every other moment here is an instant.
+ */
+export interface MissionDetail {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly missionName: string | null;
+	readonly controlType: ControlType;
+	readonly plannedMethodId: string | null;
+	readonly assignedToProfileId: string | null;
+	readonly assignedByProfileId: string | null;
+	readonly scheduledStartAt: Date;
+	readonly scheduledEndAt: Date | null;
+	readonly rainDate: string | null;
+	readonly startedAt: Date | null;
+	readonly completedAt: Date | null;
+	readonly cancelledAt: Date | null;
+	readonly cancellationReason: string | null;
+	readonly notificationTypeId: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+/**
+ * One stop on a mission, with whatever names it.
+ *
+ * A stop owns its ground outright — unlike an assignment stop, which points at a
+ * Trap or a Habitat — so `latitude`/`longitude` are always its own and it has a
+ * place on the map even when nothing it links to has loaded. What the joins add
+ * is a *name*: the request it was drawn from, or failing that the address it sits
+ * at.
+ *
+ * The drawn shape is not here. The Electric shape streams the centroid only
+ * (ADR 0009), so a stop that is a ditch run arrives as a dot; the real shapes come
+ * from the mission's own `/map/*` endpoint, which answers for the whole mission at
+ * once because both surfaces that draw stops draw all of them.
+ */
+export interface MissionStop {
+	readonly id: string;
+	readonly missionId: string;
+	/** Its place in the sequence as stored. The 1-indexed one a page shows is derived. */
+	readonly position: number;
+	readonly latitude: number;
+	readonly longitude: number;
+	readonly geometryKind: string;
+	readonly requestedControlActionId: string | null;
+	/** Absent when the stop names no request, and while the joined row is still streaming. */
+	readonly requestSummary: string | null;
+	readonly requestControlType: string | null;
+	readonly addressId: string | null;
+	/** Joined, not looked up — see `address-view.ts` for why it is nested. */
+	readonly address: LinkedAddress;
+	readonly completedAt: Date | null;
+	readonly skippedAt: Date | null;
+	readonly skipReason: string | null;
+	readonly updatedAt: Date;
 }
 
 // --- progress ---------------------------------------------------------------

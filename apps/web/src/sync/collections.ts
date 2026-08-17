@@ -24,9 +24,7 @@ import {
 	type InsecticideRow,
 	type InspectionRow,
 	type MembershipRow,
-	type MissionItemRow,
 	type MissionNotificationRow,
-	type MissionRow,
 	type NotificationRegistrationRow,
 	type NotificationRegistrationTypeRow,
 	type NotificationTypeRow,
@@ -85,8 +83,6 @@ import {
 	createAssignmentItemMutationHandlers,
 	createAssignmentMutationHandlers,
 	createCommentMutationHandlers,
-	createMissionItemMutationHandlers,
-	createMissionMutationHandlers,
 	createRouteItemMutationHandlers,
 	createRouteMutationHandlers,
 	createTagItemMutationHandlers,
@@ -142,9 +138,7 @@ export interface WebCollections {
 	readonly insecticides: Collection<InsecticideRow, string | number>;
 	readonly inspections: Collection<InspectionRow, string | number>;
 	readonly memberships: Collection<MembershipRow, string | number>;
-	readonly missionItems: Collection<MissionItemRow, string | number>;
 	readonly missionNotifications: Collection<MissionNotificationRow, string | number>;
-	readonly missions: Collection<MissionRow, string | number>;
 	readonly notificationRegistrations: Collection<NotificationRegistrationRow, string | number>;
 	readonly notificationRegistrationTypes: Collection<
 		NotificationRegistrationTypeRow,
@@ -682,22 +676,6 @@ export function createWebCollections(options: {
 			...createRequestedControlActionMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
-	const missions = createCollection(
-		electricShapeCollectionOptions<MissionRow>({
-			table: 'missions',
-			syncMode: webSyncModes.missions,
-			url: `${shapeServerUrl}${shapePathFor('missions')}`,
-			...createMissionMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
-	const missionItems = createCollection(
-		electricShapeCollectionOptions<MissionItemRow>({
-			table: 'mission_items',
-			syncMode: webSyncModes.mission_items,
-			url: `${shapeServerUrl}${shapePathFor('mission_items')}`,
-			...createMissionItemMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
 	const notificationRegistrations = createCollection(
 		electricShapeCollectionOptions<NotificationRegistrationRow>({
 			table: 'notification_registrations',
@@ -759,9 +737,7 @@ export function createWebCollections(options: {
 		insecticides,
 		inspections,
 		memberships,
-		missionItems,
 		missionNotifications,
-		missions,
 		notificationRegistrations,
 		notificationRegistrationTypes,
 		notificationTypes,

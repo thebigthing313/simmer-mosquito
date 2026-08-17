@@ -85,20 +85,40 @@ def multi_row() -> set[str]:
 
 
 def tables() -> list[dict]:
-    """Every table `createWebCollections` still defines, with both halves of its
+    """Every table the web app has a collection for, with both halves of its
     migration: does the server accept it by command, and has apps/web stopped
-    reaching it through the old seam."""
+    reaching it through the old seam.
+
+    The universe is `lib/collections/`, one module per table, and *not*
+    `createWebCollections`. It used to be the latter, which made the page shrink
+    as the work landed: a table that came fully off the old seam was deleted from
+    the declarations, so it dropped out of the list and out of the denominator
+    with it. The dial read 19/50 where it had read 19/52, and the two tables that
+    had just been finished were the ones missing."""
     src = read("apps/web/src/sync/collections.ts")
-    pairs = re.findall(
-        r"const (\w+) = createCollection\(\s*electricShapeCollectionOptions<\w+>\(\{\s*table: '([^']+)'",
-        src,
+    # The old seam's property name per table, for the ones it still declares.
+    props = {
+        table: prop
+        for prop, table in re.findall(
+            r"const (\w+) = createCollection\(\s*electricShapeCollectionOptions<\w+>\(\{\s*table: '([^']+)'",
+            src,
+        )
+    }
+
+    # One module per table, named for it. `mutate` and `transact` are the two
+    # that are not a table.
+    every = sorted(
+        path.stem
+        for path in (ROOT / "apps/web/src/lib/collections").glob("*.ts")
+        if path.stem not in {"mutate", "transact"}
     )
+
     mapped: set[str] = set()
     for path in (ROOT / "apps/server/src/table-commands").glob("*.ts"):
         text = path.read_text(encoding="utf-8")
         mapped |= set(re.findall(r"table:\s*'([a-z_]+)'", text))
         # The catalog factories take the table as a positional argument.
-        mapped |= set(re.findall(r"^\t\t'([a-z_]+)',$", text, re.M))
+        mapped |= set(re.findall(r"^		'([a-z_]+)',$", text, re.M))
 
     def live_properties() -> set[str]:
         out = subprocess.run(
@@ -114,8 +134,9 @@ def tables() -> list[dict]:
 
     live = live_properties()
     return [
-        {"table": table, "server": table in mapped, "client": prop not in live}
-        for prop, table in sorted(pairs, key=lambda pair: pair[1])
+        # A table the old seam no longer declares cannot be reached through it.
+        {"table": table, "server": table in mapped, "client": props.get(table) not in live}
+        for table in every
     ]
 
 

@@ -1,10 +1,9 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { MissionItemRow } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback } from 'react';
+import { mission_items } from '../lib/collections/mission_items';
 import type { StopAcknowledgements } from '../lib/stop-acknowledgements';
-import { webCollections } from '../sync/webCollections';
 import { useAcknowledgedWrite } from './acknowledged-write';
 
 /**
@@ -48,8 +47,12 @@ export interface LocationMessages {
 	readonly unresolvable: string;
 }
 
-/** The stop's own centroid, all this needs of a `MissionItemRow`. */
-type StopCentroid = Pick<MissionItemRow, 'lat' | 'lng' | 'geomType'>;
+/** The stop's own centroid, all this needs of a mission item. */
+interface StopCentroid {
+	readonly lat: number;
+	readonly lng: number;
+	readonly geomType: string;
+}
 
 /**
  * Where a control action happened, from what the form has and what the stop
@@ -139,12 +142,17 @@ export function useMissionStopExecution(search: {
 			gcTime: missionStopGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: webCollections.missionItems })
-					.where(({ item }) => eq(item.id, missionItemId ?? UNMATCHABLE_ID)),
+					.from({ item: mission_items })
+					.where(({ item }) => eq(item.id, missionItemId ?? UNMATCHABLE_ID))
+					.select(({ item }) => ({
+						lat: item.lat,
+						lng: item.lng,
+						geomType: item.geom_type,
+					})),
 		},
 		[missionItemId],
 	);
-	const stop = ((stopResult.data ?? []) as readonly MissionItemRow[])[0] ?? null;
+	const stop = stopResult.data[0] ?? null;
 
 	const resolveLocation = useCallback(
 		(geometry: unknown, messages: LocationMessages): ResolvedActionLocation =>

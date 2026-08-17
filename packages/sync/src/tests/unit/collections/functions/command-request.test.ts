@@ -239,6 +239,62 @@ describe('commandRequestFor', () => {
 		});
 	});
 
+	describe('what a command takes that the table does not hold', () => {
+		// Read as flat top-level keys, like the acknowledgements — but folded in
+		// before the emptiness check rather than after it, because an argument is
+		// content the server writes rather than permission to write it.
+
+		it('flattens them onto an edit', () => {
+			const request = commandRequestFor(
+				write({
+					type: 'update',
+					changes: { is_active: true },
+					metadata: {
+						intents: ['missionDispatch.reopenMission'],
+						arguments: { reopenCommentId: 'c0ffee', reopenReason: 'Cancelled in error' },
+					},
+				}),
+				SERVER,
+			);
+
+			expect(request?.body).toEqual({
+				is_active: true,
+				reopenCommentId: 'c0ffee',
+				reopenReason: 'Cancelled in error',
+				intents: ['missionDispatch.reopenMission'],
+			});
+			expect(request?.body).not.toHaveProperty('arguments');
+		});
+
+		it('makes a patch that changes no column into a request anyway', () => {
+			// The opposite of an acknowledgement. A command whose whole content is an
+			// argument has something to write, so suppressing it would send nothing and
+			// look like a success.
+			const request = commandRequestFor(
+				write({
+					type: 'update',
+					changes: { updated_at: new Date() },
+					metadata: {
+						intents: ['missionDispatch.completeMission'],
+						arguments: { autoStartMission: true },
+					},
+				}),
+				SERVER,
+			);
+
+			expect(request?.body).toMatchObject({ autoStartMission: true });
+		});
+
+		it('adds nothing when the command takes none', () => {
+			const request = commandRequestFor(
+				write({ metadata: { intents: ['larvalSurveillance.createHabitat'] } }),
+				SERVER,
+			);
+
+			expect(request?.body).not.toHaveProperty('arguments');
+		});
+	});
+
 	describe('the refusals a write answers', () => {
 		// The endpoints read these as flat top-level keys —
 		// `payload.acknowledgedDuplicateTrapCode`, not `payload.acknowledgements.…`.

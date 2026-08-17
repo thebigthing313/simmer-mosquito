@@ -30,6 +30,10 @@ import {
 	requestDisplayName,
 } from '../../../hooks/queries/operations-view';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
+import {
+	type MissionLink,
+	useMissionsForRequest,
+} from '../../../hooks/queries/use-missions-for-request';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
@@ -41,11 +45,9 @@ import {
 import { webCollections } from '../../../sync/webCollections';
 import { useCommandRunner } from '../-command-runner';
 import {
-	type MissionView,
 	type RequestView,
 	reopenRequest,
 	resolveRequest,
-	useMissionsForRequest,
 	useRequestedControlAction,
 } from '../-operations-data';
 import { MissionStatusBadge, RequestStatusBadge } from '../-operations-display';
@@ -291,7 +293,7 @@ function RequestMissionsCard({ requestId }: { readonly requestId: string }) {
 	);
 }
 
-function MissionLinkRow({ mission }: { readonly mission: MissionView }) {
+function MissionLinkRow({ mission }: { readonly mission: MissionLink }) {
 	const timeZone = useOrganizationTimeZone();
 	return (
 		<Link

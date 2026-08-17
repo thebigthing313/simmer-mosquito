@@ -161,17 +161,17 @@ describe('web sync baseline preload', () => {
 		expect(collections.applicationBatches.config.onDelete).toBeTypeOf('function');
 	});
 
-	it('attaches optimistic write handlers to field-work and mission collections', () => {
+	it('attaches optimistic write handlers to field-work collections', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
+		// `missions` and `mission_items` are not here any more: both write through
+		// `lib/collections`, where the command a write means is named in the call.
 		for (const key of [
 			'comments',
 			'routes',
 			'routeItems',
 			'assignments',
 			'assignmentItems',
-			'missions',
-			'missionItems',
 		] as const) {
 			expect(collections[key].config.onInsert).toBeTypeOf('function');
 			expect(collections[key].config.onUpdate).toBeTypeOf('function');

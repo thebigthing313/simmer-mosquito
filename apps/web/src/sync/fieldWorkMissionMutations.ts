@@ -3,8 +3,6 @@ import type {
 	AssignmentItemRow,
 	AssignmentRow,
 	CommentRow,
-	MissionItemRow,
-	MissionRow,
 	RouteItemRow,
 	RouteRow,
 	TagItemRow,
@@ -217,50 +215,6 @@ export function createAssignmentItemMutationHandlers(options: { readonly serverU
 		noun: 'assignment item',
 		insertKeys: ['assignmentId', 'entityType', 'entityId', 'directionsToNextItem'],
 		patchKeys: ['directionsToNextItem', 'completedAt', 'skippedAt', 'skipReason'],
-	});
-}
-
-export function createMissionMutationHandlers(options: { readonly serverUrl: string }) {
-	return createRecordHandlers<MissionRow>({
-		serverUrl: options.serverUrl,
-		path: '/mission-dispatch/missions',
-		noun: 'mission',
-		hasReopenReason: true,
-		insertKeys: [
-			'controlType',
-			'scheduledStartAt',
-			'missionName',
-			'plannedMethodId',
-			'assignedToProfileId',
-			'scheduledEndAt',
-			'rainDate',
-			'notificationTypeId',
-		],
-		patchKeys: [
-			'missionName',
-			'scheduledStartAt',
-			'scheduledEndAt',
-			'rainDate',
-			'controlType',
-			'plannedMethodId',
-			'assignedToProfileId',
-			'notificationTypeId',
-			'startedAt',
-			'completedAt',
-			'cancelledAt',
-			'cancellationReason',
-		],
-	});
-}
-
-export function createMissionItemMutationHandlers(options: { readonly serverUrl: string }) {
-	return createRecordHandlers<MissionItemRow>({
-		serverUrl: options.serverUrl,
-		path: '/mission-dispatch/mission-items',
-		noun: 'mission item',
-		hasLocation: true,
-		insertKeys: ['missionId', 'addressId', 'requestedControlActionId'],
-		patchKeys: ['addressId', 'requestedControlActionId', 'completedAt', 'skippedAt', 'skipReason'],
 	});
 }
 

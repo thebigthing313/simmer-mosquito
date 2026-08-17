@@ -50,8 +50,10 @@ describe('a mission schedule, out of the form and back', () => {
 			const reopened = missionFormValuesFrom(
 				{
 					controlType: plan.controlType,
-					scheduledStartAt: (plan.startAt as Date).toISOString(),
-					scheduledEndAt: plan.endAt?.toISOString() ?? null,
+					// Instants, as the query seam hands them over: a `timestamptz` read
+					// through a collection with a row schema arrives parsed.
+					scheduledStartAt: plan.startAt as Date,
+					scheduledEndAt: plan.endAt,
 					rainDate: null,
 					missionName: null,
 					plannedMethodId: null,

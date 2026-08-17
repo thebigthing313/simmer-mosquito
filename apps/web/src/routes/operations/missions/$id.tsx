@@ -27,10 +27,11 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { WriteOnly } from '../../../components/write-only';
+import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { controlTypeLabel, formatScheduledStart } from '../../../hooks/queries/operations-view';
+import type { MissionRecord } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { webCollections } from '../../../sync/webCollections';
-import { formatOperationalDate, type MissionView } from '../-operations-data';
+import { formatOperationalDate } from '../-operations-data';
 import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
 import { WorklistTabs } from '../-worklist-tabs';
@@ -94,6 +95,8 @@ function MissionPanel({
 	readonly missionId: string;
 	readonly run: MissionRun;
 }) {
+	const missionWrites = useMissionMutations();
+
 	return (
 		<div className="flex h-full min-h-0 flex-col">
 			<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
@@ -150,7 +153,7 @@ function MissionPanel({
 					<DangerZoneCard
 						name={run.displayName ?? 'this mission'}
 						noun="mission"
-						onDelete={() => webCollections.missions.delete(missionId)}
+						onDelete={() => missionWrites.remove(missionId)}
 						recordId={missionId}
 						recordType="mission"
 						returnTo="/operations/missions"
@@ -266,7 +269,7 @@ function MissionHeader({
 	mission,
 	run,
 }: {
-	readonly mission: MissionView;
+	readonly mission: MissionRecord;
 	readonly run: MissionRun;
 }) {
 	const timeZone = useOrganizationTimeZone();
@@ -328,7 +331,7 @@ function MissionLifecycleControls({
 	mission,
 	run,
 }: {
-	readonly mission: MissionView;
+	readonly mission: MissionRecord;
 	readonly run: MissionRun;
 }) {
 	if (mission.status === 'completed' || mission.status === 'cancelled') {
