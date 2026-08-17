@@ -212,7 +212,7 @@ async function runMissionItemCommands(
 	);
 }
 
-async function writeMissionItemCommand(
+export async function writeMissionItemCommand(
 	trx: MissionDispatchTransaction,
 	command: MissionDispatchCommand,
 ): Promise<SafeMissionItem | null> {

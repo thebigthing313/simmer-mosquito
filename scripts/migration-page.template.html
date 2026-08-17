@@ -317,20 +317,14 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 	<ol class="steps">
 		<li>
 			<div>
-				<h4>Mission dispatch</h4>
-				<p>The largest gap left — 20 of 24 commands, across <code>missions</code> and <code>mission_items</code>. The four already reachable are the execution commands that write a surveillance or control record, so they live on that record's table. Reordering is a command on the mission, the way it is on a route.</p>
-			</div>
-		</li>
-		<li>
-			<div>
-				<h4>The four <code>*ForAssignmentItem</code> commands</h4>
-				<p>They write a Habitat Inspection or a Trap Collection <em>and</em> close the Assignment Item that produced it, so they belong to the inspections and collections tables, not to <code>assignment_items</code> (ADR 0012). All four are multi-row.</p>
-			</div>
-		</li>
-		<li>
-			<div>
 				<h4>The Tag catalog, and organization settings</h4>
-				<p>Tags move when the my-organization page comes off the old seam. <code>organizationSettings</code> is the odd one: seven commands that write <code>organizations</code>, which is not a per-row table in the same sense. Decide whether it belongs on this surface before building it.</p>
+				<p>Six <code>tags</code> commands, still served by <code>foundation-commands/tags.ts</code>, which move when the my-organization page comes off the old seam. <code>organizationSettings</code> is the odd one: seven commands that write <code>organizations</code>, which is not a per-row table in the same sense. Decide whether it belongs on this surface before building it.</p>
+			</div>
+		</li>
+		<li>
+			<div>
+				<h4>The remaining apps/web surfaces</h4>
+				<p>For each: write the joined hooks in <code>hooks/queries</code>, the write hooks in <code>hooks/mutations</code>, point the routes at them, drop the table from <code>createWebCollections</code>, and delete the domain's <code>*Mutations.ts</code> when its last table leaves. Mission dispatch is the largest of these now that its server half is whole — twenty commands with no client on the new seam.</p>
 			</div>
 		</li>
 		<li>

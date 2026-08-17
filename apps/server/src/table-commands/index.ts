@@ -46,6 +46,8 @@ import {
 import { registerTableCommandRoutes } from './dispatch.js';
 import { habitatTableCommands } from './habitats.js';
 import { inspectionTableCommands } from './inspections.js';
+import { missionItemTableCommands } from './mission-items.js';
+import { missionTableCommands } from './missions.js';
 import {
 	missionNotificationTableCommands,
 	notificationRegistrationTableCommands,
@@ -128,6 +130,9 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, routeItemTableCommands(options.db));
 	registerTableCommandRoutes(app, options, assignmentTableCommands(options.db));
 	registerTableCommandRoutes(app, options, assignmentItemTableCommands(options.db));
+	// Planned control work, and the stops it is made of.
+	registerTableCommandRoutes(app, options, missionTableCommands(options.db));
+	registerTableCommandRoutes(app, options, missionItemTableCommands(options.db));
 	// The three global catalogs, behind the operator door.
 	registerTableCommandRoutes(app, options, genusTableCommands(options.db));
 	registerTableCommandRoutes(app, options, speciesTableCommands(options.db));
