@@ -26,6 +26,7 @@ import { addressTableCommands } from './addresses.js';
 import { applicationBatchTableCommands, applicationTableCommands } from './applications.js';
 import { collectionSpeciesTableCommands } from './collection-species.js';
 import { collectionTableCommands } from './collections.js';
+import { commentTableCommands } from './comments.js';
 import { contactTableCommands, serviceRequestTableCommands } from './contacts.js';
 import { equipmentTableCommands, vehicleTableCommands } from './control-assets.js';
 import {
@@ -64,6 +65,7 @@ import { regionFolderTableCommands, regionTableCommands } from './regions.js';
 import { requestedControlActionTableCommands } from './requested-control-actions.js';
 import { sampleSpeciesTableCommands } from './sample-species.js';
 import { sampleTableCommands } from './samples.js';
+import { tagItemTableCommands } from './tag-items.js';
 import { genusTableCommands, speciesTableCommands } from './taxonomy.js';
 import { trapTableCommands } from './traps.js';
 import { unitTableCommands } from './units.js';
@@ -115,6 +117,8 @@ export function registerTableCommandSurface(
 	registerTableCommandRoutes(app, options, addressTableCommands(options.db));
 	// The crew every record type attaches — see `additional-personnel.ts`.
 	registerTableCommandRoutes(app, options, additionalPersonnelTableCommands(options.db));
+	registerTableCommandRoutes(app, options, commentTableCommands(options.db));
+	registerTableCommandRoutes(app, options, tagItemTableCommands(options.db));
 	// The three global catalogs, behind the operator door.
 	registerTableCommandRoutes(app, options, genusTableCommands(options.db));
 	registerTableCommandRoutes(app, options, speciesTableCommands(options.db));

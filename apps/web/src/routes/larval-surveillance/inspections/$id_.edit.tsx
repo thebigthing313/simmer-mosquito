@@ -1,6 +1,6 @@
 import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { CommentRow, InspectionRow, LarvalDensity, SampleRow } from '@simmer-mosquito/sync';
+import type { InspectionRow, LarvalDensity, SampleRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -10,6 +10,7 @@ import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
 import {
 	type AdditionalPersonnelLink,
 	useAdditionalPersonnel,
@@ -137,6 +138,7 @@ function EditInspectionLoader({
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const { setPersonnel } = useAdditionalPersonnelMutations();
+	const { add: addComment } = useCommentMutations();
 	const isAdhoc = inspection.habitatId === null;
 
 	// Geometry is not part of the Electric shape (ADR 0009), so it comes from the
@@ -251,14 +253,9 @@ function EditInspectionLoader({
 
 			const comment = values.comment.trim();
 			if (comment.length > 0) {
-				await attachLinksBestEffort('the note', () =>
-					addInspectionComment(comment, {
-						inspectionId: inspection.id,
-						organizationId,
-						actorProfileId,
-						now,
-					}),
-				);
+				await attachLinksBestEffort('the note', async () => {
+					await addComment({ type: 'inspection', id: inspection.id }, comment);
+				});
 			}
 
 			// The detail page reads the inspection over HTTP, so its cached copy would
@@ -276,6 +273,7 @@ function EditInspectionLoader({
 			navigate,
 			queryClient,
 			setPersonnel,
+			addComment,
 		],
 	);
 
@@ -372,32 +370,6 @@ async function saveInspectionSamples(
 		};
 		await settleWrite(webCollections.samples.insert(row));
 	}
-}
-
-async function addInspectionComment(
-	commentText: string,
-	context: {
-		readonly inspectionId: string;
-		readonly organizationId: string;
-		readonly actorProfileId: string;
-		readonly now: string;
-	},
-): Promise<void> {
-	const comment: CommentRow = {
-		id: crypto.randomUUID(),
-		organizationId: context.organizationId,
-		entityType: 'inspection',
-		entityId: context.inspectionId,
-		commentText,
-		commentedByProfileId: context.actorProfileId,
-		commentedAt: context.now,
-		isPinned: false,
-		createdByProfileId: context.actorProfileId,
-		updatedByProfileId: context.actorProfileId,
-		createdAt: context.now,
-		updatedAt: context.now,
-	};
-	await settleWrite(webCollections.comments.insert(comment));
 }
 
 async function fetchInspectionGeometry(

@@ -7,7 +7,7 @@ import {
 	formatGeometryTypeLabel,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
-import type { HabitatRow, LarvalDensity, TagRow } from '@simmer-mosquito/sync';
+import type { HabitatRow, LarvalDensity } from '@simmer-mosquito/sync';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -60,7 +60,9 @@ import { LinkedAddressValueById } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
+import type { Tag } from '../hooks/queries/tag-view';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
+import { useRecordTags } from '../hooks/queries/use-record-tags';
 import { useSpeciesNames } from '../hooks/queries/use-species-names';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
@@ -413,42 +415,11 @@ function AuditValue({ at, profileId }: { readonly at: string; readonly profileId
 }
 
 function HabitatTags({ habitatId }: { readonly habitatId: string }) {
-	// tag_items is an on-demand collection, so this mirrors HabitatHistoryCard:
-	// non-suspense useLiveQuery gated on status, NOT useLiveSuspenseQuery, to
-	// avoid the permanent post-unmount suspense hang on on-demand collections.
-	const assigned = useLiveQuery(
-		{
-			gcTime: tagsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ tagItem: webCollections.tagItems })
-					.where(({ tagItem }) =>
-						and(eq(tagItem.entityType, 'habitat'), eq(tagItem.entityId, habitatId)),
-					)
-					.select(({ tagItem }) => ({ id: tagItem.id, tagId: tagItem.tagId })),
-		},
-		[habitatId],
-	);
+	// One query, joined to the catalog, so a tag arrives named and coloured — and
+	// `tag_items.entity_id` is globally unique, so no entity type is needed. See
+	// `use-record-tags.ts`.
+	const tags = useRecordTags(habitatId);
 
-	// tags is an eager baseline collection, so suspense is safe here.
-	const catalog = useLiveSuspenseQuery((query) => query.from({ tag: webCollections.tags }), []);
-
-	const tags = useMemo(() => {
-		const tagsById = new Map(catalog.data.map((tag) => [tag.id, tag]));
-		return (assigned.data ?? [])
-			.flatMap((item) => {
-				const tag = tagsById.get(item.tagId);
-				return tag === undefined ? [] : [tag];
-			})
-			.sort((first, second) => first.tagName.localeCompare(second.tagName));
-	}, [assigned.data, catalog.data]);
-
-	if (assigned.isError) {
-		return <span className="text-muted-foreground">Tags unavailable</span>;
-	}
-	if (!assigned.isReady) {
-		return <span className="text-muted-foreground">Loading tags…</span>;
-	}
 	if (tags.length === 0) {
 		return <span className="text-muted-foreground">No tags</span>;
 	}
@@ -538,7 +509,7 @@ function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 	);
 }
 
-function TagBadge({ tag }: { readonly tag: TagRow }) {
+function TagBadge({ tag }: { readonly tag: Tag }) {
 	const color = validHexColor(tag.color);
 	const style =
 		color === null
@@ -558,7 +529,7 @@ function TagBadge({ tag }: { readonly tag: TagRow }) {
 			style={style}
 			title={tag.description ?? undefined}
 		>
-			{tag.tagName}
+			{tag.name}
 		</Badge>
 	);
 }

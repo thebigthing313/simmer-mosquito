@@ -1,6 +1,3 @@
-import { type CommentTargetType, toDbEntityType } from '@simmer-mosquito/domain';
-import type { CommentRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Avatar, AvatarFallback } from '@simmer-mosquito/ui-web/components/ui/avatar';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -24,12 +21,11 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { and, eq, or, useLiveQuery } from '@tanstack/react-db';
 import { type KeyboardEvent, useCallback, useMemo, useState } from 'react';
-import { useProfileNames } from '../hooks/queries/use-profile-names';
+import { useCommentMutations } from '../hooks/mutations/use-comment-mutations';
+import { type CommentTarget, type RecordComment, useComments } from '../hooks/queries/use-comments';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
-import { webCollections } from '../sync/webCollections';
 
 const CommentIcon = iconRegistry.actions.comment.icon;
 const PinIcon = iconRegistry.actions.pin.icon;
@@ -40,17 +36,12 @@ const CheckIcon = iconRegistry.actions.check.icon;
 const SendIcon = iconRegistry.actions.send.icon;
 const SpinnerIcon = iconRegistry.actions.loading.icon;
 
-// The comments shape is on-demand (ADR 0009 / docs/sync.md); keep the entity's
-// subset warm briefly after unmount so revisiting a record reuses it.
-const commentsGcTimeMs = 30_000;
 // Roles that may not author or curate comments — they get a read-only thread.
 const readOnlyRoles = new Set(['viewer']);
 
-type MutableCommentRow = { -readonly [Key in keyof CommentRow]: CommentRow[Key] };
-
 export interface CommentsSectionProps {
 	/** The record this thread is attached to (drives sync scope + new comments). */
-	readonly target: { readonly type: CommentTargetType; readonly id: string };
+	readonly target: CommentTarget;
 	/** Card heading. Defaults to "Comments". */
 	readonly title?: string;
 	/** Supporting line under the heading. */
@@ -87,34 +78,11 @@ export function CommentsSection({
 		organizationId !== null &&
 		!(role !== null && readOnlyRoles.has(role));
 
-	const commentsResult = useLiveQuery(
-		{
-			gcTime: commentsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ comment: webCollections.comments })
-					// The DB stores entity_type in snake_case; match that (persisted rows) and
-					// the camelCase target (the transient optimistic row) so a just-added
-					// comment still shows instantly. See toDbEntityType.
-					.where(({ comment }) =>
-						and(
-							or(
-								eq(comment.entityType, target.type),
-								eq(comment.entityType, toDbEntityType(target.type)),
-							),
-							eq(comment.entityId, target.id),
-						),
-					)
-					.orderBy(({ comment }) => comment.commentedAt, 'desc'),
-		},
-		[target.type, target.id],
-	);
+	// One query for the thread and the names beside it — `profiles` is eager, so
+	// the join costs nothing the page was not already paying.
+	const { comments, isReady, isError } = useComments(target);
+	const { add, edit, setPinned, remove } = useCommentMutations();
 
-	// profiles is an eager baseline collection, so this is cheap and does not
-	// suspend the whole rail while names resolve.
-	const profileNameById = useProfileNames();
-
-	const comments = (commentsResult.data ?? []) as readonly CommentRow[];
 	const { pinned, unpinned } = useMemo(() => partitionByPin(comments), [comments]);
 
 	const [error, setError] = useState<string | null>(null);
@@ -124,64 +92,50 @@ export function CommentsSection({
 
 	const handleAdd = useCallback(
 		async (text: string) => {
-			if (currentProfileId === null || organizationId === null) {
-				return;
-			}
 			setError(null);
-			const now = new Date().toISOString();
-			const row: CommentRow = {
-				id: crypto.randomUUID(),
-				organizationId,
-				entityType: target.type,
-				entityId: target.id,
-				commentText: text,
-				commentedByProfileId: currentProfileId,
-				commentedAt: now,
-				isPinned: false,
-				createdByProfileId: currentProfileId,
-				updatedByProfileId: currentProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-			setEnteredId(row.id);
-			await settleWrite(webCollections.comments.insert(row));
+			// The id comes back so only the new comment plays the entrance animation.
+			setEnteredId(await add(target, text));
 		},
-		[currentProfileId, organizationId, target.type, target.id],
+		[add, target],
 	);
 
-	const handleEdit = useCallback(async (commentId: string, text: string) => {
-		setError(null);
-		await settleWrite(
-			webCollections.comments.update(commentId, (draft) => {
-				(draft as MutableCommentRow).commentText = text;
-			}),
-		);
-	}, []);
+	const handleEdit = useCallback(
+		async (commentId: string, text: string) => {
+			setError(null);
+			await edit(commentId, text);
+		},
+		[edit],
+	);
 
-	const handleTogglePin = useCallback(async (comment: CommentRow) => {
-		setError(null);
-		try {
-			await settleWrite(
-				webCollections.comments.update(comment.id, (draft) => {
-					(draft as MutableCommentRow).isPinned = !comment.isPinned;
-				}),
-			);
-		} catch (cause) {
-			setError(
-				messageOf(cause, comment.isPinned ? 'Unable to unpin comment.' : 'Unable to pin comment.'),
-			);
-		}
-	}, []);
+	const handleTogglePin = useCallback(
+		async (comment: RecordComment) => {
+			setError(null);
+			try {
+				await setPinned(comment.id, !comment.isPinned);
+			} catch (cause) {
+				setError(
+					messageOf(
+						cause,
+						comment.isPinned ? 'Unable to unpin comment.' : 'Unable to pin comment.',
+					),
+				);
+			}
+		},
+		[setPinned],
+	);
 
-	const handleDelete = useCallback(async (commentId: string) => {
-		setError(null);
-		await settleWrite(webCollections.comments.delete(commentId));
-	}, []);
+	const handleDelete = useCallback(
+		async (commentId: string) => {
+			setError(null);
+			await remove(commentId);
+		},
+		[remove],
+	);
 
-	const renderComment = (comment: CommentRow) => (
+	const renderComment = (comment: RecordComment) => (
 		<CommentItem
 			key={comment.id}
-			authorName={authorName(profileNameById.get(comment.commentedByProfileId ?? ''))}
+			authorName={authorName(comment.authorName)}
 			canPin={canComment}
 			comment={comment}
 			isAuthor={canComment && comment.commentedByProfileId === currentProfileId}
@@ -193,7 +147,7 @@ export function CommentsSection({
 		/>
 	);
 
-	const isLoading = !commentsResult.isReady && !commentsResult.isError;
+	const isLoading = !isReady && !isError;
 	const hasComments = comments.length > 0;
 
 	return (
@@ -230,7 +184,7 @@ export function CommentsSection({
 					</Alert>
 				) : null}
 
-				{commentsResult.isError ? (
+				{isError ? (
 					<CommentsEmpty
 						description="Comments could not be loaded. Try again shortly."
 						title="Comments Unavailable"
@@ -350,13 +304,13 @@ function CommentItem({
 	onDelete,
 	onError,
 }: {
-	readonly comment: CommentRow;
+	readonly comment: RecordComment;
 	readonly authorName: string;
 	readonly isAuthor: boolean;
 	readonly canPin: boolean;
 	readonly isEntering: boolean;
 	readonly onEdit: (commentId: string, text: string) => Promise<void>;
-	readonly onTogglePin: (comment: CommentRow) => Promise<void>;
+	readonly onTogglePin: (comment: RecordComment) => Promise<void>;
 	readonly onDelete: (commentId: string) => Promise<void>;
 	readonly onError: (message: string) => void;
 }) {
@@ -573,19 +527,19 @@ function CommentsLoading() {
 	);
 }
 
-function partitionByPin(comments: readonly CommentRow[]): {
-	readonly pinned: readonly CommentRow[];
-	readonly unpinned: readonly CommentRow[];
+function partitionByPin(comments: readonly RecordComment[]): {
+	readonly pinned: readonly RecordComment[];
+	readonly unpinned: readonly RecordComment[];
 } {
-	const pinned: CommentRow[] = [];
-	const unpinned: CommentRow[] = [];
+	const pinned: RecordComment[] = [];
+	const unpinned: RecordComment[] = [];
 	for (const comment of comments) {
 		(comment.isPinned ? pinned : unpinned).push(comment);
 	}
 	return { pinned, unpinned };
 }
 
-function authorName(displayName: string | undefined): string {
+function authorName(displayName: string | null): string {
 	const name = displayName?.trim();
 	return name && name.length > 0 ? name : 'Unknown';
 }
@@ -608,8 +562,8 @@ function initialsFor(name: string | null): string {
  * back to naming the day, and a named day does need a zone, so the agency's is
  * the one that names it.
  */
-function relativeTime(value: string, timeZone: string | undefined): string {
-	const then = new Date(value).getTime();
+function relativeTime(value: Date, timeZone: string | undefined): string {
+	const then = value.getTime();
 	if (Number.isNaN(then)) {
 		return '';
 	}
@@ -645,8 +599,8 @@ function relativeTime(value: string, timeZone: string | undefined): string {
 }
 
 /** The full timestamp behind {@link relativeTime}, on the agency's clock. */
-function absoluteTime(value: string, timeZone: string | undefined): string {
-	const date = new Date(value);
+function absoluteTime(value: Date, timeZone: string | undefined): string {
+	const date = value;
 	if (Number.isNaN(date.getTime())) {
 		return '';
 	}

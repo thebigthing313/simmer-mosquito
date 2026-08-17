@@ -1,4 +1,4 @@
-import type { RouteItemRow, RouteRow, TagRow } from '@simmer-mosquito/sync';
+import type { RouteItemRow, RouteRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
@@ -50,6 +50,7 @@ import {
 	StopReorderControls,
 	useStopOrder,
 } from '../../../../components/stop-order';
+import type { Tag } from '../../../../hooks/queries/tag-view';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
 import { isBelowRole } from '../../../../lib/write-access';
 import { moveRouteItems } from '../../../../sync/move-route-items';
@@ -70,7 +71,7 @@ const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
-const NO_TAGS: readonly TagRow[] = [];
+const NO_TAGS: readonly Tag[] = [];
 
 /** Module-level so the ordering hook's identity stays stable across renders. */
 const stopKey = (stop: RouteStopView) => stop.routeItemId;
@@ -588,7 +589,7 @@ function EditStopRow({
 	readonly isHighlighted: boolean;
 	readonly sameAddressAsPrev: boolean;
 	readonly typeName: string | null;
-	readonly tags: readonly TagRow[];
+	readonly tags: readonly Tag[];
 	readonly onEditAddress: (stop: RouteStopView) => void;
 	readonly onMove: (index: number, action: 'up' | 'down' | 'top' | 'bottom') => void;
 	readonly onRemove: (stop: RouteStopView) => void;

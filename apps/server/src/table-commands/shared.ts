@@ -2,13 +2,16 @@
  * What every intent map needs and no one table owns.
  *
  * Small on purpose. A builder is a translation from column names to domain
- * arguments, and almost nothing about that translation generalizes. Three things
+ * arguments, and almost nothing about that translation generalizes. Four things
  * do: how a client withholds an acknowledgement, how a client states a location
- * to a command that takes a bare geometry, and how a constraint the database
- * enforces becomes a refusal a person can read.
+ * to a command that takes a bare geometry, how a polymorphic table's target is
+ * read out of its two columns, and how a constraint the database enforces
+ * becomes a refusal a person can read.
  */
 
+import { fromDbEntityType } from '@simmer-mosquito/domain';
 import { CommandError } from '../command-endpoint.js';
+import { readText } from '../command-payload.js';
 
 /**
  * An acknowledgement the caller did not withhold.
@@ -21,6 +24,34 @@ import { CommandError } from '../command-endpoint.js';
  */
 export function acknowledged(value: unknown): boolean {
 	return value !== false;
+}
+
+/**
+ * The record a polymorphic row hangs off, out of the two columns that hold it.
+ *
+ * `comments`, `tag_items` and `additional_personnel` all point at a record with
+ * an `entity_type`/`entity_id` pair, and all three hold the discriminator in
+ * snake_case (`source_reduction`) while the domain's target vocabulary is
+ * camelCase (`sourceReduction`). A client writing one of these through a sync
+ * collection sends the column's spelling, so `fromDbEntityType` turns it back.
+ * A caller sending the camelCase form is honoured too, since converting a value
+ * with no underscores changes nothing.
+ *
+ * The type is cast rather than narrowed, as `readTarget` does on the legacy
+ * routes. This is untrusted text, and *which* target types a command accepts
+ * differs per table — comments take more than tags do — so the domain's own
+ * `validateTarget` is what checks it, against that command's list, and names it
+ * when it is wrong. Narrowing here would be a second copy of three lists, and
+ * the copy that goes stale.
+ */
+export function readEntityTarget(payload: Record<string, unknown>): {
+	readonly type: never;
+	readonly id: string;
+} {
+	return {
+		type: fromDbEntityType(readText(payload.entity_type) ?? '') as never,
+		id: readText(payload.entity_id) ?? '',
+	};
 }
 
 /**

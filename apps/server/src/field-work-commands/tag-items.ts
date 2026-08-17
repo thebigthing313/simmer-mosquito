@@ -71,7 +71,7 @@ async function runTagItemCommands(
 	);
 }
 
-async function writeTagItemCommand(
+export async function writeTagItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
 ): Promise<SafeTagItem | null> {
