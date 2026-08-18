@@ -208,7 +208,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <div class="wrap">
 
 <header class="masthead">
-	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head a45d58a · 94 commits off main</p>
+	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head e1c2e9f · 96 commits off main</p>
 	<h1>The sync layer, rebuilt table by table</h1>
 	<p class="standfirst">A ground-up rewrite of how SIMMER reads and writes data. TanStack DB is transport only, the server validates, every mutation names the command it means, and the only per-table definition is the schema. This page is where the work is tracked — it replaces <code>HANDOFF.md</code>.</p>
 	<div class="dials">
@@ -223,9 +223,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 			<div class="meter" role="img" aria-label="50 of 54"><span class="meter-fill is-partial" style="inline-size:93%"></span></div>
 		</div>
 		<div class="dial">
-			<span class="dial-figure">52<small>/54</small></span>
+			<span class="dial-figure">54<small>/54</small></span>
 			<span class="dial-label">Tables off webCollections</span>
-			<div class="meter" role="img" aria-label="52 of 54"><span class="meter-fill is-todo" style="inline-size:96%"></span></div>
+			<div class="meter" role="img" aria-label="54 of 54"><span class="meter-fill is-todo" style="inline-size:100%"></span></div>
 		</div>
 	</div>
 </header>
@@ -326,8 +326,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="done"><td><code>traps</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>units</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>vehicles</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
-<tr data-state="todo"><td><code>memberships</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
-<tr data-state="todo"><td><code>profiles</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
+<tr data-state="partial"><td><code>memberships</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="partial"><td><code>profiles</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="partial"><td><code>weather_sources</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="partial"><td><code>weather_summaries</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 			</tbody>
@@ -407,8 +407,18 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 		</li>
 		<li>
 			<div>
+				<h4>The identity tail, and the seam is gone.</h4>
+				<p><code>profiles</code>, <code>memberships</code> and the two weather tables were the last surfaces reading through <code>webCollections</code>. With them moved it is deleted, and five mutation modules that existed only to be wired into it go with it — along with the sixty-odd camelCase <code>*Row</code> interfaces nothing imports any more.</p>
+				<p>The identity tables are the ones that will never be commands. Creating a Profile, changing a role, ending a Membership: identity writes are REST and cannot join the vocabulary (#130). What they lose by not being commands is the thing every command write gets for free — the transaction that moves the optimistic row, the txid wait, and the suppression that makes an unchanged save send nothing — so <code>rest-writes.ts</code> is that mechanism, shared with the agency's own record.</p>
+				<p><code>lib/collections/profiles.ts</code> declared <code>mutations: true</code> while pointing at a <code>/commands/profiles</code> that does not exist — the same latent trap <code>organizations</code> had. Both are <code>mutations: false</code> now, which is what turns a stray row write into a refusal instead of a request to nowhere.</p>
+				<p>The three calls that settle WorkOS <em>and</em> Postgres together — invite, role, offboard — are not collection writes and never were. They are plain functions in <code>lib/identity-api.ts</code> with the reason written down: an optimistic row there would be guessing at the half the client cannot see.</p>
+			</div>
+		</li>
+		<li>
+			<div>
 				<h4>The leftovers</h4>
-				<p><code>packages/sync/src/rows/*</code> — the camelCase <code>*Row</code> types still imported by the old path. The <code>/map/*</code> endpoints, which still alias every column to camelCase in <code>packages/db/src/domains</code>. The health baseline. And <code>SIMMER_OPERATOR_ORG_ID</code> on Railway staging and production, without which every <code>/admin/*</code> call answers 403.</p>
+				<p><code>packages/sync/src/rows/*</code> is down to the enums a column is drawn from — the sixty-odd camelCase <code>*Row</code> interfaces are deleted with the seam that held them. What is left of it duplicates <code>packages/domain</code>: <code>LarvalDensity</code>, <code>UnitType</code> and <code>SimmerRole</code> are declared in both, and the copy that loses a disagreement is this one, because it is the copy nothing validates against. Repointing the consumers is about fifteen imports across three apps.</p>
+				<p>Then: the <code>/map/*</code> endpoints, which still alias every column to camelCase in <code>packages/db/src/domains</code>. The health baseline. And <code>SIMMER_OPERATOR_ORG_ID</code> on Railway staging and production, without which every <code>/admin/*</code> call answers 403 — the one item here with a live consequence, and unrelated to this branch.</p>
 			</div>
 		</li>
 	</ol>

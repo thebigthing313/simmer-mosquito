@@ -98,6 +98,23 @@ def multi_row() -> set[str]:
     return set(re.findall(COMMAND, body))
 
 
+def old_seam_properties() -> dict[str, str]:
+    """The old seam's property name per table, for the ones it still declares.
+
+    Absent once the seam is deleted, which is the goal rather than an error."""
+    path = ROOT / "apps/web/src/sync/collections.ts"
+    if not path.exists():
+        return {}
+
+    return {
+        table: prop
+        for prop, table in re.findall(
+            r"const (\w+) = createCollection\(\s*electricShapeCollectionOptions<\w+>\(\{\s*table: '([^']+)'",
+            path.read_text(encoding="utf-8"),
+        )
+    }
+
+
 def tables() -> list[dict]:
     """Every table the web app has a collection for, with both halves of its
     migration: does the server accept it by command, and has apps/web stopped
@@ -108,16 +125,14 @@ def tables() -> list[dict]:
     as the work landed: a table that came fully off the old seam was deleted from
     the declarations, so it dropped out of the list and out of the denominator
     with it. The dial read 19/50 where it had read 19/52, and the two tables that
-    had just been finished were the ones missing."""
-    src = read("apps/web/src/sync/collections.ts")
-    # The old seam's property name per table, for the ones it still declares.
-    props = {
-        table: prop
-        for prop, table in re.findall(
-            r"const (\w+) = createCollection\(\s*electricShapeCollectionOptions<\w+>\(\{\s*table: '([^']+)'",
-            src,
-        )
-    }
+    had just been finished were the ones missing.
+
+    `apps/web/src/sync/collections.ts` is now deleted, which is the finished
+    state rather than a missing input: every table is off the old seam, so the
+    client half of every row below is true by construction. The lookup is kept,
+    reading an absent file as an empty map, because `apps/mobile` has the same
+    migration ahead of it and this page is what will track it."""
+    props = old_seam_properties()
 
     # One module per table, named for it. `mutate` and `transact` are the two
     # that are not a table.

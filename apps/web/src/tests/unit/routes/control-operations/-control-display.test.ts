@@ -1,33 +1,33 @@
 import { DEFAULT_UNIT_DEFAULTS } from '@simmer-mosquito/domain';
-import type { UnitRow } from '@simmer-mosquito/sync';
 import { describe, expect, it } from 'vitest';
 import { usageTotal } from '../../../../routes/control-operations/-control-display';
 
-function unit(
-	id: string,
-	code: string,
-	abbreviation: string,
-	unitType: UnitRow['unitType'],
-): UnitRow {
-	return {
-		id,
-		code,
-		unitName: code,
-		abbreviation,
-		unitType,
-		unitSystem: 'us_customary',
-		createdAt: '2026-08-01T00:00:00.000Z',
-	};
+/**
+ * What `usageTotal` actually reads off a unit: the conversion key and what gets
+ * printed. It takes a structural `MeasureUnit`, so building a whole unit row
+ * here claimed a dependency the code does not have — and pinned the test to a
+ * row type the app no longer holds.
+ *
+ * `id` is not read by the subject; it is how these fixtures key the two maps.
+ */
+interface TestUnit {
+	readonly id: string;
+	readonly code: string;
+	readonly abbreviation: string;
 }
 
-const GALLON = unit('u-gallon', 'gallon', 'gal', 'volume');
-const FLUID_OUNCE = unit('u-floz', 'fluid_ounce', 'fl oz', 'volume');
-const POUCH = unit('u-pouch', 'pouch', 'pch', 'count');
-const POUND = unit('u-pound', 'pound', 'lb', 'weight');
+function unit(id: string, code: string, abbreviation: string): TestUnit {
+	return { id, code, abbreviation };
+}
+
+const GALLON = unit('u-gallon', 'gallon', 'gal');
+const FLUID_OUNCE = unit('u-floz', 'fluid_ounce', 'fl oz');
+const POUCH = unit('u-pouch', 'pouch', 'pch');
+const POUND = unit('u-pound', 'pound', 'lb');
 
 const UNITS = [GALLON, FLUID_OUNCE, POUCH, POUND];
 
-function total(totals: ReadonlyArray<readonly [UnitRow, number]>) {
+function total(totals: ReadonlyArray<readonly [TestUnit, number]>) {
 	return usageTotal({
 		totalsByUnitId: new Map(totals.map(([row, amount]) => [row.id, amount])),
 		unitById: new Map(UNITS.map((row) => [row.id, row])),

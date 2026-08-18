@@ -76,7 +76,11 @@ describe('identity api refusals', () => {
 		// `profileId` is the whole reason the invite sheet offers a list: sending
 		// `null` mints a second Profile for somebody the agency already records
 		// work against, and the field history splits in two.
-		const fetch = vi.fn(async () => new Response(JSON.stringify({ txid: 9 }), { status: 200 }));
+		const sent: RequestInit[] = [];
+		const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+			sent.push(init);
+			return new Response(JSON.stringify({ txid: 9 }), { status: 200 });
+		});
 		vi.stubGlobal('fetch', fetch);
 
 		await inviteOrganizationProfile(SERVER, {
@@ -86,9 +90,7 @@ describe('identity api refusals', () => {
 			profileId: 'profile-7',
 		});
 
-		const body = JSON.parse((fetch.mock.calls[0]?.[1] as { body: string }).body) as {
-			readonly profileId: string;
-		};
+		const body = JSON.parse(String(sent[0]?.body)) as { readonly profileId: string };
 		expect(body.profileId).toBe('profile-7');
 	});
 });
