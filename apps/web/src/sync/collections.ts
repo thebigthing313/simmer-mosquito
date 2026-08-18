@@ -2,32 +2,25 @@ import {
 	type AdditionalPersonnelRow,
 	type AdultCollectionRow,
 	type ApplicationBatchRow,
-	type ApplicationRow,
 	type AssignmentItemRow,
 	type AssignmentRow,
-	type BiocontrolActionRow,
 	type CollectionSpeciesRow,
 	type CommentRow,
 	type ContactRow,
 	electricShapeCollectionOptions,
 	type GenusRow,
-	type InspectionRow,
 	type MembershipRow,
 	type MissionNotificationRow,
 	type NotificationRegistrationRow,
 	type NotificationRegistrationTypeRow,
 	type OrganizationRow,
 	type OrganizationSpeciesRow,
-	type OutreachActionRow,
 	type ProfileRow,
 	type RegionFolderRow,
 	type RegionRow,
 	type RouteItemRow,
 	type RouteRow,
-	type SampleRow,
-	type SampleSpeciesRow,
 	type ServiceRequestRow,
-	type SourceReductionRow,
 	type SpeciesRow,
 	shapePathFor,
 	type TagItemRow,
@@ -44,13 +37,7 @@ import {
 	createCollectionSpeciesMutationHandlers,
 	createTrapMutationHandlers,
 } from './adultSurveillanceMutations';
-import {
-	createApplicationBatchMutationHandlers,
-	createApplicationMutationHandlers,
-	createBiocontrolActionMutationHandlers,
-	createOutreachActionMutationHandlers,
-	createSourceReductionMutationHandlers,
-} from './controlOperationsMutations';
+import { createApplicationBatchMutationHandlers } from './controlOperationsMutations';
 import {
 	createAdditionalPersonnelMutationHandlers,
 	createAssignmentItemMutationHandlers,
@@ -65,11 +52,6 @@ import {
 	createRegionFolderMutationHandlers,
 	createRegionMutationHandlers,
 } from './foundationGeographyMutations';
-import {
-	createInspectionMutationHandlers,
-	createSampleMutationHandlers,
-	createSampleSpeciesMutationHandlers,
-} from './larvalSurveillanceMutations';
 import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createProfileMutationHandlers } from './profileMutations';
 import {
@@ -85,16 +67,13 @@ import { createTagMutationHandlers } from './tagMutations';
 export interface WebCollections {
 	readonly additionalPersonnel: Collection<AdditionalPersonnelRow, string | number>;
 	readonly applicationBatches: Collection<ApplicationBatchRow, string | number>;
-	readonly applications: Collection<ApplicationRow, string | number>;
 	readonly assignmentItems: Collection<AssignmentItemRow, string | number>;
 	readonly assignments: Collection<AssignmentRow, string | number>;
-	readonly biocontrolActions: Collection<BiocontrolActionRow, string | number>;
 	readonly collectionSpecies: Collection<CollectionSpeciesRow, string | number>;
 	readonly collections: Collection<AdultCollectionRow, string | number>;
 	readonly comments: Collection<CommentRow, string | number>;
 	readonly contacts: Collection<ContactRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
-	readonly inspections: Collection<InspectionRow, string | number>;
 	readonly memberships: Collection<MembershipRow, string | number>;
 	readonly missionNotifications: Collection<MissionNotificationRow, string | number>;
 	readonly notificationRegistrations: Collection<NotificationRegistrationRow, string | number>;
@@ -104,16 +83,12 @@ export interface WebCollections {
 	>;
 	readonly currentOrganization: Collection<OrganizationRow, string | number>;
 	readonly organizationSpecies: Collection<OrganizationSpeciesRow, string | number>;
-	readonly outreachActions: Collection<OutreachActionRow, string | number>;
 	readonly profiles: Collection<ProfileRow, string | number>;
 	readonly regionFolders: Collection<RegionFolderRow, string | number>;
 	readonly regions: Collection<RegionRow, string | number>;
 	readonly routeItems: Collection<RouteItemRow, string | number>;
 	readonly routes: Collection<RouteRow, string | number>;
-	readonly samples: Collection<SampleRow, string | number>;
-	readonly sampleSpecies: Collection<SampleSpeciesRow, string | number>;
 	readonly serviceRequests: Collection<ServiceRequestRow, string | number>;
-	readonly sourceReductions: Collection<SourceReductionRow, string | number>;
 	readonly species: Collection<SpeciesRow, string | number>;
 	readonly tagItems: Collection<TagItemRow, string | number>;
 	readonly tags: Collection<TagRow, string | number>;
@@ -250,36 +225,6 @@ export function createWebCollections(options: {
 			...createRouteMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
-	const inspections = createCollection(
-		electricShapeCollectionOptions<InspectionRow>({
-			table: 'inspections',
-			syncMode: webSyncModes.inspections,
-			url: `${shapeServerUrl}${shapePathFor('inspections')}`,
-			...createInspectionMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	const samples = createCollection(
-		electricShapeCollectionOptions<SampleRow>({
-			table: 'samples',
-			syncMode: webSyncModes.samples,
-			url: `${shapeServerUrl}${shapePathFor('samples')}`,
-			...createSampleMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	const sampleSpecies = createCollection(
-		electricShapeCollectionOptions<SampleSpeciesRow>({
-			table: 'sample_species',
-			syncMode: webSyncModes.sample_species,
-			url: `${shapeServerUrl}${shapePathFor('sample_species')}`,
-			...createSampleSpeciesMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
 	const regionFolders = createCollection(
 		electricShapeCollectionOptions<RegionFolderRow>({
 			table: 'region_folders',
@@ -376,44 +321,12 @@ export function createWebCollections(options: {
 			...createAssignmentItemMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
-	const applications = createCollection(
-		electricShapeCollectionOptions<ApplicationRow>({
-			table: 'applications',
-			syncMode: webSyncModes.applications,
-			url: `${shapeServerUrl}${shapePathFor('applications')}`,
-			...createApplicationMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
 	const applicationBatches = createCollection(
 		electricShapeCollectionOptions<ApplicationBatchRow>({
 			table: 'application_batches',
 			syncMode: webSyncModes.application_batches,
 			url: `${shapeServerUrl}${shapePathFor('application_batches')}`,
 			...createApplicationBatchMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
-	const sourceReductions = createCollection(
-		electricShapeCollectionOptions<SourceReductionRow>({
-			table: 'source_reductions',
-			syncMode: webSyncModes.source_reductions,
-			url: `${shapeServerUrl}${shapePathFor('source_reductions')}`,
-			...createSourceReductionMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
-	const outreachActions = createCollection(
-		electricShapeCollectionOptions<OutreachActionRow>({
-			table: 'outreach_actions',
-			syncMode: webSyncModes.outreach_actions,
-			url: `${shapeServerUrl}${shapePathFor('outreach_actions')}`,
-			...createOutreachActionMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
-	const biocontrolActions = createCollection(
-		electricShapeCollectionOptions<BiocontrolActionRow>({
-			table: 'biocontrol_actions',
-			syncMode: webSyncModes.biocontrol_actions,
-			url: `${shapeServerUrl}${shapePathFor('biocontrol_actions')}`,
-			...createBiocontrolActionMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
 	const contacts = createCollection(
@@ -472,32 +385,25 @@ export function createWebCollections(options: {
 	return {
 		additionalPersonnel,
 		applicationBatches,
-		applications,
 		assignmentItems,
 		assignments,
-		biocontrolActions,
 		collectionSpecies,
 		collections,
 		comments,
 		contacts,
 		genera,
-		inspections,
 		memberships,
 		missionNotifications,
 		notificationRegistrations,
 		notificationRegistrationTypes,
 		currentOrganization,
 		organizationSpecies,
-		outreachActions,
 		profiles,
 		regionFolders,
 		regions,
 		routeItems,
 		routes,
-		samples,
-		sampleSpecies,
 		serviceRequests,
-		sourceReductions,
 		species,
 		tagItems,
 		tags,

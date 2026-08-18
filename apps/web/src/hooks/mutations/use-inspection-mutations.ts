@@ -188,14 +188,7 @@ export function useInspectionMutations(): InspectionMutations {
 						request: {
 							table: 'inspections',
 							method: 'POST',
-							body: {
-								...requestColumns(row),
-								assignment_item_id: placement.assignmentItemId,
-								// Nullable: the stop already names a habitat, so the ordinary
-								// call sends none and cannot disagree with it.
-								habitat_id: placement.habitatId,
-								...acknowledgements,
-							},
+							body: stopInspectionRequestBody(row, placement, acknowledgements),
 						},
 						apply: () => {
 							inspections.insert(row);
@@ -357,13 +350,36 @@ function resultMoved(next: InspectionResult, current: InspectionResult): boolean
 }
 
 /**
+ * The body a stop-recorded inspection sends.
+ *
+ * Exported because this is the one write in the app whose body is hand-built
+ * rather than diffed out of a mutation — `commandTransaction` sends what it is
+ * given, where `mutateCollection` derives the body through `commandRequestFor`.
+ * That makes it the one place a missing `assignment_item_id` could go quiet: the
+ * server would take the non-execution branch, answer 201, and sync would revert
+ * the optimistic link a moment later, with nothing thrown and nothing to see.
+ * See `docs/adr/0012-assignment-item-action-provenance.md`.
+ */
+export function stopInspectionRequestBody(
+	row: Inspection,
+	placement: { readonly assignmentItemId: string; readonly habitatId: string | null },
+	acknowledgements?: StopAcknowledgements,
+): Record<string, unknown> {
+	return {
+		...requestColumns(row),
+		assignment_item_id: placement.assignmentItemId,
+		// Nullable: the stop already names a habitat, so the ordinary call sends
+		// none and cannot disagree with it.
+		habitat_id: placement.habitatId,
+		...acknowledgements,
+	};
+}
+
+/**
  * The row as the request states it.
  *
- * `commandTransaction` sends the body it is given rather than diffing a
- * mutation, so the columns the server never reads back are dropped here — the
- * centroid is snapshotted from the habitat at commit, and the stamps are the
- * server's own. `mutateCollection` does the same thing for free via
- * `commandRequestFor`; this is the one path that has to say it.
+ * The columns the server never reads back are dropped — the centroid is
+ * snapshotted from the habitat at commit, and the stamps are the server's own.
  */
 function requestColumns(row: Inspection) {
 	const {

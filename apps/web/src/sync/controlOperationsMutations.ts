@@ -1,10 +1,4 @@
-import type {
-	ApplicationBatchRow,
-	ApplicationRow,
-	BiocontrolActionRow,
-	OutreachActionRow,
-	SourceReductionRow,
-} from '@simmer-mosquito/sync';
+import type { ApplicationBatchRow } from '@simmer-mosquito/sync';
 import { readAcknowledgements } from '../lib/stop-acknowledgements';
 import { isNoOpUpdate, pickChanged } from './change-set';
 import { commandErrorFrom, readResponseBody } from './command-error';
@@ -152,18 +146,6 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 	return handlers;
 }
 
-export function createApplicationMutationHandlers(options: { readonly serverUrl: string }) {
-	return createRecordHandlers<ApplicationRow>({
-		serverUrl: options.serverUrl,
-		path: '/control-operations/applications',
-		noun: 'application',
-		hasLocation: true,
-		hasMissionStop: true,
-		insertKeys: APPLICATION_FIELD_KEYS,
-		patchKeys: APPLICATION_FIELD_KEYS,
-	});
-}
-
 export function createApplicationBatchMutationHandlers(options: { readonly serverUrl: string }) {
 	return createRecordHandlers<ApplicationBatchRow>({
 		serverUrl: options.serverUrl,
@@ -174,97 +156,6 @@ export function createApplicationBatchMutationHandlers(options: { readonly serve
 		patchKeys: [],
 	});
 }
-
-export function createSourceReductionMutationHandlers(options: { readonly serverUrl: string }) {
-	return createRecordHandlers<SourceReductionRow>({
-		serverUrl: options.serverUrl,
-		path: '/control-operations/source-reductions',
-		noun: 'source reduction',
-		hasLocation: true,
-		hasMissionStop: true,
-		insertKeys: SOURCE_REDUCTION_FIELD_KEYS,
-		patchKeys: SOURCE_REDUCTION_FIELD_KEYS,
-	});
-}
-
-export function createOutreachActionMutationHandlers(options: { readonly serverUrl: string }) {
-	return createRecordHandlers<OutreachActionRow>({
-		serverUrl: options.serverUrl,
-		path: '/control-operations/outreach-actions',
-		noun: 'outreach action',
-		hasLocation: true,
-		hasMissionStop: true,
-		insertKeys: OUTREACH_ACTION_FIELD_KEYS,
-		patchKeys: OUTREACH_ACTION_FIELD_KEYS,
-	});
-}
-
-export function createBiocontrolActionMutationHandlers(options: { readonly serverUrl: string }) {
-	return createRecordHandlers<BiocontrolActionRow>({
-		serverUrl: options.serverUrl,
-		path: '/control-operations/biocontrol-actions',
-		noun: 'biocontrol action',
-		hasLocation: true,
-		hasMissionStop: true,
-		insertKeys: BIOCONTROL_ACTION_FIELD_KEYS,
-		patchKeys: BIOCONTROL_ACTION_FIELD_KEYS,
-	});
-}
-
-const APPLICATION_FIELD_KEYS = [
-	'insecticideId',
-	'amountApplied',
-	'applicationUnitId',
-	'applicationDate',
-	'applicatorProfileId',
-	'applicationMethodId',
-	'vehicleId',
-	'equipmentId',
-	'addressId',
-	'habitatId',
-	'inspectionId',
-	'collectionId',
-	'requestedControlActionId',
-	'metadata',
-] as const satisfies readonly (keyof ApplicationRow)[];
-
-const SOURCE_REDUCTION_FIELD_KEYS = [
-	'sourceReductionMethodId',
-	'technicianProfileId',
-	'sourceReductionDate',
-	'sourcesEliminatedAmount',
-	'sourcesEliminatedUnitId',
-	'addressId',
-	'habitatId',
-	'inspectionId',
-	'requestedControlActionId',
-	'metadata',
-] as const satisfies readonly (keyof SourceReductionRow)[];
-
-const OUTREACH_ACTION_FIELD_KEYS = [
-	'outreachMethodId',
-	'technicianProfileId',
-	'outreachDate',
-	'reach',
-	'reachDescription',
-	'addressId',
-	'inspectionId',
-	'requestedControlActionId',
-	'metadata',
-] as const satisfies readonly (keyof OutreachActionRow)[];
-
-const BIOCONTROL_ACTION_FIELD_KEYS = [
-	'biocontrolMethodId',
-	'technicianProfileId',
-	'biocontrolDate',
-	'amountReleased',
-	'releaseUnitId',
-	'addressId',
-	'habitatId',
-	'inspectionId',
-	'requestedControlActionId',
-	'metadata',
-] as const satisfies readonly (keyof BiocontrolActionRow)[];
 
 // ---------------------------------------------------------------------------
 // Shared helpers

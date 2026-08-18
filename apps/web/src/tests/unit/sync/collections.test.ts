@@ -53,22 +53,6 @@ describe('web sync baseline preload', () => {
 		expect(collections.tags.config.onDelete).toBeTypeOf('function');
 	});
 
-	it('keeps larval surveillance operational collections on demand', () => {
-		const collections = createWebCollections({ serverUrl: 'https://example.test' });
-
-		expect(collections.inspections.config.id).toBe('inspections');
-		expect(collections.inspections.config.onInsert).toBeTypeOf('function');
-		expect(collections.inspections.config.onUpdate).toBeTypeOf('function');
-		expect(collections.inspections.config.onDelete).toBeTypeOf('function');
-		expect(collections.samples.config.id).toBe('samples');
-		expect(collections.samples.config.onInsert).toBeTypeOf('function');
-		expect(collections.sampleSpecies.config.id).toBe('sample_species');
-		expect(collections.sampleSpecies.config.onInsert).toBeTypeOf('function');
-		expect(collections.inspections.config.syncMode).toBe('on-demand');
-		expect(collections.samples.config.syncMode).toBe('on-demand');
-		expect(collections.sampleSpecies.config.syncMode).toBe('on-demand');
-	});
-
 	it('wires the remaining web sync collections without mutation handlers', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
@@ -110,17 +94,6 @@ describe('web sync baseline preload', () => {
 	it('attaches optimistic write handlers to control operations collections', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		expect(collections.applications.config.id).toBe('applications');
-		for (const key of [
-			'applications',
-			'sourceReductions',
-			'outreachActions',
-			'biocontrolActions',
-		] as const) {
-			expect(collections[key].config.onInsert).toBeTypeOf('function');
-			expect(collections[key].config.onUpdate).toBeTypeOf('function');
-			expect(collections[key].config.onDelete).toBeTypeOf('function');
-		}
 		// Application batches are add/remove only.
 		expect(collections.applicationBatches.config.onInsert).toBeTypeOf('function');
 		expect(collections.applicationBatches.config.onUpdate).toBeUndefined();
