@@ -1,5 +1,4 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
@@ -8,12 +7,13 @@ import {
 	PopoverTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { iconRegistry, Loader2Icon, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
+import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { OptionRow, PickerFallback } from '../../components/pickers/entity-picker';
+import { useRegionFolders } from '../../hooks/queries/use-region-folders';
 import { fetchRegionGeometryOnce } from '../../hooks/use-region-geometry';
-import { webCollections } from '../../sync/webCollections';
+import { regions } from '../../lib/collections/regions';
 import type { DrawGeometry } from './use-map-draw';
 
 /**
@@ -35,6 +35,14 @@ const resultLimit = 8;
 
 export type PolygonGeometry = DrawGeometry & { readonly type: 'Polygon' };
 
+/** A Region as this picker lists one: enough to name it and tell two apart. */
+interface RegionOption {
+	readonly id: string;
+	readonly name: string;
+	/** `null` when the Region sits at the top level, unfiled. */
+	readonly folderId: string | null;
+}
+
 export function RegionBoundaryPicker({
 	organizationId,
 	disabled = false,
@@ -42,7 +50,7 @@ export function RegionBoundaryPicker({
 }: {
 	readonly organizationId: string;
 	readonly disabled?: boolean;
-	readonly onSelect: (geometry: PolygonGeometry, region: RegionRow) => void;
+	readonly onSelect: (geometry: PolygonGeometry) => void;
 }) {
 	const queryClient = useQueryClient();
 	const [open, setOpen] = useState(false);
@@ -52,7 +60,7 @@ export function RegionBoundaryPicker({
 	const deferredSearch = useDeferredValue(search);
 
 	// Not named `use*`: it is an event handler, not a hook.
-	async function adoptRegion(region: RegionRow) {
+	async function adoptRegion(region: RegionOption) {
 		setLoadingId(region.id);
 		setError(null);
 		try {
@@ -66,7 +74,7 @@ export function RegionBoundaryPicker({
 				);
 				return;
 			}
-			onSelect(polygon, region);
+			onSelect(polygon);
 			setOpen(false);
 			setSearch('');
 		} catch {
@@ -132,7 +140,7 @@ function RegionResults({
 	readonly organizationId: string;
 	readonly search: string;
 	readonly loadingId: string | null;
-	readonly onSelect: (region: RegionRow) => void;
+	readonly onSelect: (region: RegionOption) => void;
 }) {
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
@@ -141,19 +149,24 @@ function RegionResults({
 		{
 			gcTime: searchGcTimeMs,
 			query: (query) => {
-				const base = query
-					.from({ region: webCollections.regions })
-					.where(({ region }) => eq(region.organizationId, organizationId));
+				// No organization predicate: the shape is scoped to the agency
+				// server-side, so re-stating it here is redundant — and a stale column
+				// spelling in one is what empties a list rather than narrowing it.
+				const base = query.from({ region: regions });
 				const filtered =
 					normalized.length === 0
 						? base
 						: base.where(({ region }) =>
-								and(
-									eq(region.organizationId, organizationId),
-									or(ilike(region.name, pattern), ilike(region.description, pattern)),
-								),
+								or(ilike(region.name, pattern), ilike(region.description, pattern)),
 							);
-				return filtered.orderBy(({ region }) => region.name, 'asc').limit(resultLimit);
+				return filtered
+					.orderBy(({ region }) => region.name, 'asc')
+					.limit(resultLimit)
+					.select(({ region }) => ({
+						id: region.id,
+						name: region.name,
+						folderId: region.region_folder_id,
+					}));
 			},
 		},
 		[organizationId, pattern],
@@ -162,19 +175,19 @@ function RegionResults({
 	if (isError) {
 		return <PickerFallback label="Regions unavailable" />;
 	}
-	const regions = (data ?? []) as readonly RegionRow[];
+	const matches = data ?? [];
 	// Only show the loading line on the first load; once the subset is warm,
 	// re-opening keeps the prior results visible while it refreshes.
-	if (!isReady && regions.length === 0) {
+	if (!isReady && matches.length === 0) {
 		return <PickerFallback label="Searching regions" />;
 	}
-	if (regions.length === 0) {
+	if (matches.length === 0) {
 		return <PickerFallback label="No region matches" />;
 	}
 
 	return (
 		<div className="grid gap-1">
-			{regions.map((region) =>
+			{matches.map((region) =>
 				region.id === loadingId ? (
 					<div
 						className="flex min-h-11 items-center gap-2 px-2 py-1.5 text-muted-foreground text-sm"
@@ -204,25 +217,19 @@ function RegionResults({
  * query keeps the popover from suspending the page around it.
  */
 function useRegionFolderNames(): ReadonlyMap<string, string> {
-	const { data } = useLiveQuery(
-		(query) => query.from({ folder: webCollections.regionFolders }),
-		[],
-	);
+	const { folders } = useRegionFolders();
 
 	return useMemo(
-		() =>
-			new Map(
-				((data ?? []) as readonly RegionFolderRow[]).map((folder) => [folder.id, folder.name]),
-			),
-		[data],
+		() => new Map(folders.map((folder) => [folder.id, folder.name] as const)),
+		[folders],
 	);
 }
 
-function folderLabel(region: RegionRow, folderNames: ReadonlyMap<string, string>): string {
-	if (region.regionFolderId === null) {
+function folderLabel(region: RegionOption, folderNames: ReadonlyMap<string, string>): string {
+	if (region.folderId === null) {
 		return 'Unfiled';
 	}
-	return folderNames.get(region.regionFolderId) ?? 'Unknown folder';
+	return folderNames.get(region.folderId) ?? 'Unknown folder';
 }
 
 /**

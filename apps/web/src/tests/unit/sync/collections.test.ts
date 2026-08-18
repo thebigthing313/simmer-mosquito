@@ -19,7 +19,6 @@ describe('web sync baseline preload', () => {
 			'currentOrganization',
 			'tags',
 			'routes',
-			'regionFolders',
 			'weatherSources',
 		]);
 	});
@@ -67,11 +66,8 @@ describe('web sync baseline preload', () => {
 	it('attaches optimistic write handlers to foundation geography collections', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		for (const key of ['regionFolders', 'regions'] as const) {
-			expect(collections[key].config.onInsert).toBeTypeOf('function');
-			expect(collections[key].config.onUpdate).toBeTypeOf('function');
-			expect(collections[key].config.onDelete).toBeTypeOf('function');
-		}
+		// `regions` and `region_folders` are not here any more: both write through
+		// `lib/collections`, where the command a write means is named in the call.
 		// Organization-species selection is add/remove only.
 		expect(collections.organizationSpecies.config.onInsert).toBeTypeOf('function');
 		expect(collections.organizationSpecies.config.onUpdate).toBeUndefined();

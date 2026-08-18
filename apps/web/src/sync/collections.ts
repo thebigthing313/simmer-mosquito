@@ -13,8 +13,6 @@ import {
 	type OrganizationRow,
 	type OrganizationSpeciesRow,
 	type ProfileRow,
-	type RegionFolderRow,
-	type RegionRow,
 	type RouteItemRow,
 	type RouteRow,
 	type SpeciesRow,
@@ -37,11 +35,7 @@ import {
 	createRouteMutationHandlers,
 	createTagItemMutationHandlers,
 } from './fieldWorkMissionMutations';
-import {
-	createOrganizationSpeciesMutationHandlers,
-	createRegionFolderMutationHandlers,
-	createRegionMutationHandlers,
-} from './foundationGeographyMutations';
+import { createOrganizationSpeciesMutationHandlers } from './foundationGeographyMutations';
 import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createProfileMutationHandlers } from './profileMutations';
 import {
@@ -69,8 +63,6 @@ export interface WebCollections {
 	readonly currentOrganization: Collection<OrganizationRow, string | number>;
 	readonly organizationSpecies: Collection<OrganizationSpeciesRow, string | number>;
 	readonly profiles: Collection<ProfileRow, string | number>;
-	readonly regionFolders: Collection<RegionFolderRow, string | number>;
-	readonly regions: Collection<RegionRow, string | number>;
 	readonly routeItems: Collection<RouteItemRow, string | number>;
 	readonly routes: Collection<RouteRow, string | number>;
 	readonly species: Collection<SpeciesRow, string | number>;
@@ -91,7 +83,6 @@ export const webBaselineCollectionKeys = [
 	'currentOrganization',
 	'tags',
 	'routes',
-	'regionFolders',
 	'weatherSources',
 ] as const satisfies readonly (keyof WebCollections)[];
 
@@ -207,24 +198,6 @@ export function createWebCollections(options: {
 			...createRouteMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
-	const regionFolders = createCollection(
-		electricShapeCollectionOptions<RegionFolderRow>({
-			table: 'region_folders',
-			syncMode: webSyncModes.region_folders,
-			url: `${shapeServerUrl}${shapePathFor('region_folders')}`,
-			...createRegionFolderMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
-	const regions = createCollection(
-		electricShapeCollectionOptions<RegionRow>({
-			table: 'regions',
-			syncMode: webSyncModes.regions,
-			url: `${shapeServerUrl}${shapePathFor('regions')}`,
-			...createRegionMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
-	// The region boundary picker on the habitat and region forms.
-	regions.createIndex((row) => row.name, { indexType: BasicIndex });
 	const comments = createCollection(
 		electricShapeCollectionOptions<CommentRow>({
 			table: 'comments',
@@ -330,8 +303,6 @@ export function createWebCollections(options: {
 		currentOrganization,
 		organizationSpecies,
 		profiles,
-		regionFolders,
-		regions,
 		routeItems,
 		routes,
 		species,

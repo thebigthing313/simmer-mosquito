@@ -1,22 +1,23 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
+import type { GeoJsonGeometry, GeoJsonPolygon } from '@simmer-mosquito/mapping';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
+import {
+	type RegionFolderListing,
+	useRegionFolders,
+} from '../../../hooks/queries/use-region-folders';
+import { type RegionRecord, useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache, useRegionGeometry } from '../../../hooks/use-region-geometry';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,
 	noRegionFolderValue,
 	RegionFormPage,
 	type RegionFormValues,
+	regionFieldsFrom,
 } from './-region-form';
 
 export const Route = createFileRoute('/gis/regions/$id_/edit')({
@@ -28,52 +29,26 @@ export const Route = createFileRoute('/gis/regions/$id_/edit')({
 	component: EditRegionRoute,
 });
 
-const regionGcTimeMs = 30_000;
-
 function EditRegionRoute() {
 	const { id } = Route.useParams();
-	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: regionFolders } = useCollectionRows<RegionFolderRow>(webCollections.regionFolders);
-
-	// regions is an on-demand collection; status-gated useLiveQuery (not the
-	// suspense variant) to avoid the post-unmount hang on on-demand collections.
-	const regionResult = useLiveQuery(
-		{
-			gcTime: regionGcTimeMs,
-			query: (query) =>
-				query
-					.from({ region: webCollections.regions })
-					.where(({ region }) => eq(region.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const region = regionResult.data as RegionRow | undefined;
+	const { folders } = useRegionFolders();
+	const { region, isReady, isError } = useRegionRecord(id);
 	const geometryQuery = useRegionGeometry(id);
 
-	if (regionResult.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="region" reason="error" />;
 	}
-	if (!regionResult.isReady || geometryQuery.isLoading) {
+	if (!isReady || geometryQuery.isLoading) {
 		return <EditFormSkeleton />;
 	}
 	if (region === undefined) {
 		return <RecordUnavailable layout="centered" noun="region" reason="not-found" />;
 	}
 
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const initialGeometry = (geometryQuery.data?.geojson ?? null) as DrawGeometry | null;
 
 	return (
-		<EditRegionLoader
-			actorProfileId={actorProfileId}
-			canSubmit={organization !== null && actorProfileId !== null}
-			initialGeometry={initialGeometry}
-			region={region}
-			regionFolders={regionFolders}
-		/>
+		<EditRegionLoader initialGeometry={initialGeometry} region={region} regionFolders={folders} />
 	);
 }
 
@@ -81,17 +56,14 @@ function EditRegionLoader({
 	region,
 	regionFolders,
 	initialGeometry,
-	actorProfileId,
-	canSubmit,
 }: {
-	readonly region: RegionRow;
-	readonly regionFolders: readonly RegionFolderRow[];
+	readonly region: RegionRecord;
+	readonly regionFolders: readonly RegionFolderListing[];
 	readonly initialGeometry: DrawGeometry | null;
-	readonly actorProfileId: string | null;
-	readonly canSubmit: boolean;
 }) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const mutations = useRegionMutations();
 
 	const onSave = useCallback(
 		async ({
@@ -103,46 +75,34 @@ function EditRegionLoader({
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
 		}) => {
-			const geometryToSend = geometryChanged && geometry !== null ? geometry : undefined;
-			const now = new Date().toISOString();
-			const applyEdits = (draft: RegionRow) => {
-				const writable = draft as { -readonly [K in keyof RegionRow]: RegionRow[K] };
-				writable.name = values.name.trim();
-				writable.description = nullableText(values.description);
-				writable.regionFolderId =
-					values.regionFolderId === noRegionFolderValue ? null : values.regionFolderId;
-				writable.metadata = values.metadata ?? null;
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
+			// `null` unless the user actually redrew it: the form holds the boundary it
+			// loaded, and sending that back names a command with nothing to change.
+			const boundary =
+				geometryChanged && geometry !== null && geometry.type === 'Polygon'
+					? (geometry as unknown as GeoJsonPolygon)
+					: null;
 
-			const transaction =
-				geometryToSend === undefined
-					? webCollections.regions.update(region.id, applyEdits)
-					: webCollections.regions.update(
-							region.id,
-							{ metadata: { geometry: geometryToSend } },
-							applyEdits,
-						);
-			await settleWrite(transaction);
-			if (geometryToSend !== undefined) {
-				seedRegionGeometryCache(
-					queryClient,
-					region.id,
-					geometryToSend as unknown as GeoJsonGeometry,
-				);
+			// `current` comes back through the same round trip as the edited values, so
+			// a field nobody touched compares equal to itself and the save names only
+			// the commands it has changed fields for.
+			await mutations.save({
+				regionId: region.id,
+				fields: regionFieldsFrom(values),
+				current: regionFieldsFrom(formValuesFrom(region)),
+				geometry: boundary,
+			});
+			if (boundary !== null) {
+				seedRegionGeometryCache(queryClient, region.id, boundary as unknown as GeoJsonGeometry);
 			}
 			await navigate({ to: '/gis/regions/$id', params: { id: region.id } });
 		},
-		[region, actorProfileId, navigate, queryClient],
+		[mutations, navigate, queryClient, region],
 	);
 
 	return (
 		<RegionFormPage
-			canSubmit={canSubmit}
-			defaultValues={defaultsFromRegion(region)}
+			canSubmit={mutations.canWrite}
+			defaultValues={formValuesFrom(region)}
 			header={{
 				title: 'Edit Region',
 				description: "Update this region's name, folder, boundary, or details.",
@@ -159,18 +119,13 @@ function EditRegionLoader({
 	);
 }
 
-function defaultsFromRegion(region: RegionRow): RegionFormValues {
+function formValuesFrom(region: RegionRecord): RegionFormValues {
 	return {
 		name: region.name,
-		regionFolderId: region.regionFolderId ?? noRegionFolderValue,
+		regionFolderId: region.folderId ?? noRegionFolderValue,
 		description: region.description ?? '',
 		metadata: (region.metadata ?? null) as RegionFormValues['metadata'],
 	};
-}
-
-function nullableText(value: string): string | null {
-	const text = value.trim();
-	return text.length === 0 ? null : text;
 }
 
 function EditFormSkeleton() {

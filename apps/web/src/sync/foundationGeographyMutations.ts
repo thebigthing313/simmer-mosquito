@@ -1,14 +1,14 @@
-import type { OrganizationSpeciesRow, RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
+import type { OrganizationSpeciesRow } from '@simmer-mosquito/sync';
 import { isNoOpUpdate, pickChanged } from './change-set';
 import { commandErrorFrom, readResponseBody } from './command-error';
 
 /**
- * Foundation geography + agency taxonomy optimistic mutation handlers: region
- * folders, regions, and organization-species selection.
+ * Agency taxonomy optimistic mutation handlers: organization-species selection,
+ * which is add/remove only.
  *
- * Region polygon geometry is not part of the synced row, so it travels through
- * the mutation `metadata.geometry` channel. Organization-species selection is
- * add/remove only.
+ * What is left after region folders and regions moved to `hooks/mutations` —
+ * both now name the command they mean, and the boundary rides as a command
+ * argument rather than through the mutation `metadata.geometry` channel.
  */
 
 interface MutationInput<TRow> {
@@ -31,7 +31,6 @@ interface RecordHandlerConfig<TRow extends { readonly id: string }> {
 	readonly noun: string;
 	readonly insertKeys: readonly (keyof TRow)[];
 	readonly patchKeys: readonly (keyof TRow)[];
-	readonly hasGeometry?: boolean;
 	readonly noUpdate?: boolean;
 }
 
@@ -50,9 +49,6 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 					const body: Record<string, unknown> = { id: mutation.modified.id };
 					for (const key of config.insertKeys) {
 						body[key as string] = mutation.modified[key];
-					}
-					if (config.hasGeometry) {
-						body.geometry = readGeometry(mutation.metadata);
 					}
 					const result = await writeRecord(endpoint, 'POST', config.noun, body);
 					return result.txid;
@@ -82,12 +78,6 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 						config.patchKeys,
 						`${config.noun}.update`,
 					);
-					if (config.hasGeometry) {
-						const geometry = readOptionalGeometry(mutation.metadata);
-						if (geometry !== undefined) {
-							body.geometry = geometry;
-						}
-					}
 					if (isNoOpUpdate(body)) {
 						return null;
 					}
@@ -107,27 +97,6 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 	return handlers;
 }
 
-export function createRegionFolderMutationHandlers(options: { readonly serverUrl: string }) {
-	return createRecordHandlers<RegionFolderRow>({
-		serverUrl: options.serverUrl,
-		path: '/foundation/region-folders',
-		noun: 'region folder',
-		insertKeys: ['name', 'description'],
-		patchKeys: ['name', 'description'],
-	});
-}
-
-export function createRegionMutationHandlers(options: { readonly serverUrl: string }) {
-	return createRecordHandlers<RegionRow>({
-		serverUrl: options.serverUrl,
-		path: '/foundation/regions',
-		noun: 'region',
-		hasGeometry: true,
-		insertKeys: ['regionFolderId', 'name', 'description', 'metadata'],
-		patchKeys: ['regionFolderId', 'name', 'description', 'metadata'],
-	});
-}
-
 export function createOrganizationSpeciesMutationHandlers(options: { readonly serverUrl: string }) {
 	return createRecordHandlers<OrganizationSpeciesRow>({
 		serverUrl: options.serverUrl,
@@ -142,21 +111,6 @@ export function createOrganizationSpeciesMutationHandlers(options: { readonly se
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-function readGeometry(metadata: unknown): unknown {
-	const geometry = readOptionalGeometry(metadata);
-	if (geometry === undefined) {
-		throw new Error('A region boundary is required.');
-	}
-	return geometry;
-}
-
-function readOptionalGeometry(metadata: unknown): unknown {
-	if (isRecord(metadata) && metadata.geometry !== undefined) {
-		return metadata.geometry;
-	}
-	return undefined;
-}
 
 function requireId(id: string | undefined, noun: string): string {
 	if (id === undefined) {
@@ -189,8 +143,4 @@ async function writeRecord(
 	}
 
 	return result;
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

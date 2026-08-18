@@ -35,7 +35,7 @@
  * `useAcknowledgedWrite` is for.
  */
 
-import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
+import { type GeoJsonPoint, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { type ServiceRequest, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
@@ -172,6 +172,12 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 			}
 
 			const { fields, geometry } = input;
+			// The column's own vocabulary rather than GeoJSON's — `st_point`, not
+			// `Point` — so the optimistic row reads the way the trigger will write it.
+			const centroid = ownedCentroidFromGeoJson(geometry);
+			if (centroid === null) {
+				throw new Error('Unable to determine where the request was reported.');
+			}
 			const now = optimisticStamp();
 			await settleWrite(
 				mutateCollection(service_requests, {
@@ -185,9 +191,9 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 						display_name: null,
 						intake_type: fields.intakeType,
 						request_date: fields.requestDate,
-						lat: geometry.coordinates[1],
-						lng: geometry.coordinates[0],
-						geom_type: geometry.type,
+						lat: centroid.lat,
+						lng: centroid.lng,
+						geom_type: centroid.geomType,
 						address_id: input.addressId,
 						contact_id: input.contactId,
 						received_by_profile_id: fields.receivedByProfileId,
