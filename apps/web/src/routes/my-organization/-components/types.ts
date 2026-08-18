@@ -1,5 +1,5 @@
 import type { UnitDefaults } from '@simmer-mosquito/domain';
-import type { OrganizationRow, ProfileRow, TagRow } from '@simmer-mosquito/sync';
+import type { OrganizationRow, ProfileRow } from '@simmer-mosquito/sync';
 import type React from 'react';
 
 // Re-exported rather than re-declared: two identical unions under one name are
@@ -22,10 +22,6 @@ export type MutableOrganizationRow = {
 
 export type MutableProfileRow = {
 	-readonly [Key in keyof ProfileRow]: ProfileRow[Key];
-};
-
-export type MutableTagRow = {
-	-readonly [Key in keyof TagRow]: TagRow[Key];
 };
 
 export type DensityRangeKey = 'light' | 'medium' | 'heavy' | 'very_heavy';

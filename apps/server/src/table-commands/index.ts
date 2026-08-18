@@ -72,6 +72,7 @@ import { routeTableCommands } from './routes.js';
 import { sampleSpeciesTableCommands } from './sample-species.js';
 import { sampleTableCommands } from './samples.js';
 import { tagItemTableCommands } from './tag-items.js';
+import { tagTableCommands } from './tags.js';
 import { genusTableCommands, speciesTableCommands } from './taxonomy.js';
 import { trapTableCommands } from './traps.js';
 import { unitTableCommands } from './units.js';
@@ -131,6 +132,7 @@ export function tableCommandSpecs(
 		// The crew every record type attaches — see `additional-personnel.ts`.
 		additionalPersonnelTableCommands(db),
 		commentTableCommands(db),
+		tagTableCommands(db),
 		tagItemTableCommands(db),
 		// Standing itineraries, and the day's work drawn off them.
 		routeTableCommands(db),

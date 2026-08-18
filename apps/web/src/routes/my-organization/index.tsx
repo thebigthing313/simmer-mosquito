@@ -16,7 +16,6 @@ function MyOrganizationGeneralRoute() {
 	const { auth } = Route.useRouteContext();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 	const { rows: units } = useCollectionRows(webCollections.units);
-	const { rows: tags } = useCollectionRows(webCollections.tags);
 	const agencyFields: readonly SettingField[] = [
 		textField('Organization name', workspace.organization?.name ?? ''),
 		textField('Slug', workspace.organization?.slug ?? '', {
@@ -45,7 +44,6 @@ function MyOrganizationGeneralRoute() {
 				organizationName={workspace.organizationName}
 				settings={workspace.settings}
 				status={workspace.status}
-				tags={tags}
 				timezone={workspace.settings.timezone}
 				unitFields={unitFields}
 				units={units}

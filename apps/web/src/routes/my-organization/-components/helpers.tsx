@@ -6,7 +6,7 @@ import type {
 	ResolvedLarvalInspectionEntryPolicy,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
-import type { OrganizationRow, ProfileRow, TagRow, UnitRow } from '@simmer-mosquito/sync';
+import type { OrganizationRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
 import type { AuthMe } from '../../../auth';
@@ -21,7 +21,6 @@ import type {
 	LarvalDensityDisplayKey,
 	MutableOrganizationRow,
 	MutableProfileRow,
-	MutableTagRow,
 	OrgRole,
 	PersistenceTransaction,
 	ProfileFormValues,
@@ -29,7 +28,6 @@ import type {
 	SelectOption,
 	SelectSettingField,
 	SettingField,
-	TagFormValues,
 	TextSettingField,
 	UnitDefaultsFormValues,
 } from './types';
@@ -210,34 +208,6 @@ export function savePublicSettingsFromValues(
 	});
 }
 
-function createOrganizationTag(
-	organization: OrganizationRow | null,
-	formData: FormData,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	return webCollections.tags.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		tagName: requiredFormText(formData, 'tagName'),
-		description: nullableFormText(formData, 'description'),
-		color: nullableFormHexColor(formData, 'color'),
-		isActive: true,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
-export function createOrganizationTagFromValues(
-	organization: OrganizationRow | null,
-	values: TagFormValues,
-): PersistenceTransaction {
-	return createOrganizationTag(organization, tagFormData(values));
-}
-
 export function createHistoricalProfile(
 	organization: OrganizationRow | null,
 	values: ProfileFormValues,
@@ -271,40 +241,6 @@ export function updateProfile(
 	});
 }
 
-function updateOrganizationTag(
-	tag: TagRow,
-	formData: FormData,
-	isActive: boolean,
-): PersistenceTransaction {
-	return webCollections.tags.update(tag.id, (draft) => {
-		const mutable = draft as MutableTagRow;
-		mutable.tagName = requiredFormText(formData, 'tagName');
-		mutable.description = nullableFormText(formData, 'description');
-		mutable.color = nullableFormHexColor(formData, 'color');
-		mutable.isActive = isActive;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
-export function updateOrganizationTagFromValues(
-	tag: TagRow,
-	values: TagFormValues,
-): PersistenceTransaction {
-	return updateOrganizationTag(tag, tagFormData(values), values.isActive);
-}
-
-export function deleteOrganizationTag(tag: TagRow): PersistenceTransaction {
-	return webCollections.tags.delete(tag.id);
-}
-
-function tagFormData(values: TagFormValues): FormData {
-	const formData = new FormData();
-	formData.set('tagName', values.tagName);
-	formData.set('description', values.description);
-	formData.set('color', values.color);
-	return formData;
-}
-
 export function updateCurrentOrganization(
 	organization: OrganizationRow | null,
 	applyChanges: (draft: MutableOrganizationRow) => void,
@@ -329,9 +265,27 @@ export function watchPersistence(transaction: PersistenceTransaction, fallback: 
 	// settleWrite absorbs a txid-confirmation timeout, so a committed write that is
 	// only waiting on sync never raises a toast.
 	void settleWrite(transaction).catch((error) => {
-		const message = errorMessageForSave(error);
-		toast.error(message === 'Unable to save changes.' ? fallback : message);
+		reportSaveFailure(error, fallback);
 	});
+}
+
+/**
+ * The same, for a write that has already been settled.
+ *
+ * The hooks in `hooks/mutations` return a promise rather than a transaction —
+ * they call `settleWrite` themselves, because naming the command is their job and
+ * the caller has no transaction to hold. This is what the surfaces still shaped
+ * around `watchPersistence` use in the meantime.
+ */
+export function watchWrite(write: Promise<unknown>, fallback: string): void {
+	void write.catch((error) => {
+		reportSaveFailure(error, fallback);
+	});
+}
+
+function reportSaveFailure(error: unknown, fallback: string): void {
+	const message = errorMessageForSave(error);
+	toast.error(message === 'Unable to save changes.' ? fallback : message);
 }
 
 function requiredFormText(formData: FormData, name: string): string {
@@ -347,20 +301,6 @@ function nullableFormText(formData: FormData, name: string): string | null {
 	const value = formData.get(name);
 	const text = typeof value === 'string' ? value.trim() : '';
 	return text.length === 0 ? null : text;
-}
-
-function nullableFormHexColor(formData: FormData, name: string): string | null {
-	const text = nullableFormText(formData, name);
-	if (text === null) {
-		return null;
-	}
-
-	const normalized = text.startsWith('#') ? text : `#${text}`;
-	if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) {
-		throw new Error(`${name} must be a hex color like #2563EB.`);
-	}
-
-	return normalized.toUpperCase();
 }
 
 export function requiredTextValue(value: string, label: string): string {

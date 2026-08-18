@@ -18,7 +18,6 @@ import {
 	type SpeciesRow,
 	shapePathFor,
 	type TagItemRow,
-	type TagRow,
 	type UnitRow,
 	type WeatherSourceRow,
 	type WeatherSummaryRow,
@@ -44,7 +43,6 @@ import {
 	createNotificationRegistrationTypeMutationHandlers,
 } from './publicEngagementMutations';
 import { webSyncModes } from './sync-modes';
-import { createTagMutationHandlers } from './tagMutations';
 
 export interface WebCollections {
 	readonly additionalPersonnel: Collection<AdditionalPersonnelRow, string | number>;
@@ -67,7 +65,6 @@ export interface WebCollections {
 	readonly routes: Collection<RouteRow, string | number>;
 	readonly species: Collection<SpeciesRow, string | number>;
 	readonly tagItems: Collection<TagItemRow, string | number>;
-	readonly tags: Collection<TagRow, string | number>;
 	readonly units: Collection<UnitRow, string | number>;
 	readonly weatherSources: Collection<WeatherSourceRow, string | number>;
 	readonly weatherSummaries: Collection<WeatherSummaryRow, string | number>;
@@ -81,7 +78,6 @@ export const webBaselineCollectionKeys = [
 	'species',
 	'organizationSpecies',
 	'currentOrganization',
-	'tags',
 	'routes',
 	'weatherSources',
 ] as const satisfies readonly (keyof WebCollections)[];
@@ -176,16 +172,6 @@ export function createWebCollections(options: {
 			syncMode: webSyncModes.organizations,
 			url: `${shapeServerUrl}${shapePathFor('organizations')}`,
 			...createOrganizationMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	const tags = createCollection(
-		electricShapeCollectionOptions<TagRow>({
-			table: 'tags',
-			syncMode: webSyncModes.tags,
-			url: `${shapeServerUrl}${shapePathFor('tags')}`,
-			...createTagMutationHandlers({
 				serverUrl: options.serverUrl,
 			}),
 		}),
@@ -307,7 +293,6 @@ export function createWebCollections(options: {
 		routes,
 		species,
 		tagItems,
-		tags,
 		units,
 		weatherSources,
 		weatherSummaries,

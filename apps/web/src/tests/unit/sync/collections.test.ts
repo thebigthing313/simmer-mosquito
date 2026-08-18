@@ -17,7 +17,6 @@ describe('web sync baseline preload', () => {
 			'species',
 			'organizationSpecies',
 			'currentOrganization',
-			'tags',
 			'routes',
 			'weatherSources',
 		]);
@@ -45,10 +44,9 @@ describe('web sync baseline preload', () => {
 	it('attaches optimistic write handlers to eager org lookup catalogs', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
+		// `tags` is not here any more: it writes through `lib/collections`, where
+		// the command a write means is named in the call.
 		expect(collections.currentOrganization.config.onUpdate).toBeTypeOf('function');
-		expect(collections.tags.config.onInsert).toBeTypeOf('function');
-		expect(collections.tags.config.onUpdate).toBeTypeOf('function');
-		expect(collections.tags.config.onDelete).toBeTypeOf('function');
 	});
 
 	it('wires the remaining web sync collections without mutation handlers', () => {
