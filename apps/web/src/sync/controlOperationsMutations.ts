@@ -5,7 +5,6 @@ import type {
 	FormulationInsecticideRow,
 	FormulationRow,
 	OutreachActionRow,
-	RequestedControlActionRow,
 	SourceReductionRow,
 } from '@simmer-mosquito/sync';
 import { readAcknowledgements } from '../lib/stop-acknowledgements';
@@ -233,40 +232,6 @@ export function createBiocontrolActionMutationHandlers(options: { readonly serve
 		hasMissionStop: true,
 		insertKeys: BIOCONTROL_ACTION_FIELD_KEYS,
 		patchKeys: BIOCONTROL_ACTION_FIELD_KEYS,
-	});
-}
-
-export function createRequestedControlActionMutationHandlers(options: {
-	readonly serverUrl: string;
-}) {
-	return createRecordHandlers<RequestedControlActionRow>({
-		serverUrl: options.serverUrl,
-		path: '/control-operations/requested-control-actions',
-		noun: 'requested control action',
-		hasLocation: true,
-		insertKeys: [
-			'controlType',
-			'recommendedMethodId',
-			'summary',
-			'addressId',
-			'habitatId',
-			'inspectionId',
-			'collectionId',
-			'requestedByProfileId',
-			'requestedAt',
-		],
-		patchKeys: [
-			'controlType',
-			'recommendedMethodId',
-			'summary',
-			'addressId',
-			'habitatId',
-			'inspectionId',
-			'collectionId',
-			'requestedByProfileId',
-			'requestedAt',
-			'resolvedAt',
-		],
 	});
 }
 

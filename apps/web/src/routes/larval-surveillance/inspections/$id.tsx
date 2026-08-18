@@ -42,6 +42,7 @@ import { WriteOnly } from '../../../components/write-only';
 import { useProfileNames } from '../../../hooks/queries/use-profile-names';
 import { useSpeciesNames } from '../../../hooks/queries/use-species-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { requested_control_actions } from '../../../lib/collections/requested_control_actions';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { webCollections } from '../../../sync/webCollections';
 
@@ -850,17 +851,17 @@ function useLinkedControlActions(inspectionId: string): {
 			gcTime: linkedActionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ requestedControlAction: webCollections.requestedControlActions })
+					.from({ requestedControlAction: requested_control_actions })
 					.where(({ requestedControlAction }) =>
-						eq(requestedControlAction.inspectionId, inspectionId),
+						eq(requestedControlAction.inspection_id, inspectionId),
 					)
 					.select(({ requestedControlAction }) => ({
 						id: requestedControlAction.id,
-						date: requestedControlAction.requestedAt,
-						actorProfileId: requestedControlAction.requestedByProfileId,
-						controlType: requestedControlAction.controlType,
+						date: requestedControlAction.requested_at,
+						actorProfileId: requestedControlAction.requested_by_profile_id,
+						controlType: requestedControlAction.control_type,
 						summary: requestedControlAction.summary,
-						resolvedAt: requestedControlAction.resolvedAt,
+						resolvedAt: requestedControlAction.resolved_at,
 					})),
 		},
 		[inspectionId],
@@ -885,7 +886,15 @@ function useLinkedControlActions(inspectionId: string): {
 			list.push({ kind: 'biocontrolAction', ...row } as LinkedAction);
 		}
 		for (const row of requested.data ?? []) {
-			list.push({ kind: 'requestedControlAction', ...row } as LinkedAction);
+			// `requested_at` is a `timestamptz`, and this collection has a row schema,
+			// so it arrives parsed while the four `date` columns above are still
+			// strings. Rendered back to an ISO string here, which is what the shared
+			// shape holds and what the sort below compares.
+			list.push({
+				kind: 'requestedControlAction',
+				...row,
+				date: row.date.toISOString(),
+			} as LinkedAction);
 		}
 		// Newest first; date strings (YYYY-MM-DD or ISO) sort lexicographically.
 		list.sort((first, second) => second.date.localeCompare(first.date));

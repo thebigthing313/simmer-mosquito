@@ -149,7 +149,6 @@ describe('web sync baseline preload', () => {
 			'sourceReductions',
 			'outreachActions',
 			'biocontrolActions',
-			'requestedControlActions',
 		] as const) {
 			expect(collections[key].config.onInsert).toBeTypeOf('function');
 			expect(collections[key].config.onUpdate).toBeTypeOf('function');

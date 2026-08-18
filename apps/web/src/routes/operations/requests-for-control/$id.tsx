@@ -23,6 +23,7 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
 	controlTypeLabel,
 	formatScheduledStart,
@@ -35,6 +36,10 @@ import {
 	useMissionsForRequest,
 } from '../../../hooks/queries/use-missions-for-request';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import {
+	type RequestRecord,
+	useRequestedControlAction,
+} from '../../../hooks/queries/use-requested-control-action';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -42,14 +47,7 @@ import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
-import { webCollections } from '../../../sync/webCollections';
 import { useCommandRunner } from '../-command-runner';
-import {
-	type RequestView,
-	reopenRequest,
-	resolveRequest,
-	useRequestedControlAction,
-} from '../-operations-data';
 import { MissionStatusBadge, RequestStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
@@ -71,7 +69,7 @@ function RequestDetailRoute() {
 	const { id } = Route.useParams();
 	const { request, isReady } = useRequestedControlAction(id);
 
-	const subject = request === null ? null : requestDisplayName(request);
+	const subject = request === undefined ? null : requestDisplayName(request);
 	useBreadcrumbLabel(id, subject);
 
 	return (
@@ -81,7 +79,7 @@ function RequestDetailRoute() {
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to requests for control
 				</Link>
-				{request === null ? (
+				{request === undefined ? (
 					isReady ? (
 						<RecordUnavailable noun="request" reason="not-found" />
 					) : (
@@ -99,23 +97,24 @@ function RequestDetailContent({
 	request,
 	subject,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly subject: string;
 }) {
 	const auth = useAuthSnapshot();
-	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
+	const _actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 	const habitatName = useLinkedHabitatName(request.habitatId);
+	const requestWrites = useRequestedControlActionMutations();
 	const { busy, error, run } = useCommandRunner();
 
 	const toggleResolved = useCallback(() => {
 		void run(
 			() =>
 				request.status === 'open'
-					? resolveRequest(request.id, actorProfileId)
-					: reopenRequest(request.id),
+					? requestWrites.resolve(request.id)
+					: requestWrites.reopen(request.id),
 			'Unable to update this request.',
 		);
-	}, [request.status, request.id, actorProfileId, run]);
+	}, [request.status, request.id, requestWrites, run]);
 
 	return (
 		<>
@@ -139,7 +138,7 @@ function RequestDetailContent({
 					<DangerZoneCard
 						name={subject}
 						noun="request for control"
-						onDelete={() => webCollections.requestedControlActions.delete(request.id)}
+						onDelete={() => requestWrites.remove(request.id)}
 						recordId={request.id}
 						recordType="requestedControlAction"
 						returnTo="/operations/requests-for-control"
@@ -170,7 +169,7 @@ function RequestHeader({
 	busy,
 	onToggleResolved,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly subject: string;
 	readonly busy: boolean;
 	readonly onToggleResolved: () => void;
@@ -235,13 +234,13 @@ function RequestLocationCard({
 	request,
 	habitatName,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly habitatName: string | null;
 }) {
 	const geometry = useOwnedGeometry(
 		REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 		request.id,
-		request.updatedAt,
+		request.updatedAt.toISOString(),
 	);
 	const habitatContext = useHabitatLocationContext(request.habitatId, habitatName);
 
@@ -250,7 +249,7 @@ function RequestLocationCard({
 			context={habitatContext}
 			emptyDescription="This request has no location to display."
 			geojson={geometry.geojson}
-			geomType={geometry.geomType ?? request.geomType}
+			geomType={geometry.geomType ?? request.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
 		/>
@@ -322,7 +321,7 @@ function RequestDetailsCard({
 	request,
 	habitatName,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly habitatName: string | null;
 }) {
 	return (
@@ -341,7 +340,7 @@ function RequestDetailsCard({
 }
 
 /** What was asked for, by whom, and when — the request's own fields. */
-function RequestFactRows({ request }: { readonly request: RequestView }) {
+function RequestFactRows({ request }: { readonly request: RequestRecord }) {
 	const methodName = useRecommendedMethodName(request.recommendedMethodId);
 	const raisedBy = useProfileName(request.requestedByProfileId);
 	const resolvedBy = useProfileName(request.resolvedByProfileId);
@@ -375,7 +374,7 @@ function RequestLinkRows({
 	request,
 	habitatName,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly habitatName: string | null;
 }) {
 	return (

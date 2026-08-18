@@ -1,4 +1,3 @@
-import type { RequestedControlActionRow } from '@simmer-mosquito/sync';
 import { useCallback, useMemo, useState } from 'react';
 import { useControlMethodNames, usePersonnelOptions } from '../../../components/explorer';
 import type { RouteStopFeature } from '../../../components/map';
@@ -8,7 +7,11 @@ import {
 	useMissionItemMutations,
 } from '../../../hooks/mutations/use-mission-item-mutations';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
-import type { MissionProgressCounts, MissionStatus } from '../../../hooks/queries/operations-view';
+import type {
+	MissionProgressCounts,
+	MissionStatus,
+	OpenRequest,
+} from '../../../hooks/queries/operations-view';
 import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
@@ -278,7 +281,7 @@ interface MissionActions {
 	readonly confirmSkip: (reason: string) => void;
 	readonly confirmRemove: () => void;
 	readonly move: (index: number, action: MoveAction) => void;
-	readonly addStop: (request: RequestedControlActionRow) => void;
+	readonly addStop: (request: OpenRequest) => void;
 }
 
 function useMissionActions({
@@ -368,7 +371,7 @@ function useMissionActions({
 	);
 
 	const addStop = useCallback(
-		(request: RequestedControlActionRow) => {
+		(request: OpenRequest) => {
 			if (organizationId === null) {
 				return;
 			}
@@ -378,9 +381,9 @@ function useMissionActions({
 						missionId,
 						request: {
 							requestedControlActionId: request.id,
-							lat: request.lat,
-							lng: request.lng,
-							geomType: request.geomType,
+							lat: request.latitude,
+							lng: request.longitude,
+							geomType: request.geometryKind,
 						},
 						position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
 					}),

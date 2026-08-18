@@ -184,7 +184,6 @@ function AddStopControls({
 				disabled={run.busy}
 				existingRequestIds={run.existingRequestIds}
 				onAdd={run.addStop}
-				organizationId={run.organizationId ?? ''}
 			/>
 			{/* The picker covers the queue; this covers everywhere else. */}
 			<Button asChild size="sm" variant="ghost">

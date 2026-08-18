@@ -34,7 +34,6 @@ import {
 	type ProfileRow,
 	type RegionFolderRow,
 	type RegionRow,
-	type RequestedControlActionRow,
 	type RouteItemRow,
 	type RouteRow,
 	type SampleRow,
@@ -71,7 +70,6 @@ import {
 	createFormulationInsecticideMutationHandlers,
 	createFormulationMutationHandlers,
 	createOutreachActionMutationHandlers,
-	createRequestedControlActionMutationHandlers,
 	createSourceReductionMutationHandlers,
 } from './controlOperationsMutations';
 import {
@@ -152,7 +150,6 @@ export interface WebCollections {
 	readonly profiles: Collection<ProfileRow, string | number>;
 	readonly regionFolders: Collection<RegionFolderRow, string | number>;
 	readonly regions: Collection<RegionRow, string | number>;
-	readonly requestedControlActions: Collection<RequestedControlActionRow, string | number>;
 	readonly routeItems: Collection<RouteItemRow, string | number>;
 	readonly routes: Collection<RouteRow, string | number>;
 	readonly samples: Collection<SampleRow, string | number>;
@@ -668,14 +665,6 @@ export function createWebCollections(options: {
 			...createServiceRequestMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
-	const requestedControlActions = createCollection(
-		electricShapeCollectionOptions<RequestedControlActionRow>({
-			table: 'requested_control_actions',
-			syncMode: webSyncModes.requested_control_actions,
-			url: `${shapeServerUrl}${shapePathFor('requested_control_actions')}`,
-			...createRequestedControlActionMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
 	const notificationRegistrations = createCollection(
 		electricShapeCollectionOptions<NotificationRegistrationRow>({
 			table: 'notification_registrations',
@@ -748,7 +737,6 @@ export function createWebCollections(options: {
 		profiles,
 		regionFolders,
 		regions,
-		requestedControlActions,
 		routeItems,
 		routes,
 		samples,

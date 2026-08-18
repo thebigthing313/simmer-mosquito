@@ -1,8 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { ControlType, RequestedControlActionRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import type { ControlType } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
@@ -11,9 +8,7 @@ import type {
 	MissionProgressCounts,
 	MissionStatus,
 	MissionStop,
-	RequestStatus,
 } from '../../hooks/queries/operations-view';
-import { requestStatus } from '../../hooks/queries/operations-view';
 import {
 	type SchemaCatalogListing,
 	useApplicationMethodRoster,
@@ -23,7 +18,6 @@ import {
 } from '../../hooks/queries/use-catalog-rosters';
 import { useMissionStops } from '../../hooks/queries/use-mission-stops';
 import { addressPrimaryLabel } from '../../lib/address-format';
-import { webCollections } from '../../sync/webCollections';
 
 /**
  * The reads and writes behind the operations section — requested control actions
@@ -43,10 +37,10 @@ import { webCollections } from '../../sync/webCollections';
 // `missions`, `mission_items`, and `requested_control_actions` are all on-demand
 // shapes (docs/sync.md); hold their rows briefly after unmount so map → create →
 // back reuses the stream rather than refetching it.
-const operationsGcTimeMs = 30_000;
+const _operationsGcTimeMs = 30_000;
 
 /** A syntactically valid uuid no row matches — keeps a subset predicate live and empty. */
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
+const _UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 /**
  * Timestamps are validated against the server's clock with no tolerance, so a
@@ -56,7 +50,7 @@ const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
  */
 const CLOCK_SKEW_MARGIN_MS = 2_000;
 
-function nowTimestamp(): string {
+function _nowTimestamp(): string {
 	return new Date(Date.now() - CLOCK_SKEW_MARGIN_MS).toISOString();
 }
 
@@ -159,10 +153,6 @@ function missionProgressCounts(
 
 // --- view models ------------------------------------------------------------
 
-export interface RequestView extends RequestedControlActionRow {
-	readonly status: RequestStatus;
-}
-
 /** What names a stop drawn off a request. */
 export interface MissionStopRequest {
 	readonly id: string;
@@ -229,31 +219,6 @@ export function formatOperationalDate(value: string): string {
 }
 
 // --- reads ------------------------------------------------------------------
-
-/** One request. Also the warm-stream anchor on pages that write before reading. */
-export function useRequestedControlAction(requestId: string | null): {
-	readonly request: RequestView | null;
-	readonly isReady: boolean;
-} {
-	const result = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.requestedControlActions })
-					.where(({ request }) => eq(request.id, requestId ?? UNMATCHABLE_ID)),
-		},
-		[requestId],
-	);
-
-	const rows = (result.data ?? []) as readonly RequestedControlActionRow[];
-	const row = rows[0];
-
-	return {
-		request: row === undefined ? null : { ...row, status: requestStatus(row) },
-		isReady: result.isReady,
-	};
-}
 
 /**
  * Every stop's real shape on a mission, by mission item id.
@@ -393,41 +358,6 @@ function toMissionStop(
 }
 
 /**
- * Open requests in the org, newest first — what a mission can be pointed at.
- *
- * Resolution is a nullable timestamp rather than a column, so it is filtered in
- * memory over the same window-free subset the picker searches. Resolved requests
- * are deliberately absent: a request already dealt with is not new work to plan,
- * even though a stop already on a mission keeps its link if it is resolved later.
- */
-export function useOpenRequestedControlActions(organizationId: string): {
-	readonly requests: readonly RequestedControlActionRow[];
-	readonly isReady: boolean;
-} {
-	const result = useLiveQuery(
-		{
-			gcTime: operationsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.requestedControlActions })
-					.where(({ request }) => eq(request.organizationId, organizationId))
-					.orderBy(({ request }) => request.requestedAt, 'desc'),
-		},
-		[organizationId],
-	);
-
-	const requests = useMemo(
-		() =>
-			((result.data ?? []) as readonly RequestedControlActionRow[]).filter(
-				(request) => request.resolvedAt === null,
-			),
-		[result.data],
-	);
-
-	return { requests, isReady: result.isReady };
-}
-
-/**
  * The method catalog for a control type.
  *
  * `recommendedMethodId` and `plannedMethodId` are both polymorphic by control
@@ -461,157 +391,3 @@ export function useMethodsForControlType(controlType: ControlType | ''): {
 }
 
 // --- writes -----------------------------------------------------------------
-
-/**
- * Raise a request for control.
- *
- * The geometry is the request's own authoritative location; the address, habitat,
- * inspection, and collection links are context. The server recomputes `geom` from
- * `locationSource`, so the centroid written here only seeds the optimistic row —
- * without it the new pin would not appear until the shape round-trips.
- */
-export async function createRequestedControlAction(input: {
-	readonly requestId: string;
-	readonly organizationId: string;
-	readonly actorProfileId: string;
-	readonly controlType: ControlType;
-	readonly geometry: GeoJsonGeometry;
-	readonly summary: string | null;
-	readonly recommendedMethodId: string | null;
-	readonly addressId: string | null;
-	readonly habitatId: string | null;
-}): Promise<void> {
-	const centroid = ownedCentroidFromGeoJson(input.geometry);
-	if (centroid === null) {
-		throw new Error('Unable to determine the requested location.');
-	}
-
-	const now = new Date().toISOString();
-	const row: RequestedControlActionRow = {
-		id: input.requestId,
-		organizationId: input.organizationId,
-		lat: centroid.lat,
-		lng: centroid.lng,
-		geomType: centroid.geomType,
-		controlType: input.controlType,
-		recommendedMethodId: input.recommendedMethodId,
-		summary: input.summary,
-		habitatId: input.habitatId,
-		inspectionId: null,
-		collectionId: null,
-		addressId: input.addressId,
-		requestedByProfileId: input.actorProfileId,
-		requestedAt: nowTimestamp(),
-		resolvedAt: null,
-		resolvedByProfileId: null,
-		createdByProfileId: input.actorProfileId,
-		updatedByProfileId: input.actorProfileId,
-		createdAt: now,
-		updatedAt: now,
-	};
-
-	await settleWrite(
-		webCollections.requestedControlActions.insert(row, {
-			metadata: { locationSource: { kind: 'geometry', geometry: input.geometry } },
-		}),
-	);
-}
-
-/**
- * The request row with its `readonly` lifted, for the drafts below.
- *
- * The mission half of this module used to need the same for two more tables.
- * Both are gone: the mission writes name their commands in `hooks/mutations` and
- * work in the collection's own snake_case, so nothing has to be cast back.
- */
-type MutableRequestRow = {
-	-readonly [Key in keyof RequestedControlActionRow]: RequestedControlActionRow[Key];
-};
-
-/**
- * Close a request out.
- *
- * There is no outcome field: handled, duplicate, and not feasible all resolve
- * the same row, and which it was belongs in the comments where it can be read.
- */
-export async function resolveRequest(
-	requestId: string,
-	actorProfileId: string | null,
-): Promise<void> {
-	await settleWrite(
-		webCollections.requestedControlActions.update(requestId, (draft) => {
-			const mutable = draft as MutableRequestRow;
-			mutable.resolvedAt = nowTimestamp();
-			mutable.resolvedByProfileId = actorProfileId;
-		}),
-	);
-}
-
-/**
- * Edit a request's details, location, and context.
- *
- * The PATCH handler builds its commands from which fields changed, so this
- * touches no lifecycle column: resolving and reopening are their own writes, and
- * folding `resolvedAt` into an edit would reopen a closed request nobody meant to
- * touch.
- *
- * `geometry` is sent only when the shape was actually redrawn. The server
- * re-resolves `geom` from whatever location source it is handed, so re-sending
- * an unchanged shape is a write with no edit behind it — and the centroid mirrored
- * onto the optimistic row would flicker for nothing.
- */
-export async function updateRequestedControlAction(input: {
-	readonly requestId: string;
-	readonly actorProfileId: string | null;
-	readonly controlType: ControlType;
-	readonly summary: string | null;
-	readonly recommendedMethodId: string | null;
-	readonly addressId: string | null;
-	readonly habitatId: string | null;
-	/** Null leaves the stored shape alone. */
-	readonly geometry: GeoJsonGeometry | null;
-}): Promise<void> {
-	const centroid = input.geometry === null ? null : ownedCentroidFromGeoJson(input.geometry);
-	if (input.geometry !== null && centroid === null) {
-		throw new Error('Unable to determine the requested location.');
-	}
-
-	const now = new Date().toISOString();
-	const applyEdits = (draft: RequestedControlActionRow) => {
-		const mutable = draft as MutableRequestRow;
-		mutable.controlType = input.controlType;
-		mutable.summary = input.summary;
-		mutable.recommendedMethodId = input.recommendedMethodId;
-		mutable.addressId = input.addressId;
-		mutable.habitatId = input.habitatId;
-		if (centroid !== null) {
-			mutable.lat = centroid.lat;
-			mutable.lng = centroid.lng;
-			mutable.geomType = centroid.geomType;
-		}
-		if (input.actorProfileId !== null) {
-			mutable.updatedByProfileId = input.actorProfileId;
-		}
-		mutable.updatedAt = now;
-	};
-
-	await settleWrite(
-		input.geometry === null
-			? webCollections.requestedControlActions.update(input.requestId, applyEdits)
-			: webCollections.requestedControlActions.update(
-					input.requestId,
-					{ metadata: { locationSource: { kind: 'geometry', geometry: input.geometry } } },
-					applyEdits,
-				),
-	);
-}
-
-export async function reopenRequest(requestId: string): Promise<void> {
-	await settleWrite(
-		webCollections.requestedControlActions.update(requestId, (draft) => {
-			const mutable = draft as MutableRequestRow;
-			mutable.resolvedAt = null;
-			mutable.resolvedByProfileId = null;
-		}),
-	);
-}

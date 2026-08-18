@@ -89,6 +89,58 @@ export function requestDisplayName(row: {
 	return summary || `${controlTypeLabel(row.controlType)} requested`;
 }
 
+/**
+ * A request as its own page reads it.
+ *
+ * Wider than {@link RequestListing} because a detail page shows everything the
+ * request was raised with and an edit form has to seed from it — the context it
+ * was raised against, the address it names, and who closed it.
+ *
+ * The three context columns are all here and none of them settles what the
+ * context *is*: a larval context with no ids and no context at all store the same
+ * three nulls. The tag is the domain's, not a column's, which is why a write
+ * states it as an instruction rather than as a column diff.
+ */
+export interface RequestDetail {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly controlType: ControlType;
+	readonly recommendedMethodId: string | null;
+	readonly summary: string | null;
+	readonly habitatId: string | null;
+	readonly inspectionId: string | null;
+	readonly collectionId: string | null;
+	readonly addressId: string | null;
+	readonly latitude: number;
+	readonly longitude: number;
+	readonly geometryKind: string;
+	readonly requestedByProfileId: string | null;
+	readonly requestedAt: Date;
+	readonly resolvedAt: Date | null;
+	readonly resolvedByProfileId: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+}
+
+/**
+ * A request as the picker that schedules one reads it.
+ *
+ * Narrower than the listing the queue shows: what a picker needs is a name, and
+ * enough of a location to seed the optimistic stop it becomes.
+ */
+export interface OpenRequest {
+	readonly id: string;
+	readonly controlType: string;
+	readonly summary: string | null;
+	readonly latitude: number;
+	readonly longitude: number;
+	readonly geometryKind: string;
+	readonly addressId: string | null;
+	readonly requestedAt: Date;
+}
+
 // --- missions ---------------------------------------------------------------
 
 /**
