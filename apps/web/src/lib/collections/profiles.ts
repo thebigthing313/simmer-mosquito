@@ -14,8 +14,13 @@ import { getServerUrl } from '../../auth';
  * `eager`: Who an agency's people are. Every record that names an inspector, applicator
  * or crew member resolves through this.
  *
- * This app writes profiles, so the collection carries the three mutation
- * handlers and every write through it names the command it means.
+ * `mutations: false`, and as on `organizations` that does not mean this app does
+ * not write it. A Profile is written by REST — `/organization/profiles` — because
+ * identity writes are not commands and cannot become them (#130). There is no
+ * `/commands/profiles`, so declaring no handlers is what makes a stray
+ * `profiles.update(...)` a refusal rather than a request to an endpoint that does
+ * not exist. `hooks/mutations/use-profile-mutations.ts` opens the transaction
+ * that is the only way in.
  *
  * The type is written here rather than inferred because a `Collection<…>`
  * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
@@ -24,7 +29,7 @@ import { getServerUrl } from '../../auth';
 export const profiles: Collection<Profile, string | number> = createProfilesCollection({
 	serverUrl: getServerUrl(),
 	syncMode: 'eager',
-	mutations: true,
+	mutations: false,
 });
 
 /**

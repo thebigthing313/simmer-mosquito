@@ -6,13 +6,12 @@ import type {
 	ServiceRequestContextSettings,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
-import type { Organization, ProfileRow } from '@simmer-mosquito/sync';
+import type { Organization } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
 import type { AuthMe } from '../../../auth';
 import type { AgencyDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
-import { webCollections } from '../../../sync/webCollections';
 import { defaultDensityRangeValues } from './constants';
 import type {
 	AgencyDetailsFormValues,
@@ -20,10 +19,7 @@ import type {
 	DensityRangeFormValues,
 	DensityRangeKey,
 	LarvalDensityDisplayKey,
-	MutableProfileRow,
 	OrgRole,
-	PersistenceTransaction,
-	ProfileFormValues,
 	PublicSettingsFormValues,
 	SelectOption,
 	SelectSettingField,
@@ -145,50 +141,13 @@ export function serviceRequestContextFrom(
 	};
 }
 
-export function createHistoricalProfile(
-	organization: Organization,
-	values: ProfileFormValues,
-): PersistenceTransaction {
-	const now = new Date().toISOString();
-	return webCollections.profiles.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		userId: null,
-		displayName: requiredTextValue(values.displayName, 'Display name'),
-		email: null,
-		isActive: values.isActive,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
-export function updateProfile(
-	profile: ProfileRow,
-	values: ProfileFormValues,
-): PersistenceTransaction {
-	return webCollections.profiles.update(profile.id, (draft) => {
-		const mutable = draft as MutableProfileRow;
-		mutable.displayName = requiredTextValue(values.displayName, 'Display name');
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
-export function watchPersistence(transaction: PersistenceTransaction, fallback: string): void {
-	// settleWrite absorbs a txid-confirmation timeout, so a committed write that is
-	// only waiting on sync never raises a toast.
-	void settleWrite(transaction).catch((error) => {
-		reportSaveFailure(error, fallback);
-	});
-}
-
 /**
- * The same, for a write that has already been settled.
+ * Report a failed write, without holding the surface open for it.
  *
  * The hooks in `hooks/mutations` return a promise rather than a transaction —
  * they call `settleWrite` themselves, because naming the command is their job and
- * the caller has no transaction to hold. This is what the surfaces still shaped
- * around `watchPersistence` use in the meantime.
+ * the caller has no transaction to hold. A form closes on submit and this is what
+ * tells the user if the write it started did not land.
  */
 export function watchWrite(write: Promise<unknown>, fallback: string): void {
 	void write.catch((error) => {

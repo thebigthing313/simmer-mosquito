@@ -1,5 +1,4 @@
 import type { UnitDefaults } from '@simmer-mosquito/domain';
-import type { ProfileRow } from '@simmer-mosquito/sync';
 import type React from 'react';
 
 // Re-exported rather than re-declared: two identical unions under one name are
@@ -16,10 +15,6 @@ export type OrganizationSectionId =
 	| 'public'
 	| 'keyBindings';
 
-export type MutableProfileRow = {
-	-readonly [Key in keyof ProfileRow]: ProfileRow[Key];
-};
-
 export type DensityRangeKey = 'light' | 'medium' | 'heavy' | 'very_heavy';
 export type LarvalDensityDisplayKey = 'none' | DensityRangeKey;
 export type ControlMethodCollectionKey =
@@ -28,12 +23,6 @@ export type ControlMethodCollectionKey =
 	| 'biocontrolMethods'
 	| 'outreachMethods';
 export type ControlAssetCollectionKey = 'vehicles' | 'equipment';
-export interface PersistenceTransaction {
-	readonly isPersisted: {
-		readonly promise: Promise<unknown>;
-	};
-}
-
 export interface SetupCatalog {
 	readonly domain: SetupDomain;
 	readonly label: string;
@@ -58,11 +47,6 @@ export interface TagFormValues {
 	readonly tagName: string;
 	readonly description: string;
 	readonly color: string;
-	readonly isActive: boolean;
-}
-
-export interface ProfileFormValues {
-	readonly displayName: string;
 	readonly isActive: boolean;
 }
 

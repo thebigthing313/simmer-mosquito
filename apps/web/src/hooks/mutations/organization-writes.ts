@@ -30,24 +30,21 @@
  * immediately re-sent with `expectedUpdatedAt: null`, which always won. Nothing
  * here retries: a conflict is raised, and the surface shows it.
  *
- * ## Why a transaction rather than a collection write
+ * ## What is here rather than in `rest-writes.ts`
  *
- * The optimistic row still has to move — an admin who saves a setting should see
- * it — and the only way to write a collection whose handlers point somewhere else
- * is to open a transaction. Inside `transaction.mutate()` the library applies the
- * change to the collection and calls this `mutationFn` instead of the
- * collection's handlers, which is the same path `sendCommandTransaction` takes
- * for multi-row commands, for the same reason and with the same two obligations:
- * wait for the write to stream back, and do not wait when nothing is listening.
+ * The mechanism is shared with the other two identity tables — the transaction
+ * that moves the optimistic row, the txid wait, the no-op suppression. Read that
+ * module for why a write to these tables cannot go through the collection's own
+ * handlers.
  *
- * `lib/collections/organizations.ts` declares `mutations: false`, so a stray
- * `organizations.update(...)` outside a transaction is refused by the library
- * rather than sent to an endpoint that does not exist.
+ * What is only true of this table is below: the conflict, which is the whole
+ * point of the change, and `updatedAt`, which the settings routes return and the
+ * two-write save needs.
  */
 
-import { CommandError, settleWrite } from '@simmer-mosquito/sync';
-import { createTransaction } from '@tanstack/db';
+import { CommandError } from '@simmer-mosquito/sync';
 import { organizations } from '../../lib/collections/organizations';
+import { type RestRefusalBody, writeThroughRest } from './rest-writes';
 
 /**
  * What both routes answer with.
@@ -92,13 +89,7 @@ export class OrganizationConflictError extends Error {
 const conflictErrors: ReadonlySet<string> = new Set(['settings_conflict', 'organization_conflict']);
 
 /** What a refused body may carry, from either route. */
-export interface OrganizationRefusalBody {
-	readonly error?: string;
-	readonly reason?: string;
-	readonly message?: string;
-	readonly txid?: unknown;
-	readonly updatedAt?: unknown;
-}
+export type OrganizationRefusalBody = RestRefusalBody;
 
 /**
  * The error a response means, or `null` when it wrote.
@@ -129,103 +120,32 @@ export function organizationRefusalFor(
 	return null;
 }
 
-/** Send one write and read back what it committed. */
-async function sendOrganizationWrite(
-	url: string,
-	body: Record<string, unknown>,
-): Promise<OrganizationWriteResult> {
-	const response = await fetch(url, {
-		method: 'PATCH',
-		credentials: 'include',
-		headers: { accept: 'application/json', 'content-type': 'application/json' },
-		body: JSON.stringify(body),
-	});
-
-	const parsed = (await readBody(response)) as OrganizationRefusalBody;
-	const refusal = organizationRefusalFor(response.status, response.ok, parsed);
-	if (refusal !== null) {
-		throw refusal;
-	}
-
-	return {
-		txid: parsed.txid as number,
-		updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : '',
-	};
-}
-
-/** As in `write-command.ts`: a proxy can answer with HTML, so parse only what parses. */
-async function readBody(response: Response): Promise<Record<string, unknown>> {
-	const text = await response.text();
-	if (text.trim() === '') {
-		return {};
-	}
-	try {
-		const parsed: unknown = JSON.parse(text);
-		return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
-			? (parsed as Record<string, unknown>)
-			: {};
-	} catch {
-		return { message: text.slice(0, 200) };
-	}
-}
-
 /**
  * Apply the change on screen, send it, and wait for it to stream back.
  *
- * Returns `null` when the change was already the stored value. A settings sheet
- * that is opened and closed on Save asks for exactly that, and it must be a
- * silent no-op: the library diffs the row and records no mutation, so the
- * transaction has nothing to commit and this never calls the server. Reading
- * that as a failure is what the first cut did, and it put "Unable to save
- * changes." in front of an admin who changed nothing.
- *
- * The same suppression the rest of the seam gets from `commandRequestFor`
- * returning `null` on an empty patch — arrived at differently, because this path
- * states its own body rather than deriving one from the diff.
- *
- * `apply` must be synchronous. The ambient transaction is only active for the
- * synchronous part of the callback, so anything after an `await` would quietly
- * become a separate write to a collection that refuses them.
+ * `null` when nothing moved — see `writeThroughRest`, which owns that rule.
  */
 export async function writeOrganization(input: {
 	readonly url: string;
 	readonly body: Record<string, unknown>;
 	readonly apply: () => void;
 }): Promise<OrganizationWriteResult | null> {
-	// A box rather than a `let`, because the assignment happens inside a closure
-	// the compiler cannot see run, and reading a `let` back afterwards narrows to
-	// the initializer.
-	const committed: { value: OrganizationWriteResult | null } = { value: null };
-
-	const transaction = createTransaction({
-		mutationFn: async () => {
-			const result = await sendOrganizationWrite(input.url, input.body);
-			committed.value = result;
-
-			// Nothing is watching means the stream is paused and no live query can
-			// snapshot it, so the wait does not resolve late — it never resolves.
-			if (organizations.subscriberCount > 0) {
-				await organizations.utils.awaitTxId(result.txid);
-			}
-		},
+	const committed = await writeThroughRest({
+		collection: organizations,
+		url: input.url,
+		method: 'PATCH',
+		body: input.body,
+		apply: input.apply,
+		fallback: 'Unable to save changes.',
+		refusalFor: organizationRefusalFor,
 	});
 
-	transaction.mutate(input.apply);
-
-	// Nothing moved, so there is nothing to send and nothing to wait for.
-	if (transaction.mutations.length === 0) {
+	if (committed === null) {
 		return null;
 	}
 
-	// The server has committed by the time a txid wait times out, so a timeout is
-	// lag rather than failure. Every other rejection is real and propagates.
-	await settleWrite(transaction);
-
-	// Reached only if the transaction resolved without the mutation function
-	// running, which would mean the row moved on screen and nowhere else.
-	if (committed.value === null) {
-		throw new Error('Unable to save changes.');
-	}
-
-	return committed.value;
+	return {
+		txid: committed.txid as number,
+		updatedAt: typeof committed.updatedAt === 'string' ? committed.updatedAt : '',
+	};
 }

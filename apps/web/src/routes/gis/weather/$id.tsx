@@ -1,4 +1,3 @@
-import type { WeatherSourceRow, WeatherSummaryRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import {
 	Card,
@@ -22,12 +21,12 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
-import { webCollections } from '../../../sync/webCollections';
+import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
+import { useWeatherSummaries } from '../../../hooks/queries/use-weather-summaries';
 import {
 	formatMeasure,
 	formatRange,
@@ -41,7 +40,6 @@ export const Route = createFileRoute('/gis/weather/$id')({
 });
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
-const summariesGcTimeMs = 30_000;
 
 function RouteComponent() {
 	const { id } = Route.useParams();
@@ -49,16 +47,8 @@ function RouteComponent() {
 }
 
 function WeatherSourceDetail({ sourceId }: { readonly sourceId: string }) {
-	// weatherSources is an eager collection, so this resolves without a fetch.
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ source: webCollections.weatherSources })
-				.where(({ source }) => eq(source.id, sourceId))
-				.findOne(),
-		[sourceId],
-	);
-	const source = result.data as WeatherSourceRow | undefined;
+	// Stations are eager, so this resolves without a fetch.
+	const { station, isReady } = useWeatherStation(sourceId);
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -67,20 +57,20 @@ function WeatherSourceDetail({ sourceId }: { readonly sourceId: string }) {
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to Weather Stations
 				</Link>
-				{!result.isReady ? (
+				{!isReady ? (
 					<DetailSkeleton />
-				) : source === undefined ? (
+				) : station === undefined ? (
 					<RecordUnavailable noun="weather station" reason="not-found" />
 				) : (
-					<WeatherSourceContent source={source} />
+					<WeatherSourceContent source={station} />
 				)}
 			</div>
 		</div>
 	);
 }
 
-function WeatherSourceContent({ source }: { readonly source: WeatherSourceRow }) {
-	useBreadcrumbLabel(source.id, source.sourceName);
+function WeatherSourceContent({ source }: { readonly source: WeatherStation }) {
+	useBreadcrumbLabel(source.id, source.name);
 
 	return (
 		<>
@@ -91,7 +81,7 @@ function WeatherSourceContent({ source }: { readonly source: WeatherSourceRow })
 						Weather station
 					</span>
 					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{source.sourceName}
+						{source.name}
 					</h1>
 					<p className="m-0 text-[0.95rem] text-muted-foreground">
 						{weatherSourceTypeLabel(source.sourceType)}
@@ -123,23 +113,7 @@ function WeatherSourceContent({ source }: { readonly source: WeatherSourceRow })
 }
 
 function WeatherSummariesCard({ sourceId }: { readonly sourceId: string }) {
-	// weatherSummaries is on-demand; status-gated useLiveQuery (not the suspense
-	// variant) to avoid the post-unmount hang on on-demand collections.
-	const result = useLiveQuery(
-		{
-			gcTime: summariesGcTimeMs,
-			query: (query) =>
-				query
-					.from({ summary: webCollections.weatherSummaries })
-					.where(({ summary }) => eq(summary.weatherSourceId, sourceId))
-					.orderBy(({ summary }) => summary.endDate, 'desc'),
-		},
-		[sourceId],
-	);
-	const summaries = useMemo(
-		() => (result.data ?? []) as readonly WeatherSummaryRow[],
-		[result.data],
-	);
+	const { summaries, isReady, isError } = useWeatherSummaries(sourceId);
 
 	return (
 		<Card variant="surface">
@@ -147,12 +121,12 @@ function WeatherSummariesCard({ sourceId }: { readonly sourceId: string }) {
 				<CardTitle>Recent Summaries</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">
-				{result.isError ? (
+				{isError ? (
 					<SummariesEmpty
 						description="Weather summaries could not be loaded. Try again shortly."
 						title="Summaries Unavailable"
 					/>
-				) : !result.isReady ? (
+				) : !isReady ? (
 					<div className="grid gap-2">
 						{[0, 1, 2].map((index) => (
 							<Skeleton className="h-10 w-full" key={index} />

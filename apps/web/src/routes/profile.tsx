@@ -16,7 +16,7 @@ import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import { type AuthenticatedMe, requestPasswordReset } from '../auth';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
-import { webCollections } from '../sync/webCollections';
+import { memberships } from '../lib/collections/memberships';
 
 export const Route = createFileRoute('/profile')({
 	component: ProfileRoute,
@@ -54,7 +54,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 	const membershipResult = useLiveQuery(
 		(query) =>
 			query
-				.from({ membership: webCollections.memberships })
+				.from({ membership: memberships })
 				.where(({ membership }) => eq(membership.id, membershipId ?? ''))
 				.findOne(),
 		[membershipId],
