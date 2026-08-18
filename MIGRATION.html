@@ -208,7 +208,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <div class="wrap">
 
 <header class="masthead">
-	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head bd460dc · 84 commits off main</p>
+	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head 10430f9 · 86 commits off main</p>
 	<h1>The sync layer, rebuilt table by table</h1>
 	<p class="standfirst">A ground-up rewrite of how SIMMER reads and writes data. TanStack DB is transport only, the server validates, every mutation names the command it means, and the only per-table definition is the schema. This page is where the work is tracked — it replaces <code>HANDOFF.md</code>.</p>
 	<div class="dials">
@@ -223,9 +223,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 			<div class="meter" role="img" aria-label="48 of 54"><span class="meter-fill is-partial" style="inline-size:89%"></span></div>
 		</div>
 		<div class="dial">
-			<span class="dial-figure">42<small>/54</small></span>
+			<span class="dial-figure">45<small>/54</small></span>
 			<span class="dial-label">Tables off webCollections</span>
-			<div class="meter" role="img" aria-label="42 of 54"><span class="meter-fill is-todo" style="inline-size:78%"></span></div>
+			<div class="meter" role="img" aria-label="45 of 54"><span class="meter-fill is-todo" style="inline-size:83%"></span></div>
 		</div>
 	</div>
 </header>
@@ -270,7 +270,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 	<div class="filters">
 		<button type="button" data-scope="tables" data-mode="" aria-pressed="true">All 54</button>
 		<button type="button" data-scope="tables" data-mode="only-left" aria-pressed="false">Still to do</button>
-		<button type="button" data-scope="tables" data-mode="only-done" aria-pressed="false">Finished 40</button>
+		<button type="button" data-scope="tables" data-mode="only-done" aria-pressed="false">Finished 43</button>
 	</div>
 	<div class="matrix-shell">
 		<table>
@@ -287,6 +287,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="done"><td><code>biocontrol_methods</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>collection_lures</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>collection_methods</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="done"><td><code>collection_species</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="done"><td><code>collections</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>comments</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>equipment</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>formulation_insecticides</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
@@ -315,9 +317,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="done"><td><code>source_reductions</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>species</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>tag_items</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="done"><td><code>traps</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>vehicles</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
-<tr data-state="partial"><td><code>collection_species</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
-<tr data-state="partial"><td><code>collections</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>contacts</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>memberships</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>organizations</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
@@ -326,7 +327,6 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="partial"><td><code>regions</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>service_requests</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>tags</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
-<tr data-state="partial"><td><code>traps</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>units</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>weather_sources</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="partial"><td><code>weather_summaries</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
@@ -379,8 +379,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 		<li>
 			<div>
 				<h4>The record surfaces</h4>
-				<p>Larval is done — <code>habitats</code>, <code>inspections</code>, <code>samples</code>, <code>sample_species</code> — and it took the four performed control actions with it, because <code>inspections/$id.tsx</code> was the last thing reading <code>applications</code>, <code>source_reductions</code>, <code>outreach_actions</code> and <code>biocontrol_actions</code> through the old seam. It is the model for the rest: a write hook, a record hook for the raw columns a form writes back, and a joined read hook for whatever the detail page used to query inline. What remains is adult (<code>traps</code>, <code>collections</code>, <code>collection_species</code>) and public engagement (<code>contacts</code>, <code>service_requests</code>). Each is the same four steps: the joined hooks in <code>hooks/queries</code>, the write hooks in <code>hooks/mutations</code>, the routes repointed, and the table dropped from <code>createWebCollections</code> — then the domain's <code>*Mutations.ts</code> goes when its last table leaves.</p>
-				<p>Four things the larval pass turned up that adult will hit in the same order. A record's edit form wants the <em>raw</em> column, not the display projection — every one of these coalesces a null name into something readable, and a form field filled with that fallback saves it back as the name. The domain splits one form across more commands than the form has sections, and a save that names one it has no changed fields for is refused rather than ignored. A control that mutates a draft — the sample detail's old <code>onPatch</code> — is hiding several commands behind one callback, and adult's collection page has the same shape. And a recording made from a stop is a <em>multi-row</em> command: <code>SingleRowCommandType</code> refuses it at compile time, it goes through <code>commandTransaction</code>, and because that sends the body it is handed rather than diffing one, the body-builder is where a missing stop id goes quiet — so it is exported and tested directly.</p>
+				<p>Larval and adult are done. Larval took the four performed control actions with it, because <code>inspections/$id.tsx</code> was the last thing reading <code>applications</code>, <code>source_reductions</code>, <code>outreach_actions</code> and <code>biocontrol_actions</code> through the old seam; adult took <code>traps</code>, <code>collections</code> and <code>collection_species</code>. What remains is public engagement — <code>contacts</code> and <code>service_requests</code>, across seven files. It is the same four steps: the joined hooks in <code>hooks/queries</code>, the write hooks in <code>hooks/mutations</code>, the routes repointed, and the table dropped from <code>createWebCollections</code> — then the domain's <code>*Mutations.ts</code> goes when its last table leaves.</p>
+				<p>Four things larval turned up and adult confirmed, in the order they appear. A record's edit form wants the <em>raw</em> column, not the display projection — every one of these coalesces a null name into something readable, and a form field filled with that fallback saves it back as the name. The domain splits one form across more commands than the form has sections, and a save that names one it has no changed fields for is refused rather than ignored — so a form's <code>current</code> has to be built by the <em>same</em> round trip that builds its next values, or an untouched field compares unequal to itself. A control that mutates a draft is hiding several commands behind one callback: the sample detail's <code>onPatch</code> was four, and the collection page's three result switches were three. And a recording made from a stop is a <em>multi-row</em> command — <code>SingleRowCommandType</code> refuses it at compile time, it goes through <code>commandTransaction</code>, and because that sends the body it is handed rather than diffing one, the body-builder is where a missing stop id goes quiet behind a 201. All three of those builders are exported and tested directly.</p>
+				<p>Adult added a fifth, which public engagement should be read for: a stored <code>timestamptz</code> arrives as a <code>Date</code>, and every place that turns one into a calendar day needs the <em>agency's</em> zone. Two surfaces were taking the UTC prefix instead, so a trap emptied at 10:30pm read as the next day in its own edit form while its detail page read the day the crew worked. Neither errored; they simply disagreed.</p>
 			</div>
 		</li>
 		<li>
