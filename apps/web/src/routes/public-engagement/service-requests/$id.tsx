@@ -1,5 +1,4 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
-import type { ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -17,7 +16,6 @@ import {
 	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import {
@@ -37,10 +35,16 @@ import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
+import type { Contact } from '../../../hooks/queries/contact-view';
 import { useAddressRecord } from '../../../hooks/queries/use-address-record';
+import { useContact } from '../../../hooks/queries/use-contact-record';
 import { useLookupNames } from '../../../hooks/queries/use-lookup-names';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { webCollections } from '../../../sync/webCollections';
+import {
+	type ServiceRequestRecord,
+	useServiceRequestRecord,
+} from '../../../hooks/queries/use-service-request-record';
 import { HabitatMapCard } from '../../-habitat-map-card';
 import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
 import { TrapMapCard } from '../../adult-surveillance/-trap-map-card';
@@ -57,7 +61,6 @@ import {
 	serviceRequestTitle,
 } from '../-public-engagement-display';
 import { RequestStatusBadge } from '../-public-engagement-ui';
-import { settleWrite } from '../-public-engagement-writes';
 import {
 	buildNearbyMapData,
 	countNearbyByFamily,
@@ -81,29 +84,13 @@ export const Route = createFileRoute('/public-engagement/service-requests/$id')(
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-const detailGcTimeMs = 30_000;
 const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance', 'control'];
 
 function ServiceRequestDetailRoute() {
 	const { id } = Route.useParams();
-	const { auth } = Route.useRouteContext();
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
+	const { request, isReady } = useServiceRequestRecord(id);
 
-	const result = useLiveQuery(
-		{
-			gcTime: detailGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.serviceRequests })
-					.where(({ request }) => eq(request.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const request = result.data as ServiceRequestRow | undefined;
-
-	if (!result.isReady) {
+	if (!isReady) {
 		return <ServiceRequestStatePage>{<ServiceRequestDetailSkeleton />}</ServiceRequestStatePage>;
 	}
 	if (request === undefined) {
@@ -119,7 +106,7 @@ function ServiceRequestDetailRoute() {
 			</ServiceRequestStatePage>
 		);
 	}
-	return <ServiceRequestDetailContent actorProfileId={actorProfileId} request={request} />;
+	return <ServiceRequestDetailContent request={request} />;
 }
 
 /** Full-height, back-linked frame for the loading / unavailable states. */
@@ -146,13 +133,7 @@ function BackLink() {
 	);
 }
 
-function ServiceRequestDetailContent({
-	request,
-	actorProfileId,
-}: {
-	readonly request: ServiceRequestRow;
-	readonly actorProfileId: string | null;
-}) {
+function ServiceRequestDetailContent({ request }: { readonly request: ServiceRequestRecord }) {
 	const title = serviceRequestTitle(request);
 	useBreadcrumbLabel(request.id, title);
 	const open = isServiceRequestOpen(request);
@@ -164,6 +145,7 @@ function ServiceRequestDetailContent({
 	);
 	const [selectedNearbyId, setSelectedNearbyId] = useState<string | null>(null);
 
+	const mutations = useServiceRequestMutations();
 	const profiles = useProfileRoster();
 	const receivedByName =
 		profiles.find((profile) => profile.id === request.receivedByProfileId)?.displayName ?? null;
@@ -219,7 +201,7 @@ function ServiceRequestDetailContent({
 								</Link>
 							</Button>
 						</WriteOnly>
-						<CloseReopenButton actorProfileId={actorProfileId} open={open} requestId={request.id} />
+						<CloseReopenButton open={open} requestId={request.id} />
 					</div>
 				</div>
 
@@ -244,7 +226,7 @@ function ServiceRequestDetailContent({
 						<DangerZoneCard
 							name={title}
 							noun="service request"
-							onDelete={() => webCollections.serviceRequests.delete(request.id)}
+							onDelete={() => mutations.remove(request.id)}
 							recordId={request.id}
 							recordType="serviceRequest"
 							returnTo="/public-engagement/service-requests"
@@ -260,7 +242,7 @@ function RequestDetailsCard({
 	request,
 	receivedByName,
 }: {
-	readonly request: ServiceRequestRow;
+	readonly request: ServiceRequestRecord;
 	readonly receivedByName: string | null;
 }) {
 	return (
@@ -291,7 +273,7 @@ function ContextMap({
 	selectedId,
 	onSelect,
 }: {
-	readonly request: ServiceRequestRow;
+	readonly request: ServiceRequestRecord;
 	readonly response: NearbyResponse | undefined;
 	readonly visibleFamilies: ReadonlySet<NearbyFamily>;
 	readonly selectedId: string | null;
@@ -300,17 +282,22 @@ function ContextMap({
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
 	const mapData = useMemo(
-		() => buildNearbyMapData({ lat: request.lat, lng: request.lng }, response, visibleFamilies),
-		[request.lat, request.lng, response, visibleFamilies],
+		() =>
+			buildNearbyMapData(
+				{ lat: request.latitude, lng: request.longitude },
+				response,
+				visibleFamilies,
+			),
+		[request.latitude, request.longitude, response, visibleFamilies],
 	);
 
 	const handleReady = useCallback(
 		(instance: MapboxMap) => {
 			setMap(instance);
-			instance.setCenter([request.lng, request.lat]);
+			instance.setCenter([request.longitude, request.latitude]);
 			instance.setZoom(15);
 		},
-		[request.lng, request.lat],
+		[request.longitude, request.latitude],
 	);
 
 	// Frame the whole proximity ring once the radius is known (and if it changes).
@@ -319,7 +306,7 @@ function ContextMap({
 		if (map === null || radiusMeters === null) {
 			return;
 		}
-		const ring = circlePolygon({ lng: request.lng, lat: request.lat }, radiusMeters);
+		const ring = circlePolygon({ lng: request.longitude, lat: request.latitude }, radiusMeters);
 		const bounds = boundsFromGeoJson(ring);
 		if (bounds !== null) {
 			map.fitBounds(
@@ -330,7 +317,7 @@ function ContextMap({
 				{ padding: 56, duration: 400, maxZoom: 17 },
 			);
 		}
-	}, [map, radiusMeters, request.lng, request.lat]);
+	}, [map, radiusMeters, request.longitude, request.latitude]);
 
 	// Fly to the selected nearby record.
 	const selectedItem = response?.items.find((item) => item.id === selectedId) ?? null;
@@ -726,20 +713,9 @@ function PartyPlaceholder({ isReady }: { readonly isReady: boolean }) {
 }
 
 function ContactParty({ contactId }: { readonly contactId: string }) {
-	const contactResult = useLiveQuery(
-		{
-			gcTime: detailGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => eq(contact.id, contactId))
-					.findOne(),
-		},
-		[contactId],
-	);
-	const contact = contactResult.data as ContactRow | undefined;
+	const { contact, isReady } = useContact(contactId);
 	if (contact === undefined) {
-		return <PartyPlaceholder isReady={contactResult.isReady} />;
+		return <PartyPlaceholder isReady={isReady} />;
 	}
 
 	// The display name already heads the section, so rows that would only repeat
@@ -844,7 +820,7 @@ function mailtoHref(email: string | null): string | undefined {
 	return trimmed.length === 0 ? undefined : `mailto:${trimmed}`;
 }
 
-function contactPreferences(contact: ContactRow): string | null {
+function contactPreferences(contact: Contact): string | null {
 	const channels = [
 		contact.wantsEmail ? 'Email' : null,
 		contact.wantsSms ? 'SMS' : null,
@@ -873,8 +849,7 @@ interface LifecycleCopy {
 	readonly title: string;
 	readonly description: string;
 	readonly placeholder: string;
-	/** Metadata key the command reads the comment text from, and its stand-in. */
-	readonly reasonKey: 'resolutionSummary' | 'reopenReason';
+	/** What the comment says when nobody explained it. */
 	readonly unexplained: string;
 }
 
@@ -883,7 +858,6 @@ const CLOSE_COPY: LifecycleCopy = {
 	title: 'Close this request',
 	description: 'What was found, and what was done about it. This goes on the request as a comment.',
 	placeholder: 'No standing water found on site.',
-	reasonKey: 'resolutionSummary',
 	unexplained: 'Closed',
 };
 
@@ -892,7 +866,6 @@ const REOPEN_COPY: LifecycleCopy = {
 	title: 'Reopen this request',
 	description: 'Why this request is being picked back up. This goes on the request as a comment.',
 	placeholder: 'Caller reported it again.',
-	reasonKey: 'reopenReason',
 	unexplained: 'Reopened',
 };
 
@@ -901,8 +874,8 @@ const REOPEN_COPY: LifecycleCopy = {
  *
  * Both write a comment on the request in the same transaction, so the dialog is
  * not a confirmation step bolted on — it is where the comment's text comes from.
- * The reason travels as mutation metadata rather than on the draft: it is not a
- * column on the row, and the optimistic row must not pretend it is.
+ * The reason is an argument to the command rather than a change to the row: it
+ * is not a column here, and the optimistic row must not pretend it is.
  *
  * Neither is required. The command insists on non-empty text, so an empty box
  * falls back to the plain fact — the same bargain the mission cancel dialog
@@ -912,15 +885,14 @@ const REOPEN_COPY: LifecycleCopy = {
 function CloseReopenButton({
 	requestId,
 	open,
-	actorProfileId,
 }: {
 	readonly requestId: string;
 	readonly open: boolean;
-	readonly actorProfileId: string | null;
 }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
+	const mutations = useServiceRequestMutations();
 	const copy = open ? CLOSE_COPY : REOPEN_COPY;
 
 	const confirm = useCallback(
@@ -929,30 +901,16 @@ function CloseReopenButton({
 			setBusy(true);
 			setError(null);
 			const trimmed = reason.trim();
-			const closure = open
-				? { closedAt: new Date().toISOString(), closedByProfileId: actorProfileId }
-				: { closedAt: null, closedByProfileId: null };
+			const text = trimmed.length === 0 ? copy.unexplained : trimmed;
 			try {
-				await settleWrite(
-					webCollections.serviceRequests.update(
-						requestId,
-						{ metadata: { [copy.reasonKey]: trimmed.length === 0 ? copy.unexplained : trimmed } },
-						(draft) => {
-							const writable = draft as {
-								-readonly [K in keyof ServiceRequestRow]: ServiceRequestRow[K];
-							};
-							writable.closedAt = closure.closedAt;
-							writable.closedByProfileId = closure.closedByProfileId;
-						},
-					),
-				);
+				await (open ? mutations.close(requestId, text) : mutations.reopen(requestId, text));
 			} catch (thrown) {
 				setError(thrown instanceof Error ? thrown.message : 'Unable to update the request.');
 			} finally {
 				setBusy(false);
 			}
 		},
-		[requestId, open, actorProfileId, copy],
+		[copy, mutations, open, requestId],
 	);
 
 	return (

@@ -29,6 +29,7 @@ import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { ServiceRequestFields } from '../../../hooks/mutations/use-service-request-mutations';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import {
@@ -40,6 +41,24 @@ import {
 import { ContactFieldsBlock } from '../-contact-fields-block';
 
 export type ContactMode = 'existing' | 'new';
+
+/**
+ * The form's values, as the write seam takes them.
+ *
+ * The boundary between what a form holds — strings, because that is what an
+ * input produces — and what a command takes. An unset "received by" is the empty
+ * string in a select and `null` in the column, and this is where that stops
+ * being the route's problem to remember.
+ */
+export function serviceRequestFieldsFrom(values: ServiceRequestFormValues): ServiceRequestFields {
+	return {
+		intakeType: values.intakeType,
+		requestDate: values.requestDate,
+		details: values.details.trim(),
+		receivedByProfileId:
+			values.receivedByProfileId.length === 0 ? null : values.receivedByProfileId,
+	};
+}
 
 const INTAKE_TYPE_OPTIONS = REQUEST_INTAKE_TYPES.map((value: RequestIntakeType) => ({
 	value,

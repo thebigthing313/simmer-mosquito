@@ -1,19 +1,23 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
+import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
+import { useContact } from '../../../hooks/queries/use-contact-record';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useServiceRequestRecord } from '../../../hooks/queries/use-service-request-record';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { contactFieldsFromValues } from '../-contact-fields';
-import { settleWrite } from '../-public-engagement-writes';
 import {
 	defaultServiceRequestFormValues,
 	ServiceRequestFormPage,
 	type ServiceRequestSaveInput,
+	serviceRequestFieldsFrom,
 } from './-service-request-form';
 
 export const Route = createFileRoute('/public-engagement/service-requests/create')({
@@ -29,8 +33,6 @@ export const Route = createFileRoute('/public-engagement/service-requests/create
 	component: CreateServiceRequestRoute,
 });
 
-const warmGcTimeMs = 30_000;
-
 function CreateServiceRequestRoute() {
 	const { auth } = Route.useRouteContext();
 	const initialGeometry = pointFromSearch(Route.useSearch());
@@ -38,85 +40,41 @@ function CreateServiceRequestRoute() {
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const organizationId = organization?.id ?? '';
 	const profiles = useProfileRoster();
+	const contactWrites = useContactMutations();
+	const requestWrites = useServiceRequestMutations();
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
 
-	const today = useMemo(() => localToday(), []);
+	// The day the public reported it is an operational date, so it is the agency's
+	// day rather than the browser's — an intake taker keying in a call at 11pm
+	// files it under the day the agency is still working.
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 
-	// contacts and service_requests sync on demand; keep both streams warm so the
-	// chained inserts' txid confirmations resolve instead of timing out cold.
-	//
-	// Neither row is ever read, so there is no order worth imposing — but a limit
-	// without one is a compile error in TanStack DB, and an unordered `limit` is
-	// what crashed this page to "Unable to load workspace data". `id` is the
-	// ordering that costs nothing: it is the primary key, so it is already
-	// indexed, and an ordered limit on an unindexed column would load the whole
-	// collection to serve one row.
-	useLiveQuery(
-		{
-			gcTime: warmGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => eq(contact.organizationId, organizationId))
-					.orderBy(({ contact }) => contact.id)
-					.limit(1),
-		},
-		[organizationId],
-	);
-	useLiveQuery(
-		{
-			gcTime: warmGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.serviceRequests })
-					.where(({ request }) => eq(request.organizationId, organizationId))
-					.orderBy(({ request }) => request.id)
-					.limit(1),
-		},
-		[organizationId],
-	);
+	// Both ids are minted up front and both rows are queried before either exists:
+	// `contacts` and `service_requests` are on-demand, and a write into a
+	// collection nothing is querying waits out a txid confirmation that never
+	// arrives — which reads as a frozen save rather than a slow one.
+	const [requestId] = useState(() => newRecordId());
+	const [contactId] = useState(() => newRecordId());
+	useServiceRequestRecord(requestId);
+	useContact(contactId);
 
 	const onSave = useCallback(
 		async ({ values, geometry }: ServiceRequestSaveInput) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			if (geometry === null) {
+			if (geometry === null || geometry.type !== 'Point') {
 				throw new Error('Place the request location on the map.');
 			}
-			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine the request location.');
-			}
 
-			const now = new Date().toISOString();
-			const audit = {
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			} as const;
-
-			// 1. New contact (if any) — insert first so the request references a real id.
-			let contactId = values.contactId;
+			// 1. The new contact, if this is one — written first, so the request that
+			//    names it references a row that exists.
+			let requestContactId = values.contactId;
 			if (values.contactMode === 'new') {
-				const contactRow: ContactRow = {
-					id: crypto.randomUUID(),
-					organizationId: organization.id,
-					...contactFieldsFromValues(values.newContact),
-					metadata: null,
-					...audit,
-				};
-				await settleWrite(webCollections.contacts.insert(contactRow));
-				contactId = contactRow.id;
+				await contactWrites.create(contactId, contactFieldsFromValues(values.newContact));
+				requestContactId = contactId;
 			}
-			if (contactId === null) {
+			if (requestContactId === null) {
 				throw new Error('Select or create a contact for this request.');
 			}
 
@@ -127,39 +85,24 @@ function CreateServiceRequestRoute() {
 				throw new Error('Select or create an address for this request.');
 			}
 
-			// 3. The service request itself, carrying its own point via `metadata.geometry`.
-			const requestRow: ServiceRequestRow = {
-				id: crypto.randomUUID(),
-				organizationId: organization.id,
-				lat: centroid.lat,
-				lng: centroid.lng,
-				geomType: centroid.geomType,
-				displayName: null,
-				intakeType: values.intakeType,
-				requestDate: values.requestDate,
+			await requestWrites.record({
+				requestId,
+				fields: serviceRequestFieldsFrom(values),
+				contactId: requestContactId,
 				addressId,
-				contactId,
-				receivedByProfileId: values.receivedByProfileId,
-				details: values.details.trim(),
-				closedAt: null,
-				closedByProfileId: null,
-				metadata: null,
-				...audit,
-			};
-			await settleWrite(
-				webCollections.serviceRequests.insert(requestRow, { metadata: { geometry } }),
-			);
+				geometry: geometry as GeoJsonPoint,
+			});
 			await navigate({
 				to: '/public-engagement/service-requests/$id',
-				params: { id: requestRow.id },
+				params: { id: requestId },
 			});
 		},
-		[organization, actorProfileId, navigate],
+		[contactId, contactWrites, navigate, requestId, requestWrites],
 	);
 
 	return (
 		<ServiceRequestFormPage
-			canSubmit={canSubmit}
+			canSubmit={contactWrites.canWrite && requestWrites.canWrite}
 			defaultValues={defaultServiceRequestFormValues(today, actorProfileId ?? '')}
 			header={{
 				title: 'New Service Request',
@@ -175,12 +118,4 @@ function CreateServiceRequestRoute() {
 			submitLabel="Create Request"
 		/>
 	);
-}
-
-function localToday(): string {
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = `${now.getMonth() + 1}`.padStart(2, '0');
-	const day = `${now.getDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
 }

@@ -4,7 +4,6 @@ import {
 	type AssignmentItemRow,
 	type AssignmentRow,
 	type CommentRow,
-	type ContactRow,
 	electricShapeCollectionOptions,
 	type GenusRow,
 	type MembershipRow,
@@ -18,7 +17,6 @@ import {
 	type RegionRow,
 	type RouteItemRow,
 	type RouteRow,
-	type ServiceRequestRow,
 	type SpeciesRow,
 	shapePathFor,
 	type TagItemRow,
@@ -47,11 +45,9 @@ import {
 import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createProfileMutationHandlers } from './profileMutations';
 import {
-	createContactMutationHandlers,
 	createMissionNotificationMutationHandlers,
 	createNotificationRegistrationMutationHandlers,
 	createNotificationRegistrationTypeMutationHandlers,
-	createServiceRequestMutationHandlers,
 } from './publicEngagementMutations';
 import { webSyncModes } from './sync-modes';
 import { createTagMutationHandlers } from './tagMutations';
@@ -62,7 +58,6 @@ export interface WebCollections {
 	readonly assignmentItems: Collection<AssignmentItemRow, string | number>;
 	readonly assignments: Collection<AssignmentRow, string | number>;
 	readonly comments: Collection<CommentRow, string | number>;
-	readonly contacts: Collection<ContactRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
 	readonly memberships: Collection<MembershipRow, string | number>;
 	readonly missionNotifications: Collection<MissionNotificationRow, string | number>;
@@ -78,7 +73,6 @@ export interface WebCollections {
 	readonly regions: Collection<RegionRow, string | number>;
 	readonly routeItems: Collection<RouteItemRow, string | number>;
 	readonly routes: Collection<RouteRow, string | number>;
-	readonly serviceRequests: Collection<ServiceRequestRow, string | number>;
 	readonly species: Collection<SpeciesRow, string | number>;
 	readonly tagItems: Collection<TagItemRow, string | number>;
 	readonly tags: Collection<TagRow, string | number>;
@@ -287,24 +281,6 @@ export function createWebCollections(options: {
 			...createApplicationBatchMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
-	const contacts = createCollection(
-		electricShapeCollectionOptions<ContactRow>({
-			table: 'contacts',
-			syncMode: webSyncModes.contacts,
-			url: `${shapeServerUrl}${shapePathFor('contacts')}`,
-			...createContactMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
-	// The contact picker on the service-request and outreach forms.
-	contacts.createIndex((row) => row.contactName, { indexType: BasicIndex });
-	const serviceRequests = createCollection(
-		electricShapeCollectionOptions<ServiceRequestRow>({
-			table: 'service_requests',
-			syncMode: webSyncModes.service_requests,
-			url: `${shapeServerUrl}${shapePathFor('service_requests')}`,
-			...createServiceRequestMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
 	const notificationRegistrations = createCollection(
 		electricShapeCollectionOptions<NotificationRegistrationRow>({
 			table: 'notification_registrations',
@@ -346,7 +322,6 @@ export function createWebCollections(options: {
 		assignmentItems,
 		assignments,
 		comments,
-		contacts,
 		genera,
 		memberships,
 		missionNotifications,
@@ -359,7 +334,6 @@ export function createWebCollections(options: {
 		regions,
 		routeItems,
 		routes,
-		serviceRequests,
 		species,
 		tagItems,
 		tags,

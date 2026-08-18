@@ -114,11 +114,11 @@ describe('web sync baseline preload', () => {
 	it('attaches optimistic write handlers to public engagement collections', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		for (const key of ['contacts', 'serviceRequests', 'notificationRegistrations'] as const) {
-			expect(collections[key].config.onInsert).toBeTypeOf('function');
-			expect(collections[key].config.onUpdate).toBeTypeOf('function');
-			expect(collections[key].config.onDelete).toBeTypeOf('function');
-		}
+		// Contacts and service requests write through `hooks/mutations` now, so
+		// what is left here is the notification half.
+		expect(collections.notificationRegistrations.config.onInsert).toBeTypeOf('function');
+		expect(collections.notificationRegistrations.config.onUpdate).toBeTypeOf('function');
+		expect(collections.notificationRegistrations.config.onDelete).toBeTypeOf('function');
 		// Subscriptions are add/remove only; mission notifications are status-only.
 		expect(collections.notificationRegistrationTypes.config.onInsert).toBeTypeOf('function');
 		expect(collections.notificationRegistrationTypes.config.onUpdate).toBeUndefined();

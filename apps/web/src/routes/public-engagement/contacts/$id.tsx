@@ -1,4 +1,3 @@
-import type { ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -11,7 +10,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -19,7 +17,10 @@ import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
-import { webCollections } from '../../../sync/webCollections';
+import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
+import type { Contact } from '../../../hooks/queries/contact-view';
+import { useContact } from '../../../hooks/queries/use-contact-record';
+import { useContactServiceRequests } from '../../../hooks/queries/use-contact-service-requests';
 import {
 	contactDisplayName,
 	formatRequestDate,
@@ -34,23 +35,10 @@ export const Route = createFileRoute('/public-engagement/contacts/$id')({
 
 const ContactIcon = iconRegistry.entities.organization.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-const detailGcTimeMs = 30_000;
 
 function ContactDetailRoute() {
 	const { id } = Route.useParams();
-
-	const result = useLiveQuery(
-		{
-			gcTime: detailGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => eq(contact.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const contact = result.data as ContactRow | undefined;
+	const { contact, isReady } = useContact(id);
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -59,7 +47,7 @@ function ContactDetailRoute() {
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to Contacts
 				</Link>
-				{!result.isReady ? (
+				{!isReady ? (
 					<ContactDetailSkeleton />
 				) : contact === undefined ? (
 					<RecordUnavailable noun="contact" reason="not-found" />
@@ -71,9 +59,10 @@ function ContactDetailRoute() {
 	);
 }
 
-function ContactDetailContent({ contact }: { readonly contact: ContactRow }) {
+function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 	const name = contactDisplayName(contact);
 	useBreadcrumbLabel(contact.id, name);
+	const mutations = useContactMutations();
 
 	return (
 		<>
@@ -141,7 +130,7 @@ function ContactDetailContent({ contact }: { readonly contact: ContactRow }) {
 					<DangerZoneCard
 						name={name}
 						noun="contact"
-						onDelete={() => webCollections.contacts.delete(contact.id)}
+						onDelete={() => mutations.remove(contact.id)}
 						recordId={contact.id}
 						recordType="contact"
 						returnTo="/public-engagement/contacts"
@@ -160,19 +149,7 @@ function ContactDetailContent({ contact }: { readonly contact: ContactRow }) {
 }
 
 function ContactServiceRequestsCard({ contactId }: { readonly contactId: string }) {
-	// service_requests is on-demand; this correlated subset also warms the stream.
-	const result = useLiveQuery(
-		{
-			gcTime: detailGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.serviceRequests })
-					.where(({ request }) => eq(request.contactId, contactId))
-					.orderBy(({ request }) => request.requestDate, 'desc'),
-		},
-		[contactId],
-	);
-	const requests = (result.data ?? []) as readonly ServiceRequestRow[];
+	const { requests, isReady, isError } = useContactServiceRequests(contactId);
 
 	return (
 		<Card variant="surface">
@@ -180,9 +157,9 @@ function ContactServiceRequestsCard({ contactId }: { readonly contactId: string 
 				<CardTitle>Service Requests</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">
-				{result.isError ? (
+				{isError ? (
 					<CardMessage>Service requests could not be loaded.</CardMessage>
-				) : !result.isReady ? (
+				) : !isReady ? (
 					<div className="grid gap-2">
 						{[0, 1].map((index) => (
 							<Skeleton className="h-12 w-full" key={index} />
