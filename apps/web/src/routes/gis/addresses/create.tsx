@@ -1,13 +1,11 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { AddressRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { seedAddressGeometryCache } from './-address-data';
 import {
 	AddressFormPage,
@@ -39,6 +37,7 @@ function CreateAddressRoute() {
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = organization !== null && actorProfileId !== null;
+	const mutations = useAddressMutations();
 
 	const onSave = useCallback(
 		async ({
@@ -57,34 +56,23 @@ function CreateAddressRoute() {
 				throw new Error('Place the address point before saving.');
 			}
 
-			const now = new Date().toISOString();
-			const row: AddressRow = {
-				id: crypto.randomUUID(),
-				organizationId: organization.id,
-				lat: geometry.coordinates[1],
-				lng: geometry.coordinates[0],
-				geojson: geometry,
-				geomType: geometry.type,
-				displayName: values.displayName.trim(),
-				country: values.country.trim().toUpperCase(),
-				addressLine1: nullableText(values.addressLine1),
-				addressLine2: nullableText(values.addressLine2),
-				locality: nullableText(values.locality),
-				region: nullableText(values.region),
-				postalCode: nullableText(values.postalCode),
-				geocoderResponse,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-
-			const transaction = webCollections.addresses.insert(row);
-			await settleWrite(transaction);
-			seedAddressGeometryCache(queryClient, row.id, geometry as unknown as GeoJsonGeometry);
-			await navigate({ to: '/gis/addresses/$id', params: { id: row.id } });
+			const addressId = await mutations.create(
+				{
+					displayName: values.displayName.trim(),
+					addressLine1: nullableText(values.addressLine1),
+					addressLine2: nullableText(values.addressLine2),
+					locality: nullableText(values.locality),
+					region: nullableText(values.region),
+					postalCode: nullableText(values.postalCode),
+					geocoderResponse,
+				},
+				values.country.trim().toUpperCase(),
+				geometry,
+			);
+			seedAddressGeometryCache(queryClient, addressId, geometry as unknown as GeoJsonGeometry);
+			await navigate({ to: '/gis/addresses/$id', params: { id: addressId } });
 		},
-		[organization, actorProfileId, navigate, queryClient],
+		[mutations, navigate, queryClient],
 	);
 
 	return (

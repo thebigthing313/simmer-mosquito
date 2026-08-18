@@ -37,6 +37,7 @@ import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { useLookupNames } from '../../../hooks/queries/use-lookup-names';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { webCollections } from '../../../sync/webCollections';
@@ -773,18 +774,8 @@ function ContactParty({ contactId }: { readonly contactId: string }) {
 }
 
 function AddressParty({ addressId }: { readonly addressId: string }) {
-	const addressResult = useLiveQuery(
-		{
-			gcTime: detailGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, addressId))
-					.findOne(),
-		},
-		[addressId],
-	);
-	const address = addressResult.data as AddressRow | undefined;
+	const addressResult = useAddressRecord(addressId);
+	const address = addressResult.address;
 	if (address === undefined) {
 		return <PartyPlaceholder isReady={addressResult.isReady} />;
 	}
@@ -808,7 +799,7 @@ function AddressParty({ addressId }: { readonly addressId: string }) {
 				</p>
 			))}
 			<dl className="grid gap-1.5">
-				<PartyRow label="Coords" value={formatCoords(address.lat, address.lng)} />
+				<PartyRow label="Coords" value={formatCoords(address.latitude, address.longitude)} />
 			</dl>
 		</>
 	);

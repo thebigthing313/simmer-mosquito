@@ -52,7 +52,6 @@ import {
 	type WebSyncMode,
 } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection, createCollection } from '@tanstack/react-db';
-import { createAddressMutationHandlers } from './addressMutations';
 import {
 	createCollectionMutationHandlers,
 	createCollectionSpeciesMutationHandlers,
@@ -99,7 +98,6 @@ import { createTagMutationHandlers } from './tagMutations';
 
 export interface WebCollections {
 	readonly additionalPersonnel: Collection<AdditionalPersonnelRow, string | number>;
-	readonly addresses: Collection<AddressRow, string | number>;
 	readonly applicationBatches: Collection<ApplicationBatchRow, string | number>;
 	readonly applications: Collection<ApplicationRow, string | number>;
 	readonly assignmentItems: Collection<AssignmentItemRow, string | number>;
@@ -249,18 +247,6 @@ export function createWebCollections(options: {
 			}),
 		}),
 	);
-	const addresses = createCollection(
-		electricShapeCollectionOptions<AddressRow>({
-			table: 'addresses',
-			syncMode: webSyncModes.addresses,
-			url: `${shapeServerUrl}${shapePathFor('addresses')}`,
-			...createAddressMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	// The address picker on every location-bearing form.
-	addresses.createIndex((row) => row.displayName, { indexType: BasicIndex });
 	const tags = createCollection(
 		electricShapeCollectionOptions<TagRow>({
 			table: 'tags',
@@ -512,7 +498,6 @@ export function createWebCollections(options: {
 
 	return {
 		additionalPersonnel,
-		addresses,
 		applicationBatches,
 		applications,
 		assignmentItems,

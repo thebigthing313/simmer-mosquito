@@ -11,7 +11,7 @@ describe('address coordinates', () => {
 		const { lat: _lat, lng: _lng, ...withoutCentroid } = addressRow();
 
 		expect(addressCoordOf(null)).toBeNull();
-		expect(addressCoordOf(withoutCentroid)).toBeNull();
+		expect(addressCoordOf({ ...withoutCentroid, lat: null, lng: null })).toBeNull();
 	});
 
 	it('builds a GeoJSON point in lng/lat order', () => {

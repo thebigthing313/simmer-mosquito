@@ -25,6 +25,7 @@ import {
 	type MapDrawController,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
+import type { AddressOption } from '../../../components/pickers/address-picker';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
@@ -215,7 +216,7 @@ export function ServiceRequestFormPage({
 		onPlacePoint: placeAddressPoint,
 	});
 	const handleAddressSelected = useCallback(
-		(address: AddressRow | null) => {
+		(address: AddressOption | null) => {
 			setLocationError(null);
 			selectAddress(address);
 		},
@@ -455,7 +456,7 @@ function LocationSection({
 	readonly locationError: string | null;
 	readonly requireLocation: boolean;
 	readonly requestMapPoint: RequestMapPoint;
-	readonly onAddressSelected: (address: AddressRow | null) => void;
+	readonly onAddressSelected: (address: AddressOption | null) => void;
 	readonly onDrawPoint: () => void;
 	readonly onMoveToAddress: () => void;
 	readonly onClearPoint: () => void;
@@ -474,7 +475,7 @@ function LocationSection({
 				{(field: any) => (
 					<AddressPicker
 						create={{ requestMapPoint }}
-						onSelect={(address: AddressRow | null) => {
+						onSelect={(address: AddressOption | null) => {
 							field.handleChange(address?.id ?? null);
 							onAddressSelected(address);
 						}}

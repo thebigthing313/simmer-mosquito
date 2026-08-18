@@ -1,4 +1,4 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
+import type { Address, AddressRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
@@ -6,7 +6,7 @@ import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useRef, useState } from 'react';
 import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
 import { addressPrimaryLabel, addressSecondaryLabel } from '../../lib/address-format';
-import { webCollections } from '../../sync/webCollections';
+import { addresses } from '../../lib/collections/addresses';
 import { OptionRow, PickerFallback, PickerFrame, useSelectedRowLabel } from './entity-picker';
 import { NewAddressForm, type RequestMapPoint } from './new-address-form';
 
@@ -44,7 +44,7 @@ export function AddressPicker({
 	readonly label?: string;
 	readonly organizationId: string;
 	readonly value: string | null;
-	readonly onSelect: (address: AddressRow | null) => void;
+	readonly onSelect: (address: AddressOption | null) => void;
 	readonly create?: AddressPickerCreateOptions | undefined;
 }) {
 	const [open, setOpen] = useState(false);
@@ -58,13 +58,13 @@ export function AddressPicker({
 	// An edit form arrives holding only the address id, so the current selection is
 	// resolved from the collection rather than left as an empty-looking field.
 	const selectedLabel = useSelectedRowLabel({
-		collection: webCollections.addresses,
+		collection: addresses,
 		pickedLabel,
-		toLabel: addressPrimaryLabel,
+		toLabel: (row) => addressPrimaryLabel(addressLabelParts(row)),
 		value,
 	});
 
-	const pick = (address: AddressRow) => {
+	const pick = (address: AddressOption) => {
 		const name = addressPrimaryLabel(address);
 		setPickedLabel(name);
 		setSearch(name);
@@ -145,7 +145,7 @@ function AddressResults({
 	readonly organizationId: string;
 	readonly search: string;
 	readonly selectedValue: string | null;
-	readonly onSelect: (address: AddressRow) => void;
+	readonly onSelect: (address: AddressOption) => void;
 }) {
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
@@ -153,24 +153,35 @@ function AddressResults({
 		{
 			gcTime: searchGcTimeMs,
 			query: (query) => {
-				const base = query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.organizationId, organizationId));
+				// No organization predicate: the shape is scoped to the agency
+				// server-side, so re-stating it here is redundant — and a stale column
+				// spelling in one is what empties a list rather than narrowing it.
+				const base = query.from({ address: addresses });
 				const filtered =
 					normalized.length === 0
 						? base
 						: base.where(({ address }) =>
-								and(
-									eq(address.organizationId, organizationId),
-									or(
-										ilike(address.displayName, pattern),
-										ilike(address.addressLine1, pattern),
-										ilike(address.locality, pattern),
-										ilike(address.postalCode, pattern),
-									),
+								or(
+									ilike(address.display_name, pattern),
+									ilike(address.address_line_1, pattern),
+									ilike(address.locality, pattern),
+									ilike(address.postal_code, pattern),
 								),
 							);
-				return filtered.orderBy(({ address }) => address.displayName, 'asc').limit(6);
+				return filtered
+					.orderBy(({ address }) => address.display_name, 'asc')
+					.limit(6)
+					.select(({ address }) => ({
+						id: address.id,
+						lat: address.lat,
+						lng: address.lng,
+						displayName: address.display_name,
+						addressLine1: address.address_line_1,
+						addressLine2: address.address_line_2,
+						locality: address.locality,
+						region: address.region,
+						postalCode: address.postal_code,
+					}));
 			},
 		},
 		[organizationId, pattern],
@@ -182,14 +193,14 @@ function AddressResults({
 	if (!isReady && (data ?? []).length === 0) {
 		return <PickerFallback label="Searching addresses" />;
 	}
-	const addresses = (data ?? []) as readonly AddressRow[];
-	if (addresses.length === 0) {
+	const matches = data ?? [];
+	if (matches.length === 0) {
 		return <PickerFallback label="No address matches" />;
 	}
 
 	return (
 		<div className="grid gap-1">
-			{addresses.map((address) => (
+			{matches.map((address) => (
 				<OptionRow
 					key={address.id}
 					onSelect={() => onSelect(address)}
@@ -200,4 +211,44 @@ function AddressResults({
 			))}
 		</div>
 	);
+}
+
+/**
+ * What the picker hands back.
+ *
+ * The label columns, plus the centroid — a form that picks an address drops its
+ * pin there, so the point has to come with the choice rather than be fetched
+ * again by the caller.
+ */
+export interface AddressOption {
+	readonly id: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly displayName: string | null;
+	readonly addressLine1: string | null;
+	readonly addressLine2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+}
+
+/**
+ * The selected row, as the shared label formatters take it.
+ *
+ * `useSelectedRowLabel` hands back the collection's own row, which is spelled the
+ * way Postgres spells it; the formatters in `lib/address-format.ts` are the read
+ * seam's vocabulary. This is the one place the two meet.
+ */
+function addressLabelParts(row: Address): AddressOption {
+	return {
+		id: row.id,
+		lat: row.lat,
+		lng: row.lng,
+		displayName: row.display_name,
+		addressLine1: row.address_line_1,
+		addressLine2: row.address_line_2,
+		locality: row.locality,
+		region: row.region,
+		postalCode: row.postal_code,
+	};
 }
