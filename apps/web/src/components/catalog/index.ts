@@ -29,12 +29,7 @@ export {
 	catalogFields,
 	catalogFormValues,
 } from './catalog-fields';
-export {
-	commitCatalogSave,
-	commitCatalogWrite,
-	toggleCatalogActive,
-	toggleCatalogLifecycle,
-} from './catalog-lifecycle';
+export { commitCatalogSave, toggleCatalogActive } from './catalog-lifecycle';
 export { CatalogLifecycleButton } from './catalog-lifecycle-button';
 export { CatalogFilteredList, CatalogGroupHeader, CatalogPage } from './catalog-page';
 export {

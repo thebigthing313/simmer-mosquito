@@ -65,10 +65,12 @@ import {
 	useApplicationMethodRoster,
 	useHabitatTypeRoster,
 } from '../hooks/queries/use-catalog-rosters';
+import { useInsecticideRecords } from '../hooks/queries/use-insecticide-records';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { useRecordRoutes } from '../hooks/queries/use-record-routes';
 import { useRecordTags } from '../hooks/queries/use-record-tags';
 import { useSpeciesNames } from '../hooks/queries/use-species-names';
+import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
@@ -918,16 +920,8 @@ function ProfileName({ profileId }: { readonly profileId: string }) {
 // insecticides, units, and application methods are eager baseline collections, so
 // suspense is safe — unlike the on-demand applications subset they decorate.
 function InsecticideName({ insecticideId }: { readonly insecticideId: string }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ insecticide: webCollections.insecticides })
-				.where(({ insecticide }) => eq(insecticide.id, insecticideId))
-				.findOne(),
-		[insecticideId],
-	);
-
-	return <>{result.data?.tradeName ?? 'Unknown insecticide'}</>;
+	const match = useInsecticideRecords().find((product) => product.id === insecticideId);
+	return <>{match?.tradeName ?? 'Unknown insecticide'}</>;
 }
 
 function ApplicationMethodName({
@@ -952,16 +946,7 @@ function ApplicationAmount({
 	readonly amount: number;
 	readonly unitId: string;
 }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ unit: webCollections.units })
-				.where(({ unit }) => eq(unit.id, unitId))
-				.findOne(),
-		[unitId],
-	);
-
-	const abbreviation = result.data?.abbreviation ?? '';
+	const abbreviation = useUnitLabels().byId.get(unitId)?.abbreviation ?? '';
 	return (
 		<>
 			{formatAmount(amount)}

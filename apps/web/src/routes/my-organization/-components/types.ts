@@ -35,22 +35,6 @@ export type MutableOrganizationRow = {
 	-readonly [Key in keyof OrganizationRow]: OrganizationRow[Key];
 };
 
-export type MutableVehicleRow = {
-	-readonly [Key in keyof VehicleRow]: VehicleRow[Key];
-};
-
-export type MutableEquipmentRow = {
-	-readonly [Key in keyof EquipmentRow]: EquipmentRow[Key];
-};
-
-export type MutableInsecticideRow = {
-	-readonly [Key in keyof InsecticideRow]: InsecticideRow[Key];
-};
-
-export type MutableInsecticideBatchRow = {
-	-readonly [Key in keyof InsecticideBatchRow]: InsecticideBatchRow[Key];
-};
-
 export type MutableProfileRow = {
 	-readonly [Key in keyof ProfileRow]: ProfileRow[Key];
 };
@@ -67,8 +51,6 @@ export type ControlMethodCollectionKey =
 	| 'biocontrolMethods'
 	| 'outreachMethods';
 export type ControlAssetCollectionKey = 'vehicles' | 'equipment';
-export type ControlAssetRow = VehicleRow | EquipmentRow;
-
 export interface PersistenceTransaction {
 	readonly isPersisted: {
 		readonly promise: Promise<unknown>;
@@ -104,32 +86,6 @@ export interface TagFormValues {
 
 export interface ProfileFormValues {
 	readonly displayName: string;
-	readonly isActive: boolean;
-}
-
-export interface ControlAssetFormValues {
-	readonly name: string;
-	readonly serialNumber: string;
-	readonly metadata: MetadataValue;
-	readonly isActive: boolean;
-}
-
-export interface InsecticideFormValues {
-	readonly tradeName: string;
-	readonly activeIngredient: string;
-	readonly type: InsecticideType;
-	readonly registrationNumber: string;
-	readonly defaultUnitId: string;
-	readonly labelUrl: string;
-	readonly msdsUrl: string;
-	readonly shorthand: string;
-	readonly metadata: MetadataValue;
-	readonly isActive: boolean;
-}
-
-export interface InsecticideBatchFormValues {
-	readonly insecticideId: string;
-	readonly batchName: string;
 	readonly isActive: boolean;
 }
 

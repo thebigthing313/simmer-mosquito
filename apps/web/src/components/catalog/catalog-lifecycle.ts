@@ -16,61 +16,18 @@ import type { PersistenceTransaction } from '../../routes/my-organization/-compo
  * `write` is the only part that differs, because only the page knows which
  * command carries the record.
  */
-export function commitCatalogWrite({
-	write,
-	onWritten,
-	failureMessage,
-}: {
-	readonly write: () => PersistenceTransaction;
-	/** Runs once the write is enqueued — closing the dialog it was made in. */
-	readonly onWritten?: (() => void) | undefined;
-	/** What to say if the write never persists. */
-	readonly failureMessage: string;
-}): void {
-	try {
-		const transaction = write();
-		onWritten?.();
-		watchPersistence(transaction, failureMessage);
-	} catch (saveError) {
-		toast.error(errorMessageForSave(saveError));
-	}
-}
-
 /**
- * Flip a catalog record's lifecycle in place — reversible, so no confirm step.
+ * Make a catalog write, dismiss the surface that made it, and watch it land.
  *
- * `activateVerb` is what the failure message calls the way back. Most catalogs
- * retire and restore the same record, so it reads "reactivate"; a formulation's
- * first activation is not a return to anything.
- */
-export function toggleCatalogLifecycle({
-	name,
-	isActive,
-	apply,
-	activateVerb = 'reactivate',
-}: {
-	readonly name: string;
-	readonly isActive: boolean;
-	readonly apply: (nextActive: boolean) => PersistenceTransaction;
-	readonly activateVerb?: 'activate' | 'reactivate';
-}): void {
-	const nextActive = !isActive;
-	commitCatalogWrite({
-		failureMessage: nextActive
-			? `Unable to ${activateVerb} ${name}.`
-			: `Unable to deactivate ${name}.`,
-		write: () => apply(nextActive),
-	});
-}
-
-/**
- * The same two steps for a catalog that writes through `hooks/mutations`.
+ * Every catalog wrote these three steps itself and always in the same order: a
+ * builder that throws on a bad value becomes a toast, a write the server later
+ * rejects becomes `failureMessage`, and the dialog or drawer closes in between —
+ * optimistically, because the row is already on screen by then.
  *
- * The pair above take a builder that returns a transaction synchronously, which
- * is what the old `*FromValues` helpers did. A write hook awaits its own write —
- * `settleWrite` is inside it — so what arrives here is a promise, and the failure
- * is a rejection rather than a throw at call time. The two pairs live side by side
- * only until the last catalog moves; delete the sync pair then.
+ * Every catalog write is a promise now: the write hook awaits its own write —
+ * `settleWrite` is inside it — so what arrives here is a rejection rather than a
+ * throw at call time. The synchronous pair these replaced took a builder that
+ * returned a transaction, which is what the old `*FromValues` helpers did.
  */
 export function commitCatalogSave({
 	save,
@@ -101,7 +58,13 @@ export function commitCatalogSave({
 	});
 }
 
-/** {@link toggleCatalogLifecycle}, for a catalog that writes through a hook. */
+/**
+ * Flip a catalog record's lifecycle in place — reversible, so no confirm step.
+ *
+ * `activateVerb` is what the failure message calls the way back. Most catalogs
+ * retire and restore the same record, so it reads "reactivate"; a formulation's
+ * first activation is not a return to anything.
+ */
 export function toggleCatalogActive({
 	name,
 	isActive,

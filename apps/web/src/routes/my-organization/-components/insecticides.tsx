@@ -1,9 +1,8 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
-import type { InsecticideRow, OrganizationRow } from '@simmer-mosquito/sync';
+import type { OrganizationRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import type { Collection } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
 import { ArrowRightIcon } from './constants';
 import { saveControlSettingsFromValues } from './helpers';
 import { EditSettingsSheet, LookupListFrame } from './layout/layout';
@@ -13,18 +12,14 @@ import { EditSettingsSheet, LookupListFrame } from './layout/layout';
  * applications that use them. This keeps their counts visible in settings and points at the one
  * place that edits them.
  */
-export function InsecticideLookupPointer({
-	insecticides,
-}: {
-	readonly insecticides: Collection<InsecticideRow, string | number>;
-}) {
-	const { rows } = useCollectionRows<InsecticideRow>(insecticides);
-	const activeCount = rows.filter((insecticide) => isActiveValue(insecticide.isActive)).length;
+export function InsecticideLookupPointer() {
+	const products = useInsecticideRecords();
+	const activeCount = products.filter((insecticide) => insecticide.isActive).length;
 
 	return (
 		<LookupListFrame
 			activeCount={activeCount}
-			inactiveCount={rows.length - activeCount}
+			inactiveCount={products.length - activeCount}
 			detail="Products used for chemical control, including active ingredient, registration, and default usage unit."
 			title="Insecticides"
 			action={
@@ -72,8 +67,4 @@ export function InsecticideBatchTrackingDrawer({
 			title="Edit Batch Tracking"
 		/>
 	);
-}
-
-function isActiveValue(value: boolean | string): boolean {
-	return value === true || value === 'true';
 }

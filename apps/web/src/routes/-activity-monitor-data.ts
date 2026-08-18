@@ -17,6 +17,7 @@ import {
 	useOutreachMethodRoster,
 	useSourceReductionMethodRoster,
 } from '../hooks/queries/use-catalog-rosters';
+import { useInsecticideRecords } from './../hooks/queries/use-insecticide-records';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { useCollectionRows } from '../hooks/use-collection-rows';
 import { webCollections } from '../sync/webCollections';
@@ -238,7 +239,7 @@ export function useActivityLookups(): {
 	const sourceReductionMethods = useSourceReductionMethodRoster();
 	const biocontrolMethods = useBiocontrolMethodRoster();
 	const outreachMethods = useOutreachMethodRoster();
-	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
+	const insecticides = useInsecticideRecords();
 	const { all: units } = useUnitLabels();
 
 	return useMemo(() => {

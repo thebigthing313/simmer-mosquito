@@ -45,8 +45,10 @@ import {
 	useOutreachMethodRoster,
 	useSourceReductionMethodRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
+import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
 import { useProfileNames } from '../../../hooks/queries/use-profile-names';
 import { useSpeciesNames } from '../../../hooks/queries/use-species-names';
+import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { requested_control_actions } from '../../../lib/collections/requested_control_actions';
 import { adhocLabel } from '../../../lib/coordinate-label';
@@ -909,15 +911,8 @@ function useLinkedControlActions(inspectionId: string): {
 // insecticides, control methods, units, and profiles are eager baseline
 // collections, so suspense is safe — unlike the on-demand action rows they label.
 function InsecticideName({ id }: { readonly id: string }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ insecticide: webCollections.insecticides })
-				.where(({ insecticide }) => eq(insecticide.id, id))
-				.findOne(),
-		[id],
-	);
-	return <>{result.data?.tradeName ?? 'Unknown insecticide'}</>;
+	const match = useInsecticideRecords().find((product) => product.id === id);
+	return <>{match?.tradeName ?? 'Unknown insecticide'}</>;
 }
 
 // Three components rather than one taking a collection: which catalog names a
@@ -939,15 +934,7 @@ function methodName(roster: readonly { readonly id: string; readonly name: strin
 }
 
 function UnitAmount({ amount, unitId }: { readonly amount: number; readonly unitId: string }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ unit: webCollections.units })
-				.where(({ unit }) => eq(unit.id, unitId))
-				.findOne(),
-		[unitId],
-	);
-	const abbreviation = result.data?.abbreviation ?? '';
+	const abbreviation = useUnitLabels().byId.get(unitId)?.abbreviation ?? '';
 	return (
 		<span className="tabular-nums">
 			{formatAmount(amount)}

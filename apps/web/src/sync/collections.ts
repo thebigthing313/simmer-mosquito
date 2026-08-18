@@ -62,15 +62,9 @@ import {
 	createApplicationBatchMutationHandlers,
 	createApplicationMutationHandlers,
 	createBiocontrolActionMutationHandlers,
-	createFormulationInsecticideMutationHandlers,
-	createFormulationMutationHandlers,
 	createOutreachActionMutationHandlers,
 	createSourceReductionMutationHandlers,
 } from './controlOperationsMutations';
-import {
-	createInsecticideBatchMutationHandlers,
-	createInsecticideMutationHandlers,
-} from './controlProductMutations';
 import {
 	createAdditionalPersonnelMutationHandlers,
 	createAssignmentItemMutationHandlers,
@@ -115,12 +109,8 @@ export interface WebCollections {
 	readonly collections: Collection<AdultCollectionRow, string | number>;
 	readonly comments: Collection<CommentRow, string | number>;
 	readonly contacts: Collection<ContactRow, string | number>;
-	readonly formulationInsecticides: Collection<FormulationInsecticideRow, string | number>;
-	readonly formulations: Collection<FormulationRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
 	readonly habitats: Collection<HabitatRow, string | number>;
-	readonly insecticideBatches: Collection<InsecticideBatchRow, string | number>;
-	readonly insecticides: Collection<InsecticideRow, string | number>;
 	readonly inspections: Collection<InspectionRow, string | number>;
 	readonly memberships: Collection<MembershipRow, string | number>;
 	readonly missionNotifications: Collection<MissionNotificationRow, string | number>;
@@ -158,13 +148,10 @@ export const webBaselineCollectionKeys = [
 	'species',
 	'organizationSpecies',
 	'currentOrganization',
-	'insecticides',
 	'tags',
 	'routes',
 	'regionFolders',
 	'traps',
-	'formulations',
-	'formulationInsecticides',
 	'weatherSources',
 ] as const satisfies readonly (keyof WebCollections)[];
 
@@ -274,26 +261,6 @@ export function createWebCollections(options: {
 	);
 	// The address picker on every location-bearing form.
 	addresses.createIndex((row) => row.displayName, { indexType: BasicIndex });
-	const insecticides = createCollection(
-		electricShapeCollectionOptions<InsecticideRow>({
-			table: 'insecticides',
-			syncMode: webSyncModes.insecticides,
-			url: `${shapeServerUrl}${shapePathFor('insecticides')}`,
-			...createInsecticideMutationHandlers<InsecticideRow>({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	const insecticideBatches = createCollection(
-		electricShapeCollectionOptions<InsecticideBatchRow>({
-			table: 'insecticide_batches',
-			syncMode: webSyncModes.insecticide_batches,
-			url: `${shapeServerUrl}${shapePathFor('insecticide_batches')}`,
-			...createInsecticideBatchMutationHandlers<InsecticideBatchRow>({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
 	const tags = createCollection(
 		electricShapeCollectionOptions<TagRow>({
 			table: 'tags',
@@ -450,22 +417,6 @@ export function createWebCollections(options: {
 			...createAssignmentItemMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
-	const formulations = createCollection(
-		electricShapeCollectionOptions<FormulationRow>({
-			table: 'formulations',
-			syncMode: webSyncModes.formulations,
-			url: `${shapeServerUrl}${shapePathFor('formulations')}`,
-			...createFormulationMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
-	const formulationInsecticides = createCollection(
-		electricShapeCollectionOptions<FormulationInsecticideRow>({
-			table: 'formulation_insecticides',
-			syncMode: webSyncModes.formulation_insecticides,
-			url: `${shapeServerUrl}${shapePathFor('formulation_insecticides')}`,
-			...createFormulationInsecticideMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
 	const applications = createCollection(
 		electricShapeCollectionOptions<ApplicationRow>({
 			table: 'applications',
@@ -571,12 +522,8 @@ export function createWebCollections(options: {
 		collections,
 		comments,
 		contacts,
-		formulationInsecticides,
-		formulations,
 		genera,
 		habitats,
-		insecticideBatches,
-		insecticides,
 		inspections,
 		memberships,
 		missionNotifications,

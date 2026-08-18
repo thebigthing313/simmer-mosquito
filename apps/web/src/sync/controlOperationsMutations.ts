@@ -154,28 +154,6 @@ function createRecordHandlers<TRow extends { readonly id: string }>(
 	return handlers;
 }
 
-export function createFormulationMutationHandlers(options: { readonly serverUrl: string }) {
-	return createRecordHandlers<FormulationRow>({
-		serverUrl: options.serverUrl,
-		path: '/control-operations/formulations',
-		noun: 'formulation',
-		insertKeys: ['formulationName', 'description', 'batchSize', 'batchUnitId'],
-		patchKeys: ['formulationName', 'description', 'batchSize', 'batchUnitId', 'isActive'],
-	});
-}
-
-export function createFormulationInsecticideMutationHandlers(options: {
-	readonly serverUrl: string;
-}) {
-	return createRecordHandlers<FormulationInsecticideRow>({
-		serverUrl: options.serverUrl,
-		path: '/control-operations/formulation-insecticides',
-		noun: 'formulation insecticide',
-		insertKeys: ['formulationId', 'insecticideId', 'amount', 'unitId'],
-		patchKeys: ['insecticideId', 'amount', 'unitId'],
-	});
-}
-
 export function createApplicationMutationHandlers(options: { readonly serverUrl: string }) {
 	return createRecordHandlers<ApplicationRow>({
 		serverUrl: options.serverUrl,

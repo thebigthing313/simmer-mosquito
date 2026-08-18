@@ -1,9 +1,3 @@
-import type {
-	FormulationInsecticideRow,
-	FormulationRow,
-	InsecticideRow,
-	OrganizationRow,
-} from '@simmer-mosquito/sync';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -30,15 +24,30 @@ import {
 	CatalogNote,
 	CatalogPage,
 	CatalogRecordDrawer,
-	commitCatalogWrite,
-	toggleCatalogLifecycle,
+	commitCatalogSave,
+	toggleCatalogActive,
 } from '../../../components/catalog';
+import {
+	type FormulationComponentFields,
+	type FormulationFields,
+	type FormulationMutations,
+	useFormulationMutations,
+} from '../../../hooks/mutations/use-formulation-mutations';
+import {
+	type FormulationComponentRecord,
+	type FormulationRecord,
+	useFormulationComponents,
+	useFormulationRecords,
+} from '../../../hooks/queries/use-formulation-records';
+import {
+	type InsecticideRecord,
+	useInsecticideRecords,
+} from '../../../hooks/queries/use-insecticide-records';
 import {
 	type UnitLabel,
 	type UnitType,
 	useUnitLabels,
 } from '../../../hooks/queries/use-unit-labels';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
@@ -84,34 +93,12 @@ function FormulationsRoute() {
 
 	// formulations, their components, insecticides, and units all sync eagerly, so
 	// the whole catalog is a client-side grouping rather than a per-row subscription.
-	const { rows: formulationRows } = useCollectionRows<FormulationRow>(webCollections.formulations);
-	const { rows: componentRows } = useCollectionRows<FormulationInsecticideRow>(
-		webCollections.formulationInsecticides,
-	);
-	const { rows: insecticideRows } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
+	const formulations = useFormulationRecords();
+	const componentsByFormulation = useFormulationComponents();
+	const insecticideRows = useInsecticideRecords();
+	const mutations = useFormulationMutations();
 	const { all: unitRows } = useUnitLabels();
 
-	const formulations = useMemo(
-		() =>
-			[...formulationRows].sort(
-				(first, second) =>
-					Number(second.isActive) - Number(first.isActive) ||
-					first.formulationName.localeCompare(second.formulationName),
-			),
-		[formulationRows],
-	);
-	const componentsByFormulation = useMemo(() => {
-		const grouped = new Map<string, FormulationInsecticideRow[]>();
-		for (const component of componentRows) {
-			const bucket = grouped.get(component.formulationId);
-			if (bucket === undefined) {
-				grouped.set(component.formulationId, [component]);
-			} else {
-				bucket.push(component);
-			}
-		}
-		return grouped;
-	}, [componentRows]);
 	const insecticideById = useMemo(
 		() => new Map(insecticideRows.map((row) => [row.id, row] as const)),
 		[insecticideRows],
@@ -124,15 +111,14 @@ function FormulationsRoute() {
 	const activeFormulations = formulations.filter((row) => row.isActive);
 	const inactiveFormulations = formulations.filter((row) => !row.isActive);
 
-	const table = (rows: readonly FormulationRow[]) => (
+	const table = (rows: readonly FormulationRecord[]) => (
 		<FormulationTable
-			actorProfileId={actorProfileId}
 			canManage={canManage}
 			componentsByFormulation={componentsByFormulation}
 			formulations={rows}
 			insecticideById={insecticideById}
 			insecticides={insecticideRows}
-			organization={organization}
+			mutations={mutations}
 			unitById={unitById}
 			units={unitRows}
 		/>
@@ -142,9 +128,8 @@ function FormulationsRoute() {
 	// same drawer rather than each spelling out its own trigger.
 	const addFormulationDrawer = (
 		<FormulationDrawer
-			actorProfileId={actorProfileId}
 			canManage={canManage}
-			organization={organization}
+			mutations={mutations}
 			trigger={
 				<Button type="button">
 					<AddIcon aria-hidden="true" />
@@ -199,11 +184,10 @@ function FormulationsRoute() {
 // --- formulations -------------------------------------------------------------
 
 interface CatalogProps {
-	readonly actorProfileId: string | null;
 	readonly canManage: boolean;
-	readonly insecticideById: ReadonlyMap<string, InsecticideRow>;
-	readonly insecticides: readonly InsecticideRow[];
-	readonly organization: OrganizationRow | null;
+	readonly insecticideById: ReadonlyMap<string, InsecticideRecord>;
+	readonly insecticides: readonly InsecticideRecord[];
+	readonly mutations: FormulationMutations;
 	readonly unitById: ReadonlyMap<string, UnitLabel>;
 	readonly units: readonly UnitLabel[];
 }
@@ -213,8 +197,8 @@ function FormulationTable({
 	formulations,
 	...catalog
 }: CatalogProps & {
-	readonly componentsByFormulation: ReadonlyMap<string, readonly FormulationInsecticideRow[]>;
-	readonly formulations: readonly FormulationRow[];
+	readonly componentsByFormulation: ReadonlyMap<string, readonly FormulationComponentRecord[]>;
+	readonly formulations: readonly FormulationRecord[];
 }) {
 	// Expand toggle + mix columns (+ actions when the viewer can manage).
 	const columnCount = 5 + (catalog.canManage ? 1 : 0);
@@ -261,8 +245,8 @@ function FormulationTableRow({
 	...catalog
 }: CatalogProps & {
 	readonly columnCount: number;
-	readonly components: readonly FormulationInsecticideRow[];
-	readonly formulation: FormulationRow;
+	readonly components: readonly FormulationComponentRecord[];
+	readonly formulation: FormulationRecord;
 }) {
 	const [expanded, setExpanded] = useState(false);
 
@@ -303,10 +287,9 @@ function FormulationTableRow({
 					<TableCell className="text-right">
 						<div className="flex justify-end gap-2">
 							<FormulationDrawer
-								actorProfileId={catalog.actorProfileId}
 								canManage={catalog.canManage}
 								formulation={formulation}
-								organization={catalog.organization}
+								mutations={catalog.mutations}
 								tooltip="Edit"
 								trigger={
 									<Button size="icon" type="button" variant="outline">
@@ -326,7 +309,14 @@ function FormulationTableRow({
 								disabledHint="Add a product first"
 								isActive={formulation.isActive}
 								name={formulation.formulationName}
-								onToggle={() => toggleFormulationActive(formulation)}
+								onToggle={() =>
+									toggleCatalogActive({
+										activateVerb: 'activate',
+										apply: (isActive) => catalog.mutations.setActive(formulation.id, isActive),
+										isActive: formulation.isActive,
+										name: formulation.formulationName,
+									})
+								}
 							/>
 						</div>
 					</TableCell>
@@ -347,35 +337,17 @@ function FormulationTableRow({
 	);
 }
 
-function toggleFormulationActive(formulation: FormulationRow): void {
-	toggleCatalogLifecycle({
-		activateVerb: 'activate',
-		apply: (isActive) =>
-			updateFormulation(formulation, {
-				formulationName: formulation.formulationName,
-				description: formulation.description ?? '',
-				batchSize: formulation.batchSize,
-				batchUnitId: formulation.batchUnitId,
-				isActive,
-			}),
-		isActive: formulation.isActive,
-		name: formulation.formulationName,
-	});
-}
-
 function FormulationDrawer({
-	actorProfileId,
 	canManage,
 	formulation,
-	organization,
+	mutations,
 	tooltip,
 	trigger,
 	units,
 }: {
-	readonly actorProfileId: string | null;
 	readonly canManage: boolean;
-	readonly formulation?: FormulationRow | undefined;
-	readonly organization: OrganizationRow | null;
+	readonly formulation?: FormulationRecord | undefined;
+	readonly mutations: FormulationMutations;
 	/** When set, the trigger gets a hover/focus tooltip with this label. */
 	readonly tooltip?: string | undefined;
 	readonly trigger: React.ReactNode;
@@ -387,20 +359,23 @@ function FormulationDrawer({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			commitCatalogWrite({
+			commitCatalogSave({
 				failureMessage:
 					formulation === undefined
 						? 'Unable to create formulation.'
 						: `Unable to save ${formulation.formulationName}.`,
 				onWritten: () => setOpen(false),
-				write: () =>
+				save: () =>
 					formulation === undefined
-						? createFormulation(organization, actorProfileId, value)
-						: updateFormulation(formulation, value),
+						? mutations.create(formulationFields(value)).then(() => undefined)
+						: mutations.save(
+								formulation.id,
+								formulationFields(value),
+								formulationFields(formulationFormValues(formulation, formulation.batchUnitId)),
+							),
 			});
 		},
 	});
@@ -418,7 +393,7 @@ function FormulationDrawer({
 				actions={
 					<form.FormActions>
 						<form.SubmitButton
-							disabled={!canManage || organization === null || unitChoices.length === 0}
+							disabled={!canManage || !mutations.canWrite || unitChoices.length === 0}
 						/>
 						<CatalogDrawerCancel />
 					</form.FormActions>
@@ -426,7 +401,7 @@ function FormulationDrawer({
 				description="Name the mix and set what one batch of it makes. Products are managed on the row itself."
 				destructiveAction={
 					formulation === undefined ? undefined : (
-						<DeleteFormulationDialog formulation={formulation} />
+						<DeleteFormulationDialog formulation={formulation} mutations={mutations} />
 					)
 				}
 				onOpenChange={updateOpen}
@@ -515,7 +490,13 @@ function FormulationDrawer({
 	);
 }
 
-function DeleteFormulationDialog({ formulation }: { readonly formulation: FormulationRow }) {
+function DeleteFormulationDialog({
+	formulation,
+	mutations,
+}: {
+	readonly formulation: FormulationRecord;
+	readonly mutations: FormulationMutations;
+}) {
 	return (
 		<CatalogDeleteDialog
 			confirmLabel="Delete"
@@ -526,9 +507,9 @@ function DeleteFormulationDialog({ formulation }: { readonly formulation: Formul
 				</>
 			}
 			onConfirm={() =>
-				commitCatalogWrite({
+				commitCatalogSave({
 					failureMessage: `Unable to delete ${formulation.formulationName}.`,
-					write: () => webCollections.formulations.delete(formulation.id),
+					save: () => mutations.remove(formulation.id),
 				})
 			}
 			title="Delete Formulation?"
@@ -550,8 +531,8 @@ function FormulationComponentPanel({
 	formulation,
 	...catalog
 }: CatalogProps & {
-	readonly components: readonly FormulationInsecticideRow[];
-	readonly formulation: FormulationRow;
+	readonly components: readonly FormulationComponentRecord[];
+	readonly formulation: FormulationRecord;
 }) {
 	const ordered = sortedComponents(components);
 	const batchLabel = formatAmountWithUnit(
@@ -635,7 +616,11 @@ function FormulationComponentPanel({
 														}
 														usedInsecticideIds={ordered.map((other) => other.insecticideId)}
 													/>
-													<RemoveComponentDialog component={component} label={label} />
+													<RemoveComponentDialog
+														component={component}
+														label={label}
+														mutations={catalog.mutations}
+													/>
 												</div>
 											</TableCell>
 										) : null}
@@ -651,19 +636,18 @@ function FormulationComponentPanel({
 }
 
 function FormulationComponentDrawer({
-	actorProfileId,
 	canManage,
 	component,
 	formulation,
 	insecticides,
-	organization,
+	mutations,
 	trigger,
 	unitById,
 	units,
 	usedInsecticideIds,
 }: CatalogProps & {
-	readonly component?: FormulationInsecticideRow | undefined;
-	readonly formulation: FormulationRow;
+	readonly component?: FormulationComponentRecord | undefined;
+	readonly formulation: FormulationRecord;
 	readonly trigger: React.ReactNode;
 	/** Products already in this mix — one row per insecticide is allowed. */
 	readonly usedInsecticideIds: readonly string[];
@@ -706,17 +690,16 @@ function FormulationComponentDrawer({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			commitCatalogWrite({
+			commitCatalogSave({
 				failureMessage: 'Unable to save the product.',
 				onWritten: () => setOpen(false),
-				write: () =>
+				save: () =>
 					component === undefined
-						? addFormulationComponent(organization, actorProfileId, formulation.id, value)
-						: updateFormulationComponent(component, value),
+						? mutations.addComponent(formulation.id, componentFields(value))
+						: mutations.saveComponent(component.id, componentFields(value)),
 			});
 		},
 	});
@@ -734,7 +717,7 @@ function FormulationComponentDrawer({
 				actions={
 					<form.FormActions>
 						<form.SubmitButton
-							disabled={!canManage || organization === null || choices.length === 0}
+							disabled={!canManage || !mutations.canWrite || choices.length === 0}
 						/>
 						<CatalogDrawerCancel />
 					</form.FormActions>
@@ -827,9 +810,11 @@ function FormulationComponentDrawer({
 function RemoveComponentDialog({
 	component,
 	label,
+	mutations,
 }: {
-	readonly component: FormulationInsecticideRow;
+	readonly component: FormulationComponentRecord;
 	readonly label: string;
+	readonly mutations: FormulationMutations;
 }) {
 	return (
 		<CatalogDeleteDialog
@@ -840,9 +825,9 @@ function RemoveComponentDialog({
 				</>
 			}
 			onConfirm={() =>
-				commitCatalogWrite({
+				commitCatalogSave({
 					failureMessage: `Unable to remove ${label}.`,
-					write: () => webCollections.formulationInsecticides.delete(component.id),
+					save: () => mutations.removeComponent(component.id),
 				})
 			}
 			title="Remove Product?"
@@ -856,99 +841,10 @@ function RemoveComponentDialog({
 	);
 }
 
-// --- writes -------------------------------------------------------------------
-
-function createFormulation(
-	organization: OrganizationRow | null,
-	actorProfileId: string | null,
-	values: FormulationFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	return webCollections.formulations.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		formulationName: requiredTextValue(values.formulationName, 'Name'),
-		description: nullableTextValue(values.description),
-		batchSize: positiveNumberValue(values.batchSize, 'Batch size'),
-		batchUnitId: requiredTextValue(values.batchUnitId, 'Batch unit'),
-		isActive: values.isActive,
-		createdByProfileId: actorProfileId,
-		updatedByProfileId: actorProfileId,
-		createdAt: now,
-		updatedAt: now,
-	} satisfies FormulationRow);
-}
-
-function updateFormulation(
-	formulation: FormulationRow,
-	values: FormulationFormValues,
-): PersistenceTransaction {
-	const formulationName = requiredTextValue(values.formulationName, 'Name');
-	const description = nullableTextValue(values.description);
-	const batchSize = positiveNumberValue(values.batchSize, 'Batch size');
-	const batchUnitId = requiredTextValue(values.batchUnitId, 'Batch unit');
-	return webCollections.formulations.update(formulation.id, (draft) => {
-		const mutable = draft as { -readonly [K in keyof FormulationRow]: FormulationRow[K] };
-		mutable.formulationName = formulationName;
-		mutable.description = description;
-		mutable.batchSize = batchSize;
-		mutable.batchUnitId = batchUnitId;
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
-function addFormulationComponent(
-	organization: OrganizationRow | null,
-	actorProfileId: string | null,
-	formulationId: string,
-	values: FormulationComponentFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	return webCollections.formulationInsecticides.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		formulationId,
-		insecticideId: requiredTextValue(values.insecticideId, 'Insecticide'),
-		amount: positiveNumberValue(values.amount, 'Amount'),
-		unitId: requiredTextValue(values.unitId, 'Unit'),
-		createdByProfileId: actorProfileId,
-		updatedByProfileId: actorProfileId,
-		createdAt: now,
-		updatedAt: now,
-	} satisfies FormulationInsecticideRow);
-}
-
-function updateFormulationComponent(
-	component: FormulationInsecticideRow,
-	values: FormulationComponentFormValues,
-): PersistenceTransaction {
-	const insecticideId = requiredTextValue(values.insecticideId, 'Insecticide');
-	const amount = positiveNumberValue(values.amount, 'Amount');
-	const unitId = requiredTextValue(values.unitId, 'Unit');
-	return webCollections.formulationInsecticides.update(component.id, (draft) => {
-		const mutable = draft as {
-			-readonly [K in keyof FormulationInsecticideRow]: FormulationInsecticideRow[K];
-		};
-		mutable.insecticideId = insecticideId;
-		mutable.amount = amount;
-		mutable.unitId = unitId;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
 // --- helpers ------------------------------------------------------------------
 
 function formulationFormValues(
-	formulation: FormulationRow | undefined,
+	formulation: FormulationRecord | undefined,
 	fallbackUnitId: string,
 ): FormulationFormValues {
 	return {
@@ -974,8 +870,8 @@ function positiveNumberValue(value: number | null, label: string): number {
 }
 
 function componentSummary(
-	components: readonly FormulationInsecticideRow[],
-	insecticideById: ReadonlyMap<string, InsecticideRow>,
+	components: readonly FormulationComponentRecord[],
+	insecticideById: ReadonlyMap<string, InsecticideRecord>,
 ): string {
 	if (components.length === 0) {
 		return 'No products';
@@ -987,4 +883,39 @@ function componentSummary(
 			return `${name} (${formatAmountValue(component.amount)})`;
 		})
 		.join(', ');
+}
+
+/** The drawer's values as the write hook takes them: trimmed, empty means absent. */
+function formulationFields(values: FormulationFormValues): FormulationFields {
+	const formulationName = values.formulationName.trim();
+	if (formulationName.length === 0) {
+		throw new Error('Name is required.');
+	}
+	const description = values.description.trim();
+	if (values.batchSize === null || !Number.isFinite(values.batchSize) || values.batchSize <= 0) {
+		throw new Error('Batch size must be greater than zero.');
+	}
+	if (values.batchUnitId.trim().length === 0) {
+		throw new Error('Batch unit is required.');
+	}
+	return {
+		formulationName,
+		description: description.length === 0 ? null : description,
+		batchSize: values.batchSize,
+		batchUnitId: values.batchUnitId,
+		isActive: values.isActive,
+	};
+}
+
+function componentFields(values: FormulationComponentFormValues): FormulationComponentFields {
+	if (values.insecticideId.trim().length === 0) {
+		throw new Error('Insecticide is required.');
+	}
+	if (values.amount === null || !Number.isFinite(values.amount) || values.amount <= 0) {
+		throw new Error('Amount must be greater than zero.');
+	}
+	if (values.unitId.trim().length === 0) {
+		throw new Error('Unit is required.');
+	}
+	return { insecticideId: values.insecticideId, amount: values.amount, unitId: values.unitId };
 }

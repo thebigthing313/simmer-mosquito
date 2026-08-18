@@ -17,13 +17,10 @@ describe('web sync baseline preload', () => {
 			'species',
 			'organizationSpecies',
 			'currentOrganization',
-			'insecticides',
 			'tags',
 			'routes',
 			'regionFolders',
 			'traps',
-			'formulations',
-			'formulationInsecticides',
 			'weatherSources',
 		]);
 	});
@@ -121,10 +118,8 @@ describe('web sync baseline preload', () => {
 	it('attaches optimistic write handlers to control operations collections', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		expect(collections.formulations.config.id).toBe('formulations');
+		expect(collections.applications.config.id).toBe('applications');
 		for (const key of [
-			'formulations',
-			'formulationInsecticides',
 			'applications',
 			'sourceReductions',
 			'outreachActions',

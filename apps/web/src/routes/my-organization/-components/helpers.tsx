@@ -29,23 +29,15 @@ import { defaultDensityRangeValues } from './constants';
 import type {
 	AgencyDetailsFormValues,
 	ControlAssetCollectionKey,
-	ControlAssetFormValues,
-	ControlAssetRow,
 	ControlMethodCollectionKey,
 	ControlSettingsFormValues,
 	DensityRangeFormValue,
 	DensityRangeFormValues,
 	DensityRangeKey,
-	InsecticideBatchFormValues,
-	InsecticideFormValues,
 	LarvalDensityDisplayKey,
-	MutableEquipmentRow,
-	MutableInsecticideBatchRow,
-	MutableInsecticideRow,
 	MutableOrganizationRow,
 	MutableProfileRow,
 	MutableTagRow,
-	MutableVehicleRow,
 	OrgRole,
 	PersistenceTransaction,
 	ProfileFormValues,
@@ -409,102 +401,6 @@ export function validateEmail({ value }: { readonly value: string }): string | u
 	return 'Main contact must be a valid email address.';
 }
 
-export function createInsecticideFromValues(
-	organization: OrganizationRow | null,
-	values: InsecticideFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	return webCollections.insecticides.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		tradeName: requiredTextValue(values.tradeName, 'Trade name'),
-		activeIngredient: requiredTextValue(values.activeIngredient, 'Active ingredient'),
-		type: values.type,
-		registrationNumber: requiredTextValue(values.registrationNumber, 'Registration number'),
-		defaultUnitId: requiredTextValue(values.defaultUnitId, 'Default usage unit'),
-		labelUrl: nullableTextValue(values.labelUrl),
-		msdsUrl: nullableTextValue(values.msdsUrl),
-		shorthand: nullableTextValue(values.shorthand),
-		metadata: values.metadata,
-		isActive: values.isActive,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
-export function createInsecticideBatchFromValues(
-	collection: Collection<InsecticideBatchRow, string | number>,
-	organization: OrganizationRow | null,
-	values: InsecticideBatchFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	return collection.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		insecticideId: requiredTextValue(values.insecticideId, 'Insecticide'),
-		batchName: requiredTextValue(values.batchName, 'Batch name'),
-		isActive: values.isActive,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
-export function updateInsecticideFromValues(
-	insecticide: InsecticideRow,
-	values: InsecticideFormValues,
-): PersistenceTransaction {
-	return webCollections.insecticides.update(insecticide.id, (draft) => {
-		const mutable = draft as MutableInsecticideRow;
-		mutable.tradeName = requiredTextValue(values.tradeName, 'Trade name');
-		mutable.activeIngredient = requiredTextValue(values.activeIngredient, 'Active ingredient');
-		mutable.type = values.type;
-		mutable.registrationNumber = requiredTextValue(
-			values.registrationNumber,
-			'Registration number',
-		);
-		mutable.defaultUnitId = requiredTextValue(values.defaultUnitId, 'Default usage unit');
-		mutable.labelUrl = nullableTextValue(values.labelUrl);
-		mutable.msdsUrl = nullableTextValue(values.msdsUrl);
-		mutable.shorthand = nullableTextValue(values.shorthand);
-		mutable.metadata = values.metadata;
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
-export function updateInsecticideBatchFromValues(
-	collection: Collection<InsecticideBatchRow, string | number>,
-	batch: InsecticideBatchRow,
-	values: InsecticideBatchFormValues,
-): PersistenceTransaction {
-	return collection.update(batch.id, (draft) => {
-		const mutable = draft as MutableInsecticideBatchRow;
-		mutable.insecticideId = requiredTextValue(values.insecticideId, 'Insecticide');
-		mutable.batchName = requiredTextValue(values.batchName, 'Batch name');
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
-export function deleteInsecticide(insecticide: InsecticideRow): PersistenceTransaction {
-	return webCollections.insecticides.delete(insecticide.id);
-}
-
-export function deleteInsecticideBatch(
-	collection: Collection<InsecticideBatchRow, string | number>,
-	batch: InsecticideBatchRow,
-): PersistenceTransaction {
-	return collection.delete(batch.id);
-}
-
 function nullableNonnegativeIntegerValue(value: number | null, label: string): number | null {
 	if (value === null) {
 		return null;
@@ -532,36 +428,6 @@ function nonnegativeIntegerValue(value: number | null, label: string): number {
 
 function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function insecticideFormValues(
-	insecticide: InsecticideRow | undefined,
-	defaultUnitId: string,
-): InsecticideFormValues {
-	const metadata = insecticide?.metadata;
-	return {
-		tradeName: insecticide?.tradeName ?? '',
-		activeIngredient: insecticide?.activeIngredient ?? '',
-		type: insecticide?.type ?? 'adulticide',
-		registrationNumber: insecticide?.registrationNumber ?? '',
-		defaultUnitId: insecticide?.defaultUnitId ?? defaultUnitId,
-		labelUrl: insecticide?.labelUrl ?? '',
-		msdsUrl: insecticide?.msdsUrl ?? '',
-		shorthand: insecticide?.shorthand ?? '',
-		metadata: isPlainJsonObject(metadata) ? metadata : null,
-		isActive: insecticide?.isActive ?? true,
-	};
-}
-
-export function insecticideBatchFormValues(
-	batch: InsecticideBatchRow | undefined,
-	defaultInsecticideId: string,
-): InsecticideBatchFormValues {
-	return {
-		insecticideId: batch?.insecticideId ?? defaultInsecticideId,
-		batchName: batch?.batchName ?? '',
-		isActive: batch?.isActive ?? true,
-	};
 }
 
 export function densityRangeFormValues(ranges: LarvalDensityRanges | null): DensityRangeFormValues {

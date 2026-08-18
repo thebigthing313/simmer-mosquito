@@ -34,7 +34,7 @@ function MyOrganizationInsecticidesRoute() {
 				setupItems={[]}
 				title="Insecticides"
 			>
-				<InsecticideLookupPointer insecticides={webCollections.insecticides} />
+				<InsecticideLookupPointer />
 			</DomainSection>
 		</OrganizationWorkspaceShell>
 	);
