@@ -409,40 +409,6 @@ export function validateEmail({ value }: { readonly value: string }): string | u
 	return 'Main contact must be a valid email address.';
 }
 
-export function createControlAssetFromValues(
-	collectionKey: ControlAssetCollectionKey,
-	organization: OrganizationRow | null,
-	values: ControlAssetFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	if (collectionKey === 'vehicles') {
-		return webCollections.vehicles.insert({
-			id: crypto.randomUUID(),
-			organizationId: organization.id,
-			vehicleName: requiredTextValue(values.name, 'Name'),
-			metadata: values.metadata,
-			isActive: values.isActive,
-			createdAt: now,
-			updatedAt: now,
-		});
-	}
-
-	return webCollections.equipment.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		equipmentName: requiredTextValue(values.name, 'Name'),
-		serialNumber: nullableTextValue(values.serialNumber),
-		metadata: values.metadata,
-		isActive: values.isActive,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
 export function createInsecticideFromValues(
 	organization: OrganizationRow | null,
 	values: InsecticideFormValues,
@@ -488,31 +454,6 @@ export function createInsecticideBatchFromValues(
 		isActive: values.isActive,
 		createdAt: now,
 		updatedAt: now,
-	});
-}
-
-export function updateControlAssetFromValues(
-	collectionKey: ControlAssetCollectionKey,
-	asset: ControlAssetRow,
-	values: ControlAssetFormValues,
-): PersistenceTransaction {
-	if (collectionKey === 'vehicles') {
-		return webCollections.vehicles.update(asset.id, (draft) => {
-			const mutable = draft as MutableVehicleRow;
-			mutable.vehicleName = requiredTextValue(values.name, 'Name');
-			mutable.metadata = values.metadata;
-			mutable.isActive = values.isActive;
-			mutable.updatedAt = new Date().toISOString();
-		});
-	}
-
-	return webCollections.equipment.update(asset.id, (draft) => {
-		const mutable = draft as MutableEquipmentRow;
-		mutable.equipmentName = requiredTextValue(values.name, 'Name');
-		mutable.serialNumber = nullableTextValue(values.serialNumber);
-		mutable.metadata = values.metadata;
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
 	});
 }
 
@@ -591,16 +532,6 @@ function nonnegativeIntegerValue(value: number | null, label: string): number {
 
 function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function controlAssetFormValues(asset: ControlAssetRow | undefined): ControlAssetFormValues {
-	const metadata = asset?.metadata;
-	return {
-		name: asset === undefined ? '' : controlAssetName(asset),
-		serialNumber: isEquipmentRow(asset) ? (asset.serialNumber ?? '') : '',
-		metadata: isPlainJsonObject(metadata) ? metadata : null,
-		isActive: asset?.isActive ?? true,
-	};
 }
 
 export function insecticideFormValues(
@@ -745,14 +676,6 @@ export function formatDensityRange(range: LarvalDensityRange | null): string {
 	return range.maxExclusive === null || range.maxExclusive === undefined
 		? `More than ${range.minInclusive} larvae per dip`
 		: `More than ${range.minInclusive} and up to ${range.maxExclusive} larvae per dip`;
-}
-
-export function controlAssetName(asset: ControlAssetRow): string {
-	return isEquipmentRow(asset) ? asset.equipmentName : asset.vehicleName;
-}
-
-export function isEquipmentRow(asset: ControlAssetRow | undefined): asset is EquipmentRow {
-	return asset !== undefined && 'equipmentName' in asset;
 }
 
 export function hasMetadata(value: unknown): boolean {

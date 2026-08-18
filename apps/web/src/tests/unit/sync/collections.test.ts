@@ -17,8 +17,6 @@ describe('web sync baseline preload', () => {
 			'species',
 			'organizationSpecies',
 			'currentOrganization',
-			'vehicles',
-			'equipment',
 			'insecticides',
 			'tags',
 			'routes',

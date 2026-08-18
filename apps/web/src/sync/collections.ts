@@ -59,10 +59,6 @@ import {
 	createTrapMutationHandlers,
 } from './adultSurveillanceMutations';
 import {
-	createEquipmentMutationHandlers,
-	createVehicleMutationHandlers,
-} from './controlAssetMutations';
-import {
 	createApplicationBatchMutationHandlers,
 	createApplicationMutationHandlers,
 	createBiocontrolActionMutationHandlers,
@@ -119,7 +115,6 @@ export interface WebCollections {
 	readonly collections: Collection<AdultCollectionRow, string | number>;
 	readonly comments: Collection<CommentRow, string | number>;
 	readonly contacts: Collection<ContactRow, string | number>;
-	readonly equipment: Collection<EquipmentRow, string | number>;
 	readonly formulationInsecticides: Collection<FormulationInsecticideRow, string | number>;
 	readonly formulations: Collection<FormulationRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
@@ -151,7 +146,6 @@ export interface WebCollections {
 	readonly tags: Collection<TagRow, string | number>;
 	readonly traps: Collection<TrapRow, string | number>;
 	readonly units: Collection<UnitRow, string | number>;
-	readonly vehicles: Collection<VehicleRow, string | number>;
 	readonly weatherSources: Collection<WeatherSourceRow, string | number>;
 	readonly weatherSummaries: Collection<WeatherSummaryRow, string | number>;
 }
@@ -164,8 +158,6 @@ export const webBaselineCollectionKeys = [
 	'species',
 	'organizationSpecies',
 	'currentOrganization',
-	'vehicles',
-	'equipment',
 	'insecticides',
 	'tags',
 	'routes',
@@ -282,26 +274,6 @@ export function createWebCollections(options: {
 	);
 	// The address picker on every location-bearing form.
 	addresses.createIndex((row) => row.displayName, { indexType: BasicIndex });
-	const vehicles = createCollection(
-		electricShapeCollectionOptions<VehicleRow>({
-			table: 'vehicles',
-			syncMode: webSyncModes.vehicles,
-			url: `${shapeServerUrl}${shapePathFor('vehicles')}`,
-			...createVehicleMutationHandlers<VehicleRow>({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	const equipment = createCollection(
-		electricShapeCollectionOptions<EquipmentRow>({
-			table: 'equipment',
-			syncMode: webSyncModes.equipment,
-			url: `${shapeServerUrl}${shapePathFor('equipment')}`,
-			...createEquipmentMutationHandlers<EquipmentRow>({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
 	const insecticides = createCollection(
 		electricShapeCollectionOptions<InsecticideRow>({
 			table: 'insecticides',
@@ -599,7 +571,6 @@ export function createWebCollections(options: {
 		collections,
 		comments,
 		contacts,
-		equipment,
 		formulationInsecticides,
 		formulations,
 		genera,
@@ -628,7 +599,6 @@ export function createWebCollections(options: {
 		tags,
 		traps,
 		units,
-		vehicles,
 		weatherSources,
 		weatherSummaries,
 	};
