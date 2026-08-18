@@ -280,7 +280,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 			</tbody>
 		</table>
 	</div>
-	<p class="lede"><code>memberships</code>, <code>organizations</code> and <code>profiles</code> will never get intent maps — identity writes are REST and cannot join the command surface. <code>tags</code> is the Tag catalog, still served by <code>foundation-commands/tags.ts</code> because its only client is the my-organization page.</p>
+	<p class="lede"><code>memberships</code> and <code>profiles</code> will never get intent maps — identity writes are REST and cannot join the command surface. <code>organizations</code> is half of each: its settings are seven commands with a route apiece, and its details are the one identity write on the same row.</p>
 </section>
 
 <section class="band">
@@ -334,10 +334,14 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 		</li>
 		<li>
 			<div>
-				<h4>The Tag catalog — done. Organization settings next.</h4>
+				<h4>The Tag catalog, and then organization settings.</h4>
 				<p><code>tags</code> is the first table on this branch that needed a <em>server</em> half as well: there was no <code>/commands/tags</code>, only <code>foundation-commands/tags.ts</code>. It is the ninth catalog and answers the same five commands as the other eight, so the client write is <code>catalog-writes.ts</code> with a row literal and five names — including the create-inactive bug that file already documents, which <code>tags</code> had too.</p>
 				<p>Its own trap was in the round trip rather than the commands: the helper being replaced <em>upper-cased</em> the hex colour on the way out while the domain lower-cases it, so every colour on screen disagreed with the one in Postgres until it synced back. Normalization belongs to the domain; a form's job is to stop at trimming.</p>
-				<p><code>organizationSettings</code> is what is left of this step, and it is the odd one: seven commands that write <code>organizations</code>, which is not a per-row table in the same sense. Decide whether it belongs on this surface before building it.</p>
+				<p><code>organizationSettings</code> was the odd one, and the answer was that it does not belong on <code>/commands/{table}</code> at all. Its seven commands each write a different sub-document of one row's JSON, so which one a write means cannot be read off a column diff — and each already had its own route, its own floor and its own validation. Nothing had ever called them. <code>apps/web</code> sent the whole document to the agency-details route instead.</p>
+				<p>That cost three things, and none of them announced itself. <strong>The document was not validated</strong>: it went through a resolver that substitutes defaults rather than refusing, and the issues it reported were dropped — a timezone the agency could not use was stored as the default and the save reported success. <strong>A save rewrote settings nobody touched</strong>, from the editor's own copy. And <strong>the conflict check did nothing</strong>: the client caught the server's 409 and immediately re-sent with <code>expectedUpdatedAt: null</code>, which always won, so whoever saved second silently overwrote whoever saved first.</p>
+				<p>So this is the one table whose writes do not go through <code>mutateCollection</code>. They open a transaction directly, which is what lets the optimistic row move while the request goes somewhere the collection's handlers do not point — the same path <code>commandTransaction</code> takes, for the same reason. The collection declares <code>mutations: false</code>, so a stray row write is refused by the library rather than sent to a <code>/commands/organizations</code> that does not exist and should not.</p>
+				<p>Two things fell out of building it. The details sheet spans both vocabularies — eight columns and the timezone, which is a setting — so one press of Save can be an identity write, a command, or one of each, and the second has to be handed the <code>updated_at</code> the first produced or it conflicts with the write the same click just made. And an unchanged save has to send <em>nothing</em>: the first cut read the empty diff as a failure and put “Unable to save changes.” in front of an admin who had changed nothing.</p>
+				<p>The unit-defaults sheet was also quietly broken, and not by this step. <code>webCollections</code> streams snake_case since the column mapper was dropped, the helper read <code>unitType</code>, and so every unit select was empty — an admin could not change a unit default at all, and the summary printed raw codes instead of names. It reads <code>useUnitLabels</code> now.</p>
 			</div>
 		</li>
 		<li>

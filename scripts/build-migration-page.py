@@ -70,11 +70,25 @@ def vocabulary() -> set[str]:
 
 
 def reachable() -> set[str]:
+    """Every command a client can actually send.
+
+    Two sources, because there are two shapes of endpoint. Almost every command
+    is dispatched by table from `/commands/{table}`, and its name appears as a
+    key in that table's `intents` map. The seven `organizationSettings.*` are
+    not: they write one row's JSON document rather than a row's columns, and
+    which of the seven a write means cannot be read off a column diff — so each
+    has its own route, named for the command, in
+    `organization-settings-commands.ts`.
+
+    Reading only the first source is what made this page report `0/7` for a
+    domain that was fully served — the routes existed, with their own floors and
+    their own validation, and nothing called them."""
     found: set[str] = set()
     for path in sorted((ROOT / "apps/server/src/table-commands").glob("*.ts")):
         if path.name in {"dispatch.ts", "shared.ts", "index.ts"}:
             continue
         found |= set(re.findall(COMMAND, path.read_text(encoding="utf-8")))
+    found |= set(re.findall(COMMAND, read("apps/server/src/organization-settings-commands.ts")))
     return found
 
 
@@ -119,6 +133,12 @@ def tables() -> list[dict]:
         mapped |= set(re.findall(r"table:\s*'([a-z_]+)'", text))
         # The catalog factories take the table as a positional argument.
         mapped |= set(re.findall(r"^		'([a-z_]+)',$", text, re.M))
+
+    # `organizations` is served by command, but not from a table-commands module
+    # and so with no `table:` line to find. Its eight routes are per-command:
+    # seven `organizationSettings.*` and the agency's details, which is an
+    # identity write. See `reachable()`.
+    mapped.add("organizations")
 
     def live_properties() -> set[str]:
         out = subprocess.run(
