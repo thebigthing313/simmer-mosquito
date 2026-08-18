@@ -18,11 +18,7 @@ function MyOrganizationLarvalSurveillanceRoute() {
 				canManage={workspace.canManage}
 				editDescription="Adjust larval inspection entry rules and the setup lists used during habitat inspections."
 				editAction={
-					<LarvalSettingsDrawer
-						canManage={workspace.canManage}
-						organization={workspace.organization}
-						settings={workspace.settings}
-					/>
+					<LarvalSettingsDrawer canManage={workspace.canManage} settings={workspace.settings} />
 				}
 				fields={[]}
 				id="larval"

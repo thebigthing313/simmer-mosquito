@@ -1,5 +1,5 @@
 import type { UnitDefaults } from '@simmer-mosquito/domain';
-import type { OrganizationRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { ProfileRow } from '@simmer-mosquito/sync';
 import type React from 'react';
 
 // Re-exported rather than re-declared: two identical unions under one name are
@@ -15,10 +15,6 @@ export type OrganizationSectionId =
 	| 'insecticides'
 	| 'public'
 	| 'keyBindings';
-
-export type MutableOrganizationRow = {
-	-readonly [Key in keyof OrganizationRow]: OrganizationRow[Key];
-};
 
 export type MutableProfileRow = {
 	-readonly [Key in keyof ProfileRow]: ProfileRow[Key];
@@ -68,10 +64,6 @@ export interface TagFormValues {
 export interface ProfileFormValues {
 	readonly displayName: string;
 	readonly isActive: boolean;
-}
-
-export interface ControlSettingsFormValues {
-	readonly trackInsecticideBatches: boolean;
 }
 
 export interface PublicSettingsFormValues {

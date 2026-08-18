@@ -13,8 +13,8 @@ import { Suspense } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { organizations } from '../../lib/collections/organizations';
 import { getToday } from '../../lib/get-today';
-import { webCollections } from '../../sync/webCollections';
 import {
 	shellDomainsForRole,
 	webAccountLinks,
@@ -49,10 +49,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	// so a cold organization/profile shape never holds the entire workspace
 	// behind a full-screen fallback. Route content suspends into the boundary
 	// around `Outlet` below instead.
-	const organizationResult = useLiveQuery(
-		(query) => query.from({ row: webCollections.currentOrganization }),
-		[],
-	);
+	const organizationResult = useLiveQuery((query) => query.from({ row: organizations }), []);
 	const profileNameById = useProfileNames();
 	const timeZone = useOrganizationTimeZone();
 

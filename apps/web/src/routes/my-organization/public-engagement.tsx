@@ -18,11 +18,7 @@ function MyOrganizationPublicEngagementRoute() {
 				canManage={workspace.canManage}
 				editDescription="Set public engagement context defaults and resident communication lookup lists."
 				editAction={
-					<PublicSettingsDrawer
-						canManage={workspace.canManage}
-						organization={workspace.organization}
-						settings={workspace.settings}
-					/>
+					<PublicSettingsDrawer canManage={workspace.canManage} settings={workspace.settings} />
 				}
 				fields={[]}
 				id="public"

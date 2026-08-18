@@ -35,6 +35,11 @@ export interface UnitLabel {
 	readonly unitName: string;
 	/** Which kind of quantity it measures, so a field can offer only what it takes. */
 	readonly unitType: UnitType;
+	/**
+	 * Which family it belongs to. Read by the unit-defaults sheet, which groups a
+	 * type's units by system before name so metric and imperial do not interleave.
+	 */
+	readonly unitSystem: 'si' | 'imperial' | 'us_customary';
 }
 
 /** The `unit_type` enum, as the domain's field predicates spell it. */
@@ -61,6 +66,7 @@ export function useUnitLabels(): {
 				abbreviation: unit.abbreviation,
 				unitName: unit.unit_name,
 				unitType: unit.unit_type,
+				unitSystem: unit.unit_system,
 			})),
 		[],
 	);

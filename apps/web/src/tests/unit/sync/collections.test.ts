@@ -16,7 +16,6 @@ describe('web sync baseline preload', () => {
 			'genera',
 			'species',
 			'organizationSpecies',
-			'currentOrganization',
 			'routes',
 			'weatherSources',
 		]);
@@ -41,12 +40,17 @@ describe('web sync baseline preload', () => {
 		expect(calls).toEqual(webBaselineCollectionKeys);
 	});
 
-	it('attaches optimistic write handlers to eager org lookup catalogs', () => {
+	it('no longer carries the agency’s own record', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		// `tags` is not here any more: it writes through `lib/collections`, where
-		// the command a write means is named in the call.
-		expect(collections.currentOrganization.config.onUpdate).toBeTypeOf('function');
+		// `currentOrganization` is gone, and with it the last collection on this
+		// seam that wrote a whole row and let the server work out what it meant.
+		// The agency's record is `lib/collections/organizations`, which declares no
+		// mutation handlers at all: it is written by the seven
+		// `organizationSettings.*` routes and the agency-details route, each of
+		// which names one thing. `tags`, `regions` and `region_folders` left the
+		// same way before it.
+		expect('currentOrganization' in collections).toBe(false);
 	});
 
 	it('wires the remaining web sync collections without mutation handlers', () => {

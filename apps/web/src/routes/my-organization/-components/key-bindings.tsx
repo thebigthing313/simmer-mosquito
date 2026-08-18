@@ -3,7 +3,6 @@ import {
 	type OrganizationSettings,
 	type SpeciesKeyBinding,
 } from '@simmer-mosquito/domain';
-import type { OrganizationRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -25,7 +24,8 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useMemo, useState } from 'react';
 import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
-import { errorMessageForSave, updateCurrentOrganization } from './helpers';
+import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
+import { errorMessageForSave } from './helpers';
 
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 
@@ -41,13 +41,12 @@ interface SpeciesOption {
  */
 export function KeyBindingsSettings({
 	canManage,
-	organization,
 	settings,
 }: {
 	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
 	readonly settings: OrganizationSettings;
 }) {
+	const { setSpeciesKeyBindings } = useOrganizationSettingsMutations();
 	const options = useSpeciesOptions();
 	const stored = settings.speciesKeyBindings.bindings;
 	const [error, setError] = useState<string | null>(null);
@@ -82,12 +81,7 @@ export function KeyBindingsSettings({
 		setBusyKey(busy);
 		setError(null);
 		try {
-			await updateCurrentOrganization(organization, (draft) => {
-				draft.settings = {
-					...settings,
-					speciesKeyBindings: { bindings: next },
-				};
-			});
+			await setSpeciesKeyBindings(next);
 		} catch (saveError) {
 			setError(errorMessageForSave(saveError));
 		} finally {

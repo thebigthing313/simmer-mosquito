@@ -1,10 +1,9 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
-import type { OrganizationRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Link } from '@tanstack/react-router';
+import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
 import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
 import { ArrowRightIcon } from './constants';
-import { saveControlSettingsFromValues } from './helpers';
 import { EditSettingsSheet, LookupListFrame } from './layout/layout';
 
 /**
@@ -41,13 +40,13 @@ export function InsecticideLookupPointer() {
 
 export function InsecticideBatchTrackingDrawer({
 	canManage,
-	organization,
 	settings,
 }: {
 	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
 	readonly settings: OrganizationSettings;
 }) {
+	const { setInsecticideBatchTracking } = useOrganizationSettingsMutations();
+
 	return (
 		<EditSettingsSheet
 			description="Choose whether treatment records should capture insecticide lot or batch details."
@@ -60,9 +59,7 @@ export function InsecticideBatchTrackingDrawer({
 				},
 			]}
 			onSave={(formData) =>
-				saveControlSettingsFromValues(organization, settings, {
-					trackInsecticideBatches: formData.get('Track insecticide batches') === 'true',
-				})
+				setInsecticideBatchTracking(formData.get('Track insecticide batches') === 'true')
 			}
 			title="Edit Batch Tracking"
 		/>

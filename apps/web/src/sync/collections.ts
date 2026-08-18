@@ -10,7 +10,6 @@ import {
 	type MissionNotificationRow,
 	type NotificationRegistrationRow,
 	type NotificationRegistrationTypeRow,
-	type OrganizationRow,
 	type OrganizationSpeciesRow,
 	type ProfileRow,
 	type RouteItemRow,
@@ -35,7 +34,6 @@ import {
 	createTagItemMutationHandlers,
 } from './fieldWorkMissionMutations';
 import { createOrganizationSpeciesMutationHandlers } from './foundationGeographyMutations';
-import { createOrganizationMutationHandlers } from './organizationMutations';
 import { createProfileMutationHandlers } from './profileMutations';
 import {
 	createMissionNotificationMutationHandlers,
@@ -58,7 +56,6 @@ export interface WebCollections {
 		NotificationRegistrationTypeRow,
 		string | number
 	>;
-	readonly currentOrganization: Collection<OrganizationRow, string | number>;
 	readonly organizationSpecies: Collection<OrganizationSpeciesRow, string | number>;
 	readonly profiles: Collection<ProfileRow, string | number>;
 	readonly routeItems: Collection<RouteItemRow, string | number>;
@@ -77,7 +74,6 @@ export const webBaselineCollectionKeys = [
 	'genera',
 	'species',
 	'organizationSpecies',
-	'currentOrganization',
 	'routes',
 	'weatherSources',
 ] as const satisfies readonly (keyof WebCollections)[];
@@ -164,16 +160,6 @@ export function createWebCollections(options: {
 			syncMode: webSyncModes.organization_species,
 			url: `${shapeServerUrl}${shapePathFor('organization_species')}`,
 			...createOrganizationSpeciesMutationHandlers({ serverUrl: options.serverUrl }),
-		}),
-	);
-	const currentOrganization = createCollection(
-		electricShapeCollectionOptions<OrganizationRow>({
-			table: 'organizations',
-			syncMode: webSyncModes.organizations,
-			url: `${shapeServerUrl}${shapePathFor('organizations')}`,
-			...createOrganizationMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
 		}),
 	);
 	const routes = createCollection(
@@ -286,7 +272,6 @@ export function createWebCollections(options: {
 		missionNotifications,
 		notificationRegistrations,
 		notificationRegistrationTypes,
-		currentOrganization,
 		organizationSpecies,
 		profiles,
 		routeItems,

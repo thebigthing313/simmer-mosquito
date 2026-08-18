@@ -23,7 +23,6 @@ function MyOrganizationInsecticidesRoute() {
 				editAction={
 					<InsecticideBatchTrackingDrawer
 						canManage={workspace.canManage}
-						organization={workspace.organization}
 						settings={workspace.settings}
 					/>
 				}

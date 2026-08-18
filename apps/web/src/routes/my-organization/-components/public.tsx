@@ -1,5 +1,4 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
-import type { OrganizationRow } from '@simmer-mosquito/sync';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -32,6 +31,7 @@ import {
 	useNotificationTypeMutations,
 	useOutreachMethodMutations,
 } from '../../../hooks/mutations/use-catalog-mutations';
+import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
 import {
 	type DescribedCatalogRecord,
 	useNotificationTypeRecords,
@@ -39,7 +39,7 @@ import {
 } from '../../../hooks/queries/use-catalog-records';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control';
-import { savePublicSettingsFromValues } from './helpers';
+import { serviceRequestContextFrom } from './helpers';
 import { EditSettingsSheet, LookupListFrame } from './layout/layout';
 
 export function PublicEngagementSettings({
@@ -127,13 +127,13 @@ function PublicSettingTile({
 
 export function PublicSettingsDrawer({
 	canManage,
-	organization,
 	settings,
 }: {
 	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
 	readonly settings: OrganizationSettings;
 }) {
+	const { setServiceRequestContext } = useOrganizationSettingsMutations();
+
 	return (
 		<EditSettingsSheet
 			description="Set how much nearby activity is shown when staff review a resident service request."
@@ -167,12 +167,14 @@ export function PublicSettingsDrawer({
 				},
 			]}
 			onSave={(formData) =>
-				savePublicSettingsFromValues(organization, settings, {
-					radiusAmount: Number(formData.get('Search radius')),
-					radiusUnitCode: String(formData.get('Radius unit') ?? ''),
-					daysBefore: Number(formData.get('Days before')),
-					daysAfter: Number(formData.get('Days after')),
-				})
+				setServiceRequestContext(
+					serviceRequestContextFrom({
+						radiusAmount: Number(formData.get('Search radius')),
+						radiusUnitCode: String(formData.get('Radius unit') ?? ''),
+						daysBefore: Number(formData.get('Days before')),
+						daysAfter: Number(formData.get('Days after')),
+					}),
+				)
 			}
 			title="Edit Public Engagement"
 		/>

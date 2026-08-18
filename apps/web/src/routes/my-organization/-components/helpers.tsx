@@ -3,23 +3,23 @@ import type {
 	LarvalDensityRange,
 	LarvalDensityRanges,
 	OrganizationSettings,
-	ResolvedLarvalInspectionEntryPolicy,
+	ServiceRequestContextSettings,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
-import type { OrganizationRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
+import type { Organization, ProfileRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
 import type { AuthMe } from '../../../auth';
+import type { AgencyDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { webCollections } from '../../../sync/webCollections';
 import { defaultDensityRangeValues } from './constants';
 import type {
 	AgencyDetailsFormValues,
-	ControlSettingsFormValues,
 	DensityRangeFormValue,
 	DensityRangeFormValues,
 	DensityRangeKey,
 	LarvalDensityDisplayKey,
-	MutableOrganizationRow,
 	MutableProfileRow,
 	OrgRole,
 	PersistenceTransaction,
@@ -57,165 +57,98 @@ export function AgencyDetailLine({
 	);
 }
 
-export function formatMailingAddress(organization: OrganizationRow | null): string {
+export function formatMailingAddress(organization: Organization): string {
 	const parts = [
-		organization?.mailingAddressLine1,
-		organization?.mailingAddressLine2,
-		organization?.mailingLocality,
-		organization?.mailingRegion,
-		organization?.mailingPostalCode,
-		organization?.mailingCountry,
+		organization.mailing_address_line_1,
+		organization.mailing_address_line_2,
+		organization.mailing_locality,
+		organization.mailing_region,
+		organization.mailing_postal_code,
+		organization.mailing_country,
 	].filter((part): part is string => typeof part === 'string' && part.length > 0);
 
 	return parts.length === 0 ? 'Not set' : parts.join(', ');
 }
 
 export function agencyDetailsFormValues(
-	organization: OrganizationRow | null,
+	organization: Organization,
 	settings: OrganizationSettings,
 ): AgencyDetailsFormValues {
 	return {
-		name: organization?.name ?? '',
-		mainContactEmail: organization?.mainContactEmail ?? '',
-		phoneNumber: organization?.phoneNumber ?? '',
-		mailingAddressLine1: organization?.mailingAddressLine1 ?? '',
-		mailingAddressLine2: organization?.mailingAddressLine2 ?? '',
-		mailingLocality: organization?.mailingLocality ?? '',
-		mailingRegion: organization?.mailingRegion ?? '',
-		mailingPostalCode: organization?.mailingPostalCode ?? '',
+		name: organization.name,
+		mainContactEmail: organization.main_contact_email ?? '',
+		phoneNumber: organization.phone_number ?? '',
+		mailingAddressLine1: organization.mailing_address_line_1 ?? '',
+		mailingAddressLine2: organization.mailing_address_line_2 ?? '',
+		mailingLocality: organization.mailing_locality ?? '',
+		mailingRegion: organization.mailing_region ?? '',
+		mailingPostalCode: organization.mailing_postal_code ?? '',
 		timezone: settings.timezone,
 	};
 }
 
-export function saveAgencyDetailsFromValues(
-	organization: OrganizationRow | null,
-	settings: OrganizationSettings,
-	values: AgencyDetailsFormValues,
-): PersistenceTransaction {
-	return updateCurrentOrganizationOptimistically(organization, (draft) => {
-		draft.name = requiredTextValue(values.name, 'Organization name');
-		draft.mainContactEmail = nullableTextValue(values.mainContactEmail);
-		draft.phoneNumber = nullableTextValue(values.phoneNumber);
-		draft.mailingCountry = 'US';
-		draft.mailingAddressLine1 = nullableTextValue(values.mailingAddressLine1);
-		draft.mailingAddressLine2 = nullableTextValue(values.mailingAddressLine2);
-		draft.mailingLocality = nullableTextValue(values.mailingLocality);
-		draft.mailingRegion = nullableTextValue(values.mailingRegion);
-		draft.mailingPostalCode = nullableTextValue(values.mailingPostalCode);
-		draft.settings = {
-			...settings,
-			timezone: requiredTextValue(values.timezone, 'Timezone'),
-		};
-	});
+/**
+ * What the details sheet typed, as the write takes it.
+ *
+ * The form holds strings because an emptied input is `''`; the columns are
+ * nullable because an agency that has no second address line has none. Trimming
+ * and that conversion is the whole of what a form owes a write — every other
+ * rule about these values belongs to the domain, which is what the seven routes
+ * run.
+ */
+export function agencyDetailsFieldsFrom(values: AgencyDetailsFormValues): AgencyDetailsFields {
+	return {
+		name: requiredTextValue(values.name, 'Organization name'),
+		mainContactEmail: nullableTextValue(values.mainContactEmail),
+		phoneNumber: nullableTextValue(values.phoneNumber),
+		mailingAddressLine1: nullableTextValue(values.mailingAddressLine1),
+		mailingAddressLine2: nullableTextValue(values.mailingAddressLine2),
+		mailingLocality: nullableTextValue(values.mailingLocality),
+		mailingRegion: nullableTextValue(values.mailingRegion),
+		mailingPostalCode: nullableTextValue(values.mailingPostalCode),
+		timezone: requiredTextValue(values.timezone, 'Timezone'),
+	};
 }
 
 export function unitDefaultsFormValues(unitDefaults: UnitDefaults): UnitDefaultsFormValues {
 	return { ...unitDefaults };
 }
 
-export function saveUnitDefaultsFromValues(
-	organization: OrganizationRow | null,
-	settings: OrganizationSettings,
-	values: UnitDefaultsFormValues,
-): PersistenceTransaction {
-	return updateCurrentOrganizationOptimistically(organization, (draft) => {
-		draft.settings = {
-			...settings,
-			unitDefaults: Object.fromEntries(
-				Object.entries(values).map(([unitType, unitCode]) => [
-					unitType,
-					requiredTextValue(unitCode, formatMode(unitType)),
-				]),
-			) as UnitDefaults,
-		};
-	});
+export function unitDefaultsFrom(values: UnitDefaultsFormValues): UnitDefaults {
+	return Object.fromEntries(
+		Object.entries(values).map(([unitType, unitCode]) => [
+			unitType,
+			requiredTextValue(unitCode, formatMode(unitType)),
+		]),
+	) as UnitDefaults;
 }
 
-export function saveAdultSettings(
-	organization: OrganizationRow | null,
-	settings: OrganizationSettings,
-	formData: FormData,
-): Promise<void> {
-	return updateCurrentOrganization(organization, (draft) => {
-		draft.settings = {
-			...settings,
-			adultSurveillance: {
-				...settings.adultSurveillance,
-				collectionTimingMode: requiredFormText(
-					formData,
-					'Collection timing',
-				) as AdultCollectionTimingMode,
-			},
-		};
-	});
-}
-
-export function saveLarvalSettingsFromValues(
-	organization: OrganizationRow | null,
-	settings: OrganizationSettings,
-	policy: ResolvedLarvalInspectionEntryPolicy,
-): PersistenceTransaction {
-	return updateCurrentOrganizationOptimistically(organization, (draft) => {
-		draft.settings = {
-			...settings,
-			larvalSurveillance: {
-				...settings.larvalSurveillance,
-				inspectionEntryPolicy: policy,
-			},
-		};
-	});
-}
-
-export function saveControlSettingsFromValues(
-	organization: OrganizationRow | null,
-	settings: OrganizationSettings,
-	values: ControlSettingsFormValues,
-): PersistenceTransaction {
-	return updateCurrentOrganizationOptimistically(organization, (draft) => {
-		draft.settings = {
-			...settings,
-			controlOperations: {
-				...settings.controlOperations,
-				trackInsecticideBatches: values.trackInsecticideBatches,
-			},
-		};
-	});
-}
-
-export function savePublicSettingsFromValues(
-	organization: OrganizationRow | null,
-	settings: OrganizationSettings,
+/**
+ * The service request context, from the four inputs that describe it.
+ *
+ * The radius may be fractional and the day windows may not, which is why they
+ * are checked apart. The server checks the thing this cannot: that the unit code
+ * names a distance unit that exists.
+ */
+export function serviceRequestContextFrom(
 	values: PublicSettingsFormValues,
-): PersistenceTransaction {
-	return updateCurrentOrganizationOptimistically(organization, (draft) => {
-		draft.settings = {
-			...settings,
-			publicEngagement: {
-				...settings.publicEngagement,
-				serviceRequestContext: {
-					...settings.publicEngagement.serviceRequestContext,
-					radius: {
-						amount: nonnegativeNumberValue(values.radiusAmount, 'Related-record radius'),
-						unitCode: requiredTextValue(values.radiusUnitCode, 'Radius unit'),
-					},
-					timeWindow: {
-						daysBefore: nonnegativeIntegerValue(values.daysBefore, 'Days before'),
-						daysAfter: nonnegativeIntegerValue(values.daysAfter, 'Days after'),
-					},
-				},
-			},
-		};
-	});
+): ServiceRequestContextSettings {
+	return {
+		radius: {
+			amount: nonnegativeNumberValue(values.radiusAmount, 'Related-record radius'),
+			unitCode: requiredTextValue(values.radiusUnitCode, 'Radius unit'),
+		},
+		timeWindow: {
+			daysBefore: nonnegativeIntegerValue(values.daysBefore, 'Days before'),
+			daysAfter: nonnegativeIntegerValue(values.daysAfter, 'Days after'),
+		},
+	};
 }
 
 export function createHistoricalProfile(
-	organization: OrganizationRow | null,
+	organization: Organization,
 	values: ProfileFormValues,
 ): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
 	const now = new Date().toISOString();
 	return webCollections.profiles.insert({
 		id: crypto.randomUUID(),
@@ -238,26 +171,6 @@ export function updateProfile(
 		mutable.displayName = requiredTextValue(values.displayName, 'Display name');
 		mutable.isActive = values.isActive;
 		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
-export function updateCurrentOrganization(
-	organization: OrganizationRow | null,
-	applyChanges: (draft: MutableOrganizationRow) => void,
-): Promise<void> {
-	return settleWrite(updateCurrentOrganizationOptimistically(organization, applyChanges));
-}
-
-function updateCurrentOrganizationOptimistically(
-	organization: OrganizationRow | null,
-	applyChanges: (draft: MutableOrganizationRow) => void,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	return webCollections.currentOrganization.update(organization.id, (draft) => {
-		applyChanges(draft as MutableOrganizationRow);
 	});
 }
 
@@ -288,19 +201,20 @@ function reportSaveFailure(error: unknown, fallback: string): void {
 	toast.error(message === 'Unable to save changes.' ? fallback : message);
 }
 
-function requiredFormText(formData: FormData, name: string): string {
+/**
+ * A required choice, read out of the settings sheet's `FormData`.
+ *
+ * `EditSettingsSheet` renders its fields from a list and hands back a `FormData`
+ * keyed by the label it drew, which is why the caller names the label rather
+ * than a field.
+ */
+export function requiredFormText(formData: FormData, name: string): string {
 	const value = formData.get(name);
 	const text = typeof value === 'string' ? value.trim() : '';
 	if (text.length === 0) {
 		throw new Error(`${name} is required.`);
 	}
 	return text;
-}
-
-function nullableFormText(formData: FormData, name: string): string | null {
-	const value = formData.get(name);
-	const text = typeof value === 'string' ? value.trim() : '';
-	return text.length === 0 ? null : text;
 }
 
 export function requiredTextValue(value: string, label: string): string {
@@ -311,7 +225,7 @@ export function requiredTextValue(value: string, label: string): string {
 	return text;
 }
 
-export function nullableTextValue(value: string): string | null {
+function nullableTextValue(value: string): string | null {
 	const text = value.trim();
 	return text.length === 0 ? null : text;
 }
@@ -505,7 +419,7 @@ export function selectField(
 
 export function unitDefaultFields(
 	unitDefaults: UnitDefaults,
-	units: readonly UnitRow[],
+	units: readonly UnitLabel[],
 ): readonly SelectSettingField[] {
 	return (Object.entries(unitDefaults) as Array<[keyof UnitDefaults, string]>).map(
 		([unitType, code]) =>
@@ -522,14 +436,14 @@ export function unitDefaultFields(
 
 export function unitOptionsForDefault(
 	code: string,
-	units: readonly UnitRow[],
+	units: readonly UnitLabel[],
 ): readonly SelectOption[] {
 	return [...units]
 		.sort((first, second) => compareUnitsForSelect(code, first, second))
 		.map(unitOption);
 }
 
-function compareUnitsForSelect(code: string, first: UnitRow, second: UnitRow): number {
+function compareUnitsForSelect(code: string, first: UnitLabel, second: UnitLabel): number {
 	if (first.code === code || second.code === code) {
 		return first.code === code ? -1 : 1;
 	}
@@ -541,7 +455,7 @@ function compareUnitsForSelect(code: string, first: UnitRow, second: UnitRow): n
 	);
 }
 
-function unitOption(unit: UnitRow): SelectOption {
+function unitOption(unit: UnitLabel): SelectOption {
 	return {
 		label:
 			unit.abbreviation.length === 0 ? unit.unitName : `${unit.unitName} (${unit.abbreviation})`,

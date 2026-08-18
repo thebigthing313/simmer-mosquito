@@ -5,7 +5,6 @@ import type {
 	OrganizationSettings,
 	ResolvedLarvalInspectionEntryPolicy,
 } from '@simmer-mosquito/domain';
-import type { OrganizationRow } from '@simmer-mosquito/sync';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -56,6 +55,7 @@ import {
 	type CatalogMutations,
 	useHabitatTypeMutations,
 } from '../../../hooks/mutations/use-catalog-mutations';
+import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
 import {
 	type SchemaCatalogRecord,
 	useHabitatTypeRecords,
@@ -76,8 +76,7 @@ import {
 	errorMessageForSave,
 	formatDensityRange,
 	safeDensityRangesFromFormValues,
-	saveLarvalSettingsFromValues,
-	watchPersistence,
+	watchWrite,
 } from './helpers';
 import { LookupListFrame, SettingChoiceCard } from './layout/layout';
 import type {
@@ -204,13 +203,12 @@ function DensityRangeTile({
 
 export function LarvalSettingsDrawer({
 	canManage,
-	organization,
 	settings,
 }: {
 	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
 	readonly settings: OrganizationSettings;
 }) {
+	const { canWrite, setLarvalInspectionEntryPolicy } = useOrganizationSettingsMutations();
 	const policy = settings.larvalSurveillance.inspectionEntryPolicy;
 	const [open, setOpen] = useState(false);
 	const [mode, setMode] = useState<LarvalInspectionEntryMode>(policy.mode);
@@ -235,12 +233,14 @@ export function LarvalSettingsDrawer({
 		event.preventDefault();
 		setError(null);
 		try {
-			const transaction = saveLarvalSettingsFromValues(organization, settings, {
+			// Built before the sheet closes: an out-of-order density band throws here,
+			// and a save that never left should not look like one that did.
+			const policyToSave = {
 				mode,
 				densityRanges: densityEnabled ? densityRangesFromFormValues(ranges) : null,
-			});
+			};
 			setOpen(false);
-			watchPersistence(transaction, 'Unable to save larval settings.');
+			watchWrite(setLarvalInspectionEntryPolicy(policyToSave), 'Unable to save larval settings.');
 		} catch (saveError) {
 			setError(errorMessageForSave(saveError));
 		}
@@ -319,7 +319,7 @@ export function LarvalSettingsDrawer({
 						<p className="m-0 text-sm leading-snug text-destructive">{error}</p>
 					)}
 					<SheetFooter className="px-0">
-						<Button type="submit" disabled={!canManage || organization === null}>
+						<Button type="submit" disabled={!canManage || !canWrite}>
 							<SaveIcon aria-hidden="true" />
 							Save Changes
 						</Button>

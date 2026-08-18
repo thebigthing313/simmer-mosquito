@@ -1,4 +1,4 @@
-import type { MembershipRow, OrganizationRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { MembershipRow, Organization, ProfileRow } from '@simmer-mosquito/sync';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -68,7 +68,7 @@ export function PeopleSection({
 	readonly auth: AuthMe | null;
 	readonly canManage: boolean;
 	readonly memberships: Collection<MembershipRow, string | number>;
-	readonly organization: OrganizationRow | null;
+	readonly organization: Organization;
 	readonly profiles: Collection<ProfileRow, string | number>;
 	readonly role: OrgRole;
 }) {
@@ -101,7 +101,6 @@ export function PeopleSection({
 									type="button"
 									variant="outline"
 									size="sm"
-									disabled={organization === null}
 									onClick={() => setIsAddingHistorical(true)}
 								>
 									<AddIcon aria-hidden="true" />
@@ -111,7 +110,6 @@ export function PeopleSection({
 									type="button"
 									variant="outline"
 									size="sm"
-									disabled={organization === null}
 									onClick={() => setIsInviting(true)}
 								>
 									<AddIcon aria-hidden="true" />
@@ -346,7 +344,7 @@ function HistoricalProfileSheet({
 }: {
 	readonly onOpenChange: (open: boolean) => void;
 	readonly open: boolean;
-	readonly organization: OrganizationRow | null;
+	readonly organization: Organization;
 }) {
 	const [displayName, setDisplayName] = useState('');
 	const [isActive, setIsActive] = useState(false);
@@ -404,7 +402,7 @@ function HistoricalProfileSheet({
 						)}
 					</div>
 					<SheetFooter>
-						<Button type="submit" disabled={organization === null}>
+						<Button type="submit">
 							<SaveIcon aria-hidden="true" />
 							Save Profile
 						</Button>

@@ -1,7 +1,9 @@
+import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import { createFileRoute } from '@tanstack/react-router';
+import { useOrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { AdultSurveillanceSettings } from './-components/adult';
-import { saveAdultSettings, selectField } from './-components/helpers';
+import { requiredFormText, selectField } from './-components/helpers';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
 import type { SettingField } from './-components/types';
@@ -13,6 +15,7 @@ export const Route = createFileRoute('/my-organization/adult-surveillance')({
 function MyOrganizationAdultSurveillanceRoute() {
 	const { auth } = Route.useRouteContext();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
+	const { setAdultCollectionTimingMode } = useOrganizationSettingsMutations();
 	const adultFields: readonly SettingField[] = [
 		selectField('Collection timing', workspace.settings.adultSurveillance.collectionTimingMode, [
 			{ label: 'Exact timestamps', value: 'exact_timestamps' },
@@ -29,7 +32,9 @@ function MyOrganizationAdultSurveillanceRoute() {
 				id="adult"
 				meta="Trap collection methods, lures, and adult surveillance references"
 				onSave={(formData) =>
-					saveAdultSettings(workspace.organization, workspace.settings, formData)
+					setAdultCollectionTimingMode(
+						requiredFormText(formData, 'Collection timing') as AdultCollectionTimingMode,
+					)
 				}
 				setupItems={[]}
 				title="Adult Surveillance"

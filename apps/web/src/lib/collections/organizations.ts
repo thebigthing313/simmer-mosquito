@@ -14,8 +14,15 @@ import { getServerUrl } from '../../auth';
  * `eager`: The agency's own record. One row, and the shell reads it before anything
  * else can draw.
  *
- * This app writes organizations, so the collection carries the three mutation
- * handlers and every write through it names the command it means.
+ * `mutations: false`, and it is the one table where that does not mean "this app
+ * does not write it". There is no `/commands/organizations`: the agency's own
+ * record is written by eight named routes instead — the seven
+ * `organizationSettings.*` commands and the agency's details — because its
+ * settings are a JSON document rather than columns, and which of the seven a
+ * write means cannot be read off a column diff. Declaring no handlers is what
+ * makes a stray `organizations.update(...)` a refusal rather than a request to an
+ * endpoint that does not exist; `hooks/mutations/organization-writes.ts` opens
+ * the transaction that is the only way in.
  *
  * The type is written here rather than inferred because a `Collection<…>`
  * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
@@ -25,7 +32,7 @@ export const organizations: Collection<Organization, string | number> =
 	createOrganizationsCollection({
 		serverUrl: getServerUrl(),
 		syncMode: 'eager',
-		mutations: true,
+		mutations: false,
 	});
 
 /**

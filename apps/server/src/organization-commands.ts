@@ -1,5 +1,4 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
-import { type OrganizationSettings, resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
@@ -57,9 +56,6 @@ export function registerOrganizationCommandRoutes(
 					mailing_locality: payloadResult.payload.mailingLocality,
 					mailing_region: payloadResult.payload.mailingRegion,
 					mailing_postal_code: payloadResult.payload.mailingPostalCode,
-					...(payloadResult.payload.settings === undefined
-						? {}
-						: { settings: payloadResult.payload.settings }),
 					updated_at: sql`now()`,
 					updated_by_profile_id: authContext.profile.id,
 				})
@@ -104,7 +100,6 @@ interface OrganizationPayload {
 	readonly mailingLocality: string | null;
 	readonly mailingRegion: string | null;
 	readonly mailingPostalCode: string | null;
-	readonly settings?: OrganizationSettings | undefined;
 	readonly expectedUpdatedAt: Date | null;
 }
 
@@ -112,7 +107,17 @@ type PayloadResult =
 	| { readonly ok: true; readonly payload: OrganizationPayload }
 	| { readonly ok: false; readonly reason: string };
 
-async function readOrganizationPayload(request: {
+/**
+ * Exported for its test.
+ *
+ * The one thing worth pinning about it is a negative: a `settings` document in
+ * the body is not read. It used to be — this route wrote the whole document,
+ * passed through a resolver that substitutes defaults rather than refusing, with
+ * the issues it reported dropped — and the seven `organizationSettings.*` routes
+ * own that now. During a deploy an older browser is still sending one, and it
+ * has to be ignored rather than written.
+ */
+export async function readOrganizationPayload(request: {
 	readonly json: () => Promise<unknown>;
 }): Promise<PayloadResult> {
 	let raw: unknown;
@@ -148,9 +153,6 @@ async function readOrganizationPayload(request: {
 			mailingLocality: readOptionalText(raw.mailingLocality),
 			mailingRegion: readUsStateCode(raw.mailingRegion),
 			mailingPostalCode: readOptionalText(raw.mailingPostalCode),
-			...(raw.settings === undefined
-				? {}
-				: { settings: resolveOrganizationSettings(raw.settings).settings }),
 			expectedUpdatedAt,
 		},
 	};

@@ -1,5 +1,5 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
-import type { OrganizationRow, UnitRow } from '@simmer-mosquito/sync';
+import type { Organization } from '@simmer-mosquito/sync';
 import { ColorPicker } from '@simmer-mosquito/ui-web/components/color-picker';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -29,8 +29,10 @@ import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { EmptyValue } from '../../../components/empty-value';
+import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
 import { type TagFields, useTagMutations } from '../../../hooks/mutations/use-tag-mutations';
 import { type TagRecord, useTagCatalog } from '../../../hooks/queries/use-tag-catalog';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { hexWithAlpha, validHexColor } from '../../../lib/hex-color';
 import {
 	AddIcon,
@@ -43,16 +45,15 @@ import {
 } from './constants';
 import {
 	AgencyDetailLine,
+	agencyDetailsFieldsFrom,
 	agencyDetailsFormValues,
 	errorMessageForSave,
 	formatMailingAddress,
 	formatMode,
-	saveAgencyDetailsFromValues,
-	saveUnitDefaultsFromValues,
 	unitDefaultsFormValues,
+	unitDefaultsFrom,
 	unitOptionsForDefault,
 	validateEmail,
-	watchPersistence,
 	watchWrite,
 } from './helpers';
 import { DomainSection } from './layout/layout';
@@ -70,7 +71,6 @@ export function GeneralOrganizationSection({
 	organization,
 	organizationName,
 	settings,
-	status,
 	timezone,
 	unitFields,
 	units,
@@ -83,13 +83,12 @@ export function GeneralOrganizationSection({
 	 * above it. Same page, two floors.
 	 */
 	readonly canManageTags: boolean;
-	readonly organization: OrganizationRow | null;
+	readonly organization: Organization;
 	readonly organizationName: string;
 	readonly settings: OrganizationSettings;
-	readonly status: string;
 	readonly timezone: string;
 	readonly unitFields: readonly SettingField[];
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	const [isCreatingTag, setIsCreatingTag] = useState(false);
 
@@ -102,14 +101,12 @@ export function GeneralOrganizationSection({
 					<EditAgencyDetailsSheet
 						defaultValues={agencyDetailsFormValues(organization, settings)}
 						description="Update the agency profile details available to organization members."
-						organization={organization}
-						settings={settings}
 						title={`Edit ${organizationName}`}
 					/>
 				}
 				fields={agencyFields}
 				id="agency"
-				meta={status === 'ready' ? 'Current agency details' : 'Agency details loading'}
+				meta="Current agency details"
 				setupItems={[]}
 				title={organizationName}
 			>
@@ -123,8 +120,6 @@ export function GeneralOrganizationSection({
 					<EditUnitDefaultsSheet
 						defaultValues={unitDefaultsFormValues(settings.unitDefaults)}
 						description="Set default units used across collection forms, summaries, and operational reports."
-						organization={organization}
-						settings={settings}
 						title="Edit Unit Defaults"
 						units={units}
 					/>
@@ -526,28 +521,27 @@ function TagEditorTableRow({
 function EditAgencyDetailsSheet({
 	defaultValues,
 	description,
-	organization,
-	settings,
 	title,
 }: {
 	readonly defaultValues: AgencyDetailsFormValues;
 	readonly description: string;
-	readonly organization: OrganizationRow | null;
-	readonly settings: OrganizationSettings;
 	readonly title: string;
 }) {
 	const [open, setOpen] = useState(false);
+	const { canWrite, saveAgencyDetails } = useOrganizationSettingsMutations();
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (canWrite ? undefined : 'Agency details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
 			try {
-				const transaction = saveAgencyDetailsFromValues(organization, settings, value);
+				// The conversion throws on an empty required field, so it runs before
+				// the sheet closes — a save that never left should not look like one
+				// that did.
+				const fields = agencyDetailsFieldsFrom(value);
 				setOpen(false);
-				watchPersistence(transaction, 'Unable to save agency details.');
+				watchWrite(saveAgencyDetails(fields), 'Unable to save agency details.');
 			} catch (saveError) {
 				toast.error(errorMessageForSave(saveError));
 			}
@@ -632,7 +626,7 @@ function EditAgencyDetailsSheet({
 						</div>
 						<SheetFooter>
 							<form.FormActions>
-								<form.SubmitButton disabled={organization === null} />
+								<form.SubmitButton disabled={!canWrite} />
 								<SheetClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />
@@ -651,30 +645,26 @@ function EditAgencyDetailsSheet({
 function EditUnitDefaultsSheet({
 	defaultValues,
 	description,
-	organization,
-	settings,
 	title,
 	units,
 }: {
 	readonly defaultValues: UnitDefaultsFormValues;
 	readonly description: string;
-	readonly organization: OrganizationRow | null;
-	readonly settings: OrganizationSettings;
 	readonly title: string;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	const [open, setOpen] = useState(false);
+	const { canWrite, setUnitDefaults } = useOrganizationSettingsMutations();
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (canWrite ? undefined : 'Agency details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
 			try {
-				const transaction = saveUnitDefaultsFromValues(organization, settings, value);
+				const unitDefaults = unitDefaultsFrom(value);
 				setOpen(false);
-				watchPersistence(transaction, 'Unable to save unit defaults.');
+				watchWrite(setUnitDefaults(unitDefaults), 'Unable to save unit defaults.');
 			} catch (saveError) {
 				toast.error(errorMessageForSave(saveError));
 			}
@@ -737,7 +727,7 @@ function EditUnitDefaultsSheet({
 						</div>
 						<SheetFooter>
 							<form.FormActions>
-								<form.SubmitButton disabled={organization === null} />
+								<form.SubmitButton disabled={!canWrite} />
 								<SheetClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />
@@ -757,10 +747,10 @@ function AgencyDetailsSummary({
 	organization,
 	timezone,
 }: {
-	readonly organization: OrganizationRow | null;
+	readonly organization: Organization;
 	readonly timezone: string;
 }) {
-	const slug = organization?.slug ?? null;
+	const slug = organization.slug;
 	const address = formatMailingAddress(organization);
 
 	return (
@@ -777,8 +767,8 @@ function AgencyDetailsSummary({
 			</div>
 			<div className="grid min-w-0 content-start gap-2">
 				<span className="text-xs leading-tight font-semibold text-muted-foreground">Contact</span>
-				<AgencyDetailLine label="Email" value={organization?.mainContactEmail} />
-				<AgencyDetailLine label="Phone" value={organization?.phoneNumber} />
+				<AgencyDetailLine label="Email" value={organization.main_contact_email} />
+				<AgencyDetailLine label="Phone" value={organization.phone_number} />
 				<AgencyDetailLine label="Timezone" value={timezone} />
 			</div>
 			<div className="grid min-w-0 content-start gap-2">
