@@ -17,17 +17,9 @@ describe('web sync baseline preload', () => {
 			'species',
 			'organizationSpecies',
 			'currentOrganization',
-			'collectionMethods',
-			'collectionLures',
-			'habitatTypes',
-			'applicationMethods',
-			'sourceReductionMethods',
-			'outreachMethods',
-			'biocontrolMethods',
 			'vehicles',
 			'equipment',
 			'insecticides',
-			'notificationTypes',
 			'tags',
 			'routes',
 			'regionFolders',
@@ -61,15 +53,6 @@ describe('web sync baseline preload', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
 		expect(collections.currentOrganization.config.onUpdate).toBeTypeOf('function');
-		expect(collections.collectionMethods.config.onInsert).toBeTypeOf('function');
-		expect(collections.collectionMethods.config.onUpdate).toBeTypeOf('function');
-		expect(collections.collectionMethods.config.onDelete).toBeTypeOf('function');
-		expect(collections.collectionLures.config.onInsert).toBeTypeOf('function');
-		expect(collections.collectionLures.config.onUpdate).toBeTypeOf('function');
-		expect(collections.collectionLures.config.onDelete).toBeTypeOf('function');
-		expect(collections.habitatTypes.config.onInsert).toBeTypeOf('function');
-		expect(collections.habitatTypes.config.onUpdate).toBeTypeOf('function');
-		expect(collections.habitatTypes.config.onDelete).toBeTypeOf('function');
 		expect(collections.tags.config.onInsert).toBeTypeOf('function');
 		expect(collections.tags.config.onUpdate).toBeTypeOf('function');
 		expect(collections.tags.config.onDelete).toBeTypeOf('function');
@@ -92,7 +75,6 @@ describe('web sync baseline preload', () => {
 		expect(collections.samples.config.onInsert).toBeTypeOf('function');
 		expect(collections.sampleSpecies.config.id).toBe('sample_species');
 		expect(collections.sampleSpecies.config.onInsert).toBeTypeOf('function');
-		expect(collections.habitatTypes.config.syncMode).toBe('eager');
 		expect(collections.addresses.config.syncMode).toBe('on-demand');
 		expect(collections.habitats.config.syncMode).toBe('on-demand');
 		expect(collections.inspections.config.syncMode).toBe('on-demand');

@@ -30,6 +30,7 @@ import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
 import { collection_lures } from '../../lib/collections/collection_lures';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { habitat_types } from '../../lib/collections/habitat_types';
+import { notification_types } from '../../lib/collections/notification_types';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 
@@ -71,14 +72,29 @@ export function useOutreachMethodRoster(): readonly SchemaCatalogListing[] {
 
 /** Lures carry no custom schema — the one catalog on the plain shape. */
 export function useCollectionLureRoster(): readonly CatalogListing[] {
+	return usePlainCatalogRoster(collection_lures);
+}
+
+/** Nor do notification types — the mission form picks one to notify residents by. */
+export function useNotificationTypeRoster(): readonly CatalogListing[] {
+	return usePlainCatalogRoster(notification_types);
+}
+
+/**
+ * The two catalogs with no custom schema.
+ *
+ * `collection_lures` and `notification_types` have identical columns, so their
+ * row types are the same type and one query covers both.
+ */
+function usePlainCatalogRoster(collection: typeof collection_lures): readonly CatalogListing[] {
 	const result = useLiveSuspenseQuery(
 		(query) =>
-			query.from({ row: collection_lures }).select(({ row }) => ({
+			query.from({ row: collection }).select(({ row }) => ({
 				id: row.id,
 				name: row.name,
 				isActive: row.is_active,
 			})),
-		[],
+		[collection],
 	);
 
 	return result.data;

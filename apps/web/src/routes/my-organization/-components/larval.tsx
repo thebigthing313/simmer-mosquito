@@ -5,7 +5,7 @@ import type {
 	OrganizationSettings,
 	ResolvedLarvalInspectionEntryPolicy,
 } from '@simmer-mosquito/domain';
-import type { HabitatTypeRow, OrganizationRow } from '@simmer-mosquito/sync';
+import type { OrganizationRow } from '@simmer-mosquito/sync';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -51,9 +51,17 @@ import {
 import type { Collection } from '@tanstack/react-db';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import { EmptyValue } from '../../../components/empty-value';
-import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
+import {
+	type CatalogMutations,
+	useHabitatTypeMutations,
+} from '../../../hooks/mutations/use-catalog-mutations';
+import {
+	type SchemaCatalogRecord,
+	useHabitatTypeRecords,
+} from '../../../hooks/queries/use-catalog-records';
 import {
 	AddIcon,
 	CloseIcon,
@@ -63,17 +71,14 @@ import {
 	SaveIcon,
 } from './constants';
 import {
-	createHabitatTypeFromValues,
 	densityKeyForSettings,
 	densityLabel,
 	densityRangeFormValues,
 	densityRangesFromFormValues,
 	errorMessageForSave,
 	formatDensityRange,
-	habitatTypeFormValues,
 	safeDensityRangesFromFormValues,
 	saveLarvalSettingsFromValues,
-	updateHabitatTypeFromValues,
 	watchPersistence,
 } from './helpers';
 import { LookupListFrame, SettingChoiceCard } from './layout/layout';
@@ -86,13 +91,9 @@ import type {
 
 export function LarvalSurveillanceSettings({
 	canManage,
-	habitatTypes,
-	organization,
 	policy,
 }: {
 	readonly canManage: boolean;
-	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
-	readonly organization: OrganizationRow | null;
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 }) {
 	return (
@@ -100,11 +101,7 @@ export function LarvalSurveillanceSettings({
 			<LarvalEntryPolicyGuide policy={policy} />
 			<div className="grid gap-2">
 				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
-				<HabitatTypeLookupList
-					canManage={canManage}
-					habitatTypes={habitatTypes}
-					organization={organization}
-				/>
+				<HabitatTypeLookupList canManage={canManage} />
 			</div>
 		</div>
 	);
@@ -382,17 +379,10 @@ function DensityRangeEditor({
 	);
 }
 
-function HabitatTypeLookupList({
-	canManage,
-	habitatTypes,
-	organization,
-}: {
-	readonly canManage: boolean;
-	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
-	readonly organization: OrganizationRow | null;
-}) {
-	const { activeRows: activeHabitatTypes, inactiveRows: inactiveHabitatTypes } =
-		useActiveNamedCollectionRows(habitatTypes);
+function HabitatTypeLookupList({ canManage }: { readonly canManage: boolean }) {
+	const { activeRecords: activeHabitatTypes, inactiveRecords: inactiveHabitatTypes } =
+		useHabitatTypeRecords();
+	const mutations = useHabitatTypeMutations();
 
 	return (
 		<LookupListFrame
@@ -403,7 +393,7 @@ function HabitatTypeLookupList({
 			action={
 				<HabitatTypeDrawer
 					canManage={canManage}
-					organization={organization}
+					mutations={mutations}
 					trigger={
 						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
 							<AddIcon aria-hidden="true" />
@@ -417,14 +407,14 @@ function HabitatTypeLookupList({
 				canManage={canManage}
 				emptyLabel="No active habitat types."
 				habitatTypes={activeHabitatTypes}
-				organization={organization}
+				mutations={mutations}
 				title="Active Habitat Types"
 			/>
 			<HabitatTypeTable
 				canManage={canManage}
 				emptyLabel="No inactive habitat types."
 				habitatTypes={inactiveHabitatTypes}
-				organization={organization}
+				mutations={mutations}
 				title="Inactive Habitat Types"
 			/>
 		</LookupListFrame>
@@ -435,13 +425,13 @@ function HabitatTypeTable({
 	canManage,
 	emptyLabel,
 	habitatTypes,
-	organization,
+	mutations,
 	title,
 }: {
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
-	readonly habitatTypes: readonly HabitatTypeRow[];
-	readonly organization: OrganizationRow | null;
+	readonly habitatTypes: readonly SchemaCatalogRecord[];
+	readonly mutations: CatalogMutations;
 	readonly title: string;
 }) {
 	return (
@@ -484,7 +474,7 @@ function HabitatTypeTable({
 											<HabitatTypeDrawer
 												canManage={canManage}
 												habitatType={habitatType}
-												organization={organization}
+												mutations={mutations}
 												trigger={
 													<Button type="button" variant="outline" size="icon">
 														<EditIcon aria-hidden="true" />
@@ -507,38 +497,37 @@ function HabitatTypeTable({
 function HabitatTypeDrawer({
 	canManage,
 	habitatType,
-	organization,
+	mutations,
 	trigger,
 }: {
 	readonly canManage: boolean;
-	readonly habitatType?: HabitatTypeRow | undefined;
-	readonly organization: OrganizationRow | null;
+	readonly habitatType?: SchemaCatalogRecord | undefined;
+	readonly mutations: CatalogMutations;
 	readonly trigger: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
-	const defaultValues = habitatTypeFormValues(habitatType);
+	const defaultValues = catalogFormValues(habitatType);
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
-					habitatType === undefined
-						? createHabitatTypeFromValues(organization, value)
-						: updateHabitatTypeFromValues(habitatType, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
+			commitCatalogSave({
+				failureMessage:
 					habitatType === undefined
 						? 'Unable to create habitat type.'
 						: `Unable to save ${habitatType.name}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+				onWritten: () => setOpen(false),
+				save: () =>
+					habitatType === undefined
+						? mutations.create(catalogFields(value)).then(() => undefined)
+						: mutations.save(
+								habitatType.id,
+								catalogFields(value),
+								catalogFields(catalogFormValues(habitatType)),
+							),
+			});
 		},
 	});
 
@@ -602,7 +591,7 @@ function HabitatTypeDrawer({
 						</form.AppField>
 						<DrawerFooter className="px-0">
 							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || organization === null} />
+								<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
 								<DrawerClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { collections } from './-components/constants';
+import { webCollections } from '../../sync/webCollections';
 import { ControlOperationsSettings } from './-components/control';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
@@ -25,13 +25,10 @@ function MyOrganizationControlMethodsRoute() {
 				title="Control Operations"
 			>
 				<ControlOperationsSettings
-					applicationMethods={collections.applicationMethods}
-					biocontrolMethods={collections.biocontrolMethods}
 					canManageAssets={workspace.canManageOperational}
 					organization={workspace.organization}
-					sourceReductionMethods={collections.sourceReductionMethods}
-					vehicles={collections.vehicles}
-					equipment={collections.equipment}
+					vehicles={webCollections.vehicles}
+					equipment={webCollections.equipment}
 				/>
 			</DomainSection>
 		</OrganizationWorkspaceShell>

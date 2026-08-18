@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useCollectionRows } from '../../hooks/use-collection-rows';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { collections, US_STATE_SELECT_OPTIONS, US_TIMEZONE_OPTIONS } from './-components/constants';
+import { webCollections } from '../../sync/webCollections';
+import { US_STATE_SELECT_OPTIONS, US_TIMEZONE_OPTIONS } from './-components/constants';
 import { GeneralOrganizationSection } from './-components/general';
 import { selectField, textField, unitDefaultFields } from './-components/helpers';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
@@ -14,8 +15,8 @@ export const Route = createFileRoute('/my-organization/')({
 function MyOrganizationGeneralRoute() {
 	const { auth } = Route.useRouteContext();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
-	const { rows: units } = useCollectionRows(collections.units);
-	const { rows: tags } = useCollectionRows(collections.tags);
+	const { rows: units } = useCollectionRows(webCollections.units);
+	const { rows: tags } = useCollectionRows(webCollections.tags);
 	const agencyFields: readonly SettingField[] = [
 		textField('Organization name', workspace.organization?.name ?? ''),
 		textField('Slug', workspace.organization?.slug ?? '', {

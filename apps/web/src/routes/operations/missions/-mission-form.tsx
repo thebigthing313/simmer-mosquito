@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/com
 import { useMemo, useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { domainValidator } from '../../../forms/domain-validation';
+import { useNotificationTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -374,9 +375,7 @@ export function MissionFormPage({
 function useMissionFormOptions(controlType: ControlType) {
 	const { methods } = useMethodsForControlType(controlType);
 	const profiles = useProfileRoster();
-	const { rows: notificationTypes } = useCollectionRows<NotificationTypeRow>(
-		webCollections.notificationTypes,
-	);
+	const notificationTypes = useNotificationTypeRoster();
 
 	return {
 		methods: useMemo(

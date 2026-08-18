@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { collections } from './-components/constants';
+import { webCollections } from '../../sync/webCollections';
 import {
 	InsecticideBatchTrackingDrawer,
 	InsecticideLookupPointer,
@@ -34,7 +34,7 @@ function MyOrganizationInsecticidesRoute() {
 				setupItems={[]}
 				title="Insecticides"
 			>
-				<InsecticideLookupPointer insecticides={collections.insecticides} />
+				<InsecticideLookupPointer insecticides={webCollections.insecticides} />
 			</DomainSection>
 		</OrganizationWorkspaceShell>
 	);

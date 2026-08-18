@@ -1,4 +1,3 @@
-import type { HabitatTypeRow, OrganizationRow } from '@simmer-mosquito/sync';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -18,22 +17,25 @@ import {
 	CatalogRecordDialog,
 	CatalogRowActions,
 	CatalogSection,
-	commitCatalogWrite,
-	toggleCatalogLifecycle,
+	catalogFields,
+	catalogFormValues,
+	commitCatalogSave,
+	toggleCatalogActive,
 	useCatalogDialogOpen,
 	useCatalogSearch,
 	useResetOnOpen,
 } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import { EmptyValue } from '../../../components/empty-value';
-import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { webCollections } from '../../../sync/webCollections';
 import {
-	createHabitatTypeFromValues,
-	habitatTypeFormValues,
-	updateHabitatTypeFromValues,
-} from '../../my-organization/-components/helpers';
+	type CatalogMutations,
+	useHabitatTypeMutations,
+} from '../../../hooks/mutations/use-catalog-mutations';
+import {
+	type SchemaCatalogRecord,
+	useHabitatTypeRecords,
+} from '../../../hooks/queries/use-catalog-records';
+import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/types')({
 	component: HabitatTypesRoute,
@@ -70,7 +72,7 @@ async function fetchHabitatTypeUsage(signal: AbortSignal): Promise<UsageById> {
 	return new Map((body.usage ?? []).map((row) => [row.habitatTypeId, row.activeCount]));
 }
 
-function matchesHabitatType(row: HabitatTypeRow, query: string): boolean {
+function matchesHabitatType(row: SchemaCatalogRecord, query: string): boolean {
 	return (
 		row.name.toLowerCase().includes(query) || (row.description ?? '').toLowerCase().includes(query)
 	);
@@ -78,18 +80,17 @@ function matchesHabitatType(row: HabitatTypeRow, query: string): boolean {
 
 function HabitatTypesRoute() {
 	const { auth } = Route.useRouteContext();
-	const { canManage, organization } = useOrganizationWorkspace(auth.snapshot);
-	const { activeRows, inactiveRows } = useActiveNamedCollectionRows<HabitatTypeRow>(
-		webCollections.habitatTypes,
-	);
+	const { canManage } = useOrganizationWorkspace(auth.snapshot);
+	const { activeRecords, inactiveRecords } = useHabitatTypeRecords();
+	const mutations = useHabitatTypeMutations();
 	const { usageById, isLoading: usageLoading } = useHabitatTypeUsage();
-	const search = useCatalogSearch(activeRows, inactiveRows, matchesHabitatType);
+	const search = useCatalogSearch(activeRecords, inactiveRecords, matchesHabitatType);
 
 	// The header and the empty state offer the same way in, so they mount the
 	// same dialog rather than each spelling out its own trigger.
 	const addHabitatTypeDialog = (
 		<HabitatTypeDialog
-			organization={organization}
+			mutations={mutations}
 			trigger={
 				<Button type="button">
 					<AddIcon aria-hidden="true" />
@@ -130,7 +131,7 @@ function HabitatTypesRoute() {
 							? 'No active habitat types match your search.'
 							: 'No active habitat types. Add one to start classifying larval sites.'
 					}
-					organization={organization}
+					mutations={mutations}
 					rows={search.filteredActive}
 					title="Active"
 					tone="active"
@@ -141,7 +142,7 @@ function HabitatTypesRoute() {
 					<HabitatTypeSection
 						canManage={canManage}
 						emptyLabel="No inactive habitat types match your search."
-						organization={organization}
+						mutations={mutations}
 						rows={search.filteredInactive}
 						title="Inactive"
 						tone="inactive"
@@ -157,7 +158,7 @@ function HabitatTypesRoute() {
 function HabitatTypeSection({
 	canManage,
 	emptyLabel,
-	organization,
+	mutations,
 	rows,
 	title,
 	tone,
@@ -166,8 +167,8 @@ function HabitatTypeSection({
 }: {
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
-	readonly organization: OrganizationRow | null;
-	readonly rows: readonly HabitatTypeRow[];
+	readonly mutations: CatalogMutations;
+	readonly rows: readonly SchemaCatalogRecord[];
 	readonly title: string;
 	readonly tone: 'active' | 'inactive';
 	readonly usageById: UsageById;
@@ -202,7 +203,7 @@ function HabitatTypeSection({
 					</TableCell>
 					{canManage ? (
 						<TableCell className="align-top text-right">
-							<HabitatTypeRowActions habitatType={habitatType} organization={organization} />
+							<HabitatTypeRowActions habitatType={habitatType} mutations={mutations} />
 						</TableCell>
 					) : null}
 				</TableRow>
@@ -230,10 +231,10 @@ function SitesCount({ count, isLoading }: { readonly count: number; readonly isL
 
 function HabitatTypeRowActions({
 	habitatType,
-	organization,
+	mutations,
 }: {
-	readonly habitatType: HabitatTypeRow;
-	readonly organization: OrganizationRow | null;
+	readonly habitatType: SchemaCatalogRecord;
+	readonly mutations: CatalogMutations;
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 
@@ -243,42 +244,36 @@ function HabitatTypeRowActions({
 				isActive={habitatType.isActive}
 				name={habitatType.name}
 				onEdit={() => setEditOpen(true)}
-				onToggle={() => toggleHabitatTypeActive(habitatType)}
+				onToggle={() =>
+					toggleCatalogActive({
+						apply: (isActive) => mutations.setActive(habitatType.id, isActive),
+						isActive: habitatType.isActive,
+						name: habitatType.name,
+					})
+				}
 			/>
 			<HabitatTypeDialog
 				habitatType={habitatType}
 				onOpenChange={setEditOpen}
 				open={editOpen}
-				organization={organization}
+				mutations={mutations}
 			/>
 		</>
 	);
-}
-
-function toggleHabitatTypeActive(habitatType: HabitatTypeRow): void {
-	toggleCatalogLifecycle({
-		apply: (isActive) =>
-			updateHabitatTypeFromValues(habitatType, {
-				...habitatTypeFormValues(habitatType),
-				isActive,
-			}),
-		isActive: habitatType.isActive,
-		name: habitatType.name,
-	});
 }
 
 function HabitatTypeDialog({
 	habitatType,
 	onOpenChange,
 	open: controlledOpen,
-	organization,
+	mutations,
 	trigger,
 }: {
-	readonly habitatType?: HabitatTypeRow | undefined;
+	readonly habitatType?: SchemaCatalogRecord | undefined;
 	/** Controlled open handler — pair with `open` when there is no `trigger`. */
 	readonly onOpenChange?: ((open: boolean) => void) | undefined;
 	readonly open?: boolean | undefined;
-	readonly organization: OrganizationRow | null;
+	readonly mutations: CatalogMutations;
 	/** Uncontrolled mode: the element that opens the dialog (Add button, empty-state CTA). */
 	readonly trigger?: React.ReactNode;
 }) {
@@ -286,33 +281,36 @@ function HabitatTypeDialog({
 	const isEditing = habitatType !== undefined;
 
 	const form = useAppForm({
-		defaultValues: habitatTypeFormValues(habitatType),
+		defaultValues: catalogFormValues(habitatType),
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			commitCatalogWrite({
+			commitCatalogSave({
 				failureMessage: isEditing
 					? `Unable to save ${habitatType.name}.`
 					: 'Unable to create habitat type.',
 				onWritten: () => setOpen(false),
-				write: () =>
+				save: () =>
 					isEditing
-						? updateHabitatTypeFromValues(habitatType, value)
-						: createHabitatTypeFromValues(organization, value),
+						? mutations.save(
+								habitatType.id,
+								catalogFields(value),
+								catalogFields(catalogFormValues(habitatType)),
+							)
+						: mutations.create(catalogFields(value)).then(() => undefined),
 			});
 		},
 	});
 
-	useResetOnOpen(open, habitatType, () => form.reset(habitatTypeFormValues(habitatType)));
+	useResetOnOpen(open, habitatType, () => form.reset(catalogFormValues(habitatType)));
 
 	return (
 		<form.AppForm>
 			<CatalogRecordDialog
 				actions={
 					<form.FormActions>
-						<form.SubmitButton disabled={organization === null} />
+						<form.SubmitButton disabled={!mutations.canWrite} />
 						<CatalogDialogCancel />
 					</form.FormActions>
 				}

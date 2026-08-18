@@ -62,7 +62,6 @@ import {
 	createEquipmentMutationHandlers,
 	createVehicleMutationHandlers,
 } from './controlAssetMutations';
-import { createControlMethodMutationHandlers } from './controlMethodMutations';
 import {
 	createApplicationBatchMutationHandlers,
 	createApplicationMutationHandlers,
@@ -96,9 +95,7 @@ import {
 	createSampleMutationHandlers,
 	createSampleSpeciesMutationHandlers,
 } from './larvalSurveillanceMutations';
-import { createNotificationTypeMutationHandlers } from './notificationTypeMutations';
 import { createOrganizationMutationHandlers } from './organizationMutations';
-import { createOrgLookupMutationHandlers } from './orgLookupMutations';
 import { createProfileMutationHandlers } from './profileMutations';
 import {
 	createContactMutationHandlers,
@@ -114,15 +111,11 @@ export interface WebCollections {
 	readonly additionalPersonnel: Collection<AdditionalPersonnelRow, string | number>;
 	readonly addresses: Collection<AddressRow, string | number>;
 	readonly applicationBatches: Collection<ApplicationBatchRow, string | number>;
-	readonly applicationMethods: Collection<ControlMethodRow, string | number>;
 	readonly applications: Collection<ApplicationRow, string | number>;
 	readonly assignmentItems: Collection<AssignmentItemRow, string | number>;
 	readonly assignments: Collection<AssignmentRow, string | number>;
 	readonly biocontrolActions: Collection<BiocontrolActionRow, string | number>;
-	readonly biocontrolMethods: Collection<ControlMethodRow, string | number>;
 	readonly collectionSpecies: Collection<CollectionSpeciesRow, string | number>;
-	readonly collectionLures: Collection<CollectionLureRow, string | number>;
-	readonly collectionMethods: Collection<CollectionMethodRow, string | number>;
 	readonly collections: Collection<AdultCollectionRow, string | number>;
 	readonly comments: Collection<CommentRow, string | number>;
 	readonly contacts: Collection<ContactRow, string | number>;
@@ -131,7 +124,6 @@ export interface WebCollections {
 	readonly formulations: Collection<FormulationRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
 	readonly habitats: Collection<HabitatRow, string | number>;
-	readonly habitatTypes: Collection<HabitatTypeRow, string | number>;
 	readonly insecticideBatches: Collection<InsecticideBatchRow, string | number>;
 	readonly insecticides: Collection<InsecticideRow, string | number>;
 	readonly inspections: Collection<InspectionRow, string | number>;
@@ -142,11 +134,9 @@ export interface WebCollections {
 		NotificationRegistrationTypeRow,
 		string | number
 	>;
-	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
 	readonly currentOrganization: Collection<OrganizationRow, string | number>;
 	readonly organizationSpecies: Collection<OrganizationSpeciesRow, string | number>;
 	readonly outreachActions: Collection<OutreachActionRow, string | number>;
-	readonly outreachMethods: Collection<ControlMethodRow, string | number>;
 	readonly profiles: Collection<ProfileRow, string | number>;
 	readonly regionFolders: Collection<RegionFolderRow, string | number>;
 	readonly regions: Collection<RegionRow, string | number>;
@@ -157,7 +147,6 @@ export interface WebCollections {
 	readonly serviceRequests: Collection<ServiceRequestRow, string | number>;
 	readonly sourceReductions: Collection<SourceReductionRow, string | number>;
 	readonly species: Collection<SpeciesRow, string | number>;
-	readonly sourceReductionMethods: Collection<ControlMethodRow, string | number>;
 	readonly tagItems: Collection<TagItemRow, string | number>;
 	readonly tags: Collection<TagRow, string | number>;
 	readonly traps: Collection<TrapRow, string | number>;
@@ -175,17 +164,9 @@ export const webBaselineCollectionKeys = [
 	'species',
 	'organizationSpecies',
 	'currentOrganization',
-	'collectionMethods',
-	'collectionLures',
-	'habitatTypes',
-	'applicationMethods',
-	'sourceReductionMethods',
-	'outreachMethods',
-	'biocontrolMethods',
 	'vehicles',
 	'equipment',
 	'insecticides',
-	'notificationTypes',
 	'tags',
 	'routes',
 	'regionFolders',
@@ -289,42 +270,6 @@ export function createWebCollections(options: {
 			}),
 		}),
 	);
-	const collectionMethods = createCollection(
-		electricShapeCollectionOptions<CollectionMethodRow>({
-			table: 'collection_methods',
-			syncMode: webSyncModes.collection_methods,
-			url: `${shapeServerUrl}${shapePathFor('collection_methods')}`,
-			...createOrgLookupMutationHandlers<CollectionMethodRow>({
-				serverUrl: options.serverUrl,
-				endpointPath: '/foundation/collection-methods',
-				fallbackName: 'collection method',
-			}),
-		}),
-	);
-	const collectionLures = createCollection(
-		electricShapeCollectionOptions<CollectionLureRow>({
-			table: 'collection_lures',
-			syncMode: webSyncModes.collection_lures,
-			url: `${shapeServerUrl}${shapePathFor('collection_lures')}`,
-			...createOrgLookupMutationHandlers<CollectionLureRow>({
-				serverUrl: options.serverUrl,
-				endpointPath: '/foundation/collection-lures',
-				fallbackName: 'collection lure',
-			}),
-		}),
-	);
-	const habitatTypes = createCollection(
-		electricShapeCollectionOptions<HabitatTypeRow>({
-			table: 'habitat_types',
-			syncMode: webSyncModes.habitat_types,
-			url: `${shapeServerUrl}${shapePathFor('habitat_types')}`,
-			...createOrgLookupMutationHandlers<HabitatTypeRow>({
-				serverUrl: options.serverUrl,
-				endpointPath: '/foundation/habitat-types',
-				fallbackName: 'habitat type',
-			}),
-		}),
-	);
 	const addresses = createCollection(
 		electricShapeCollectionOptions<AddressRow>({
 			table: 'addresses',
@@ -337,54 +282,6 @@ export function createWebCollections(options: {
 	);
 	// The address picker on every location-bearing form.
 	addresses.createIndex((row) => row.displayName, { indexType: BasicIndex });
-	const applicationMethods = createCollection(
-		electricShapeCollectionOptions<ControlMethodRow>({
-			table: 'application_methods',
-			syncMode: webSyncModes.application_methods,
-			url: `${shapeServerUrl}${shapePathFor('application_methods')}`,
-			...createControlMethodMutationHandlers<ControlMethodRow>({
-				serverUrl: options.serverUrl,
-				endpointPath: '/control-methods/application-methods',
-				fallbackName: 'application method',
-			}),
-		}),
-	);
-	const sourceReductionMethods = createCollection(
-		electricShapeCollectionOptions<ControlMethodRow>({
-			table: 'source_reduction_methods',
-			syncMode: webSyncModes.source_reduction_methods,
-			url: `${shapeServerUrl}${shapePathFor('source_reduction_methods')}`,
-			...createControlMethodMutationHandlers<ControlMethodRow>({
-				serverUrl: options.serverUrl,
-				endpointPath: '/control-methods/source-reduction-methods',
-				fallbackName: 'source reduction method',
-			}),
-		}),
-	);
-	const outreachMethods = createCollection(
-		electricShapeCollectionOptions<ControlMethodRow>({
-			table: 'outreach_methods',
-			syncMode: webSyncModes.outreach_methods,
-			url: `${shapeServerUrl}${shapePathFor('outreach_methods')}`,
-			...createControlMethodMutationHandlers<ControlMethodRow>({
-				serverUrl: options.serverUrl,
-				endpointPath: '/control-methods/outreach-methods',
-				fallbackName: 'outreach method',
-			}),
-		}),
-	);
-	const biocontrolMethods = createCollection(
-		electricShapeCollectionOptions<ControlMethodRow>({
-			table: 'biocontrol_methods',
-			syncMode: webSyncModes.biocontrol_methods,
-			url: `${shapeServerUrl}${shapePathFor('biocontrol_methods')}`,
-			...createControlMethodMutationHandlers<ControlMethodRow>({
-				serverUrl: options.serverUrl,
-				endpointPath: '/control-methods/biocontrol-methods',
-				fallbackName: 'biocontrol method',
-			}),
-		}),
-	);
 	const vehicles = createCollection(
 		electricShapeCollectionOptions<VehicleRow>({
 			table: 'vehicles',
@@ -421,16 +318,6 @@ export function createWebCollections(options: {
 			syncMode: webSyncModes.insecticide_batches,
 			url: `${shapeServerUrl}${shapePathFor('insecticide_batches')}`,
 			...createInsecticideBatchMutationHandlers<InsecticideBatchRow>({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	const notificationTypes = createCollection(
-		electricShapeCollectionOptions<NotificationTypeRow>({
-			table: 'notification_types',
-			syncMode: webSyncModes.notification_types,
-			url: `${shapeServerUrl}${shapePathFor('notification_types')}`,
-			...createNotificationTypeMutationHandlers<NotificationTypeRow>({
 				serverUrl: options.serverUrl,
 			}),
 		}),
@@ -704,15 +591,11 @@ export function createWebCollections(options: {
 		additionalPersonnel,
 		addresses,
 		applicationBatches,
-		applicationMethods,
 		applications,
 		assignmentItems,
 		assignments,
 		biocontrolActions,
-		biocontrolMethods,
 		collectionSpecies,
-		collectionLures,
-		collectionMethods,
 		collections,
 		comments,
 		contacts,
@@ -721,7 +604,6 @@ export function createWebCollections(options: {
 		formulations,
 		genera,
 		habitats,
-		habitatTypes,
 		insecticideBatches,
 		insecticides,
 		inspections,
@@ -729,11 +611,9 @@ export function createWebCollections(options: {
 		missionNotifications,
 		notificationRegistrations,
 		notificationRegistrationTypes,
-		notificationTypes,
 		currentOrganization,
 		organizationSpecies,
 		outreachActions,
-		outreachMethods,
 		profiles,
 		regionFolders,
 		regions,
@@ -744,7 +624,6 @@ export function createWebCollections(options: {
 		serviceRequests,
 		sourceReductions,
 		species,
-		sourceReductionMethods,
 		tagItems,
 		tags,
 		traps,

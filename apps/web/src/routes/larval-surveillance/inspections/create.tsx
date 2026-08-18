@@ -9,6 +9,7 @@ import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -116,7 +117,7 @@ function CreateInspectionRoute() {
 	const { add: addComment } = useCommentMutations();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 	const { organization, settings } = workspace;
-	const { rows: habitatTypes } = useCollectionRows(webCollections.habitatTypes);
+	const habitatTypes = useHabitatTypeRoster();
 	const profiles = useProfileRoster();
 
 	const timeZone = useOrganizationTimeZone();

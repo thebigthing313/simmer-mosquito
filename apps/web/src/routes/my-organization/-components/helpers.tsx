@@ -24,37 +24,28 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import type { Collection } from '@tanstack/react-db';
 import { toast } from 'sonner';
 import type { AuthMe } from '../../../auth';
-import { collections, defaultDensityRangeValues } from './constants';
+import { webCollections } from '../../../sync/webCollections';
+import { defaultDensityRangeValues } from './constants';
 import type {
-	AdultCollectionLureFormValues,
-	AdultCollectionMethodFormValues,
 	AgencyDetailsFormValues,
 	ControlAssetCollectionKey,
 	ControlAssetFormValues,
 	ControlAssetRow,
 	ControlMethodCollectionKey,
-	ControlMethodFormValues,
 	ControlSettingsFormValues,
 	DensityRangeFormValue,
 	DensityRangeFormValues,
 	DensityRangeKey,
-	HabitatTypeFormValues,
 	InsecticideBatchFormValues,
 	InsecticideFormValues,
 	LarvalDensityDisplayKey,
-	MutableCollectionLureRow,
-	MutableCollectionMethodRow,
-	MutableControlMethodRow,
 	MutableEquipmentRow,
-	MutableHabitatTypeRow,
 	MutableInsecticideBatchRow,
 	MutableInsecticideRow,
-	MutableNotificationTypeRow,
 	MutableOrganizationRow,
 	MutableProfileRow,
 	MutableTagRow,
 	MutableVehicleRow,
-	NotificationTypeFormValues,
 	OrgRole,
 	PersistenceTransaction,
 	ProfileFormValues,
@@ -252,7 +243,7 @@ function createOrganizationTag(
 	}
 
 	const now = new Date().toISOString();
-	return collections.tags.insert({
+	return webCollections.tags.insert({
 		id: crypto.randomUUID(),
 		organizationId: organization.id,
 		tagName: requiredFormText(formData, 'tagName'),
@@ -280,7 +271,7 @@ export function createHistoricalProfile(
 	}
 
 	const now = new Date().toISOString();
-	return collections.profiles.insert({
+	return webCollections.profiles.insert({
 		id: crypto.randomUUID(),
 		organizationId: organization.id,
 		userId: null,
@@ -296,7 +287,7 @@ export function updateProfile(
 	profile: ProfileRow,
 	values: ProfileFormValues,
 ): PersistenceTransaction {
-	return collections.profiles.update(profile.id, (draft) => {
+	return webCollections.profiles.update(profile.id, (draft) => {
 		const mutable = draft as MutableProfileRow;
 		mutable.displayName = requiredTextValue(values.displayName, 'Display name');
 		mutable.isActive = values.isActive;
@@ -309,7 +300,7 @@ function updateOrganizationTag(
 	formData: FormData,
 	isActive: boolean,
 ): PersistenceTransaction {
-	return collections.tags.update(tag.id, (draft) => {
+	return webCollections.tags.update(tag.id, (draft) => {
 		const mutable = draft as MutableTagRow;
 		mutable.tagName = requiredFormText(formData, 'tagName');
 		mutable.description = nullableFormText(formData, 'description');
@@ -327,7 +318,7 @@ export function updateOrganizationTagFromValues(
 }
 
 export function deleteOrganizationTag(tag: TagRow): PersistenceTransaction {
-	return collections.tags.delete(tag.id);
+	return webCollections.tags.delete(tag.id);
 }
 
 function tagFormData(values: TagFormValues): FormData {
@@ -353,7 +344,7 @@ function updateCurrentOrganizationOptimistically(
 		throw new Error('Organization details are still loading.');
 	}
 
-	return collections.currentOrganization.update(organization.id, (draft) => {
+	return webCollections.currentOrganization.update(organization.id, (draft) => {
 		applyChanges(draft as MutableOrganizationRow);
 	});
 }
@@ -418,121 +409,6 @@ export function validateEmail({ value }: { readonly value: string }): string | u
 	return 'Main contact must be a valid email address.';
 }
 
-export function createAdultCollectionMethodFromValues(
-	organization: OrganizationRow | null,
-	values: AdultCollectionMethodFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	return collections.collectionMethods.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		name: requiredTextValue(values.name, 'Name'),
-		description: nullableTextValue(values.description),
-		customSchema: values.customSchema,
-		actionThreshold: nullableNonnegativeIntegerValue(values.actionThreshold, 'Action threshold'),
-		isActive: values.isActive,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
-export function createAdultCollectionLureFromValues(
-	organization: OrganizationRow | null,
-	values: AdultCollectionLureFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	return collections.collectionLures.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		name: requiredTextValue(values.name, 'Name'),
-		description: nullableTextValue(values.description),
-		isActive: values.isActive,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
-export function createHabitatTypeFromValues(
-	organization: OrganizationRow | null,
-	values: HabitatTypeFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	return collections.habitatTypes.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		name: requiredTextValue(values.name, 'Name'),
-		description: nullableTextValue(values.description),
-		customSchema: values.customSchema,
-		isActive: values.isActive,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
-export function createControlMethodFromValues(
-	collectionKey: ControlMethodCollectionKey,
-	organization: OrganizationRow | null,
-	values: ControlMethodFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	const row: ControlMethodRow = {
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		name: requiredTextValue(values.name, 'Name'),
-		customSchema: values.customSchema,
-		isActive: values.isActive,
-		createdAt: now,
-		updatedAt: now,
-	};
-
-	switch (collectionKey) {
-		case 'applicationMethods':
-			return collections.applicationMethods.insert(row);
-		case 'sourceReductionMethods':
-			return collections.sourceReductionMethods.insert(row);
-		case 'outreachMethods':
-			return collections.outreachMethods.insert(row);
-		case 'biocontrolMethods':
-			return collections.biocontrolMethods.insert(row);
-	}
-}
-
-export function createNotificationTypeFromValues(
-	organization: OrganizationRow | null,
-	values: NotificationTypeFormValues,
-): PersistenceTransaction {
-	if (organization === null) {
-		throw new Error('Organization details are still loading.');
-	}
-
-	const now = new Date().toISOString();
-	return collections.notificationTypes.insert({
-		id: crypto.randomUUID(),
-		organizationId: organization.id,
-		name: requiredTextValue(values.name, 'Name'),
-		description: nullableTextValue(values.description),
-		isActive: values.isActive,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
 export function createControlAssetFromValues(
 	collectionKey: ControlAssetCollectionKey,
 	organization: OrganizationRow | null,
@@ -544,7 +420,7 @@ export function createControlAssetFromValues(
 
 	const now = new Date().toISOString();
 	if (collectionKey === 'vehicles') {
-		return collections.vehicles.insert({
+		return webCollections.vehicles.insert({
 			id: crypto.randomUUID(),
 			organizationId: organization.id,
 			vehicleName: requiredTextValue(values.name, 'Name'),
@@ -555,7 +431,7 @@ export function createControlAssetFromValues(
 		});
 	}
 
-	return collections.equipment.insert({
+	return webCollections.equipment.insert({
 		id: crypto.randomUUID(),
 		organizationId: organization.id,
 		equipmentName: requiredTextValue(values.name, 'Name'),
@@ -576,7 +452,7 @@ export function createInsecticideFromValues(
 	}
 
 	const now = new Date().toISOString();
-	return collections.insecticides.insert({
+	return webCollections.insecticides.insert({
 		id: crypto.randomUUID(),
 		organizationId: organization.id,
 		tradeName: requiredTextValue(values.tradeName, 'Trade name'),
@@ -615,96 +491,13 @@ export function createInsecticideBatchFromValues(
 	});
 }
 
-export function updateAdultCollectionMethodFromValues(
-	method: CollectionMethodRow,
-	values: AdultCollectionMethodFormValues,
-): PersistenceTransaction {
-	return collections.collectionMethods.update(method.id, (draft) => {
-		const mutable = draft as MutableCollectionMethodRow;
-		mutable.name = requiredTextValue(values.name, 'Name');
-		mutable.description = nullableTextValue(values.description);
-		mutable.customSchema = values.customSchema;
-		mutable.actionThreshold = nullableNonnegativeIntegerValue(
-			values.actionThreshold,
-			'Action threshold',
-		);
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
-export function updateAdultCollectionLureFromValues(
-	lure: CollectionLureRow,
-	values: AdultCollectionLureFormValues,
-): PersistenceTransaction {
-	return collections.collectionLures.update(lure.id, (draft) => {
-		const mutable = draft as MutableCollectionLureRow;
-		mutable.name = requiredTextValue(values.name, 'Name');
-		mutable.description = nullableTextValue(values.description);
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
-export function updateHabitatTypeFromValues(
-	habitatType: HabitatTypeRow,
-	values: HabitatTypeFormValues,
-): PersistenceTransaction {
-	return collections.habitatTypes.update(habitatType.id, (draft) => {
-		const mutable = draft as MutableHabitatTypeRow;
-		mutable.name = requiredTextValue(values.name, 'Name');
-		mutable.description = nullableTextValue(values.description);
-		mutable.customSchema = values.customSchema;
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
-export function updateControlMethodFromValues(
-	collectionKey: ControlMethodCollectionKey,
-	method: ControlMethodRow,
-	values: ControlMethodFormValues,
-): PersistenceTransaction {
-	const update = (draft: ControlMethodRow) => {
-		const mutable = draft as MutableControlMethodRow;
-		mutable.name = requiredTextValue(values.name, 'Name');
-		mutable.customSchema = values.customSchema;
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
-	};
-
-	switch (collectionKey) {
-		case 'applicationMethods':
-			return collections.applicationMethods.update(method.id, update);
-		case 'sourceReductionMethods':
-			return collections.sourceReductionMethods.update(method.id, update);
-		case 'outreachMethods':
-			return collections.outreachMethods.update(method.id, update);
-		case 'biocontrolMethods':
-			return collections.biocontrolMethods.update(method.id, update);
-	}
-}
-
-export function updateNotificationTypeFromValues(
-	notificationType: NotificationTypeRow,
-	values: NotificationTypeFormValues,
-): PersistenceTransaction {
-	return collections.notificationTypes.update(notificationType.id, (draft) => {
-		const mutable = draft as MutableNotificationTypeRow;
-		mutable.name = requiredTextValue(values.name, 'Name');
-		mutable.description = nullableTextValue(values.description);
-		mutable.isActive = values.isActive;
-		mutable.updatedAt = new Date().toISOString();
-	});
-}
-
 export function updateControlAssetFromValues(
 	collectionKey: ControlAssetCollectionKey,
 	asset: ControlAssetRow,
 	values: ControlAssetFormValues,
 ): PersistenceTransaction {
 	if (collectionKey === 'vehicles') {
-		return collections.vehicles.update(asset.id, (draft) => {
+		return webCollections.vehicles.update(asset.id, (draft) => {
 			const mutable = draft as MutableVehicleRow;
 			mutable.vehicleName = requiredTextValue(values.name, 'Name');
 			mutable.metadata = values.metadata;
@@ -713,7 +506,7 @@ export function updateControlAssetFromValues(
 		});
 	}
 
-	return collections.equipment.update(asset.id, (draft) => {
+	return webCollections.equipment.update(asset.id, (draft) => {
 		const mutable = draft as MutableEquipmentRow;
 		mutable.equipmentName = requiredTextValue(values.name, 'Name');
 		mutable.serialNumber = nullableTextValue(values.serialNumber);
@@ -727,7 +520,7 @@ export function updateInsecticideFromValues(
 	insecticide: InsecticideRow,
 	values: InsecticideFormValues,
 ): PersistenceTransaction {
-	return collections.insecticides.update(insecticide.id, (draft) => {
+	return webCollections.insecticides.update(insecticide.id, (draft) => {
 		const mutable = draft as MutableInsecticideRow;
 		mutable.tradeName = requiredTextValue(values.tradeName, 'Trade name');
 		mutable.activeIngredient = requiredTextValue(values.activeIngredient, 'Active ingredient');
@@ -761,7 +554,7 @@ export function updateInsecticideBatchFromValues(
 }
 
 export function deleteInsecticide(insecticide: InsecticideRow): PersistenceTransaction {
-	return collections.insecticides.delete(insecticide.id);
+	return webCollections.insecticides.delete(insecticide.id);
 }
 
 export function deleteInsecticideBatch(
@@ -798,52 +591,6 @@ function nonnegativeIntegerValue(value: number | null, label: string): number {
 
 function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function collectionMethodFormValues(
-	method: CollectionMethodRow | undefined,
-): AdultCollectionMethodFormValues {
-	const customSchema = method?.customSchema;
-	return {
-		name: method?.name ?? '',
-		description: method?.description ?? '',
-		actionThreshold: method?.actionThreshold ?? null,
-		customSchema: isPlainJsonObject(customSchema) ? customSchema : null,
-		isActive: method?.isActive ?? true,
-	};
-}
-
-export function collectionLureFormValues(
-	lure: CollectionLureRow | undefined,
-): AdultCollectionLureFormValues {
-	return {
-		name: lure?.name ?? '',
-		description: lure?.description ?? '',
-		isActive: lure?.isActive ?? true,
-	};
-}
-
-export function habitatTypeFormValues(
-	habitatType: HabitatTypeRow | undefined,
-): HabitatTypeFormValues {
-	const customSchema = habitatType?.customSchema;
-	return {
-		name: habitatType?.name ?? '',
-		description: habitatType?.description ?? '',
-		customSchema: isPlainJsonObject(customSchema) ? customSchema : null,
-		isActive: habitatType?.isActive ?? true,
-	};
-}
-
-export function controlMethodFormValues(
-	method: ControlMethodRow | undefined,
-): ControlMethodFormValues {
-	const customSchema = method?.customSchema;
-	return {
-		name: method?.name ?? '',
-		customSchema: isPlainJsonObject(customSchema) ? customSchema : null,
-		isActive: method?.isActive ?? true,
-	};
 }
 
 export function controlAssetFormValues(asset: ControlAssetRow | undefined): ControlAssetFormValues {
@@ -883,16 +630,6 @@ export function insecticideBatchFormValues(
 		insecticideId: batch?.insecticideId ?? defaultInsecticideId,
 		batchName: batch?.batchName ?? '',
 		isActive: batch?.isActive ?? true,
-	};
-}
-
-export function notificationTypeFormValues(
-	notificationType: NotificationTypeRow | undefined,
-): NotificationTypeFormValues {
-	return {
-		name: notificationType?.name ?? '',
-		description: notificationType?.description ?? '',
-		isActive: notificationType?.isActive ?? true,
 	};
 }
 

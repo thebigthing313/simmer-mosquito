@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { collections } from './-components/constants';
+import { webCollections } from '../../sync/webCollections';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
 import { PublicEngagementSettings, PublicSettingsDrawer } from './-components/public';
@@ -34,9 +34,6 @@ function MyOrganizationPublicEngagementRoute() {
 				<PublicEngagementSettings
 					canEditMethods={workspace.canManageOperational}
 					canManage={workspace.canManage}
-					notificationTypes={collections.notificationTypes}
-					organization={workspace.organization}
-					outreachMethods={collections.outreachMethods}
 					settings={workspace.settings}
 				/>
 			</DomainSection>

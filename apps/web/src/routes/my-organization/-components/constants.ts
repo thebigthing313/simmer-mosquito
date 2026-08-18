@@ -1,6 +1,5 @@
 import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { webCollections } from '../../../sync/webCollections';
 import type {
 	ControlAssetCollectionKey,
 	ControlAssetListConfig,
@@ -10,7 +9,6 @@ import type {
 	OrgRole,
 } from './types';
 
-export const collections = webCollections;
 export const ORG_ROLE_OPTIONS: readonly OrgRole[] = [
 	'viewer',
 	'collector',

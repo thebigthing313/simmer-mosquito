@@ -1,9 +1,4 @@
-import type {
-	ControlMethodRow,
-	EquipmentRow,
-	OrganizationRow,
-	VehicleRow,
-} from '@simmer-mosquito/sync';
+import type { EquipmentRow, OrganizationRow, VehicleRow } from '@simmer-mosquito/sync';
 import {
 	useAppForm,
 	validateJsonSchemaValue,
@@ -32,8 +27,18 @@ import { type Collection, eq, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
-import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
+import type { CatalogMutations } from '../../../hooks/mutations/use-catalog-mutations';
+import type {
+	CatalogRecords,
+	ControlMethodRecord,
+} from '../../../hooks/queries/use-catalog-records';
+import {
+	useApplicationMethodRecords,
+	useBiocontrolMethodRecords,
+	useSourceReductionMethodRecords,
+} from '../../../hooks/queries/use-catalog-records';
 import {
 	AddIcon,
 	ArrowRightIcon,
@@ -45,14 +50,11 @@ import {
 import {
 	controlAssetFormValues,
 	controlAssetName,
-	controlMethodFormValues,
 	createControlAssetFromValues,
-	createControlMethodFromValues,
 	errorMessageForSave,
 	hasMetadata,
 	isEquipmentRow,
 	updateControlAssetFromValues,
-	updateControlMethodFromValues,
 	watchPersistence,
 } from './helpers';
 import { LookupListFrame } from './layout/layout';
@@ -63,16 +65,11 @@ import type {
 } from './types';
 
 export function ControlOperationsSettings({
-	applicationMethods,
-	biocontrolMethods,
 	canManageAssets,
 	organization,
-	sourceReductionMethods,
 	vehicles,
 	equipment,
 }: {
-	readonly applicationMethods: Collection<ControlMethodRow, string | number>;
-	readonly biocontrolMethods: Collection<ControlMethodRow, string | number>;
 	/**
 	 * Vehicles and equipment are `MANAGER` on the server, not `ADMIN` — every
 	 * one of `controlOperations.createVehicle` through `deleteEquipment`. The
@@ -81,10 +78,13 @@ export function ControlOperationsSettings({
 	 */
 	readonly canManageAssets: boolean;
 	readonly organization: OrganizationRow | null;
-	readonly sourceReductionMethods: Collection<ControlMethodRow, string | number>;
 	readonly vehicles: Collection<VehicleRow, string | number>;
 	readonly equipment: Collection<EquipmentRow, string | number>;
 }) {
+	const applicationMethods = useApplicationMethodRecords();
+	const sourceReductionMethods = useSourceReductionMethodRecords();
+	const biocontrolMethods = useBiocontrolMethodRecords();
+
 	return (
 		<div className="grid gap-3">
 			<div className="grid gap-2">
@@ -92,17 +92,17 @@ export function ControlOperationsSettings({
 				<div className="grid gap-3">
 					<ControlMethodLookupPointer
 						collectionKey="applicationMethods"
-						methods={applicationMethods}
+						records={applicationMethods}
 						to="/control-operations/chemical/methods"
 					/>
 					<ControlMethodLookupPointer
 						collectionKey="sourceReductionMethods"
-						methods={sourceReductionMethods}
+						records={sourceReductionMethods}
 						to="/control-operations/source-reduction/methods"
 					/>
 					<ControlMethodLookupPointer
 						collectionKey="biocontrolMethods"
-						methods={biocontrolMethods}
+						records={biocontrolMethods}
 						to="/control-operations/biocontrol/methods"
 					/>
 					<ControlAssetLookupList
@@ -129,24 +129,22 @@ export function ControlOperationsSettings({
  */
 function ControlMethodLookupPointer({
 	collectionKey,
-	methods,
+	records,
 	to,
 }: {
 	readonly collectionKey: Exclude<ControlMethodCollectionKey, 'outreachMethods'>;
-	readonly methods: Collection<ControlMethodRow, string | number>;
+	readonly records: CatalogRecords<ControlMethodRecord>;
 	readonly to:
 		| '/control-operations/chemical/methods'
 		| '/control-operations/source-reduction/methods'
 		| '/control-operations/biocontrol/methods';
 }) {
 	const config = controlMethodListConfigs[collectionKey];
-	const { activeRows: activeMethods, inactiveRows: inactiveMethods } =
-		useActiveNamedCollectionRows(methods);
 
 	return (
 		<LookupListFrame
-			activeCount={activeMethods.length}
-			inactiveCount={inactiveMethods.length}
+			activeCount={records.activeRecords.length}
+			inactiveCount={records.inactiveRecords.length}
 			detail={config.detail}
 			title={config.title}
 			action={
@@ -169,8 +167,8 @@ export function ControlMethodLookupList({
 	canManage,
 	canEditMethods,
 	collectionKey,
-	methods,
-	organization,
+	mutations,
+	records,
 }: {
 	/** Owner/admin: adding a method, and flipping one active or inactive. */
 	readonly canManage: boolean;
@@ -181,12 +179,12 @@ export function ControlMethodLookupList({
 	 */
 	readonly canEditMethods: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
-	readonly methods: Collection<ControlMethodRow, string | number>;
-	readonly organization: OrganizationRow | null;
+	readonly mutations: CatalogMutations;
+	readonly records: CatalogRecords<ControlMethodRecord>;
 }) {
 	const config = controlMethodListConfigs[collectionKey];
-	const { activeRows: activeMethods, inactiveRows: inactiveMethods } =
-		useActiveNamedCollectionRows(methods);
+	const activeMethods = records.activeRecords;
+	const inactiveMethods = records.inactiveRecords;
 
 	return (
 		<LookupListFrame
@@ -202,7 +200,7 @@ export function ControlMethodLookupList({
 						canEdit={canEditMethods}
 						canManage={canManage}
 						collectionKey={collectionKey}
-						organization={organization}
+						mutations={mutations}
 						trigger={
 							<Button type="button" variant="outline" size="sm">
 								<AddIcon aria-hidden="true" />
@@ -218,7 +216,7 @@ export function ControlMethodLookupList({
 				canManage={canManage}
 				collectionKey={collectionKey}
 				methods={activeMethods}
-				organization={organization}
+				mutations={mutations}
 			/>
 			{inactiveMethods.length > 0 ? (
 				<ControlMethodTable
@@ -226,7 +224,7 @@ export function ControlMethodLookupList({
 					canManage={canManage}
 					collectionKey={collectionKey}
 					methods={inactiveMethods}
-					organization={organization}
+					mutations={mutations}
 				/>
 			) : null}
 		</LookupListFrame>
@@ -238,13 +236,13 @@ function ControlMethodTable({
 	canManage,
 	collectionKey,
 	methods,
-	organization,
+	mutations,
 }: {
 	readonly canEditMethods: boolean;
 	readonly canManage: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
-	readonly methods: readonly ControlMethodRow[];
-	readonly organization: OrganizationRow | null;
+	readonly methods: readonly ControlMethodRecord[];
+	readonly mutations: CatalogMutations;
 }) {
 	const config = controlMethodListConfigs[collectionKey];
 	return (
@@ -273,7 +271,7 @@ function ControlMethodTable({
 										canManage={canManage}
 										collectionKey={collectionKey}
 										method={method}
-										organization={organization}
+										mutations={mutations}
 										trigger={
 											<Button type="button" variant="outline" size="icon">
 												<EditIcon aria-hidden="true" />
@@ -296,7 +294,7 @@ function ControlMethodDrawer({
 	canManage,
 	collectionKey,
 	method,
-	organization,
+	mutations,
 	trigger,
 }: {
 	/** Manager-and-above: the name and the custom fields. */
@@ -304,37 +302,36 @@ function ControlMethodDrawer({
 	/** Owner/admin: creating a method, and the Active switch. */
 	readonly canManage: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
-	readonly method?: ControlMethodRow | undefined;
-	readonly organization: OrganizationRow | null;
+	readonly method?: ControlMethodRecord | undefined;
+	readonly mutations: CatalogMutations;
 	readonly trigger: React.ReactNode;
 }) {
 	// Creating is admin-only; editing an existing method is open to managers.
 	const canSubmit = method === undefined ? canManage : canEdit;
 	const [open, setOpen] = useState(false);
 	const config = controlMethodListConfigs[collectionKey];
-	const defaultValues = controlMethodFormValues(method);
+	const defaultValues = catalogFormValues(method);
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
-					method === undefined
-						? createControlMethodFromValues(collectionKey, organization, value)
-						: updateControlMethodFromValues(collectionKey, method, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
+			commitCatalogSave({
+				failureMessage:
 					method === undefined
 						? `Unable to create ${config.singularLabel}.`
 						: `Unable to save ${method.name}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+				onWritten: () => setOpen(false),
+				save: () =>
+					method === undefined
+						? mutations.create(catalogFields(value)).then(() => undefined)
+						: mutations.save(
+								method.id,
+								catalogFields(value),
+								catalogFields(catalogFormValues(method)),
+							),
+			});
 		},
 	});
 
@@ -392,7 +389,7 @@ function ControlMethodDrawer({
 						</form.AppField>
 						<DrawerFooter className="px-0">
 							<form.FormActions>
-								<form.SubmitButton disabled={!canSubmit || organization === null} />
+								<form.SubmitButton disabled={!canSubmit || !mutations.canWrite} />
 								<DrawerClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />

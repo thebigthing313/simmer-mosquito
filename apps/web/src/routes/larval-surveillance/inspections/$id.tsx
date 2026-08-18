@@ -39,6 +39,12 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import {
+	useBiocontrolMethodRoster,
+	useHabitatTypeRoster,
+	useOutreachMethodRoster,
+	useSourceReductionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileNames } from '../../../hooks/queries/use-profile-names';
 import { useSpeciesNames } from '../../../hooks/queries/use-species-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -708,24 +714,20 @@ function LinkedActionSummary({ action }: { readonly action: LinkedAction }) {
 		case 'sourceReduction':
 			return (
 				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<ControlMethodName
-						collection={webCollections.sourceReductionMethods}
-						id={action.methodId}
-					/>{' '}
-					· <UnitAmount amount={action.amount} unitId={action.unitId} /> eliminated
+					<SourceReductionMethodName id={action.methodId} /> ·{' '}
+					<UnitAmount amount={action.amount} unitId={action.unitId} /> eliminated
 				</Suspense>
 			);
 		case 'outreachAction':
 			return (
 				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<ControlMethodName collection={webCollections.outreachMethods} id={action.methodId} /> ·{' '}
-					{action.reach.toLocaleString()} reached
+					<OutreachMethodName id={action.methodId} /> · {action.reach.toLocaleString()} reached
 				</Suspense>
 			);
 		case 'biocontrolAction':
 			return (
 				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<ControlMethodName collection={webCollections.biocontrolMethods} id={action.methodId} /> ·{' '}
+					<BiocontrolMethodName id={action.methodId} /> ·{' '}
 					<UnitAmount amount={action.amount} unitId={action.unitId} /> released
 				</Suspense>
 			);
@@ -918,16 +920,22 @@ function InsecticideName({ id }: { readonly id: string }) {
 	return <>{result.data?.tradeName ?? 'Unknown insecticide'}</>;
 }
 
-function ControlMethodName({
-	collection,
-	id,
-}: {
-	readonly collection: (typeof webCollections)['sourceReductionMethods'];
-	readonly id: string;
-}) {
-	const result = useLiveSuspenseQuery((query) => query.from({ method: collection }), [collection]);
-	const match = result.data.find((method) => method.id === id);
-	return <>{match?.name ?? 'Unknown method'}</>;
+// Three components rather than one taking a collection: which catalog names a
+// method is fixed by the kind of action, and a hook cannot be chosen by a prop.
+function SourceReductionMethodName({ id }: { readonly id: string }) {
+	return <>{methodName(useSourceReductionMethodRoster(), id)}</>;
+}
+
+function OutreachMethodName({ id }: { readonly id: string }) {
+	return <>{methodName(useOutreachMethodRoster(), id)}</>;
+}
+
+function BiocontrolMethodName({ id }: { readonly id: string }) {
+	return <>{methodName(useBiocontrolMethodRoster(), id)}</>;
+}
+
+function methodName(roster: readonly { readonly id: string; readonly name: string }[], id: string) {
+	return roster.find((method) => method.id === id)?.name ?? 'Unknown method';
 }
 
 function UnitAmount({ amount, unitId }: { readonly amount: number; readonly unitId: string }) {
@@ -983,14 +991,11 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 }
 
 function HabitatTypeName({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
-	const result = useLiveSuspenseQuery(
-		(query) => query.from({ habitatType: webCollections.habitatTypes }),
-		[],
-	);
+	const habitatTypes = useHabitatTypeRoster();
 	if (habitatTypeId === null) {
 		return <span className="text-muted-foreground">Unassigned type</span>;
 	}
-	const match = result.data.find((habitatType) => habitatType.id === habitatTypeId);
+	const match = habitatTypes.find((habitatType) => habitatType.id === habitatTypeId);
 	return <>{match?.name ?? 'Unknown type'}</>;
 }
 

@@ -61,6 +61,10 @@ import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
 import type { Tag } from '../hooks/queries/tag-view';
+import {
+	useApplicationMethodRoster,
+	useHabitatTypeRoster,
+} from '../hooks/queries/use-catalog-rosters';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { useRecordRoutes } from '../hooks/queries/use-record-routes';
 import { useRecordTags } from '../hooks/queries/use-record-tags';
@@ -931,16 +935,13 @@ function ApplicationMethodName({
 }: {
 	readonly applicationMethodId: string | null;
 }) {
-	const result = useLiveSuspenseQuery(
-		(query) => query.from({ method: webCollections.applicationMethods }),
-		[],
-	);
+	const methods = useApplicationMethodRoster();
 
 	if (applicationMethodId === null) {
 		return <EmptyValue />;
 	}
 
-	const match = result.data.find((method) => method.id === applicationMethodId);
+	const match = methods.find((method) => method.id === applicationMethodId);
 	return <>{match?.name ?? 'Unknown method'}</>;
 }
 
@@ -970,24 +971,17 @@ function ApplicationAmount({
 }
 
 function useHabitatTypeSchema(habitatTypeId: string | null): unknown {
-	const result = useLiveSuspenseQuery(
-		(query) => query.from({ habitatType: webCollections.habitatTypes }),
-		[],
-	);
-	return customSchemaFor(result.data, habitatTypeId);
+	return customSchemaFor(useHabitatTypeRoster(), habitatTypeId);
 }
 
 function useHabitatTypeName(habitatTypeId: string | null): string {
-	const result = useLiveSuspenseQuery(
-		(query) => query.from({ habitatType: webCollections.habitatTypes }),
-		[],
-	);
+	const habitatTypes = useHabitatTypeRoster();
 
 	if (habitatTypeId === null) {
 		return 'Unassigned type';
 	}
 
-	const match = result.data.find((habitatType) => habitatType.id === habitatTypeId);
+	const match = habitatTypes.find((habitatType) => habitatType.id === habitatTypeId);
 	return match?.name ?? 'Unknown type';
 }
 

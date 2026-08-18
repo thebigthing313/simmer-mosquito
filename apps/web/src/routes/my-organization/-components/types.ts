@@ -35,22 +35,6 @@ export type MutableOrganizationRow = {
 	-readonly [Key in keyof OrganizationRow]: OrganizationRow[Key];
 };
 
-export type MutableCollectionMethodRow = {
-	-readonly [Key in keyof CollectionMethodRow]: CollectionMethodRow[Key];
-};
-
-export type MutableCollectionLureRow = {
-	-readonly [Key in keyof CollectionLureRow]: CollectionLureRow[Key];
-};
-
-export type MutableHabitatTypeRow = {
-	-readonly [Key in keyof HabitatTypeRow]: HabitatTypeRow[Key];
-};
-
-export type MutableControlMethodRow = {
-	-readonly [Key in keyof ControlMethodRow]: ControlMethodRow[Key];
-};
-
 export type MutableVehicleRow = {
 	-readonly [Key in keyof VehicleRow]: VehicleRow[Key];
 };
@@ -65,10 +49,6 @@ export type MutableInsecticideRow = {
 
 export type MutableInsecticideBatchRow = {
 	-readonly [Key in keyof InsecticideBatchRow]: InsecticideBatchRow[Key];
-};
-
-export type MutableNotificationTypeRow = {
-	-readonly [Key in keyof NotificationTypeRow]: NotificationTypeRow[Key];
 };
 
 export type MutableProfileRow = {
@@ -127,33 +107,6 @@ export interface ProfileFormValues {
 	readonly isActive: boolean;
 }
 
-export interface AdultCollectionMethodFormValues {
-	readonly name: string;
-	readonly description: string;
-	readonly actionThreshold: number | null;
-	readonly customSchema: JsonSchemaValue;
-	readonly isActive: boolean;
-}
-
-export interface AdultCollectionLureFormValues {
-	readonly name: string;
-	readonly description: string;
-	readonly isActive: boolean;
-}
-
-export interface HabitatTypeFormValues {
-	readonly name: string;
-	readonly description: string;
-	readonly customSchema: JsonSchemaValue;
-	readonly isActive: boolean;
-}
-
-export interface ControlMethodFormValues {
-	readonly name: string;
-	readonly customSchema: JsonSchemaValue;
-	readonly isActive: boolean;
-}
-
 export interface ControlAssetFormValues {
 	readonly name: string;
 	readonly serialNumber: string;
@@ -177,12 +130,6 @@ export interface InsecticideFormValues {
 export interface InsecticideBatchFormValues {
 	readonly insecticideId: string;
 	readonly batchName: string;
-	readonly isActive: boolean;
-}
-
-export interface NotificationTypeFormValues {
-	readonly name: string;
-	readonly description: string;
 	readonly isActive: boolean;
 }
 

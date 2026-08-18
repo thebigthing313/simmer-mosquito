@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
+import { webCollections } from '../../sync/webCollections';
 import { AdultSurveillanceSettings } from './-components/adult';
-import { collections } from './-components/constants';
 import { saveAdultSettings, selectField } from './-components/helpers';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
@@ -35,13 +35,7 @@ function MyOrganizationAdultSurveillanceRoute() {
 				setupItems={[]}
 				title="Adult Surveillance"
 			>
-				<AdultSurveillanceSettings
-					canManage={workspace.canManage}
-					collectionLures={collections.collectionLures}
-					collectionMethods={collections.collectionMethods}
-					fields={adultFields}
-					organization={workspace.organization}
-				/>
+				<AdultSurveillanceSettings canManage={workspace.canManage} fields={adultFields} />
 			</DomainSection>
 		</OrganizationWorkspaceShell>
 	);

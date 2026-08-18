@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { collections } from './-components/constants';
+import { webCollections } from '../../sync/webCollections';
 import { LarvalSettingsDrawer, LarvalSurveillanceSettings } from './-components/larval';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
@@ -33,8 +33,6 @@ function MyOrganizationLarvalSurveillanceRoute() {
 			>
 				<LarvalSurveillanceSettings
 					canManage={workspace.canManage}
-					habitatTypes={collections.habitatTypes}
-					organization={workspace.organization}
 					policy={workspace.settings.larvalSurveillance.inspectionEntryPolicy}
 				/>
 			</DomainSection>
