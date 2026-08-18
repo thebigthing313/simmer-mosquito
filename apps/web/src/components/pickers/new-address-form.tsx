@@ -37,8 +37,6 @@ export interface MapPointDrawOptions {
 export type RequestMapPoint = (options?: MapPointDrawOptions) => Promise<GeoJsonPointGeometry>;
 
 export interface NewAddressFormProps {
-	readonly organizationId: string;
-	readonly actorProfileId: string | null;
 	/** Seeds the name and street line from whatever was typed into the picker. */
 	readonly initialSearch: string;
 	readonly requestMapPoint?: RequestMapPoint | undefined;
@@ -47,8 +45,6 @@ export interface NewAddressFormProps {
 }
 
 export function NewAddressForm({
-	organizationId,
-	actorProfileId,
 	initialSearch,
 	requestMapPoint,
 	onCancel,

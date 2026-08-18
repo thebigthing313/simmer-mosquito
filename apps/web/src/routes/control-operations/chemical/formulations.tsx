@@ -51,9 +51,6 @@ import {
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
-import { webCollections } from '../../../sync/webCollections';
-import { nullableTextValue, requiredTextValue } from '../../my-organization/-components/helpers';
-import type { PersistenceTransaction } from '../../my-organization/-components/types';
 import { insecticideDisplayName } from '../-control-display';
 import { formatAmountValue, formatAmountWithUnit, sortedComponents } from './-formulation-math';
 
@@ -87,9 +84,7 @@ interface FormulationComponentFormValues {
 
 function FormulationsRoute() {
 	const { auth } = Route.useRouteContext();
-	const { canManage, organization } = useOrganizationWorkspace(auth.snapshot);
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
+	const { canManage } = useOrganizationWorkspace(auth.snapshot);
 
 	// formulations, their components, insecticides, and units all sync eagerly, so
 	// the whole catalog is a client-side grouping rather than a per-row subscription.
@@ -862,7 +857,7 @@ function defaultBatchUnitId(units: readonly UnitLabel[]): string {
 	return (gallon ?? units.find((unit) => unit.unitType === 'volume'))?.id ?? '';
 }
 
-function positiveNumberValue(value: number | null, label: string): number {
+function _positiveNumberValue(value: number | null, label: string): number {
 	if (value === null || !Number.isFinite(value) || value <= 0) {
 		throw new Error(`${label} must be greater than zero.`);
 	}

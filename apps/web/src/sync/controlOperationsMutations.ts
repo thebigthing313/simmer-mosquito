@@ -2,8 +2,6 @@ import type {
 	ApplicationBatchRow,
 	ApplicationRow,
 	BiocontrolActionRow,
-	FormulationInsecticideRow,
-	FormulationRow,
 	OutreachActionRow,
 	SourceReductionRow,
 } from '@simmer-mosquito/sync';

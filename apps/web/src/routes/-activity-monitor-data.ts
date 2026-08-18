@@ -5,7 +5,6 @@ import {
 	isLarvalDensity,
 	type LarvalDensity,
 } from '@simmer-mosquito/domain';
-import type { InsecticideRow } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../auth';
@@ -19,8 +18,6 @@ import {
 } from '../hooks/queries/use-catalog-rosters';
 import { useInsecticideRecords } from './../hooks/queries/use-insecticide-records';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
-import { useCollectionRows } from '../hooks/use-collection-rows';
-import { webCollections } from '../sync/webCollections';
 import { formatAmount, insecticideDisplayName } from './control-operations/-control-display';
 
 // Data + display helpers for the Activity Monitor: one Profile's field work over

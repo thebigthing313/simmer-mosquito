@@ -1,9 +1,5 @@
 import { toast } from 'sonner';
-import {
-	errorMessageForSave,
-	watchPersistence,
-} from '../../routes/my-organization/-components/helpers';
-import type { PersistenceTransaction } from '../../routes/my-organization/-components/types';
+import { errorMessageForSave } from '../../routes/my-organization/-components/helpers';
 
 /**
  * Make a catalog write, dismiss the surface that made it, and watch it land.

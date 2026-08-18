@@ -48,9 +48,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import type { Collection } from '@tanstack/react-db';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import { EmptyValue } from '../../../components/empty-value';

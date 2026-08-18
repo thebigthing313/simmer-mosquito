@@ -72,7 +72,7 @@ function CreateAddressRoute() {
 			seedAddressGeometryCache(queryClient, addressId, geometry as unknown as GeoJsonGeometry);
 			await navigate({ to: '/gis/addresses/$id', params: { id: addressId } });
 		},
-		[mutations, navigate, queryClient],
+		[mutations, navigate, queryClient, organization],
 	);
 
 	return (

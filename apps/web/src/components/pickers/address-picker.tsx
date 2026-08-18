@@ -1,8 +1,8 @@
-import type { Address, AddressRow } from '@simmer-mosquito/sync';
+import type { Address } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
+import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useRef, useState } from 'react';
 import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
 import { addressPrimaryLabel, addressSecondaryLabel } from '../../lib/address-format';
@@ -54,7 +54,8 @@ export function AddressPicker({
 	const deferredSearch = useDeferredValue(search);
 	const anchorRef = useRef<HTMLDivElement>(null);
 	const snapshot = useAuthSnapshot();
-	const actorProfileId = snapshot?.authenticated === true ? snapshot.localIdentity.profileId : null;
+	const _actorProfileId =
+		snapshot?.authenticated === true ? snapshot.localIdentity.profileId : null;
 	// An edit form arrives holding only the address id, so the current selection is
 	// resolved from the collection rather than left as an empty-looking field.
 	const selectedLabel = useSelectedRowLabel({
@@ -121,14 +122,12 @@ export function AddressPicker({
 			</PickerFrame>
 			{create === undefined || !isCreating ? null : (
 				<NewAddressForm
-					actorProfileId={actorProfileId}
 					initialSearch={search}
 					onCancel={() => setIsCreating(false)}
 					onCreated={(address) => {
 						pick(address);
 						setIsCreating(false);
 					}}
-					organizationId={organizationId}
 					requestMapPoint={create.requestMapPoint}
 				/>
 			)}

@@ -1,20 +1,5 @@
 import type { UnitDefaults } from '@simmer-mosquito/domain';
-import type {
-	CollectionLureRow,
-	CollectionMethodRow,
-	ControlMethodRow,
-	EquipmentRow,
-	HabitatTypeRow,
-	InsecticideBatchRow,
-	InsecticideRow,
-	InsecticideType,
-	NotificationTypeRow,
-	OrganizationRow,
-	ProfileRow,
-	TagRow,
-	VehicleRow,
-} from '@simmer-mosquito/sync';
-import type { JsonSchemaValue, MetadataValue } from '@simmer-mosquito/ui-web/components/form';
+import type { OrganizationRow, ProfileRow, TagRow } from '@simmer-mosquito/sync';
 import type React from 'react';
 
 // Re-exported rather than re-declared: two identical unions under one name are

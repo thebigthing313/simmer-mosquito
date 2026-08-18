@@ -11,7 +11,6 @@ import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutati
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';

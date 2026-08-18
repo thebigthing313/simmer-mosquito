@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { webCollections } from '../../sync/webCollections';
 import {
 	InsecticideBatchTrackingDrawer,
 	InsecticideLookupPointer,

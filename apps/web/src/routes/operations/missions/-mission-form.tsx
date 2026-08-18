@@ -1,4 +1,4 @@
-import type { ControlType, NotificationTypeRow } from '@simmer-mosquito/sync';
+import type { ControlType } from '@simmer-mosquito/sync';
 import {
 	type RecordFormHeader,
 	RecordFormPage,
@@ -10,11 +10,9 @@ import { DateControl } from '../../../components/date-control';
 import { domainValidator } from '../../../forms/domain-validation';
 import { useNotificationTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { localTimeAsInstant, localTimeOfDay, todayInTimeZone } from '../../../lib/local-date';
-import { webCollections } from '../../../sync/webCollections';
 import { FormSection } from '../../control-operations/-control-form-parts';
 import { ControlTypeToggle } from '../-control-type-toggle';
 import { useMethodsForControlType } from '../-operations-data';

@@ -20,9 +20,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import type { Collection } from '@tanstack/react-db';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import {
 	type CatalogFormValues,
 	catalogFields,

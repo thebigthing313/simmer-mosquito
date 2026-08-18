@@ -25,13 +25,10 @@
 
 import type {
 	ApplicationMethod,
-	BiocontrolMethod,
 	CollectionLure,
 	CollectionMethod,
 	HabitatType,
 	NotificationType,
-	OutreachMethod,
-	SourceReductionMethod,
 } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
 import { application_methods } from '../../lib/collections/application_methods';

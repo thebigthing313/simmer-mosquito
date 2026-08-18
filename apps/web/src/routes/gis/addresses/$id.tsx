@@ -10,7 +10,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -30,7 +29,7 @@ export const Route = createFileRoute('/gis/addresses/$id')({
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
-const addressGcTimeMs = 30_000;
+const _addressGcTimeMs = 30_000;
 
 function RouteComponent() {
 	const { id } = Route.useParams();

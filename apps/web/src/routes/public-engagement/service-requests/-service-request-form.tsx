@@ -4,7 +4,6 @@ import {
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { AddressRow } from '@simmer-mosquito/sync';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';

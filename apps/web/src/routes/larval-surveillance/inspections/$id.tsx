@@ -19,7 +19,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, Suspense, useMemo } from 'react';

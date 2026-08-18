@@ -25,7 +25,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import type { CatalogMutations } from '../../../hooks/mutations/use-catalog-mutations';

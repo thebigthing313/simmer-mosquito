@@ -1,5 +1,5 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
-import type { AddressRow, ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
+import type { ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {

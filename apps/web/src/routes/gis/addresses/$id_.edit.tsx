@@ -1,6 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -28,7 +27,7 @@ export const Route = createFileRoute('/gis/addresses/$id_/edit')({
 	component: EditAddressRoute,
 });
 
-const addressGcTimeMs = 30_000;
+const _addressGcTimeMs = 30_000;
 
 function EditAddressRoute() {
 	const { id } = Route.useParams();

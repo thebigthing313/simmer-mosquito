@@ -6,30 +6,14 @@ import type {
 	ResolvedLarvalInspectionEntryPolicy,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
-import type {
-	CollectionLureRow,
-	CollectionMethodRow,
-	ControlMethodRow,
-	EquipmentRow,
-	HabitatTypeRow,
-	InsecticideBatchRow,
-	InsecticideRow,
-	NotificationTypeRow,
-	OrganizationRow,
-	ProfileRow,
-	TagRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
+import type { OrganizationRow, ProfileRow, TagRow, UnitRow } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import type { Collection } from '@tanstack/react-db';
 import { toast } from 'sonner';
 import type { AuthMe } from '../../../auth';
 import { webCollections } from '../../../sync/webCollections';
 import { defaultDensityRangeValues } from './constants';
 import type {
 	AgencyDetailsFormValues,
-	ControlAssetCollectionKey,
-	ControlMethodCollectionKey,
 	ControlSettingsFormValues,
 	DensityRangeFormValue,
 	DensityRangeFormValues,
@@ -401,7 +385,7 @@ export function validateEmail({ value }: { readonly value: string }): string | u
 	return 'Main contact must be a valid email address.';
 }
 
-function nullableNonnegativeIntegerValue(value: number | null, label: string): number | null {
+function _nullableNonnegativeIntegerValue(value: number | null, label: string): number | null {
 	if (value === null) {
 		return null;
 	}
