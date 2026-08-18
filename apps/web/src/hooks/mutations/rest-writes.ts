@@ -4,12 +4,17 @@
  * Three of the fifty-four are: `organizations`, `profiles` and `memberships`.
  * Their writes are identity writes — creating a Profile, ending a Membership,
  * editing the agency's own record — and identity is not part of the command
- * vocabulary and cannot join it (#130). There is no `/commands/profiles`, and
- * there should not be: the server has to settle WorkOS and Postgres together,
- * which is not something a row diff can describe.
+ * vocabulary *yet*.
  *
- * So these travel to their own REST routes. What they still need is everything
- * a command write gets for free, which is what this module is:
+ * **This module is transitional.** ADR 0013 folds identity in, so every agency
+ * write reaches Postgres the same way: the client states what it intended and
+ * the server decides whether to do it. `/commands/profiles` and
+ * `/commands/organizations` will exist, these collections go back to
+ * `mutations: true`, and this file is deleted with the last surface that needs
+ * it. Do not build anything new on it.
+ *
+ * Until then they travel to their own REST routes, and still need everything a
+ * command write gets for free — which is what this is:
  *
  * **The optimistic row still has to move.** The only way to write a collection
  * whose handlers point somewhere else — or has none at all — is to open a
@@ -29,7 +34,8 @@
  *
  * Each of the three collections declares `mutations: false`, so a direct
  * `collection.update(...)` outside one of these is refused by the library rather
- * than sent to an endpoint that does not exist. This is the only door.
+ * than sent to an endpoint that does not exist. This is the only door — until
+ * the command endpoints exist, and then the ordinary one is.
  */
 
 import { CommandError, settleWrite } from '@simmer-mosquito/sync';

@@ -8,10 +8,15 @@
  * different floor, and it happens through an invitation rather than through
  * this.
  *
- * Two operations, and neither is a command. Identity writes are REST and cannot
- * join the command vocabulary (#130), so these go to `/organization/profiles`
- * and travel through `rest-writes.ts` — read that module for why a write to this
- * table cannot go through the collection's own handlers.
+ * Two operations, and neither is a command *yet*. ADR 0013 folds identity into
+ * the command vocabulary, and these two are the easiest of the seven: both are
+ * plain Postgres writes that never touch WorkOS, and `createHistorical` already
+ * mints its own id. They move first, and this hook becomes an ordinary
+ * `mutateCollection` caller like every other.
+ *
+ * Until then they go to `/organization/profiles` through `rest-writes.ts` — read
+ * that module for why a write to this table cannot currently go through the
+ * collection's own handlers.
  *
  * ## The field names are camelCase, and deliberately
  *
@@ -21,6 +26,9 @@
  * `displayName`/`isActive` — they are not command endpoints and have no builder
  * to feed. The row written optimistically is still snake_case, because that is
  * what the collection holds; the boundary is the request body alone.
+ *
+ * The fold fixes this too: a command body is columns, so these two names go with
+ * the routes that read them.
  */
 
 import type { Profile } from '@simmer-mosquito/sync';

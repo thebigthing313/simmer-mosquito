@@ -3,12 +3,13 @@
  *
  * The one table on this seam whose writes do not go through `mutateCollection`,
  * because they do not go to `/commands/organizations` — there is no such
- * endpoint, and there should not be. `organizations` holds one row per agency
- * and its settings are a JSON document, so a write is not "these columns
- * changed": it is one of eight named things a Profile can do to the agency.
- * Seven are `organizationSettings.*` commands, each with its own route, its own
- * floor and its own validation; the eighth is the agency's details, which is an
- * identity write and named in `IdentityWriteSurface` instead.
+ * endpoint yet. `organizations` holds one row per agency and its settings are a
+ * JSON document, so a write is not "these columns changed": it is one of eight
+ * named things a Profile can do to the agency. Seven are
+ * `organizationSettings.*` commands, each with its own route, its own floor and
+ * its own validation; the eighth is the agency's details, which is an identity
+ * write and named in `IdentityWriteSurface` instead — until ADR 0013 folds it
+ * in, after which all eight are commands and the split on this one row is gone.
  *
  * Sending the whole document instead is what this replaces, and it cost three
  * things:

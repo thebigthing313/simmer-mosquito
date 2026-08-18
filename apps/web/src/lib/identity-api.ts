@@ -2,9 +2,14 @@
  * The three identity calls that are not writes to a collection.
  *
  * Inviting somebody, changing a role, and ending a Membership. None of them is a
- * command — identity writes are REST and cannot join the command vocabulary
- * (#130) — and none of them is a collection write either, which is what
- * separates them from `hooks/mutations/use-profile-mutations.ts`:
+ * command *yet* — ADR 0013 folds identity in, and these three are the hard end
+ * of it, because each settles WorkOS as well as Postgres. The ADR admits them
+ * under four rules; the one that decides whether a spanning command can be built
+ * at all is the client-generated id, which an invitation does not currently
+ * carry. Read `docs/domain-command-contract.md` before moving them.
+ *
+ * None of them is a collection write either, which is what separates them from
+ * `hooks/mutations/use-profile-mutations.ts`:
  *
  * **An invitation has no row to apply.** It creates a Membership in `invited`
  * status *and* a WorkOS invitation, and which rows appear is the server's answer

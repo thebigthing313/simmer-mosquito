@@ -208,7 +208,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <div class="wrap">
 
 <header class="masthead">
-	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head e1c2e9f · 96 commits off main</p>
+	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head 5c77708 · 97 commits off main</p>
 	<h1>The sync layer, rebuilt table by table</h1>
 	<p class="standfirst">A ground-up rewrite of how SIMMER reads and writes data. TanStack DB is transport only, the server validates, every mutation names the command it means, and the only per-table definition is the schema. This page is where the work is tracked — it replaces <code>HANDOFF.md</code>.</p>
 	<div class="dials">
@@ -333,7 +333,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 			</tbody>
 		</table>
 	</div>
-	<p class="lede"><code>memberships</code> and <code>profiles</code> will never get intent maps — identity writes are REST and cannot join the command surface. <code>organizations</code> is half of each: its settings are seven commands with a route apiece, and its details are the one identity write on the same row.</p>
+	<p class="lede"><code>memberships</code> and <code>profiles</code> have no intent map <em>yet</em>, and <code>organizations</code> is half of each — its settings are seven commands with a route apiece, its details are an identity write on the same row. <a href="#next">ADR 0013</a> closes that: identity joins the command vocabulary, so every agency write reaches Postgres the same way and this column goes to 54/54 as well.</p>
 </section>
 
 <section class="band">
@@ -412,6 +412,14 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 				<p>The identity tables are the ones that will never be commands. Creating a Profile, changing a role, ending a Membership: identity writes are REST and cannot join the vocabulary (#130). What they lose by not being commands is the thing every command write gets for free — the transaction that moves the optimistic row, the txid wait, and the suppression that makes an unchanged save send nothing — so <code>rest-writes.ts</code> is that mechanism, shared with the agency's own record.</p>
 				<p><code>lib/collections/profiles.ts</code> declared <code>mutations: true</code> while pointing at a <code>/commands/profiles</code> that does not exist — the same latent trap <code>organizations</code> had. Both are <code>mutations: false</code> now, which is what turns a stray row write into a refusal instead of a request to nowhere.</p>
 				<p>The three calls that settle WorkOS <em>and</em> Postgres together — invite, role, offboard — are not collection writes and never were. They are plain functions in <code>lib/identity-api.ts</code> with the reason written down: an optimistic row there would be guessing at the half the client cannot see.</p>
+			</div>
+		</li>
+		<li>
+			<div>
+				<h4 id="next">Next: identity becomes commands (ADR 0013)</h4>
+				<p>Seven surfaces still write Postgres as ordinary REST — the agency's details, and six on people. The reason recorded in <code>roles.ts</code> said they <em>cannot</em> be commands because they settle WorkOS as well as Postgres and a replay would be a second grant. That is true of exactly one of them. Three never touch WorkOS at all, and <code>createProfile</code> already mints its own id.</p>
+				<p>What the split actually costs is a hole and a fork. <code>COMMAND_PERMISSIONS</code> is total — a command with no floor does not compile, and dispatch reads the map before a handler runs — while an identity route has to remember to ask. And <code>hooks/mutations/rest-writes.ts</code> exists only to give identity writes what the command path gets free.</p>
+				<p>The decision is one model for every operation: <em>this is what I intended to do</em>, and the server decides whether to do it. The three pure-Postgres writes move first because they need no new contract. The three that span WorkOS come last, under the four rules the command contract now carries — of which the client-generated id is the one that decides whether a spanning command can be built at all.</p>
 			</div>
 		</li>
 		<li>
