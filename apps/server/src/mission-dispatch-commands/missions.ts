@@ -19,6 +19,7 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import { insertLifecycleComment } from '../lifecycle-comment.js';
+import { applyPlacement, missionPlacementRef, reindexMissionItems } from './mission-items.js';
 import {
 	assertMissionTransition,
 	checkCancelMission,
@@ -459,9 +460,50 @@ export async function writeMissionCommand(
 				missionReturnColumns,
 				toSafeMission,
 			);
+		/**
+		 * Reordering the stops, which is a command on the mission.
+		 *
+		 * `position` is a fact about the sequence rather than about any stop in it:
+		 * a move takes an id list and a placement, renumbers every stop the mission
+		 * holds, and answers with the mission. The renumbering itself lives beside
+		 * the stop writes that also do it, so both write the same 0…n-1 the client
+		 * mirrors optimistically.
+		 */
+		case 'missionDispatch.moveMissionItems': {
+			await reindexMissionItems(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.actorProfileId,
+				(ids) =>
+					applyPlacement(
+						ids,
+						command.payload.missionItemIds,
+						command.payload.placement.kind,
+						missionPlacementRef(command.payload.placement),
+					),
+			);
+			return loadMission(trx, command.payload.missionId, command.payload.organizationId);
+		}
 		default:
 			throw new Error(`Unsupported mission command: ${command.type}`);
 	}
+}
+
+/** The mission as it stands, for a command that changed its children rather than it. */
+async function loadMission(
+	trx: MissionDispatchTransaction,
+	missionId: string,
+	organizationId: string,
+): Promise<SafeMission | null> {
+	const row = await trx
+		.selectFrom('missions')
+		.select(missionReturnColumns)
+		.where('id', '=', missionId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	return row === undefined ? null : toSafeMission(row);
 }
 
 async function updateMission(

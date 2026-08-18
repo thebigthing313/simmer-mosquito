@@ -43,7 +43,7 @@ import {
 	insecticideBatchTableCommands,
 	insecticideTableCommands,
 } from './control-products.js';
-import { registerTableCommandRoutes } from './dispatch.js';
+import { type AnyTableCommands, registerTableCommandRoutes } from './dispatch.js';
 import { habitatTableCommands } from './habitats.js';
 import { inspectionTableCommands } from './inspections.js';
 import { missionItemTableCommands } from './mission-items.js';
@@ -76,6 +76,77 @@ import { genusTableCommands, speciesTableCommands } from './taxonomy.js';
 import { trapTableCommands } from './traps.js';
 import { unitTableCommands } from './units.js';
 
+/**
+ * Every table on the surface, as data.
+ *
+ * A list rather than a sequence of registration calls, so something other than
+ * the router can walk it. The test that every intent a table declares is one its
+ * writer actually handles is the reason: `moveMissionItems` is a command on the
+ * `missions` table whose renumbering lives beside the stop writes, and when the
+ * two disagreed the surface answered 500 with nothing to say why.
+ */
+export function tableCommandSpecs(
+	db: CommandDb,
+	// biome-ignore lint/suspicious/noExplicitAny: each table names its own command
+	// union and its own safe row; the list is heterogeneous by construction and
+	// only the shared `table`/`run`/`intents` shape is ever read off it.
+): readonly AnyTableCommands<any, any>[] {
+	return [
+		habitatTableCommands(db),
+		inspectionTableCommands(db),
+		sampleTableCommands(db),
+		sampleSpeciesTableCommands(db),
+		trapTableCommands(db),
+		collectionTableCommands(db),
+		collectionSpeciesTableCommands(db),
+		applicationMethodTableCommands(db),
+		sourceReductionMethodTableCommands(db),
+		outreachMethodTableCommands(db),
+		biocontrolMethodTableCommands(db),
+		vehicleTableCommands(db),
+		equipmentTableCommands(db),
+		sourceReductionTableCommands(db),
+		outreachActionTableCommands(db),
+		biocontrolActionTableCommands(db),
+		requestedControlActionTableCommands(db),
+		applicationTableCommands(db),
+		applicationBatchTableCommands(db),
+		insecticideTableCommands(db),
+		insecticideBatchTableCommands(db),
+		formulationTableCommands(db),
+		formulationInsecticideTableCommands(db),
+		contactTableCommands(db),
+		serviceRequestTableCommands(db),
+		notificationTypeTableCommands(db),
+		notificationRegistrationTableCommands(db),
+		notificationRegistrationTypeTableCommands(db),
+		missionNotificationTableCommands(db),
+		collectionMethodTableCommands(db),
+		collectionLureTableCommands(db),
+		habitatTypeTableCommands(db),
+		regionFolderTableCommands(db),
+		regionTableCommands(db),
+		organizationSpeciesTableCommands(db),
+		addressTableCommands(db),
+		// The crew every record type attaches — see `additional-personnel.ts`.
+		additionalPersonnelTableCommands(db),
+		commentTableCommands(db),
+		tagItemTableCommands(db),
+		// Standing itineraries, and the day's work drawn off them.
+		routeTableCommands(db),
+		routeItemTableCommands(db),
+		assignmentTableCommands(db),
+		assignmentItemTableCommands(db),
+		// Planned control work, and the stops it is made of.
+		missionTableCommands(db),
+		missionItemTableCommands(db),
+		// The three global catalogs, behind the operator door.
+		genusTableCommands(db),
+		speciesTableCommands(db),
+		unitTableCommands(db),
+	];
+}
+
 export function registerTableCommandSurface(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
@@ -85,56 +156,7 @@ export function registerTableCommandSurface(
 		readonly operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	registerTableCommandRoutes(app, options, habitatTableCommands(options.db));
-	registerTableCommandRoutes(app, options, inspectionTableCommands(options.db));
-	registerTableCommandRoutes(app, options, sampleTableCommands(options.db));
-	registerTableCommandRoutes(app, options, sampleSpeciesTableCommands(options.db));
-	registerTableCommandRoutes(app, options, trapTableCommands(options.db));
-	registerTableCommandRoutes(app, options, collectionTableCommands(options.db));
-	registerTableCommandRoutes(app, options, collectionSpeciesTableCommands(options.db));
-	registerTableCommandRoutes(app, options, applicationMethodTableCommands(options.db));
-	registerTableCommandRoutes(app, options, sourceReductionMethodTableCommands(options.db));
-	registerTableCommandRoutes(app, options, outreachMethodTableCommands(options.db));
-	registerTableCommandRoutes(app, options, biocontrolMethodTableCommands(options.db));
-	registerTableCommandRoutes(app, options, vehicleTableCommands(options.db));
-	registerTableCommandRoutes(app, options, equipmentTableCommands(options.db));
-	registerTableCommandRoutes(app, options, sourceReductionTableCommands(options.db));
-	registerTableCommandRoutes(app, options, outreachActionTableCommands(options.db));
-	registerTableCommandRoutes(app, options, biocontrolActionTableCommands(options.db));
-	registerTableCommandRoutes(app, options, requestedControlActionTableCommands(options.db));
-	registerTableCommandRoutes(app, options, applicationTableCommands(options.db));
-	registerTableCommandRoutes(app, options, applicationBatchTableCommands(options.db));
-	registerTableCommandRoutes(app, options, insecticideTableCommands(options.db));
-	registerTableCommandRoutes(app, options, insecticideBatchTableCommands(options.db));
-	registerTableCommandRoutes(app, options, formulationTableCommands(options.db));
-	registerTableCommandRoutes(app, options, formulationInsecticideTableCommands(options.db));
-	registerTableCommandRoutes(app, options, contactTableCommands(options.db));
-	registerTableCommandRoutes(app, options, serviceRequestTableCommands(options.db));
-	registerTableCommandRoutes(app, options, notificationTypeTableCommands(options.db));
-	registerTableCommandRoutes(app, options, notificationRegistrationTableCommands(options.db));
-	registerTableCommandRoutes(app, options, notificationRegistrationTypeTableCommands(options.db));
-	registerTableCommandRoutes(app, options, missionNotificationTableCommands(options.db));
-	registerTableCommandRoutes(app, options, collectionMethodTableCommands(options.db));
-	registerTableCommandRoutes(app, options, collectionLureTableCommands(options.db));
-	registerTableCommandRoutes(app, options, habitatTypeTableCommands(options.db));
-	registerTableCommandRoutes(app, options, regionFolderTableCommands(options.db));
-	registerTableCommandRoutes(app, options, regionTableCommands(options.db));
-	registerTableCommandRoutes(app, options, organizationSpeciesTableCommands(options.db));
-	registerTableCommandRoutes(app, options, addressTableCommands(options.db));
-	// The crew every record type attaches — see `additional-personnel.ts`.
-	registerTableCommandRoutes(app, options, additionalPersonnelTableCommands(options.db));
-	registerTableCommandRoutes(app, options, commentTableCommands(options.db));
-	registerTableCommandRoutes(app, options, tagItemTableCommands(options.db));
-	// Standing itineraries, and the day's work drawn off them.
-	registerTableCommandRoutes(app, options, routeTableCommands(options.db));
-	registerTableCommandRoutes(app, options, routeItemTableCommands(options.db));
-	registerTableCommandRoutes(app, options, assignmentTableCommands(options.db));
-	registerTableCommandRoutes(app, options, assignmentItemTableCommands(options.db));
-	// Planned control work, and the stops it is made of.
-	registerTableCommandRoutes(app, options, missionTableCommands(options.db));
-	registerTableCommandRoutes(app, options, missionItemTableCommands(options.db));
-	// The three global catalogs, behind the operator door.
-	registerTableCommandRoutes(app, options, genusTableCommands(options.db));
-	registerTableCommandRoutes(app, options, speciesTableCommands(options.db));
-	registerTableCommandRoutes(app, options, unitTableCommands(options.db));
+	for (const spec of tableCommandSpecs(options.db)) {
+		registerTableCommandRoutes(app, options, spec);
+	}
 }

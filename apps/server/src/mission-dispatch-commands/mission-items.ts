@@ -475,7 +475,15 @@ async function loadMissionItem(
 	return row === undefined ? null : toSafeMissionItem(row);
 }
 
-async function reindexMissionItems(
+/**
+ * Renumber a mission's stops 0…n-1 in the order `reorder` puts them.
+ *
+ * Exported because the move that calls it is a command on the *mission* — see
+ * `table-commands/missions.ts` — while the stop writes that also renumber are
+ * here. Both write the same numbers, which is what the optimistic half on the
+ * client mirrors.
+ */
+export async function reindexMissionItems(
 	trx: MissionDispatchTransaction,
 	missionId: string,
 	organizationId: string,
@@ -502,7 +510,7 @@ async function reindexMissionItems(
 	}
 }
 
-function applyPlacement(
+export function applyPlacement(
 	orderedIds: readonly string[],
 	movingIds: readonly string[],
 	kind: 'start' | 'end' | 'before' | 'after',
@@ -523,6 +531,6 @@ function applyPlacement(
 	return [...remaining, ...moving];
 }
 
-function missionPlacementRef(placement: MissionItemPlacement): string | null {
+export function missionPlacementRef(placement: MissionItemPlacement): string | null {
 	return placement.kind === 'before' || placement.kind === 'after' ? placement.missionItemId : null;
 }
