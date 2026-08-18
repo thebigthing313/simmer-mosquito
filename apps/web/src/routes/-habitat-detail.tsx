@@ -1,13 +1,9 @@
-import {
-	type LarvalInspectionEntryMode,
-	resolveOrganizationSettings,
-} from '@simmer-mosquito/domain';
+import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
 import {
 	countGeoJsonVertices,
 	formatGeometryTypeLabel,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
-import type { HabitatRow, LarvalDensity } from '@simmer-mosquito/sync';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -46,7 +42,6 @@ import {
 	ArrowLeftIcon,
 	CheckCircle2Icon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../components/app-shell';
@@ -60,12 +55,24 @@ import { LinkedAddressValueById } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
+import { useHabitatMutations } from '../hooks/mutations/use-habitat-mutations';
+import type { Habitat } from '../hooks/queries/habitat-view';
 import type { Tag } from '../hooks/queries/tag-view';
 import {
 	useApplicationMethodRoster,
 	useHabitatTypeRoster,
 } from '../hooks/queries/use-catalog-rosters';
+import {
+	type HabitatHistoryApplication,
+	type HabitatHistoryInspection,
+	type HabitatHistorySample,
+	type HabitatHistorySampleRow,
+	type HabitatHistorySpecies,
+	useHabitatHistory,
+} from '../hooks/queries/use-habitat-history';
+import { useHabitatSuspense } from '../hooks/queries/use-habitat-suspense';
 import { useInsecticideRecords } from '../hooks/queries/use-insecticide-records';
+import { useOrganizationSettings } from '../hooks/queries/use-organization-settings';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { useRecordRoutes } from '../hooks/queries/use-record-routes';
 import { useRecordTags } from '../hooks/queries/use-record-tags';
@@ -74,65 +81,10 @@ import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
-import { webCollections } from '../sync/webCollections';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
 
 const historyPageSize = 25;
-// Keep the on-demand inspection/sample/species subsets warm briefly after unmount
-// so quick navigation between habitats reuses them instead of refetching them.
-const historyGcTimeMs = 30_000;
-// Projected shapes of the nested includes query (inspection -> samples -> species).
-interface HistorySampleSpecies {
-	readonly id: string;
-	readonly speciesId: string;
-	readonly larvaeCount: number;
-}
-
-interface HistorySample {
-	readonly id: string;
-	readonly inspectionId: string;
-	readonly displayName: string | null;
-	readonly isZeroLarvae: boolean;
-	readonly hasNonMosquito: boolean;
-	readonly unidentifiableReason: string | null;
-	readonly species: readonly HistorySampleSpecies[];
-}
-
-interface HistoryInspection {
-	readonly id: string;
-	readonly inspectionDate: string;
-	readonly inspectedByProfileId: string | null;
-	readonly isWet: boolean;
-	readonly dipCount: number | null;
-	readonly density: LarvalDensity | null;
-	readonly larvaeCount: number | null;
-	readonly hasEggs: boolean;
-	readonly hasFirstInstar: boolean;
-	readonly hasSecondInstar: boolean;
-	readonly hasThirdInstar: boolean;
-	readonly hasFourthInstar: boolean;
-	readonly hasPupae: boolean;
-	readonly samples: readonly HistorySample[];
-}
-
-interface HistorySampleRow extends HistorySample {
-	readonly inspectionDate: string;
-}
-
-// Applications are scoped to the habitat directly (application.habitatId), so they
-// surface here as a sibling of inspections — including any not tied to a specific
-// inspection — rather than nested under the inspection includes.
-interface HistoryApplication {
-	readonly id: string;
-	readonly applicationDate: string;
-	readonly applicatorProfileId: string | null;
-	readonly insecticideId: string;
-	readonly applicationMethodId: string | null;
-	readonly amountApplied: number;
-	readonly applicationUnitId: string;
-}
-
 // The larval-surveillance explorer is the only habitats index, so "Back to
 // habitats" always returns there.
 type HabitatDetailBackTo = '/larval-surveillance/habitats';
@@ -178,16 +130,7 @@ export function HabitatDetail({
 function HabitatDetailLoader({ habitatId }: { readonly habitatId: string }) {
 	// Record fields stream live from the synced (on-demand) habitats collection,
 	// so detail edits propagate without a manual refetch.
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ habitat: webCollections.habitats })
-				.where(({ habitat }) => eq(habitat.id, habitatId))
-				.findOne(),
-		[habitatId],
-	);
-
-	const habitat = result.data;
+	const habitat = useHabitatSuspense(habitatId);
 	if (habitat === undefined) {
 		return <RecordUnavailable noun="habitat" reason="not-found" />;
 	}
@@ -195,15 +138,16 @@ function HabitatDetailLoader({ habitatId }: { readonly habitatId: string }) {
 	return <HabitatDetailContent habitat={habitat} />;
 }
 
-function HabitatDetailContent({ habitat }: { readonly habitat: HabitatRow }) {
+function HabitatDetailContent({ habitat }: { readonly habitat: Habitat }) {
 	// Surface the habitat's name in the breadcrumb trail in place of its uuid.
-	useBreadcrumbLabel(habitat.id, habitatName(habitat));
+	useBreadcrumbLabel(habitat.id, habitat.name);
 
 	// Geometry is not part of the Electric shape (ADR 0009), so it is fetched from
 	// the server display endpoint. Keying on updatedAt makes it refetch whenever
 	// the synced record changes, keeping the map in step with edits.
 	const { data: geometry, isPending: isGeometryPending } = useHabitatGeometry(habitat.id);
 	const resolvedGeometry = geometry ?? null;
+	const mutations = useHabitatMutations();
 
 	return (
 		<>
@@ -222,9 +166,9 @@ function HabitatDetailContent({ habitat }: { readonly habitat: HabitatRow }) {
 						<HabitatHistoryCard habitatId={habitat.id} />
 					</Suspense>
 					<DangerZoneCard
-						name={habitatName(habitat)}
+						name={habitat.name}
 						noun="habitat"
-						onDelete={() => webCollections.habitats.delete(habitat.id)}
+						onDelete={() => mutations.remove(habitat.id)}
 						recordId={habitat.id}
 						recordType="habitat"
 						returnTo="/larval-surveillance/habitats"
@@ -242,15 +186,15 @@ function HabitatDetailContent({ habitat }: { readonly habitat: HabitatRow }) {
 	);
 }
 
-function HabitatDetailHeader({ habitat }: { readonly habitat: HabitatRow }) {
+function HabitatDetailHeader({ habitat }: { readonly habitat: Habitat }) {
 	return (
 		<div className="flex flex-wrap items-start justify-between gap-3">
 			<div className="grid gap-1">
 				<h1 className="m-0 text-[1.5rem] leading-tight font-semibold text-foreground">
-					{habitatName(habitat)}
+					{habitat.name}
 				</h1>
 				<Suspense fallback={<span className="text-sm text-muted-foreground">Loading type…</span>}>
-					<HabitatTypeLabel habitatTypeId={habitat.habitatTypeId} />
+					<HabitatTypeLabel habitatTypeId={habitat.typeId} />
 				</Suspense>
 			</div>
 			<HabitatStateBadges habitat={habitat} />
@@ -263,7 +207,7 @@ function HabitatTypeLabel({ habitatTypeId }: { readonly habitatTypeId: string | 
 	return <span className="text-[0.95rem] text-muted-foreground">{typeName}</span>;
 }
 
-function HabitatStateBadges({ habitat }: { readonly habitat: HabitatRow }) {
+function HabitatStateBadges({ habitat }: { readonly habitat: Habitat }) {
 	return (
 		<div className="flex flex-wrap items-center gap-2">
 			{habitat.isActive ? (
@@ -312,7 +256,7 @@ function HabitatDetailsCard({
 	isGeometryPending,
 }: {
 	readonly geometry: HabitatGeometry | null;
-	readonly habitat: HabitatRow;
+	readonly habitat: Habitat;
 	readonly isGeometryPending: boolean;
 }) {
 	return (
@@ -328,7 +272,7 @@ function HabitatDetailsCard({
 				<dl className="grid gap-2.5">
 					<DetailRow label="Habitat type">
 						<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-							<HabitatTypeLabel habitatTypeId={habitat.habitatTypeId} />
+							<HabitatTypeLabel habitatTypeId={habitat.typeId} />
 						</Suspense>
 					</DetailRow>
 					<DetailRow label="Address">
@@ -356,7 +300,7 @@ function HabitatDetailsCard({
 					</DetailRow>
 				</dl>
 				<Suspense fallback={null}>
-					<HabitatMetadata habitatTypeId={habitat.habitatTypeId} metadata={habitat.metadata} />
+					<HabitatMetadata habitatTypeId={habitat.typeId} metadata={habitat.metadata} />
 				</Suspense>
 			</CardContent>
 		</Card>
@@ -401,7 +345,13 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 	);
 }
 
-function AuditValue({ at, profileId }: { readonly at: string; readonly profileId: string | null }) {
+function AuditValue({
+	at,
+	profileId,
+}: {
+	readonly at: string | Date;
+	readonly profileId: string | null;
+}) {
 	const timeZone = useOrganizationTimeZone();
 	return (
 		<span>
@@ -509,114 +459,8 @@ function TagBadge({ tag }: { readonly tag: Tag }) {
 }
 
 function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
-	// Nested includes query: inspections for the habitat, each with its samples
-	// (correlated on inspection_id) and each sample's species (correlated on
-	// sample_id). The correlated eq()s drive Electric on-demand subset loading.
-	//
-	// Uses non-suspense useLiveQuery gated on status, NOT useLiveSuspenseQuery:
-	// the suspense variant gets permanently stuck after a navigation unmount —
-	// it caches collection.preload() in a ref and only clears it on a `ready`
-	// status it observes, but the recreated collection never re-resolves that
-	// cached promise. useLiveQuery reads live status instead and recovers.
-	const result = useLiveQuery(
-		{
-			gcTime: historyGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: webCollections.inspections })
-					.where(({ inspection }) => eq(inspection.habitatId, habitatId))
-					.orderBy(({ inspection }) => inspection.inspectionDate, 'desc')
-					.select(({ inspection }) => ({
-						id: inspection.id,
-						inspectionDate: inspection.inspectionDate,
-						inspectedByProfileId: inspection.inspectedByProfileId,
-						isWet: inspection.isWet,
-						dipCount: inspection.dipCount,
-						density: inspection.density,
-						larvaeCount: inspection.larvaeCount,
-						hasEggs: inspection.hasEggs,
-						hasFirstInstar: inspection.hasFirstInstar,
-						hasSecondInstar: inspection.hasSecondInstar,
-						hasThirdInstar: inspection.hasThirdInstar,
-						hasFourthInstar: inspection.hasFourthInstar,
-						hasPupae: inspection.hasPupae,
-						samples: toArray(
-							query
-								.from({ sample: webCollections.samples })
-								.where(({ sample }) => eq(sample.inspectionId, inspection.id))
-								.select(({ sample }) => ({
-									id: sample.id,
-									inspectionId: sample.inspectionId,
-									displayName: sample.displayName,
-									isZeroLarvae: sample.isZeroLarvae,
-									hasNonMosquito: sample.hasNonMosquito,
-									unidentifiableReason: sample.unidentifiableReason,
-									species: toArray(
-										query
-											.from({ sampleSpecies: webCollections.sampleSpecies })
-											.where(({ sampleSpecies }) => eq(sampleSpecies.sampleId, sample.id))
-											.select(({ sampleSpecies }) => ({
-												id: sampleSpecies.id,
-												speciesId: sampleSpecies.speciesId,
-												larvaeCount: sampleSpecies.larvaeCount,
-											})),
-									),
-								})),
-						),
-					})),
-		},
-		[habitatId],
-	);
-
-	// Re-sort client-side: the query's orderBy is applied before the correlated
-	// `toArray` samples subquery, and TanStack DB emits the joined result in key
-	// order rather than the requested order — so establish most-recent-first here.
-	const inspections = useMemo(() => {
-		const rows = (result.data ?? []) as unknown as readonly HistoryInspection[];
-		return [...rows].sort((a, b) => (a.inspectionDate < b.inspectionDate ? 1 : -1));
-	}, [result.data]);
-	const samples = useMemo<readonly HistorySampleRow[]>(
-		() =>
-			inspections.flatMap((inspection) =>
-				inspection.samples.map((sample) => ({
-					...sample,
-					inspectionDate: inspection.inspectionDate,
-				})),
-			),
-		[inspections],
-	);
-
-	// Applications correlate to the habitat directly, so they load as their own
-	// on-demand live query alongside inspections (same gcTime + status-gated
-	// pattern), not as a nested include under the inspection rows.
-	const applicationsResult = useLiveQuery(
-		{
-			gcTime: historyGcTimeMs,
-			query: (query) =>
-				query
-					.from({ application: webCollections.applications })
-					.where(({ application }) => eq(application.habitatId, habitatId))
-					.orderBy(({ application }) => application.applicationDate, 'desc')
-					.select(({ application }) => ({
-						id: application.id,
-						applicationDate: application.applicationDate,
-						applicatorProfileId: application.applicatorProfileId,
-						insecticideId: application.insecticideId,
-						applicationMethodId: application.applicationMethodId,
-						amountApplied: application.amountApplied,
-						applicationUnitId: application.applicationUnitId,
-					})),
-		},
-		[habitatId],
-	);
-	const applications = (applicationsResult.data ?? []) as unknown as readonly HistoryApplication[];
-
-	const isError = result.isError;
-	// Hold the tabs behind a skeleton until both on-demand subsets settle so the
-	// Applications tab count isn't briefly wrong; an applications-only failure is
-	// surfaced inside its own tab rather than blanking the whole card.
-	const applicationsSettled = applicationsResult.isReady || applicationsResult.isError;
-	const isReady = result.isReady && applicationsSettled;
+	const { inspections, samples, applications, isReady, isError, isApplicationsError } =
+		useHabitatHistory(habitatId);
 
 	return (
 		<Card variant="surface">
@@ -646,7 +490,7 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 							<SampleHistory samples={samples} />
 						</TabsContent>
 						<TabsContent value="applications" className="pt-4">
-							{applicationsResult.isError ? (
+							{isApplicationsError ? (
 								<HistoryEmpty
 									title="Applications Unavailable"
 									description="Application history could not be loaded."
@@ -667,7 +511,7 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 function InspectionHistory({
 	inspections,
 }: {
-	readonly inspections: readonly HistoryInspection[];
+	readonly inspections: readonly HabitatHistoryInspection[];
 }) {
 	const { page, pageCount, pageRows, setPage } = usePagedRows(inspections, historyPageSize);
 	// The agency's larval data mode decides which abundance columns are meaningful:
@@ -749,7 +593,7 @@ function InspectionHistory({
 	);
 }
 
-function SampleHistory({ samples }: { readonly samples: readonly HistorySampleRow[] }) {
+function SampleHistory({ samples }: { readonly samples: readonly HabitatHistorySampleRow[] }) {
 	const sortedSamples = useMemo(
 		() => [...samples].sort((a, b) => b.inspectionDate.localeCompare(a.inspectionDate)),
 		[samples],
@@ -807,7 +651,7 @@ function SampleHistory({ samples }: { readonly samples: readonly HistorySampleRo
 function ApplicationHistory({
 	applications,
 }: {
-	readonly applications: readonly HistoryApplication[];
+	readonly applications: readonly HabitatHistoryApplication[];
 }) {
 	const { page, pageCount, pageRows, setPage } = usePagedRows(applications, historyPageSize);
 
@@ -882,7 +726,7 @@ function ApplicationHistory({
 	);
 }
 
-function SampleSpeciesSummary({ species }: { readonly species: readonly HistorySampleSpecies[] }) {
+function SampleSpeciesSummary({ species }: { readonly species: readonly HabitatHistorySpecies[] }) {
 	if (species.length === 0) {
 		return <span className="text-muted-foreground">No species identified</span>;
 	}
@@ -898,7 +742,7 @@ function SampleSpeciesSummary({ species }: { readonly species: readonly HistoryS
 	);
 }
 
-function SampleSpeciesChip({ row }: { readonly row: HistorySampleSpecies }) {
+function SampleSpeciesChip({ row }: { readonly row: HabitatHistorySpecies }) {
 	const speciesName = useSpeciesName(row.speciesId);
 	return (
 		<Badge variant="outline" tone="neutral">
@@ -988,14 +832,7 @@ function inspectionColumnsForMode(mode: LarvalInspectionEntryMode): InspectionCo
 }
 
 function useLarvalEntryMode(): LarvalInspectionEntryMode {
-	// currentOrganization is an eager baseline collection, so suspense is safe.
-	const result = useLiveSuspenseQuery(
-		(query) => query.from({ organization: webCollections.currentOrganization }),
-		[],
-	);
-	const organization = result.data[0];
-	return resolveOrganizationSettings(organization?.settings).settings.larvalSurveillance
-		.inspectionEntryPolicy.mode;
+	return useOrganizationSettings().larvalSurveillance.inspectionEntryPolicy.mode;
 }
 
 /** One id through the shared taxonomy read — the catalog is eager and small. */
@@ -1087,15 +924,11 @@ function TableSkeleton({ rows }: { readonly rows: number }) {
 	);
 }
 
-function habitatName(habitat: HabitatRow): string {
-	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
-}
-
-function habitatDescription(habitat: HabitatRow): string {
+function habitatDescription(habitat: Habitat): string {
 	return habitat.description.trim() || 'No description recorded.';
 }
 
-function sampleName(sample: HistorySample): string {
+function sampleName(sample: HabitatHistorySample): string {
 	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
 }
 
@@ -1127,7 +960,7 @@ function coordinateLabel(geometry: HabitatGeometry | null): string {
 	return `${geometry.lat.toFixed(5)}, ${geometry.lng.toFixed(5)}`;
 }
 
-function formatSampleResult(sample: HistorySample): string {
+function formatSampleResult(sample: HabitatHistorySample): string {
 	if (sample.isZeroLarvae) {
 		return 'Zero larvae';
 	}
@@ -1175,8 +1008,17 @@ function formatAmount(value: number): string {
 	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value);
 }
 
-function formatDateTime(value: string, timeZone: string | undefined): string {
-	const date = new Date(value);
+/**
+ * A stamp, in the agency's zone.
+ *
+ * Takes a `Date` as well as a string: the read seam hands back `created_at` and
+ * `updated_at` as `Date` — `coerce.date()` in the row schema — where the row
+ * type this page used to hold spelled them as ISO strings. Accepting both is
+ * what keeps the two remaining string call sites working while the surfaces
+ * around this one still speak the old shape.
+ */
+function formatDateTime(value: string | Date, timeZone: string | undefined): string {
+	const date = value instanceof Date ? value : new Date(value);
 	if (Number.isNaN(date.getTime())) {
 		return 'Unknown';
 	}

@@ -1,14 +1,11 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { HabitatRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
 import {
 	type DrawGeometry,
@@ -36,12 +33,10 @@ function CreateHabitatRoute() {
 	const initialGeometry = pointFromSearch(Route.useSearch());
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const habitatTypes = useHabitatTypeRoster();
-
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const mutations = useHabitatMutations();
+	const organizationId =
+		auth.snapshot?.authenticated === true ? (auth.snapshot.localIdentity.organizationId ?? '') : '';
 
 	const onSave = useCallback(
 		async ({
@@ -51,55 +46,37 @@ function CreateHabitatRoute() {
 			readonly values: HabitatFormValues;
 			readonly geometry: DrawGeometry;
 		}) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-
-			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
+			const drawn = geometry as unknown as GeoJsonGeometry;
+			const centroid = ownedCentroidFromGeoJson(drawn);
 			if (centroid === null) {
 				throw new Error('Unable to determine the habitat location from the drawn geometry.');
 			}
 
-			const now = new Date().toISOString();
-			const row: HabitatRow = {
-				id: crypto.randomUUID(),
-				organizationId: organization.id,
-				lat: centroid.lat,
-				lng: centroid.lng,
-				geomType: centroid.geomType,
-				addressId: values.addressId,
-				habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
-				habitatName: nullableText(values.habitatName),
-				description: values.description.trim(),
-				isActive: true,
-				isInaccessible: false,
-				metadata: values.metadata,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
+			const habitatId = await mutations.create(
+				{
+					habitatName: nullableText(values.habitatName),
+					description: values.description.trim(),
+					addressId: values.addressId,
+					habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+					metadata: values.metadata,
+				},
+				drawn,
+				centroid,
+			);
 
-			const transaction = webCollections.habitats.insert(row, {
-				metadata: { locationSource: { kind: 'geometry', geometry } },
-			});
-			await settleWrite(transaction);
 			// Prime the detail's geometry cache so it renders the new shape on arrival
 			// instead of fetching (and briefly showing an empty state) from scratch.
-			seedHabitatGeometryCache(queryClient, row.id, geometry as unknown as GeoJsonGeometry);
-			await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: row.id } });
+			seedHabitatGeometryCache(queryClient, habitatId, drawn);
+			await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitatId } });
 		},
-		[organization, actorProfileId, navigate, queryClient],
+		[mutations, navigate, queryClient],
 	);
 
 	return (
 		<HabitatFormPage
 			mode="create"
-			organizationId={organization?.id ?? ''}
-			canSubmit={canSubmit}
+			organizationId={organizationId}
+			canSubmit={mutations.canWrite}
 			habitatTypes={habitatTypes}
 			defaultValues={defaultHabitatFormValues()}
 			initialGeometry={initialGeometry}

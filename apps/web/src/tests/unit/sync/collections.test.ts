@@ -56,10 +56,6 @@ describe('web sync baseline preload', () => {
 	it('keeps larval surveillance operational collections on demand', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		expect(collections.habitats.config.id).toBe('habitats');
-		expect(collections.habitats.config.onInsert).toBeTypeOf('function');
-		expect(collections.habitats.config.onUpdate).toBeTypeOf('function');
-		expect(collections.habitats.config.onDelete).toBeTypeOf('function');
 		expect(collections.inspections.config.id).toBe('inspections');
 		expect(collections.inspections.config.onInsert).toBeTypeOf('function');
 		expect(collections.inspections.config.onUpdate).toBeTypeOf('function');
@@ -68,7 +64,6 @@ describe('web sync baseline preload', () => {
 		expect(collections.samples.config.onInsert).toBeTypeOf('function');
 		expect(collections.sampleSpecies.config.id).toBe('sample_species');
 		expect(collections.sampleSpecies.config.onInsert).toBeTypeOf('function');
-		expect(collections.habitats.config.syncMode).toBe('on-demand');
 		expect(collections.inspections.config.syncMode).toBe('on-demand');
 		expect(collections.samples.config.syncMode).toBe('on-demand');
 		expect(collections.sampleSpecies.config.syncMode).toBe('on-demand');

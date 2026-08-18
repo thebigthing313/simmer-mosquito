@@ -11,7 +11,6 @@ import {
 	type ContactRow,
 	electricShapeCollectionOptions,
 	type GenusRow,
-	type HabitatRow,
 	type InspectionRow,
 	type MembershipRow,
 	type MissionNotificationRow,
@@ -66,7 +65,6 @@ import {
 	createRegionFolderMutationHandlers,
 	createRegionMutationHandlers,
 } from './foundationGeographyMutations';
-import { createHabitatMutationHandlers } from './habitatMutations';
 import {
 	createInspectionMutationHandlers,
 	createSampleMutationHandlers,
@@ -96,7 +94,6 @@ export interface WebCollections {
 	readonly comments: Collection<CommentRow, string | number>;
 	readonly contacts: Collection<ContactRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
-	readonly habitats: Collection<HabitatRow, string | number>;
 	readonly inspections: Collection<InspectionRow, string | number>;
 	readonly memberships: Collection<MembershipRow, string | number>;
 	readonly missionNotifications: Collection<MissionNotificationRow, string | number>;
@@ -253,18 +250,6 @@ export function createWebCollections(options: {
 			...createRouteMutationHandlers({ serverUrl: options.serverUrl }),
 		}),
 	);
-	const habitats = createCollection(
-		electricShapeCollectionOptions<HabitatRow>({
-			table: 'habitats',
-			syncMode: webSyncModes.habitats,
-			url: `${shapeServerUrl}${shapePathFor('habitats')}`,
-			...createHabitatMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	// The habitat pickers on the control-action and inspection forms.
-	habitats.createIndex((row) => row.habitatName, { indexType: BasicIndex });
 	const inspections = createCollection(
 		electricShapeCollectionOptions<InspectionRow>({
 			table: 'inspections',
@@ -496,7 +481,6 @@ export function createWebCollections(options: {
 		comments,
 		contacts,
 		genera,
-		habitats,
 		inspections,
 		memberships,
 		missionNotifications,
