@@ -45,7 +45,7 @@ import { MapCardDetail } from './map/map-card';
  * links none — a detail list is a list, and a sentence explaining the absence
  * would say more than the row is worth.
  */
-export function LinkedAddressValue({
+function LinkedAddressValue({
 	addressId,
 	address: linked,
 }: {
@@ -143,10 +143,4 @@ export function MapCardAddress({
 export function LinkedAddressValueById({ addressId }: { readonly addressId: string | null }) {
 	const { address } = useAddress(addressId);
 	return <LinkedAddressValue address={address} addressId={addressId} />;
-}
-
-/** {@link MapCardAddress} for a surface that has not joined its address yet. */
-export function MapCardAddressById({ addressId }: { readonly addressId: string | null }) {
-	const { address } = useAddress(addressId);
-	return <MapCardAddress address={address} addressId={addressId} />;
 }
