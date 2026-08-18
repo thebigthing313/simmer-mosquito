@@ -6,7 +6,7 @@ import {
 	setTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { CollectionTimingMode, TrapRow } from '@simmer-mosquito/sync';
+import type { CollectionTimingMode } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -32,16 +32,19 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
 import type {
 	CatalogListing,
 	SchemaCatalogListing,
 } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
+import type { TrapOption } from '../../../hooks/queries/use-trap-options';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { isPendingCollection as isPendingCollectionRow } from '../-adult-display';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
+import { collectionTimingStamps } from './-collection-timing';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
 
@@ -170,7 +173,7 @@ export interface CollectionFormValues {
 export interface CollectionSaveInput {
 	readonly values: CollectionFormValues;
 	/** The trap chosen in trap mode (for deriving method/location), else null. */
-	readonly trap: TrapRow | null;
+	readonly trap: TrapOption | null;
 	/**
 	 * Ad-hoc collection's own point (its geometry). Set in ad-hoc mode; null in
 	 * trap mode, where the collection inherits the trap's location.
@@ -191,7 +194,7 @@ export interface CollectionFormHeader {
 export interface CollectionFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly traps: readonly TrapRow[];
+	readonly traps: readonly TrapOption[];
 	readonly collectionMethods: readonly SchemaCatalogListing[];
 	readonly collectionLures: readonly CatalogListing[];
 	readonly profiles: readonly ProfileListing[];
@@ -247,7 +250,7 @@ export function CollectionFormPage({
 	submitLabel,
 	onSave,
 }: CollectionFormPageProps) {
-	const [selectedTrap, setSelectedTrap] = useState<TrapRow | null>(
+	const [selectedTrap, setSelectedTrap] = useState<TrapOption | null>(
 		() => traps.find((trap) => trap.id === defaultValues.trapId) ?? null,
 	);
 	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
@@ -301,7 +304,10 @@ export function CollectionFormPage({
 		() =>
 			selectedTrap === null
 				? null
-				: ({ type: 'Point', coordinates: [selectedTrap.lng, selectedTrap.lat] } as GeoJsonGeometry),
+				: ({
+						type: 'Point',
+						coordinates: [selectedTrap.longitude, selectedTrap.latitude],
+					} as GeoJsonGeometry),
 		[selectedTrap],
 	);
 	// The collection's own point is framed last so it wins when a trap pick and a
@@ -772,6 +778,39 @@ function validate(values: CollectionFormValues): string | null {
 		return 'Enter the collection date.';
 	}
 	return null;
+}
+
+/**
+ * What the form holds, as the write seam takes it.
+ *
+ * Two conversions the form made for its own reasons: Radix forbids an empty
+ * Select value, so "no lure" and "no unit" are sentinels. Both spellings stop
+ * here. The typed days become the two instants they are stored at in the same
+ * step, off one clock — see `collectionTimingStamps` for why that matters.
+ */
+export function collectionFieldsFrom(
+	values: CollectionFormValues,
+	timeZone: string,
+): CollectionFields {
+	const exact = values.timingMode === 'exact_timestamps';
+	const stamps = collectionTimingStamps(values, timeZone);
+	return {
+		collectionMethodId: values.collectionMethodId,
+		collectionLureId: values.collectionLureId === noLureValue ? null : values.collectionLureId,
+		addressId: values.addressId,
+		timing: {
+			timingMode: values.timingMode,
+			startedAt: stamps.startedAt,
+			collectedAt: stamps.collectedAt,
+			collectionDate: exact ? null : values.collectionDate,
+			durationAmount: exact ? null : values.durationAmount,
+			durationUnitId: exact || values.durationUnitId === noUnitValue ? null : values.durationUnitId,
+		},
+		setByProfileId: values.setByProfileId,
+		collectedByProfileId: values.collectedByProfileId,
+		hasProblem: values.hasProblem,
+		metadata: values.metadata,
+	};
 }
 
 function lureOptions(lures: readonly CatalogListing[]) {

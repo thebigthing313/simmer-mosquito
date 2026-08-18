@@ -163,6 +163,24 @@ export function localDayStartAsInstant(
 	return zonedDayStart(date, timeZone) ?? new Date(0);
 }
 
+/**
+ * The same operational stamp as a `Date`.
+ *
+ * {@link operationalDayAsInstant} hands back an ISO string because most callers
+ * are building a request body. A row does not want one: a `timestamptz` column
+ * arrives from the shape as a `Date`, so a write seam that put a string in one
+ * would hold two spellings of the same instant, and something would eventually
+ * compare them to each other.
+ */
+export function operationalDayAsTimestamp(
+	date: string | null | undefined,
+	timeZone: string,
+	now?: Date,
+): Date | null {
+	const instant = operationalDayAsInstant(date, timeZone, now);
+	return instant === null ? null : new Date(instant);
+}
+
 /** A `HH:MM` time-of-day, the shape a `<input type="time">` and a picker both hold. */
 const WALL_TIME = /^(\d{2}):(\d{2})$/;
 

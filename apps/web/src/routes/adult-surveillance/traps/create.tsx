@@ -1,22 +1,20 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { TrapRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
 import {
 	useCollectionLureRoster,
 	useCollectionMethodRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,
 	defaultTrapFormValues,
-	noLureValue,
 	TrapFormPage,
 	type TrapFormValues,
+	trapFieldsFrom,
 } from './-trap-form';
 
 export const Route = createFileRoute('/adult-surveillance/traps/create')({
@@ -39,10 +37,7 @@ function CreateTrapRoute() {
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const methods = useCollectionMethodRoster();
 	const lures = useCollectionLureRoster();
-
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const mutations = useTrapMutations();
 
 	const onSave = useCallback(
 		async ({
@@ -53,12 +48,6 @@ function CreateTrapRoute() {
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
 		}) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
 			if (geometry === null) {
 				throw new Error('Place the trap point on the map.');
 			}
@@ -66,46 +55,21 @@ function CreateTrapRoute() {
 			// The point is the trap's authoritative geometry; the address (if any) is
 			// reference only. The server recomputes geom from the location source; this
 			// centroid seeds the optimistic row so the map/coordinates show immediately.
-			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
+			const shape = geometry as unknown as GeoJsonGeometry;
+			const centroid = ownedCentroidFromGeoJson(shape);
 			if (centroid === null) {
 				throw new Error('Unable to determine the trap location.');
 			}
 
-			const now = new Date().toISOString();
-			const row: TrapRow = {
-				id: crypto.randomUUID(),
-				organizationId: organization.id,
-				lat: centroid.lat,
-				lng: centroid.lng,
-				geomType: centroid.geomType,
-				collectionMethodId: values.collectionMethodId,
-				addressId: values.addressId,
-				collectionLureId: values.collectionLureId === noLureValue ? null : values.collectionLureId,
-				trapName: nullableText(values.trapName),
-				trapCode: nullableText(values.trapCode),
-				description: nullableText(values.description),
-				isActive: values.isActive,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-
-			const locationSource = {
-				kind: 'geometry',
-				geometry: geometry as unknown as GeoJsonGeometry,
-			} as const;
-
-			const transaction = webCollections.traps.insert(row, { metadata: { locationSource } });
-			await settleWrite(transaction);
-			await navigate({ to: '/adult-surveillance/traps/$id', params: { id: row.id } });
+			const trapId = await mutations.create(trapFieldsFrom(values), shape, centroid);
+			await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trapId } });
 		},
-		[organization, actorProfileId, navigate],
+		[mutations, navigate],
 	);
 
 	return (
 		<TrapFormPage
-			canSubmit={canSubmit}
+			canSubmit={mutations.canWrite}
 			collectionLures={lures}
 			collectionMethods={methods}
 			defaultValues={defaultTrapFormValues()}
@@ -122,9 +86,4 @@ function CreateTrapRoute() {
 			submitLabel="Add Trap"
 		/>
 	);
-}
-
-function nullableText(value: string): string | null {
-	const text = value.trim();
-	return text.length === 0 ? null : text;
 }

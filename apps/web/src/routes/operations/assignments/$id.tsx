@@ -22,15 +22,13 @@ import { useCallback, useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
-import {
-	CollectCollectionDialog,
-	collectPendingCollection,
-} from '../../../components/collect-collection-dialog';
+import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
 import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
+import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
 import {
 	assignmentDisplayName,
 	formatAssignmentDate,
@@ -39,7 +37,7 @@ import {
 } from '../../../hooks/queries/assignment-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../../lib/local-date';
+import { operationalDayAsTimestamp, todayInTimeZone } from '../../../lib/local-date';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
@@ -257,7 +255,6 @@ function AssignmentRunRoute() {
 						target={{ type: 'assignment', id }}
 					>
 						<RunStopList
-							actorProfileId={identity?.profileId ?? null}
 							assignmentId={id}
 							enabled={itemsEnabled}
 							recordEnabled={recordEnabled}
@@ -369,7 +366,6 @@ function LifecycleControls({
 }
 
 function RunStopList({
-	actorProfileId,
 	assignmentId,
 	stops,
 	enabled,
@@ -381,7 +377,6 @@ function RunStopList({
 	onSelect,
 	onHover,
 }: {
-	readonly actorProfileId: string | null;
 	readonly assignmentId: string;
 	readonly stops: readonly AssignmentStopView[];
 	readonly enabled: boolean;
@@ -435,7 +430,6 @@ function RunStopList({
 		<ol className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3">
 			{stops.map((stop) => (
 				<RunStopRow
-					actorProfileId={actorProfileId}
 					assignmentId={assignmentId}
 					enabled={enabled}
 					recordEnabled={recordEnabled}
@@ -470,12 +464,10 @@ const ACTION_LABELS: Readonly<Record<ItemAction, string>> = {
 function RecordStopWorkButton({
 	stop,
 	assignmentId,
-	actorProfileId,
 	enabled,
 }: {
 	readonly stop: AssignmentStopView;
 	readonly assignmentId: string;
-	readonly actorProfileId: string | null;
 	readonly enabled: boolean;
 }) {
 	// The stop's own target rides along, so the form opens on the place the crew
@@ -506,12 +498,7 @@ function RecordStopWorkButton({
 		// the work here is emptying what somebody set, not setting a new one.
 		if (stop.pendingCollectionId !== null) {
 			return (
-				<CollectStopButton
-					actorProfileId={actorProfileId}
-					collectionId={stop.pendingCollectionId}
-					enabled={enabled}
-					stop={stop}
-				/>
+				<CollectStopButton collectionId={stop.pendingCollectionId} enabled={enabled} stop={stop} />
 			);
 		}
 		return (
@@ -545,17 +532,16 @@ function RecordStopWorkButton({
 function CollectStopButton({
 	stop,
 	collectionId,
-	actorProfileId,
 	enabled,
 }: {
 	readonly stop: AssignmentStopView;
 	readonly collectionId: string;
-	readonly actorProfileId: string | null;
 	readonly enabled: boolean;
 }) {
 	const [open, setOpen] = useState(false);
 	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
 	const timeZone = useOrganizationTimeZone();
+	const { collect } = useCollectionMutations();
 
 	return (
 		<>
@@ -567,13 +553,16 @@ function CollectStopButton({
 				onConfirm={(collectedAt) => {
 					setOpen(false);
 					void runAcknowledged((acknowledgements) =>
-						collectPendingCollection({
+						collect({
 							acknowledgements,
-							actorProfileId,
+							// The stop this visit closes — which is what makes the write a
+							// `fieldWork.*` command rather than an ordinary collect.
 							assignmentItemId: stop.assignmentItemId,
-							collectedAt,
+							// Midday on the agency's clock, clamped back to now on the same
+							// day — the same stamp the collection forms use, and the one every
+							// surface reads the day back with.
+							collectedAt: operationalDayAsTimestamp(collectedAt, timeZone) ?? new Date(),
 							collectionId,
-							timeZone,
 						}),
 					);
 				}}
@@ -587,7 +576,6 @@ function CollectStopButton({
 
 function RunStopRow({
 	stop,
-	actorProfileId,
 	assignmentId,
 	enabled,
 	recordEnabled,
@@ -598,7 +586,6 @@ function RunStopRow({
 	onHover,
 }: {
 	readonly stop: AssignmentStopView;
-	readonly actorProfileId: string | null;
 	readonly assignmentId: string;
 	readonly enabled: boolean;
 	readonly recordEnabled: boolean;
@@ -668,7 +655,6 @@ function RunStopRow({
 						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
 							{stop.progress === 'pending' ? (
 								<RecordStopWorkButton
-									actorProfileId={actorProfileId}
 									assignmentId={assignmentId}
 									enabled={recordEnabled}
 									stop={stop}

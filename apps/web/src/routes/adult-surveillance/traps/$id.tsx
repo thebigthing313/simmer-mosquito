@@ -1,5 +1,4 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { TrapRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -45,7 +44,6 @@ import {
 	CircleIcon,
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -61,15 +59,16 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
-import { collectionSortKey } from '../../../hooks/queries/collection-view';
-import { trapDisplayName } from '../../../hooks/queries/trap-view';
-import {
-	useCollectionLureRoster,
-	useCollectionMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
+import { compareByCollectionDateDesc } from '../../../hooks/queries/collection-view';
+import { type Trap, trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useSpeciesCatalog } from '../../../hooks/queries/use-species-catalog';
+import { useTrap } from '../../../hooks/queries/use-trap';
+import {
+	type TrapCollection,
+	useTrapCollections,
+} from '../../../hooks/queries/use-trap-collections';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	aggregateSpeciesDistribution,
 	CollectionFlagBadges,
@@ -88,8 +87,6 @@ const CollectionIcon = iconRegistry.entities.collection.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
-const collectionsGcTimeMs = 30_000;
-
 function RouteComponent() {
 	const { id } = Route.useParams();
 	return <TrapDetail trapId={id} />;
@@ -97,15 +94,7 @@ function RouteComponent() {
 
 function TrapDetail({ trapId }: { readonly trapId: string }) {
 	// traps is an eager collection, so this resolves without a fetch.
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ trap: webCollections.traps })
-				.where(({ trap }) => eq(trap.id, trapId))
-				.findOne(),
-		[trapId],
-	);
-	const trap = result.data as TrapRow | undefined;
+	const { trap, isReady } = useTrap(trapId);
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -114,7 +103,7 @@ function TrapDetail({ trapId }: { readonly trapId: string }) {
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to traps
 				</Link>
-				{!result.isReady ? (
+				{!isReady ? (
 					<TrapDetailSkeleton />
 				) : trap === undefined ? (
 					<RecordUnavailable noun="trap" reason="not-found" />
@@ -126,17 +115,17 @@ function TrapDetail({ trapId }: { readonly trapId: string }) {
 	);
 }
 
-function TrapDetailContent({ trap }: { readonly trap: TrapRow }) {
+function TrapDetailContent({ trap }: { readonly trap: Trap }) {
 	useBreadcrumbLabel(trap.id, trapDisplayName(trap));
 
-	const methods = useCollectionMethodRoster();
-	const lures = useCollectionLureRoster();
-	const methodName =
-		methods.find((method) => method.id === trap.collectionMethodId)?.name ?? 'Unknown method';
-	const lureName =
-		trap.collectionLureId === null
-			? null
-			: (lures.find((lure) => lure.id === trap.collectionLureId)?.name ?? 'Unknown lure');
+	const mutations = useTrapMutations();
+	// Joined by the read seam rather than looked up against two catalog rosters —
+	// same two names, one query instead of three. The lure guard is on the trap's
+	// own column, not the joined name: an unbaited trap has no lure, while one
+	// whose lure was deleted has a lure nothing can name, and the two read
+	// differently.
+	const { methodName } = trap;
+	const lureName = trap.lureId === null ? null : (trap.lureName ?? 'Unknown lure');
 
 	return (
 		<>
@@ -166,12 +155,12 @@ function TrapDetailContent({ trap }: { readonly trap: TrapRow }) {
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<TrapLocationCard point={{ lat: trap.lat, lng: trap.lng }} />
+					<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
 					<TrapCollectionsCard trapId={trap.id} />
 					<DangerZoneCard
 						name={trapDisplayName(trap)}
 						noun="trap"
-						onDelete={() => webCollections.traps.delete(trap.id)}
+						onDelete={() => mutations.remove(trap.id)}
 						recordId={trap.id}
 						recordType="trap"
 						returnTo="/adult-surveillance/traps"
@@ -205,63 +194,27 @@ function TrapLocationCard({
 	);
 }
 
-interface TrapCollectionEntry {
-	readonly id: string;
-	readonly collectedAt: string | null;
-	readonly collectionDate: string | null;
-	readonly hasProblem: boolean;
-	readonly isZeroResult: boolean;
-	readonly hasBycatch: boolean;
-	readonly species: readonly {
-		readonly speciesId: string;
-		readonly count: number;
-		readonly sex: string | null;
-	}[];
-}
-
 const collectionsPageSize = 10;
 
 function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
-	// collections is on-demand; the correlated species include drives its subset.
-	// Status-gated useLiveQuery (not the suspense variant) to avoid the post-unmount
-	// hang on on-demand collections.
-	const result = useLiveQuery(
-		{
-			gcTime: collectionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: webCollections.collections })
-					.where(({ collection }) => eq(collection.trapId, trapId))
-					.orderBy(({ collection }) => collection.collectedAt, 'desc')
-					.select(({ collection }) => ({
-						id: collection.id,
-						collectedAt: collection.collectedAt,
-						collectionDate: collection.collectionDate,
-						hasProblem: collection.hasProblem,
-						isZeroResult: collection.isZeroResult,
-						hasBycatch: collection.hasBycatch,
-						species: toArray(
-							query
-								.from({ collectionSpecies: webCollections.collectionSpecies })
-								.where(({ collectionSpecies }) => eq(collectionSpecies.collectionId, collection.id))
-								.select(({ collectionSpecies }) => ({
-									speciesId: collectionSpecies.speciesId,
-									count: collectionSpecies.count,
-									sex: collectionSpecies.sex,
-								})),
-						),
-					})),
-		},
-		[trapId],
-	);
+	const timeZone = useOrganizationTimeZone();
+	// `seasons: null` — this card is a trap's whole history, and its paging is what
+	// keeps that readable. The trap directory windows the same read to three
+	// seasons because it is a browsing surface; here the operator arrived by way of
+	// one trap and the collection they want may be the oldest one.
+	const {
+		collections: rows,
+		isReady,
+		isError,
+	} = useTrapCollections(trapId, {
+		seasons: null,
+		timeZone,
+	});
 
-	// Re-sort client-side: the query's orderBy is applied before the correlated
-	// `toArray` species subquery, and TanStack DB emits the joined result in key
-	// order rather than the requested order — so establish most-recent-first here.
-	const collections = useMemo(() => {
-		const rows = (result.data ?? []) as unknown as readonly TrapCollectionEntry[];
-		return [...rows].sort(compareByCollectedDesc);
-	}, [result.data]);
+	// Re-sorted here rather than in the query: the two timing modes date a
+	// collection from different columns, one a `timestamptz` and the other a
+	// `date`, and no single `orderBy` ranks across those types.
+	const collections = useMemo(() => [...rows].sort(compareByCollectionDateDesc), [rows]);
 
 	return (
 		<Card variant="surface">
@@ -291,16 +244,16 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 					<TabsContent className="mt-0" value="collections">
 						<TrapCollectionsList
 							collections={collections}
-							isError={result.isError}
-							isReady={result.isReady}
+							isError={isError}
+							isReady={isReady}
 							trapId={trapId}
 						/>
 					</TabsContent>
 					<TabsContent className="mt-0" value="species">
 						<TrapSpeciesDistribution
 							collections={collections}
-							isError={result.isError}
-							isReady={result.isReady}
+							isError={isError}
+							isReady={isReady}
 						/>
 					</TabsContent>
 				</CardContent>
@@ -315,7 +268,7 @@ function TrapCollectionsList({
 	isError,
 	trapId,
 }: {
-	readonly collections: readonly TrapCollectionEntry[];
+	readonly collections: readonly TrapCollection[];
 	readonly isReady: boolean;
 	readonly isError: boolean;
 	readonly trapId: string;
@@ -420,7 +373,7 @@ function TrapSpeciesDistribution({
 	isReady,
 	isError,
 }: {
-	readonly collections: readonly TrapCollectionEntry[];
+	readonly collections: readonly TrapCollection[];
 	readonly isReady: boolean;
 	readonly isError: boolean;
 }) {
@@ -596,7 +549,7 @@ function TrapDetailsCard({
 	methodName,
 	lureName,
 }: {
-	readonly trap: TrapRow;
+	readonly trap: Trap;
 	readonly methodName: string;
 	readonly lureName: string | null;
 }) {
@@ -707,27 +660,8 @@ function withinDateRange(date: string | null, from: string, to: string): boolean
 	return !(to !== '' && (date === null || date > to));
 }
 
-/**
- * Most-recent-first by effective date (collectedAt, falling back to the
- * scheduled collectionDate for pending collections). Undated rows sort last.
- */
-function compareByCollectedDesc(a: TrapCollectionEntry, b: TrapCollectionEntry): number {
-	const aDate = collectionSortKey(a) === '' ? null : collectionSortKey(a);
-	const bDate = collectionSortKey(b) === '' ? null : collectionSortKey(b);
-	if (aDate === bDate) {
-		return 0;
-	}
-	if (aDate === null) {
-		return 1;
-	}
-	if (bDate === null) {
-		return -1;
-	}
-	return aDate < bDate ? 1 : -1;
-}
-
 /** Total female mosquitoes tallied across the collection's species rows. */
-function femaleCount(collection: TrapCollectionEntry): number {
+function femaleCount(collection: TrapCollection): number {
 	return collection.species.reduce(
 		(sum, entry) => sum + (entry.sex === 'female' ? (entry.count ?? 0) : 0),
 		0,
@@ -735,6 +669,6 @@ function femaleCount(collection: TrapCollectionEntry): number {
 }
 
 /** Distinct species with at least one specimen in the collection. */
-function speciesCount(collection: TrapCollectionEntry): number {
+function speciesCount(collection: TrapCollection): number {
 	return collection.species.filter((entry) => (entry.count ?? 0) > 0).length;
 }

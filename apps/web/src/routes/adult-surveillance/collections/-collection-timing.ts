@@ -1,6 +1,6 @@
 import type { CollectionTimingMode } from '@simmer-mosquito/sync';
 import { getToday } from '../../../lib/get-today';
-import { operationalDayAsInstant } from '../../../lib/local-date';
+import { operationalDayAsTimestamp } from '../../../lib/local-date';
 
 /** The timing fields a collection form holds, in either mode. */
 interface CollectionTimingValues {
@@ -13,10 +13,17 @@ interface CollectionTimingValues {
 	readonly collectionDate: string | null;
 }
 
-/** The two `timestamptz` columns a collection is stored with. */
+/**
+ * The two `timestamptz` columns a collection is stored with.
+ *
+ * `Date` rather than an ISO string, because that is what the row schema parses a
+ * `timestamptz` into and what the write seam compares one against. A string here
+ * would be a second spelling of the same instant, and the two would be compared
+ * to each other on some save.
+ */
 export interface CollectionTimingStamps {
-	readonly startedAt: string | null;
-	readonly collectedAt: string | null;
+	readonly startedAt: Date | null;
+	readonly collectedAt: Date | null;
 }
 
 /**
@@ -44,8 +51,8 @@ export function collectionTimingStamps(
 ): CollectionTimingStamps {
 	const exact = values.timingMode === 'exact_timestamps';
 	return {
-		startedAt: exact ? operationalDayAsInstant(values.startedAt, timeZone, now) : null,
-		collectedAt: operationalDayAsInstant(
+		startedAt: exact ? operationalDayAsTimestamp(values.startedAt, timeZone, now) : null,
+		collectedAt: operationalDayAsTimestamp(
 			exact ? values.collectedAt : values.collectionDate,
 			timeZone,
 			now,

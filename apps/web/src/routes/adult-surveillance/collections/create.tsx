@@ -1,36 +1,37 @@
-import type { AdultCollectionRow, TrapRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import {
+	type CollectionPlacement,
+	useCollectionMutations,
+} from '../../../hooks/mutations/use-collection-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import {
 	useCollectionLureRoster,
 	useCollectionMethodRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
 import {
 	CollectionFormPage,
 	type CollectionFormValues,
 	type CollectionSaveInput,
+	collectionFieldsFrom,
 	defaultCollectionFormValues,
-	noLureValue,
-	noUnitValue,
 } from './-collection-form';
-import { type CollectionTimingStamps, collectionTimingStamps } from './-collection-timing';
 
 const createCollectionSearchSchema = z.object({
 	...mapPointSearchSchema.shape,
@@ -74,79 +75,30 @@ export const Route = createFileRoute('/adult-surveillance/collections/create')({
 	component: CreateCollectionRoute,
 });
 
-/** The optimistic row a create writes; the server recomputes geom and links. */
-function buildCollectionRow(input: {
-	readonly values: CollectionFormValues;
-	readonly id: string;
-	readonly organizationId: string;
-	readonly actorProfileId: string;
-	readonly now: string;
-	readonly centroid: { readonly lat: number; readonly lng: number };
-	readonly isTrap: boolean;
-	readonly exact: boolean;
-	readonly timing: CollectionTimingStamps;
-	readonly assignmentItemId: string | null;
-}): AdultCollectionRow {
-	const { values, centroid, isTrap, exact, timing, assignmentItemId } = input;
-	return {
-		id: input.id,
-		organizationId: input.organizationId,
-		lat: centroid.lat,
-		lng: centroid.lng,
-		geomType: 'point',
-		trapId: isTrap ? values.trapId : null,
-		collectionMethodId: values.collectionMethodId,
-		collectionLureId: values.collectionLureId === noLureValue ? null : values.collectionLureId,
-		addressId: isTrap ? null : values.addressId,
-		collectedAt: timing.collectedAt,
-		collectedByProfileId: values.collectedByProfileId,
-		startedAt: timing.startedAt,
-		setByProfileId: values.setByProfileId,
-		// Both halves come from this one visit; the server writes whichever
-		// applies for the timing mode.
-		setAssignmentItemId: assignmentItemId,
-		collectedAssignmentItemId: timing.collectedAt === null ? null : assignmentItemId,
-		collectionTimingMode: values.timingMode,
-		collectionDate: exact ? null : values.collectionDate,
-		durationAmount: exact ? null : values.durationAmount,
-		durationUnitId: exact || values.durationUnitId === noUnitValue ? null : values.durationUnitId,
-		hasProblem: values.hasProblem,
-		isZeroResult: false,
-		hasBycatch: false,
-		metadata: values.metadata,
-		createdByProfileId: input.actorProfileId,
-		updatedByProfileId: input.actorProfileId,
-		createdAt: input.now,
-		updatedAt: input.now,
-	};
-}
-
 function CreateCollectionRoute() {
 	const { auth } = Route.useRouteContext();
 	const search = Route.useSearch();
 	const initialGeometry = pointFromSearch(search);
 	const { trapId } = search;
-	// Recording off a stop makes this one write, not two: the server links the
-	// collection to the stop and completes it in the same transaction.
+	// Recording off a stop makes this one write, not two: the command writes the
+	// collection and closes the stop in the same transaction.
 	const assignmentItemId = search.assignmentItemId ?? null;
 	const assignmentId = search.assignmentId ?? null;
 	const navigate = useNavigate();
 	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
+	const { traps } = useTrapOptions();
 	const methods = useCollectionMethodRoster();
 	const lures = useCollectionLureRoster();
 	const profiles = useProfileRoster();
 	const { all: units } = useUnitLabels();
+	const mutations = useCollectionMutations();
 
 	const timeZone = useOrganizationTimeZone();
 	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
 
 	// Minted up front so the crew rows can be written the moment the collection
 	// lands — and so their on-demand stream is already warm when the save fires.
-	const [collectionId] = useState(() => crypto.randomUUID());
+	const [collectionId] = useState(() => newRecordId());
 	useAdditionalPersonnel({ type: 'collection', id: collectionId });
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 
@@ -158,64 +110,50 @@ function CreateCollectionRoute() {
 		async (input: CollectionSaveInput) =>
 			runAcknowledged(async (acknowledgements) => {
 				const { values, trap, geometry } = input;
-				if (organization === null) {
-					throw new Error('Organization details are still loading.');
-				}
-				if (actorProfileId === null) {
-					throw new Error('Your profile is still loading.');
-				}
-
 				const isTrap = values.sourceMode === 'trap';
-				const exact = values.timingMode === 'exact_timestamps';
-				const now = new Date().toISOString();
-				const timing = collectionTimingStamps(values, timeZone);
 
-				// Trap mode inherits the trap's location; ad-hoc carries its own point. The
-				// server recomputes geom from the location source; this centroid seeds the
-				// optimistic row so the map/coordinates show immediately.
+				// A trap collection inherits the trap's location; an ad hoc one carries
+				// its own point. The server snapshots geom from the location source; this
+				// centroid seeds the optimistic row so the map shows it immediately.
 				const centroid =
 					isTrap && trap !== null
-						? { lat: trap.lat, lng: trap.lng }
+						? { lat: trap.latitude, lng: trap.longitude, geomType: 'point' }
 						: geometry !== null && geometry.type === 'Point'
-							? { lat: geometry.coordinates[1], lng: geometry.coordinates[0] }
+							? {
+									lat: geometry.coordinates[1],
+									lng: geometry.coordinates[0],
+									geomType: 'point',
+								}
 							: null;
 				if (centroid === null) {
 					throw new Error('Unable to determine the collection location.');
 				}
 
-				const row = buildCollectionRow({
-					values,
-					id: collectionId,
-					organizationId: organization.id,
-					actorProfileId,
-					now,
-					centroid,
-					isTrap,
-					exact,
-					timing,
+				const placement = placementFor({
 					assignmentItemId,
+					trapId: isTrap && trap !== null ? trap.id : null,
+					geometry: isTrap ? null : geometry,
 				});
 
-				const locationSource =
-					isTrap && trap !== null
-						? ({ kind: 'trap', trapId: trap.id } as const)
-						: geometry !== null
-							? ({ kind: 'geometry', geometry } as const)
-							: undefined;
-				if (locationSource === undefined) {
-					throw new Error('Unable to determine the collection location.');
-				}
+				const fields = collectionFieldsFrom(values, timeZone);
+				await mutations.record({
+					collectionId,
+					fields,
+					placement,
+					centroid,
+					// Whether the trap has already been emptied. The route this replaces
+					// left the server to work this out from whether a `collectedAt` had
+					// arrived, which made a stray timestamp turn a trap being left out into
+					// a finished record.
+					isCollected: fields.timing.collectedAt !== null,
+					acknowledgements,
+				});
 
-				await settleWrite(
-					webCollections.collections.insert(row, {
-						metadata: { acknowledgements, locationSource },
-					}),
-				);
 				// Crew rows reference the collection, so they can only be written once it
 				// exists.
 				await attachLinksBestEffort('the additional personnel', () =>
 					setPersonnel({
-						target: { type: 'collection', id: row.id },
+						target: { type: 'collection', id: collectionId },
 						existing: [],
 						profileIds: values.additionalPersonnelIds,
 					}),
@@ -226,11 +164,9 @@ function CreateCollectionRoute() {
 					await navigate({ to: '/operations/assignments/$id', params: { id: assignmentId } });
 					return;
 				}
-				await navigate({ to: '/adult-surveillance/collections/$id', params: { id: row.id } });
+				await navigate({ to: '/adult-surveillance/collections/$id', params: { id: collectionId } });
 			}),
 		[
-			organization,
-			actorProfileId,
 			collectionId,
 			navigate,
 			assignmentItemId,
@@ -238,13 +174,14 @@ function CreateCollectionRoute() {
 			runAcknowledged,
 			timeZone,
 			setPersonnel,
+			mutations,
 		],
 	);
 
 	return (
 		<>
 			<CollectionFormPage
-				canSubmit={canSubmit}
+				canSubmit={mutations.canWrite}
 				collectionLures={lures}
 				collectionMethods={methods}
 				defaultValues={seededDefaults(
@@ -272,4 +209,32 @@ function CreateCollectionRoute() {
 			{acknowledgeDialog}
 		</>
 	);
+}
+
+/**
+ * Which of the three recordings this save is.
+ *
+ * A stop wins over both: there is no ad hoc stop command, because a stop already
+ * names the trap it was dispatched for, and the trap the form chose rides along
+ * only so an override can disagree with it deliberately.
+ */
+function placementFor(input: {
+	readonly assignmentItemId: string | null;
+	readonly trapId: string | null;
+	readonly geometry: DrawGeometry | null;
+}): CollectionPlacement {
+	if (input.assignmentItemId !== null) {
+		return {
+			kind: 'stop',
+			assignmentItemId: input.assignmentItemId,
+			trapId: input.trapId,
+		};
+	}
+	if (input.trapId !== null) {
+		return { kind: 'trap', trapId: input.trapId };
+	}
+	if (input.geometry === null) {
+		throw new Error('Unable to determine the collection location.');
+	}
+	return { kind: 'adhoc', geometry: input.geometry as unknown as GeoJsonGeometry };
 }

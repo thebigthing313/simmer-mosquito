@@ -1,10 +1,8 @@
 import {
 	type AdditionalPersonnelRow,
-	type AdultCollectionRow,
 	type ApplicationBatchRow,
 	type AssignmentItemRow,
 	type AssignmentRow,
-	type CollectionSpeciesRow,
 	type CommentRow,
 	type ContactRow,
 	electricShapeCollectionOptions,
@@ -25,18 +23,12 @@ import {
 	shapePathFor,
 	type TagItemRow,
 	type TagRow,
-	type TrapRow,
 	type UnitRow,
 	type WeatherSourceRow,
 	type WeatherSummaryRow,
 	type WebSyncMode,
 } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection, createCollection } from '@tanstack/react-db';
-import {
-	createCollectionMutationHandlers,
-	createCollectionSpeciesMutationHandlers,
-	createTrapMutationHandlers,
-} from './adultSurveillanceMutations';
 import { createApplicationBatchMutationHandlers } from './controlOperationsMutations';
 import {
 	createAdditionalPersonnelMutationHandlers,
@@ -69,8 +61,6 @@ export interface WebCollections {
 	readonly applicationBatches: Collection<ApplicationBatchRow, string | number>;
 	readonly assignmentItems: Collection<AssignmentItemRow, string | number>;
 	readonly assignments: Collection<AssignmentRow, string | number>;
-	readonly collectionSpecies: Collection<CollectionSpeciesRow, string | number>;
-	readonly collections: Collection<AdultCollectionRow, string | number>;
 	readonly comments: Collection<CommentRow, string | number>;
 	readonly contacts: Collection<ContactRow, string | number>;
 	readonly genera: Collection<GenusRow, string | number>;
@@ -92,7 +82,6 @@ export interface WebCollections {
 	readonly species: Collection<SpeciesRow, string | number>;
 	readonly tagItems: Collection<TagItemRow, string | number>;
 	readonly tags: Collection<TagRow, string | number>;
-	readonly traps: Collection<TrapRow, string | number>;
 	readonly units: Collection<UnitRow, string | number>;
 	readonly weatherSources: Collection<WeatherSourceRow, string | number>;
 	readonly weatherSummaries: Collection<WeatherSummaryRow, string | number>;
@@ -109,7 +98,6 @@ export const webBaselineCollectionKeys = [
 	'tags',
 	'routes',
 	'regionFolders',
-	'traps',
 	'weatherSources',
 ] as const satisfies readonly (keyof WebCollections)[];
 
@@ -243,36 +231,6 @@ export function createWebCollections(options: {
 	);
 	// The region boundary picker on the habitat and region forms.
 	regions.createIndex((row) => row.name, { indexType: BasicIndex });
-	const traps = createCollection(
-		electricShapeCollectionOptions<TrapRow>({
-			table: 'traps',
-			syncMode: webSyncModes.traps,
-			url: `${shapeServerUrl}${shapePathFor('traps')}`,
-			...createTrapMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	const collections = createCollection(
-		electricShapeCollectionOptions<AdultCollectionRow>({
-			table: 'collections',
-			syncMode: webSyncModes.collections,
-			url: `${shapeServerUrl}${shapePathFor('collections')}`,
-			...createCollectionMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
-	const collectionSpecies = createCollection(
-		electricShapeCollectionOptions<CollectionSpeciesRow>({
-			table: 'collection_species',
-			syncMode: webSyncModes.collection_species,
-			url: `${shapeServerUrl}${shapePathFor('collection_species')}`,
-			...createCollectionSpeciesMutationHandlers({
-				serverUrl: options.serverUrl,
-			}),
-		}),
-	);
 	const comments = createCollection(
 		electricShapeCollectionOptions<CommentRow>({
 			table: 'comments',
@@ -387,8 +345,6 @@ export function createWebCollections(options: {
 		applicationBatches,
 		assignmentItems,
 		assignments,
-		collectionSpecies,
-		collections,
 		comments,
 		contacts,
 		genera,
@@ -407,7 +363,6 @@ export function createWebCollections(options: {
 		species,
 		tagItems,
 		tags,
-		traps,
 		units,
 		weatherSources,
 		weatherSummaries,

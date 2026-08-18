@@ -102,7 +102,7 @@ export interface CollectionDates {
  * ISO either way, so an instant and a plain day still rank against each other on
  * their shared `YYYY-MM-DD` prefix. Undated rows sort last.
  */
-export function collectionSortKey(collection: CollectionDates): string {
+function collectionSortKey(collection: CollectionDates): string {
 	const { collectedAt } = collection;
 	if (collectedAt === null) {
 		return collection.collectionDate ?? '';

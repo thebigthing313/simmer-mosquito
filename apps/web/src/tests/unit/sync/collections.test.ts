@@ -20,7 +20,6 @@ describe('web sync baseline preload', () => {
 			'tags',
 			'routes',
 			'regionFolders',
-			'traps',
 			'weatherSources',
 		]);
 	});
@@ -56,8 +55,6 @@ describe('web sync baseline preload', () => {
 	it('wires the remaining web sync collections without mutation handlers', () => {
 		const collections = createWebCollections({ serverUrl: 'https://example.test' });
 
-		expect(collections.traps.config.id).toBe('traps');
-		expect(collections.collections.config.id).toBe('collections');
 		expect(collections.weatherSources.config.id).toBe('weather_sources');
 		expect(collections.weatherSummaries.config.id).toBe('weather_summaries');
 
@@ -79,16 +76,6 @@ describe('web sync baseline preload', () => {
 		expect(collections.organizationSpecies.config.onInsert).toBeTypeOf('function');
 		expect(collections.organizationSpecies.config.onUpdate).toBeUndefined();
 		expect(collections.organizationSpecies.config.onDelete).toBeTypeOf('function');
-	});
-
-	it('attaches optimistic write handlers to adult surveillance collections', () => {
-		const collections = createWebCollections({ serverUrl: 'https://example.test' });
-
-		for (const key of ['traps', 'collections', 'collectionSpecies'] as const) {
-			expect(collections[key].config.onInsert).toBeTypeOf('function');
-			expect(collections[key].config.onUpdate).toBeTypeOf('function');
-			expect(collections[key].config.onDelete).toBeTypeOf('function');
-		}
 	});
 
 	it('attaches optimistic write handlers to control operations collections', () => {
