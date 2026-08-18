@@ -326,8 +326,10 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 		</li>
 		<li>
 			<div>
-				<h4>The rest of GIS</h4>
-				<p><code>regions</code> and <code>region_folders</code>. Addresses are done and are the model for them: <code>geometry</code> rides as an <em>argument</em> rather than a location source, because a region's boundary is the record rather than a snapshot of one. Two of these commands carry an acknowledgement the page has to answer — a boundary change, and detaching a folder's regions.</p>
+				<h4>The rest of GIS — done</h4>
+				<p><code>regions</code> and <code>region_folders</code>, on the model addresses set: <code>geometry</code> rides as an <em>argument</em> rather than a location source, because a region's boundary <em>is</em> the record rather than a snapshot of one.</p>
+				<p>The two acknowledgements turned out to be a smaller job than they looked, and worth writing down rather than repeating. <code>acknowledged()</code> reads an absent flag as confirmed, and the endpoints being replaced hard-coded <code>true</code> at their call sites — so sending nothing is exactly the old behaviour, and the migration is at parity by omitting them. What the guard is actually for is a client that wants to be <em>refused</em>: redrawing a boundary changes which records a region contains, retroactively, and no surface asks about that yet. The third, on a folder delete, has no caller at all — there is no delete control on the folder dialog.</p>
+				<p>A region also has three commands behind one form — rename, refile, redraw — and the tree performs two of them as their own gestures. That is the same shape as every record surface above, and the same plan function answers it.</p>
 			</div>
 		</li>
 		<li>

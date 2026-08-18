@@ -208,7 +208,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <div class="wrap">
 
 <header class="masthead">
-	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head bb1cbfa · 87 commits off main</p>
+	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head a8275a6 · 89 commits off main</p>
 	<h1>The sync layer, rebuilt table by table</h1>
 	<p class="standfirst">A ground-up rewrite of how SIMMER reads and writes data. TanStack DB is transport only, the server validates, every mutation names the command it means, and the only per-table definition is the schema. This page is where the work is tracked — it replaces <code>HANDOFF.md</code>.</p>
 	<div class="dials">
@@ -223,9 +223,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 			<div class="meter" role="img" aria-label="48 of 54"><span class="meter-fill is-partial" style="inline-size:89%"></span></div>
 		</div>
 		<div class="dial">
-			<span class="dial-figure">47<small>/54</small></span>
+			<span class="dial-figure">49<small>/54</small></span>
 			<span class="dial-label">Tables off webCollections</span>
-			<div class="meter" role="img" aria-label="47 of 54"><span class="meter-fill is-todo" style="inline-size:87%"></span></div>
+			<div class="meter" role="img" aria-label="49 of 54"><span class="meter-fill is-todo" style="inline-size:91%"></span></div>
 		</div>
 	</div>
 </header>
@@ -270,7 +270,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 	<div class="filters">
 		<button type="button" data-scope="tables" data-mode="" aria-pressed="true">All 54</button>
 		<button type="button" data-scope="tables" data-mode="only-left" aria-pressed="false">Still to do</button>
-		<button type="button" data-scope="tables" data-mode="only-done" aria-pressed="false">Finished 45</button>
+		<button type="button" data-scope="tables" data-mode="only-done" aria-pressed="false">Finished 47</button>
 	</div>
 	<div class="matrix-shell">
 		<table>
@@ -309,6 +309,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="done"><td><code>organization_species</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>outreach_actions</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>outreach_methods</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="done"><td><code>region_folders</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="done"><td><code>regions</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>requested_control_actions</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>route_items</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>routes</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
@@ -324,8 +326,6 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="todo"><td><code>memberships</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>organizations</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>profiles</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
-<tr data-state="partial"><td><code>region_folders</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
-<tr data-state="partial"><td><code>regions</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>tags</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>units</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>weather_sources</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
@@ -387,8 +387,10 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 		</li>
 		<li>
 			<div>
-				<h4>The rest of GIS</h4>
-				<p><code>regions</code> and <code>region_folders</code>. Addresses are done and are the model for them: <code>geometry</code> rides as an <em>argument</em> rather than a location source, because a region's boundary is the record rather than a snapshot of one. Two of these commands carry an acknowledgement the page has to answer — a boundary change, and detaching a folder's regions.</p>
+				<h4>The rest of GIS — done</h4>
+				<p><code>regions</code> and <code>region_folders</code>, on the model addresses set: <code>geometry</code> rides as an <em>argument</em> rather than a location source, because a region's boundary <em>is</em> the record rather than a snapshot of one.</p>
+				<p>The two acknowledgements turned out to be a smaller job than they looked, and worth writing down rather than repeating. <code>acknowledged()</code> reads an absent flag as confirmed, and the endpoints being replaced hard-coded <code>true</code> at their call sites — so sending nothing is exactly the old behaviour, and the migration is at parity by omitting them. What the guard is actually for is a client that wants to be <em>refused</em>: redrawing a boundary changes which records a region contains, retroactively, and no surface asks about that yet. The third, on a folder delete, has no caller at all — there is no delete control on the folder dialog.</p>
+				<p>A region also has three commands behind one form — rename, refile, redraw — and the tree performs two of them as their own gestures. That is the same shape as every record surface above, and the same plan function answers it.</p>
 			</div>
 		</li>
 		<li>
