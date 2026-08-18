@@ -208,7 +208,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <div class="wrap">
 
 <header class="masthead">
-	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head c439e96 · 78 commits off main</p>
+	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head 45b9838 · 80 commits off main</p>
 	<h1>The sync layer, rebuilt table by table</h1>
 	<p class="standfirst">A ground-up rewrite of how SIMMER reads and writes data. TanStack DB is transport only, the server validates, every mutation names the command it means, and the only per-table definition is the schema. This page is where the work is tracked — it replaces <code>HANDOFF.md</code>.</p>
 	<div class="dials">
@@ -223,9 +223,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 			<div class="meter" role="img" aria-label="48 of 54"><span class="meter-fill is-partial" style="inline-size:89%"></span></div>
 		</div>
 		<div class="dial">
-			<span class="dial-figure">34<small>/54</small></span>
+			<span class="dial-figure">35<small>/54</small></span>
 			<span class="dial-label">Tables off webCollections</span>
-			<div class="meter" role="img" aria-label="34 of 54"><span class="meter-fill is-todo" style="inline-size:63%"></span></div>
+			<div class="meter" role="img" aria-label="35 of 54"><span class="meter-fill is-todo" style="inline-size:65%"></span></div>
 		</div>
 	</div>
 </header>
@@ -270,7 +270,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 	<div class="filters">
 		<button type="button" data-scope="tables" data-mode="" aria-pressed="true">All 54</button>
 		<button type="button" data-scope="tables" data-mode="only-left" aria-pressed="false">Still to do</button>
-		<button type="button" data-scope="tables" data-mode="only-done" aria-pressed="false">Finished 32</button>
+		<button type="button" data-scope="tables" data-mode="only-done" aria-pressed="false">Finished 33</button>
 	</div>
 	<div class="matrix-shell">
 		<table>
@@ -291,6 +291,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="done"><td><code>formulations</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>genera</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>habitat_types</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
+<tr data-state="done"><td><code>habitats</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>insecticide_batches</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>insecticides</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
 <tr data-state="done"><td><code>mission_items</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-yes">migrated</span></td></tr>
@@ -313,7 +314,6 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <tr data-state="partial"><td><code>collection_species</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>collections</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>contacts</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
-<tr data-state="partial"><td><code>habitats</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="partial"><td><code>inspections</code></td><td><span class="chip is-yes">intent map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>memberships</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
 <tr data-state="todo"><td><code>organizations</code></td><td><span class="chip is-no">no map</span></td><td><span class="chip is-no">on webCollections</span></td></tr>
@@ -379,7 +379,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 		<li>
 			<div>
 				<h4>The record surfaces</h4>
-				<p>Larval (<code>habitats</code>, <code>inspections</code>, <code>samples</code>, <code>sample_species</code>), adult (<code>traps</code>, <code>collections</code>, <code>collection_species</code>), the performed control actions with <code>applications</code> beside them, and public engagement (<code>contacts</code>, <code>service_requests</code>). Each is the same four steps: the joined hooks in <code>hooks/queries</code>, the write hooks in <code>hooks/mutations</code>, the routes repointed, and the table dropped from <code>createWebCollections</code> — then the domain's <code>*Mutations.ts</code> goes when its last table leaves.</p>
+				<p><code>habitats</code> is done and is the model for the rest: <code>use-habitat-mutations.ts</code>, <code>use-habitat-record.ts</code> for the raw columns a form writes back, and <code>use-habitat-history.ts</code> for the nested includes the detail page used to run inline. What remains is larval (<code>inspections</code>, <code>samples</code>, <code>sample_species</code>), adult (<code>traps</code>, <code>collections</code>, <code>collection_species</code>), the performed control actions with <code>applications</code> beside them, and public engagement (<code>contacts</code>, <code>service_requests</code>). Each is the same four steps: the joined hooks in <code>hooks/queries</code>, the write hooks in <code>hooks/mutations</code>, the routes repointed, and the table dropped from <code>createWebCollections</code> — then the domain's <code>*Mutations.ts</code> goes when its last table leaves.</p>
+				<p>Two things the habitat pass turned up that the next one will hit. A record's edit form wants the <em>raw</em> column, not the display projection — every one of these coalesces a null name into something readable, and a form field filled with that fallback saves it back as the name. And the domain splits one form across more commands than the form has sections: a habitat's six editable columns are three commands, and a save that names one it has no changed fields for is refused rather than ignored.</p>
 			</div>
 		</li>
 		<li>
