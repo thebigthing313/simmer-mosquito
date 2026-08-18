@@ -1,7 +1,5 @@
 import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { InspectionRow, LarvalDensity, SampleRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
+import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,6 +9,8 @@ import { getServerUrl } from '../../../auth';
 import { RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
+import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
+import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import {
 	type AdditionalPersonnelLink,
 	useAdditionalPersonnel,
@@ -19,17 +19,21 @@ import {
 	type SchemaCatalogListing,
 	useHabitatTypeRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
+import {
+	type InspectionRecord,
+	useInspectionRecord,
+} from '../../../hooks/queries/use-inspection-record';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { samples } from '../../../lib/collections/samples';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,
 	defaultInspectionFormValues,
 	InspectionFormPage,
 	type InspectionFormValues,
-	type InspectionSampleDraft,
+	inspectionResultOf,
 	noHabitatTypeValue,
 	unsetDensityValue,
 } from './-inspection-form';
@@ -58,18 +62,7 @@ function EditInspectionRoute() {
 
 	// inspections is an on-demand collection, so this reads live status through
 	// useLiveQuery (not the suspense variant, which can hang after a nav unmount).
-	const result = useLiveQuery(
-		{
-			gcTime: inspectionGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: webCollections.inspections })
-					.where(({ inspection }) => eq(inspection.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const inspection = result.data as InspectionRow | undefined;
+	const { inspection, isReady, isError } = useInspectionRecord(id);
 
 	// Mounted here rather than inside the loader so the crew subset — and the
 	// samples subset below — are already streaming when the save fires; a write
@@ -79,17 +72,15 @@ function EditInspectionRoute() {
 		{
 			gcTime: inspectionGcTimeMs,
 			query: (query) =>
-				query
-					.from({ sample: webCollections.samples })
-					.where(({ sample }) => eq(sample.inspectionId, id)),
+				query.from({ sample: samples }).where(({ sample }) => eq(sample.inspection_id, id)),
 		},
 		[id],
 	);
 
-	if (result.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="inspection" reason="error" />;
 	}
-	if (!result.isReady || !personnel.isReady) {
+	if (!isReady || !personnel.isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (inspection === undefined) {
@@ -101,7 +92,6 @@ function EditInspectionRoute() {
 
 	return (
 		<EditInspectionLoader
-			actorProfileId={actorProfileId}
 			canSubmit={organization !== null && actorProfileId !== null}
 			existingPersonnel={personnel.rows}
 			habitatTypes={habitatTypes}
@@ -120,17 +110,15 @@ function EditInspectionLoader({
 	profiles,
 	policy,
 	organizationId,
-	actorProfileId,
 	canSubmit,
 	existingPersonnel,
 	personnelProfileIds,
 }: {
-	readonly inspection: InspectionRow;
+	readonly inspection: InspectionRecord;
 	readonly habitatTypes: readonly SchemaCatalogListing[];
 	readonly profiles: readonly ProfileListing[];
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 	readonly organizationId: string;
-	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 	readonly existingPersonnel: readonly AdditionalPersonnelLink[];
 	readonly personnelProfileIds: readonly string[];
@@ -140,13 +128,15 @@ function EditInspectionLoader({
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const { add: addComment } = useCommentMutations();
 	const isAdhoc = inspection.habitatId === null;
+	const inspectionMutations = useInspectionMutations();
+	const sampleMutations = useSampleMutations();
 
 	// Geometry is not part of the Electric shape (ADR 0009), so it comes from the
 	// display endpoint. Keyed on updatedAt so reopening after a save loads the
 	// current shape, and holding the previous value across that key change so the
 	// form is not unmounted mid-save — which would take any error with it.
 	const geometryQuery = useQuery({
-		queryKey: ['inspection-geometry', inspection.id, inspection.updatedAt],
+		queryKey: ['inspection-geometry', inspection.id, inspection.updatedAt.toISOString()],
 		queryFn: ({ signal }) => fetchInspectionGeometry(inspection.id, signal),
 		placeholderData: (previous) => previous,
 		staleTime: Number.POSITIVE_INFINITY,
@@ -161,74 +151,57 @@ function EditInspectionLoader({
 		}: {
 			readonly values: InspectionFormValues;
 			readonly adhocGeometry: DrawGeometry | null;
+			readonly habitatGeometry: GeoJsonGeometry | null;
 		}) => {
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-
-			const now = new Date().toISOString();
-			const wet = values.isWet;
-			const nextDensity =
-				wet && values.density !== unsetDensityValue ? (values.density as LarvalDensity) : null;
-			const nextTypeId =
-				isAdhoc && values.habitatTypeId !== noHabitatTypeValue ? values.habitatTypeId : null;
-			const nextAddressId = isAdhoc ? values.addressId : inspection.addressId;
 			// Only an ad-hoc inspection owns its geometry; a habitat one inherits the
 			// habitat's, which this form cannot move it off.
-			const geometryChanged =
-				isAdhoc && JSON.stringify(adhocGeometry) !== JSON.stringify(initialAdhocGeometry);
-
-			const detailsChanged =
-				values.inspectionDate !== inspection.inspectionDate ||
-				values.inspectedByProfileId !== inspection.inspectedByProfileId ||
-				wet !== inspection.isWet ||
-				(wet ? values.dipCount : null) !== inspection.dipCount ||
-				nextDensity !== inspection.density ||
-				(wet ? values.larvaeCount : null) !== inspection.larvaeCount ||
-				(wet && values.lifeStages.hasEggs) !== inspection.hasEggs ||
-				(wet && values.lifeStages.hasFirstInstar) !== inspection.hasFirstInstar ||
-				(wet && values.lifeStages.hasSecondInstar) !== inspection.hasSecondInstar ||
-				(wet && values.lifeStages.hasThirdInstar) !== inspection.hasThirdInstar ||
-				(wet && values.lifeStages.hasFourthInstar) !== inspection.hasFourthInstar ||
-				(wet && values.lifeStages.hasPupae) !== inspection.hasPupae ||
-				nextTypeId !== inspection.habitatTypeId ||
-				nextAddressId !== inspection.addressId;
-
-			if (detailsChanged || geometryChanged) {
-				// Inlined so TanStack DB infers the mutable draft type; a standalone
-				// `(draft: InspectionRow)` annotation would re-impose the readonly props.
-				const applyEdits = (draft: InspectionRow) => {
-					const writable = draft as { -readonly [K in keyof InspectionRow]: InspectionRow[K] };
-					writable.inspectionDate = values.inspectionDate;
-					writable.inspectedByProfileId = values.inspectedByProfileId;
-					writable.isWet = wet;
-					writable.dipCount = wet ? values.dipCount : null;
-					writable.density = nextDensity;
-					writable.larvaeCount = wet ? values.larvaeCount : null;
-					writable.hasEggs = wet && values.lifeStages.hasEggs;
-					writable.hasFirstInstar = wet && values.lifeStages.hasFirstInstar;
-					writable.hasSecondInstar = wet && values.lifeStages.hasSecondInstar;
-					writable.hasThirdInstar = wet && values.lifeStages.hasThirdInstar;
-					writable.hasFourthInstar = wet && values.lifeStages.hasFourthInstar;
-					writable.hasPupae = wet && values.lifeStages.hasPupae;
-					if (isAdhoc) {
-						writable.habitatTypeId = nextTypeId;
-						writable.addressId = values.addressId;
-					}
-					writable.updatedByProfileId = actorProfileId;
-					writable.updatedAt = now;
-				};
-
-				const transaction =
-					geometryChanged && adhocGeometry !== null
-						? webCollections.inspections.update(
-								inspection.id,
-								{ metadata: { locationSource: { kind: 'geometry', geometry: adhocGeometry } } },
-								applyEdits,
-							)
-						: webCollections.inspections.update(inspection.id, applyEdits);
-				await settleWrite(transaction);
+			const redrawn =
+				isAdhoc && JSON.stringify(adhocGeometry) !== JSON.stringify(initialAdhocGeometry)
+					? ((adhocGeometry ?? null) as GeoJsonGeometry | null)
+					: null;
+			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
+			if (redrawn !== null && centroid === null) {
+				throw new Error('Unable to determine the inspection location from the drawn geometry.');
 			}
+
+			// The habitat type and the address belong to the location command rather
+			// than to the field details, so they are compared as part of the placement
+			// — naming `updateInspectionFieldDetails` for them would send a command
+			// with no reader for either.
+			await inspectionMutations.save({
+				inspectionId: inspection.id,
+				result: inspectionResultOf(values),
+				current: {
+					inspectionDate: inspection.inspectionDate,
+					inspectedByProfileId: inspection.inspectedByProfileId,
+					isWet: inspection.isWet,
+					dipCount: inspection.dipCount,
+					density: inspection.density,
+					larvaeCount: inspection.larvaeCount,
+					hasEggs: inspection.hasEggs,
+					hasFirstInstar: inspection.hasFirstInstar,
+					hasSecondInstar: inspection.hasSecondInstar,
+					hasThirdInstar: inspection.hasThirdInstar,
+					hasFourthInstar: inspection.hasFourthInstar,
+					hasPupae: inspection.hasPupae,
+				},
+				adhoc: isAdhoc
+					? {
+							next: {
+								geometry: redrawn,
+								addressId: values.addressId,
+								habitatTypeId:
+									values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+							},
+							current: {
+								geometry: null,
+								addressId: inspection.addressId,
+								habitatTypeId: inspection.habitatTypeId,
+							},
+						}
+					: null,
+				centroid,
+			});
 
 			// The rest reference the inspection and cannot fail a save that already
 			// landed, so each is reported rather than thrown (see attachLinksBestEffort).
@@ -241,14 +214,16 @@ function EditInspectionLoader({
 			);
 
 			if (values.samples.length > 0) {
-				await attachLinksBestEffort('the samples', () =>
-					saveInspectionSamples(values.samples, {
-						inspectionId: inspection.id,
-						organizationId,
-						actorProfileId,
-						now,
-					}),
-				);
+				await attachLinksBestEffort('the samples', async () => {
+					for (const sample of values.samples) {
+						const label = sample.label.trim();
+						await sampleMutations.add({
+							sampleId: sample.id,
+							inspectionId: inspection.id,
+							displayName: label === '' ? null : label,
+						});
+					}
+				});
 			}
 
 			const comment = values.comment.trim();
@@ -267,13 +242,13 @@ function EditInspectionLoader({
 			inspection,
 			isAdhoc,
 			initialAdhocGeometry,
-			actorProfileId,
-			organizationId,
 			existingPersonnel,
 			navigate,
 			queryClient,
 			setPersonnel,
 			addComment,
+			inspectionMutations,
+			sampleMutations,
 		],
 	);
 
@@ -316,7 +291,7 @@ function EditInspectionLoader({
 }
 
 function defaultsFromInspection(
-	inspection: InspectionRow,
+	inspection: InspectionRecord,
 	personnelProfileIds: readonly string[],
 ): InspectionFormValues {
 	return {
@@ -345,32 +320,6 @@ function defaultsFromInspection(
 }
 
 /** Samples added on this pass. Existing ones are managed from the record. */
-async function saveInspectionSamples(
-	samples: readonly InspectionSampleDraft[],
-	context: {
-		readonly inspectionId: string;
-		readonly organizationId: string;
-		readonly actorProfileId: string;
-		readonly now: string;
-	},
-): Promise<void> {
-	for (const sample of samples) {
-		const row: SampleRow = {
-			id: sample.id,
-			organizationId: context.organizationId,
-			inspectionId: context.inspectionId,
-			displayName: sample.label.trim() === '' ? null : sample.label.trim(),
-			isZeroLarvae: false,
-			hasNonMosquito: false,
-			unidentifiableReason: null,
-			createdByProfileId: context.actorProfileId,
-			updatedByProfileId: context.actorProfileId,
-			createdAt: context.now,
-			updatedAt: context.now,
-		};
-		await settleWrite(webCollections.samples.insert(row));
-	}
-}
 
 async function fetchInspectionGeometry(
 	inspectionId: string,

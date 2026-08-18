@@ -45,6 +45,7 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
@@ -170,6 +171,15 @@ export interface InspectionFormPageProps {
 	readonly onSave: (input: {
 		readonly values: InspectionFormValues;
 		readonly adhocGeometry: DrawGeometry | null;
+		/**
+		 * The selected habitat's own shape, as the map is showing it.
+		 *
+		 * Passed out because the caller needs a centroid for the optimistic row and
+		 * this is where that shape already lives — the server snapshots the same one
+		 * at commit. `null` in ad-hoc mode, and on the rare habitat save whose
+		 * geometry fetch failed.
+		 */
+		readonly habitatGeometry: GeoJsonGeometry | null;
 	}) => Promise<void>;
 }
 
@@ -360,6 +370,7 @@ export function InspectionFormPage({
 				await onSave({
 					values: value,
 					adhocGeometry: value.locationMode === 'adhoc' ? adhocGeometry : null,
+					habitatGeometry: value.locationMode === 'habitat' ? previewGeometry : null,
 				});
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save inspection.');
@@ -1174,6 +1185,33 @@ async function fetchHabitatGeometry(habitatId: string): Promise<GeoJsonGeometry 
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * What the inspector found, in the vocabulary the write hook takes.
+ *
+ * Here rather than in either route because both of them need it and it is a
+ * statement about this form's values. The wet/dry rule lives here too: a dry
+ * inspection carries no abundance and no life stages, and the command refuses
+ * one that does — so the values are reduced to a consistent result before they
+ * leave the form that collected them.
+ */
+export function inspectionResultOf(values: InspectionFormValues): InspectionResult {
+	const wet = values.isWet;
+	return {
+		inspectionDate: values.inspectionDate,
+		inspectedByProfileId: values.inspectedByProfileId,
+		isWet: wet,
+		dipCount: wet ? values.dipCount : null,
+		density: wet && values.density !== unsetDensityValue ? (values.density as LarvalDensity) : null,
+		larvaeCount: wet ? values.larvaeCount : null,
+		hasEggs: wet && values.lifeStages.hasEggs,
+		hasFirstInstar: wet && values.lifeStages.hasFirstInstar,
+		hasSecondInstar: wet && values.lifeStages.hasSecondInstar,
+		hasThirdInstar: wet && values.lifeStages.hasThirdInstar,
+		hasFourthInstar: wet && values.lifeStages.hasFourthInstar,
+		hasPupae: wet && values.lifeStages.hasPupae,
+	};
 }
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

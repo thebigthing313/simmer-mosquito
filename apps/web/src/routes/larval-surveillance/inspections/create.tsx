@@ -1,5 +1,4 @@
-import type { InspectionRow, LarvalDensity, SampleRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
+import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -8,6 +7,8 @@ import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
+import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
+import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
@@ -15,17 +16,16 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { samples } from '../../../lib/collections/samples';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
 import {
 	type DrawGeometry,
 	defaultInspectionFormValues,
 	InspectionFormPage,
 	type InspectionFormValues,
-	type InspectionSampleDraft,
+	inspectionResultOf,
 	noHabitatTypeValue,
-	unsetDensityValue,
 } from './-inspection-form';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/create')({
@@ -95,8 +95,8 @@ function useNewInspectionDraft(): string {
 			gcTime: warmGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sample: webCollections.samples })
-					.where(({ sample }) => eq(sample.inspectionId, inspectionId)),
+					.from({ sample: samples })
+					.where(({ sample }) => eq(sample.inspection_id, inspectionId)),
 		},
 		[inspectionId],
 	);
@@ -114,6 +114,8 @@ function CreateInspectionRoute() {
 	const navigate = useNavigate();
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const { add: addComment } = useCommentMutations();
+	const inspectionMutations = useInspectionMutations();
+	const sampleMutations = useSampleMutations();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 	const { organization, settings } = workspace;
 	const habitatTypes = useHabitatTypeRoster();
@@ -138,54 +140,63 @@ function CreateInspectionRoute() {
 		async (input: {
 			readonly values: InspectionFormValues;
 			readonly adhocGeometry: DrawGeometry | null;
+			readonly habitatGeometry: GeoJsonGeometry | null;
 		}) =>
 			runAcknowledged(async (acknowledgements) => {
-				const { values, adhocGeometry } = input;
-				if (organization === null) {
-					throw new Error('Organization details are still loading.');
-				}
-				if (actorProfileId === null) {
-					throw new Error('Your profile is still loading.');
-				}
-
-				const now = new Date().toISOString();
+				const { values, adhocGeometry, habitatGeometry } = input;
 				const isAdhoc = values.locationMode === 'adhoc';
-				const row = buildInspectionRow(values, {
-					id: inspectionId,
-					organizationId: organization.id,
-					actorProfileId,
-					now,
-					assignmentItemId,
-				});
 
-				await settleWrite(
-					webCollections.inspections.insert(row, {
-						metadata: {
-							acknowledgements,
-							...(isAdhoc && adhocGeometry !== null
-								? { locationSource: { kind: 'geometry', geometry: adhocGeometry } }
-								: {}),
-						},
-					}),
-				);
+				// The shape the server will snapshot: the drawn one for an ad hoc
+				// inspection, the habitat's own for the other two. Reduced here so the
+				// optimistic row carries the centroid the map card will read.
+				const shape = isAdhoc
+					? ((adhocGeometry ?? null) as GeoJsonGeometry | null)
+					: habitatGeometry;
+				const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
+				if (centroid === null) {
+					throw new Error('Unable to determine the inspection location.');
+				}
+
+				await inspectionMutations.record({
+					inspectionId,
+					result: inspectionResultOf(values),
+					placement: isAdhoc
+						? {
+								kind: 'adhoc',
+								geometry: shape as GeoJsonGeometry,
+								addressId: values.addressId,
+								habitatTypeId:
+									values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+							}
+						: assignmentItemId !== null
+							? { kind: 'stop', assignmentItemId, habitatId: null }
+							: { kind: 'habitat', habitatId: values.habitatId ?? '' },
+					centroid,
+					acknowledgements,
+				});
 
 				// Samples reference the inspection, so they follow it. Best-effort like
 				// the crew rows: a sample that fails to land is reported rather than
 				// failing a save that already succeeded.
-				await attachLinksBestEffort('the samples', () =>
-					saveInspectionSamples(values.samples, {
-						inspectionId: row.id,
-						organizationId: organization.id,
-						actorProfileId,
-						now,
-					}),
-				);
+				await attachLinksBestEffort('the samples', async () => {
+					for (const sample of values.samples) {
+						const label = sample.label.trim();
+						// Sequential: the samples stream is on-demand, so the first insert
+						// warms it and the rest confirm against a live shape instead of
+						// racing a cold one.
+						await sampleMutations.add({
+							sampleId: sample.id,
+							inspectionId,
+							displayName: label === '' ? null : label,
+						});
+					}
+				});
 
 				// Crew rows reference the inspection, so they can only be written once it
 				// exists.
 				await attachLinksBestEffort('the additional personnel', () =>
 					setPersonnel({
-						target: { type: 'inspection', id: row.id },
+						target: { type: 'inspection', id: inspectionId },
 						existing: [],
 						profileIds: values.additionalPersonnelIds,
 					}),
@@ -201,7 +212,7 @@ function CreateInspectionRoute() {
 					// failed note cannot fail the save — but the text the user typed is not
 					// on the record, so it is reported rather than dropped.
 					await attachLinksBestEffort('the note', async () => {
-						await addComment({ type: 'inspection', id: row.id }, comment);
+						await addComment({ type: 'inspection', id: inspectionId }, comment);
 					});
 				}
 
@@ -217,12 +228,10 @@ function CreateInspectionRoute() {
 
 				await navigate({
 					to: '/larval-surveillance/inspections/$id',
-					params: { id: row.id },
+					params: { id: inspectionId },
 				});
 			}),
 		[
-			organization,
-			actorProfileId,
 			inspectionId,
 			navigate,
 			assignmentItemId,
@@ -230,6 +239,8 @@ function CreateInspectionRoute() {
 			runAcknowledged,
 			setPersonnel,
 			addComment,
+			inspectionMutations,
+			sampleMutations,
 		],
 	);
 
@@ -260,80 +271,4 @@ function CreateInspectionRoute() {
 			{acknowledgeDialog}
 		</>
 	);
-}
-
-function buildInspectionRow(
-	values: InspectionFormValues,
-	context: {
-		readonly id: string;
-		readonly organizationId: string;
-		readonly actorProfileId: string;
-		readonly now: string;
-		readonly assignmentItemId: string | null;
-	},
-): InspectionRow {
-	const wet = values.isWet;
-	const density =
-		wet && values.density !== unsetDensityValue ? (values.density as LarvalDensity) : null;
-	const isAdhoc = values.locationMode === 'adhoc';
-
-	return {
-		id: context.id,
-		organizationId: context.organizationId,
-		habitatId: isAdhoc ? null : values.habitatId,
-		habitatTypeId:
-			isAdhoc && values.habitatTypeId !== noHabitatTypeValue ? values.habitatTypeId : null,
-		addressId: isAdhoc ? values.addressId : null,
-		inspectedByProfileId: values.inspectedByProfileId,
-		assignmentItemId: context.assignmentItemId,
-		inspectionDate: values.inspectionDate,
-		isWet: wet,
-		dipCount: wet ? values.dipCount : null,
-		density,
-		larvaeCount: wet ? values.larvaeCount : null,
-		hasEggs: wet && values.lifeStages.hasEggs,
-		hasFirstInstar: wet && values.lifeStages.hasFirstInstar,
-		hasSecondInstar: wet && values.lifeStages.hasSecondInstar,
-		hasThirdInstar: wet && values.lifeStages.hasThirdInstar,
-		hasFourthInstar: wet && values.lifeStages.hasFourthInstar,
-		hasPupae: wet && values.lifeStages.hasPupae,
-		createdByProfileId: context.actorProfileId,
-		updatedByProfileId: context.actorProfileId,
-		createdAt: context.now,
-		updatedAt: context.now,
-	};
-}
-
-/**
- * Write the specimens drafted on the form. A blank label records an unlabeled
- * sample — the insert handler sends `displayName: null` and the server picks the
- * unlabeled command.
- */
-async function saveInspectionSamples(
-	samples: readonly InspectionSampleDraft[],
-	context: {
-		readonly inspectionId: string;
-		readonly organizationId: string;
-		readonly actorProfileId: string;
-		readonly now: string;
-	},
-): Promise<void> {
-	for (const sample of samples) {
-		const row: SampleRow = {
-			id: sample.id,
-			organizationId: context.organizationId,
-			inspectionId: context.inspectionId,
-			displayName: sample.label.trim() === '' ? null : sample.label.trim(),
-			isZeroLarvae: false,
-			hasNonMosquito: false,
-			unidentifiableReason: null,
-			createdByProfileId: context.actorProfileId,
-			updatedByProfileId: context.actorProfileId,
-			createdAt: context.now,
-			updatedAt: context.now,
-		};
-		// Sequential: the samples stream is on-demand, so the first insert warms it
-		// and the rest confirm against a live shape instead of racing a cold one.
-		await settleWrite(webCollections.samples.insert(row));
-	}
 }
