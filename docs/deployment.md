@@ -266,6 +266,17 @@ pnpm --filter @simmer-mosquito/server build
 pnpm --filter @simmer-mosquito/server start
 ```
 
+That filtered build is not the one CI's `verify` job runs. `pnpm build` is
+`nx run-many`, which orders projects from package.json dependencies;
+`pnpm --filter <app> build` is `tsc -b`, which orders them from tsconfig
+`references` alone. A dependency declared in only one of the two is green in CI
+and fails here, on the deploy — see "Build toolchain" in CLAUDE.md, and #175,
+which broke all three services that way. Two CI checks catch that before a
+deploy now. `pnpm check:build-graph` asserts the two graphs agree, and the
+`Shipped build` job runs each app's filtered build against a clean tree, one
+runner per app, because a `dist` another build already left satisfies an import
+whose order was never declared.
+
 **Web** and **admin** — Dockerfile, with no commands at all. Both are static
 sites and neither runs Node in production; see "Static site images" below. On
 each of those two services:
