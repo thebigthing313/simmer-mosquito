@@ -13,7 +13,7 @@ sessions, and detailed sync design are deferred.
 
 Weather commands live behind a framework-agnostic public domain seam:
 
-- `packages/domain/src/weather.ts`
+- `packages/domain/src/weather/`
 
 The top-level file is the public seam. Its current implementation lives behind
 `packages/domain/src/weather/index.ts` so future station, summary, and import
@@ -284,7 +284,7 @@ Structured issue paths should match command payload names, for example:
 
 ## Domain Module Shape
 
-`packages/domain/src/weather.ts` exports:
+`packages/domain/src/weather/` exports:
 
 - `WeatherCommandType`
 - `WeatherCommand`

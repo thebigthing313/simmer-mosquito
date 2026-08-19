@@ -432,7 +432,7 @@ When adding an organization setting:
 
 1. Choose top-level for shared primitives, or a domain namespace using product
    language.
-2. Define the default in `packages/domain/src/organization-settings.ts`.
+2. Define the default in `packages/domain/src/organization-settings/`.
 3. Add the setting to the resolved settings type and canonical default object.
 4. Add tolerant read-time resolution with non-fatal issues.
 5. Add a narrow command builder if the setting is mutable.

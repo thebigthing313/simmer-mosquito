@@ -6,7 +6,7 @@ dispatch vocabulary and exceptions.
 
 This captures the mission/dispatch command decisions from the domain interview.
 It is implementation-facing and guides the `missionDispatch.*` public domain
-seam at `packages/domain/src/mission-dispatch.ts`. Server endpoints, sync shape
+seam at `packages/domain/src/mission-dispatch/`. Server endpoints, sync shape
 design, UI workflows, imports, and spatial-feature efficiency remain separate
 implementation passes.
 
@@ -14,7 +14,7 @@ implementation passes.
 
 Mission dispatch commands live in a dedicated framework-agnostic module:
 
-- `packages/domain/src/mission-dispatch.ts`
+- `packages/domain/src/mission-dispatch/`
 
 The top-level file is the public seam. Its current implementation lives behind
 `packages/domain/src/mission-dispatch/index.ts` so future mission parent,
@@ -653,7 +653,7 @@ unit/product/batch compatibility, and cross-domain lifecycle effects.
 
 ## Domain Module Shape
 
-`packages/domain/src/mission-dispatch.ts` exports:
+`packages/domain/src/mission-dispatch/` exports:
 
 - `MissionDispatchCommandType`
 - `MissionDispatchCommand`

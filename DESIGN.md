@@ -107,11 +107,11 @@ components:
     padding: "16px"
 ---
 
-# Design System: SIMMER
+# Design system: SIMMER
 
 ## 1. Overview
 
-**Creative North Star: "The Field Operations Map Room"**
+**Creative direction: "The Field Operations Map Room"**
 
 SIMMER should feel like a calm operational workspace built around geography:
 professional, natural, and focused. It is not a marketing surface and not a
@@ -154,7 +154,7 @@ to maps and field records without becoming decorative.
 ### Secondary
 - **Pollen Yellow**: Gentle attention color. Use for selected spatial context,
   warning-adjacent surfaces that are not errors and lightweight emphasis. It
-  fills surfaces; it does not stroke focus rings — see Deep Pollen.
+  fills surfaces; it does not stroke focus rings. See Deep Pollen.
 - **Deep Pollen**: The focus-ring yellow. Bright Pollen Yellow only reaches
   1.6:1 against our pale surfaces, so focus drawn in it is invisible on light
   controls. Deep Pollen is the same hue family carried far enough down the ramp
@@ -190,7 +190,7 @@ to maps and field records without becoming decorative.
   Attention is a fill, not the focus ring; the two were aliased until the ring
   had to darken for contrast.
 
-### Named Rules
+### Named rules
 
 **The Earned Color Rule.** Every non-neutral color must carry a semantic job:
 action, status, selection, focus, taxonomy, sync, or spatial meaning.
@@ -201,8 +201,8 @@ Never use pure black or pure white.
 **The No Decoration Rule.** Product screens use color to clarify work, not to
 fill empty space.
 
-**The State Colour Rule.** A colour that only appears under a *condition* —
-focus, error, invalid, inactive, selected — is the one that will ship broken.
+**The State Colour Rule.** A colour that only appears under a *condition*, such
+as focus, error, invalid, inactive, or selected, is the one that will ship broken.
 Base colours get looked at constantly; state colours have to be triggered to be
 seen at all, so visual review never catches them. Every one of SIMMER's contrast
 failures lived here while body copy sat comfortably at 15:1. Prove state colours
@@ -213,7 +213,7 @@ the real stylesheets and fails the build on a regression.
 about it. `--success`, `--warning`, `--attention`, `--info`, `--catalog`,
 `--danger`, and `--quiet` lived in `:root` for a long time without matching
 `--color-*` entries in `@theme`, which meant `text-warning` compiled to *nothing
-at all* — no error, no fallback, just uncoloured text that looked deliberate in
+at all*: no error, no fallback, just uncoloured text that looked deliberate in
 review. A stray `text-warning` in `apps/web/src/routes/-components.tsx` was inert
 for exactly this reason, and the `text-[var(--success)]` spellings elsewhere were
 people routing around the omission without naming it.
@@ -249,7 +249,7 @@ strong weight contrast.
 - **Label** (800, 0.76rem, uppercase only when it improves scanning): Eyebrows,
   metadata labels, sidebar headings, table headers, and sync labels.
 
-### Named Rules
+### Named rules
 
 **The Poppins Rule.** Poppins is the intended SIMMER sans serif. Replace current
 Inter/system stacks as product surfaces are touched.
@@ -263,24 +263,24 @@ SIMMER is flat by default. Depth comes from tonal layering, borders, spatial
 placement, and drawer geometry. Shadows are allowed only when a surface truly
 floats above the current task, such as a drawer, popover, menu, or map control.
 
-### Shadow Vocabulary
+### Shadow vocabulary
 
 - **Legacy Ambient Panel** (`0 10px 30px rgb(24 38 50 / 8%)`): Existing web
   shell panel shadow. Do not expand this as a default pattern.
 - **Backdrop Scrim** (`oklch(24% 0.025 205 / 35%)`): Modal drawer backdrop for
   committed interruption.
 
-### Stacking Order
+### Stacking order
 
 Depth is a three-rung ladder, not a set of arbitrary numbers. Everything in the
 app already sits on one of these; keep it that way rather than inventing a new
 value to win a specific fight.
 
 - **Base (no z-index).** Ordinary page content.
-- **`z-10` — pinned within a scroll container.** Sticky panel headers, map
+- **`z-10`, pinned within a scroll container.** Sticky panel headers, map
   overlays and legends, floating map controls. These outrank the content they
   scroll over and nothing else.
-- **`z-50` — overlay tier.** Dialogs, drawers, popovers, dropdowns, tooltips,
+- **`z-50`, the overlay tier.** Dialogs, drawers, popovers, dropdowns, tooltips,
   toasts, and the skip link. Owned by the `ui-web` primitives; app code should
   rarely write it directly.
 
@@ -288,7 +288,7 @@ A pinned header must never paint over an open menu, which is the whole reason
 the pinned rung sits below the overlay rung. If something needs to escape a
 clipping ancestor, the fix is a portal, not a higher number.
 
-### Named Rules
+### Named rules
 
 **The Flat Until Floating Rule.** Resting surfaces are flat. Floating surfaces
 must earn depth by interrupting, overlaying, or anchoring to a map/task context.
@@ -298,7 +298,7 @@ must earn depth by interrupting, overlaying, or anchoring to a map/task context.
 Components should feel compact, durable, and operational. A user should be able
 to scan a screen repeatedly without fighting decorative chrome.
 
-### Implementation Contract
+### Implementation contract
 
 Web product UI must start from the shadcn source components in
 `packages/ui-web/src/components/ui` wherever a fitting primitive exists. Compose
@@ -325,8 +325,8 @@ reused. If a custom pattern appears more than once, promote it into
 - **Shape:** Gently curved rectangles (8px radius).
 - **Primary:** Deep Field Green background, light surface text, 40px height, and
   16px horizontal padding. Use once per local workflow when possible.
-- **Hover / Focus:** Hover deepens the green. Focus uses a solid Deep Pollen ring
-  — never a translucent one. A ring at partial alpha composites toward whatever
+- **Hover / Focus:** Hover deepens the green. Focus uses a solid Deep Pollen ring,
+  never a translucent one. A ring at partial alpha composites toward whatever
   is behind it, which is exactly the surface it needs to contrast against.
 - **Secondary / Subtle:** White or muted surface background with green or muted
   text. Use for navigation, row actions, and cancellation-like commands.
@@ -350,30 +350,30 @@ reused. If a custom pattern appears more than once, promote it into
 - **Internal Padding:** 16px for compact groups; clamp(20px, 4vw, 30px) for
   panels.
 
-### Page Container
+### Page container
 
 Every non-map route page sits in one measure: a centred 1200px column on the
-App Stage surface. This is a `cva` in `packages/ui-web/components/page-container`
-with two axes — `gap` (how far apart stacked sections sit) and `padding` (framed
+App Stage surface. This is a `cva` in `packages/ui-web/src/components/page-container.tsx`
+with two axes: `gap` (how far apart stacked sections sit) and `padding` (framed
 page, record detail with bottom room, or trailing-only when a parent already
 pads). A `flow` axis switches between the section grid and a plain block column.
 
 The variants are not invented; they are the shapes ~20 route files had already
 converged on as literal class strings. The measure is decided there and nowhere
-else — a route that re-states `max-w-[1200px]` has taken a decision that isn't
+else. A route that re-states `max-w-[1200px]` has taken a decision that isn't
 its to make.
 
-### Sticky Panel Header
+### Sticky panel header
 
-The pinned bar at the top of a scrolling panel — explorer rails, form sheets,
+The pinned bar at the top of a scrolling panel: explorer rails, form sheets,
 result lists. Opaque surface, one-pixel bottom border, `z-10`.
 
 **The Opaque Pin Rule.** A sticky header is fully opaque. It was
 `bg-background/95` behind a `backdrop-blur` in ~32 places: a blur behind a
 95%-opaque surface has nothing to resolve, so it bought a compositing layer on
 every scroll for an effect nobody could see. Blur is earned only where something
-genuinely moves behind glass — the floating map controls over live basemap
-tiles — and nowhere else.
+genuinely moves behind glass, which is the floating map controls over live
+basemap tiles, and nowhere else.
 
 ### Inputs / Fields
 - **Style:** Surface background, Border Strong stroke, 8px radius, 40px minimum
@@ -391,19 +391,19 @@ tiles — and nowhere else.
 Both front ends wear the same two-rail shell from
 `@simmer-mosquito/ui-web/components/app-shell`: a primary rail of domains, a
 secondary panel of that domain's navigation, and a breadcrumb header. The
-operator console no longer has chrome of its own — it supplies a navigation
+operator console no longer has chrome of its own. It supplies a navigation
 model and identity, and the shell does the rest. Its rail carries three domains
 (Agencies, Mosquito Taxonomy, Units) and its switcher names the control plane
 rather than an agency, because every page there spans all of them.
 
 **The Desktop Floor Rule.** SIMMER web is a desktop application. The two-rail
-shell spends 304px on fixed chrome, and both rails stay visible at every width —
-they do not collapse, and there is no mobile shell. Below the floor set in
+shell spends 304px on fixed chrome, and both rails stay visible at every width.
+They do not collapse, and there is no mobile shell. Below the floor set in
 `apps/web/src/styles.css` the page takes a horizontal scrollbar rather than
 reflowing, because a crushed operational table is worse than a scrolled one.
 
 Routes may still use breakpoints for internal density (column counts, padding
-steps, breadcrumb truncation) — the header already does. What they must not do
+steps, breadcrumb truncation); the header already does. What they must not do
 is assume a phone-width viewport is a supported layout target, or add a
 narrow-width branch that only pays off in a shell we do not ship.
 
@@ -414,25 +414,24 @@ Use full-height right-side geometry, no decorative shadow, and a scrim only when
 the drawer blocks the main workflow.
 
 **The One Create Shape Rule.** Creating a record is a full page when the record
-is long, and a dialog when it is short — and the same choice holds for editing
-it. Both apps use `RecordFormPage` for the long ones (a dozen forms in the
+is long, and a dialog when it is short. The same choice holds for editing it. Both apps use `RecordFormPage` for the long ones (a dozen forms in the
 agency workspace; creating an agency in the console) and a dialog for the short
 catalog rows. Creating an organization used to be a 520px sheet, which put the
-one decision worth deliberating — whether the operator links themselves as the
-agency's first owner — below the fold; that is the shape this rule exists to
+one decision worth deliberating, whether the operator links themselves as the
+agency's first owner, below the fold. That is the shape this rule exists to
 prevent.
 
 A create form pinned permanently above its own list is not a third option. It
 spends vertical space on every visit to serve the rarest action, and it makes
 adding and editing two different experiences of one operation.
 
-### Record Lists
+### Record lists
 
 Record lists should beat tables when the task is inspection plus action. Use
 one primary label, one supporting metadata line, and compact fact groups for
 role, status, sync state, or related identifiers.
 
-### Map Layers (signature)
+### Map layers (signature)
 
 Map paint is the one place the token system cannot reach: Mapbox GL paint
 properties are evaluated by the GL renderer, not the CSS cascade, so they cannot
@@ -440,19 +439,19 @@ read custom properties and must be literals. That constraint is real; scattering
 the literals is not. Every colour a layer paints with is named once in
 `@simmer-mosquito/design-tokens/map-palette`, in four groups:
 
-- **Interaction** — `selected`, `selectedStroke`, `pointStroke`. Roles that mean
+- **Interaction**: `selected`, `selectedStroke`, `pointStroke`. Roles that mean
   the same thing on every layer.
-- **Lifecycle** — `active`, `inactive`, `inaccessible`. Shared by every locatable
+- **Lifecycle**: `active`, `inactive`, `inaccessible`. Shared by every locatable
   record type; composed from the brand scale so a brand change reaches the map.
-- **Domain** — the per-type hue that lets an operator tell a trap from a
+- **Domain**: the per-type hue that lets an operator tell a trap from a
   chemical application at a glance. These *should* differ.
-- **Status / Density** — shared status tones, plus the ordered larval density
+- **Status / Density**: shared status tones, plus the ordered larval density
   ramp, which is a sequential magnitude scale and deliberately not built from the
   domain hues.
 
 **The One Selection Rule.** Selection is amber everywhere, on every layer, and
-matches what the draw tool paints. It drifted once — amber on addresses and
-regions, green on seven other layers — which meant selection said something
+matches what the draw tool paints. It drifted once, to amber on addresses and
+regions and green on seven other layers, which meant selection said something
 different depending on which record you clicked. Green is also already spoken
 for as a *domain* mark, so a green halo on an active trap says nothing.
 
@@ -461,7 +460,7 @@ constants the layers paint with. Never a literal. A hand-typed legend swatch
 drifted into describing a colour that was not on the map, and stayed wrong
 because a legend looks correct as long as it looks plausible.
 
-## 6. Do's and Don'ts
+## 6. Do's and don'ts
 
 ### Do:
 - **Do** keep SIMMER Green and SIMMER Yellow stable across every platform.

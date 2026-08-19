@@ -1,14 +1,15 @@
-# Verifying the Role Ladder
+# Verifying the role ladder
 
 How to check, by hand, that SIMMER refuses what it says it refuses.
 
 The ladder is enforced in `apps/server/src/command-permissions.ts` and mirrored
-in `apps/web/src/lib/write-access.ts`. The writes that are not commands — the
-agency's own details, and the people surface — declare their floors in
-`apps/server/src/roles.ts` instead, which says why they cannot join the map. Both are unit-tested, and the reads the
+in `apps/web/src/lib/write-access.ts`. The writes that are not commands, meaning
+the agency's own details and the people surface, declare their floors in
+`apps/server/src/roles.ts` instead, which says why they cannot join the map.
+Both are unit-tested, and the reads the
 ownership rules depend on are covered against Postgres in
 `apps/server/src/tests/integration/command-authorization.integration.test.ts`. None of that
-exercises the thing a person does: sign in, click, and be refused — which is how
+exercises the thing a person does: sign in, click, and be refused, which is how
 the reordering bug in #36 was found in the first place.
 
 ## Fixtures
@@ -16,7 +17,7 @@ the reordering bug in #36 was found in the first place.
 ```sh
 # Against whichever database the app you are testing is pointed at.
 # `SIMMER_ROLE_LADDER_ORGANIZATION_ID` points it at an agency that already
-# exists — which is the normal case once real accounts have been invited into
+# exists, which is the normal case once real accounts have been invited into
 # one. Omit it and the seed builds its own throwaway organization instead.
 SIMMER_ROLE_LADDER_ORGANIZATION_ID=<your agency id> \
   pnpm --filter @simmer-mosquito/db seed:role-ladder
@@ -35,14 +36,14 @@ drifting further out of the correction window rather than sitting just past its
 edge.
 
 With no organization id it builds its own ("Role Ladder Test District") with six
-profiles — Owner, Admin, Manager, **two** Collectors, and Viewer. Two collectors,
+profiles: Owner, Admin, Manager, **two** Collectors, and Viewer. Two collectors,
 because every ownership rule has a "somebody else's" case, and using the
 Manager's profile for that would conflate *not yours* with *not your role*.
 
 ## Accounts
 
 The seed cannot create the logins. Identity lives in WorkOS, so each account has
-to exist there first — and the **order matters**.
+to exist there first, and the **order matters**.
 
 ### Invite first, then sign in
 
@@ -62,8 +63,8 @@ ladder will look like it refuses everything.
 ### One mailbox, several accounts
 
 Use plus-addressing. WorkOS treats `you+collector@gmail.com` and
-`you+manager@gmail.com` as two distinct users and stores the tag verbatim —
-verified against the staging environment on 2026-08-05 — while Gmail delivers
+`you+manager@gmail.com` as two distinct users and stores the tag verbatim,
+verified against the staging environment on 2026-08-05, while Gmail delivers
 both to `you@gmail.com`. So every test account's password reset, verification
 code, and invitation lands in one inbox you already read.
 
@@ -79,11 +80,11 @@ you+simmer-admin@gmail.com
 
 Create each in the WorkOS **staging** dashboard with a password and
 `emailVerified` set, which is what lets you sign straight in without waiting on
-a code. (Gmail also ignores dots, but plus-addressing is the clearer lever —
-the tag survives into WorkOS, so the account list stays readable.)
+a code. (Gmail also ignores dots, but plus-addressing is the clearer choice: the
+tag survives into WorkOS, so the account list stays readable.)
 
 Once they have signed in, they are ordinary members and the seed needs nothing
-from you but the organization id — it finds them by role.
+from you but the organization id; it finds them by role.
 
 ### If you are building the accounts from nothing instead
 
@@ -99,7 +100,7 @@ SIMMER_ROLE_LADDER_MANAGER_EMAIL=you+simmer-manager@gmail.com \
 ```
 
 `_EMAIL` is optional and only decides what `users.email` says before that
-account's first sign-in — the link is by WorkOS user id, and
+account's first sign-in. The link is by WorkOS user id, and
 `upsertWorkOsIdentity` overwrites the address on every login. Set it anyway:
 without it the row claims the fixture's `@example.test` address, which is a
 confusing thing to find when you are working out which login is which.
@@ -125,11 +126,11 @@ on every refusal. Run it instead of clicking through the list below:
 SIMMER_CHECK_PASSWORD='…' pnpm --filter @simmer-mosquito/server check:role-ladder
 ```
 
-Re-seed first — four of the allowed cases write, and later runs drift without it.
+Re-seed first: four of the allowed cases write, and later runs drift without it.
 
 **The browser half was walked on 2026-08-05** as Collector and Manager, which is
 the part no script can do: whether a refused control is *offered*. Everything
-below held, with one exception — see #65, where the organization workspace gates
+below held, with one exception. See #65, where the organization workspace gates
 manager-floor catalogs (tags, vehicles, equipment, `update*Method`) at the admin
 floor, so a Manager is refused writes the server would accept.
 
@@ -148,16 +149,16 @@ exported from `packages/db/src/seeds/role-ladder.ts` as `roleLadderIds`.
 
 | Fixture | The rule it exercises |
 |---|---|
-| `ownAssignmentId` | assigned to the Collector — they may start and complete it |
-| `otherAssignmentId` | assigned to the *other* Collector — 403 `Collectors can only work assignments assigned to them.` |
-| `unassignedAssignmentId` | assigned to nobody — also 403, and the case most likely to be missed |
-| `mixedAssignmentId` | started, one stop pending — `completeAssignment` refuses with `assignment_items_pending` |
-| `emptyAssignmentId` | started, no stops — refuses with `assignment_has_no_items` |
-| `freshCommentId` | the Collector's own comment, inside the window — they may edit it |
-| `expiredCommentId` | their own comment, backdated 45 days — 403 `Comments can only be changed by their author for 30 days.` **Cannot be produced by clicking.** |
-| `otherAuthorCommentId` | somebody else's comment — 403 |
-| `ownActionId` | a source reduction the Collector performed yesterday — theirs to correct |
-| `staleActionId` | one they performed 45 days ago — outside the correction window |
+| `ownAssignmentId` | assigned to the Collector: they may start and complete it |
+| `otherAssignmentId` | assigned to the *other* Collector: 403 `Collectors can only work assignments assigned to them.` |
+| `unassignedAssignmentId` | assigned to nobody: also 403, and the case most likely to be missed |
+| `mixedAssignmentId` | started, one stop pending: `completeAssignment` refuses with `assignment_items_pending` |
+| `emptyAssignmentId` | started, no stops: refuses with `assignment_has_no_items` |
+| `freshCommentId` | the Collector's own comment, inside the window: they may edit it |
+| `expiredCommentId` | their own comment, backdated 45 days: 403 `Comments can only be changed by their author for 30 days.` **Cannot be produced by clicking.** |
+| `otherAuthorCommentId` | somebody else's comment: 403 |
+| `ownActionId` | a source reduction the Collector performed yesterday: theirs to correct |
+| `staleActionId` | one they performed 45 days ago: outside the correction window |
 | `otherActionId` | one somebody else performed |
 
 ## The checks
@@ -182,9 +183,9 @@ Refused, with a reason:
 - create a trap, a habitat, a region, a contact, or a service request
 - anything in the owner/admin catalogs (collection methods, lures, habitat
   types, insecticides, formulations, notification types)
-- delete any control action — manager-and-above in code, stricter than the
+- delete any control action, which is manager-and-above in code, stricter than the
   domain doc, pending #63
-- change a setting, edit the agency's details, or add a profile — the three
+- change a setting, edit the agency's details, or add a profile: the three
   surfaces that have no commands, all admin-and-above (#130)
 
 Worth checking in the browser as well as through the API: after #49 the UI
@@ -193,7 +194,7 @@ the bug #49 fixed, not the ladder working.
 
 ### As a Manager
 
-Everything the Collector needs ownership for should be allowed outright —
+Everything the Collector needs ownership for should be allowed outright,
 including correcting another person's assignment and another person's comment.
 Confirm the ownership check is genuinely skipped rather than passing by
 accident: a Manager acting on `otherAssignmentId` and on `expiredCommentId` both
@@ -206,7 +207,7 @@ agency's details, and the people surface.
 ### As an Admin
 
 As Manager, plus the owner/admin catalogs, settings, the agency's details, and
-the people surface — adding a profile, inviting somebody, ending an access.
+the people surface: adding a profile, inviting somebody, ending an access.
 
 Refused, and the only thing an Admin is refused: **changing somebody's role**.
 That is owner-only, because an Admin who could set a role could set their own to
@@ -221,7 +222,7 @@ As Admin, plus changing a role. An Owner may grant any role, `owner` included.
 ## The one gap the fixtures cannot close
 
 `Start` and `Complete` on an assignment are shown to any Collector, because
-whether they may use them depends on who the assignment is assigned to — an
+whether they may use them depends on who the assignment is assigned to, an
 ownership question only the server can settle. A Collector opening
 `otherAssignmentId` will see both buttons and be refused on click. Fixing that
 properly needs an assignee-aware client check; noted in #49's closing comment.

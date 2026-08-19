@@ -19,7 +19,7 @@ contacts, weather summaries, and agency configuration. They need to understand
 where work is happening, what requires attention, and what action is available
 next without losing the spatial picture.
 
-## Product Purpose
+## Product purpose
 
 SIMMER is a map-centric SaaS platform for mosquito surveillance and control
 operations. It helps agencies coordinate field workflows, maintain operational
@@ -37,7 +37,7 @@ Success means users can move from operational context to committed action
 quickly: see the relevant work, inspect the right records, understand status and
 history, and save updates with confidence.
 
-## Brand Personality
+## Brand personality
 
 Professional, natural, focused.
 
@@ -75,7 +75,7 @@ Avoid treating the SIMMER Operator experience as a temporary admin page. It is
 the first proof of the product system and should carry the same care as
 agency-facing workflows.
 
-## Design Principles
+## Design principles
 
 Preserve the map as operational context. The interface should keep location and
 workflow connected, so users do not have to choose between seeing the work and
@@ -100,7 +100,7 @@ Centralize design decisions. Durable visual choices belong in
 `packages/design-tokens` and component variants, not repeated route-level class
 strings.
 
-## Accessibility & Inclusion
+## Accessibility and inclusion
 
 SIMMER does not currently target formal WCAG 2.2 AA compliance as a stated
 product requirement. The product should still follow practical accessibility

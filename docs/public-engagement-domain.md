@@ -14,7 +14,7 @@ deferred.
 
 Public engagement commands live behind a framework-agnostic public domain seam:
 
-- `packages/domain/src/public-engagement.ts`
+- `packages/domain/src/public-engagement/`
 
 The public seam re-exports implementation modules under
 `packages/domain/src/public-engagement/`:

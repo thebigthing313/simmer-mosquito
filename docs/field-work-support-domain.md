@@ -1454,7 +1454,7 @@ Command payload/schema-adjacent follow-ups:
 Field-work/support commands follow `docs/domain-command-contract.md` and live
 behind this public domain seam:
 
-- `packages/domain/src/field-work.ts`
+- `packages/domain/src/field-work/`
 
 The top-level file is the public seam. Its current implementation lives behind
 `packages/domain/src/field-work/index.ts` so future comments, tags, route, and

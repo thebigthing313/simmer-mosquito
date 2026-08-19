@@ -13,7 +13,7 @@ architecture decisions remain in `docs/adr/`.
 Control operations commands live behind a framework-agnostic public domain
 seam:
 
-- `packages/domain/src/control-operations.ts`
+- `packages/domain/src/control-operations/`
 
 The public seam re-exports implementation modules under
 `packages/domain/src/control-operations/`:
@@ -1250,7 +1250,7 @@ Structured issue paths should match command payload names, for example:
 
 ## Domain Module Shape
 
-`packages/domain/src/control-operations.ts` exports:
+`packages/domain/src/control-operations/` exports:
 
 - `ControlOperationsCommandType`
 - `ControlOperationsCommand`

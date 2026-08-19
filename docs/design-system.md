@@ -1,4 +1,4 @@
-# SIMMER Design System Architecture
+# SIMMER design system architecture
 
 SIMMER uses a centralized design system so visual decisions do not sprawl across
 applications as one-off classes, colors, and markup conventions.
@@ -34,7 +34,7 @@ component variants once repeated.
 shared shadcn primitives first, keep route-level styling in Tailwind, and move
 repeated visual decisions into app components or `packages/ui-web`.
 
-## Centralization Rules
+## Centralization rules
 
 Brand, semantic color, radius, spacing, motion, typography, shadow, and layering
 decisions belong in `packages/design-tokens`.
@@ -94,7 +94,7 @@ Domain and entity icon decisions should use product language instead of raw
 asset names. For example, adult surveillance and mosquito use the SIMMER
 mosquito asset, GIS uses the map icon, and biocontrol action uses a fish icon.
 
-## Preview Strategy
+## Preview strategy
 
 SIMMER does not use Storybook as the design-system contract. Visual preview
 surfaces live in `apps/preview`, using the real shared stylesheet, router
@@ -105,7 +105,7 @@ overlays, tables, component kitchen-sink views, prop sandboxes, and workflow
 shells. They are aids for design review and visual regression, not a parallel
 product application.
 
-## Current Scope
+## Current scope
 
 The current design-system surface includes:
 
