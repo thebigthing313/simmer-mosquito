@@ -1912,6 +1912,14 @@
         "count": 1
       }
     },
+    "scripts/check-build-graph.mjs": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
     "scripts/generate-table-schemas.mjs": {
       "complexity_critical": {
         "count": 1

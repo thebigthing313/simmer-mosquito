@@ -9,6 +9,7 @@
 		"changeset": "changeset",
 		"changeset:status": "changeset status --since=origin/staging",
 		"check": "biome check .",
+		"check:build-graph": "node scripts/check-build-graph.mjs",
 		"check:write": "biome check --write .",
 		"db:migrate": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql up",
 		"db:rollback": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql rollback",
