@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Writing style (always on)
+
+Read `docs/writing-style.md` before writing prose and apply it to everything you
+emit: chat replies, commit messages, PR bodies, changesets, docs, code comments,
+and UI copy. It is the `unslop` rule set, checked in. No trigger phrase, no
+opt-in. If the `unslop` skill is available, treat it as loaded for every turn;
+if it is not, the checked-in doc is the whole rule.
+
 ## What this is
 
 SIMMER (Strategic Integrated Mosquito Management Enterprise Resources) is mosquito control and surveillance software for mosquito control agencies. It is an Nx-managed pnpm monorepo. The architecture is Postgres-centered, sync-native, and multi-tenant: WorkOS owns auth identity, SIMMER owns agency data and all authorization decisions.

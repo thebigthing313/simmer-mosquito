@@ -28,3 +28,11 @@ Before substantial work:
 - Keep durable raw values in `packages/design-tokens`; expose them through Tailwind/CSS variables, then consume them from shadcn components and variants.
 - Reserve CSS files for global imports, Tailwind setup, design-token variable exposure, browser resets, vendor integration, or selectors Tailwind cannot express cleanly. Document the reason when adding non-trivial app CSS.
 <!-- intent-skills:end -->
+
+## Writing style
+
+Everything you write follows `docs/writing-style.md`: chat replies, commit
+messages, PR bodies, changesets, docs, code comments, UI copy. Apply it on every
+turn without being asked. The short version is no em dashes, no puffery, no
+"not just X but Y", sentence case headings, active voice, plain words, and name
+the mechanism instead of the feeling.
