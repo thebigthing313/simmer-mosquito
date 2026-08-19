@@ -13,9 +13,14 @@ import { getServerUrl } from '../../auth';
 /**
  * `on-demand`: One row per station per day, so the screens ask for the window they show.
  *
- * Read-only here. Declaring it leaves the collection with no
- * `onInsert`/`onUpdate`/`onDelete` at all, so a write is refused before it
- * travels.
+ * Writable, for the three manual summary commands. The spreadsheet import does
+ * not go through here: it is one request carrying up to 5,000 rows and answering
+ * a per-row verdict, which no collection mutation can represent.
+ *
+ * On-demand and writable together is the pairing that needs care. A write into a
+ * subset nothing is currently querying waits out a txid confirmation that never
+ * arrives, so a form that creates a summary has to be querying the station's
+ * summaries already — which the detail page it opens from is doing.
  *
  * The type is written here rather than inferred because a `Collection<…>`
  * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
@@ -25,7 +30,7 @@ export const weather_summaries: Collection<WeatherSummary, string | number> =
 	createWeatherSummariesCollection({
 		serverUrl: getServerUrl(),
 		syncMode: 'on-demand',
-		mutations: false,
+		mutations: true,
 	});
 
 /**

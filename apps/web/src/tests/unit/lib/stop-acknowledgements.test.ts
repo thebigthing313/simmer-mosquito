@@ -2,26 +2,24 @@ import { describe, expect, it } from 'vitest';
 import {
 	acknowledgeableRefusalOf,
 	readAcknowledgements,
-	withAcknowledgement,
+	STOP_ACKNOWLEDGEABLE_REFUSALS,
 } from '../../../lib/stop-acknowledgements';
 import { CommandError } from '../../../sync/command-error';
 
 /**
- * The four refusals a technician may answer, and the three that nobody may.
+ * The refusals a technician may answer, and the three that nobody may.
  *
  * Getting the set wrong is silent in the dangerous direction: treat a hard
  * refusal as acknowledgeable and the UI offers a "Record it anyway" the server
  * will refuse again, with no explanation of why the second attempt failed too.
  */
 describe('acknowledgeable refusals', () => {
-	it('recognises the four the server takes a flag for', () => {
-		for (const code of [
-			'assignment_item_already_completed',
-			'assignment_item_target_mismatch',
-			'mission_item_requested_action_mismatch',
-			'mission_geometry_not_covered',
-		]) {
-			expect(acknowledgeableRefusalOf(refusal(code))).toBe(code);
+	// The answer is the flag to send, not the code that was refused: the caller's
+	// next move is to retry with it set, and handing back the code would leave
+	// every call site doing the lookup itself.
+	it('names the flag that answers each refusal the server takes one for', () => {
+		for (const [code, flag] of Object.entries(STOP_ACKNOWLEDGEABLE_REFUSALS)) {
+			expect(acknowledgeableRefusalOf(refusal(code), STOP_ACKNOWLEDGEABLE_REFUSALS)).toBe(flag);
 		}
 	});
 
@@ -34,30 +32,30 @@ describe('acknowledgeable refusals', () => {
 			'mission_item_wrong_control_type',
 			'assignment_item_skipped',
 		]) {
-			expect(acknowledgeableRefusalOf(refusal(code))).toBeNull();
+			expect(acknowledgeableRefusalOf(refusal(code), STOP_ACKNOWLEDGEABLE_REFUSALS)).toBeNull();
 		}
 	});
 
 	it('ignores failures that are not refusals at all', () => {
-		expect(acknowledgeableRefusalOf(new Error('Network down.'))).toBeNull();
-		expect(acknowledgeableRefusalOf(null)).toBeNull();
-		expect(acknowledgeableRefusalOf(new CommandError('Nope.', 500, undefined))).toBeNull();
+		const map = STOP_ACKNOWLEDGEABLE_REFUSALS;
+
+		expect(acknowledgeableRefusalOf(new Error('Network down.'), map)).toBeNull();
+		expect(acknowledgeableRefusalOf(null, map)).toBeNull();
+		expect(acknowledgeableRefusalOf(new CommandError('Nope.', 500, undefined), map)).toBeNull();
 	});
 
-	it('answers the question the refusal asked, and only that one', () => {
-		expect(withAcknowledgement({}, 'assignment_item_target_mismatch')).toEqual({
-			acknowledgedTargetMismatch: true,
-		});
-		// A second refusal on the retry keeps the first answer.
+	// The map is what a caller passes, so a refusal it does not list is not one
+	// this caller may answer — which is the point of passing it. The weather
+	// station writes reuse the same machinery with three refusals of their own,
+	// and must not be offered a mission stop's answers.
+	it('answers nothing the caller did not say it could be asked', () => {
+		expect(acknowledgeableRefusalOf(refusal('assignment_item_target_mismatch'), {})).toBeNull();
 		expect(
-			withAcknowledgement(
-				{ acknowledgedTargetMismatch: true },
-				'assignment_item_already_completed',
-			),
-		).toEqual({
-			acknowledgedCompletedItemAdditionalRecord: true,
-			acknowledgedTargetMismatch: true,
-		});
+			acknowledgeableRefusalOf(refusal('weather_station_identity_change_unacknowledged'), {
+				weather_station_identity_change_unacknowledged:
+					'acknowledgedHistoricalStationIdentityChange',
+			}),
+		).toBe('acknowledgedHistoricalStationIdentityChange');
 	});
 });
 

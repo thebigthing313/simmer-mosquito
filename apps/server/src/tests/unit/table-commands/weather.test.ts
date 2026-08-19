@@ -32,10 +32,7 @@ const STATION = '44444444-4444-4444-8444-444444444444';
 
 const PIN = { type: 'Point', coordinates: [-121.49, 38.58] };
 
-function request(
-	payload: Record<string, unknown>,
-	timeZone = 'America/New_York',
-): IntentRequest {
+function request(payload: Record<string, unknown>, timeZone = 'America/New_York'): IntentRequest {
 	return {
 		payload,
 		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },

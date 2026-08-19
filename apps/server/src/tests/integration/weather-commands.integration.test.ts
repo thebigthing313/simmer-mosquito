@@ -27,6 +27,7 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
 import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
 import {
+	type CommitWeatherSummaryImportCommand,
 	commitWeatherSummaryImportCommand,
 	createWeatherStationCommand,
 	createWeatherSummaryCommand,
@@ -35,7 +36,6 @@ import {
 	updateWeatherStationDetailsCommand,
 	updateWeatherStationLocationCommand,
 	updateWeatherSummaryCommand,
-	type CommitWeatherSummaryImportCommand,
 	type WeatherCommand,
 } from '@simmer-mosquito/domain';
 import { expect, it } from 'vitest';
@@ -473,7 +473,13 @@ describeDbIntegration('weather commands against Postgres', () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId, actorProfileId } = await agency(db, 'summary_self');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
-			const summaryId = await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-03');
+			const summaryId = await seedSummary(
+				db,
+				organizationId,
+				stationId,
+				'2026-06-01',
+				'2026-06-03',
+			);
 
 			const summary = await writeSummary(
 				db,
@@ -493,7 +499,13 @@ describeDbIntegration('weather commands against Postgres', () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId, actorProfileId } = await agency(db, 'summary_patch');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
-			const summaryId = await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
+			const summaryId = await seedSummary(
+				db,
+				organizationId,
+				stationId,
+				'2026-06-01',
+				'2026-06-01',
+			);
 
 			const summary = await writeSummary(
 				db,
@@ -550,7 +562,13 @@ describeDbIntegration('weather commands against Postgres', () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId, actorProfileId } = await agency(db, 'summary_delete');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
-			const summaryId = await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
+			const summaryId = await seedSummary(
+				db,
+				organizationId,
+				stationId,
+				'2026-06-01',
+				'2026-06-01',
+			);
 			const command = deleteWeatherSummaryCommand({
 				organizationId,
 				actorProfileId,
@@ -575,7 +593,13 @@ describeDbIntegration('weather commands against Postgres', () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId, actorProfileId } = await agency(db, 'import_mixed');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
-			const unchanged = await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
+			const unchanged = await seedSummary(
+				db,
+				organizationId,
+				stationId,
+				'2026-06-01',
+				'2026-06-01',
+			);
 			const changed = await seedSummary(db, organizationId, stationId, '2026-06-02', '2026-06-02');
 
 			const result = await runImport(
@@ -609,9 +633,21 @@ describeDbIntegration('weather commands against Postgres', () => {
 			// the row that already holds the bucket keeps its own id, because
 			// anything already pointing at it still has to resolve.
 			expect(result?.rows).toEqual([
-				expect.objectContaining({ clientRowId: 'row-1', status: 'noChange', weatherSummaryId: unchanged }),
-				expect.objectContaining({ clientRowId: 'row-2', status: 'updated', weatherSummaryId: changed }),
-				expect.objectContaining({ clientRowId: 'row-3', status: 'inserted', weatherSummaryId: uuid(13) }),
+				expect.objectContaining({
+					clientRowId: 'row-1',
+					status: 'noChange',
+					weatherSummaryId: unchanged,
+				}),
+				expect.objectContaining({
+					clientRowId: 'row-2',
+					status: 'updated',
+					weatherSummaryId: changed,
+				}),
+				expect.objectContaining({
+					clientRowId: 'row-3',
+					status: 'inserted',
+					weatherSummaryId: uuid(13),
+				}),
 			]);
 
 			// An update is a full-row replacement, not a patch: the temperatures the
@@ -735,7 +771,9 @@ describeDbIntegration('weather commands against Postgres', () => {
 					organizationId: stranger.organizationId,
 					actorProfileId: stranger.actorProfileId,
 					weatherStationId: stationId,
-					rows: [importRow('row-1', uuid(11), '2026-06-01', '2026-06-01', { precipitationInches: 1 })],
+					rows: [
+						importRow('row-1', uuid(11), '2026-06-01', '2026-06-01', { precipitationInches: 1 }),
+					],
 				}),
 			);
 
@@ -764,11 +802,15 @@ describeDbIntegration('weather commands against Postgres', () => {
  * them keeps a refusal a `CommandError` rather than a `Response`.
  */
 async function writeStation(db: Db, command: WeatherCommand) {
-	return db.transaction().execute((trx) => writeWeatherStationCommand(trx as CommandTransaction, command));
+	return db
+		.transaction()
+		.execute((trx) => writeWeatherStationCommand(trx as CommandTransaction, command));
 }
 
 async function writeSummary(db: Db, command: WeatherCommand) {
-	return db.transaction().execute((trx) => writeWeatherSummaryCommand(trx as CommandTransaction, command));
+	return db
+		.transaction()
+		.execute((trx) => writeWeatherSummaryCommand(trx as CommandTransaction, command));
 }
 
 async function runImport(db: Db, command: CommitWeatherSummaryImportCommand) {
