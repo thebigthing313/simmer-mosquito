@@ -1,7 +1,7 @@
 /**
  * Routes for the commands the domain declares and nothing writes yet.
  *
- * Thirteen of the 271 names in the vocabulary have no handler: two merges,
+ * Thirteen of the 274 names in the vocabulary have no handler: two merges,
  * mission notification generation, and every `weather.*` write. Until now that
  * was invisible — a client naming one of them got a 404 from Hono, which is the
  * same answer it gets for a typo, so an unbuilt feature and a misspelled path

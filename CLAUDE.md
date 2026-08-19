@@ -108,7 +108,7 @@ CI does not use staging for this. The `Database integration tests` job runs a `p
 
 Authoritative docs (read before non-trivial work):
 - `docs/architecture.md` — full system shape.
-- `docs/adr/` — accepted architecture decisions (0001–0013); read the relevant ADR before changing auth, sync, identity, tenancy, DB layering, or field-work provenance. **0013 is in flight**: identity writes are becoming domain commands, so every agency write to Postgres will reach it the same way.
+- `docs/adr/` — accepted architecture decisions (0001–0014); read the relevant ADR before changing auth, sync, identity, tenancy, DB layering, or field-work provenance. **0013 is in flight**: identity writes are becoming domain commands, so every agency write to Postgres will reach it the same way. **0014 amends 0007**: read both for sync — the package boundary is 0007's, the mechanism is 0014's.
 - `CONTEXT.md` — domain glossary (load often); `docs/*-domain.md` — per-domain command vocabulary.
 - `docs/sync.md` — the table-level Electric/TanStack DB sync matrix (eager vs on-demand per table).
 - `docs/domain-command-contract.md` — command/validation/offline rules.
@@ -121,7 +121,7 @@ Authoritative docs (read before non-trivial work):
 - `apps/preview` — internal design-system / component preview app (not a product surface).
 - `packages/domain` — framework-agnostic domain types, command builders, validators. Stable public seams are top-level barrel modules (e.g. `control-operations.ts`); large domains split into matching folders behind them. Tests live in `packages/domain/src/tests/unit`.
 - `packages/db` — dbmate migrations, Kysely/Postgres helpers, generated DB types.
-- `packages/sync` — framework-agnostic TanStack DB collection factories, Electric shape descriptors, row schemas, optimistic command adapters.
+- `packages/sync` — framework-agnostic TanStack DB collection factories, per-table row schemas generated from the database (`src/collections/tables`), and the optimistic write path (`src/collections/functions`) that turns a mutation into a named domain command.
 - `packages/mapping` — provider-neutral geometry/GeoJSON/viewport helpers.
 - `packages/auth` — WorkOS AuthKit/session helpers. `packages/config` — env parsing. `packages/design-tokens` — framework-free visual tokens. `packages/ui-web` — shared shadcn/Radix/Tailwind component source + semantic icon registry.
 

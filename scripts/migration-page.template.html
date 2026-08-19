@@ -233,7 +233,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 <section class="band">
 	<div>
 		<h2>Where it stands</h2>
-		<p class="lede">The server half is nearly whole. The client is the long tail: 54 collection modules exist, the read seam is well along, and the write seam is four domains in.</p>
+		<p class="lede">Both halves are done. Every table <code>apps/web</code> reads goes through <code>lib/collections</code> and <code>hooks/queries</code>, every write names the command it means, and the old seam is deleted rather than deprecated. What is left is named below, and each piece is somebody else's issue.</p>
 	</div>
 	<div class="notes">
 		<div class="note">
@@ -248,24 +248,24 @@ footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--i
 			<h4>apps/admin — done</h4>
 			<p>The only app fully migrated. It has <code>lib/collections/</code>, <code>hooks/queries/</code> and <code>lib/collections/writes.ts</code>; its <code>sync/</code> folder and the nine <code>/admin/*</code> write functions are gone.</p>
 		</div>
-		<div class="note warn">
-			<h4>apps/web — mid-migration</h4>
-			<p>Every surface still on <code>webCollections</code> is <strong>broken at runtime</strong>: rows arrive snake_case and the consumers read camelCase. Expected, and not worth chasing table by table — it resolves as each one migrates.</p>
+		<div class="note">
+			<h4>apps/web — done</h4>
+			<p>Fifty collection modules, each naming its own <code>syncMode</code>, read through one hook per surface in <code>hooks/queries/</code>. <code>sync/webCollections.ts</code>, <code>sync/collections.ts</code> and the modules that existed only to be wired into them are deleted, along with the hand-written camelCase <code>*Row</code> interfaces that made a snake_case row read as empty.</p>
 		</div>
 	</div>
 	<div class="gates">
-		<div class="gate pass"><span class="name">typecheck · build · test · check</span><span class="state">green</span><span class="hint">524 web tests</span></div>
-		<div class="gate pass"><span class="name">fallow dupes</span><span class="state">green</span><span class="hint">7.9%, threshold 9.1</span></div>
-		<div class="gate fail"><span class="name">fallow dead-code</span><span class="state">red — 9 files</span><span class="hint">collection modules nothing imports yet</span></div>
-		<div class="gate fail"><span class="name">fallow:health</span><span class="state">red — 563</span><span class="hint">red since early on this branch</span></div>
+		<div class="gate pass"><span class="name">typecheck · build · test · check</span><span class="state">green</span><span class="hint">1,830 server · 542 web tests</span></div>
+		<div class="gate pass"><span class="name">fallow dupes</span><span class="state">green</span><span class="hint">7.1%, threshold 9.1</span></div>
+		<div class="gate pass"><span class="name">fallow dead-code</span><span class="state">green</span><span class="hint">gated at zero, not ratcheted</span></div>
+		<div class="gate pass"><span class="name">fallow:health</span><span class="state">green — 564</span><span class="hint">baseline re-saved, diff read</span></div>
 	</div>
-	<p class="lede">The dead-code files are deliberately not suppressed: a <code>fallow-ignore-file</code> that outlives its reason is worse than a gate that is honestly red on a work-in-progress branch. Re-save the health baseline only against the merge base (<code>6f5614e</code>), and read the diff — a re-saved baseline can bury a regression.</p>
+	<p class="lede">All four were red for most of this branch and none was suppressed: a <code>fallow-ignore-file</code> that outlives its reason is worse than a gate that is honestly red on a work-in-progress branch. Read the exit code, not the summary line — <code>dupes</code> and <code>health</code> both print a <code>✗</code> metric line while passing, which is how they were misread as red here for weeks. The health baseline was re-saved against the merge base only, and the diff read: 662 findings to 646, 39 files gaining and 30 losing, mostly the same findings under new names as write logic moved out of route components into named hooks.</p>
 </section>
 
 <section class="band">
 	<div>
 		<h2>Table by table</h2>
-		<p class="lede">The operational view. A table is finished when the server accepts its commands by name <em>and</em> nothing in <code>apps/web</code> reaches it through <code>webCollections</code> any more. Both halves have to land together: a write to a collection nobody reads waits out a txid that never arrives.</p>
+		<p class="lede">The operational view. A table counted as finished when the server accepted its commands by name <em>and</em> nothing in <code>apps/web</code> reached it through <code>webCollections</code> any more. Both halves had to land together: a write to a collection nobody reads waits out a txid that never arrives. Every row below is now on both counts; the table is kept because <code>apps/mobile</code> has the same migration ahead of it.</p>
 	</div>
 	<div class="filters">
 		<button type="button" data-scope="tables" data-mode="" aria-pressed="true">All {{TBL_TOTAL}}</button>
