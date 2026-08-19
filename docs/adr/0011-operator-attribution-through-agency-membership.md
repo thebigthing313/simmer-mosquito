@@ -9,22 +9,22 @@ Date: 2026-08-09
 `apps/admin` is the SIMMER **operator** control plane, not agency
 administration. `docs/architecture.md` scopes it to organization creation and
 support, invitations, global taxonomy, global units, and *agency foundation
-bootstrapping* — regions, addresses, method/lure/habitat lookups, enabled
+bootstrapping*: regions, addresses, method/lure/habitat lookups, enabled
 species, and first traps.
 
 That last group is the problem. `apps/server/src/admin-foundations.ts` writes six
 tables that `apps/web` also writes to, and it does not import
 `@simmer-mosquito/domain` at all: it calls the `packages/db` writers directly
 (#120). So the same row can be created by two paths validated by two different
-sets of rules — the domain builders on the agency side, and a dozen hand-written
-payload readers on the operator side.
+sets of rules. The domain builders validate the agency side, and a dozen
+hand-written payload readers validate the operator side.
 
 Routing the operator writes through the domain builders is straightforward
 mechanically, and blocked by one question that is not mechanical at all. Every
 agency command carries `actorProfileId`, and
 `validateAgencyCommandContext` requires it to be a UUID. A SIMMER Operator
 bootstrapping an agency has no Profile in that agency. Today they write with no
-attribution whatsoever — `admin-foundations.ts` contains neither the word
+attribution whatsoever: `admin-foundations.ts` contains neither the word
 "profile" nor "actor", so every row it creates has a null
 `created_by_profile_id`.
 
@@ -35,7 +35,7 @@ Three facts constrain the answer:
   `profiles`. `users` is referenced only by `profiles.user_id` and
   `memberships.user_id`.
 - **`actorProfileId` is the recorder, not the performer.** It always lands in the
-  audit pair, and it additionally *defaults* the domain actor field on surfaces
+  audit pair, and it also *defaults* the domain actor field on surfaces
   that have one (`actorDefaultProfileId(input.applicatorProfileId,
   input.actorProfileId)`). None of the six tables in question has a domain actor
   column, so on this path it only ever means "who recorded this".
@@ -50,7 +50,7 @@ Three facts constrain the answer:
 **An operator may not write on an agency's behalf until they are a member of it.**
 
 Concretely: before performing foundation bootstrapping for an agency, the
-operator holds a membership in that agency with role `admin` — a WorkOS
+operator holds a membership in that agency with role `admin`, which means a WorkOS
 organization membership, a SIMMER `memberships` row, and the org-scoped
 `profiles` row that comes with it. They then switch into that organization and
 use the **ordinary agency routes**, with an ordinary `AuthContext` resolved the
@@ -63,8 +63,8 @@ doing agency work is a person doing agency work.
 
 ### What this replaces
 
-The six agency-owned surfaces in `admin-foundations.ts` — addresses, region
-folders, regions, organization lookups, organization species, traps — are
+The six agency-owned surfaces in `admin-foundations.ts` (addresses, region
+folders, regions, organization lookups, organization species, and traps) are
 removed rather than rewritten. With the operator carrying an ordinary
 `AuthContext`, `apps/admin` calls the same endpoints `apps/web` calls, and the
 domain builders, the role ladder, and `CommandError` handling all apply without
@@ -85,8 +85,8 @@ ten primitive readers at `admin-foundations.ts:398-836` go with them.
   the email allowlist.
 - **Organization creation and support.** Pre-membership by definition.
 
-This division is why the role floor is `admin` and not `owner`: the scoped job —
-foundation bootstrapping — needs nothing owner-only, and the operator surfaces
+This division is why the role floor is `admin` and not `owner`. The scoped job,
+foundation bootstrapping, needs nothing owner-only, and the operator surfaces
 that *do* need owner-level reach are exactly the ones staying operator-side.
 
 ### The bootstrap edge
@@ -94,7 +94,7 @@ that *do* need owner-level reach are exactly the ones staying operator-side.
 The operator's own membership in an agency is created through the operator path,
 not the agency path. That is not circular, it is the edge case the operator
 control plane exists for: a brand-new agency has no owner to invite anyone, so
-`admin-invitations.ts` — already gated by the allowlist — is where the first
+`admin-invitations.ts`, already gated by the allowlist, is where the first
 memberships come from, including the operator's own.
 
 ### Offboarding
@@ -109,15 +109,16 @@ them" this ADR relied on was not true. So the lifecycle below is the whole of
 it, for operators and ordinary members alike.
 
 **The agency ends it.** An owner or admin removes the member from their own
-people list — the same place they invited them from. Not a SIMMER-side "leave
+people list, the same place they invited them from. Not a SIMMER-side "leave
 agency" action and not an expiry: the agency is who knows the engagement is
 over, and it is their people list the membership is cluttering. An expiry
 default remains worth having and needs a scheduler this workspace does not have.
 
 **Deactivated, in both systems.** The SIMMER membership goes to `inactive` and
 the WorkOS organization membership is deactivated with it. WorkOS is what
-actually revokes reach — a session is refreshed against a WorkOS membership, so
-a SIMMER row alone stops nothing — and it goes first, because ending the SIMMER
+actually revokes reach, because a session is refreshed against a WorkOS
+membership and a SIMMER row alone stops nothing. It goes first, because ending
+the SIMMER
 row and then failing would leave somebody who reads as removed and can still
 sign in. Keeping both rows keeps the record that access was held, which is the
 only place that history lives.
@@ -125,8 +126,9 @@ only place that history lives.
 **The floor is the people floor, with the invitation's bound.** Removal is
 onboarding in reverse, so an admin may do it; nobody may remove above their own
 role, or "admins may remove" would be "admins may remove every owner". Two
-further refusals: nobody removes themselves, and the last active owner stays —
-an agency with no active owner cannot hand out a role or invite a replacement.
+further refusals: nobody removes themselves, and the last active owner stays,
+because an agency with no active owner cannot hand out a role or invite a
+replacement.
 
 Attribution survives offboarding: `created_by_profile_id` points at the profile,
 which is not deleted with the membership. A row bootstrapped by an operator who
@@ -143,8 +145,8 @@ was never a member gets.
 
 - **Operator writes become attributable to a person.** Six tables stop producing
   rows with a null `created_by_profile_id`.
-- **One write path per table.** The property #120 says is missing — that nothing
-  downstream can tell which path produced a row — stops mattering, because there
+- **One write path per table.** The property #120 says is missing, that nothing
+  downstream can tell which path produced a row, stops mattering, because there
   is only one.
 - **Operators are visible to the agency.** They appear in the people list with an
   `admin` role, and the agency can remove them. This is intended, and it is the
@@ -154,7 +156,7 @@ was never a member gets.
   operator work, and the console is where the operator already is. So the console
   gains a way to enter an agency, and the session it holds while inside is an
   ordinary agency session. WorkOS supports this through a refresh with an
-  explicit organization, which `packages/auth` does not expose yet — that
+  explicit organization, which `packages/auth` does not expose yet. That
   capability is the first thing this decision requires and it did not previously
   exist anywhere in the workspace.
 - **Support requires a real WorkOS organization membership per agency.** Adding
@@ -197,4 +199,4 @@ the `:organizationId` target rather than the session's organization. This avoids
 the org switcher. Rejected because it adds a second identity-resolution path
 keyed on a path parameter rather than the session, and because operator writes
 would still enter through `operatorAuthContextMiddleware` and so still bypass the
-role ladder — most of what this ADR is trying to end.
+role ladder, which is most of what this ADR is trying to end.

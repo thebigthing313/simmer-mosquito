@@ -372,7 +372,7 @@ Binding rules are strict on write and tolerant on read:
   instead of throwing, because a bad binding from an import or a hand edit must never
   block identification entry.
 
-Server save validation additionally checks that every bound `speciesId` still exists
+Server save validation also checks that every bound `speciesId` still exists
 in the taxonomy, which is referenced-row existence the pure builder cannot see.
 
 Default is an empty list. With no bindings, key entry stays unavailable and the modal

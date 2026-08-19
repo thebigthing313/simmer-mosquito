@@ -89,7 +89,7 @@ pin/list/coordinate reads come straight off the synced row, collapsing the
 Full geometry stays on the specialized read path unchanged: the raw `geom` and
 the generated `geojson` are **never** streamed (Postgres logical replication does
 not publish `GENERATED` columns, and geojson is unbounded). `packages/sync`
-enforces this — its descriptor factory forbids `geom` and `geojson` in any shape
+enforces this: its descriptor factory forbids `geom` and `geojson` in any shape
 descriptor while allowing the centroid columns. Open-ended catalog maps still use
 MVT tiles (the row-count ceiling, not coordinate availability, is what forces
 tiling), and bounded polygon-detail maps still fetch geojson from `/map/*`.

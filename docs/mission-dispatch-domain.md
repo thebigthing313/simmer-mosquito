@@ -258,7 +258,7 @@ items?: readonly (
 ```
 
 Mission item `locationSource` may use the requested-control-action source flow
-and may additionally source from requested control action geometry. In practice,
+and may also source from requested control action geometry. In practice,
 that means explicit geometry, address geometry, habitat geometry, trap geometry,
 collection geometry, inspection geometry, service request geometry, or requested
 control action geometry.
