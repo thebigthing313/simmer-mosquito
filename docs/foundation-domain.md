@@ -302,17 +302,20 @@ Sync behavior will differ by frontend and needs a dedicated follow-up session.
 Foundation-specific replay must also revalidate duplicate-warning
 acknowledgements.
 
-## Schema changes surfaced
+## Schema this domain drove
 
-The schema should align with these domain decisions:
+Every one of these is in the database, read back on 2026-08-19:
 
-- remove the unique region name constraint
-- add normalized unique indexes for region folder names and lookup names
-- add normalized unique indexes for global genus/species taxonomy
-- add `organization_species.deleted_at` and `deleted_by_profile_id`
-- treat non-deleted `organization_species` rows as selected species
-- remove `collection_lures.custom_schema`
-- keep address and region duplicate handling as warnings, not constraints
+- the unique region name constraint is gone; `regions_organization_name_idx` is
+  an ordinary index
+- `region_folders_organization_normalized_name_unique` and the lookup-name
+  equivalents are normalized and soft-delete-aware
+- `genera_normalized_name_unique`, `genera_normalized_abbreviation_unique`,
+  `species_genus_normalized_epithet_unique`, and
+  `species_special_normalized_epithet_unique` cover global taxonomy
+- `organization_species` carries `deleted_at` and `deleted_by_profile_id`, and a
+  non-deleted row is what "selected species" means
+- `collection_lures.custom_schema` is gone
 
-These changes are captured in the follow-up foundation migration and DB type
-updates.
+Address and region duplicate handling stays a warning rather than a constraint,
+which is a decision rather than pending work.

@@ -672,10 +672,11 @@ Mission-specific conventions are `Date` objects for instants,
 `LocalDateString` for `rainDate` and actual action dates, and patch semantics
 for updates.
 
-## Schema backlog
+## Schema this domain drove
 
-These v1 schema changes are covered by
-`202605140001_public_engagement_mission_dispatch_domain_updates.sql`.
+These v1 schema changes landed in
+`202605140001_public_engagement_mission_dispatch_domain_updates.sql`, and the
+database was read back on 2026-08-19 to confirm each one.
 
 Mission lifecycle check:
 
@@ -738,7 +739,7 @@ create index biocontrol_actions_mission_item_idx
   where deleted_at is null and mission_item_id is not null;
 ```
 
-Do not add in v1:
+None of these exists, and none is added in v1:
 
 - mission status enum
 - mission item status enum

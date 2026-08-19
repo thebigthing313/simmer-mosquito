@@ -1271,15 +1271,16 @@ JSON fields.
 
 Server mappers flatten nested context into DB columns.
 
-## Schema migration backlog
+## Schema this domain drove
 
-The concrete schema changes surfaced during the domain interview are covered by
-`202605120002_control_operations_domain_updates.sql`. This section remains as
-the implementation-facing record of what that migration catches up.
+The schema changes surfaced during the domain interview landed in
+`202605120002_control_operations_domain_updates.sql`. Everything in this section
+is in the database; it was read back on 2026-08-19. The SQL is kept as the
+record of what each object is and why.
 
 ### Vehicle and equipment lifecycle
 
-Add active lifecycle to vehicles and equipment:
+Vehicles and equipment carry an active flag, indexed for the catalog listing:
 
 ```sql
 alter table vehicles
@@ -1299,8 +1300,8 @@ create index equipment_organization_active_name_idx
 
 ### Habitat links
 
-Add direct habitat links for habitat-targeted control without requiring an
-inspection:
+Source reductions and requested control actions link a Habitat directly, so
+habitat-targeted control does not require an inspection:
 
 ```sql
 alter table source_reductions
@@ -1318,11 +1319,12 @@ create index requested_control_actions_organization_habitat_idx
   where deleted_at is null and habitat_id is not null;
 ```
 
-Do not add direct `habitat_id` to outreach actions for v1.
+Outreach actions have no direct `habitat_id`, and v1 does not want one.
 
 ### Normalized uniqueness
 
-Add or replace normalized unique indexes:
+Catalog identity is unique per agency, case-insensitively and
+soft-delete-aware:
 
 ```sql
 create unique index application_methods_organization_normalized_name_unique
@@ -1362,11 +1364,11 @@ create unique index equipment_organization_normalized_serial_unique
   where deleted_at is null and serial_number is not null;
 ```
 
-Do not add unique indexes for vehicle names or equipment names.
+Vehicle names and equipment names carry no unique index, deliberately.
 
 ### Association uniqueness
 
-Enforce one active application/batch link:
+One active application and batch link:
 
 ```sql
 create unique index application_batches_active_application_batch_unique
@@ -1374,7 +1376,7 @@ create unique index application_batches_active_application_batch_unique
   where deleted_at is null;
 ```
 
-Enforce one active formulation component per formulation/insecticide:
+One active formulation component per formulation and insecticide:
 
 ```sql
 create unique index formulation_insecticides_active_formulation_insecticide_unique
@@ -1384,7 +1386,7 @@ create unique index formulation_insecticides_active_formulation_insecticide_uniq
 
 ### Formulation numeric checks
 
-Add lightweight, context-free checks:
+Two context-free checks the database enforces itself:
 
 ```sql
 alter table formulations
@@ -1402,7 +1404,8 @@ FKs to `units`, added with the recipe columns in
 
 ### Deferred schema
 
-Do not add for v1 unless a concrete workflow demands it:
+None of these exists, and none is added for v1 unless a concrete workflow
+demands it:
 
 - `applications.formulation_id`
 - direct service request links from control actions or requested actions

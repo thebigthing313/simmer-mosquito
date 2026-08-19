@@ -305,7 +305,7 @@ Weather-specific conventions are `LocalDateString` for date buckets, `Date`
 objects for optimistic timestamps, patch semantics for manual updates, and
 full-row replacement semantics for import updates.
 
-## Schema backlog
+## Schema this domain drove
 
 Concrete schema follow-up for v1, which landed in
 `202605130001_weather_domain_updates.sql`:
@@ -319,8 +319,8 @@ alter table weather_summaries
   alter column end_date set not null;
 ```
 
-Implement as a migration by first backfilling existing null `end_date` values to
-`start_date`, then setting `end_date not null`. Keep the date range check.
+The migration backfilled null `end_date` values to `start_date` before setting
+the column `not null`, and kept the date range check.
 
 Add summary audit profile fields:
 
@@ -345,10 +345,10 @@ create unique index weather_sources_organization_normalized_code_unique
   where deleted_at is null and source_code is not null;
 ```
 
-Once `end_date` is non-null, a normal unique index or constraint on
-`(weather_source_id, start_date, end_date)` is sufficient for exact duplicates.
+`end_date` is `not null`, so `weather_summaries_source_range_unique` on
+`(weather_source_id, start_date, end_date)` is enough for exact duplicates.
 
-Do not add for v1:
+None of these exists, and none is added for v1:
 
 - persisted import/session tables
 - raw row or filename provenance

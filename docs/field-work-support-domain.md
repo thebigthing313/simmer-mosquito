@@ -175,13 +175,14 @@ registry. Each target resolver should know:
 Adult, larval, control, route, assignment, and mission command handlers should
 use this registry instead of hand-rolling polymorphic comment checks.
 
-## Schema backlog
+## Comment schema
 
-Keep `comments.organization_id` as derived, denormalized data. Even when normal
-loading is target-scoped, the column remains useful for authorization
-prefiltering, indexing, exports, moderation, and tenant-scoped cleanup jobs.
+`comments.organization_id` is derived, denormalized data and stays that way.
+Even when normal loading is target-scoped, the column earns its place in
+authorization prefiltering, indexing, exports, moderation, and tenant-scoped
+cleanup jobs.
 
-Keep the target-scoped active-comment index:
+`comments_entity_idx` is the target-scoped active-comment index and stays:
 
 ```sql
 create index comments_entity_idx
@@ -189,11 +190,12 @@ create index comments_entity_idx
   where deleted_at is null;
 ```
 
-Drop or defer `comments_pinned_idx` unless an org-wide pinned-comments workflow
-appears. Target-scoped loading does not need a separate org-wide pinned index.
+`comments_pinned_idx` is dropped. Target-scoped loading does not need a separate
+org-wide pinned index, and no org-wide pinned-comments workflow has appeared.
 
-Consider a future enum, check constraint, or registry-backed migration for
-`comments.entity_type` once the command vocabulary stabilizes.
+**Still open:** `comments.entity_type` is `text`, with no enum or check
+constraint. The allowed values live in `packages/domain/src/field-work/shared.ts`
+and nothing in the database enforces them.
 
 ## Tag commands
 
@@ -336,16 +338,15 @@ re-point the source tag item and preserve its original creation audit fields.
 Deleting a tag is blocked if any active or historical tag assignment references
 it. Deactivate used tags instead.
 
-## Tag schema backlog
+## Tag schema
 
-Add `tag_items.organization_id` as derived, denormalized data. The server should
-derive it from the resolved tag/target organization and verify both match.
-Keeping the organization id on the association row makes target-scoped and
-tenant-scoped queries cheaper and mirrors `comments` and
+`tag_items.organization_id` exists as derived, denormalized data. The server
+derives it from the resolved tag and target organization and verifies both
+match. Keeping the organization id on the association row makes target-scoped
+and tenant-scoped queries cheaper, and mirrors `comments` and
 `additional_personnel`.
 
-Replace or supplement the current case-sensitive tag-name unique index with a
-soft-delete-aware lower-trim unique index:
+Tag names are unique per agency through a soft-delete-aware, lower-trim index:
 
 ```sql
 create unique index tags_organization_normalized_name_unique
@@ -353,8 +354,8 @@ create unique index tags_organization_normalized_name_unique
   where deleted_at is null;
 ```
 
-Consider a future enum, check constraint, or registry-backed migration for
-`tag_items.entity_type` once the command vocabulary stabilizes.
+**Still open:** `tag_items.entity_type` is `text`, with no enum or check
+constraint.
 
 ## Additional Personnel commands
 
@@ -480,15 +481,15 @@ If a future merge operation re-points a target type that can have additional
 personnel, duplicate active rows should be deduped by keeping the target row and
 soft-deleting duplicate source rows.
 
-## Additional Personnel schema backlog
+## Additional Personnel schema
 
-Keep `additional_personnel.organization_id` as derived, denormalized data. The
-server should derive it from the resolved target and personnel profile
-organization, verify both match the actor organization, and store that
+`additional_personnel.organization_id` is derived, denormalized data and stays
+that way. The server derives it from the resolved target and personnel profile
+organization, verifies both match the actor organization, and stores that
 organization id. Clients do not choose a different stored organization id.
 
-Consider a future enum, check constraint, or registry-backed migration for
-`additional_personnel.entity_type` once the command vocabulary stabilizes.
+**Still open:** `additional_personnel.entity_type` is `text`, with no enum or
+check constraint.
 
 ## Route commands
 
@@ -663,10 +664,9 @@ Server handlers remain the source of truth and revalidate route existence,
 organization ownership, permissions, target state, route type, placement
 anchors, uniqueness, and command invariants when queued commands replay.
 
-## Route schema backlog
+## Route schema
 
-Replace or supplement the current case-sensitive route-name unique index with a
-soft-delete-aware lower-trim unique index:
+Route names are unique per agency through a soft-delete-aware, lower-trim index:
 
 ```sql
 create unique index routes_organization_normalized_name_unique
@@ -674,8 +674,11 @@ create unique index routes_organization_normalized_name_unique
   where deleted_at is null;
 ```
 
-Consider a future enum, check constraint, or registry-backed migration for
-`route_items.entity_type` once the command vocabulary stabilizes.
+`route_items.position` is `double precision`, so reordering writes only the rows
+that moved.
+
+**Still open:** `route_items.entity_type` is `text`, with no enum or check
+constraint.
 
 ## Assignment commands
 
@@ -1100,21 +1103,20 @@ organization ownership, permissions, assignee state, target state, placement
 anchors, lifecycle state, item progress state, uniqueness, and command
 invariants when queued commands replay.
 
-## Assignment schema backlog
+## Assignment schema
 
-Add item progress fields to `assignment_items`:
+`assignment_items` carries the item progress fields:
 
 ```sql
-alter table assignment_items
-  add column completed_at timestamptz,
-  add column completed_by_profile_id uuid references profiles(id) on delete set null,
-  add column skipped_at timestamptz,
-  add column skipped_by_profile_id uuid references profiles(id) on delete set null,
-  add column skip_reason text;
+completed_at timestamptz
+completed_by_profile_id uuid references profiles(id) on delete set null
+skipped_at timestamptz
+skipped_by_profile_id uuid references profiles(id) on delete set null
+skip_reason text
 ```
 
-Consider a lightweight check that completed and skipped states are mutually
-exclusive if it stays policy-independent:
+Completed and skipped are mutually exclusive in the database, not only in the
+handlers:
 
 ```sql
 alter table assignment_items
@@ -1122,8 +1124,12 @@ alter table assignment_items
   check (completed_at is null or skipped_at is null);
 ```
 
-Consider a future enum, check constraint, or registry-backed migration for
-`assignment_items.entity_type` once the command vocabulary stabilizes.
+`assignment_items.position` is `double precision`, so reordering writes only the
+rows that moved. Assignments stay mixed-type: there is no `assignment_type`
+column and v1 does not want one.
+
+**Still open:** `assignment_items.entity_type` is `text`, with no enum or check
+constraint.
 
 ## Cross-domain lifecycle registry
 
@@ -1386,69 +1392,58 @@ Mission deletion:
   acknowledgement when linked actions exist
 - does not handle tags, additional personnel, routes, or assignments in v1
 
-## Consolidated schema backlog
+## Consolidated schema state
 
-These schema changes surfaced while hardening the field-work/support command
-domain. The implemented v1 subset is covered by
-`202605110001_field_work_support_domain_updates.sql`; enum/registry follow-ups
-remain deferred until the command vocabulary is settled.
+These schema changes surfaced while hardening the field-work and support command
+domain. All of them landed in
+`202605110001_field_work_support_domain_updates.sql`, and the state below was
+read back from the database on 2026-08-19.
 
 Comments:
 
-- keep `comments.organization_id` as derived denormalized data
-- keep `comments_entity_idx`
-- drop or defer `comments_pinned_idx` unless an org-wide pinned-comments
-  workflow appears
-- consider a future enum, check constraint, or registry-backed migration for
-  `comments.entity_type`
+- `comments.organization_id` is derived denormalized data and stays
+- `comments_entity_idx` exists and stays
+- `comments_pinned_idx` is dropped
 
 Tags:
 
-- add `tag_items.organization_id` as derived denormalized data
-- replace or supplement `tags_organization_name_unique` with a soft-delete-aware
-  lower-trim unique index
-- consider a future enum, check constraint, or registry-backed migration for
-  `tag_items.entity_type`
+- `tag_items.organization_id` exists as derived denormalized data
+- `tags_organization_normalized_name_unique` replaced the case-sensitive index
 
 Routes:
 
-- replace or supplement `routes_organization_name_unique` with a
-  soft-delete-aware lower-trim unique index
-- keep `route_items.position double precision` for minimal-write reordering
-- consider a future enum, check constraint, or registry-backed migration for
-  `route_items.entity_type`
+- `routes_organization_normalized_name_unique` replaced the case-sensitive index
+- `route_items.position` is `double precision` for minimal-write reordering
 
 Assignments:
 
-- keep assignments mixed-type in v1; do not add `assignment_type`
-- add assignment item progress fields:
-  - `completed_at timestamptz`
-  - `completed_by_profile_id uuid references profiles(id) on delete set null`
-  - `skipped_at timestamptz`
-  - `skipped_by_profile_id uuid references profiles(id) on delete set null`
-  - `skip_reason text`
-- add a lightweight mutually-exclusive progress check if it stays
-  policy-independent
-- keep `assignment_items.position double precision` for minimal-write
-  reordering
-- consider a future enum, check constraint, or registry-backed migration for
-  `assignment_items.entity_type`
+- assignments stay mixed-type; there is no `assignment_type` column
+- `assignment_items` carries `completed_at`, `completed_by_profile_id`,
+  `skipped_at`, `skipped_by_profile_id`, and `skip_reason`
+- `assignment_items_progress_exclusive` enforces that completed and skipped
+  cannot both be set
+- `assignment_items.position` is `double precision` for minimal-write reordering
 
 Additional personnel:
 
-- keep `additional_personnel.organization_id` as derived denormalized data
-- consider a future enum, check constraint, or registry-backed migration for
-  `additional_personnel.entity_type`
+- `additional_personnel.organization_id` is derived denormalized data and stays
 
-Command payload/schema-adjacent follow-ups:
+Command payload follow-ups, all built:
 
-- add trap delete/retire acknowledgement handling for route item removal and
-  assignment item cleanup
-- add habitat delete acknowledgement for assignment item cleanup, distinct from
-  inspection detach and cross-domain detach
-- add service request delete acknowledgement for assignment item cleanup
-- keep support-target allowlists in a shared registry used by command handlers
-  and future shape/query code
+- trap deletion takes `acknowledgedCascadeDelete`, and habitat deletion takes
+  `acknowledgedHabitatDelete`, distinct from `acknowledgedInspectionDetach` and
+  `acknowledgedCrossDomainDetach`
+- assignment and route item cleanup take `acknowledgedAssignmentItemDeletion`
+  and `acknowledgedRouteItemDeletion`
+- the support-target allowlists live in
+  `packages/domain/src/field-work/shared.ts` and the command handlers read them
+  from there
+
+The one thing still deferred is the database half of the target registry. All
+five `entity_type` columns are `text`, with no enum, check constraint, or
+registry-backed migration behind them. `packages/domain` is the only place the
+allowed values are written down, and `toDbEntityType` bridges the camelCase
+domain names to the snake_case the columns store.
 
 ## Domain module shape
 

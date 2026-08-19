@@ -620,26 +620,28 @@ Offline collectors can create ad hoc inspections, cataloged habitat inspections,
 and labeled samples. Offline unlabeled sample creation requires a cached
 manager-and-above role and is still server-revalidated.
 
-## Schema migration backlog
+## Schema this domain drove
 
 These schema updates surfaced during the domain interview and landed in
-`202605100001_larval_surveillance_domain_updates.sql`.
+`202605100001_larval_surveillance_domain_updates.sql`. All of them are in the
+database; it was read back on 2026-08-19.
 
 ### Inspection checks
 
-Add low-risk, policy-independent checks:
+Two low-risk, policy-independent checks, as
+`inspections_dip_count_positive` and `inspections_larvae_count_nonnegative`:
 
 - `inspections.dip_count > 0` when present
 - `inspections.larvae_count >= 0` when present
 
-Do not DB-enforce wet/dry combinations, density policy, breeding life-stage
+The database does not enforce wet/dry combinations, density policy, breeding life-stage
 requirements, sample requires breeding, org species curation, or date ordering.
 Those depend on command context, organization settings, soft deletes, or joins.
 
 ### Sample species uniqueness
 
-Replace hard uniqueness on `sample_species (sample_id, species_id)` with a
-soft-delete-aware partial unique index:
+Uniqueness on `sample_species (sample_id, species_id)` is soft-delete-aware
+rather than hard:
 
 ```sql
 create unique index sample_species_active_sample_species_unique
@@ -660,8 +662,8 @@ if command-level uniqueness proves insufficient.
 
 ### Non-mosquito naming
 
-Rename the DB column from `samples.is_non_mosquito` to `has_non_mosquito`.
-Prefer domain/API field name `hasNonMosquito`.
+The column is `samples.has_non_mosquito`; `is_non_mosquito` is gone. The domain
+and API field name is `hasNonMosquito`.
 
 ### Settings types
 
@@ -676,7 +678,8 @@ Larval commands consume resolved settings and default missing settings.
 
 ### Deferred schema
 
-Do not add for v1 unless a concrete workflow demands it:
+None of these exists, and none is added for v1 unless a concrete workflow
+demands it:
 
 - `inspections.is_zero_result`
 - inspection metadata

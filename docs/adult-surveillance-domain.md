@@ -66,14 +66,15 @@ directly with collection date and duration.
 Deleted records are soft-deleted and excluded from normal Electric/TanStack DB
 replicas. Retired traps remain replicated for historical context.
 
-## Schema migration backlog
+## Schema this domain drove
 
 These schema updates surfaced during the domain interview and landed in
-`202605080001_adult_surveillance_domain_updates.sql`.
+`202605080001_adult_surveillance_domain_updates.sql`. All of them are in the
+database; it was read back on 2026-08-19.
 
 ### Collections timing
 
-Add explicit collection timing intent:
+A Collection carries explicit timing intent:
 
 - `collection_timing_mode`
   - `exact_timestamps`
@@ -95,9 +96,9 @@ Rules:
 
 ### Bycatch naming
 
-Rename the domain meaning of `collections.is_non_mosquito` to bycatch:
+`collections.is_non_mosquito` is gone and the column is now bycatch:
 
-- Preferred schema field: `has_bycatch boolean not null default false`
+- `has_bycatch boolean not null default false`
 - Meaning: non-mosquito bycatch was present.
 - Mosquito species rows may exist while `has_bycatch = true`.
 - `is_zero_result = true` remains mutually exclusive with active
@@ -105,7 +106,7 @@ Rename the domain meaning of `collections.is_non_mosquito` to bycatch:
 
 ### Units
 
-Add stable unit codes:
+Unit codes are stable and are the join key the conversion table uses:
 
 - `units.code text not null unique`
 
