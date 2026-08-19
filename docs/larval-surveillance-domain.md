@@ -622,7 +622,7 @@ manager-and-above role and is still server-revalidated.
 
 ## Schema migration backlog
 
-These schema updates surfaced during the domain interview and are covered by
+These schema updates surfaced during the domain interview and landed in
 `202605100001_larval_surveillance_domain_updates.sql`.
 
 ### Inspection checks

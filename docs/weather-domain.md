@@ -307,7 +307,7 @@ full-row replacement semantics for import updates.
 
 ## Schema backlog
 
-Concrete schema follow-up for v1, covered by
+Concrete schema follow-up for v1, which landed in
 `202605130001_weather_domain_updates.sql`:
 
 ```sql
