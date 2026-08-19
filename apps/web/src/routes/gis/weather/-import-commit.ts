@@ -6,7 +6,7 @@
  * into one command and waits for the txid that confirms it synced. This one
  * cannot: it is up to 5,000 rows against one station, and its answer is a
  * per-row verdict rather than a row. There is no optimistic state to apply
- * either — which rows insert, which update and which fail is the server's
+ * either, which rows insert, which update and which fail is the server's
  * decision, taken against the station's stored buckets, so guessing it locally
  * would put rows on screen that the commit is about to reject.
  *
@@ -19,7 +19,7 @@ import { commandErrorFrom, readResponseBody } from '../../../sync/command-error'
 
 /** One submitted line's verdict, correlated back by the id the client gave it. */
 export interface WeatherImportRowResult {
-	/** The spreadsheet line number, as a string — see the import page. */
+	/** The spreadsheet line number, as a string, see the import page. */
 	readonly clientRowId: string;
 	readonly status: 'inserted' | 'updated' | 'noChange' | 'failed';
 	readonly weatherSummaryId: string | null;

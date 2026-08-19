@@ -1,3 +1,13 @@
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -42,7 +52,7 @@ const ImportIcon = iconRegistry.actions.upload.icon;
  *
  * The card is also what keeps the write path working. `weather_summaries` is an
  * on-demand collection, and a write into a subset nothing is querying waits out a
- * txid confirmation that never arrives — so the dialog is mounted inside the page
+ * txid confirmation that never arrives, so the dialog is mounted inside the page
  * that is already querying this station's summaries rather than on a route of its
  * own.
  */
@@ -59,6 +69,7 @@ export function WeatherSummariesCard({
 		null,
 	);
 	const [removeError, setRemoveError] = useState<string | null>(null);
+	const [confirming, setConfirming] = useState<WeatherSummaryListing | null>(null);
 
 	const remove = useCallback(
 		async (summaryId: string) => {
@@ -105,7 +116,7 @@ export function WeatherSummariesCard({
 				) : (
 					<SummariesTable
 						onEdit={(summary) => setEditing({ summary })}
-						onRemove={remove}
+						onRemove={setConfirming}
 						summaries={summaries}
 					/>
 				)}
@@ -118,11 +129,59 @@ export function WeatherSummariesCard({
 					summary={editing.summary}
 				/>
 			)}
+
+			<ConfirmSummaryDelete
+				onCancel={() => setConfirming(null)}
+				onConfirm={() => {
+					const target = confirming;
+					setConfirming(null);
+					if (target !== null) {
+						void remove(target.id);
+					}
+				}}
+				summary={confirming}
+			/>
 		</Card>
 	);
 }
 
 /** Import a file, or record one reading by hand. */
+/**
+ * The question a hard delete has to ask.
+ *
+ * A summary has no `deleted_at` and nothing restores it, and the domain says so:
+ * "Summary deletes are hard deletes and are not idempotent". The station delete
+ * beside it asks first, and so does every other destructive action in the app.
+ */
+function ConfirmSummaryDelete({
+	summary,
+	onCancel,
+	onConfirm,
+}: {
+	readonly summary: WeatherSummaryListing | null;
+	readonly onCancel: () => void;
+	readonly onConfirm: () => void;
+}) {
+	return (
+		<AlertDialog onOpenChange={(open) => (open ? undefined : onCancel())} open={summary !== null}>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>
+						Delete the reading for {summary === null ? '' : summaryPeriodLabel(summary)}?
+					</AlertDialogTitle>
+					<AlertDialogDescription>
+						This removes the reading permanently. It cannot be undone.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogAction onClick={onConfirm}>Delete Reading</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
 function SummaryActions({
 	stationId,
 	isStationActive,
@@ -161,8 +220,8 @@ function SummaryActions({
 /**
  * The readings themselves.
  *
- * Its own component so the card above it is the three states — loading, empty,
- * loaded — and nothing else, which is the shape every record surface in the app
+ * Its own component so the card above it is the three states, loading, empty,
+ * loaded, and nothing else, which is the shape every record surface in the app
  * has.
  */
 function SummariesTable({
@@ -172,7 +231,7 @@ function SummariesTable({
 }: {
 	readonly summaries: readonly WeatherSummaryListing[];
 	readonly onEdit: (summary: WeatherSummaryListing) => void;
-	readonly onRemove: (summaryId: string) => void;
+	readonly onRemove: (summary: WeatherSummaryListing) => void;
 }) {
 	return (
 		<div className="overflow-x-auto rounded-md border border-border/40">
@@ -217,12 +276,12 @@ function SummariesTable({
 										>
 											<EditIcon aria-hidden="true" />
 										</Button>
-										{/* A summary delete is a hard delete with nothing behind it — no
-										    soft-delete column, no blockers to check — so there is no
-										    impact card to show first. */}
+										{/* No delete-impact card: a summary has no soft-delete column and
+										    nothing references it, so there are no blockers to report. The
+										    confirmation below is a separate question. */}
 										<Button
 											aria-label={`Delete the summary for ${summaryPeriodLabel(summary)}`}
-											onClick={() => onRemove(summary.id)}
+											onClick={() => onRemove(summary)}
 											size="icon-sm"
 											type="button"
 											variant="ghost"

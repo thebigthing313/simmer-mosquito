@@ -35,7 +35,7 @@ const STOP_LABELS: AcknowledgementLabels = {
  * A write that may be refused with a question, and the question.
  *
  * An acknowledgeable refusal is a condition the server can only discover once it
- * has the row in front of it — whether the stop was already completed, whether
+ * has the row in front of it, whether the stop was already completed, whether
  * the station already has summaries a rename would relabel. Asking up front
  * would put a checkbox on every form for a case that almost never arises, so the
  * write goes out plain and the refusal is what raises the question.
@@ -49,7 +49,7 @@ const STOP_LABELS: AcknowledgementLabels = {
  * The stop executions have five refusals about assignment and mission items; the
  * weather station writes have three about a station's history. Sharing one map
  * would offer a technician a "delete the summaries" answer to a question about a
- * mission stop — which the endpoint would ignore, and the dialog would still
+ * mission stop, which the endpoint would ignore, and the dialog would still
  * have asked. So each caller brings the refusals it can be asked and the words
  * to ask them in, and only the retry machinery is shared.
  */
@@ -62,7 +62,7 @@ export function useAcknowledgedWrite(
 	 *
 	 * **Resolving does not mean the write succeeded.** A refusal that a flag can
 	 * answer is a question, not a failure, so it is swallowed here and turned into
-	 * the dialog — and `run` resolves normally. Anything that should happen only
+	 * the dialog, and `run` resolves normally. Anything that should happen only
 	 * once the write lands, a navigation most of all, belongs *inside* `write`
 	 * rather than after this call; put it after and the page leaves before the
 	 * question can be asked, which reads as a save that worked. Only a refusal no

@@ -1,3 +1,4 @@
+import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Table,
 	TableBody,
@@ -6,33 +7,40 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
+import { type AssessedRow, actionLabel } from './-import-assessment';
 import type { ParsedSummaryRow } from './-import-parse';
 
 /**
- * The readings a file holds, before any of them are written.
+ * The readings a file holds, and what each one would do.
  *
- * Counts alone tell someone the file parsed; they do not tell them it parsed
- * *correctly*. A column mapped to the wrong field, a date read a day off, a
- * decimal point in the wrong place: each of those produces a perfectly healthy
- * "412 readable" and a spreadsheet's worth of wrong data. Seeing the first rows
- * as SIMMER understood them is what catches it, and it has to happen here,
- * because after the commit the fix is deleting rows one at a time.
+ * Counts alone tell somebody the file parsed; they do not tell them it parsed
+ * correctly. A column mapped to the wrong field, a date read a day off, a decimal
+ * point in the wrong place: each of those produces a perfectly healthy "412
+ * readable" and a spreadsheet's worth of wrong data. Seeing the first rows as
+ * SIMMER understood them is what catches it, and it has to happen here, because
+ * after the commit the fix is deleting rows one at a time.
+ *
+ * The verdict column is the other half, and the one the spec asks for by name:
+ * "User reviews insert/update/no-change/fail counts and row details". A row that
+ * would overwrite a reading already recorded is the one worth stopping on, and it
+ * looks identical to every other row until something says so.
  *
  * ## Only the columns the file carried
  *
  * A summary can hold seven metrics and most files carry two or three. Rendering
  * all seven would be four columns of dashes wide enough to push the real ones off
- * screen, and would say nothing — an absent column and an empty cell are already
- * the same thing to the writer. So the columns are derived from what actually
- * arrived.
+ * screen, and would say nothing: an absent column and an empty cell are already
+ * the same thing to the writer. So the columns are derived from what arrived.
  */
-export function ImportPreview({ rows }: { readonly rows: readonly ParsedSummaryRow[] }) {
-	if (rows.length === 0) {
+export function ImportPreview({ assessed }: { readonly assessed: readonly AssessedRow[] }) {
+	if (assessed.length === 0) {
 		return null;
 	}
 
-	const columns = METRIC_COLUMNS.filter((column) => rows.some((row) => row[column.key] !== null));
-	const shown = rows.slice(0, PREVIEW_ROWS);
+	const columns = METRIC_COLUMNS.filter((column) =>
+		assessed.some((entry) => entry.row[column.key] !== null),
+	);
+	const shown = assessed.slice(0, PREVIEW_ROWS);
 
 	return (
 		<div className="grid gap-2">
@@ -47,27 +55,39 @@ export function ImportPreview({ rows }: { readonly rows: readonly ParsedSummaryR
 									{column.label}
 								</TableHead>
 							))}
+							<TableHead className="w-36">Result</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{shown.map((row) => (
-							<TableRow key={row.line}>
-								<TableCell className="text-muted-foreground tabular-nums">{row.line}</TableCell>
-								<TableCell className="font-medium text-foreground">{periodLabel(row)}</TableCell>
+						{shown.map((entry) => (
+							<TableRow key={entry.line}>
+								<TableCell className="text-muted-foreground tabular-nums">{entry.line}</TableCell>
+								<TableCell className="font-medium text-foreground">
+									{periodLabel(entry.row)}
+								</TableCell>
 								{columns.map((column) => (
 									<TableCell className="text-right tabular-nums" key={column.key}>
-										{row[column.key] ?? '—'}
+										{entry.row[column.key] ?? ','}
 									</TableCell>
 								))}
+								<TableCell>
+									<Badge tone={ACTION_TONE[entry.action]} variant="outline">
+										{actionLabel(entry.action)}
+									</Badge>
+									{entry.issues.length === 0 ? null : (
+										<span className="mt-1 block text-muted-foreground text-xs">
+											{entry.issues[0]?.message}
+										</span>
+									)}
+								</TableCell>
 							</TableRow>
 						))}
 					</TableBody>
 				</Table>
 			</div>
-			{rows.length > shown.length ? (
+			{assessed.length > shown.length ? (
 				<p className="m-0 text-muted-foreground text-xs">
-					Showing the first {shown.length} of {rows.length.toLocaleString()} readings. All of them
-					are imported.
+					Showing the first {shown.length} of {assessed.length.toLocaleString()} readings.
 				</p>
 			) : null}
 		</div>
@@ -76,6 +96,13 @@ export function ImportPreview({ rows }: { readonly rows: readonly ParsedSummaryR
 
 /** Enough to see a mapping mistake without rendering five thousand rows. */
 const PREVIEW_ROWS = 25;
+
+const ACTION_TONE = {
+	insert: 'success',
+	update: 'info',
+	noChange: 'neutral',
+	fail: 'danger',
+} as const;
 
 const METRIC_COLUMNS = [
 	{ key: 'temperatureMinF', label: 'Min °F' },
@@ -98,6 +125,6 @@ const METRIC_COLUMNS = [
  * reformatted date is one more step between what the user typed and what they are
  * being shown.
  */
-function periodLabel(row: ParsedSummaryRow): string {
+function periodLabel(row: { readonly startDate: string; readonly endDate: string }): string {
 	return row.startDate === row.endDate ? row.startDate : `${row.startDate} → ${row.endDate}`;
 }

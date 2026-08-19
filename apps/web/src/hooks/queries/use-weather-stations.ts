@@ -30,6 +30,7 @@ export function useWeatherStations(): {
 					latitude: source.lat,
 					longitude: source.lng,
 					geometryKind: source.geom_type,
+					metadata: source.metadata,
 				})),
 		[],
 	);

@@ -16,7 +16,7 @@ import { getServerUrl } from '../../auth';
  *
  * Writable: the six `weather.*` station commands land on
  * `/commands/weather_sources`. The role floor is manager, enforced on the server
- * and mirrored in the route guards — a collector or viewer never reaches a form
+ * and mirrored in the route guards, a collector or viewer never reaches a form
  * that writes here.
  *
  * The type is written here rather than inferred because a `Collection<…>`

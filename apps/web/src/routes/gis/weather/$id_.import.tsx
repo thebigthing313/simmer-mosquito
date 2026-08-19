@@ -25,17 +25,19 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
+import { useWeatherSummaries } from '../../../hooks/queries/use-weather-summaries';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { isBelowRole } from '../../../lib/write-access';
+import { assessParsedRows, type FileAssessment } from './-import-assessment';
 import {
 	commitWeatherImport,
 	type WeatherImportResult,
-	type WeatherImportRow,
 	type WeatherImportRowResult,
 } from './-import-commit';
 import {
 	IMPORT_FILE_ACCEPT,
 	MAX_IMPORT_ROWS,
-	type ParsedSummaryRow,
 	type ParseResult,
 	parseWeatherFile,
 } from './-import-parse';
@@ -68,21 +70,118 @@ function ImportWeatherRoute() {
  * Loading a spreadsheet of readings into one station.
  *
  * Three steps, and the middle one is the point: pick a file, look at what the
- * file says, then commit. The review is not decoration — an import overwrites
+ * file says, then commit. The review is not decoration, an import overwrites
  * readings that already exist, and the two things a user has to agree to before
  * anything is written are how many rows would be overwritten and how many cannot
  * be written at all.
  *
  * ## The counts on screen are the client's, and the ones that matter are not
  *
- * What this page shows after parsing is what the *file* holds. The server
- * re-derives insert/update/no-change/fail against the station's rows inside the
- * write transaction, and its verdict is what writes — so the review is an
- * estimate a user acts on, and the result table underneath is the truth. They
- * usually agree; when they do not, it is because someone else recorded a reading
- * while this file was open, which is exactly the case the server-side re-check
- * exists for.
+ * The review names what each line would do, worked out against the readings this
+ * station already holds. The server re-derives the same verdict inside the write
+ * transaction, against the rows actually stored, and that is the one that writes.
+ * So the review is an estimate a user acts on and the result underneath is the
+ * truth. They usually agree; when they do not, someone else recorded a reading
+ * while the file was open, which is what the server-side re-check exists for.
+ *
+ * Only rows the review did not fail are submitted. That is step 7 of the spec's
+ * upload flow, "commits selected attemptable rows", and it is also what keeps one
+ * repeated date in a spreadsheet from being an argument about the whole batch.
  */
+/**
+ * Choosing a file, working out what it would do, and committing it.
+ *
+ * The page's whole state machine, kept out of the component that draws it: six
+ * pieces of state, an assessment that has to be computed once rather than per
+ * render, and a commit that answers a refusal with a dialog.
+ */
+function useWeatherUpload(stationId: string) {
+	// The agency's calendar day, so the review and the server agree about which
+	// rows are dated in the future.
+	const today = todayInTimeZone(useOrganizationTimeZone());
+	// The station's readings, which the assessment compares the file against. The
+	// detail page this was opened from is already querying them, which is what
+	// keeps the on-demand subset warm.
+	const { summaries, isReady } = useWeatherSummaries(stationId);
+	const { run, dialog } = useAcknowledgedWrite(IMPORT_REFUSALS, {
+		title: 'Import anyway?',
+		confirm: 'Import',
+		fallbackReason: 'Some of these rows cannot be written as they are.',
+	});
+
+	const [fileName, setFileName] = useState<string | null>(null);
+	const [parsed, setParsed] = useState<ParseResult | null>(null);
+	const [assessment, setAssessment] = useState<FileAssessment | null>(null);
+	const [result, setResult] = useState<WeatherImportResult | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	const [isBusy, setIsBusy] = useState(false);
+
+	const chooseFile = useCallback(
+		(file: File | undefined) => {
+			if (file === undefined) {
+				return;
+			}
+			setError(null);
+			setResult(null);
+			setFileName(file.name);
+			setIsBusy(true);
+			void parseWeatherFile(file)
+				.then((read) => {
+					setParsed(read);
+					// Assessed once, here, rather than on every render: the ids it mints
+					// are the ones the commit sends, and re-minting them would make a
+					// retry insert under different ids.
+					setAssessment(assessParsedRows(read.rows, summaries, newRecordId, today));
+				})
+				.finally(() => setIsBusy(false));
+		},
+		[summaries, today],
+	);
+
+	const commit = useCallback(() => {
+		if (assessment === null || assessment.attemptable.length === 0) {
+			return;
+		}
+		setError(null);
+		setIsBusy(true);
+		// Only the rows the review did not fail. The server assesses again and can
+		// still refuse one, but it is not asked to write a line the user has already
+		// been shown as unwritable.
+		//
+		// Both acknowledgements go out unset. What the file would overwrite is the
+		// server's to answer against stored rows, and it answers by refusing once and
+		// naming what it found, which is a better question than one asked from the
+		// client's own estimate.
+		void run(async (acknowledgements) => {
+			setResult(
+				await commitWeatherImport({
+					weatherStationId: stationId,
+					rows: assessment.attemptable,
+					acknowledgedUpdates: acknowledgements.acknowledgedUpdates === true,
+					acknowledgedPartialImport: acknowledgements.acknowledgedPartialImport === true,
+				}),
+			);
+		})
+			.catch((cause: unknown) =>
+				setError(cause instanceof Error ? cause.message : 'Unable to import these readings.'),
+			)
+			.finally(() => setIsBusy(false));
+	}, [assessment, run, stationId]);
+
+	return {
+		fileName,
+		parsed,
+		assessment,
+		result,
+		error,
+		isBusy,
+		dialog,
+		chooseFile,
+		commit,
+		canCommit: (assessment?.attemptable.length ?? 0) > 0 && !isBusy && isReady,
+	};
+}
+
 function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 	// As on the edit page: this route is the detail route's sibling, so it has to
 	// name the station itself or the crumb shows the bare id.
@@ -94,56 +193,7 @@ function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 		fallbackReason: 'Some of these rows cannot be written as they are.',
 	});
 
-	const [fileName, setFileName] = useState<string | null>(null);
-	const [parsed, setParsed] = useState<ParseResult | null>(null);
-	const [result, setResult] = useState<WeatherImportResult | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	const [isBusy, setIsBusy] = useState(false);
-
-	const onFile = useCallback(async (file: File | undefined) => {
-		if (file === undefined) {
-			return;
-		}
-		setError(null);
-		setResult(null);
-		setFileName(file.name);
-		setIsBusy(true);
-		try {
-			setParsed(await parseWeatherFile(file));
-		} finally {
-			setIsBusy(false);
-		}
-	}, []);
-
-	const onCommit = useCallback(async () => {
-		if (parsed === null || parsed.rows.length === 0) {
-			return;
-		}
-		setError(null);
-		setIsBusy(true);
-		try {
-			const rows = submittableRows(parsed.rows);
-
-			// Sent with neither acknowledgement. Whether this file overwrites anything
-			// is the server's to answer, and it answers by refusing once and naming
-			// what it found — which is a better question than one asked up front off
-			// the client's own guess.
-			await run(async (acknowledgements) => {
-				setResult(
-					await commitWeatherImport({
-						weatherStationId: station.id,
-						rows,
-						acknowledgedUpdates: acknowledgements.acknowledgedUpdates === true,
-						acknowledgedPartialImport: acknowledgements.acknowledgedPartialImport === true,
-					}),
-				);
-			});
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to import these readings.');
-		} finally {
-			setIsBusy(false);
-		}
-	}, [parsed, run, station.id]);
+	const upload = useWeatherUpload(station.id);
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -162,87 +212,77 @@ function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 					</p>
 				</div>
 
-				<Card variant="surface">
-					<CardHeader className="px-4 py-4">
-						<CardTitle>Choose a File</CardTitle>
-					</CardHeader>
-					<CardContent className="grid gap-3" padding="compact">
-						<Input
-							accept={IMPORT_FILE_ACCEPT}
-							aria-label="Spreadsheet of readings"
-							disabled={isBusy}
-							onChange={(event) => void onFile(event.target.files?.[0])}
-							type="file"
-						/>
-						<p className="m-0 text-muted-foreground text-xs">
-							The first row names the columns. A date column is required; readings are read in °F,
-							inches, percent and mph. Up to {MAX_IMPORT_ROWS.toLocaleString()} rows.
-						</p>
-					</CardContent>
-				</Card>
+				<FilePickerCard isBusy={upload.isBusy} onFile={upload.chooseFile} />
 
-				{error === null ? null : (
+				{upload.error === null ? null : (
 					<Alert variant="destructive">
 						<AlertTitle>Unable to Import</AlertTitle>
-						<AlertDescription>{error}</AlertDescription>
+						<AlertDescription>{upload.error}</AlertDescription>
 					</Alert>
 				)}
 
-				{parsed === null ? null : (
+				{upload.parsed === null || upload.assessment === null ? null : (
 					<ParsedFileCard
-						canCommit={parsed.rows.length > 0 && !isBusy}
-						fileName={fileName ?? 'the file'}
-						onCommit={() => void onCommit()}
-						parsed={parsed}
+						assessment={upload.assessment}
+						canCommit={upload.canCommit}
+						fileName={upload.fileName ?? 'the file'}
+						onCommit={upload.commit}
+						parsed={upload.parsed}
 					/>
 				)}
 
-				{result === null ? null : (
+				{upload.result === null ? null : (
 					<ImportResultCard
 						onDone={() => void navigate({ to: '/gis/weather/$id', params: { id: station.id } })}
-						result={result}
+						result={upload.result}
 						stationName={station.name}
 					/>
 				)}
 			</div>
-			{dialog}
+			{upload.dialog}
 		</div>
 	);
 }
 
-/**
- * The parsed lines, as the commit takes them.
- *
- * The ids are minted here, one per line. The server honours them for the rows it
- * inserts and ignores them for the rows it updates — an existing bucket keeps its
- * own id, because anything already pointing at it has to keep resolving.
- *
- * `clientRowId` is the spreadsheet line number, so a per-row failure comes back
- * naming something the user can find in their own file.
- */
-function submittableRows(rows: readonly ParsedSummaryRow[]): readonly WeatherImportRow[] {
-	return rows.map((row) => ({
-		clientRowId: String(row.line),
-		weatherSummaryId: newRecordId(),
-		startDate: row.startDate,
-		endDate: row.endDate,
-		temperatureMinF: row.temperatureMinF,
-		temperatureMaxF: row.temperatureMaxF,
-		precipitationInches: row.precipitationInches,
-		relativeHumidityMin: row.relativeHumidityMin,
-		relativeHumidityMax: row.relativeHumidityMax,
-		windSpeedMinMph: row.windSpeedMinMph,
-		windSpeedMaxMph: row.windSpeedMaxMph,
-	}));
+/** Choosing the file, and what the parser expects of it. */
+function FilePickerCard({
+	isBusy,
+	onFile,
+}: {
+	readonly isBusy: boolean;
+	readonly onFile: (file: File | undefined) => void;
+}) {
+	return (
+		<Card variant="surface">
+			<CardHeader className="px-4 py-4">
+				<CardTitle>Choose a File</CardTitle>
+			</CardHeader>
+			<CardContent className="grid gap-3" padding="compact">
+				<Input
+					accept={IMPORT_FILE_ACCEPT}
+					aria-label="Spreadsheet of readings"
+					disabled={isBusy}
+					onChange={(event) => onFile(event.target.files?.[0])}
+					type="file"
+				/>
+				<p className="m-0 text-muted-foreground text-xs">
+					The first row names the columns. A date column is required; readings are read in °F,
+					inches, percent and mph. Up to {MAX_IMPORT_ROWS.toLocaleString()} rows.
+				</p>
+			</CardContent>
+		</Card>
+	);
 }
 
 function ParsedFileCard({
 	parsed,
+	assessment,
 	fileName,
 	canCommit,
 	onCommit,
 }: {
 	readonly parsed: ParseResult;
+	readonly assessment: FileAssessment;
 	readonly fileName: string;
 	readonly canCommit: boolean;
 	readonly onCommit: () => void;
@@ -261,25 +301,11 @@ function ParsedFileCard({
 			<CardHeader className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
 				<CardTitle>{fileName}</CardTitle>
 				<Button disabled={!canCommit} onClick={onCommit} type="button">
-					Import {parsed.rows.length.toLocaleString()} Rows
+					Import {assessment.attemptable.length.toLocaleString()} Rows
 				</Button>
 			</CardHeader>
 			<CardContent className="grid gap-3" padding="compact">
-				<div className="flex flex-wrap gap-2">
-					<Badge tone="success" variant="outline">
-						{parsed.rows.length.toLocaleString()} readable
-					</Badge>
-					{parsed.rejected.length === 0 ? null : (
-						<Badge tone="warning" variant="outline">
-							{parsed.rejected.length.toLocaleString()} skipped
-						</Badge>
-					)}
-					{parsed.truncated ? (
-						<Badge tone="warning" variant="outline">
-							Only the first {MAX_IMPORT_ROWS.toLocaleString()} kept
-						</Badge>
-					) : null}
-				</div>
+				<AssessmentCounts assessment={assessment} parsed={parsed} />
 
 				{parsed.unmappedColumns.length === 0 ? null : (
 					<p className="m-0 text-muted-foreground text-sm">
@@ -289,9 +315,56 @@ function ParsedFileCard({
 
 				<SkippedLines rejected={parsed.rejected} />
 
-				<ImportPreview rows={parsed.rows} />
+				<ImportPreview assessed={assessment.rows} />
 			</CardContent>
 		</Card>
+	);
+}
+
+/**
+ * What the file would do, not merely that it parsed.
+ *
+ * A column mapped to the wrong field still reports "412 readable". "412 would
+ * overwrite" is the number somebody stops on.
+ */
+function AssessmentCounts({
+	assessment,
+	parsed,
+}: {
+	readonly assessment: FileAssessment;
+	readonly parsed: ParseResult;
+}) {
+	return (
+		<div className="flex flex-wrap gap-2">
+			<Badge tone="success" variant="outline">
+				{assessment.counts.insert.toLocaleString()} to add
+			</Badge>
+			{assessment.counts.update === 0 ? null : (
+				<Badge tone="info" variant="outline">
+					{assessment.counts.update.toLocaleString()} would overwrite
+				</Badge>
+			)}
+			{assessment.counts.noChange === 0 ? null : (
+				<Badge tone="neutral" variant="outline">
+					{assessment.counts.noChange.toLocaleString()} already recorded
+				</Badge>
+			)}
+			{assessment.counts.fail === 0 ? null : (
+				<Badge tone="danger" variant="outline">
+					{assessment.counts.fail.toLocaleString()} cannot be written
+				</Badge>
+			)}
+			{parsed.rejected.length === 0 ? null : (
+				<Badge tone="warning" variant="outline">
+					{parsed.rejected.length.toLocaleString()} unreadable
+				</Badge>
+			)}
+			{parsed.truncated ? (
+				<Badge tone="warning" variant="outline">
+					Only the first {MAX_IMPORT_ROWS.toLocaleString()} kept
+				</Badge>
+			) : null}
+		</div>
 	);
 }
 

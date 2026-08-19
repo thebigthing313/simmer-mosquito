@@ -6,7 +6,7 @@
  *
  * Same case as a Region and an Address: the point *is* the record, not a snapshot
  * of somewhere else, so the command takes the geometry itself. It rides as an
- * argument because there is no column for it — `geom` never syncs, and the
+ * argument because there is no column for it, `geom` never syncs, and the
  * `lat`/`lng`/`geom_type` the collection carries are generated read columns.
  * They are written optimistically anyway, because the stations map has to place
  * the pin before the server answers.
@@ -41,6 +41,8 @@ import { optimisticStamp } from './shared';
 export interface WeatherStationFields {
 	readonly name: string;
 	readonly code: string | null;
+	/** Agency-specific notes. Not part of the station's identity. */
+	readonly metadata: unknown;
 }
 
 type StationUpdateIntent =
@@ -71,7 +73,7 @@ export interface StationUpdatePlan {
  * the point a station already has is a write with no edit behind it, and the
  * domain refuses a command with nothing to change.
  *
- * `null` when nothing moved — an untouched save is not a write.
+ * `null` when nothing moved, an untouched save is not a write.
  */
 export function stationUpdatePlan(input: {
 	readonly fields: WeatherStationFields;
@@ -86,11 +88,19 @@ export function stationUpdatePlan(input: {
 	const args: Record<string, unknown> = {};
 	const acknowledgements: Record<string, boolean> = {};
 
-	if (fields.name !== current.name || fields.code !== current.code) {
+	const changesIdentity = fields.name !== current.name || fields.code !== current.code;
+	if (changesIdentity || fields.metadata !== current.metadata) {
 		intents.push('weather.updateWeatherStationDetails');
 		changes.source_name = fields.name;
 		changes.source_code = fields.code;
-		acknowledgements.acknowledgedHistoricalStationIdentityChange = input.acknowledgedIdentityChange;
+		changes.metadata = fields.metadata ?? null;
+		// Only an identity change can be refused over the station's history, so a
+		// notes-only edit does not answer a question nobody asked. The server draws
+		// the same line.
+		if (changesIdentity) {
+			acknowledgements.acknowledgedHistoricalStationIdentityChange =
+				input.acknowledgedIdentityChange;
+		}
 	}
 
 	if (geometry !== null) {
@@ -174,6 +184,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 						source_type: 'organization',
 						source_name: fields.name,
 						source_code: fields.code,
+						metadata: fields.metadata ?? null,
 						provider_source_id: null,
 						is_active: true,
 						created_by_profile_id: actorProfileId,
@@ -181,7 +192,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 						created_at: now,
 						updated_at: now,
 					} satisfies WeatherSource,
-					arguments: { geometry },
+					arguments: { geometry, metadata: fields.metadata ?? null },
 				}),
 			);
 		},

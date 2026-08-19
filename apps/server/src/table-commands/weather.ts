@@ -10,8 +10,8 @@
  * Postgres column names, as everywhere on this surface: `source_name`,
  * `source_code`, `weather_source_id`, `start_date`, `temperature_min_f`. The
  * domain calls the first two the station's name and code and the third the
- * station it belongs to — `docs/weather-domain.md` keeps "weather station" as
- * the word for a `weather_sources` row — and the translation between the two
+ * station it belongs to, `docs/weather-domain.md` keeps "weather station" as
+ * the word for a `weather_sources` row, and the translation between the two
  * vocabularies is exactly what these builders are.
  *
  * `geometry` is the exception, as it is on `regions` and the surveillance
@@ -21,9 +21,9 @@
  * ## The future-date rule needs the agency's zone
  *
  * A summary records weather that has already happened, so its bucket cannot end
- * after today. Which day "today" is depends on the agency's timezone — a
+ * after today. Which day "today" is depends on the agency's timezone, a
  * California agency entering yesterday's rain at 6pm is on a date UTC has
- * already left — so the check cannot live in a domain builder, which is handed
+ * already left, so the check cannot live in a domain builder, which is handed
  * no zone, and cannot live in the writer, which is handed a transaction and a
  * command and nothing else. It lives here, where `authContext.timeZone` is the
  * setting resolved once per request.
@@ -252,7 +252,7 @@ function readNumber(value: unknown): number | null {
  *
  * Raised as a `DomainValidationError` so it lands as the same `invalid_command`
  * 400 with an issue path that a builder rejection does. To a client this is one
- * kind of answer — "that field is wrong, here is which" — and the fact that this
+ * kind of answer, "that field is wrong, here is which", and the fact that this
  * particular rule needed a setting to decide is not something a form should have
  * to handle differently.
  */

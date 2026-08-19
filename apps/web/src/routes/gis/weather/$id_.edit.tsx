@@ -47,7 +47,7 @@ function EditWeatherStationRoute() {
 
 function EditWeatherStationForm({ station }: { readonly station: WeatherStation }) {
 	// The detail route registers this too, but `$id_.edit` is its sibling rather
-	// than its child — the trailing underscore is what un-nests it — so the label
+	// than its child, the trailing underscore is what un-nests it, so the label
 	// does not carry over and the crumb renders the bare id.
 	useBreadcrumbLabel(station.id, station.name);
 	const navigate = useNavigate();
@@ -72,7 +72,7 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 					: null;
 
 			// The two questions go out unanswered and come back as refusals if the
-			// station has readings — which is the only time either matters. See
+			// station has readings, which is the only time either matters. See
 			// `useAcknowledgedWrite`.
 			//
 			// The navigation is *inside* the callback on purpose: `run` resolves on a
@@ -119,13 +119,17 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 }
 
 function formValuesFrom(station: WeatherStation): WeatherStationFormValues {
-	return { name: station.name, code: station.sourceCode ?? '' };
+	return {
+		name: station.name,
+		code: station.sourceCode ?? '',
+		metadata: (station.metadata ?? null) as WeatherStationFormValues['metadata'],
+	};
 }
 
 /**
  * The station's stored point, rebuilt from the synced centroid columns.
  *
- * A station is a Point, so its centroid *is* its geometry — there is no loss
+ * A station is a Point, so its centroid *is* its geometry, there is no loss
  * here, unlike a region, whose polygon has to be fetched because `lat`/`lng` only
  * say roughly where it sits.
  */

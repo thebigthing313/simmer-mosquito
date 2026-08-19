@@ -61,7 +61,7 @@ import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js'
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 import { registerTableCommandSurface } from './table-commands/index.js';
 import { registerUnimplementedCommandRoutes } from './unimplemented-commands.js';
-import { registerWeatherImportRoute } from './weather-commands/import.js';
+import { registerWeatherImportRoute } from './weather-commands/index.js';
 
 const env = readServerEnv();
 const auth = createWorkOsAuth({
@@ -394,7 +394,7 @@ registerTableCommandSurface(app, {
 	operatorAuthContextMiddleware,
 });
 
-// The one weather command the table surface has no shape for — see the module.
+// The one weather command the table surface has no shape for, see the module.
 registerWeatherImportRoute(app, {
 	db,
 	authContextMiddleware,

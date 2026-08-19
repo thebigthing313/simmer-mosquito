@@ -20,7 +20,7 @@ import { getServerUrl } from '../../auth';
  * On-demand and writable together is the pairing that needs care. A write into a
  * subset nothing is currently querying waits out a txid confirmation that never
  * arrives, so a form that creates a summary has to be querying the station's
- * summaries already — which the detail page it opens from is doing.
+ * summaries already, which the detail page it opens from is doing.
  *
  * The type is written here rather than inferred because a `Collection<…>`
  * instantiated inside `packages/sync` arrives as `any`, with no error to say so.

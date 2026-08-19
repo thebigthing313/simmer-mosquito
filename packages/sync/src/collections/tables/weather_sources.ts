@@ -23,6 +23,7 @@ export const weatherSourceSchema = z.object({
 	source_code: z.string().nullable(),
 	provider_source_id: z.string().nullable(),
 	is_active: z.boolean(),
+	metadata: z.unknown().nullable(),
 	created_by_profile_id: z.uuid().nullable().default(null),
 	updated_by_profile_id: z.uuid().nullable().default(null),
 	created_at: z.coerce.date().default(() => new Date()),

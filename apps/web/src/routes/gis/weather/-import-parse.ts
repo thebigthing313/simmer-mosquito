@@ -3,19 +3,19 @@
  *
  * All of this is client work by design. `docs/weather-domain.md` puts parsing,
  * column mapping and unit conversion in the browser so the server never sees a
- * CSV — what crosses the wire is already normalized rows in canonical units, and
+ * CSV, what crosses the wire is already normalized rows in canonical units, and
  * the server's job is to decide which of them may be written, not what they say.
  *
  * ## Reading the file
  *
  * SheetJS handles `.csv`, `.xls` and `.xlsx` through one call, and it is loaded
- * with a dynamic `import()` so it stays out of the boot bundle — it is several
+ * with a dynamic `import()` so it stays out of the boot bundle, it is several
  * hundred kilobytes that only this page ever needs, and a static import would put
  * it on every page load in the app.
  *
  * The package comes from SheetJS's own registry rather than npm. The npm `xlsx`
  * package stopped at 0.18.5 and carries an unfixed prototype-pollution advisory
- * (CVE-2023-30533) that fires precisely on this use — reading an untrusted file —
+ * (CVE-2023-30533) that fires precisely on this use, reading an untrusted file,
  * so the pinned tarball in `apps/web/package.json` is the maintained build.
  *
  * ## Mapping columns
@@ -28,8 +28,8 @@
  *
  * ## Units
  *
- * Values are taken as already canonical — Fahrenheit, inches, percent, miles per
- * hour — because that is what a US agency's gauge and station exports carry. A
+ * Values are taken as already canonical, Fahrenheit, inches, percent, miles per
+ * hour, because that is what a US agency's gauge and station exports carry. A
  * file in Celsius or millimetres is out of scope for v1 and would need a unit
  * picker in the review step rather than a guess here.
  */
@@ -149,9 +149,14 @@ export async function parseWeatherFile(file: File): Promise<ParseResult> {
 			return empty('That file has no sheets in it.');
 		}
 		// `header: 1` gives rows as arrays rather than objects keyed by header, so
-		// the mapping below is this module's rather than SheetJS's — two columns
-		// with the same header would otherwise silently collapse into one.
-		table = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, blankrows: false });
+		// the mapping below is this module's rather than SheetJS's: two columns with
+		// the same header would otherwise silently collapse into one.
+		//
+		// `blankrows` stays at its default, which keeps them. Dropping them here
+		// would renumber everything after the first blank row, and the line number is
+		// the whole point of the review screen: it is what lets somebody open their
+		// own file at the row that failed. The loop below skips blank rows itself.
+		table = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
 	} catch {
 		return empty('That file could not be read as a spreadsheet.');
 	}
@@ -179,7 +184,7 @@ export async function parseWeatherFile(file: File): Promise<ParseResult> {
 	for (let index = 1; index < table.length; index += 1) {
 		const cells = table[index];
 		if (cells === undefined || cells.every(isBlank)) {
-			// A blank line is not a deletion request, and not a failure either — a
+			// A blank line is not a deletion request, and not a failure either, a
 			// trailing empty row is how most exports end.
 			continue;
 		}
@@ -207,7 +212,7 @@ type LineResult = ParsedSummaryRow | { readonly line: number; readonly reason: s
  * Turn one line into a row, or say what is wrong with it.
  *
  * Every refusal names the line, because the review screen's job is to let someone
- * open their own file and fix it — "3 rows were skipped" is a dead end, "line 84
+ * open their own file and fix it, "3 rows were skipped" is a dead end, "line 84
  * has no readings" is not.
  */
 function readLine(
@@ -302,7 +307,7 @@ function mapColumns(headerRow: readonly unknown[]): {
  * unit a column names itself with.
  *
  * The bracketed unit has to go before the punctuation does, or "Precip (in)"
- * collapses to `precipin` and matches nothing — which is how the same column
+ * collapses to `precipin` and matches nothing, which is how the same column
  * reads fine from one export and is silently ignored from another.
  */
 function normalizeHeader(header: string): string {
@@ -320,7 +325,7 @@ function isBlank(cell: unknown): boolean {
  * A cell as a `YYYY-MM-DD` calendar day, or `null`.
  *
  * `cellDates` makes SheetJS hand back a `Date` for a real date cell, and its
- * parts are read in local time rather than through `toISOString` — a date cell is
+ * parts are read in local time rather than through `toISOString`, a date cell is
  * a calendar day with no zone attached, and rendering it as UTC shifts it a day
  * backwards for anyone west of Greenwich. The same trap the summary read seam has.
  */
@@ -368,8 +373,8 @@ function readNumber(cell: unknown): number | null | undefined {
  * Two decimal places, which the domain requires and refuses rather than rounds.
  *
  * Rounded here rather than sent through, because a spreadsheet routinely carries
- * more precision than it means — a cell showing 1.25 can hold 1.2500000000000002
- * after a formula — and failing a whole file over float noise would be reporting a
+ * more precision than it means, a cell showing 1.25 can hold 1.2500000000000002
+ * after a formula, and failing a whole file over float noise would be reporting a
  * problem the user cannot see in their own document. The domain's refusal stands
  * for the values a *person* typed, which is the manual entry form's path.
  */

@@ -14,7 +14,8 @@
  * hard delete.
  *
  * So the tenancy predicate is written out here instead. It is the same predicate
- * — `id`, `organization_id`, and for stations `deleted_at is null` — and what
+ * It is the same predicate on `id`, `organization_id`, and for stations
+ * `deleted_at is null`, and what
  * makes writing it out safe is that it is written once, here, rather than at
  * each of the ten call sites.
  *
@@ -28,12 +29,12 @@
 import { localDateColumn, sql } from '@simmer-mosquito/db';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { CommandError, commandEndpoint } from '../command-endpoint.js';
+import { CommandError } from '../command-endpoint.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
 
 export type WeatherDb = CommandDb;
 export type WeatherTransaction = CommandTransaction;
-export { CommandError, commandEndpoint, localDateColumn };
+export { CommandError, localDateColumn };
 
 export interface RouteOptions {
 	readonly db: WeatherDb;
@@ -60,6 +61,7 @@ export const weatherStationReturnColumns = [
 	'source_code',
 	'provider_source_id',
 	'is_active',
+	'metadata',
 	'created_by_profile_id',
 	'updated_by_profile_id',
 	'created_at',
@@ -77,6 +79,7 @@ export interface SafeWeatherStation {
 	readonly stationCode: string | null;
 	readonly providerSourceId: string | null;
 	readonly isActive: boolean;
+	readonly metadata: unknown | null;
 	readonly createdByProfileId: string | null;
 	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
@@ -94,6 +97,7 @@ export function toSafeWeatherStation(row: {
 	readonly source_code: string | null;
 	readonly provider_source_id: string | null;
 	readonly is_active: boolean;
+	readonly metadata: unknown | null;
 	readonly created_by_profile_id: string | null;
 	readonly updated_by_profile_id: string | null;
 	readonly created_at: Date;
@@ -112,6 +116,7 @@ export function toSafeWeatherStation(row: {
 		stationCode: row.source_code,
 		providerSourceId: row.provider_source_id,
 		isActive: row.is_active,
+		metadata: row.metadata,
 		createdByProfileId: row.created_by_profile_id,
 		updatedByProfileId: row.updated_by_profile_id,
 		createdAt: row.created_at,
@@ -211,7 +216,7 @@ export interface StationState {
  *
  * `source_type` is not filtered. An agency's rows are all `'organization'` in
  * v1, and a station that somehow carried the other type while naming this
- * organization would still be that agency's row to manage — filtering it out
+ * organization would still be that agency's row to manage, filtering it out
  * would answer 404 for a row the agency can see in its own list.
  */
 export async function loadStation(
@@ -238,6 +243,26 @@ export interface SummaryState {
 	readonly startDate: string;
 	readonly endDate: string;
 	readonly updatedAt: Date;
+	/**
+	 * The readings the row currently holds.
+	 *
+	 * Carried because a patch is judged on the row it *produces*, not on the
+	 * fields it names: "at least one metric" and "min before max" are rules about
+	 * the stored result, and a patch naming one half of a pair cannot be judged
+	 * without the other half.
+	 */
+	readonly metrics: SummaryMetrics;
+}
+
+/** The seven readings a summary can hold. */
+export interface SummaryMetrics {
+	readonly temperatureMinF: number | null;
+	readonly temperatureMaxF: number | null;
+	readonly precipitationInches: number | null;
+	readonly relativeHumidityMin: number | null;
+	readonly relativeHumidityMax: number | null;
+	readonly windSpeedMinMph: number | null;
+	readonly windSpeedMaxMph: number | null;
 }
 
 /**
@@ -245,8 +270,8 @@ export interface SummaryState {
  *
  * Joined to the station rather than trusting `weather_summaries.organization_id`
  * alone. The column is what the sync scope reads and every write here sets it,
- * but the station is where the tenancy is anchored — a summary is reachable only
- * through one — and the join is also what enforces "never a deleted station".
+ * but the station is where the tenancy is anchored, a summary is reachable only
+ * through one, and the join is also what enforces "never a deleted station".
  *
  * The dates come back as text. A `date` column read as a `Date` is a timestamp at
  * local midnight, and every comparison the overlap rules make is between calendar
@@ -264,6 +289,13 @@ export async function loadSummary(
 			'weather_summaries.id as id',
 			'weather_summaries.weather_source_id as weather_source_id',
 			'weather_summaries.updated_at as updated_at',
+			'weather_summaries.temperature_min_f as temperature_min_f',
+			'weather_summaries.temperature_max_f as temperature_max_f',
+			'weather_summaries.precipitation_inches as precipitation_inches',
+			'weather_summaries.relative_humidity_min as relative_humidity_min',
+			'weather_summaries.relative_humidity_max as relative_humidity_max',
+			'weather_summaries.wind_speed_min_mph as wind_speed_min_mph',
+			'weather_summaries.wind_speed_max_mph as wind_speed_max_mph',
 			sql<string>`weather_summaries.start_date::text`.as('start_date'),
 			sql<string>`weather_summaries.end_date::text`.as('end_date'),
 		])
@@ -279,6 +311,15 @@ export async function loadSummary(
 				startDate: row.start_date,
 				endDate: row.end_date,
 				updatedAt: row.updated_at,
+				metrics: {
+					temperatureMinF: row.temperature_min_f,
+					temperatureMaxF: row.temperature_max_f,
+					precipitationInches: row.precipitation_inches,
+					relativeHumidityMin: row.relative_humidity_min,
+					relativeHumidityMax: row.relative_humidity_max,
+					windSpeedMinMph: row.wind_speed_min_mph,
+					windSpeedMaxMph: row.wind_speed_max_mph,
+				},
 			};
 }
 
@@ -372,8 +413,8 @@ export function assertFresh(expected: Date | null, actual: Date, entity: string)
  * 400.
  *
  * The request is well-formed and the domain built the command; what is missing is
- * confirmation that a consequence is intended. That turns on the stored rows —
- * whether summaries exist — so it cannot be a builder rule, and a 400 would tell
+ * confirmation that a consequence is intended. That turns on the stored rows,
+ * whether summaries exist, so it cannot be a builder rule, and a 400 would tell
  * a client its payload was malformed when the fix is a second question to the
  * user.
  */

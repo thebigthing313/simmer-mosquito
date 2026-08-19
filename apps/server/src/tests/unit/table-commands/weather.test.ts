@@ -7,7 +7,7 @@
  * against a present-but-null one, and which calendar day counts as today.
  *
  * The last is the one with a wrong answer that looks right. A summary records
- * weather that already happened, so its bucket cannot end after today — and
+ * weather that already happened, so its bucket cannot end after today, and
  * "today" is the agency's calendar day, not the server's. Checked against UTC, a
  * California agency entering the afternoon's rain at 5pm local is submitting
  * tomorrow, and gets refused for a date it is standing in.
@@ -91,7 +91,7 @@ describe('weather stations', () => {
 		);
 
 		// The column is unique per agency where it is non-null, so a station saved
-		// with a blank code field must not claim the empty string — the second one
+		// with a blank code field must not claim the empty string, the second one
 		// saved that way would collide with the first.
 		expect(command.payload).toMatchObject({ stationCode: null });
 	});
@@ -240,8 +240,8 @@ describe('weather summaries', () => {
 	 *
 	 * At 06:00 UTC the calendar has already turned in Auckland and has not yet
 	 * turned in Los Angeles, so one and the same date is today for one agency and
-	 * tomorrow for the other. A check against UTC — or against whichever zone the
-	 * test machine happens to sit in — cannot tell those two apart, and would pass
+	 * tomorrow for the other. A check against UTC, or against whichever zone the
+	 * test machine happens to sit in, cannot tell those two apart, and would pass
 	 * this on some machines and fail it on others.
 	 */
 	it('reads today from the agency zone rather than the server clock', () => {
@@ -300,8 +300,8 @@ describe('the weather stubs', () => {
  * The `changes` of a patch command, read off a union that also holds payloads
  * without one.
  *
- * `build` is generic over the whole `WeatherCommand` union — a create and an
- * import are the same type as far as it is concerned — so reading `changes`
+ * `build` is generic over the whole `WeatherCommand` union, a create and an
+ * import are the same type as far as it is concerned, so reading `changes`
  * needs the narrowing that the test's own `it` title already implies.
  */
 function changesOf(command: WritableCommand): Record<string, unknown> {

@@ -585,6 +585,191 @@ describeDbIntegration('weather commands against Postgres', () => {
 		});
 	});
 
+	it('refuses a patch that would leave a summary with no readings', async () => {
+		await withTestDb(async ({ db }) => {
+			const { organizationId, actorProfileId } = await agency(db, 'summary_empty');
+			const stationId = await seedStation(db, organizationId, actorProfileId);
+			const summaryId = await seedSummary(
+				db,
+				organizationId,
+				stationId,
+				'2026-06-01',
+				'2026-06-01',
+			);
+
+			// The seed carries rain and a temperature pair, so clearing all three is
+			// what empties it. The domain cannot catch this: its builder sees a patch
+			// that changes something, which is all it asks for.
+			const refusal = await refused(
+				writeSummary(
+					db,
+					updateWeatherSummaryCommand({
+						organizationId,
+						actorProfileId,
+						weatherSummaryId: summaryId,
+						precipitationInches: null,
+						temperatureMinF: null,
+						temperatureMaxF: null,
+					}),
+				),
+			);
+
+			expect(refusal).toMatchObject({ status: 400, body: { error: 'invalid_command' } });
+			const stored = await db
+				.selectFrom('weather_summaries')
+				.select('precipitation_inches')
+				.where('id', '=', summaryId)
+				.executeTakeFirstOrThrow();
+			expect(stored.precipitation_inches).toBe(1.25);
+		});
+	});
+
+	it('refuses a patch that inverts a pair against the stored half', async () => {
+		await withTestDb(async ({ db }) => {
+			const { organizationId, actorProfileId } = await agency(db, 'summary_pair');
+			const stationId = await seedStation(db, organizationId, actorProfileId);
+			const summaryId = await seedSummary(
+				db,
+				organizationId,
+				stationId,
+				'2026-06-01',
+				'2026-06-01',
+			);
+
+			// The seed's max is 78. Naming only the min leaves the domain nothing to
+			// compare against, and the database's check constraint answers `23514`,
+			// which is a 500 unless the server settles it first.
+			const refusal = await refused(
+				writeSummary(
+					db,
+					updateWeatherSummaryCommand({
+						organizationId,
+						actorProfileId,
+						weatherSummaryId: summaryId,
+						temperatureMinF: 99,
+					}),
+				),
+			);
+
+			expect(refusal).toMatchObject({ status: 400, body: { error: 'invalid_command' } });
+		});
+	});
+
+	it('answers another agency\u2019s summary as if it were not there', async () => {
+		await withTestDb(async ({ db }) => {
+			const owner = await agency(db, 'summary_owner');
+			const stranger = await agency(db, 'summary_stranger');
+			const stationId = await seedStation(db, owner.organizationId, owner.actorProfileId);
+			const summaryId = await seedSummary(
+				db,
+				owner.organizationId,
+				stationId,
+				'2026-06-01',
+				'2026-06-01',
+			);
+
+			// `loadSummary` is the one hand-written tenancy predicate with a join in
+			// it, and the station is where the scoping is anchored.
+			const updated = await writeSummary(
+				db,
+				updateWeatherSummaryCommand({
+					organizationId: stranger.organizationId,
+					actorProfileId: stranger.actorProfileId,
+					weatherSummaryId: summaryId,
+					precipitationInches: 9,
+				}),
+			);
+			const deleted = await writeSummary(
+				db,
+				deleteWeatherSummaryCommand({
+					organizationId: stranger.organizationId,
+					actorProfileId: stranger.actorProfileId,
+					weatherSummaryId: summaryId,
+				}),
+			);
+
+			expect(updated).toBeNull();
+			expect(deleted).toBeNull();
+			const stored = await db
+				.selectFrom('weather_summaries')
+				.select('precipitation_inches')
+				.where('id', '=', summaryId)
+				.executeTakeFirstOrThrow();
+			expect(stored.precipitation_inches).toBe(1.25);
+		});
+	});
+
+	it('keeps a global station out of reach of every agency', async () => {
+		await withTestDb(async ({ db }) => {
+			const { organizationId, actorProfileId } = await agency(db, 'station_global');
+			// A provider-owned row: `organization_id` is null, which is the state the
+			// nullable column exists for and the one the hand-written predicates have
+			// to exclude. Null compares unequal to every id rather than matching.
+			const global = await db
+				.insertInto('weather_sources')
+				.values({
+					organization_id: null,
+					geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+					source_type: 'nws',
+					source_name: 'Regional Airport',
+				})
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const answer = await writeStation(
+				db,
+				updateWeatherStationDetailsCommand({
+					organizationId,
+					actorProfileId,
+					weatherStationId: global.id,
+					stationName: 'Mine now',
+				}),
+			);
+
+			expect(answer).toBeNull();
+			const stored = await db
+				.selectFrom('weather_sources')
+				.select('source_name')
+				.where('id', '=', global.id)
+				.executeTakeFirstOrThrow();
+			expect(stored.source_name).toBe('Regional Airport');
+		});
+	});
+
+	it('stores the notes a station carries', async () => {
+		await withTestDb(async ({ db }) => {
+			const { organizationId, actorProfileId } = await agency(db, 'station_metadata');
+			const stationId = uuid(1);
+
+			const created = await writeStation(
+				db,
+				createWeatherStationCommand({
+					organizationId,
+					actorProfileId,
+					weatherStationId: stationId,
+					stationName: 'North Gauge',
+					geometry: PIN,
+					metadata: { gauge: 'tipping bucket' },
+				}),
+			);
+			const cleared = await writeStation(
+				db,
+				updateWeatherStationDetailsCommand({
+					organizationId,
+					actorProfileId,
+					weatherStationId: stationId,
+					metadata: null,
+				}),
+			);
+
+			// The column landed late: the field was accepted and dropped until
+			// `202608190001_weather_station_metadata.sql`.
+			expect(created).toMatchObject({ metadata: { gauge: 'tipping bucket' } });
+			// Present-and-null clears, rather than being read as "unchanged".
+			expect(cleared).toMatchObject({ metadata: null });
+		});
+	});
+
 	// ------------------------------------------------------------------
 	// The import
 	// ------------------------------------------------------------------
@@ -759,6 +944,61 @@ describeDbIntegration('weather commands against Postgres', () => {
 		});
 	});
 
+	it('fails only the offending rows when the file repeats a bucket', async () => {
+		await withTestDb(async ({ db }) => {
+			const { organizationId, actorProfileId } = await agency(db, 'import_repeat');
+			const stationId = await seedStation(db, organizationId, actorProfileId);
+
+			const result = await runImport(
+				db,
+				commitWeatherSummaryImportCommand({
+					organizationId,
+					actorProfileId,
+					weatherStationId: stationId,
+					acknowledgedPartialImport: true,
+					rows: [
+						importRow('row-1', uuid(11), '2026-06-01', '2026-06-01', { precipitationInches: 1 }),
+						// The same day twice, which an hourly export collapsed onto a date
+						// column produces. The spec fails the later row, not the file: the
+						// builder used to throw on the whole batch here.
+						importRow('row-2', uuid(12), '2026-06-01', '2026-06-01', { precipitationInches: 2 }),
+						importRow('row-3', uuid(13), '2026-06-02', '2026-06-02', { precipitationInches: 3 }),
+					],
+				}),
+			);
+
+			expect(result?.counts).toEqual({ inserted: 2, updated: 0, noChange: 0, failed: 1 });
+			expect(result?.rows[1]).toMatchObject({ clientRowId: 'row-2', status: 'failed' });
+		});
+	});
+
+	it('fails a row dated after the agency\u2019s today', async () => {
+		await withTestDb(async ({ db }) => {
+			const { organizationId, actorProfileId } = await agency(db, 'import_future');
+			const stationId = await seedStation(db, organizationId, actorProfileId);
+
+			const result = await runImport(
+				db,
+				commitWeatherSummaryImportCommand({
+					organizationId,
+					actorProfileId,
+					weatherStationId: stationId,
+					acknowledgedPartialImport: true,
+					rows: [
+						importRow('row-1', uuid(11), '2026-06-01', '2026-06-01', { precipitationInches: 1 }),
+						importRow('row-2', uuid(12), '2026-06-30', '2026-06-30', { precipitationInches: 2 }),
+					],
+				}),
+				// The agency's calendar day. A summary records weather that already
+				// happened, and the bulk path used to skip this check entirely.
+				'2026-06-15',
+			);
+
+			expect(result?.counts).toEqual({ inserted: 1, updated: 0, noChange: 0, failed: 1 });
+			expect(result?.rows[1]?.issues[0]?.path).toBe('endDate');
+		});
+	});
+
 	it('refuses an import against a station the agency does not own', async () => {
 		await withTestDb(async ({ db }) => {
 			const owner = await agency(db, 'import_owner');
@@ -797,8 +1037,8 @@ describeDbIntegration('weather commands against Postgres', () => {
  * A writer, in its own transaction, with the refusals left to propagate.
  *
  * `writeCommands` is what the routes use, and it adds the ownership resolver and
- * the txid read. Neither is under test here — `command-write.test.ts` owns the
- * first and no weather command carries an ownership rule — and going without
+ * the txid read. Neither is under test here, `command-write.test.ts` owns the
+ * first and no weather command carries an ownership rule, and going without
  * them keeps a refusal a `CommandError` rather than a `Response`.
  */
 async function writeStation(db: Db, command: WeatherCommand) {
@@ -813,10 +1053,20 @@ async function writeSummary(db: Db, command: WeatherCommand) {
 		.execute((trx) => writeWeatherSummaryCommand(trx as CommandTransaction, command));
 }
 
-async function runImport(db: Db, command: CommitWeatherSummaryImportCommand) {
+/**
+ * `currentLocalDate` is far enough ahead that no fixture date reads as the
+ * future. The cases that are *about* the future-date rule pass their own.
+ */
+async function runImport(
+	db: Db,
+	command: CommitWeatherSummaryImportCommand,
+	currentLocalDate = '2099-12-31',
+) {
 	return db
 		.transaction()
-		.execute((trx) => commitWeatherSummaryImport(trx as CommandTransaction, command));
+		.execute((trx) =>
+			commitWeatherSummaryImport(trx as CommandTransaction, command, currentLocalDate),
+		);
 }
 
 /** The refusal a writer raised, as something a matcher can read. */

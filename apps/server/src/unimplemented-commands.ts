@@ -2,7 +2,7 @@
  * Routes for the commands the domain declares and nothing writes yet.
  *
  * Three of the 274 names in the vocabulary have no handler: two merges, and
- * mission notification generation. Until now that was invisible — a client
+ * mission notification generation. Until now that was invisible, a client
  * naming one of them got a 404 from Hono, which is the same answer it gets for a
  * typo, so an unbuilt feature and a misspelled path were indistinguishable.
  *

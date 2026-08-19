@@ -26,7 +26,7 @@ import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
-import { STATION_ACKNOWLEDGEMENT_LABELS, STATION_REFUSALS } from './-weather-acknowledgements';
+import { STATION_DELETE_LABELS, STATION_DELETE_REFUSALS } from './-weather-acknowledgements';
 import { weatherSourceTypeLabel } from './-weather-display';
 import { WeatherSummariesCard } from './-weather-summaries-card';
 import { StationStatusBadge } from './-weather-ui';
@@ -163,7 +163,7 @@ function StationDetailsCard({ station }: { readonly station: WeatherStation }) {
 function StationLifecycleCard({ station }: { readonly station: WeatherStation }) {
 	const navigate = useNavigate();
 	const mutations = useWeatherStationMutations();
-	const { run, dialog } = useAcknowledgedWrite(STATION_REFUSALS, STATION_ACKNOWLEDGEMENT_LABELS);
+	const { run, dialog } = useAcknowledgedWrite(STATION_DELETE_REFUSALS, STATION_DELETE_LABELS);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isBusy, setIsBusy] = useState(false);
@@ -189,7 +189,7 @@ function StationLifecycleCard({ station }: { readonly station: WeatherStation })
 			// dialog is what earns the second attempt.
 			//
 			// The navigation is inside the callback because `run` resolves on a
-			// refusal too — see the same note on the edit page.
+			// refusal too, see the same note on the edit page.
 			await run(async (acknowledgements) => {
 				await mutations.remove(station.id, acknowledgements.acknowledgedSummaryDeletion === true);
 				await navigate({ to: '/gis/weather' });

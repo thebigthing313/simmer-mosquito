@@ -1,3 +1,4 @@
+import { createWeatherSummaryCommand, DomainValidationError } from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Dialog,
@@ -10,9 +11,9 @@ import {
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { useCallback, useState } from 'react';
+import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import {
-	hasAnyMetric,
 	useWeatherSummaryMutations,
 	type WeatherMetrics,
 	type WeatherSummaryFields,
@@ -22,7 +23,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { todayInTimeZone } from '../../../lib/local-date';
 
 /**
- * One dialog for both manual summary writes — `summary === null` records a new
+ * One dialog for both manual summary writes, `summary === null` records a new
  * bucket, otherwise it corrects one. Callers mount it only while open, so the
  * fields start from the summary being edited without a sync-back effect.
  *
@@ -38,18 +39,23 @@ import { todayInTimeZone } from '../../../lib/local-date';
  * The seven are what a summary can hold, and an empty box means "no reading",
  * which on an edit means "clear the one that is there". Hiding the empty ones
  * behind a picker would make clearing a value harder than setting one, and
- * clearing is the commoner correction — a gauge misread is fixed by emptying the
+ * clearing is the commoner correction, a gauge misread is fixed by emptying the
  * box, not by typing a different wrong number.
  */
-export function WeatherSummaryDialog({
-	stationId,
-	summary,
-	onClose,
-}: {
+/**
+ * Everything the dialog holds while it is open, and the one write it makes.
+ *
+ * A form's state machine, kept out of the component that draws it. Six pieces of
+ * state and a save that has to know about all of them is the whole of what this
+ * dialog is; leaving them inline made the render unreadable and the rules hard to
+ * find among the JSX.
+ */
+function useSummaryForm(input: {
 	readonly stationId: string;
 	readonly summary: WeatherSummaryListing | null;
 	readonly onClose: () => void;
 }) {
+	const { stationId, summary, onClose } = input;
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
 	const mutations = useWeatherSummaryMutations();
@@ -61,14 +67,34 @@ export function WeatherSummaryDialog({
 	const [endTouched, setEndTouched] = useState(
 		summary !== null && summary.startDate !== summary.endDate,
 	);
-	const [metrics, setMetrics] = useState<MetricInputs>(() => metricInputsFrom(summary));
+	const [metricInputs, setMetricInputs] = useState<MetricInputs>(() => metricInputsFrom(summary));
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
-	const parsed = parseMetrics(metrics);
-	const canSave = mutations.canWrite && isSaveable({ startDate, endDate, today, metrics: parsed });
+	const parsed = parseMetrics(metricInputs);
+	const issue = summaryIssue({ parsed, startDate, endDate, today });
+	const canSave = mutations.canWrite && parsed !== null && issue === null;
 
-	const onSave = useCallback(async () => {
+	const moveStart = useCallback(
+		(next: string) => {
+			setStartDate(next);
+			if (!endTouched) {
+				setEndDate(next);
+			}
+		},
+		[endTouched],
+	);
+
+	const moveEnd = useCallback((next: string) => {
+		setEndTouched(true);
+		setEndDate(next);
+	}, []);
+
+	const setMetric = useCallback((key: keyof MetricInputs, value: string) => {
+		setMetricInputs((current) => ({ ...current, [key]: value }));
+	}, []);
+
+	const save = useCallback(async () => {
 		if (!canSave || parsed === null) {
 			return;
 		}
@@ -93,6 +119,31 @@ export function WeatherSummaryDialog({
 		}
 	}, [canSave, parsed, startDate, endDate, summary, mutations, stationId, onClose]);
 
+	return {
+		dates: { startDate, endDate, today, setStartDate: moveStart, setEndDate: moveEnd },
+		metrics: { values: metricInputs, set: setMetric },
+		issue,
+		canSave,
+		isSaving,
+		error,
+		save: () => {
+			void save();
+		},
+	};
+}
+
+export function WeatherSummaryDialog({
+	stationId,
+	summary,
+	onClose,
+}: {
+	readonly stationId: string;
+	readonly summary: WeatherSummaryListing | null;
+	readonly onClose: () => void;
+}) {
+	const form = useSummaryForm({ stationId, summary, onClose });
+	const { dates, metrics, issue, canSave, isSaving, error } = form;
+
 	const isEdit = summary !== null;
 
 	return (
@@ -114,31 +165,18 @@ export function WeatherSummaryDialog({
 
 				<div className="grid gap-4">
 					<BucketDates
-						endDate={endDate}
-						onEndChange={(next) => {
-							setEndTouched(true);
-							setEndDate(next);
-						}}
-						onStartChange={(next) => {
-							setStartDate(next);
-							if (!endTouched) {
-								setEndDate(next);
-							}
-						}}
-						startDate={startDate}
-						today={today}
+						endDate={dates.endDate}
+						onEndChange={dates.setEndDate}
+						onStartChange={dates.setStartDate}
+						startDate={dates.startDate}
+						today={dates.today}
 					/>
 
-					<MetricGrid
-						onChange={(key, value) => setMetrics((current) => ({ ...current, [key]: value }))}
-						values={metrics}
-					/>
+					<MetricGrid onChange={metrics.set} values={metrics.values} />
 
 					{error === null ? null : <p className="m-0 text-destructive text-sm">{error}</p>}
-					{parsed !== null || error !== null ? null : (
-						<p className="m-0 text-destructive text-sm">
-							Readings must be numbers with at most two decimal places.
-						</p>
+					{error !== null || issue === null ? null : (
+						<p className="m-0 text-destructive text-sm">{issue}</p>
 					)}
 				</div>
 
@@ -146,7 +184,7 @@ export function WeatherSummaryDialog({
 					<Button onClick={onClose} type="button" variant="ghost">
 						Cancel
 					</Button>
-					<Button disabled={!canSave || isSaving} onClick={onSave} type="button">
+					<Button disabled={!canSave || isSaving} onClick={form.save} type="button">
 						{isEdit ? 'Save Summary' : 'Record Summary'}
 					</Button>
 				</DialogFooter>
@@ -156,28 +194,59 @@ export function WeatherSummaryDialog({
 }
 
 /**
- * Whether what is on screen is a summary at all.
+ * What is wrong with the summary on screen, in words, or `null`.
  *
- * Only the rules the form can settle by itself. Overlap with another bucket is
- * not among them — that depends on what this station already holds, which is the
- * server's to check inside the write transaction, and guessing it here would
- * either block a legitimate save or promise one that is about to be refused.
+ * The domain's own builder decides almost all of it: metric bounds, two-decimal
+ * precision, min-before-max, the date range, and "at least one reading".
+ * Re-stating any of those here would be a second copy to drift from the one the
+ * server runs, which `forms/domain-validation.ts` argues against at length.
+ *
+ * The future-date rule is the exception, and has to be, because it depends on the
+ * agency's timezone and the domain is handed no clock.
  */
-function isSaveable(input: {
+function summaryIssue(input: {
+	readonly parsed: WeatherMetrics | null;
 	readonly startDate: string;
 	readonly endDate: string;
 	readonly today: string;
-	readonly metrics: WeatherMetrics | null;
-}): boolean {
-	if (input.startDate.length === 0 || input.endDate.length === 0) {
-		return false;
+}): string | null {
+	if (input.parsed === null) {
+		return 'Readings must be numbers with at most two decimal places.';
 	}
-	if (input.endDate < input.startDate || input.endDate > input.today) {
-		return false;
+	const domainIssue = firstIssue(() =>
+		createWeatherSummaryCommand({
+			...FORM_VALIDATION_CONTEXT,
+			weatherStationId: FORM_VALIDATION_CONTEXT.organizationId,
+			weatherSummaryId: FORM_VALIDATION_CONTEXT.organizationId,
+			startDate: input.startDate,
+			endDate: input.endDate,
+			...input.parsed,
+		}),
+	);
+	if (domainIssue !== null) {
+		return domainIssue;
 	}
-	// A summary with no readings on it is not a record of anything, and the domain
-	// requires at least one.
-	return input.metrics !== null && hasAnyMetric(input.metrics);
+	return input.endDate > input.today ? 'A reading cannot be dated in the future.' : null;
+}
+
+/**
+ * The first thing the domain objects to, in words, or `null`.
+ *
+ * The builder reports every issue it finds; the dialog has one line to say them
+ * in, and the first is the one to fix. `humanizeIssue` is not reachable from
+ * here, so the path is dropped rather than half-translated: the messages that
+ * matter here name a bound or an ordering and read on their own.
+ */
+function firstIssue(build: () => unknown): string | null {
+	try {
+		build();
+		return null;
+	} catch (error) {
+		if (!(error instanceof DomainValidationError)) {
+			throw error;
+		}
+		return error.issues[0]?.message ?? 'This reading is not valid.';
+	}
 }
 
 /** The bucket's two ends. Both inclusive, and neither may run past today. */
@@ -252,7 +321,7 @@ function MetricGrid({
  * The seven metrics, with their units in the label.
  *
  * The canonical units are Fahrenheit, inches, percent and miles per hour, and
- * they are fixed rather than following the agency's unit defaults — a stored
+ * they are fixed rather than following the agency's unit defaults, a stored
  * summary carries no unit of its own, so a form that offered a choice would be
  * writing one number under two meanings.
  */
@@ -301,7 +370,7 @@ function metricInputsFrom(summary: WeatherSummaryListing | null): MetricInputs {
  * An empty box is a deliberate `null` rather than a refusal: that is how a
  * reading is cleared. Anything else that is not a finite number with at most two
  * decimals fails the whole parse, because the domain rejects extra precision
- * rather than rounding it — silently keeping two of a user's four decimals would
+ * rather than rounding it, silently keeping two of a user's four decimals would
  * be the form deciding what they meant.
  */
 export function parseMetrics(inputs: MetricInputs): WeatherMetrics | null {

@@ -8,7 +8,7 @@
  * there and a move relocates all of them.
  *
  * The point is the one worth being careful about. It does not travel as a column
- * — `geom` never syncs, and `lat`/`lng` are generated — so nothing about the row
+ * `geom` never syncs and `lat`/`lng` are generated, so nothing about the row
  * can betray a move that was not sent, or a re-send of the point the station
  * already had. The only signal is whether the caller passed one, which is why
  * `geometry: null` has to mean "not touched" rather than "cleared".
@@ -23,7 +23,7 @@ import {
 
 const PIN: GeoJsonPoint = { type: 'Point', coordinates: [-121.49, 38.58] };
 
-const CURRENT: WeatherStationFields = { name: 'North Gauge', code: 'NG-1' };
+const CURRENT: WeatherStationFields = { name: 'North Gauge', code: 'NG-1', metadata: null };
 
 function plan(
 	fields: Partial<WeatherStationFields>,
@@ -62,7 +62,7 @@ describe('weather station update plan', () => {
 	});
 
 	// Clearing a code is a change to it, and the column is unique per agency where
-	// it is non-null — so present-and-null has to be told apart from absent, the
+	// it is non-null, so present-and-null has to be told apart from absent, the
 	// same distinction the region's folder id turns on.
 	it('treats clearing the code as a change', () => {
 		const result = plan({ code: null });
@@ -109,7 +109,7 @@ describe('weather station update plan', () => {
 
 	// The transport folds arguments in before deciding whether a patch is empty
 	// and does not fold acknowledgements in. So an answer to a question must never
-	// be the only thing a write carries — otherwise agreeing to something would
+	// be the only thing a write carries, otherwise agreeing to something would
 	// send a write with nothing in it.
 	it('keeps the acknowledgements out of the arguments', () => {
 		const result = plan({ name: 'South Gauge' }, PIN, { identity: true, location: true });

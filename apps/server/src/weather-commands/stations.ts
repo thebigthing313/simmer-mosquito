@@ -9,7 +9,7 @@
  *
  * ## What the acknowledgements are for
  *
- * Summaries do not snapshot the station's name, code, or location — the schema
+ * Summaries do not snapshot the station's name, code, or location, the schema
  * has no per-summary snapshot columns and `docs/weather-domain.md` says none is
  * coming in v1. So a station's identity and position are retroactive: renaming a
  * station renames it in every report of every summary ever recorded against it,
@@ -26,10 +26,16 @@
  *
  * There is no `applyRecordDeletion` call, and no `weatherStation` entry in
  * `DeletableRecordType`. That registry exists to refuse a delete that would
- * orphan rows pointing at the record; summaries are the only rows that point at
- * a station, and they are not orphaned but deliberately removed. Stations are
- * also not commentable, taggable, or personnel targets, so there is nothing else
- * for the registry to find.
+ * orphan rows pointing at the record, and the only rows that can point at a
+ * station are its summaries, which are not orphaned but deliberately removed.
+ * Stations are not commentable, taggable, or personnel targets either.
+ *
+ * `weather_source_subscriptions.weather_source_id` is the exception on paper: it
+ * is an `on delete restrict` foreign key, so a subscription would block the hard
+ * delete of a station. Nothing writes that table in v1 and
+ * `docs/weather-domain.md` lists subscriptions among the exclusions, so no such
+ * row can exist. If one ever can, this delete needs the registry rather than a
+ * comment.
  */
 
 import { geojsonToGeom, sql } from '@simmer-mosquito/db';
@@ -53,7 +59,7 @@ import {
  * Both are unique per organization after trim and case-fold, enforced by the two
  * partial indexes `202605130001_weather_domain_updates.sql` adds. Uniqueness is a
  * context-dependent rule, so the domain cannot check it and the database is the
- * only thing that knows — which means the answer only exists once the statement
+ * only thing that knows, which means the answer only exists once the statement
  * has run, and `refusableWrite` is what turns it into words rather than a 500.
  */
 const DUPLICATE_STATION = {
@@ -65,8 +71,8 @@ const DUPLICATE_STATION = {
  * The six station commands, dispatched.
  *
  * Each arm is its own function rather than a block inside the `switch`, because
- * every one of them does the same four-step dance — resolve the row, check
- * staleness, check an acknowledgement, write — and reading them side by side is
+ * every one of them does the same four-step dance, resolve the row, check
+ * staleness, check an acknowledgement, write, and reading them side by side is
  * how you see which steps a given command skips and why.
  */
 export async function writeWeatherStationCommand(
@@ -133,6 +139,7 @@ async function createStation(
 					source_name: payload.stationName,
 					source_code: payload.stationCode,
 					provider_source_id: null,
+					metadata: payload.metadata,
 					created_by_profile_id: payload.actorProfileId,
 					updated_by_profile_id: payload.actorProfileId,
 				})
@@ -174,6 +181,10 @@ async function updateStationDetails(
 			...(payload.changes.stationCode !== undefined
 				? { source_code: payload.changes.stationCode }
 				: {}),
+			// Present-and-null clears the notes; an absent key leaves them alone. The
+			// domain draws the same distinction, which is why this reads the key
+			// rather than the value.
+			...('metadata' in payload.changes ? { metadata: payload.changes.metadata ?? null } : {}),
 			updated_by_profile_id: payload.actorProfileId,
 		},
 		{ duplicate: DUPLICATE_STATION },
@@ -233,7 +244,7 @@ async function deleteStation(
 	}
 	// Ahead of the soft delete, not after it. Summaries have no `deleted_at` of
 	// their own, so a station left behind with its rows would keep them alive and
-	// unreachable — and reachable again if the row were ever undeleted.
+	// unreachable, and reachable again if the row were ever undeleted.
 	await trx.deleteFrom('weather_summaries').where('weather_source_id', '=', station.id).execute();
 	const row = await trx
 		.updateTable('weather_sources')
@@ -255,7 +266,7 @@ async function deleteStation(
  * The station a mutation names, checked for ownership and staleness in one step.
  *
  * `null` rather than a throw for a missing row, because `runCommands` already
- * turns a null tail into the 404 named after the entity — and "not this agency's"
+ * turns a null tail into the 404 named after the entity, and "not this agency's"
  * and "not there" are the same answer, deliberately, so that probing ids tells a
  * caller nothing.
  */

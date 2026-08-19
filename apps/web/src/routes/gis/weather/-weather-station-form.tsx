@@ -1,5 +1,6 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createWeatherStationCommand } from '@simmer-mosquito/domain';
+import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -13,7 +14,11 @@ import {
 	useFitToGeometry,
 } from '../../../components/map/geometry-control';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	FORM_VALIDATION_GEOMETRY,
+} from '../../../forms/domain-validation';
 import type { WeatherStationFields } from '../../../hooks/mutations/use-weather-station-mutations';
 
 /**
@@ -23,20 +28,13 @@ import type { WeatherStationFields } from '../../../hooks/mutations/use-weather-
 const STATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	stationName: 'name',
 	stationCode: 'code',
+	metadata: 'metadata',
 };
-
-/**
- * A well-formed point standing in for one the operator has not placed yet.
- *
- * Same job as `FORM_VALIDATION_GEOMETRY` in `forms/domain-validation.ts`, which
- * is not exported. Passing it lets the domain check the name and code, and
- * leaves "you have not placed it" to the guard that can point at the map.
- */
-const VALIDATION_POINT = { type: 'Point', coordinates: [0, 0] } as const;
 
 export interface WeatherStationFormValues {
 	readonly name: string;
 	readonly code: string;
+	readonly metadata: MetadataValue;
 }
 
 export interface WeatherStationFormHeader {
@@ -72,18 +70,22 @@ export interface WeatherStationFormPageProps {
  */
 export function weatherStationFieldsFrom(values: WeatherStationFormValues): WeatherStationFields {
 	const code = values.code.trim();
-	return { name: values.name.trim(), code: code.length === 0 ? null : code };
+	return {
+		name: values.name.trim(),
+		code: code.length === 0 ? null : code,
+		metadata: values.metadata ?? null,
+	};
 }
 
 export function defaultWeatherStationFormValues(): WeatherStationFormValues {
-	return { name: '', code: '' };
+	return { name: '', code: '', metadata: null };
 }
 
 /**
  * Adding or editing a weather station.
  *
  * Point-only, by the domain's rule: a station is a thermometer on a post, not an
- * area. It also does not reference an Address — looking one up is a fine way to
+ * area. It also does not reference an Address, looking one up is a fine way to
  * find the spot on the map, but the station stores the coordinates it was given
  * rather than borrowing an address's.
  */
@@ -131,13 +133,14 @@ export function WeatherStationFormPage({
 						weatherStationId: FORM_VALIDATION_CONTEXT.organizationId,
 						stationName: value.name,
 						stationCode: value.code,
+						metadata: value.metadata,
 						// The stand-in, not the real `null`. The builder requires a point and
 						// fails on a null one with "geometry must be a GeoJSON geometry
-						// object" — which pre-empts the whole validator, so a form submitted
+						// object", which pre-empts the whole validator, so a form submitted
 						// with no name *and* no point complains only about the point, and the
 						// form's own guard below never runs to say where to fix it. The
 						// absence of a point is this form's to report, against the map.
-						geometry: geometry ?? VALIDATION_POINT,
+						geometry: geometry ?? FORM_VALIDATION_GEOMETRY,
 					}),
 				STATION_FIELD_PATHS,
 			),
@@ -224,6 +227,16 @@ export function WeatherStationFormPage({
 					onClear={clearGeometry}
 					onDraw={startDraw}
 				/>
+
+				<form.AppField name="metadata">
+					{(field) => (
+						<field.MetadataField
+							description="Optional structured notes, like the gauge model or who maintains it."
+							label="Metadata"
+							mode={{ kind: 'manual' }}
+						/>
+					)}
+				</form.AppField>
 			</RecordFormPage>
 		</form.AppForm>
 	);

@@ -3,8 +3,8 @@
  *
  * An agency reads its weather off a spreadsheet: a gauge log, a station export,
  * a county feed someone downloaded. Parsing that file, mapping its columns, and
- * converting its units are web-client work — `docs/weather-domain.md` puts them
- * there deliberately, so that the server never sees a CSV — and what arrives here
+ * converting its units are web-client work, `docs/weather-domain.md` puts them
+ * there deliberately, so that the server never sees a CSV, and what arrives here
  * is up to 5,000 already-normalized SIMMER rows for one station.
  *
  * ## Why this is not a table command
@@ -40,27 +40,44 @@
  * their import half-succeeded.
  */
 
+import { sql } from '@simmer-mosquito/db';
 import {
 	assessWeatherSummaryImportRows,
 	type CommitWeatherSummaryImportCommand,
 	commitWeatherSummaryImportCommand,
+	DomainValidationError,
+	type NormalizedWeatherSummaryImportRow,
 	type WeatherImportCommitStatus,
+	type WeatherSummaryImportRowAssessment,
 	type WeatherSummaryImportRowInput,
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { handleCommandError } from '../command-endpoint.js';
-import { authorizeCommands } from '../command-permissions.js';
+import { agencyCommandContext, handleCommandError, readJsonObject } from '../command-endpoint.js';
+import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import { commandActor, writeCommands } from '../command-write.js';
+import { refusableWrite } from '../table-commands/shared.js';
 import {
 	CommandError,
-	commandEndpoint,
 	loadStation,
 	loadStationSummaries,
 	localDateColumn,
 	type RouteOptions,
 	type WeatherTransaction,
 } from './shared.js';
+
+/**
+ * The 409 a raced bucket becomes.
+ *
+ * The assessment already refused every clash it could see, so reaching this means
+ * another writer took the bucket between the read and the write. Same answer the
+ * manual path gives, rather than a 500 that rolls the batch back with nothing to
+ * say.
+ */
+const DUPLICATE_BUCKET = {
+	error: 'weather_summary_duplicate',
+	reason: 'Another write took one of these date buckets while this import was running.',
+};
 
 /** What one submitted row became, correlated back by the id the client gave it. */
 export interface WeatherImportRowResult {
@@ -80,7 +97,7 @@ export interface WeatherImportResult {
  * `POST /commands/weather_summaries/import`.
  *
  * Under the `/commands` prefix rather than a `/weather/*` path of its own,
- * because it is the same surface doing the same job for the same collection —
+ * because it is the same surface doing the same job for the same collection,
  * a client that writes one summary and a client that imports a thousand are the
  * same client, and splitting the two across two prefixes would make that look
  * like a difference in kind. Registered here rather than through
@@ -91,49 +108,78 @@ export function registerWeatherImportRoute(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
 ): void {
-	app.post(
-		'/commands/weather_summaries/import',
-		options.authContextMiddleware,
-		commandEndpoint<CommitWeatherSummaryImportCommand>({
-			build: ({ payload, agency }) =>
-				commitWeatherSummaryImportCommand({
-					...agency,
-					weatherStationId: readString(payload.weather_source_id),
-					rows: readRows(payload.rows),
-					acknowledgedUpdates: payload.acknowledgedUpdates === true,
-					acknowledgedPartialImport: payload.acknowledgedPartialImport === true,
-				}),
-			run: async (context, commands) => {
-				const authContext = context.get('authContext');
-				const denial = authorizeCommands(
-					{ role: authContext.role, isOperator: authContext.isOperator },
-					commands,
-				);
-				if (denial !== null) {
-					return context.json(denial, 403);
-				}
+	app.post('/commands/weather_summaries/import', options.authContextMiddleware, async (context) => {
+		// Written out rather than assembled by `commandEndpoint`, for the ordering:
+		// that helper runs `build` before `run`, and the role check has to come
+		// first. The command's name is fixed for this route and is enough to decide
+		// authorization, so a collector should be refused before the domain is asked
+		// to parse and validate five thousand rows. `dispatch.ts` makes the same
+		// argument for the same reason.
+		const denial = denyUnauthorizedAgencyCommands(context, [
+			{ type: 'weather.commitWeatherSummaryImport' },
+		]);
+		if (denial !== null) {
+			return denial;
+		}
 
-				try {
-					// One command, always: the builder returns exactly one, and the
-					// endpoint's list is a shape the plumbing wants rather than a batch.
-					// `writeCommands` is still what opens the transaction, so the
-					// ownership resolver runs here as it does on every other write.
-					const written = await writeCommands(
-						options.db,
-						commandActor(authContext),
-						commands,
-						commitWeatherSummaryImport,
-					);
-					if (written.row === null) {
-						return context.json({ error: 'weather_station_not_found' }, 404);
-					}
-					return context.json({ ...written.row, txid: written.txid }, 200);
-				} catch (error) {
-					return handleCommandError(context, error);
-				}
-			},
-		}),
-	);
+		const parsed = await readJsonObject(context.req);
+		if (!parsed.ok) {
+			return context.json({ error: 'invalid_payload', reason: parsed.reason }, 400);
+		}
+		const payload = parsed.payload;
+
+		const authContext = context.get('authContext');
+		let command: CommitWeatherSummaryImportCommand;
+		try {
+			command = commitWeatherSummaryImportCommand({
+				...agencyCommandContext(authContext),
+				weatherStationId: readString(payload.weather_source_id),
+				rows: readRows(payload.rows),
+				acknowledgedUpdates: payload.acknowledgedUpdates === true,
+				acknowledgedPartialImport: payload.acknowledgedPartialImport === true,
+			});
+		} catch (error) {
+			if (!(error instanceof DomainValidationError)) {
+				throw error;
+			}
+			return context.json(
+				{ error: 'invalid_command', message: error.message, issues: error.issues },
+				400,
+			);
+		}
+
+		try {
+			// The agency's calendar day, resolved once here because the writer is
+			// handed a transaction and a command and has no way to reach a setting.
+			// Without it the bulk path would accept next month's forecast while the
+			// two manual paths refuse it.
+			const currentLocalDate = todayInTimeZone(authContext.timeZone);
+			// `writeCommands` rather than a bare transaction, so the ownership
+			// resolver runs here as it does on every other write.
+			const written = await writeCommands(
+				options.db,
+				commandActor(authContext),
+				[command],
+				(trx, one) => commitWeatherSummaryImport(trx, one, currentLocalDate),
+			);
+			if (written.row === null) {
+				return context.json({ error: 'weather_station_not_found' }, 404);
+			}
+			return context.json({ ...written.row, txid: written.txid }, 200);
+		} catch (error) {
+			return handleCommandError(context, error);
+		}
+	});
+}
+
+/** Today, as the calendar day the agency is currently on. */
+function todayInTimeZone(timeZone: string): string {
+	return new Intl.DateTimeFormat('en-CA', {
+		timeZone,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+	}).format(new Date());
 }
 
 /**
@@ -145,6 +191,8 @@ export function registerWeatherImportRoute(
 export async function commitWeatherSummaryImport(
 	trx: WeatherTransaction,
 	command: CommitWeatherSummaryImportCommand,
+	/** The agency's calendar day, so a row dated after it fails rather than writes. */
+	currentLocalDate: string,
 ): Promise<WeatherImportResult | null> {
 	const station = await loadStation(
 		trx,
@@ -160,6 +208,7 @@ export async function commitWeatherSummaryImport(
 
 	const assessment = assessWeatherSummaryImportRows({
 		rows: command.payload.rows,
+		currentLocalDate,
 		existingSummaries: (await loadStationSummaries(trx, station.id)).map((stored) => ({
 			weatherSummaryId: stored.weatherSummaryId,
 			startDate: stored.startDate,
@@ -193,82 +242,15 @@ export async function commitWeatherSummaryImport(
 	const results: WeatherImportRowResult[] = [];
 
 	for (const assessed of assessment.rows) {
-		const submitted = rowsByClientId.get(assessed.clientRowId);
-		if (assessed.action === 'fail' || submitted === undefined) {
-			results.push({
-				clientRowId: assessed.clientRowId,
-				status: 'failed',
-				weatherSummaryId: null,
-				issues: assessed.issues,
-			});
-			continue;
-		}
-
-		if (assessed.action === 'noChange') {
-			// A no-op on purpose: the stored row already says this, so touching it
-			// would move `updated_at` and claim an edit that did not happen.
-			results.push({
-				clientRowId: assessed.clientRowId,
-				status: 'noChange',
-				weatherSummaryId: assessed.weatherSummaryId,
-				issues: [],
-			});
-			continue;
-		}
-
-		if (assessed.action === 'update') {
-			// Full-row replacement, not a patch: an import row is the whole reading
-			// for that bucket, so a metric the spreadsheet does not carry clears the
-			// stored one rather than surviving under it.
-			await trx
-				.updateTable('weather_summaries')
-				.set({
-					temperature_min_f: submitted.temperatureMinF,
-					temperature_max_f: submitted.temperatureMaxF,
-					precipitation_inches: submitted.precipitationInches,
-					relative_humidity_min: submitted.relativeHumidityMin,
-					relative_humidity_max: submitted.relativeHumidityMax,
-					wind_speed_min_mph: submitted.windSpeedMinMph,
-					wind_speed_max_mph: submitted.windSpeedMaxMph,
-					updated_by_profile_id: command.payload.actorProfileId,
-					updated_at: new Date(),
-				})
-				.where('id', '=', assessed.weatherSummaryId as string)
-				.execute();
-			results.push({
-				clientRowId: assessed.clientRowId,
-				status: 'updated',
-				weatherSummaryId: assessed.weatherSummaryId,
-				issues: [],
-			});
-			continue;
-		}
-
-		await trx
-			.insertInto('weather_summaries')
-			.values({
-				id: submitted.weatherSummaryId,
-				organization_id: command.payload.organizationId,
-				weather_source_id: station.id,
-				start_date: localDateColumn(submitted.startDate),
-				end_date: localDateColumn(submitted.endDate),
-				temperature_min_f: submitted.temperatureMinF,
-				temperature_max_f: submitted.temperatureMaxF,
-				precipitation_inches: submitted.precipitationInches,
-				relative_humidity_min: submitted.relativeHumidityMin,
-				relative_humidity_max: submitted.relativeHumidityMax,
-				wind_speed_min_mph: submitted.windSpeedMinMph,
-				wind_speed_max_mph: submitted.windSpeedMaxMph,
-				created_by_profile_id: command.payload.actorProfileId,
-				updated_by_profile_id: command.payload.actorProfileId,
-			})
-			.execute();
-		results.push({
-			clientRowId: assessed.clientRowId,
-			status: 'inserted',
-			weatherSummaryId: submitted.weatherSummaryId,
-			issues: [],
-		});
+		results.push(
+			await writeAssessedRow(trx, {
+				assessed,
+				submitted: rowsByClientId.get(assessed.clientRowId),
+				stationId: station.id,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			}),
+		);
 	}
 
 	return {
@@ -282,6 +264,122 @@ export async function commitWeatherSummaryImport(
 	};
 }
 
+/**
+ * One assessed row, written or reported.
+ *
+ * Its own function because the four verdicts are four different writes and the
+ * loop above should read as "each row, in order, becomes a result". Nothing here
+ * is scoped again: the station was resolved against the agency before the
+ * assessment ran, and an `update` names a row read from that station inside this
+ * transaction.
+ */
+async function writeAssessedRow(
+	trx: WeatherTransaction,
+	input: {
+		readonly assessed: WeatherSummaryImportRowAssessment;
+		readonly submitted: NormalizedWeatherSummaryImportRow | undefined;
+		readonly stationId: string;
+		readonly organizationId: string;
+		readonly actorProfileId: string;
+	},
+): Promise<WeatherImportRowResult> {
+	const { assessed, submitted } = input;
+
+	if (assessed.action === 'fail' || submitted === undefined) {
+		return {
+			clientRowId: assessed.clientRowId,
+			status: 'failed',
+			weatherSummaryId: null,
+			issues: assessed.issues,
+		};
+	}
+
+	if (assessed.action === 'noChange') {
+		// A no-op on purpose: the stored row already says this, so touching it would
+		// move `updated_at` and claim an edit that did not happen.
+		return {
+			clientRowId: assessed.clientRowId,
+			status: 'noChange',
+			weatherSummaryId: assessed.weatherSummaryId,
+			issues: [],
+		};
+	}
+
+	if (assessed.action === 'update') {
+		// An `update` verdict always names the row it found, but the type allows
+		// null. Reporting a row as updated when the `where` matched nothing is the
+		// silent wrong answer, so it fails instead.
+		const storedId = assessed.weatherSummaryId;
+		if (storedId === null) {
+			return {
+				clientRowId: assessed.clientRowId,
+				status: 'failed',
+				weatherSummaryId: null,
+				issues: [{ path: 'weatherSummaryId', message: 'This bucket could not be resolved.' }],
+			};
+		}
+		// Full-row replacement, not a patch: an import row is the whole reading for
+		// that bucket, so a metric the spreadsheet does not carry clears the stored
+		// one rather than surviving under it.
+		await refusableWrite(
+			() =>
+				trx
+					.updateTable('weather_summaries')
+					.set({
+						...metricColumns(submitted),
+						updated_by_profile_id: input.actorProfileId,
+						updated_at: sql`now()`,
+					})
+					.where('id', '=', storedId)
+					.execute(),
+			{ duplicate: DUPLICATE_BUCKET },
+		);
+		return {
+			clientRowId: assessed.clientRowId,
+			status: 'updated',
+			weatherSummaryId: storedId,
+			issues: [],
+		};
+	}
+
+	await refusableWrite(
+		() =>
+			trx
+				.insertInto('weather_summaries')
+				.values({
+					id: submitted.weatherSummaryId,
+					organization_id: input.organizationId,
+					weather_source_id: input.stationId,
+					start_date: localDateColumn(submitted.startDate),
+					end_date: localDateColumn(submitted.endDate),
+					...metricColumns(submitted),
+					created_by_profile_id: input.actorProfileId,
+					updated_by_profile_id: input.actorProfileId,
+				})
+				.execute(),
+		{ duplicate: DUPLICATE_BUCKET },
+	);
+	return {
+		clientRowId: assessed.clientRowId,
+		status: 'inserted',
+		weatherSummaryId: submitted.weatherSummaryId,
+		issues: [],
+	};
+}
+
+/** The seven readings, as columns. Written once so insert and update agree. */
+function metricColumns(row: NormalizedWeatherSummaryImportRow) {
+	return {
+		temperature_min_f: row.temperatureMinF,
+		temperature_max_f: row.temperatureMaxF,
+		precipitation_inches: row.precipitationInches,
+		relative_humidity_min: row.relativeHumidityMin,
+		relative_humidity_max: row.relativeHumidityMax,
+		wind_speed_min_mph: row.windSpeedMinMph,
+		wind_speed_max_mph: row.windSpeedMaxMph,
+	};
+}
+
 function readString(value: unknown): string {
 	return typeof value === 'string' ? value : '';
 }
@@ -291,7 +389,7 @@ function readString(value: unknown): string {
  *
  * Every field is passed through as it arrived. The domain builder is what
  * rejects a row that is not an object, is missing a date, carries a metric out of
- * bounds, or repeats a bucket — and it reports those against `rows.3.startDate`
+ * bounds, or repeats a bucket, and it reports those against `rows.3.startDate`
  * paths the client can map back to a spreadsheet line. Narrowing here would be a
  * second copy of those rules, and the copy that goes stale.
  */

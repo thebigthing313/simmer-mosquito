@@ -698,7 +698,7 @@ const ORGANIZATION_SETTINGS_PERMISSIONS: Record<
  * Weather is the last domain to arrive here, and it arrives whole. The union
  * these ten belong to was left out of `AgencyCommandType` while nothing wrote
  * one, so adding the first writer demanded a floor for every one of them in the
- * same change — which is the exhaustive `Record` doing its job rather than an
+ * same change, which is the exhaustive `Record` doing its job rather than an
  * obstacle to work around.
  *
  * Manager rather than admin because a station and its summaries are operational

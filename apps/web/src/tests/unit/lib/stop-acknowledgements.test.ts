@@ -14,13 +14,59 @@ import { CommandError } from '../../../sync/command-error';
  * will refuse again, with no explanation of why the second attempt failed too.
  */
 describe('acknowledgeable refusals', () => {
-	// The answer is the flag to send, not the code that was refused: the caller's
-	// next move is to retry with it set, and handing back the code would leave
-	// every call site doing the lookup itself.
-	it('names the flag that answers each refusal the server takes one for', () => {
-		for (const [code, flag] of Object.entries(STOP_ACKNOWLEDGEABLE_REFUSALS)) {
-			expect(acknowledgeableRefusalOf(refusal(code), STOP_ACKNOWLEDGEABLE_REFUSALS)).toBe(flag);
-		}
+	/**
+	 * The pairs are written out rather than read off the map.
+	 *
+	 * Iterating `STOP_ACKNOWLEDGEABLE_REFUSALS` and passing the same map in asserts
+	 * `map[code] === map[code]`, which is true whatever the map says: a flag
+	 * renamed on one side and not the other would still pass. The point of this
+	 * test is the pairing itself, so the pairing has to be stated here, where a
+	 * change to it shows up as a diff.
+	 *
+	 * The answer is the flag to send, not the code that was refused: the caller's
+	 * next move is to retry with it set, and handing back the code would leave
+	 * every call site doing the lookup itself.
+	 */
+	it.each([
+		['assignment_item_already_completed', 'acknowledgedCompletedItemAdditionalRecord'],
+		['assignment_item_target_mismatch', 'acknowledgedTargetMismatch'],
+		['mission_item_already_completed', 'acknowledgedCompletedItemAdditionalAction'],
+		['mission_item_requested_action_mismatch', 'acknowledgedRequestedActionMismatch'],
+		['mission_geometry_not_covered', 'acknowledgedMissionGeometryNotCovered'],
+	])('answers %s with %s', (code, flag) => {
+		expect(acknowledgeableRefusalOf(refusal(code), STOP_ACKNOWLEDGEABLE_REFUSALS)).toBe(flag);
+	});
+
+	it('covers every refusal the map declares', () => {
+		// The list above is hand-written, so this is what stops a sixth refusal being
+		// added to the map and silently going untested.
+		expect(Object.keys(STOP_ACKNOWLEDGEABLE_REFUSALS)).toHaveLength(5);
+	});
+
+	/**
+	 * Accumulation across retries, which moved into `useAcknowledgedWrite` when
+	 * `withAcknowledgement` was deleted and went untested in the move.
+	 *
+	 * A second refusal on the retry has to keep the first answer, or the two
+	 * questions loop forever: answering the second would drop the first, the server
+	 * would refuse over it again, and the dialog would reopen on the question the
+	 * user just answered.
+	 */
+	it('keeps an earlier answer when a retry raises a second question', () => {
+		const first = acknowledgeableRefusalOf(
+			refusal('assignment_item_target_mismatch'),
+			STOP_ACKNOWLEDGEABLE_REFUSALS,
+		);
+		const second = acknowledgeableRefusalOf(
+			refusal('assignment_item_already_completed'),
+			STOP_ACKNOWLEDGEABLE_REFUSALS,
+		);
+		const accumulated = { ...(first === null ? {} : { [first]: true }) };
+
+		expect({ ...accumulated, ...(second === null ? {} : { [second]: true }) }).toEqual({
+			acknowledgedTargetMismatch: true,
+			acknowledgedCompletedItemAdditionalRecord: true,
+		});
 	});
 
 	it('refuses to offer a way past the ones that are always bugs', () => {
@@ -45,7 +91,7 @@ describe('acknowledgeable refusals', () => {
 	});
 
 	// The map is what a caller passes, so a refusal it does not list is not one
-	// this caller may answer — which is the point of passing it. The weather
+	// this caller may answer, which is the point of passing it. The weather
 	// station writes reuse the same machinery with three refusals of their own,
 	// and must not be offered a mission stop's answers.
 	it('answers nothing the caller did not say it could be asked', () => {

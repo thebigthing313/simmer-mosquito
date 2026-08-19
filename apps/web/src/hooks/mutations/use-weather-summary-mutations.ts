@@ -2,7 +2,7 @@
  * A station's readings: adding a bucket, correcting one, removing one.
  *
  * A summary is one station's weather over one inclusive stretch of calendar days
- * — a single day for a daily log, three for a rain gauge read every third day —
+ * A single day for a daily log, three for a rain gauge read every third day,
  * and at least one of the seven metrics. The metrics are totals and min/max over
  * the bucket rather than daily figures, which is what makes a multi-day bucket a
  * legitimate record rather than a lossy one.
@@ -12,7 +12,7 @@
  * `start_date` and `end_date` are Postgres `date` columns, and the row schema
  * keeps them as `YYYY-MM-DD` rather than parsing. A `Date` built from a bare date
  * string is midnight UTC, which renders as the previous day anywhere west of
- * Greenwich — so a bucket entered on the 3rd would show as the 2nd, and, worse,
+ * Greenwich, so a bucket entered on the 3rd would show as the 2nd, and, worse,
  * would be *sent* as the 2nd if it ever round-tripped through a `Date`.
  *
  * ## A metric that is absent and one that is null are different writes
@@ -20,7 +20,7 @@
  * The update command has patch semantics per metric: a number sets it, an
  * explicit `null` clears it, and an absent key leaves the stored reading alone.
  * {@link summaryChanges} keeps that distinction by building the change set from
- * the fields the form actually holds — every one of them, since the form shows
+ * the fields the form actually holds, every one of them, since the form shows
  * every metric and an emptied box means "clear this".
  *
  * The import is the other rule and does not go through here: an imported row
@@ -48,11 +48,31 @@ export interface WeatherMetrics {
 
 /** A summary as its form holds one. */
 export interface WeatherSummaryFields extends WeatherMetrics {
-	/** `YYYY-MM-DD`. Never a `Date` — see the module comment. */
+	/** `YYYY-MM-DD`. Never a `Date`, see the module comment. */
 	readonly startDate: string;
 	/** Inclusive, and equal to `startDate` for a single-day bucket. */
 	readonly endDate: string;
 }
+
+/**
+ * Every column a summary's fields decide, all of them required.
+ *
+ * Not `Partial`: this returns all nine every time, and typing it as a partial is
+ * what stopped the optimistic insert being checked for completeness. An update
+ * still accepts it, because a full set is a valid change set.
+ */
+type SummaryColumns = Pick<
+	WeatherSummary,
+	| 'start_date'
+	| 'end_date'
+	| 'temperature_min_f'
+	| 'temperature_max_f'
+	| 'precipitation_inches'
+	| 'relative_humidity_min'
+	| 'relative_humidity_max'
+	| 'wind_speed_min_mph'
+	| 'wind_speed_max_mph'
+>;
 
 /**
  * The columns a summary's fields become.
@@ -60,7 +80,7 @@ export interface WeatherSummaryFields extends WeatherMetrics {
  * Used by both the create and the save, so the two cannot spell a column
  * differently.
  */
-function summaryChanges(fields: WeatherSummaryFields): Partial<WeatherSummary> {
+function summaryChanges(fields: WeatherSummaryFields): SummaryColumns {
 	return {
 		start_date: fields.startDate,
 		end_date: fields.endDate,
@@ -72,19 +92,6 @@ function summaryChanges(fields: WeatherSummaryFields): Partial<WeatherSummary> {
 		wind_speed_min_mph: fields.windSpeedMinMph,
 		wind_speed_max_mph: fields.windSpeedMaxMph,
 	};
-}
-
-/** Whether a bucket carries any reading at all. The domain requires one. */
-export function hasAnyMetric(metrics: WeatherMetrics): boolean {
-	return (
-		metrics.temperatureMinF !== null ||
-		metrics.temperatureMaxF !== null ||
-		metrics.precipitationInches !== null ||
-		metrics.relativeHumidityMin !== null ||
-		metrics.relativeHumidityMax !== null ||
-		metrics.windSpeedMinMph !== null ||
-		metrics.windSpeedMaxMph !== null
-	);
 }
 
 export interface WeatherSummaryMutations {
@@ -131,7 +138,7 @@ export function useWeatherSummaryMutations(): WeatherSummaryMutations {
 						updated_by_profile_id: actorProfileId,
 						created_at: now,
 						updated_at: now,
-					} as WeatherSummary,
+					} satisfies WeatherSummary,
 					arguments: {},
 				}),
 			);

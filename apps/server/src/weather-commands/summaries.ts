@@ -3,7 +3,7 @@
  *
  * A summary is one bucket of weather at one station: an inclusive start and end
  * calendar date, and at least one of the seven metrics. Same-day buckets store
- * `end_date = start_date`, and multi-day buckets are ordinary — a rain gauge read
+ * `end_date = start_date`, and multi-day buckets are ordinary, a rain gauge read
  * every third day is three days of precipitation in one row, which is why the
  * metrics are totals and min/max rather than daily readings.
  *
@@ -26,10 +26,11 @@
  * Every comparison is between calendar days, so `start_date` and `end_date` are
  * read back as text and written with `localDateColumn`. Reading a `date` column
  * as a `Date` produces a timestamp at local midnight, which sorts and compares by
- * an offset nobody asked for — the trap `docs/adult-surveillance-domain.md`'s
+ * an offset nobody asked for, the trap `docs/adult-surveillance-domain.md`'s
  * timing modes hit from the other direction.
  */
 
+import { sql } from '@simmer-mosquito/db';
 import type { WeatherCommand } from '@simmer-mosquito/domain';
 import { refusableWrite } from '../table-commands/shared.js';
 import {
@@ -41,6 +42,7 @@ import {
 	loadSummary,
 	localDateColumn,
 	type SafeWeatherSummary,
+	type SummaryMetrics,
 	toSafeWeatherSummary,
 	type WeatherTransaction,
 	weatherSummaryReturnColumns,
@@ -167,6 +169,15 @@ async function updateSummary(
 	}
 	await assertNoOverlap(trx, summary.weatherStationId, { startDate, endDate }, summary.id);
 
+	// The row this patch produces, not the fields it names. Both rules below are
+	// about the stored result, and the domain cannot check either: its builder
+	// sees only what arrived, so a patch clearing the last reading looks like a
+	// change, and a patch naming one half of a min/max pair has nothing to compare
+	// against. Left to the database, the second becomes an unhandled `23514`.
+	const merged = mergeMetrics(summary.metrics, changes);
+	assertMetricsPresent(merged);
+	assertPairsOrdered(merged);
+
 	const row = await refusableWrite(
 		() =>
 			trx
@@ -182,7 +193,10 @@ async function updateSummary(
 					// absent rather than set to undefined.
 					...metricChanges(changes),
 					updated_by_profile_id: payload.actorProfileId,
-					updated_at: new Date(),
+					// Postgres' clock, as every other command family uses. Mixing in the
+					// Node process clock makes `updated_at` ordering unreliable across
+					// tables, and it is what `expectedUpdatedAt` is compared against.
+					updated_at: sql`now()`,
 				})
 				.where('id', '=', summary.id)
 				.returning(weatherSummaryReturnColumns)
@@ -210,6 +224,69 @@ async function deleteSummary(
 		.executeTakeFirst();
 	return row === undefined ? null : toSafeWeatherSummary(row);
 }
+
+/** The readings a patch produces, stored values standing in for absent keys. */
+function mergeMetrics(stored: SummaryMetrics, changes: MetricPatch): SummaryMetrics {
+	const merged: Record<string, number | null> = { ...stored };
+	for (const field of METRIC_FIELDS) {
+		if (field in changes) {
+			merged[field] = changes[field] ?? null;
+		}
+	}
+	return merged as unknown as SummaryMetrics;
+}
+
+/**
+ * A summary with no readings is not a record of anything.
+ *
+ * `docs/weather-domain.md`: "Each summary requires at least one metric." The
+ * domain enforces it on create and on every import row; only the patch can reach
+ * an empty row, by clearing the last one.
+ */
+function assertMetricsPresent(metrics: SummaryMetrics): void {
+	if (METRIC_FIELDS.every((field) => metrics[field] === null)) {
+		throw new CommandError(400, {
+			error: 'invalid_command',
+			reason: 'A summary must keep at least one reading.',
+		});
+	}
+}
+
+/**
+ * `docs/weather-domain.md`: "Min/max pairs must be ordered when both values are
+ * present." The check constraints say the same thing, and reaching them instead
+ * answers 500.
+ */
+function assertPairsOrdered(metrics: SummaryMetrics): void {
+	for (const [min, max, label] of METRIC_PAIRS) {
+		const low = metrics[min];
+		const high = metrics[max];
+		if (low !== null && high !== null && low > high) {
+			throw new CommandError(400, {
+				error: 'invalid_command',
+				reason: `The minimum ${label} cannot be above the maximum.`,
+			});
+		}
+	}
+}
+
+const METRIC_FIELDS = [
+	'temperatureMinF',
+	'temperatureMaxF',
+	'precipitationInches',
+	'relativeHumidityMin',
+	'relativeHumidityMax',
+	'windSpeedMinMph',
+	'windSpeedMaxMph',
+] as const satisfies readonly (keyof SummaryMetrics)[];
+
+const METRIC_PAIRS = [
+	['temperatureMinF', 'temperatureMaxF', 'temperature'],
+	['relativeHumidityMin', 'relativeHumidityMax', 'humidity'],
+	['windSpeedMinMph', 'windSpeedMaxMph', 'wind speed'],
+] as const satisfies readonly (readonly [keyof SummaryMetrics, keyof SummaryMetrics, string])[];
+
+type MetricPatch = Partial<Record<keyof SummaryMetrics, number | null>>;
 
 /**
  * The metric columns a patch actually names.
@@ -256,7 +333,7 @@ function metricChanges(changes: {
  * Refuse a bucket that shares a day with another of the station's.
  *
  * `exceptSummaryId` is the row being edited, which necessarily overlaps itself.
- * Adjacent buckets are fine — 1st to 3rd followed by 4th to 6th — because the
+ * Adjacent buckets are fine, 1st to 3rd followed by 4th to 6th, because the
  * ends are inclusive and the days do not repeat.
  */
 async function assertNoOverlap(

@@ -42,19 +42,26 @@ export type StopAcknowledgements = Partial<
  * flag can answer.
  *
  * `refusals` is the map to judge against, because the two families of
- * acknowledgeable write are refused over different things — see
+ * acknowledgeable write are refused over different things, see
  * `useAcknowledgedWrite`.
  */
-export function acknowledgeableRefusalOf(
+export function acknowledgeableRefusalOf<TRefusals extends Readonly<Record<string, string>>>(
 	error: unknown,
-	refusals: Readonly<Record<string, string>>,
-): string | null {
+	refusals: TRefusals,
+): TRefusals[keyof TRefusals] | null {
 	const body = (error as { readonly body?: unknown } | null)?.body;
 	if (typeof body !== 'object' || body === null) {
 		return null;
 	}
 	const code = (body as { readonly error?: unknown }).error;
-	return typeof code === 'string' ? (refusals[code] ?? null) : null;
+	// Generic over the map so a caller keeps the literal union of its own flags
+	// rather than a bare `string`. A misspelled flag then fails to compile where it
+	// is declared, instead of becoming a question the user answers and the server
+	// never hears.
+	if (typeof code !== 'string' || !Object.hasOwn(refusals, code)) {
+		return null;
+	}
+	return refusals[code as keyof TRefusals];
 }
 
 /**
