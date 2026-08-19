@@ -1,4 +1,4 @@
-# ADR 0006: Platform-Specific UI With Shared Core
+# ADR 0006: Platform-specific UI with shared core
 
 Status: Accepted
 

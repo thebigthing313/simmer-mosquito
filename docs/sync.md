@@ -1,4 +1,4 @@
-# SIMMER Sync Policy
+# SIMMER sync policy
 
 This document is the table-level matrix for Electric-backed TanStack DB
 collections, and the policy behind it. It covers what each app baselines, what
@@ -29,7 +29,7 @@ is a plan rather than a description.
   mode changes it there and this table follows.
 - Web is online-only in v1. Mobile uses automatic scoped offline persistence.
 
-## Web Matrix
+## Web matrix
 
 Twenty-four eager, twenty-six on-demand.
 
@@ -51,7 +51,7 @@ excluded because `species` already carries the genus name every surface asks
 for. The three notification tables were declared in the old seam and never read
 from it; the workflow that will need them is not built.
 
-## Web Notes
+## Web notes
 
 - Server shape routes must force their authorized table, columns, and scope
   server-side. The proxies preserve Electric stream parameters such as
@@ -74,7 +74,7 @@ from it; the workflow that will need them is not built.
   drops `geom`, `geojson`, `deleted_at`, and `deleted_by_profile_id` from every
   table's schema, and errors on any other column a schema fails to cover. A
   table that withholds a fifth column declares it in `WITHHELD` in
-  `scripts/generate-table-schemas.mjs`, which generates both halves — see
+  `scripts/generate-table-schemas.mjs`, which generates both halves. See
   `organizations`, which keeps its billing and subscription columns.
 - Region intersection cache data is derived GIS data and is not part of normal
   app sync unless a specific reporting/GIS screen proves it needs direct client
@@ -84,7 +84,7 @@ from it; the workflow that will need them is not built.
 - `requested_control_actions` is on-demand because the app should not assume it
   can baseline the full organization rowset.
 
-## The Read Path
+## The read path
 
 Every normal authenticated read runs:
 
@@ -169,18 +169,18 @@ not by a separate class of collection. `apps/server/src/table-commands` is
 where a table declares the intents its route accepts; a table absent from it
 accepts no writes at all.
 
-The two halves of a write are declared apart — the intent map says which
-commands the route accepts, the domain module's `write*Command` says which it
-knows how to write — so `writer-coverage.test.ts` asserts they agree. Without
+The two halves of a write are declared apart. The intent map says which
+commands the route accepts, and the domain module's `write*Command` says which
+it knows how to write, so `writer-coverage.test.ts` asserts they agree. Without
 it the gap is invisible: the map compiles, the route registers, the permission
 check passes, and the write falls through the writer's `switch` to a 500 that
 names neither half.
 
-## Local Electric Testing Notes
+## Local Electric testing notes
 
 These notes cover the fully-local Docker mode. The recommended default is now
 Railway-backed local dev (server + frontends local, Postgres + Electric on the
-Railway `staging` environment) — see `docs/deployment.md` → "Local development".
+Railway `staging` environment). See `docs/deployment.md`, "Local development".
 
 - Docker Compose exposes Postgres on `localhost:55432`, not `localhost:5432`,
   so local `.env` files for this repo should use
@@ -210,15 +210,15 @@ Railway `staging` environment) — see `docs/deployment.md` → "Local developme
 - A full browser smoke requires an authenticated WorkOS session, because app
   shape routes are protected by the selected-organization auth context.
 
-## Deployed Electric Notes
+## Deployed Electric notes
 
 - Web clients never call Electric directly in any environment. They call the
   server's authenticated `/sync/shapes/*` routes, and the server proxies to
   Electric. The server forces the table/columns/where/params and strips any
   caller-supplied ones.
 - Electric networking differs per environment (see `docs/deployment.md`):
-  - **production** — private (`electric.railway.internal:3000`), `ELECTRIC_INSECURE=true`.
-  - **staging** — public domain, secured with `ELECTRIC_SECRET` (so a locally-run
+  - **production**: private (`electric.railway.internal:3000`), `ELECTRIC_INSECURE=true`.
+  - **staging**: public domain, secured with `ELECTRIC_SECRET` (so a locally-run
     server can reach it for Railway-backed local dev). `PORT=3000` is required on
     the service for the public domain to route.
 - The server reads `ELECTRIC_SECRET` and folds it into `ELECTRIC_URL` as a
@@ -238,7 +238,7 @@ Railway `staging` environment) — see `docs/deployment.md` → "Local developme
   `public.units` rows and observing them render live in the signed-in web app
   without a manual page refresh.
 
-## Mobile Matrix
+## Mobile matrix
 
 Mobile offline persistence is automatic and scoped. The field app persists
 field-critical data after sign-in, then persists additional work-scoped data as
@@ -269,7 +269,7 @@ organization database.
 | Notifications | outside mobile field-work scope |
 | Weather | `weather_sources` may be eager; `weather_summaries` on-demand |
 
-## Mobile Notes
+## Mobile notes
 
 - Mobile history windows are based on domain operational dates, not audit
   `created_at` timestamps. Examples include collection dates/times, inspection
@@ -287,7 +287,7 @@ organization database.
   baseline `notification_registrations`, `notification_registration_types`, or
   `mission_notifications`.
 
-## Package Boundary
+## Package boundary
 
 `packages/sync` owns what is true of a table everywhere; each frontend owns
 what is true of a table in that app. The split is what lets `apps/mobile` reach
@@ -299,9 +299,9 @@ the same rows on a different sync policy without a second copy of the schema.
   `src/collections/tables`, with `getKey` for each;
 - the collection factory in `src/collections/functions/sync-collection.ts`,
   which takes the app's `syncMode` rather than declaring one;
-- the write path in `src/collections/functions` — `mutate-collection.ts`,
-  `command-request.ts`, `command-transaction.ts` — which turns a mutation into
-  a named domain command and settles the response;
+- the write path in `src/collections/functions` (`mutate-collection.ts`,
+  `command-request.ts`, and `command-transaction.ts`), which turns a mutation
+  into a named domain command and settles the response;
 - shared helpers for Electric transaction-id mutation handling.
 
 `apps/web` owns:

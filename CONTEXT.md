@@ -1,10 +1,10 @@
-# SIMMER Mosquito Context
+# SIMMER mosquito context
 
 This is the lightweight domain index for SIMMER mosquito control language. Keep
 it small enough to load often. For implementation details, load the linked
 domain doc instead of expanding this file.
 
-## Core Language
+## Core language
 
 | Term | Meaning | Avoid |
 |---|---|---|
@@ -18,7 +18,7 @@ domain doc instead of expanding this file.
 | **Organization Species** | Agency-selected subset of global species available for new data entry. | enabled species, species setting |
 | **Organization Lookup** | Agency-owned catalog value used to configure surveillance or control workflows. | dropdown option, enum |
 
-## Workflow Language
+## Workflow language
 
 | Area | Terms | Detail |
 |---|---|---|
@@ -32,7 +32,7 @@ domain doc instead of expanding this file.
 | Organization settings | Timezone, unit defaults, larval density policy, control defaults, public engagement defaults, **Species Key Binding** | `docs/organization-settings-domain.md` |
 | Foundation/reference data | Addresses, regions, taxonomy, organization species, organization lookup catalogs | `docs/foundation-domain.md` |
 
-## Relationship Cues
+## Relationship cues
 
 - An **Agency** owns operational records and settings.
 - A **Profile** belongs to one **Agency**; a **Membership** links login access to
@@ -54,7 +54,7 @@ domain doc instead of expanding this file.
 - A **Mission** contains ordered **Mission Items**; a mission item can produce
   zero or more performed control actions.
 
-## Location Source Terms
+## Location source terms
 
 Use **Location Source Flow** for allowed movement from one domain record or
 manual geometry into another record's stored operational geometry. Domain docs
@@ -77,7 +77,7 @@ Common source terms:
   mission item.
 - **Weather Station Geometry**: explicit point geometry for a station.
 
-## Ambiguities To Preserve
+## Ambiguities to preserve
 
 - "Application" can mean software or control work. Use **Chemical Application**
   for performed insecticide work.

@@ -1,4 +1,4 @@
-# Domain Command Contract
+# Domain command contract
 
 This contract captures rules shared by SIMMER domain command designs. Load this
 file when implementing or reviewing command builders, command handlers, sync
@@ -8,12 +8,12 @@ mutation adapters, or offline/mobile replay behavior. Load the specific
 **Every agency write to Postgres is a command.** One model covers every
 operation: *this is what I intended to do*, and the server decides whether to do
 it. A client never states which tables a write touches, in what order, or
-whether a second system is involved. Identity writes — profiles, memberships,
-the agency's own details — were the exception until ADR 0013; they are being
-folded in, and until that lands `apps/server/src/roles.ts` holds the ones still
-outside.
+whether a second system is involved. Identity writes, meaning profiles,
+memberships, and the agency's own details, are the exception. ADR 0013 decided
+they become commands too, but none has moved yet: `apps/server/src/roles.ts`
+still holds all seven as REST surfaces with their own floors.
 
-## Command Shape
+## Command shape
 
 - Domain commands represent user intent, not database patches.
 - Commands create durable rows with client-generated UUIDs where the client can
@@ -23,7 +23,7 @@ outside.
 - Command payloads should be stable enough for optimistic UI metadata, command
   logs, and future mobile queues.
 
-## Validation Boundary
+## Validation boundary
 
 Pure domain command builders validate context-free rules:
 
@@ -43,7 +43,7 @@ Server command handlers validate context-dependent rules:
 - schema-level constraints and foreign keys;
 - source geometry lookup and snapshot behavior.
 
-## Delete Policy
+## Delete policy
 
 Deleting a record is never just the one row. Each domain doc states, per
 deletable record, which rows go with it, which survive with their link cleared,
@@ -61,7 +61,7 @@ hand-rolling cleanup in the handler. A blocked delete answers 409 with the same
 entry shape the impact read returns, so a client that raced a new reference can
 still name what stopped it.
 
-## Offline And Sync
+## Offline and sync
 
 - Offline queues store domain commands, not DB-shaped patches.
 - Read/sync rows may expose database representation details, but commands should
@@ -71,12 +71,13 @@ still name what stopped it.
 - Detailed Electric/TanStack DB shape policy belongs in `docs/sync.md` unless a
   domain doc records a specific exception.
 
-## Commands That Span Two Systems
+## Commands that span two systems
 
 Most commands commit in one Kysely transaction. Three identity commands cannot,
 because the grant a session is refreshed against lives in WorkOS rather than in
-Postgres — inviting somebody, changing a role, and ending a membership. ADR 0013
-admits these to the vocabulary under four rules:
+Postgres: inviting somebody, changing a role, and ending a membership. ADR 0013
+admits these to the vocabulary under four rules, which apply once the work is
+done.
 
 - **Postgres orders the write.** The row is written first on a create and last
   on a revoke. Revoking in Postgres first leaves somebody who reads as removed
@@ -95,7 +96,7 @@ admits these to the vocabulary under four rules:
 A command that does not span two systems must not be written as though it might.
 The rules above are a cost, not a template.
 
-## Location Sources
+## Location sources
 
 Location-bearing commands carry a domain location source. The source may be
 explicit GeoJSON geometry or an allowed same-organization locatable record.
@@ -104,7 +105,7 @@ the source record's owned geometry inside the authorized transaction.
 
 Domain docs own the allowed source flows for each workflow.
 
-## Module Shape
+## Module shape
 
 `packages/domain` should expose stable top-level public seams while allowing
 large domains to split implementation internally. Shared primitives belong in

@@ -68,8 +68,8 @@ accepts no writes. There is no read-only class of collection.
 ## Consequences
 
 - The package defines 56 table schemas; `apps/web` instantiates 50. The six it
-  skips — `users`, `genera`, `weather_source_subscriptions`, and the three
-  notification tables — are the boundary doing its job: the schema exists for
+  skips (`users`, `genera`, `weather_source_subscriptions`, and the three
+  notification tables) are the boundary doing its job: the schema exists for
   whoever needs it, and not instantiating it is the app's decision, reversible
   without touching the package.
 - A migration that changes a column now fails the build until the schemas are
@@ -79,7 +79,7 @@ accepts no writes. There is no read-only class of collection.
 - `apps/mobile` gets the same 56 schemas and picks its own modes, which is what
   ADR 0007 wanted and what the descriptors would have prevented.
 - ADR 0007's package-responsibility list is superseded by this one. Its
-  *decision* — shared contracts, per-frontend singletons, and no universal
-  prebuilt collection exported from `packages/sync` — still stands.
+  *decision* still stands: shared contracts, per-frontend singletons, and no
+  universal prebuilt collection exported from `packages/sync`.
 - The table-level matrix stays in `docs/sync.md` and still evolves without an
   ADR.

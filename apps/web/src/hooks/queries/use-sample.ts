@@ -56,10 +56,10 @@ export function useSample(sampleId: string): {
 						// wrapped in `coalesce` for the same reason: an unmatched join yields
 						// `undefined`, not `null`, and the rest of this folder speaks `null`.
 						//
-						// There is no guard to write instead. The trap in `MIGRATION.html` says
-						// to test the driving row's own column — but `sample.inspection_id` is
-						// not nullable, so it cannot say whether the Inspection has arrived.
-						// Here "unmatched" only ever means "still streaming".
+						// There is no guard to write instead. A guard has to test the driving
+						// row's own column, and `sample.inspection_id` is not nullable, so it
+						// cannot say whether the Inspection has arrived. Here "unmatched" only
+						// ever means "still streaming".
 						inspectionDate: coalesce(inspection.inspection_date, null),
 
 						habitatId: coalesce(inspection.habitat_id, null),

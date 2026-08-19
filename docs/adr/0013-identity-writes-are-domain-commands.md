@@ -4,7 +4,12 @@ Date: 2026-08-18
 
 ## Status
 
-Accepted. Supersedes the reasoning recorded in `IdentityWriteSurface`
+Accepted, and **not yet built** as of 2026-08-19. All seven identity writes are
+still REST routes with floors in `IDENTITY_FLOORS`
+(`apps/server/src/roles.ts`), and `apps/web` still reaches them through
+`hooks/mutations/rest-writes.ts`. Nothing below describes current code.
+
+Supersedes the reasoning recorded in `IdentityWriteSurface`
 (`apps/server/src/roles.ts`), which this ADR corrects rather than reverses.
 
 ## Context
@@ -37,11 +42,11 @@ That is true of one of the seven. Checked against the code:
 | `people.listMemberships` | no | it is a read behind a POST | n/a |
 | `people.changeRole` | yes | setting a role is idempotent | n/a |
 | `people.endMembership` | yes | ending an ended one is a no-op | n/a |
-| `people.invite` | yes | **no** — a replay is a second invitation | no |
+| `people.invite` | yes | **no**: a replay is a second invitation | no |
 
 `createHistoricalProfileWithTxid` is a plain insert with `user_id: null`.
 `PATCH /organization/current` is a plain update. Neither has ever touched
-WorkOS, and `createProfile` already carries a client-minted UUID — the exact
+WorkOS, and `createProfile` already carries a client-minted UUID, the exact
 property the command contract asks for.
 
 So the stated reason disqualifies `people.invite`, and nothing else.
@@ -59,7 +64,7 @@ the type system; seven are guarded by convention.
 **Two vocabularies on one row.** `organizations.settings` is written by seven
 `organizationSettings.*` commands with per-command floors and DB validation.
 `organizations.name` and the mailing columns beside it are an identity write.
-Same table, same request, two contracts — which is the clearest sign the line
+Same table, same request, two contracts, which is the clearest sign the line
 is not about the data.
 
 **A second client seam.** `hooks/mutations/rest-writes.ts` exists only because
@@ -78,7 +83,7 @@ route registration take the surface name, so a route without a floor is
 unrepresentable. One helper, seven call sites.
 
 That is cheaper and it does close the specific hole. It was rejected because it
-buys safety and leaves the mental model split — and for a solo maintainer the
+buys safety and leaves the mental model split, and for a solo maintainer the
 model is the expensive part. Two contracts means every future write starts with
 "which kind is this", and the answer is a boundary nobody can derive from the
 data.
@@ -91,7 +96,7 @@ vocabulary in `packages/domain` and joins `AgencyCommandType`, so
 
 One model covers every operation: *this is what I intended to do*, and the
 server decides whether to do it. Nothing else about a write is the client's to
-know — not the tables it touches, not the order, not whether a second system is
+know: not the tables it touches, not the order, not whether a second system is
 involved. That is already true of ninety-five writes; this makes it true of all
 of them, and it is the reason to accept the costs below rather than the cheaper
 fix above.
@@ -109,7 +114,7 @@ session is refreshed against lives in WorkOS.
 The rules for a command that spans both:
 
 1. **Postgres is the ordering authority.** The row is written first for a
-   create, and last for a revoke — `endMembership` already gets this right and
+   create, and last for a revoke. `endMembership` already gets this right and
    its comment says why: revoking in Postgres first would leave somebody who
    reads as removed and can still sign in.
 2. **The client-generated id is what makes the replay safe.** An invitation
@@ -127,7 +132,7 @@ The rules for a command that spans both:
 ## Consequences
 
 `packages/domain` acquires an identity vocabulary. It has never described
-tenancy before, and this is a real widening of what that package is for — the
+tenancy before, and this is a real widening of what that package is for, the
 cost accepted in exchange for one contract.
 
 `SimmerRole` is currently declared in `packages/db`, re-declared in
@@ -142,7 +147,7 @@ will exist.
 
 `IdentityWriteSurface` and `IDENTITY_FLOORS` are deleted with the last surface.
 Until then they stay, and the floors they hold are the source for the
-`COMMAND_PERMISSIONS` entries that replace them — the floors themselves are not
+`COMMAND_PERMISSIONS` entries that replace them. The floors themselves are not
 being revisited by this ADR, only where they are written down.
 
 The three pure-Postgres writes move first. They need no new contract, so they

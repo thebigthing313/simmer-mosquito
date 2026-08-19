@@ -1,4 +1,4 @@
-# Public Engagement Domain Decisions
+# Public engagement domain decisions
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records public
@@ -10,11 +10,11 @@ notification types, and mission notification tracking. Server endpoints, public
 portal intake, sync shapes, imports, and real notification sending remain
 deferred.
 
-## Command Shape
+## Command shape
 
 Public engagement commands live behind a framework-agnostic public domain seam:
 
-- `packages/domain/src/public-engagement.ts`
+- `packages/domain/src/public-engagement/`
 
 The public seam re-exports implementation modules under
 `packages/domain/src/public-engagement/`:
@@ -373,7 +373,7 @@ SIMMER operators do not bypass agency roles through `publicEngagement.*`
 commands. If a SIMMER operator is also an agency member, they act through that
 agency membership.
 
-## Offline And Mobile Expectations
+## Offline and mobile expectations
 
 Public engagement commands follow `docs/domain-command-contract.md`. Product
 usage can still be web-first for manager workflows in v1. Collectors may
@@ -384,7 +384,7 @@ Detailed Electric/TanStack DB shape and sync decisions for contacts, service
 requests, notification registrations, and mission notification worklists are
 deferred to a per-app sync design pass.
 
-## Validation Boundary
+## Validation boundary
 
 Use the shared validation boundary in `docs/domain-command-contract.md`.
 Public-engagement-specific builder checks include email syntax, contact
@@ -398,15 +398,14 @@ timezone, assignment item cleanup, contact merge/delete references,
 registration delete references, mission notification generation eligibility,
 and spatial matching/buffered intersections.
 
-## Schema Changes Surfaced
+## Schema this domain drove
 
-Public engagement schema follow-up covered by
-`202605140001_public_engagement_mission_dispatch_domain_updates.sql`:
-
-- remove `contacts.fax`
-- remove `fax` from `notification_channel`
-- replace/supplement notification type name uniqueness with a normalized
-  soft-delete-aware unique index:
+These landed in
+`202605140001_public_engagement_mission_dispatch_domain_updates.sql`, and the
+database was read back on 2026-08-19: `contacts.fax` is gone, the
+`notification_channel` enum is `email`, `sms`, and `phone` with no `fax`, and
+notification type names are unique per agency through a normalized,
+soft-delete-aware index:
 
 ```sql
 create unique index notification_types_organization_normalized_name_unique
@@ -414,7 +413,7 @@ create unique index notification_types_organization_normalized_name_unique
   where deleted_at is null;
 ```
 
-Do not add in this pass:
+None of these exists, and none is added in this pass:
 
 - service request status enum
 - service request priority or due date
@@ -429,10 +428,12 @@ Do not add in this pass:
 
 ## Deferred
 
-- Public-facing portal intake and anti-spam/consent flows.
-- Sync/query shape design per app.
+The 32 `publicEngagement.*` command endpoints are built, in
+`apps/server/src/table-commands/contacts.ts` and `notifications.ts`. Still
+deferred:
+
+- Public-facing portal intake, with its anti-spam and consent flows.
 - Public engagement imports and metadata-writing admin workflows.
-- Server command endpoints.
-- Actual notification provider integration and delivery receipts.
-- Report/export workflows.
-- Search/index tuning beyond normalized notification type uniqueness.
+- Notification provider integration and delivery receipts.
+- Report and export workflows.
+- Search and index tuning beyond normalized notification type uniqueness.

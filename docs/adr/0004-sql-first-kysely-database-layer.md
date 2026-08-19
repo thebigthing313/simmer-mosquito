@@ -1,4 +1,4 @@
-# ADR 0004: SQL-First Kysely Database Layer
+# ADR 0004: SQL-first Kysely database layer
 
 Status: Accepted
 
