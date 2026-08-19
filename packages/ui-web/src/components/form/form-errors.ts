@@ -19,6 +19,9 @@ export interface FieldErrorMessage {
 	readonly message: string;
 }
 
+/** What the alert says when nothing in the error names a reason. */
+const GENERIC_MESSAGE = 'Unable to save changes.';
+
 export function errorMessagesFrom(errors: readonly unknown[]): FieldErrorMessage[] {
 	const messages = errors.flatMap(errorMessageFrom).filter((message) => message.length > 0);
 	return [...new Set(messages)].map((message) => ({ message }));
@@ -42,27 +45,32 @@ function errorMessageFrom(error: unknown): string[] {
 	}
 
 	if (typeof error === 'object') {
-		const message = (error as ErrorLike).message;
-		if (typeof message === 'string') {
-			return [message];
-		}
-
-		const candidate = error as GlobalFormError;
-		if ('form' in candidate || 'fields' in candidate) {
-			const formMessages = errorMessageFrom(candidate.form);
-			if (formMessages.length > 0) {
-				return formMessages;
-			}
-
-			// `fields` is deliberately dropped: those messages render on the fields
-			// they name, and repeating them in the alert says everything twice.
-			if (carriesFieldMessages(candidate.fields)) {
-				return [];
-			}
-		}
+		return objectErrorMessageFrom(error);
 	}
 
-	return ['Unable to save changes.'];
+	return [GENERIC_MESSAGE];
+}
+
+/** The two object shapes a form hands us: an `Error`, and a validator's result. */
+function objectErrorMessageFrom(error: object): string[] {
+	const message = (error as ErrorLike).message;
+	if (typeof message === 'string') {
+		return [message];
+	}
+
+	const candidate = error as GlobalFormError;
+	if (!('form' in candidate) && !('fields' in candidate)) {
+		return [GENERIC_MESSAGE];
+	}
+
+	const formMessages = errorMessageFrom(candidate.form);
+	if (formMessages.length > 0) {
+		return formMessages;
+	}
+
+	// `fields` is deliberately dropped: those messages render on the fields they
+	// name, and repeating them in the alert says everything twice.
+	return carriesFieldMessages(candidate.fields) ? [] : [GENERIC_MESSAGE];
 }
 
 /**
