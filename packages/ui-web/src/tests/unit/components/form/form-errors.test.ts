@@ -36,6 +36,15 @@ describe('errorMessagesFrom', () => {
 		expect(errorMessagesFrom([{ fields: { name: 'Name is required.' } }])).toEqual([]);
 	});
 
+	it('falls back to the generic wording when `fields` names no message', () => {
+		// A `fields` key alone is not a reason to stay quiet. Nothing here will
+		// reach a field, so an empty alert would lose the failure altogether.
+		expect(errorMessagesFrom([{ fields: {} }])).toEqual([{ message: 'Unable to save changes.' }]);
+		expect(errorMessagesFrom([{ code: 'unknown', fields: ['name'] }])).toEqual([
+			{ message: 'Unable to save changes.' },
+		]);
+	});
+
 	it('reads an Error thrown into the form', () => {
 		expect(errorMessagesFrom([new Error('The server refused the write.')])).toEqual([
 			{ message: 'The server refused the write.' },

@@ -47,10 +47,18 @@ function errorMessageFrom(error: unknown): string[] {
 			return [message];
 		}
 
-		if (isGlobalFormError(error)) {
+		const candidate = error as GlobalFormError;
+		if ('form' in candidate || 'fields' in candidate) {
+			const formMessages = errorMessageFrom(candidate.form);
+			if (formMessages.length > 0) {
+				return formMessages;
+			}
+
 			// `fields` is deliberately dropped: those messages render on the fields
 			// they name, and repeating them in the alert says everything twice.
-			return errorMessageFrom((error as GlobalFormError).form);
+			if (carriesFieldMessages(candidate.fields)) {
+				return [];
+			}
 		}
 	}
 
@@ -58,17 +66,16 @@ function errorMessageFrom(error: unknown): string[] {
 }
 
 /**
- * Whether this is a form-level validator's `{ form, fields }` result.
+ * Whether `fields` holds at least one message a field will render.
  *
- * Either key alone qualifies. A validator that found nothing but form-level
- * problems returns `{ form }` with no `fields`, and that is the case TanStack
- * Form leaves unrouted — reading only the two-key shape would put the generic
- * fallback back on exactly the errors this exists to surface.
+ * A validator writes it as a record of field name to message, so anything else
+ * under that key, an array or an empty object, is not a field speaking. Saying
+ * nothing is only right when a field is already saying it: otherwise the alert
+ * would empty out and lose the failure, which is the bug this file fixes.
  */
-function isGlobalFormError(error: object): boolean {
-	const candidate = error as GlobalFormError;
-	const hasForm = 'form' in candidate && candidate.form !== undefined;
-	const hasFields =
-		'fields' in candidate && typeof candidate.fields === 'object' && candidate.fields !== null;
-	return hasForm || hasFields;
+function carriesFieldMessages(fields: unknown): boolean {
+	if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) {
+		return false;
+	}
+	return Object.values(fields).some((message) => typeof message === 'string' && message.length > 0);
 }
