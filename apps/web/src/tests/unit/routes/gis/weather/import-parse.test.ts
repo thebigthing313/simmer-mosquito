@@ -152,8 +152,9 @@ describe('parsing a weather spreadsheet', () => {
 
 		// Blank is a real answer: this station recorded temperature and not rain.
 		expect(result.rows[0]).toMatchObject({ precipitationInches: null, temperatureMaxF: 78 });
-		// `n/a` is not.
-		expect(result.rejected).toEqual([{ line: 3, reason: 'precipitationInches is not a number.' }]);
+		// `n/a` is not. The reason names the metric the way the person reading it
+		// would, not the way the payload does.
+		expect(result.rejected).toEqual([{ line: 3, reason: 'The precipitation is not a number.' }]);
 	});
 
 	it('drops a line with no readings at all rather than sending it to fail', async () => {
@@ -218,5 +219,30 @@ describe('parsing a weather spreadsheet', () => {
 
 		expect(result.rows).toEqual([]);
 		expect(result.error).toBeDefined();
+	});
+});
+
+describe('header spellings', () => {
+	// The screenshot of a real preview is what found this: a file headed "Max RH"
+	// parsed cleanly, reported the column as unrecognised, and imported without the
+	// humidity nobody noticed was missing. An alias gap fails silently in the one
+	// direction that matters.
+	it.each([
+		['Max RH', 'relativeHumidityMax'],
+		['Min RH', 'relativeHumidityMin'],
+		['High', 'temperatureMaxF'],
+		['Low', 'temperatureMinF'],
+		['Max Wind Speed', 'windSpeedMaxMph'],
+		['Rainfall', 'precipitationInches'],
+	])('reads %s as %s', async (header, field) => {
+		const result = await parseWeatherFile(
+			workbookFile([
+				['Date', header],
+				['2026-06-01', 42],
+			]),
+		);
+
+		expect(result.unmappedColumns).toEqual([]);
+		expect(result.rows[0]).toMatchObject({ [field]: 42 });
 	});
 });

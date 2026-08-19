@@ -3,6 +3,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
@@ -45,6 +46,10 @@ function EditWeatherStationRoute() {
 }
 
 function EditWeatherStationForm({ station }: { readonly station: WeatherStation }) {
+	// The detail route registers this too, but `$id_.edit` is its sibling rather
+	// than its child — the trailing underscore is what un-nests it — so the label
+	// does not carry over and the crumb renders the bare id.
+	useBreadcrumbLabel(station.id, station.name);
 	const navigate = useNavigate();
 	const mutations = useWeatherStationMutations();
 	const { run, dialog } = useAcknowledgedWrite(STATION_REFUSALS, STATION_ACKNOWLEDGEMENT_LABELS);
@@ -69,6 +74,11 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 			// The two questions go out unanswered and come back as refusals if the
 			// station has readings — which is the only time either matters. See
 			// `useAcknowledgedWrite`.
+			//
+			// The navigation is *inside* the callback on purpose: `run` resolves on a
+			// refusal as well as on a success, because a refusal is a question rather
+			// than a failure. Leaving here on the way past would abandon the page
+			// before the question could be asked, and read as a save that worked.
 			await run(async (acknowledgements) => {
 				await mutations.save({
 					weatherStationId: station.id,
@@ -80,8 +90,8 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 					acknowledgedLocationChange:
 						acknowledgements.acknowledgedHistoricalLocationChange === true,
 				});
+				await navigate({ to: '/gis/weather/$id', params: { id: station.id } });
 			});
-			await navigate({ to: '/gis/weather/$id', params: { id: station.id } });
 		},
 		[mutations, navigate, run, station],
 	);

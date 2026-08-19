@@ -38,13 +38,54 @@
 const COLUMN_ALIASES: Readonly<Record<string, readonly string[]>> = {
 	startDate: ['startdate', 'start', 'date', 'begindate', 'from', 'observationdate', 'day'],
 	endDate: ['enddate', 'end', 'through', 'to', 'todate'],
-	temperatureMinF: ['temperatureminf', 'mintemp', 'tempmin', 'tmin', 'mintemperature', 'lowf'],
-	temperatureMaxF: ['temperaturemaxf', 'maxtemp', 'tempmax', 'tmax', 'maxtemperature', 'highf'],
+	temperatureMinF: [
+		'temperatureminf',
+		'mintemp',
+		'tempmin',
+		'tmin',
+		'mintemperature',
+		'lowf',
+		'low',
+	],
+	temperatureMaxF: [
+		'temperaturemaxf',
+		'maxtemp',
+		'tempmax',
+		'tmax',
+		'maxtemperature',
+		'highf',
+		'high',
+	],
 	precipitationInches: ['precipitationinches', 'precipitation', 'precip', 'rain', 'rainfall'],
-	relativeHumidityMin: ['relativehumiditymin', 'humiditymin', 'minhumidity', 'rhmin'],
-	relativeHumidityMax: ['relativehumiditymax', 'humiditymax', 'maxhumidity', 'rhmax'],
-	windSpeedMinMph: ['windspeedminmph', 'windmin', 'minwind', 'windspeedmin'],
-	windSpeedMaxMph: ['windspeedmaxmph', 'windmax', 'maxwind', 'windspeedmax', 'gust'],
+	relativeHumidityMin: ['relativehumiditymin', 'humiditymin', 'minhumidity', 'rhmin', 'minrh'],
+	relativeHumidityMax: ['relativehumiditymax', 'humiditymax', 'maxhumidity', 'rhmax', 'maxrh'],
+	windSpeedMinMph: ['windspeedminmph', 'windmin', 'minwind', 'windspeedmin', 'minwindspeed'],
+	windSpeedMaxMph: [
+		'windspeedmaxmph',
+		'windmax',
+		'maxwind',
+		'windspeedmax',
+		'gust',
+		'maxwindspeed',
+	],
+};
+
+/**
+ * What to call each metric when telling somebody their file is wrong.
+ *
+ * The field names are the domain's, and they are the right thing to send to a
+ * server and the wrong thing to show a person looking at a spreadsheet column
+ * headed "Precip". A reason naming `precipitationInches` asks them to work out
+ * which of their columns that is.
+ */
+const METRIC_LABELS: Readonly<Record<string, string>> = {
+	temperatureMinF: 'The minimum temperature',
+	temperatureMaxF: 'The maximum temperature',
+	precipitationInches: 'The precipitation',
+	relativeHumidityMin: 'The minimum humidity',
+	relativeHumidityMax: 'The maximum humidity',
+	windSpeedMinMph: 'The minimum wind speed',
+	windSpeedMaxMph: 'The maximum wind speed',
 };
 
 const METRIC_FIELDS = [
@@ -187,7 +228,7 @@ function readLine(
 
 	const metrics = readMetrics(cells, columns);
 	if (typeof metrics === 'string') {
-		return { line, reason: `${metrics} is not a number.` };
+		return { line, reason: `${METRIC_LABELS[metrics] ?? metrics} is not a number.` };
 	}
 	if (METRIC_FIELDS.every((field) => metrics[field] === null)) {
 		// A line with nothing on it. The server would fail it anyway; failing it here

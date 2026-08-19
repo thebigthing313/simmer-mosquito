@@ -57,7 +57,17 @@ export function useAcknowledgedWrite(
 	refusals: Readonly<Record<string, string>> = STOP_ACKNOWLEDGEABLE_REFUSALS,
 	labels: AcknowledgementLabels = STOP_LABELS,
 ): {
-	/** Run a write; `acknowledgements` is empty on the first attempt. */
+	/**
+	 * Run a write; `acknowledgements` is empty on the first attempt.
+	 *
+	 * **Resolving does not mean the write succeeded.** A refusal that a flag can
+	 * answer is a question, not a failure, so it is swallowed here and turned into
+	 * the dialog — and `run` resolves normally. Anything that should happen only
+	 * once the write lands, a navigation most of all, belongs *inside* `write`
+	 * rather than after this call; put it after and the page leaves before the
+	 * question can be asked, which reads as a save that worked. Only a refusal no
+	 * flag can answer is rethrown.
+	 */
 	readonly run: (write: (acknowledgements: Acknowledgements) => Promise<void>) => Promise<void>;
 	/** Render inside the page. Null until a write is refused with a question. */
 	readonly dialog: ReactNode;

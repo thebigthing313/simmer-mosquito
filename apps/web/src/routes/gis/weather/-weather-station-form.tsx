@@ -25,6 +25,15 @@ const STATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	stationCode: 'code',
 };
 
+/**
+ * A well-formed point standing in for one the operator has not placed yet.
+ *
+ * Same job as `FORM_VALIDATION_GEOMETRY` in `forms/domain-validation.ts`, which
+ * is not exported. Passing it lets the domain check the name and code, and
+ * leaves "you have not placed it" to the guard that can point at the map.
+ */
+const VALIDATION_POINT = { type: 'Point', coordinates: [0, 0] } as const;
+
 export interface WeatherStationFormValues {
 	readonly name: string;
 	readonly code: string;
@@ -122,7 +131,13 @@ export function WeatherStationFormPage({
 						weatherStationId: FORM_VALIDATION_CONTEXT.organizationId,
 						stationName: value.name,
 						stationCode: value.code,
-						geometry: geometry ?? null,
+						// The stand-in, not the real `null`. The builder requires a point and
+						// fails on a null one with "geometry must be a GeoJSON geometry
+						// object" — which pre-empts the whole validator, so a form submitted
+						// with no name *and* no point complains only about the point, and the
+						// form's own guard below never runs to say where to fix it. The
+						// absence of a point is this form's to report, against the map.
+						geometry: geometry ?? VALIDATION_POINT,
 					}),
 				STATION_FIELD_PATHS,
 			),

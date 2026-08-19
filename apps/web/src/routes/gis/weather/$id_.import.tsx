@@ -21,6 +21,7 @@ import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
@@ -29,6 +30,7 @@ import {
 	commitWeatherImport,
 	type WeatherImportResult,
 	type WeatherImportRow,
+	type WeatherImportRowResult,
 } from './-import-commit';
 import {
 	IMPORT_FILE_ACCEPT,
@@ -37,6 +39,7 @@ import {
 	type ParseResult,
 	parseWeatherFile,
 } from './-import-parse';
+import { ImportPreview } from './-import-preview';
 import { IMPORT_REFUSALS } from './-weather-acknowledgements';
 
 export const Route = createFileRoute('/gis/weather/$id_/import')({
@@ -81,6 +84,9 @@ function ImportWeatherRoute() {
  * exists for.
  */
 function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
+	// As on the edit page: this route is the detail route's sibling, so it has to
+	// name the station itself or the crumb shows the bare id.
+	useBreadcrumbLabel(station.id, station.name);
 	const navigate = useNavigate();
 	const { run, dialog } = useAcknowledgedWrite(IMPORT_REFUSALS, {
 		title: 'Import anyway?',
@@ -195,6 +201,7 @@ function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 					<ImportResultCard
 						onDone={() => void navigate({ to: '/gis/weather/$id', params: { id: station.id } })}
 						result={result}
+						stationName={station.name}
 					/>
 				)}
 			</div>
@@ -281,6 +288,8 @@ function ParsedFileCard({
 				)}
 
 				<SkippedLines rejected={parsed.rejected} />
+
+				<ImportPreview rows={parsed.rows} />
 			</CardContent>
 		</Card>
 	);
@@ -319,20 +328,20 @@ function SkippedLines({
 
 function ImportResultCard({
 	result,
+	stationName,
 	onDone,
 }: {
 	readonly result: WeatherImportResult;
+	readonly stationName: string;
 	readonly onDone: () => void;
 }) {
 	const failed = result.rows.filter((row) => row.status === 'failed');
+	const written = result.counts.inserted + result.counts.updated;
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
+			<CardHeader className="px-4 py-4">
 				<CardTitle>Imported</CardTitle>
-				<Button onClick={onDone} type="button" variant="outline">
-					Back to Station
-				</Button>
 			</CardHeader>
 			<CardContent className="grid gap-3" padding="compact">
 				<div className="flex flex-wrap gap-2">
@@ -352,30 +361,61 @@ function ImportResultCard({
 					)}
 				</div>
 
-				{failed.length === 0 ? null : (
-					<div className="overflow-x-auto rounded-md border border-border/40">
-						<Table>
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead className="w-20">Line</TableHead>
-									<TableHead>Why</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{failed.map((row) => (
-									<TableRow key={row.clientRowId}>
-										<TableCell className="tabular-nums">{row.clientRowId}</TableCell>
-										<TableCell className="text-muted-foreground">
-											{row.issues.map((issue) => issue.message).join(' ') ||
-												'This row could not be written.'}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</div>
-				)}
+				<FailedRows rows={failed} />
+
+				{/* The ending action, and the only one: an import is finished when the
+				    readings are on the station, so the page says so and sends the user
+				    to look at them. A second "import another file" button would invite a
+				    rerun of the file just committed, which is the commonest way to
+				    double-enter a month of weather. */}
+				<div className="flex flex-wrap items-center justify-between gap-3 border-border/40 border-t pt-3">
+					<p className="m-0 text-muted-foreground text-sm">
+						{written === 0
+							? `Nothing changed on ${stationName}.`
+							: `${written.toLocaleString()} ${written === 1 ? 'reading is' : 'readings are'} now on ${stationName}.`}
+					</p>
+					<Button onClick={onDone} type="button">
+						View Readings
+					</Button>
+				</div>
 			</CardContent>
 		</Card>
+	);
+}
+
+/**
+ * The rows the server would not write, and what it said about each.
+ *
+ * The server's verdict rather than the parser's: these are lines that read fine
+ * and were still refused, usually for overlapping a bucket the station already
+ * holds. `clientRowId` is the spreadsheet line, so the reason points at somewhere
+ * in the file the user can open.
+ */
+function FailedRows({ rows }: { readonly rows: readonly WeatherImportRowResult[] }) {
+	if (rows.length === 0) {
+		return null;
+	}
+	return (
+		<div className="overflow-x-auto rounded-md border border-border/40">
+			<Table>
+				<TableHeader>
+					<TableRow className="hover:bg-transparent">
+						<TableHead className="w-20">Line</TableHead>
+						<TableHead>Why</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{rows.map((row) => (
+						<TableRow key={row.clientRowId}>
+							<TableCell className="tabular-nums">{row.clientRowId}</TableCell>
+							<TableCell className="text-muted-foreground">
+								{row.issues.map((issue) => issue.message).join(' ') ||
+									'This row could not be written.'}
+							</TableCell>
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
+		</div>
 	);
 }

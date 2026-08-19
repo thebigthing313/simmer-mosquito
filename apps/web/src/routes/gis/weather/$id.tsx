@@ -187,10 +187,13 @@ function StationLifecycleCard({ station }: { readonly station: WeatherStation })
 			// Sent unanswered first. A station with no readings deletes outright; one
 			// with readings comes back as a refusal naming what would be lost, and the
 			// dialog is what earns the second attempt.
+			//
+			// The navigation is inside the callback because `run` resolves on a
+			// refusal too — see the same note on the edit page.
 			await run(async (acknowledgements) => {
 				await mutations.remove(station.id, acknowledgements.acknowledgedSummaryDeletion === true);
+				await navigate({ to: '/gis/weather' });
 			});
-			await navigate({ to: '/gis/weather' });
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the station.');
 		} finally {
