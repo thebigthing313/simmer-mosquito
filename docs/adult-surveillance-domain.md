@@ -1,4 +1,4 @@
-# Adult Surveillance Domain Decisions
+# Adult surveillance domain decisions
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records adult
@@ -8,7 +8,7 @@ This captures the adult surveillance command and schema decisions from the
 domain interview. It is intentionally implementation-facing; broader
 architecture decisions remain in `docs/adr/`.
 
-## Command Groups
+## Command groups
 
 Trap catalog commands are manager-and-above workflows:
 
@@ -46,7 +46,7 @@ Adjacent shared domains own:
 - Organization species enablement.
 - Collection method and lure lookup management.
 
-## Important Semantics
+## Important semantics
 
 `traps` are recurring adult surveillance configurations: collection method,
 point location, optional lure, optional address, and agency display identity.
@@ -66,12 +66,12 @@ directly with collection date and duration.
 Deleted records are soft-deleted and excluded from normal Electric/TanStack DB
 replicas. Retired traps remain replicated for historical context.
 
-## Schema Migration Backlog
+## Schema migration backlog
 
 These schema updates surfaced during the domain interview and are covered by
 `202605080001_adult_surveillance_domain_updates.sql`.
 
-### Collections Timing
+### Collections timing
 
 Add explicit collection timing intent:
 
@@ -93,7 +93,7 @@ Rules:
 - `duration_unit_id` must reference a duration unit.
 - Species/result commands are allowed only for collected records.
 
-### Bycatch Naming
+### Bycatch naming
 
 Rename the domain meaning of `collections.is_non_mosquito` to bycatch:
 
@@ -156,7 +156,7 @@ intentionally narrow:
 The server stores explicit geometry directly on the target row or copies the
 source record's owned geometry onto the target row.
 
-### Trap Display And Lifecycle
+### Trap display and lifecycle
 
 Trap create/reactivate/update must preserve:
 
@@ -180,7 +180,7 @@ acknowledgement.
 
 Reactivating a trap requires active method and active lure when present.
 
-### Lookup Lifecycle
+### Lookup lifecycle
 
 Collection method/lure deactivation is blocked when active, non-deleted traps
 reference the lookup.

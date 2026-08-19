@@ -1,4 +1,4 @@
-# Mission Dispatch Domain Decisions
+# Mission dispatch domain decisions
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records mission
@@ -10,7 +10,7 @@ seam at `packages/domain/src/mission-dispatch/`. Server endpoints, sync shape
 design, UI workflows, imports, and spatial-feature efficiency remain separate
 implementation passes.
 
-## Command Boundary
+## Command boundary
 
 Mission dispatch commands live in a dedicated framework-agnostic module:
 
@@ -44,7 +44,7 @@ Server `AuthContext` remains authoritative. Command context exists for command
 metadata, optimistic UI, offline replay, and client-side command logs, and must
 match the server-resolved context.
 
-## Command Vocabulary
+## Command vocabulary
 
 Mission parent commands:
 
@@ -85,7 +85,7 @@ use the same field names and validation rules as control-operation record
 commands where practical, without nesting a `controlOperations.*` command
 envelope inside the mission command.
 
-## Lifecycle Model
+## Lifecycle model
 
 Mission lifecycle is derived from timestamps, not from a stored status enum.
 
@@ -108,7 +108,7 @@ mission returns to `inProgress`.
 
 There is no `unstartMission` command in v1.
 
-## Scheduling And Timezones
+## Scheduling and timezones
 
 Mission scheduling uses exact instants plus a local rain date:
 
@@ -131,7 +131,7 @@ Assigned collectors may start or progress a mission up to 12 hours before its
 scheduled start. Managers may start earlier with acknowledgement. Scheduled end
 time is not a hard execution gate.
 
-## Planning Fields
+## Planning fields
 
 `missionName` is optional, trimmed, and normalized to `null` when empty. It has
 no uniqueness constraint.
@@ -164,7 +164,7 @@ or replaced with a valid method for the new type.
 control action's `recommendedMethodId` requires acknowledgement when creating or
 updating mission items.
 
-## Assignment And Crew Ownership
+## Assignment and crew ownership
 
 V1 missions have a single optional crew lead/responsible profile:
 
@@ -220,7 +220,7 @@ existing addresses only; mission dispatch does not create addresses inline.
 No mission item `instructions`, `description`, or parent mission `description`
 column is part of v1. Use mission comments for notes and planning context.
 
-## Mission Item Sources
+## Mission Item sources
 
 Mission items may be ad hoc, sourced from field records, or linked to requested
 control actions.
@@ -309,7 +309,7 @@ Moving progressed items requires acknowledgement. Movement alone does not
 require notification acknowledgement because notification matching uses geometry
 sets, not item order.
 
-## Item Progress
+## Item progress
 
 Mission items have first-class progress fields on `mission_items`, not a
 separate event table:
@@ -357,7 +357,7 @@ comparison does not apply. Auto-start writes the progress timestamp itself as
 beginning after it.
 
 The clock-skew allowance is the one in `isProgressBeforeStart`
-(`apps/server/src/progress-timing.ts`), shared with field work — the two domains
+(`apps/server/src/progress-timing.ts`), shared with field work. The two domains
 state the same rule about the same pair of clocks, and one of them drifting from
 the other would be a bug in whichever moved.
 
@@ -384,7 +384,7 @@ richer explanation when no actual action exists.
 
 Soft-deleting a mission item preserves progress fields on the soft-deleted row.
 
-## Parent Lifecycle Commands
+## Parent lifecycle commands
 
 `startMission` is strict:
 
@@ -481,7 +481,7 @@ Existing mission notification rows remain manual tracking/worklist rows.
 Notification type deactivation is blocked when scheduled or in-progress missions
 reference it. Completed/cancelled mission history may retain inactive types.
 
-## Actual Control Action Provenance
+## Actual control action provenance
 
 Add nullable `mission_item_id` columns to actual action tables:
 
@@ -507,7 +507,7 @@ Recording actual work from a mission item:
 - writes the actual action with `mission_item_id`
 - defaults `requested_control_action_id` from the mission item when appropriate
 - carries the action's own larval/adult context (`habitatId`, `inspectionId`,
-  `collectionId`) exactly as the off-mission command does — a mission-recorded
+  `collectionId`) exactly as the off-mission command does, so a mission-recorded
   action stores no less than the same action recorded outside one
 - optionally marks the mission item complete in the same transaction
 - optionally auto-starts the mission
@@ -516,11 +516,11 @@ Helper commands include:
 
 - `completeMissionItem`, default `true`
 - `autoStartMission`, default `true`
-- `acknowledgedRequestedActionMismatch` — the action cites a requested action
+- `acknowledgedRequestedActionMismatch`: the action cites a requested action
   that is not the stop's
-- `acknowledgedMissionGeometryNotCovered` — the action does not cover the ground
+- `acknowledgedMissionGeometryNotCovered`: the action does not cover the ground
   the stop names
-- `acknowledgedCompletedItemAdditionalAction` — a second action against a stop
+- `acknowledgedCompletedItemAdditionalAction`: a second action against a stop
   that is already completed, the mission counterpart of
   `acknowledgedCompletedItemAdditionalRecord`
 
@@ -540,10 +540,10 @@ ordinary `controlOperations.*` command, unchanged.
 
 Defaults the server fills when the command omits them:
 
-- geometry — the mission item's own geometry, so the ordinary call cannot
+- geometry: the mission item's own geometry, so the ordinary call cannot
   disagree with the stop it came from
-- `requested_control_action_id` — the stop's
-- method — `missions.planned_method_id`. For source reduction, outreach, and
+- `requested_control_action_id`: the stop's
+- method: `missions.planned_method_id`. For source reduction, outreach, and
   biocontrol the column is required, so a mission planned without a method and
   executed without one is refused (`mission_method_required`) rather than
   invented. A chemical application's method is nullable, so the plan is a
@@ -558,15 +558,15 @@ does not fully cover/encompass the mission item geometry. For point mission
 items, coverage means the point lies on/within the action geometry or equals the
 action point. This is `ST_Covers(action.geom, mission_item.geom)`, checked after
 the action row is written and inside the same transaction, so a refusal rolls
-the write back. A null answer — one of the geometries missing — is not "does not
-cover" and is not refused.
+the write back. A null answer, meaning one of the geometries is missing, is not
+"does not cover" and is not refused.
 
 Address mismatch is warning-only because geometry is authoritative.
 
 `acknowledgedMissionGeometryNotCovered` and `acknowledgedRequestedActionMismatch`
 are answers to a refusal rather than options the form offers up front, and reach
-the endpoint the same way the assignment ones do — see "Assignment Item
-Execution" in `docs/field-work-support-domain.md`. `mission_item_wrong_control_type`
+the endpoint the same way the assignment ones do. See "Assignment Item
+execution" in `docs/field-work-support-domain.md`. `mission_item_wrong_control_type`
 and `mission_method_required` take no flag and are never offered a way past.
 
 Mission helper commands do not automatically resolve requested control actions.
@@ -615,7 +615,7 @@ Viewer is read-only.
 
 SIMMER operators do not bypass agency roles through `missionDispatch.*`.
 
-## Mobile, Offline, Sync, And Imports
+## Mobile, offline, sync, and imports
 
 Mission commands follow `docs/domain-command-contract.md`. Domain-specific
 created-row IDs are:
@@ -638,7 +638,7 @@ No dedicated mission import commands are part of v1. Normal commands are
 ID-stable and backfill-friendly. Bulk import/admin tooling may use
 command-equivalent validated server workflows later.
 
-## Validation Boundary
+## Validation boundary
 
 Use the shared validation boundary in `docs/domain-command-contract.md`.
 Mission-specific builder checks include `ControlType`, item input
@@ -651,7 +651,7 @@ organization timezone, notification generation impacts, item progress and
 actual action linkage impacts, geometry coverage predicates, actual action
 unit/product/batch compatibility, and cross-domain lifecycle effects.
 
-## Domain Module Shape
+## Domain module shape
 
 `packages/domain/src/mission-dispatch/` exports:
 
@@ -672,7 +672,7 @@ Mission-specific conventions are `Date` objects for instants,
 `LocalDateString` for `rainDate` and actual action dates, and patch semantics
 for updates.
 
-## Schema Backlog
+## Schema backlog
 
 These v1 schema changes are covered by
 `202605140001_public_engagement_mission_dispatch_domain_updates.sql`.
@@ -752,7 +752,7 @@ Do not add in v1:
 - inline address creation inside mission dispatch commands
 - formulation-specific mission helper command
 
-## Testing Expectations
+## Testing expectations
 
 When implemented, add focused unit tests for pure builders and helpers:
 

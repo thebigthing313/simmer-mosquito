@@ -163,7 +163,7 @@ exported from `packages/db/src/seeds/role-ladder.ts` as `roleLadderIds`.
 
 ## The checks
 
-### As a Collector
+### As a collector
 
 Allowed:
 
@@ -192,7 +192,7 @@ Worth checking in the browser as well as through the API: after #49 the UI
 should not *offer* any of the refused ones. A 403 that only appears on save is
 the bug #49 fixed, not the ladder working.
 
-### As a Manager
+### As a manager
 
 Everything the Collector needs ownership for should be allowed outright,
 including correcting another person's assignment and another person's comment.
@@ -204,7 +204,7 @@ Refused: the owner/admin catalogs above. This is the rung that did not exist
 before #50, so it is the one most worth checking. Also refused: settings, the
 agency's details, and the people surface.
 
-### As an Admin
+### As an admin
 
 As Manager, plus the owner/admin catalogs, settings, the agency's details, and
 the people surface: adding a profile, inviting somebody, ending an access.
@@ -215,7 +215,7 @@ That is owner-only, because an Admin who could set a role could set their own to
 the role endpoint refuses outright, and an invitation naming `owner` is refused
 by `canGrantRole` even though inviting itself is allowed.
 
-### As an Owner
+### As an owner
 
 As Admin, plus changing a role. An Owner may grant any role, `owner` included.
 

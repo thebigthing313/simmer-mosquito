@@ -1,4 +1,4 @@
-# Control Operations Domain Decisions
+# Control operations domain decisions
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records control
@@ -8,7 +8,7 @@ This captures the control operations command and schema decisions from the
 domain interview. It is intentionally implementation-facing; broader
 architecture decisions remain in `docs/adr/`.
 
-## Command Groups
+## Command groups
 
 Control operations commands live behind a framework-agnostic public domain
 seam:
@@ -41,7 +41,7 @@ match the server-resolved context.
 Use the command namespace `controlOperations.*`. Use domain language
 `chemicalApplication` for the DB table currently named `applications`.
 
-### Method Catalog Commands
+### Method catalog commands
 
 Application method commands:
 
@@ -81,7 +81,7 @@ may update method details:
 - `name`
 - `customSchema`
 
-### Vehicle And Equipment Commands
+### Vehicle and equipment commands
 
 Vehicle commands:
 
@@ -101,7 +101,7 @@ Equipment commands:
 
 Manager-and-above manages vehicles and equipment.
 
-### Insecticide And Batch Commands
+### Insecticide and batch commands
 
 Insecticide commands:
 
@@ -122,7 +122,7 @@ Insecticide batch commands:
 Owners/admins manage insecticide product catalog rows. Manager-and-above manages
 insecticide batches because batches are operational inventory/lifecycle data.
 
-### Formulation Commands
+### Formulation commands
 
 Formulation commands:
 
@@ -137,7 +137,7 @@ Formulation commands:
 
 Owners/admins manage formulations and formulation components.
 
-### Chemical Application Commands
+### Chemical Application commands
 
 Chemical application commands:
 
@@ -152,7 +152,7 @@ Chemical applications are single-insecticide persisted records. A formulation
 may help calculate and generate several chemical application commands, but
 formulation use is not stored on the application row.
 
-### Non-Chemical Action Commands
+### Non-chemical action commands
 
 Source reduction commands:
 
@@ -175,7 +175,7 @@ Biocontrol action commands:
 - `controlOperations.updateBiocontrolActionLocationAndContext`
 - `controlOperations.deleteBiocontrolAction`
 
-### Requested Control Action Commands
+### Requested Control Action commands
 
 Requested control action commands:
 
@@ -190,7 +190,7 @@ Requested control actions are included in the control operations domain because
 actual control action records link to them. Missions and mission items belong
 to the mission dispatch domain.
 
-## Important Semantics
+## Important semantics
 
 Control operations have three broad categories:
 
@@ -206,7 +206,7 @@ Transaction rows do not have retired/inactive lifecycle states. They are either
 valid history or soft-deleted correction records. Requested control actions also
 have the workflow state `resolvedAt`/`resolvedByProfileId`.
 
-## Units And Defaults
+## Units and defaults
 
 Operational quantity commands must carry explicit unit IDs. Defaults are UI and
 helper behavior only.
@@ -242,7 +242,7 @@ Unit type rules:
 - biocontrol units allow `count`, `volume`, and `weight`
 - outreach `reach` is a positive integer and does not use a unit row
 
-## Method Catalog Lifecycle
+## Method catalog lifecycle
 
 Method catalogs are organization-scoped lookup/custom-form rows:
 
@@ -279,7 +279,7 @@ Deactivating a method is blocked or requires acknowledgement when unresolved
 requested control actions or active/scheduled missions reference it. Deletion is
 allowed only when no non-deleted records reference the method.
 
-## Vehicles And Equipment
+## Vehicles and equipment
 
 Vehicles and equipment are operational catalogs.
 
@@ -479,7 +479,7 @@ its component rows. Deleting with active component rows requires
 Formulation edits are prospective template edits and do not require historical
 acknowledgement because no historical application stores formulation usage.
 
-## Formulation Helpers
+## Formulation helpers
 
 The control operations public seam exports pure formulation helpers:
 
@@ -491,7 +491,7 @@ Helpers must not depend on DB access or persisted formulation usage.
 `calculateFormulationComponentAmounts` accepts the amount of mix that went out,
 the formulation's `batchSize`, and its components. Applying `totalAmount` of a
 mix is `totalAmount / batchSize` batches, so each component scales by that factor
-and is returned in its own `unitId` — 0.5 lb per 26 gal, applied over 78 gal, is
+and is returned in its own `unitId`: 0.5 lb per 26 gal, applied over 78 gal, is
 1.5 lb. No unit conversion is performed or required.
 
 `expandFormulationApplicationCommands` should:
@@ -510,7 +510,7 @@ v1. Do not add `formulationRunId`, grouping IDs, or formulation snapshots.
 If unit conversion becomes necessary, helpers should accept an injected unit
 conversion map rather than hard-coding database behavior.
 
-## Control Action Context
+## Control action context
 
 Command payloads should use a shared nested context object instead of exposing
 invalid flat combinations directly:
@@ -583,7 +583,7 @@ Context and actual geometry are related but independent. Action/request
 geometry may differ from linked habitat, inspection, collection, or requested
 action geometry because treatment boundaries may be more precise or different.
 
-## Owned Geometry And Addresses
+## Owned geometry and addresses
 
 Control commands carry `locationSource`, not database geometry columns. The
 server stores explicit geometry directly on the target row or snapshots the
@@ -972,7 +972,7 @@ detach rules.
 
 Collectors cannot delete requested actions once referenced.
 
-## Requested Action Link Consistency
+## Requested action link consistency
 
 Actual control actions may link to non-deleted requested control actions.
 Resolution state does not affect link validity; both unresolved and resolved
@@ -1002,7 +1002,7 @@ Context consistency is required where both sides specify context:
 
 Link changes do not alter requested action resolution state.
 
-## Dates And Timezones
+## Dates and timezones
 
 Actual performed control action dates are date-only:
 
@@ -1051,10 +1051,10 @@ Actual action recording:
 The role floors and the performer correction window are enforced in
 `apps/server/src/command-permissions.ts` and
 `apps/server/src/command-ownership.ts`. A collector reaching an `update*` command
-on one of these records must be the stored performer — `applicator_profile_id`
-for applications, `technician_profile_id` for the rest,
-`requested_by_profile_id` for requests — and the action date must be within 30
-days, measured from the action date rather than from when the row was written.
+on one of these records must be the stored performer, meaning
+`applicator_profile_id` for applications, `technician_profile_id` for the rest,
+and `requested_by_profile_id` for requests. The action date must also be within
+30 days, measured from the action date rather than from when the row was written.
 
 Deletion carries the same performer rule plus the escalations this section names.
 `deleteChemicalApplication`, `deleteSourceReduction`, `deleteOutreachAction`,
@@ -1070,7 +1070,7 @@ reason:
   or its own resolution.
 
 That last one is this document's "collectors may update their own **unresolved**,
-unreferenced requests" read across to deletion — resolving is manager-and-above,
+unreferenced requests" read across to deletion. Resolving is manager-and-above,
 and a collector deleting a resolved request would undo that decision by removing
 what it was made about.
 
@@ -1079,7 +1079,7 @@ of this check. They are a manager's confirmation that a delete will take support
 rows with it; a collector cannot acknowledge past an escalation at all. The
 server-side command builders force them to `true`
 (`acknowledgedSupportRecordDeletion: true` in `performed-actions.ts`), so today
-they carry no confirmation — the client's confirm dialog is doing that job.
+they carry no confirmation, and the client's confirm dialog is doing that job.
 
 Linked requested action deletion/escalation:
 
@@ -1099,7 +1099,7 @@ Catalog permissions:
 
 Organization settings remain owner/admin only.
 
-## Mobile And Offline
+## Mobile and offline
 
 Control commands follow `docs/domain-command-contract.md`. Domain-specific
 created-row IDs are:
@@ -1144,7 +1144,7 @@ date window or load on demand.
 Comments and additional personnel remain target-scoped/on-demand as defined in
 the field-work support domain.
 
-## Comments And Additional Personnel
+## Comments and Additional Personnel
 
 Control commands do not create comments or additional personnel inline.
 
@@ -1173,7 +1173,7 @@ personnel row.
 
 Control actions are not taggable in v1.
 
-## Cross-Domain Lifecycle
+## Cross-domain lifecycle
 
 Control records preserve their own feature, address, date, method/product, and
 performer fields when source/context records are deleted or detached.
@@ -1208,7 +1208,7 @@ detached.
 Requested control action deletion preserves actual control actions and detaches
 their requested-action links with manager acknowledgement, as described above.
 
-## Text And JSON Validation
+## Text and JSON validation
 
 Text fields are DB `text`, but command builders should enforce practical domain
 maximums:
@@ -1231,7 +1231,7 @@ No partial JSON patch commands are part of v1.
 `metadata` hard validation is only JSON object or null. Do not add metadata byte
 size limits in the domain layer for v1.
 
-## Domain Validation Boundary
+## Domain validation boundary
 
 Use the shared validation boundary in `docs/domain-command-contract.md`.
 Control-specific builder checks include URL syntax for label/MSDS links,
@@ -1248,7 +1248,7 @@ Structured issue paths should match command payload names, for example:
 - `context.habitatId`
 - `applicationBatches.0.insecticideBatchId`
 
-## Domain Module Shape
+## Domain module shape
 
 `packages/domain/src/control-operations/` exports:
 
@@ -1271,13 +1271,13 @@ JSON fields.
 
 Server mappers flatten nested context into DB columns.
 
-## Schema Migration Backlog
+## Schema migration backlog
 
 The concrete schema changes surfaced during the domain interview are covered by
 `202605120002_control_operations_domain_updates.sql`. This section remains as
 the implementation-facing record of what that migration catches up.
 
-### Vehicle And Equipment Lifecycle
+### Vehicle and equipment lifecycle
 
 Add active lifecycle to vehicles and equipment:
 
@@ -1297,7 +1297,7 @@ create index equipment_organization_active_name_idx
   where deleted_at is null;
 ```
 
-### Habitat Links
+### Habitat links
 
 Add direct habitat links for habitat-targeted control without requiring an
 inspection:
@@ -1320,7 +1320,7 @@ create index requested_control_actions_organization_habitat_idx
 
 Do not add direct `habitat_id` to outreach actions for v1.
 
-### Normalized Uniqueness
+### Normalized uniqueness
 
 Add or replace normalized unique indexes:
 
@@ -1364,7 +1364,7 @@ create unique index equipment_organization_normalized_serial_unique
 
 Do not add unique indexes for vehicle names or equipment names.
 
-### Association Uniqueness
+### Association uniqueness
 
 Enforce one active application/batch link:
 
@@ -1382,7 +1382,7 @@ create unique index formulation_insecticides_active_formulation_insecticide_uniq
   where deleted_at is null;
 ```
 
-### Formulation Numeric Checks
+### Formulation numeric checks
 
 Add lightweight, context-free checks:
 
@@ -1400,7 +1400,7 @@ alter table formulation_insecticides
 FKs to `units`, added with the recipe columns in
 `202608030001_formulation_batch_units.sql`.
 
-### Deferred Schema
+### Deferred schema
 
 Do not add for v1 unless a concrete workflow demands it:
 
@@ -1417,7 +1417,7 @@ Do not add for v1 unless a concrete workflow demands it:
 - inventory command fields for `inventory_unit_id` and `conversion_factor`
 - structured requested action resolution reason
 
-## Testing Expectations
+## Testing expectations
 
 When implemented, add focused unit tests for the domain builders and helpers:
 

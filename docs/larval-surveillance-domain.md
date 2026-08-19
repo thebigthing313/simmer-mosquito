@@ -1,4 +1,4 @@
-# Larval Surveillance Domain Decisions
+# Larval surveillance domain decisions
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records larval
@@ -8,7 +8,7 @@ This captures the larval surveillance command and schema decisions from the
 domain interview. It is intentionally implementation-facing; broader
 architecture decisions remain in `docs/adr/`.
 
-## Command Groups
+## Command groups
 
 Habitat catalog commands are mostly manager-and-above workflows:
 
@@ -34,8 +34,8 @@ source they found on an ad hoc inspection into a habitat:
 
 `createHabitatFromInspection` is collector-and-above because it is the second
 half of the ad hoc inspection flow rather than a planning decision: the collector
-is standing at the source. Plain `createHabitat` — naming a site from a map or an
-address, with no inspection behind it — stays manager-and-above.
+is standing at the source. Plain `createHabitat`, which names a site from a map
+or an address with no inspection behind it, stays manager-and-above.
 
 These floors are enforced in `apps/server/src/command-permissions.ts`.
 
@@ -74,7 +74,7 @@ Adjacent shared domains own:
 - Tags and additional personnel.
 - Routes and assignments.
 
-## Important Semantics
+## Important semantics
 
 `habitats` are stable, reusable larval surveillance sources or locations that an
 agency may return to: catch basins, ditch segments, tire piles, ponds,
@@ -102,7 +102,7 @@ sample species counts are separate downstream transactions.
 Deleted records are soft-deleted and excluded from normal Electric/TanStack DB
 replicas. Retired habitats remain replicated for historical context.
 
-## Habitat Lifecycle
+## Habitat lifecycle
 
 Habitat lifecycle fields have distinct meanings:
 
@@ -132,7 +132,7 @@ Reactivating a habitat:
 
 Marking or clearing inaccessible is idempotent.
 
-## Habitat Details And Configuration
+## Habitat details and configuration
 
 `updateHabitatDetails` is collector-and-above and may update:
 
@@ -157,7 +157,7 @@ If a habitat already has inspections or cross-domain references, location or
 configuration changes require acknowledgement. Existing inspection snapshots
 and cross-domain record fields are not rewritten.
 
-## Habitat Delete
+## Habitat delete
 
 `deleteHabitat` is manager-and-above and is for erroneous catalog records, not
 normal lifecycle. Retire should be encouraged when the source was legitimately
@@ -179,7 +179,7 @@ manager explicitly acknowledges detaching those inspections. With acknowledgemen
 Separate acknowledgement flags should distinguish deleting the habitat catalog
 record, detaching inspections, and detaching cross-domain records.
 
-## Habitat Promotion
+## Habitat promotion
 
 `createHabitatFromInspection` is manager-and-above.
 
@@ -208,7 +208,7 @@ new habitat.
 
 There is no age limit for promotion.
 
-## Habitat Merge
+## Habitat merge
 
 `mergeHabitats` is manager-and-above and is part of v1.
 
@@ -264,7 +264,7 @@ fields. Duplicate tags/personnel are deduped by keeping one active association.
 
 Source habitats are soft-deleted after merge. There is no v1 undo merge command.
 
-## Inspection Result Policy
+## Inspection result policy
 
 Larval inspection result validation depends on resolved organization settings.
 Missing org settings must resolve to defaults instead of blocking entry.
@@ -309,7 +309,7 @@ is indicated, at least one life-stage flag is required.
 Wet-zero inspections are represented by wet/dry plus abundance fields. Do not
 add `inspections.is_zero_result`.
 
-## Density Inference
+## Density inference
 
 Organization settings may define density ranges for larvae per dip:
 `larvae_count / dip_count`.
@@ -336,7 +336,7 @@ When valid ranges exist and count/dip data is provided:
 
 When ranges are absent, count/dip data is accepted without inference.
 
-## Inspection Updates And Deletes
+## Inspection updates and deletes
 
 `updateInspectionFieldDetails` replaces the full interdependent result state:
 
@@ -429,7 +429,7 @@ with species rows, comments, tags, or additional personnel requires
 manager-and-above plus acknowledgement. Delete soft-deletes sample species rows
 and sample-targeted comments/tags/personnel.
 
-## Sample Result Semantics
+## Sample result semantics
 
 `samples.is_zero_larvae` means the sample had no mosquito larvae at analysis,
 even though the parent inspection indicated breeding. It covers bad samples,
@@ -460,7 +460,7 @@ Collectors may set them on any sample in their organization, subject to the
 samples. V1 does not add sample-level analysis attribution/date fields; command
 audit can cover that later.
 
-## Sample Species Analysis
+## Sample species analysis
 
 Species identification happens at the larval stage. `sample_species.larvae_count`
 is enough for v1; do not add per-species pupae or egg counts yet. Parent
@@ -488,7 +488,7 @@ Organization species curation uses an "allow all until curated" rule:
 - organization species curation is owner/admin;
 - organization species rows are soft-deleted when unselected.
 
-## Dates And Timezones
+## Dates and timezones
 
 Inspection and identification dates are date-only.
 
@@ -542,7 +542,7 @@ Analysis workflow:
 - manager-and-above can backfill/correct on behalf of another profile;
 - collectors can update/delete only their own species rows within 30 days.
 
-## Lookup Lifecycle
+## Lookup lifecycle
 
 Habitat type lookup lifecycle follows shared org lookup rules:
 
@@ -557,7 +557,7 @@ Habitat type lookup lifecycle follows shared org lookup rules:
 - reactivating a habitat with `habitat_type_id` requires the habitat type to be
   active.
 
-## Comments, Tags, And Personnel
+## Comments, tags, and personnel
 
 Commentable larval entities:
 
@@ -603,7 +603,7 @@ handlers validate allowed geometry for habitat creation, habitat location
 updates, and ad hoc inspection creation or correction when the source is
 explicit geometry.
 
-## Mobile And Offline
+## Mobile and offline
 
 Larval commands follow `docs/domain-command-contract.md`. Domain-specific
 created-row IDs are:
@@ -620,12 +620,12 @@ Offline collectors can create ad hoc inspections, cataloged habitat inspections,
 and labeled samples. Offline unlabeled sample creation requires a cached
 manager-and-above role and is still server-revalidated.
 
-## Schema Migration Backlog
+## Schema migration backlog
 
 These schema updates surfaced during the domain interview and are covered by
 `202605100001_larval_surveillance_domain_updates.sql`.
 
-### Inspection Checks
+### Inspection checks
 
 Add low-risk, policy-independent checks:
 
@@ -636,7 +636,7 @@ Do not DB-enforce wet/dry combinations, density policy, breeding life-stage
 requirements, sample requires breeding, org species curation, or date ordering.
 Those depend on command context, organization settings, soft deletes, or joins.
 
-### Sample Species Uniqueness
+### Sample species uniqueness
 
 Replace hard uniqueness on `sample_species (sample_id, species_id)` with a
 soft-delete-aware partial unique index:
@@ -650,7 +650,7 @@ create unique index sample_species_active_sample_species_unique
 This keeps one active species row per sample/species while allowing re-add after
 soft delete.
 
-### Sample Naming
+### Sample naming
 
 Keep `samples.display_name` nullable. The command layer distinguishes normal
 labeled sample creation from manager-only unlabeled creation.
@@ -658,12 +658,12 @@ labeled sample creation from manager-only unlabeled creation.
 Consider a partial unique index for active non-null display names per inspection
 if command-level uniqueness proves insufficient.
 
-### Non-Mosquito Naming
+### Non-mosquito naming
 
 Rename the DB column from `samples.is_non_mosquito` to `has_non_mosquito`.
 Prefer domain/API field name `hasNonMosquito`.
 
-### Settings Types
+### Settings types
 
 Typed organization settings are defined in `docs/organization-settings-domain.md`
 and `packages/domain/src/organization-settings/` for:
@@ -674,7 +674,7 @@ and `packages/domain/src/organization-settings/` for:
 Settings commands must validate saved larval density ranges and timezone names.
 Larval commands consume resolved settings and default missing settings.
 
-### Deferred Schema
+### Deferred schema
 
 Do not add for v1 unless a concrete workflow demands it:
 

@@ -1,4 +1,4 @@
-# ADR 0002: Server-Authorized Sync-Native Data Access
+# ADR 0002: Server-authorized sync-native data access
 
 Status: Accepted
 

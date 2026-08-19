@@ -1,4 +1,4 @@
-# SIMMER Mosquito Context
+# SIMMER mosquito context
 
 This is the lightweight domain index for SIMMER mosquito control language. Keep
 it small enough to load often. For implementation details, load the linked

@@ -1,4 +1,4 @@
-# SIMMER Architecture
+# SIMMER architecture
 
 SIMMER is the Strategic Integrated Mosquito Management Enterprise Resources
 platform. The product serves mosquito control agencies with a web management

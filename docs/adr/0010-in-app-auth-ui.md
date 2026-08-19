@@ -1,4 +1,4 @@
-# ADR 0010: In-App (Bring-Your-Own-UI) Authentication Pages
+# ADR 0010: In-app (bring-your-own-UI) authentication pages
 
 Status: Accepted
 

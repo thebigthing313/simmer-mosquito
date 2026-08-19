@@ -1,4 +1,4 @@
-# ADR 0007: Shared Sync Descriptors With Per-Frontend Collections
+# ADR 0007: Shared sync descriptors with per-frontend collections
 
 Status: Accepted, amended by
 [ADR 0014](0014-generated-table-schemas-replace-sync-descriptors.md)

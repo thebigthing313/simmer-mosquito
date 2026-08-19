@@ -1,4 +1,4 @@
-# ADR 0003: Domain Commands Through TanStack DB Mutations
+# ADR 0003: Domain commands through TanStack DB mutations
 
 Status: Accepted
 

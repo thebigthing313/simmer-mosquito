@@ -1,4 +1,4 @@
-# Public Engagement Domain Decisions
+# Public engagement domain decisions
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records public
@@ -10,7 +10,7 @@ notification types, and mission notification tracking. Server endpoints, public
 portal intake, sync shapes, imports, and real notification sending remain
 deferred.
 
-## Command Shape
+## Command shape
 
 Public engagement commands live behind a framework-agnostic public domain seam:
 
@@ -373,7 +373,7 @@ SIMMER operators do not bypass agency roles through `publicEngagement.*`
 commands. If a SIMMER operator is also an agency member, they act through that
 agency membership.
 
-## Offline And Mobile Expectations
+## Offline and mobile expectations
 
 Public engagement commands follow `docs/domain-command-contract.md`. Product
 usage can still be web-first for manager workflows in v1. Collectors may
@@ -384,7 +384,7 @@ Detailed Electric/TanStack DB shape and sync decisions for contacts, service
 requests, notification registrations, and mission notification worklists are
 deferred to a per-app sync design pass.
 
-## Validation Boundary
+## Validation boundary
 
 Use the shared validation boundary in `docs/domain-command-contract.md`.
 Public-engagement-specific builder checks include email syntax, contact
@@ -398,7 +398,7 @@ timezone, assignment item cleanup, contact merge/delete references,
 registration delete references, mission notification generation eligibility,
 and spatial matching/buffered intersections.
 
-## Schema Changes Surfaced
+## Schema changes surfaced
 
 Public engagement schema follow-up covered by
 `202605140001_public_engagement_mission_dispatch_domain_updates.sql`:

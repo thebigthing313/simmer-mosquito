@@ -1,4 +1,4 @@
-# Foundation And Reference Data Domain
+# Foundation and reference data domain
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records foundation
@@ -6,9 +6,11 @@ and reference-data vocabulary and exceptions.
 
 This captures the foundation/reference-data command decisions from the domain
 interview. These commands harden organization-owned address/region/reference
-data and SIMMER-controlled taxonomy. Server endpoints are still deferred.
+data and SIMMER-controlled taxonomy. The endpoints exist: 39 `foundation.*`
+commands carry floors in `apps/server/src/command-permissions.ts`, and their
+routes live in `apps/server/src/table-commands/`.
 
-## Command Shape
+## Command shape
 
 Foundation agency commands use the `foundation.*` namespace and carry command
 context for optimistic UI, offline logs, and command replay:
@@ -86,7 +88,7 @@ Duplicate address display names or identical address features are warnings only.
 The app should warn within useful UI scope; the database should not prevent
 duplicates.
 
-## Region Folders
+## Region folders
 
 Commands:
 
@@ -130,7 +132,7 @@ on the region and invalidates affected cache rows.
 direct region comments/tags, and invalidates affected cache rows. Region delete
 is not blocked by cached intersections. There is no v1 region merge command.
 
-## Region Intersection Cache
+## Region intersection cache
 
 Region intersection cache has no public commands. It is derived from owned
 locatable-row geometry against a region folder. Region and folder mutations
@@ -165,7 +167,7 @@ explicit and required. Duplicate display names are warnings only.
 Renaming referenced taxonomy requires explicit acknowledgement in server command
 handling so operators do not accidentally relabel historical results.
 
-## Global Units
+## Global units
 
 Commands:
 
@@ -178,8 +180,8 @@ reason: there is no `organization_id`, and every agency records amounts against
 them. Commands require a client-generated `unitId`.
 
 `code`, `unitName` and `abbreviation` are each unique globally. Uniqueness is
-checked by the server inside the write transaction, not by the builders — it is a
-fact about the other rows rather than about the command.
+checked by the server inside the write transaction, not by the builders, because
+it is a fact about the other rows rather than about the command.
 
 Delete is hard delete, allowed only when unreferenced. A unit is blocked by any
 record measured in it, and by an organization's unit defaults.
@@ -188,7 +190,7 @@ record measured in it, and by an organization's unit defaults.
 factor and no base-unit column; the arithmetic lives in
 `organization-settings/unit-conversion.ts`, keyed by `code`. Changing a unit's
 code therefore detaches it from every total that crosses units, and it does not
-fail — an unknown code makes a total *unavailable*, so callers fall back to
+fail. An unknown code makes a total *unavailable*, so callers fall back to
 reporting each unit separately. `updateUnit` requires
 `acknowledgedUnitCodeChange` when, and only when, `code` is among the changes.
 Adding a unit to the database means adding it to the conversion table too.
@@ -262,7 +264,7 @@ non-deleted references:
 
 There is no v1 lookup merge or restore command.
 
-## Comments And Tags
+## Comments and tags
 
 Addresses and regions are valid comment and tag targets. Region folders,
 taxonomy rows, organization species rows, and lookup rows are not commentable or
@@ -289,7 +291,7 @@ Collection methods, lures, and habitat types are small lists and can be entered
 one by one in v1. Trap and habitat imports need richer validation and are
 deferred to separate SIMMER onboarding tooling or later product work.
 
-## Sync And Offline
+## Sync and offline
 
 Foundation commands follow `docs/domain-command-contract.md`. Mobile/offline
 frontends may sync scoped working sets of address, region, taxonomy, and lookup
@@ -300,7 +302,7 @@ Sync behavior will differ by frontend and needs a dedicated follow-up session.
 Foundation-specific replay must also revalidate duplicate-warning
 acknowledgements.
 
-## Schema Changes Surfaced
+## Schema changes surfaced
 
 The schema should align with these domain decisions:
 

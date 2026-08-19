@@ -339,7 +339,7 @@ reused. If a custom pattern appears more than once, promote it into
 - **State:** Selected, filter, status, and map-layer meanings must be visually
   distinct without relying on color alone.
 
-### Cards / Containers
+### Cards / containers
 - **Corner Style:** Gently curved (8px radius) for panels, fact tiles, sidebars,
   forms, and rows.
 - **Background:** Surface for primary panels; Surface Muted for sidebars, fact
@@ -375,7 +375,7 @@ every scroll for an effect nobody could see. Blur is earned only where something
 genuinely moves behind glass, which is the floating map controls over live
 basemap tiles, and nowhere else.
 
-### Inputs / Fields
+### Inputs / fields
 - **Style:** Surface background, Border Strong stroke, 8px radius, 40px minimum
   height, 9px by 11px padding. The stroke owes 3:1 against its surface; it is a
   control boundary, not a divider.

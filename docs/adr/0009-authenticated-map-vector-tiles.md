@@ -1,4 +1,4 @@
-# ADR 0009: Authenticated Map Vector Tiles for Open-Ended Map Browsing
+# ADR 0009: Authenticated map vector tiles for open-ended map browsing
 
 Status: Accepted
 

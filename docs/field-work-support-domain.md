@@ -1,4 +1,4 @@
-# Field-Work Support Domain Decisions
+# Field-work support domain decisions
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records field-work
@@ -8,7 +8,7 @@ This captures shared field-work/support command and schema decisions from the
 domain interview. It is intentionally implementation-facing; broader
 architecture decisions remain in `docs/adr/`.
 
-## Command Groups
+## Command groups
 
 Comment commands are shared field-work/support workflows:
 
@@ -22,7 +22,7 @@ Comments are not created inline by adult surveillance, larval surveillance,
 control, route, assignment, or mission commands. Those domains may cascade or
 re-point comments during delete and merge operations.
 
-## Comment Targets
+## Comment targets
 
 V1 comment target types use singular domain names in command/API payloads and
 map to SQL tables in the server layer.
@@ -51,7 +51,7 @@ The existing `comments.entity_type` column may store these domain target type
 strings. The server should reject unsupported target types and unsupported
 target/entity combinations through a shared target registry.
 
-## Comment Semantics
+## Comment semantics
 
 Comments are user-authored plain-text field notes.
 
@@ -98,7 +98,7 @@ V1 does not add:
 
 Attachments and photos should be handled later by a separate file/photo domain.
 
-## Comment Permissions
+## Comment permissions
 
 Commenting is allowed by collector-and-above for any valid comment target that
 belongs to the actor's organization.
@@ -114,7 +114,7 @@ Adding a comment requires the target entity to be same-organization and not
 soft-deleted. Retired, inactive, closed, completed, or otherwise historical
 records may still receive comments as long as they are not soft-deleted.
 
-## Comment Loading And Offline Behavior
+## Comment loading and offline behavior
 
 Comments are expected to grow large and should not be part of the baseline
 organization-wide Electric/TanStack DB sync.
@@ -129,7 +129,7 @@ Server handlers remain the source of truth and revalidate target existence,
 organization ownership, permissions, lifecycle state, and command invariants
 when queued commands replay.
 
-## Comment Lifecycle
+## Comment lifecycle
 
 When a target record is soft-deleted, comments directly targeting that record
 are soft-deleted as part of the same domain operation.
@@ -159,7 +159,7 @@ Adult and larval surveillance lifecycle interactions:
 - deleting a habitat soft-deletes direct habitat comments, while preserving
   inspection and sample comments when those records survive
 
-## Target Registry
+## Target registry
 
 Comment target validation should live in a shared field-work/support target
 registry. Each target resolver should know:
@@ -175,7 +175,7 @@ registry. Each target resolver should know:
 Adult, larval, control, route, assignment, and mission command handlers should
 use this registry instead of hand-rolling polymorphic comment checks.
 
-## Schema Backlog
+## Schema backlog
 
 Keep `comments.organization_id` as derived, denormalized data. Even when normal
 loading is target-scoped, the column remains useful for authorization
@@ -195,7 +195,7 @@ appears. Target-scoped loading does not need a separate org-wide pinned index.
 Consider a future enum, check constraint, or registry-backed migration for
 `comments.entity_type` once the command vocabulary stabilizes.
 
-## Tag Commands
+## Tag commands
 
 Tag commands are shared field-work/support workflows.
 
@@ -216,7 +216,7 @@ Tags are not created or assigned inline by adult surveillance, larval
 surveillance, control, route, assignment, or mission commands. Those domains may
 cascade or re-point tag assignments during delete and merge operations.
 
-## Tag Targets
+## Tag targets
 
 V1 tag target types use singular domain names in command/API payloads and map to
 SQL tables in the server layer.
@@ -237,7 +237,7 @@ defer them until those workflows are clearer.
 Tag target validation should use the same shared field-work/support target
 registry pattern as comments, with a separate taggable allowlist.
 
-## Tag Semantics
+## Tag semantics
 
 Tags are organization-scoped labels with optional description and optional
 custom color.
@@ -278,7 +278,7 @@ record.
 `deleteTag` is rare cleanup. It is allowed only when no active or historical
 `tag_items` reference the tag. If a tag was ever used, deactivate it instead.
 
-## Tag Permissions
+## Tag permissions
 
 Tag catalog management is manager-and-above:
 
@@ -303,7 +303,7 @@ Inactive, retired, closed, completed, or otherwise historical records may still
 receive tags as long as they are not soft-deleted. For v1 this means retired
 traps and habitats can be tagged, but deleted traps and habitats cannot.
 
-## Tag Loading And Offline Behavior
+## Tag loading and offline behavior
 
 Tag catalog rows should be part of baseline organization sync. The catalog is
 expected to be small, and clients need tag names, colors, and inactive tag
@@ -319,7 +319,7 @@ Server handlers remain the source of truth and revalidate target existence,
 organization ownership, permissions, lifecycle state, tag state, uniqueness, and
 command invariants when queued commands replay.
 
-## Tag Lifecycle
+## Tag lifecycle
 
 When a target record is soft-deleted, tag assignments directly targeting that
 record are soft-deleted as part of the same domain operation.
@@ -336,7 +336,7 @@ re-point the source tag item and preserve its original creation audit fields.
 Deleting a tag is blocked if any active or historical tag assignment references
 it. Deactivate used tags instead.
 
-## Tag Schema Backlog
+## Tag schema backlog
 
 Add `tag_items.organization_id` as derived, denormalized data. The server should
 derive it from the resolved tag/target organization and verify both match.
@@ -356,7 +356,7 @@ create unique index tags_organization_normalized_name_unique
 Consider a future enum, check constraint, or registry-backed migration for
 `tag_items.entity_type` once the command vocabulary stabilizes.
 
-## Additional Personnel Commands
+## Additional Personnel commands
 
 Additional personnel commands are shared field-work/support workflows:
 
@@ -367,7 +367,7 @@ Additional personnel are not created inline by adult surveillance, larval
 surveillance, or control commands in v1. Those domains may cascade or re-point
 additional personnel associations during delete and merge operations.
 
-## Additional Personnel Targets
+## Additional Personnel targets
 
 V1 additional personnel target types use singular domain names in command/API
 payloads and map to SQL tables in the server layer.
@@ -385,7 +385,7 @@ Additional personnel target validation should use the same shared
 field-work/support target registry pattern as comments and tags, with a
 separate additional-personnel allowlist.
 
-## Additional Personnel Semantics
+## Additional Personnel semantics
 
 Additional personnel is supplemental participation metadata. It is a courtesy
 feature for organizations that want to record who else participated in field
@@ -429,7 +429,7 @@ Additional personnel does not:
 - drive core surveillance or control reports by default
 - imply personnel evaluation workflows inside SIMMER v1
 
-## Additional Personnel Permissions
+## Additional Personnel permissions
 
 Adding and removing additional personnel is collector-and-above for valid
 targets that belong to the actor's organization.
@@ -450,7 +450,7 @@ Inactive, retired, closed, completed, or otherwise historical target records may
 still receive or remove additional personnel as long as they are not
 soft-deleted.
 
-## Additional Personnel Loading And Offline Behavior
+## Additional Personnel loading and offline behavior
 
 Additional personnel rows should be loaded target-scoped and on demand for v1.
 They are supplemental detail-view attribution, not baseline workflow state.
@@ -465,7 +465,7 @@ organization ownership, personnel profile state, permissions, lifecycle state,
 primary performer conflicts, uniqueness, and command invariants when queued
 commands replay.
 
-## Additional Personnel Lifecycle
+## Additional Personnel lifecycle
 
 When a target record is soft-deleted, additional personnel rows directly
 targeting that record are soft-deleted as part of the same domain operation.
@@ -480,7 +480,7 @@ If a future merge operation re-points a target type that can have additional
 personnel, duplicate active rows should be deduped by keeping the target row and
 soft-deleting duplicate source rows.
 
-## Additional Personnel Schema Backlog
+## Additional Personnel schema backlog
 
 Keep `additional_personnel.organization_id` as derived, denormalized data. The
 server should derive it from the resolved target and personnel profile
@@ -490,7 +490,7 @@ organization id. Clients do not choose a different stored organization id.
 Consider a future enum, check constraint, or registry-backed migration for
 `additional_personnel.entity_type` once the command vocabulary stabilizes.
 
-## Route Commands
+## Route commands
 
 Route commands are shared field-work/support workflows:
 
@@ -506,7 +506,7 @@ V1 does not need a public route-position normalization command. Position
 normalization may exist as an internal server fallback inside move/add
 transactions if fractional position space is exhausted.
 
-## Route Semantics
+## Route semantics
 
 Routes are reusable ordered lists of stable catalog targets. V1 routes remain
 typed as either trap routes or habitat routes.
@@ -539,7 +539,7 @@ Deleting a route does not modify existing assignments or assignment items.
 Assignments are snapshots of planned work for a day/person. Once created, they
 should remain intelligible even if the reusable route template is later deleted.
 
-## Route Item Semantics
+## Route item semantics
 
 `addRouteItem` requires a client-generated `routeItemId`.
 
@@ -585,7 +585,7 @@ directions after moves.
 `removeRouteItem` soft-deletes only the selected route item. It does not rewrite
 unaffected neighboring route item positions.
 
-## Route Item Movement
+## Route item movement
 
 `moveRouteItems` is the primary route reordering command. It supports moving one
 or more selected stops as a group.
@@ -635,14 +635,14 @@ because of numeric precision exhaustion, the server may normalize active route
 item positions internally inside the same transaction, then apply the requested
 change. No public v1 normalization command is required.
 
-## Route Permissions
+## Route permissions
 
 Route and route item management is manager-and-above.
 
 Collectors may follow or view routes through assignment/mobile workflows later,
 but shared route catalog editing is supervisory operational planning.
 
-## Route Loading And Offline Behavior
+## Route loading and offline behavior
 
 Active routes and route items should be part of baseline organization sync.
 Route catalogs are operational planning data, likely much smaller than comments,
@@ -663,7 +663,7 @@ Server handlers remain the source of truth and revalidate route existence,
 organization ownership, permissions, target state, route type, placement
 anchors, uniqueness, and command invariants when queued commands replay.
 
-## Route Schema Backlog
+## Route schema backlog
 
 Replace or supplement the current case-sensitive route-name unique index with a
 soft-delete-aware lower-trim unique index:
@@ -677,7 +677,7 @@ create unique index routes_organization_normalized_name_unique
 Consider a future enum, check constraint, or registry-backed migration for
 `route_items.entity_type` once the command vocabulary stabilizes.
 
-## Assignment Commands
+## Assignment commands
 
 Assignment commands are shared field-work/support workflows:
 
@@ -703,7 +703,7 @@ surveillance, larval surveillance, and service-request commands do not embed
 assignment mutations in v1. Product UI may orchestrate a target workflow command
 followed by an assignment item progress command.
 
-## Assignment Semantics
+## Assignment semantics
 
 Assignments are ordered worklists for a day/person. They are snapshots with
 references, not live views of routes or target records.
@@ -745,7 +745,7 @@ Unassigned assignments are allowed for manager-created planning drafts.
 Unassigned assignments cannot be started, completed, or item-progressed by
 collectors.
 
-## Assignment Details And Lifecycle
+## Assignment details and lifecycle
 
 Assignment lifecycle state is derived from timestamps:
 
@@ -789,7 +789,7 @@ Reject `reopenAssignment` for assignments that are not completed or cancelled.
 Deleting an assignment with active items requires acknowledgement that active
 items will also be soft-deleted. It does not alter target records.
 
-## Assignment Item Semantics
+## Assignment Item semantics
 
 `addAssignmentItem` requires a client-generated `assignmentItemId`.
 
@@ -835,7 +835,7 @@ item unless explicitly edited.
 not touch the target trap, habitat, or service request, and it does not touch
 any source route item.
 
-## Assignment Item Movement
+## Assignment Item movement
 
 Assignment item ordering uses the same fractional `position` strategy and move
 semantics as route items.
@@ -876,7 +876,7 @@ because of numeric precision exhaustion, the server may normalize active
 assignment item positions internally inside the same transaction, then apply the
 requested change. No public v1 normalization command is required.
 
-## Assignment Item Progress
+## Assignment Item progress
 
 Assignment items have first-class progress in v1, and that progress is linked
 to the record that produced it. See ADR 0012.
@@ -954,7 +954,7 @@ The rule applies only to a timestamp the command actually carries.
 `reopenAssignmentItem` and `unskipAssignmentItem` clear a progress timestamp
 rather than setting one, and a command that omits its timestamp is stamped
 server-side, so neither is compared. Refused progress answers
-`assignment_item_progress_before_start`, after the item's state rules — a
+`assignment_item_progress_before_start`, after the item's state rules. A
 skipped stop being completed is told to unskip first, whatever its clock says.
 
 `completeAssignment` requires:
@@ -967,7 +967,7 @@ Completing or skipping all items does not automatically complete the assignment.
 The UI may prompt the user to complete the assignment when all active items are
 handled.
 
-## Assignment Item Execution
+## Assignment Item execution
 
 Recording the work a stop was created for is **one command**, not two. The
 record and the completion are written in the same transaction, so there is no
@@ -983,8 +983,8 @@ These are `fieldWork.*` rather than `larvalSurveillance.*`/`adultSurveillance.*`
 for the reason the mission helpers are `missionDispatch.*`: what makes them a
 unit is the assignment lifecycle, not the record. Field validation is shared
 through `packages/domain/src/surveillance-records.ts` so neither domain imports
-the other — the same seam `performed-control-actions.ts` provides for control
-actions.
+the other. It is the same seam `performed-control-actions.ts` provides for
+control actions.
 
 They are reached through the record's own endpoint (`POST
 /larval-surveillance/inspections`, `POST /adult-surveillance/collections`,
@@ -996,11 +996,11 @@ surveillance command, unchanged.
 Options, matching `MissionExecutionOptions`:
 
 - `completeAssignmentItem`, default **true**
-- `autoStartAssignment`, default **true** — a technician who records the first
+- `autoStartAssignment`, default **true**: a technician who records the first
   stop of the day has started the assignment by doing so
-- `acknowledgedCompletedItemAdditionalRecord` — required to add a second record
+- `acknowledgedCompletedItemAdditionalRecord`: required to add a second record
   to an already-completed stop, because the ordinary cause is a double submit
-- `acknowledgedTargetMismatch` — required when the record's target is not the
+- `acknowledgedTargetMismatch`: required when the record's target is not the
   one the stop names. A wrong *type* (a collection against a habitat stop) is
   always refused; a different trap is only acknowledged.
 
@@ -1008,16 +1008,17 @@ The two acknowledgements are answers to a refusal, not options a form offers up
 front: the conditions are only knowable once the server has the row, so the
 write goes out plain, is refused with its code and reason, and the client
 re-sends the same write with the matching flag if the technician confirms. The
-flags travel as TanStack DB mutation metadata rather than as row columns — they
-are not properties of the record — and `apps/web/src/lib/stop-acknowledgements.ts`
-is the single map from refusal code to flag. The refusals with no flag
+flags travel as TanStack DB mutation metadata rather than as row columns, because
+they are not properties of the record, and
+`apps/web/src/lib/stop-acknowledgements.ts` is the single map from refusal code
+to flag. The refusals with no flag
 (`assignment_item_wrong_target_type`, `assignment_item_skipped`) are absent from
 it on purpose.
 
 Server checks, in `apps/server/src/field-work-commands/assignment-lifecycle.ts`:
 the assignment row is locked before it is read, so two devices cannot both
-decide it was unstarted and both stamp a start time. A skipped stop is refused —
-unskip first. A `completedAt` before the assignment's `started_at` is refused
+decide it was unstarted and both stamp a start time. A skipped stop is refused,
+and has to be unskipped first. A `completedAt` before the assignment's `started_at` is refused
 (`assignment_item_progress_before_start`) exactly as it is for the progress
 commands, within `CLOCK_SKEW_TOLERANCE_MS` because the two timestamps come from
 different clocks; the rule stands down on the auto-start path, where the start
@@ -1032,7 +1033,7 @@ pending, and allow retrying.
 `fieldWork.completeAssignmentItem` remains for correction and for stops with no
 record to point at.
 
-## Assignment Permissions
+## Assignment permissions
 
 Assignment planning and editing is manager-and-above:
 
@@ -1059,7 +1060,7 @@ skip, or unskip any assignment item for correction.
 Collectors cannot create arbitrary blank assignments, assign work to other
 profiles, or edit assignment item lists in v1.
 
-## Assignment Lifecycle Interactions
+## Assignment lifecycle interactions
 
 Retiring a trap or habitat leaves existing assignment items unchanged because
 assignments are snapshots.
@@ -1077,7 +1078,7 @@ Route edits and route deletion never affect existing assignment items.
 
 Assignment item removal never affects target records or route items.
 
-## Assignment Loading And Offline Behavior
+## Assignment loading and offline behavior
 
 Assignments and active assignment items should be part of baseline organization
 sync because they are core operational data.
@@ -1099,7 +1100,7 @@ organization ownership, permissions, assignee state, target state, placement
 anchors, lifecycle state, item progress state, uniqueness, and command
 invariants when queued commands replay.
 
-## Assignment Schema Backlog
+## Assignment schema backlog
 
 Add item progress fields to `assignment_items`:
 
@@ -1124,7 +1125,7 @@ alter table assignment_items
 Consider a future enum, check constraint, or registry-backed migration for
 `assignment_items.entity_type` once the command vocabulary stabilizes.
 
-## Cross-Domain Lifecycle Registry
+## Cross-domain lifecycle registry
 
 The shared field-work/support target registry should define lifecycle policy
 per target type and support association type.
@@ -1151,7 +1152,7 @@ Adult, larval, control, route, assignment, mission, contact, address, and GIS
 command handlers should use the registry instead of hand-rolling polymorphic
 support cleanup.
 
-## Trap Lifecycle Interactions
+## Trap lifecycle interactions
 
 Trap retirement:
 
@@ -1178,7 +1179,7 @@ Trap deletion:
   rules when collection deletion is acknowledged
 - does not hard-delete anything
 
-## Collection Lifecycle Interactions
+## Collection lifecycle interactions
 
 Collection deletion:
 
@@ -1193,7 +1194,7 @@ Collection deletion:
 Cancelling a pending collection soft-deletes collection support rows when the
 collection row itself is soft-deleted.
 
-## Habitat Lifecycle Interactions
+## Habitat lifecycle interactions
 
 Habitat retirement:
 
@@ -1238,7 +1239,7 @@ Habitat merge:
 - preserves inspection snapshot fields
 - soft-deletes source habitats after references move
 
-## Inspection And Sample Lifecycle Interactions
+## Inspection and sample lifecycle interactions
 
 Inspection deletion:
 
@@ -1262,7 +1263,7 @@ Sample deletion:
 - does not handle assignment items
 - handles sample species rows according to larval surveillance delete rules
 
-## Service Request Lifecycle Interactions
+## Service Request lifecycle interactions
 
 Service request closure is normal lifecycle and does not remove comments, tags,
 or assignment items.
@@ -1277,7 +1278,7 @@ Service request deletion:
 - does not handle additional personnel in v1
 - does not handle route items
 
-## Address, Region, And Contact Lifecycle Interactions
+## Address, Region, and Contact lifecycle interactions
 
 Address deletion:
 
@@ -1325,7 +1326,7 @@ Contact deletion:
 - does not automatically null or cascade service requests or notification
   records
 
-## Route And Assignment Lifecycle Interactions
+## Route and Assignment lifecycle interactions
 
 Route deletion:
 
@@ -1346,7 +1347,7 @@ Assignment deletion:
 
 Assignment item removal never affects target records or route items.
 
-## Control And Mission Lifecycle Boundaries
+## Control and Mission lifecycle boundaries
 
 For each control action target:
 
@@ -1385,7 +1386,7 @@ Mission deletion:
   acknowledgement when linked actions exist
 - does not handle tags, additional personnel, routes, or assignments in v1
 
-## Consolidated Schema Backlog
+## Consolidated schema backlog
 
 These schema changes surfaced while hardening the field-work/support command
 domain. The implemented v1 subset is covered by
@@ -1449,7 +1450,7 @@ Command payload/schema-adjacent follow-ups:
 - keep support-target allowlists in a shared registry used by command handlers
   and future shape/query code
 
-## Domain Module Shape
+## Domain module shape
 
 Field-work/support commands follow `docs/domain-command-contract.md` and live
 behind this public domain seam:
@@ -1487,7 +1488,7 @@ Every command payload should include command context:
 The server still treats `AuthContext` as authoritative and verifies command
 context matches it, as described in the shared contract.
 
-## Domain Target Types
+## Domain target types
 
 The domain module should define support-specific target unions.
 
@@ -1564,7 +1565,7 @@ allowlist. They do not convert domain target strings to SQL table names.
 Server-side target registries map domain target strings to SQL tables and own
 organization/lifecycle/reference resolution.
 
-## Domain Validation Boundary
+## Domain validation boundary
 
 Use the shared validation boundary in `docs/domain-command-contract.md`.
 Field-work-specific builder checks include target allowlists, custom hex color
@@ -1576,7 +1577,7 @@ duplicate tag/route names, duplicate route/assignment associations, profile
 active state, 30-day comment correction windows, acknowledgement requirements,
 and cross-domain lifecycle cascades, preserves, and re-points.
 
-## Domain Update Semantics
+## Domain update semantics
 
 Use patch semantics for detail updates:
 
@@ -1597,7 +1598,7 @@ For nullable text/nullable fields:
 For non-nullable fields such as comment text, tag name, route name, and skip
 reason, trim and reject empty text.
 
-## Domain IDs And Dates
+## Domain IDs and dates
 
 Require client-generated IDs for commands that create rows:
 
@@ -1624,7 +1625,7 @@ Timestamp fields use `Date` objects, matching adult surveillance command style:
 - `cancelledAt`
 - `skippedAt`
 
-## Domain Route Payloads
+## Domain Route payloads
 
 `createRoute` requires:
 
@@ -1657,7 +1658,7 @@ export type RouteItemPlacement =
 
 The domain builder should reject duplicate route item ids in the payload.
 
-## Domain Assignment Payloads
+## Domain Assignment payloads
 
 `createAssignment` requires:
 

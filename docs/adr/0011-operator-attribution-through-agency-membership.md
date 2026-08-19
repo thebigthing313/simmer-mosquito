@@ -1,4 +1,4 @@
-# ADR 0011: Operators Write on an Agency's Behalf Through a Membership in It
+# ADR 0011: Operators write on an agency's behalf through a Membership in it
 
 Status: Accepted
 
