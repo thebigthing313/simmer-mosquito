@@ -149,7 +149,12 @@ async function runRegionCommands(
 	);
 }
 
-async function writeRegionCommand(
+/**
+ * Exported for `table-commands/regions.ts`, which serves the same five commands
+ * at `/commands/regions`. One writer, so the two surfaces cannot write a region
+ * differently; only the choosing differs.
+ */
+export async function writeRegionCommand(
 	trx: FoundationTransaction,
 	command: FoundationCommand,
 ): Promise<SafeRegion | null> {

@@ -414,17 +414,6 @@ export interface SafeUnit {
 	readonly createdAt: string;
 }
 
-export interface CreateUnitInput {
-	readonly id?: string;
-	readonly code: string;
-	readonly unitName: string;
-	readonly abbreviation: string;
-	readonly unitType: UnitType;
-	readonly unitSystem: UnitSystem;
-}
-
-export interface UpdateUnitInput extends CreateUnitInput {}
-
 export interface ApplicationMethodsTable {
 	id: Generated<string>;
 	organization_id: string;

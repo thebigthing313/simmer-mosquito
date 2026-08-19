@@ -9,6 +9,16 @@ scaffolding is kept below for provenance; hypotheses are annotated with their ve
 > committed conclusion except where it cites code. Verify claims against current code
 > (`git log` may have moved things).
 
+> **Paths below are pre-`refactor/sync-cleanup` and mostly no longer exist.**
+> `packages/sync/src/index.ts` no longer holds the collection options,
+> `packages/sync/src/descriptors/` is deleted, and `apps/web/src/sync/*Mutations.ts`
+> is deleted. Sync mode is now declared per collection in
+> `apps/web/src/lib/collections`, and the collection factory is
+> `packages/sync/src/collections/functions/sync-collection.ts`. The mechanism the
+> resolution describes is unchanged — a write confirms only when its txid is
+> observed on a stream something is subscribed to. See
+> `docs/sync.md` → *Mutation confirmation and transaction IDs*.
+
 ---
 
 ## Resolution (2026-07-20)

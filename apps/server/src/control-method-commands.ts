@@ -83,7 +83,7 @@ type BiocontrolMethodCommand =
 	| DeactivateBiocontrolMethodCommand
 	| ReactivateBiocontrolMethodCommand
 	| DeleteBiocontrolMethodCommand;
-type ControlMethodCommand =
+export type ControlMethodCommand =
 	| ApplicationMethodCommand
 	| SourceReductionMethodCommand
 	| OutreachMethodCommand
@@ -175,7 +175,7 @@ function requiredKind(value: string): ControlMethodKind {
 	return kind.kind;
 }
 
-async function writeControlMethodCommand(
+export async function writeControlMethodCommand(
 	db: ControlMethodTransaction,
 	command: ControlMethodCommand,
 ): Promise<SafeOrgLookup | null> {
@@ -735,7 +735,7 @@ function toSafeControlMethod(row: {
 	};
 }
 
-function toControlMethodResponse(row: SafeOrgLookup | null) {
+export function toControlMethodResponse(row: SafeOrgLookup | null) {
 	if (row === null) {
 		return null;
 	}

@@ -1,4 +1,5 @@
-import type { ContactRow } from '@simmer-mosquito/sync';
+import type { ContactFields } from '../../hooks/mutations/use-contact-mutations';
+import type { Contact } from '../../hooks/queries/contact-view';
 
 /**
  * The contact's own fields, as a form holds them.
@@ -7,22 +8,11 @@ import type { ContactRow } from '@simmer-mosquito/sync';
  * service request is being logged — and the two were carrying different subsets
  * of the record. Both read this shape now, so an intake taker keying a caller in
  * captures everything the directory does.
+ *
+ * What the fields are called on the way *out* is `ContactFields`, which the write
+ * seam owns: this module's job is the round trip between a form's strings and
+ * that shape.
  */
-
-/** The mutable, contact-owned fields (everything except id/org/audit/metadata). */
-export type ContactFields = Pick<
-	ContactRow,
-	| 'contactName'
-	| 'company'
-	| 'department'
-	| 'title'
-	| 'preferredPhone'
-	| 'alternatePhone'
-	| 'email'
-	| 'wantsEmail'
-	| 'wantsSms'
-	| 'wantsPhone'
->;
 
 export interface ContactFormValues {
 	readonly contactName: string;
@@ -63,7 +53,7 @@ export function defaultContactFormValues(): ContactFormValues {
 	};
 }
 
-export function defaultsFromContact(contact: ContactRow): ContactFormValues {
+export function defaultsFromContact(contact: Contact): ContactFormValues {
 	return {
 		contactName: contact.contactName ?? '',
 		company: contact.company ?? '',

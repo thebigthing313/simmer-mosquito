@@ -1,13 +1,20 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
-
 // Kept off the routes layer so shared components (the address picker) and route
 // views format an address identically.
 
-/** The structural address fields the formatters read (satisfied by {@link AddressRow}). */
-type AddressParts = Pick<
-	AddressRow,
-	'addressLine1' | 'addressLine2' | 'locality' | 'region' | 'postalCode'
->;
+/**
+ * The address fields the formatters read.
+ *
+ * Structural rather than a `Pick` of a row type, so these work on anything
+ * carrying the parts — the `Address` view from `hooks/queries/address-view.ts`,
+ * and the form values a picker is still assembling, which are not a row yet.
+ */
+interface AddressParts {
+	readonly addressLine1: string | null;
+	readonly addressLine2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+}
 
 /**
  * The full postal address as one readable line — `line1, line2, locality, region

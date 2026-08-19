@@ -1,20 +1,22 @@
-import type { ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import {
+	type ServiceRequestRecord,
+	useServiceRequestRecord,
+} from '../../../hooks/queries/use-service-request-record';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { serviceRequestTitle } from '../-public-engagement-display';
-import { settleWrite } from '../-public-engagement-writes';
 import {
 	defaultServiceRequestFormValues,
 	ServiceRequestFormPage,
 	type ServiceRequestFormValues,
 	type ServiceRequestSaveInput,
+	serviceRequestFieldsFrom,
 } from './-service-request-form';
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id_/edit')({
@@ -30,98 +32,59 @@ export const Route = createFileRoute('/public-engagement/service-requests/$id_/e
 	component: EditServiceRequestRoute,
 });
 
-const requestGcTimeMs = 30_000;
-
-type MutableServiceRequestRow = {
-	-readonly [Key in keyof ServiceRequestRow]: ServiceRequestRow[Key];
-};
-
 function EditServiceRequestRoute() {
 	const { id } = Route.useParams();
-	const { auth } = Route.useRouteContext();
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
+	const { request, isReady, isError } = useServiceRequestRecord(id);
 
-	const result = useLiveQuery(
-		{
-			gcTime: requestGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.serviceRequests })
-					.where(({ request }) => eq(request.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const request = result.data as ServiceRequestRow | undefined;
-
-	if (result.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="service request" reason="error" />;
 	}
-	if (!result.isReady) {
+	if (!isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (request === undefined) {
 		return <RecordUnavailable layout="centered" noun="service request" reason="not-found" />;
 	}
 
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-
-	return (
-		<EditServiceRequestLoader
-			actorProfileId={actorProfileId}
-			canSubmit={actorProfileId !== null}
-			profiles={profiles}
-			request={request}
-		/>
-	);
+	return <EditServiceRequestLoader profiles={profiles} request={request} />;
 }
 
 function EditServiceRequestLoader({
 	request,
 	profiles,
-	actorProfileId,
-	canSubmit,
 }: {
-	readonly request: ServiceRequestRow;
-	readonly profiles: readonly ProfileRow[];
-	readonly actorProfileId: string | null;
-	readonly canSubmit: boolean;
+	readonly request: ServiceRequestRecord;
+	readonly profiles: readonly ProfileListing[];
 }) {
 	const navigate = useNavigate();
+	const mutations = useServiceRequestMutations();
 	// Show the request number (or short id fallback) in the breadcrumb, not the raw uuid.
 	useBreadcrumbLabel(request.id, serviceRequestTitle(request));
 
 	const onSave = useCallback(
 		async ({ values }: ServiceRequestSaveInput) => {
-			const now = new Date().toISOString();
-			const applyEdits = (draft: ServiceRequestRow) => {
-				const writable = draft as MutableServiceRequestRow;
-				writable.intakeType = values.intakeType;
-				writable.requestDate = values.requestDate;
-				writable.details = values.details.trim();
-				writable.receivedByProfileId = values.receivedByProfileId;
-				if (values.contactId !== null) {
-					writable.contactId = values.contactId;
-				}
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
-
-			await settleWrite(webCollections.serviceRequests.update(request.id, applyEdits));
+			// `current` comes back through the same round trip as the edited values,
+			// so a field nobody touched compares equal to itself and the save names
+			// only the commands it has changed fields for.
+			await mutations.save({
+				requestId: request.id,
+				fields: serviceRequestFieldsFrom(values),
+				current: serviceRequestFieldsFrom(defaultsFromServiceRequest(request)),
+				contactId: values.contactId ?? request.contactId,
+				currentContactId: request.contactId,
+			});
 			await navigate({
 				to: '/public-engagement/service-requests/$id',
 				params: { id: request.id },
 			});
 		},
-		[request.id, actorProfileId, navigate],
+		[mutations, navigate, request],
 	);
 
 	return (
 		<ServiceRequestFormPage
-			canSubmit={canSubmit}
+			canSubmit={mutations.canWrite}
 			defaultValues={defaultsFromServiceRequest(request)}
 			disableNewContact
 			header={{
@@ -142,7 +105,7 @@ function EditServiceRequestLoader({
 	);
 }
 
-function defaultsFromServiceRequest(request: ServiceRequestRow): ServiceRequestFormValues {
+function defaultsFromServiceRequest(request: ServiceRequestRecord): ServiceRequestFormValues {
 	return {
 		...defaultServiceRequestFormValues(request.requestDate, request.receivedByProfileId ?? ''),
 		intakeType: request.intakeType,

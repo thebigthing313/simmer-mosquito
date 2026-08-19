@@ -1,5 +1,3 @@
-import type { RegionFolderRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Dialog,
@@ -12,7 +10,9 @@ import {
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { useCallback, useState } from 'react';
-import { webCollections } from '../../../sync/webCollections';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useRegionFolderMutations } from '../../../hooks/mutations/use-region-folder-mutations';
+import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
 
 /**
  * One dialog for both region-folder writes — `folder === null` creates, otherwise
@@ -20,15 +20,11 @@ import { webCollections } from '../../../sync/webCollections';
  * the folder being edited without a sync-back effect.
  */
 export function RegionFolderDialog({
-	organizationId,
-	actorProfileId,
 	folder,
 	onClose,
 	onSaved,
 }: {
-	readonly organizationId: string;
-	readonly actorProfileId: string | null;
-	readonly folder: RegionFolderRow | null;
+	readonly folder: RegionFolderListing | null;
 	readonly onClose: () => void;
 	/** Runs with the written folder's id before the dialog closes. */
 	readonly onSaved?: (folderId: string) => void;
@@ -37,8 +33,9 @@ export function RegionFolderDialog({
 	const [description, setDescription] = useState(folder?.description ?? '');
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
+	const mutations = useRegionFolderMutations();
 
-	const canSave = organizationId.length > 0 && name.trim().length > 0;
+	const canSave = mutations.canWrite && name.trim().length > 0;
 
 	const onSave = useCallback(async () => {
 		if (!canSave) {
@@ -46,40 +43,22 @@ export function RegionFolderDialog({
 		}
 		setIsSaving(true);
 		setError(null);
-		const trimmedName = name.trim();
 		const trimmedDescription = description.trim();
-		const nextDescription = trimmedDescription.length === 0 ? null : trimmedDescription;
-		const now = new Date().toISOString();
+		const fields = {
+			name: name.trim(),
+			description: trimmedDescription.length === 0 ? null : trimmedDescription,
+		};
 		try {
 			let savedId: string;
 			if (folder === null) {
-				const row: RegionFolderRow = {
-					id: crypto.randomUUID(),
-					organizationId,
-					name: trimmedName,
-					description: nextDescription,
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				};
-				savedId = row.id;
-				await settleWrite(webCollections.regionFolders.insert(row));
+				savedId = newRecordId();
+				await mutations.create(savedId, fields);
 			} else {
 				savedId = folder.id;
-				await settleWrite(
-					webCollections.regionFolders.update(folder.id, (draft) => {
-						const writable = draft as {
-							-readonly [K in keyof RegionFolderRow]: RegionFolderRow[K];
-						};
-						writable.name = trimmedName;
-						writable.description = nextDescription;
-						if (actorProfileId !== null) {
-							writable.updatedByProfileId = actorProfileId;
-						}
-						writable.updatedAt = now;
-					}),
-				);
+				await mutations.save(folder.id, fields, {
+					name: folder.name,
+					description: folder.description,
+				});
 			}
 			onSaved?.(savedId);
 			onClose();
@@ -88,7 +67,7 @@ export function RegionFolderDialog({
 		} finally {
 			setIsSaving(false);
 		}
-	}, [canSave, organizationId, name, description, actorProfileId, folder, onClose, onSaved]);
+	}, [canSave, name, description, folder, mutations, onClose, onSaved]);
 
 	const isEdit = folder !== null;
 

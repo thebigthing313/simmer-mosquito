@@ -1,4 +1,3 @@
-import type { CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
@@ -15,6 +14,7 @@ import {
 	ResultList,
 	ToggleFilter,
 	toggle,
+	useCollectionMethodOptions,
 	useDateRangeFilters,
 	useFlyToSelection,
 	usePagedMapResource,
@@ -24,7 +24,7 @@ import {
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type CollectionTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
 	dateParam,
@@ -34,9 +34,8 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
-import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from '../-adult-display';
+import { CollectionFlagBadges, collectionEffectiveDate } from '../-adult-display';
 import { CollectionMapCard } from '../-collection-map-card';
 import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
 
@@ -125,16 +124,8 @@ function CollectionsExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-
-	const trapById = useMemo(() => new Map(traps.map((trap) => [trap.id, trap])), [traps]);
-	const methodNameById = useMemo(
-		() => new Map(methods.map((method) => [method.id, method.name])),
-		[methods],
-	);
+	const { options: methodOptions, nameById: methodNameById } = useCollectionMethodOptions();
+	const trapNameById = useTrapNames();
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
@@ -223,7 +214,7 @@ function CollectionsExplorerRoute() {
 							empty="No collection methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter
@@ -266,7 +257,7 @@ function CollectionsExplorerRoute() {
 					personnelNameById={personnel.nameById}
 					rows={rows}
 					selectedId={selectedId}
-					trapById={trapById}
+					trapNameById={trapNameById}
 				/>
 
 				<div className="border-border/50 border-t p-3">
@@ -289,7 +280,7 @@ function CollectionResults({
 	rows,
 	isLoading,
 	selectedId,
-	trapById,
+	trapNameById,
 	methodNameById,
 	personnelNameById,
 	onSelect,
@@ -297,7 +288,7 @@ function CollectionResults({
 	readonly rows: readonly CollectionSite[];
 	readonly isLoading: boolean;
 	readonly selectedId: string | null;
-	readonly trapById: ReadonlyMap<string, TrapRow>;
+	readonly trapNameById: ReadonlyMap<string, string>;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly personnelNameById: ReadonlyMap<string, string>;
 	readonly onSelect: (id: string) => void;
@@ -317,9 +308,7 @@ function CollectionResults({
 					onSelect={onSelect}
 					row={row}
 					setByName={collectionPersonnelName(row, personnelNameById)}
-					trapName={
-						row.trapId === null ? null : (trapNameFor(row.trapId, trapById) ?? 'Unknown trap')
-					}
+					trapName={row.trapId === null ? null : (trapNameById.get(row.trapId) ?? 'Unknown trap')}
 				/>
 			)}
 		</ResultList>
@@ -370,11 +359,4 @@ function collectionPersonnelName(
 ): string | null {
 	const profileId = row.collectedByProfileId ?? row.setByProfileId;
 	return profileId === null ? null : (nameById.get(profileId) ?? null);
-}
-
-// --- helpers ----------------------------------------------------------------
-
-function trapNameFor(trapId: string, trapById: ReadonlyMap<string, TrapRow>): string | null {
-	const trap = trapById.get(trapId);
-	return trap === undefined ? null : trapDisplayName(trap);
 }

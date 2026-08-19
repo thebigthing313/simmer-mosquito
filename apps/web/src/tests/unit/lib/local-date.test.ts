@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	addCalendarDays,
 	formatLocalDate,
 	localDayStartAsTimestamp,
 	localTimeAsInstant,
@@ -52,6 +53,32 @@ describe('formatLocalDate', () => {
 		// A local time that is already the next day in UTC — `toISOString().slice(0, 10)`
 		// is the shortcut this replaces, and it reports tomorrow here.
 		expect(formatLocalDate(new Date(2026, 7, 4, 23, 30))).toBe('2026-08-04');
+	});
+});
+
+describe('addCalendarDays', () => {
+	it('moves forward and back across a month boundary', () => {
+		expect(addCalendarDays('2026-08-31', 1)).toBe('2026-09-01');
+		expect(addCalendarDays('2026-09-01', -1)).toBe('2026-08-31');
+		expect(addCalendarDays('2026-12-31', 1)).toBe('2027-01-01');
+	});
+
+	it('crosses a spring-forward night without losing the day', () => {
+		// The US changeover is the second Sunday in March. Done in local time this
+		// day is 23 hours long, and adding 24 lands back on the day it started.
+		expect(addCalendarDays('2026-03-07', 1)).toBe('2026-03-08');
+		expect(addCalendarDays('2026-03-08', 1)).toBe('2026-03-09');
+	});
+
+	it('keeps the zero-padding a date column and a date input both need', () => {
+		expect(addCalendarDays('2026-01-31', 1)).toBe('2026-02-01');
+		expect(addCalendarDays('2026-08-04', 5)).toBe('2026-08-09');
+	});
+
+	it('hands back an unreadable date untouched', () => {
+		// Rather than `NaN-NaN-NaN`, which reads as a date and is not one.
+		expect(addCalendarDays('', 1)).toBe('');
+		expect(addCalendarDays('not a date', 1)).toBe('not a date');
 	});
 });
 

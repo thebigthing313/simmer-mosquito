@@ -1,23 +1,18 @@
 import { boundsFromGeoJson } from '@simmer-mosquito/mapping';
-import type { RegionRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
 import { MapCard, MapCardEyebrow, MapCardText } from '../../../components/map/map-card';
 import { TagBadge } from '../../../components/tag-badge';
-import { useMapCardTags } from '../../../hooks/use-map-card-tags';
+import { useRecordTags } from '../../../hooks/queries/use-record-tags';
+import { useRegion } from '../../../hooks/queries/use-region';
 import { useRegionGeometry } from '../../../hooks/use-region-geometry';
-import { webCollections } from '../../../sync/webCollections';
-
-const gcTimeMs = 30_000;
 
 /**
- * The map focus card for a region. Self-fetches the region off the on-demand
- * collection, its tags off the eager catalog, and its polygon (kept out of the
- * sync shape) over HTTP to fit the map to its bounds, then renders the shared
- * {@link MapCard}.
+ * The map focus card for a region. Reads the region through {@link useRegion},
+ * its tags alongside it, and its polygon — which is kept out of the sync shape —
+ * over HTTP, to fit the map to its bounds.
  */
 export function RegionMapCard({
 	id,
@@ -28,23 +23,12 @@ export function RegionMapCard({
 	readonly map: MapboxMap | null;
 	readonly onClose: () => void;
 }) {
-	const regionResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ region: webCollections.regions })
-					.where(({ region }) => eq(region.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const region = regionResult.data as RegionRow | undefined;
+	const { region } = useRegion(id);
 
 	const geometryQuery = useRegionGeometry(id);
 	const geojson = geometryQuery.data?.geojson ?? null;
 
-	const tags = useMapCardTags(id);
+	const tags = useRecordTags(id);
 
 	useEffect(() => {
 		if (map === null || geojson === null) {

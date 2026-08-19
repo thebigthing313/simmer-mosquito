@@ -373,7 +373,12 @@ async function runCollectionCommands(
 	);
 }
 
-async function writeCollectionCommand(
+/**
+ * Exported for `table-commands/collections.ts`, which reaches the same fifteen
+ * commands through `/commands/collections` and needs the writer unchanged —
+ * only the route and how the command is chosen differ.
+ */
+export async function writeCollectionCommand(
 	trx: AdultSurveillanceTransaction,
 	command: CollectionCommand,
 ): Promise<SafeCollection | null> {
@@ -567,7 +572,7 @@ async function writeCollectionCommand(
  * the stop that produced it. They are `fieldWork.*` commands handled here
  * because the row is a collection; see the same note in the inspection handler.
  */
-type CollectionCommand =
+export type CollectionCommand =
 	| AdultSurveillanceCommand
 	| SetTrapCollectionForAssignmentItemCommand
 	| CollectTrapCollectionForAssignmentItemCommand

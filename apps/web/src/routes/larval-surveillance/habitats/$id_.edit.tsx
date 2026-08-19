@@ -1,18 +1,18 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { HabitatRow, HabitatTypeRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
+import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
+import {
+	type SchemaCatalogListing,
+	useHabitatTypeRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
+import { type HabitatRecord, useHabitatRecord } from '../../../hooks/queries/use-habitat-record';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
 import {
 	type DrawGeometry,
@@ -37,41 +37,26 @@ export const Route = createFileRoute('/larval-surveillance/habitats/$id_/edit')(
 function EditHabitatRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
+	const habitatTypes = useHabitatTypeRoster();
+	const { habitat, isReady, isError } = useHabitatRecord(id);
+	const organizationId =
+		auth.snapshot?.authenticated === true ? (auth.snapshot.localIdentity.organizationId ?? '') : '';
 
-	// habitats is an on-demand collection, so this reads live status via
-	// useLiveQuery (not the suspense variant, which can hang after a nav unmount).
-	const habitatResult = useLiveQuery(
-		(query) =>
-			query
-				.from({ habitat: webCollections.habitats })
-				.where(({ habitat }) => eq(habitat.id, id))
-				.findOne(),
-		[id],
-	);
-	const habitat = habitatResult.data;
-
-	if (habitatResult.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="habitat" reason="error" />;
 	}
-	if (!habitatResult.isReady) {
+	if (!isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (habitat === undefined) {
 		return <RecordUnavailable layout="centered" noun="habitat" reason="not-found" />;
 	}
 
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-
 	return (
 		<EditHabitatLoader
-			actorProfileId={actorProfileId}
-			canSubmit={organization !== null && actorProfileId !== null}
 			habitat={habitat}
 			habitatTypes={habitatTypes}
-			organizationId={organization?.id ?? ''}
+			organizationId={organizationId}
 		/>
 	);
 }
@@ -80,17 +65,14 @@ function EditHabitatLoader({
 	habitat,
 	habitatTypes,
 	organizationId,
-	actorProfileId,
-	canSubmit,
 }: {
-	readonly habitat: HabitatRow;
-	readonly habitatTypes: readonly HabitatTypeRow[];
+	readonly habitat: HabitatRecord;
+	readonly habitatTypes: readonly SchemaCatalogListing[];
 	readonly organizationId: string;
-	readonly actorProfileId: string | null;
-	readonly canSubmit: boolean;
 }) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const mutations = useHabitatMutations();
 
 	// Geometry is not part of the Electric shape (ADR 0009); fetch it from the
 	// display endpoint. Keyed on updatedAt so re-opening the form after an edit
@@ -99,7 +81,7 @@ function EditHabitatLoader({
 	// optimistically and a pending state here would unmount the form mid-save,
 	// taking any error it was about to show with it (see useOwnedGeometry).
 	const geometryQuery = useQuery({
-		queryKey: ['habitat-geometry', habitat.id, habitat.updatedAt],
+		queryKey: ['habitat-geometry', habitat.id, habitat.updatedAt.toISOString()],
 		queryFn: ({ signal }) => fetchHabitatGeometry(habitat.id, signal),
 		placeholderData: (previous) => previous,
 		staleTime: Number.POSITIVE_INFINITY,
@@ -115,58 +97,49 @@ function EditHabitatLoader({
 			readonly values: HabitatFormValues;
 			readonly geometry: DrawGeometry;
 		}) => {
-			const nextName = nullableText(values.habitatName);
-			const nextTypeId = values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId;
-			const nextDescription = values.description.trim();
+			const drawn = geometry as unknown as GeoJsonGeometry;
 			const geometryChanged = JSON.stringify(geometry) !== JSON.stringify(initialGeometry);
-			const detailsChanged =
-				nextName !== habitat.habitatName ||
-				nextTypeId !== habitat.habitatTypeId ||
-				values.addressId !== habitat.addressId ||
-				nextDescription !== habitat.description ||
-				JSON.stringify(values.metadata ?? null) !== JSON.stringify(habitat.metadata ?? null);
 
 			// Prime the detail's geometry cache so it shows this geometry the moment
 			// we navigate, rather than refetching and flashing an empty state.
-			const seedGeometry = () =>
-				seedHabitatGeometryCache(queryClient, habitat.id, geometry as unknown as GeoJsonGeometry);
-
-			// Nothing actually changed — skip the round trip (the server rejects an
-			// empty habitat update) and return to the record.
-			if (!geometryChanged && !detailsChanged) {
+			const seedGeometry = () => seedHabitatGeometryCache(queryClient, habitat.id, drawn);
+			const done = async () => {
 				seedGeometry();
 				await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } });
-				return;
-			}
-
-			const now = new Date().toISOString();
-			// Inlined so TanStack DB infers the mutable draft type; a standalone
-			// `(draft: HabitatRow)` annotation would re-impose the row's readonly props.
-			const applyEdits = (draft: HabitatRow) => {
-				const writable = draft as { -readonly [K in keyof HabitatRow]: HabitatRow[K] };
-				writable.habitatName = nextName;
-				writable.habitatTypeId = nextTypeId;
-				writable.addressId = values.addressId;
-				writable.description = nextDescription;
-				writable.metadata = values.metadata;
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
 			};
 
-			const transaction = geometryChanged
-				? webCollections.habitats.update(
-						habitat.id,
-						{ metadata: { locationSource: { kind: 'geometry', geometry } } },
-						applyEdits,
-					)
-				: webCollections.habitats.update(habitat.id, applyEdits);
-			await settleWrite(transaction);
-			seedGeometry();
-			await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } });
+			let redraw: Parameters<typeof mutations.save>[3] = null;
+			if (geometryChanged) {
+				const centroid = ownedCentroidFromGeoJson(drawn);
+				if (centroid === null) {
+					throw new Error('Unable to determine the habitat location from the drawn geometry.');
+				}
+				redraw = { geometry: drawn, centroid };
+			}
+
+			// `save` sends nothing when nothing moved, so the no-op case needs no test
+			// of its own here — but the navigation still has to happen either way.
+			await mutations.save(
+				habitat.id,
+				{
+					habitatName: nullableText(values.habitatName),
+					description: values.description.trim(),
+					addressId: values.addressId,
+					habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+					metadata: values.metadata,
+				},
+				{
+					habitatName: habitat.habitatName,
+					description: habitat.description,
+					addressId: habitat.addressId,
+					habitatTypeId: habitat.habitatTypeId,
+					metadata: habitat.metadata,
+				},
+				redraw,
+			);
+			await done();
 		},
-		[habitat, initialGeometry, actorProfileId, navigate, queryClient],
+		[habitat, initialGeometry, mutations, navigate, queryClient],
 	);
 
 	if (geometryQuery.isError) {
@@ -187,7 +160,7 @@ function EditHabitatLoader({
 		<HabitatFormPage
 			mode="edit"
 			organizationId={organizationId}
-			canSubmit={canSubmit}
+			canSubmit={mutations.canWrite}
 			habitatTypes={habitatTypes}
 			defaultValues={defaultsFromHabitat(habitat)}
 			initialGeometry={initialGeometry}
@@ -204,7 +177,7 @@ function EditHabitatLoader({
 	);
 }
 
-function defaultsFromHabitat(habitat: HabitatRow): HabitatFormValues {
+function defaultsFromHabitat(habitat: HabitatRecord): HabitatFormValues {
 	return {
 		habitatName: habitat.habitatName ?? '',
 		addressId: habitat.addressId,

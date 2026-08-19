@@ -1,9 +1,4 @@
-import type {
-	ControlMethodRow,
-	EquipmentRow,
-	OrganizationRow,
-	VehicleRow,
-} from '@simmer-mosquito/sync';
+import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import {
 	useAppForm,
 	validateJsonSchemaValue,
@@ -28,12 +23,31 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import { type Collection, eq, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { toast } from 'sonner';
+import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
-import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
+import type { CatalogMutations } from '../../../hooks/mutations/use-catalog-mutations';
+import {
+	type ControlAssetFields,
+	type ControlAssetMutations,
+	useEquipmentMutations,
+	useVehicleMutations,
+} from '../../../hooks/mutations/use-control-asset-mutations';
+import type {
+	CatalogRecords,
+	ControlMethodRecord,
+} from '../../../hooks/queries/use-catalog-records';
+import {
+	useApplicationMethodRecords,
+	useBiocontrolMethodRecords,
+	useSourceReductionMethodRecords,
+} from '../../../hooks/queries/use-catalog-records';
+import {
+	type ControlAssetRecord,
+	useEquipmentRecords,
+	useVehicleRecords,
+} from '../../../hooks/queries/use-control-asset-records';
 import {
 	AddIcon,
 	ArrowRightIcon,
@@ -42,37 +56,13 @@ import {
 	controlMethodListConfigs,
 	EditIcon,
 } from './constants';
-import {
-	controlAssetFormValues,
-	controlAssetName,
-	controlMethodFormValues,
-	createControlAssetFromValues,
-	createControlMethodFromValues,
-	errorMessageForSave,
-	hasMetadata,
-	isEquipmentRow,
-	updateControlAssetFromValues,
-	updateControlMethodFromValues,
-	watchPersistence,
-} from './helpers';
+import { hasMetadata } from './helpers';
 import { LookupListFrame } from './layout/layout';
-import type {
-	ControlAssetCollectionKey,
-	ControlAssetRow,
-	ControlMethodCollectionKey,
-} from './types';
+import type { ControlAssetCollectionKey, ControlMethodCollectionKey } from './types';
 
 export function ControlOperationsSettings({
-	applicationMethods,
-	biocontrolMethods,
 	canManageAssets,
-	organization,
-	sourceReductionMethods,
-	vehicles,
-	equipment,
 }: {
-	readonly applicationMethods: Collection<ControlMethodRow, string | number>;
-	readonly biocontrolMethods: Collection<ControlMethodRow, string | number>;
 	/**
 	 * Vehicles and equipment are `MANAGER` on the server, not `ADMIN` — every
 	 * one of `controlOperations.createVehicle` through `deleteEquipment`. The
@@ -80,11 +70,11 @@ export function ControlOperationsSettings({
 	 * only floor this section needs.
 	 */
 	readonly canManageAssets: boolean;
-	readonly organization: OrganizationRow | null;
-	readonly sourceReductionMethods: Collection<ControlMethodRow, string | number>;
-	readonly vehicles: Collection<VehicleRow, string | number>;
-	readonly equipment: Collection<EquipmentRow, string | number>;
 }) {
+	const applicationMethods = useApplicationMethodRecords();
+	const sourceReductionMethods = useSourceReductionMethodRecords();
+	const biocontrolMethods = useBiocontrolMethodRecords();
+
 	return (
 		<div className="grid gap-3">
 			<div className="grid gap-2">
@@ -92,31 +82,21 @@ export function ControlOperationsSettings({
 				<div className="grid gap-3">
 					<ControlMethodLookupPointer
 						collectionKey="applicationMethods"
-						methods={applicationMethods}
+						records={applicationMethods}
 						to="/control-operations/chemical/methods"
 					/>
 					<ControlMethodLookupPointer
 						collectionKey="sourceReductionMethods"
-						methods={sourceReductionMethods}
+						records={sourceReductionMethods}
 						to="/control-operations/source-reduction/methods"
 					/>
 					<ControlMethodLookupPointer
 						collectionKey="biocontrolMethods"
-						methods={biocontrolMethods}
+						records={biocontrolMethods}
 						to="/control-operations/biocontrol/methods"
 					/>
-					<ControlAssetLookupList
-						assets={vehicles}
-						canManage={canManageAssets}
-						collectionKey="vehicles"
-						organization={organization}
-					/>
-					<ControlAssetLookupList
-						assets={equipment}
-						canManage={canManageAssets}
-						collectionKey="equipment"
-						organization={organization}
-					/>
+					<VehicleLookupList canManage={canManageAssets} />
+					<EquipmentLookupList canManage={canManageAssets} />
 				</div>
 			</div>
 		</div>
@@ -129,24 +109,22 @@ export function ControlOperationsSettings({
  */
 function ControlMethodLookupPointer({
 	collectionKey,
-	methods,
+	records,
 	to,
 }: {
 	readonly collectionKey: Exclude<ControlMethodCollectionKey, 'outreachMethods'>;
-	readonly methods: Collection<ControlMethodRow, string | number>;
+	readonly records: CatalogRecords<ControlMethodRecord>;
 	readonly to:
 		| '/control-operations/chemical/methods'
 		| '/control-operations/source-reduction/methods'
 		| '/control-operations/biocontrol/methods';
 }) {
 	const config = controlMethodListConfigs[collectionKey];
-	const { activeRows: activeMethods, inactiveRows: inactiveMethods } =
-		useActiveNamedCollectionRows(methods);
 
 	return (
 		<LookupListFrame
-			activeCount={activeMethods.length}
-			inactiveCount={inactiveMethods.length}
+			activeCount={records.activeRecords.length}
+			inactiveCount={records.inactiveRecords.length}
 			detail={config.detail}
 			title={config.title}
 			action={
@@ -169,8 +147,8 @@ export function ControlMethodLookupList({
 	canManage,
 	canEditMethods,
 	collectionKey,
-	methods,
-	organization,
+	mutations,
+	records,
 }: {
 	/** Owner/admin: adding a method, and flipping one active or inactive. */
 	readonly canManage: boolean;
@@ -181,12 +159,12 @@ export function ControlMethodLookupList({
 	 */
 	readonly canEditMethods: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
-	readonly methods: Collection<ControlMethodRow, string | number>;
-	readonly organization: OrganizationRow | null;
+	readonly mutations: CatalogMutations;
+	readonly records: CatalogRecords<ControlMethodRecord>;
 }) {
 	const config = controlMethodListConfigs[collectionKey];
-	const { activeRows: activeMethods, inactiveRows: inactiveMethods } =
-		useActiveNamedCollectionRows(methods);
+	const activeMethods = records.activeRecords;
+	const inactiveMethods = records.inactiveRecords;
 
 	return (
 		<LookupListFrame
@@ -202,7 +180,7 @@ export function ControlMethodLookupList({
 						canEdit={canEditMethods}
 						canManage={canManage}
 						collectionKey={collectionKey}
-						organization={organization}
+						mutations={mutations}
 						trigger={
 							<Button type="button" variant="outline" size="sm">
 								<AddIcon aria-hidden="true" />
@@ -218,7 +196,7 @@ export function ControlMethodLookupList({
 				canManage={canManage}
 				collectionKey={collectionKey}
 				methods={activeMethods}
-				organization={organization}
+				mutations={mutations}
 			/>
 			{inactiveMethods.length > 0 ? (
 				<ControlMethodTable
@@ -226,7 +204,7 @@ export function ControlMethodLookupList({
 					canManage={canManage}
 					collectionKey={collectionKey}
 					methods={inactiveMethods}
-					organization={organization}
+					mutations={mutations}
 				/>
 			) : null}
 		</LookupListFrame>
@@ -238,13 +216,13 @@ function ControlMethodTable({
 	canManage,
 	collectionKey,
 	methods,
-	organization,
+	mutations,
 }: {
 	readonly canEditMethods: boolean;
 	readonly canManage: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
-	readonly methods: readonly ControlMethodRow[];
-	readonly organization: OrganizationRow | null;
+	readonly methods: readonly ControlMethodRecord[];
+	readonly mutations: CatalogMutations;
 }) {
 	const config = controlMethodListConfigs[collectionKey];
 	return (
@@ -273,7 +251,7 @@ function ControlMethodTable({
 										canManage={canManage}
 										collectionKey={collectionKey}
 										method={method}
-										organization={organization}
+										mutations={mutations}
 										trigger={
 											<Button type="button" variant="outline" size="icon">
 												<EditIcon aria-hidden="true" />
@@ -296,7 +274,7 @@ function ControlMethodDrawer({
 	canManage,
 	collectionKey,
 	method,
-	organization,
+	mutations,
 	trigger,
 }: {
 	/** Manager-and-above: the name and the custom fields. */
@@ -304,37 +282,36 @@ function ControlMethodDrawer({
 	/** Owner/admin: creating a method, and the Active switch. */
 	readonly canManage: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
-	readonly method?: ControlMethodRow | undefined;
-	readonly organization: OrganizationRow | null;
+	readonly method?: ControlMethodRecord | undefined;
+	readonly mutations: CatalogMutations;
 	readonly trigger: React.ReactNode;
 }) {
 	// Creating is admin-only; editing an existing method is open to managers.
 	const canSubmit = method === undefined ? canManage : canEdit;
 	const [open, setOpen] = useState(false);
 	const config = controlMethodListConfigs[collectionKey];
-	const defaultValues = controlMethodFormValues(method);
+	const defaultValues = catalogFormValues(method);
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
-					method === undefined
-						? createControlMethodFromValues(collectionKey, organization, value)
-						: updateControlMethodFromValues(collectionKey, method, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
+			commitCatalogSave({
+				failureMessage:
 					method === undefined
 						? `Unable to create ${config.singularLabel}.`
 						: `Unable to save ${method.name}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+				onWritten: () => setOpen(false),
+				save: () =>
+					method === undefined
+						? mutations.create(catalogFields(value)).then(() => undefined)
+						: mutations.save(
+								method.id,
+								catalogFields(value),
+								catalogFields(catalogFormValues(method)),
+							),
+			});
 		},
 	});
 
@@ -392,7 +369,7 @@ function ControlMethodDrawer({
 						</form.AppField>
 						<DrawerFooter className="px-0">
 							<form.FormActions>
-								<form.SubmitButton disabled={!canSubmit || organization === null} />
+								<form.SubmitButton disabled={!canSubmit || !mutations.canWrite} />
 								<DrawerClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />
@@ -408,93 +385,42 @@ function ControlMethodDrawer({
 	);
 }
 
-function ControlAssetLookupList({
-	assets,
-	canManage,
-	collectionKey,
-	organization,
-}:
-	| {
-			readonly assets: Collection<VehicleRow, string | number>;
-			readonly canManage: boolean;
-			readonly collectionKey: 'vehicles';
-			readonly organization: OrganizationRow | null;
-	  }
-	| {
-			readonly assets: Collection<EquipmentRow, string | number>;
-			readonly canManage: boolean;
-			readonly collectionKey: 'equipment';
-			readonly organization: OrganizationRow | null;
-	  }) {
-	if (collectionKey === 'vehicles') {
-		return (
-			<VehicleAssetLookupList assets={assets} canManage={canManage} organization={organization} />
-		);
-	}
-
-	return (
-		<EquipmentAssetLookupList assets={assets} canManage={canManage} organization={organization} />
-	);
-}
-
-function VehicleAssetLookupList({
-	assets,
-	canManage,
-	organization,
-}: {
-	readonly assets: Collection<VehicleRow, string | number>;
-	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
-}) {
-	const { activeRows, inactiveRows } = useActiveVehicleRows(assets);
-
+function VehicleLookupList({ canManage }: { readonly canManage: boolean }) {
 	return (
 		<ControlAssetLookupContent
-			activeAssets={activeRows}
 			canManage={canManage}
 			collectionKey="vehicles"
-			inactiveAssets={inactiveRows}
-			organization={organization}
+			mutations={useVehicleMutations()}
+			records={useVehicleRecords()}
 		/>
 	);
 }
 
-function EquipmentAssetLookupList({
-	assets,
-	canManage,
-	organization,
-}: {
-	readonly assets: Collection<EquipmentRow, string | number>;
-	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
-}) {
-	const { activeRows, inactiveRows } = useActiveEquipmentRows(assets);
-
+function EquipmentLookupList({ canManage }: { readonly canManage: boolean }) {
 	return (
 		<ControlAssetLookupContent
-			activeAssets={activeRows}
 			canManage={canManage}
 			collectionKey="equipment"
-			inactiveAssets={inactiveRows}
-			organization={organization}
+			mutations={useEquipmentMutations()}
+			records={useEquipmentRecords()}
 		/>
 	);
 }
 
 function ControlAssetLookupContent({
-	activeAssets,
 	canManage,
 	collectionKey,
-	inactiveAssets,
-	organization,
+	mutations,
+	records,
 }: {
-	readonly activeAssets: readonly ControlAssetRow[];
 	readonly canManage: boolean;
 	readonly collectionKey: ControlAssetCollectionKey;
-	readonly inactiveAssets: readonly ControlAssetRow[];
-	readonly organization: OrganizationRow | null;
+	readonly mutations: ControlAssetMutations;
+	readonly records: CatalogRecords<ControlAssetRecord>;
 }) {
 	const config = controlAssetListConfigs[collectionKey];
+	const activeAssets = records.activeRecords;
+	const inactiveAssets = records.inactiveRecords;
 
 	return (
 		<LookupListFrame
@@ -510,7 +436,7 @@ function ControlAssetLookupContent({
 					<ControlAssetDrawer
 						canManage={canManage}
 						collectionKey={collectionKey}
-						organization={organization}
+						mutations={mutations}
 						trigger={
 							<Button type="button" variant="outline" size="sm">
 								<AddIcon aria-hidden="true" />
@@ -525,78 +451,30 @@ function ControlAssetLookupContent({
 				assets={activeAssets}
 				canManage={canManage}
 				collectionKey={collectionKey}
-				organization={organization}
+				mutations={mutations}
 			/>
 			{inactiveAssets.length > 0 ? (
 				<ControlAssetTable
 					assets={inactiveAssets}
 					canManage={canManage}
 					collectionKey={collectionKey}
-					organization={organization}
+					mutations={mutations}
 				/>
 			) : null}
 		</LookupListFrame>
 	);
 }
 
-function useActiveVehicleRows(collection: Collection<VehicleRow, string | number>) {
-	const activeResult = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ vehicle: collection })
-				.where(({ vehicle }) => eq(vehicle.isActive, true))
-				.orderBy(({ vehicle }) => vehicle.vehicleName, 'asc'),
-		[collection],
-	);
-	const inactiveResult = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ vehicle: collection })
-				.where(({ vehicle }) => eq(vehicle.isActive, false))
-				.orderBy(({ vehicle }) => vehicle.vehicleName, 'asc'),
-		[collection],
-	);
-
-	return {
-		activeRows: activeResult.data,
-		inactiveRows: inactiveResult.data,
-	};
-}
-
-function useActiveEquipmentRows(collection: Collection<EquipmentRow, string | number>) {
-	const activeResult = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ equipment: collection })
-				.where(({ equipment }) => eq(equipment.isActive, true))
-				.orderBy(({ equipment }) => equipment.equipmentName, 'asc'),
-		[collection],
-	);
-	const inactiveResult = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ equipment: collection })
-				.where(({ equipment }) => eq(equipment.isActive, false))
-				.orderBy(({ equipment }) => equipment.equipmentName, 'asc'),
-		[collection],
-	);
-
-	return {
-		activeRows: activeResult.data,
-		inactiveRows: inactiveResult.data,
-	};
-}
-
 function ControlAssetTable({
 	assets,
 	canManage,
 	collectionKey,
-	organization,
+	mutations,
 }: {
-	readonly assets: readonly ControlAssetRow[];
+	readonly assets: readonly ControlAssetRecord[];
 	readonly canManage: boolean;
 	readonly collectionKey: ControlAssetCollectionKey;
-	readonly organization: OrganizationRow | null;
+	readonly mutations: ControlAssetMutations;
 }) {
 	const config = controlAssetListConfigs[collectionKey];
 	return (
@@ -614,11 +492,9 @@ function ControlAssetTable({
 				<TableBody>
 					{assets.map((asset) => (
 						<TableRow key={asset.id}>
-							<TableCell className="font-medium">{controlAssetName(asset)}</TableCell>
+							<TableCell className="font-medium">{asset.name}</TableCell>
 							{collectionKey === 'equipment' ? (
-								<TableCell>
-									{isEquipmentRow(asset) ? (asset.serialNumber ?? 'Not set') : 'Not set'}
-								</TableCell>
+								<TableCell>{asset.serialNumber ?? 'Not set'}</TableCell>
 							) : null}
 							<TableCell>{asset.isActive ? 'Active' : 'Inactive'}</TableCell>
 							<TableCell>{hasMetadata(asset.metadata) ? 'Configured' : 'None'}</TableCell>
@@ -628,11 +504,11 @@ function ControlAssetTable({
 										asset={asset}
 										canManage={canManage}
 										collectionKey={collectionKey}
-										organization={organization}
+										mutations={mutations}
 										trigger={
 											<Button type="button" variant="outline" size="icon">
 												<EditIcon aria-hidden="true" />
-												<span className="sr-only">Edit {controlAssetName(asset)}</span>
+												<span className="sr-only">Edit {asset.name}</span>
 											</Button>
 										}
 									/>
@@ -650,13 +526,13 @@ function ControlAssetDrawer({
 	asset,
 	canManage,
 	collectionKey,
-	organization,
+	mutations,
 	trigger,
 }: {
-	readonly asset?: ControlAssetRow | undefined;
+	readonly asset?: ControlAssetRecord | undefined;
 	readonly canManage: boolean;
 	readonly collectionKey: ControlAssetCollectionKey;
-	readonly organization: OrganizationRow | null;
+	readonly mutations: ControlAssetMutations;
 	readonly trigger: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
@@ -665,25 +541,24 @@ function ControlAssetDrawer({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
-					asset === undefined
-						? createControlAssetFromValues(collectionKey, organization, value)
-						: updateControlAssetFromValues(collectionKey, asset, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
+			commitCatalogSave({
+				failureMessage:
 					asset === undefined
 						? `Unable to create ${config.singularLabel}.`
-						: `Unable to save ${controlAssetName(asset)}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+						: `Unable to save ${asset.name}.`,
+				onWritten: () => setOpen(false),
+				save: () =>
+					asset === undefined
+						? mutations.create(controlAssetFields(value)).then(() => undefined)
+						: mutations.save(
+								asset.id,
+								controlAssetFields(value),
+								controlAssetFields(controlAssetFormValues(asset)),
+							),
+			});
 		},
 	});
 
@@ -700,9 +575,7 @@ function ControlAssetDrawer({
 			<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
 				<DrawerHeader>
 					<DrawerTitle>
-						{asset === undefined
-							? `Add ${config.singularLabel}`
-							: `Edit ${controlAssetName(asset)}`}
+						{asset === undefined ? `Add ${config.singularLabel}` : `Edit ${asset.name}`}
 					</DrawerTitle>
 					<DrawerDescription>
 						Manage the label, lifecycle state, and optional metadata fields.
@@ -758,7 +631,7 @@ function ControlAssetDrawer({
 						</form.AppField>
 						<DrawerFooter className="px-0">
 							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || organization === null} />
+								<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
 								<DrawerClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />
@@ -772,4 +645,49 @@ function ControlAssetDrawer({
 			</DrawerContent>
 		</Drawer>
 	);
+}
+
+/**
+ * The drawer's values as the write hook takes them.
+ *
+ * A blank serial number is `null` rather than `''`, for the reason
+ * `catalogFields` trims a description: a column that can hold both has two
+ * spellings of "not set".
+ */
+function controlAssetFields(values: {
+	readonly name: string;
+	readonly serialNumber: string;
+	readonly metadata: unknown;
+	readonly isActive: boolean;
+}): ControlAssetFields {
+	const name = values.name.trim();
+	if (name.length === 0) {
+		throw new Error('Name is required.');
+	}
+	const serialNumber = values.serialNumber.trim();
+	return {
+		name,
+		serialNumber: serialNumber.length === 0 ? null : serialNumber,
+		metadata: values.metadata,
+		isActive: values.isActive,
+	};
+}
+
+/** Open the asset drawer on a record, or on a blank one. */
+function controlAssetFormValues(asset: ControlAssetRecord | undefined): {
+	readonly name: string;
+	readonly serialNumber: string;
+	readonly metadata: MetadataValue;
+	readonly isActive: boolean;
+} {
+	const metadata = asset?.metadata;
+	return {
+		name: asset?.name ?? '',
+		serialNumber: asset?.serialNumber ?? '',
+		metadata:
+			typeof metadata === 'object' && metadata !== null && !Array.isArray(metadata)
+				? (metadata as MetadataValue)
+				: null,
+		isActive: asset?.isActive ?? true,
+	};
 }

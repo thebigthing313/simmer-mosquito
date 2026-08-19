@@ -236,7 +236,7 @@ async function runAssignmentCommands(
 	);
 }
 
-async function writeAssignmentCommand(
+export async function writeAssignmentCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
 ): Promise<SafeAssignment | null> {

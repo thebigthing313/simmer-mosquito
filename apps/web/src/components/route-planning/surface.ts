@@ -1,4 +1,4 @@
-import type { RouteRow } from '@simmer-mosquito/sync';
+import type { Route } from '@simmer-mosquito/sync';
 import type { LinkProps } from '@tanstack/react-router';
 
 /**
@@ -16,7 +16,7 @@ import type { LinkProps } from '@tanstack/react-router';
  */
 export interface RoutePlanningSurface {
 	/** The `routeType` a route created here is stored with. */
-	readonly routeType: RouteRow['routeType'];
+	readonly routeType: Route['route_type'];
 	/** Heading and back-link label, e.g. `Routes` or `Trap Routes`. */
 	readonly title: string;
 	/** Plural lowercase noun for the records a stop points at, for prose. */

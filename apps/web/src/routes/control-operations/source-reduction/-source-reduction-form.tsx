@@ -1,6 +1,5 @@
 import { isSourceReductionUnitType, recordSourceReductionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { ControlMethodRow, HabitatRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -32,6 +31,10 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
+import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
@@ -97,9 +100,9 @@ export interface SourceReductionSaveInput {
 export interface SourceReductionFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly methods: readonly ControlMethodRow[];
-	readonly units: readonly UnitRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly methods: readonly SchemaCatalogListing[];
+	readonly units: readonly UnitLabel[];
+	readonly profiles: readonly ProfileListing[];
 	readonly defaultValues: SourceReductionFormValues;
 	/** The action's geometry to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -249,12 +252,19 @@ export function SourceReductionFormPage({
 	// The habitat is larval context, not the action's location — but framing the map
 	// on it (and seeding unplaced geometry) saves the crew a pan across the county.
 	const handleHabitatSelected = useCallback(
-		(habitat: HabitatRow | null) => {
-			if (habitat === null || typeof habitat.lat !== 'number' || typeof habitat.lng !== 'number') {
+		(habitat: HabitatMatch | null) => {
+			if (
+				habitat === null ||
+				typeof habitat.latitude !== 'number' ||
+				typeof habitat.longitude !== 'number'
+			) {
 				setReferenceGeometry(null);
 				return;
 			}
-			const point: DrawGeometry = { type: 'Point', coordinates: [habitat.lng, habitat.lat] };
+			const point: DrawGeometry = {
+				type: 'Point',
+				coordinates: [habitat.longitude, habitat.latitude],
+			};
 			if (geometry === null) {
 				// Seeded as the action's own geometry, so it needs no reference copy.
 				setGeometry(point);
@@ -533,7 +543,7 @@ function validate(values: SourceReductionFormValues): string | null {
 	return null;
 }
 
-function technicianOptions(profiles: readonly ProfileRow[]) {
+function technicianOptions(profiles: readonly ProfileListing[]) {
 	return [
 		{ label: 'Unassigned', value: noTechnicianValue },
 		...lifecycleOptions(

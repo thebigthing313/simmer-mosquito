@@ -68,6 +68,28 @@ describe('groupByYear', () => {
 		expect(years.map((year) => year.collections.length)).toEqual([1, 1, 1]);
 	});
 
+	it('groups and orders a Date the same as the timestamp string it parses from', () => {
+		/*
+		 * `useTrapCollections` reads through `lib/collections`, whose row schema
+		 * parses a `timestamptz` into a `Date` — so the same collection reaches these
+		 * functions as an object on one path and as text on the other. Both are the
+		 * same instant, and an evening one in a western zone is the case where
+		 * treating them differently would land the two on different days.
+		 */
+		const asText = '2026-01-01 04:30:00+00'; // 2025-12-31, 11:30pm in New York
+		const years = groupByYear(
+			[
+				collection({ id: 'text', collectedAt: asText }),
+				collection({ id: 'date', collectedAt: new Date(asText) }),
+			],
+			AGENCY_TIME_ZONE,
+		);
+
+		expect(years).toHaveLength(1);
+		expect(years[0]?.label).toBe('2025');
+		expect(years[0]?.collections).toHaveLength(2);
+	});
+
 	it('dates a date-and-duration collection by collectionDate, not collectedAt', () => {
 		// This is the mode where `collectedAt` is null by design. Read alone it
 		// would file the whole season under undated.

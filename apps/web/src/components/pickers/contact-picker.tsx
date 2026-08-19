@@ -1,7 +1,7 @@
-import type { ContactRow } from '@simmer-mosquito/sync';
-import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
+import type { Contact } from '@simmer-mosquito/sync';
+import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useRef, useState } from 'react';
-import { webCollections } from '../../sync/webCollections';
+import { contacts } from '../../lib/collections/contacts';
 import { OptionRow, PickerFallback, PickerFrame, useSelectedRowLabel } from './entity-picker';
 
 // Contacts sync on demand, so the results come from a live subset query (an `ilike`
@@ -9,6 +9,20 @@ import { OptionRow, PickerFallback, PickerFrame, useSelectedRowLabel } from './e
 // Rendering this picker also keeps the contacts stream warm for a nearby write.
 
 const searchGcTimeMs = 30_000;
+
+/**
+ * What the picker hands back.
+ *
+ * The four identity columns, in the order a contact is named by — a caller who
+ * left only a number is still a contact, and the label falls through to it.
+ */
+export interface ContactOption {
+	readonly id: string;
+	readonly contactName: string | null;
+	readonly company: string | null;
+	readonly email: string | null;
+	readonly preferredPhone: string | null;
+}
 
 export function ContactPicker({
 	label = 'Contact',
@@ -19,7 +33,7 @@ export function ContactPicker({
 	readonly label?: string;
 	readonly organizationId: string;
 	readonly value: string | null;
-	readonly onSelect: (contact: ContactRow | null) => void;
+	readonly onSelect: (contact: ContactOption | null) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
@@ -29,9 +43,9 @@ export function ContactPicker({
 	// An edit form arrives holding only the contact id, so the current selection is
 	// resolved from the collection rather than left as an empty-looking field.
 	const selectedLabel = useSelectedRowLabel({
-		collection: webCollections.contacts,
+		collection: contacts,
 		pickedLabel,
-		toLabel: contactLabel,
+		toLabel: (row) => contactLabel(contactLabelParts(row)),
 		value,
 	});
 
@@ -81,7 +95,7 @@ function ContactResults({
 	readonly organizationId: string;
 	readonly search: string;
 	readonly selectedValue: string | null;
-	readonly onSelect: (contact: ContactRow) => void;
+	readonly onSelect: (contact: ContactOption) => void;
 }) {
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
@@ -89,23 +103,30 @@ function ContactResults({
 		{
 			gcTime: searchGcTimeMs,
 			query: (query) => {
-				const base = query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => eq(contact.organizationId, organizationId));
+				// No organization predicate: the shape is scoped to the agency
+				// server-side, so re-stating it here is redundant — and a stale column
+				// spelling in one is what empties a list rather than narrowing it.
+				const base = query.from({ contact: contacts });
 				const filtered =
 					normalized.length === 0
 						? base
 						: base.where(({ contact }) =>
-								and(
-									eq(contact.organizationId, organizationId),
-									or(
-										ilike(contact.contactName, pattern),
-										ilike(contact.company, pattern),
-										ilike(contact.email, pattern),
-									),
+								or(
+									ilike(contact.contact_name, pattern),
+									ilike(contact.company, pattern),
+									ilike(contact.email, pattern),
 								),
 							);
-				return filtered.orderBy(({ contact }) => contact.contactName, 'asc').limit(8);
+				return filtered
+					.orderBy(({ contact }) => contact.contact_name, 'asc')
+					.limit(8)
+					.select(({ contact }) => ({
+						id: contact.id,
+						contactName: contact.contact_name,
+						company: contact.company,
+						email: contact.email,
+						preferredPhone: contact.preferred_phone,
+					}));
 			},
 		},
 		[organizationId, pattern],
@@ -117,14 +138,14 @@ function ContactResults({
 	if (!isReady && (data ?? []).length === 0) {
 		return <PickerFallback label="Searching contacts" />;
 	}
-	const contacts = (data ?? []) as readonly ContactRow[];
-	if (contacts.length === 0) {
+	const matches = data ?? [];
+	if (matches.length === 0) {
 		return <PickerFallback label="No contact matches" />;
 	}
 
 	return (
 		<div className="grid gap-1">
-			{contacts.map((contact) => (
+			{matches.map((contact) => (
 				<OptionRow
 					key={contact.id}
 					onSelect={() => onSelect(contact)}
@@ -137,15 +158,32 @@ function ContactResults({
 	);
 }
 
+/**
+ * The selected row, as the label formatters take it.
+ *
+ * `useSelectedRowLabel` hands back the collection's own row, which is spelled the
+ * way Postgres spells it; everything above the read seam is named for the domain.
+ * This is the one place the two meet — the same seam `addressLabelParts` sits on.
+ */
+function contactLabelParts(row: Contact): ContactOption {
+	return {
+		id: row.id,
+		contactName: row.contact_name,
+		company: row.company,
+		email: row.email,
+		preferredPhone: row.preferred_phone,
+	};
+}
+
 /** Self-contained label (kept off the routes layer so the picker stays reusable). */
-function contactLabel(contact: ContactRow): string {
+function contactLabel(contact: ContactOption): string {
 	return (
 		firstNonEmpty(contact.contactName, contact.company, contact.email, contact.preferredPhone) ??
 		`Contact ${contact.id.slice(0, 8)}`
 	);
 }
 
-function contactChannel(contact: ContactRow): string | null {
+function contactChannel(contact: ContactOption): string | null {
 	return firstNonEmpty(contact.email, contact.preferredPhone, contact.company);
 }
 

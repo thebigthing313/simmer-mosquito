@@ -1,4 +1,4 @@
-import type { UnitRow } from '@simmer-mosquito/sync';
+import type { UnitLabel, UnitType } from '../hooks/queries/use-unit-labels';
 
 /**
  * Options for a form's unit select, narrowed to the unit types the field can
@@ -14,8 +14,8 @@ import type { UnitRow } from '@simmer-mosquito/sync';
  * than read through, and the catalog's own order is an implementation detail.
  */
 export function unitOptions(
-	units: readonly UnitRow[],
-	isAllowed: (unitType: UnitRow['unitType']) => boolean,
+	units: readonly UnitLabel[],
+	isAllowed: (unitType: UnitType) => boolean,
 ): readonly { readonly label: string; readonly value: string }[] {
 	return units
 		.filter((unit) => isAllowed(unit.unitType))

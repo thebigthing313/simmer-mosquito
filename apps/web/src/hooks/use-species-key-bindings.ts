@@ -1,12 +1,10 @@
 import {
 	resolveEffectiveSpeciesKeyBindings,
-	resolveOrganizationSettings,
 	type SpeciesKeyBindings,
 } from '@simmer-mosquito/domain';
-import type { OrganizationRow, SpeciesRow } from '@simmer-mosquito/sync';
 import { useMemo } from 'react';
-import { webCollections } from '../sync/webCollections';
-import { useCollectionRows } from './use-collection-rows';
+import { useOrganizationSettings } from './queries/use-organization-settings';
+import { useSpeciesNames } from './queries/use-species-names';
 
 /** A stored binding joined to the species it records. */
 export interface ResolvedSpeciesKeyBinding {
@@ -33,26 +31,18 @@ export interface SpeciesKeyBindingsView {
  * them here and every consumer picks the change up unchanged.
  */
 export function useSpeciesKeyBindings(): SpeciesKeyBindingsView {
-	const { rows: organizationRows } = useCollectionRows<OrganizationRow>(
-		webCollections.currentOrganization,
-	);
-	const { rows: speciesRows } = useCollectionRows<SpeciesRow>(webCollections.species);
+	const { speciesKeyBindings } = useOrganizationSettings();
+	const nameById = useSpeciesNames();
 
-	const organizationBindings = useMemo(
-		() => resolveOrganizationSettings(organizationRows[0]?.settings).settings.speciesKeyBindings,
-		[organizationRows[0]?.settings],
-	);
-
-	return useSpeciesKeyBindingsView(organizationBindings, speciesRows);
+	return useSpeciesKeyBindingsView(speciesKeyBindings, nameById);
 }
 
 function useSpeciesKeyBindingsView(
 	organizationBindings: SpeciesKeyBindings,
-	speciesRows: readonly SpeciesRow[],
+	nameById: ReadonlyMap<string, string>,
 ): SpeciesKeyBindingsView {
 	return useMemo(() => {
 		const effective = resolveEffectiveSpeciesKeyBindings({ organization: organizationBindings });
-		const nameById = new Map(speciesRows.map((row) => [row.id, row.displayName] as const));
 
 		const bindings = effective.bindings.map((binding) => ({
 			key: binding.key,
@@ -66,5 +56,5 @@ function useSpeciesKeyBindingsView(
 			keyBySpeciesId: new Map(bindings.map((binding) => [binding.speciesId, binding.key] as const)),
 			hasBindings: bindings.length > 0,
 		};
-	}, [organizationBindings, speciesRows]);
+	}, [organizationBindings, nameById]);
 }

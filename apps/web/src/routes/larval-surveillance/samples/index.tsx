@@ -1,4 +1,3 @@
-import type { OrganizationSpeciesRow, SpeciesRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Command,
@@ -37,6 +36,7 @@ import {
 	usePagedMapResource,
 	useRegionOptions,
 	useSelectedMapRecord,
+	useSpeciesOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -45,11 +45,9 @@ import {
 	SAMPLE_STATUS_COLORS,
 	type SampleTileFilters,
 } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	addDaysToDateString,
 	formatListDate,
@@ -185,7 +183,7 @@ function SamplesExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { nameById, options } = useSpeciesCatalog();
+	const { nameById, options } = useSpeciesOptions();
 	const regions = useRegionOptions();
 
 	const filters = useMemo<SampleTileFilters>(
@@ -695,36 +693,6 @@ function _StatusDot({ status }: { readonly status: SampleStatus }) {
 // --- selected sample detail card --------------------------------------------
 
 // --- data hooks -------------------------------------------------------------
-
-/**
- * Species names + the org's species options for the filter. Names resolve from
- * the eager global taxonomy; the filter offers only the species the org has
- * adopted (falling back to the full catalog if the org hasn't curated a list).
- */
-function useSpeciesCatalog(): {
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly options: readonly SpeciesOption[];
-} {
-	const { rows: species } = useCollectionRows<SpeciesRow>(webCollections.species);
-	const { rows: orgSpecies } = useCollectionRows<OrganizationSpeciesRow>(
-		webCollections.organizationSpecies,
-	);
-
-	const nameById = useMemo(
-		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
-		[species],
-	);
-
-	const options = useMemo(() => {
-		const orgIds = new Set(orgSpecies.map((row) => row.speciesId));
-		const source = orgIds.size > 0 ? species.filter((row) => orgIds.has(row.id)) : species;
-		return source
-			.map((row) => ({ id: row.id, label: row.displayName }))
-			.sort((first, second) => first.label.localeCompare(second.label));
-	}, [species, orgSpecies]);
-
-	return { nameById, options };
-}
 
 // --- helpers ----------------------------------------------------------------
 

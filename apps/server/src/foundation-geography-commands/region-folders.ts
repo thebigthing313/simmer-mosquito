@@ -96,7 +96,8 @@ async function runRegionFolderCommands(
 	);
 }
 
-async function writeRegionFolderCommand(
+/** Exported for `table-commands/regions.ts` — see `writeRegionCommand`. */
+export async function writeRegionFolderCommand(
 	trx: FoundationTransaction,
 	command: FoundationCommand,
 ): Promise<SafeRegionFolder | null> {

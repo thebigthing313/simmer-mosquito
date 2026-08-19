@@ -4,12 +4,14 @@ import type { RouteStopFeature } from '../../components/map';
 import type { StopTone } from '../../components/stop-order';
 import {
 	MISSION_STATUS_LABELS,
-	type MissionItemProgress,
 	type MissionProgressCounts,
 	type MissionStatus,
+	type RequestStatus,
+} from '../../hooks/queries/operations-view';
+import {
+	type MissionItemProgress,
 	type MissionStopView,
 	missionItemProgress,
-	type RequestStatus,
 } from './-operations-data';
 
 /**
@@ -70,8 +72,8 @@ export function MissionItemProgressBadge({ progress }: { readonly progress: Miss
 
 /** Pin colour reports progress on the work, not the state of the site. */
 export function missionStopTone(item: {
-	readonly completedAt: string | null;
-	readonly skippedAt: string | null;
+	readonly completedAt: Date | null;
+	readonly skippedAt: Date | null;
 }): StopTone {
 	const progress = missionItemProgress(item);
 	if (progress === 'skipped') {

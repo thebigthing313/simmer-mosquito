@@ -79,7 +79,7 @@ async function runAdditionalPersonnelCommands(
 	);
 }
 
-async function writeAdditionalPersonnelCommand(
+export async function writeAdditionalPersonnelCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
 ): Promise<SafeAdditionalPersonnel | null> {

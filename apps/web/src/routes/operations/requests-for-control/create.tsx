@@ -1,9 +1,10 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
+import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
+import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { createRequestedControlAction, useRequestedControlAction } from '../-operations-data';
 import {
 	defaultRequestFormValues,
 	RequestFormPage,
@@ -34,6 +35,7 @@ function CreateRequestForControlRoute() {
 	useRequestedControlAction(requestId);
 
 	const organizationId = organization?.id ?? null;
+	const requestWrites = useRequestedControlActionMutations();
 
 	const onSave = useCallback(
 		async ({ values, geometry }: RequestSaveInput) => {
@@ -43,19 +45,19 @@ function CreateRequestForControlRoute() {
 			if (geometry === null) {
 				throw new Error('Map where the control work is needed.');
 			}
-			await createRequestedControlAction({
+			await requestWrites.create(
 				requestId,
-				organizationId,
-				actorProfileId,
-				controlType: values.controlType,
-				geometry: geometry as unknown as GeoJsonGeometry,
-				...readRequestFields(values),
-				addressId: values.addressId,
-				habitatId: values.habitatId,
-			});
+				{
+					controlType: values.controlType,
+					...readRequestFields(values),
+					addressId: values.addressId,
+					habitatId: values.habitatId,
+				},
+				geometry as unknown as GeoJsonGeometry,
+			);
 			await navigate({ to: '/operations/requests-for-control' });
 		},
-		[organizationId, actorProfileId, requestId, navigate],
+		[organizationId, actorProfileId, requestId, requestWrites, navigate],
 	);
 
 	return (

@@ -1,4 +1,3 @@
-import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
@@ -20,6 +19,7 @@ import {
 	usePersonnelOptions,
 	useRegionOptions,
 	useSelectedMapRecord,
+	useSourceReductionMethodOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -27,7 +27,8 @@ import {
 	MapCanvas,
 	type SourceReductionTileFilters,
 } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
+import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import {
@@ -37,10 +38,9 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
-import { formatAmount, nameById } from '../-control-display';
-import { addDaysToDateString, useHabitatNames } from '../-overview-data';
+import { formatAmount } from '../-control-display';
+import { addDaysToDateString } from '../-overview-data';
 import { SourceReductionMapCard } from '../-source-reduction-map-card';
 
 interface SourceReductionSite {
@@ -122,13 +122,8 @@ function SourceReductionExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(
-		webCollections.sourceReductionMethods,
-	);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-
-	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
-	const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
+	const { options: methodOptions, nameById: methodNameById } = useSourceReductionMethodOptions();
+	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
@@ -226,7 +221,7 @@ function SourceReductionExplorerRoute() {
 							empty="No source reduction methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter
@@ -315,7 +310,7 @@ function SourceReductionResults({
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly personnelNameById: ReadonlyMap<string, string>;
 	readonly habitatNameById: ReadonlyMap<string, string>;
-	readonly unitById: ReadonlyMap<string, UnitRow>;
+	readonly unitById: ReadonlyMap<string, UnitLabel>;
 	readonly onSelect: (id: string) => void;
 }) {
 	return (

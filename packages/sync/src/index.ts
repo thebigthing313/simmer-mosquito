@@ -2,10 +2,6 @@ import {
 	type ElectricCollectionConfig,
 	electricCollectionOptions,
 } from '@tanstack/electric-db-collection';
-import { decodeShapeColumnName } from './decode-shape-column-name.js';
-import type { SyncShapeScope } from './descriptor-factory.js';
-import * as syncDescriptors from './descriptors/index.js';
-import { encodeShapeColumnName } from './encode-shape-column-name.js';
 
 export {
 	isTxIdConfirmationTimeout,
@@ -13,176 +9,47 @@ export {
 	settleWrite,
 } from './settle-write.js';
 
+/**
+ * How a table streams: the whole thing up front, or the subsets a live query
+ * asks for.
+ *
+ * A parameter rather than a descriptor field, because the same table is wanted
+ * differently by different apps — `apps/mobile` needs habitats before the signal
+ * goes, `apps/web` is online-only. Each app declares its own; `apps/web` does so
+ * in `src/sync/sync-modes.ts`.
+ */
 export type WebSyncMode = 'eager' | 'on-demand';
 
-export interface SyncDescriptor<TRow extends { readonly id: string }> {
-	readonly id: string;
-	readonly table: string;
-	readonly endpointPath: string;
-	readonly syncMode: WebSyncMode;
-	readonly scope: SyncShapeScope;
-	readonly columns: readonly (keyof TRow & string)[];
-	readonly getKey: (row: TRow) => string;
-}
+export * from './collections/index.js';
 
-/**
- * Everything the server needs to register a shape route, with the row type
- * erased so one loop can carry all of them.
- */
-export interface SyncShapeRoute {
-	readonly id: string;
-	readonly table: string;
-	readonly endpointPath: string;
-	readonly scope: SyncShapeScope;
-	readonly columns: readonly string[];
-}
-
-export * from './descriptor-factory.js';
 export * from './row-payload-mapper.js';
 export * from './rows/index.js';
 
 /**
- * Every shape the server exposes, read off the descriptor barrel rather than
- * listed again. Adding a descriptor file adds its route; there is no second
- * place to remember, and no way for a path or scope to be typed twice and
- * disagree.
+ * A collection over a table's shape route.
+ *
+ * Takes the table rather than a descriptor, because a descriptor's remaining
+ * fields were the table name spelled four ways: its `id` was the table, its
+ * `getKey` was `row.id` on all fifty-six, its `endpointPath` is what
+ * `shapePathFor` derives, and its `columns` were sent as a query param that the
+ * server strips and the Electric client never reads — so that list decided
+ * nothing on either side. The server takes its columns from the table's schema.
+ *
+ * Superseded by the factories in `collections/`, which need no call-site
+ * arguments at all. This is what the apps use until they move over.
  */
-export const syncShapeDescriptors: readonly SyncShapeRoute[] = Object.values(syncDescriptors);
-
-import {
-	additionalPersonnelSyncDescriptor,
-	addressesSyncDescriptor,
-	applicationBatchesSyncDescriptor,
-	applicationMethodsSyncDescriptor,
-	applicationsSyncDescriptor,
-	assignmentItemsSyncDescriptor,
-	assignmentsSyncDescriptor,
-	biocontrolActionsSyncDescriptor,
-	biocontrolMethodsSyncDescriptor,
-	collectionLuresSyncDescriptor,
-	collectionMethodsSyncDescriptor,
-	collectionSpeciesSyncDescriptor,
-	collectionsSyncDescriptor,
-	commentsSyncDescriptor,
-	contactsSyncDescriptor,
-	currentOrganizationSyncDescriptor,
-	equipmentSyncDescriptor,
-	formulationInsecticidesSyncDescriptor,
-	formulationsSyncDescriptor,
-	generaSyncDescriptor,
-	habitatsSyncDescriptor,
-	habitatTypesSyncDescriptor,
-	insecticideBatchesSyncDescriptor,
-	insecticidesSyncDescriptor,
-	inspectionsSyncDescriptor,
-	membershipsSyncDescriptor,
-	missionItemsSyncDescriptor,
-	missionNotificationsSyncDescriptor,
-	missionsSyncDescriptor,
-	notificationRegistrationsSyncDescriptor,
-	notificationRegistrationTypesSyncDescriptor,
-	notificationTypesSyncDescriptor,
-	organizationSpeciesSyncDescriptor,
-	outreachActionsSyncDescriptor,
-	outreachMethodsSyncDescriptor,
-	profilesSyncDescriptor,
-	regionFoldersSyncDescriptor,
-	regionsSyncDescriptor,
-	requestedControlActionsSyncDescriptor,
-	routeItemsSyncDescriptor,
-	routesSyncDescriptor,
-	sampleSpeciesSyncDescriptor,
-	samplesSyncDescriptor,
-	serviceRequestsSyncDescriptor,
-	sourceReductionMethodsSyncDescriptor,
-	sourceReductionsSyncDescriptor,
-	speciesSyncDescriptor,
-	tagItemsSyncDescriptor,
-	tagsSyncDescriptor,
-	trapsSyncDescriptor,
-	unitsSyncDescriptor,
-	vehiclesSyncDescriptor,
-	weatherSourceSubscriptionsSyncDescriptor,
-	weatherSourcesSyncDescriptor,
-	weatherSummariesSyncDescriptor,
-} from './descriptors/index.js';
-
-export * from './descriptors/index.js';
-
-export const observationalReadOnlySyncDescriptors = [
-	unitsSyncDescriptor,
-	profilesSyncDescriptor,
-	membershipsSyncDescriptor,
-	generaSyncDescriptor,
-	speciesSyncDescriptor,
-	organizationSpeciesSyncDescriptor,
-	applicationMethodsSyncDescriptor,
-	sourceReductionMethodsSyncDescriptor,
-	outreachMethodsSyncDescriptor,
-	biocontrolMethodsSyncDescriptor,
-	vehiclesSyncDescriptor,
-	equipmentSyncDescriptor,
-	insecticidesSyncDescriptor,
-	insecticideBatchesSyncDescriptor,
-	notificationTypesSyncDescriptor,
-	inspectionsSyncDescriptor,
-	samplesSyncDescriptor,
-	sampleSpeciesSyncDescriptor,
-	routesSyncDescriptor,
-	regionFoldersSyncDescriptor,
-	regionsSyncDescriptor,
-	trapsSyncDescriptor,
-	collectionsSyncDescriptor,
-	collectionSpeciesSyncDescriptor,
-	commentsSyncDescriptor,
-	tagItemsSyncDescriptor,
-	additionalPersonnelSyncDescriptor,
-	routeItemsSyncDescriptor,
-	assignmentsSyncDescriptor,
-	assignmentItemsSyncDescriptor,
-	formulationsSyncDescriptor,
-	formulationInsecticidesSyncDescriptor,
-	applicationsSyncDescriptor,
-	applicationBatchesSyncDescriptor,
-	sourceReductionsSyncDescriptor,
-	outreachActionsSyncDescriptor,
-	biocontrolActionsSyncDescriptor,
-	contactsSyncDescriptor,
-	serviceRequestsSyncDescriptor,
-	requestedControlActionsSyncDescriptor,
-	missionsSyncDescriptor,
-	missionItemsSyncDescriptor,
-	notificationRegistrationsSyncDescriptor,
-	notificationRegistrationTypesSyncDescriptor,
-	missionNotificationsSyncDescriptor,
-	weatherSourcesSyncDescriptor,
-	weatherSourceSubscriptionsSyncDescriptor,
-	weatherSummariesSyncDescriptor,
-] as const;
-
-export const foundationWritableSyncDescriptors = [
-	currentOrganizationSyncDescriptor,
-	addressesSyncDescriptor,
-	collectionMethodsSyncDescriptor,
-	collectionLuresSyncDescriptor,
-	habitatTypesSyncDescriptor,
-	habitatsSyncDescriptor,
-	tagsSyncDescriptor,
-] as const;
-
-export const webReadOnlyTracerDescriptors = observationalReadOnlySyncDescriptors;
-export const webCommandMutationDescriptors = foundationWritableSyncDescriptors;
-
 export function electricShapeCollectionOptions<TRow extends { readonly id: string }>(
 	input: {
-		readonly descriptor: SyncDescriptor<TRow>;
+		/** The Postgres table. Names the collection, and nothing else needs saying. */
+		readonly table: string;
 		readonly url: string;
+		readonly syncMode: WebSyncMode;
 	} & Pick<ElectricCollectionConfig<TRow, never>, 'onInsert' | 'onUpdate' | 'onDelete'>,
 ) {
 	return electricCollectionOptions<TRow>({
-		id: input.descriptor.id,
-		getKey: input.descriptor.getKey,
-		syncMode: input.descriptor.syncMode,
+		id: input.table,
+		getKey: (row) => row.id,
+		syncMode: input.syncMode,
 		...(input.onInsert === undefined ? {} : { onInsert: input.onInsert }),
 		...(input.onUpdate === undefined ? {} : { onUpdate: input.onUpdate }),
 		...(input.onDelete === undefined ? {} : { onDelete: input.onDelete }),
@@ -197,16 +64,6 @@ export function electricShapeCollectionOptions<TRow extends { readonly id: strin
 					...init,
 					credentials: 'include',
 				}),
-			params: {
-				table: input.descriptor.table,
-				columns: [...input.descriptor.columns],
-			},
-			columnMapper: snakeCamelColumnMapper,
 		},
 	});
 }
-
-const snakeCamelColumnMapper = {
-	encode: encodeShapeColumnName,
-	decode: decodeShapeColumnName,
-};

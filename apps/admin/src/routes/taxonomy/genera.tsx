@@ -1,12 +1,9 @@
-import type { GenusRow, SpeciesRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -22,7 +19,8 @@ import {
 	EditRecordButton,
 	useCatalogForm,
 } from '../../components/catalog';
-import { adminCollections } from '../../sync/adminCollections';
+import { type GenusListing, useGenusRoster } from '../../hooks/queries/use-genus-roster';
+import { createGenus, deleteGenus, updateGenus } from '../../lib/collections/writes';
 
 const GenusIcon = iconRegistry.generic.component.icon;
 const AddIcon = iconRegistry.actions.add.icon;
@@ -38,34 +36,22 @@ interface GenusFormValues {
 
 const EMPTY_GENUS: GenusFormValues = { abbreviation: '', name: '' };
 
-async function createGenus(values: GenusFormValues) {
-	const now = new Date().toISOString();
-	await settleWrite(
-		adminCollections.genera.insert({
-			id: crypto.randomUUID(),
-			abbreviation: values.abbreviation.trim(),
-			name: values.name.trim(),
-			createdAt: now,
-			updatedAt: now,
-		} as GenusRow),
-	);
+async function addGenus(values: GenusFormValues) {
+	await createGenus({ name: values.name.trim(), abbreviation: values.abbreviation.trim() });
 	toast.success(`${values.name.trim()} added.`);
 }
 
 async function saveGenus(genusId: string, values: GenusFormValues) {
-	await settleWrite(
-		adminCollections.genera.update(genusId, (draft) => {
-			const writable = draft as { -readonly [K in keyof GenusRow]: GenusRow[K] };
-			writable.abbreviation = values.abbreviation.trim();
-			writable.name = values.name.trim();
-		}),
-	);
+	await updateGenus(genusId, {
+		name: values.name.trim(),
+		abbreviation: values.abbreviation.trim(),
+	});
 	toast.success(`${values.name.trim()} updated.`);
 }
 
-async function removeGenus(genus: GenusRow) {
+async function removeGenus(genus: GenusListing) {
 	try {
-		await settleWrite(adminCollections.genera.delete(genus.id));
+		await deleteGenus(genus.id);
 		toast.success(`${genus.name} deleted.`);
 	} catch (error) {
 		toast.error(error instanceof Error ? error.message : 'Unable to delete the genus.');
@@ -73,45 +59,24 @@ async function removeGenus(genus: GenusRow) {
 }
 
 /** `'new'` opens the create dialog; a row opens the same dialog to edit it. */
-type GenusDialog = CatalogDialogState<GenusRow>;
+type GenusDialog = CatalogDialogState<GenusListing>;
 
 /**
  * The global genus list.
  *
- * Reads are live: `useLiveQuery` over the Electric-backed collection, so a
- * change made in another operator's tab lands here without a refresh. Writes are
- * optimistic mutations on the same collection, settled through `settleWrite` —
- * the row is on screen before the round trip, and a txid confirmation that
+ * Reads come from `useGenusRoster`, which is where the columns are: it sorts,
+ * counts the species per genus in the query pipeline, and hands back rows named
+ * for the domain. Writes are optimistic mutations settled through `settleWrite`,
+ * so the row is on screen before the round trip and a txid confirmation that
  * arrives late is treated as pending rather than as failure.
+ *
+ * What is left here is search and the dialog — the two things that are genuinely
+ * this component's state.
  */
 function GeneraRoute() {
-	const generaResult = useLiveQuery((query) => query.from({ row: adminCollections.genera }), []);
-	const speciesResult = useLiveQuery((query) => query.from({ row: adminCollections.species }), []);
+	const { genera: all, speciesCountById, isReady } = useGenusRoster();
 	const [search, setSearch] = useState('');
 	const [dialog, setDialog] = useState<GenusDialog>(null);
-
-	/*
-	 * How many species hang off each genus. This is the one fact that changes what
-	 * an operator can do with a row — a genus in use cannot be deleted — so it
-	 * belongs on the row rather than being discovered by trying.
-	 */
-	const speciesCounts = useMemo(() => {
-		const counts = new Map<string, number>();
-		for (const species of (speciesResult.data ?? []) as readonly SpeciesRow[]) {
-			if (species.genusId !== null) {
-				counts.set(species.genusId, (counts.get(species.genusId) ?? 0) + 1);
-			}
-		}
-		return counts;
-	}, [speciesResult.data]);
-
-	const all = useMemo(
-		() =>
-			[...((generaResult.data ?? []) as readonly GenusRow[])].sort((a, b) =>
-				a.name.localeCompare(b.name),
-			),
-		[generaResult.data],
-	);
 
 	const genera = useMemo(() => {
 		const query = search.trim().toLowerCase();
@@ -150,7 +115,7 @@ function GeneraRoute() {
 						title="No genera yet"
 					/>
 				}
-				isReady={generaResult.isReady}
+				isReady={isReady}
 				noun="genera"
 				onSearchChange={setSearch}
 				search={search}
@@ -164,7 +129,7 @@ function GeneraRoute() {
 							key={genus.id}
 							onDelete={() => void removeGenus(genus)}
 							onEdit={() => setDialog(genus)}
-							speciesCount={speciesCounts.get(genus.id) ?? 0}
+							speciesCount={speciesCountById.get(genus.id) ?? 0}
 						/>
 					))}
 				</CatalogList>
@@ -183,7 +148,7 @@ function GeneraRoute() {
 						key={row?.id ?? 'new'}
 						onCancel={() => setDialog(null)}
 						onSubmit={async (values) => {
-							await (row === null ? createGenus(values) : saveGenus(row.id, values));
+							await (row === null ? addGenus(values) : saveGenus(row.id, values));
 							setDialog(null);
 						}}
 						submitLabel={submitLabel}
@@ -202,7 +167,7 @@ function GenusListRow({
 	onEdit,
 	onDelete,
 }: {
-	readonly genus: GenusRow;
+	readonly genus: GenusListing;
 	readonly speciesCount: number;
 	readonly onEdit: () => void;
 	readonly onDelete: () => void;

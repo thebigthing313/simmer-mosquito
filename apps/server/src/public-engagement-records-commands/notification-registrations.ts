@@ -201,7 +201,7 @@ async function runRegistrationCommands(
 	);
 }
 
-async function writeRegistrationCommand(
+export async function writeRegistrationCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
 ): Promise<SafeRegistration | null> {

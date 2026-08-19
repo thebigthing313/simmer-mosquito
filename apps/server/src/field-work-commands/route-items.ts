@@ -95,7 +95,7 @@ async function runRouteItemCommands(
 	);
 }
 
-async function writeRouteItemCommand(
+export async function writeRouteItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
 ): Promise<SafeRouteItem | null> {

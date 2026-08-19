@@ -1,7 +1,5 @@
-import type { WeatherSourceRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import {
 	coordinateLabel,
@@ -9,17 +7,16 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../../components/map/map-card';
-import { webCollections } from '../../../sync/webCollections';
+import { useWeatherStation } from '../../../hooks/queries/use-weather-station';
 import { weatherSourceTypeLabel } from './-weather-display';
 import { StationStatusBadge } from './-weather-ui';
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
 
 /**
- * The map focus card for a weather station. Self-contained: given the station id
- * it resolves the row off the eager weather-sources collection — coordinates
- * included, since a station's geometry is a single synced point — and renders the
- * shared {@link MapCard}.
+ * The map focus card for a weather station. The one card that needs no join and
+ * no HTTP: a station's geometry is a single synced point and it names nothing
+ * else, so {@link useWeatherStation} is the whole read.
  */
 export function WeatherStationMapCard({
 	id,
@@ -28,15 +25,7 @@ export function WeatherStationMapCard({
 	readonly id: string;
 	readonly onClose: () => void;
 }) {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ source: webCollections.weatherSources })
-				.where(({ source }) => eq(source.id, id))
-				.findOne(),
-		[id],
-	);
-	const station = result.data as WeatherSourceRow | undefined;
+	const { station } = useWeatherStation(id);
 
 	if (station === undefined) {
 		return (
@@ -49,7 +38,7 @@ export function WeatherStationMapCard({
 		);
 	}
 
-	const { lat, lng } = station;
+	const { latitude: lat, longitude: lng } = station;
 
 	return (
 		<MapCard
@@ -57,7 +46,7 @@ export function WeatherStationMapCard({
 			className="max-w-[420px]"
 			eyebrow={<MapCardEyebrow type="Weather station" />}
 			onClose={onClose}
-			title={station.sourceName}
+			title={station.name}
 			viewDetailLink={(content) => (
 				<Link params={{ id: station.id }} to="/gis/weather/$id">
 					{content}

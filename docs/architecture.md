@@ -79,10 +79,11 @@ deliberately carries no map: geometry for the foundation endpoints comes from
 KML/KMZ/GeoJSON files and typed coordinates, keeping `mapbox-gl` out of its
 bundle.
 
-Access is all-or-nothing, unlike the web app's role ladder: the server's
-`SIMMER_OPERATOR_EMAILS` allowlist admits an account to every `/admin/*`
-endpoint or to none, and the console renders that refusal as an explanation
-rather than an error.
+Access is all-or-nothing, unlike the web app's role ladder: a session in the one
+WorkOS organization that is SIMMER (`SIMMER_OPERATOR_ORG_ID`) reaches every
+`/admin/*` endpoint, and any other session reaches none — including the same
+person's, while they are signed in to an agency they administer. The console
+renders that refusal as an explanation rather than an error.
 
 `apps/preview` is an internal Vite React/TanStack Router application for
 component preview, design-token inspection, visual-regression surfaces, and

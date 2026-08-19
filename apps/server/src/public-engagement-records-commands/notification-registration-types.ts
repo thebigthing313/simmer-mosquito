@@ -77,7 +77,7 @@ async function runRegistrationTypeCommands(
 	);
 }
 
-async function writeRegistrationTypeCommand(
+export async function writeRegistrationTypeCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
 ): Promise<SafeRegistrationType | null> {

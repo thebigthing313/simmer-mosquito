@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
-import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { RegionListing } from '../../../../../hooks/queries/use-region-directory';
+import type { RegionFolderListing } from '../../../../../hooks/queries/use-region-folders';
 import { REGION_DND_TYPE, type RegionDnd } from '../../../../../routes/gis/regions/-region-dnd';
 import type { RegionRename } from '../../../../../routes/gis/regions/-region-rename';
 
@@ -16,8 +17,13 @@ const { FolderNode } = await import('../../../../../routes/gis/regions/index');
 
 afterEach(cleanup);
 
-const FOLDER = { id: 'folder-2', name: 'North side', description: null } as RegionFolderRow;
-const REGION = { id: 'region-9', name: 'Elm St', regionFolderId: 'folder-2' } as RegionRow;
+const FOLDER: RegionFolderListing = { id: 'folder-2', name: 'North side', description: null };
+const REGION: RegionListing = {
+	id: 'region-9',
+	name: 'Elm St',
+	description: null,
+	folderId: 'folder-2',
+};
 
 function stubDnd(overrides: Partial<RegionDnd> = {}): RegionDnd {
 	return {

@@ -10,7 +10,7 @@ data helps.
 
 ## Access Model
 
-- `/admin/*` endpoints require a SIMMER Operator session through `SIMMER_OPERATOR_EMAILS`.
+- `/admin/*` endpoints require a session in the SIMMER organization (`SIMMER_OPERATOR_ORG_ID`).
 - Route guards in the admin SPA are only for page flow. Every server endpoint still enforces operator authorization.
 - Agency-scoped domain commands continue to require agency roles; SIMMER operators do not bypass normal agency workflows unless the endpoint is explicitly operator control-plane tooling.
 - Organization-owned catalogs and workflows stay in agency-facing apps unless a

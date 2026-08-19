@@ -33,8 +33,8 @@ describe('an assignment due time, saved and reopened', () => {
 		// 16:00 on 4 August is 20:00Z in New York (UTC-4) and 04:00Z in Auckland
 		// (UTC+12) — a fact about the agency, not about the machine the form was
 		// filled in on.
-		expect(toDueAt(details(), AGENCY)).toBe('2026-08-04T20:00:00.000Z');
-		expect(toDueAt(details(), 'Pacific/Auckland')).toBe('2026-08-04T04:00:00.000Z');
+		expect(toDueAt(details(), AGENCY)).toEqual(new Date('2026-08-04T20:00:00.000Z'));
+		expect(toDueAt(details(), 'Pacific/Auckland')).toEqual(new Date('2026-08-04T04:00:00.000Z'));
 	});
 
 	it('reopens on the same time it was saved with', () => {

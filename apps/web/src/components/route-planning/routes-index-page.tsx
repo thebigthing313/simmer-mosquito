@@ -1,4 +1,3 @@
-import type { RouteRow } from '@simmer-mosquito/sync';
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -22,6 +21,7 @@ import { WriteOnly } from '../write-only';
 import { RouteCreateDialog } from './route-create-dialog';
 import { RouteMap } from './route-map';
 import { type RouteStop, routeCountLabel, stopCountLabel } from './route-stop';
+import type { RouteSummary } from './route-summary';
 import type { RoutePlanningSurface } from './surface';
 
 const RouteIcon = iconRegistry.entities.route.icon;
@@ -48,7 +48,7 @@ export function RoutesIndexPage({
 	useSelectedStops,
 }: {
 	readonly surface: RoutePlanningSurface;
-	readonly routes: readonly RouteRow[];
+	readonly routes: readonly RouteSummary[];
 	readonly isLoading: boolean;
 	readonly countByRouteId: ReadonlyMap<string, number>;
 	readonly countsLoading: boolean;
@@ -184,7 +184,7 @@ function RouteResults({
 	onCreate,
 }: {
 	readonly surface: RoutePlanningSurface;
-	readonly routes: readonly RouteRow[];
+	readonly routes: readonly RouteSummary[];
 	readonly isLoading: boolean;
 	readonly selectedId: string | null;
 	readonly totalCount: number;
@@ -267,7 +267,7 @@ function RouteListRow({
 	onSelect,
 }: {
 	readonly surface: RoutePlanningSurface;
-	readonly route: RouteRow;
+	readonly route: RouteSummary;
 	readonly isSelected: boolean;
 	readonly stopCount: number | null;
 	readonly onSelect: (id: string) => void;

@@ -3,7 +3,7 @@ import {
 	DomainValidationError,
 	type FormulationComponentAmount,
 } from '@simmer-mosquito/domain';
-import type { FormulationInsecticideRow, UnitRow } from '@simmer-mosquito/sync';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 
 /**
  * Reading a formulation: what one batch of a mix takes, and what an application
@@ -19,10 +19,23 @@ import type { FormulationInsecticideRow, UnitRow } from '@simmer-mosquito/sync';
  * what the save writes.
  */
 
+/**
+ * One product's share of a mix, as much of it as the arithmetic needs.
+ *
+ * Structural rather than the row type, for the reason `formatAmount` is: both
+ * read paths satisfy it — the camelCase rows the unmigrated surfaces still hold,
+ * and the projections the query hooks return. Only these three are ever read.
+ */
+export interface FormulationComponentAmounts {
+	readonly insecticideId: string;
+	readonly amount: number;
+	readonly unitId: string;
+}
+
 /** Components in display order — largest first, so the main product leads. */
-export function sortedComponents(
-	components: readonly FormulationInsecticideRow[],
-): readonly FormulationInsecticideRow[] {
+export function sortedComponents<TComponent extends FormulationComponentAmounts>(
+	components: readonly TComponent[],
+): readonly TComponent[] {
 	return [...components].sort((first, second) => second.amount - first.amount);
 }
 
@@ -32,7 +45,7 @@ export function sortedComponents(
  * rejects. Callers render a hint instead of a breakdown.
  */
 export function componentAmounts(input: {
-	readonly components: readonly FormulationInsecticideRow[];
+	readonly components: readonly FormulationComponentAmounts[];
 	readonly batchSize: number;
 	readonly totalAmount: number | null;
 }): readonly FormulationComponentAmount[] | null {
@@ -63,7 +76,7 @@ export function formatAmountValue(value: number): string {
 }
 
 /** `0.5 lb` — an amount against its unit, or bare when the unit is unknown. */
-export function formatAmountWithUnit(value: number, unit: UnitRow | undefined): string {
+export function formatAmountWithUnit(value: number, unit: UnitLabel | undefined): string {
 	const amount = formatAmountValue(value);
 	return unit === undefined ? amount : `${amount} ${unit.abbreviation}`;
 }

@@ -1,18 +1,17 @@
-import type { ContactRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
+import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
+import type { Contact } from '../../../hooks/queries/contact-view';
+import { useContact } from '../../../hooks/queries/use-contact-record';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	type ContactFormValues,
 	contactFieldsFromValues,
 	defaultsFromContact,
 } from '../-contact-fields';
-import { settleWrite } from '../-public-engagement-writes';
 import { ContactFormPage } from './-contact-form';
 
 export const Route = createFileRoute('/public-engagement/contacts/$id_/edit')({
@@ -28,93 +27,45 @@ export const Route = createFileRoute('/public-engagement/contacts/$id_/edit')({
 	component: EditContactRoute,
 });
 
-const contactGcTimeMs = 30_000;
-
-type MutableContactRow = { -readonly [Key in keyof ContactRow]: ContactRow[Key] };
-
 function EditContactRoute() {
 	const { id } = Route.useParams();
-	const { auth } = Route.useRouteContext();
+	const { contact, isReady, isError } = useContact(id);
 
-	// contacts syncs on demand; this status-gated query loads the row and warms the
-	// stream so the update's txid confirmation resolves.
-	const result = useLiveQuery(
-		{
-			gcTime: contactGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => eq(contact.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const contact = result.data as ContactRow | undefined;
-
-	if (result.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="contact" reason="error" />;
 	}
-	if (!result.isReady) {
+	if (!isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (contact === undefined) {
 		return <RecordUnavailable layout="centered" noun="contact" reason="not-found" />;
 	}
 
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-
-	return (
-		<EditContactLoader
-			actorProfileId={actorProfileId}
-			canSubmit={actorProfileId !== null}
-			contact={contact}
-		/>
-	);
+	return <EditContactLoader contact={contact} />;
 }
 
-function EditContactLoader({
-	contact,
-	actorProfileId,
-	canSubmit,
-}: {
-	readonly contact: ContactRow;
-	readonly actorProfileId: string | null;
-	readonly canSubmit: boolean;
-}) {
+function EditContactLoader({ contact }: { readonly contact: Contact }) {
 	const navigate = useNavigate();
+	const mutations = useContactMutations();
 
 	const onSave = useCallback(
 		async (values: ContactFormValues) => {
-			const fields = contactFieldsFromValues(values);
-			const now = new Date().toISOString();
-			const applyEdits = (draft: ContactRow) => {
-				const writable = draft as MutableContactRow;
-				writable.contactName = fields.contactName;
-				writable.company = fields.company;
-				writable.department = fields.department;
-				writable.title = fields.title;
-				writable.preferredPhone = fields.preferredPhone;
-				writable.alternatePhone = fields.alternatePhone;
-				writable.email = fields.email;
-				writable.wantsEmail = fields.wantsEmail;
-				writable.wantsSms = fields.wantsSms;
-				writable.wantsPhone = fields.wantsPhone;
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
-
-			await settleWrite(webCollections.contacts.update(contact.id, applyEdits));
+			// `current` comes back through the same round trip as the edited values,
+			// so a field nobody touched compares equal to itself and the save names
+			// only the command it has a changed field for.
+			await mutations.save(
+				contact.id,
+				contactFieldsFromValues(values),
+				contactFieldsFromValues(defaultsFromContact(contact)),
+			);
 			await navigate({ to: '/public-engagement/contacts/$id', params: { id: contact.id } });
 		},
-		[contact.id, actorProfileId, navigate],
+		[contact, mutations, navigate],
 	);
 
 	return (
 		<ContactFormPage
-			canSubmit={canSubmit}
+			canSubmit={mutations.canWrite}
 			defaultValues={defaultsFromContact(contact)}
 			header={{
 				title: 'Edit Contact',

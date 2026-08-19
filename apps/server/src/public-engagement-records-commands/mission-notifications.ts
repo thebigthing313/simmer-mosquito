@@ -72,7 +72,7 @@ export function registerMissionNotificationRoutes(
 	);
 }
 
-async function writeMissionNotificationCommand(
+export async function writeMissionNotificationCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
 ): Promise<SafeMissionNotification | null> {
@@ -82,13 +82,18 @@ async function writeMissionNotificationCommand(
 		'publicEngagement.skipMissionNotification': 'skipped',
 		'publicEngagement.reopenMissionNotification': 'pending',
 	};
+	// Two different faults, said differently. Folded together, a command this
+	// writer handles perfectly well but was handed a payload it could not read
+	// reported itself as one the writer had never heard of — which sends the next
+	// reader to the intent map, where nothing is wrong.
 	const status = statusByType[command.type];
-	if (
-		status === undefined ||
-		!('missionNotificationId' in command.payload) ||
-		!('statusChangedAt' in command.payload)
-	) {
+	if (status === undefined) {
 		throw new Error(`Unsupported mission notification command: ${command.type}`);
+	}
+	if (!('missionNotificationId' in command.payload) || !('statusChangedAt' in command.payload)) {
+		throw new Error(
+			`${command.type} needs a missionNotificationId and a statusChangedAt to write.`,
+		);
 	}
 	const payload = command.payload as {
 		readonly missionNotificationId: string;

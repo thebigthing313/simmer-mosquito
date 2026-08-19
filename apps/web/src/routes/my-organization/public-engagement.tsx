@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { collections } from './-components/constants';
 import { DomainSection } from './-components/layout/layout';
 import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
 import { PublicEngagementSettings, PublicSettingsDrawer } from './-components/public';
@@ -19,11 +18,7 @@ function MyOrganizationPublicEngagementRoute() {
 				canManage={workspace.canManage}
 				editDescription="Set public engagement context defaults and resident communication lookup lists."
 				editAction={
-					<PublicSettingsDrawer
-						canManage={workspace.canManage}
-						organization={workspace.organization}
-						settings={workspace.settings}
-					/>
+					<PublicSettingsDrawer canManage={workspace.canManage} settings={workspace.settings} />
 				}
 				fields={[]}
 				id="public"
@@ -34,9 +29,6 @@ function MyOrganizationPublicEngagementRoute() {
 				<PublicEngagementSettings
 					canEditMethods={workspace.canManageOperational}
 					canManage={workspace.canManage}
-					notificationTypes={collections.notificationTypes}
-					organization={workspace.organization}
-					outreachMethods={collections.outreachMethods}
 					settings={workspace.settings}
 				/>
 			</DomainSection>

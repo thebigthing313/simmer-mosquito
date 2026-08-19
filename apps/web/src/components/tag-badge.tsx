@@ -1,6 +1,6 @@
-import type { TagRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import type { CSSProperties } from 'react';
+import type { Tag } from '../hooks/queries/tag-view';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 
 /**
@@ -8,7 +8,7 @@ import { hexWithAlpha, validHexColor } from '../lib/hex-color';
  * secondary badge when the tag has no (valid) color. Shared across the
  * explorer and detail surfaces that surface assigned tags.
  */
-export function TagBadge({ tag }: { readonly tag: TagRow }) {
+export function TagBadge({ tag }: { readonly tag: Tag }) {
 	const color = validHexColor(tag.color);
 	const style =
 		color === null
@@ -28,7 +28,7 @@ export function TagBadge({ tag }: { readonly tag: TagRow }) {
 			title={tag.description ?? undefined}
 			variant={color === null ? 'secondary' : 'outline'}
 		>
-			{tag.tagName}
+			{tag.name}
 		</Badge>
 	);
 }

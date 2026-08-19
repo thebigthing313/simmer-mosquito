@@ -4,7 +4,6 @@ import {
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { AddressRow, ProfileRow } from '@simmer-mosquito/sync';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
@@ -25,10 +24,13 @@ import {
 	type MapDrawController,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
+import type { AddressOption } from '../../../components/pickers/address-picker';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { ServiceRequestFields } from '../../../hooks/mutations/use-service-request-mutations';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import {
 	CONTACT_FIELD_PATHS,
@@ -39,6 +41,24 @@ import {
 import { ContactFieldsBlock } from '../-contact-fields-block';
 
 export type ContactMode = 'existing' | 'new';
+
+/**
+ * The form's values, as the write seam takes them.
+ *
+ * The boundary between what a form holds — strings, because that is what an
+ * input produces — and what a command takes. An unset "received by" is the empty
+ * string in a select and `null` in the column, and this is where that stops
+ * being the route's problem to remember.
+ */
+export function serviceRequestFieldsFrom(values: ServiceRequestFormValues): ServiceRequestFields {
+	return {
+		intakeType: values.intakeType,
+		requestDate: values.requestDate,
+		details: values.details.trim(),
+		receivedByProfileId:
+			values.receivedByProfileId.length === 0 ? null : values.receivedByProfileId,
+	};
+}
 
 const INTAKE_TYPE_OPTIONS = REQUEST_INTAKE_TYPES.map((value: RequestIntakeType) => ({
 	value,
@@ -124,7 +144,7 @@ export interface ServiceRequestFormHeader {
 export interface ServiceRequestFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly profiles: readonly ProfileRow[];
+	readonly profiles: readonly ProfileListing[];
 	readonly defaultValues: ServiceRequestFormValues;
 	/** Prefill the drawn point on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -214,7 +234,7 @@ export function ServiceRequestFormPage({
 		onPlacePoint: placeAddressPoint,
 	});
 	const handleAddressSelected = useCallback(
-		(address: AddressRow | null) => {
+		(address: AddressOption | null) => {
 			setLocationError(null);
 			selectAddress(address);
 		},
@@ -454,7 +474,7 @@ function LocationSection({
 	readonly locationError: string | null;
 	readonly requireLocation: boolean;
 	readonly requestMapPoint: RequestMapPoint;
-	readonly onAddressSelected: (address: AddressRow | null) => void;
+	readonly onAddressSelected: (address: AddressOption | null) => void;
 	readonly onDrawPoint: () => void;
 	readonly onMoveToAddress: () => void;
 	readonly onClearPoint: () => void;
@@ -473,7 +493,7 @@ function LocationSection({
 				{(field: any) => (
 					<AddressPicker
 						create={{ requestMapPoint }}
-						onSelect={(address: AddressRow | null) => {
+						onSelect={(address: AddressOption | null) => {
 							field.handleChange(address?.id ?? null);
 							onAddressSelected(address);
 						}}

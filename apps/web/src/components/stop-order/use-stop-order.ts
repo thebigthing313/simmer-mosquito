@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { type MoveAction, type OrderPlacement, planMove } from './plan-move';
+import { type MoveAction, type MovePlan, planMove } from './plan-move';
 
 /**
  * Optimistic ordering for a reorderable stop list.
@@ -13,12 +13,17 @@ import { type MoveAction, type OrderPlacement, planMove } from './plan-move';
  * `move` rethrows on failure after rolling the overlay back. Consumers already own a
  * single error banner covering their other writes, and a second error channel here
  * would mean a second banner saying the same kind of thing.
+ *
+ * `commit` is handed the whole plan rather than just the moved id and the
+ * placement. A caller that writes the new order into its collection — which the
+ * route and assignment planners now do, so the rows and the overlay agree — needs
+ * `order`, and it is the same list this hook is already displaying.
  */
 export function useStopOrder<TItem>(input: {
 	readonly items: readonly TItem[];
 	readonly keyOf: (item: TItem) => string;
 	/** Sends the move command. Must be stable — wrap it in `useCallback`. */
-	readonly commit: (movedIds: readonly string[], placement: OrderPlacement) => Promise<void>;
+	readonly commit: (plan: MovePlan) => Promise<void>;
 }): {
 	/** `items`, reordered by the pending overlay when one is active. */
 	readonly ordered: readonly TItem[];
@@ -63,7 +68,7 @@ export function useStopOrder<TItem>(input: {
 			}
 			setPendingOrder(plan.order);
 			try {
-				await commit([plan.movedId], plan.placement);
+				await commit(plan);
 			} catch (cause) {
 				setPendingOrder(null);
 				throw cause;

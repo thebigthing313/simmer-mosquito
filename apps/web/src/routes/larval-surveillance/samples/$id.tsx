@@ -1,11 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type {
-	OrganizationSpeciesRow,
-	SampleRow,
-	SampleSpeciesRow,
-	SpeciesRow,
-} from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
+import type { Sample } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
@@ -46,12 +40,19 @@ import { getServerUrl } from '../../../auth';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
+import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
+import {
+	type SampleSpeciesFields,
+	useSampleSpeciesMutations,
+} from '../../../hooks/mutations/use-sample-species-mutations';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { sample_species } from '../../../lib/collections/sample_species';
+import { samples } from '../../../lib/collections/samples';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
-import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
@@ -74,6 +75,31 @@ const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
 // The sample record + its species rows stream from on-demand collections; keep the
 // subset warm briefly after unmount so returning to the page reuses it.
 const sampleRecordGcTimeMs = 30_000;
+
+/**
+ * One identification as this page holds it.
+ *
+ * The same four fields `useSampleSpeciesMutations` compares against, plus the
+ * id — so a count correction can be handed straight to `save` without the page
+ * rebuilding the current values from somewhere else.
+ */
+interface SampleSpeciesEntry extends SampleSpeciesFields {
+	readonly id: string;
+}
+
+/**
+ * The four disposition writes, named.
+ *
+ * A record of callbacks rather than one `onPatch` taking a draft mutator: each
+ * of these is a different domain command, and the control that fires it is the
+ * only thing that knows which.
+ */
+interface SampleDisposition {
+	readonly setZeroLarvae: (next: boolean) => Promise<void>;
+	readonly setNonMosquito: (next: boolean) => Promise<void>;
+	readonly setUnidentifiableReason: (next: string) => Promise<void>;
+	readonly rename: (next: string) => Promise<void>;
+}
 
 // Roles that may read but not manage sample results — they get a read-only view.
 const readOnlyRoles = new Set(['viewer']);
@@ -108,9 +134,6 @@ const STATUS_META: Record<SampleStatus, StatusMeta> = {
 		description: 'The specimens could not be identified to species.',
 	},
 };
-
-type MutableSampleRow = { -readonly [Key in keyof SampleRow]: SampleRow[Key] };
-type MutableSampleSpeciesRow = { -readonly [Key in keyof SampleSpeciesRow]: SampleSpeciesRow[Key] };
 
 /**
  * The `/map/samples/:id` projection: the sample's own fields plus the parent
@@ -210,6 +233,7 @@ function SampleDetailContent({ geo }: { readonly geo: SampleGeoRow }) {
 		identity?.profileId != null &&
 		identity.organizationId != null &&
 		!(identity.role !== null && readOnlyRoles.has(identity.role));
+	const sampleMutations = useSampleMutations();
 
 	return (
 		<>
@@ -226,7 +250,7 @@ function SampleDetailContent({ geo }: { readonly geo: SampleGeoRow }) {
 					<DangerZoneCard
 						name={breadcrumbLabel(geo)}
 						noun="sample"
-						onDelete={() => webCollections.samples.delete(geo.id)}
+						onDelete={() => sampleMutations.remove(geo.id)}
 						recordId={geo.id}
 						recordType="sample"
 						returnTo="/larval-surveillance/samples"
@@ -345,6 +369,8 @@ function IdentificationCard({
 }) {
 	const [error, setError] = useState<string | null>(null);
 	const [keyEntryOpen, setKeyEntryOpen] = useState(false);
+	const sampleMutations = useSampleMutations();
+	const speciesMutations = useSampleSpeciesMutations();
 
 	// The on-demand sample record — the source of truth for the disposition flags
 	// and label. Falls back to the one-shot seed until the subset is ready.
@@ -352,9 +378,7 @@ function IdentificationCard({
 		{
 			gcTime: sampleRecordGcTimeMs,
 			query: (query) =>
-				query
-					.from({ sample: webCollections.samples })
-					.where(({ sample }) => eq(sample.id, sampleId)),
+				query.from({ sample: samples }).where(({ sample }) => eq(sample.id, sampleId)),
 		},
 		[sampleId],
 	);
@@ -363,25 +387,32 @@ function IdentificationCard({
 			gcTime: sampleRecordGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sampleSpecies: webCollections.sampleSpecies })
-					.where(({ sampleSpecies }) => eq(sampleSpecies.sampleId, sampleId))
-					.orderBy(({ sampleSpecies }) => sampleSpecies.larvaeCount, 'desc'),
+					.from({ sampleSpecies: sample_species })
+					.where(({ sampleSpecies }) => eq(sampleSpecies.sample_id, sampleId))
+					.orderBy(({ sampleSpecies }) => sampleSpecies.larvae_count, 'desc')
+					.select(({ sampleSpecies }) => ({
+						id: sampleSpecies.id,
+						speciesId: sampleSpecies.species_id,
+						larvaeCount: sampleSpecies.larvae_count,
+						identifiedByProfileId: sampleSpecies.identified_by_profile_id,
+						identifiedAt: sampleSpecies.identified_at,
+					})),
 		},
 		[sampleId],
 	);
 
-	const record = (recordResult.data ?? [])[0] as SampleRow | undefined;
-	const speciesRows = (speciesResult.data ?? []) as readonly SampleSpeciesRow[];
+	const record = (recordResult.data ?? [])[0] as Sample | undefined;
+	const speciesRows = (speciesResult.data ?? []) as readonly SampleSpeciesEntry[];
 	const isReady = recordResult.isReady && speciesResult.isReady;
 	const isError = recordResult.isError || speciesResult.isError;
 
 	const { nameById, options } = useSpeciesCatalog();
 
 	// Prefer the live record; fall back to the fetched seed while the subset loads.
-	const isZeroLarvae = record?.isZeroLarvae ?? seed.isZeroLarvae;
-	const hasNonMosquito = record?.hasNonMosquito ?? seed.hasNonMosquito;
-	const unidentifiableReason = record?.unidentifiableReason ?? seed.unidentifiableReason;
-	const displayName = record?.displayName ?? seed.displayName;
+	const isZeroLarvae = record?.is_zero_larvae ?? seed.isZeroLarvae;
+	const hasNonMosquito = record?.has_non_mosquito ?? seed.hasNonMosquito;
+	const unidentifiableReason = record?.unidentifiable_reason ?? seed.unidentifiableReason;
+	const displayName = record?.display_name ?? seed.displayName;
 
 	const status = resolveStatus({
 		hasSpecies: speciesRows.length > 0,
@@ -408,33 +439,28 @@ function IdentificationCard({
 
 	const handleAddSpecies = useCallback(
 		async (speciesId: string, larvaeCount: number) => {
-			if (!guard() || identity?.organizationId == null) {
+			if (!guard()) {
 				return;
 			}
 			setError(null);
-			const now = new Date().toISOString();
-			const row: SampleSpeciesRow = {
-				id: crypto.randomUUID(),
-				organizationId: identity.organizationId,
-				sampleId,
-				speciesId,
-				larvaeCount,
-				identifiedByProfileId: identity.profileId,
-				// A calendar date, not a timestamp — the domain builder validates
-				// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
-				identifiedAt: todayInTimeZone(timeZone),
-				createdByProfileId: identity.profileId,
-				updatedByProfileId: identity.profileId,
-				createdAt: now,
-				updatedAt: now,
-			};
 			try {
-				await settleWrite(webCollections.sampleSpecies.insert(row));
+				await speciesMutations.add({
+					sampleSpeciesId: crypto.randomUUID(),
+					sampleId,
+					fields: {
+						speciesId,
+						larvaeCount,
+						identifiedByProfileId: identity?.profileId ?? null,
+						// A calendar date, not a timestamp — the domain builder validates
+						// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
+						identifiedAt: todayInTimeZone(timeZone),
+					},
+				});
 			} catch (cause) {
 				setError(messageOf(cause, 'Unable to add species.'));
 			}
 		},
-		[guard, identity, sampleId, timeZone],
+		[guard, identity, sampleId, timeZone, speciesMutations],
 	);
 
 	const handleUpdateCount = useCallback(
@@ -443,17 +469,17 @@ function IdentificationCard({
 				return;
 			}
 			setError(null);
+			const current = speciesRows.find((row) => row.id === rowId);
+			if (current === undefined) {
+				return;
+			}
 			try {
-				await settleWrite(
-					webCollections.sampleSpecies.update(rowId, (draft) => {
-						(draft as MutableSampleSpeciesRow).larvaeCount = larvaeCount;
-					}),
-				);
+				await speciesMutations.save(rowId, { ...current, larvaeCount }, current);
 			} catch (cause) {
 				setError(messageOf(cause, 'Unable to update count.'));
 			}
 		},
-		[guard],
+		[guard, speciesRows, speciesMutations],
 	);
 
 	const handleRemoveSpecies = useCallback(
@@ -463,29 +489,58 @@ function IdentificationCard({
 			}
 			setError(null);
 			try {
-				await settleWrite(webCollections.sampleSpecies.delete(rowId));
+				await speciesMutations.remove(rowId);
 			} catch (cause) {
 				setError(messageOf(cause, 'Unable to remove species.'));
 			}
 		},
-		[guard],
+		[guard, speciesMutations],
 	);
 
-	const patchSample = useCallback(
-		async (mutate: (draft: MutableSampleRow) => void, fallback: string) => {
+	/**
+	 * The four disposition writes, each naming its own command.
+	 *
+	 * They were one `onPatch(draft => …)` that mutated whichever field the
+	 * control touched and let the server work out what was meant — the inference
+	 * this migration removes. Zero-larvae is two commands because which way it
+	 * moved is the point; the other three are one each.
+	 */
+	const runPatch = useCallback(
+		async (write: () => Promise<void>, fallback: string) => {
 			if (!guard()) {
 				return;
 			}
 			setError(null);
 			try {
-				await settleWrite(
-					webCollections.samples.update(sampleId, (draft) => mutate(draft as MutableSampleRow)),
-				);
+				await write();
 			} catch (cause) {
 				setError(messageOf(cause, fallback));
 			}
 		},
-		[guard, sampleId],
+		[guard],
+	);
+
+	const disposition = useMemo(
+		() => ({
+			setZeroLarvae: (next: boolean) =>
+				runPatch(
+					() => sampleMutations.setZeroLarvae(sampleId, next),
+					'Unable to update the sample.',
+				),
+			setNonMosquito: (next: boolean) =>
+				runPatch(
+					() => sampleMutations.setNonMosquito(sampleId, next),
+					'Unable to update the sample.',
+				),
+			setUnidentifiableReason: (next: string) =>
+				runPatch(
+					() => sampleMutations.setUnidentifiableReason(sampleId, next === '' ? null : next),
+					'Unable to update the sample.',
+				),
+			rename: (next: string) =>
+				runPatch(() => sampleMutations.rename(sampleId, next), 'Unable to update the sample.'),
+		}),
+		[runPatch, sampleMutations, sampleId],
 	);
 
 	return (
@@ -557,7 +612,7 @@ function IdentificationCard({
 							hasNonMosquito={hasNonMosquito}
 							hasSpecies={speciesRows.length > 0}
 							isZeroLarvae={isZeroLarvae}
-							onPatch={patchSample}
+							disposition={disposition}
 							unidentifiableReason={unidentifiableReason}
 						/>
 					</>
@@ -569,7 +624,6 @@ function IdentificationCard({
 					actorProfileId={identity.profileId}
 					onOpenChange={setKeyEntryOpen}
 					open={keyEntryOpen}
-					organizationId={identity.organizationId}
 					sampleId={sampleId}
 				/>
 			)}
@@ -585,7 +639,7 @@ function SpeciesResultList({
 	onUpdateCount,
 	onRemove,
 }: {
-	readonly rows: readonly SampleSpeciesRow[];
+	readonly rows: readonly SampleSpeciesEntry[];
 	readonly total: number;
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly canManage: boolean;
@@ -633,7 +687,7 @@ function SpeciesResultRow({
 	onUpdateCount,
 	onRemove,
 }: {
-	readonly row: SampleSpeciesRow;
+	readonly row: SampleSpeciesEntry;
 	readonly name: string;
 	readonly canManage: boolean;
 	readonly onUpdateCount: (rowId: string, count: number) => Promise<void>;
@@ -802,7 +856,7 @@ function DispositionSection({
 	displayName,
 	hasSpecies,
 	canManage,
-	onPatch,
+	disposition,
 }: {
 	readonly isZeroLarvae: boolean;
 	readonly hasNonMosquito: boolean;
@@ -810,7 +864,7 @@ function DispositionSection({
 	readonly displayName: string | null;
 	readonly hasSpecies: boolean;
 	readonly canManage: boolean;
-	readonly onPatch: (mutate: (draft: MutableSampleRow) => void, fallback: string) => Promise<void>;
+	readonly disposition: SampleDisposition;
 }) {
 	return (
 		<div className="grid gap-3 border-border/50 border-t pt-4">
@@ -828,33 +882,21 @@ function DispositionSection({
 				description="Examined and held no mosquito larvae."
 				disabled={!canManage || hasSpecies}
 				label="No larvae found"
-				onCheckedChange={(next) =>
-					void onPatch((draft) => {
-						draft.isZeroLarvae = next;
-					}, 'Unable to update the sample.')
-				}
+				onCheckedChange={(next) => void disposition.setZeroLarvae(next)}
 			/>
 			<SwitchRow
 				checked={hasNonMosquito}
 				description="Contains non-mosquito organisms or debris."
 				disabled={!canManage}
 				label="Non-mosquito material"
-				onCheckedChange={(next) =>
-					void onPatch((draft) => {
-						draft.hasNonMosquito = next;
-					}, 'Unable to update the sample.')
-				}
+				onCheckedChange={(next) => void disposition.setNonMosquito(next)}
 			/>
 
 			<TextPatchField
 				canManage={canManage}
 				description="Note why the specimens could not be identified. Clearing it removes the flag."
 				label="Unidentifiable reason"
-				onCommit={(value) =>
-					onPatch((draft) => {
-						draft.unidentifiableReason = value === '' ? null : value;
-					}, 'Unable to update the sample.')
-				}
+				onCommit={(value) => disposition.setUnidentifiableReason(value)}
 				placeholder="e.g. specimens too damaged to key out"
 				value={unidentifiableReason ?? ''}
 			/>
@@ -863,11 +905,7 @@ function DispositionSection({
 				canManage={canManage}
 				description="An optional label to identify this sample in lists."
 				label="Sample label"
-				onCommit={(value) =>
-					onPatch((draft) => {
-						draft.displayName = value === '' ? null : value;
-					}, 'Unable to update the sample.')
-				}
+				onCommit={(value) => disposition.rename(value)}
 				placeholder="e.g. North culvert, jar 3"
 				value={displayName ?? ''}
 			/>
@@ -1062,32 +1100,7 @@ function useSpeciesCatalog(): {
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly options: readonly SpeciesOption[];
 } {
-	const speciesResult = useLiveQuery(
-		(query) => query.from({ species: webCollections.species }),
-		[],
-	);
-	const orgSpeciesResult = useLiveQuery(
-		(query) => query.from({ orgSpecies: webCollections.organizationSpecies }),
-		[],
-	);
-
-	const species = (speciesResult.data ?? []) as readonly SpeciesRow[];
-	const orgSpecies = (orgSpeciesResult.data ?? []) as readonly OrganizationSpeciesRow[];
-
-	const nameById = useMemo(
-		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
-		[species],
-	);
-
-	const options = useMemo(() => {
-		const orgIds = new Set(orgSpecies.map((row) => row.speciesId));
-		const source = orgIds.size > 0 ? species.filter((row) => orgIds.has(row.id)) : species;
-		return source
-			.map((row) => ({ id: row.id, label: row.displayName }))
-			.sort((first, second) => first.label.localeCompare(second.label));
-	}, [species, orgSpecies]);
-
-	return { nameById, options };
+	return useAdoptedSpeciesOptions();
 }
 
 // --- data hook --------------------------------------------------------------

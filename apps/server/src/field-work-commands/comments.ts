@@ -106,7 +106,7 @@ async function runCommentCommands(
 	);
 }
 
-async function writeCommentCommand(
+export async function writeCommentCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
 ): Promise<SafeComment | null> {

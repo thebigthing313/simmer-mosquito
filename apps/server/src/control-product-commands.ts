@@ -49,13 +49,13 @@ import { runCommands } from './command-write.js';
 
 type ControlProductDb = Kysely<SimmerDatabase>;
 type ControlProductTransaction = Transaction<SimmerDatabase>;
-type InsecticideCommand =
+export type InsecticideCommand =
 	| CreateInsecticideCommand
 	| UpdateInsecticideCommand
 	| DeactivateInsecticideCommand
 	| ReactivateInsecticideCommand
 	| DeleteInsecticideCommand;
-type InsecticideBatchCommand =
+export type InsecticideBatchCommand =
 	| CreateInsecticideBatchCommand
 	| UpdateInsecticideBatchCommand
 	| DeactivateInsecticideBatchCommand
@@ -318,7 +318,7 @@ function buildInsecticideBatchUpdateCommands(
 	return commands.length === 0 ? invalidUpdate('insecticide batch') : { ok: true, commands };
 }
 
-async function writeInsecticideCommand(
+export async function writeInsecticideCommand(
 	db: ControlProductTransaction,
 	command: InsecticideCommand,
 ): Promise<SafeInsecticide | null> {
@@ -365,7 +365,7 @@ async function writeInsecticideCommand(
 	}
 }
 
-async function writeInsecticideBatchCommand(
+export async function writeInsecticideBatchCommand(
 	db: ControlProductTransaction,
 	command: InsecticideBatchCommand,
 ): Promise<SafeInsecticideBatch | null> {
@@ -853,10 +853,10 @@ function toSafeInsecticideBatch(row: {
 	};
 }
 
-function toInsecticideResponse(row: SafeInsecticide | null) {
+export function toInsecticideResponse(row: SafeInsecticide | null) {
 	return row;
 }
 
-function toInsecticideBatchResponse(row: SafeInsecticideBatch | null) {
+export function toInsecticideBatchResponse(row: SafeInsecticideBatch | null) {
 	return row;
 }

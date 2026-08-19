@@ -218,7 +218,7 @@ type ServiceRequestPayload<T extends PublicEngagementCommand['type']> = Extract<
  * Which command runs which write. Every arm is a named function below, so this
  * switch stays a routing table rather than the place the work happens.
  */
-async function writeServiceRequestCommand(
+export async function writeServiceRequestCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
 ): Promise<SafeServiceRequest | null> {

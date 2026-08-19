@@ -110,7 +110,8 @@ async function runCollectionSpeciesCommands(
 	);
 }
 
-async function writeCollectionSpeciesCommand(
+/** Exported for `table-commands/collection-species.ts` — see `writeHabitatCommand`. */
+export async function writeCollectionSpeciesCommand(
 	trx: AdultSurveillanceTransaction,
 	command: AdultSurveillanceCommand,
 ): Promise<SafeCollectionSpecies | null> {

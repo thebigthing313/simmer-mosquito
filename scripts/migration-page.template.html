@@ -1,0 +1,514 @@
+<title>Sync Cleanup Migration</title>
+<style>
+:root {
+	--ground: #F7F8F5;
+	--raised: #FFFFFF;
+	--sunk: #F1F3EF;
+	--ink: #131C17;
+	--ink-soft: #52605A;
+	--ink-faint: #85908A;
+	--rule: #DDE4DD;
+	--rule-soft: #E9EDE8;
+	--accent: #A9601C;
+	--done: #2C6B54;
+	--partial: #B0651F;
+	--todo: #A2323C;
+	--inert: #B4BDB6;
+	--serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+	--sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--ground: #0D1411;
+		--raised: #141D19;
+		--sunk: #101815;
+		--ink: #E2E9E4;
+		--ink-soft: #98A69E;
+		--ink-faint: #6A7871;
+		--rule: #232E28;
+		--rule-soft: #1B2521;
+		--accent: #E0A05C;
+		--done: #6FBF95;
+		--partial: #E0A05C;
+		--todo: #E48A92;
+		--inert: #4E5A54;
+	}
+}
+:root[data-theme="dark"] {
+	--ground: #0D1411;
+	--raised: #141D19;
+	--sunk: #101815;
+	--ink: #E2E9E4;
+	--ink-soft: #98A69E;
+	--ink-faint: #6A7871;
+	--rule: #232E28;
+	--rule-soft: #1B2521;
+	--accent: #E0A05C;
+	--done: #6FBF95;
+	--partial: #E0A05C;
+	--todo: #E48A92;
+	--inert: #4E5A54;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+	background: var(--ground);
+	color: var(--ink);
+	font-family: var(--sans);
+	font-size: 15px;
+	line-height: 1.55;
+	margin: 0;
+	padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem) 6rem;
+}
+.wrap { max-width: 78rem; margin: 0 auto; display: flex; flex-direction: column; gap: 3.5rem; }
+
+:where(a):focus-visible, :where(button):focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+/* — masthead — */
+.masthead { display: flex; flex-direction: column; gap: 1.4rem; border-bottom: 2px solid var(--ink); padding-bottom: 1.75rem; }
+.eyebrow { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.06em; color: var(--ink-faint); margin: 0; }
+.eyebrow b { color: var(--accent); font-weight: 500; }
+h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 5vw, 3.1rem); line-height: 1.05; letter-spacing: -0.015em; margin: 0; text-wrap: balance; }
+.standfirst { color: var(--ink-soft); max-width: 64ch; margin: 0; font-size: 1.03rem; }
+
+.dials { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1.5rem 2.5rem; margin-top: 0.4rem; }
+.dial { display: flex; flex-direction: column; gap: 0.4rem; }
+.dial-figure { font-family: var(--serif); font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.dial-figure small { font-size: 0.95rem; color: var(--ink-faint); }
+.dial-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); }
+
+.meter { block-size: 4px; background: var(--rule); border-radius: 999px; overflow: hidden; }
+.meter-fill { display: block; block-size: 100%; background: var(--inert); }
+.meter-fill.is-done { background: var(--done); }
+.meter-fill.is-partial { background: var(--partial); }
+.meter-fill.is-todo { background: var(--todo); }
+
+/* — section furniture — */
+section.band { display: flex; flex-direction: column; gap: 1.25rem; }
+h2 { font-family: var(--serif); font-weight: 400; font-size: 1.6rem; letter-spacing: -0.01em; margin: 0; }
+.lede { color: var(--ink-soft); margin: 0; max-width: 68ch; }
+.prose { max-width: 70ch; display: flex; flex-direction: column; gap: 0.9rem; }
+.prose p { margin: 0; }
+.prose strong { font-weight: 600; }
+code { font-family: var(--mono); font-size: 0.86em; }
+.prose code, li code, td code { color: var(--accent); word-break: break-word; }
+a { color: var(--accent); text-underline-offset: 2px; }
+
+/* — the table matrix — */
+.matrix-shell { border: 1px solid var(--rule); border-radius: 4px; background: var(--raised); overflow-x: auto; }
+table { border-collapse: collapse; inline-size: 100%; min-inline-size: 34rem; }
+thead th {
+	text-align: start; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em;
+	color: var(--ink-faint); font-weight: 600; padding: 0.7rem 1rem; border-bottom: 1px solid var(--rule);
+	background: var(--sunk); position: sticky; inset-block-start: 0;
+}
+tbody td { padding: 0.5rem 1rem; border-bottom: 1px solid var(--rule-soft); vertical-align: baseline; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr[data-state="done"] td:first-child { border-inline-start: 3px solid var(--done); }
+tbody tr[data-state="partial"] td:first-child { border-inline-start: 3px solid var(--partial); }
+tbody tr[data-state="todo"] td:first-child { border-inline-start: 3px solid var(--todo); }
+tbody td:first-child { padding-inline-start: calc(1rem - 3px); }
+
+.chip { font-size: 0.72rem; letter-spacing: 0.03em; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.chip.is-yes { color: var(--done); border-color: color-mix(in oklab, var(--done) 40%, transparent); }
+.chip.is-no { color: var(--ink-faint); border-color: var(--rule); }
+
+/* — filters — */
+.filters { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+.filters button {
+	font: inherit; font-size: 0.78rem; padding: 0.28rem 0.8rem; cursor: pointer;
+	background: transparent; color: var(--ink-soft);
+	border: 1px solid var(--rule); border-radius: 999px;
+}
+.filters button:hover { color: var(--ink); border-color: var(--ink-faint); }
+.filters button[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-inline-start: auto; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-faint); }
+.key { display: inline-flex; align-items: center; gap: 0.35rem; }
+.key::before { content: ""; inline-size: 7px; block-size: 7px; border-radius: 50%; background: var(--inert); }
+.key.multi::before { background: var(--accent); }
+.key.ahead::before { background: var(--done); }
+.key.open::before { background: var(--todo); }
+.key.unreached::before { background: transparent; border: 1px solid var(--ink-faint); }
+
+/* — vocabulary grid — */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 2rem 2.25rem; align-items: start; }
+.domain { display: flex; flex-direction: column; gap: 0.55rem; }
+.domain h3 {
+	font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 600; margin: 0;
+	display: flex; justify-content: space-between; gap: 1rem; align-items: baseline;
+}
+.tally { font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0; color: var(--ink-faint); font-weight: 400; font-variant-numeric: tabular-nums; text-transform: none; }
+.tally b { color: var(--ink); font-weight: 600; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows .row { display: flex; align-items: baseline; gap: 0.4rem; padding: 0.12rem 0; }
+.rows code { color: var(--ink-soft); font-size: 0.79rem; word-break: break-word; }
+.rows .row.multi code { color: var(--accent); font-weight: 600; }
+.rows .row.ahead code { color: var(--done); }
+.rows .row.open code { color: var(--todo); }
+.rows .row.unreached code { color: var(--ink-faint); font-style: italic; }
+.pending { color: var(--ink-faint); font-size: 0.9rem; line-height: 1; }
+
+body.only-flagged .rows .row.single:not(.unreached) { display: none; }
+body.only-flagged .domain[data-flagged="0"][data-open="0"] { display: none; }
+body.only-open .rows .row:not(.unreached) { display: none; }
+body.only-open .domain[data-open="0"] { display: none; }
+body.only-done tbody tr:not([data-state="done"]) { display: none; }
+body.only-left tbody tr[data-state="done"] { display: none; }
+
+/* — note cards — */
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); gap: 1rem; }
+.note { border: 1px solid var(--rule); border-radius: 4px; background: var(--raised); padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.note h4 { margin: 0; font-size: 0.92rem; font-weight: 600; }
+.note p { margin: 0; font-size: 0.88rem; color: var(--ink-soft); }
+/* A warning card is marked on the words, not with a rail down its edge: the
+   heading takes the alarm colour and a dagger, which reads at a glance and
+   survives being one card among four or six of six. */
+.note.warn h4 { color: var(--todo); }
+.note.warn h4::before { content: "† "; font-family: var(--serif); }
+
+/* — ordered steps (a real sequence) — */
+ol.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1.1rem; max-width: 70ch; }
+ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 1.7rem 1fr; gap: 0.9rem; }
+ol.steps > li::before {
+	content: counter(step); font-family: var(--mono); font-size: 0.78rem; color: var(--accent);
+	border: 1px solid var(--rule); border-radius: 50%; inline-size: 1.7rem; block-size: 1.7rem;
+	display: grid; place-items: center; align-self: start;
+}
+ol.steps h4 { margin: 0 0 0.2rem; font-size: 0.95rem; font-weight: 600; }
+ol.steps p { margin: 0; font-size: 0.9rem; color: var(--ink-soft); }
+
+/* — plain lists — */
+ul.plain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; max-width: 70ch; }
+ul.plain > li { display: grid; grid-template-columns: 0.6rem 1fr; gap: 0.7rem; font-size: 0.92rem; color: var(--ink-soft); }
+ul.plain > li::before { content: ""; inline-size: 5px; block-size: 5px; border-radius: 50%; background: var(--ink-faint); margin-block-start: 0.55em; }
+ul.plain b { color: var(--ink); font-weight: 600; }
+
+/* — gate strip — */
+.gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.75rem; }
+.gate { border: 1px solid var(--rule); border-radius: 4px; padding: 0.7rem 0.9rem; background: var(--raised); display: flex; flex-direction: column; gap: 0.15rem; }
+.gate .name { font-family: var(--mono); font-size: 0.76rem; color: var(--ink-soft); }
+.gate .state { font-size: 0.88rem; font-weight: 600; }
+.gate.pass .state { color: var(--done); }
+.gate.fail .state { color: var(--todo); }
+.gate .hint { font-size: 0.76rem; color: var(--ink-faint); }
+
+footer { border-top: 1px solid var(--rule); padding-top: 1.25rem; color: var(--ink-faint); font-size: 0.82rem; max-width: 70ch; display: flex; flex-direction: column; gap: 0.5rem; }
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+	<p class="eyebrow">branch <b>refactor/sync-cleanup</b> · head {{HEAD}} · {{AHEAD_COUNT}} commits off main</p>
+	<h1>The sync layer, rebuilt table by table</h1>
+	<p class="standfirst">A ground-up rewrite of how SIMMER reads and writes data. TanStack DB is transport only, the server validates, every mutation names the command it means, and the only per-table definition is the schema. This page is where the work is tracked — it replaces <code>HANDOFF.md</code>.</p>
+	<div class="dials">
+		<div class="dial">
+			<span class="dial-figure">{{REACH_CMDS}}<small>/{{TOTAL_CMDS}}</small></span>
+			<span class="dial-label">Commands on the surface</span>
+			{{CMD_METER}}
+		</div>
+		<div class="dial">
+			<span class="dial-figure">{{SRV_TBL}}<small>/{{TBL_TOTAL}}</small></span>
+			<span class="dial-label">Tables with an intent map</span>
+			{{SRV_METER}}
+		</div>
+		<div class="dial">
+			<span class="dial-figure">{{CLI_TBL}}<small>/{{TBL_TOTAL}}</small></span>
+			<span class="dial-label">Tables off webCollections</span>
+			{{CLI_METER}}
+		</div>
+	</div>
+</header>
+
+<section class="band">
+	<div>
+		<h2>Where it stands</h2>
+		<p class="lede">Both halves are done. Every table <code>apps/web</code> reads goes through <code>lib/collections</code> and <code>hooks/queries</code>, every write names the command it means, and the old seam is deleted rather than deprecated. What is left is named below, and each piece is somebody else's issue.</p>
+	</div>
+	<div class="notes">
+		<div class="note">
+			<h4>packages/sync — done</h4>
+			<p>One schema and one collection factory per table, generated from the database. The 55 sync descriptors and the factory that made them are deleted. <code>mutateCollection</code> carries single-row writes; <code>commandTransaction</code> carries the rest.</p>
+		</div>
+		<div class="note">
+			<h4>apps/server — nearly done</h4>
+			<p>Shape routes derive from the scope map and the schema registry. Commands post per table to <code>/commands/{table}</code> and dispatch on an <code>intents</code> list, so no endpoint infers a command from which fields arrived.</p>
+		</div>
+		<div class="note">
+			<h4>apps/admin — done</h4>
+			<p>The only app fully migrated. It has <code>lib/collections/</code>, <code>hooks/queries/</code> and <code>lib/collections/writes.ts</code>; its <code>sync/</code> folder and the nine <code>/admin/*</code> write functions are gone.</p>
+		</div>
+		<div class="note">
+			<h4>apps/web — done</h4>
+			<p>Fifty collection modules, each naming its own <code>syncMode</code>, read through one hook per surface in <code>hooks/queries/</code>. <code>sync/webCollections.ts</code>, <code>sync/collections.ts</code> and the modules that existed only to be wired into them are deleted, along with the hand-written camelCase <code>*Row</code> interfaces that made a snake_case row read as empty.</p>
+		</div>
+	</div>
+	<div class="gates">
+		<div class="gate pass"><span class="name">typecheck · build · test · check</span><span class="state">green</span><span class="hint">1,830 server · 542 web tests</span></div>
+		<div class="gate pass"><span class="name">fallow dupes</span><span class="state">green</span><span class="hint">7.1%, threshold 9.1</span></div>
+		<div class="gate pass"><span class="name">fallow dead-code</span><span class="state">green</span><span class="hint">gated at zero, not ratcheted</span></div>
+		<div class="gate pass"><span class="name">fallow:health</span><span class="state">green — 564</span><span class="hint">baseline re-saved, diff read</span></div>
+	</div>
+	<p class="lede">All four were red for most of this branch and none was suppressed: a <code>fallow-ignore-file</code> that outlives its reason is worse than a gate that is honestly red on a work-in-progress branch. Read the exit code, not the summary line — <code>dupes</code> and <code>health</code> both print a <code>✗</code> metric line while passing, which is how they were misread as red here for weeks. The health baseline was re-saved against the merge base only, and the diff read: 662 findings to 646, 39 files gaining and 30 losing, mostly the same findings under new names as write logic moved out of route components into named hooks.</p>
+</section>
+
+<section class="band">
+	<div>
+		<h2>Table by table</h2>
+		<p class="lede">The operational view. A table counted as finished when the server accepted its commands by name <em>and</em> nothing in <code>apps/web</code> reached it through <code>webCollections</code> any more. Both halves had to land together: a write to a collection nobody reads waits out a txid that never arrives. Every row below is now on both counts; the table is kept because <code>apps/mobile</code> has the same migration ahead of it.</p>
+	</div>
+	<div class="filters">
+		<button type="button" data-scope="tables" data-mode="" aria-pressed="true">All {{TBL_TOTAL}}</button>
+		<button type="button" data-scope="tables" data-mode="only-left" aria-pressed="false">Still to do</button>
+		<button type="button" data-scope="tables" data-mode="only-done" aria-pressed="false">Finished {{TBL_DONE}}</button>
+	</div>
+	<div class="matrix-shell">
+		<table>
+			<thead><tr><th scope="col">Table</th><th scope="col">Server</th><th scope="col">Client</th></tr></thead>
+			<tbody>
+{{TABLES}}
+			</tbody>
+		</table>
+	</div>
+	<p class="lede"><code>memberships</code> and <code>profiles</code> have no intent map <em>yet</em>, and <code>organizations</code> is half of each — its settings are seven commands with a route apiece, its details are an identity write on the same row. <a href="#next">ADR 0013</a> closes that: identity joins the command vocabulary, so every agency write reaches Postgres the same way and this column goes to 54/54 as well.</p>
+</section>
+
+<section class="band">
+	<div>
+		<h2>The command vocabulary</h2>
+		<p class="lede">All {{TOTAL_CMDS}} names. Dimmed and italic means no intent map yet — the command exists in the domain but nothing on <code>/commands/{table}</code> builds it. The colours mark the classification that decides how a client may apply one.</p>
+	</div>
+	<div class="filters">
+		<button type="button" data-scope="vocab" data-mode="" aria-pressed="true">Show all</button>
+		<button type="button" data-scope="vocab" data-mode="only-flagged" aria-pressed="false">Flagged only</button>
+		<button type="button" data-scope="vocab" data-mode="only-open" aria-pressed="false">Not yet reachable</button>
+		<span class="legend">
+			<span class="key multi">Multi-row</span>
+			<span class="key ahead">Waiting on #162</span>
+			<span class="key open">No handler</span>
+			<span class="key unreached">No intent map</span>
+		</span>
+	</div>
+	<div class="grid">
+{{VOCAB}}
+	</div>
+	<div class="prose">
+		<p><strong>Multi-row is not "how many tables the server writes".</strong> It is whether the optimistic view is <em>wrong</em> without a second row written on the client. Deleting a Habitat writes four tables server-side and is still single-row here: the client removes one row, and the Comments it never loaded arrive over sync. Three shapes qualify — many rows the command names (a move, a merge), a parent and the children created with it, and a record plus the thing that produced it.</p>
+		<p><strong>The four <code>#162</code> names are single-row by intent and multi-row by accident.</strong> An add is one insert at a position between its neighbours, and <code>position</code> is <code>double precision</code> for exactly that — but the handlers insert at zero and renumber every sibling, so today they really do write N rows. Nothing is blocked on it.</p>
+		<p><strong>The ten <code>weather.*</code> names have no handler anywhere</strong> — no route, no writer. They are vocabulary waiting for an endpoint, and their absence from the multi-row union is not a finding.</p>
+	</div>
+</section>
+
+<section class="band">
+	<div>
+		<h2>Next, in order</h2>
+		<p class="lede">This one is a sequence: each step makes the next one smaller. The catalogs, the control products, the assets, the address book and every record surface are behind it.</p>
+	</div>
+	<ol class="steps">
+		<li>
+			<div>
+				<h4>The record surfaces — done</h4>
+				<p>All three. Larval took the four performed control actions with it, because <code>inspections/$id.tsx</code> was the last thing reading <code>applications</code>, <code>source_reductions</code>, <code>outreach_actions</code> and <code>biocontrol_actions</code> through the old seam; adult took <code>traps</code>, <code>collections</code> and <code>collection_species</code>; public engagement took <code>contacts</code> and <code>service_requests</code>. What is left of this step is the list of traps they turned up, because every surface below still hits them.</p>
+				<p>Four things larval turned up and adult confirmed, in the order they appear. A record's edit form wants the <em>raw</em> column, not the display projection — every one of these coalesces a null name into something readable, and a form field filled with that fallback saves it back as the name. The domain splits one form across more commands than the form has sections, and a save that names one it has no changed fields for is refused rather than ignored — so a form's <code>current</code> has to be built by the <em>same</em> round trip that builds its next values, or an untouched field compares unequal to itself. A control that mutates a draft is hiding several commands behind one callback: the sample detail's <code>onPatch</code> was four, and the collection page's three result switches were three. And a recording made from a stop is a <em>multi-row</em> command — <code>SingleRowCommandType</code> refuses it at compile time, it goes through <code>commandTransaction</code>, and because that sends the body it is handed rather than diffing one, the body-builder is where a missing stop id goes quiet behind a 201. All three of those builders are exported and tested directly.</p>
+				<p>Adult added a fifth: a stored <code>timestamptz</code> arrives as a <code>Date</code>, and every place that turns one into a calendar day needs the <em>agency's</em> zone. Two surfaces were taking the UTC prefix instead, so a trap emptied at 10:30pm read as the next day in its own edit form while its detail page read the day the crew worked. Neither errored; they simply disagreed.</p>
+				<p>Public engagement added two more, and both are about arguments rather than columns. A command can take something the table has no column for — a service request's <code>contact</code> and <code>location</code> are <em>references</em>, and <code>contact_id</code> holds where one <em>landed</em> — so the old endpoint reading the column back as the instruction meant an edit form that seeded the contact it already had sent a command with nothing to do, and the domain refuses one of those: the whole save failed over the half nobody touched. And a lifecycle command can take an id the old REST route was minting server-side — closing or reopening a request writes a comment, and its id is now the client's, so a retried close writes the same comment rather than a second one.</p>
+			</div>
+		</li>
+		<li>
+			<div>
+				<h4>The rest of GIS — done</h4>
+				<p><code>regions</code> and <code>region_folders</code>, on the model addresses set: <code>geometry</code> rides as an <em>argument</em> rather than a location source, because a region's boundary <em>is</em> the record rather than a snapshot of one.</p>
+				<p>The two acknowledgements turned out to be a smaller job than they looked, and worth writing down rather than repeating. <code>acknowledged()</code> reads an absent flag as confirmed, and the endpoints being replaced hard-coded <code>true</code> at their call sites — so sending nothing is exactly the old behaviour, and the migration is at parity by omitting them. What the guard is actually for is a client that wants to be <em>refused</em>: redrawing a boundary changes which records a region contains, retroactively, and no surface asks about that yet. The third, on a folder delete, has no caller at all — there is no delete control on the folder dialog.</p>
+				<p>A region also has three commands behind one form — rename, refile, redraw — and the tree performs two of them as their own gestures. That is the same shape as every record surface above, and the same plan function answers it.</p>
+			</div>
+		</li>
+		<li>
+			<div>
+				<h4>The Tag catalog, and then organization settings.</h4>
+				<p><code>tags</code> is the first table on this branch that needed a <em>server</em> half as well: there was no <code>/commands/tags</code>, only <code>foundation-commands/tags.ts</code>. It is the ninth catalog and answers the same five commands as the other eight, so the client write is <code>catalog-writes.ts</code> with a row literal and five names — including the create-inactive bug that file already documents, which <code>tags</code> had too.</p>
+				<p>Its own trap was in the round trip rather than the commands: the helper being replaced <em>upper-cased</em> the hex colour on the way out while the domain lower-cases it, so every colour on screen disagreed with the one in Postgres until it synced back. Normalization belongs to the domain; a form's job is to stop at trimming.</p>
+				<p><code>organizationSettings</code> was the odd one, and the answer was that it does not belong on <code>/commands/{table}</code> at all. Its seven commands each write a different sub-document of one row's JSON, so which one a write means cannot be read off a column diff — and each already had its own route, its own floor and its own validation. Nothing had ever called them. <code>apps/web</code> sent the whole document to the agency-details route instead.</p>
+				<p>That cost three things, and none of them announced itself. <strong>The document was not validated</strong>: it went through a resolver that substitutes defaults rather than refusing, and the issues it reported were dropped — a timezone the agency could not use was stored as the default and the save reported success. <strong>A save rewrote settings nobody touched</strong>, from the editor's own copy. And <strong>the conflict check did nothing</strong>: the client caught the server's 409 and immediately re-sent with <code>expectedUpdatedAt: null</code>, which always won, so whoever saved second silently overwrote whoever saved first.</p>
+				<p>So this is the one table whose writes do not go through <code>mutateCollection</code>. They open a transaction directly, which is what lets the optimistic row move while the request goes somewhere the collection's handlers do not point — the same path <code>commandTransaction</code> takes, for the same reason. The collection declares <code>mutations: false</code>, so a stray row write is refused by the library rather than sent to a <code>/commands/organizations</code> that does not exist and should not.</p>
+				<p>Two things fell out of building it. The details sheet spans both vocabularies — eight columns and the timezone, which is a setting — so one press of Save can be an identity write, a command, or one of each, and the second has to be handed the <code>updated_at</code> the first produced or it conflicts with the write the same click just made. And an unchanged save has to send <em>nothing</em>: the first cut read the empty diff as a failure and put “Unable to save changes.” in front of an admin who had changed nothing.</p>
+				<p>The unit-defaults sheet was also quietly broken, and not by this step. <code>webCollections</code> streams snake_case since the column mapper was dropped, the helper read <code>unitType</code>, and so every unit select was empty — an admin could not change a unit default at all, and the summary printed raw codes instead of names. It reads <code>useUnitLabels</code> now.</p>
+			</div>
+		</li>
+		<li>
+			<div>
+				<h4>The identity tail, and the seam is gone.</h4>
+				<p><code>profiles</code>, <code>memberships</code> and the two weather tables were the last surfaces reading through <code>webCollections</code>. With them moved it is deleted, and five mutation modules that existed only to be wired into it go with it — along with the sixty-odd camelCase <code>*Row</code> interfaces nothing imports any more.</p>
+				<p>The identity tables are the ones that will never be commands. Creating a Profile, changing a role, ending a Membership: identity writes are REST and cannot join the vocabulary (#130). What they lose by not being commands is the thing every command write gets for free — the transaction that moves the optimistic row, the txid wait, and the suppression that makes an unchanged save send nothing — so <code>rest-writes.ts</code> is that mechanism, shared with the agency's own record.</p>
+				<p><code>lib/collections/profiles.ts</code> declared <code>mutations: true</code> while pointing at a <code>/commands/profiles</code> that does not exist — the same latent trap <code>organizations</code> had. Both are <code>mutations: false</code> now, which is what turns a stray row write into a refusal instead of a request to nowhere.</p>
+				<p>The three calls that settle WorkOS <em>and</em> Postgres together — invite, role, offboard — are not collection writes and never were. They are plain functions in <code>lib/identity-api.ts</code> with the reason written down: an optimistic row there would be guessing at the half the client cannot see.</p>
+			</div>
+		</li>
+		<li>
+			<div>
+				<h4 id="next">Next: identity becomes commands (ADR 0013)</h4>
+				<p>Seven surfaces still write Postgres as ordinary REST — the agency's details, and six on people. The reason recorded in <code>roles.ts</code> said they <em>cannot</em> be commands because they settle WorkOS as well as Postgres and a replay would be a second grant. That is true of exactly one of them. Three never touch WorkOS at all, and <code>createProfile</code> already mints its own id.</p>
+				<p>What the split actually costs is a hole and a fork. <code>COMMAND_PERMISSIONS</code> is total — a command with no floor does not compile, and dispatch reads the map before a handler runs — while an identity route has to remember to ask. And <code>hooks/mutations/rest-writes.ts</code> exists only to give identity writes what the command path gets free.</p>
+				<p>The decision is one model for every operation: <em>this is what I intended to do</em>, and the server decides whether to do it. The three pure-Postgres writes move first because they need no new contract. The three that span WorkOS come last, under the four rules the command contract now carries — of which the client-generated id is the one that decides whether a spanning command can be built at all.</p>
+			</div>
+		</li>
+		<li>
+			<div>
+				<h4>The leftovers</h4>
+				<p><code>packages/sync/src/rows/*</code> is down to the enums a column is drawn from — the sixty-odd camelCase <code>*Row</code> interfaces are deleted with the seam that held them. What is left of it duplicates <code>packages/domain</code>: <code>LarvalDensity</code>, <code>UnitType</code> and <code>SimmerRole</code> are declared in both, and the copy that loses a disagreement is this one, because it is the copy nothing validates against. Repointing the consumers is about fifteen imports across three apps.</p>
+				<p>Then: the <code>/map/*</code> endpoints, which still alias every column to camelCase in <code>packages/db/src/domains</code>. The health baseline. And <code>SIMMER_OPERATOR_ORG_ID</code> on Railway staging and production, without which every <code>/admin/*</code> call answers 403 — the one item here with a live consequence, and unrelated to this branch.</p>
+			</div>
+		</li>
+	</ol>
+</section>
+
+<section class="band">
+	<div>
+		<h2>Conventions</h2>
+		<p class="lede">Four decisions that are load-bearing, each with the reason attached — because each looks arbitrary without it.</p>
+	</div>
+	<div class="prose">
+		<p><strong>snake_case all the way through the live queries.</strong> Table and column names stay as Postgres spells them, through <code>useLiveQuery</code> and into the predicates. The camelCase boundary is the query hook's output and <code>packages/domain</code> command arguments. Component props are camelCase and always were.</p>
+		<p><strong>One module per table, no barrel.</strong> Each module calls <code>createCollection</code> at import, which a bundler cannot treat as side-effect-free. A barrel re-exporting 54 of them is the same indivisible node under another name — which is what put the whole collection graph in the boot chunk before, at 835 kB.</p>
+		<p><strong>The <code>Collection&lt;Row, string | number&gt;</code> annotation on every const is load-bearing.</strong> A <code>Collection&lt;…&gt;</code> instantiated inside <code>packages/sync</code> arrives in <code>apps/web</code> as <code>any</code>, with no error anywhere. Writing the type out on this side instantiates it where it resolves. If one is ever removed, the check is that <code>collection.id</code> is refused where a <code>number</code> is wanted.</p>
+		<p><strong>One hook per file, named for the hook.</strong> <code>useHabitatSearch</code> is <code>use-habitat-search.ts</code>. A file that is not a <code>use-</code> file is not a hook — <code>shared.ts</code>, and the per-domain view models.</p>
+	</div>
+</section>
+
+<section class="band">
+	<div>
+		<h2>How a hook is shaped</h2>
+		<p class="lede">Read <code>hooks/queries/shared.ts</code> and <code>hooks/mutations/shared.ts</code> first — they carry the rules. The short version is below.</p>
+	</div>
+	<div class="prose">
+		<p><strong>Surface hooks, not entity hooks.</strong> A hook returns the shape one surface needs, joined. An entity hook exists only where that entity is the page's subject — the Habitat detail page, the Habitat typeahead.</p>
+		<p><strong>Transform in the query, with a compiled <code>select</code>.</strong> Not a <code>.map()</code> in the hook body, which re-runs every render and hands out new objects. A compiled <code>select</code> is part of the pipeline: it narrows what is materialized, and a row whose other columns moved produces no change downstream. A <code>useMemo</code> in a hook body is a sign the transform should have been a <code>select</code> — the one exception being an index over the rows, because a query returns rows and cannot return a lookup of them.</p>
+		<p>Exhaust the expression language before deciding it cannot say something: <code>coalesce</code>, <code>caseWhen</code>, <code>concat</code>, <code>upper</code>, <code>length</code>, the comparisons, the aggregates. <code>fn.select</code> takes arbitrary JavaScript and gives up both properties, and it receives the <em>source</em> namespaces rather than a prior projection, so a compiled <code>select</code> in front of it narrows nothing. Nothing in the folder needs it.</p>
+		<p><strong>Join, do not waterfall.</strong> Reading ids from one query and feeding them to a second is a render round-trip and a second subset request. The join does it inside the pipeline and keeps up as rows arrive.</p>
+		<p><strong>A write names the command it means, and only the commands it has fields for.</strong> Each server-side builder reads what it takes and ignores the rest, and the domain refuses a command with nothing to change — so a save that always names every intent breaks the moment a user touches one group of fields. Which intents a save means is a function of what actually changed, and working that out is the write hook's job.</p>
+		<p><strong>Two commands against one row travel as one write.</strong> TanStack DB merges two updates to a key and keeps only the last <code>metadata</code>, so the first command's name would arrive carrying the second's fields and be dropped behind a 200. Rename-and-redraw is <code>intent: ['…updateDetails', '…updateLocation']</code>, not two calls.</p>
+	</div>
+	<div class="notes">
+		<div class="note warn">
+			<h4>orderBy is not honoured after groupBy</h4>
+			<p>And it cannot read the projection either. A list needing both an order and a per-key count is two queries and a <code>Map</code>.</p>
+		</div>
+		<div class="note warn">
+			<h4>Strict SQL group-by, with no relaxation</h4>
+			<p>Every non-aggregate column in the <code>select</code> must be in the <code>groupBy</code> — no functional-dependency exemption for a primary key. It throws at render; <code>tsc</code> sees nothing.</p>
+		</div>
+		<div class="note warn">
+			<h4>satisfies Row, never as Row</h4>
+			<p><code>satisfies</code> on an optimistic insert is what makes a wrong column name a compile error. The cast is exactly what let camelCase rows through in silence.</p>
+		</div>
+		<div class="note">
+			<h4>"Join requires an index" is not a failure</h4>
+			<p>The warning is about the local snapshot pass, not the network, and appears with loading demonstrably correct. Every collection indexes <code>id</code> anyway.</p>
+		</div>
+		<div class="note">
+			<h4>A row of <code>collections</code> is an <code>AdultCollection</code></h4>
+			<p>Not a plural quirk — <code>Collection</code> is also what TanStack DB calls the thing that holds rows, so a module naming both cannot import them.</p>
+		</div>
+		<div class="note">
+			<h4><code>.limit()</code> needs an <code>.orderBy()</code></h4>
+			<p>Without one it throws at render, with no diff to blame it on.</p>
+		</div>
+	</div>
+</section>
+
+<section class="band">
+	<div>
+		<h2>Traps</h2>
+		<p class="lede">Every one of these cost real time, and every one of them fails silently — no error, no failing test, just a screen that is quietly wrong.</p>
+	</div>
+	<div class="notes">
+		<div class="note warn">
+			<h4>An empty transaction sends nothing</h4>
+			<p>TanStack DB's <code>commit</code> returns early when <code>mutations.length === 0</code>: state <code>completed</code>, <code>isPersisted</code> resolved, <code>mutationFn</code> never called. A multi-row write whose <code>apply</code> touched no rows looks like a success and never leaves the browser.</p>
+		</div>
+		<div class="note warn">
+			<h4>Editing apps/server does not reload the command surface</h4>
+			<p>A new route 404s and a changed payload reader silently ignores its key until the API dev server is restarted by hand. It presents as a client bug. Probe with a payload the new code must refuse and the old one ignores, using real foreign keys so an FK 500 cannot mask the answer.</p>
+		</div>
+		<div class="note warn">
+			<h4>subsetMethod: 'POST' is what makes joins work</h4>
+			<p>A join asks for one <code>IN</code> over every join key it matched, and a couple of hundred uuids do not fit in a URL. On GET the request never lands and the query never becomes ready. Ten keys fit — so a small join works and a large one silently does not.</p>
+		</div>
+		<div class="note warn">
+			<h4>A left join yields undefined, not null</h4>
+			<p>Every reference on an unmatched row is absent, so a fallback builds a label out of nothing. Guard on the <em>driving</em> row's own column. And prefer <code>coalesce</code> to <code>caseWhen(isNull(…), …)</code>, which infers <code>string | null</code> because it cannot see the else branch is the column just tested.</p>
+		</div>
+		<div class="note warn">
+			<h4>awaitTxId needs a subscriber</h4>
+			<p>A write into a collection nothing is querying does not settle slowly — it never settles. Reads and writes for a table must migrate together, and a create page warms its own stream by reading the row it is about to write.</p>
+		</div>
+		<div class="note warn">
+			<h4>A minimized Chrome window looks like a server bug</h4>
+			<p>Background throttling stalls Electric's long-polls and surfaces as a CORS error on the boot-time shapes, with the app stuck on "Loading workspace". Foreground the window and re-test before diagnosing anything.</p>
+		</div>
+	</div>
+</section>
+
+<section class="band">
+	<div>
+		<h2>Verifying in the browser</h2>
+		<p class="lede">Against the Railway staging database, through the local Caddy front at <code>https://localhost:5175</code>.</p>
+	</div>
+	<ul class="plain">
+		<li><b>The worktree needs its own <code>.env</code> and <code>apps/server/.env</code></b>, copied from the main checkout — worktrees do not carry gitignored files, and without them the API dies with <code>APP_ORIGIN must be set.</code></li>
+		<li><b>Sign-in is the user's job.</b> Entering a password is off-limits. Ask, then continue.</li>
+		<li><b>Probing collections from the console gives false readings.</b> Vite appends <code>?t=</code> to HMR-invalidated modules, so importing a collection module builds a <em>second</em> instance that reads <code>size: 0</code> while the page is visibly using the real one.</li>
+		<li><b>Patch <code>window.fetch</code> to read what a write actually sent.</b> It is the difference between believing the client is correct and knowing it — and it is what settled the stale-API question.</li>
+		<li><b>Isolate before theorising.</b> The subset bug looked like two queries interfering; removing one panel showed a single query loading zero rows, which pointed straight at the request.</li>
+	</ul>
+</section>
+
+<section class="band">
+	<div>
+		<h2>Casualties</h2>
+		<p class="lede">Deliberately removed, all approved.</p>
+	</div>
+	<ul class="plain">
+		<li><b><code>getShapeServerUrl</code> / <code>VITE_SHAPE_SERVER_URL</code></b> — the factory takes one <code>serverUrl</code>, and both deployed environments left it unset.</li>
+		<li><b><code>sync-modes.ts</code></b> — each collection module states its own <code>syncMode</code> next to the collection it configures.</li>
+		<li><b>The nine <code>/admin/*</code> write routes</b> — <code>admin-foundations.ts</code> is reads only, and a test asserts it registers no verb but <code>GET</code>.</li>
+		<li><b>The camelCase column mapper</b> — which is why every unmigrated surface is broken rather than degraded. A subset predicate naming a camelCase column answers 400.</li>
+		<li><b>Unnamed Habitats label themselves with coordinates</b> rather than a short id. Open cosmetic issue: the expression language has no <code>round</code>, so it renders full float precision beside <code>formatCoordinates</code>, which shows five places. The clean fix is rounding where the trigger writes them.</li>
+	</ul>
+</section>
+
+<footer>
+	<p>Generated from the branch itself — command coverage is read out of <code>apps/server/src/table-commands/</code>, and the client column from what still references <code>webCollections</code>. Regenerate rather than hand-edit the tables.</p>
+	<p>Multi-row classification carried over from the retired <em>Multi-Row Command Review</em>, re-checked against <code>MultiRowCommandType</code> as it stands.</p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+	for (const button of document.querySelectorAll('.filters button')) {
+		button.addEventListener('click', function () {
+			const scope = button.dataset.scope;
+			const peers = document.querySelectorAll('.filters button[data-scope="' + scope + '"]');
+			for (const peer of peers) {
+				peer.setAttribute('aria-pressed', String(peer === button));
+				if (peer.dataset.mode) {
+					document.body.classList.remove(peer.dataset.mode);
+				}
+			}
+			if (button.dataset.mode) {
+				document.body.classList.add(button.dataset.mode);
+			}
+		});
+	}
+})();
+</script>

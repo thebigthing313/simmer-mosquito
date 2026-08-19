@@ -23,11 +23,7 @@ function MyOrganizationKeyBindingsRoute() {
 				setupItems={[]}
 				title="Key Bindings"
 			>
-				<KeyBindingsSettings
-					canManage={workspace.canManage}
-					organization={workspace.organization}
-					settings={workspace.settings}
-				/>
+				<KeyBindingsSettings canManage={workspace.canManage} settings={workspace.settings} />
 			</DomainSection>
 		</OrganizationWorkspaceShell>
 	);

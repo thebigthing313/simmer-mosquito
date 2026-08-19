@@ -35,14 +35,14 @@ import { runCommands } from './command-write.js';
 
 type PublicEngagementDb = Kysely<SimmerDatabase>;
 type PublicEngagementTransaction = Transaction<SimmerDatabase>;
-type NotificationTypeCommand =
+export type NotificationTypeCommand =
 	| CreateNotificationTypeCommand
 	| UpdateNotificationTypeCommand
 	| DeactivateNotificationTypeCommand
 	| ReactivateNotificationTypeCommand
 	| DeleteNotificationTypeCommand;
 
-interface SafeNotificationType {
+export interface SafeNotificationType {
 	readonly id: string;
 	readonly organizationId: string;
 	readonly name: string;
@@ -119,7 +119,7 @@ export function registerPublicEngagementCommandRoutes(
 	);
 }
 
-async function writeNotificationTypeCommand(
+export async function writeNotificationTypeCommand(
 	db: PublicEngagementTransaction,
 	command: NotificationTypeCommand,
 ): Promise<SafeNotificationType | null> {

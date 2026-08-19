@@ -5,18 +5,19 @@ import {
 	isLarvalDensity,
 	type LarvalDensity,
 } from '@simmer-mosquito/domain';
-import type {
-	CollectionMethodRow,
-	ControlMethodRow,
-	HabitatTypeRow,
-	InsecticideRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../auth';
-import { useCollectionRows } from '../hooks/use-collection-rows';
-import { webCollections } from '../sync/webCollections';
+import {
+	useApplicationMethodRoster,
+	useBiocontrolMethodRoster,
+	useCollectionMethodRoster,
+	useHabitatTypeRoster,
+	useOutreachMethodRoster,
+	useSourceReductionMethodRoster,
+} from '../hooks/queries/use-catalog-rosters';
+import { useInsecticideRecords } from './../hooks/queries/use-insecticide-records';
+import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { formatAmount, insecticideDisplayName } from './control-operations/-control-display';
 
 // Data + display helpers for the Activity Monitor: one Profile's field work over
@@ -229,24 +230,14 @@ export function useActivityLookups(): {
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly formatQuantity: (amount: number, unitId: string | null) => string;
 } {
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
-	const { rows: collectionMethods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: applicationMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.applicationMethods,
-	);
-	const { rows: sourceReductionMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.sourceReductionMethods,
-	);
-	const { rows: biocontrolMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.biocontrolMethods,
-	);
-	const { rows: outreachMethods } = useCollectionRows<ControlMethodRow>(
-		webCollections.outreachMethods,
-	);
-	const { rows: insecticides } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
+	const habitatTypes = useHabitatTypeRoster();
+	const collectionMethods = useCollectionMethodRoster();
+	const applicationMethods = useApplicationMethodRoster();
+	const sourceReductionMethods = useSourceReductionMethodRoster();
+	const biocontrolMethods = useBiocontrolMethodRoster();
+	const outreachMethods = useOutreachMethodRoster();
+	const insecticides = useInsecticideRecords();
+	const { all: units } = useUnitLabels();
 
 	return useMemo(() => {
 		const nameById = new Map<string, string>();

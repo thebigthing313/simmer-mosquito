@@ -1,4 +1,3 @@
-import type { CollectionMethodRow, ProfileRow, TrapRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -7,21 +6,24 @@ import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/r
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { webCollections } from '../../sync/webCollections';
-import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from './-adult-display';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
+import {
+	type SpeciesTotal,
+	useAdultSpeciesComposition,
+} from '../../hooks/queries/use-adult-species-composition';
+import { useCollectionsAwaitingIdentification } from '../../hooks/queries/use-collections-awaiting-identification';
 import {
 	type ActivityCollection,
+	useRecentCollections,
+} from '../../hooks/queries/use-recent-collections';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
+import {
 	ADULT_ACTIVITY_WINDOW_DAYS,
 	addDaysToDateString,
 	formatMonthDay,
 	formatWeekdayMonthDay,
-	type SpeciesTotal,
 	todayInTimeZone,
-	useAwaitingIdentification,
-	useRecentCollections,
-	useSpeciesComposition,
 } from './-overview-data';
 
 const AdultIcon = iconRegistry.domains.adultSurveillance.icon;
@@ -39,23 +41,6 @@ function AdultSurveillanceOverviewRoute() {
 	const since = useMemo(
 		() => addDaysToDateString(today, -(ADULT_ACTIVITY_WINDOW_DAYS - 1)),
 		[today],
-	);
-
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-
-	const labels = useMemo<Labels>(
-		() => ({
-			trapNameById: new Map(traps.map((trap) => [trap.id, trapDisplayName(trap)] as const)),
-			methodNameById: new Map(methods.map((method) => [method.id, method.name] as const)),
-			profileNameById: new Map(
-				profiles.map((profile) => [profile.id, profile.displayName] as const),
-			),
-		}),
-		[traps, methods, profiles],
 	);
 
 	return (
@@ -78,41 +63,40 @@ function AdultSurveillanceOverviewRoute() {
 
 			<div className="grid gap-5 xl:grid-cols-12">
 				<div className="xl:col-span-7">
-					<RecentCollectionsPanel labels={labels} since={since} />
+					<RecentCollectionsPanel since={since} />
 				</div>
 				<div className="grid content-start gap-5 xl:col-span-5">
 					<SpeciesCompositionPanel today={today} />
-					<AwaitingIdentificationPanel labels={labels} since={since} />
+					<AwaitingIdentificationPanel since={since} />
 				</div>
 				<div className="xl:col-span-12">
-					<AttentionPanel labels={labels} since={since} />
+					<AttentionPanel since={since} />
 				</div>
 			</div>
 		</div>
 	);
 }
 
-interface Labels {
-	readonly trapNameById: ReadonlyMap<string, string>;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly profileNameById: ReadonlyMap<string, string>;
-}
-
-function collectionPrimaryLabel(collection: ActivityCollection, labels: Labels): string {
-	if (collection.trapId !== null) {
-		return labels.trapNameById.get(collection.trapId) ?? `Trap ${collection.trapId.slice(0, 8)}`;
+/** What a collection is called: the trap it came from, or that it had none. */
+function collectionPrimaryLabel(collection: {
+	readonly trapId: string | null;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+}): string {
+	if (collection.trapId === null) {
+		return 'Ad-hoc collection';
 	}
-	return 'Ad-hoc collection';
-}
-
-function collectionMethodLabel(collection: ActivityCollection, labels: Labels): string {
-	return labels.methodNameById.get(collection.collectionMethodId) ?? 'Unknown method';
+	return trapDisplayName({
+		id: collection.trapId,
+		trapName: collection.trapName,
+		trapCode: collection.trapCode,
+	});
 }
 
 /** A collection's date as `Wed, Aug 12` — an em dash while it is still pending. */
 function collectionDayLabel(
 	collection: {
-		readonly collectedAt: string | null;
+		readonly collectedAt: Date | null;
 		readonly collectionDate: string | null;
 	},
 	timeZone: string,
@@ -171,15 +155,9 @@ function groupByDay(
 	return [...groups.entries()].map(([day, rows]) => ({ day, rows }));
 }
 
-function RecentCollectionsPanel({
-	labels,
-	since,
-}: {
-	readonly labels: Labels;
-	readonly since: string;
-}) {
-	const { collections, isReady, isError } = useRecentCollections(since);
+function RecentCollectionsPanel({ since }: { readonly since: string }) {
 	const timeZone = useOrganizationTimeZone();
+	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
 	const groups = useMemo(() => groupByDay(collections, timeZone), [collections, timeZone]);
 
 	return (
@@ -199,7 +177,7 @@ function RecentCollectionsPanel({
 			) : (
 				<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
 					{groups.map((group) => (
-						<DayGroupBlock group={group} key={group.day} labels={labels} />
+						<DayGroupBlock group={group} key={group.day} />
 					))}
 				</div>
 			)}
@@ -207,7 +185,7 @@ function RecentCollectionsPanel({
 	);
 }
 
-function DayGroupBlock({ group, labels }: { readonly group: DayGroup; readonly labels: Labels }) {
+function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 	return (
 		<section className="p-3">
 			<div
@@ -230,15 +208,12 @@ function DayGroupBlock({ group, labels }: { readonly group: DayGroup; readonly l
 						key={collection.id}
 					>
 						<div className="grid min-w-0 flex-1">
-							<CollectionLink
-								id={collection.id}
-								label={collectionPrimaryLabel(collection, labels)}
-							/>
+							<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
 							<span className="truncate text-muted-foreground text-xs">
-								{collectionMethodLabel(collection, labels)}
-								{collection.collectedByProfileId !== null
-									? ` · ${labels.profileNameById.get(collection.collectedByProfileId) ?? 'Unknown'}`
-									: ''}
+								{collection.methodName}
+								{collection.collectedByProfileId === null
+									? ''
+									: ` · ${collection.collectedByName ?? 'Unknown'}`}
 							</span>
 						</div>
 						<CollectionFlagBadges
@@ -263,7 +238,7 @@ function SpeciesCompositionPanel({ today }: { readonly today: string }) {
 		() => addDaysToDateString(today, window === '7d' ? -6 : -29),
 		[today, window],
 	);
-	const { totals, grandTotal, isReady, isError } = useSpeciesComposition(since);
+	const { totals, grandTotal, isReady, isError } = useAdultSpeciesComposition(since);
 
 	const { top, otherTotal, otherCount, maxBar } = useMemo(() => {
 		const previewed = totals.slice(0, SPECIES_PREVIEW_COUNT);
@@ -366,15 +341,9 @@ function SpeciesBar({
 
 // --- awaiting identification -------------------------------------------------
 
-function AwaitingIdentificationPanel({
-	labels,
-	since,
-}: {
-	readonly labels: Labels;
-	readonly since: string;
-}) {
+function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 	const timeZone = useOrganizationTimeZone();
-	const { awaiting, isReady, isError } = useAwaitingIdentification(since);
+	const { awaiting, isReady, isError } = useCollectionsAwaitingIdentification(since, timeZone);
 
 	return (
 		<Panel
@@ -403,17 +372,9 @@ function AwaitingIdentificationPanel({
 					{awaiting.map((collection) => (
 						<li className="flex items-center gap-3 px-4 py-2.5" key={collection.id}>
 							<div className="grid min-w-0 flex-1">
-								<CollectionLink
-									id={collection.id}
-									label={
-										collection.trapId !== null
-											? (labels.trapNameById.get(collection.trapId) ??
-												`Trap ${collection.trapId.slice(0, 8)}`)
-											: 'Ad-hoc collection'
-									}
-								/>
+								<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
 								<span className="truncate text-muted-foreground text-xs">
-									{labels.methodNameById.get(collection.collectionMethodId) ?? 'Unknown method'}
+									{collection.methodName}
 								</span>
 							</div>
 							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
@@ -429,9 +390,9 @@ function AwaitingIdentificationPanel({
 
 // --- attention (problem collections) ----------------------------------------
 
-function AttentionPanel({ labels, since }: { readonly labels: Labels; readonly since: string }) {
+function AttentionPanel({ since }: { readonly since: string }) {
 	const timeZone = useOrganizationTimeZone();
-	const { collections, isReady, isError } = useRecentCollections(since);
+	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
 	const flagged = useMemo(
 		() => collections.filter((collection) => collection.hasProblem),
 		[collections],
@@ -460,12 +421,9 @@ function AttentionPanel({ labels, since }: { readonly labels: Labels; readonly s
 						>
 							<TrapIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 							<div className="grid min-w-0 flex-1">
-								<CollectionLink
-									id={collection.id}
-									label={collectionPrimaryLabel(collection, labels)}
-								/>
+								<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
 								<span className="truncate text-muted-foreground text-xs">
-									{collectionMethodLabel(collection, labels)}
+									{collection.methodName}
 								</span>
 							</div>
 							<span className="w-11 shrink-0 text-right text-muted-foreground text-xs tabular-nums">

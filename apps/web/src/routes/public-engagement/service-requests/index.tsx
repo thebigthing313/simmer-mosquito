@@ -1,11 +1,5 @@
+import { toDbEntityType } from '@simmer-mosquito/domain';
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import type {
-	AddressRow,
-	ContactRow,
-	ServiceRequestRow,
-	TagItemRow,
-	TagRow,
-} from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -45,7 +39,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { eq, inArray, useLiveQuery } from '@tanstack/react-db';
+import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -54,14 +48,24 @@ import {
 	FilterChip,
 	MultiSelectFilter,
 	toggle,
+	useEntityTags,
 	useRegionMembership,
 	useRegionOptions,
+	useTagOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
 import { WriteOnly } from '../../../components/write-only';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import type { Address } from '../../../hooks/queries/address-view';
+import type { ContactSummary } from '../../../hooks/queries/contact-view';
+import type { Tag } from '../../../hooks/queries/tag-view';
+import {
+	type RequestListing,
+	useOrganizationServiceRequests,
+} from '../../../hooks/queries/use-organization-service-requests';
+import { useRequestParties } from '../../../hooks/queries/use-request-parties';
+import { tag_items } from '../../../lib/collections/tag_items';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -71,7 +75,6 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	contactDisplayName,
 	formatAddressLine,
@@ -85,7 +88,7 @@ const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const requestsGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-const EMPTY_TAGS: readonly TagRow[] = [];
+const EMPTY_TAGS: readonly Tag[] = [];
 
 type StatusFilter = 'all' | 'open' | 'closed';
 
@@ -118,38 +121,11 @@ export const Route = createFileRoute('/public-engagement/service-requests/')({
 });
 
 function ServiceRequestsExplorerRoute() {
-	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const organizationId = organization?.id ?? '';
+	const { requests, isReady } = useOrganizationServiceRequests();
 
-	// service_requests is on-demand; the org-scoped query drives its subset.
-	const result = useLiveQuery(
-		{
-			gcTime: requestsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: webCollections.serviceRequests })
-					.where(({ request }) => eq(request.organizationId, organizationId))
-					.orderBy(({ request }) => request.requestDate, 'desc'),
-		},
-		[organizationId],
-	);
-	const requests = (result.data ?? []) as readonly ServiceRequestRow[];
-
-	// tags is an eager baseline collection, so the whole catalog is already local.
-	// It drives both the filter options and the per-card chip labels.
-	const tagCatalog = useLiveQuery((query) => query.from({ tag: webCollections.tags }), []);
-	const tagById = useMemo(
-		() => new Map((tagCatalog.data ?? []).map((tag) => [tag.id, tag as TagRow])),
-		[tagCatalog.data],
-	);
-	const availableTags = useMemo(
-		() =>
-			[...tagById.values()]
-				.filter((tag) => tag.isActive)
-				.sort((first, second) => first.tagName.localeCompare(second.tagName)),
-		[tagById],
-	);
+	// The catalog drives both the filter options and the per-card chip labels.
+	const { byId: tagById } = useTagOptions();
+	const availableTags = useMemo(() => [...tagById.values()], [tagById]);
 
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to.
@@ -199,7 +175,7 @@ function ServiceRequestsExplorerRoute() {
 			if (selectedTagIds.size > 0 && !taggedRequestIds.has(request.id)) {
 				return false;
 			}
-			if (!regionMembership.contains({ lng: request.lng, lat: request.lat })) {
+			if (!regionMembership.contains({ lng: request.longitude, lat: request.latitude })) {
 				return false;
 			}
 			if (query.length === 0) {
@@ -227,22 +203,19 @@ function ServiceRequestsExplorerRoute() {
 	// Resolve the related on-demand rows for the *visible page only* — a ≤25-id
 	// subset that loads reliably, instead of one join over the whole request set.
 	const visibleRequestIds = useStableIds(visible.map((request) => request.id));
-	const visibleContactIds = useStableIds(visible.map((request) => request.contactId));
-	const visibleAddressIds = useStableIds(visible.map((request) => request.addressId));
-	const contacts = useContactMap(visibleContactIds);
-	const addresses = useAddressMap(visibleAddressIds);
-	const tagsByRequestId = useTagsByEntityId(visibleRequestIds, tagById);
-	const detailsLoading = !contacts.isReady || !addresses.isReady || !tagsByRequestId.isReady;
+	const parties = useRequestParties(visible);
+	const tagsByRequestId = useEntityTags(toDbEntityType('serviceRequest'), visibleRequestIds);
+	const detailsLoading = !parties.isReady || !tagsByRequestId.isReady;
 
 	const geoJson = useMemo<GeoJSON.GeoJSON | null>(() => {
 		const features = filtered
-			.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng))
+			.filter((request) => Number.isFinite(request.latitude) && Number.isFinite(request.longitude))
 			.map(
 				(request): GeoJSON.Feature => ({
 					type: 'Feature',
 					id: request.id,
 					properties: { id: request.id },
-					geometry: { type: 'Point', coordinates: [request.lng, request.lat] },
+					geometry: { type: 'Point', coordinates: [request.longitude, request.latitude] },
 				}),
 			);
 		return features.length === 0 ? null : { type: 'FeatureCollection', features };
@@ -254,8 +227,10 @@ function ServiceRequestsExplorerRoute() {
 		() =>
 			boundsFromCoordinates(
 				filtered
-					.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng))
-					.map((request) => ({ lng: request.lng, lat: request.lat })),
+					.filter(
+						(request) => Number.isFinite(request.latitude) && Number.isFinite(request.longitude),
+					)
+					.map((request) => ({ lng: request.longitude, lat: request.latitude })),
 			),
 		[filtered],
 	);
@@ -267,7 +242,7 @@ function ServiceRequestsExplorerRoute() {
 			return;
 		}
 		map.flyTo({
-			center: [focused.lng, focused.lat],
+			center: [focused.longitude, focused.latitude],
 			zoom: Math.max(map.getZoom(), 14),
 			duration: 600,
 		});
@@ -403,7 +378,7 @@ function ServiceRequestsExplorerRoute() {
 					) : null}
 				</div>
 
-				{!result.isReady || !regionMembership.isReady ? (
+				{!isReady || !regionMembership.isReady ? (
 					<RequestsSkeleton />
 				) : filtered.length === 0 ? (
 					<RequestsEmpty hasFilter={hasFilter} />
@@ -412,8 +387,8 @@ function ServiceRequestsExplorerRoute() {
 						<ul className="min-h-0 flex-1 overflow-y-auto p-2">
 							{visible.map((request) => (
 								<RequestRowItem
-									address={addresses.byId.get(request.addressId) ?? null}
-									contact={contacts.byId.get(request.contactId) ?? null}
+									address={parties.addressById.get(request.addressId) ?? null}
+									contact={parties.contactById.get(request.contactId) ?? null}
 									detailsLoading={detailsLoading}
 									isFocused={request.id === focusedId}
 									key={request.id}
@@ -463,115 +438,16 @@ function useRequestIdsForTags(selectedTagIds: ReadonlySet<string>): ReadonlySet<
 			gcTime: requestsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: webCollections.tagItems })
-					.where(({ item }) => inArray(item.tagId, queryIds)),
+					.from({ item: tag_items })
+					.where(({ item }) => inArray(item.tag_id, queryIds))
+					.select(({ item }) => ({ entityId: item.entity_id })),
 		},
 		[key],
 	);
-	return useMemo(() => {
-		const ids = new Set<string>();
-		for (const item of (result.data ?? []) as readonly TagItemRow[]) {
-			ids.add(item.entityId);
-		}
-		return ids;
-	}, [result.data]);
-}
 
-/** Load contacts by id off the on-demand `contacts` collection, indexed by id. */
-function useContactMap(ids: readonly string[]): {
-	readonly byId: ReadonlyMap<string, ContactRow>;
-	readonly isReady: boolean;
-} {
-	const idsKey = ids.join(',');
-	const queryIds = ids.length > 0 ? [...ids] : [UNMATCHABLE_ID];
-	const result = useLiveQuery(
-		{
-			gcTime: requestsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => inArray(contact.id, queryIds)),
-		},
-		[idsKey],
-	);
-	const byId = useMemo(() => {
-		const map = new Map<string, ContactRow>();
-		for (const contact of (result.data ?? []) as readonly ContactRow[]) {
-			map.set(contact.id, contact);
-		}
-		return map;
-	}, [result.data]);
-	return { byId, isReady: result.isReady };
-}
+	const assignments = result.data;
 
-/** Load addresses by id off the on-demand `addresses` collection, indexed by id. */
-function useAddressMap(ids: readonly string[]): {
-	readonly byId: ReadonlyMap<string, AddressRow>;
-	readonly isReady: boolean;
-} {
-	const idsKey = ids.join(',');
-	const queryIds = ids.length > 0 ? [...ids] : [UNMATCHABLE_ID];
-	const result = useLiveQuery(
-		{
-			gcTime: requestsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => inArray(address.id, queryIds)),
-		},
-		[idsKey],
-	);
-	const byId = useMemo(() => {
-		const map = new Map<string, AddressRow>();
-		for (const address of (result.data ?? []) as readonly AddressRow[]) {
-			map.set(address.id, address);
-		}
-		return map;
-	}, [result.data]);
-	return { byId, isReady: result.isReady };
-}
-
-/**
- * Resolve the assigned tags for each entity id off the on-demand `tag_items`
- * collection, joined against the eager `tags` catalog. Filtering by `entityId`
- * alone is safe: ids are globally unique UUIDs, so only service-request tag
- * items match — and it sidesteps the snake_case/camelCase `entity_type` bridge.
- */
-function useTagsByEntityId(
-	entityIds: readonly string[],
-	tagById: ReadonlyMap<string, TagRow>,
-): { readonly byId: ReadonlyMap<string, readonly TagRow[]>; readonly isReady: boolean } {
-	const idsKey = entityIds.join(',');
-	const queryIds = entityIds.length > 0 ? [...entityIds] : [UNMATCHABLE_ID];
-	const result = useLiveQuery(
-		{
-			gcTime: requestsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: webCollections.tagItems })
-					.where(({ item }) => inArray(item.entityId, queryIds)),
-		},
-		[idsKey],
-	);
-	const byId = useMemo(() => {
-		const map = new Map<string, TagRow[]>();
-		for (const item of (result.data ?? []) as readonly TagItemRow[]) {
-			const tag = tagById.get(item.tagId);
-			if (tag === undefined) {
-				continue;
-			}
-			const list = map.get(item.entityId) ?? [];
-			if (!list.some((existing) => existing.id === tag.id)) {
-				list.push(tag);
-			}
-			map.set(item.entityId, list);
-		}
-		for (const list of map.values()) {
-			list.sort((first, second) => first.tagName.localeCompare(second.tagName));
-		}
-		return map;
-	}, [result.data, tagById]);
-	return { byId, isReady: result.isReady };
+	return useMemo(() => new Set(assignments.map((item) => item.entityId)), [assignments]);
 }
 
 function TagFilter({
@@ -579,7 +455,7 @@ function TagFilter({
 	selected,
 	onChange,
 }: {
-	readonly options: readonly TagRow[];
+	readonly options: readonly Tag[];
 	readonly selected: ReadonlySet<string>;
 	readonly onChange: (next: ReadonlySet<string>) => void;
 }) {
@@ -619,7 +495,7 @@ function TagFilter({
 									<CommandItem
 										key={tag.id}
 										onSelect={() => onChange(toggle(selected, tag.id))}
-										value={`${tag.tagName} ${tag.id}`}
+										value={`${tag.name} ${tag.id}`}
 									>
 										<span
 											className={cn(
@@ -643,18 +519,12 @@ function TagFilter({
 	);
 }
 
-function RemovableTagChip({
-	tag,
-	onRemove,
-}: {
-	readonly tag: TagRow;
-	readonly onRemove: () => void;
-}) {
+function RemovableTagChip({ tag, onRemove }: { readonly tag: Tag; readonly onRemove: () => void }) {
 	return (
 		<span className="inline-flex items-center gap-1">
 			<TagBadge tag={tag} />
 			<button
-				aria-label={`Remove ${tag.tagName} filter`}
+				aria-label={`Remove ${tag.name} filter`}
 				className="rounded-full p-0.5 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={onRemove}
 				type="button"
@@ -674,10 +544,10 @@ function RequestRowItem({
 	isFocused,
 	onFocus,
 }: {
-	readonly request: ServiceRequestRow;
-	readonly tags: readonly TagRow[];
-	readonly contact: ContactRow | null;
-	readonly address: AddressRow | null;
+	readonly request: RequestListing;
+	readonly tags: readonly Tag[];
+	readonly contact: ContactSummary | null;
+	readonly address: Address | null;
 	readonly detailsLoading: boolean;
 	readonly isFocused: boolean;
 	readonly onFocus: () => void;

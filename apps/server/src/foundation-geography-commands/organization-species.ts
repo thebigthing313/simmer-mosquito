@@ -76,7 +76,8 @@ async function runOrganizationSpeciesCommands(
 	);
 }
 
-async function writeOrganizationSpeciesCommand(
+/** Exported for `table-commands/organization-species.ts` — one writer, two doors. */
+export async function writeOrganizationSpeciesCommand(
 	trx: FoundationTransaction,
 	command: FoundationCommand,
 ): Promise<SafeOrganizationSpecies | null> {

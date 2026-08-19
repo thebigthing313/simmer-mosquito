@@ -1,4 +1,3 @@
-import type { HabitatRow, HabitatTypeRow, TagRow } from '@simmer-mosquito/sync';
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
@@ -25,13 +24,16 @@ import {
 	toggle,
 	useEntityTags,
 	useFlyToSelection,
+	useHabitatTypeOptions,
 	useMapBoundsParam,
 	usePagedMapResource,
 	useRegionOptions,
+	useTagOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type HabitatTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import type { Tag } from '../../../hooks/queries/tag-view';
+import { habitats } from '../../../lib/collections/habitats';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -41,7 +43,6 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { HabitatMapCard } from '../../-habitat-map-card';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -84,7 +85,26 @@ export const Route = createFileRoute('/larval-surveillance/habitats/')({
 
 const PATH = '/map/habitats';
 
-const NO_TAGS: readonly TagRow[] = [];
+const NO_TAGS: readonly Tag[] = [];
+
+/**
+ * A Habitat as this list shows one.
+ *
+ * Named here rather than reused from the row types, because the rows arrive from
+ * `/map/habitats` — a REST read that aliases its columns to camelCase — and this
+ * is exactly the six fields the list, the badges and the map fly-to need. The
+ * collection projects into the same shape (see {@link useSelectedHabitat}), so
+ * both sources satisfy one type and the page never asks which it is holding.
+ */
+interface HabitatListRow {
+	readonly id: string;
+	readonly habitatName: string | null;
+	readonly habitatTypeId: string | null;
+	readonly isActive: boolean;
+	readonly isInaccessible: boolean;
+	readonly lat: number;
+	readonly lng: number;
+}
 
 function HabitatsExplorerRoute() {
 	const {
@@ -116,15 +136,9 @@ function HabitatsExplorerRoute() {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
-	const { rows: tags } = useCollectionRows<TagRow>(webCollections.tags);
+	const { options: habitatTypes, nameById: typeNameById } = useHabitatTypeOptions();
+	const { options: tags, byId: tagById } = useTagOptions();
 	const regions = useRegionOptions();
-
-	const typeNameById = useMemo(
-		() => new Map(habitatTypes.map((type) => [type.id, type.name])),
-		[habitatTypes],
-	);
-	const tagById = useMemo(() => new Map(tags.map((tag) => [tag.id, tag])), [tags]);
 
 	const filters = useMemo<HabitatTileFilters>(
 		() => ({
@@ -152,7 +166,7 @@ function HabitatsExplorerRoute() {
 			}),
 		[bbox, filters],
 	);
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<HabitatRow>({
+	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<HabitatListRow>({
 		path: PATH,
 		rowsKey: 'habitats',
 		label: 'Habitats',
@@ -161,7 +175,7 @@ function HabitatsExplorerRoute() {
 	});
 	// Tags for the rows actually on screen, so the subset request stays small.
 	const pageHabitatIds = useMemo(() => rows.map((habitat) => habitat.id), [rows]);
-	const tagsByHabitatId = useEntityTags('habitat', pageHabitatIds);
+	const { byId: tagsByHabitatId } = useEntityTags('habitat', pageHabitatIds);
 
 	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
 	const fallbackSelected = useSelectedHabitat(selectedId, visibleById);
@@ -235,14 +249,14 @@ function HabitatsExplorerRoute() {
 						<MultiSelectFilter
 							label="Habitat type"
 							empty="No habitat types"
-							options={habitatTypes.map((type) => ({ id: type.id, label: type.name }))}
+							options={habitatTypes}
 							selected={typeIds}
 							onChange={setTypeIds}
 						/>
 						<MultiSelectFilter
 							label="Tags"
 							empty="No tags"
-							options={tags.map((tag) => ({ id: tag.id, label: tag.tagName }))}
+							options={tags}
 							selected={tagIds}
 							onChange={setTagIds}
 						/>
@@ -332,7 +346,7 @@ function ActiveFilters({
 	readonly tagIds: ReadonlySet<string>;
 	readonly regionIds: ReadonlySet<string>;
 	readonly typeNameById: ReadonlyMap<string, string>;
-	readonly tagById: ReadonlyMap<string, TagRow>;
+	readonly tagById: ReadonlyMap<string, Tag>;
 	readonly regionNameById: ReadonlyMap<string, string>;
 	readonly onClearStatus: () => void;
 	readonly onClearAccess: () => void;
@@ -375,7 +389,7 @@ function ActiveFilters({
 					<FilterChip
 						color={tag?.color ?? null}
 						key={`tag-${id}`}
-						label={tag?.tagName ?? 'Unknown tag'}
+						label={tag?.name ?? 'Unknown tag'}
 						onRemove={() => onToggleTag(id)}
 					/>
 				);
@@ -392,11 +406,11 @@ function HabitatResults({
 	tagsByHabitatId,
 	onSelect,
 }: {
-	readonly rows: readonly HabitatRow[];
+	readonly rows: readonly HabitatListRow[];
 	readonly isLoading: boolean;
 	readonly selectedId: string | null;
 	readonly typeNameById: ReadonlyMap<string, string>;
-	readonly tagsByHabitatId: ReadonlyMap<string, readonly TagRow[]>;
+	readonly tagsByHabitatId: ReadonlyMap<string, readonly Tag[]>;
 	readonly onSelect: (id: string) => void;
 }) {
 	return (
@@ -428,9 +442,9 @@ function HabitatListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly habitat: HabitatRow;
+	readonly habitat: HabitatListRow;
 	readonly typeName: string;
-	readonly tags: readonly TagRow[];
+	readonly tags: readonly Tag[];
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
@@ -452,7 +466,10 @@ function HabitatListItem({
 }
 
 /** The dot colour a habitat draws in: inaccessible, inactive, or working. */
-function habitatSwatch(habitat: HabitatRow): { readonly color: string; readonly label: string } {
+function habitatSwatch(habitat: HabitatListRow): {
+	readonly color: string;
+	readonly label: string;
+} {
 	if (habitat.isInaccessible) {
 		return { color: 'var(--danger)', label: 'Inaccessible' };
 	}
@@ -461,7 +478,7 @@ function habitatSwatch(habitat: HabitatRow): { readonly color: string; readonly 
 		: { color: 'var(--muted-foreground)', label: 'Inactive' };
 }
 
-function StatusBadge({ habitat }: { readonly habitat: HabitatRow }) {
+function StatusBadge({ habitat }: { readonly habitat: HabitatListRow }) {
 	if (habitat.isInaccessible) {
 		return (
 			<Badge tone="danger" variant="outline">
@@ -486,7 +503,7 @@ function StatusBadge({ habitat }: { readonly habitat: HabitatRow }) {
 	);
 }
 
-function _StatusDot({ habitat }: { readonly habitat: HabitatRow }) {
+function _StatusDot({ habitat }: { readonly habitat: HabitatListRow }) {
 	const color = habitat.isInaccessible
 		? 'bg-[var(--danger)]'
 		: habitat.isActive
@@ -503,14 +520,25 @@ const selectedHabitatGcTimeMs = 30_000;
 // (and empty) when nothing needs the fallback fetch.
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
-// Fallback for a selection outside the current bbox list: the habitat's non-geometry
-// fields (all this page shows) live on the synced `habitats` row, so resolve it from
-// a single-id on-demand subset instead of a `/map/habitats/{id}` fetch. Geometry
-// (geojson) isn't needed here — only the centroid lat/lng, which sync on the row.
+/**
+ * Fallback for a selection outside the current bbox list.
+ *
+ * Every field this page shows lives on the synced `habitats` row, so a selection
+ * the list does not hold is resolved from a single-id on-demand subset rather than
+ * a `/map/habitats/{id}` fetch. Geometry is not needed — only the centroid, which
+ * syncs on the row.
+ *
+ * This is where the two read paths meet, and the projection below is the seam. The
+ * list rows come from `/map/habitats`, which aliases every column to camelCase
+ * server-side; the collection speaks Postgres. Naming {@link HabitatListRow} is
+ * what lets one page hold both: the REST rows satisfy it structurally, and the
+ * query is projected into it. When `/map/*` is settled one of the two sides goes
+ * away, and this projection is the thing to delete.
+ */
 function useSelectedHabitat(
 	selectedId: string | null,
-	visibleById: ReadonlyMap<string, HabitatRow>,
-): HabitatRow | null {
+	visibleById: ReadonlyMap<string, HabitatListRow>,
+): HabitatListRow | null {
 	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
 	const result = useLiveQuery(
 		{
@@ -519,8 +547,17 @@ function useSelectedHabitat(
 			// already in the visible list or nothing is selected.
 			query: (query) =>
 				query
-					.from({ habitat: webCollections.habitats })
-					.where(({ habitat }) => eq(habitat.id, needsFetch ? selectedId : UNMATCHABLE_ID)),
+					.from({ habitat: habitats })
+					.where(({ habitat }) => eq(habitat.id, needsFetch ? selectedId : UNMATCHABLE_ID))
+					.select(({ habitat }) => ({
+						id: habitat.id,
+						habitatName: habitat.habitat_name,
+						habitatTypeId: habitat.habitat_type_id,
+						isActive: habitat.is_active,
+						isInaccessible: habitat.is_inaccessible,
+						lat: habitat.lat,
+						lng: habitat.lng,
+					})),
 		},
 		[needsFetch ? selectedId : null],
 	);
@@ -528,19 +565,21 @@ function useSelectedHabitat(
 	if (!needsFetch) {
 		return null;
 	}
-	const rows = (result.data ?? []) as readonly HabitatRow[];
-	return rows[0] ?? null;
+	return result.data[0] ?? null;
 }
 
 // --- helpers ----------------------------------------------------------------
 
-function resolveTypeName(habitat: HabitatRow, typeNameById: ReadonlyMap<string, string>): string {
+function resolveTypeName(
+	habitat: HabitatListRow,
+	typeNameById: ReadonlyMap<string, string>,
+): string {
 	if (habitat.habitatTypeId === null) {
 		return 'Unassigned type';
 	}
 	return typeNameById.get(habitat.habitatTypeId) ?? 'Unknown type';
 }
 
-function habitatName(habitat: HabitatRow): string {
+function habitatName(habitat: HabitatListRow): string {
 	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
 }

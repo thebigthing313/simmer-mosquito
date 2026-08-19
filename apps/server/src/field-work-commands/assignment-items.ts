@@ -170,7 +170,7 @@ async function runAssignmentItemCommands(
 	);
 }
 
-async function writeAssignmentItemCommand(
+export async function writeAssignmentItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
 ): Promise<SafeAssignmentItem | null> {

@@ -1,4 +1,3 @@
-import type { HabitatRow, HabitatTypeRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
@@ -6,7 +5,6 @@ import {
 	CheckCircle2Icon,
 	ComponentIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { MapCardAddress } from '../components/linked-address';
 import {
@@ -17,19 +15,17 @@ import {
 	MapCardText,
 } from '../components/map/map-card';
 import { TagBadge } from '../components/tag-badge';
-import { useMapCardTags } from '../hooks/use-map-card-tags';
-import { webCollections } from '../sync/webCollections';
-
-const gcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
+import type { Habitat } from '../hooks/queries/habitat-view';
+import { useHabitat } from '../hooks/queries/use-habitat';
+import { useRecordTags } from '../hooks/queries/use-record-tags';
 
 /**
- * The map focus card for a habitat. Resolves the habitat off the on-demand
- * collection, its type off the eager lookup, its address off the on-demand
- * collection, and its tags off the eager catalog, then renders the shared
- * {@link MapCard}. `detailTo` selects the detail route the "View details" link
- * targets; the habitats explorer under larval-surveillance passes the route its
- * own list rows link to.
+ * The map focus card for a Habitat.
+ *
+ * The Habitat arrives with its type name already joined; the address and the tags
+ * are resolved by the shared components that show them. `detailTo` selects the
+ * detail route the "View details" link targets; the habitats explorer under
+ * larval-surveillance passes the route its own list rows link to.
  */
 export function HabitatMapCard({
 	id,
@@ -40,34 +36,8 @@ export function HabitatMapCard({
 	readonly onClose: () => void;
 	readonly detailTo?: '/larval-surveillance/habitats/$id';
 }) {
-	const habitatResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: webCollections.habitats })
-					.where(({ habitat }) => eq(habitat.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const habitat = habitatResult.data as HabitatRow | undefined;
-
-	const typeId = habitat?.habitatTypeId ?? UNMATCHABLE_ID;
-	const typeResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ type: webCollections.habitatTypes })
-					.where(({ type }) => eq(type.id, typeId))
-					.findOne(),
-		},
-		[typeId],
-	);
-	const habitatType = typeResult.data as HabitatTypeRow | undefined;
-
-	const tags = useMapCardTags(id);
+	const { habitat } = useHabitat(id);
+	const tags = useRecordTags(id);
 
 	if (habitat === undefined) {
 		return (
@@ -80,9 +50,10 @@ export function HabitatMapCard({
 		);
 	}
 
-	const title = habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
+	// `name` is never empty — an unnamed Habitat reads out its coordinates, which is
+	// what the short-id fallback used to stand in for.
 	const typeName =
-		habitat.habitatTypeId === null ? 'Unassigned type' : (habitatType?.name ?? 'Unknown type');
+		habitat.typeId === null ? 'Unassigned type' : (habitat.typeName ?? 'Unknown type');
 	const description = habitat.description.trim();
 
 	return (
@@ -97,7 +68,7 @@ export function HabitatMapCard({
 			}
 			eyebrow={<MapCardEyebrow type="Habitat" />}
 			onClose={onClose}
-			title={title}
+			title={habitat.name}
 			viewDetailLink={(content) => (
 				<Link params={{ id: habitat.id }} to={detailTo}>
 					{content}
@@ -107,8 +78,12 @@ export function HabitatMapCard({
 			<div className="grid gap-3">
 				<div className="grid gap-1.5">
 					<MapCardDetail icon={ComponentIcon}>{typeName}</MapCardDetail>
-					<MapCardAddress addressId={habitat.addressId} />
-					<MapCardLocation geomType={habitat.geomType} lat={habitat.lat} lng={habitat.lng} />
+					<MapCardAddress address={habitat.address} addressId={habitat.addressId} />
+					<MapCardLocation
+						geomType={habitat.geometryKind}
+						lat={habitat.latitude}
+						lng={habitat.longitude}
+					/>
 				</div>
 				{description.length === 0 ? null : <MapCardText>{description}</MapCardText>}
 			</div>
@@ -116,7 +91,7 @@ export function HabitatMapCard({
 	);
 }
 
-function HabitatStateBadge({ habitat }: { readonly habitat: HabitatRow }) {
+function HabitatStateBadge({ habitat }: { readonly habitat: Habitat }) {
 	if (habitat.isInaccessible) {
 		return (
 			<Badge tone="danger" variant="outline">

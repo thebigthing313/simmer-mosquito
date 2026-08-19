@@ -77,7 +77,7 @@ async function runApplicationBatchCommands(
 	);
 }
 
-async function writeApplicationBatchCommand(
+export async function writeApplicationBatchCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
 ): Promise<SafeApplicationBatch | null> {

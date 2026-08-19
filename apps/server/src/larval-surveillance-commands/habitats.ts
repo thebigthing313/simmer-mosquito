@@ -212,7 +212,12 @@ async function runHabitatCommands(
 	);
 }
 
-async function writeHabitatCommand(
+/**
+ * Exported for `table-commands/habitats.ts`, which reaches the same ten commands
+ * through `/commands/habitats` and needs the writer unchanged — only the route
+ * and how the command is chosen differ.
+ */
+export async function writeHabitatCommand(
 	trx: LarvalSurveillanceTransaction,
 	command: LarvalSurveillanceCommand,
 ): Promise<SafeHabitat | null> {

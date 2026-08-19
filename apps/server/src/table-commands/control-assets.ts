@@ -1,0 +1,142 @@
+/**
+ * The `vehicles` and `equipment` tables, as commands.
+ *
+ * Ten commands. The old surface was `POST /control-assets/:kind` with the same
+ * `requireKind` middleware and `switch (kind)` builders as the method catalogs —
+ * see `control-methods.ts` for why that indirection is gone.
+ *
+ * Written out per table rather than through a factory, unlike the four method
+ * catalogs: these two only look alike. A vehicle has a name, equipment has a
+ * name and a serial number, the name columns are spelled differently
+ * (`vehicle_name`, `equipment_name`), and each carries its own
+ * label-change acknowledgement. Sharing them would mean a parameter for every
+ * one of those, which is a longer way of writing the same two maps.
+ *
+ * ## Field names
+ *
+ * Postgres column names: `vehicle_name`, `equipment_name`, `serial_number`,
+ * `metadata`.
+ */
+
+import {
+	createEquipmentCommand,
+	createVehicleCommand,
+	deactivateEquipmentCommand,
+	deactivateVehicleCommand,
+	deleteEquipmentCommand,
+	deleteVehicleCommand,
+	reactivateEquipmentCommand,
+	reactivateVehicleCommand,
+	updateEquipmentCommand,
+	updateVehicleCommand,
+} from '@simmer-mosquito/domain';
+import { readNullableText, readText } from '../command-payload.js';
+import type { CommandDb, RunCommandsConfig } from '../command-write.js';
+import {
+	type ControlAssetCommand,
+	toControlAssetResponse,
+	writeControlAssetCommand,
+} from '../control-asset-commands.js';
+import type { TableCommands } from './dispatch.js';
+import { acknowledged } from './shared.js';
+
+type AssetResponse = NonNullable<ReturnType<typeof toControlAssetResponse>>;
+
+/** Both tables answer through the same writer, so both share its `run`. */
+function assetRun(db: CommandDb): RunCommandsConfig<ControlAssetCommand, AssetResponse> {
+	return {
+		db,
+		write: async (trx, command) =>
+			toControlAssetResponse(await writeControlAssetCommand(trx, command)),
+		notFound: 'control_asset_not_found',
+		key: 'asset',
+	};
+}
+
+export function vehicleTableCommands(
+	db: CommandDb,
+): TableCommands<ControlAssetCommand, AssetResponse> {
+	return {
+		table: 'vehicles',
+		run: assetRun(db),
+		intents: {
+			'controlOperations.createVehicle': ({ payload, agency, id }) =>
+				createVehicleCommand({
+					...agency,
+					vehicleId: id,
+					vehicleName: readText(payload.vehicle_name) ?? '',
+					metadata: payload.metadata ?? null,
+				}),
+
+			'controlOperations.updateVehicle': ({ payload, agency, id }) =>
+				updateVehicleCommand({
+					...agency,
+					vehicleId: id,
+					...('vehicle_name' in payload
+						? { vehicleName: readText(payload.vehicle_name) ?? '' }
+						: {}),
+					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					acknowledgedHistoricalVehicleLabelChange: acknowledged(
+						payload.acknowledgedHistoricalVehicleLabelChange,
+					),
+				}),
+
+			// `is_active` is a column a client can watch change; which way it moved is
+			// the command's to say. The old PATCH read the boolean for its direction.
+			'controlOperations.deactivateVehicle': ({ agency, id }) =>
+				deactivateVehicleCommand({ ...agency, vehicleId: id }),
+
+			'controlOperations.reactivateVehicle': ({ agency, id }) =>
+				reactivateVehicleCommand({ ...agency, vehicleId: id }),
+
+			'controlOperations.deleteVehicle': ({ agency, id }) =>
+				deleteVehicleCommand({ ...agency, vehicleId: id }),
+		},
+	};
+}
+
+export function equipmentTableCommands(
+	db: CommandDb,
+): TableCommands<ControlAssetCommand, AssetResponse> {
+	return {
+		table: 'equipment',
+		run: assetRun(db),
+		intents: {
+			'controlOperations.createEquipment': ({ payload, agency, id }) =>
+				createEquipmentCommand({
+					...agency,
+					equipmentId: id,
+					equipmentName: readText(payload.equipment_name) ?? '',
+					serialNumber: readNullableText(payload.serial_number),
+					metadata: payload.metadata ?? null,
+				}),
+
+			'controlOperations.updateEquipment': ({ payload, agency, id }) =>
+				updateEquipmentCommand({
+					...agency,
+					equipmentId: id,
+					...('equipment_name' in payload
+						? { equipmentName: readText(payload.equipment_name) ?? '' }
+						: {}),
+					// Present-and-null clears the serial number; absent leaves it. A piece
+					// of equipment can genuinely lose the label it was tracked by.
+					...('serial_number' in payload
+						? { serialNumber: readNullableText(payload.serial_number) }
+						: {}),
+					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					acknowledgedHistoricalEquipmentLabelChange: acknowledged(
+						payload.acknowledgedHistoricalEquipmentLabelChange,
+					),
+				}),
+
+			'controlOperations.deactivateEquipment': ({ agency, id }) =>
+				deactivateEquipmentCommand({ ...agency, equipmentId: id }),
+
+			'controlOperations.reactivateEquipment': ({ agency, id }) =>
+				reactivateEquipmentCommand({ ...agency, equipmentId: id }),
+
+			'controlOperations.deleteEquipment': ({ agency, id }) =>
+				deleteEquipmentCommand({ ...agency, equipmentId: id }),
+		},
+	};
+}

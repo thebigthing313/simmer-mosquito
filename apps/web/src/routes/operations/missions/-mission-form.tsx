@@ -1,4 +1,4 @@
-import type { ControlType, NotificationTypeRow, ProfileRow } from '@simmer-mosquito/sync';
+import type { ControlType } from '@simmer-mosquito/sync';
 import {
 	type RecordFormHeader,
 	RecordFormPage,
@@ -8,11 +8,11 @@ import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/com
 import { useMemo, useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { domainValidator } from '../../../forms/domain-validation';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useNotificationTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { localTimeAsInstant, localTimeOfDay, todayInTimeZone } from '../../../lib/local-date';
-import { webCollections } from '../../../sync/webCollections';
 import { FormSection } from '../../control-operations/-control-form-parts';
 import { ControlTypeToggle } from '../-control-type-toggle';
 import { useMethodsForControlType } from '../-operations-data';
@@ -108,8 +108,8 @@ export function defaultMissionFormValues(timeZone: string): MissionFormValues {
 export function missionFormValuesFrom(
 	mission: {
 		readonly controlType: ControlType;
-		readonly scheduledStartAt: string;
-		readonly scheduledEndAt: string | null;
+		readonly scheduledStartAt: Date;
+		readonly scheduledEndAt: Date | null;
 		readonly rainDate: string | null;
 		readonly missionName: string | null;
 		readonly plannedMethodId: string | null;
@@ -131,11 +131,11 @@ export function missionFormValuesFrom(
 
 /** The stored instants back into the date/time trio the schedule fields hold. */
 function scheduleFieldsFrom(
-	scheduledStartAt: string,
-	scheduledEndAt: string | null,
+	scheduledStartAt: Date,
+	scheduledEndAt: Date | null,
 	timeZone: string,
 ): Pick<MissionFormValues, 'startDate' | 'startTime' | 'endTime'> {
-	const start = new Date(scheduledStartAt);
+	const start = scheduledStartAt;
 	const startTime = localTimeOfDay(scheduledStartAt, timeZone);
 
 	return {
@@ -372,10 +372,8 @@ export function MissionFormPage({
 /** The three catalogs the form picks from, each with its own "unset" first. */
 function useMissionFormOptions(controlType: ControlType) {
 	const { methods } = useMethodsForControlType(controlType);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: notificationTypes } = useCollectionRows<NotificationTypeRow>(
-		webCollections.notificationTypes,
-	);
+	const profiles = useProfileRoster();
+	const notificationTypes = useNotificationTypeRoster();
 
 	return {
 		methods: useMemo(

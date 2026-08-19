@@ -1,9 +1,7 @@
-import type { ControlMethodRow, OrganizationRow } from '@simmer-mosquito/sync';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import type { Collection } from '@tanstack/react-db';
 import { useState } from 'react';
 import {
 	CatalogActionsHead,
@@ -14,34 +12,35 @@ import {
 	CatalogRecordDialog,
 	CatalogRowActions,
 	CatalogSection,
-	commitCatalogWrite,
-	toggleCatalogLifecycle,
+	catalogFields,
+	catalogFormValues,
+	commitCatalogSave,
+	toggleCatalogActive,
 	useCatalogDialogOpen,
 	useCatalogSearch,
 	useResetOnOpen,
 } from '../../components/catalog';
 import { CustomFieldsCell } from '../../components/custom-fields-cell';
-import { useActiveNamedCollectionRows } from '../../hooks/use-active-named-collection-rows';
-import {
-	controlMethodFormValues,
-	createControlMethodFromValues,
-	updateControlMethodFromValues,
-} from '../my-organization/-components/helpers';
-import type { ControlMethodCollectionKey } from '../my-organization/-components/types';
+import type { CatalogMutations } from '../../hooks/mutations/use-catalog-mutations';
+import type { CatalogRecords, ControlMethodRecord } from '../../hooks/queries/use-catalog-records';
 
-// Chemical, source reduction, and biocontrol each manage their own method catalog.
-// The catalogs are the same shape (name + lifecycle + optional custom fields), so
-// the three routes render this page with their own copy and collection key.
+// Chemical, source reduction, biocontrol and outreach each manage their own method
+// catalog. The catalogs are the same shape (name + lifecycle + optional custom
+// fields), so the four routes render this page with their own copy — and with the
+// read and the write hooks for their own table, because a hook cannot be chosen
+// from a prop.
 
 const AddIcon = iconRegistry.actions.add.icon;
 
-function matchesMethod(row: ControlMethodRow, query: string): boolean {
+function matchesMethod(row: ControlMethodRecord, query: string): boolean {
 	return row.name.toLowerCase().includes(query);
 }
 
 export interface ControlMethodsPageProps {
-	readonly collectionKey: ControlMethodCollectionKey;
-	readonly collection: Collection<ControlMethodRow, string | number>;
+	/** The catalog's two halves — see `hooks/queries/use-catalog-records.ts`. */
+	readonly records: CatalogRecords<ControlMethodRecord>;
+	/** The catalog's five commands — see `hooks/mutations/use-catalog-mutations.ts`. */
+	readonly mutations: CatalogMutations;
 	/** Owner/admin: adding a method, and deactivating or reactivating one. */
 	readonly canManage: boolean;
 	/**
@@ -54,7 +53,6 @@ export interface ControlMethodsPageProps {
 	 * rename a method saw no Edit control at all.
 	 */
 	readonly canEditMethods: boolean;
-	readonly organization: OrganizationRow | null;
 	/** e.g. "Application methods" */
 	readonly title: string;
 	readonly description: string;
@@ -67,11 +65,10 @@ export interface ControlMethodsPageProps {
 }
 
 export function ControlMethodsPage({
-	collectionKey,
-	collection,
+	records,
+	mutations,
 	canManage,
 	canEditMethods,
-	organization,
 	title,
 	description,
 	singularLabel,
@@ -80,12 +77,10 @@ export function ControlMethodsPage({
 	emptyDescription,
 	icon: MethodIcon,
 }: ControlMethodsPageProps) {
-	const { activeRows, inactiveRows } = useActiveNamedCollectionRows<ControlMethodRow>(collection);
-	const search = useCatalogSearch(activeRows, inactiveRows, matchesMethod);
+	const search = useCatalogSearch(records.activeRecords, records.inactiveRecords, matchesMethod);
 
 	const dialogProps = {
-		collectionKey,
-		organization,
+		mutations,
 		singularLabel,
 		namePlaceholder,
 		customFieldsDescription,
@@ -159,8 +154,7 @@ export function ControlMethodsPage({
 }
 
 interface MethodDialogContext {
-	readonly collectionKey: ControlMethodCollectionKey;
-	readonly organization: OrganizationRow | null;
+	readonly mutations: CatalogMutations;
 	readonly singularLabel: string;
 	readonly namePlaceholder: string;
 	readonly customFieldsDescription: string;
@@ -178,7 +172,7 @@ function ControlMethodSection({
 	readonly canEditMethods: boolean;
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
-	readonly rows: readonly ControlMethodRow[];
+	readonly rows: readonly ControlMethodRecord[];
 	readonly title: string;
 	readonly tone: 'active' | 'inactive';
 }) {
@@ -216,8 +210,9 @@ function ControlMethodRowActions({
 	canManage,
 	method,
 	...dialogContext
-}: MethodDialogContext & { readonly canManage: boolean; readonly method: ControlMethodRow }) {
+}: MethodDialogContext & { readonly canManage: boolean; readonly method: ControlMethodRecord }) {
 	const [editOpen, setEditOpen] = useState(false);
+	const { mutations } = dialogContext;
 
 	return (
 		<>
@@ -235,7 +230,14 @@ function ControlMethodRowActions({
 				name={method.name}
 				onEdit={() => setEditOpen(true)}
 				onToggle={
-					canManage ? () => toggleMethodActive(dialogContext.collectionKey, method) : undefined
+					canManage
+						? () =>
+								toggleCatalogActive({
+									apply: (isActive) => mutations.setActive(method.id, isActive),
+									isActive: method.isActive,
+									name: method.name,
+								})
+						: undefined
 				}
 			/>
 			<ControlMethodDialog
@@ -248,33 +250,17 @@ function ControlMethodRowActions({
 	);
 }
 
-function toggleMethodActive(
-	collectionKey: ControlMethodCollectionKey,
-	method: ControlMethodRow,
-): void {
-	toggleCatalogLifecycle({
-		apply: (isActive) =>
-			updateControlMethodFromValues(collectionKey, method, {
-				...controlMethodFormValues(method),
-				isActive,
-			}),
-		isActive: method.isActive,
-		name: method.name,
-	});
-}
-
 function ControlMethodDialog({
-	collectionKey,
 	customFieldsDescription,
 	method,
+	mutations,
 	namePlaceholder,
 	onOpenChange,
 	open: controlledOpen,
-	organization,
 	singularLabel,
 	trigger,
 }: MethodDialogContext & {
-	readonly method?: ControlMethodRow | undefined;
+	readonly method?: ControlMethodRecord | undefined;
 	/** Controlled open handler — pair with `open` when there is no `trigger`. */
 	readonly onOpenChange?: ((open: boolean) => void) | undefined;
 	readonly open?: boolean | undefined;
@@ -285,33 +271,32 @@ function ControlMethodDialog({
 	const isEditing = method !== undefined;
 
 	const form = useAppForm({
-		defaultValues: controlMethodFormValues(method),
+		defaultValues: catalogFormValues(method),
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			commitCatalogWrite({
+			commitCatalogSave({
 				failureMessage: isEditing
 					? `Unable to save ${method.name}.`
 					: `Unable to create ${singularLabel}.`,
 				onWritten: () => setOpen(false),
-				write: () =>
+				save: () =>
 					isEditing
-						? updateControlMethodFromValues(collectionKey, method, value)
-						: createControlMethodFromValues(collectionKey, organization, value),
+						? mutations.save(method.id, catalogFields(value), catalogFormRecord(method))
+						: mutations.create(catalogFields(value)).then(() => undefined),
 			});
 		},
 	});
 
-	useResetOnOpen(open, method, () => form.reset(controlMethodFormValues(method)));
+	useResetOnOpen(open, method, () => form.reset(catalogFormValues(method)));
 
 	return (
 		<form.AppForm>
 			<CatalogRecordDialog
 				actions={
 					<form.FormActions>
-						<form.SubmitButton disabled={organization === null} />
+						<form.SubmitButton disabled={!mutations.canWrite} />
 						<CatalogDialogCancel />
 					</form.FormActions>
 				}
@@ -343,4 +328,15 @@ function ControlMethodDialog({
 			</CatalogRecordDialog>
 		</form.AppForm>
 	);
+}
+
+/**
+ * The record as the save compares against.
+ *
+ * `save` decides which commands it means from what moved, so it needs the record
+ * in the same vocabulary the form produces — which is what `catalogFields` of the
+ * record's own values is.
+ */
+function catalogFormRecord(method: ControlMethodRecord) {
+	return catalogFields(catalogFormValues(method));
 }

@@ -1,4 +1,4 @@
-import type { WeatherSummaryRow } from '@simmer-mosquito/sync';
+import type { WeatherSummaryListing } from '../../../hooks/queries/use-weather-summaries';
 
 export function weatherSourceTypeLabel(sourceType: string): string {
 	switch (sourceType) {
@@ -12,7 +12,7 @@ export function weatherSourceTypeLabel(sourceType: string): string {
 }
 
 /** e.g. "Mar 3 – Mar 9, 2026" for a summary's reporting period. */
-export function summaryPeriodLabel(summary: WeatherSummaryRow): string {
+export function summaryPeriodLabel(summary: WeatherSummaryListing): string {
 	const start = formatDate(summary.startDate);
 	const end = formatDate(summary.endDate);
 	if (start === end) {

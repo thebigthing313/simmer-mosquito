@@ -19,10 +19,9 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, toArray, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, Suspense, useMemo } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { getServerUrl } from '../../../auth';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -35,13 +34,28 @@ import {
 	larvaePerDip,
 	WetnessBadge,
 } from '../../../components/larval-display';
-import { LinkedAddressValue } from '../../../components/linked-address';
+import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
+import {
+	useBiocontrolMethodRoster,
+	useHabitatTypeRoster,
+	useOutreachMethodRoster,
+	useSourceReductionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
+import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
+import { useInspectionSamples } from '../../../hooks/queries/use-inspection-samples';
+import {
+	type LinkedControlAction,
+	useLinkedControlActions,
+} from '../../../hooks/queries/use-linked-control-actions';
+import { useProfileNames } from '../../../hooks/queries/use-profile-names';
+import { useSpeciesNames } from '../../../hooks/queries/use-species-names';
+import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
-import { webCollections } from '../../../sync/webCollections';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
 	component: RouteComponent,
@@ -58,11 +72,6 @@ const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-
-// The inspection samples/species/linked-action subsets stream from on-demand
-// collections; keep them warm briefly after unmount so returning reuses them.
-const samplesGcTimeMs = 30_000;
-const linkedActionsGcTimeMs = 30_000;
 
 /**
  * The `/map/inspections/:id` display projection: the owned-geometry columns plus
@@ -160,6 +169,7 @@ function InspectionTopBar({ habitatId }: { readonly habitatId: string | null }) 
 function InspectionDetailContent({ inspection }: { readonly inspection: InspectionDetailRow }) {
 	// Surface the inspection date in the breadcrumb trail in place of its uuid.
 	useBreadcrumbLabel(inspection.id, breadcrumbLabel(inspection));
+	const mutations = useInspectionMutations();
 
 	return (
 		<>
@@ -172,7 +182,7 @@ function InspectionDetailContent({ inspection }: { readonly inspection: Inspecti
 					<DangerZoneCard
 						name={breadcrumbLabel(inspection)}
 						noun="inspection"
-						onDelete={() => webCollections.inspections.delete(inspection.id)}
+						onDelete={() => mutations.remove(inspection.id)}
 						recordId={inspection.id}
 						recordType="inspection"
 						returnTo="/larval-surveillance/inspections"
@@ -400,7 +410,7 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 						</Suspense>
 					</DetailRow>
 					<DetailRow label="Address">
-						<LinkedAddressValue addressId={inspection.addressId} />
+						<LinkedAddressValueById addressId={inspection.addressId} />
 					</DetailRow>
 					<DetailRow label="Inspector">
 						{inspection.inspectedByName ?? (
@@ -425,42 +435,7 @@ function InspectionSamplesCard({
 	readonly inspectionId: string;
 	readonly isWet: boolean;
 }) {
-	// Nested includes: samples for this inspection, each with its species
-	// (correlated on sample_id). The correlated eq()s drive Electric on-demand
-	// subset loading. Uses non-suspense useLiveQuery gated on status, NOT
-	// useLiveSuspenseQuery, to avoid the post-unmount suspense hang on on-demand
-	// collections (same rationale as the habitat history card).
-	const result = useLiveQuery(
-		{
-			gcTime: samplesGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sample: webCollections.samples })
-					.where(({ sample }) => eq(sample.inspectionId, inspectionId))
-					.orderBy(({ sample }) => sample.createdAt, 'asc')
-					.select(({ sample }) => ({
-						id: sample.id,
-						displayName: sample.displayName,
-						isZeroLarvae: sample.isZeroLarvae,
-						hasNonMosquito: sample.hasNonMosquito,
-						unidentifiableReason: sample.unidentifiableReason,
-						species: toArray(
-							query
-								.from({ sampleSpecies: webCollections.sampleSpecies })
-								.where(({ sampleSpecies }) => eq(sampleSpecies.sampleId, sample.id))
-								.select(({ sampleSpecies }) => ({
-									id: sampleSpecies.id,
-									speciesId: sampleSpecies.speciesId,
-									larvaeCount: sampleSpecies.larvaeCount,
-								})),
-						),
-					})),
-		},
-		[inspectionId],
-	);
-
-	const samples = (result.data ?? []) as unknown as readonly SampleEntry[];
-	const isReady = result.isReady;
+	const { samples, isReady, isError } = useInspectionSamples(inspectionId);
 
 	return (
 		<Card variant="surface">
@@ -483,7 +458,7 @@ function InspectionSamplesCard({
 				</div>
 			</CardHeader>
 			<CardContent padding="compact">
-				{result.isError ? (
+				{isError ? (
 					<SamplesEmpty
 						description="Sample records could not be loaded. Try again shortly."
 						title="Samples Unavailable"
@@ -566,48 +541,8 @@ function SpeciesChip({ entry }: { readonly entry: SampleSpeciesEntry }) {
 
 type ActionTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
-interface LinkedActionBase {
-	readonly id: string;
-	readonly date: string;
-	readonly actorProfileId: string | null;
-}
-
-// A normalized view over the five control-operations tables that carry an
-// `inspection_id`, so an inspection can surface every intervention that cites it —
-// what was done (or requested) as a follow-up to what the inspection found.
-type LinkedAction =
-	| (LinkedActionBase & {
-			readonly kind: 'application';
-			readonly insecticideId: string;
-			readonly amount: number;
-			readonly unitId: string;
-	  })
-	| (LinkedActionBase & {
-			readonly kind: 'sourceReduction';
-			readonly methodId: string;
-			readonly amount: number;
-			readonly unitId: string;
-	  })
-	| (LinkedActionBase & {
-			readonly kind: 'outreachAction';
-			readonly methodId: string;
-			readonly reach: number;
-	  })
-	| (LinkedActionBase & {
-			readonly kind: 'biocontrolAction';
-			readonly methodId: string;
-			readonly amount: number;
-			readonly unitId: string;
-	  })
-	| (LinkedActionBase & {
-			readonly kind: 'requestedControlAction';
-			readonly controlType: ControlType;
-			readonly summary: string | null;
-			readonly resolvedAt: string | null;
-	  });
-
 const actionKindMeta: Record<
-	LinkedAction['kind'],
+	LinkedControlAction['kind'],
 	{ readonly label: string; readonly tone: ActionTone }
 > = {
 	application: { label: 'Application', tone: 'info' },
@@ -669,7 +604,7 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 	);
 }
 
-function LinkedActionRow({ action }: { readonly action: LinkedAction }) {
+function LinkedActionRow({ action }: { readonly action: LinkedControlAction }) {
 	const meta = actionKindMeta[action.kind];
 	return (
 		<li className="grid gap-1.5 rounded-md border border-border/40 bg-background/60 px-3 py-2.5">
@@ -693,7 +628,7 @@ function LinkedActionRow({ action }: { readonly action: LinkedAction }) {
 	);
 }
 
-function LinkedActionSummary({ action }: { readonly action: LinkedAction }) {
+function LinkedActionSummary({ action }: { readonly action: LinkedControlAction }) {
 	switch (action.kind) {
 		case 'application':
 			return (
@@ -705,24 +640,20 @@ function LinkedActionSummary({ action }: { readonly action: LinkedAction }) {
 		case 'sourceReduction':
 			return (
 				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<ControlMethodName
-						collection={webCollections.sourceReductionMethods}
-						id={action.methodId}
-					/>{' '}
-					· <UnitAmount amount={action.amount} unitId={action.unitId} /> eliminated
+					<SourceReductionMethodName id={action.methodId} /> ·{' '}
+					<UnitAmount amount={action.amount} unitId={action.unitId} /> eliminated
 				</Suspense>
 			);
 		case 'outreachAction':
 			return (
 				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<ControlMethodName collection={webCollections.outreachMethods} id={action.methodId} /> ·{' '}
-					{action.reach.toLocaleString()} reached
+					<OutreachMethodName id={action.methodId} /> · {action.reach.toLocaleString()} reached
 				</Suspense>
 			);
 		case 'biocontrolAction':
 			return (
 				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<ControlMethodName collection={webCollections.biocontrolMethods} id={action.methodId} /> ·{' '}
+					<BiocontrolMethodName id={action.methodId} /> ·{' '}
 					<UnitAmount amount={action.amount} unitId={action.unitId} /> released
 				</Suspense>
 			);
@@ -746,7 +677,7 @@ function LinkedActionSummary({ action }: { readonly action: LinkedAction }) {
 	}
 }
 
-function LinkedActionActor({ action }: { readonly action: LinkedAction }) {
+function LinkedActionActor({ action }: { readonly action: LinkedControlAction }) {
 	const label =
 		action.kind === 'requestedControlAction'
 			? 'Requested by'
@@ -767,168 +698,33 @@ function LinkedActionActor({ action }: { readonly action: LinkedAction }) {
 	);
 }
 
-function useLinkedControlActions(inspectionId: string): {
-	readonly actions: readonly LinkedAction[];
-	readonly isReady: boolean;
-	readonly isError: boolean;
-} {
-	const applications = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ application: webCollections.applications })
-					.where(({ application }) => eq(application.inspectionId, inspectionId))
-					.select(({ application }) => ({
-						id: application.id,
-						date: application.applicationDate,
-						actorProfileId: application.applicatorProfileId,
-						insecticideId: application.insecticideId,
-						amount: application.amountApplied,
-						unitId: application.applicationUnitId,
-					})),
-		},
-		[inspectionId],
-	);
-	const sourceReductions = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sourceReduction: webCollections.sourceReductions })
-					.where(({ sourceReduction }) => eq(sourceReduction.inspectionId, inspectionId))
-					.select(({ sourceReduction }) => ({
-						id: sourceReduction.id,
-						date: sourceReduction.sourceReductionDate,
-						actorProfileId: sourceReduction.technicianProfileId,
-						methodId: sourceReduction.sourceReductionMethodId,
-						amount: sourceReduction.sourcesEliminatedAmount,
-						unitId: sourceReduction.sourcesEliminatedUnitId,
-					})),
-		},
-		[inspectionId],
-	);
-	const outreach = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ outreachAction: webCollections.outreachActions })
-					.where(({ outreachAction }) => eq(outreachAction.inspectionId, inspectionId))
-					.select(({ outreachAction }) => ({
-						id: outreachAction.id,
-						date: outreachAction.outreachDate,
-						actorProfileId: outreachAction.technicianProfileId,
-						methodId: outreachAction.outreachMethodId,
-						reach: outreachAction.reach,
-					})),
-		},
-		[inspectionId],
-	);
-	const biocontrol = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ biocontrolAction: webCollections.biocontrolActions })
-					.where(({ biocontrolAction }) => eq(biocontrolAction.inspectionId, inspectionId))
-					.select(({ biocontrolAction }) => ({
-						id: biocontrolAction.id,
-						date: biocontrolAction.biocontrolDate,
-						actorProfileId: biocontrolAction.technicianProfileId,
-						methodId: biocontrolAction.biocontrolMethodId,
-						amount: biocontrolAction.amountReleased,
-						unitId: biocontrolAction.releaseUnitId,
-					})),
-		},
-		[inspectionId],
-	);
-	const requested = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ requestedControlAction: webCollections.requestedControlActions })
-					.where(({ requestedControlAction }) =>
-						eq(requestedControlAction.inspectionId, inspectionId),
-					)
-					.select(({ requestedControlAction }) => ({
-						id: requestedControlAction.id,
-						date: requestedControlAction.requestedAt,
-						actorProfileId: requestedControlAction.requestedByProfileId,
-						controlType: requestedControlAction.controlType,
-						summary: requestedControlAction.summary,
-						resolvedAt: requestedControlAction.resolvedAt,
-					})),
-		},
-		[inspectionId],
-	);
-
-	const results = [applications, sourceReductions, outreach, biocontrol, requested];
-	const isReady = results.every((result) => result.isReady);
-	const isError = results.some((result) => result.isError);
-
-	const actions = useMemo<readonly LinkedAction[]>(() => {
-		const list: LinkedAction[] = [];
-		for (const row of applications.data ?? []) {
-			list.push({ kind: 'application', ...row } as LinkedAction);
-		}
-		for (const row of sourceReductions.data ?? []) {
-			list.push({ kind: 'sourceReduction', ...row } as LinkedAction);
-		}
-		for (const row of outreach.data ?? []) {
-			list.push({ kind: 'outreachAction', ...row } as LinkedAction);
-		}
-		for (const row of biocontrol.data ?? []) {
-			list.push({ kind: 'biocontrolAction', ...row } as LinkedAction);
-		}
-		for (const row of requested.data ?? []) {
-			list.push({ kind: 'requestedControlAction', ...row } as LinkedAction);
-		}
-		// Newest first; date strings (YYYY-MM-DD or ISO) sort lexicographically.
-		list.sort((first, second) => second.date.localeCompare(first.date));
-		return list;
-	}, [applications.data, sourceReductions.data, outreach.data, biocontrol.data, requested.data]);
-
-	return { actions, isReady, isError };
-}
-
 // insecticides, control methods, units, and profiles are eager baseline
 // collections, so suspense is safe — unlike the on-demand action rows they label.
 function InsecticideName({ id }: { readonly id: string }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ insecticide: webCollections.insecticides })
-				.where(({ insecticide }) => eq(insecticide.id, id))
-				.findOne(),
-		[id],
-	);
-	return <>{result.data?.tradeName ?? 'Unknown insecticide'}</>;
+	const match = useInsecticideRecords().find((product) => product.id === id);
+	return <>{match?.tradeName ?? 'Unknown insecticide'}</>;
 }
 
-function ControlMethodName({
-	collection,
-	id,
-}: {
-	readonly collection: (typeof webCollections)['sourceReductionMethods'];
-	readonly id: string;
-}) {
-	const result = useLiveSuspenseQuery((query) => query.from({ method: collection }), [collection]);
-	const match = result.data.find((method) => method.id === id);
-	return <>{match?.name ?? 'Unknown method'}</>;
+// Three components rather than one taking a collection: which catalog names a
+// method is fixed by the kind of action, and a hook cannot be chosen by a prop.
+function SourceReductionMethodName({ id }: { readonly id: string }) {
+	return <>{methodName(useSourceReductionMethodRoster(), id)}</>;
+}
+
+function OutreachMethodName({ id }: { readonly id: string }) {
+	return <>{methodName(useOutreachMethodRoster(), id)}</>;
+}
+
+function BiocontrolMethodName({ id }: { readonly id: string }) {
+	return <>{methodName(useBiocontrolMethodRoster(), id)}</>;
+}
+
+function methodName(roster: readonly { readonly id: string; readonly name: string }[], id: string) {
+	return roster.find((method) => method.id === id)?.name ?? 'Unknown method';
 }
 
 function UnitAmount({ amount, unitId }: { readonly amount: number; readonly unitId: string }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ unit: webCollections.units })
-				.where(({ unit }) => eq(unit.id, unitId))
-				.findOne(),
-		[unitId],
-	);
-	const abbreviation = result.data?.abbreviation ?? '';
+	const abbreviation = useUnitLabels().byId.get(unitId)?.abbreviation ?? '';
 	return (
 		<span className="tabular-nums">
 			{formatAmount(amount)}
@@ -937,16 +733,9 @@ function UnitAmount({ amount, unitId }: { readonly amount: number; readonly unit
 	);
 }
 
+/** See the twin in `-habitat-detail.tsx`: one roster read, not one per name. */
 function ProfileName({ profileId }: { readonly profileId: string }) {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ profile: webCollections.profiles })
-				.where(({ profile }) => eq(profile.id, profileId))
-				.findOne(),
-		[profileId],
-	);
-	return <>{result.data?.displayName ?? 'Unknown'}</>;
+	return <>{useProfileNames().get(profileId) ?? 'Unknown'}</>;
 }
 
 function LinkedActionsEmpty({
@@ -979,27 +768,17 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 }
 
 function HabitatTypeName({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
-	const result = useLiveSuspenseQuery(
-		(query) => query.from({ habitatType: webCollections.habitatTypes }),
-		[],
-	);
+	const habitatTypes = useHabitatTypeRoster();
 	if (habitatTypeId === null) {
 		return <span className="text-muted-foreground">Unassigned type</span>;
 	}
-	const match = result.data.find((habitatType) => habitatType.id === habitatTypeId);
+	const match = habitatTypes.find((habitatType) => habitatType.id === habitatTypeId);
 	return <>{match?.name ?? 'Unknown type'}</>;
 }
 
+/** One id through the shared taxonomy read — the catalog is eager and small. */
 function useSpeciesName(speciesId: string): string {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ species: webCollections.species })
-				.where(({ species }) => eq(species.id, speciesId))
-				.findOne(),
-		[speciesId],
-	);
-	return result.data?.displayName ?? 'Unknown species';
+	return useSpeciesNames().get(speciesId) ?? 'Unknown species';
 }
 
 // --- data hook --------------------------------------------------------------

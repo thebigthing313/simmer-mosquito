@@ -5,6 +5,14 @@ file when implementing or reviewing command builders, command handlers, sync
 mutation adapters, or offline/mobile replay behavior. Load the specific
 `docs/*-domain.md` file only for domain-specific vocabulary and exceptions.
 
+**Every agency write to Postgres is a command.** One model covers every
+operation: *this is what I intended to do*, and the server decides whether to do
+it. A client never states which tables a write touches, in what order, or
+whether a second system is involved. Identity writes — profiles, memberships,
+the agency's own details — were the exception until ADR 0013; they are being
+folded in, and until that lands `apps/server/src/roles.ts` holds the ones still
+outside.
+
 ## Command Shape
 
 - Domain commands represent user intent, not database patches.
@@ -62,6 +70,30 @@ still name what stopped it.
   records need labels, but they should not be offered for new selection.
 - Detailed Electric/TanStack DB shape policy belongs in `docs/sync.md` unless a
   domain doc records a specific exception.
+
+## Commands That Span Two Systems
+
+Most commands commit in one Kysely transaction. Three identity commands cannot,
+because the grant a session is refreshed against lives in WorkOS rather than in
+Postgres — inviting somebody, changing a role, and ending a membership. ADR 0013
+admits these to the vocabulary under four rules:
+
+- **Postgres orders the write.** The row is written first on a create and last
+  on a revoke. Revoking in Postgres first leaves somebody who reads as removed
+  and can still sign in.
+- **A client-generated id is what makes the replay safe.** An invitation carries
+  the membership id it will create, so a replay collides on the primary key and
+  the second system is never called twice. A spanning command without one is not
+  replay-safe and must not be built.
+- **No optimistic row for the half the client cannot see.** Apply optimistically
+  to what the command fully determines; never invent a status only the second
+  system decides. Sync reflects the result once both have settled.
+- **The domain doc names the second system**, and says what a partial failure
+  leaves behind. A half-applied spanning command is an access bug, not a data
+  bug, and it will not look like one.
+
+A command that does not span two systems must not be written as though it might.
+The rules above are a cost, not a template.
 
 ## Location Sources
 

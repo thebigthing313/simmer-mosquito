@@ -141,7 +141,7 @@ async function runFormulationCommands(
 	);
 }
 
-async function writeFormulationCommand(
+export async function writeFormulationCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
 ): Promise<SafeFormulation | null> {

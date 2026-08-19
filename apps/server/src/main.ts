@@ -59,6 +59,8 @@ import { registerPublicEngagementRecordRoutes } from './public-engagement-record
 import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
+import { registerTableCommandSurface } from './table-commands/index.js';
+import { registerUnimplementedCommandRoutes } from './unimplemented-commands.js';
 
 const env = readServerEnv();
 const auth = createWorkOsAuth({
@@ -108,12 +110,13 @@ if (env.geocodioApiKey === null) {
 const authContextMiddleware = createAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,
+	operatorOrganizationId: env.simmerOperatorOrganizationId,
 	setAuthCookie,
 });
 const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,
-	isOperatorEmail,
+	operatorOrganizationId: env.simmerOperatorOrganizationId,
 	setAuthCookie,
 });
 
@@ -381,6 +384,22 @@ registerGeocoderRoutes(app, {
 	authContextMiddleware,
 });
 
+// The `/commands/{table}` surface, which the new sync collections write through.
+// Additive: the domain-shaped endpoints above are untouched, and both reach the
+// same commands, permissions and write transaction.
+registerTableCommandSurface(app, {
+	db,
+	authContextMiddleware,
+	operatorAuthContextMiddleware,
+});
+
+// Last, so a real handler for any of these paths always wins: the day one is
+// implemented, its own route registers above this and the stub is unreachable
+// before it is deleted.
+registerUnimplementedCommandRoutes(app, {
+	authContextMiddleware,
+});
+
 registerSyncShapeRoutes(app, {
 	electricUrl: env.electricUrl,
 	authContextMiddleware,
@@ -541,10 +560,6 @@ function setAuthCookie(
 		sameSite: 'Lax',
 		secure: env.nodeEnv === 'production',
 	});
-}
-
-function isOperatorEmail(email: string): boolean {
-	return env.simmerOperatorEmails.includes(email.trim().toLowerCase());
 }
 
 function readAllowedReturnTo(value: string | undefined): string | null {

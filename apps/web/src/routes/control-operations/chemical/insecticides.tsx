@@ -1,9 +1,4 @@
-import type {
-	InsecticideBatchRow,
-	InsecticideRow,
-	OrganizationRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
+import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { useAppForm, validateMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -17,7 +12,6 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import type React from 'react';
 import { useMemo, useState } from 'react';
@@ -32,25 +26,31 @@ import {
 	CatalogNote,
 	CatalogPage,
 	CatalogRecordDrawer,
-	commitCatalogWrite,
-	toggleCatalogLifecycle,
+	commitCatalogSave,
+	toggleCatalogActive,
 } from '../../../components/catalog';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { webCollections } from '../../../sync/webCollections';
-import { insecticideTypeOptions } from '../../my-organization/-components/constants';
 import {
-	createInsecticideBatchFromValues,
-	createInsecticideFromValues,
-	deleteInsecticide,
-	deleteInsecticideBatch,
-	formatMode,
-	hasMetadata,
-	insecticideBatchFormValues,
-	insecticideFormValues,
-	updateInsecticideBatchFromValues,
-	updateInsecticideFromValues,
-} from '../../my-organization/-components/helpers';
+	type InsecticideBatchFields,
+	type InsecticideBatchMutations,
+	type InsecticideFields,
+	type InsecticideMutations,
+	useInsecticideBatchMutations,
+	useInsecticideMutations,
+} from '../../../hooks/mutations/use-insecticide-mutations';
+import {
+	type InsecticideBatchRecord,
+	type InsecticideRecord,
+	useInsecticideBatches,
+	useInsecticideRecords,
+} from '../../../hooks/queries/use-insecticide-records';
+import {
+	type UnitLabel,
+	type UnitType,
+	useUnitLabels,
+} from '../../../hooks/queries/use-unit-labels';
+import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { insecticideTypeOptions } from '../../my-organization/-components/constants';
+import { formatMode, hasMetadata } from '../../my-organization/-components/helpers';
 import { insecticideDisplayName } from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/chemical/insecticides')({
@@ -62,18 +62,18 @@ const AddIcon = iconRegistry.actions.add.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
-const batchesGcTimeMs = 30_000;
-
 /** Amounts are recorded per product, so only these unit types are offered. */
-const USAGE_UNIT_TYPES = new Set<UnitRow['unitType']>(['volume', 'weight', 'count']);
+const USAGE_UNIT_TYPES = new Set<UnitType>(['volume', 'weight', 'count']);
 
 function InsecticidesRoute() {
 	const { auth } = Route.useRouteContext();
-	const { canManage, organization, settings } = useOrganizationWorkspace(auth.snapshot);
+	const { canManage, settings } = useOrganizationWorkspace(auth.snapshot);
 
 	// insecticides and units sync eagerly; only the batches are on-demand.
-	const { rows: insecticideRows } = useCollectionRows<InsecticideRow>(webCollections.insecticides);
-	const { rows: unitRows } = useCollectionRows<UnitRow>(webCollections.units);
+	const insecticides = useInsecticideRecords();
+	const mutations = useInsecticideMutations();
+	const batchMutations = useInsecticideBatchMutations();
+	const { all: unitRows } = useUnitLabels();
 
 	const units = useMemo(
 		() =>
@@ -87,15 +87,6 @@ function InsecticidesRoute() {
 				),
 		[unitRows],
 	);
-	const insecticides = useMemo(
-		() =>
-			[...insecticideRows].sort(
-				(first, second) =>
-					Number(second.isActive) - Number(first.isActive) ||
-					first.tradeName.localeCompare(second.tradeName),
-			),
-		[insecticideRows],
-	);
 	const activeInsecticides = insecticides.filter((row) => row.isActive);
 	const inactiveInsecticides = insecticides.filter((row) => !row.isActive);
 	const batchTrackingEnabled = settings.controlOperations.trackInsecticideBatches;
@@ -105,7 +96,7 @@ function InsecticidesRoute() {
 	const addInsecticideDrawer = (
 		<InsecticideDrawer
 			canManage={canManage}
-			organization={organization}
+			mutations={mutations}
 			trigger={
 				<Button type="button">
 					<AddIcon aria-hidden="true" />
@@ -147,10 +138,11 @@ function InsecticidesRoute() {
 				) : (
 					<InsecticideTable
 						allInsecticides={insecticides}
+						batchMutations={batchMutations}
 						batchTrackingEnabled={batchTrackingEnabled}
 						canManage={canManage}
 						insecticides={activeInsecticides}
-						organization={organization}
+						mutations={mutations}
 						units={units}
 					/>
 				)}
@@ -158,10 +150,11 @@ function InsecticidesRoute() {
 					<CatalogInactiveDisclosure count={inactiveInsecticides.length}>
 						<InsecticideTable
 							allInsecticides={insecticides}
+							batchMutations={batchMutations}
 							batchTrackingEnabled={batchTrackingEnabled}
 							canManage={canManage}
 							insecticides={inactiveInsecticides}
-							organization={organization}
+							mutations={mutations}
 							units={units}
 						/>
 					</CatalogInactiveDisclosure>
@@ -195,17 +188,19 @@ function InsecticideTable({
 	batchTrackingEnabled,
 	canManage,
 	insecticides,
-	organization,
+	batchMutations,
+	mutations,
 	units,
 }: {
 	/** Full product list — feeds the batch drawer's insecticide selector. */
-	readonly allInsecticides: readonly InsecticideRow[];
+	readonly allInsecticides: readonly InsecticideRecord[];
+	readonly batchMutations: InsecticideBatchMutations;
 	readonly batchTrackingEnabled: boolean;
 	readonly canManage: boolean;
 	/** The subset of products this table renders as rows. */
-	readonly insecticides: readonly InsecticideRow[];
-	readonly organization: OrganizationRow | null;
-	readonly units: readonly UnitRow[];
+	readonly insecticides: readonly InsecticideRecord[];
+	readonly mutations: InsecticideMutations;
+	readonly units: readonly UnitLabel[];
 }) {
 	// Expand toggle + product columns (+ actions when the viewer can manage).
 	const columnCount = 7 + (canManage ? 1 : 0);
@@ -234,13 +229,14 @@ function InsecticideTable({
 				<TableBody>
 					{insecticides.map((insecticide) => (
 						<InsecticideTableRow
+							batchMutations={batchMutations}
 							batchTrackingEnabled={batchTrackingEnabled}
 							canManage={canManage}
 							columnCount={columnCount}
 							insecticide={insecticide}
 							insecticides={allInsecticides}
 							key={insecticide.id}
-							organization={organization}
+							mutations={mutations}
 							units={units}
 						/>
 					))}
@@ -256,16 +252,18 @@ function InsecticideTableRow({
 	columnCount,
 	insecticide,
 	insecticides,
-	organization,
+	batchMutations,
+	mutations,
 	units,
 }: {
+	readonly batchMutations: InsecticideBatchMutations;
 	readonly batchTrackingEnabled: boolean;
 	readonly canManage: boolean;
 	readonly columnCount: number;
-	readonly insecticide: InsecticideRow;
-	readonly insecticides: readonly InsecticideRow[];
-	readonly organization: OrganizationRow | null;
-	readonly units: readonly UnitRow[];
+	readonly insecticide: InsecticideRecord;
+	readonly insecticides: readonly InsecticideRecord[];
+	readonly mutations: InsecticideMutations;
+	readonly units: readonly UnitLabel[];
 }) {
 	const [expanded, setExpanded] = useState(false);
 	const productLabel = insecticide.tradeName;
@@ -302,7 +300,7 @@ function InsecticideTableRow({
 							<InsecticideDrawer
 								canManage={canManage}
 								insecticide={insecticide}
-								organization={organization}
+								mutations={mutations}
 								tooltip="Edit"
 								trigger={
 									<Button size="icon" type="button" variant="outline">
@@ -316,7 +314,13 @@ function InsecticideTableRow({
 							<CatalogLifecycleButton
 								isActive={insecticide.isActive}
 								name={insecticide.tradeName}
-								onToggle={() => toggleInsecticideActive(insecticide)}
+								onToggle={() =>
+									toggleCatalogActive({
+										apply: (isActive) => mutations.setActive(insecticide.id, isActive),
+										isActive: insecticide.isActive,
+										name: insecticide.tradeName,
+									})
+								}
 							/>
 						</div>
 					</TableCell>
@@ -330,7 +334,7 @@ function InsecticideTableRow({
 							canManage={canManage}
 							insecticide={insecticide}
 							insecticides={insecticides}
-							organization={organization}
+							mutations={batchMutations}
 						/>
 					</TableCell>
 				</TableRow>
@@ -339,33 +343,21 @@ function InsecticideTableRow({
 	);
 }
 
-function toggleInsecticideActive(insecticide: InsecticideRow): void {
-	toggleCatalogLifecycle({
-		apply: (isActive) =>
-			updateInsecticideFromValues(insecticide, {
-				...insecticideFormValues(insecticide, insecticide.defaultUnitId),
-				isActive,
-			}),
-		isActive: insecticide.isActive,
-		name: insecticide.tradeName,
-	});
-}
-
 function InsecticideDrawer({
 	canManage,
 	insecticide,
-	organization,
+	mutations,
 	tooltip,
 	trigger,
 	units,
 }: {
 	readonly canManage: boolean;
-	readonly insecticide?: InsecticideRow | undefined;
-	readonly organization: OrganizationRow | null;
+	readonly insecticide?: InsecticideRecord | undefined;
+	readonly mutations: InsecticideMutations;
 	/** When set, the trigger gets a hover/focus tooltip with this label. */
 	readonly tooltip?: string | undefined;
 	readonly trigger: React.ReactNode;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	const [open, setOpen] = useState(false);
 	const defaultValues = insecticideFormValues(insecticide, units[0]?.id ?? '');
@@ -373,20 +365,23 @@ function InsecticideDrawer({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			commitCatalogWrite({
+			commitCatalogSave({
 				failureMessage:
 					insecticide === undefined
 						? 'Unable to create insecticide.'
 						: `Unable to save ${insecticide.tradeName}.`,
 				onWritten: () => setOpen(false),
-				write: () =>
+				save: () =>
 					insecticide === undefined
-						? createInsecticideFromValues(organization, value)
-						: updateInsecticideFromValues(insecticide, value),
+						? mutations.create(insecticideFields(value)).then(() => undefined)
+						: mutations.save(
+								insecticide.id,
+								insecticideFields(value),
+								insecticideFields(insecticideFormValues(insecticide, insecticide.defaultUnitId)),
+							),
 			});
 		},
 	});
@@ -404,7 +399,7 @@ function InsecticideDrawer({
 				actions={
 					<form.FormActions>
 						<form.SubmitButton
-							disabled={!canManage || organization === null || unitChoices.length === 0}
+							disabled={!canManage || !mutations.canWrite || unitChoices.length === 0}
 						/>
 						<CatalogDrawerCancel />
 					</form.FormActions>
@@ -412,7 +407,7 @@ function InsecticideDrawer({
 				description="Manage product identity, label references, lifecycle state, and optional metadata."
 				destructiveAction={
 					insecticide === undefined ? undefined : (
-						<DeleteInsecticideDialog insecticide={insecticide} />
+						<DeleteInsecticideDialog insecticide={insecticide} mutations={mutations} />
 					)
 				}
 				onOpenChange={updateOpen}
@@ -532,7 +527,13 @@ function InsecticideDrawer({
  * rather than as a per-row control. Reversible lifecycle changes belong to the
  * row's own {@link CatalogLifecycleButton} instead.
  */
-function DeleteInsecticideDialog({ insecticide }: { readonly insecticide: InsecticideRow }) {
+function DeleteInsecticideDialog({
+	insecticide,
+	mutations,
+}: {
+	readonly insecticide: InsecticideRecord;
+	readonly mutations: InsecticideMutations;
+}) {
 	return (
 		<CatalogDeleteDialog
 			confirmLabel="Delete"
@@ -543,9 +544,9 @@ function DeleteInsecticideDialog({ insecticide }: { readonly insecticide: Insect
 				</>
 			}
 			onConfirm={() =>
-				commitCatalogWrite({
+				commitCatalogSave({
 					failureMessage: `Unable to delete ${insecticide.tradeName}.`,
-					write: () => deleteInsecticide(insecticide),
+					save: () => mutations.remove(insecticide.id),
 				})
 			}
 			title="Delete Insecticide?"
@@ -571,13 +572,13 @@ function InsecticideBatchPanel({
 	canManage,
 	insecticide,
 	insecticides,
-	organization,
+	mutations,
 }: {
 	readonly batchTrackingEnabled: boolean;
 	readonly canManage: boolean;
-	readonly insecticide: InsecticideRow;
-	readonly insecticides: readonly InsecticideRow[];
-	readonly organization: OrganizationRow | null;
+	readonly insecticide: InsecticideRecord;
+	readonly insecticides: readonly InsecticideRecord[];
+	readonly mutations: InsecticideBatchMutations;
 }) {
 	const { batches, isReady, isError } = useInsecticideBatches(insecticide.id);
 	const canManageBatches = canManage && batchTrackingEnabled;
@@ -592,7 +593,7 @@ function InsecticideBatchPanel({
 					defaultInsecticideId={insecticide.id}
 					insecticides={insecticides}
 					lockInsecticide
-					organization={organization}
+					mutations={mutations}
 					trigger={
 						<Button disabled={!canManageBatches} size="sm" type="button" variant="outline">
 							<AddIcon aria-hidden="true" />
@@ -616,7 +617,7 @@ function InsecticideBatchPanel({
 						disabled={!batchTrackingEnabled}
 						emptyLabel="No active batches."
 						insecticides={insecticides}
-						organization={organization}
+						mutations={mutations}
 					/>
 					{inactiveBatches.length > 0 ? (
 						<CatalogInactiveDisclosure count={inactiveBatches.length}>
@@ -626,7 +627,7 @@ function InsecticideBatchPanel({
 								disabled={!batchTrackingEnabled}
 								emptyLabel="No inactive batches."
 								insecticides={insecticides}
-								organization={organization}
+								mutations={mutations}
 							/>
 						</CatalogInactiveDisclosure>
 					) : null}
@@ -636,50 +637,20 @@ function InsecticideBatchPanel({
 	);
 }
 
-/**
- * insecticide_batches syncs on demand, so this scopes the subset to one product
- * and uses the status-gated `useLiveQuery` — the suspense variant hangs after a
- * navigation unmount over on-demand collections.
- */
-function useInsecticideBatches(insecticideId: string): {
-	readonly batches: readonly InsecticideBatchRow[];
-	readonly isReady: boolean;
-	readonly isError: boolean;
-} {
-	const result = useLiveQuery(
-		{
-			gcTime: batchesGcTimeMs,
-			query: (query) =>
-				query
-					.from({ batch: webCollections.insecticideBatches })
-					.where(({ batch }) => eq(batch.insecticideId, insecticideId))
-					.orderBy(({ batch }) => batch.isActive, 'desc')
-					.orderBy(({ batch }) => batch.batchName, 'asc'),
-		},
-		[insecticideId],
-	);
-
-	return {
-		batches: (result.data ?? []) as unknown as readonly InsecticideBatchRow[],
-		isReady: result.isReady,
-		isError: result.isError,
-	};
-}
-
 function InsecticideBatchList({
 	batches,
 	canManage,
 	disabled,
 	emptyLabel,
 	insecticides,
-	organization,
+	mutations,
 }: {
-	readonly batches: readonly InsecticideBatchRow[];
+	readonly batches: readonly InsecticideBatchRecord[];
 	readonly canManage: boolean;
 	readonly disabled: boolean;
 	readonly emptyLabel: string;
-	readonly insecticides: readonly InsecticideRow[];
-	readonly organization: OrganizationRow | null;
+	readonly insecticides: readonly InsecticideRecord[];
+	readonly mutations: InsecticideBatchMutations;
 }) {
 	if (batches.length === 0) {
 		return <CatalogNote compact>{emptyLabel}</CatalogNote>;
@@ -709,7 +680,7 @@ function InsecticideBatchList({
 											batch={batch}
 											canManage={canManage}
 											insecticides={insecticides}
-											organization={organization}
+											mutations={mutations}
 											trigger={
 												<Button size="icon" type="button" variant="outline">
 													<EditIcon aria-hidden="true" />
@@ -717,7 +688,7 @@ function InsecticideBatchList({
 												</Button>
 											}
 										/>
-										<DeleteInsecticideBatchDialog batch={batch} />
+										<DeleteInsecticideBatchDialog batch={batch} mutations={mutations} />
 									</div>
 								</TableCell>
 							) : null}
@@ -735,15 +706,15 @@ function InsecticideBatchDrawer({
 	defaultInsecticideId,
 	insecticides,
 	lockInsecticide = false,
-	organization,
+	mutations,
 	trigger,
 }: {
-	readonly batch?: InsecticideBatchRow | undefined;
+	readonly batch?: InsecticideBatchRecord | undefined;
 	readonly canManage: boolean;
 	readonly defaultInsecticideId?: string | undefined;
-	readonly insecticides: readonly InsecticideRow[];
+	readonly insecticides: readonly InsecticideRecord[];
 	readonly lockInsecticide?: boolean;
-	readonly organization: OrganizationRow | null;
+	readonly mutations: InsecticideBatchMutations;
 	readonly trigger: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
@@ -759,22 +730,21 @@ function InsecticideBatchDrawer({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			commitCatalogWrite({
+			commitCatalogSave({
 				failureMessage:
 					batch === undefined ? 'Unable to create batch.' : `Unable to save ${batch.batchName}.`,
 				onWritten: () => setOpen(false),
-				write: () =>
+				save: () =>
 					batch === undefined
-						? createInsecticideBatchFromValues(
-								webCollections.insecticideBatches,
-								organization,
-								value,
-							)
-						: updateInsecticideBatchFromValues(webCollections.insecticideBatches, batch, value),
+						? mutations.create(batchFields(value)).then(() => undefined)
+						: mutations.save(
+								batch.id,
+								batchFields(value),
+								batchFields(insecticideBatchFormValues(batch, batch.insecticideId)),
+							),
 			});
 		},
 	});
@@ -792,7 +762,7 @@ function InsecticideBatchDrawer({
 				actions={
 					<form.FormActions>
 						<form.SubmitButton
-							disabled={!canManage || organization === null || insecticideChoices.length === 0}
+							disabled={!canManage || !mutations.canWrite || insecticideChoices.length === 0}
 						/>
 						<CatalogDrawerCancel />
 					</form.FormActions>
@@ -849,7 +819,13 @@ function InsecticideBatchDrawer({
 	);
 }
 
-function DeleteInsecticideBatchDialog({ batch }: { readonly batch: InsecticideBatchRow }) {
+function DeleteInsecticideBatchDialog({
+	batch,
+	mutations,
+}: {
+	readonly batch: InsecticideBatchRecord;
+	readonly mutations: InsecticideBatchMutations;
+}) {
 	return (
 		<CatalogDeleteDialog
 			confirmLabel="Delete"
@@ -860,9 +836,9 @@ function DeleteInsecticideBatchDialog({ batch }: { readonly batch: InsecticideBa
 				</>
 			}
 			onConfirm={() =>
-				commitCatalogWrite({
+				commitCatalogSave({
 					failureMessage: `Unable to delete ${batch.batchName}.`,
-					write: () => deleteInsecticideBatch(webCollections.insecticideBatches, batch),
+					save: () => mutations.remove(batch.id),
 				})
 			}
 			title="Delete Batch?"
@@ -878,7 +854,7 @@ function DeleteInsecticideBatchDialog({ batch }: { readonly batch: InsecticideBa
 
 // --- helpers ------------------------------------------------------------------
 
-function unitOption(unit: UnitRow) {
+function unitOption(unit: UnitLabel) {
 	return {
 		label:
 			unit.abbreviation.length === 0 ? unit.unitName : `${unit.unitName} (${unit.abbreviation})`,
@@ -886,22 +862,90 @@ function unitOption(unit: UnitRow) {
 	};
 }
 
-function insecticideOption(insecticide: InsecticideRow) {
+function insecticideOption(insecticide: InsecticideRecord) {
 	return {
 		label: insecticideDisplayName(insecticide),
 		value: insecticide.id,
 	};
 }
 
-function unitLabel(units: readonly UnitRow[], unitId: string): string {
+function unitLabel(units: readonly UnitLabel[], unitId: string): string {
 	const unit = units.find((item) => item.id === unitId);
 	return unit === undefined ? 'Not set' : unit.abbreviation || unit.unitName;
 }
 
-function batchGroupSummary(batches: readonly InsecticideBatchRow[]): string {
+function batchGroupSummary(batches: readonly InsecticideBatchRecord[]): string {
 	if (batches.length === 0) {
 		return 'No batches recorded';
 	}
 	const activeCount = batches.filter((batch) => batch.isActive).length;
 	return `${activeCount} active, ${batches.length - activeCount} inactive`;
+}
+
+/**
+ * Open the product drawer on a record, or on a blank one.
+ *
+ * `defaultUnitId` is the first offered unit when there is no record, because a
+ * product without one cannot be applied and the field would otherwise open
+ * empty on a list of one.
+ */
+function insecticideFormValues(insecticide: InsecticideRecord | undefined, defaultUnitId: string) {
+	const metadata = insecticide?.metadata;
+	return {
+		tradeName: insecticide?.tradeName ?? '',
+		activeIngredient: insecticide?.activeIngredient ?? '',
+		type: insecticide?.type ?? ('adulticide' as InsecticideRecord['type']),
+		registrationNumber: insecticide?.registrationNumber ?? '',
+		defaultUnitId: insecticide?.defaultUnitId ?? defaultUnitId,
+		labelUrl: insecticide?.labelUrl ?? '',
+		msdsUrl: insecticide?.msdsUrl ?? '',
+		shorthand: insecticide?.shorthand ?? '',
+		metadata:
+			typeof metadata === 'object' && metadata !== null && !Array.isArray(metadata)
+				? (metadata as MetadataValue)
+				: null,
+		isActive: insecticide?.isActive ?? true,
+	};
+}
+
+/** The drawer's values as the write hook takes them: trimmed, empty means absent. */
+function insecticideFields(values: ReturnType<typeof insecticideFormValues>): InsecticideFields {
+	return {
+		tradeName: values.tradeName.trim(),
+		activeIngredient: values.activeIngredient.trim(),
+		type: values.type,
+		registrationNumber: values.registrationNumber.trim(),
+		defaultUnitId: values.defaultUnitId,
+		labelUrl: emptyToNull(values.labelUrl),
+		msdsUrl: emptyToNull(values.msdsUrl),
+		shorthand: emptyToNull(values.shorthand),
+		metadata: values.metadata,
+		isActive: values.isActive,
+	};
+}
+
+function insecticideBatchFormValues(
+	batch: InsecticideBatchRecord | undefined,
+	defaultInsecticideId: string,
+) {
+	return {
+		insecticideId: batch?.insecticideId ?? defaultInsecticideId,
+		batchName: batch?.batchName ?? '',
+		isActive: batch?.isActive ?? true,
+	};
+}
+
+function batchFields(
+	values: ReturnType<typeof insecticideBatchFormValues>,
+): InsecticideBatchFields {
+	return {
+		insecticideId: values.insecticideId,
+		batchName: values.batchName.trim(),
+		isActive: values.isActive,
+	};
+}
+
+function emptyToNull(value: string): string | null {
+	const text = value.trim();
+	return text.length === 0 ? null : text;
 }

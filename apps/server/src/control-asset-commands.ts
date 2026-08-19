@@ -40,7 +40,7 @@ import { type CommandDb, type CommandTransaction, runCommands } from './command-
 type ControlAssetDb = CommandDb;
 type ControlAssetTransaction = CommandTransaction;
 type ControlAssetKind = 'vehicles' | 'equipment';
-type ControlAssetCommand =
+export type ControlAssetCommand =
 	| CreateVehicleCommand
 	| UpdateVehicleCommand
 	| DeactivateVehicleCommand
@@ -143,7 +143,7 @@ function requiredKind(value: string): ControlAssetKind {
 	return kind.kind;
 }
 
-async function writeControlAssetCommand(
+export async function writeControlAssetCommand(
 	db: ControlAssetTransaction,
 	command: ControlAssetCommand,
 ): Promise<SafeControlAsset | null> {
@@ -643,7 +643,7 @@ function toSafeEquipment(row: {
 	};
 }
 
-function toControlAssetResponse(row: SafeControlAsset | null) {
+export function toControlAssetResponse(row: SafeControlAsset | null) {
 	if (row === null) {
 		return null;
 	}

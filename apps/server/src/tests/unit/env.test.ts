@@ -73,4 +73,18 @@ describe('readServerEnv', () => {
 			}).geocodioApiKey,
 		).toBe('geocodio_test');
 	});
+
+	it('reads SIMMER_OPERATOR_ORG_ID as null when it is unset or blank', () => {
+		// The operator check is an equality against this value, so a blank string
+		// must not become one an empty session organization could match. Unset means
+		// no operators, not no check — see `createOperatorAuthContextMiddleware`.
+		expect(readServerEnv(baseEnv).simmerOperatorOrganizationId).toBeNull();
+		expect(
+			readServerEnv({ ...baseEnv, SIMMER_OPERATOR_ORG_ID: '   ' }).simmerOperatorOrganizationId,
+		).toBeNull();
+		expect(
+			readServerEnv({ ...baseEnv, SIMMER_OPERATOR_ORG_ID: 'org_simmer' })
+				.simmerOperatorOrganizationId,
+		).toBe('org_simmer');
+	});
 });

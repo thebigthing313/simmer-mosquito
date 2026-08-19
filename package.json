@@ -30,7 +30,8 @@
 		"nx": "nx",
 		"release:version": "node scripts/release-version.mjs",
 		"test": "nx run-many -t test",
-		"typecheck": "nx run-many -t typecheck"
+		"typecheck": "nx run-many -t typecheck",
+		"generate:schemas": "node scripts/generate-table-schemas.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.14",

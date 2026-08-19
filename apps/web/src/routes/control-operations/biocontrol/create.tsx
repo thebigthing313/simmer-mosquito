@@ -1,25 +1,19 @@
-import type {
-	BiocontrolActionRow,
-	ControlMethodRow,
-	ProfileRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
-import {
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
+import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
@@ -54,9 +48,9 @@ function CreateBiocontrolActionRoute() {
 	const navigate = useNavigate();
 	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const methods = useBiocontrolMethodRoster();
+	const { all: units } = useUnitLabels();
+	const profiles = useProfileRoster();
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -64,8 +58,10 @@ function CreateBiocontrolActionRoute() {
 
 	// Minted up front so the crew rows can be written the moment the release lands
 	// — and so their on-demand stream is already warm when the save fires.
-	const [biocontrolActionId] = useState(() => crypto.randomUUID());
+	const [biocontrolActionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'biocontrolAction', id: biocontrolActionId });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
+	const { record } = useBiocontrolActionMutations();
 
 	const onSave = useCallback(
 		async (input: {
@@ -94,51 +90,48 @@ function CreateBiocontrolActionRoute() {
 					unresolvable: 'Unable to determine the release location.',
 				});
 
-				const now = new Date().toISOString();
-				const row: BiocontrolActionRow = {
-					id: biocontrolActionId,
-					organizationId: organization.id,
-					lat: location.lat,
-					lng: location.lng,
-					geomType: location.geomType,
-					biocontrolMethodId: values.biocontrolMethodId,
-					technicianProfileId:
-						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-					biocontrolDate: values.biocontrolDate,
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-					inspectionId: null,
-					amountReleased: values.amountReleased,
-					releaseUnitId: values.releaseUnitId,
-					requestedControlActionId: null,
+				// Off a stop this is `missionDispatch.recordBiocontrolActionForMissionItem`
+				// and links the stop; on its own it is
+				// `controlOperations.recordBiocontrolAction`. The hook reads the stop id
+				// rather than making this form say which command it meant.
+				await record({
+					biocontrolActionId,
+					values: {
+						methodId: values.biocontrolMethodId,
+						technicianProfileId:
+							values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+						actionDate: values.biocontrolDate,
+						addressId: values.addressId,
+						habitatId: values.habitatId,
+						amountReleased: values.amountReleased,
+						unitId: values.releaseUnitId,
+						metadata: values.metadata,
+					},
+					location: {
+						lat: location.lat,
+						lng: location.lng,
+						geomType: location.geomType,
+						locationSource: location.locationSource,
+					},
 					missionItemId: mission.missionItemId,
-					metadata: values.metadata,
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				};
-
-				await settleWrite(
-					webCollections.biocontrolActions.insert(row, {
-						metadata: { acknowledgements, locationSource: location.locationSource },
-					}),
-				);
+					acknowledgements,
+				});
 				// Crew rows reference the release, so they can only be written once it exists.
 				await attachLinksBestEffort('the additional personnel', () =>
-					saveAdditionalPersonnel({
-						target: { type: 'biocontrolAction', id: row.id },
-						organizationId: organization.id,
-						actorProfileId,
+					setPersonnel({
+						target: { type: 'biocontrolAction', id: biocontrolActionId },
 						existing: [],
 						profileIds: values.additionalPersonnelIds,
 					}),
 				);
 				await mission.navigateAfterSave(async () => {
-					await navigate({ to: '/control-operations/biocontrol/$id', params: { id: row.id } });
+					await navigate({
+						to: '/control-operations/biocontrol/$id',
+						params: { id: biocontrolActionId },
+					});
 				});
 			}),
-		[organization, actorProfileId, biocontrolActionId, navigate, mission],
+		[organization, actorProfileId, biocontrolActionId, navigate, mission, record, setPersonnel],
 	);
 
 	return (

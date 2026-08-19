@@ -22,6 +22,23 @@ export interface AuthContext {
 	 * `DEFAULT_ORGANIZATION_TIMEZONE` rather than on the database server's zone.
 	 */
 	readonly timeZone: string;
+	/**
+	 * Whether this session is signed in **as SIMMER** rather than as an agency.
+	 *
+	 * The same test `createOperatorAuthContextMiddleware` makes — the selected
+	 * WorkOS organization is the operator organization — resolved once here so
+	 * that a route serving both kinds of caller can ask without a second query or
+	 * a second middleware.
+	 *
+	 * It exists because operators hold an ordinary agency membership too
+	 * (ADR 0011), so a role alone cannot tell an operator from an agency admin.
+	 * A command that only SIMMER may send says so through
+	 * `CommandPermission`'s `operator` kind, and that kind reads this.
+	 *
+	 * `false` when `SIMMER_OPERATOR_ORG_ID` is unset, which is the safe reading:
+	 * an unconfigured deployment has no operators rather than all of them.
+	 */
+	readonly isOperator: boolean;
 }
 
 export type AuthContextError =
@@ -67,6 +84,8 @@ export async function resolveAuthContext(options: {
 	readonly sealedSession: string | undefined;
 	readonly auth: AuthSessionProvider;
 	readonly localIdentityResolver: LocalAuthIdentityResolver;
+	/** `null` when unconfigured, which resolves `isOperator` to `false`. */
+	readonly operatorOrganizationId?: string | null;
 }): Promise<AuthContextResult> {
 	const session = await options.auth.authenticateSession(options.sealedSession);
 
@@ -124,6 +143,9 @@ export async function resolveAuthContext(options: {
 			membership: localIdentity.membership,
 			role: localIdentity.membership.role,
 			timeZone: resolveOrganizationSettings(localIdentity.organization.settings).settings.timezone,
+			isOperator:
+				options.operatorOrganizationId != null &&
+				session.workosOrganizationId === options.operatorOrganizationId,
 		},
 		...(session.sealedSession === undefined ? {} : { sealedSession: session.sealedSession }),
 	};

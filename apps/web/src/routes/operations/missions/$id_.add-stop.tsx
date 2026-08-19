@@ -15,20 +15,16 @@ import { useCallback, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { AddressPicker } from '../../../components/pickers/address-picker';
+import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-item-mutations';
+import { missionDisplayName } from '../../../hooks/queries/operations-view';
+import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowRole } from '../../../lib/write-access';
 import { useCommandRunner } from '../-command-runner';
 import { useDrawLocation } from '../-draw-location';
 import { LocationSection } from '../-location-section';
-import {
-	addMissionItemAtGeometry,
-	canEditMissionPlan,
-	type MissionView,
-	missionDisplayName,
-	useMission,
-	useMissionStops,
-} from '../-operations-data';
+import { canEditMissionPlan, useMissionStopViews } from '../-operations-data';
 
 export const Route = createFileRoute('/operations/missions/$id_/add-stop')({
 	beforeLoad: async ({ context, params }) => {
@@ -56,7 +52,7 @@ function AddMissionStopRoute() {
 	const { id } = Route.useParams();
 	const { mission, isReady } = useMission(id);
 
-	if (mission === null) {
+	if (mission === undefined) {
 		return isReady ? (
 			<StopUnavailable description="This mission may have been deleted, or the link is out of date." />
 		) : (
@@ -71,15 +67,16 @@ function AddMissionStopRoute() {
 	return <AddMissionStopForm mission={mission} />;
 }
 
-function AddMissionStopForm({ mission }: { readonly mission: MissionView }) {
+function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 	const navigate = useNavigate();
 	const auth = useAuthSnapshot();
 	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 
 	// Reading the stops both warms the on-demand stream the insert confirms
 	// against and gives the new stop its place at the end of the order.
-	const { stops } = useMissionStops(mission.id);
+	const { stops } = useMissionStopViews(mission.id);
 	const { busy, error, run } = useCommandRunner();
+	const stopWrites = useMissionItemMutations();
 	const timeZone = useOrganizationTimeZone();
 
 	const [addressId, setAddressId] = useState<string | null>(null);
@@ -94,27 +91,15 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionView }) {
 		}
 		const geometry = location.geometry as unknown as GeoJsonGeometry;
 		void run(async () => {
-			await addMissionItemAtGeometry({
-				missionItemId: crypto.randomUUID(),
+			await stopWrites.addAtGeometry({
 				missionId: mission.id,
-				organizationId: mission.organizationId,
-				actorProfileId,
 				geometry,
 				addressId,
 				position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
 			});
 			await navigate({ to: '/operations/missions/$id', params: { id: mission.id } });
 		}, 'Unable to add that stop.');
-	}, [
-		location,
-		actorProfileId,
-		mission.id,
-		mission.organizationId,
-		addressId,
-		stops,
-		run,
-		navigate,
-	]);
+	}, [location, actorProfileId, mission.id, stopWrites, addressId, stops, run, navigate]);
 
 	return (
 		<RecordFormPage

@@ -43,12 +43,19 @@ export type CommandContext = Context<{ Variables: AuthVariables }>;
  *
  * The status set is the union of what the domains raise: `400` for a payload
  * the domain could not use, `403` for a row the actor may not reach, `404` for
- * one that is not theirs to see. `reason` is set where the client can act on
- * the distinction; the four surveillance domains never set it.
+ * one that is not theirs to see, and `409` for a row the database itself
+ * refuses to remove. `reason` is set where the client can act on the
+ * distinction; the four surveillance domains never set it.
+ *
+ * `409` is the global catalogs' case. An agency delete that other rows block is
+ * decided before the delete runs, by `applyRecordDeletion`, and arrives as
+ * `RecordDeleteBlockedError`; the taxonomy has no such registry and no
+ * `deleted_at`, so its refusal comes back from Postgres as a foreign key
+ * violation inside the transaction. Same answer, raised from a different place.
  */
 export class CommandError extends Error {
 	constructor(
-		readonly status: 400 | 403 | 404,
+		readonly status: 400 | 403 | 404 | 409,
 		readonly body: { readonly error: string; readonly reason?: string },
 	) {
 		super(body.error);
@@ -141,12 +148,18 @@ export function agencyCommandContext(authContext: AuthContext): AgencyContext {
 // The endpoint itself
 // ===========================================================================
 
-type JsonResult =
+export type JsonResult =
 	| { readonly ok: true; readonly payload: Record<string, unknown> }
 	| { readonly ok: false; readonly reason: string };
 
-/** Parse a request body that has to be a JSON object. */
-async function readJsonObject(request: {
+/**
+ * Parse a request body that has to be a JSON object.
+ *
+ * Exported for `table-commands/dispatch.ts`, which reads a body the same way and
+ * then does something different with it — the `intents` list decides which
+ * builders run, so it cannot go through {@link commandEndpoint}'s single `build`.
+ */
+export async function readJsonObject(request: {
 	readonly json: () => Promise<unknown>;
 }): Promise<JsonResult> {
 	let raw: unknown;
