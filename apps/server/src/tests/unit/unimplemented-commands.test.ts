@@ -36,13 +36,13 @@ describe('unimplemented command routes', () => {
 	it('refuses with 501 and names the command it would have run', async () => {
 		const app = stubbedApp();
 
-		const response = await app.request('/weather/stations', { method: 'POST' });
+		const response = await app.request('/foundation/addresses/merge', { method: 'POST' });
 
 		expect(response.status).toBe(501);
 		expect(await response.json()).toEqual({
 			error: 'command_not_implemented',
-			reason: expect.stringContaining('weather.createWeatherStation'),
-			command: 'weather.createWeatherStation',
+			reason: expect.stringContaining('foundation.mergeAddresses'),
+			command: 'foundation.mergeAddresses',
 		});
 	});
 
@@ -52,7 +52,7 @@ describe('unimplemented command routes', () => {
 		// one whose payload is wrong.
 		const app = stubbedApp();
 
-		const response = await app.request('/weather/stations', {
+		const response = await app.request('/foundation/addresses/merge', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: 'not json at all',
@@ -78,7 +78,7 @@ describe('unimplemented command routes', () => {
 		// claiming more of the routing table than they were given.
 		const app = stubbedApp();
 
-		const response = await app.request('/weather/stations', { method: 'GET' });
+		const response = await app.request('/foundation/addresses/merge', { method: 'GET' });
 
 		expect(response.status).toBe(404);
 	});

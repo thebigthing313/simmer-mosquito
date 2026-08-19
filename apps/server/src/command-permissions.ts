@@ -25,18 +25,11 @@ import type {
 	MissionDispatchCommandType,
 	OrganizationSettingsCommandType,
 	PublicEngagementCommandType,
+	WeatherCommandType,
 } from '@simmer-mosquito/domain';
 import { type ForbiddenBody, forbidden, hasAtLeastRole, type MinimumRole } from './roles.js';
 
-/**
- * Every command type an agency membership can send.
- *
- * `weather.*` is absent because nothing writes one yet. The routes in
- * `unimplemented-commands.ts` do answer those paths, but only to refuse with a
- * `501` before any authorization decision — so there is still no write for a
- * permission to gate. They join this union when one of them writes, and the build
- * will demand a map for all ten at once.
- */
+/** Every command type an agency membership can send. */
 export type AgencyCommandType =
 	| AdultSurveillanceCommandType
 	| ControlOperationsCommandType
@@ -45,7 +38,8 @@ export type AgencyCommandType =
 	| LarvalSurveillanceCommandType
 	| MissionDispatchCommandType
 	| OrganizationSettingsCommandType
-	| PublicEngagementCommandType;
+	| PublicEngagementCommandType
+	| WeatherCommandType;
 
 export interface CommandActor {
 	readonly role: SimmerRole;
@@ -698,6 +692,36 @@ const ORGANIZATION_SETTINGS_PERMISSIONS: Record<
 };
 
 /**
+ * `docs/weather-domain.md`: "owner/admin/manager: full station, summary, and
+ * import management", "collector/viewer: read-only". One floor across all ten.
+ *
+ * Weather is the last domain to arrive here, and it arrives whole. The union
+ * these ten belong to was left out of `AgencyCommandType` while nothing wrote
+ * one, so adding the first writer demanded a floor for every one of them in the
+ * same change — which is the exhaustive `Record` doing its job rather than an
+ * obstacle to work around.
+ *
+ * Manager rather than admin because a station and its summaries are operational
+ * records, not agency configuration: the same floor the trap catalog and the
+ * route catalog sit at. The domain doc says so directly, and adds that a SIMMER
+ * operator gets here through an agency membership like anyone else, so no arm of
+ * this map is `operator`.
+ */
+const WEATHER_PERMISSIONS: Record<WeatherCommandType, CommandPermission> = {
+	'weather.createWeatherStation': MANAGER,
+	'weather.updateWeatherStationDetails': MANAGER,
+	'weather.updateWeatherStationLocation': MANAGER,
+	'weather.deactivateWeatherStation': MANAGER,
+	'weather.reactivateWeatherStation': MANAGER,
+	'weather.deleteWeatherStation': MANAGER,
+
+	'weather.createWeatherSummary': MANAGER,
+	'weather.updateWeatherSummary': MANAGER,
+	'weather.deleteWeatherSummary': MANAGER,
+	'weather.commitWeatherSummaryImport': MANAGER,
+};
+
+/**
  * Every per-domain map, merged.
  *
  * The merge is what routes a lookup; the per-domain annotations above are what
@@ -713,6 +737,7 @@ const COMMAND_PERMISSIONS: Record<AgencyCommandType, CommandPermission> = {
 	...CONTROL_OPERATIONS_PERMISSIONS,
 	...ORGANIZATION_SETTINGS_PERMISSIONS,
 	...PUBLIC_ENGAGEMENT_PERMISSIONS,
+	...WEATHER_PERMISSIONS,
 };
 
 export function readCommandPermission(type: AgencyCommandType): CommandPermission {
